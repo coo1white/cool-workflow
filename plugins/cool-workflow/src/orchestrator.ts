@@ -29,6 +29,15 @@ import {
   upsertRunContract
 } from "./state-node";
 import { createPipelineRunner } from "./pipeline-runner";
+import {
+  getWorkerScope,
+  listWorkerScopes,
+  recordWorkerFailure,
+  recordWorkerOutput,
+  summarizeWorkers,
+  validateWorkerBoundary,
+  writeWorkerManifest
+} from "./worker-isolation";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -103,7 +112,9 @@ export class CoolWorkflowRunner {
       commits: [],
       paths,
       nodes: [],
-      contracts: []
+      contracts: [],
+      feedback: [],
+      workers: []
     };
 
     writeTaskFiles(run);
@@ -238,6 +249,67 @@ export class CoolWorkflowRunner {
       writeReport(run);
       throw error;
     }
+  }
+
+  listWorkers(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listWorkerScopes> {
+    return listWorkerScopes(this.loadRun(runId), {
+      status: options.status ? String(options.status) as never : undefined
+    });
+  }
+
+  showWorker(runId: string, workerId: string): NonNullable<ReturnType<typeof getWorkerScope>> {
+    const worker = getWorkerScope(this.loadRun(runId), workerId);
+    if (!worker) throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
+    return worker;
+  }
+
+  showWorkerManifest(runId: string, workerId: string): ReturnType<typeof writeWorkerManifest> {
+    const run = this.loadRun(runId);
+    const worker = getWorkerScope(run, workerId);
+    if (!worker) throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
+    return writeWorkerManifest(run, worker);
+  }
+
+  recordWorkerOutput(runId: string, workerId: string, resultPath: string): RunSummary {
+    const run = this.loadRun(runId);
+    recordWorkerOutput(run, workerId, resultPath, { persist: false });
+    run.loopStage = "observe";
+    updatePhaseStatuses(run);
+    validateRunGates(run);
+    commitState(run, `worker:${workerId}:result`);
+    writeReport(run);
+    saveCheckpoint(run);
+    return summarizeRun(run);
+  }
+
+  recordWorkerFailure(
+    runId: string,
+    workerId: string,
+    message: string,
+    options: Record<string, unknown> = {}
+  ): NonNullable<ReturnType<typeof getWorkerScope>> {
+    const run = this.loadRun(runId);
+    const failure = recordWorkerFailure(
+      run,
+      workerId,
+      {
+        code: String(options.code || "worker-runtime-error"),
+        message,
+        at: new Date().toISOString(),
+        path: options.path ? path.resolve(String(options.path)) : undefined,
+        retryable: Boolean(options.retryable)
+      },
+      { persist: false }
+    );
+    run.loopStage = "adjust";
+    updatePhaseStatuses(run);
+    writeReport(run);
+    saveCheckpoint(run);
+    return failure;
+  }
+
+  validateWorker(runId: string, workerId: string, targetPath?: string): ReturnType<typeof validateWorkerBoundary> {
+    return validateWorkerBoundary(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
   }
 
   report(runId: string): { path: string } {
@@ -390,7 +462,7 @@ export function parseArgv(argv: string[]): {
 }
 
 export function formatHelp(): string {
-  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 
 function appendOption(options: Record<string, unknown>, key: string, value: string | boolean): void {
@@ -452,6 +524,7 @@ function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unkno
 
 function writeReport(run: WorkflowRun): string {
   updatePhaseStatuses(run);
+  const workerSummary = summarizeWorkers(run);
   const report = [
     `# ${run.workflow.title}`,
     "",
@@ -482,6 +555,10 @@ function writeReport(run: WorkflowRun): string {
     "",
     ...renderFeedback(run),
     "",
+    "## Workers",
+    "",
+    ...renderWorkers(workerSummary),
+    "",
     "## Pending Tasks",
     "",
     ...renderPendingTasks(run),
@@ -496,6 +573,7 @@ function writeReport(run: WorkflowRun): string {
 
 function summarizeRun(run: WorkflowRun): RunSummary {
   updatePhaseStatuses(run);
+  const workerSummary = summarizeWorkers(run);
   return {
     runId: run.id,
     workflowId: run.workflow.id,
@@ -510,7 +588,11 @@ function summarizeRun(run: WorkflowRun): RunSummary {
     loopStage: run.loopStage,
     next: firstRunnablePhase(run)?.name || null,
     reportPath: run.paths.report,
-    commits: run.commits
+    commits: run.commits,
+    workers: {
+      total: workerSummary.total,
+      byStatus: workerSummary.byStatus
+    }
   };
 }
 
@@ -547,6 +629,23 @@ function renderFeedback(run: WorkflowRun): string[] {
     "",
     ...summary.artifacts.map((artifact) => `- ${artifact}`)
   ];
+}
+
+function renderWorkers(summary: ReturnType<typeof summarizeWorkers>): string[] {
+  if (!summary.total) return ["No worker scopes yet."];
+  const lines = [
+    `- Total: ${summary.total}`,
+    `- By status: ${formatCounts(summary.byStatus)}`,
+    "",
+    ...summary.manifestPaths.map((artifact) => `- ${artifact}`)
+  ];
+  if (summary.failed.length) {
+    lines.push("", "Failed or rejected:");
+    for (const worker of summary.failed) {
+      lines.push(`- ${worker.id} (${worker.status}) feedback=${worker.feedbackIds.join(",") || "none"}`);
+    }
+  }
+  return lines;
 }
 
 function formatCounts(counts: Record<string, number>): string {

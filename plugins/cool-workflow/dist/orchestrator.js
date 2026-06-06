@@ -18,6 +18,7 @@ const pipeline_contract_1 = require("./pipeline-contract");
 const error_feedback_1 = require("./error-feedback");
 const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
+const worker_isolation_1 = require("./worker-isolation");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -84,7 +85,9 @@ class CoolWorkflowRunner {
             commits: [],
             paths,
             nodes: [],
-            contracts: []
+            contracts: [],
+            feedback: [],
+            workers: []
         };
         (0, harness_1.writeTaskFiles)(run);
         const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
@@ -209,6 +212,53 @@ class CoolWorkflowRunner {
             writeReport(run);
             throw error;
         }
+    }
+    listWorkers(runId, options = {}) {
+        return (0, worker_isolation_1.listWorkerScopes)(this.loadRun(runId), {
+            status: options.status ? String(options.status) : undefined
+        });
+    }
+    showWorker(runId, workerId) {
+        const worker = (0, worker_isolation_1.getWorkerScope)(this.loadRun(runId), workerId);
+        if (!worker)
+            throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
+        return worker;
+    }
+    showWorkerManifest(runId, workerId) {
+        const run = this.loadRun(runId);
+        const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);
+        if (!worker)
+            throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
+        return (0, worker_isolation_1.writeWorkerManifest)(run, worker);
+    }
+    recordWorkerOutput(runId, workerId, resultPath) {
+        const run = this.loadRun(runId);
+        (0, worker_isolation_1.recordWorkerOutput)(run, workerId, resultPath, { persist: false });
+        run.loopStage = "observe";
+        (0, dispatch_1.updatePhaseStatuses)(run);
+        (0, verifier_1.validateRunGates)(run);
+        (0, commit_1.commitState)(run, `worker:${workerId}:result`);
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return summarizeRun(run);
+    }
+    recordWorkerFailure(runId, workerId, message, options = {}) {
+        const run = this.loadRun(runId);
+        const failure = (0, worker_isolation_1.recordWorkerFailure)(run, workerId, {
+            code: String(options.code || "worker-runtime-error"),
+            message,
+            at: new Date().toISOString(),
+            path: options.path ? node_path_1.default.resolve(String(options.path)) : undefined,
+            retryable: Boolean(options.retryable)
+        }, { persist: false });
+        run.loopStage = "adjust";
+        (0, dispatch_1.updatePhaseStatuses)(run);
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return failure;
+    }
+    validateWorker(runId, workerId, targetPath) {
+        return (0, worker_isolation_1.validateWorkerBoundary)(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
     }
     report(runId) {
         const run = this.loadRun(runId);
@@ -340,7 +390,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -399,6 +449,7 @@ function flattenTasks(workflow, inputs) {
 }
 function writeReport(run) {
     (0, dispatch_1.updatePhaseStatuses)(run);
+    const workerSummary = (0, worker_isolation_1.summarizeWorkers)(run);
     const report = [
         `# ${run.workflow.title}`,
         "",
@@ -429,6 +480,10 @@ function writeReport(run) {
         "",
         ...renderFeedback(run),
         "",
+        "## Workers",
+        "",
+        ...renderWorkers(workerSummary),
+        "",
         "## Pending Tasks",
         "",
         ...renderPendingTasks(run),
@@ -442,6 +497,7 @@ function writeReport(run) {
 }
 function summarizeRun(run) {
     (0, dispatch_1.updatePhaseStatuses)(run);
+    const workerSummary = (0, worker_isolation_1.summarizeWorkers)(run);
     return {
         runId: run.id,
         workflowId: run.workflow.id,
@@ -456,7 +512,11 @@ function summarizeRun(run) {
         loopStage: run.loopStage,
         next: (0, dispatch_1.firstRunnablePhase)(run)?.name || null,
         reportPath: run.paths.report,
-        commits: run.commits
+        commits: run.commits,
+        workers: {
+            total: workerSummary.total,
+            byStatus: workerSummary.byStatus
+        }
     };
 }
 function renderPendingTasks(run) {
@@ -493,6 +553,23 @@ function renderFeedback(run) {
         "",
         ...summary.artifacts.map((artifact) => `- ${artifact}`)
     ];
+}
+function renderWorkers(summary) {
+    if (!summary.total)
+        return ["No worker scopes yet."];
+    const lines = [
+        `- Total: ${summary.total}`,
+        `- By status: ${formatCounts(summary.byStatus)}`,
+        "",
+        ...summary.manifestPaths.map((artifact) => `- ${artifact}`)
+    ];
+    if (summary.failed.length) {
+        lines.push("", "Failed or rejected:");
+        for (const worker of summary.failed) {
+            lines.push(`- ${worker.id} (${worker.status}) feedback=${worker.feedbackIds.join(",") || "none"}`);
+        }
+    }
+    return lines;
 }
 function formatCounts(counts) {
     const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));

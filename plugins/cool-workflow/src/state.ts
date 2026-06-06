@@ -13,7 +13,8 @@ export function createRunPaths(runDir: string): RunPaths {
     artifactsDir: path.join(runDir, "artifacts"),
     commitsDir: path.join(runDir, "commits"),
     stateNodesDir: path.join(runDir, "nodes"),
-    feedbackDir: path.join(runDir, "feedback")
+    feedbackDir: path.join(runDir, "feedback"),
+    workersDir: path.join(runDir, "workers")
   };
 }
 
@@ -26,7 +27,8 @@ export function ensureRunDirs(paths: RunPaths): void {
     paths.artifactsDir,
     paths.commitsDir,
     paths.stateNodesDir,
-    paths.feedbackDir
+    paths.feedbackDir,
+    paths.workersDir || path.join(paths.runDir, "workers")
   ]) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -37,9 +39,11 @@ export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun 
   const run = readJson(path.join(cwd, ".cw", "runs", runId, "state.json")) as WorkflowRun;
   run.paths.stateNodesDir = run.paths.stateNodesDir || path.join(run.paths.runDir, "nodes");
   run.paths.feedbackDir = run.paths.feedbackDir || path.join(run.paths.runDir, "feedback");
+  run.paths.workersDir = run.paths.workersDir || path.join(run.paths.runDir, "workers");
   run.nodes = run.nodes || [];
   run.contracts = run.contracts || [];
   run.feedback = run.feedback || [];
+  run.workers = run.workers || [];
   return run;
 }
 

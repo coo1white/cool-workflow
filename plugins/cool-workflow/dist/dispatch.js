@@ -13,6 +13,7 @@ const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
 const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
+const worker_isolation_1 = require("./worker-isolation");
 function nextDispatchTasks(run, limit) {
     const runnablePhase = firstRunnablePhase(run);
     if (!runnablePhase)
@@ -46,6 +47,12 @@ function createDispatchManifest(run, limit) {
             task.loopStage = "act";
             task.dispatchId = dispatchId;
             task.dispatchedAt = createdAt;
+            (0, worker_isolation_1.allocateWorkerScope)(run, task, {
+                dispatchId,
+                status: "running",
+                persist: false,
+                metadata: { dispatchId, phase: task.phase }
+            });
         }
     }
     const manifest = {
@@ -56,7 +63,8 @@ function createDispatchManifest(run, limit) {
         phase: tasks[0].phase,
         instructions: "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw.js result <run-id> <task-id> <file>`.",
         tasks: run.tasks.filter((task) => taskIds.has(task.id)).map(formatDispatchTask),
-        manifestPath
+        manifestPath,
+        workerIndexPath: run.paths.workersDir ? node_path_1.default.join(run.paths.workersDir, "index.json") : undefined
     };
     const dispatchNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
         id: `${run.id}:dispatch:${dispatchId}`,
@@ -84,7 +92,8 @@ function createDispatchManifest(run, limit) {
         taskIds: tasks.map((task) => task.id),
         manifestPath,
         createdAt,
-        stateNodeId: dispatchNode.id
+        stateNodeId: dispatchNode.id,
+        workerIds: run.tasks.filter((task) => taskIds.has(task.id) && task.workerId).map((task) => String(task.workerId))
     });
     updatePhaseStatuses(run);
     (0, state_1.writeJson)(manifestPath, manifest);
@@ -123,7 +132,11 @@ function formatDispatchTask(task) {
         phase: task.phase,
         status: task.status,
         taskPath: task.taskPath,
-        prompt: task.prompt
+        prompt: task.prompt,
+        workerId: task.workerId,
+        workerManifestPath: task.workerManifestPath,
+        workerDir: task.workerManifestPath ? node_path_1.default.dirname(task.workerManifestPath) : undefined,
+        workerResultPath: task.workerId && task.workerManifestPath ? node_path_1.default.join(node_path_1.default.dirname(task.workerManifestPath), "result.md") : undefined
     };
 }
 function createDispatchId() {

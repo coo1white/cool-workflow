@@ -4,6 +4,7 @@ import { DispatchManifest, DispatchTask, RunPhase, RunTask, WorkflowRun } from "
 import { writeJson } from "./state";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import { appendRunNode, createStateNode, transitionStateNode } from "./state-node";
+import { allocateWorkerScope } from "./worker-isolation";
 
 export function nextDispatchTasks(run: WorkflowRun, limit?: number): DispatchTask[] {
   const runnablePhase = firstRunnablePhase(run);
@@ -40,6 +41,12 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
       task.loopStage = "act";
       task.dispatchId = dispatchId;
       task.dispatchedAt = createdAt;
+      allocateWorkerScope(run, task, {
+        dispatchId,
+        status: "running",
+        persist: false,
+        metadata: { dispatchId, phase: task.phase }
+      });
     }
   }
 
@@ -52,7 +59,8 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
     instructions:
       "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw.js result <run-id> <task-id> <file>`.",
     tasks: run.tasks.filter((task) => taskIds.has(task.id)).map(formatDispatchTask),
-    manifestPath
+    manifestPath,
+    workerIndexPath: run.paths.workersDir ? path.join(run.paths.workersDir, "index.json") : undefined
   };
 
   const dispatchNode = appendRunNode(
@@ -85,7 +93,8 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
     taskIds: tasks.map((task) => task.id),
     manifestPath,
     createdAt,
-    stateNodeId: dispatchNode.id
+    stateNodeId: dispatchNode.id,
+    workerIds: run.tasks.filter((task) => taskIds.has(task.id) && task.workerId).map((task) => String(task.workerId))
   });
   updatePhaseStatuses(run);
   writeJson(manifestPath, manifest);
@@ -122,7 +131,11 @@ export function formatDispatchTask(task: RunTask): DispatchTask {
     phase: task.phase,
     status: task.status,
     taskPath: task.taskPath,
-    prompt: task.prompt
+    prompt: task.prompt,
+    workerId: task.workerId,
+    workerManifestPath: task.workerManifestPath,
+    workerDir: task.workerManifestPath ? path.dirname(task.workerManifestPath) : undefined,
+    workerResultPath: task.workerId && task.workerManifestPath ? path.join(path.dirname(task.workerManifestPath), "result.md") : undefined
   };
 }
 

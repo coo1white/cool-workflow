@@ -1,0 +1,171 @@
+#!/usr/bin/env node
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+
+const { createDispatchManifest } = require("../dist/dispatch");
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
+const {
+  allocateWorkerScope,
+  getWorkerScope,
+  listWorkerScopes,
+  recordWorkerFailure,
+  recordWorkerOutput,
+  summarizeWorkers,
+  validateWorkerBoundary,
+  writeWorkerManifest
+} = require("../dist/worker-isolation");
+
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-worker-isolation-"));
+const paths = createRunPaths(path.join(tmp, ".cw", "runs", "worker-smoke"));
+ensureRunDirs(paths);
+
+const taskPath = path.join(paths.tasksDir, "map.md");
+fs.writeFileSync(taskPath, "map the system\n", "utf8");
+
+const run = {
+  schemaVersion: 1,
+  id: "worker-smoke",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  cwd: tmp,
+  workflow: {
+    id: "worker-smoke",
+    title: "Worker Smoke",
+    summary: "",
+    limits: { maxAgents: 2, maxConcurrentAgents: 2 }
+  },
+  inputs: {},
+  loopStage: "interpret",
+  phases: [{ id: "map", name: "Map", status: "pending", taskIds: ["map:system", "map:other"] }],
+  tasks: [
+    {
+      id: "map:system",
+      kind: "agent",
+      phase: "Map",
+      status: "pending",
+      requiresEvidence: false,
+      prompt: "Map system boundaries.",
+      taskPath,
+      resultPath: "",
+      loopStage: "interpret",
+      stateNodeId: "worker-smoke:task:map:system"
+    },
+    {
+      id: "map:other",
+      kind: "agent",
+      phase: "Map",
+      status: "pending",
+      requiresEvidence: false,
+      prompt: "Map other boundaries.",
+      taskPath,
+      resultPath: "",
+      loopStage: "interpret",
+      stateNodeId: "worker-smoke:task:map:other"
+    }
+  ],
+  dispatches: [],
+  commits: [],
+  paths,
+  nodes: [],
+  contracts: [],
+  feedback: [],
+  workers: []
+};
+saveCheckpoint(run);
+
+const manual = allocateWorkerScope(run, run.tasks[0], { workerId: "worker-map-system", persist: false });
+assert.equal(manual.status, "allocated");
+assert.ok(fs.existsSync(path.join(manual.workerDir, "worker.json")));
+assert.ok(fs.existsSync(manual.inputPath));
+assert.ok(fs.existsSync(manual.artifactsDir));
+assert.ok(fs.existsSync(manual.logsDir));
+assert.equal(writeWorkerManifest(run, manual).id, manual.id);
+assert.equal(getWorkerScope(run, manual.id).id, manual.id);
+assert.equal(listWorkerScopes(run).length, 1);
+
+assert.equal(validateWorkerBoundary(run, manual.id, { path: manual.resultPath }), null);
+assert.equal(validateWorkerBoundary(run, manual.id, { path: path.join(manual.artifactsDir, "notes.md") }), null);
+assert.match(validateWorkerBoundary(run, manual.id, { path: path.join(tmp, "outside.md") }).message, /outside/);
+
+fs.writeFileSync(
+  manual.resultPath,
+  [
+    "# Result",
+    "",
+    "Mapped the system.",
+    "",
+    "```cw:result",
+    '{ "summary": "mapped", "findings": [], "evidence": ["test/worker-isolation-smoke.js:1"] }',
+    "```",
+    ""
+  ].join("\n"),
+  "utf8"
+);
+const output = recordWorkerOutput(run, manual.id, manual.resultPath, { persist: false });
+assert.equal(output.workerId, manual.id);
+assert.equal(run.tasks[0].status, "completed");
+assert.equal(getWorkerScope(run, manual.id).status, "verified");
+
+const dispatch = createDispatchManifest(run, 1);
+assert.equal(dispatch.tasks.length, 1);
+assert.equal(dispatch.tasks[0].id, "map:other");
+assert.ok(dispatch.tasks[0].workerId);
+assert.ok(dispatch.tasks[0].workerManifestPath);
+assert.ok(fs.existsSync(dispatch.tasks[0].workerManifestPath));
+
+const dispatchedWorker = dispatch.tasks[0].workerId;
+const failed = recordWorkerFailure(run, dispatchedWorker, "worker failed", { persist: false });
+assert.equal(failed.status, "failed");
+assert.equal(failed.feedbackIds.length, 1);
+assert.equal(run.feedback.length, 1);
+
+const summary = summarizeWorkers(run);
+assert.equal(summary.total, 2);
+assert.equal(summary.byStatus.verified, 1);
+assert.equal(summary.byStatus.failed, 1);
+saveCheckpoint(run);
+
+const loaded = loadRunFromCwd("worker-smoke", tmp);
+assert.equal(loaded.paths.workersDir, paths.workersDir);
+assert.equal(loaded.workers.length, 2);
+
+const cliList = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "worker", "list", "worker-smoke"], {
+  cwd: tmp,
+  encoding: "utf8"
+}));
+assert.equal(cliList.length, 2);
+
+const cliShow = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "worker", "show", "worker-smoke", manual.id], {
+  cwd: tmp,
+  encoding: "utf8"
+}));
+assert.equal(cliShow.id, manual.id);
+
+const cliManifest = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "worker", "manifest", "worker-smoke", manual.id], {
+  cwd: tmp,
+  encoding: "utf8"
+}));
+assert.equal(cliManifest.id, manual.id);
+
+const cliValidate = execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "worker", "validate", "worker-smoke", manual.id, manual.resultPath], {
+  cwd: tmp,
+  encoding: "utf8"
+}).trim();
+assert.equal(cliValidate, "null");
+
+const nodeList = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "node", "list", "worker-smoke"], {
+  cwd: tmp,
+  encoding: "utf8"
+}));
+assert.ok(nodeList.some((node) => node.id === output.stateNodeId));
+
+const feedbackList = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "feedback", "list", "worker-smoke"], {
+  cwd: tmp,
+  encoding: "utf8"
+}));
+assert.equal(feedbackList.length, 1);
+
+process.stdout.write("worker-isolation-smoke: ok\n");
