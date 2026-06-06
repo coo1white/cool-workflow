@@ -3,6 +3,8 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { StateCommit, WorkflowRun } from "./types";
 import { writeJson } from "./state";
+import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
+import { appendRunNode, assertNodeSatisfiesContract, createStateNode, transitionStateNode, upsertRunContract } from "./state-node";
 
 export function commitState(run: WorkflowRun, reason: string): StateCommit {
   fs.mkdirSync(run.paths.commitsDir, { recursive: true });
@@ -18,12 +20,58 @@ export function commitState(run: WorkflowRun, reason: string): StateCommit {
     snapshotPath,
     gitHead: readGitHead(run.cwd)
   };
+  const commitNodeId = recordCommitNode(run, commit, reason);
+  if (commitNodeId) commit.stateNodeId = commitNodeId;
   writeJson(snapshotPath, {
     commit,
     run
   });
   run.commits.push(commit);
   return commit;
+}
+
+function recordCommitNode(run: WorkflowRun, commit: StateCommit, reason: string): string | undefined {
+  const contract = upsertRunContract(run, createDefaultPipelineContract());
+  const taskId = reason.startsWith("result:") ? reason.slice("result:".length) : "";
+  const task = taskId ? run.tasks.find((candidate) => candidate.id === taskId) : undefined;
+  const verifierNode = task?.verifierNodeId
+    ? run.nodes?.find((candidate) => candidate.id === task.verifierNodeId)
+    : undefined;
+
+  if (verifierNode) {
+    assertNodeSatisfiesContract(verifierNode, contract, "commit");
+    const commitNode = transitionStateNode(
+      createStateNode({
+        id: `${run.id}:commit:${commit.id}`,
+        kind: "commit",
+        status: "verified",
+        loopStage: "checkpoint",
+        inputs: { reason, commitId: commit.id, verifierNodeId: verifierNode.id },
+        outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead },
+        artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
+        evidence: verifierNode.evidence,
+        parents: [verifierNode.id],
+        contractId: DEFAULT_PIPELINE_CONTRACT_ID
+      }),
+      { status: "committed", loopStage: "checkpoint" }
+    );
+    appendRunNode(run, commitNode);
+    return commitNode.id;
+  }
+
+  const checkpointNode = createStateNode({
+    id: `${run.id}:checkpoint:${commit.id}`,
+    kind: "commit",
+    status: "completed",
+    loopStage: "checkpoint",
+    inputs: { reason, commitId: commit.id },
+    outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead },
+    artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
+    contractId: DEFAULT_PIPELINE_CONTRACT_ID,
+    metadata: { verifierGated: false }
+  });
+  appendRunNode(run, checkpointNode);
+  return checkpointNode.id;
 }
 
 function createCommitId(): string {

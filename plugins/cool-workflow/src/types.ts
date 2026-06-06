@@ -4,6 +4,26 @@ export type PhaseStatus = "pending" | "running" | "completed";
 export type LoopStage = "interpret" | "act" | "observe" | "adjust" | "checkpoint";
 export type FindingClassification = "real" | "conditional" | "non-issue" | "unknown";
 export type Severity = "P0" | "P1" | "P2" | "P3" | "none";
+export type StateNodeKind =
+  | "input"
+  | "task"
+  | "dispatch"
+  | "result"
+  | "verifier"
+  | "commit"
+  | "report"
+  | "schedule"
+  | "trigger"
+  | "error";
+export type StateNodeStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "blocked"
+  | "verified"
+  | "rejected"
+  | "committed";
 
 export interface WorkflowLimits {
   maxAgents: number;
@@ -49,6 +69,7 @@ export interface RunPaths {
   dispatchesDir: string;
   artifactsDir: string;
   commitsDir: string;
+  stateNodesDir: string;
 }
 
 export interface RunPhase {
@@ -71,6 +92,115 @@ export interface ResultEnvelope {
   evidence: string[];
 }
 
+export interface StateArtifact {
+  id: string;
+  kind: string;
+  path: string;
+  description?: string;
+}
+
+export interface StateEvidence {
+  id: string;
+  source?: string;
+  path?: string;
+  locator?: string;
+  summary?: string;
+}
+
+export interface StateNodeError {
+  code: string;
+  message: string;
+  at: string;
+  nodeId?: string;
+  path?: string;
+  retryable?: boolean;
+  details?: Record<string, unknown>;
+}
+
+export interface StateNode {
+  schemaVersion: 1;
+  id: string;
+  kind: StateNodeKind;
+  status: StateNodeStatus;
+  loopStage: LoopStage;
+  createdAt: string;
+  updatedAt: string;
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  artifacts: StateArtifact[];
+  evidence: StateEvidence[];
+  errors: StateNodeError[];
+  parents: string[];
+  children: string[];
+  contractId?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PipelineVerifierGate {
+  required?: boolean;
+  acceptedStatuses?: StateNodeStatus[];
+  requiredEvidence?: boolean;
+}
+
+export interface PipelineStageFailurePolicy {
+  retryable?: boolean;
+  maxAttempts?: number;
+  preserveFailureNode?: boolean;
+  failureKind?: StateNodeKind;
+}
+
+export interface PipelineStageContract {
+  id: string;
+  name: string;
+  acceptedInputKinds: StateNodeKind[];
+  acceptedInputStatuses: StateNodeStatus[];
+  producedOutputKind: StateNodeKind;
+  requiredArtifacts?: string[];
+  requiredEvidence?: string[];
+  verifierGate?: PipelineVerifierGate;
+  failure?: PipelineStageFailurePolicy;
+}
+
+export interface PipelineArtifactPolicy {
+  root?: string;
+  requireReadablePaths?: boolean;
+}
+
+export interface PipelineEvidencePolicy {
+  requireEvidence?: boolean;
+  highPriorityRequiresEvidence?: boolean;
+}
+
+export interface PipelineFailurePolicy {
+  preserveFailureNodes?: boolean;
+  retryableByDefault?: boolean;
+}
+
+export interface PipelineCommitPolicy {
+  requiresVerifierGate?: boolean;
+  acceptedVerifierStatuses?: StateNodeStatus[];
+}
+
+export interface PipelineCompatibility {
+  minSchemaVersion: number;
+  maxSchemaVersion: number;
+  notes?: string;
+}
+
+export interface PipelineContract {
+  schemaVersion: 1;
+  id: string;
+  title: string;
+  stages: PipelineStageContract[];
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  artifactPolicy?: PipelineArtifactPolicy;
+  evidencePolicy?: PipelineEvidencePolicy;
+  failurePolicy?: PipelineFailurePolicy;
+  commitPolicy?: PipelineCommitPolicy;
+  compatibility: PipelineCompatibility;
+}
+
 export interface RunTask {
   id: string;
   kind: TaskKind;
@@ -85,6 +215,9 @@ export interface RunTask {
   dispatchedAt?: string;
   completedAt?: string;
   result?: ResultEnvelope;
+  stateNodeId?: string;
+  resultNodeId?: string;
+  verifierNodeId?: string;
 }
 
 export interface DispatchTask {
@@ -105,6 +238,7 @@ export interface DispatchManifest {
   instructions?: string;
   tasks: DispatchTask[];
   manifestPath?: string | null;
+  stateNodeId?: string;
 }
 
 export interface RunDispatch {
@@ -113,6 +247,7 @@ export interface RunDispatch {
   taskIds: string[];
   manifestPath: string;
   createdAt: string;
+  stateNodeId?: string;
 }
 
 export interface StateCommit {
@@ -124,6 +259,7 @@ export interface StateCommit {
   reportPath: string;
   snapshotPath: string;
   gitHead?: string;
+  stateNodeId?: string;
 }
 
 export interface WorkflowRun {
@@ -145,6 +281,8 @@ export interface WorkflowRun {
   dispatches: RunDispatch[];
   commits: StateCommit[];
   paths: RunPaths;
+  nodes?: StateNode[];
+  contracts?: PipelineContract[];
 }
 
 export interface RunSummary {

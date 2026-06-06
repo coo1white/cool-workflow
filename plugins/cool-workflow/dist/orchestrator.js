@@ -14,6 +14,8 @@ const harness_1 = require("./harness");
 const commit_1 = require("./commit");
 const verifier_1 = require("./verifier");
 const state_1 = require("./state");
+const pipeline_contract_1 = require("./pipeline-contract");
+const state_node_1 = require("./state-node");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -78,9 +80,36 @@ class CoolWorkflowRunner {
             tasks,
             dispatches: [],
             commits: [],
-            paths
+            paths,
+            nodes: [],
+            contracts: []
         };
         (0, harness_1.writeTaskFiles)(run);
+        const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
+        const inputNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
+            id: `${run.id}:input`,
+            kind: "input",
+            status: "completed",
+            loopStage: "interpret",
+            outputs: run.inputs,
+            artifacts: [{ id: "state", kind: "json", path: run.paths.state }],
+            contractId: contract.id,
+            metadata: { workflowId: workflow.id }
+        }));
+        for (const task of run.tasks) {
+            const taskNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
+                id: `${run.id}:task:${task.id}`,
+                kind: "task",
+                status: "pending",
+                loopStage: "interpret",
+                inputs: { workflowId: workflow.id, taskId: task.id, phase: task.phase },
+                artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
+                parents: [inputNode.id],
+                contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+                metadata: { taskKind: task.kind, requiresEvidence: task.requiresEvidence }
+            }));
+            task.stateNodeId = taskNode.id;
+        }
         writeReport(run);
         (0, commit_1.commitState)(run, "initial-plan");
         (0, state_1.saveCheckpoint)(run);
@@ -124,8 +153,42 @@ class CoolWorkflowRunner {
         task.resultPath = destination;
         task.loopStage = "observe";
         task.result = parsedResult;
+        const resultNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
+            id: `${run.id}:result:${task.id}`,
+            kind: "result",
+            status: "completed",
+            loopStage: "observe",
+            inputs: { taskId: task.id, dispatchId: task.dispatchId },
+            outputs: parsedResult,
+            artifacts: [{ id: "result", kind: "markdown", path: destination }],
+            evidence: parsedResult.evidence.map((entry, index) => ({
+                id: `result:${index + 1}`,
+                source: "cw:result",
+                locator: entry,
+                summary: entry
+            })),
+            parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
+            contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+            metadata: { taskId: task.id }
+        }));
+        task.resultNodeId = resultNode.id;
         (0, dispatch_1.updatePhaseStatuses)(run);
         (0, verifier_1.validateRunGates)(run);
+        const verifierNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.transitionStateNode)((0, state_node_1.createStateNode)({
+            id: `${run.id}:verifier:${task.id}`,
+            kind: "verifier",
+            status: "completed",
+            loopStage: "adjust",
+            inputs: { taskId: task.id, resultNodeId: resultNode.id },
+            outputs: { accepted: true },
+            artifacts: [{ id: "result", kind: "markdown", path: destination }],
+            evidence: resultNode.evidence.length
+                ? resultNode.evidence
+                : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
+            parents: [resultNode.id],
+            contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID
+        }), { status: "verified" }));
+        task.verifierNodeId = verifierNode.id;
         (0, commit_1.commitState)(run, `result:${taskId}`);
         writeReport(run);
         (0, state_1.saveCheckpoint)(run);

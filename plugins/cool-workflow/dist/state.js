@@ -21,7 +21,8 @@ function createRunPaths(runDir) {
         resultsDir: node_path_1.default.join(runDir, "results"),
         dispatchesDir: node_path_1.default.join(runDir, "dispatches"),
         artifactsDir: node_path_1.default.join(runDir, "artifacts"),
-        commitsDir: node_path_1.default.join(runDir, "commits")
+        commitsDir: node_path_1.default.join(runDir, "commits"),
+        stateNodesDir: node_path_1.default.join(runDir, "nodes")
     };
 }
 function ensureRunDirs(paths) {
@@ -31,7 +32,8 @@ function ensureRunDirs(paths) {
         paths.resultsDir,
         paths.dispatchesDir,
         paths.artifactsDir,
-        paths.commitsDir
+        paths.commitsDir,
+        paths.stateNodesDir
     ]) {
         node_fs_1.default.mkdirSync(dir, { recursive: true });
     }
@@ -39,7 +41,11 @@ function ensureRunDirs(paths) {
 function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (!runId)
         throw new Error("Missing run id");
-    return readJson(node_path_1.default.join(cwd, ".cw", "runs", runId, "state.json"));
+    const run = readJson(node_path_1.default.join(cwd, ".cw", "runs", runId, "state.json"));
+    run.paths.stateNodesDir = run.paths.stateNodesDir || node_path_1.default.join(run.paths.runDir, "nodes");
+    run.nodes = run.nodes || [];
+    run.contracts = run.contracts || [];
+    return run;
 }
 function saveCheckpoint(run) {
     run.updatedAt = new Date().toISOString();

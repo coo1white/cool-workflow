@@ -2,6 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { DispatchManifest, DispatchTask, RunPhase, RunTask, WorkflowRun } from "./types";
 import { writeJson } from "./state";
+import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
+import { appendRunNode, createStateNode, transitionStateNode } from "./state-node";
 
 export function nextDispatchTasks(run: WorkflowRun, limit?: number): DispatchTask[] {
   const runnablePhase = firstRunnablePhase(run);
@@ -53,12 +55,37 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
     manifestPath
   };
 
+  const dispatchNode = appendRunNode(
+    run,
+    createStateNode({
+      id: `${run.id}:dispatch:${dispatchId}`,
+      kind: "dispatch",
+      status: "running",
+      loopStage: "act",
+      inputs: { taskIds: tasks.map((task) => task.id), phase: manifest.phase },
+      outputs: { dispatchId },
+      artifacts: [{ id: "dispatch", kind: "json", path: manifestPath }],
+      parents: tasks.map((task) => `${run.id}:task:${task.id}`),
+      contractId: DEFAULT_PIPELINE_CONTRACT_ID
+    })
+  );
+  manifest.stateNodeId = dispatchNode.id;
+
+  for (const task of run.tasks) {
+    if (!taskIds.has(task.id) || !task.stateNodeId) continue;
+    const node = run.nodes?.find((candidate) => candidate.id === task.stateNodeId);
+    if (node && node.status === "pending") {
+      appendRunNode(run, transitionStateNode(node, { status: "running", loopStage: "act" }));
+    }
+  }
+
   run.dispatches.push({
     id: dispatchId,
     phase: manifest.phase || "",
     taskIds: tasks.map((task) => task.id),
     manifestPath,
-    createdAt
+    createdAt,
+    stateNodeId: dispatchNode.id
   });
   updatePhaseStatuses(run);
   writeJson(manifestPath, manifest);

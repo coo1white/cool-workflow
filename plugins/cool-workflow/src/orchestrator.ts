@@ -13,6 +13,13 @@ import { writeTaskFiles } from "./harness";
 import { commitState } from "./commit";
 import { assertTaskCanComplete, parseResultEnvelope, validateResultEnvelope, validateRunGates } from "./verifier";
 import { createRunPaths, ensureRunDirs, loadRunFromCwd, safeFileName, saveCheckpoint, writeJson } from "./state";
+import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
+import {
+  appendRunNode,
+  createStateNode,
+  transitionStateNode,
+  upsertRunContract
+} from "./state-node";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -85,10 +92,43 @@ export class CoolWorkflowRunner {
       tasks,
       dispatches: [],
       commits: [],
-      paths
+      paths,
+      nodes: [],
+      contracts: []
     };
 
     writeTaskFiles(run);
+    const contract = upsertRunContract(run, createDefaultPipelineContract());
+    const inputNode = appendRunNode(
+      run,
+      createStateNode({
+        id: `${run.id}:input`,
+        kind: "input",
+        status: "completed",
+        loopStage: "interpret",
+        outputs: run.inputs,
+        artifacts: [{ id: "state", kind: "json", path: run.paths.state }],
+        contractId: contract.id,
+        metadata: { workflowId: workflow.id }
+      })
+    );
+    for (const task of run.tasks) {
+      const taskNode = appendRunNode(
+        run,
+        createStateNode({
+          id: `${run.id}:task:${task.id}`,
+          kind: "task",
+          status: "pending",
+          loopStage: "interpret",
+          inputs: { workflowId: workflow.id, taskId: task.id, phase: task.phase },
+          artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
+          parents: [inputNode.id],
+          contractId: DEFAULT_PIPELINE_CONTRACT_ID,
+          metadata: { taskKind: task.kind, requiresEvidence: task.requiresEvidence }
+        })
+      );
+      task.stateNodeId = taskNode.id;
+    }
     writeReport(run);
     commitState(run, "initial-plan");
     saveCheckpoint(run);
@@ -136,8 +176,51 @@ export class CoolWorkflowRunner {
     task.resultPath = destination;
     task.loopStage = "observe";
     task.result = parsedResult;
+    const resultNode = appendRunNode(
+      run,
+      createStateNode({
+        id: `${run.id}:result:${task.id}`,
+        kind: "result",
+        status: "completed",
+        loopStage: "observe",
+        inputs: { taskId: task.id, dispatchId: task.dispatchId },
+        outputs: parsedResult as unknown as Record<string, unknown>,
+        artifacts: [{ id: "result", kind: "markdown", path: destination }],
+        evidence: parsedResult.evidence.map((entry, index) => ({
+          id: `result:${index + 1}`,
+          source: "cw:result",
+          locator: entry,
+          summary: entry
+        })),
+        parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
+        contractId: DEFAULT_PIPELINE_CONTRACT_ID,
+        metadata: { taskId: task.id }
+      })
+    );
+    task.resultNodeId = resultNode.id;
     updatePhaseStatuses(run);
     validateRunGates(run);
+    const verifierNode = appendRunNode(
+      run,
+      transitionStateNode(
+        createStateNode({
+          id: `${run.id}:verifier:${task.id}`,
+          kind: "verifier",
+          status: "completed",
+          loopStage: "adjust",
+          inputs: { taskId: task.id, resultNodeId: resultNode.id },
+          outputs: { accepted: true },
+          artifacts: [{ id: "result", kind: "markdown", path: destination }],
+          evidence: resultNode.evidence.length
+            ? resultNode.evidence
+            : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
+          parents: [resultNode.id],
+          contractId: DEFAULT_PIPELINE_CONTRACT_ID
+        }),
+        { status: "verified" }
+      )
+    );
+    task.verifierNodeId = verifierNode.id;
     commitState(run, `result:${taskId}`);
     writeReport(run);
     saveCheckpoint(run);
