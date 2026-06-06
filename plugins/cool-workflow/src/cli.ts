@@ -63,6 +63,32 @@ async function main(): Promise<void> {
       process.stdout.write(`${report.path}\n`);
       return;
     }
+    case "contract": {
+      const [subcommand, runId, contractId] = args.positionals;
+      switch (subcommand) {
+        case "show":
+          printJson(runner.showContract(required(runId, "run id"), contractId));
+          return;
+        default:
+          throw new Error("Usage: cw.js contract show <run-id> [contract-id]");
+      }
+    }
+    case "node": {
+      const [subcommand, runId, nodeId] = args.positionals;
+      switch (subcommand) {
+        case "list":
+          printJson(runner.listNodes(required(runId, "run id")));
+          return;
+        case "show":
+          printJson(runner.showNode(required(runId, "run id"), required(nodeId, "node id")));
+          return;
+        case "graph":
+          printJson(runner.graphNodes(required(runId, "run id")));
+          return;
+        default:
+          throw new Error("Usage: cw.js node list|show|graph <run-id> [node-id]");
+      }
+    }
     case "loop": {
       printJson(scheduler.create({ ...args.options, kind: "loop" }));
       return;

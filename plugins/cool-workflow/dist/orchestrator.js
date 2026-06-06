@@ -16,6 +16,7 @@ const verifier_1 = require("./verifier");
 const state_1 = require("./state");
 const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
+const pipeline_runner_1 = require("./pipeline-runner");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -96,19 +97,17 @@ class CoolWorkflowRunner {
             contractId: contract.id,
             metadata: { workflowId: workflow.id }
         }));
+        (0, state_1.saveCheckpoint)(run);
+        const pipeline = (0, pipeline_runner_1.createPipelineRunner)({ contractId: contract.id, persist: false });
         for (const task of run.tasks) {
-            const taskNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
-                id: `${run.id}:task:${task.id}`,
-                kind: "task",
-                status: "pending",
+            const taskResult = pipeline.runPipelineStage(run, "plan", inputNode.id, {
+                outputNodeId: `${run.id}:task:${task.id}`,
+                outputStatus: "pending",
                 loopStage: "interpret",
-                inputs: { workflowId: workflow.id, taskId: task.id, phase: task.phase },
                 artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
-                parents: [inputNode.id],
-                contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
-                metadata: { taskKind: task.kind, requiresEvidence: task.requiresEvidence }
-            }));
-            task.stateNodeId = taskNode.id;
+                metadata: { workflowId: workflow.id, taskId: task.id, phase: task.phase, taskKind: task.kind, requiresEvidence: task.requiresEvidence }
+            });
+            task.stateNodeId = taskResult.outputNodeId;
         }
         writeReport(run);
         (0, commit_1.commitState)(run, "initial-plan");
@@ -174,21 +173,18 @@ class CoolWorkflowRunner {
         task.resultNodeId = resultNode.id;
         (0, dispatch_1.updatePhaseStatuses)(run);
         (0, verifier_1.validateRunGates)(run);
-        const verifierNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.transitionStateNode)((0, state_node_1.createStateNode)({
-            id: `${run.id}:verifier:${task.id}`,
-            kind: "verifier",
-            status: "completed",
+        const verifierResult = (0, pipeline_runner_1.createPipelineRunner)({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
+            outputNodeId: `${run.id}:verifier:${task.id}`,
+            outputStatus: "verified",
             loopStage: "adjust",
-            inputs: { taskId: task.id, resultNodeId: resultNode.id },
             outputs: { accepted: true },
             artifacts: [{ id: "result", kind: "markdown", path: destination }],
             evidence: resultNode.evidence.length
                 ? resultNode.evidence
                 : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
-            parents: [resultNode.id],
-            contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID
-        }), { status: "verified" }));
-        task.verifierNodeId = verifierNode.id;
+            metadata: { taskId: task.id, resultNodeId: resultNode.id }
+        });
+        task.verifierNodeId = verifierResult.outputNodeId;
         (0, commit_1.commitState)(run, `result:${taskId}`);
         writeReport(run);
         (0, state_1.saveCheckpoint)(run);
@@ -197,6 +193,25 @@ class CoolWorkflowRunner {
     report(runId) {
         const run = this.loadRun(runId);
         return { path: writeReport(run) };
+    }
+    showContract(runId, contractId) {
+        const run = this.loadRun(runId);
+        return (0, pipeline_runner_1.createPipelineRunner)().getRunContract(run, contractId);
+    }
+    listNodes(runId) {
+        return this.loadRun(runId).nodes || [];
+    }
+    showNode(runId, nodeId) {
+        return (0, pipeline_runner_1.createPipelineRunner)().getRunNode(this.loadRun(runId), nodeId);
+    }
+    graphNodes(runId) {
+        return (this.loadRun(runId).nodes || []).map((node) => ({
+            id: node.id,
+            kind: node.kind,
+            status: node.status,
+            parents: node.parents,
+            children: node.children
+        }));
     }
     commit(runId, reason) {
         const run = this.loadRun(runId);
@@ -264,7 +279,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {

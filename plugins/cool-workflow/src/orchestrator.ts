@@ -17,9 +17,9 @@ import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./p
 import {
   appendRunNode,
   createStateNode,
-  transitionStateNode,
   upsertRunContract
 } from "./state-node";
+import { createPipelineRunner } from "./pipeline-runner";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -112,22 +112,17 @@ export class CoolWorkflowRunner {
         metadata: { workflowId: workflow.id }
       })
     );
+    saveCheckpoint(run);
+    const pipeline = createPipelineRunner({ contractId: contract.id, persist: false });
     for (const task of run.tasks) {
-      const taskNode = appendRunNode(
-        run,
-        createStateNode({
-          id: `${run.id}:task:${task.id}`,
-          kind: "task",
-          status: "pending",
-          loopStage: "interpret",
-          inputs: { workflowId: workflow.id, taskId: task.id, phase: task.phase },
-          artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
-          parents: [inputNode.id],
-          contractId: DEFAULT_PIPELINE_CONTRACT_ID,
-          metadata: { taskKind: task.kind, requiresEvidence: task.requiresEvidence }
-        })
-      );
-      task.stateNodeId = taskNode.id;
+      const taskResult = pipeline.runPipelineStage(run, "plan", inputNode.id, {
+        outputNodeId: `${run.id}:task:${task.id}`,
+        outputStatus: "pending",
+        loopStage: "interpret",
+        artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
+        metadata: { workflowId: workflow.id, taskId: task.id, phase: task.phase, taskKind: task.kind, requiresEvidence: task.requiresEvidence }
+      });
+      task.stateNodeId = taskResult.outputNodeId;
     }
     writeReport(run);
     commitState(run, "initial-plan");
@@ -200,27 +195,18 @@ export class CoolWorkflowRunner {
     task.resultNodeId = resultNode.id;
     updatePhaseStatuses(run);
     validateRunGates(run);
-    const verifierNode = appendRunNode(
-      run,
-      transitionStateNode(
-        createStateNode({
-          id: `${run.id}:verifier:${task.id}`,
-          kind: "verifier",
-          status: "completed",
-          loopStage: "adjust",
-          inputs: { taskId: task.id, resultNodeId: resultNode.id },
-          outputs: { accepted: true },
-          artifacts: [{ id: "result", kind: "markdown", path: destination }],
-          evidence: resultNode.evidence.length
-            ? resultNode.evidence
-            : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
-          parents: [resultNode.id],
-          contractId: DEFAULT_PIPELINE_CONTRACT_ID
-        }),
-        { status: "verified" }
-      )
-    );
-    task.verifierNodeId = verifierNode.id;
+    const verifierResult = createPipelineRunner({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
+      outputNodeId: `${run.id}:verifier:${task.id}`,
+      outputStatus: "verified",
+      loopStage: "adjust",
+      outputs: { accepted: true },
+      artifacts: [{ id: "result", kind: "markdown", path: destination }],
+      evidence: resultNode.evidence.length
+        ? resultNode.evidence
+        : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
+      metadata: { taskId: task.id, resultNodeId: resultNode.id }
+    });
+    task.verifierNodeId = verifierResult.outputNodeId;
     commitState(run, `result:${taskId}`);
     writeReport(run);
     saveCheckpoint(run);
@@ -230,6 +216,29 @@ export class CoolWorkflowRunner {
   report(runId: string): { path: string } {
     const run = this.loadRun(runId);
     return { path: writeReport(run) };
+  }
+
+  showContract(runId: string, contractId?: string): ReturnType<ReturnType<typeof createPipelineRunner>["getRunContract"]> {
+    const run = this.loadRun(runId);
+    return createPipelineRunner().getRunContract(run, contractId);
+  }
+
+  listNodes(runId: string): NonNullable<WorkflowRun["nodes"]> {
+    return this.loadRun(runId).nodes || [];
+  }
+
+  showNode(runId: string, nodeId: string): NonNullable<WorkflowRun["nodes"]>[number] {
+    return createPipelineRunner().getRunNode(this.loadRun(runId), nodeId);
+  }
+
+  graphNodes(runId: string): Array<{ id: string; kind: string; status: string; parents: string[]; children: string[] }> {
+    return (this.loadRun(runId).nodes || []).map((node) => ({
+      id: node.id,
+      kind: node.kind,
+      status: node.status,
+      parents: node.parents,
+      children: node.children
+    }));
   }
 
   commit(runId: string, reason: string): StateCommitResult {
@@ -309,7 +318,7 @@ export function parseArgv(argv: string[]): {
 }
 
 export function formatHelp(): string {
-  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 
 function appendOption(options: Record<string, unknown>, key: string, value: string | boolean): void {

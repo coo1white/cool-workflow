@@ -10,6 +10,7 @@ const node_child_process_1 = require("node:child_process");
 const state_1 = require("./state");
 const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
+const pipeline_runner_1 = require("./pipeline-runner");
 function commitState(run, reason) {
     node_fs_1.default.mkdirSync(run.paths.commitsDir, { recursive: true });
     const id = createCommitId();
@@ -42,21 +43,16 @@ function recordCommitNode(run, commit, reason) {
         ? run.nodes?.find((candidate) => candidate.id === task.verifierNodeId)
         : undefined;
     if (verifierNode) {
-        (0, state_node_1.assertNodeSatisfiesContract)(verifierNode, contract, "commit");
-        const commitNode = (0, state_node_1.transitionStateNode)((0, state_node_1.createStateNode)({
-            id: `${run.id}:commit:${commit.id}`,
-            kind: "commit",
-            status: "verified",
+        const commitResult = (0, pipeline_runner_1.createPipelineRunner)({ contractId: contract.id, persist: false }).runPipelineStage(run, "commit", verifierNode.id, {
+            outputNodeId: `${run.id}:commit:${commit.id}`,
+            outputStatus: "committed",
             loopStage: "checkpoint",
-            inputs: { reason, commitId: commit.id, verifierNodeId: verifierNode.id },
             outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead },
             artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
             evidence: verifierNode.evidence,
-            parents: [verifierNode.id],
-            contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID
-        }), { status: "committed", loopStage: "checkpoint" });
-        (0, state_node_1.appendRunNode)(run, commitNode);
-        return commitNode.id;
+            metadata: { reason, commitId: commit.id, verifierNodeId: verifierNode.id }
+        });
+        return commitResult.outputNodeId;
     }
     const checkpointNode = (0, state_node_1.createStateNode)({
         id: `${run.id}:checkpoint:${commit.id}`,
