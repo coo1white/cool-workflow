@@ -71,6 +71,7 @@ export interface RunPaths {
   commitsDir: string;
   stateNodesDir: string;
   feedbackDir: string;
+  workersDir?: string;
 }
 
 export interface RunPhase {
@@ -326,6 +327,94 @@ export interface CorrectionTaskResult {
   metadata?: Record<string, unknown>;
 }
 
+export type WorkerIsolationStatus =
+  | "allocated"
+  | "running"
+  | "completed"
+  | "failed"
+  | "rejected"
+  | "verified";
+
+export interface WorkerIsolationPolicy {
+  allowArtifacts?: boolean;
+  allowLogs?: boolean;
+  allowedPaths?: string[];
+}
+
+export interface WorkerBoundaryViolation {
+  code: string;
+  message: string;
+  path?: string;
+  allowedPaths: string[];
+}
+
+export interface WorkerOutputRecord {
+  workerId: string;
+  taskId: string;
+  resultPath: string;
+  recordedAt: string;
+  stateNodeId?: string;
+  verifierNodeId?: string;
+}
+
+export interface WorkerScope {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  taskId: string;
+  dispatchId?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: WorkerIsolationStatus;
+  workerDir: string;
+  inputPath: string;
+  resultPath: string;
+  artifactsDir: string;
+  logsDir: string;
+  allowedPaths: string[];
+  stateNodeId?: string;
+  resultNodeId?: string;
+  feedbackIds: string[];
+  errors: StateNodeError[];
+  output?: WorkerOutputRecord;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkerManifest {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  taskId: string;
+  dispatchId?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: WorkerIsolationStatus;
+  workerDir: string;
+  inputPath: string;
+  resultPath: string;
+  artifactsDir: string;
+  logsDir: string;
+  allowedPaths: string[];
+  instructions: string[];
+  taskPath?: string;
+  prompt?: string;
+  stateNodeId?: string;
+  resultNodeId?: string;
+  feedbackIds?: string[];
+  errors?: StateNodeError[];
+  output?: WorkerOutputRecord;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkerIsolationOptions {
+  workerId?: string;
+  dispatchId?: string;
+  status?: WorkerIsolationStatus;
+  policy?: WorkerIsolationPolicy;
+  metadata?: Record<string, unknown>;
+  persist?: boolean;
+}
+
 export interface RunTask {
   id: string;
   kind: TaskKind;
@@ -343,6 +432,8 @@ export interface RunTask {
   stateNodeId?: string;
   resultNodeId?: string;
   verifierNodeId?: string;
+  workerId?: string;
+  workerManifestPath?: string;
 }
 
 export interface DispatchTask {
@@ -352,6 +443,10 @@ export interface DispatchTask {
   status: TaskStatus;
   taskPath: string;
   prompt: string;
+  workerId?: string;
+  workerManifestPath?: string;
+  workerDir?: string;
+  workerResultPath?: string;
 }
 
 export interface DispatchManifest {
@@ -364,6 +459,7 @@ export interface DispatchManifest {
   tasks: DispatchTask[];
   manifestPath?: string | null;
   stateNodeId?: string;
+  workerIndexPath?: string;
 }
 
 export interface RunDispatch {
@@ -373,6 +469,7 @@ export interface RunDispatch {
   manifestPath: string;
   createdAt: string;
   stateNodeId?: string;
+  workerIds?: string[];
 }
 
 export interface StateCommit {
@@ -409,6 +506,7 @@ export interface WorkflowRun {
   nodes?: StateNode[];
   contracts?: PipelineContract[];
   feedback?: ErrorFeedbackRecord[];
+  workers?: WorkerScope[];
 }
 
 export interface RunSummary {
@@ -426,6 +524,10 @@ export interface RunSummary {
   next: string | null;
   reportPath: string;
   commits: StateCommit[];
+  workers?: {
+    total: number;
+    byStatus: Record<string, number>;
+  };
 }
 
 export type ScheduleKind = "loop" | "cron" | "reminder";

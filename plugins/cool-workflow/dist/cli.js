@@ -116,6 +116,31 @@ async function main() {
                     throw new Error("Usage: cw.js feedback list|show|collect|task|resolve <run-id> [feedback-id]");
             }
         }
+        case "worker": {
+            const [subcommand, runId, workerId, resultPath] = args.positionals;
+            switch (subcommand) {
+                case "list":
+                    printJson(runner.listWorkers(required(runId, "run id"), args.options));
+                    return;
+                case "show":
+                    printJson(runner.showWorker(required(runId, "run id"), required(workerId, "worker id")));
+                    return;
+                case "manifest":
+                    printJson(runner.showWorkerManifest(required(runId, "run id"), required(workerId, "worker id")));
+                    return;
+                case "output":
+                    printJson(runner.recordWorkerOutput(required(runId, "run id"), required(workerId, "worker id"), required(resultPath, "result file")));
+                    return;
+                case "fail":
+                    printJson(runner.recordWorkerFailure(required(runId, "run id"), required(workerId, "worker id"), String(args.options.message || args.options.m || required(resultPath, "failure message")), args.options));
+                    return;
+                case "validate":
+                    printJson(runner.validateWorker(required(runId, "run id"), required(workerId, "worker id"), resultPath));
+                    return;
+                default:
+                    throw new Error("Usage: cw.js worker list|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
+            }
+        }
         case "loop": {
             printJson(scheduler.create({ ...args.options, kind: "loop" }));
             return;
