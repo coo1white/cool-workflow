@@ -1,0 +1,137 @@
+# Cool Workflow
+
+Cool Workflow, or CW, is an independent Agent Workflow SDK by COOLWHITE LLC.
+
+CW packages a TypeScript Node/Bun runtime, reusable workflow definitions,
+scheduled tasks, state checkpoints, adversarial verification, and an MCP
+JSON-RPC 2.0 bridge.
+
+CW makes the agent loop explicit:
+
+```text
+interpret -> act -> observe -> adjust -> checkpoint
+```
+
+## What It Includes
+
+- Developer-facing workflow SDK contracts.
+- Router / Orchestrator for workflow definitions and phase gates.
+- Subagent dispatch manifests for fan-out work.
+- Deterministic harness prompts for repeatable agent tasks.
+- Adversarial verifier with evidence gates.
+- Git/state commit snapshots for every major transition.
+- MCP JSON-RPC 2.0 server for tool-based integrations.
+- Scheduled tasks for loop, cron, and reminder-style workflow continuations.
+- Local scheduler daemon for due scanning.
+- Routine-style API and GitHub trigger bridge.
+
+## Agent SDK Philosophy
+
+CW treats agent development as SDK development, not prompt improvisation.
+
+The runtime owns the platform contract:
+
+```text
+workflow definition -> input validation -> task generation -> dispatch
+-> evidence-backed result recording -> verifier gates -> checkpoint/report
+```
+
+Developers write workflow apps against that contract. A workflow app declares
+inputs, phases, agent tasks, artifacts, limits, and evidence requirements. CW
+then gives an agent host a deterministic way to run, inspect, pause, resume,
+verify, and publish the work.
+
+CW also follows a small set of Unix-inspired workflow principles:
+
+```text
+Small kernel.
+Explicit state.
+Composable pipes.
+Isolated workers.
+Verifier-gated commits.
+```
+
+See [unix-principles.md](plugins/cool-workflow/docs/unix-principles.md).
+
+## Language Contract
+
+```text
+Core runtime: 100% TypeScript
+Runtime target: Node.js / Bun-compatible CommonJS
+Workflow apps: JavaScript orchestration modules
+Published runtime: generated JavaScript in dist/
+```
+
+This keeps the runtime strongly typed while workflow apps remain easy to save,
+share, and run.
+
+## Install From GitHub
+
+Clone the repository and run the bundled CLI from the package directory:
+
+```bash
+git clone https://github.com/coo1white/cool-workflow.git
+cd cool-workflow/plugins/cool-workflow
+node scripts/cw.js list
+```
+
+## Local Development
+
+```bash
+cd plugins/cool-workflow
+npm install --no-package-lock
+npm run build
+npm run check
+node scripts/cw.js list
+rm -rf node_modules package-lock.json
+```
+
+The package intentionally commits `plugins/cool-workflow/dist/` so users can run
+CW without installing TypeScript dependencies.
+
+## CLI Quick Start
+
+```bash
+cd plugins/cool-workflow
+node scripts/cw.js list
+node scripts/cw.js plan architecture-review \
+  --repo /path/to/repo \
+  --question "Is this architecture sound?"
+node scripts/cw.js dispatch <run-id> --limit 6
+node scripts/cw.js report <run-id>
+```
+
+## Scheduled Tasks And Routines
+
+```bash
+cd plugins/cool-workflow
+
+node scripts/cw.js loop --intervalMinutes 30 --prompt "Continue this workflow."
+node scripts/cw.js schedule daemon --once
+node scripts/cw.js schedule pause <schedule-id>
+node scripts/cw.js schedule resume <schedule-id>
+node scripts/cw.js schedule run-now <schedule-id>
+node scripts/cw.js schedule history <schedule-id>
+
+node scripts/cw.js routine create --kind github --prompt "Review this GitHub event."
+node scripts/cw.js routine fire github payload.json
+node scripts/cw.js routine events
+```
+
+## Repository Layout
+
+```text
+.agents/plugins/marketplace.json      Optional local package catalog
+plugins/cool-workflow/                CW package
+plugins/cool-workflow/src/            TypeScript source
+plugins/cool-workflow/dist/           Runtime JavaScript committed for users
+plugins/cool-workflow/skills/         Agent host skill entrypoint
+plugins/cool-workflow/workflows/      Bundled workflow definitions
+plugins/cool-workflow/docs/           Feature and SDK notes
+examples/                             Example workflow outputs
+```
+
+## Status
+
+CW is an independent Agent Workflow SDK by COOLWHITE LLC. It is released under
+the BSD-2-Clause License.

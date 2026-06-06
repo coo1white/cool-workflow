@@ -1,0 +1,36 @@
+{
+  "name": "cool-workflow",
+  "version": "0.1.1",
+  "description": "Agent Workflow SDK with TypeScript COL orchestration, dispatch, verification, state commits, scheduling, routines, and MCP.",
+  "author": {
+    "name": "COOLWHITE LLC"
+  },
+  "keywords": [
+    "workflow",
+    "agent-sdk",
+    "dynamic-workflows",
+    "subagents",
+    "orchestration",
+    "agents"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Cool Workflow",
+    "shortDescription": "Agent Workflow SDK.",
+    "longDescription": "Cool Workflow is an independent Agent Workflow SDK. It provides a TypeScript COL runtime, developer workflow contracts, Router/Orchestrator, Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State Commit, scheduled tasks, routine triggers, and an MCP JSON-RPC 2.0 bridge. Developers write reusable workflow apps while an agent host executes tasks and records verified state.",
+    "developerName": "COOLWHITE LLC",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "brandColor": "#2563EB",
+    "defaultPrompt": [
+      "Use Cool Workflow to plan this as phases and agents.",
+      "Run the architecture review workflow with CW.",
+      "Create a reusable CW workflow for this task."
+    ]
+  }
+}

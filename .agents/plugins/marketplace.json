@@ -1,0 +1,20 @@
+{
+  "name": "cool-workflow",
+  "interface": {
+    "displayName": "Cool Workflow"
+  },
+  "plugins": [
+    {
+      "name": "cool-workflow",
+      "source": {
+        "source": "local",
+        "path": "./plugins/cool-workflow"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

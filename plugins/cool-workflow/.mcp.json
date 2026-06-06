@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "cool-workflow": {
+      "command": "node",
+      "args": [
+        "./dist/mcp-server.js"
+      ]
+    }
+  }
+}

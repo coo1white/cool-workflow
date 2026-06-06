@@ -1,0 +1,22 @@
+.DS_Store
+Thumbs.db
+
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+bun.lockb
+
+.cw/
+coverage/
+.nyc_output/
+.turbo/
+.cache/
+
+*.tsbuildinfo
+
+# Keep runtime builds for the distributable Codex plugin.
+!plugins/cool-workflow/dist/
+!plugins/cool-workflow/dist/**/*.js

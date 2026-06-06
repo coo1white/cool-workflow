@@ -1,0 +1,19 @@
+{
+  "name": "cool-workflow",
+  "version": "0.1.1",
+  "description": "TypeScript COL-Architecture workflow orchestration for agent runtimes.",
+  "type": "commonjs",
+  "license": "BSD-2-Clause",
+  "author": {
+    "name": "COOLWHITE LLC"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node dist/cli.js list"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
