@@ -9,6 +9,7 @@ exports.runPipelineStage = runPipelineStage;
 exports.failPipelineStage = failPipelineStage;
 const pipeline_contract_1 = require("./pipeline-contract");
 const state_1 = require("./state");
+const error_feedback_1 = require("./error-feedback");
 const state_node_1 = require("./state-node");
 function createPipelineRunner(defaultOptions = {}) {
     return {
@@ -174,6 +175,21 @@ function failPipelineStage(run, stageId, inputNode, error, options = {}) {
         const [linkedInput, linkedFailure] = (0, state_node_1.linkStateNodes)(inputNode, failedNode);
         (0, state_node_1.appendRunNode)(run, linkedInput);
         failedNode = (0, state_node_1.appendRunNode)(run, linkedFailure);
+        (0, error_feedback_1.recordFeedback)(run, {
+            source: "pipeline-runner",
+            error: failedNode.errors[failedNode.errors.length - 1],
+            nodeId: failedNode.id,
+            stageId,
+            contractId: contract.id,
+            path: structured.path,
+            retryable: structured.retryable,
+            evidence: failedNode.evidence,
+            artifacts: failedNode.artifacts,
+            metadata: {
+                inputNodeId: inputNode.id,
+                preservedFailureNode: true
+            }
+        }, { persist: false });
         if (shouldPersist(options))
             (0, state_1.saveCheckpoint)(run);
     }

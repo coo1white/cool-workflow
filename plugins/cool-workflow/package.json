@@ -1,6 +1,6 @@
 {
   "name": "cool-workflow",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "TypeScript COL-Architecture workflow orchestration for agent runtimes.",
   "type": "commonjs",
   "license": "BSD-2-Clause",
@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "node dist/cli.js list && node test/state-node-smoke.js && node test/pipeline-runner-smoke.js"
+    "test": "node dist/cli.js list && node test/state-node-smoke.js && node test/pipeline-runner-smoke.js && node test/error-feedback-smoke.js"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

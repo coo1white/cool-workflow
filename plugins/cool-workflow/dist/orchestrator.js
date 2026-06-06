@@ -15,6 +15,7 @@ const commit_1 = require("./commit");
 const verifier_1 = require("./verifier");
 const state_1 = require("./state");
 const pipeline_contract_1 = require("./pipeline-contract");
+const error_feedback_1 = require("./error-feedback");
 const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 class CoolWorkflowRunner {
@@ -135,60 +136,79 @@ class CoolWorkflowRunner {
         const task = run.tasks.find((candidate) => candidate.id === taskId);
         if (!task)
             throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
-        (0, verifier_1.assertTaskCanComplete)(run, task);
-        const absoluteResultPath = node_path_1.default.resolve(resultPath);
-        if (!node_fs_1.default.existsSync(absoluteResultPath)) {
-            throw new Error(`Result file does not exist: ${absoluteResultPath}`);
+        try {
+            (0, verifier_1.assertTaskCanComplete)(run, task);
+            const absoluteResultPath = node_path_1.default.resolve(resultPath);
+            if (!node_fs_1.default.existsSync(absoluteResultPath)) {
+                throw new Error(`Result file does not exist: ${absoluteResultPath}`);
+            }
+            const rawResult = node_fs_1.default.readFileSync(absoluteResultPath, "utf8");
+            run.loopStage = "observe";
+            const parsedResult = (0, verifier_1.parseResultEnvelope)(rawResult);
+            run.loopStage = "adjust";
+            (0, verifier_1.validateResultEnvelope)(task, parsedResult);
+            const destination = node_path_1.default.join(run.paths.resultsDir, `${(0, state_1.safeFileName)(taskId)}.md`);
+            node_fs_1.default.copyFileSync(absoluteResultPath, destination);
+            task.status = "completed";
+            task.completedAt = new Date().toISOString();
+            task.resultPath = destination;
+            task.loopStage = "observe";
+            task.result = parsedResult;
+            const resultNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
+                id: `${run.id}:result:${task.id}`,
+                kind: "result",
+                status: "completed",
+                loopStage: "observe",
+                inputs: { taskId: task.id, dispatchId: task.dispatchId },
+                outputs: parsedResult,
+                artifacts: [{ id: "result", kind: "markdown", path: destination }],
+                evidence: parsedResult.evidence.map((entry, index) => ({
+                    id: `result:${index + 1}`,
+                    source: "cw:result",
+                    locator: entry,
+                    summary: entry
+                })),
+                parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
+                contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+                metadata: { taskId: task.id }
+            }));
+            task.resultNodeId = resultNode.id;
+            (0, dispatch_1.updatePhaseStatuses)(run);
+            (0, verifier_1.validateRunGates)(run);
+            const verifierResult = (0, pipeline_runner_1.createPipelineRunner)({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
+                outputNodeId: `${run.id}:verifier:${task.id}`,
+                outputStatus: "verified",
+                loopStage: "adjust",
+                outputs: { accepted: true },
+                artifacts: [{ id: "result", kind: "markdown", path: destination }],
+                evidence: resultNode.evidence.length
+                    ? resultNode.evidence
+                    : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
+                metadata: { taskId: task.id, resultNodeId: resultNode.id }
+            });
+            task.verifierNodeId = verifierResult.outputNodeId;
+            (0, commit_1.commitState)(run, `result:${taskId}`);
+            writeReport(run);
+            (0, state_1.saveCheckpoint)(run);
+            return summarizeRun(run);
         }
-        const rawResult = node_fs_1.default.readFileSync(absoluteResultPath, "utf8");
-        run.loopStage = "observe";
-        const parsedResult = (0, verifier_1.parseResultEnvelope)(rawResult);
-        run.loopStage = "adjust";
-        (0, verifier_1.validateResultEnvelope)(task, parsedResult);
-        const destination = node_path_1.default.join(run.paths.resultsDir, `${(0, state_1.safeFileName)(taskId)}.md`);
-        node_fs_1.default.copyFileSync(absoluteResultPath, destination);
-        task.status = "completed";
-        task.completedAt = new Date().toISOString();
-        task.resultPath = destination;
-        task.loopStage = "observe";
-        task.result = parsedResult;
-        const resultNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
-            id: `${run.id}:result:${task.id}`,
-            kind: "result",
-            status: "completed",
-            loopStage: "observe",
-            inputs: { taskId: task.id, dispatchId: task.dispatchId },
-            outputs: parsedResult,
-            artifacts: [{ id: "result", kind: "markdown", path: destination }],
-            evidence: parsedResult.evidence.map((entry, index) => ({
-                id: `result:${index + 1}`,
-                source: "cw:result",
-                locator: entry,
-                summary: entry
-            })),
-            parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
-            contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
-            metadata: { taskId: task.id }
-        }));
-        task.resultNodeId = resultNode.id;
-        (0, dispatch_1.updatePhaseStatuses)(run);
-        (0, verifier_1.validateRunGates)(run);
-        const verifierResult = (0, pipeline_runner_1.createPipelineRunner)({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
-            outputNodeId: `${run.id}:verifier:${task.id}`,
-            outputStatus: "verified",
-            loopStage: "adjust",
-            outputs: { accepted: true },
-            artifacts: [{ id: "result", kind: "markdown", path: destination }],
-            evidence: resultNode.evidence.length
-                ? resultNode.evidence
-                : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
-            metadata: { taskId: task.id, resultNodeId: resultNode.id }
-        });
-        task.verifierNodeId = verifierResult.outputNodeId;
-        (0, commit_1.commitState)(run, `result:${taskId}`);
-        writeReport(run);
-        (0, state_1.saveCheckpoint)(run);
-        return summarizeRun(run);
+        catch (error) {
+            (0, error_feedback_1.recordFeedback)(run, {
+                source: "verifier",
+                error: error instanceof Error ? error : String(error),
+                taskId: task.id,
+                path: resultPath ? node_path_1.default.resolve(resultPath) : undefined,
+                retryable: false,
+                metadata: {
+                    taskStatus: task.status,
+                    dispatchId: task.dispatchId,
+                    stateNodeId: task.stateNodeId,
+                    resultNodeId: task.resultNodeId
+                }
+            });
+            writeReport(run);
+            throw error;
+        }
     }
     report(runId) {
         const run = this.loadRun(runId);
@@ -220,6 +240,47 @@ class CoolWorkflowRunner {
         writeReport(run);
         (0, state_1.saveCheckpoint)(run);
         return { runId, commit };
+    }
+    collectFeedback(runId) {
+        const run = this.loadRun(runId);
+        const collected = (0, error_feedback_1.collectRunErrors)(run);
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return collected;
+    }
+    listFeedback(runId, options = {}) {
+        return (0, error_feedback_1.listFeedback)(this.loadRun(runId), {
+            status: options.status ? String(options.status) : undefined,
+            severity: options.severity ? String(options.severity) : undefined,
+            classification: options.classification ? String(options.classification) : undefined
+        });
+    }
+    showFeedback(runId, feedbackId) {
+        const feedback = (0, error_feedback_1.getFeedback)(this.loadRun(runId), feedbackId);
+        if (!feedback)
+            throw new Error(`Unknown feedback id for run ${runId}: ${feedbackId}`);
+        return feedback;
+    }
+    createFeedbackTask(runId, feedbackId, options = {}) {
+        const run = this.loadRun(runId);
+        const feedback = (0, error_feedback_1.createCorrectionTask)(run, feedbackId, {
+            verifierCommand: options.verify ? String(options.verify) : undefined,
+            guidance: options.guidance ? String(options.guidance) : undefined
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return feedback;
+    }
+    resolveFeedback(runId, feedbackId, options = {}) {
+        const run = this.loadRun(runId);
+        const feedback = (0, error_feedback_1.resolveFeedback)(run, feedbackId, {
+            status: options.status === "rejected" ? "rejected" : "resolved",
+            nodeId: options.node ? String(options.node) : undefined,
+            message: options.message ? String(options.message) : undefined
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return feedback;
     }
     loadRun(runId) {
         return (0, state_1.loadRunFromCwd)(runId);
@@ -279,7 +340,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -364,6 +425,10 @@ function writeReport(run) {
         "",
         ...renderCommits(run),
         "",
+        "## Error Feedback",
+        "",
+        ...renderFeedback(run),
+        "",
         "## Pending Tasks",
         "",
         ...renderPendingTasks(run),
@@ -415,6 +480,25 @@ function renderCommits(run) {
     if (!run.commits.length)
         return ["No state commits yet."];
     return run.commits.map((commit) => `- ${commit.id}: ${commit.reason} [${commit.loopStage}] (${commit.snapshotPath})`);
+}
+function renderFeedback(run) {
+    const summary = (0, error_feedback_1.summarizeFeedback)(run);
+    if (!summary.total)
+        return ["No feedback records."];
+    return [
+        `- Total: ${summary.total}`,
+        `- By status: ${formatCounts(summary.byStatus)}`,
+        `- By severity: ${formatCounts(summary.bySeverity)}`,
+        `- By classification: ${formatCounts(summary.byClassification)}`,
+        "",
+        ...summary.artifacts.map((artifact) => `- ${artifact}`)
+    ];
+}
+function formatCounts(counts) {
+    const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));
+    if (!entries.length)
+        return "none";
+    return entries.map(([key, value]) => `${key}=${value}`).join(", ");
 }
 function renderPrompt(prompt, inputs) {
     const invariant = Array.isArray(inputs.invariant)

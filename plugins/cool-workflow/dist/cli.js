@@ -94,6 +94,28 @@ async function main() {
                     throw new Error("Usage: cw.js node list|show|graph <run-id> [node-id]");
             }
         }
+        case "feedback": {
+            const [subcommand, runId, feedbackId] = args.positionals;
+            switch (subcommand) {
+                case "list":
+                    printJson(runner.listFeedback(required(runId, "run id"), args.options));
+                    return;
+                case "show":
+                    printJson(runner.showFeedback(required(runId, "run id"), required(feedbackId, "feedback id")));
+                    return;
+                case "collect":
+                    printJson(runner.collectFeedback(required(runId, "run id")));
+                    return;
+                case "task":
+                    printJson(runner.createFeedbackTask(required(runId, "run id"), required(feedbackId, "feedback id"), args.options));
+                    return;
+                case "resolve":
+                    printJson(runner.resolveFeedback(required(runId, "run id"), required(feedbackId, "feedback id"), args.options));
+                    return;
+                default:
+                    throw new Error("Usage: cw.js feedback list|show|collect|task|resolve <run-id> [feedback-id]");
+            }
+        }
         case "loop": {
             printJson(scheduler.create({ ...args.options, kind: "loop" }));
             return;
