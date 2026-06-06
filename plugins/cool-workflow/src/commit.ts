@@ -4,7 +4,8 @@ import { execFileSync } from "node:child_process";
 import { StateCommit, WorkflowRun } from "./types";
 import { writeJson } from "./state";
 import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
-import { appendRunNode, assertNodeSatisfiesContract, createStateNode, transitionStateNode, upsertRunContract } from "./state-node";
+import { appendRunNode, createStateNode, upsertRunContract } from "./state-node";
+import { createPipelineRunner } from "./pipeline-runner";
 
 export function commitState(run: WorkflowRun, reason: string): StateCommit {
   fs.mkdirSync(run.paths.commitsDir, { recursive: true });
@@ -39,24 +40,21 @@ function recordCommitNode(run: WorkflowRun, commit: StateCommit, reason: string)
     : undefined;
 
   if (verifierNode) {
-    assertNodeSatisfiesContract(verifierNode, contract, "commit");
-    const commitNode = transitionStateNode(
-      createStateNode({
-        id: `${run.id}:commit:${commit.id}`,
-        kind: "commit",
-        status: "verified",
+    const commitResult = createPipelineRunner({ contractId: contract.id, persist: false }).runPipelineStage(
+      run,
+      "commit",
+      verifierNode.id,
+      {
+        outputNodeId: `${run.id}:commit:${commit.id}`,
+        outputStatus: "committed",
         loopStage: "checkpoint",
-        inputs: { reason, commitId: commit.id, verifierNodeId: verifierNode.id },
         outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead },
         artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
         evidence: verifierNode.evidence,
-        parents: [verifierNode.id],
-        contractId: DEFAULT_PIPELINE_CONTRACT_ID
-      }),
-      { status: "committed", loopStage: "checkpoint" }
+        metadata: { reason, commitId: commit.id, verifierNodeId: verifierNode.id }
+      }
     );
-    appendRunNode(run, commitNode);
-    return commitNode.id;
+    return commitResult.outputNodeId;
   }
 
   const checkpointNode = createStateNode({

@@ -201,6 +201,64 @@ export interface PipelineContract {
   compatibility: PipelineCompatibility;
 }
 
+export type PipelineRunnerStatus = "advanced" | "failed" | "idle";
+
+export interface PipelineRunnerOptions {
+  contractId?: string;
+  persist?: boolean;
+}
+
+export interface PipelineStageRunOptions extends PipelineRunnerOptions {
+  outputNodeId?: string;
+  outputStatus?: StateNodeStatus;
+  loopStage?: LoopStage;
+  outputs?: Record<string, unknown>;
+  artifacts?: StateArtifact[];
+  evidence?: StateEvidence[];
+  metadata?: Record<string, unknown>;
+  preserveFailureNode?: boolean;
+}
+
+export interface RunnablePipelineStage {
+  runId: string;
+  contractId: string;
+  stageId: string;
+  inputNodeId: string;
+  outputKind: StateNodeKind;
+}
+
+export interface PipelineStageFailure {
+  runId: string;
+  contractId: string;
+  stageId: string;
+  inputNodeId: string;
+  outputNodeId?: string;
+  status: "failed";
+  error: StateNodeError;
+  artifacts?: StateArtifact[];
+  evidence?: StateEvidence[];
+}
+
+export interface PipelineStageRunResult {
+  runId: string;
+  contractId: string;
+  stageId: string;
+  inputNodeId: string;
+  outputNodeId?: string;
+  status: Exclude<PipelineRunnerStatus, "idle">;
+  error?: StateNodeError;
+  artifacts?: StateArtifact[];
+  evidence?: StateEvidence[];
+}
+
+export interface PipelineAdvanceResult {
+  runId: string;
+  contractId: string;
+  status: PipelineRunnerStatus;
+  stages: PipelineStageRunResult[];
+  runnable: RunnablePipelineStage[];
+}
+
 export interface RunTask {
   id: string;
   kind: TaskKind;
