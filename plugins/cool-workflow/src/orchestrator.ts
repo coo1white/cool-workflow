@@ -15,6 +15,15 @@ import { assertTaskCanComplete, parseResultEnvelope, validateResultEnvelope, val
 import { createRunPaths, ensureRunDirs, loadRunFromCwd, safeFileName, saveCheckpoint, writeJson } from "./state";
 import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import {
+  collectRunErrors,
+  createCorrectionTask,
+  getFeedback,
+  listFeedback,
+  recordFeedback,
+  resolveFeedback,
+  summarizeFeedback
+} from "./error-feedback";
+import {
   appendRunNode,
   createStateNode,
   upsertRunContract
@@ -152,65 +161,83 @@ export class CoolWorkflowRunner {
     const run = this.loadRun(runId);
     const task = run.tasks.find((candidate) => candidate.id === taskId);
     if (!task) throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
-    assertTaskCanComplete(run, task);
+    try {
+      assertTaskCanComplete(run, task);
 
-    const absoluteResultPath = path.resolve(resultPath);
-    if (!fs.existsSync(absoluteResultPath)) {
-      throw new Error(`Result file does not exist: ${absoluteResultPath}`);
-    }
-    const rawResult = fs.readFileSync(absoluteResultPath, "utf8");
-    run.loopStage = "observe";
-    const parsedResult = parseResultEnvelope(rawResult);
-    run.loopStage = "adjust";
-    validateResultEnvelope(task, parsedResult);
+      const absoluteResultPath = path.resolve(resultPath);
+      if (!fs.existsSync(absoluteResultPath)) {
+        throw new Error(`Result file does not exist: ${absoluteResultPath}`);
+      }
+      const rawResult = fs.readFileSync(absoluteResultPath, "utf8");
+      run.loopStage = "observe";
+      const parsedResult = parseResultEnvelope(rawResult);
+      run.loopStage = "adjust";
+      validateResultEnvelope(task, parsedResult);
 
-    const destination = path.join(run.paths.resultsDir, `${safeFileName(taskId)}.md`);
-    fs.copyFileSync(absoluteResultPath, destination);
-    task.status = "completed";
-    task.completedAt = new Date().toISOString();
-    task.resultPath = destination;
-    task.loopStage = "observe";
-    task.result = parsedResult;
-    const resultNode = appendRunNode(
-      run,
-      createStateNode({
-        id: `${run.id}:result:${task.id}`,
-        kind: "result",
-        status: "completed",
-        loopStage: "observe",
-        inputs: { taskId: task.id, dispatchId: task.dispatchId },
-        outputs: parsedResult as unknown as Record<string, unknown>,
+      const destination = path.join(run.paths.resultsDir, `${safeFileName(taskId)}.md`);
+      fs.copyFileSync(absoluteResultPath, destination);
+      task.status = "completed";
+      task.completedAt = new Date().toISOString();
+      task.resultPath = destination;
+      task.loopStage = "observe";
+      task.result = parsedResult;
+      const resultNode = appendRunNode(
+        run,
+        createStateNode({
+          id: `${run.id}:result:${task.id}`,
+          kind: "result",
+          status: "completed",
+          loopStage: "observe",
+          inputs: { taskId: task.id, dispatchId: task.dispatchId },
+          outputs: parsedResult as unknown as Record<string, unknown>,
+          artifacts: [{ id: "result", kind: "markdown", path: destination }],
+          evidence: parsedResult.evidence.map((entry, index) => ({
+            id: `result:${index + 1}`,
+            source: "cw:result",
+            locator: entry,
+            summary: entry
+          })),
+          parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
+          contractId: DEFAULT_PIPELINE_CONTRACT_ID,
+          metadata: { taskId: task.id }
+        })
+      );
+      task.resultNodeId = resultNode.id;
+      updatePhaseStatuses(run);
+      validateRunGates(run);
+      const verifierResult = createPipelineRunner({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
+        outputNodeId: `${run.id}:verifier:${task.id}`,
+        outputStatus: "verified",
+        loopStage: "adjust",
+        outputs: { accepted: true },
         artifacts: [{ id: "result", kind: "markdown", path: destination }],
-        evidence: parsedResult.evidence.map((entry, index) => ({
-          id: `result:${index + 1}`,
-          source: "cw:result",
-          locator: entry,
-          summary: entry
-        })),
-        parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
-        contractId: DEFAULT_PIPELINE_CONTRACT_ID,
-        metadata: { taskId: task.id }
-      })
-    );
-    task.resultNodeId = resultNode.id;
-    updatePhaseStatuses(run);
-    validateRunGates(run);
-    const verifierResult = createPipelineRunner({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
-      outputNodeId: `${run.id}:verifier:${task.id}`,
-      outputStatus: "verified",
-      loopStage: "adjust",
-      outputs: { accepted: true },
-      artifacts: [{ id: "result", kind: "markdown", path: destination }],
-      evidence: resultNode.evidence.length
-        ? resultNode.evidence
-        : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
-      metadata: { taskId: task.id, resultNodeId: resultNode.id }
-    });
-    task.verifierNodeId = verifierResult.outputNodeId;
-    commitState(run, `result:${taskId}`);
-    writeReport(run);
-    saveCheckpoint(run);
-    return summarizeRun(run);
+        evidence: resultNode.evidence.length
+          ? resultNode.evidence
+          : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
+        metadata: { taskId: task.id, resultNodeId: resultNode.id }
+      });
+      task.verifierNodeId = verifierResult.outputNodeId;
+      commitState(run, `result:${taskId}`);
+      writeReport(run);
+      saveCheckpoint(run);
+      return summarizeRun(run);
+    } catch (error) {
+      recordFeedback(run, {
+        source: "verifier",
+        error: error instanceof Error ? error : String(error),
+        taskId: task.id,
+        path: resultPath ? path.resolve(resultPath) : undefined,
+        retryable: false,
+        metadata: {
+          taskStatus: task.status,
+          dispatchId: task.dispatchId,
+          stateNodeId: task.stateNodeId,
+          resultNodeId: task.resultNodeId
+        }
+      });
+      writeReport(run);
+      throw error;
+    }
   }
 
   report(runId: string): { path: string } {
@@ -248,6 +275,51 @@ export class CoolWorkflowRunner {
     writeReport(run);
     saveCheckpoint(run);
     return { runId, commit };
+  }
+
+  collectFeedback(runId: string): ReturnType<typeof collectRunErrors> {
+    const run = this.loadRun(runId);
+    const collected = collectRunErrors(run);
+    writeReport(run);
+    saveCheckpoint(run);
+    return collected;
+  }
+
+  listFeedback(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listFeedback> {
+    return listFeedback(this.loadRun(runId), {
+      status: options.status ? String(options.status) as never : undefined,
+      severity: options.severity ? String(options.severity) as never : undefined,
+      classification: options.classification ? String(options.classification) as never : undefined
+    });
+  }
+
+  showFeedback(runId: string, feedbackId: string): NonNullable<ReturnType<typeof getFeedback>> {
+    const feedback = getFeedback(this.loadRun(runId), feedbackId);
+    if (!feedback) throw new Error(`Unknown feedback id for run ${runId}: ${feedbackId}`);
+    return feedback;
+  }
+
+  createFeedbackTask(runId: string, feedbackId: string, options: Record<string, unknown> = {}): ReturnType<typeof createCorrectionTask> {
+    const run = this.loadRun(runId);
+    const feedback = createCorrectionTask(run, feedbackId, {
+      verifierCommand: options.verify ? String(options.verify) : undefined,
+      guidance: options.guidance ? String(options.guidance) : undefined
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return feedback;
+  }
+
+  resolveFeedback(runId: string, feedbackId: string, options: Record<string, unknown> = {}): ReturnType<typeof resolveFeedback> {
+    const run = this.loadRun(runId);
+    const feedback = resolveFeedback(run, feedbackId, {
+      status: options.status === "rejected" ? "rejected" : "resolved",
+      nodeId: options.node ? String(options.node) : undefined,
+      message: options.message ? String(options.message) : undefined
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return feedback;
   }
 
   loadRun(runId: string): WorkflowRun {
@@ -318,7 +390,7 @@ export function parseArgv(argv: string[]): {
 }
 
 export function formatHelp(): string {
-  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 
 function appendOption(options: Record<string, unknown>, key: string, value: string | boolean): void {
@@ -406,6 +478,10 @@ function writeReport(run: WorkflowRun): string {
     "",
     ...renderCommits(run),
     "",
+    "## Error Feedback",
+    "",
+    ...renderFeedback(run),
+    "",
     "## Pending Tasks",
     "",
     ...renderPendingTasks(run),
@@ -458,6 +534,25 @@ function renderResults(run: WorkflowRun): string[] {
 function renderCommits(run: WorkflowRun): string[] {
   if (!run.commits.length) return ["No state commits yet."];
   return run.commits.map((commit) => `- ${commit.id}: ${commit.reason} [${commit.loopStage}] (${commit.snapshotPath})`);
+}
+
+function renderFeedback(run: WorkflowRun): string[] {
+  const summary = summarizeFeedback(run);
+  if (!summary.total) return ["No feedback records."];
+  return [
+    `- Total: ${summary.total}`,
+    `- By status: ${formatCounts(summary.byStatus)}`,
+    `- By severity: ${formatCounts(summary.bySeverity)}`,
+    `- By classification: ${formatCounts(summary.byClassification)}`,
+    "",
+    ...summary.artifacts.map((artifact) => `- ${artifact}`)
+  ];
+}
+
+function formatCounts(counts: Record<string, number>): string {
+  const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));
+  if (!entries.length) return "none";
+  return entries.map(([key, value]) => `${key}=${value}`).join(", ");
 }
 
 function renderPrompt(prompt: string, inputs: Record<string, unknown>): string {

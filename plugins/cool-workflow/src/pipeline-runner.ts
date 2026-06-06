@@ -13,6 +13,7 @@ import {
 } from "./types";
 import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import { saveCheckpoint } from "./state";
+import { recordFeedback } from "./error-feedback";
 import {
   PipelineContractError,
   appendRunNode,
@@ -208,6 +209,21 @@ export function failPipelineStage(
     const [linkedInput, linkedFailure] = linkStateNodes(inputNode, failedNode);
     appendRunNode(run, linkedInput);
     failedNode = appendRunNode(run, linkedFailure);
+    recordFeedback(run, {
+      source: "pipeline-runner",
+      error: failedNode.errors[failedNode.errors.length - 1],
+      nodeId: failedNode.id,
+      stageId,
+      contractId: contract.id,
+      path: structured.path,
+      retryable: structured.retryable,
+      evidence: failedNode.evidence,
+      artifacts: failedNode.artifacts,
+      metadata: {
+        inputNodeId: inputNode.id,
+        preservedFailureNode: true
+      }
+    }, { persist: false });
     if (shouldPersist(options)) saveCheckpoint(run);
   }
   return {

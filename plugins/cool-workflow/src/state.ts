@@ -12,7 +12,8 @@ export function createRunPaths(runDir: string): RunPaths {
     dispatchesDir: path.join(runDir, "dispatches"),
     artifactsDir: path.join(runDir, "artifacts"),
     commitsDir: path.join(runDir, "commits"),
-    stateNodesDir: path.join(runDir, "nodes")
+    stateNodesDir: path.join(runDir, "nodes"),
+    feedbackDir: path.join(runDir, "feedback")
   };
 }
 
@@ -24,7 +25,8 @@ export function ensureRunDirs(paths: RunPaths): void {
     paths.dispatchesDir,
     paths.artifactsDir,
     paths.commitsDir,
-    paths.stateNodesDir
+    paths.stateNodesDir,
+    paths.feedbackDir
   ]) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -34,8 +36,10 @@ export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun 
   if (!runId) throw new Error("Missing run id");
   const run = readJson(path.join(cwd, ".cw", "runs", runId, "state.json")) as WorkflowRun;
   run.paths.stateNodesDir = run.paths.stateNodesDir || path.join(run.paths.runDir, "nodes");
+  run.paths.feedbackDir = run.paths.feedbackDir || path.join(run.paths.runDir, "feedback");
   run.nodes = run.nodes || [];
   run.contracts = run.contracts || [];
+  run.feedback = run.feedback || [];
   return run;
 }
 

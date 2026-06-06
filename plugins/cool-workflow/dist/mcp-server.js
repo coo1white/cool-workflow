@@ -37,7 +37,7 @@ function handleLine(line) {
             sendResult(message.id, {
                 protocolVersion: "2024-11-05",
                 capabilities: { tools: {} },
-                serverInfo: { name: "cool-workflow", version: "0.1.1" }
+                serverInfo: { name: "cool-workflow", version: "0.1.4" }
             });
             return;
         }
@@ -81,6 +81,16 @@ function callTool(name, args) {
                 return runner.commit(String(args.runId || ""), String(args.reason || "manual"));
             case "cw_report":
                 return runner.report(String(args.runId || ""));
+            case "cw_feedback_list":
+                return runner.listFeedback(String(args.runId || ""), args);
+            case "cw_feedback_show":
+                return runner.showFeedback(String(args.runId || ""), String(args.feedbackId || ""));
+            case "cw_feedback_collect":
+                return runner.collectFeedback(String(args.runId || ""));
+            case "cw_feedback_task":
+                return runner.createFeedbackTask(String(args.runId || ""), String(args.feedbackId || ""), args);
+            case "cw_feedback_resolve":
+                return runner.resolveFeedback(String(args.runId || ""), String(args.feedbackId || ""), args);
             case "cw_schedule_create":
                 return scheduler.create(args);
             case "cw_schedule_list":
@@ -148,6 +158,33 @@ function toolDefinitions() {
         tool("cw_report", "Render a run report.", {
             runId: stringSchema("Run id"),
             cwd: stringSchema("Run workspace")
+        }),
+        tool("cw_feedback_list", "List run feedback records.", {
+            runId: stringSchema("Run id"),
+            cwd: stringSchema("Run workspace"),
+            status: stringSchema("Optional status filter")
+        }),
+        tool("cw_feedback_show", "Show a run feedback record.", {
+            runId: stringSchema("Run id"),
+            feedbackId: stringSchema("Feedback id"),
+            cwd: stringSchema("Run workspace")
+        }),
+        tool("cw_feedback_collect", "Collect feedback from failed state nodes.", {
+            runId: stringSchema("Run id"),
+            cwd: stringSchema("Run workspace")
+        }),
+        tool("cw_feedback_task", "Create a correction task for a feedback record.", {
+            runId: stringSchema("Run id"),
+            feedbackId: stringSchema("Feedback id"),
+            cwd: stringSchema("Run workspace"),
+            verify: stringSchema("Expected verification command")
+        }),
+        tool("cw_feedback_resolve", "Resolve or reject a feedback record.", {
+            runId: stringSchema("Run id"),
+            feedbackId: stringSchema("Feedback id"),
+            cwd: stringSchema("Run workspace"),
+            node: stringSchema("Verified or committed node id"),
+            status: stringSchema("resolved or rejected")
         }),
         tool("cw_schedule_create", "Create a scheduled CW task.", {
             cwd: stringSchema("Workspace"),
