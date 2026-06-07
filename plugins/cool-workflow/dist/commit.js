@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.CommitGateError = void 0;
 exports.commitState = commitState;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -11,21 +12,50 @@ const state_1 = require("./state");
 const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
-function commitState(run, reason) {
+const error_feedback_1 = require("./error-feedback");
+class CommitGateError extends Error {
+    structured;
+    feedbackId;
+    stateNodeId;
+    constructor(error, options = {}) {
+        super(error.message);
+        this.name = "CommitGateError";
+        this.structured = error;
+        this.feedbackId = options.feedbackId;
+        this.stateNodeId = options.stateNodeId;
+    }
+}
+exports.CommitGateError = CommitGateError;
+function commitState(run, input) {
+    const options = normalizeCommitOptions(input);
+    const gate = resolveCommitGate(run, options);
+    if (gate.errors.length) {
+        throw recordCommitGateFailure(run, options, gate);
+    }
     node_fs_1.default.mkdirSync(run.paths.commitsDir, { recursive: true });
     const id = createCommitId();
     const snapshotPath = node_path_1.default.join(run.paths.commitsDir, `${id}.json`);
     const commit = {
         id,
         createdAt: new Date().toISOString(),
-        reason,
+        reason: options.reason,
         loopStage: run.loopStage,
         statePath: run.paths.state,
         reportPath: run.paths.report,
         snapshotPath,
-        gitHead: readGitHead(run.cwd)
+        gitHead: readGitHead(run.cwd),
+        verifierGated: gate.verifierGated,
+        checkpoint: !gate.verifierGated,
+        verifierNodeId: gate.verifierNodeId,
+        candidateId: gate.candidateId,
+        selectionId: gate.selectionId,
+        evidence: gate.evidence,
+        metadata: {
+            ...(options.metadata || {}),
+            ...gate.metadata
+        }
     };
-    const commitNodeId = recordCommitNode(run, commit, reason);
+    const commitNodeId = recordCommitNode(run, commit, options, gate);
     if (commitNodeId)
         commit.stateNodeId = commitNodeId;
     (0, state_1.writeJson)(snapshotPath, {
@@ -35,23 +65,193 @@ function commitState(run, reason) {
     run.commits.push(commit);
     return commit;
 }
-function recordCommitNode(run, commit, reason) {
-    const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
-    const taskId = reason.startsWith("result:") ? reason.slice("result:".length) : "";
-    const task = taskId ? run.tasks.find((candidate) => candidate.id === taskId) : undefined;
-    const verifierNode = task?.verifierNodeId
-        ? run.nodes?.find((candidate) => candidate.id === task.verifierNodeId)
-        : undefined;
+function normalizeCommitOptions(input) {
+    if (typeof input === "string")
+        return { reason: input || "manual", source: "runtime" };
+    return {
+        ...input,
+        reason: input.reason || "manual",
+        source: input.source || "runtime"
+    };
+}
+function resolveCommitGate(run, options) {
+    const metadata = {
+        verifierGated: false,
+        checkpoint: true
+    };
+    const errors = [];
+    const taskVerifierNodeId = taskVerifierFromReason(run, options.reason);
+    const explicitGate = Boolean(options.verifierNodeId || options.candidateId || options.selectionId || options.verifierGated);
+    const verifierGated = explicitGate || Boolean(taskVerifierNodeId);
+    let verifierNodeId = options.verifierNodeId || taskVerifierNodeId;
+    let candidateId = options.candidateId;
+    let selectionId = options.selectionId;
+    let selectionNodeId;
+    if (!verifierGated) {
+        return {
+            verifierGated: false,
+            evidence: [],
+            errors,
+            metadata
+        };
+    }
+    metadata.verifierGated = true;
+    metadata.checkpoint = false;
+    if (selectionId) {
+        const selection = findSelection(run, selectionId);
+        if (!selection) {
+            errors.push(error("commit-selection-not-found", `Commit selection not found: ${selectionId}`, { details: { selectionId } }));
+        }
+        else {
+            candidateId = candidateId || selection.candidateId;
+            verifierNodeId = resolveLinkedVerifier(verifierNodeId, selection.verifierNodeId, errors, "selection", selection.id);
+            const selectionNode = findSelectionNode(run, selection.id);
+            selectionNodeId = selectionNode?.id;
+            if (!selectionNode) {
+                errors.push(error("commit-selection-node-missing", `Selection ${selection.id} has no state node`, {
+                    details: { selectionId: selection.id, candidateId: selection.candidateId }
+                }));
+            }
+            else if (selectionNode.kind !== "candidate" || selectionNode.status !== "verified") {
+                errors.push(error("commit-selection-not-verified", `Selection ${selection.id} is not a verified candidate selection`, {
+                    nodeId: selectionNode.id,
+                    details: { selectionId: selection.id, status: selectionNode.status, kind: selectionNode.kind }
+                }));
+            }
+            if (!selection.scoreId) {
+                errors.push(error("commit-candidate-unscored", `Selection ${selection.id} has no score evidence`, {
+                    details: { selectionId: selection.id, candidateId: selection.candidateId }
+                }));
+            }
+        }
+    }
+    if (candidateId) {
+        const candidate = findCandidate(run, candidateId);
+        if (!candidate) {
+            errors.push(error("commit-candidate-not-found", `Commit candidate not found: ${candidateId}`, { details: { candidateId } }));
+        }
+        else {
+            if (candidate.status === "rejected" || candidate.status === "failed") {
+                errors.push(error("commit-candidate-not-selectable", `Candidate ${candidateId} is ${candidate.status}`, {
+                    details: { candidateId, status: candidate.status }
+                }));
+            }
+            if (!candidate.scores.length) {
+                errors.push(error("commit-candidate-unscored", `Candidate ${candidateId} has no score evidence`, {
+                    details: { candidateId }
+                }));
+            }
+            if (candidate.status !== "verified") {
+                errors.push(error("commit-candidate-not-verified", `Candidate ${candidateId} is not verifier-gated`, {
+                    details: { candidateId, status: candidate.status }
+                }));
+            }
+            const selection = selectionId ? findSelection(run, selectionId) : latestSelectionForCandidate(run, candidateId);
+            if (!selection) {
+                errors.push(error("commit-candidate-selection-missing", `Candidate ${candidateId} has no verified selection`, {
+                    details: { candidateId }
+                }));
+            }
+            else {
+                selectionId = selection.id;
+                verifierNodeId = resolveLinkedVerifier(verifierNodeId, selection.verifierNodeId || candidate.verifierNodeId, errors, "candidate", candidateId);
+                const selectionNode = findSelectionNode(run, selection.id);
+                selectionNodeId = selectionNode?.id;
+                if (!selectionNode || selectionNode.status !== "verified") {
+                    errors.push(error("commit-selection-not-verified", `Candidate ${candidateId} selection ${selection.id} is not verified`, {
+                        nodeId: selectionNode?.id,
+                        details: { candidateId, selectionId: selection.id, status: selectionNode?.status || "missing" }
+                    }));
+                }
+                if (!selection.scoreId) {
+                    errors.push(error("commit-candidate-unscored", `Candidate ${candidateId} selection ${selection.id} has no score evidence`, {
+                        details: { candidateId, selectionId: selection.id }
+                    }));
+                }
+            }
+        }
+    }
+    if (!verifierNodeId) {
+        errors.push(error("commit-verifier-required", "Verifier-gated commit requires --verifier, --candidate, or --selection", {
+            details: {
+                hint: "Use --allow-unverified-checkpoint to write a non-gated checkpoint."
+            }
+        }));
+    }
+    const verifierNode = verifierNodeId ? findNode(run, verifierNodeId) : undefined;
+    if (verifierNodeId && !verifierNode) {
+        errors.push(error("commit-verifier-not-found", `Verifier node not found: ${verifierNodeId}`, { details: { verifierNodeId } }));
+    }
     if (verifierNode) {
+        if (verifierNode.kind !== "verifier") {
+            errors.push(error("commit-verifier-wrong-kind", `Node ${verifierNode.id} is not a verifier node`, {
+                nodeId: verifierNode.id,
+                details: { verifierNodeId: verifierNode.id, kind: verifierNode.kind }
+            }));
+        }
+        if (verifierNode.status !== "verified") {
+            errors.push(error("commit-verifier-not-verified", `Verifier node ${verifierNode.id} is ${verifierNode.status}`, {
+                nodeId: verifierNode.id,
+                details: { verifierNodeId: verifierNode.id, status: verifierNode.status }
+            }));
+        }
+        if (!verifierNode.evidence.length) {
+            errors.push(error("commit-verifier-missing-evidence", `Verifier node ${verifierNode.id} has no evidence`, {
+                nodeId: verifierNode.id,
+                details: { verifierNodeId: verifierNode.id }
+            }));
+        }
+    }
+    return {
+        verifierGated: true,
+        verifierNodeId,
+        candidateId,
+        selectionId,
+        selectionNodeId,
+        evidence: verifierNode?.evidence || [],
+        errors,
+        metadata: {
+            ...metadata,
+            verifierNodeId,
+            candidateId,
+            selectionId,
+            selectionNodeId
+        }
+    };
+}
+function recordCommitNode(run, commit, options, gate) {
+    const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
+    const verifierNode = gate.verifierNodeId ? findNode(run, gate.verifierNodeId) : undefined;
+    if (commit.verifierGated && verifierNode) {
         const commitResult = (0, pipeline_runner_1.createPipelineRunner)({ contractId: contract.id, persist: false }).runPipelineStage(run, "commit", verifierNode.id, {
             outputNodeId: `${run.id}:commit:${commit.id}`,
             outputStatus: "committed",
             loopStage: "checkpoint",
-            outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead },
+            outputs: {
+                snapshotPath: commit.snapshotPath,
+                gitHead: commit.gitHead,
+                verifierGated: true,
+                verifierNodeId: verifierNode.id,
+                candidateId: gate.candidateId,
+                selectionId: gate.selectionId
+            },
             artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
             evidence: verifierNode.evidence,
-            metadata: { reason, commitId: commit.id, verifierNodeId: verifierNode.id }
+            metadata: {
+                ...(options.metadata || {}),
+                reason: options.reason,
+                commitId: commit.id,
+                verifierGated: true,
+                checkpoint: false,
+                verifierNodeId: verifierNode.id,
+                candidateId: gate.candidateId,
+                selectionId: gate.selectionId,
+                selectionNodeId: gate.selectionNodeId
+            }
         });
+        if (gate.selectionNodeId && commitResult.outputNodeId) {
+            linkAdditionalParent(run, gate.selectionNodeId, commitResult.outputNodeId);
+        }
         return commitResult.outputNodeId;
     }
     const checkpointNode = (0, state_node_1.createStateNode)({
@@ -59,18 +259,119 @@ function recordCommitNode(run, commit, reason) {
         kind: "commit",
         status: "completed",
         loopStage: "checkpoint",
-        inputs: { reason, commitId: commit.id },
-        outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead },
+        inputs: { reason: options.reason, commitId: commit.id },
+        outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead, verifierGated: false, checkpoint: true },
         artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
         contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
-        metadata: { verifierGated: false }
+        metadata: {
+            ...(options.metadata || {}),
+            verifierGated: false,
+            checkpoint: true
+        }
     });
     (0, state_node_1.appendRunNode)(run, checkpointNode);
     return checkpointNode.id;
 }
+function recordCommitGateFailure(run, options, gate) {
+    const first = gate.errors[0] || error("commit-gate-blocked", "Verifier-gated commit blocked");
+    const node = (0, state_node_1.recordNodeError)((0, state_node_1.createStateNode)({
+        id: `${run.id}:commit-gate-failed:${createCommitId()}`,
+        kind: "error",
+        status: "pending",
+        loopStage: "checkpoint",
+        inputs: {
+            reason: options.reason,
+            verifierNodeId: gate.verifierNodeId,
+            candidateId: gate.candidateId,
+            selectionId: gate.selectionId
+        },
+        evidence: gate.evidence,
+        contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+        metadata: {
+            ...(options.metadata || {}),
+            verifierGated: true,
+            checkpoint: false,
+            failureCount: gate.errors.length,
+            failures: gate.errors.map((entry) => ({ code: entry.code, message: entry.message, nodeId: entry.nodeId })),
+            gate: gate.metadata
+        }
+    }), first);
+    const persisted = (0, state_node_1.appendRunNode)(run, node);
+    for (const parentId of [gate.selectionNodeId, gate.verifierNodeId].filter(Boolean)) {
+        linkAdditionalParent(run, parentId, persisted.id);
+    }
+    const feedback = (0, error_feedback_1.recordFeedback)(run, {
+        source: options.source === "cli" ? "cli" : "verifier",
+        error: first,
+        nodeId: persisted.id,
+        stageId: "commit",
+        contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+        retryable: false,
+        evidence: gate.evidence,
+        artifacts: [],
+        metadata: {
+            reason: options.reason,
+            verifierNodeId: gate.verifierNodeId,
+            candidateId: gate.candidateId,
+            selectionId: gate.selectionId,
+            failures: gate.errors.map((entry) => ({ code: entry.code, message: entry.message, nodeId: entry.nodeId }))
+        }
+    }, { persist: false });
+    return new CommitGateError(first, { feedbackId: feedback.id, stateNodeId: persisted.id });
+}
+function linkAdditionalParent(run, parentId, childId) {
+    const parent = findNode(run, parentId);
+    const child = findNode(run, childId);
+    if (!parent || !child)
+        return;
+    const [linkedParent, linkedChild] = (0, state_node_1.linkStateNodes)(parent, child);
+    (0, state_node_1.appendRunNode)(run, linkedParent);
+    (0, state_node_1.appendRunNode)(run, linkedChild);
+}
+function taskVerifierFromReason(run, reason) {
+    const taskId = reason.startsWith("result:") ? reason.slice("result:".length) : "";
+    if (!taskId)
+        return undefined;
+    return run.tasks.find((task) => task.id === taskId)?.verifierNodeId;
+}
+function resolveLinkedVerifier(requested, linked, errors, ownerKind, ownerId) {
+    if (requested && linked && requested !== linked) {
+        errors.push(error("commit-verifier-linkage-mismatch", `Requested verifier ${requested} is not linked to ${ownerKind} ${ownerId}`, {
+            details: { requestedVerifierNodeId: requested, linkedVerifierNodeId: linked, ownerKind, ownerId }
+        }));
+        return requested;
+    }
+    return requested || linked;
+}
+function latestSelectionForCandidate(run, candidateId) {
+    return [...(run.candidateSelections || [])]
+        .filter((selection) => selection.candidateId === candidateId)
+        .sort((left, right) => right.selectedAt.localeCompare(left.selectedAt))[0];
+}
+function findSelection(run, selectionId) {
+    return (run.candidateSelections || []).find((selection) => selection.id === selectionId);
+}
+function findSelectionNode(run, selectionId) {
+    return (run.nodes || []).find((node) => node.kind === "candidate" && node.metadata?.selectionId === selectionId);
+}
+function findCandidate(run, candidateId) {
+    return (run.candidates || []).find((candidate) => candidate.id === candidateId);
+}
+function findNode(run, nodeId) {
+    return (run.nodes || []).find((node) => node.id === nodeId);
+}
+function error(code, message, options = {}) {
+    return {
+        code,
+        message,
+        at: new Date().toISOString(),
+        retryable: false,
+        ...options
+    };
+}
 function createCommitId() {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `state-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+    return `state-${stamp}-${(0, state_1.safeFileName)(Math.random().toString(36).slice(2, 8))}`;
 }
 function readGitHead(cwd) {
     try {

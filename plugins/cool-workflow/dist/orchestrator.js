@@ -390,13 +390,31 @@ class CoolWorkflowRunner {
             children: node.children
         }));
     }
-    commit(runId, reason) {
+    commit(runId, input = {}) {
         const run = this.loadRun(runId);
         run.loopStage = "checkpoint";
-        const commit = (0, commit_1.commitState)(run, reason || "manual");
-        writeReport(run);
-        (0, state_1.saveCheckpoint)(run);
-        return { runId, commit };
+        const options = typeof input === "string" ? { reason: input } : input;
+        const allowCheckpoint = Boolean(options.allowUnverifiedCheckpoint || options["allow-unverified-checkpoint"]);
+        const hasGateOption = Boolean(options.verifier || options.verifierNode || options["verifier-node"] || options.candidate || options.selection);
+        try {
+            const commit = (0, commit_1.commitState)(run, {
+                reason: stringOption(options.reason) || "manual",
+                verifierNodeId: stringOption(options.verifier) || stringOption(options.verifierNode) || stringOption(options["verifier-node"]),
+                candidateId: stringOption(options.candidate),
+                selectionId: stringOption(options.selection),
+                verifierGated: hasGateOption || !allowCheckpoint,
+                allowUnverifiedCheckpoint: allowCheckpoint,
+                source: "cli"
+            });
+            writeReport(run);
+            (0, state_1.saveCheckpoint)(run);
+            return { runId, commit };
+        }
+        catch (error) {
+            writeReport(run);
+            (0, state_1.saveCheckpoint)(run);
+            throw error;
+        }
     }
     collectFeedback(runId) {
         const run = this.loadRun(runId);
@@ -497,7 +515,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -651,7 +669,11 @@ function renderResults(run) {
 function renderCommits(run) {
     if (!run.commits.length)
         return ["No state commits yet."];
-    return run.commits.map((commit) => `- ${commit.id}: ${commit.reason} [${commit.loopStage}] (${commit.snapshotPath})`);
+    return run.commits.map((commit) => {
+        const kind = commit.verifierGated ? "verifier-gated commit" : "checkpoint";
+        const gate = commit.verifierGated ? formatCommitGate(commit) : "verifierGated=false";
+        return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${commit.snapshotPath})`;
+    });
 }
 function renderFeedback(run) {
     const summary = (0, error_feedback_1.summarizeFeedback)(run);
@@ -694,6 +716,16 @@ function renderCandidates(summary) {
         `- Index: ${summary.indexPath}`,
         `- Ranking: ${summary.rankingPath}`
     ];
+}
+function formatCommitGate(commit) {
+    return [
+        `verifier=${commit.verifierNodeId || "unknown"}`,
+        commit.candidateId ? `candidate=${commit.candidateId}` : "",
+        commit.selectionId ? `selection=${commit.selectionId}` : "",
+        `evidence=${commit.evidence?.length || 0}`
+    ]
+        .filter(Boolean)
+        .join(", ");
 }
 function formatCounts(counts) {
     const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));

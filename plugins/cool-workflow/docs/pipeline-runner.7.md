@@ -76,7 +76,9 @@ Unknown run ids, unknown contract ids, unknown node ids, unknown stage ids, and
 corrupt state remain hard errors because the caller cannot proceed safely.
 
 Commit stages are verifier-gated. The default contract requires a verified
-verifier node with evidence before a commit node can be created.
+verifier node with evidence before a `committed` commit node can be created.
+Non-gated snapshots are written as `completed` checkpoint nodes outside the
+commit stage.
 
 ## FILES
 

@@ -38,6 +38,7 @@ cool-workflow
   docs/agent-sdk.md
   docs/unix-principles.md
   docs/candidate-scoring.7.md
+  docs/verifier-gated-commit.7.md
 ```
 
 ## Commands
@@ -92,8 +93,13 @@ node scripts/cw.js candidate select <run-id> <candidate-id> --reason "verified w
 Create a deterministic state commit:
 
 ```bash
-node scripts/cw.js commit <run-id> --reason "manual checkpoint"
+node scripts/cw.js commit <run-id> --verifier <node-id> --reason "verified result"
+node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified winner"
+node scripts/cw.js commit <run-id> --allow-unverified-checkpoint --reason "manual checkpoint"
 ```
+
+The first two commands create verifier-gated committed state. The last command
+creates an explicit non-gated checkpoint.
 
 Render a report:
 
@@ -114,6 +120,8 @@ npm run build
 See [docs/agent-sdk.md](docs/agent-sdk.md) for the developer contract.
 See [docs/candidate-scoring.7.md](docs/candidate-scoring.7.md) for the
 candidate scoring file contract.
+See [docs/verifier-gated-commit.7.md](docs/verifier-gated-commit.7.md) for the
+commit gate contract.
 
 ## License
 

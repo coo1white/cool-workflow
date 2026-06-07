@@ -19,7 +19,8 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Subagent dispatch manifests for fan-out work.
 - Deterministic harness prompts for repeatable agent tasks.
 - Adversarial verifier with evidence gates.
-- Git/state commit snapshots for every major transition.
+- Git/state checkpoint snapshots for major transitions, plus verifier-gated
+  committed state.
 - MCP JSON-RPC 2.0 server for tool-based integrations.
 - Scheduled tasks for loop, cron, and reminder-style workflow continuations.
 - Local scheduler daemon for due scanning.
@@ -33,7 +34,8 @@ The runtime owns the platform contract:
 
 ```text
 workflow definition -> input validation -> task generation -> dispatch
--> evidence-backed result recording -> verifier gates -> checkpoint/report
+-> evidence-backed result recording -> verifier gates
+-> verifier-gated commit or explicit checkpoint -> report
 ```
 
 Developers write workflow apps against that contract. A workflow app declares
@@ -52,6 +54,8 @@ Verifier-gated commits.
 ```
 
 See [unix-principles.md](plugins/cool-workflow/docs/unix-principles.md).
+See [verifier-gated-commit.7.md](plugins/cool-workflow/docs/verifier-gated-commit.7.md)
+for the commit/checkpoint contract.
 
 ## Language Contract
 
