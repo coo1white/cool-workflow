@@ -26,6 +26,7 @@ import {
 } from "./multi-agent";
 import { applyTopology, summarizeTopologies } from "./topology";
 import { summarizeOperatorCandidates, summarizeOperatorCommits, summarizeOperatorFeedback, summarizeOperatorRun, summarizeOperatorWorkers } from "./operator-ux";
+import { summarizeMultiAgentOperator } from "./multi-agent-operator-ux";
 import { rankCandidates, registerCandidate, scoreCandidate, selectCandidate } from "./candidate-scoring";
 import { summarizeTrustAudit } from "./trust-audit";
 
@@ -403,6 +404,7 @@ function envelope(
   const commits = summarizeOperatorCommits(run);
   const trust = summarizeTrustAudit(run);
   const operator = summarizeOperatorRun(run);
+  const multiAgentOperator = summarizeMultiAgentOperator(run);
   const active = activeTopologies(run);
   const blockedReasons = unique([...operator.blockedReasons, ...(options.extraBlockedReasons || [])]);
   const state = blockedReasons.length ? "blocked" : classifyHostState(run);
@@ -431,7 +433,7 @@ function envelope(
       workerManifestPaths: workers.manifestPaths,
       workerResultPaths: workers.resultPaths
     },
-    summaries: { topologies, multiAgent, blackboard, workers, candidates, feedback, commits, trust },
+    summaries: { topologies, multiAgent, multiAgentOperator, blackboard, workers, candidates, feedback, commits, trust },
     data: options.data
   };
 }

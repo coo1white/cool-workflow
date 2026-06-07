@@ -93,7 +93,13 @@ function callTool(name, args) {
             case "cw_multi_agent_summary":
                 return runner.multiAgentSummary(String(args.runId || ""));
             case "cw_multi_agent_graph":
-                return runner.multiAgentGraph(String(args.runId || ""));
+                return runner.multiAgentOperatorGraph(String(args.runId || ""));
+            case "cw_multi_agent_dependencies":
+                return runner.multiAgentDependencies(String(args.runId || ""));
+            case "cw_multi_agent_failures":
+                return runner.multiAgentFailures(String(args.runId || ""));
+            case "cw_multi_agent_evidence":
+                return runner.multiAgentEvidence(String(args.runId || ""));
             case "cw_multi_agent_run":
                 return runner.hostMultiAgentRun(optionalString(args.runId), args);
             case "cw_multi_agent_status":
@@ -391,7 +397,10 @@ function toolDefinitions() {
         tool("cw_feedback_summary", "Read the structured feedback summary for a run.", runIdSchema()),
         tool("cw_commit_summary", "Read the structured commit summary for a run.", runIdSchema()),
         tool("cw_multi_agent_summary", "Read the structured multi-agent runtime summary for a run.", runIdSchema()),
-        tool("cw_multi_agent_graph", "Read the structured multi-agent runtime graph for a run.", runIdSchema()),
+        tool("cw_multi_agent_graph", "Read the structured multi-agent operator graph for a run.", runIdSchema()),
+        tool("cw_multi_agent_dependencies", "Read derived multi-agent dependency edges for operator inspection.", runIdSchema()),
+        tool("cw_multi_agent_failures", "Read failed, blocked, rejected, and ambiguous multi-agent records.", runIdSchema()),
+        tool("cw_multi_agent_evidence", "Read evidence adoption status from worker output through selection and commit.", runIdSchema()),
         tool("cw_multi_agent_run", "Preferred host API: create or attach a high-level multi-agent run from an app/workflow run and topology without dispatching workers.", {
             ...runIdSchema(),
             cwd: stringSchema("Run workspace"),

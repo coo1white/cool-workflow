@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.21
+
+- Added Multi-Agent Operator UX as a derived read-only model over WorkflowRun,
+  topology, multi-agent, blackboard, candidate, commit, feedback, and trust
+  audit state.
+- Added focused CLI views: `multi-agent dependencies`, `multi-agent failures`,
+  and `multi-agent evidence`, plus a fuller `multi-agent graph` for operator
+  inspection.
+- Added `summaries.multiAgentOperator` to the high-level
+  `multi-agent status --json` host envelope and extended MCP parity with
+  `cw_multi_agent_dependencies`, `cw_multi_agent_failures`, and
+  `cw_multi_agent_evidence`.
+- Added evidence adoption tracing from worker output through blackboard/fanin,
+  candidate score, selection, and verifier-gated commit records.
+- Added compact failure rows for missing role coverage, missing worker output,
+  failed/rejected workers, open feedback, fanin blockers, score/selection gaps,
+  verifier gaps, and commit gate readiness.
+- Added `docs/multi-agent-operator-ux.7.md` and
+  `test/multi-agent-operator-ux-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.20
 
 - Added the high-level Multi-Agent CLI + MCP Surface for the host loop:

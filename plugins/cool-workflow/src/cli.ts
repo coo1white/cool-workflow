@@ -17,6 +17,12 @@ import {
   formatTopologySummary,
   formatWorkerSummary
 } from "./operator-ux";
+import {
+  formatMultiAgentDependencies,
+  formatMultiAgentEvidence,
+  formatMultiAgentFailures,
+  formatMultiAgentOperatorStatus
+} from "./multi-agent-operator-ux";
 
 async function main(): Promise<void> {
   const args = parseArgv(process.argv.slice(2));
@@ -173,7 +179,8 @@ async function main(): Promise<void> {
       const [subcommand, runId, id] = args.positionals;
       switch (subcommand) {
         case "status":
-          printJson(runner.hostMultiAgentStatus(required(runId, "run id")));
+          if (wantsJson(args.options)) printJson(runner.hostMultiAgentStatus(required(runId, "run id")));
+          else process.stdout.write(`${formatMultiAgentOperatorStatus(runner.multiAgentOperatorStatus(required(runId, "run id")))}\n`);
           return;
         case "step":
           printJson(runner.hostMultiAgentStep(required(runId, "run id"), args.options));
@@ -194,9 +201,27 @@ async function main(): Promise<void> {
           return;
         }
         case "graph": {
-          const graph = runner.multiAgentGraph(required(runId, "run id"));
+          const graph = runner.multiAgentOperatorGraph(required(runId, "run id"));
           if (wantsJson(args.options)) printJson(graph);
           else process.stdout.write(`${formatOperatorGraph({ runId: required(runId, "run id"), nodes: graph.nodes, edges: graph.edges })}\n`);
+          return;
+        }
+        case "dependencies": {
+          const rows = runner.multiAgentDependencies(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(rows);
+          else process.stdout.write(`${formatMultiAgentDependencies(rows)}\n`);
+          return;
+        }
+        case "failures": {
+          const rows = runner.multiAgentFailures(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(rows);
+          else process.stdout.write(`${formatMultiAgentFailures(rows)}\n`);
+          return;
+        }
+        case "evidence": {
+          const rows = runner.multiAgentEvidence(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(rows);
+          else process.stdout.write(`${formatMultiAgentEvidence(rows)}\n`);
           return;
         }
         case "run":
@@ -255,7 +280,7 @@ async function main(): Promise<void> {
           }
           return;
         default:
-          throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|graph|show|role|group|membership|fanout|fanin <run-id> [id]");
+          throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|graph|dependencies|failures|evidence|show|role|group|membership|fanout|fanin <run-id> [id]");
       }
     }
     case "blackboard": {

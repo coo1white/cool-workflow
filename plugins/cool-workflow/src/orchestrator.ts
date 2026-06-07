@@ -146,6 +146,10 @@ import {
   hostStatus,
   hostStep
 } from "./multi-agent-host";
+import {
+  buildMultiAgentOperatorGraph,
+  summarizeMultiAgentOperator
+} from "./multi-agent-operator-ux";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -896,6 +900,26 @@ export class CoolWorkflowRunner {
 
   multiAgentGraph(runId: string): ReturnType<typeof buildMultiAgentGraph> {
     return buildMultiAgentGraph(this.loadRun(runId));
+  }
+
+  multiAgentOperatorStatus(runId: string): ReturnType<typeof summarizeMultiAgentOperator> {
+    return summarizeMultiAgentOperator(this.loadRun(runId));
+  }
+
+  multiAgentOperatorGraph(runId: string): ReturnType<typeof buildMultiAgentOperatorGraph> {
+    return buildMultiAgentOperatorGraph(this.loadRun(runId));
+  }
+
+  multiAgentDependencies(runId: string): ReturnType<typeof summarizeMultiAgentOperator>["dependencies"] {
+    return summarizeMultiAgentOperator(this.loadRun(runId)).dependencies;
+  }
+
+  multiAgentFailures(runId: string): ReturnType<typeof summarizeMultiAgentOperator>["failures"] {
+    return summarizeMultiAgentOperator(this.loadRun(runId)).failures;
+  }
+
+  multiAgentEvidence(runId: string): ReturnType<typeof summarizeMultiAgentOperator>["evidence"] {
+    return summarizeMultiAgentOperator(this.loadRun(runId)).evidence;
   }
 
   hostMultiAgentRun(runId: string | undefined, options: Record<string, unknown> = {}): ReturnType<typeof hostRun> {

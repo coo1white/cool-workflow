@@ -23,6 +23,13 @@ import { summarizeTrustAudit } from "./trust-audit";
 import { buildMultiAgentGraph, MultiAgentSummary, summarizeMultiAgent } from "./multi-agent";
 import { buildBlackboardGraph, summarizeBlackboard } from "./coordinator";
 import { buildTopologyGraph, summarizeTopologies } from "./topology";
+import {
+  formatMultiAgentDependencies,
+  formatMultiAgentEvidence,
+  formatMultiAgentFailures,
+  MultiAgentOperatorStatus,
+  summarizeMultiAgentOperator
+} from "./multi-agent-operator-ux";
 
 export interface OperatorRecommendation {
   command: string;
@@ -148,6 +155,7 @@ export interface OperatorRunSummary {
   commits: OperatorCommitSummary;
   topologies: TopologySummary;
   multiAgent: MultiAgentSummary;
+  multiAgentOperator: MultiAgentOperatorStatus;
   blackboard: ReturnType<typeof summarizeBlackboard>;
   trust: TrustAuditSummary;
   reportPath: string;
@@ -176,6 +184,7 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
   const commits = summarizeOperatorCommits(run);
   const topologies = summarizeTopologies(run);
   const multiAgent = summarizeMultiAgent(run);
+  const multiAgentOperator = summarizeMultiAgentOperator(run);
   const blackboard = summarizeBlackboard(run);
   const trust = summarizeTrustAudit(run);
   const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
@@ -198,6 +207,7 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
     commits,
     topologies,
     multiAgent,
+    multiAgentOperator,
     blackboard,
     trust,
     reportPath: run.paths.report,
@@ -410,6 +420,7 @@ export function buildOperatorGraph(run: WorkflowRun): OperatorGraph {
 }
 
 export function formatOperatorStatus(summary: OperatorRunSummary): string {
+  const operator = summary.multiAgentOperator;
   return [
     `Run: ${summary.runId}`,
     `Workflow: ${summary.workflowId}${summary.appId ? ` (${summary.appId}@${summary.appVersion || "unknown"})` : ""}`,
@@ -433,6 +444,11 @@ export function formatOperatorStatus(summary: OperatorRunSummary): string {
     "",
     formatMultiAgentPanel(summary.multiAgent),
     "",
+    "Multi-Agent Operator UX",
+    `  active=${operator.activeMultiAgentRunIds.join(", ") || "none"}; topologies=${operator.topologyRunIds.join(", ") || "none"}; blocked=${operator.blocked ? "yes" : "no"}`,
+    `  dependencies=${operator.dependencies.length}; failures=${operator.failures.length}; adoptedEvidence=${operator.adoptedEvidence.length}; missingEvidence=${operator.missingEvidence.length}`,
+    `  next=${operator.nextAction}`,
+    "",
     formatBlackboardPanel(summary.blackboard),
     "",
     formatTrustPanel(summary.trust),
@@ -454,6 +470,12 @@ export function formatOperatorReport(summary: OperatorRunSummary): string {
     "Evidence",
     ...(summary.evidencePaths.length ? summary.evidencePaths.map((entry) => `  ${entry}`) : ["  none recorded"]),
     "",
+    formatMultiAgentDependencies(summary.multiAgentOperator.dependencies),
+    "",
+    formatMultiAgentFailures(summary.multiAgentOperator.failures),
+    "",
+    formatMultiAgentEvidence(summary.multiAgentOperator.evidence),
+    "",
     "Resource Commands",
     `  node scripts/cw.js graph ${summary.runId}`,
     `  node scripts/cw.js worker summary ${summary.runId}`,
@@ -461,6 +483,9 @@ export function formatOperatorReport(summary: OperatorRunSummary): string {
     `  node scripts/cw.js topology graph ${summary.runId}`,
     `  node scripts/cw.js multi-agent summary ${summary.runId}`,
     `  node scripts/cw.js multi-agent graph ${summary.runId}`,
+    `  node scripts/cw.js multi-agent dependencies ${summary.runId}`,
+    `  node scripts/cw.js multi-agent failures ${summary.runId}`,
+    `  node scripts/cw.js multi-agent evidence ${summary.runId}`,
     `  node scripts/cw.js blackboard summary ${summary.runId}`,
     `  node scripts/cw.js blackboard graph ${summary.runId}`,
     `  node scripts/cw.js coordinator summary ${summary.runId}`,

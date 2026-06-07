@@ -24,6 +24,7 @@ Read the combined host status:
 
 ```bash
 node scripts/cw.js multi-agent status <run-id>
+node scripts/cw.js multi-agent status <run-id> --json
 ```
 
 Perform one deterministic step at a time:
@@ -55,6 +56,21 @@ node scripts/cw.js multi-agent select <run-id> <candidate-id> --score <score-id>
 node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified winner"
 ```
 
+## Operator Inspection
+
+v0.1.21 extends the host loop with focused operator commands:
+
+```bash
+node scripts/cw.js multi-agent graph <run-id>
+node scripts/cw.js multi-agent dependencies <run-id>
+node scripts/cw.js multi-agent failures <run-id>
+node scripts/cw.js multi-agent evidence <run-id>
+```
+
+The human output is compact and operational: agent graph, dependencies, failed
+or blocked agents, adopted evidence, missing evidence, and the next action.
+Use `--json` or `--format json` for deterministic script output.
+
 ## MCP Tools
 
 MCP hosts should prefer:
@@ -65,6 +81,10 @@ MCP hosts should prefer:
 - `cw_multi_agent_blackboard`
 - `cw_multi_agent_score`
 - `cw_multi_agent_select`
+- `cw_multi_agent_graph`
+- `cw_multi_agent_dependencies`
+- `cw_multi_agent_failures`
+- `cw_multi_agent_evidence`
 
 The older `cw_multi_agent_*`, `cw_topology_*`, `cw_blackboard_*`, and
 `cw_candidate_*` tools remain advanced primitives.
@@ -80,8 +100,8 @@ Every high-level response is JSON and includes:
 - `state`, `performed`, `nextAction`, and `nextActions`
 - `blockedReasons`, `requiredHostAction`, and `evidenceRequirements`
 - state, report, blackboard, audit, ranking, worker manifest, and result paths
-- combined topology, multi-agent, blackboard, worker, candidate, feedback,
-  commit, and audit summaries
+- combined topology, multi-agent, multi-agent operator, blackboard, worker,
+  candidate, feedback, commit, and audit summaries
 
 ## Fail-Closed Rules
 
@@ -102,3 +122,6 @@ official `judge-panel` topology, CLI and MCP parity, ambiguous topology
 failure, missing evidence failure, successful score/select, blackboard
 artifact/message linkage, audit provenance, and Operator UX next actions. It is
 included in `npm test` and `npm run release:check`.
+
+`test/multi-agent-operator-ux-smoke.js` covers the v0.1.21 graph,
+dependencies, failures, evidence adoption, report output, and MCP parity.

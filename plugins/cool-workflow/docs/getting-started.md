@@ -14,8 +14,8 @@ Create a run with a canonical workflow app:
 ```bash
 node scripts/cw.js plan release-cut \
   --repo "$PWD" \
-  --version 0.1.20 \
-  --previousVersion 0.1.19 \
+  --version 0.1.21 \
+  --previousVersion 0.1.20 \
   --releaseBranch main \
   --dryRun true
 ```
@@ -32,6 +32,10 @@ node scripts/cw.js topology apply <run-id> map-reduce --task <task-id>
 node scripts/cw.js topology summary <run-id>
 node scripts/cw.js multi-agent run <run-id> --topology judge-panel --task <task-id>
 node scripts/cw.js multi-agent status <run-id>
+node scripts/cw.js multi-agent graph <run-id>
+node scripts/cw.js multi-agent dependencies <run-id>
+node scripts/cw.js multi-agent failures <run-id>
+node scripts/cw.js multi-agent evidence <run-id>
 node scripts/cw.js multi-agent step <run-id> --sandbox readonly
 node scripts/cw.js multi-agent blackboard <run-id> summary
 node scripts/cw.js multi-agent score <run-id> <candidate-id> --criterion correctness=1 --evidence <ref>

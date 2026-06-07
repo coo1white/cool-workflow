@@ -41,7 +41,7 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.equal(hostRun.data.dispatchCreated, false);
   assert.match(hostRun.nextAction, /multi-agent step/);
 
-  const status = runJson(["multi-agent", "status", plan.runId]);
+  const status = runJson(["multi-agent", "status", plan.runId, "--json"]);
   assert.equal(status.command, "status");
   assert.equal(status.state, "ready-for-dispatch");
   assert.equal(status.ids.multiAgentRunIds.includes("host-panel-ma"), true);
@@ -147,7 +147,7 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.equal(selection.data.candidateId, stepCandidate.data.id);
   assert.ok(selection.data.acceptanceRationale.auditEventIds.length >= 1);
 
-  const ready = runJson(["multi-agent", "status", plan.runId]);
+  const ready = runJson(["multi-agent", "status", plan.runId, "--json"]);
   assert.equal(ready.state, "ready-for-commit");
   assert.match(ready.nextAction, /commit/);
   assert.equal(ready.summaries.candidates.readyForCommit.length, 1);
@@ -185,7 +185,7 @@ const evidenceLocator = `${evidencePath}:1`;
   const commit = runJson(["commit", plan.runId, "--selection", selection.data.id, "--reason", "Host smoke verifier-gated commit."]);
   assert.equal(commit.commit.verifierGated, true);
   assert.equal(commit.commit.selectionId, selection.data.id);
-  const complete = runJson(["multi-agent", "status", plan.runId]);
+  const complete = runJson(["multi-agent", "status", plan.runId, "--json"]);
   assert.equal(complete.state, "complete");
   const postCommitStep = runJson(["multi-agent", "step", plan.runId]);
   assert.equal(postCommitStep.performed, "none");

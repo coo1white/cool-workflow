@@ -26,6 +26,12 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.21 adds Multi-Agent Operator UX: compact graph, dependencies,
+failures, and evidence adoption views for topology-backed multi-agent runs.
+Operators can trace agent -> dependency -> evidence -> fanin -> score ->
+selection -> verifier-gated commit without a separate dashboard state. See
+[docs/multi-agent-operator-ux.7.md](docs/multi-agent-operator-ux.7.md).
+
 CW v0.1.20 adds Multi-Agent CLI + MCP Surface: the preferred host loop for
 `multi-agent run`, `multi-agent status`, `multi-agent step`,
 `multi-agent blackboard`, `multi-agent score`, and `multi-agent select`.
