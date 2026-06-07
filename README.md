@@ -1,6 +1,6 @@
 # Cool Workflow
 
-Cool Workflow, or CW, is an independent Agent Workflow SDK by COOLWHITE LLC.
+Cool Workflow is a Unix-inspired workflow kernel for agentic work: a small TypeScript runtime that turns tasks, workers, evidence, verification, and commits into explicit, inspectable state.
 
 CW packages a TypeScript Node/Bun runtime, reusable workflow apps,
 scheduled tasks, state checkpoints, adversarial verification, and an MCP
