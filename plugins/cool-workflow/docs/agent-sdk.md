@@ -28,6 +28,17 @@ The loop maps to concrete SDK operations:
 | Adjust | verifier gates | Validate evidence and choose the next phase |
 | Checkpoint | `commitState()` | Snapshot state after important transitions |
 
+The v0.1.10 golden path runs this contract end to end with public CLI commands:
+
+```bash
+npm run golden-path
+```
+
+It validates an app, plans a run, dispatches a readonly worker, accepts a
+worker-local `cw:result`, scores and selects a candidate, creates a
+verifier-gated commit, and renders a report. See
+[end-to-end-golden-path.7.md](end-to-end-golden-path.7.md).
+
 ## Developer Contract
 
 A workflow app defines:
@@ -115,6 +126,8 @@ workflow scripts can run without `ts-node`.
 
 See [workflow-app-sdk.7.md](workflow-app-sdk.7.md) for the full app contract,
 validation rules, CLI commands, MCP tools, and state/report fields.
+See [end-to-end-golden-path.7.md](end-to-end-golden-path.7.md) for the
+deterministic release proof that those pieces connect.
 
 ## Evidence Contract
 

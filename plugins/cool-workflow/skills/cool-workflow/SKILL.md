@@ -67,7 +67,9 @@ node scripts/cw.js list
 node scripts/cw.js app list
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
+node scripts/cw.js app validate end-to-end-golden-path
 node scripts/cw.js app init my-app --title "My App"
+npm run golden-path
 node scripts/cw.js init my-workflow --title "My Workflow"
 node scripts/cw.js plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
 node scripts/cw.js status <run-id>
@@ -100,6 +102,18 @@ Run data is written to `.cw/runs/<run-id>/` in `--cwd`, or in `--repo` when
 `--cwd` is not provided.
 
 The runtime source is TypeScript under `src/` and compiles to `dist/`.
+
+Use `npm run golden-path` from `plugins/cool-workflow` as the release regression
+for the full public chain:
+
+```text
+workflow app -> plan -> dispatch -> isolated worker -> candidate scoring
+-> verifier -> gated commit -> report
+```
+
+The golden path uses a temporary workspace, writes a simulated worker
+`cw:result` to the worker manifest's declared `result.md`, and asserts durable
+state files instead of relying only on exit codes.
 
 Sandbox Profiles are named CW policy contracts. They describe worker read
 paths, write paths, command policy, network policy, environment exposure, and

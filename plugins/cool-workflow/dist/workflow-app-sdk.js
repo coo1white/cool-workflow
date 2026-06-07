@@ -28,7 +28,7 @@ Object.defineProperty(exports, "slugify", { enumerable: true, get: function () {
 Object.defineProperty(exports, "workflow", { enumerable: true, get: function () { return workflow_api_1.workflow; } });
 const sandbox_profile_1 = require("./sandbox-profile");
 exports.WORKFLOW_APP_SCHEMA_VERSION = 1;
-exports.CURRENT_COOL_WORKFLOW_VERSION = "0.1.9";
+exports.CURRENT_COOL_WORKFLOW_VERSION = "0.1.10";
 class WorkflowAppValidationError extends Error {
     issues;
     constructor(message, issues) {

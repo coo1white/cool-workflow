@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "end-to-end-golden-path",
+  "title": "End-to-End Golden Path",
+  "summary": "Deterministic one-worker workflow app for proving the CW integration chain.",
+  "version": "0.1.10",
+  "author": "COOLWHITE LLC",
+  "inputs": [
+    {
+      "name": "question",
+      "type": "string",
+      "required": true,
+      "description": "Golden path assertion or release question to prove."
+    }
+  ],
+  "sandboxProfiles": [
+    "readonly"
+  ],
+  "compatibility": {
+    "minVersion": "0.1.9",
+    "notes": "Uses the v0.1.9 Workflow App SDK contract."
+  },
+  "metadata": {
+    "releaseDiscipline": true,
+    "goldenPath": true
+  },
+  "workflow": {
+    "entrypoint": "workflow.js"
+  }
+}
