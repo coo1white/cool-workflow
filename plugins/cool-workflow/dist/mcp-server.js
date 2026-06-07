@@ -90,6 +90,36 @@ function callTool(name, args) {
                 return runner.summarizeFeedbackRecords(String(args.runId || ""));
             case "cw_commit_summary":
                 return runner.summarizeCommitRecords(String(args.runId || ""));
+            case "cw_multi_agent_summary":
+                return runner.multiAgentSummary(String(args.runId || ""));
+            case "cw_multi_agent_graph":
+                return runner.multiAgentGraph(String(args.runId || ""));
+            case "cw_multi_agent_run_create":
+                return runner.createMultiAgentRun(String(args.runId || ""), args);
+            case "cw_multi_agent_run_transition":
+                return runner.transitionMultiAgentRun(String(args.runId || ""), String(args.multiAgentRunId || args.id || ""), args);
+            case "cw_multi_agent_run_show":
+                return runner.showMultiAgentRun(String(args.runId || ""), String(args.multiAgentRunId || args.id || ""));
+            case "cw_multi_agent_role_create":
+                return runner.createAgentRole(String(args.runId || ""), args);
+            case "cw_multi_agent_role_show":
+                return runner.showAgentRole(String(args.runId || ""), String(args.roleId || args.id || ""));
+            case "cw_multi_agent_group_create":
+                return runner.createAgentGroup(String(args.runId || ""), args);
+            case "cw_multi_agent_group_show":
+                return runner.showAgentGroup(String(args.runId || ""), String(args.groupId || args.id || ""));
+            case "cw_multi_agent_membership_create":
+                return runner.assignAgentMembership(String(args.runId || ""), args);
+            case "cw_multi_agent_membership_show":
+                return runner.showAgentMembership(String(args.runId || ""), String(args.membershipId || args.id || ""));
+            case "cw_multi_agent_fanout_create":
+                return runner.createAgentFanout(String(args.runId || ""), args);
+            case "cw_multi_agent_fanout_show":
+                return runner.showAgentFanout(String(args.runId || ""), String(args.fanoutId || args.id || ""));
+            case "cw_multi_agent_fanin_collect":
+                return runner.collectAgentFanin(String(args.runId || ""), args);
+            case "cw_multi_agent_fanin_show":
+                return runner.showAgentFanin(String(args.runId || ""), String(args.faninId || args.id || ""));
             case "cw_audit_summary":
                 return runner.auditSummary(String(args.runId || ""));
             case "cw_audit_worker":
@@ -310,6 +340,100 @@ function toolDefinitions() {
         tool("cw_candidate_summary", "Read the structured candidate summary for a run.", runIdSchema()),
         tool("cw_feedback_summary", "Read the structured feedback summary for a run.", runIdSchema()),
         tool("cw_commit_summary", "Read the structured commit summary for a run.", runIdSchema()),
+        tool("cw_multi_agent_summary", "Read the structured multi-agent runtime summary for a run.", runIdSchema()),
+        tool("cw_multi_agent_graph", "Read the structured multi-agent runtime graph for a run.", runIdSchema()),
+        tool("cw_multi_agent_run_create", "Create a MultiAgentRun state record.", {
+            ...runIdSchema(),
+            id: stringSchema("Optional MultiAgentRun id"),
+            title: stringSchema("Short title"),
+            objective: stringSchema("Objective or reason")
+        }),
+        tool("cw_multi_agent_run_transition", "Transition a MultiAgentRun lifecycle status.", {
+            ...runIdSchema(),
+            multiAgentRunId: stringSchema("MultiAgentRun id"),
+            id: stringSchema("Alias for multiAgentRunId"),
+            status: stringSchema("planned, forming, running, collecting, verifying, completed, failed, or cancelled"),
+            reason: stringSchema("Transition reason")
+        }),
+        tool("cw_multi_agent_run_show", "Show one MultiAgentRun record.", {
+            ...runIdSchema(),
+            multiAgentRunId: stringSchema("MultiAgentRun id"),
+            id: stringSchema("Alias for multiAgentRunId")
+        }),
+        tool("cw_multi_agent_role_create", "Create an AgentRole record.", {
+            ...runIdSchema(),
+            id: stringSchema("Optional AgentRole id"),
+            multiAgentRunId: stringSchema("MultiAgentRun id"),
+            multiAgentRun: stringSchema("Alias for multiAgentRunId"),
+            title: stringSchema("Role title"),
+            responsibility: arraySchema("Responsibilities"),
+            requiredEvidence: arraySchema("Required evidence locators or descriptions"),
+            sandboxProfileHint: arraySchema("Sandbox profile hints"),
+            expectedArtifact: arraySchema("Expected artifacts"),
+            faninObligation: arraySchema("Fanin obligations")
+        }),
+        tool("cw_multi_agent_role_show", "Show one AgentRole record.", {
+            ...runIdSchema(),
+            roleId: stringSchema("AgentRole id"),
+            id: stringSchema("Alias for roleId")
+        }),
+        tool("cw_multi_agent_group_create", "Create an AgentGroup record.", {
+            ...runIdSchema(),
+            id: stringSchema("Optional AgentGroup id"),
+            multiAgentRunId: stringSchema("MultiAgentRun id"),
+            multiAgentRun: stringSchema("Alias for multiAgentRunId"),
+            title: stringSchema("Group title"),
+            phase: stringSchema("Workflow phase"),
+            task: arraySchema("Task ids")
+        }),
+        tool("cw_multi_agent_group_show", "Show one AgentGroup record.", {
+            ...runIdSchema(),
+            groupId: stringSchema("AgentGroup id"),
+            id: stringSchema("Alias for groupId")
+        }),
+        tool("cw_multi_agent_membership_create", "Create an AgentMembership record.", {
+            ...runIdSchema(),
+            id: stringSchema("Optional AgentMembership id"),
+            groupId: stringSchema("AgentGroup id"),
+            roleId: stringSchema("AgentRole id"),
+            taskId: stringSchema("Task id"),
+            workerId: stringSchema("Optional worker id"),
+            dispatchId: stringSchema("Optional dispatch id"),
+            fanoutId: stringSchema("Optional fanout id")
+        }),
+        tool("cw_multi_agent_membership_show", "Show one AgentMembership record.", {
+            ...runIdSchema(),
+            membershipId: stringSchema("AgentMembership id"),
+            id: stringSchema("Alias for membershipId")
+        }),
+        tool("cw_multi_agent_fanout_create", "Create an AgentFanout record.", {
+            ...runIdSchema(),
+            id: stringSchema("Optional AgentFanout id"),
+            groupId: stringSchema("AgentGroup id"),
+            reason: stringSchema("Why work was split"),
+            role: arraySchema("Role ids"),
+            task: arraySchema("Task ids"),
+            limit: numberSchema("Concurrency limit"),
+            sandboxChoice: arraySchema("Sandbox choices as key=value")
+        }),
+        tool("cw_multi_agent_fanout_show", "Show one AgentFanout record.", {
+            ...runIdSchema(),
+            fanoutId: stringSchema("AgentFanout id"),
+            id: stringSchema("Alias for fanoutId")
+        }),
+        tool("cw_multi_agent_fanin_collect", "Collect AgentFanin evidence coverage and fail closed on missing role evidence.", {
+            ...runIdSchema(),
+            id: stringSchema("Optional AgentFanin id"),
+            groupId: stringSchema("AgentGroup id"),
+            fanoutId: stringSchema("Optional fanout id"),
+            requiredRole: arraySchema("Required role ids"),
+            strategy: stringSchema("Aggregation strategy")
+        }),
+        tool("cw_multi_agent_fanin_show", "Show one AgentFanin record.", {
+            ...runIdSchema(),
+            faninId: stringSchema("AgentFanin id"),
+            id: stringSchema("Alias for faninId")
+        }),
         tool("cw_audit_summary", "Read durable trust/audit summary for a run.", runIdSchema()),
         tool("cw_audit_worker", "Read trust/audit events for one worker.", workerIdSchema()),
         tool("cw_audit_provenance", "Inspect evidence provenance for a run, worker, candidate, or commit.", {

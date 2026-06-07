@@ -10,6 +10,7 @@ import {
   formatCandidateSummary,
   formatCommitSummary,
   formatFeedbackSummary,
+  formatMultiAgentSummary,
   formatOperatorGraph,
   formatOperatorReport,
   formatOperatorStatus,
@@ -131,6 +132,68 @@ async function main(): Promise<void> {
       if (wantsJson(args.options)) printJson(graph);
       else process.stdout.write(`${formatOperatorGraph(graph)}\n`);
       return;
+    }
+    case "multi-agent": {
+      const [subcommand, runId, id] = args.positionals;
+      switch (subcommand) {
+        case "summary": {
+          const summary = runner.multiAgentSummary(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(summary);
+          else process.stdout.write(`${formatMultiAgentSummary(summary)}\n`);
+          return;
+        }
+        case "graph": {
+          const graph = runner.multiAgentGraph(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(graph);
+          else process.stdout.write(`${formatOperatorGraph({ runId: required(runId, "run id"), nodes: graph.nodes, edges: graph.edges })}\n`);
+          return;
+        }
+        case "run":
+          if (id && !args.options.id && !args.options.status) printJson(runner.showMultiAgentRun(required(runId, "run id"), id));
+          else if (id && args.options.status) printJson(runner.transitionMultiAgentRun(required(runId, "run id"), id, args.options));
+          else printJson(runner.createMultiAgentRun(required(runId, "run id"), args.options));
+          return;
+        case "show":
+          printJson(runner.showMultiAgentRun(required(runId, "run id"), required(id, "multi-agent run id")));
+          return;
+        case "role":
+          if (id && !args.options.id && !args.options["multi-agent-run"] && !args.options.multiAgentRun && !args.options.multiAgentRunId) {
+            printJson(runner.showAgentRole(required(runId, "run id"), id));
+          } else {
+            printJson(runner.createAgentRole(required(runId, "run id"), { ...args.options, id: args.options.id || id }));
+          }
+          return;
+        case "group":
+          if (id && !args.options.id && !args.options["multi-agent-run"] && !args.options.multiAgentRun && !args.options.multiAgentRunId) {
+            printJson(runner.showAgentGroup(required(runId, "run id"), id));
+          } else {
+            printJson(runner.createAgentGroup(required(runId, "run id"), { ...args.options, id: args.options.id || id }));
+          }
+          return;
+        case "membership":
+          if (id && !args.options.id && !args.options.group && !args.options.groupId && !args.options["multi-agent-group"]) {
+            printJson(runner.showAgentMembership(required(runId, "run id"), id));
+          } else {
+            printJson(runner.assignAgentMembership(required(runId, "run id"), { ...args.options, id: args.options.id || id }));
+          }
+          return;
+        case "fanout":
+          if (id && !args.options.id && !args.options.group && !args.options.groupId && !args.options["multi-agent-group"]) {
+            printJson(runner.showAgentFanout(required(runId, "run id"), id));
+          } else {
+            printJson(runner.createAgentFanout(required(runId, "run id"), { ...args.options, id: args.options.id || id }));
+          }
+          return;
+        case "fanin":
+          if (id && !args.options.id && !args.options.group && !args.options.groupId && !args.options["multi-agent-group"] && !args.options.fanout) {
+            printJson(runner.showAgentFanin(required(runId, "run id"), id));
+          } else {
+            printJson(runner.collectAgentFanin(required(runId, "run id"), { ...args.options, id: args.options.id || id }));
+          }
+          return;
+        default:
+          throw new Error("Usage: cw.js multi-agent summary|graph|run|show|role|group|membership|fanout|fanin <run-id> [id]");
+      }
     }
     case "sandbox": {
       const [subcommand, profileIdOrFile] = args.positionals;

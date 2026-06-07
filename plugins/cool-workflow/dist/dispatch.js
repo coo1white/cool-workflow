@@ -15,6 +15,7 @@ const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
 const worker_isolation_1 = require("./worker-isolation");
 const sandbox_profile_1 = require("./sandbox-profile");
+const multi_agent_1 = require("./multi-agent");
 function nextDispatchTasks(run, limit) {
     const runnablePhase = firstRunnablePhase(run);
     if (!runnablePhase)
@@ -66,6 +67,22 @@ function createDispatchManifest(run, limit, options = {}) {
             sandboxPolicy = sandboxPolicy || scope.sandboxPolicy;
         }
     }
+    const selectedRunTasks = run.tasks.filter((task) => taskIds.has(task.id));
+    const multiAgentAttachment = (0, multi_agent_1.attachDispatchToMultiAgent)(run, {
+        multiAgentRunId: options.multiAgentRunId,
+        groupId: options.multiAgentGroupId,
+        roleId: options.multiAgentRoleId,
+        fanoutId: options.multiAgentFanoutId,
+        dispatchId,
+        tasks: selectedRunTasks,
+        sandboxProfileId: selectedSandboxProfileIds.size === 1 ? [...selectedSandboxProfileIds][0] : "mixed",
+        concurrencyLimit: limit
+    });
+    for (const task of selectedRunTasks) {
+        const worker = task.workerId ? run.workers?.find((scope) => scope.id === task.workerId) : undefined;
+        if (worker)
+            (0, worker_isolation_1.writeWorkerManifest)(run, worker);
+    }
     const manifest = {
         schemaVersion: 1,
         runId: run.id,
@@ -73,11 +90,17 @@ function createDispatchManifest(run, limit, options = {}) {
         createdAt,
         phase: tasks[0].phase,
         instructions: "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw.js result <run-id> <task-id> <file>`.",
-        tasks: run.tasks.filter((task) => taskIds.has(task.id)).map(formatDispatchTask),
+        tasks: selectedRunTasks.map(formatDispatchTask),
         manifestPath,
         workerIndexPath: run.paths.workersDir ? node_path_1.default.join(run.paths.workersDir, "index.json") : undefined,
         sandboxProfileId: selectedSandboxProfileIds.size === 1 ? [...selectedSandboxProfileIds][0] : "mixed",
-        sandboxPolicy: selectedSandboxProfileIds.size === 1 ? sandboxPolicy : undefined
+        sandboxPolicy: selectedSandboxProfileIds.size === 1 ? sandboxPolicy : undefined,
+        multiAgent: multiAgentAttachment.multiAgent
+            ? {
+                ...multiAgentAttachment.multiAgent,
+                membershipIds: multiAgentAttachment.membershipIds
+            }
+            : undefined
     };
     const dispatchNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
         id: `${run.id}:dispatch:${dispatchId}`,
@@ -107,8 +130,9 @@ function createDispatchManifest(run, limit, options = {}) {
         manifestPath,
         createdAt,
         stateNodeId: dispatchNode.id,
-        workerIds: run.tasks.filter((task) => taskIds.has(task.id) && task.workerId).map((task) => String(task.workerId)),
-        sandboxProfileId: manifest.sandboxProfileId
+        workerIds: selectedRunTasks.filter((task) => task.workerId).map((task) => String(task.workerId)),
+        sandboxProfileId: manifest.sandboxProfileId,
+        multiAgent: manifest.multiAgent
     });
     updatePhaseStatuses(run);
     (0, state_1.writeJson)(manifestPath, manifest);
@@ -153,7 +177,8 @@ function formatDispatchTask(task) {
         workerDir: task.workerManifestPath ? node_path_1.default.dirname(task.workerManifestPath) : undefined,
         workerResultPath: task.workerId && task.workerManifestPath ? node_path_1.default.join(node_path_1.default.dirname(task.workerManifestPath), "result.md") : undefined,
         sandboxProfileId: task.sandboxProfileId,
-        sandboxPolicy: task.sandboxPolicy
+        sandboxPolicy: task.sandboxPolicy,
+        multiAgent: task.multiAgent
     };
 }
 function createDispatchId() {

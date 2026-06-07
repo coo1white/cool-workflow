@@ -33,7 +33,8 @@ function createRunPaths(runDir) {
         feedbackDir: node_path_1.default.join(runDir, "feedback"),
         auditDir: node_path_1.default.join(runDir, "audit"),
         workersDir: node_path_1.default.join(runDir, "workers"),
-        candidatesDir: node_path_1.default.join(runDir, "candidates")
+        candidatesDir: node_path_1.default.join(runDir, "candidates"),
+        multiAgentDir: node_path_1.default.join(runDir, "multi-agent")
     };
 }
 function ensureRunDirs(paths) {
@@ -48,7 +49,8 @@ function ensureRunDirs(paths) {
         paths.feedbackDir,
         paths.auditDir || node_path_1.default.join(paths.runDir, "audit"),
         paths.workersDir || node_path_1.default.join(paths.runDir, "workers"),
-        paths.candidatesDir || node_path_1.default.join(paths.runDir, "candidates")
+        paths.candidatesDir || node_path_1.default.join(paths.runDir, "candidates"),
+        paths.multiAgentDir || node_path_1.default.join(paths.runDir, "multi-agent")
     ]) {
         node_fs_1.default.mkdirSync(dir, { recursive: true });
     }

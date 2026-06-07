@@ -28,6 +28,7 @@ const checks = [
   { name: "build", command: ["npm", "run", "build"] },
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "tests", command: ["npm", "test"] },
+  { name: "multi-agent runtime core smoke", command: ["node", "test/multi-agent-runtime-core-smoke.js"] },
   { name: "security trust smoke", command: ["node", "test/security-trust-hardening-smoke.js"] },
   { name: "dogfood release smoke", command: ["node", "test/dogfood-release-smoke.js"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },

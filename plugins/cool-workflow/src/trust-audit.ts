@@ -28,6 +28,12 @@ export interface RecordTrustAuditInput {
   scoreId?: string;
   selectionId?: string;
   commitId?: string;
+  multiAgentRunId?: string;
+  agentRoleId?: string;
+  agentGroupId?: string;
+  agentMembershipId?: string;
+  agentFanoutId?: string;
+  agentFaninId?: string;
   sandboxProfileId?: string;
   policySnapshot?: ResolvedSandboxPolicy;
   normalizedPath?: string;
@@ -87,6 +93,12 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     scoreId: input.scoreId,
     selectionId: input.selectionId,
     commitId: input.commitId,
+    multiAgentRunId: input.multiAgentRunId,
+    agentRoleId: input.agentRoleId,
+    agentGroupId: input.agentGroupId,
+    agentMembershipId: input.agentMembershipId,
+    agentFanoutId: input.agentFanoutId,
+    agentFaninId: input.agentFaninId,
     sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
     policyRef: input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined,
     policySnapshot: redactPolicy(input.policySnapshot),
@@ -176,6 +188,25 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
     workers: workerRows(events, run),
     candidates: candidateRows(events, run),
     commits: commitRows(events, run)
+    ,
+    multiAgent: {
+      runs: run.multiAgent?.runs.length || 0,
+      roles: run.multiAgent?.roles.length || 0,
+      groups: run.multiAgent?.groups.length || 0,
+      memberships: run.multiAgent?.memberships.length || 0,
+      fanouts: run.multiAgent?.fanouts.length || 0,
+      fanins: run.multiAgent?.fanins.length || 0,
+      events: events.filter((event) =>
+        Boolean(
+          event.multiAgentRunId ||
+            event.agentRoleId ||
+            event.agentGroupId ||
+            event.agentMembershipId ||
+            event.agentFanoutId ||
+            event.agentFaninId
+        )
+      ).length
+    }
   };
   writeJson(audit.summaryPath, summary);
   writeJson(audit.indexPath, {
@@ -192,6 +223,12 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
       candidateId: event.candidateId,
       selectionId: event.selectionId,
       commitId: event.commitId,
+      multiAgentRunId: event.multiAgentRunId,
+      agentRoleId: event.agentRoleId,
+      agentGroupId: event.agentGroupId,
+      agentMembershipId: event.agentMembershipId,
+      agentFanoutId: event.agentFanoutId,
+      agentFaninId: event.agentFaninId,
       sandboxProfileId: event.sandboxProfileId
     }))
   });

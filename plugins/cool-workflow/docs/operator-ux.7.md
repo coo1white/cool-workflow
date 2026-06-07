@@ -15,7 +15,8 @@ node scripts/cw.js status <run-id>
 
 The status view includes run id, workflow/app id and version, loop stage, active
 phase, blocked reasons, phase/task counts, workers, candidates, feedback,
-commits, report path, and the next recommended command.
+commits, multi-agent runtime health, report path, and the next recommended
+command.
 
 Machine-readable status stays available:
 
@@ -75,7 +76,10 @@ node scripts/cw.js node graph <run-id> --json
 
 The human graph groups phases, tasks, dispatches, workers, result nodes,
 verifier nodes, candidates, selections, commits, and feedback, then prints the
-edges between them. JSON output returns deterministic `nodes` and `edges`.
+edges between them. v0.1.17 also adds `multi-agent-run`, `agent-role`,
+`agent-group`, `agent-membership`, `agent-fanout`, and `agent-fanin` nodes when
+the run has first-class multi-agent state. JSON output returns deterministic
+`nodes` and `edges`.
 
 ## Console Report
 
@@ -111,6 +115,11 @@ node scripts/cw.js feedback summary <run-id> --json
 
 node scripts/cw.js commit summary <run-id>
 node scripts/cw.js commit summary <run-id> --json
+
+node scripts/cw.js multi-agent summary <run-id>
+node scripts/cw.js multi-agent summary <run-id> --json
+node scripts/cw.js multi-agent graph <run-id>
+node scripts/cw.js multi-agent graph <run-id> --json
 ```
 
 Worker summaries show allocated/running/verified/failed/rejected counts,
@@ -127,6 +136,10 @@ severity, classification, and retryability.
 Commit summaries distinguish verifier-gated commits from non-gated checkpoints
 and show snapshot paths, evidence counts, and linked verifier/candidate/selection
 ids.
+
+Multi-agent summaries show run and group status, role coverage, membership
+health, fanout/fanin progress, missing evidence, blocked reasons, and the next
+recommended action.
 
 ## File Discipline
 

@@ -22,14 +22,14 @@ const plan = runJson(
     "--repo",
     tmp,
     "--question",
-    "Prove the v0.1.16 operator UX smoke path."
+    "Prove the v0.1.17 operator UX smoke path."
   ],
   pluginRoot
 );
 
 let status = runText(["status", plan.runId], tmp);
 assert.match(status, new RegExp(`Run: ${plan.runId}`));
-assert.match(status, /Workflow: end-to-end-golden-path \(end-to-end-golden-path@0\.1\.16\)/);
+assert.match(status, /Workflow: end-to-end-golden-path \(end-to-end-golden-path@0\.1\.17\)/);
 assert.match(status, /Loop Stage: interpret/);
 assert.match(status, /Active Phase: Golden Path/);
 assert.match(status, /Tasks: pending=1; total=1/);

@@ -5,8 +5,8 @@ const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const TARGET_VERSION = "0.1.16";
-const PREVIOUS_VERSION = "0.1.15";
+const TARGET_VERSION = "0.1.17";
+const PREVIOUS_VERSION = "0.1.16";
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
 const cli = path.join(pluginRoot, "scripts", "cw.js");
