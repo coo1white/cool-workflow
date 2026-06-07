@@ -203,7 +203,7 @@ kind by id.
 
 ## Canonical Apps
 
-CW v0.1.12 includes four maintained canonical app directories:
+CW v0.1.13 includes four maintained canonical app directories:
 
 - `architecture-review`
 - `pr-review-fix-ci`
@@ -229,9 +229,15 @@ The MCP bridge exposes matching tools:
 - `cw_app_validate`
 - `cw_app_init`
 - `cw_app_package`
+- `cw_app_run`
 
 Tool results are JSON and use the same app summaries and validation issue
-records as the CLI.
+records as the CLI. `cw_app_run` creates a run from an app id and structured
+`inputs`, then returns the run id, app id/version, state/report paths, pending
+task count, compact operator status, and next actions.
+
+The full agent-host runtime surface is documented in
+[mcp-app-surface.7.md](mcp-app-surface.7.md).
 
 ## State And Reports
 

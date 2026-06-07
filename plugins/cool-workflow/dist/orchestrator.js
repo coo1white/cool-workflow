@@ -1006,7 +1006,15 @@ function stringOption(value) {
 }
 function parseCriteria(options) {
     const criteria = {};
-    const rawCriteria = options.criterion || options.criteria || options.score;
+    const structured = options.criteria;
+    if (structured && typeof structured === "object" && !Array.isArray(structured)) {
+        for (const [key, value] of Object.entries(structured)) {
+            const parsed = Number(value);
+            if (key && Number.isFinite(parsed))
+                criteria[key] = parsed;
+        }
+    }
+    const rawCriteria = options.criterion || (typeof structured === "object" && !Array.isArray(structured) ? undefined : structured) || options.score;
     for (const entry of arrayOption(rawCriteria)) {
         const [key, value] = String(entry).split("=");
         if (!key || value === undefined)

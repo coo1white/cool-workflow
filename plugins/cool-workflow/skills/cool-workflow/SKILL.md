@@ -77,6 +77,7 @@ node scripts/cw.js app validate apps/architecture-review/app.json
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
 node scripts/cw.js app validate end-to-end-golden-path
+node scripts/cw.js app package workflow-app-sdk-demo
 node scripts/cw.js app init my-app --title "My App"
 npm run canonical-apps
 npm run golden-path
@@ -126,6 +127,12 @@ Operator UX is human-readable by default for `status`, `graph`, report
 `--format json` when scripts or MCP-style integrations need structured output.
 Status recommendations should be treated as deterministic hints, not hidden
 automation.
+
+When an MCP host is available, the same runtime surface is exposed with
+JSON-first tools: `cw_app_run`, `cw_dispatch`, `cw_worker_manifest`,
+`cw_worker_output`, `cw_candidate_register`, `cw_candidate_score`,
+`cw_candidate_select`, `cw_commit`, `cw_operator_status`, `cw_operator_graph`,
+and `cw_operator_report`. Preserve CLI/MCP parity when extending CW.
 
 Use `npm run canonical-apps` from `plugins/cool-workflow` to validate and plan
 the official app matrix without network access:

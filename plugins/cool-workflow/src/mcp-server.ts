@@ -3,6 +3,7 @@ import path from "node:path";
 import { CoolWorkflowRunner } from "./orchestrator";
 import { Scheduler } from "./scheduler";
 import { RoutineTriggerBridge } from "./triggers";
+import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
 
 interface JsonRpcRequest {
   jsonrpc?: "2.0";
@@ -44,7 +45,7 @@ function handleLine(line: string): void {
       sendResult(message.id, {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "cool-workflow", version: "0.1.12" }
+        serverInfo: { name: "cool-workflow", version: "0.1.13" }
       });
       return;
     }
@@ -76,8 +77,24 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.listWorkflows();
       case "cw_plan":
         return runner.plan(String(args.workflowId || ""), args);
+      case "cw_app_run":
+        return appRun(args);
       case "cw_status":
         return runner.status(String(args.runId || ""));
+      case "cw_operator_status":
+        return runner.operatorStatus(String(args.runId || ""));
+      case "cw_operator_graph":
+        return runner.operatorGraph(String(args.runId || ""));
+      case "cw_operator_report":
+        return runner.operatorReport(String(args.runId || ""));
+      case "cw_worker_summary":
+        return runner.summarizeWorkerRecords(String(args.runId || ""));
+      case "cw_candidate_summary":
+        return runner.summarizeCandidateOperatorRecords(String(args.runId || ""));
+      case "cw_feedback_summary":
+        return runner.summarizeFeedbackRecords(String(args.runId || ""));
+      case "cw_commit_summary":
+        return runner.summarizeCommitRecords(String(args.runId || ""));
       case "cw_dispatch":
         return runner.dispatch(String(args.runId || ""), args);
       case "cw_sandbox_list":
@@ -86,10 +103,13 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.showSandboxProfile(String(args.profileId || ""), args);
       case "cw_sandbox_validate":
         return runner.validateSandboxProfile(String(args.profileFile || ""), args);
+      case "cw_sandbox_choose":
+      case "cw_sandbox_resolve":
+        return sandboxResolve(args);
       case "cw_result":
         return runner.recordResult(String(args.runId || ""), String(args.taskId || ""), String(args.resultPath || ""));
       case "cw_commit":
-        return runner.commit(String(args.runId || ""), args);
+        return commitResult(String(args.runId || ""), args);
       case "cw_report":
         return runner.report(String(args.runId || ""));
       case "cw_app_list":
@@ -102,6 +122,37 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.initApp(String(args.appId || ""), args);
       case "cw_app_package":
         return runner.packageApp(String(args.appId || ""), args);
+      case "cw_worker_list":
+        return runner.listWorkers(String(args.runId || ""), args);
+      case "cw_worker_show":
+        return runner.showWorker(String(args.runId || ""), String(args.workerId || ""));
+      case "cw_worker_manifest":
+        return runner.showWorkerManifest(String(args.runId || ""), String(args.workerId || ""));
+      case "cw_worker_output":
+        return runner.recordWorkerOutput(String(args.runId || ""), String(args.workerId || ""), String(args.resultPath || ""));
+      case "cw_worker_fail":
+        return runner.recordWorkerFailure(
+          String(args.runId || ""),
+          String(args.workerId || ""),
+          String(args.message || ""),
+          args
+        );
+      case "cw_worker_validate":
+        return runner.validateWorker(String(args.runId || ""), String(args.workerId || ""), optionalString(args.path || args.resultPath));
+      case "cw_candidate_list":
+        return runner.listCandidates(String(args.runId || ""), args);
+      case "cw_candidate_show":
+        return runner.showCandidate(String(args.runId || ""), String(args.candidateId || ""));
+      case "cw_candidate_register":
+        return runner.registerCandidate(String(args.runId || ""), args);
+      case "cw_candidate_score":
+        return runner.scoreCandidate(String(args.runId || ""), String(args.candidateId || ""), args);
+      case "cw_candidate_rank":
+        return runner.rankCandidates(String(args.runId || ""), args);
+      case "cw_candidate_select":
+        return runner.selectCandidate(String(args.runId || ""), String(args.candidateId || ""), args);
+      case "cw_candidate_reject":
+        return runner.rejectCandidate(String(args.runId || ""), String(args.candidateId || ""), String(args.reason || "rejected"));
       case "cw_feedback_list":
         return runner.listFeedback(String(args.runId || ""), args);
       case "cw_feedback_show":
@@ -148,6 +199,97 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
   }
 }
 
+function appRun(args: Record<string, unknown>): unknown {
+  const appId = String(args.appId || args.workflowId || "");
+  const inputs = isRecord(args.inputs) ? args.inputs : {};
+  const planOptions = { ...inputs, ...withoutRuntimeKeys(args) };
+  const sandboxProfileId = sandboxProfileIdFrom(args);
+  const resolvedSandbox = sandboxProfileId ? runner.showSandboxProfile(sandboxProfileId, args) : undefined;
+  const run = runner.plan(appId, planOptions);
+  const status = runner.operatorStatus(run.id);
+  return {
+    runId: run.id,
+    workflowId: run.workflow.id,
+    appId: run.workflow.app?.id || appId,
+    appVersion: run.workflow.app?.version,
+    statePath: run.paths.state,
+    reportPath: run.paths.report,
+    pendingTasks: run.tasks.filter((task) => task.status === "pending").length,
+    operatorStatus: compactOperatorStatus(status),
+    nextActions: status.nextActions,
+    sandboxProfileId,
+    sandboxProfile: resolvedSandbox
+  };
+}
+
+function sandboxResolve(args: Record<string, unknown>): unknown {
+  const profileId = sandboxProfileIdFrom(args) || "readonly";
+  const profile = runner.showSandboxProfile(profileId, args);
+  return {
+    profileId,
+    sandboxProfileId: profile.id,
+    valid: true,
+    profile
+  };
+}
+
+function commitResult(runId: string, args: Record<string, unknown>): unknown {
+  const result = runner.commit(runId, args);
+  const commit = result.commit;
+  const status = runner.operatorStatus(runId);
+  return {
+    runId,
+    commitId: commit.id,
+    verifierGated: commit.verifierGated,
+    checkpoint: commit.checkpoint,
+    verifierNodeId: commit.verifierNodeId,
+    candidateId: commit.candidateId,
+    selectionId: commit.selectionId,
+    evidenceCount: (commit.evidence || []).length,
+    snapshotPath: commit.snapshotPath,
+    nextActions: status.nextActions,
+    commit
+  };
+}
+
+function compactOperatorStatus(status: OperatorRunSummary): Record<string, unknown> {
+  return {
+    runId: status.runId,
+    workflowId: status.workflowId,
+    appId: status.appId,
+    appVersion: status.appVersion,
+    loopStage: status.loopStage,
+    activePhase: status.activePhase,
+    blocked: status.blocked,
+    blockedReasons: status.blockedReasons,
+    pendingTasks: status.tasks.pending.length,
+    runningTasks: status.tasks.running.length,
+    completedTasks: status.tasks.completed.length,
+    nextActions: status.nextActions as OperatorRecommendation[]
+  };
+}
+
+function sandboxProfileIdFrom(args: Record<string, unknown>): string | undefined {
+  return optionalString(args.sandbox || args.sandboxProfile || args.sandboxProfileId || args.profileId);
+}
+
+function withoutRuntimeKeys(args: Record<string, unknown>): Record<string, unknown> {
+  const copy = { ...args };
+  for (const key of ["appId", "workflowId", "inputs", "sandbox", "sandboxProfile", "sandboxProfileId", "profileId"]) {
+    delete copy[key];
+  }
+  return copy;
+}
+
+function optionalString(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  return String(value);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
 function toolDefinitions(): unknown[] {
   return [
     tool("cw_list", "List bundled CW workflows.", {}),
@@ -156,15 +298,32 @@ function toolDefinitions(): unknown[] {
       repo: stringSchema("Repository path"),
       question: stringSchema("User question")
     }),
+    tool("cw_app_run", "Create a CW run from a Workflow App SDK app id and structured inputs.", {
+      cwd: stringSchema("Workspace"),
+      appId: stringSchema("Workflow app id"),
+      inputs: objectSchema("Workflow app inputs such as repo, question, version, source, or dryRun"),
+      sandbox: stringSchema("Optional sandbox profile id to validate for this run"),
+      sandboxProfile: stringSchema("Optional sandbox profile id to validate for this run"),
+      sandboxProfileId: stringSchema("Optional sandbox profile id to validate for this run")
+    }),
     tool("cw_status", "Read run checkpoint status.", {
       runId: stringSchema("Run id"),
       cwd: stringSchema("Run workspace")
     }),
+    tool("cw_operator_status", "Read the structured Operator UX run status.", runIdSchema()),
+    tool("cw_operator_graph", "Read the structured Operator UX run graph.", runIdSchema()),
+    tool("cw_operator_report", "Refresh and read the structured Operator UX report summary.", runIdSchema()),
+    tool("cw_worker_summary", "Read the structured worker summary for a run.", runIdSchema()),
+    tool("cw_candidate_summary", "Read the structured candidate summary for a run.", runIdSchema()),
+    tool("cw_feedback_summary", "Read the structured feedback summary for a run.", runIdSchema()),
+    tool("cw_commit_summary", "Read the structured commit summary for a run.", runIdSchema()),
     tool("cw_dispatch", "Create a subagent dispatch manifest.", {
       runId: stringSchema("Run id"),
       cwd: stringSchema("Run workspace"),
       limit: numberSchema("Max tasks to dispatch"),
-      sandbox: stringSchema("Sandbox profile id")
+      sandbox: stringSchema("Sandbox profile id"),
+      sandboxProfile: stringSchema("Sandbox profile id"),
+      sandboxProfileId: stringSchema("Sandbox profile id")
     }),
     tool("cw_sandbox_list", "List bundled sandbox profiles.", {
       cwd: stringSchema("Workspace used to resolve profile paths")
@@ -177,6 +336,20 @@ function toolDefinitions(): unknown[] {
       cwd: stringSchema("Workspace used to resolve profile paths"),
       profileFile: stringSchema("Sandbox profile JSON file")
     }),
+    tool("cw_sandbox_choose", "Resolve and validate a sandbox profile without dispatching work.", {
+      cwd: stringSchema("Workspace used to resolve profile paths"),
+      profileId: stringSchema("Sandbox profile id"),
+      sandbox: stringSchema("Sandbox profile id"),
+      sandboxProfile: stringSchema("Sandbox profile id"),
+      sandboxProfileId: stringSchema("Sandbox profile id")
+    }),
+    tool("cw_sandbox_resolve", "Alias for cw_sandbox_choose.", {
+      cwd: stringSchema("Workspace used to resolve profile paths"),
+      profileId: stringSchema("Sandbox profile id"),
+      sandbox: stringSchema("Sandbox profile id"),
+      sandboxProfile: stringSchema("Sandbox profile id"),
+      sandboxProfileId: stringSchema("Sandbox profile id")
+    }),
     tool("cw_result", "Record a subagent result.", {
       runId: stringSchema("Run id"),
       taskId: stringSchema("Task id"),
@@ -187,6 +360,7 @@ function toolDefinitions(): unknown[] {
       runId: stringSchema("Run id"),
       reason: stringSchema("Commit reason"),
       verifier: stringSchema("Verified verifier node id"),
+      verifierNode: stringSchema("Verified verifier node id"),
       candidate: stringSchema("Verified candidate id"),
       selection: stringSchema("Verified candidate selection id"),
       allowUnverifiedCheckpoint: { type: "boolean", description: "Write a non-gated checkpoint instead of committed state" },
@@ -217,6 +391,77 @@ function toolDefinitions(): unknown[] {
       cwd: stringSchema("Workspace"),
       appId: stringSchema("Workflow app id"),
       output: stringSchema("Output package path")
+    }),
+    tool("cw_worker_list", "List worker isolation scopes for a run.", {
+      ...runIdSchema(),
+      status: stringSchema("Optional worker status filter")
+    }),
+    tool("cw_worker_show", "Show one worker isolation scope.", workerIdSchema()),
+    tool("cw_worker_manifest", "Write and return one worker manifest.", workerIdSchema()),
+    tool("cw_worker_output", "Record worker output from a result markdown path.", {
+      ...workerIdSchema(),
+      resultPath: stringSchema("Worker result markdown path")
+    }),
+    tool("cw_worker_fail", "Record a structured worker failure.", {
+      ...workerIdSchema(),
+      message: stringSchema("Failure message"),
+      code: stringSchema("Failure code"),
+      path: stringSchema("Related file path"),
+      retryable: booleanSchema("Whether the failure can be retried")
+    }),
+    tool("cw_worker_validate", "Validate a worker output path against its sandbox boundary.", {
+      ...workerIdSchema(),
+      path: stringSchema("Path to validate"),
+      resultPath: stringSchema("Result path to validate")
+    }),
+    tool("cw_candidate_list", "List candidates for a run.", {
+      ...runIdSchema(),
+      status: stringSchema("Optional candidate status filter"),
+      kind: stringSchema("Optional candidate kind filter")
+    }),
+    tool("cw_candidate_show", "Show one candidate.", candidateIdSchema()),
+    tool("cw_candidate_register", "Register a candidate from worker, task, or result evidence.", {
+      ...runIdSchema(),
+      id: stringSchema("Optional candidate id"),
+      kind: stringSchema("Candidate kind"),
+      worker: stringSchema("Worker id"),
+      task: stringSchema("Task id"),
+      resultNode: stringSchema("Result node id"),
+      verifierNode: stringSchema("Verifier node id"),
+      resultPath: stringSchema("Result markdown path")
+    }),
+    tool("cw_candidate_score", "Score a candidate with structured criteria and evidence locators.", {
+      ...candidateIdSchema(),
+      criteria: objectSchema("Criterion numeric values, for example { correctness: 4 }"),
+      criterion: arraySchema("CLI-compatible name=value criterion strings"),
+      evidence: arraySchema("Evidence locators"),
+      maxTotal: numberSchema("Maximum possible total score"),
+      max: numberSchema("Alias for maxTotal"),
+      verdict: stringSchema("pass, warn, or fail"),
+      notes: stringSchema("Score notes"),
+      scorer: stringSchema("Scorer id")
+    }),
+    tool("cw_candidate_rank", "Rank candidates with evidence and verifier gate policy.", {
+      ...runIdSchema(),
+      includeRejected: booleanSchema("Include rejected candidates"),
+      minNormalized: numberSchema("Minimum normalized score"),
+      requireEvidence: booleanSchema("Require score evidence"),
+      requireVerifierGate: booleanSchema("Require verified verifier node"),
+      tieBreaker: stringSchema("Tie breaker policy")
+    }),
+    tool("cw_candidate_select", "Select a candidate with verifier-gated policy.", {
+      ...candidateIdSchema(),
+      reason: stringSchema("Selection reason"),
+      selectedBy: stringSchema("Selector id"),
+      by: stringSchema("Alias for selectedBy"),
+      score: stringSchema("Score id"),
+      allowUnverified: booleanSchema("Allow selection without a verifier gate"),
+      minNormalized: numberSchema("Minimum normalized score"),
+      requireVerifierGate: booleanSchema("Require verified verifier node")
+    }),
+    tool("cw_candidate_reject", "Reject a candidate with a durable reason.", {
+      ...candidateIdSchema(),
+      reason: stringSchema("Rejection reason")
     }),
     tool("cw_feedback_list", "List run feedback records.", {
       runId: stringSchema("Run id"),
@@ -328,6 +573,39 @@ function stringSchema(description: string): unknown {
 
 function numberSchema(description: string): unknown {
   return { type: "number", description };
+}
+
+function booleanSchema(description: string): unknown {
+  return { type: "boolean", description };
+}
+
+function objectSchema(description: string): unknown {
+  return { type: "object", description, additionalProperties: true };
+}
+
+function arraySchema(description: string): unknown {
+  return { type: "array", description, items: {} };
+}
+
+function runIdSchema(): Record<string, unknown> {
+  return {
+    runId: stringSchema("Run id"),
+    cwd: stringSchema("Run workspace")
+  };
+}
+
+function workerIdSchema(): Record<string, unknown> {
+  return {
+    ...runIdSchema(),
+    workerId: stringSchema("Worker id")
+  };
+}
+
+function candidateIdSchema(): Record<string, unknown> {
+  return {
+    ...runIdSchema(),
+    candidateId: stringSchema("Candidate id")
+  };
 }
 
 function sendResult(id: JsonRpcRequest["id"], result: unknown): void {

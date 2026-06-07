@@ -26,7 +26,13 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
-CW v0.1.12 adds Operator UX: human-readable status, graph, report summaries,
+CW v0.1.13 completes the MCP / App Surface so agent hosts can treat CW as a
+runtime instead of a CLI wrapper. MCP now covers app runs, worker inspection and
+output recording, candidate scoring/selection, sandbox profile resolution,
+verifier-gated commits, and structured operator summaries while preserving old
+tool names. See [docs/mcp-app-surface.7.md](docs/mcp-app-surface.7.md).
+
+CW v0.1.12 added Operator UX: human-readable status, graph, report summaries,
 resource summaries, commit/feedback/worker/candidate panels, and deterministic
 next-step recommendations. JSON remains available with `--json` or
 `--format json`. See [docs/operator-ux.7.md](docs/operator-ux.7.md).
@@ -72,6 +78,7 @@ cool-workflow
   apps/workflow-app-sdk-demo/app.json
   docs/agent-sdk.md
   docs/unix-principles.md
+  docs/mcp-app-surface.7.md
   docs/operator-ux.7.md
   docs/workflow-app-sdk.7.md
   docs/sandbox-profiles.7.md
@@ -99,6 +106,7 @@ node scripts/cw.js app show research-synthesis
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
 node scripts/cw.js app validate end-to-end-golden-path
+node scripts/cw.js app package architecture-review
 node scripts/cw.js app init my-app --title "My App"
 ```
 
@@ -129,6 +137,14 @@ node scripts/cw.js worker summary <run-id>
 node scripts/cw.js candidate summary <run-id>
 node scripts/cw.js feedback summary <run-id>
 node scripts/cw.js commit summary <run-id>
+```
+
+MCP hosts can drive the same flow with JSON tools:
+
+```text
+cw_app_run -> cw_dispatch -> cw_worker_manifest -> cw_worker_output
+-> cw_candidate_register -> cw_candidate_score -> cw_candidate_select
+-> cw_commit -> cw_operator_report
 ```
 
 Create a dispatch manifest for the current runnable phase:

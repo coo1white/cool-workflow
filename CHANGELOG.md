@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.13
+
+- Completed the MCP / App Surface so agent hosts can run Workflow App SDK apps,
+  inspect workers, record worker output, score/rank/select candidates, resolve
+  sandbox profiles, create verifier-gated commits, and read operator summaries.
+- Added `cw_app_run`, structured operator tools, worker tools, candidate tools,
+  `cw_sandbox_choose`/`cw_sandbox_resolve`, and `cw_commit_summary` while
+  preserving existing MCP tool names.
+- Updated `cw_commit` MCP responses with top-level gate metadata, evidence
+  counts, snapshot path, linked verifier/candidate/selection ids, and next
+  actions.
+- Added deterministic MCP stdio smoke coverage in
+  `test/mcp-app-surface-smoke.js` and included it in `npm test`.
+- Added `docs/mcp-app-surface.7.md` plus README, SDK, Operator UX, golden path,
+  Unix principles, and skill documentation updates.
+- Bumped package, plugin manifest, canonical app, SDK, and MCP server versions
+  to `0.1.13`.
+
 ## 0.1.12
 
 - Added Operator UX read-only summaries in `src/operator-ux.ts`.

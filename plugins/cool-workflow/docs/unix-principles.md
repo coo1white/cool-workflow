@@ -23,6 +23,7 @@ CW already stores:
 - canonical app matrix run state in temporary `.cw/runs/<run-id>/` workspaces
 - golden path proof artifacts in temporary `.cw/runs/<run-id>/` workspaces
 - operator summaries derived from state without mutating run files
+- MCP app-surface smoke runs driven through stdio JSON-RPC
 
 The practical rule is:
 
@@ -71,7 +72,11 @@ The v0.1.12 Operator UX layer is userland over state. It renders `status`,
 `graph`, `report --show`, and resource summaries without owning core
 transitions.
 
-The v0.1.12 canonical apps are maintained userland:
+The v0.1.13 MCP app surface is the same discipline applied to agent hosts: a
+small JSON tool bridge over the base runtime, old names preserved, read-only
+inspection separated from mutation, and every mutation persisted to the run.
+
+The v0.1.13 canonical apps are maintained userland:
 
 ```text
 architecture-review
