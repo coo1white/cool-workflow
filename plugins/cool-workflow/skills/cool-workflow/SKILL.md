@@ -20,6 +20,8 @@ Use this skill when the user asks for:
 - background task style planning
 - reusable workflow apps/scripts
 - architecture review workflows
+- canonical workflow apps such as `architecture-review`, `pr-review-fix-ci`,
+  `release-cut`, and `research-synthesis`
 
 ## Core Model
 
@@ -36,7 +38,9 @@ write workflow apps against it using `defineWorkflowApp`, `workflow`, `phase`,
 
 First-class workflow apps can live under `apps/<app-id>/app.json` with a
 plain JavaScript workflow entrypoint. Legacy `workflows/*.workflow.js` factory
-files remain valid and are wrapped as compatibility apps.
+files remain valid and are wrapped as compatibility apps. The canonical app ids
+are owned by app directories; legacy wrappers use explicit `legacy-*` ids when
+needed to avoid duplicate discovery.
 
 The runner does not directly spawn workers. It writes pending agent tasks to
 `.cw/runs/<run-id>/tasks/*.md`. The agent host reads those tasks, spawns workers
@@ -65,10 +69,16 @@ Use the plugin root when possible:
 ```bash
 node scripts/cw.js list
 node scripts/cw.js app list
+node scripts/cw.js app show architecture-review
+node scripts/cw.js app show pr-review-fix-ci
+node scripts/cw.js app show release-cut
+node scripts/cw.js app show research-synthesis
+node scripts/cw.js app validate apps/architecture-review/app.json
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
 node scripts/cw.js app validate end-to-end-golden-path
 node scripts/cw.js app init my-app --title "My App"
+npm run canonical-apps
 npm run golden-path
 node scripts/cw.js init my-workflow --title "My Workflow"
 node scripts/cw.js plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
@@ -102,6 +112,16 @@ Run data is written to `.cw/runs/<run-id>/` in `--cwd`, or in `--repo` when
 `--cwd` is not provided.
 
 The runtime source is TypeScript under `src/` and compiles to `dist/`.
+
+Use `npm run canonical-apps` from `plugins/cool-workflow` to validate and plan
+the official app matrix without network access:
+
+```text
+architecture-review
+pr-review-fix-ci
+release-cut
+research-synthesis
+```
 
 Use `npm run golden-path` from `plugins/cool-workflow` as the release regression
 for the full public chain:

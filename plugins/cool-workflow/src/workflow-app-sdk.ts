@@ -36,7 +36,7 @@ export {
 };
 
 export const WORKFLOW_APP_SCHEMA_VERSION = 1;
-export const CURRENT_COOL_WORKFLOW_VERSION = "0.1.10";
+export const CURRENT_COOL_WORKFLOW_VERSION = "0.1.11";
 
 export class WorkflowAppValidationError extends Error {
   issues: WorkflowAppValidationIssue[];

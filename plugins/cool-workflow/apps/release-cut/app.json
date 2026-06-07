@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "release-cut",
+  "title": "Release Cut",
+  "summary": "Prepare a release with checklist discipline: version checks, changelog, tests, packaging, release notes, and final verification.",
+  "version": "0.1.11",
+  "author": "COOLWHITE LLC",
+  "inputs": [
+    {
+      "name": "repo",
+      "type": "path",
+      "required": true,
+      "description": "Repository path to prepare."
+    },
+    {
+      "name": "version",
+      "type": "string",
+      "required": true,
+      "description": "Release version to prepare."
+    },
+    {
+      "name": "previousVersion",
+      "type": "string",
+      "description": "Previous released version for changelog comparison."
+    },
+    {
+      "name": "releaseBranch",
+      "type": "string",
+      "description": "Release branch or target ref."
+    },
+    {
+      "name": "dryRun",
+      "type": "boolean",
+      "description": "When true, report intended release actions without publishing."
+    }
+  ],
+  "sandboxProfiles": [
+    "readonly",
+    "workspace-write"
+  ],
+  "compatibility": {
+    "minVersion": "0.1.11",
+    "workflowSchemaVersion": 1,
+    "notes": "Canonical v0.1.11 release preparation app."
+  },
+  "metadata": {
+    "canonical": true,
+    "domain": "release-engineering",
+    "maintainedAs": "official-userland"
+  },
+  "workflow": {
+    "entrypoint": "workflow.js"
+  }
+}

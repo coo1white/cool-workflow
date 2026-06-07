@@ -7,7 +7,8 @@ Commit, and MCP JSON-RPC 2.0 bridge.
 
 The mental model is base system plus userland apps: CW provides the runtime and
 contracts, while developers write reusable workflow apps in
-`workflows/*.workflow.js` or `apps/<app-id>/app.json`.
+`apps/<app-id>/app.json`. Legacy `workflows/*.workflow.js` files remain
+loadable as compatibility wrappers.
 
 CW records the model workflow loop explicitly:
 
@@ -25,7 +26,14 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
-CW v0.1.10 adds the End-to-End Golden Path: a deterministic regression command
+CW v0.1.11 adds Canonical Workflow Apps: official app-directory userland for
+`architecture-review`, `pr-review-fix-ci`, `release-cut`, and
+`research-synthesis`. They validate and plan through `npm run canonical-apps`
+and are the app matrix used to judge whether the SDK is pleasant, stable, and
+expressive. See
+[docs/canonical-workflow-apps.7.md](docs/canonical-workflow-apps.7.md).
+
+CW v0.1.10 added the End-to-End Golden Path: a deterministic regression command
 that validates a first-class app, plans a run, dispatches a readonly isolated
 worker, records a simulated worker result, scores/selects a candidate, creates a
 verifier-gated commit, and renders a report. See
@@ -51,7 +59,11 @@ cool-workflow
   scripts/cw.js
   workflows/architecture-review.workflow.js
   workflows/research-synthesis.workflow.js
+  apps/architecture-review/app.json
   apps/end-to-end-golden-path/app.json
+  apps/pr-review-fix-ci/app.json
+  apps/release-cut/app.json
+  apps/research-synthesis/app.json
   apps/workflow-app-sdk-demo/app.json
   docs/agent-sdk.md
   docs/unix-principles.md
@@ -73,6 +85,11 @@ List, inspect, validate, and create workflow apps:
 
 ```bash
 node scripts/cw.js app list
+node scripts/cw.js app show architecture-review
+node scripts/cw.js app validate apps/architecture-review/app.json
+node scripts/cw.js app show pr-review-fix-ci
+node scripts/cw.js app show release-cut
+node scripts/cw.js app show research-synthesis
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
 node scripts/cw.js app validate end-to-end-golden-path
@@ -149,6 +166,7 @@ node scripts/cw.js report <run-id>
 Run the deterministic release golden path:
 
 ```bash
+npm run canonical-apps
 npm run golden-path
 ```
 
@@ -165,6 +183,8 @@ npm run build
 See [docs/agent-sdk.md](docs/agent-sdk.md) for the developer contract.
 See [docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md) for the app
 contract.
+See [docs/canonical-workflow-apps.7.md](docs/canonical-workflow-apps.7.md) for
+the canonical app matrix.
 See [docs/candidate-scoring.7.md](docs/candidate-scoring.7.md) for the
 candidate scoring file contract.
 See [docs/verifier-gated-commit.7.md](docs/verifier-gated-commit.7.md) for the

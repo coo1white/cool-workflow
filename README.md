@@ -16,6 +16,8 @@ interpret -> act -> observe -> adjust -> checkpoint
 
 - Developer-facing workflow SDK contracts.
 - Workflow App SDK for versioned, validated, reusable workflow apps.
+- Canonical Workflow Apps for architecture review, PR/CI review, release
+  preparation, and research synthesis.
 - Router / Orchestrator for workflow definitions and phase gates.
 - Subagent dispatch manifests for fan-out work.
 - Deterministic harness prompts for repeatable agent tasks.
@@ -61,12 +63,14 @@ Verifier-gated commits.
 See [unix-principles.md](plugins/cool-workflow/docs/unix-principles.md).
 See [workflow-app-sdk.7.md](plugins/cool-workflow/docs/workflow-app-sdk.7.md)
 for the app contract.
+See [canonical-workflow-apps.7.md](plugins/cool-workflow/docs/canonical-workflow-apps.7.md)
+for the official app matrix.
 See [verifier-gated-commit.7.md](plugins/cool-workflow/docs/verifier-gated-commit.7.md)
 for the commit/checkpoint contract.
 See [sandbox-profiles.7.md](plugins/cool-workflow/docs/sandbox-profiles.7.md)
 for the worker sandbox policy contract.
 See [end-to-end-golden-path.7.md](plugins/cool-workflow/docs/end-to-end-golden-path.7.md)
-for the v0.1.10 release integration proof.
+for the release integration proof.
 
 ## Language Contract
 
@@ -98,6 +102,7 @@ cd plugins/cool-workflow
 npm install --no-package-lock
 npm run build
 npm run check
+npm run canonical-apps
 npm run golden-path
 node scripts/cw.js list
 rm -rf node_modules package-lock.json
@@ -112,7 +117,11 @@ CW without installing TypeScript dependencies.
 cd plugins/cool-workflow
 node scripts/cw.js list
 node scripts/cw.js app list
+node scripts/cw.js app show architecture-review
+node scripts/cw.js app validate apps/architecture-review/app.json
+node scripts/cw.js app show release-cut
 node scripts/cw.js app validate end-to-end-golden-path
+npm run canonical-apps
 npm run golden-path
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
@@ -152,7 +161,7 @@ plugins/cool-workflow/src/            TypeScript source
 plugins/cool-workflow/dist/           Runtime JavaScript committed for users
 plugins/cool-workflow/skills/         Agent host skill entrypoint
 plugins/cool-workflow/workflows/      Bundled workflow definitions
-plugins/cool-workflow/apps/           Workflow App SDK examples/manifests
+plugins/cool-workflow/apps/           Canonical apps and SDK examples
 plugins/cool-workflow/docs/           Feature and SDK notes
 examples/                             Example workflow outputs
 ```

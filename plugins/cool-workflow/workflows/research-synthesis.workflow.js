@@ -1,9 +1,9 @@
 module.exports = ({ workflow, phase, agent, artifact }) =>
   workflow({
-    id: "research-synthesis",
-    title: "Research Synthesis",
+    id: "legacy-research-synthesis",
+    title: "Legacy Research Synthesis",
     summary:
-      "Split a broad research question into scoped investigations, cross-check findings, and produce a concise synthesis.",
+      "Compatibility workflow-file wrapper for the canonical research-synthesis app.",
     limits: {
       maxAgents: 12,
       maxConcurrentAgents: 4
@@ -15,30 +15,30 @@ module.exports = ({ workflow, phase, agent, artifact }) =>
     phases: [
       phase("Scope", [
         agent(
-          "scope:claims",
+          "legacy-scope:claims",
           "Break the research question into independently verifiable claims, likely sources, and uncertainty boundaries."
         )
       ]),
       phase("Investigate", [
         agent(
-          "investigate:primary-sources",
+          "legacy-investigate:primary-sources",
           "Investigate primary or official sources first. Return evidence, links, dates, and uncertainty."
         ),
         agent(
-          "investigate:counterpoints",
+          "legacy-investigate:counterpoints",
           "Look for counterevidence, conflicting interpretations, missing context, and stale assumptions."
         )
       ]),
       phase("Verify", [
         agent(
-          "verify:claims",
+          "legacy-verify:claims",
           "Verify each important claim against the gathered evidence. Mark real, conditional, stale, unknown, or unsupported.",
           { requiresEvidence: true }
         )
       ]),
       phase("Synthesize", [
         artifact(
-          "synthesis:report",
+          "legacy-synthesis:report",
           "Write a concise synthesis with answer, evidence, caveats, and open questions.",
           { requiresEvidence: true }
         )

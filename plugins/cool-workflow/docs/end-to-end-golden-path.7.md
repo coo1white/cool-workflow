@@ -1,6 +1,6 @@
 # End-to-End Golden Path
 
-Cool Workflow v0.1.10 adds a deterministic golden path that proves the base
+Cool Workflow v0.1.10 added a deterministic golden path that proves the base
 system is connected from workflow app planning through verifier-gated commit and
 report generation.
 

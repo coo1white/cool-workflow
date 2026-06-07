@@ -19,6 +19,8 @@ const {
 node scripts/cw.js app list
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
+node scripts/cw.js app show architecture-review
+npm run canonical-apps
 node scripts/cw.js app init my-app --title "My App"
 node scripts/cw.js plan my-app --question "What should happen?"
 ```
@@ -39,7 +41,9 @@ The SDK is intentionally small. The public app helpers are:
 - `artifact(id, prompt, options)`
 - `input(name, options)`
 
-Legacy workflow factories remain valid:
+Legacy workflow factories remain valid. If a canonical app owns the public id,
+the legacy wrapper should use an explicit compatibility id such as
+`legacy-research-synthesis` to avoid duplicate discovery:
 
 ```js
 module.exports = ({ workflow, phase, agent, artifact }) =>
@@ -197,6 +201,25 @@ node scripts/cw.js app package <app-id> --output app.cwapp.json
 legacy workflow files and first-class app directories. `plan` accepts either
 kind by id.
 
+## Canonical Apps
+
+CW v0.1.11 includes four maintained canonical app directories:
+
+- `architecture-review`
+- `pr-review-fix-ci`
+- `release-cut`
+- `research-synthesis`
+
+These apps are official userland pressure tests for the SDK. They use declared
+inputs, compatibility metadata, sandbox profile hints, and evidence-required
+verification or synthesis/verdict tasks. Validate and plan the full matrix with:
+
+```bash
+npm run canonical-apps
+```
+
+See [canonical-workflow-apps.7.md](canonical-workflow-apps.7.md).
+
 ## MCP
 
 The MCP bridge exposes matching tools:
@@ -235,5 +258,10 @@ src/workflow-app-sdk.ts
 dist/workflow-app-sdk.js
 apps/workflow-app-sdk-demo/app.json
 apps/workflow-app-sdk-demo/workflow.js
+apps/architecture-review/app.json
+apps/pr-review-fix-ci/app.json
+apps/release-cut/app.json
+apps/research-synthesis/app.json
 test/workflow-app-sdk-smoke.js
+test/canonical-workflow-apps-smoke.js
 ```

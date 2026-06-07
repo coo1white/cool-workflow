@@ -1,6 +1,6 @@
 {
   "name": "cool-workflow",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Workflow App SDK and TypeScript orchestration runtime for agent workflows.",
   "type": "commonjs",
   "license": "BSD-2-Clause",
@@ -11,7 +11,8 @@
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "golden-path": "node scripts/golden-path.js",
-    "test": "node dist/cli.js list && node test/state-node-smoke.js && node test/pipeline-runner-smoke.js && node test/error-feedback-smoke.js && node test/worker-isolation-smoke.js && node test/sandbox-profile-smoke.js && node test/candidate-scoring-smoke.js && node test/verifier-gated-commit-smoke.js && node test/workflow-app-sdk-smoke.js && node test/end-to-end-golden-path-smoke.js"
+    "canonical-apps": "node scripts/canonical-apps.js",
+    "test": "node dist/cli.js list && node test/state-node-smoke.js && node test/pipeline-runner-smoke.js && node test/error-feedback-smoke.js && node test/worker-isolation-smoke.js && node test/sandbox-profile-smoke.js && node test/candidate-scoring-smoke.js && node test/verifier-gated-commit-smoke.js && node test/workflow-app-sdk-smoke.js && node test/canonical-workflow-apps-smoke.js && node test/end-to-end-golden-path-smoke.js"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
