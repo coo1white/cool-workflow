@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.16
+
+- Added `npm run dogfood:release`, a dry-run release proof that uses the
+  canonical `release-cut` app against the real Cool Workflow repository.
+- Added real command evidence collection for git state, version surfaces,
+  release docs, build/package checks, type checks, tests, fixture
+  compatibility, canonical apps, golden path, `release:check`, and trust audit
+  inspection.
+- Added release candidate registration, evidence-backed scoring,
+  verifier-gated selection, and verifier-gated CW state commit/checkpoint
+  handling for the dogfood workflow.
+- Added fail-closed release action gating so tag, push, and publish requests
+  require explicit execute flags and target-version confirmation.
+- Added `test/dogfood-release-smoke.js` and included it in `npm test` and
+  `npm run release:check`.
+- Added `docs/dogfood-one-real-repo.7.md` and updated README, Getting Started,
+  release checklist, docs index, skill instructions, version surfaces, and
+  generated runtime output.
+
 ## 0.1.15
 
 - Added durable trust audit records under `.cw/runs/<run-id>/audit/` with

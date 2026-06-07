@@ -29,6 +29,7 @@ const checks = [
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "tests", command: ["npm", "test"] },
   { name: "security trust smoke", command: ["node", "test/security-trust-hardening-smoke.js"] },
+  { name: "dogfood release smoke", command: ["node", "test/dogfood-release-smoke.js"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },
   { name: "golden path", command: ["npm", "run", "golden-path"] },
   { name: "fixture compatibility", command: ["npm", "run", "fixture-compat"] },

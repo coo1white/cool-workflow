@@ -14,8 +14,8 @@ Create a run with a canonical workflow app:
 ```bash
 node scripts/cw.js plan release-cut \
   --repo "$PWD" \
-  --version 0.1.15 \
-  --previousVersion 0.1.14 \
+  --version 0.1.16 \
+  --previousVersion 0.1.15 \
   --releaseBranch main \
   --dryRun true
 ```
@@ -45,12 +45,19 @@ Before cutting a release, run the full dry-run gate:
 
 ```bash
 npm run release:check
+npm run dogfood:release
 ```
 
 The release check is non-destructive. It builds, type-checks, runs tests,
 validates canonical apps and golden path behavior, checks old fixture
-compatibility, verifies docs, and checks version synchronization. It does not
-tag, push, publish, or rewrite fixture files.
+compatibility, verifies docs, runs the dogfood smoke proof, and checks version
+synchronization. It does not tag, push, publish, or rewrite fixture files.
+
+`npm run dogfood:release` is the real-repository release proof. It uses the
+canonical `release-cut` app against this repository in dry-run mode, records CW
+worker outputs from real command logs, scores and selects a release candidate,
+creates a verifier-gated CW state commit, and writes
+`.cw/runs/<run-id>/dogfood-summary.json`.
 
 Trust audit records live under `.cw/runs/<run-id>/audit/`. CW records the
 sandbox profile used by each worker, allowed and denied decisions, evidence

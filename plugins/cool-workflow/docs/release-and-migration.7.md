@@ -66,6 +66,7 @@ mutated.
 - `npm run build`
 - `npm run check`
 - `npm test`
+- dogfood release smoke coverage
 - `npm run canonical-apps`
 - `npm run golden-path`
 - `npm run fixture-compat`
@@ -76,6 +77,13 @@ remain manual release actions after the gate passes.
 
 For v0.1.15, the same gate also includes the Security / Trust Hardening smoke
 test so audit/provenance coverage remains part of release discipline.
+
+For v0.1.16, release discipline adds Dogfood One Real Repo. `npm run
+dogfood:release` runs the canonical `release-cut` app against the real Cool
+Workflow repository in dry-run mode and produces a CW report, audit summary,
+provenance, release candidate, score, selection, and verifier-gated
+commit/checkpoint. `npm run release:check` includes the dogfood smoke test so
+the wiring stays covered without recursively running the full release gate.
 
 ## Unsupported Cases
 

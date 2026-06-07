@@ -9,7 +9,8 @@ Read these in order when you are new to CW:
 5. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, and trust summaries.
 6. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
 7. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
-8. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+8. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
+9. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and
