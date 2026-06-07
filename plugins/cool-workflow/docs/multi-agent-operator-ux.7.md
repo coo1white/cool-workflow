@@ -4,6 +4,10 @@ CW v0.1.21 makes multi-agent operator inspection first-class. The feature is a
 read-only userland view over existing run state. It does not create a hidden
 dashboard database and does not infer success when evidence, dependency, or
 lifecycle state is ambiguous.
+CW v0.1.22 adds trust panels to the same operator path so role policy,
+permission decisions, blackboard write audit, message provenance, judge
+rationale, panel decisions, and policy violations are visible beside topology
+and evidence state.
 
 The model is derived from:
 
@@ -14,6 +18,8 @@ The model is derived from:
 - blackboard topics, messages, contexts, artifacts, snapshots, and coordinator
   decisions
 - candidate score files, trust audit events, and verifier-gated commit records
+- role policy, blackboard provenance, judge rationale, panel decisions, and
+  policy violation audit records
 
 ## Operator Commands
 

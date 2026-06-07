@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing Cool Workflow v0.1.21 or later.
+Use this checklist before publishing Cool Workflow v0.1.22 or later.
 
 ## Dry-Run Gate
 
@@ -42,10 +42,15 @@ logs, and release verdict.
 8. Confirm Multi-Agent Operator UX docs and smoke coverage are present:
    `docs/multi-agent-operator-ux.7.md` and
    `test/multi-agent-operator-ux-smoke.js`.
-9. Confirm `npm run dogfood:release` reports `ready-dry-run` and inspect the
+9. Confirm Multi-Agent Trust / Policy / Audit docs and smoke coverage are
+   present: `docs/multi-agent-trust-policy-audit.7.md` and
+   `test/multi-agent-trust-policy-audit-smoke.js`.
+10. Confirm `npm run dogfood:release` reports `ready-dry-run` and inspect the
    run with `status`, `graph`, `report --show`, `candidate summary`,
    `commit summary`, `multi-agent dependencies`, `multi-agent failures`,
-   `multi-agent evidence`, `audit summary`, and `audit provenance`.
+   `multi-agent evidence`, `audit summary`, `audit provenance`,
+   `audit multi-agent`, `audit policy`, `audit blackboard`, and
+   `audit judge`.
 
 ## Version Surfaces
 
@@ -84,7 +89,7 @@ After the dry-run gate and manual review pass, tagging, pushing, and publishing
 remain explicit maintainer actions:
 
 ```bash
-git tag v0.1.21
+git tag v0.1.22
 git push origin main --tags
 ```
 
@@ -92,4 +97,4 @@ Package publication, marketplace updates, or plugin cache updates should be run
 only when the maintainer intends to publish. Local tag creation, push, package
 publish, and marketplace update remain separate visible steps. Dry-run dogfood
 mode never performs them; execute-style flags must include an explicit
-target-version confirmation such as `--confirm-release-actions=0.1.21`.
+target-version confirmation such as `--confirm-release-actions=0.1.22`.

@@ -29,6 +29,11 @@ import { summarizeOperatorCandidates, summarizeOperatorCommits, summarizeOperato
 import { summarizeMultiAgentOperator } from "./multi-agent-operator-ux";
 import { rankCandidates, registerCandidate, scoreCandidate, selectCandidate } from "./candidate-scoring";
 import { summarizeTrustAudit } from "./trust-audit";
+import {
+  assertMultiAgentActionAllowed,
+  hasAcceptedJudgeRationale,
+  recordJudgeRationaleAudit
+} from "./multi-agent-trust";
 
 export type HostRunState =
   | "needs-run"
@@ -327,6 +332,38 @@ export function hostScore(run: WorkflowRun, options: Record<string, unknown> = {
   if (!candidate) throw new Error("multi-agent score requires --candidate or --worker when a single candidate cannot be inferred");
   const evidence = explicitEvidence(options);
   if (!evidence.length) throw new Error(`Candidate ${candidate.id} score requires evidence`);
+  const authority = authorityOptions(options);
+  if (authority.agentRoleId || authority.agentMembershipId) {
+    const rationale = stringOption(options.rationale || options.notes || options.reason);
+    if (!rationale) throw new Error(`Candidate ${candidate.id} judge score requires rationale`);
+    const permission = assertMultiAgentActionAllowed(run, {
+      operation: "judge.rationale",
+      actor: authority.actor,
+      multiAgentRunId: authority.multiAgentRunId || topology?.multiAgentRunId,
+      agentRoleId: authority.agentRoleId,
+      agentGroupId: authority.agentGroupId,
+      agentMembershipId: authority.agentMembershipId,
+      blackboardId: topology?.blackboardId,
+      blackboardTopicId: topology?.topicIds[0],
+      candidateId: candidate.id,
+      evidenceRefs: evidence.map((entry) => entry.locator || entry.summary || entry.id).filter(Boolean) as string[]
+    });
+    recordJudgeRationaleAudit(run, {
+      kind: "judge.rationale",
+      actor: authority.actor,
+      multiAgentRunId: authority.multiAgentRunId || topology?.multiAgentRunId,
+      agentRoleId: authority.agentRoleId,
+      agentGroupId: authority.agentGroupId,
+      agentMembershipId: authority.agentMembershipId,
+      blackboardId: topology?.blackboardId,
+      blackboardTopicId: topology?.topicIds[0],
+      candidateId: candidate.id,
+      evidenceRefs: evidence.map((entry) => entry.locator || entry.summary || entry.id).filter(Boolean) as string[],
+      rationale,
+      policyRef: permission.policyRef,
+      parentEventIds: [permission.event.id]
+    });
+  }
   const score = scoreCandidate(run, candidate.id, {
     id: stringOption(options.score || options.scoreId),
     scorer: stringOption(options.scorer) || "multi-agent-host",
@@ -357,6 +394,26 @@ export function hostSelect(run: WorkflowRun, options: Record<string, unknown> = 
   const topology = optionalSingleActiveTopology(run);
   const candidate = resolveCandidate(run, options) || topRankedCandidate(run);
   if (!candidate) throw new Error("multi-agent select requires a scored candidate");
+  const authority = authorityOptions(options);
+  if (authority.agentRoleId || authority.agentMembershipId) {
+    const scoreId = stringOption(options.score || options.scoreId) || candidate.scores.at(-1);
+    if (!hasAcceptedJudgeRationale(run, { multiAgentRunId: authority.multiAgentRunId || topology?.multiAgentRunId, candidateId: candidate.id, scoreId })) {
+      throw new Error(`Candidate ${candidate.id} selection requires accepted judge rationale with evidence`);
+    }
+    assertMultiAgentActionAllowed(run, {
+      operation: "candidate.select",
+      actor: authority.actor,
+      multiAgentRunId: authority.multiAgentRunId || topology?.multiAgentRunId,
+      agentRoleId: authority.agentRoleId,
+      agentGroupId: authority.agentGroupId,
+      agentMembershipId: authority.agentMembershipId,
+      blackboardId: topology?.blackboardId,
+      blackboardTopicId: topology?.topicIds.at(-1),
+      candidateId: candidate.id,
+      scoreId,
+      evidenceRefs: explicitEvidence(options).map((entry) => entry.locator || entry.summary || entry.id).filter(Boolean) as string[]
+    });
+  }
   const selection = selectCandidate(run, candidate.id, {
     selectedBy: stringOption(options.by || options.selectedBy) || "multi-agent-host",
     reason: requireString(options.reason || "Selected by high-level multi-agent host surface.", "selection reason"),
@@ -379,6 +436,13 @@ export function hostSelect(run: WorkflowRun, options: Record<string, unknown> = 
       reason: selection.reason,
       subjectIds: [selection.candidateId, selection.id],
       evidenceRefs: selection.evidence.map((entry) => entry.locator || entry.summary || entry.id).filter(Boolean) as string[],
+      author: authority.actor,
+      links: {
+        multiAgentRunId: authority.multiAgentRunId || topology.multiAgentRunId,
+        agentGroupId: authority.agentGroupId,
+        agentRoleId: authority.agentRoleId,
+        agentMembershipId: authority.agentMembershipId
+      },
       metadata: { hostSurface: "multi-agent.select", selectionId: selection.id }
     });
   }
@@ -689,6 +753,32 @@ function explicitEvidence(options: Record<string, unknown>): StateEvidence[] {
     locator: String(entry),
     summary: String(entry)
   }));
+}
+
+function authorityOptions(options: Record<string, unknown>): {
+  actor?: { kind: "role" | "group" | "membership"; id: string };
+  multiAgentRunId?: string;
+  agentRoleId?: string;
+  agentGroupId?: string;
+  agentMembershipId?: string;
+} {
+  const agentRoleId = stringOption(options.role || options.roleId || options["multi-agent-role"]);
+  const agentGroupId = stringOption(options.group || options.groupId || options["multi-agent-group"]);
+  const agentMembershipId = stringOption(options.membership || options.membershipId || options["multi-agent-membership"]);
+  const actor = agentMembershipId
+    ? { kind: "membership" as const, id: agentMembershipId }
+    : agentRoleId
+      ? { kind: "role" as const, id: agentRoleId }
+      : agentGroupId
+        ? { kind: "group" as const, id: agentGroupId }
+        : undefined;
+  return {
+    actor,
+    multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+    agentRoleId,
+    agentGroupId,
+    agentMembershipId
+  };
 }
 
 function candidateEvidence(candidate: CandidateRecord): StateEvidence[] {

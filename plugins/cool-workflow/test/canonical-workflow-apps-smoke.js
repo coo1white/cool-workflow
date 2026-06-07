@@ -48,7 +48,7 @@ const canonicalApps = [
       "--repo",
       workspace,
       "--version",
-      "0.1.21",
+      "0.1.22",
       "--previousVersion",
       "0.1.11",
       "--releaseBranch",
@@ -88,7 +88,7 @@ for (const app of canonicalApps) {
   assert.ok(summary, `${app.id} must appear in cw.js app list`);
   assert.equal(summary.sourceKind, "app-directory");
   assert.equal(summary.legacy, false);
-    assert.equal(summary.version, "0.1.21");
+    assert.equal(summary.version, "0.1.22");
   assert.ok(summary.sandboxProfiles.length > 0);
 
   const validation = run(["app", "validate", path.join(pluginRoot, "apps", app.id, "app.json")]);
@@ -97,8 +97,8 @@ for (const app of canonicalApps) {
 
   const shown = run(["app", "show", app.id]);
   assert.equal(shown.app.id, app.id);
-    assert.equal(shown.app.version, "0.1.21");
-    assert.equal(shown.app.compatibility.minVersion, "0.1.21");
+    assert.equal(shown.app.version, "0.1.22");
+    assert.equal(shown.app.compatibility.minVersion, "0.1.22");
   assert.equal(shown.app.metadata.canonical, true);
   assertTaskIdsUnique(shown);
   assertUsesSandboxHints(shown);
@@ -112,7 +112,7 @@ for (const app of canonicalApps) {
   const state = JSON.parse(fs.readFileSync(plan.statePath, "utf8"));
   assert.equal(state.workflow.id, app.id);
   assert.equal(state.workflow.app.id, app.id);
-  assert.equal(state.workflow.app.version, "0.1.21");
+  assert.equal(state.workflow.app.version, "0.1.22");
   assert.equal(state.workflow.app.metadata.canonical, true);
   assert.equal(state.loopStage, "interpret");
   assertUniqueTaskIds(state.tasks, app.id);
@@ -120,7 +120,7 @@ for (const app of canonicalApps) {
   assert.ok(state.tasks.every((task) => task.sandboxProfileId), `${app.id} plan needs sandbox profile hints`);
 
   const report = fs.readFileSync(plan.reportPath, "utf8");
-  assert.match(report, new RegExp(`Workflow App: ${app.id}@0\\.1\\.21`));
+  assert.match(report, new RegExp(`Workflow App: ${app.id}@0\\.1\\.22`));
 }
 
 const matrix = run(["app", "list"]);

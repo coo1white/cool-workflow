@@ -125,6 +125,18 @@ blackboard -> score -> select` without manually plumbing topology, blackboard,
 candidate, and audit ids. The lower-level tools below remain advanced
 primitives.
 
+v0.1.22 adds audit parity for multi-agent trust:
+
+- `cw_audit_multi_agent`
+- `cw_audit_policy`
+- `cw_audit_role`
+- `cw_audit_blackboard`
+- `cw_audit_judge`
+
+These tools expose role policies, permission decisions, blackboard write audit,
+message provenance, judge rationales, panel decisions, and policy violations in
+deterministic JSON.
+
 Read and inspect:
 
 - `cw_multi_agent_summary`

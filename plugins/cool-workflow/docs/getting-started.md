@@ -14,8 +14,8 @@ Create a run with a canonical workflow app:
 ```bash
 node scripts/cw.js plan release-cut \
   --repo "$PWD" \
-  --version 0.1.21 \
-  --previousVersion 0.1.20 \
+  --version 0.1.22 \
+  --previousVersion 0.1.21 \
   --releaseBranch main \
   --dryRun true
 ```
@@ -43,6 +43,10 @@ node scripts/cw.js multi-agent select <run-id> <candidate-id> --reason "verified
 node scripts/cw.js multi-agent summary <run-id>
 node scripts/cw.js blackboard summary <run-id>
 node scripts/cw.js audit summary <run-id>
+node scripts/cw.js audit multi-agent <run-id>
+node scripts/cw.js audit policy <run-id>
+node scripts/cw.js audit blackboard <run-id>
+node scripts/cw.js audit judge <run-id>
 node scripts/cw.js report <run-id> --show
 ```
 
@@ -77,5 +81,7 @@ creates a verifier-gated CW state commit, and writes
 Trust audit records live under `.cw/runs/<run-id>/audit/`. CW records the
 sandbox profile used by each worker, allowed and denied decisions, evidence
 provenance, and why selected candidates or verifier-gated commits were
-accepted. Inspect them with `audit summary`, `audit worker`, and
-`audit provenance`.
+accepted. Multi-agent trust records add role policy, blackboard write audit,
+message provenance, judge rationale, and policy violations. Inspect them with
+`audit summary`, `audit worker`, `audit provenance`, `audit multi-agent`,
+`audit policy`, `audit blackboard`, and `audit judge`.

@@ -12,11 +12,12 @@ Read these in order when you are new to CW:
 8. [Multi-Agent Topologies](multi-agent-topologies.7.md) - official map-reduce, debate, and judge-panel recipes built on multi-agent and blackboard records.
 9. [Multi-Agent CLI + MCP Surface](multi-agent-cli-mcp-surface.7.md) - preferred host loop for run, status, step, blackboard, score, and select.
 10. [Multi-Agent Operator UX](multi-agent-operator-ux.7.md) - graph, dependencies, failures, and evidence adoption for topology-backed multi-agent runs.
-11. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, topology, multi-agent, blackboard, coordinator, and trust summaries.
-12. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
-13. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
-14. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
-15. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+11. [Multi-Agent Trust / Policy / Audit](multi-agent-trust-policy-audit.7.md) - role authority, message provenance, blackboard write audit, judge rationale, and policy violations.
+12. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, topology, multi-agent, blackboard, coordinator, and trust summaries.
+13. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
+14. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
+15. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
+16. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

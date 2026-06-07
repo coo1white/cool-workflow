@@ -47,6 +47,14 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
+v0.1.22 adds Multi-Agent Trust / Policy / Audit over the existing trust-audit
+layer. Use `audit multi-agent`, `audit policy`, `audit role`,
+`audit blackboard`, and `audit judge` when an operator or host needs to inspect
+role authority, message provenance, blackboard write decisions, judge
+rationale, panel decisions, policy violations, and why a selected result is
+trusted. Missing policy, missing evidence, missing provenance, and missing
+judge rationale fail closed.
+
 v0.1.21 adds Multi-Agent Operator UX over the high-level host loop. Use
 `multi-agent graph`, `multi-agent dependencies`, `multi-agent failures`, and
 `multi-agent evidence` when an operator or host needs to see who depends on

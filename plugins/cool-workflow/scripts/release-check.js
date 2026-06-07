@@ -18,6 +18,7 @@ const checks = [
         "docs/release-and-migration.7.md",
         "docs/multi-agent-cli-mcp-surface.7.md",
         "docs/multi-agent-operator-ux.7.md",
+        "docs/multi-agent-trust-policy-audit.7.md",
         "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
@@ -34,6 +35,7 @@ const checks = [
   { name: "multi-agent topologies smoke", command: ["node", "test/multi-agent-topologies-smoke.js"] },
   { name: "multi-agent CLI MCP surface smoke", command: ["node", "test/multi-agent-cli-mcp-surface-smoke.js"] },
   { name: "multi-agent operator UX smoke", command: ["node", "test/multi-agent-operator-ux-smoke.js"] },
+  { name: "multi-agent trust policy audit smoke", command: ["node", "test/multi-agent-trust-policy-audit-smoke.js"] },
   { name: "security trust smoke", command: ["node", "test/security-trust-hardening-smoke.js"] },
   { name: "dogfood release smoke", command: ["node", "test/dogfood-release-smoke.js"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },

@@ -28,6 +28,14 @@ import { safeFileName, writeJson } from "./state";
 import { appendRunNode, createStateNode } from "./state-node";
 import { getAgentGroup, getAgentMembership, getAgentRole, getMultiAgentRun } from "./multi-agent";
 import { recordTrustAuditEvent } from "./trust-audit";
+import {
+  assertMultiAgentActionAllowed,
+  hashText,
+  recordBlackboardWriteAudit,
+  recordJudgeRationaleAudit,
+  recordMessageProvenanceAudit,
+  sourceForActor
+} from "./multi-agent-trust";
 
 export const BLACKBOARD_SCHEMA_VERSION = 1;
 
@@ -67,6 +75,7 @@ export interface PostMessageInput {
   evidenceRefs?: string[];
   artifactRefIds?: string[];
   auditEventIds?: string[];
+  links?: Partial<BlackboardLinks>;
   parentIds?: string[];
   tags?: string[];
   metadata?: Record<string, unknown>;
@@ -84,6 +93,7 @@ export interface PutContextInput {
   scope?: Partial<BlackboardScope>;
   evidenceRefs?: string[];
   artifactRefIds?: string[];
+  links?: Partial<BlackboardLinks>;
   parentIds?: string[];
   tags?: string[];
   metadata?: Record<string, unknown>;
@@ -103,6 +113,7 @@ export interface AddArtifactInput {
   provenance?: Partial<BlackboardLinks>;
   evidenceRefs?: string[];
   auditEventIds?: string[];
+  links?: Partial<BlackboardLinks>;
   parentIds?: string[];
   tags?: string[];
   metadata?: Record<string, unknown>;
@@ -122,6 +133,7 @@ export interface RecordDecisionInput {
   artifactRefIds?: string[];
   messageIds?: string[];
   parentIds?: string[];
+  links?: Partial<BlackboardLinks>;
   tags?: string[];
   metadata?: Record<string, unknown>;
 }
@@ -221,6 +233,7 @@ export function createBlackboardTopic(run: WorkflowRun, input: CreateTopicInput)
   const state = ensureBlackboardState(run);
   const id = input.id || createId("topic");
   assertUnique(state.topics, id, "BlackboardTopic");
+  const topicLinks = compactLinks(run, { ...board.links, ...roleLinkFromAuthor(input.author), ...input.scope });
   const now = timestamp();
   const topic: BlackboardTopic = {
     ...base(run, board.id, id, input.author, input.scope, "open", input.tags, input.metadata),
@@ -231,7 +244,7 @@ export function createBlackboardTopic(run: WorkflowRun, input: CreateTopicInput)
     messageIds: [],
     contextIds: [],
     artifactRefIds: [],
-    links: compactLinks(run, board.links)
+    links: topicLinks
   };
   state.topics.push(topic);
   board.topicIds = unique([...board.topicIds, topic.id]);
@@ -252,6 +265,19 @@ export function createBlackboardTopic(run: WorkflowRun, input: CreateTopicInput)
     metadata: { title: topic.title, tags: topic.tags }
   });
   topic.links.auditEventIds = unique([...(topic.links.auditEventIds || []), audit.id]);
+  recordBlackboardWriteAudit(run, {
+    operation: "topic",
+    status: topic.status,
+    actor: topic.author,
+    blackboardId: board.id,
+    blackboardTopicId: topic.id,
+    multiAgentRunId: topic.links.multiAgentRunId,
+    agentGroupId: topic.links.agentGroupId,
+    agentRoleId: topic.links.agentRoleId,
+    agentMembershipId: topic.links.agentMembershipId,
+    parentEventIds: [audit.id],
+    metadata: { title: topic.title }
+  });
   persistBlackboardState(run);
   return topic;
 }
@@ -266,8 +292,27 @@ export function postBlackboardMessage(run: WorkflowRun, input: PostMessageInput)
   if (!input.body.trim()) throw new Error("Blackboard message body is required");
   const id = input.id || createId("msg");
   assertUnique(state.messages, id, "BlackboardMessage");
+  const author = normalizeAuthor(input.author, "operator");
+  const links = compactLinks(run, { ...topic.links, ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs, auditEventIds: input.auditEventIds });
+  const enforcePolicy = shouldEnforcePolicy(author, links);
+  const permission = enforcePolicy
+    ? assertMultiAgentActionAllowed(run, {
+        operation: "message",
+        actor: author,
+        multiAgentRunId: links.multiAgentRunId,
+        agentRoleId: links.agentRoleId,
+        agentGroupId: links.agentGroupId,
+        agentMembershipId: links.agentMembershipId,
+        agentFanoutId: links.agentFanoutId,
+        agentFaninId: links.agentFaninId,
+        blackboardId: board.id,
+        blackboardTopicId: topic.id,
+        blackboardMessageId: id,
+        evidenceRefs: input.evidenceRefs || []
+      })
+    : undefined;
   const message: BlackboardMessage = {
-    ...base(run, board.id, id, input.author, input.scope, "active", input.tags, input.metadata),
+    ...base(run, board.id, id, author, input.scope, "active", input.tags, input.metadata),
     topicId: topic.id,
     body: input.body,
     visibility: input.visibility || "public",
@@ -276,7 +321,26 @@ export function postBlackboardMessage(run: WorkflowRun, input: PostMessageInput)
     linkedEvidenceRefs: unique(input.evidenceRefs || []),
     linkedArtifactRefIds: requireArtifactRefs(run, input.artifactRefIds || []),
     linkedAuditEventIds: unique(input.auditEventIds || []),
-    links: compactLinks(run, { ...topic.links, evidenceRefs: input.evidenceRefs, auditEventIds: input.auditEventIds })
+    links,
+    provenance: {
+      schemaVersion: 1,
+      authorKind: author.kind,
+      authorId: author.id,
+      multiAgentRunId: links.multiAgentRunId,
+      agentRoleId: links.agentRoleId,
+      agentGroupId: links.agentGroupId,
+      agentMembershipId: links.agentMembershipId,
+      agentFanoutId: links.agentFanoutId,
+      agentFaninId: links.agentFaninId,
+      workerId: links.workerId || (author.kind === "worker" ? author.id : undefined),
+      source: sourceForActor(author),
+      linkedEvidenceRefs: unique(input.evidenceRefs || []),
+      linkedAuditEventIds: unique(input.auditEventIds || []),
+      parentMessageIds: unique([...(input.parentIds || []), ...(input.replyToId ? [input.replyToId] : [])]),
+      topicScope: topic.id,
+      bodyHash: hashText(input.body),
+      locator: `${board.id}/messages/${id}`
+    }
   };
   state.messages.push(message);
   topic.messageIds = unique([...topic.messageIds, message.id]);
@@ -302,8 +366,63 @@ export function postBlackboardMessage(run: WorkflowRun, input: PostMessageInput)
     parentEventIds: message.linkedAuditEventIds,
     metadata: { visibility: message.visibility }
   });
-  message.linkedAuditEventIds = unique([...message.linkedAuditEventIds, audit.id]);
-  message.links.auditEventIds = unique([...(message.links.auditEventIds || []), audit.id]);
+  const writeAudit = recordBlackboardWriteAudit(run, {
+    operation: "message",
+    status: message.status,
+    actor: message.author,
+    multiAgentRunId: message.links.multiAgentRunId,
+    agentGroupId: message.links.agentGroupId,
+    agentRoleId: message.links.agentRoleId,
+    agentMembershipId: message.links.agentMembershipId,
+    agentFanoutId: message.links.agentFanoutId,
+    agentFaninId: message.links.agentFaninId,
+    blackboardId: board.id,
+    blackboardTopicId: topic.id,
+    blackboardMessageId: message.id,
+    evidenceRefs: message.linkedEvidenceRefs,
+    parentEventIds: unique([...(permission ? [permission.event.id] : []), audit.id]),
+    policyRef: permission?.policyRef,
+    metadata: { visibility: message.visibility }
+  });
+  const provenanceAudit = recordMessageProvenanceAudit(run, {
+    messageId: message.id,
+    topicId: topic.id,
+    blackboardId: board.id,
+    actor: message.author,
+    body: message.body,
+    multiAgentRunId: message.links.multiAgentRunId,
+    agentRoleId: message.links.agentRoleId,
+    agentGroupId: message.links.agentGroupId,
+    agentMembershipId: message.links.agentMembershipId,
+    workerId: message.links.workerId,
+    evidenceRefs: message.linkedEvidenceRefs,
+    parentMessageIds: message.parentIds,
+    parentEventIds: [audit.id, writeAudit.id],
+    policyRef: permission?.policyRef
+  });
+  if (message.metadata?.judgeRationale || message.tags.includes("judge-rationale")) {
+    const rationaleAudit = recordJudgeRationaleAudit(run, {
+      kind: "judge.rationale",
+      actor: message.author,
+      multiAgentRunId: message.links.multiAgentRunId,
+      agentRoleId: message.links.agentRoleId,
+      agentGroupId: message.links.agentGroupId,
+      agentMembershipId: message.links.agentMembershipId,
+      blackboardId: board.id,
+      blackboardTopicId: topic.id,
+      blackboardMessageId: message.id,
+      evidenceRefs: message.linkedEvidenceRefs,
+      rationale: message.body,
+      policyRef: permission?.policyRef,
+      parentEventIds: [audit.id, writeAudit.id, provenanceAudit.id]
+    });
+    message.linkedAuditEventIds = unique([...message.linkedAuditEventIds, rationaleAudit.id]);
+  }
+  message.linkedAuditEventIds = unique([...message.linkedAuditEventIds, audit.id, writeAudit.id, provenanceAudit.id]);
+  message.links.auditEventIds = unique([...(message.links.auditEventIds || []), audit.id, writeAudit.id, provenanceAudit.id]);
+  if (message.provenance) {
+    message.provenance.linkedAuditEventIds = unique([...message.provenance.linkedAuditEventIds, audit.id, writeAudit.id, provenanceAudit.id]);
+  }
   persistBlackboardState(run);
   return message;
 }
@@ -315,6 +434,22 @@ export function putBlackboardContext(run: WorkflowRun, input: PutContextInput): 
   const key = input.key || input.kind;
   const id = input.id || createId("ctx");
   assertUnique(state.contexts, id, "BlackboardContext");
+  const author = normalizeAuthor(input.author, "operator");
+  const links = compactLinks(run, { ...topic.links, ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs });
+  const permission = shouldEnforcePolicy(author, links)
+    ? assertMultiAgentActionAllowed(run, {
+        operation: "context",
+        actor: author,
+        multiAgentRunId: links.multiAgentRunId,
+        agentRoleId: links.agentRoleId,
+        agentGroupId: links.agentGroupId,
+        agentMembershipId: links.agentMembershipId,
+        blackboardId: board.id,
+        blackboardTopicId: topic.id,
+        blackboardContextId: id,
+        evidenceRefs: input.evidenceRefs || []
+      })
+    : undefined;
   const conflicts = state.contexts.filter((context) =>
     context.blackboardId === board.id &&
     context.topicId === topic.id &&
@@ -332,7 +467,7 @@ export function putBlackboardContext(run: WorkflowRun, input: PutContextInput): 
   }
   const status: BlackboardRecordStatus = conflicts.length ? "conflicting" : input.kind === "question" ? "open" : "active";
   const context: BlackboardContext = {
-    ...base(run, board.id, id, input.author, input.scope, status, input.tags, input.metadata),
+    ...base(run, board.id, id, author, input.scope, status, input.tags, input.metadata),
     topicId: topic.id,
     kind: input.kind,
     key,
@@ -341,7 +476,7 @@ export function putBlackboardContext(run: WorkflowRun, input: PutContextInput): 
     conflictingContextIds: conflicts.map((entry) => entry.id),
     evidenceRefs: unique(input.evidenceRefs || []),
     artifactRefIds: requireArtifactRefs(run, input.artifactRefIds || []),
-    links: compactLinks(run, { ...topic.links, evidenceRefs: input.evidenceRefs })
+    links
   };
   for (const conflict of conflicts) {
     conflict.status = "conflicting";
@@ -381,9 +516,31 @@ export function putBlackboardContext(run: WorkflowRun, input: PutContextInput): 
     blackboardContextId: context.id,
     coordinatorDecisionId: decision.id,
     evidenceRefs: context.evidenceRefs,
+    multiAgentRunId: context.links.multiAgentRunId,
+    agentGroupId: context.links.agentGroupId,
+    agentRoleId: context.links.agentRoleId,
+    agentMembershipId: context.links.agentMembershipId,
+    metadata: { kind: context.kind, key: context.key, conflicts: context.conflictingContextIds }
+  });
+  const writeAudit = recordBlackboardWriteAudit(run, {
+    operation: "context",
+    status: context.status,
+    actor: context.author,
+    multiAgentRunId: context.links.multiAgentRunId,
+    agentGroupId: context.links.agentGroupId,
+    agentRoleId: context.links.agentRoleId,
+    agentMembershipId: context.links.agentMembershipId,
+    blackboardId: board.id,
+    blackboardTopicId: topic.id,
+    blackboardContextId: context.id,
+    coordinatorDecisionId: decision.id,
+    evidenceRefs: context.evidenceRefs,
+    parentEventIds: unique([...(permission ? [permission.event.id] : []), audit.id]),
+    policyRef: permission?.policyRef,
     metadata: { kind: context.kind, key: context.key, conflicts: context.conflictingContextIds }
   });
   context.links.auditEventIds = unique([...(context.links.auditEventIds || []), audit.id]);
+  context.links.auditEventIds = unique([...(context.links.auditEventIds || []), writeAudit.id]);
   persistBlackboardState(run);
   return context;
 }
@@ -396,16 +553,32 @@ export function addBlackboardArtifact(run: WorkflowRun, input: AddArtifactInput)
   if (topic && topic.blackboardId !== board.id) throw new Error(`Topic ${topic.id} does not belong to blackboard ${board.id}`);
   const id = input.id || createId("artifact");
   assertUnique(state.artifacts, id, "BlackboardArtifactRef");
+  const author = normalizeAuthor(input.author, "operator");
+  const links = compactLinks(run, { ...board.links, ...(topic?.links || {}), ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs, auditEventIds: input.auditEventIds });
+  const permission = shouldEnforcePolicy(author, links)
+    ? assertMultiAgentActionAllowed(run, {
+        operation: "artifact",
+        actor: author,
+        multiAgentRunId: links.multiAgentRunId,
+        agentRoleId: links.agentRoleId,
+        agentGroupId: links.agentGroupId,
+        agentMembershipId: links.agentMembershipId,
+        blackboardId: board.id,
+        blackboardTopicId: topic?.id,
+        blackboardArtifactRefId: id,
+        evidenceRefs: input.evidenceRefs || []
+      })
+    : undefined;
   const absolutePath = input.path ? path.resolve(input.path) : undefined;
   const artifact: BlackboardArtifactRef = {
-    ...base(run, board.id, id, input.author, input.scope, "active", input.tags, input.metadata),
+    ...base(run, board.id, id, author, input.scope, "active", input.tags, input.metadata),
     topicId: topic?.id,
     kind: input.kind,
     path: absolutePath,
     locator: input.locator,
     owner: normalizeAuthor(input.owner || input.author, "operator"),
     source: input.source || "operator-recorded",
-    provenance: compactLinks(run, input.provenance || {}),
+    provenance: compactLinks(run, { ...(input.provenance || {}), ...links }),
     evidenceRefs: unique(input.evidenceRefs || []),
     checksum: absolutePath && fs.existsSync(absolutePath) && fs.statSync(absolutePath).isFile() ? checksumFile(absolutePath) : undefined,
     trustAuditEventIds: unique(input.auditEventIds || [])
@@ -449,7 +622,24 @@ export function addBlackboardArtifact(run: WorkflowRun, input: AddArtifactInput)
     parentEventIds: artifact.trustAuditEventIds,
     metadata: { kind: artifact.kind, locator: artifact.locator, checksum: artifact.checksum }
   });
-  artifact.trustAuditEventIds = unique([...artifact.trustAuditEventIds, audit.id]);
+  const writeAudit = recordBlackboardWriteAudit(run, {
+    operation: "artifact",
+    status: artifact.status,
+    actor: artifact.author,
+    multiAgentRunId: artifact.provenance.multiAgentRunId,
+    agentGroupId: artifact.provenance.agentGroupId,
+    agentRoleId: artifact.provenance.agentRoleId,
+    agentMembershipId: artifact.provenance.agentMembershipId,
+    blackboardId: board.id,
+    blackboardTopicId: topic?.id,
+    blackboardArtifactRefId: artifact.id,
+    coordinatorDecisionId: decision.id,
+    evidenceRefs: artifact.evidenceRefs,
+    parentEventIds: unique([...(permission ? [permission.event.id] : []), audit.id]),
+    policyRef: permission?.policyRef,
+    metadata: { kind: artifact.kind, locator: artifact.locator, checksum: artifact.checksum }
+  });
+  artifact.trustAuditEventIds = unique([...artifact.trustAuditEventIds, audit.id, writeAudit.id]);
   persistBlackboardState(run);
   return artifact;
 }
@@ -485,7 +675,21 @@ export function createBlackboardSnapshot(run: WorkflowRun, blackboardId?: string
     blackboardSnapshotId: snapshot.id,
     metadata: { snapshotPath, counts: summary }
   });
+  const writeAudit = recordBlackboardWriteAudit(run, {
+    operation: "snapshot",
+    status: snapshot.status,
+    actor: snapshot.author,
+    multiAgentRunId: snapshot.links.multiAgentRunId,
+    agentGroupId: snapshot.links.agentGroupId,
+    agentRoleId: snapshot.links.agentRoleId,
+    agentMembershipId: snapshot.links.agentMembershipId,
+    blackboardId: board.id,
+    blackboardSnapshotId: snapshot.id,
+    parentEventIds: [audit.id],
+    metadata: { snapshotPath }
+  });
   snapshot.links.auditEventIds = [audit.id];
+  snapshot.links.auditEventIds = unique([...snapshot.links.auditEventIds, writeAudit.id]);
   persistBlackboardState(run);
   return snapshot;
 }
@@ -504,7 +708,7 @@ export function recordCoordinatorDecision(run: WorkflowRun, input: RecordDecisio
     evidenceRefs: unique(input.evidenceRefs || []),
     artifactRefIds: requireArtifactRefs(run, input.artifactRefIds || []),
     messageIds: requireMessages(run, input.messageIds || []),
-    links: compactLinks(run, { ...board.links, evidenceRefs: input.evidenceRefs })
+    links: compactLinks(run, { ...board.links, ...roleLinkFromAuthor(input.author), ...(input.links || {}), evidenceRefs: input.evidenceRefs })
   };
   state.decisions.push(decision);
   board.decisionIds = unique([...board.decisionIds, decision.id]);
@@ -521,6 +725,10 @@ export function recordCoordinatorDecision(run: WorkflowRun, input: RecordDecisio
     blackboardId: board.id,
     blackboardTopicId: input.topicId,
     coordinatorDecisionId: decision.id,
+    multiAgentRunId: decision.links.multiAgentRunId,
+    agentGroupId: decision.links.agentGroupId,
+    agentRoleId: decision.links.agentRoleId,
+    agentMembershipId: decision.links.agentMembershipId,
     evidenceRefs: decision.evidenceRefs,
     metadata: {
       kind: decision.kind,
@@ -529,7 +737,39 @@ export function recordCoordinatorDecision(run: WorkflowRun, input: RecordDecisio
       reason: decision.reason
     }
   });
-  decision.links.auditEventIds = unique([...(decision.links.auditEventIds || []), audit.id]);
+  const writeAudit = recordBlackboardWriteAudit(run, {
+    operation: "coordinator-decision",
+    status: decision.status,
+    actor: decision.author,
+    multiAgentRunId: decision.links.multiAgentRunId,
+    agentGroupId: decision.links.agentGroupId,
+    agentRoleId: decision.links.agentRoleId,
+    agentMembershipId: decision.links.agentMembershipId,
+    blackboardId: board.id,
+    blackboardTopicId: input.topicId,
+    coordinatorDecisionId: decision.id,
+    evidenceRefs: decision.evidenceRefs,
+    parentEventIds: [audit.id],
+    metadata: { kind: decision.kind, outcome: decision.outcome }
+  });
+  if (decision.kind === "candidate-synthesis" || decision.tags.includes("panel-decision")) {
+    const panelAudit = recordJudgeRationaleAudit(run, {
+      kind: "judge.panel-decision",
+      actor: decision.author,
+      multiAgentRunId: decision.links.multiAgentRunId,
+      agentGroupId: decision.links.agentGroupId,
+      agentRoleId: decision.links.agentRoleId,
+      agentMembershipId: decision.links.agentMembershipId,
+      blackboardId: board.id,
+      blackboardTopicId: input.topicId,
+      coordinatorDecisionId: decision.id,
+      evidenceRefs: decision.evidenceRefs,
+      rationale: decision.reason,
+      parentEventIds: [audit.id, writeAudit.id]
+    });
+    decision.links.auditEventIds = unique([...(decision.links.auditEventIds || []), panelAudit.id]);
+  }
+  decision.links.auditEventIds = unique([...(decision.links.auditEventIds || []), audit.id, writeAudit.id]);
   persistBlackboardState(run);
   return decision;
 }
@@ -708,6 +948,20 @@ function emptyState(): BlackboardState {
     snapshots: [],
     decisions: []
   };
+}
+
+function roleLinkFromAuthor(author: Partial<BlackboardAuthor> | undefined): Partial<BlackboardLinks> {
+  if (!author?.id) return {};
+  if (author.kind === "role") return { agentRoleId: author.id };
+  if (author.kind === "group") return { agentGroupId: author.id };
+  if (author.kind === "membership") return { agentMembershipId: author.id };
+  if (author.kind === "worker") return { workerId: author.id };
+  return {};
+}
+
+function shouldEnforcePolicy(author: BlackboardAuthor, links: BlackboardLinks): boolean {
+  if (author.kind === "role" || author.kind === "group" || author.kind === "membership" || author.kind === "worker") return true;
+  return Boolean(links.agentRoleId || links.agentGroupId || links.agentMembershipId);
 }
 
 function base(

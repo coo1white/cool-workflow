@@ -24,6 +24,7 @@ const candidate_scoring_1 = require("./candidate-scoring");
 const sandbox_profile_1 = require("./sandbox-profile");
 const operator_ux_1 = require("./operator-ux");
 const trust_audit_1 = require("./trust-audit");
+const multi_agent_trust_1 = require("./multi-agent-trust");
 const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
 const topology_1 = require("./topology");
@@ -457,6 +458,64 @@ class CoolWorkflowRunner {
     }
     auditSummary(runId) {
         return (0, trust_audit_1.summarizeTrustAudit)(this.loadRun(runId));
+    }
+    auditMultiAgent(runId) {
+        return (0, multi_agent_trust_1.summarizeMultiAgentTrust)(this.loadRun(runId));
+    }
+    auditPolicy(runId) {
+        const run = this.loadRun(runId);
+        const summary = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(run);
+        return {
+            schemaVersion: 1,
+            runId,
+            rolePolicies: summary.rolePolicies,
+            permissionDecisions: summary.permissionDecisions,
+            policyViolations: summary.policyViolations,
+            nextAction: summary.nextAction
+        };
+    }
+    auditRole(runId, roleId) {
+        const run = this.loadRun(runId);
+        const summary = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(run);
+        const events = (0, trust_audit_1.listTrustAuditEvents)(run).filter((event) => event.agentRoleId === roleId);
+        return {
+            schemaVersion: 1,
+            runId,
+            roleId,
+            role: run.multiAgent?.roles.find((entry) => entry.id === roleId),
+            rolePolicies: summary.rolePolicies.filter((entry) => entry.subjectId === roleId),
+            permissionDecisions: events.filter((event) => event.kind === "multi-agent.permission"),
+            blackboardWrites: events.filter((event) => event.kind === "blackboard.write"),
+            messageProvenance: events.filter((event) => event.kind === "blackboard.message-provenance"),
+            judgeRationales: events.filter((event) => event.kind === "judge.rationale"),
+            panelDecisions: events.filter((event) => event.kind === "judge.panel-decision"),
+            policyViolations: events.filter((event) => event.kind === "policy.violation"),
+            events,
+            nextAction: `node scripts/cw.js audit multi-agent ${runId} --json`
+        };
+    }
+    auditBlackboard(runId) {
+        const summary = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(this.loadRun(runId));
+        return {
+            schemaVersion: 1,
+            runId,
+            blackboardWrites: summary.blackboardWrites,
+            messageProvenance: summary.messageProvenance,
+            policyViolations: summary.policyViolations.filter((event) => event.blackboardId),
+            nextAction: summary.nextAction
+        };
+    }
+    auditJudge(runId) {
+        const summary = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(this.loadRun(runId));
+        return {
+            schemaVersion: 1,
+            runId,
+            judgeRationales: summary.judgeRationales,
+            panelDecisions: summary.panelDecisions,
+            permissionDecisions: summary.permissionDecisions.filter((event) => String(event.metadata?.operation || "").startsWith("judge.")),
+            policyViolations: summary.policyViolations.filter((event) => String(event.metadata?.operation || "").startsWith("judge.")),
+            nextAction: summary.nextAction
+        };
     }
     workerAudit(runId, workerId) {
         return (0, trust_audit_1.workerTrustAudit)(this.loadRun(runId), workerId);
@@ -1301,6 +1360,56 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
+    return [
+        "Cool Workflow",
+        "",
+        "Commands:",
+        "  list",
+        "  init <workflow-id> [--title TEXT] [--output PATH]",
+        "  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]",
+        "  status <run-id> [--json|--format json]",
+        "  next <run-id> [--limit N]",
+        "  graph <run-id> [--json]",
+        "  dispatch <run-id> [--limit N] [--sandbox PROFILE]",
+        "  result <run-id> <task-id> <result-file>",
+        "  state check <run-id> [--state PATH] [--write]",
+        "  commit <run-id> --verifier <node-id> [--reason TEXT]",
+        "  commit <run-id> --candidate <candidate-id> [--reason TEXT]",
+        "  commit <run-id> --selection <selection-id> [--reason TEXT]",
+        "  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]",
+        "  commit summary <run-id> [--json]",
+        "  report <run-id> [--show|--summary]",
+        "  app list|show|validate|init|package",
+        "  sandbox list|show|validate",
+        "  contract show <run-id> [contract-id]",
+        "  node list|show|graph <run-id>",
+        "  feedback list|summary|show|collect|task|resolve <run-id>",
+        "  worker list|summary|show|manifest|output|fail|validate <run-id>",
+        "  audit summary <run-id>",
+        "  audit worker <run-id> <worker-id>",
+        "  audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]",
+        "  audit multi-agent <run-id> [--json]",
+        "  audit policy <run-id> [--json]",
+        "  audit role <run-id> <role-id> [--json]",
+        "  audit blackboard <run-id> [--json]",
+        "  audit judge <run-id> [--json]",
+        "  audit attest <run-id> [--worker ID] [--hostEnforced true] [--env NAME]",
+        "  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]",
+        "  candidate list|summary|register|score|rank|select|reject <run-id>",
+        "  blackboard summary|graph|resolve <run-id>",
+        "  blackboard topic create <run-id> --id <topic-id> --title TEXT",
+        "  blackboard message post|list <run-id>",
+        "  blackboard context put <run-id>",
+        "  blackboard artifact add|list <run-id>",
+        "  blackboard snapshot <run-id>",
+        "  coordinator summary <run-id>",
+        "  coordinator decision <run-id> --kind KIND --outcome OUTCOME --reason TEXT",
+        "  multi-agent run|status|step|blackboard|score|select|summary|graph|dependencies|failures|evidence <run-id>",
+        "  topology list|show|validate|apply|summary|graph",
+        "  schedule create|list|due|complete|pause|resume|run-now|history|daemon|delete",
+        "  routine create|fire|list|events|delete",
+        ""
+    ].join("\n");
     return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id> [--json|--format json]\n  next <run-id> [--limit N]\n  graph <run-id> [--json]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  state check <run-id> [--state PATH] [--write]\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  commit summary <run-id> [--json]\n  report <run-id> [--show|--summary]\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id> [--json]\n  feedback list <run-id> [--status open]\n  feedback summary <run-id> [--json]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker summary <run-id> [--json]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  audit summary <run-id>\n  audit worker <run-id> <worker-id>\n  audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]\n  audit attest <run-id> [--worker ID] [--hostEnforced true] [--env NAME]\n  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]\n  candidate list <run-id> [--status scored]\n  candidate summary <run-id> [--json]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  blackboard summary <run-id>\n  blackboard graph <run-id>\n  blackboard topic create <run-id> --id <topic-id> --title TEXT\n  blackboard message post <run-id> --topic <topic-id> --body TEXT\n  blackboard message list <run-id> [--topic <topic-id>]\n  blackboard context put <run-id> --topic <topic-id> --kind fact|constraint|assumption|question|decision --value TEXT\n  blackboard artifact add <run-id> --path PATH --kind KIND\n  blackboard artifact list <run-id>\n  blackboard snapshot <run-id>\n  coordinator summary <run-id>\n  coordinator decision <run-id> --kind KIND --outcome OUTCOME --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {

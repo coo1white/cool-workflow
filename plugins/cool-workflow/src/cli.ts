@@ -11,6 +11,7 @@ import {
   formatCommitSummary,
   formatFeedbackSummary,
   formatMultiAgentSummary,
+  formatMultiAgentTrustAudit,
   formatOperatorGraph,
   formatOperatorReport,
   formatOperatorStatus,
@@ -475,6 +476,36 @@ async function main(): Promise<void> {
         case "provenance":
           printJson(runner.evidenceProvenance(required(runId, "run id"), args.options));
           return;
+        case "multi-agent": {
+          const view = runner.auditMultiAgent(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(view);
+          else process.stdout.write(`${formatMultiAgentTrustAudit(view as unknown as Record<string, unknown>)}\n`);
+          return;
+        }
+        case "policy": {
+          const view = runner.auditPolicy(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(view);
+          else process.stdout.write(`${formatMultiAgentTrustAudit(view)}\n`);
+          return;
+        }
+        case "role": {
+          const view = runner.auditRole(required(runId, "run id"), required(id, "role id"));
+          if (wantsJson(args.options)) printJson(view);
+          else process.stdout.write(`${formatMultiAgentTrustAudit(view)}\n`);
+          return;
+        }
+        case "blackboard": {
+          const view = runner.auditBlackboard(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(view);
+          else process.stdout.write(`${formatMultiAgentTrustAudit(view)}\n`);
+          return;
+        }
+        case "judge": {
+          const view = runner.auditJudge(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(view);
+          else process.stdout.write(`${formatMultiAgentTrustAudit(view)}\n`);
+          return;
+        }
         case "attest":
           printJson(runner.recordAuditAttestation(required(runId, "run id"), args.options));
           return;
@@ -482,7 +513,7 @@ async function main(): Promise<void> {
           printJson(runner.recordAuditDecision(required(runId, "run id"), required(id, "worker id"), args.options));
           return;
         default:
-          throw new Error("Usage: cw.js audit summary|worker|provenance|attest|decision <run-id> [worker-id]");
+          throw new Error("Usage: cw.js audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]");
       }
     }
     case "candidate": {

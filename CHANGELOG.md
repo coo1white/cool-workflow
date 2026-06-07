@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.22
+
+- Added Multi-Agent Trust / Policy / Audit on top of the existing trust-audit
+  layer, with role policies, permission decisions, blackboard write audit,
+  message provenance, judge rationale, panel decisions, and policy violations.
+- Added policy-aware fail-closed checks for blackboard writes, candidate
+  scoring/selection, missing evidence, and missing judge rationale.
+- Added focused CLI views: `audit multi-agent`, `audit policy`, `audit role`,
+  `audit blackboard`, and `audit judge`, with deterministic JSON output.
+- Added MCP parity tools: `cw_audit_multi_agent`, `cw_audit_policy`,
+  `cw_audit_role`, `cw_audit_blackboard`, and `cw_audit_judge`.
+- Integrated multi-agent trust projections into status/report/audit operator
+  views and preserved existing v0.1.21 multi-agent operator UX commands.
+- Added `docs/multi-agent-trust-policy-audit.7.md` and
+  `test/multi-agent-trust-policy-audit-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.21
 
 - Added Multi-Agent Operator UX as a derived read-only model over WorkflowRun,

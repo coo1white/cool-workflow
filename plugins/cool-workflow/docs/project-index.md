@@ -5,11 +5,11 @@ Generated from the current repository code on 2026-06-07 by `npm run sync:projec
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.1.21`
-- Source modules: `30`
+- Version: `0.1.22`
+- Source modules: `31`
 - Workflow apps: `6`
-- Docs: `27`
-- Smoke tests: `20`
+- Docs: `28`
+- Smoke tests: `21`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -81,6 +81,7 @@ multi-agent host -> topology -> blackboard/coordinator
 ### Other Source Modules
 
 - [multi-agent-operator-ux.ts](../src/multi-agent-operator-ux.ts)
+- [multi-agent-trust.ts](../src/multi-agent-trust.ts)
 - [state-migrations.ts](../src/state-migrations.ts)
 
 ## Workflow Apps
@@ -110,6 +111,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Multi-Agent Operator UX](multi-agent-operator-ux.7.md)
 - [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md)
 - [Multi-Agent Topologies](multi-agent-topologies.7.md)
+- [Multi-Agent Trust / Policy / Audit](multi-agent-trust-policy-audit.7.md)
 - [Operator UX](operator-ux.7.md)
 - [PIPELINE-RUNNER(7)](pipeline-runner.7.md)
 - [Cool Workflow Project Index](project-index.md)
@@ -139,6 +141,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [multi-agent-operator-ux-smoke.js](../test/multi-agent-operator-ux-smoke.js)
 - [multi-agent-runtime-core-smoke.js](../test/multi-agent-runtime-core-smoke.js)
 - [multi-agent-topologies-smoke.js](../test/multi-agent-topologies-smoke.js)
+- [multi-agent-trust-policy-audit-smoke.js](../test/multi-agent-trust-policy-audit-smoke.js)
 - [operator-ux-smoke.js](../test/operator-ux-smoke.js)
 - [pipeline-runner-smoke.js](../test/pipeline-runner-smoke.js)
 - [run-fixture-compat-smoke.js](../test/run-fixture-compat-smoke.js)
