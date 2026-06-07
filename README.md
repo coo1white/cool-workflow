@@ -19,6 +19,9 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Release & Migration Discipline for explicit run-state migrations,
   fixture-based backward compatibility, version synchronization, and a dry-run
   release gate.
+- Dogfood One Real Repo release proof that runs the canonical `release-cut`
+  workflow against this repository with real command logs, candidate
+  scoring/selection, verifier-gated CW state, and trust audit provenance.
 - Canonical Workflow Apps for architecture review, PR/CI review, release
   preparation, and research synthesis.
 - Operator UX for human `status`, run graphs, report summaries, resource
@@ -71,6 +74,8 @@ See [getting-started.md](plugins/cool-workflow/docs/getting-started.md) for a
 fresh clone path.
 See [release-and-migration.7.md](plugins/cool-workflow/docs/release-and-migration.7.md)
 for release and migration discipline.
+See [dogfood-one-real-repo.7.md](plugins/cool-workflow/docs/dogfood-one-real-repo.7.md)
+for the v0.1.16 real-repository dogfood release proof.
 See [security-trust-hardening.7.md](plugins/cool-workflow/docs/security-trust-hardening.7.md)
 for v0.1.15 audit and trust hardening.
 See [mcp-app-surface.7.md](plugins/cool-workflow/docs/mcp-app-surface.7.md)
@@ -119,6 +124,7 @@ npm install --no-package-lock
 npm run build
 npm run check
 npm run release:check
+npm run dogfood:release
 npm run canonical-apps
 npm run golden-path
 node scripts/cw.js list
@@ -140,6 +146,7 @@ node scripts/cw.js app show release-cut
 node scripts/cw.js app validate end-to-end-golden-path
 npm run canonical-apps
 npm run golden-path
+npm run dogfood:release
 npm run fixture-compat
 npm run version:sync
 node test/mcp-app-surface-smoke.js

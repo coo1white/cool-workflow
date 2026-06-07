@@ -160,10 +160,17 @@ The golden path uses a temporary workspace, writes a simulated worker
 `cw:result` to the worker manifest's declared `result.md`, and asserts durable
 state files instead of relying only on exit codes.
 
+Use `npm run dogfood:release` for v0.1.16+ real-repository release dogfooding.
+It runs the canonical `release-cut` app against the current Cool Workflow repo
+in dry-run mode, records real command logs through CW worker outputs, scores and
+selects a release candidate only with verifier evidence, creates a
+verifier-gated CW state commit or held checkpoint, and writes
+`.cw/runs/<run-id>/dogfood-summary.json`.
+
 Use `npm run release:check` for v0.1.15+ release discipline. It is a dry-run
 gate that builds, type-checks, runs tests, validates canonical apps and golden
-path behavior, checks old run fixtures, verifies version synchronization, and
-does not tag, push, publish, or mutate fixtures.
+path behavior, checks old run fixtures, runs dogfood smoke coverage, verifies
+version synchronization, and does not tag, push, publish, or mutate fixtures.
 
 Durable run state lives at `.cw/runs/<run-id>/state.json`. Use
 `node scripts/cw.js state check <run-id>` to dry-run migration and

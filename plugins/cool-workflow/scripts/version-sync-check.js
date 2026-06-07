@@ -7,7 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.15";
+const VERSION = "0.1.16";
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",
@@ -32,6 +32,8 @@ function main() {
 
   checkIncludes("plugins/cool-workflow/scripts/golden-path.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/scripts/canonical-apps.js", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/scripts/dogfood-release.js", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/test/dogfood-release-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/mcp-app-surface-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/canonical-workflow-apps-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/workflow-app-sdk-smoke.js", VERSION, checks);
@@ -41,6 +43,7 @@ function main() {
 
   checkIncludes("plugins/cool-workflow/README.md", `v${VERSION}`, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "release and migration", checks);
+  checkIncludes("plugins/cool-workflow/docs/dogfood-one-real-repo.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/getting-started.md", "npm run release:check", checks);
   checkIncludes("plugins/cool-workflow/docs/release-and-migration.7.md", VERSION, checks);
   checkIncludes("CHANGELOG.md", `## ${VERSION}`, checks);

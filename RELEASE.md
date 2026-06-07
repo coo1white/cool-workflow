@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing Cool Workflow v0.1.15 or later.
+Use this checklist before publishing Cool Workflow v0.1.16 or later.
 
 ## Dry-Run Gate
 
@@ -10,12 +10,19 @@ From a fresh checkout:
 cd plugins/cool-workflow
 npm install
 npm run release:check
+npm run dogfood:release
 ```
 
 `npm run release:check` is non-destructive. It does not tag, push, publish, or
 rewrite fixture files. It verifies docs presence, build, type check, default
-tests, canonical apps, golden path, fixture compatibility, and version
-synchronization.
+tests, canonical apps, golden path, fixture compatibility, dogfood smoke, and
+version synchronization.
+
+`npm run dogfood:release` is also non-destructive by default. It runs the
+canonical `release-cut` workflow against the real repository and writes
+`.cw/runs/<run-id>/dogfood-summary.json` with the run id, report path, audit
+paths, candidate id, score id, selection id, commit/checkpoint id, command
+logs, and release verdict.
 
 ## Required Manual Review
 
@@ -26,6 +33,9 @@ synchronization.
    status for any release-candidate run state you intend to preserve.
 4. Confirm `npm run version:sync` passes after `npm run build`.
 5. Confirm generated `plugins/cool-workflow/dist/` output is committed.
+6. Confirm `npm run dogfood:release` reports `ready-dry-run` and inspect the
+   run with `status`, `graph`, `report --show`, `candidate summary`,
+   `commit summary`, `audit summary`, and `audit provenance`.
 
 ## Version Surfaces
 
@@ -37,6 +47,7 @@ The version synchronization check covers:
 - SDK and MCP server version use
 - canonical workflow app manifests
 - golden path and MCP smoke expectations
+- dogfood release smoke expectations
 - README, changelog, release docs, and release/migration docs
 - generated `dist/` output
 
@@ -63,9 +74,12 @@ After the dry-run gate and manual review pass, tagging, pushing, and publishing
 remain explicit maintainer actions:
 
 ```bash
-git tag v0.1.15
+git tag v0.1.16
 git push origin main --tags
 ```
 
 Package publication, marketplace updates, or plugin cache updates should be run
-only when the maintainer intends to publish.
+only when the maintainer intends to publish. Local tag creation, push, package
+publish, and marketplace update remain separate visible steps. Dry-run dogfood
+mode never performs them; execute-style flags must include an explicit
+target-version confirmation such as `--confirm-release-actions=0.1.16`.

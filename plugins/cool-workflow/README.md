@@ -26,6 +26,12 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.16 adds Dogfood One Real Repo: a dry-run release proof that runs the
+canonical `release-cut` app against this repository, records real command
+evidence, scores/selects a release candidate, creates a verifier-gated CW state
+commit, and explains trust through audit provenance. See
+[docs/dogfood-one-real-repo.7.md](docs/dogfood-one-real-repo.7.md).
+
 CW v0.1.15 adds Security / Trust Hardening: durable trust audit records,
 worker sandbox decision history, evidence provenance, acceptance rationale,
 and CLI/MCP audit inspection. See
@@ -88,6 +94,7 @@ cool-workflow
   apps/workflow-app-sdk-demo/app.json
   docs/index.md
   docs/getting-started.md
+  docs/dogfood-one-real-repo.7.md
   docs/release-and-migration.7.md
   docs/agent-sdk.md
   docs/unix-principles.md
@@ -216,6 +223,7 @@ node scripts/cw.js report <run-id>
 Run the deterministic release golden path:
 
 ```bash
+npm run dogfood:release
 npm run release:check
 npm run canonical-apps
 npm run golden-path
@@ -238,6 +246,8 @@ See [docs/index.md](docs/index.md) for a docs map.
 See [docs/getting-started.md](docs/getting-started.md) for a clone-to-run path.
 See [docs/release-and-migration.7.md](docs/release-and-migration.7.md) for
 release and migration discipline.
+See [docs/dogfood-one-real-repo.7.md](docs/dogfood-one-real-repo.7.md) for the
+real-repository dogfood release proof.
 See [docs/operator-ux.7.md](docs/operator-ux.7.md) for the operator command
 surface.
 See [docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md) for the app
