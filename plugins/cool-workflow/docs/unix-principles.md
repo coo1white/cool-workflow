@@ -20,6 +20,7 @@ CW already stores:
 - commit gate failures in `.cw/runs/<run-id>/feedback/`
 - sandbox profile selections in worker, dispatch, feedback, and report state
 - workflow app identity and version in `.cw/runs/<run-id>/state.json`
+- canonical app matrix run state in temporary `.cw/runs/<run-id>/` workspaces
 - golden path proof artifacts in temporary `.cw/runs/<run-id>/` workspaces
 
 The practical rule is:
@@ -65,6 +66,18 @@ system. Apps are userland: versioned, validated, inspectable definitions that
 can be listed, shown, validated, initialized, packaged, planned, and reported
 without depending on hidden runner internals.
 
+The v0.1.11 canonical apps are maintained userland:
+
+```text
+architecture-review
+pr-review-fix-ci
+release-cut
+research-synthesis
+```
+
+They keep domain prompts, inputs, evidence gates, and sandbox hints in app
+directories instead of in runner internals.
+
 The v0.1.10 `end-to-end-golden-path` app is intentionally boring userland. It
 has one readonly worker task and exists to prove that the base system pipes are
 connected.
@@ -101,6 +114,15 @@ npm run golden-path
 It exercises the public CLI and then inspects state files for app metadata,
 dispatch, worker manifest, result node, verifier node, candidate score, ranking,
 selection, verifier-gated commit, report, and absence of ErrorFeedback.
+
+The canonical app matrix is the userland regression form:
+
+```text
+npm run canonical-apps
+```
+
+It validates and plans every maintained app without running full workers for
+each app.
 
 ## 4. Isolated Workers
 

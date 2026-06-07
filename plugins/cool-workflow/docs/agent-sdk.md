@@ -28,7 +28,14 @@ The loop maps to concrete SDK operations:
 | Adjust | verifier gates | Validate evidence and choose the next phase |
 | Checkpoint | `commitState()` | Snapshot state after important transitions |
 
-The v0.1.10 golden path runs this contract end to end with public CLI commands:
+The v0.1.11 canonical app matrix validates and plans the maintained userland
+apps with public CLI commands:
+
+```bash
+npm run canonical-apps
+```
+
+The golden path runs the full integration chain end to end:
 
 ```bash
 npm run golden-path
@@ -103,7 +110,8 @@ module.exports = defineWorkflowApp({
 
 Legacy `module.exports = ({ workflow, phase, agent, artifact }) => workflow(...)`
 files remain loadable. CW wraps them as compatibility apps with version `0.0.0`
-so existing workflow ids still plan and dispatch.
+so workflow files still plan and dispatch. When a canonical app owns the public
+id, compatibility wrappers use explicit ids such as `legacy-research-synthesis`.
 
 ## Language Contract
 
@@ -126,6 +134,8 @@ workflow scripts can run without `ts-node`.
 
 See [workflow-app-sdk.7.md](workflow-app-sdk.7.md) for the full app contract,
 validation rules, CLI commands, MCP tools, and state/report fields.
+See [canonical-workflow-apps.7.md](canonical-workflow-apps.7.md) for the
+official app matrix.
 See [end-to-end-golden-path.7.md](end-to-end-golden-path.7.md) for the
 deterministic release proof that those pieces connect.
 

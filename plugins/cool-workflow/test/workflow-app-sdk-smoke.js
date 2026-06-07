@@ -31,17 +31,34 @@ function runInvalid(args, cwd = pluginRoot) {
 
 const workflowList = run(["list"]);
 assert.ok(workflowList.some((entry) => entry.id === "architecture-review"));
+assert.ok(workflowList.some((entry) => entry.id === "legacy-architecture-review"));
 assert.ok(workflowList.some((entry) => entry.id === "workflow-app-sdk-demo"));
+
+const canonicalResearchPlan = run([
+  "plan",
+  "research-synthesis",
+  "--cwd",
+  tmp,
+  "--question",
+  "Do canonical workflow apps still plan?",
+  "--source",
+  "local docs"
+]);
+assert.equal(canonicalResearchPlan.workflowId, "research-synthesis");
+assert.equal(canonicalResearchPlan.pendingTasks, 6);
+const canonicalResearchState = JSON.parse(fs.readFileSync(canonicalResearchPlan.statePath, "utf8"));
+assert.equal(canonicalResearchState.workflow.app.id, "research-synthesis");
+assert.equal(canonicalResearchState.workflow.app.version, "0.1.11");
 
 const legacyPlan = run([
   "plan",
-  "research-synthesis",
+  "legacy-research-synthesis",
   "--repo",
   tmp,
   "--question",
   "Do legacy workflow files still plan?"
 ]);
-assert.equal(legacyPlan.workflowId, "research-synthesis");
+assert.equal(legacyPlan.workflowId, "legacy-research-synthesis");
 assert.equal(legacyPlan.pendingTasks, 5);
 
 const appList = run(["app", "list"]);

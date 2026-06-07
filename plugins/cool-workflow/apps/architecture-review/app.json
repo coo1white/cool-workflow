@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "architecture-review",
+  "title": "Architecture Review",
+  "summary": "Map a repository architecture, assess risks, verify important findings, and synthesize an evidence-backed verdict.",
+  "version": "0.1.11",
+  "author": "COOLWHITE LLC",
+  "inputs": [
+    {
+      "name": "repo",
+      "type": "path",
+      "required": true,
+      "description": "Repository path to inspect."
+    },
+    {
+      "name": "question",
+      "type": "string",
+      "required": true,
+      "description": "Architecture question or decision to review."
+    },
+    {
+      "name": "invariant",
+      "type": "string",
+      "repeated": true,
+      "description": "Invariant that must remain true."
+    },
+    {
+      "name": "focus",
+      "type": "string",
+      "description": "Optional subsystem, risk area, or file path to emphasize."
+    }
+  ],
+  "sandboxProfiles": [
+    "readonly"
+  ],
+  "compatibility": {
+    "minVersion": "0.1.11",
+    "workflowSchemaVersion": 1,
+    "notes": "Canonical v0.1.11 app migrated from the legacy architecture-review workflow."
+  },
+  "metadata": {
+    "canonical": true,
+    "domain": "software-architecture",
+    "legacyCompatibilityId": "legacy-architecture-review",
+    "maintainedAs": "official-userland"
+  },
+  "workflow": {
+    "entrypoint": "workflow.js"
+  }
+}

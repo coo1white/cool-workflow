@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.11
+
+- Added canonical Workflow App SDK apps: `architecture-review`,
+  `pr-review-fix-ci`, `release-cut`, and `research-synthesis`.
+- Migrated the public `architecture-review` and `research-synthesis` ids into
+  first-class app directories and renamed workflow-file compatibility wrappers
+  to `legacy-architecture-review` and `legacy-research-synthesis`.
+- Added `npm run canonical-apps`, a deterministic local matrix that validates,
+  shows, and plans every canonical app with representative inputs.
+- Added `test/canonical-workflow-apps-smoke.js` and included it in `npm test`.
+- Updated canonical app docs, SDK docs, skill instructions, release metadata,
+  MCP server version, and generated `dist/` files for `0.1.11`.
+
 ## 0.1.10
 
 - Added the first-class `end-to-end-golden-path` Workflow App SDK app with one
