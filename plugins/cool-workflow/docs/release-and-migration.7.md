@@ -87,6 +87,12 @@ fixture normalization for empty blackboard state on older runs.
 For v0.1.19, the gate includes Multi-Agent Topologies smoke coverage and
 fixture normalization for empty topology state on older runs.
 
+For v0.1.20, the gate includes Multi-Agent CLI + MCP Surface smoke coverage.
+The host loop must preserve CLI/MCP parity, stable JSON responses,
+blackboard/audit provenance, evidence-required scoring, fail-closed selection,
+and compatibility with the lower-level topology, multi-agent, blackboard, and
+candidate primitives.
+
 For v0.1.16, release discipline adds Dogfood One Real Repo. `npm run
 dogfood:release` runs the canonical `release-cut` app against the real Cool
 Workflow repository in dry-run mode and produces a CW report, audit summary,

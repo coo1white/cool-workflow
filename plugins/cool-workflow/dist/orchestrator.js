@@ -27,6 +27,7 @@ const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
 const topology_1 = require("./topology");
+const multi_agent_host_1 = require("./multi-agent-host");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -713,6 +714,53 @@ class CoolWorkflowRunner {
     multiAgentGraph(runId) {
         return (0, multi_agent_1.buildMultiAgentGraph)(this.loadRun(runId));
     }
+    hostMultiAgentRun(runId, options = {}) {
+        const workflowId = stringOption(options.app || options.appId || options.workflow || options.workflowId);
+        const run = runId
+            ? this.loadRun(runId)
+            : workflowId
+                ? this.plan(workflowId, withoutHostRunKeys(options))
+                : undefined;
+        if (!run)
+            throw new Error("multi-agent run requires <run-id> or --app <app-id>");
+        const response = (0, multi_agent_host_1.hostRun)(run, options);
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return response;
+    }
+    hostMultiAgentStatus(runId) {
+        const run = this.loadRun(runId);
+        writeReport(run);
+        return (0, multi_agent_host_1.hostStatus)(run);
+    }
+    hostMultiAgentStep(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const response = (0, multi_agent_host_1.hostStep)(run, options);
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return response;
+    }
+    hostMultiAgentBlackboard(runId, action, options = {}) {
+        const run = this.loadRun(runId);
+        const response = (0, multi_agent_host_1.hostBlackboard)(run, action, options);
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return response;
+    }
+    hostMultiAgentScore(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const response = (0, multi_agent_host_1.hostScore)(run, options);
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return response;
+    }
+    hostMultiAgentSelect(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const response = (0, multi_agent_host_1.hostSelect)(run, options);
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return response;
+    }
     listTopologies() {
         return (0, topology_1.listTopologyDefinitions)();
     }
@@ -733,9 +781,9 @@ class CoolWorkflowRunner {
             multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
             blackboardId: stringOption(options.blackboard || options.blackboardId),
             taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
-            mapperCount: numberOption(options.mapperCount || options.mappers || options.mapper),
-            judgeCount: numberOption(options.judgeCount || options.judges || options.judge),
-            debateRounds: numberOption(options.debateRounds || options.rounds),
+            mapperCount: numberOption(options.mapperCount || options["mapper-count"] || options.mappers || options.mapper),
+            judgeCount: numberOption(options.judgeCount || options["judge-count"] || options.judges || options.judge),
+            debateRounds: numberOption(options.debateRounds || options["debate-rounds"] || options.rounds),
             collectInitialFanin: Boolean(options.collectInitialFanin || options["collect-initial-fanin"]),
             metadata: metadataOption(options)
         });
@@ -1636,6 +1684,42 @@ function metadataOption(options) {
         return raw;
     if (typeof raw === "string")
         return JSON.parse(raw);
+    return undefined;
+}
+function withoutHostRunKeys(args) {
+    const copy = { ...args };
+    for (const key of [
+        "app",
+        "appId",
+        "workflow",
+        "workflowId",
+        "inputs",
+        "topology",
+        "topologyId",
+        "topologyRun",
+        "topologyRunId",
+        "multiAgentRun",
+        "multiAgentRunId",
+        "blackboard",
+        "blackboardId",
+        "mapperCount",
+        "mappers",
+        "mapper",
+        "judgeCount",
+        "judges",
+        "judge",
+        "debateRounds",
+        "rounds",
+        "collectInitialFanin",
+        "collect-initial-fanin"
+    ]) {
+        delete copy[key];
+    }
+    return { ...copy, ...(optionsRecord(args.inputs) || {}) };
+}
+function optionsRecord(value) {
+    if (value && typeof value === "object" && !Array.isArray(value))
+        return value;
     return undefined;
 }
 function parseBlackboardAuthor(options) {

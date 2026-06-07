@@ -138,6 +138,14 @@ import {
   summarizeTopologies,
   validateTopologyDefinition
 } from "./topology";
+import {
+  hostBlackboard,
+  hostRun,
+  hostScore,
+  hostSelect,
+  hostStatus,
+  hostStep
+} from "./multi-agent-host";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -890,6 +898,58 @@ export class CoolWorkflowRunner {
     return buildMultiAgentGraph(this.loadRun(runId));
   }
 
+  hostMultiAgentRun(runId: string | undefined, options: Record<string, unknown> = {}): ReturnType<typeof hostRun> {
+    const workflowId = stringOption(options.app || options.appId || options.workflow || options.workflowId);
+    const run = runId
+      ? this.loadRun(runId)
+      : workflowId
+        ? this.plan(workflowId, withoutHostRunKeys(options))
+        : undefined;
+    if (!run) throw new Error("multi-agent run requires <run-id> or --app <app-id>");
+    const response = hostRun(run, options);
+    writeReport(run);
+    saveCheckpoint(run);
+    return response;
+  }
+
+  hostMultiAgentStatus(runId: string): ReturnType<typeof hostStatus> {
+    const run = this.loadRun(runId);
+    writeReport(run);
+    return hostStatus(run);
+  }
+
+  hostMultiAgentStep(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostStep> {
+    const run = this.loadRun(runId);
+    const response = hostStep(run, options);
+    writeReport(run);
+    saveCheckpoint(run);
+    return response;
+  }
+
+  hostMultiAgentBlackboard(runId: string, action?: string, options: Record<string, unknown> = {}): ReturnType<typeof hostBlackboard> {
+    const run = this.loadRun(runId);
+    const response = hostBlackboard(run, action, options);
+    writeReport(run);
+    saveCheckpoint(run);
+    return response;
+  }
+
+  hostMultiAgentScore(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostScore> {
+    const run = this.loadRun(runId);
+    const response = hostScore(run, options);
+    writeReport(run);
+    saveCheckpoint(run);
+    return response;
+  }
+
+  hostMultiAgentSelect(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostSelect> {
+    const run = this.loadRun(runId);
+    const response = hostSelect(run, options);
+    writeReport(run);
+    saveCheckpoint(run);
+    return response;
+  }
+
   listTopologies(): ReturnType<typeof listTopologyDefinitions> {
     return listTopologyDefinitions();
   }
@@ -912,9 +972,9 @@ export class CoolWorkflowRunner {
       multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
       blackboardId: stringOption(options.blackboard || options.blackboardId),
       taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
-      mapperCount: numberOption(options.mapperCount || options.mappers || options.mapper),
-      judgeCount: numberOption(options.judgeCount || options.judges || options.judge),
-      debateRounds: numberOption(options.debateRounds || options.rounds),
+      mapperCount: numberOption(options.mapperCount || options["mapper-count"] || options.mappers || options.mapper),
+      judgeCount: numberOption(options.judgeCount || options["judge-count"] || options.judges || options.judge),
+      debateRounds: numberOption(options.debateRounds || options["debate-rounds"] || options.rounds),
       collectInitialFanin: Boolean(options.collectInitialFanin || options["collect-initial-fanin"]),
       metadata: metadataOption(options)
     });
@@ -1859,6 +1919,43 @@ function metadataOption(options: Record<string, unknown>): Record<string, unknow
   const raw = options.metadata;
   if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
   if (typeof raw === "string") return JSON.parse(raw) as Record<string, unknown>;
+  return undefined;
+}
+
+function withoutHostRunKeys(args: Record<string, unknown>): Record<string, unknown> {
+  const copy = { ...args };
+  for (const key of [
+    "app",
+    "appId",
+    "workflow",
+    "workflowId",
+    "inputs",
+    "topology",
+    "topologyId",
+    "topologyRun",
+    "topologyRunId",
+    "multiAgentRun",
+    "multiAgentRunId",
+    "blackboard",
+    "blackboardId",
+    "mapperCount",
+    "mappers",
+    "mapper",
+    "judgeCount",
+    "judges",
+    "judge",
+    "debateRounds",
+    "rounds",
+    "collectInitialFanin",
+    "collect-initial-fanin"
+  ]) {
+    delete copy[key];
+  }
+  return { ...copy, ...(optionsRecord(args.inputs) || {}) };
+}
+
+function optionsRecord(value: unknown): Record<string, unknown> | undefined {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
   return undefined;
 }
 

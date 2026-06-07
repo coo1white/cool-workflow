@@ -16,6 +16,9 @@ interpret -> act -> observe -> adjust -> checkpoint
   sandbox resolution, verifier-gated commits, and operator summaries.
 - Security / Trust Hardening for durable audit records, sandbox decision
   history, evidence provenance, acceptance rationale, and CLI/MCP audit tools.
+- Multi-Agent CLI + MCP Surface for the preferred agent-host loop:
+  `multi-agent run`, `status`, `step`, `blackboard`, `score`, and `select`,
+  with JSON-first MCP parity.
 - Multi-Agent Topologies for official `map-reduce`, `debate`, and
   `judge-panel` coordination patterns that materialize roles, groups, fanout,
   fanin, blackboard topics, coordinator decisions, topology graphs, and trust
@@ -88,6 +91,8 @@ See [dogfood-one-real-repo.7.md](plugins/cool-workflow/docs/dogfood-one-real-rep
 for the v0.1.16 real-repository dogfood release proof.
 See [coordinator-blackboard.7.md](plugins/cool-workflow/docs/coordinator-blackboard.7.md)
 for the v0.1.18 shared coordination substrate.
+See [multi-agent-cli-mcp-surface.7.md](plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md)
+for the v0.1.20 host-facing multi-agent CLI and MCP loop.
 See [multi-agent-topologies.7.md](plugins/cool-workflow/docs/multi-agent-topologies.7.md)
 for the v0.1.19 official map-reduce, debate, and judge-panel recipes.
 See [multi-agent-runtime-core.7.md](plugins/cool-workflow/docs/multi-agent-runtime-core.7.md)

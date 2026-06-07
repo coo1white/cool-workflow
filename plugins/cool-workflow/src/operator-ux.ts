@@ -626,6 +626,20 @@ function adviseNextSteps(
     }
     return actions;
   }
+  const activeTopology = summary.topologies.active[0];
+  if (activeTopology && activeTopology.status !== "completed" && activeTopology.status !== "failed") {
+    actions.push({
+      command: `node scripts/cw.js multi-agent status ${run.id}`,
+      reason: "Use the high-level multi-agent host surface for topology-backed work.",
+      priority: "high"
+    });
+    actions.push({
+      command: `node scripts/cw.js multi-agent step ${run.id}`,
+      reason: "Perform the next safe host step without spawning agents implicitly.",
+      priority: "normal"
+    });
+    return actions;
+  }
   if (summary.tasks.pending.length) {
     const limit = Math.min(summary.tasks.pending.length, run.workflow.limits.maxConcurrentAgents || 4);
     actions.push({
