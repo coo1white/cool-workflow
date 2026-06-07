@@ -44,7 +44,7 @@ function handleLine(line: string): void {
       sendResult(message.id, {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "cool-workflow", version: "0.1.9" }
+        serverInfo: { name: "cool-workflow", version: "0.1.10" }
       });
       return;
     }

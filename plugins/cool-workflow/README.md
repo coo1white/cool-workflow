@@ -25,7 +25,13 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
-CW v0.1.9 adds the Workflow App SDK: first-class app metadata, validation,
+CW v0.1.10 adds the End-to-End Golden Path: a deterministic regression command
+that validates a first-class app, plans a run, dispatches a readonly isolated
+worker, records a simulated worker result, scores/selects a candidate, creates a
+verifier-gated commit, and renders a report. See
+[docs/end-to-end-golden-path.7.md](docs/end-to-end-golden-path.7.md).
+
+CW v0.1.9 added the Workflow App SDK: first-class app metadata, validation,
 deterministic app discovery, app CLI/MCP tools, app templates, and run
 state/report metadata. See
 [docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md).
@@ -45,6 +51,7 @@ cool-workflow
   scripts/cw.js
   workflows/architecture-review.workflow.js
   workflows/research-synthesis.workflow.js
+  apps/end-to-end-golden-path/app.json
   apps/workflow-app-sdk-demo/app.json
   docs/agent-sdk.md
   docs/unix-principles.md
@@ -68,6 +75,7 @@ List, inspect, validate, and create workflow apps:
 node scripts/cw.js app list
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
+node scripts/cw.js app validate end-to-end-golden-path
 node scripts/cw.js app init my-app --title "My App"
 ```
 
@@ -138,6 +146,12 @@ Render a report:
 node scripts/cw.js report <run-id>
 ```
 
+Run the deterministic release golden path:
+
+```bash
+npm run golden-path
+```
+
 Run data lives under `.cw/runs/<run-id>/` in `--cwd`, or in `--repo` when
 `--cwd` is omitted.
 
@@ -157,6 +171,8 @@ See [docs/verifier-gated-commit.7.md](docs/verifier-gated-commit.7.md) for the
 commit gate contract.
 See [docs/sandbox-profiles.7.md](docs/sandbox-profiles.7.md) for the sandbox
 profile contract.
+See [docs/end-to-end-golden-path.7.md](docs/end-to-end-golden-path.7.md) for
+the release golden path contract.
 
 ## License
 

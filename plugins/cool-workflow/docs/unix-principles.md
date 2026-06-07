@@ -20,6 +20,7 @@ CW already stores:
 - commit gate failures in `.cw/runs/<run-id>/feedback/`
 - sandbox profile selections in worker, dispatch, feedback, and report state
 - workflow app identity and version in `.cw/runs/<run-id>/state.json`
+- golden path proof artifacts in temporary `.cw/runs/<run-id>/` workspaces
 
 The practical rule is:
 
@@ -64,6 +65,10 @@ system. Apps are userland: versioned, validated, inspectable definitions that
 can be listed, shown, validated, initialized, packaged, planned, and reported
 without depending on hidden runner internals.
 
+The v0.1.10 `end-to-end-golden-path` app is intentionally boring userland. It
+has one readonly worker task and exists to prove that the base system pipes are
+connected.
+
 ## 3. Pipelines Over Monoliths
 
 CW favors explicit data flow over hidden orchestration.
@@ -86,6 +91,16 @@ workflow definition
 Each stage should have a readable artifact. If a stage fails, its error output
 should become input for the next correction step instead of disappearing into a
 black box.
+
+The release golden path is the regression form of this rule:
+
+```text
+npm run golden-path
+```
+
+It exercises the public CLI and then inspects state files for app metadata,
+dispatch, worker manifest, result node, verifier node, candidate score, ranking,
+selection, verifier-gated commit, report, and absence of ErrorFeedback.
 
 ## 4. Isolated Workers
 

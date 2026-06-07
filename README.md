@@ -28,6 +28,8 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Routine-style API and GitHub trigger bridge.
 - Sandbox Profiles for named worker read/write/execute/network/env policy
   contracts.
+- End-to-end golden path regression for the full app, worker, scoring,
+  verifier-gated commit, and report chain.
 
 ## Agent SDK Philosophy
 
@@ -63,6 +65,8 @@ See [verifier-gated-commit.7.md](plugins/cool-workflow/docs/verifier-gated-commi
 for the commit/checkpoint contract.
 See [sandbox-profiles.7.md](plugins/cool-workflow/docs/sandbox-profiles.7.md)
 for the worker sandbox policy contract.
+See [end-to-end-golden-path.7.md](plugins/cool-workflow/docs/end-to-end-golden-path.7.md)
+for the v0.1.10 release integration proof.
 
 ## Language Contract
 
@@ -94,6 +98,7 @@ cd plugins/cool-workflow
 npm install --no-package-lock
 npm run build
 npm run check
+npm run golden-path
 node scripts/cw.js list
 rm -rf node_modules package-lock.json
 ```
@@ -107,6 +112,8 @@ CW without installing TypeScript dependencies.
 cd plugins/cool-workflow
 node scripts/cw.js list
 node scripts/cw.js app list
+node scripts/cw.js app validate end-to-end-golden-path
+npm run golden-path
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
 node scripts/cw.js plan architecture-review \

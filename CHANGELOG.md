@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.10
+
+- Added the first-class `end-to-end-golden-path` Workflow App SDK app with one
+  evidence-required readonly worker task.
+- Added `npm run golden-path`, a deterministic Node standard-library runner
+  that exercises app validation, planning, dispatch, worker isolation,
+  `cw:result` recording, verifier nodes, candidate scoring/ranking/selection,
+  verifier-gated commit, and report generation.
+- Added durable golden path assertions for app metadata, sandbox policy,
+  verified workers, result/verifier nodes, candidate records, score/ranking
+  files, commit gate metadata, report content, and absence of ErrorFeedback.
+- Added `test/end-to-end-golden-path-smoke.js` and included it in `npm test`.
+- Documented the golden path release discipline and updated package, plugin, and
+  MCP server versions to `0.1.10`.
+
 ## 0.1.9
 
 - Added Workflow App SDK with `defineWorkflowApp`, `workflow`, `phase`,
