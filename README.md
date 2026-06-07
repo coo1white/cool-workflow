@@ -24,6 +24,9 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Multi-Agent Trust / Policy / Audit for explicit role permissions, message
   provenance, blackboard write audit, judge rationale, and policy violations
   in the existing trust-audit log.
+- Multi-Agent Eval & Replay Harness for deterministic snapshots, isolated
+  replays, normalized comparison, scoring, release gates, reports, and MCP
+  parity over topology-backed multi-agent runs.
 - Multi-Agent Topologies for official `map-reduce`, `debate`, and
   `judge-panel` coordination patterns that materialize roles, groups, fanout,
   fanin, blackboard topics, coordinator decisions, topology graphs, and trust
@@ -104,6 +107,9 @@ adoption views.
 See [multi-agent-trust-policy-audit.7.md](plugins/cool-workflow/docs/multi-agent-trust-policy-audit.7.md)
 for the v0.1.22 role policy, blackboard provenance, judge rationale, and
 policy violation audit model.
+See [multi-agent-eval-replay-harness.7.md](plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md)
+for the v0.1.23 replay snapshot, comparison, scoring, and regression gate
+model.
 See [multi-agent-topologies.7.md](plugins/cool-workflow/docs/multi-agent-topologies.7.md)
 for the v0.1.19 official map-reduce, debate, and judge-panel recipes.
 See [multi-agent-runtime-core.7.md](plugins/cool-workflow/docs/multi-agent-runtime-core.7.md)

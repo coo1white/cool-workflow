@@ -7,7 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.22";
+const VERSION = "0.1.23";
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",
@@ -39,6 +39,7 @@ function main() {
   checkIncludes("plugins/cool-workflow/test/coordinator-blackboard-smoke.js", "coordinator-blackboard-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-smoke.js", "multi-agent-topologies-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/multi-agent-cli-mcp-surface-smoke.js", "multi-agent-cli-mcp-surface-smoke", checks);
+  checkIncludes("plugins/cool-workflow/test/multi-agent-eval-replay-harness-smoke.js", "multi-agent-eval-replay-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/mcp-app-surface-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/canonical-workflow-apps-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/workflow-app-sdk-smoke.js", VERSION, checks);
@@ -51,10 +52,12 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/multi-agent-topologies.7.md", "Multi-Agent Topologies", checks);
   checkIncludes("plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/multi-agent-operator-ux.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/coordinator-blackboard.7.md", "Coordinator / Blackboard", checks);
   checkIncludes("plugins/cool-workflow/docs/multi-agent-runtime-core.7.md", "Multi-Agent Runtime Core", checks);
   checkIncludes("plugins/cool-workflow/docs/dogfood-one-real-repo.7.md", "Dogfood One Real Repo", checks);
   checkIncludes("plugins/cool-workflow/docs/getting-started.md", "npm run release:check", checks);
+  checkIncludes("plugins/cool-workflow/package.json", "eval:replay", checks);
   checkIncludes("plugins/cool-workflow/docs/release-and-migration.7.md", VERSION, checks);
   checkIncludes("CHANGELOG.md", `## ${VERSION}`, checks);
   checkIncludes("RELEASE.md", VERSION, checks);

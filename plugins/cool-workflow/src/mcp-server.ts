@@ -118,6 +118,18 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.hostMultiAgentScore(String(args.runId || ""), args);
       case "cw_multi_agent_select":
         return runner.hostMultiAgentSelect(String(args.runId || ""), args);
+      case "cw_eval_snapshot":
+        return runner.evalSnapshot(String(args.runId || ""), args);
+      case "cw_eval_replay":
+        return runner.evalReplay(String(args.snapshot || args.snapshotId || args.path || ""), args);
+      case "cw_eval_compare":
+        return runner.evalCompare(String(args.baseline || args.baselinePath || ""), String(args.replay || args.replayPath || ""));
+      case "cw_eval_score":
+        return runner.evalScore(String(args.replay || args.replayPath || args.path || ""));
+      case "cw_eval_gate":
+        return runner.evalGate(String(args.suite || args.suiteId || args.path || ""));
+      case "cw_eval_report":
+        return runner.evalReport(String(args.replay || args.replayPath || args.path || ""));
       case "cw_multi_agent_run_create":
         return runner.createMultiAgentRun(String(args.runId || ""), args);
       case "cw_multi_agent_run_transition":
@@ -476,6 +488,43 @@ function toolDefinitions(): unknown[] {
       scoreId: stringSchema("Alias for score"),
       reason: stringSchema("Acceptance rationale"),
       allowUnverified: booleanSchema("Explicitly bypass verifier gate")
+    }),
+    tool("cw_eval_snapshot", "Create a deterministic multi-agent replay snapshot for a run.", {
+      ...runIdSchema(),
+      cwd: stringSchema("Run workspace"),
+      id: stringSchema("Snapshot or suite id")
+    }),
+    tool("cw_eval_replay", "Replay a multi-agent snapshot in an isolated replay directory without live agents.", {
+      cwd: stringSchema("Workspace"),
+      snapshot: stringSchema("Snapshot id or path"),
+      snapshotId: stringSchema("Alias for snapshot"),
+      path: stringSchema("Snapshot path"),
+      id: stringSchema("Replay id")
+    }),
+    tool("cw_eval_compare", "Compare a baseline snapshot and replay run with normalized deterministic rules.", {
+      cwd: stringSchema("Workspace"),
+      baseline: stringSchema("Baseline snapshot id or path"),
+      baselinePath: stringSchema("Baseline snapshot path"),
+      replay: stringSchema("Replay run id or path"),
+      replayPath: stringSchema("Replay run path")
+    }),
+    tool("cw_eval_score", "Score replay quality with explicit deterministic metrics.", {
+      cwd: stringSchema("Workspace"),
+      replay: stringSchema("Replay run id or path"),
+      replayPath: stringSchema("Replay run path"),
+      path: stringSchema("Replay run path")
+    }),
+    tool("cw_eval_gate", "Run the multi-agent eval/replay regression gate for a suite.", {
+      cwd: stringSchema("Workspace"),
+      suite: stringSchema("Suite id or path"),
+      suiteId: stringSchema("Alias for suite"),
+      path: stringSchema("Suite path")
+    }),
+    tool("cw_eval_report", "Render the multi-agent eval/replay report and return its path.", {
+      cwd: stringSchema("Workspace"),
+      replay: stringSchema("Replay run id or path"),
+      replayPath: stringSchema("Replay run path"),
+      path: stringSchema("Replay run path")
     }),
     tool("cw_multi_agent_run_create", "Create a MultiAgentRun state record.", {
       ...runIdSchema(),

@@ -152,6 +152,14 @@ import {
   buildMultiAgentOperatorGraph,
   summarizeMultiAgentOperator
 } from "./multi-agent-operator-ux";
+import {
+  compareMultiAgentReplay,
+  createMultiAgentReplaySnapshot,
+  gateMultiAgentEval,
+  replayMultiAgentSnapshot,
+  reportMultiAgentEval,
+  scoreMultiAgentReplay
+} from "./multi-agent-eval";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -1039,6 +1047,30 @@ export class CoolWorkflowRunner {
     return response;
   }
 
+  evalSnapshot(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createMultiAgentReplaySnapshot> {
+    return createMultiAgentReplaySnapshot(this.loadRun(runId), options);
+  }
+
+  evalReplay(target: string, options: Record<string, unknown> = {}): ReturnType<typeof replayMultiAgentSnapshot> {
+    return replayMultiAgentSnapshot(target, options);
+  }
+
+  evalCompare(baseline: string, replay: string): ReturnType<typeof compareMultiAgentReplay> {
+    return compareMultiAgentReplay(baseline, replay);
+  }
+
+  evalScore(target: string): ReturnType<typeof scoreMultiAgentReplay> {
+    return scoreMultiAgentReplay(target);
+  }
+
+  evalGate(target: string): ReturnType<typeof gateMultiAgentEval> {
+    return gateMultiAgentEval(target);
+  }
+
+  evalReport(target: string): ReturnType<typeof reportMultiAgentEval> {
+    return reportMultiAgentEval(target);
+  }
+
   listTopologies(): ReturnType<typeof listTopologyDefinitions> {
     return listTopologyDefinitions();
   }
@@ -1639,6 +1671,7 @@ export function formatHelp(): string {
     "  audit attest <run-id> [--worker ID] [--hostEnforced true] [--env NAME]",
     "  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]",
     "  candidate list|summary|register|score|rank|select|reject <run-id>",
+    "  eval snapshot|replay|compare|score|gate|report",
     "  blackboard summary|graph|resolve <run-id>",
     "  blackboard topic create <run-id> --id <topic-id> --title TEXT",
     "  blackboard message post|list <run-id>",

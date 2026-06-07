@@ -26,6 +26,11 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.23 adds Multi-Agent Eval & Replay Harness: deterministic snapshots,
+isolated replays, normalized comparisons, replay scoring, release gates, human
+reports, and MCP parity for topology-backed multi-agent runs. See
+[docs/multi-agent-eval-replay-harness.7.md](docs/multi-agent-eval-replay-harness.7.md).
+
 CW v0.1.22 adds Multi-Agent Trust / Policy / Audit: role policies, permission
 decisions, provenance-rich blackboard messages, blackboard write audit, judge
 rationale, panel decisions, and policy violations in the existing trust-audit
@@ -137,6 +142,7 @@ cool-workflow
   docs/getting-started.md
   docs/coordinator-blackboard.7.md
   docs/multi-agent-runtime-core.7.md
+  docs/multi-agent-eval-replay-harness.7.md
   docs/dogfood-one-real-repo.7.md
   docs/release-and-migration.7.md
   docs/agent-sdk.md

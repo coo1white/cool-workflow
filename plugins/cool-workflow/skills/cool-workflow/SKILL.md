@@ -47,6 +47,13 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
+v0.1.23 adds Multi-Agent Eval & Replay Harness. Use `eval snapshot`,
+`eval replay`, `eval compare`, `eval score`, `eval gate`, and `eval report`
+when a topology-backed multi-agent run needs release-gate evidence. Artifacts
+live under `.cw/evals/<suite-id>/` as plain JSON plus `report.md`, and MCP
+parity is available through `cw_eval_snapshot`, `cw_eval_replay`,
+`cw_eval_compare`, `cw_eval_score`, `cw_eval_gate`, and `cw_eval_report`.
+
 v0.1.22 adds Multi-Agent Trust / Policy / Audit over the existing trust-audit
 layer. Use `audit multi-agent`, `audit policy`, `audit role`,
 `audit blackboard`, and `audit judge` when an operator or host needs to inspect
@@ -147,6 +154,12 @@ node scripts/cw.js multi-agent step <run-id> --sandbox readonly
 node scripts/cw.js multi-agent blackboard <run-id> summary
 node scripts/cw.js multi-agent score <run-id> candidate-id --criterion correctness=1 --evidence ref
 node scripts/cw.js multi-agent select <run-id> candidate-id --reason "verified winner"
+node scripts/cw.js eval snapshot <run-id> --id suite-id
+node scripts/cw.js eval replay .cw/evals/suite-id/snapshot.json
+node scripts/cw.js eval compare .cw/evals/suite-id/snapshot.json .cw/evals/suite-id/replay-run.json
+node scripts/cw.js eval score .cw/evals/suite-id/replay-run.json
+node scripts/cw.js eval gate .cw/evals/suite-id
+node scripts/cw.js eval report .cw/evals/suite-id/replay-run.json
 node scripts/cw.js multi-agent run <run-id> --id ma --objective "coordinated work"
 node scripts/cw.js multi-agent role <run-id> role --multi-agent-run ma --responsibility "do work" --required-evidence "result evidence"
 node scripts/cw.js multi-agent group <run-id> group --multi-agent-run ma --task task-id
@@ -176,6 +189,7 @@ node scripts/cw.js feedback summary <run-id>
 node scripts/cw.js commit summary <run-id>
 node scripts/cw.js state check <run-id>
 npm run fixture-compat
+npm run eval:replay
 npm run version:sync
 npm run release:check
 node scripts/cw.js loop --intervalMinutes 30 --prompt "Continue this workflow."
@@ -218,7 +232,8 @@ JSON-first tools: `cw_app_run`, `cw_dispatch`, `cw_worker_manifest`,
 `cw_multi_agent_run_create`, `cw_multi_agent_role_create`,
 `cw_multi_agent_group_create`, `cw_multi_agent_membership_create`,
 `cw_multi_agent_fanout_create`, `cw_multi_agent_fanin_collect`,
-`cw_blackboard_summary`, `cw_blackboard_context_put`,
+`cw_eval_snapshot`, `cw_eval_replay`, `cw_eval_compare`, `cw_eval_score`,
+`cw_eval_gate`, `cw_eval_report`, `cw_blackboard_summary`, `cw_blackboard_context_put`,
 `cw_blackboard_artifact_add`, and `cw_coordinator_decision`. Preserve CLI/MCP
 parity when extending CW.
 
@@ -254,9 +269,9 @@ verifier-gated CW state commit or held checkpoint, and writes
 Use `npm run release:check` for v0.1.15+ release discipline. It is a dry-run
 gate that builds, type-checks, runs tests, validates canonical apps and golden
 path behavior, checks old run fixtures, runs multi-agent runtime, topology,
-CLI/MCP host-surface, and operator-UX smoke coverage, runs dogfood smoke
-coverage, verifies version synchronization, and does not tag, push, publish, or
-mutate fixtures.
+CLI/MCP host-surface, operator-UX, trust/audit, and eval/replay smoke coverage,
+runs dogfood smoke coverage, verifies version synchronization, and does not
+tag, push, publish, or mutate fixtures.
 
 Durable run state lives at `.cw/runs/<run-id>/state.json`. Use
 `node scripts/cw.js state check <run-id>` to dry-run migration and
