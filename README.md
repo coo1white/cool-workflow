@@ -19,6 +19,8 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Multi-Agent CLI + MCP Surface for the preferred agent-host loop:
   `multi-agent run`, `status`, `step`, `blackboard`, `score`, and `select`,
   with JSON-first MCP parity.
+- Multi-Agent Operator UX for graph, dependency, failure, and evidence
+  adoption views over topology-backed multi-agent runs.
 - Multi-Agent Topologies for official `map-reduce`, `debate`, and
   `judge-panel` coordination patterns that materialize roles, groups, fanout,
   fanin, blackboard topics, coordinator decisions, topology graphs, and trust
@@ -93,6 +95,9 @@ See [coordinator-blackboard.7.md](plugins/cool-workflow/docs/coordinator-blackbo
 for the v0.1.18 shared coordination substrate.
 See [multi-agent-cli-mcp-surface.7.md](plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md)
 for the v0.1.20 host-facing multi-agent CLI and MCP loop.
+See [multi-agent-operator-ux.7.md](plugins/cool-workflow/docs/multi-agent-operator-ux.7.md)
+for the v0.1.21 multi-agent graph, dependencies, failures, and evidence
+adoption views.
 See [multi-agent-topologies.7.md](plugins/cool-workflow/docs/multi-agent-topologies.7.md)
 for the v0.1.19 official map-reduce, debate, and judge-panel recipes.
 See [multi-agent-runtime-core.7.md](plugins/cool-workflow/docs/multi-agent-runtime-core.7.md)

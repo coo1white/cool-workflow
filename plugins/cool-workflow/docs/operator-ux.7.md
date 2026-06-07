@@ -15,8 +15,8 @@ node scripts/cw.js status <run-id>
 
 The status view includes run id, workflow/app id and version, loop stage, active
 phase, blocked reasons, phase/task counts, workers, candidates, feedback,
-commits, multi-agent runtime health, report path, and the next recommended
-command.
+commits, multi-agent runtime health, Multi-Agent Operator UX counts, report
+path, and the next recommended command.
 
 Machine-readable status stays available:
 
@@ -84,6 +84,23 @@ the run has first-class multi-agent state. v0.1.18 adds `blackboard`,
 when shared coordination state exists. JSON output returns deterministic `nodes`
 and `edges`.
 
+## Multi-Agent Operator UX
+
+v0.1.21 adds focused multi-agent operator views that answer who depends on
+whom, who is blocked, and which evidence was adopted into the accepted result:
+
+```bash
+node scripts/cw.js multi-agent graph <run-id>
+node scripts/cw.js multi-agent dependencies <run-id>
+node scripts/cw.js multi-agent failures <run-id>
+node scripts/cw.js multi-agent evidence <run-id>
+```
+
+The same derived model appears in `status`, `report --show`, and
+`cw_multi_agent_status` under `summaries.multiAgentOperator`. See
+[multi-agent-operator-ux.7.md](multi-agent-operator-ux.7.md) for the full
+trace from agent membership to verifier-gated commit.
+
 ## Console Report
 
 `cw report` still writes the Markdown report file and prints its path:
@@ -123,6 +140,9 @@ node scripts/cw.js multi-agent summary <run-id>
 node scripts/cw.js multi-agent summary <run-id> --json
 node scripts/cw.js multi-agent graph <run-id>
 node scripts/cw.js multi-agent graph <run-id> --json
+node scripts/cw.js multi-agent dependencies <run-id>
+node scripts/cw.js multi-agent failures <run-id>
+node scripts/cw.js multi-agent evidence <run-id>
 ```
 
 Worker summaries show allocated/running/verified/failed/rejected counts,

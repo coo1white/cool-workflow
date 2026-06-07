@@ -11,6 +11,7 @@ const daemon_1 = require("./daemon");
 const scheduler_1 = require("./scheduler");
 const triggers_1 = require("./triggers");
 const operator_ux_1 = require("./operator-ux");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 async function main() {
     const args = (0, orchestrator_1.parseArgv)(process.argv.slice(2));
     const runner = new orchestrator_1.CoolWorkflowRunner({
@@ -186,7 +187,10 @@ async function main() {
             const [subcommand, runId, id] = args.positionals;
             switch (subcommand) {
                 case "status":
-                    printJson(runner.hostMultiAgentStatus(required(runId, "run id")));
+                    if (wantsJson(args.options))
+                        printJson(runner.hostMultiAgentStatus(required(runId, "run id")));
+                    else
+                        process.stdout.write(`${(0, multi_agent_operator_ux_1.formatMultiAgentOperatorStatus)(runner.multiAgentOperatorStatus(required(runId, "run id")))}\n`);
                     return;
                 case "step":
                     printJson(runner.hostMultiAgentStep(required(runId, "run id"), args.options));
@@ -209,11 +213,35 @@ async function main() {
                     return;
                 }
                 case "graph": {
-                    const graph = runner.multiAgentGraph(required(runId, "run id"));
+                    const graph = runner.multiAgentOperatorGraph(required(runId, "run id"));
                     if (wantsJson(args.options))
                         printJson(graph);
                     else
                         process.stdout.write(`${(0, operator_ux_1.formatOperatorGraph)({ runId: required(runId, "run id"), nodes: graph.nodes, edges: graph.edges })}\n`);
+                    return;
+                }
+                case "dependencies": {
+                    const rows = runner.multiAgentDependencies(required(runId, "run id"));
+                    if (wantsJson(args.options))
+                        printJson(rows);
+                    else
+                        process.stdout.write(`${(0, multi_agent_operator_ux_1.formatMultiAgentDependencies)(rows)}\n`);
+                    return;
+                }
+                case "failures": {
+                    const rows = runner.multiAgentFailures(required(runId, "run id"));
+                    if (wantsJson(args.options))
+                        printJson(rows);
+                    else
+                        process.stdout.write(`${(0, multi_agent_operator_ux_1.formatMultiAgentFailures)(rows)}\n`);
+                    return;
+                }
+                case "evidence": {
+                    const rows = runner.multiAgentEvidence(required(runId, "run id"));
+                    if (wantsJson(args.options))
+                        printJson(rows);
+                    else
+                        process.stdout.write(`${(0, multi_agent_operator_ux_1.formatMultiAgentEvidence)(rows)}\n`);
                     return;
                 }
                 case "run":
@@ -278,7 +306,7 @@ async function main() {
                     }
                     return;
                 default:
-                    throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|graph|show|role|group|membership|fanout|fanin <run-id> [id]");
+                    throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|graph|dependencies|failures|evidence|show|role|group|membership|fanout|fanin <run-id> [id]");
             }
         }
         case "blackboard": {

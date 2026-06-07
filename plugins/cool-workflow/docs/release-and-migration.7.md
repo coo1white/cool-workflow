@@ -88,6 +88,10 @@ For v0.1.19, the gate includes Multi-Agent Topologies smoke coverage and
 fixture normalization for empty topology state on older runs.
 
 For v0.1.20, the gate includes Multi-Agent CLI + MCP Surface smoke coverage.
+
+For v0.1.21, the gate includes Multi-Agent Operator UX smoke coverage for
+derived graph, dependency, failure, evidence adoption, report, and MCP parity
+views.
 The host loop must preserve CLI/MCP parity, stable JSON responses,
 blackboard/audit provenance, evidence-required scoring, fail-closed selection,
 and compatibility with the lower-level topology, multi-agent, blackboard, and

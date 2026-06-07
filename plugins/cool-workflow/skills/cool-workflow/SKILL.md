@@ -47,6 +47,14 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
+v0.1.21 adds Multi-Agent Operator UX over the high-level host loop. Use
+`multi-agent graph`, `multi-agent dependencies`, `multi-agent failures`, and
+`multi-agent evidence` when an operator or host needs to see who depends on
+whom, who is blocked, and which evidence was adopted into the selected result.
+The model is derived from WorkflowRun, topology, multi-agent, blackboard,
+candidate, commit, feedback, and trust audit state; there is no hidden
+dashboard state.
+
 v0.1.20 adds the high-level Multi-Agent CLI + MCP host surface. Prefer
 `multi-agent run -> status -> step -> blackboard -> score -> select` and the
 matching MCP tools when an agent host needs to drive multi-agent work without
@@ -122,6 +130,9 @@ node scripts/cw.js topology summary <run-id>
 node scripts/cw.js topology graph <run-id>
 node scripts/cw.js multi-agent summary <run-id>
 node scripts/cw.js multi-agent graph <run-id>
+node scripts/cw.js multi-agent dependencies <run-id>
+node scripts/cw.js multi-agent failures <run-id>
+node scripts/cw.js multi-agent evidence <run-id>
 node scripts/cw.js multi-agent run <run-id> --topology judge-panel --task task-id
 node scripts/cw.js multi-agent status <run-id>
 node scripts/cw.js multi-agent step <run-id> --sandbox readonly
@@ -192,6 +203,8 @@ JSON-first tools: `cw_app_run`, `cw_dispatch`, `cw_worker_manifest`,
 `cw_operator_report`, `cw_topology_list`, `cw_topology_show`,
 `cw_topology_validate`, `cw_topology_apply`, `cw_topology_summary`,
 `cw_topology_graph`, `cw_multi_agent_summary`, `cw_multi_agent_graph`,
+`cw_multi_agent_dependencies`, `cw_multi_agent_failures`,
+`cw_multi_agent_evidence`,
 `cw_multi_agent_run`, `cw_multi_agent_status`, `cw_multi_agent_step`,
 `cw_multi_agent_blackboard`, `cw_multi_agent_score`, `cw_multi_agent_select`,
 `cw_multi_agent_run_create`, `cw_multi_agent_role_create`,
@@ -232,9 +245,10 @@ verifier-gated CW state commit or held checkpoint, and writes
 
 Use `npm run release:check` for v0.1.15+ release discipline. It is a dry-run
 gate that builds, type-checks, runs tests, validates canonical apps and golden
-path behavior, checks old run fixtures, runs multi-agent runtime, topology, and
-CLI/MCP host-surface smoke coverage, runs dogfood smoke coverage, verifies
-version synchronization, and does not tag, push, publish, or mutate fixtures.
+path behavior, checks old run fixtures, runs multi-agent runtime, topology,
+CLI/MCP host-surface, and operator-UX smoke coverage, runs dogfood smoke
+coverage, verifies version synchronization, and does not tag, push, publish, or
+mutate fixtures.
 
 Durable run state lives at `.cw/runs/<run-id>/state.json`. Use
 `node scripts/cw.js state check <run-id>` to dry-run migration and

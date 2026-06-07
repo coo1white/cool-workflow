@@ -28,6 +28,7 @@ const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
 const topology_1 = require("./topology");
 const multi_agent_host_1 = require("./multi-agent-host");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -713,6 +714,21 @@ class CoolWorkflowRunner {
     }
     multiAgentGraph(runId) {
         return (0, multi_agent_1.buildMultiAgentGraph)(this.loadRun(runId));
+    }
+    multiAgentOperatorStatus(runId) {
+        return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(this.loadRun(runId));
+    }
+    multiAgentOperatorGraph(runId) {
+        return (0, multi_agent_operator_ux_1.buildMultiAgentOperatorGraph)(this.loadRun(runId));
+    }
+    multiAgentDependencies(runId) {
+        return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(this.loadRun(runId)).dependencies;
+    }
+    multiAgentFailures(runId) {
+        return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(this.loadRun(runId)).failures;
+    }
+    multiAgentEvidence(runId) {
+        return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(this.loadRun(runId)).evidence;
     }
     hostMultiAgentRun(runId, options = {}) {
         const workflowId = stringOption(options.app || options.appId || options.workflow || options.workflowId);

@@ -25,6 +25,7 @@ const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
 const topology_1 = require("./topology");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 function summarizeOperatorRun(run) {
     const tasks = summarizeTasks(run.tasks || []);
     const phases = summarizePhases(run);
@@ -34,6 +35,7 @@ function summarizeOperatorRun(run) {
     const commits = summarizeOperatorCommits(run);
     const topologies = (0, topology_1.summarizeTopologies)(run);
     const multiAgent = (0, multi_agent_1.summarizeMultiAgent)(run);
+    const multiAgentOperator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
     const blackboard = (0, coordinator_1.summarizeBlackboard)(run);
     const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
     const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
@@ -56,6 +58,7 @@ function summarizeOperatorRun(run) {
         commits,
         topologies,
         multiAgent,
+        multiAgentOperator,
         blackboard,
         trust,
         reportPath: run.paths.report,
@@ -272,6 +275,7 @@ function buildOperatorGraph(run) {
     };
 }
 function formatOperatorStatus(summary) {
+    const operator = summary.multiAgentOperator;
     return [
         `Run: ${summary.runId}`,
         `Workflow: ${summary.workflowId}${summary.appId ? ` (${summary.appId}@${summary.appVersion || "unknown"})` : ""}`,
@@ -295,6 +299,11 @@ function formatOperatorStatus(summary) {
         "",
         formatMultiAgentPanel(summary.multiAgent),
         "",
+        "Multi-Agent Operator UX",
+        `  active=${operator.activeMultiAgentRunIds.join(", ") || "none"}; topologies=${operator.topologyRunIds.join(", ") || "none"}; blocked=${operator.blocked ? "yes" : "no"}`,
+        `  dependencies=${operator.dependencies.length}; failures=${operator.failures.length}; adoptedEvidence=${operator.adoptedEvidence.length}; missingEvidence=${operator.missingEvidence.length}`,
+        `  next=${operator.nextAction}`,
+        "",
         formatBlackboardPanel(summary.blackboard),
         "",
         formatTrustPanel(summary.trust),
@@ -315,6 +324,12 @@ function formatOperatorReport(summary) {
         "Evidence",
         ...(summary.evidencePaths.length ? summary.evidencePaths.map((entry) => `  ${entry}`) : ["  none recorded"]),
         "",
+        (0, multi_agent_operator_ux_1.formatMultiAgentDependencies)(summary.multiAgentOperator.dependencies),
+        "",
+        (0, multi_agent_operator_ux_1.formatMultiAgentFailures)(summary.multiAgentOperator.failures),
+        "",
+        (0, multi_agent_operator_ux_1.formatMultiAgentEvidence)(summary.multiAgentOperator.evidence),
+        "",
         "Resource Commands",
         `  node scripts/cw.js graph ${summary.runId}`,
         `  node scripts/cw.js worker summary ${summary.runId}`,
@@ -322,6 +337,9 @@ function formatOperatorReport(summary) {
         `  node scripts/cw.js topology graph ${summary.runId}`,
         `  node scripts/cw.js multi-agent summary ${summary.runId}`,
         `  node scripts/cw.js multi-agent graph ${summary.runId}`,
+        `  node scripts/cw.js multi-agent dependencies ${summary.runId}`,
+        `  node scripts/cw.js multi-agent failures ${summary.runId}`,
+        `  node scripts/cw.js multi-agent evidence ${summary.runId}`,
         `  node scripts/cw.js blackboard summary ${summary.runId}`,
         `  node scripts/cw.js blackboard graph ${summary.runId}`,
         `  node scripts/cw.js coordinator summary ${summary.runId}`,

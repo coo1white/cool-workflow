@@ -11,6 +11,7 @@ const coordinator_1 = require("./coordinator");
 const multi_agent_1 = require("./multi-agent");
 const topology_1 = require("./topology");
 const operator_ux_1 = require("./operator-ux");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const candidate_scoring_1 = require("./candidate-scoring");
 const trust_audit_1 = require("./trust-audit");
 function hostRun(run, options = {}) {
@@ -324,6 +325,7 @@ function envelope(run, command, options = {}) {
     const commits = (0, operator_ux_1.summarizeOperatorCommits)(run);
     const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
     const operator = (0, operator_ux_1.summarizeOperatorRun)(run);
+    const multiAgentOperator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
     const active = activeTopologies(run);
     const blockedReasons = unique([...operator.blockedReasons, ...(options.extraBlockedReasons || [])]);
     const state = blockedReasons.length ? "blocked" : classifyHostState(run);
@@ -352,7 +354,7 @@ function envelope(run, command, options = {}) {
             workerManifestPaths: workers.manifestPaths,
             workerResultPaths: workers.resultPaths
         },
-        summaries: { topologies, multiAgent, blackboard, workers, candidates, feedback, commits, trust },
+        summaries: { topologies, multiAgent, multiAgentOperator, blackboard, workers, candidates, feedback, commits, trust },
         data: options.data
     };
 }
