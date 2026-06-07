@@ -78,8 +78,11 @@ The human graph groups phases, tasks, dispatches, workers, result nodes,
 verifier nodes, candidates, selections, commits, and feedback, then prints the
 edges between them. v0.1.17 also adds `multi-agent-run`, `agent-role`,
 `agent-group`, `agent-membership`, `agent-fanout`, and `agent-fanin` nodes when
-the run has first-class multi-agent state. JSON output returns deterministic
-`nodes` and `edges`.
+the run has first-class multi-agent state. v0.1.18 adds `blackboard`,
+`blackboard-topic`, `blackboard-message`, `blackboard-context`,
+`blackboard-artifact`, `blackboard-snapshot`, and `coordinator-decision` nodes
+when shared coordination state exists. JSON output returns deterministic `nodes`
+and `edges`.
 
 ## Console Report
 

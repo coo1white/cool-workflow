@@ -1,9 +1,13 @@
 # Multi-Agent Runtime Core
 
-CW v0.1.17 makes multi-agent runtime state first-class. Dispatches and worker
+CW v0.1.17 made multi-agent runtime state first-class. Dispatches and worker
 records still exist, but they now have explicit process-table-style state around
 them: `MultiAgentRun`, `AgentRole`, `AgentGroup`, `AgentMembership`,
 `AgentFanout`, and `AgentFanin`.
+
+CW v0.1.18 extends these records with blackboard and topic links so fanout,
+worker manifests, accepted worker output, and fanin evidence can cite the
+Coordinator / Blackboard substrate.
 
 This release is the runtime core, not an autonomous scheduler. CW records and
 validates the state model. The agent host still executes agents and enforces

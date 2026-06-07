@@ -16,6 +16,9 @@ interpret -> act -> observe -> adjust -> checkpoint
   sandbox resolution, verifier-gated commits, and operator summaries.
 - Security / Trust Hardening for durable audit records, sandbox decision
   history, evidence provenance, acceptance rationale, and CLI/MCP audit tools.
+- Coordinator / Blackboard for durable shared topics, messages, context frames,
+  artifact refs, snapshots, coordinator decisions, conflict handling, and
+  ready-for-fanin evidence summaries.
 - Multi-Agent Runtime Core for first-class runs, roles, groups, memberships,
   fanout/fanin, lifecycle state, worker manifest metadata, Operator UX panels,
   and MCP parity.
@@ -79,6 +82,8 @@ See [release-and-migration.7.md](plugins/cool-workflow/docs/release-and-migratio
 for release and migration discipline.
 See [dogfood-one-real-repo.7.md](plugins/cool-workflow/docs/dogfood-one-real-repo.7.md)
 for the v0.1.16 real-repository dogfood release proof.
+See [coordinator-blackboard.7.md](plugins/cool-workflow/docs/coordinator-blackboard.7.md)
+for the v0.1.18 shared coordination substrate.
 See [multi-agent-runtime-core.7.md](plugins/cool-workflow/docs/multi-agent-runtime-core.7.md)
 for the v0.1.17 multi-agent runtime state model.
 See [security-trust-hardening.7.md](plugins/cool-workflow/docs/security-trust-hardening.7.md)

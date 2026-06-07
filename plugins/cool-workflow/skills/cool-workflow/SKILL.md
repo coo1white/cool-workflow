@@ -47,7 +47,13 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
-v0.1.17 adds first-class multi-agent runtime state around dispatches:
+v0.1.18 adds Coordinator / Blackboard as the shared coordination substrate:
+durable blackboards, topics, messages, context frames, artifact refs,
+snapshots, and coordinator decisions under `.cw/runs/<run-id>/blackboard/`.
+It comes before higher-level topologies such as debate, judge, map-reduce,
+swarm, committee, and synthesis.
+
+v0.1.17 added first-class multi-agent runtime state around dispatches:
 `MultiAgentRun`, `AgentRole`, `AgentGroup`, `AgentMembership`, `AgentFanout`,
 and `AgentFanin`. CW records and validates this state; the host still executes
 agents and enforces OS/process/network/environment controls. Invalid lifecycle
@@ -104,6 +110,14 @@ node scripts/cw.js multi-agent group <run-id> group --multi-agent-run ma --task 
 node scripts/cw.js multi-agent fanout <run-id> fanout --group group --reason "split work" --role role --task task-id
 node scripts/cw.js dispatch <run-id> --multi-agent-run ma --multi-agent-group group --multi-agent-role role --multi-agent-fanout fanout
 node scripts/cw.js multi-agent fanin <run-id> fanin --group group --fanout fanout --required-role role
+node scripts/cw.js blackboard summary <run-id>
+node scripts/cw.js blackboard topic create <run-id> --id topic --title "Shared context"
+node scripts/cw.js blackboard message post <run-id> --topic topic --body "message"
+node scripts/cw.js blackboard context put <run-id> --topic topic --kind fact --key finding --value "evidence-backed fact"
+node scripts/cw.js blackboard artifact add <run-id> --topic topic --path /path/to/result.md --kind worker-result
+node scripts/cw.js blackboard snapshot <run-id>
+node scripts/cw.js coordinator summary <run-id>
+node scripts/cw.js coordinator decision <run-id> --kind conflict-resolution --outcome accepted --reason "evidence supports this"
 node scripts/cw.js sandbox list
 node scripts/cw.js sandbox show readonly
 node scripts/cw.js sandbox validate ./site-sandbox.json
@@ -154,8 +168,10 @@ JSON-first tools: `cw_app_run`, `cw_dispatch`, `cw_worker_manifest`,
 `cw_operator_report`, `cw_multi_agent_summary`, `cw_multi_agent_graph`,
 `cw_multi_agent_run_create`, `cw_multi_agent_role_create`,
 `cw_multi_agent_group_create`, `cw_multi_agent_membership_create`,
-`cw_multi_agent_fanout_create`, and `cw_multi_agent_fanin_collect`. Preserve
-CLI/MCP parity when extending CW.
+`cw_multi_agent_fanout_create`, `cw_multi_agent_fanin_collect`,
+`cw_blackboard_summary`, `cw_blackboard_context_put`,
+`cw_blackboard_artifact_add`, and `cw_coordinator_decision`. Preserve CLI/MCP
+parity when extending CW.
 
 Use `npm run canonical-apps` from `plugins/cool-workflow` to validate and plan
 the official app matrix without network access:

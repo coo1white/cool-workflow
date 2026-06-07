@@ -26,7 +26,13 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
-CW v0.1.17 adds Multi-Agent Runtime Core: first-class `MultiAgentRun`,
+CW v0.1.18 adds Coordinator / Blackboard: first-class shared topics,
+messages, context frames, artifact refs, snapshots, and coordinator decisions.
+The blackboard is the coordination filesystem future debate, judge,
+map-reduce, swarm, committee, and synthesis topologies will consume. See
+[docs/coordinator-blackboard.7.md](docs/coordinator-blackboard.7.md).
+
+CW v0.1.17 added Multi-Agent Runtime Core: first-class `MultiAgentRun`,
 `AgentRole`, `AgentGroup`, `AgentMembership`, `AgentFanout`, and `AgentFanin`
 state with lifecycle validation, dispatch attachment, worker manifest metadata,
 fanin evidence coverage, Operator UX panels, trust audit events, CLI commands,
@@ -101,6 +107,7 @@ cool-workflow
   apps/workflow-app-sdk-demo/app.json
   docs/index.md
   docs/getting-started.md
+  docs/coordinator-blackboard.7.md
   docs/multi-agent-runtime-core.7.md
   docs/dogfood-one-real-repo.7.md
   docs/release-and-migration.7.md

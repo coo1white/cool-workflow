@@ -126,6 +126,30 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.collectAgentFanin(String(args.runId || ""), args);
       case "cw_multi_agent_fanin_show":
         return runner.showAgentFanin(String(args.runId || ""), String(args.faninId || args.id || ""));
+      case "cw_blackboard_summary":
+        return runner.blackboardSummary(String(args.runId || ""), args);
+      case "cw_blackboard_graph":
+        return runner.blackboardGraph(String(args.runId || ""));
+      case "cw_blackboard_resolve":
+        return runner.resolveRunBlackboard(String(args.runId || ""), args);
+      case "cw_blackboard_topic_create":
+        return runner.createBlackboardTopic(String(args.runId || ""), args);
+      case "cw_blackboard_message_post":
+        return runner.postBlackboardMessage(String(args.runId || ""), args);
+      case "cw_blackboard_message_list":
+        return runner.listBlackboardMessages(String(args.runId || ""), args);
+      case "cw_blackboard_context_put":
+        return runner.putBlackboardContext(String(args.runId || ""), args);
+      case "cw_blackboard_artifact_add":
+        return runner.addBlackboardArtifact(String(args.runId || ""), args);
+      case "cw_blackboard_artifact_list":
+        return runner.listBlackboardArtifacts(String(args.runId || ""), args);
+      case "cw_blackboard_snapshot":
+        return runner.snapshotBlackboard(String(args.runId || ""), args);
+      case "cw_coordinator_summary":
+        return runner.coordinatorSummary(String(args.runId || ""), args);
+      case "cw_coordinator_decision":
+        return runner.recordCoordinatorDecision(String(args.runId || ""), args);
       case "cw_audit_summary":
         return runner.auditSummary(String(args.runId || ""));
       case "cw_audit_worker":
@@ -451,6 +475,85 @@ function toolDefinitions(): unknown[] {
       ...runIdSchema(),
       faninId: stringSchema("AgentFanin id"),
       id: stringSchema("Alias for faninId")
+    }),
+    tool("cw_blackboard_summary", "Read blackboard/coordinator summary for a run.", runIdSchema()),
+    tool("cw_blackboard_graph", "Read blackboard/coordinator graph nodes and edges.", runIdSchema()),
+    tool("cw_blackboard_resolve", "Create or resolve the blackboard for a run or MultiAgentRun.", {
+      ...runIdSchema(),
+      id: stringSchema("Optional blackboard id"),
+      title: stringSchema("Blackboard title"),
+      multiAgentRunId: stringSchema("Optional MultiAgentRun id"),
+      groupId: stringSchema("Optional AgentGroup id"),
+      roleId: stringSchema("Optional AgentRole id"),
+      membershipId: stringSchema("Optional AgentMembership id")
+    }),
+    tool("cw_blackboard_topic_create", "Create a blackboard topic.", {
+      ...runIdSchema(),
+      id: stringSchema("Optional topic id"),
+      title: stringSchema("Topic title"),
+      description: stringSchema("Topic description"),
+      blackboardId: stringSchema("Optional blackboard id"),
+      tag: arraySchema("Tags")
+    }),
+    tool("cw_blackboard_message_post", "Post a blackboard message.", {
+      ...runIdSchema(),
+      id: stringSchema("Optional message id"),
+      topic: stringSchema("Topic id"),
+      topicId: stringSchema("Topic id"),
+      body: stringSchema("Message body"),
+      replyTo: stringSchema("Optional parent message id"),
+      visibility: stringSchema("public, group, role, or private"),
+      evidence: arraySchema("Linked evidence refs"),
+      artifact: arraySchema("Linked blackboard artifact ref ids")
+    }),
+    tool("cw_blackboard_message_list", "List blackboard messages.", {
+      ...runIdSchema(),
+      topic: stringSchema("Optional topic id"),
+      topicId: stringSchema("Optional topic id"),
+      blackboardId: stringSchema("Optional blackboard id")
+    }),
+    tool("cw_blackboard_context_put", "Publish a shared context frame.", {
+      ...runIdSchema(),
+      id: stringSchema("Optional context id"),
+      topic: stringSchema("Topic id"),
+      topicId: stringSchema("Topic id"),
+      kind: stringSchema("fact, constraint, assumption, question, or decision"),
+      key: stringSchema("Context key"),
+      value: stringSchema("Context value"),
+      supersedes: arraySchema("Context ids superseded by this update"),
+      evidence: arraySchema("Evidence refs"),
+      artifact: arraySchema("Blackboard artifact ref ids")
+    }),
+    tool("cw_blackboard_artifact_add", "Index an artifact in the blackboard.", {
+      ...runIdSchema(),
+      id: stringSchema("Optional artifact ref id"),
+      topic: stringSchema("Optional topic id"),
+      kind: stringSchema("Artifact kind"),
+      path: stringSchema("Local artifact path"),
+      locator: stringSchema("External or logical locator"),
+      source: stringSchema("Artifact source"),
+      evidence: arraySchema("Evidence refs")
+    }),
+    tool("cw_blackboard_artifact_list", "List blackboard artifact refs.", {
+      ...runIdSchema(),
+      topic: stringSchema("Optional topic id"),
+      blackboardId: stringSchema("Optional blackboard id")
+    }),
+    tool("cw_blackboard_snapshot", "Create a durable blackboard snapshot.", {
+      ...runIdSchema(),
+      blackboardId: stringSchema("Optional blackboard id")
+    }),
+    tool("cw_coordinator_summary", "Read coordinator summary for a run.", runIdSchema()),
+    tool("cw_coordinator_decision", "Record a coordinator decision.", {
+      ...runIdSchema(),
+      id: stringSchema("Optional decision id"),
+      kind: stringSchema("Decision kind"),
+      outcome: stringSchema("accepted, rejected, superseded, conflicting, ready, or blocked"),
+      reason: stringSchema("Decision rationale"),
+      subject: arraySchema("Subject record ids"),
+      evidence: arraySchema("Evidence refs"),
+      artifact: arraySchema("Blackboard artifact ref ids"),
+      message: arraySchema("Blackboard message ids")
     }),
     tool("cw_audit_summary", "Read durable trust/audit summary for a run.", runIdSchema()),
     tool("cw_audit_worker", "Read trust/audit events for one worker.", workerIdSchema()),

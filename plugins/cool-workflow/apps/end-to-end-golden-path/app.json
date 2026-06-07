@@ -3,7 +3,7 @@
   "id": "end-to-end-golden-path",
   "title": "End-to-End Golden Path",
   "summary": "Deterministic one-worker workflow app for proving the CW integration chain.",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "author": "COOLWHITE LLC",
   "inputs": [
     {

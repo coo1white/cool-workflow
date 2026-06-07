@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing Cool Workflow v0.1.17 or later.
+Use this checklist before publishing Cool Workflow v0.1.18 or later.
 
 ## Dry-Run Gate
 
@@ -74,7 +74,7 @@ After the dry-run gate and manual review pass, tagging, pushing, and publishing
 remain explicit maintainer actions:
 
 ```bash
-git tag v0.1.17
+git tag v0.1.18
 git push origin main --tags
 ```
 
@@ -82,4 +82,4 @@ Package publication, marketplace updates, or plugin cache updates should be run
 only when the maintainer intends to publish. Local tag creation, push, package
 publish, and marketplace update remain separate visible steps. Dry-run dogfood
 mode never performs them; execute-style flags must include an explicit
-target-version confirmation such as `--confirm-release-actions=0.1.17`.
+target-version confirmation such as `--confirm-release-actions=0.1.18`.

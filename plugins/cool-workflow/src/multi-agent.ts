@@ -36,6 +36,8 @@ export interface CreateMultiAgentRunInput {
   status?: MultiAgentLifecycleStatus;
   phase?: string;
   phaseId?: string;
+  blackboardId?: string;
+  topicIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -49,6 +51,8 @@ export interface CreateAgentRoleInput {
   expectedArtifacts?: string[];
   faninObligations?: string[];
   parentRoleId?: string;
+  blackboardId?: string;
+  topicIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -60,6 +64,8 @@ export interface CreateAgentGroupInput {
   phaseId?: string;
   taskIds?: string[];
   parentGroupId?: string;
+  blackboardId?: string;
+  topicIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -73,6 +79,8 @@ export interface AssignAgentMembershipInput {
   dispatchId?: string;
   fanoutId?: string;
   status?: AgentMembershipStatus;
+  blackboardId?: string;
+  topicIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -89,6 +97,8 @@ export interface CreateAgentFanoutInput {
   concurrencyLimit?: number;
   sandboxProfileChoices?: Record<string, string>;
   expectedReturnShape?: string;
+  blackboardId?: string;
+  topicIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -99,6 +109,8 @@ export interface CollectAgentFaninInput {
   fanoutId?: string;
   requiredRoleIds?: string[];
   strategy?: string;
+  blackboardId?: string;
+  topicIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -219,11 +231,15 @@ export function createMultiAgentRun(run: WorkflowRun, input: CreateMultiAgentRun
     groupIds: [],
     fanoutIds: [],
     faninIds: [],
+    blackboardId: input.blackboardId,
+    topicIds: unique(input.topicIds || []),
     lifecycle: [lifecycleEvent(undefined, status, "created")],
     links: {
       workflowRunId: run.id,
       phase: input.phase,
-      phaseId: input.phaseId
+      phaseId: input.phaseId,
+      blackboardId: input.blackboardId,
+      blackboardTopicIds: unique(input.topicIds || [])
     },
     metadata: compact(input.metadata)
   };
@@ -352,6 +368,8 @@ export function createAgentRole(run: WorkflowRun, input: CreateAgentRoleInput): 
     sandboxProfileHints: input.sandboxProfileHints || [],
     expectedArtifacts: input.expectedArtifacts || [],
     faninObligations: input.faninObligations || [],
+    blackboardId: input.blackboardId || multiAgentRun.blackboardId,
+    topicIds: unique([...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
     lifecycle: [lifecycleEvent(undefined, "planned", "created")],
     parentRoleId: input.parentRoleId,
     childRoleIds: [],
@@ -413,6 +431,8 @@ export function createAgentGroup(run: WorkflowRun, input: CreateAgentGroupInput)
     workerIds: [],
     fanoutIds: [],
     faninIds: [],
+    blackboardId: input.blackboardId || multiAgentRun.blackboardId,
+    topicIds: unique([...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
     lifecycle: [lifecycleEvent(undefined, "forming", "created")],
     parentGroupId: input.parentGroupId,
     childGroupIds: [],
@@ -487,6 +507,10 @@ export function assignAgentMembership(run: WorkflowRun, input: AssignAgentMember
     lifecycle: [lifecycleEvent(undefined, status, "assigned")],
     evidenceRefs: [],
     artifactPaths: [],
+    blackboardId: input.blackboardId || group.blackboardId || role.blackboardId,
+    topicIds: unique([...(group.topicIds || []), ...(role.topicIds || []), ...(input.topicIds || [])]),
+    blackboardMessageIds: [],
+    blackboardArtifactRefIds: [],
     metadata: compact(input.metadata)
   };
   state.memberships.push(membership);
@@ -554,6 +578,8 @@ export function createAgentFanout(run: WorkflowRun, input: CreateAgentFanoutInpu
     concurrencyLimit: input.concurrencyLimit,
     sandboxProfileChoices: input.sandboxProfileChoices || {},
     expectedReturnShape: input.expectedReturnShape || "Each member writes a Markdown result with a cw:result JSON fence containing summary, findings, and evidence.",
+    blackboardId: input.blackboardId || group.blackboardId || multiAgentRun.blackboardId,
+    topicIds: unique([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
     lifecycle: [lifecycleEvent(undefined, "planned", "created")],
     metadata: compact(input.metadata)
   };
@@ -709,6 +735,8 @@ export function collectAgentFanin(run: WorkflowRun, input: CollectAgentFaninInpu
     taskId: membership.taskId,
     workerId: membership.workerId,
     evidenceRefs: membership.evidenceRefs,
+    blackboardMessageIds: membership.blackboardMessageIds || [],
+    blackboardArtifactRefIds: membership.blackboardArtifactRefIds || [],
     resultNodeId: membership.resultNodeId,
     verifierNodeId: membership.verifierNodeId,
     complete: isMembershipReported(membership)
@@ -721,6 +749,18 @@ export function collectAgentFanin(run: WorkflowRun, input: CollectAgentFaninInpu
     ...missingRoleIds.map((roleId) => `required role ${roleId} has no membership`),
     ...missingMembershipIds.map((membershipId) => `membership ${membershipId} has not reported required evidence`)
   ];
+  const requiredMemberships = scopedMemberships.filter((membership) => requiredRoleIds.includes(membership.roleId));
+  const blackboardId = input.blackboardId || group.blackboardId || multiAgentRun.blackboardId;
+  const requiresBlackboardEvidence = Boolean(blackboardId || requiredMemberships.some((membership) => membership.blackboardId));
+  if (requiresBlackboardEvidence) {
+    for (const membership of requiredMemberships) {
+      const indexedEvidence = [
+        ...((membership.blackboardArtifactRefIds || [])),
+        ...((membership.blackboardMessageIds || []))
+      ];
+      if (!indexedEvidence.length) blockedReasons.push(`membership ${membership.id} has no indexed blackboard evidence`);
+    }
+  }
   const verifierReady = blockedReasons.length === 0;
   const status: AgentFaninStatus = verifierReady ? "ready" : "blocked";
   const now = new Date().toISOString();
@@ -742,6 +782,10 @@ export function collectAgentFanin(run: WorkflowRun, input: CollectAgentFaninInpu
     evidenceCoverage: coverage,
     verifierReady,
     blockedReasons,
+    blackboardId,
+    topicIds: unique([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
+    blackboardArtifactRefIds: unique(coverage.flatMap((entry) => entry.blackboardArtifactRefIds || [])),
+    blackboardMessageIds: unique(coverage.flatMap((entry) => entry.blackboardMessageIds || [])),
     lifecycle: [lifecycleEvent(undefined, status, "collected")],
     metadata: compact(input.metadata)
   };
@@ -795,6 +839,8 @@ export function recordMultiAgentWorkerOutput(
     verifierNodeId?: string;
     evidence: StateEvidence[];
     artifactPaths?: string[];
+    blackboardMessageIds?: string[];
+    blackboardArtifactRefIds?: string[];
   }
 ): AgentMembership[] {
   const state = ensureMultiAgentState(run);
@@ -811,6 +857,8 @@ export function recordMultiAgentWorkerOutput(
     membership.verifierNodeId = input.verifierNodeId || membership.verifierNodeId;
     membership.evidenceRefs = unique([...membership.evidenceRefs, ...evidenceRefs]);
     membership.artifactPaths = unique([...(membership.artifactPaths || []), ...(input.artifactPaths || [])]);
+    membership.blackboardMessageIds = unique([...(membership.blackboardMessageIds || []), ...(input.blackboardMessageIds || [])]);
+    membership.blackboardArtifactRefIds = unique([...(membership.blackboardArtifactRefIds || []), ...(input.blackboardArtifactRefIds || [])]);
     membership.lifecycle.push(lifecycleEvent(before, "reported", "worker output accepted"));
     appendMultiAgentNode(run, "agent-membership", membership.id, "completed", {
       resultNodeId: membership.resultNodeId,
@@ -892,15 +940,18 @@ export function buildMultiAgentGraph(run: WorkflowRun): MultiAgentGraph {
   for (const record of state.runs) {
     nodes.push({ id: `${run.id}:multi-agent:${record.id}`, kind: "multi-agent-run", status: record.status, label: record.title || record.id, path: recordPath(run, "runs", record.id) });
     edges.push({ from: `${run.id}:run`, to: `${run.id}:multi-agent:${record.id}` });
+    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
     if (record.parentMultiAgentRunId) edges.push({ from: `${run.id}:multi-agent:${record.parentMultiAgentRunId}`, to: `${run.id}:multi-agent:${record.id}`, label: "child" });
   }
   for (const record of state.roles) {
     nodes.push({ id: `${run.id}:multi-agent:role:${record.id}`, kind: "agent-role", status: record.status, label: record.title, path: recordPath(run, "roles", record.id) });
     edges.push({ from: `${run.id}:multi-agent:${record.multiAgentRunId}`, to: `${run.id}:multi-agent:role:${record.id}` });
+    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:role:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
   }
   for (const record of state.groups) {
     nodes.push({ id: `${run.id}:multi-agent:group:${record.id}`, kind: "agent-group", status: record.status, label: record.title || record.id, path: recordPath(run, "groups", record.id) });
     edges.push({ from: `${run.id}:multi-agent:${record.multiAgentRunId}`, to: `${run.id}:multi-agent:group:${record.id}` });
+    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:group:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
     for (const taskId of record.taskIds) edges.push({ from: `${run.id}:multi-agent:group:${record.id}`, to: `${run.id}:task:${taskId}`, label: "task" });
   }
   for (const record of state.fanouts) {
@@ -916,6 +967,9 @@ export function buildMultiAgentGraph(run: WorkflowRun): MultiAgentGraph {
     if (record.workerId) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:worker:${record.workerId}`, label: "worker" });
     if (record.resultNodeId) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: record.resultNodeId, label: "result" });
     if (record.verifierNodeId) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: record.verifierNodeId, label: "verifier" });
+    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
+    for (const artifactId of record.blackboardArtifactRefIds || []) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:artifact:${artifactId}`, label: "evidence" });
+    for (const messageId of record.blackboardMessageIds || []) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:message:${messageId}`, label: "message" });
   }
   for (const record of state.fanins) {
     nodes.push({ id: `${run.id}:multi-agent:fanin:${record.id}`, kind: "agent-fanin", status: record.status, label: record.strategy, path: recordPath(run, "fanins", record.id) });
@@ -923,6 +977,7 @@ export function buildMultiAgentGraph(run: WorkflowRun): MultiAgentGraph {
     if (record.fanoutId) edges.push({ from: `${run.id}:multi-agent:fanout:${record.fanoutId}`, to: `${run.id}:multi-agent:fanin:${record.id}` });
     for (const membershipId of record.reportedMembershipIds) edges.push({ from: `${run.id}:multi-agent:membership:${membershipId}`, to: `${run.id}:multi-agent:fanin:${record.id}`, label: "reported" });
     for (const membershipId of record.missingMembershipIds) edges.push({ from: `${run.id}:multi-agent:membership:${membershipId}`, to: `${run.id}:multi-agent:fanin:${record.id}`, label: "missing" });
+    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:fanin:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
   }
   if (!fs.existsSync(root)) fs.mkdirSync(root, { recursive: true });
   return { nodes, edges: uniqueEdges(edges) };

@@ -7,11 +7,12 @@ Read these in order when you are new to CW:
 3. [Sandbox Profiles](sandbox-profiles.7.md) - named worker policy contracts for read/write/execute/network/env handling.
 4. [Security / Trust Hardening](security-trust-hardening.7.md) - audit records, provenance, sandbox attestations, and acceptance rationale.
 5. [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md) - first-class MultiAgentRun, roles, groups, memberships, fanout, fanin, and lifecycle state.
-6. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, multi-agent, and trust summaries.
-7. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
-8. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
-9. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
-10. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+6. [Coordinator / Blackboard](coordinator-blackboard.7.md) - shared topics, messages, context frames, artifact refs, snapshots, decisions, conflicts, and fanin evidence.
+7. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, multi-agent, blackboard, coordinator, and trust summaries.
+8. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
+9. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
+10. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
+11. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

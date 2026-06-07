@@ -27,6 +27,7 @@ import {
 } from "./sandbox-profile";
 import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit";
 import { recordMultiAgentWorkerOutput } from "./multi-agent";
+import { addBlackboardArtifact, postBlackboardMessage } from "./coordinator";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 
@@ -185,6 +186,7 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Worke
     errors: scope.errors,
     output: scope.output,
     multiAgent: scope.multiAgent,
+    blackboard: blackboardManifest(run, scope),
     metadata: scope.metadata
   };
   writeJson(manifestPath(scope), manifest);
@@ -345,13 +347,16 @@ export function recordWorkerOutput(
     resultNodeId: resultNode.id,
     output
   });
+  const blackboardLinks = publishWorkerOutputToBlackboard(run, scope, task, parsedResult.summary, destination, absoluteResultPath, resultNode.evidence, acceptedAudit.id);
   recordMultiAgentWorkerOutput(run, {
     workerId,
     taskId: task.id,
     resultNodeId: resultNode.id,
     verifierNodeId: verifierResult.outputNodeId,
     evidence: resultNode.evidence,
-    artifactPaths: [destination, absoluteResultPath]
+    artifactPaths: [destination, absoluteResultPath],
+    blackboardMessageIds: blackboardLinks.messageIds,
+    blackboardArtifactRefIds: blackboardLinks.artifactRefIds
   });
   if (options.persist !== false) saveCheckpoint(run);
   return output;
@@ -603,6 +608,100 @@ function sandboxPolicyForBoundary(
     allowArtifacts: options.policy?.allowArtifacts,
     allowLogs: options.policy?.allowLogs
   });
+}
+
+function blackboardManifest(run: WorkflowRun, scope: WorkerScope): WorkerManifest["blackboard"] {
+  const linkage = blackboardLinkage(run, scope);
+  if (!linkage.blackboardId) return undefined;
+  const root = run.paths.blackboardDir || path.join(run.paths.runDir, "blackboard");
+  return {
+    id: linkage.blackboardId,
+    topicIds: linkage.topicIds,
+    indexPath: path.join(root, "index.json"),
+    messagesPath: path.join(root, "messages.jsonl"),
+    topicsDir: path.join(root, "topics"),
+    contextsDir: path.join(root, "contexts"),
+    artifactsDir: path.join(root, "artifacts"),
+    instructions: [
+      "Use the blackboard as shared coordination context.",
+      "Read index.json and the relevant topic/context/artifact files before synthesizing.",
+      "Cite blackboard artifact refs or message refs in result evidence when relevant.",
+      "Do not edit blackboard files directly; CW records accepted worker output into the blackboard."
+    ]
+  };
+}
+
+function publishWorkerOutputToBlackboard(
+  run: WorkflowRun,
+  scope: WorkerScope,
+  task: RunTask,
+  summary: string,
+  destination: string,
+  workerResultPath: string,
+  evidence: StateEvidence[],
+  acceptedAuditId: string
+): { messageIds: string[]; artifactRefIds: string[] } {
+  const linkage = blackboardLinkage(run, scope);
+  if (!linkage.blackboardId || !linkage.topicIds.length) return { messageIds: [], artifactRefIds: [] };
+  const topicId = linkage.topicIds[0];
+  const artifactRefs = [
+    addBlackboardArtifact(run, {
+      topicId,
+      blackboardId: linkage.blackboardId,
+      kind: "worker-result",
+      path: destination,
+      owner: { kind: "worker", id: scope.id },
+      author: { kind: "runtime", id: "cw" },
+      source: "cw-validated-worker-output",
+      provenance: {
+        workerId: scope.id,
+        taskId: task.id,
+        multiAgentRunId: scope.multiAgent?.runId,
+        agentGroupId: scope.multiAgent?.groupId,
+        agentRoleId: scope.multiAgent?.roleId,
+        agentMembershipId: scope.multiAgent?.membershipId,
+        auditEventIds: [acceptedAuditId]
+      },
+      evidenceRefs: evidence.map((entry) => entry.locator || entry.path || entry.summary || entry.id).filter(Boolean),
+      auditEventIds: [acceptedAuditId],
+      metadata: { workerResultPath }
+    })
+  ];
+  const message = postBlackboardMessage(run, {
+    topicId,
+    blackboardId: linkage.blackboardId,
+    body: summary,
+    author: { kind: "worker", id: scope.id },
+    scope: { kind: "worker", id: scope.id },
+    artifactRefIds: artifactRefs.map((artifact) => artifact.id),
+    evidenceRefs: evidence.map((entry) => entry.locator || entry.path || entry.summary || entry.id).filter(Boolean),
+    auditEventIds: [acceptedAuditId],
+    metadata: {
+      taskId: task.id,
+      resultPath: destination,
+      multiAgent: scope.multiAgent
+    }
+  });
+  return {
+    messageIds: [message.id],
+    artifactRefIds: artifactRefs.map((artifact) => artifact.id)
+  };
+}
+
+function blackboardLinkage(run: WorkflowRun, scope: WorkerScope): { blackboardId?: string; topicIds: string[] } {
+  const membershipId = scope.multiAgent?.membershipId;
+  const membership = membershipId ? run.multiAgent?.memberships.find((entry) => entry.id === membershipId) : undefined;
+  const group = scope.multiAgent?.groupId ? run.multiAgent?.groups.find((entry) => entry.id === scope.multiAgent?.groupId) : undefined;
+  const role = scope.multiAgent?.roleId ? run.multiAgent?.roles.find((entry) => entry.id === scope.multiAgent?.roleId) : undefined;
+  const multiAgentRun = scope.multiAgent?.runId ? run.multiAgent?.runs.find((entry) => entry.id === scope.multiAgent?.runId) : undefined;
+  const blackboardId = membership?.blackboardId || group?.blackboardId || role?.blackboardId || multiAgentRun?.blackboardId;
+  const topicIds = unique([
+    ...(membership?.topicIds || []),
+    ...(group?.topicIds || []),
+    ...(role?.topicIds || []),
+    ...(multiAgentRun?.topicIds || [])
+  ]);
+  return { blackboardId, topicIds };
 }
 
 function manifestPath(scope: WorkerScope): string {

@@ -159,6 +159,7 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
   setDefault(paths, "workersDir", path.join(baseRunDir, "workers"), context, "paths.workersDir is required", "paths.workersDir");
   setDefault(paths, "candidatesDir", path.join(baseRunDir, "candidates"), context, "paths.candidatesDir is required", "paths.candidatesDir");
   setDefault(paths, "multiAgentDir", path.join(baseRunDir, "multi-agent"), context, "paths.multiAgentDir is required", "paths.multiAgentDir");
+  setDefault(paths, "blackboardDir", path.join(baseRunDir, "blackboard"), context, "paths.blackboardDir is required", "paths.blackboardDir");
 
   ensureArray(state, "tasks", context);
   ensureArray(state, "dispatches", context);
@@ -197,6 +198,26 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
       }
     }
   }
+  if (!isRecord(state.blackboard)) {
+    setValue(state, "blackboard", {
+      schemaVersion: 1,
+      boards: [],
+      topics: [],
+      messages: [],
+      contexts: [],
+      artifacts: [],
+      snapshots: [],
+      decisions: []
+    }, context, "blackboard state is required");
+  } else {
+    const blackboard = state.blackboard as Record<string, unknown>;
+    setDefault(blackboard, "schemaVersion", 1, context, "blackboard.schemaVersion is required", "blackboard.schemaVersion");
+    for (const key of ["boards", "topics", "messages", "contexts", "artifacts", "snapshots", "decisions"]) {
+      if (!Array.isArray(blackboard[key])) {
+        setValue(blackboard, key, [], context, `blackboard.${key} must be an array`, `blackboard.${key}`);
+      }
+    }
+  }
 
   if (!Array.isArray(state.phases)) {
     const phases = derivePhases(Array.isArray(state.tasks) ? state.tasks : []);
@@ -217,6 +238,7 @@ function validateMigratedRunState(state: Record<string, unknown>, report: StateM
     if (!Array.isArray(state[key])) report.errors.push(`${key} must be an array.`);
   }
   if (!isRecord(state.multiAgent)) report.errors.push("multiAgent must be an object.");
+  if (!isRecord(state.blackboard)) report.errors.push("blackboard must be an object.");
 }
 
 function detectSchemaVersion(value: unknown): number {
