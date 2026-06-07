@@ -8,6 +8,7 @@ const node_path_1 = __importDefault(require("node:path"));
 const orchestrator_1 = require("./orchestrator");
 const scheduler_1 = require("./scheduler");
 const triggers_1 = require("./triggers");
+const version_1 = require("./version");
 const runner = new orchestrator_1.CoolWorkflowRunner({
     pluginRoot: node_path_1.default.resolve(__dirname, "..")
 });
@@ -37,7 +38,7 @@ function handleLine(line) {
             sendResult(message.id, {
                 protocolVersion: "2024-11-05",
                 capabilities: { tools: {} },
-                serverInfo: { name: "cool-workflow", version: "0.1.13" }
+                serverInfo: { name: "cool-workflow", version: version_1.CURRENT_COOL_WORKFLOW_VERSION }
             });
             return;
         }

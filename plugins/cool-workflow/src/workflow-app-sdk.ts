@@ -24,6 +24,10 @@ import {
   workflow
 } from "./workflow-api";
 import { bundledSandboxProfileIds, isBundledSandboxProfileId } from "./sandbox-profile";
+import {
+  CURRENT_COOL_WORKFLOW_VERSION,
+  WORKFLOW_APP_SCHEMA_VERSION
+} from "./version";
 
 export {
   agent,
@@ -34,9 +38,6 @@ export {
   slugify,
   workflow
 };
-
-export const WORKFLOW_APP_SCHEMA_VERSION = 1;
-export const CURRENT_COOL_WORKFLOW_VERSION = "0.1.13";
 
 export class WorkflowAppValidationError extends Error {
   issues: WorkflowAppValidationIssue[];

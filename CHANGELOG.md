@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.14
+
+- Added explicit run-state migration policy with `src/state-migrations.ts`,
+  current schema/version constants, compatibility reports, and dry-run
+  `state check` support.
+- Added fixture-based backward compatibility coverage under
+  `test/fixtures/runs/` for pre-app state, Sandbox Profiles, Workflow App SDK,
+  Golden Path, Operator UX, and v0.1.13 MCP/App Surface runs.
+- Added `npm run fixture-compat`, `npm run version:sync`, and the dry-run
+  `npm run release:check` release gate.
+- Centralized CW runtime version metadata at `0.1.14` and checks package,
+  plugin, SDK, MCP, canonical app, test, docs, and `dist/` surfaces.
+- Added docs index, Getting Started, and `docs/release-and-migration.7.md` in
+  the spirit of operational `UPDATING` guidance.
+
 ## 0.1.13
 
 - Completed the MCP / App Surface so agent hosts can run Workflow App SDK apps,

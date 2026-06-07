@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "id": "sandbox-profiles",
+  "createdAt": "2025-01-01T00:00:00.000Z",
+  "updatedAt": "2025-01-01T00:00:00.000Z",
+  "cwd": "/tmp/cw-fixture-sandbox",
+  "workflow": {
+    "id": "architecture-review",
+    "title": "Architecture Review",
+    "summary": "Fixture with sandbox profile state.",
+    "limits": {
+      "maxAgents": 8,
+      "maxConcurrentAgents": 4
+    }
+  },
+  "inputs": {
+    "repo": "/tmp/cw-fixture-sandbox",
+    "question": "Are sandbox profiles preserved?"
+  },
+  "loopStage": "act",
+  "phases": [
+    {
+      "id": "map",
+      "name": "Map",
+      "status": "pending",
+      "taskIds": [
+        "map:context"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "map:context",
+      "kind": "agent",
+      "phase": "Map",
+      "status": "running",
+      "requiresEvidence": false,
+      "prompt": "Map sandbox profile usage.",
+      "taskPath": "",
+      "resultPath": "",
+      "loopStage": "act",
+      "sandboxProfileId": "readonly"
+    }
+  ],
+  "dispatches": [],
+  "commits": [],
+  "sandboxProfiles": [
+    {
+      "schemaVersion": 1,
+      "id": "readonly",
+      "title": "Readonly Workspace",
+      "readPaths": [
+        "/tmp/cw-fixture-sandbox"
+      ],
+      "writePaths": [],
+      "workerOutput": {
+        "result": true,
+        "artifacts": true,
+        "logs": true
+      },
+      "execute": {
+        "mode": "any"
+      },
+      "network": {
+        "mode": "none"
+      },
+      "env": {
+        "inherit": false,
+        "expose": []
+      },
+      "enforcement": {
+        "enforcedByCW": [
+          "profile validation"
+        ],
+        "hostRequired": [
+          "OS-level write isolation"
+        ]
+      },
+      "hostInstructions": []
+    }
+  ]
+}

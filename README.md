@@ -14,6 +14,9 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Workflow App SDK for versioned, validated, reusable workflow apps.
 - Complete MCP / App Surface for app runs, worker output, candidate scoring,
   sandbox resolution, verifier-gated commits, and operator summaries.
+- Release & Migration Discipline for explicit run-state migrations,
+  fixture-based backward compatibility, version synchronization, and a dry-run
+  release gate.
 - Canonical Workflow Apps for architecture review, PR/CI review, release
   preparation, and research synthesis.
 - Operator UX for human `status`, run graphs, report summaries, resource
@@ -61,6 +64,11 @@ Verifier-gated commits.
 ```
 
 See [unix-principles.md](plugins/cool-workflow/docs/unix-principles.md).
+See [index.md](plugins/cool-workflow/docs/index.md) for the docs map.
+See [getting-started.md](plugins/cool-workflow/docs/getting-started.md) for a
+fresh clone path.
+See [release-and-migration.7.md](plugins/cool-workflow/docs/release-and-migration.7.md)
+for v0.1.14 release and migration discipline.
 See [mcp-app-surface.7.md](plugins/cool-workflow/docs/mcp-app-surface.7.md)
 for the MCP runtime surface.
 See [operator-ux.7.md](plugins/cool-workflow/docs/operator-ux.7.md) for
@@ -106,6 +114,7 @@ cd plugins/cool-workflow
 npm install --no-package-lock
 npm run build
 npm run check
+npm run release:check
 npm run canonical-apps
 npm run golden-path
 node scripts/cw.js list
@@ -127,6 +136,8 @@ node scripts/cw.js app show release-cut
 node scripts/cw.js app validate end-to-end-golden-path
 npm run canonical-apps
 npm run golden-path
+npm run fixture-compat
+npm run version:sync
 node test/mcp-app-surface-smoke.js
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
@@ -143,6 +154,7 @@ node scripts/cw.js worker summary <run-id>
 node scripts/cw.js candidate summary <run-id>
 node scripts/cw.js feedback summary <run-id>
 node scripts/cw.js commit summary <run-id>
+node scripts/cw.js state check <run-id>
 node scripts/cw.js sandbox list
 node scripts/cw.js sandbox show readonly
 node scripts/cw.js report <run-id>

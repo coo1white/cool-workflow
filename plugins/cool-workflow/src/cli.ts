@@ -95,6 +95,19 @@ async function main(): Promise<void> {
       printJson(runner.recordResult(required(runId, "run id"), required(taskId, "task id"), required(resultPath, "result file")));
       return;
     }
+    case "state": {
+      const [subcommand, runId] = args.positionals;
+      switch (subcommand) {
+        case "check": {
+          const report = runner.checkState(required(runId, "run id"), args.options);
+          printJson(report);
+          if (report.status === "unsupported") process.exitCode = 1;
+          return;
+        }
+        default:
+          throw new Error("Usage: cw.js state check <run-id> [--state PATH] [--write]");
+      }
+    }
     case "commit":
       if (args.positionals[0] === "summary") {
         const summary = runner.summarizeCommitRecords(required(args.positionals[1], "run id"));

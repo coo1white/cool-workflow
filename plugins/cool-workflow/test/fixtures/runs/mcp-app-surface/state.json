@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "id": "mcp-app-surface",
+  "createdAt": "2025-05-01T00:00:00.000Z",
+  "updatedAt": "2025-05-01T00:00:00.000Z",
+  "cwd": "/tmp/cw-fixture-mcp",
+  "workflow": {
+    "id": "release-cut",
+    "title": "Release Cut",
+    "summary": "Fixture with MCP app surface metadata.",
+    "limits": {
+      "maxAgents": 12,
+      "maxConcurrentAgents": 4
+    },
+    "app": {
+      "schemaVersion": 1,
+      "id": "release-cut",
+      "title": "Release Cut",
+      "version": "0.1.13",
+      "source": {
+        "kind": "app-directory",
+        "path": "/tmp/cw-fixture-mcp/apps/release-cut"
+      },
+      "metadata": {
+        "canonical": true,
+        "mcpSurface": true
+      }
+    }
+  },
+  "inputs": {
+    "repo": "/tmp/cw-fixture-mcp",
+    "version": "0.1.13",
+    "dryRun": true
+  },
+  "loopStage": "observe",
+  "phases": [
+    {
+      "id": "verify",
+      "name": "Verify",
+      "status": "completed",
+      "taskIds": [
+        "verify:package"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "verify:package",
+      "kind": "agent",
+      "phase": "Verify",
+      "status": "completed",
+      "requiresEvidence": true,
+      "prompt": "Verify package.",
+      "taskPath": "",
+      "resultPath": "/tmp/cw-fixture-mcp/result.md",
+      "loopStage": "observe",
+      "workerId": "worker-mcp"
+    }
+  ],
+  "dispatches": [],
+  "commits": [],
+  "workers": [
+    {
+      "schemaVersion": 1,
+      "id": "worker-mcp",
+      "runId": "mcp-app-surface",
+      "taskId": "verify:package",
+      "createdAt": "2025-05-01T00:00:00.000Z",
+      "updatedAt": "2025-05-01T00:00:00.000Z",
+      "status": "completed",
+      "workerDir": "/tmp/cw-fixture-mcp/workers/worker-mcp",
+      "inputPath": "/tmp/cw-fixture-mcp/workers/worker-mcp/input.md",
+      "resultPath": "/tmp/cw-fixture-mcp/workers/worker-mcp/result.md",
+      "artifactsDir": "/tmp/cw-fixture-mcp/workers/worker-mcp/artifacts",
+      "logsDir": "/tmp/cw-fixture-mcp/workers/worker-mcp/logs",
+      "allowedPaths": [],
+      "feedbackIds": [],
+      "errors": []
+    }
+  ],
+  "mcpOpaqueMetadata": {
+    "preserve": true
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "operator-ux",
+  "createdAt": "2025-04-01T00:00:00.000Z",
+  "updatedAt": "2025-04-01T00:00:00.000Z",
+  "cwd": "/tmp/cw-fixture-operator",
+  "workflow": {
+    "id": "release-cut",
+    "title": "Release Cut",
+    "summary": "Fixture with operator UX summaries.",
+    "limits": {
+      "maxAgents": 12,
+      "maxConcurrentAgents": 4
+    },
+    "app": {
+      "schemaVersion": 1,
+      "id": "release-cut",
+      "title": "Release Cut",
+      "version": "0.1.12"
+    }
+  },
+  "inputs": {
+    "repo": "/tmp/cw-fixture-operator",
+    "version": "0.1.12",
+    "dryRun": true
+  },
+  "loopStage": "adjust",
+  "phases": [],
+  "tasks": [],
+  "dispatches": [],
+  "commits": [
+    {
+      "id": "state-operator",
+      "createdAt": "2025-04-01T00:00:00.000Z",
+      "reason": "operator checkpoint",
+      "loopStage": "checkpoint",
+      "statePath": "/tmp/cw-fixture-operator/state.json",
+      "reportPath": "/tmp/cw-fixture-operator/report.md",
+      "snapshotPath": "/tmp/cw-fixture-operator/commits/state-operator.json",
+      "checkpoint": true
+    }
+  ],
+  "feedback": [
+    {
+      "schemaVersion": 1,
+      "id": "feedback-operator",
+      "runId": "operator-ux",
+      "createdAt": "2025-04-01T00:00:00.000Z",
+      "updatedAt": "2025-04-01T00:00:00.000Z",
+      "status": "open",
+      "severity": "medium",
+      "classification": "missing-evidence",
+      "source": "verifier",
+      "code": "missing-evidence",
+      "message": "Fixture feedback should remain inspectable.",
+      "retryable": false,
+      "evidence": [],
+      "artifacts": []
+    }
+  ]
+}

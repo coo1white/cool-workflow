@@ -4,6 +4,7 @@ import { CoolWorkflowRunner } from "./orchestrator";
 import { Scheduler } from "./scheduler";
 import { RoutineTriggerBridge } from "./triggers";
 import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
+import { CURRENT_COOL_WORKFLOW_VERSION } from "./version";
 
 interface JsonRpcRequest {
   jsonrpc?: "2.0";
@@ -45,7 +46,7 @@ function handleLine(line: string): void {
       sendResult(message.id, {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "cool-workflow", version: "0.1.13" }
+        serverInfo: { name: "cool-workflow", version: CURRENT_COOL_WORKFLOW_VERSION }
       });
       return;
     }
