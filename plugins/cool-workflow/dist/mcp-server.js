@@ -37,7 +37,7 @@ function handleLine(line) {
             sendResult(message.id, {
                 protocolVersion: "2024-11-05",
                 capabilities: { tools: {} },
-                serverInfo: { name: "cool-workflow", version: "0.1.7" }
+                serverInfo: { name: "cool-workflow", version: "0.1.8" }
             });
             return;
         }
@@ -75,6 +75,12 @@ function callTool(name, args) {
                 return runner.status(String(args.runId || ""));
             case "cw_dispatch":
                 return runner.dispatch(String(args.runId || ""), args);
+            case "cw_sandbox_list":
+                return runner.listSandboxProfiles(args);
+            case "cw_sandbox_show":
+                return runner.showSandboxProfile(String(args.profileId || ""), args);
+            case "cw_sandbox_validate":
+                return runner.validateSandboxProfile(String(args.profileFile || ""), args);
             case "cw_result":
                 return runner.recordResult(String(args.runId || ""), String(args.taskId || ""), String(args.resultPath || ""));
             case "cw_commit":
@@ -142,7 +148,19 @@ function toolDefinitions() {
         tool("cw_dispatch", "Create a subagent dispatch manifest.", {
             runId: stringSchema("Run id"),
             cwd: stringSchema("Run workspace"),
-            limit: numberSchema("Max tasks to dispatch")
+            limit: numberSchema("Max tasks to dispatch"),
+            sandbox: stringSchema("Sandbox profile id")
+        }),
+        tool("cw_sandbox_list", "List bundled sandbox profiles.", {
+            cwd: stringSchema("Workspace used to resolve profile paths")
+        }),
+        tool("cw_sandbox_show", "Show a resolved sandbox profile.", {
+            cwd: stringSchema("Workspace used to resolve profile paths"),
+            profileId: stringSchema("Sandbox profile id")
+        }),
+        tool("cw_sandbox_validate", "Validate a sandbox profile JSON file.", {
+            cwd: stringSchema("Workspace used to resolve profile paths"),
+            profileFile: stringSchema("Sandbox profile JSON file")
         }),
         tool("cw_result", "Record a subagent result.", {
             runId: stringSchema("Run id"),

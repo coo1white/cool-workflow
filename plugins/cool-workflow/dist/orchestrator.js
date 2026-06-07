@@ -20,6 +20,7 @@ const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const worker_isolation_1 = require("./worker-isolation");
 const candidate_scoring_1 = require("./candidate-scoring");
+const sandbox_profile_1 = require("./sandbox-profile");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -89,6 +90,7 @@ class CoolWorkflowRunner {
             contracts: [],
             feedback: [],
             workers: [],
+            sandboxProfiles: [],
             candidates: [],
             candidateSelections: []
         };
@@ -129,13 +131,38 @@ class CoolWorkflowRunner {
     }
     dispatch(runId, options) {
         const run = this.loadRun(runId);
-        const manifest = (0, dispatch_1.createDispatchManifest)(run, numberOption(options.limit));
-        run.loopStage = "act";
-        if (manifest.dispatchId)
-            (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
-        (0, state_1.saveCheckpoint)(run);
-        writeReport(run);
-        return manifest;
+        try {
+            const manifest = (0, dispatch_1.createDispatchManifest)(run, numberOption(options.limit), {
+                sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId)
+            });
+            run.loopStage = "act";
+            if (manifest.dispatchId)
+                (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
+            (0, state_1.saveCheckpoint)(run);
+            writeReport(run);
+            return manifest;
+        }
+        catch (error) {
+            if (isSandboxProfileError(error)) {
+                run.loopStage = "adjust";
+                (0, error_feedback_1.recordFeedback)(run, {
+                    source: "cli",
+                    error: {
+                        code: error.code,
+                        message: error.message,
+                        at: new Date().toISOString(),
+                        path: error.path,
+                        retryable: false,
+                        details: error.details
+                    },
+                    retryable: false,
+                    metadata: { sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId) }
+                }, { persist: false });
+                writeReport(run);
+                (0, state_1.saveCheckpoint)(run);
+            }
+            throw error;
+        }
     }
     recordResult(runId, taskId, resultPath) {
         const run = this.loadRun(runId);
@@ -236,14 +263,23 @@ class CoolWorkflowRunner {
     }
     recordWorkerOutput(runId, workerId, resultPath) {
         const run = this.loadRun(runId);
-        (0, worker_isolation_1.recordWorkerOutput)(run, workerId, resultPath, { persist: false });
-        run.loopStage = "observe";
-        (0, dispatch_1.updatePhaseStatuses)(run);
-        (0, verifier_1.validateRunGates)(run);
-        (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-        writeReport(run);
-        (0, state_1.saveCheckpoint)(run);
-        return summarizeRun(run);
+        try {
+            (0, worker_isolation_1.recordWorkerOutput)(run, workerId, resultPath, { persist: false });
+            run.loopStage = "observe";
+            (0, dispatch_1.updatePhaseStatuses)(run);
+            (0, verifier_1.validateRunGates)(run);
+            (0, commit_1.commitState)(run, `worker:${workerId}:result`);
+            writeReport(run);
+            (0, state_1.saveCheckpoint)(run);
+            return summarizeRun(run);
+        }
+        catch (error) {
+            run.loopStage = "adjust";
+            (0, dispatch_1.updatePhaseStatuses)(run);
+            writeReport(run);
+            (0, state_1.saveCheckpoint)(run);
+            throw error;
+        }
     }
     recordWorkerFailure(runId, workerId, message, options = {}) {
         const run = this.loadRun(runId);
@@ -262,6 +298,15 @@ class CoolWorkflowRunner {
     }
     validateWorker(runId, workerId, targetPath) {
         return (0, worker_isolation_1.validateWorkerBoundary)(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
+    }
+    listSandboxProfiles(options = {}) {
+        return (0, sandbox_profile_1.listBundledSandboxProfiles)((0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
+    }
+    showSandboxProfile(profileId, options = {}) {
+        return (0, sandbox_profile_1.showBundledSandboxProfile)(profileId, (0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
+    }
+    validateSandboxProfile(profileFile, options = {}) {
+        return (0, sandbox_profile_1.validateSandboxProfileFile)(profileFile, (0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
     }
     listCandidates(runId, options = {}) {
         return (0, candidate_scoring_1.listCandidates)(this.loadRun(runId), {
@@ -515,7 +560,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -609,6 +654,10 @@ function writeReport(run) {
         "## Workers",
         "",
         ...renderWorkers(workerSummary),
+        "",
+        "## Sandbox Profiles",
+        "",
+        ...renderSandboxProfiles(run),
         "",
         "## Candidates",
         "",
@@ -705,6 +754,16 @@ function renderWorkers(summary) {
     }
     return lines;
 }
+function renderSandboxProfiles(run) {
+    const profiles = run.sandboxProfiles || [];
+    if (!profiles.length)
+        return ["No sandbox profiles selected yet."];
+    return profiles.map((profile) => [
+        `- ${profile.id}: read=${profile.readPaths.length}, write=${profile.writePaths.length}, execute=${profile.execute.mode}, network=${profile.network.mode}`,
+        `  enforcedByCW=${profile.enforcement.enforcedByCW.join("; ")}`,
+        `  hostRequired=${profile.enforcement.hostRequired.join("; ")}`
+    ].join("\n"));
+}
 function renderCandidates(summary) {
     if (!summary.total)
         return ["No candidates yet."];
@@ -800,6 +859,9 @@ function arrayOption(value) {
     if (value === undefined || value === null || value === true)
         return [];
     return Array.isArray(value) ? value : [value];
+}
+function isSandboxProfileError(error) {
+    return error instanceof sandbox_profile_1.SandboxProfileError || Boolean(error && typeof error === "object" && "code" in error && String(error.code).startsWith("sandbox-"));
 }
 function createRunId(workflowId) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");

@@ -18,6 +18,13 @@ import { recordFeedback } from "./error-feedback";
 import { appendRunNode, createStateNode, linkStateNodes, recordNodeError } from "./state-node";
 import { createPipelineRunner } from "./pipeline-runner";
 import { parseResultEnvelope, validateResultEnvelope } from "./verifier";
+import {
+  DEFAULT_SANDBOX_PROFILE_ID,
+  effectiveSandboxWritePaths,
+  sandboxPolicyForWorker,
+  upsertRunSandboxPolicy,
+  validateSandboxWrite
+} from "./sandbox-profile";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 
@@ -58,12 +65,22 @@ export function allocateWorkerScope(
   const resultPath = path.join(workerDir, "result.md");
   const artifactsDir = path.join(workerDir, "artifacts");
   const logsDir = path.join(workerDir, "logs");
-  const allowedPaths = uniqueResolved([
+  const sandboxProfileId = options.sandboxProfileId || options.policy?.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID;
+  const sandboxPolicy = sandboxPolicyForWorker(sandboxProfileId, {
+    cwd: run.cwd,
+    runDir: run.paths.runDir,
+    workerDir,
+    inputPath,
     resultPath,
     artifactsDir,
     logsDir,
-    ...(options.policy?.allowedPaths || [])
-  ]);
+    extraReadPaths: options.policy?.readPaths || [],
+    extraWritePaths: [...(options.policy?.writePaths || []), ...(options.policy?.allowedPaths || [])],
+    allowArtifacts: options.policy?.allowArtifacts,
+    allowLogs: options.policy?.allowLogs
+  });
+  const allowedPaths = effectiveSandboxWritePaths(sandboxPolicy);
+  upsertRunSandboxPolicy(run, sandboxPolicy);
 
   fs.mkdirSync(artifactsDir, { recursive: true });
   fs.mkdirSync(logsDir, { recursive: true });
@@ -83,6 +100,8 @@ export function allocateWorkerScope(
     artifactsDir,
     logsDir,
     allowedPaths,
+    sandboxProfileId: sandboxPolicy.id,
+    sandboxPolicy,
     stateNodeId: task.stateNodeId,
     feedbackIds: [],
     errors: [],
@@ -99,6 +118,8 @@ export function allocateWorkerScope(
   upsertWorkerScope(run, scope);
   task.workerId = scope.id;
   task.workerManifestPath = manifestPath(scope);
+  task.sandboxProfileId = sandboxPolicy.id;
+  task.sandboxPolicy = sandboxPolicy;
   writeWorkerIndex(run);
   if (options.persist !== false) saveCheckpoint(run);
   return scope;
@@ -106,6 +127,8 @@ export function allocateWorkerScope(
 
 export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): WorkerManifest {
   const task = run.tasks.find((candidate) => candidate.id === scope.taskId);
+  const sandboxPolicy = scope.sandboxPolicy || sandboxPolicyForBoundary(run, scope);
+  const sandboxProfileId = scope.sandboxProfileId || sandboxPolicy.id;
   const manifest: WorkerManifest = {
     schemaVersion: WORKER_ISOLATION_SCHEMA_VERSION,
     id: scope.id,
@@ -121,10 +144,23 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Worke
     artifactsDir: scope.artifactsDir,
     logsDir: scope.logsDir,
     allowedPaths: scope.allowedPaths,
+    sandboxProfileId,
+    sandboxPolicy,
+    sandbox: sandboxPolicy
+      ? {
+          profileId: sandboxPolicy.id,
+          policy: sandboxPolicy,
+          enforcedByCW: sandboxPolicy.enforcement.enforcedByCW,
+          hostRequired: sandboxPolicy.enforcement.hostRequired
+        }
+      : undefined,
     instructions: [
       "Read input.md before doing work.",
       "Write the final Markdown result to result.md.",
       "Write worker-local artifacts under artifacts/ and logs under logs/.",
+      `Sandbox profile: ${sandboxProfileId}.`,
+      "CW enforces profile validation and worker result acceptance only.",
+      "The agent host must enforce OS file access, process execution, network access, and environment filtering.",
       "Do not edit shared run state files directly; CW records accepted results."
     ],
     taskPath: task?.taskPath,
@@ -216,7 +252,7 @@ export function recordWorkerOutput(
       evidence,
       parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
       contractId: DEFAULT_PIPELINE_CONTRACT_ID,
-      metadata: { taskId: task.id, workerId, workerDir: scope.workerDir }
+      metadata: { taskId: task.id, workerId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId }
     })
   );
   task.resultNodeId = resultNode.id;
@@ -230,7 +266,7 @@ export function recordWorkerOutput(
     evidence: resultNode.evidence.length
       ? resultNode.evidence
       : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
-    metadata: { taskId: task.id, workerId, resultNodeId: resultNode.id }
+    metadata: { taskId: task.id, workerId, resultNodeId: resultNode.id, sandboxProfileId: scope.sandboxProfileId }
   });
   task.verifierNodeId = verifierResult.outputNodeId;
 
@@ -273,7 +309,7 @@ export function recordWorkerFailure(
       artifacts: workerArtifacts(scope),
       parents: task.stateNodeId ? [task.stateNodeId] : [],
       contractId: DEFAULT_PIPELINE_CONTRACT_ID,
-      metadata: { workerId, taskId: task.id, dispatchId: scope.dispatchId, workerDir: scope.workerDir }
+      metadata: { workerId, taskId: task.id, dispatchId: scope.dispatchId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId }
     }),
     structured
   );
@@ -302,6 +338,8 @@ export function recordWorkerFailure(
         workerId,
         dispatchId: scope.dispatchId,
         workerDir: scope.workerDir,
+        sandboxProfileId: scope.sandboxProfileId,
+        sandboxPolicy: scope.sandboxPolicy,
         allowedPaths: scope.allowedPaths,
         details: structured.details
       }
@@ -311,7 +349,7 @@ export function recordWorkerFailure(
   updateWorkerScope(run, {
     ...scope,
     updatedAt: new Date().toISOString(),
-    status: structured.code === "worker-boundary-violation" ? "rejected" : "failed",
+    status: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "rejected" : "failed",
     feedbackIds: unique([...(scope.feedbackIds || []), feedback.id]),
     errors: [...(scope.errors || []), structured]
   });
@@ -326,27 +364,7 @@ export function validateWorkerBoundary(
 ): WorkerBoundaryViolation | null {
   const scope = requireWorkerScope(run, workerId);
   const rawPath = String(options.path || scope.resultPath);
-  if (hasTraversal(rawPath)) {
-    const allowedPaths = uniqueResolved([scope.resultPath, scope.artifactsDir, scope.logsDir, ...(options.policy?.allowedPaths || scope.allowedPaths || [])]);
-    return {
-      code: "worker-boundary-violation",
-      message: `Worker ${workerId} output path contains traversal: ${rawPath}`,
-      path: rawPath,
-      allowedPaths
-    };
-  }
-  const candidate = path.resolve(rawPath);
-  const allowedPaths = uniqueResolved([scope.resultPath, scope.artifactsDir, scope.logsDir, ...(options.policy?.allowedPaths || scope.allowedPaths || [])]);
-  const insideAllowedPath = allowedPaths.some((allowed) => candidate === allowed || candidate.startsWith(`${allowed}${path.sep}`));
-  if (!insideAllowedPath) {
-    return {
-      code: "worker-boundary-violation",
-      message: `Worker ${workerId} output path is outside its allowed paths: ${candidate}`,
-      path: candidate,
-      allowedPaths
-    };
-  }
-  return null;
+  return validateSandboxWrite(sandboxPolicyForBoundary(run, scope, options), rawPath, workerId);
 }
 
 export function summarizeWorkers(run: WorkflowRun): {
@@ -382,6 +400,7 @@ function writeWorkerInput(run: WorkflowRun, task: RunTask, scope: WorkerScope): 
     `- Result: ${scope.resultPath}`,
     `- Artifacts: ${scope.artifactsDir}`,
     `- Logs: ${scope.logsDir}`,
+    `- Sandbox Profile: ${scope.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID}`,
     "",
     "## Task",
     "",
@@ -391,6 +410,9 @@ function writeWorkerInput(run: WorkflowRun, task: RunTask, scope: WorkerScope): 
     "",
     "- Write the final Markdown result to result.md.",
     "- Keep extra files under artifacts/ or logs/.",
+    `- Read paths: ${(scope.sandboxPolicy?.readPaths || []).join(", ") || "none"}.`,
+    `- Write paths: ${effectiveSandboxWritePaths(sandboxPolicyForBoundary(run, scope)).join(", ") || "none"}.`,
+    "- CW enforces result acceptance. The host is responsible for OS/process/network/environment sandbox enforcement.",
     "- Do not mutate state.json, nodes/, feedback/, dispatches/, or commits/ directly.",
     ""
   ];
@@ -430,6 +452,7 @@ function writeWorkerIndex(run: WorkflowRun): void {
       workerDir: scope.workerDir,
       manifestPath: manifestPath(scope),
       resultPath: scope.resultPath,
+      sandboxProfileId: scope.sandboxProfileId,
       feedbackIds: scope.feedbackIds
     }))
   });
@@ -462,6 +485,32 @@ function workerRoot(run: WorkflowRun): string {
   return run.paths.workersDir || path.join(run.paths.runDir, "workers");
 }
 
+function sandboxPolicyForBoundary(
+  run: WorkflowRun,
+  scope: WorkerScope,
+  options: WorkerIsolationOptions = {}
+) {
+  if (scope.sandboxPolicy && !options.policy && !options.sandboxProfileId) return scope.sandboxPolicy;
+  const profileId = options.sandboxProfileId || options.policy?.sandboxProfileId || scope.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID;
+  return sandboxPolicyForWorker(profileId, {
+    cwd: run.cwd,
+    runDir: run.paths.runDir,
+    workerDir: scope.workerDir,
+    inputPath: scope.inputPath,
+    resultPath: scope.resultPath,
+    artifactsDir: scope.artifactsDir,
+    logsDir: scope.logsDir,
+    extraReadPaths: options.policy?.readPaths || [],
+    extraWritePaths: [
+      ...(options.policy?.writePaths || []),
+      ...(options.policy?.allowedPaths || []),
+      ...(!scope.sandboxPolicy ? scope.allowedPaths || [] : [])
+    ],
+    allowArtifacts: options.policy?.allowArtifacts,
+    allowLogs: options.policy?.allowLogs
+  });
+}
+
 function manifestPath(scope: WorkerScope): string {
   return path.join(scope.workerDir, "worker.json");
 }
@@ -483,7 +532,7 @@ function normalizeWorkerError(error: unknown, scope: WorkerScope, options: Recor
     return structuredError(error.code, error.message, {
       path: error.path,
       retryable: false,
-      details: { allowedPaths: error.allowedPaths, workerId: scope.id, taskId: scope.taskId }
+      details: { allowedPaths: error.allowedPaths, workerId: scope.id, taskId: scope.taskId, sandboxProfileId: scope.sandboxProfileId }
     });
   }
   if (isStateNodeError(error)) {
@@ -540,17 +589,9 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
-function uniqueResolved(values: string[]): string[] {
-  return unique(values.map((value) => path.resolve(value)));
-}
-
 function compactMetadata(value: Record<string, unknown>): Record<string, unknown> | undefined {
   const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
   return entries.length ? Object.fromEntries(entries) : undefined;
-}
-
-function hasTraversal(value: string): boolean {
-  return value.split(/[\\/]+/).includes("..");
 }
 
 function countBy<T>(items: T[], key: (item: T) => string): Record<string, number> {

@@ -178,6 +178,7 @@ export function classifyFeedback(
   if (code.includes("verifier") || context.stageId === "verify" || context.source === "verifier") return "verifier-failure";
   if (code.includes("illegal-transition") || code.includes("state-transition")) return "state-transition";
   if (code.includes("contract") || code.includes("unexpected-node") || context.contractId) return "contract-violation";
+  if (code.startsWith("sandbox-")) return "sandbox-policy";
   if (code.includes("parse") || code.includes("json")) return "parse-error";
   if (code.includes("pipeline")) return "pipeline-failure";
   if (normalized.code === "runtime-error") return "runtime-error";
@@ -326,6 +327,7 @@ function codeFromError(error: Error): string {
 
 function severityFor(classification: ErrorFeedbackClassification, error: StateNodeError): ErrorFeedbackSeverity {
   if (classification === "verifier-failure" || classification === "contract-violation") return "high";
+  if (classification === "sandbox-policy") return "medium";
   if (classification === "state-transition" || classification === "missing-evidence") return "medium";
   if (classification === "missing-artifact" || classification === "parse-error" || classification === "pipeline-failure") {
     return error.retryable ? "medium" : "low";
@@ -337,6 +339,7 @@ function sourceFor(classification: ErrorFeedbackClassification): ErrorFeedbackSo
   if (classification === "contract-violation") return "contract";
   if (classification === "verifier-failure" || classification === "missing-evidence") return "verifier";
   if (classification === "pipeline-failure") return "pipeline-runner";
+  if (classification === "sandbox-policy") return "contract";
   return "manual";
 }
 

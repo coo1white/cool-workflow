@@ -140,6 +140,8 @@ function classifyFeedback(error, context = {}) {
         return "state-transition";
     if (code.includes("contract") || code.includes("unexpected-node") || context.contractId)
         return "contract-violation";
+    if (code.startsWith("sandbox-"))
+        return "sandbox-policy";
     if (code.includes("parse") || code.includes("json"))
         return "parse-error";
     if (code.includes("pipeline"))
@@ -273,6 +275,8 @@ function codeFromError(error) {
 function severityFor(classification, error) {
     if (classification === "verifier-failure" || classification === "contract-violation")
         return "high";
+    if (classification === "sandbox-policy")
+        return "medium";
     if (classification === "state-transition" || classification === "missing-evidence")
         return "medium";
     if (classification === "missing-artifact" || classification === "parse-error" || classification === "pipeline-failure") {
@@ -287,6 +291,8 @@ function sourceFor(classification) {
         return "verifier";
     if (classification === "pipeline-failure")
         return "pipeline-runner";
+    if (classification === "sandbox-policy")
+        return "contract";
     return "manual";
 }
 function writeFeedback(run, record) {

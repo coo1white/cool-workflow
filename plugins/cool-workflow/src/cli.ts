@@ -63,6 +63,22 @@ async function main(): Promise<void> {
       process.stdout.write(`${report.path}\n`);
       return;
     }
+    case "sandbox": {
+      const [subcommand, profileIdOrFile] = args.positionals;
+      switch (subcommand) {
+        case "list":
+          printJson(runner.listSandboxProfiles(args.options));
+          return;
+        case "show":
+          printJson(runner.showSandboxProfile(required(profileIdOrFile, "profile id"), args.options));
+          return;
+        case "validate":
+          printJson(runner.validateSandboxProfile(required(profileIdOrFile, "profile file"), args.options));
+          return;
+        default:
+          throw new Error("Usage: cw.js sandbox list|show|validate [profile-id|profile-file]");
+      }
+    }
     case "contract": {
       const [subcommand, runId, contractId] = args.positionals;
       switch (subcommand) {

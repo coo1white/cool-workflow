@@ -21,7 +21,9 @@ recordWorkerFailure(run, scope.id, "worker failed before producing output");
 ```text
 node dist/cli.js worker list <run-id>
 node dist/cli.js worker show <run-id> <worker-id>
+node dist/cli.js worker manifest <run-id> <worker-id>
 node dist/cli.js worker output <run-id> <worker-id> <result-file>
+node dist/cli.js dispatch <run-id> --sandbox readonly
 ```
 
 ## DESCRIPTION
@@ -39,6 +41,7 @@ The kernel owns only:
 - worker scope allocation
 - stable worker manifests
 - worker-local path layout
+- sandbox profile selection and durable policy records
 - boundary validation
 - output collection
 - structured failure preservation
@@ -62,15 +65,25 @@ output as result and verifier nodes after boundary checks pass.
 
 Isolation is path and contract based.
 
-Accepted output paths must be the declared `result.md`, inside the worker
-`artifacts/` directory, inside the worker `logs/` directory, or inside an
-explicitly allowed path passed by the runtime.
+In CW v0.1.8, named Sandbox Profiles define the worker read paths, write paths,
+command policy, network policy, environment policy, worker output allowances,
+and host enforcement instructions. See `sandbox-profiles.7.md`.
+
+Accepted output paths must be inside the selected profile's resolved
+`writePaths`, the declared `result.md` when `workerOutput.result` is allowed,
+inside `artifacts/` when `workerOutput.artifacts` is allowed, inside `logs/`
+when `workerOutput.logs` is allowed, or inside an explicitly allowed path
+passed by the legacy runtime policy.
+
+Reads and writes are represented separately. CW validates accepted output writes
+it records. The agent host must enforce actual OS-level read/write restrictions
+while the worker is running.
 
 Out-of-scope output is rejected and preserved as:
 
 - a failed or rejected worker scope
 - an `error` StateNode
-- an ErrorFeedback record with worker metadata
+- an ErrorFeedback record with worker and sandbox profile metadata
 
 ## FILES
 
@@ -87,14 +100,17 @@ Out-of-scope output is rejected and preserved as:
 ```
 
 `worker.json` is both the durable scope record and the worker manifest. New
-fields should be optional where possible.
+fields should be optional where possible. New v0.1.8 worker records include
+`sandboxProfileId`, `sandboxPolicy`, and a `sandbox` host contract with
+`enforcedByCW` and `hostRequired`.
 
 ## FAILURE MODES
 
 Missing result files are retryable worker failures.
 
 Boundary violations are rejected worker outputs. They are not accepted into
-result state.
+result state. Sandbox write denials use `sandbox-write-denied`; unknown and
+invalid profiles use `sandbox-profile-not-found` and `sandbox-profile-invalid`.
 
 Verifier failures remain verifier failures. Worker Isolation preserves the
 worker directory and records feedback so the operator can inspect or correct the
@@ -133,6 +149,12 @@ node dist/cli.js worker fail <run-id> <worker-id> --message "worker could not in
 
 Worker Isolation is introduced in CW v0.1.5. It adds optional worker fields to
 run paths, tasks, dispatch tasks, dispatch records, summaries, and run state.
+
+Sandbox Profiles are introduced in CW v0.1.8. The legacy `allowedPaths` field
+remains available and now mirrors effective write acceptance paths for older
+hosts. New hosts should prefer `sandboxPolicy.readPaths`,
+`sandboxPolicy.writePaths`, `sandboxPolicy.workerOutput`, and
+`sandbox.hostRequired`.
 
 Existing `plan`, `dispatch`, `result`, `node`, `contract`, and `feedback`
 commands remain compatible. The legacy `result` command still accepts a task id

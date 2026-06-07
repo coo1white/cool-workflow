@@ -25,6 +25,8 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Scheduled tasks for loop, cron, and reminder-style workflow continuations.
 - Local scheduler daemon for due scanning.
 - Routine-style API and GitHub trigger bridge.
+- Sandbox Profiles for named worker read/write/execute/network/env policy
+  contracts.
 
 ## Agent SDK Philosophy
 
@@ -56,6 +58,8 @@ Verifier-gated commits.
 See [unix-principles.md](plugins/cool-workflow/docs/unix-principles.md).
 See [verifier-gated-commit.7.md](plugins/cool-workflow/docs/verifier-gated-commit.7.md)
 for the commit/checkpoint contract.
+See [sandbox-profiles.7.md](plugins/cool-workflow/docs/sandbox-profiles.7.md)
+for the worker sandbox policy contract.
 
 ## Language Contract
 
@@ -102,6 +106,9 @@ node scripts/cw.js plan architecture-review \
   --repo /path/to/repo \
   --question "Is this architecture sound?"
 node scripts/cw.js dispatch <run-id> --limit 6
+node scripts/cw.js dispatch <run-id> --sandbox readonly
+node scripts/cw.js sandbox list
+node scripts/cw.js sandbox show readonly
 node scripts/cw.js report <run-id>
 ```
 

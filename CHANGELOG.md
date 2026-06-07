@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.8
+
+- Added Sandbox Profiles as named, durable worker policy contracts.
+- Added bundled `default`, `readonly`, `workspace-write`, and `locked-down`
+  profiles with deterministic path normalization and traversal rejection.
+- Added resolved sandbox policy data to worker scopes, worker manifests,
+  dispatch manifests, run state, reports, and ErrorFeedback metadata.
+- Added CLI commands for `sandbox list`, `sandbox show`, and `sandbox validate`.
+- Added `dispatch --sandbox <profile-id>` and matching MCP sandbox tools.
+- Preserved legacy `allowedPaths` as the effective write-path compatibility
+  field.
+- Added `sandbox-profiles.7.md` and smoke coverage for profile validation,
+  manifests, CLI commands, and denied worker output feedback.
+
 ## 0.1.7
 
 - Added Verifier-Gated Commit as a first-class commit path.
