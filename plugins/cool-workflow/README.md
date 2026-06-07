@@ -5,9 +5,9 @@ TypeScript runtime. It provides a COL-Architecture: Router / Orchestrator,
 Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State
 Commit, and MCP JSON-RPC 2.0 bridge.
 
-The mental model is platform SDK plus developer apps: CW provides the runtime
-and contracts, while developers write reusable workflow apps in
-`workflows/*.workflow.js`.
+The mental model is base system plus userland apps: CW provides the runtime and
+contracts, while developers write reusable workflow apps in
+`workflows/*.workflow.js` or `apps/<app-id>/app.json`.
 
 CW records the model workflow loop explicitly:
 
@@ -25,7 +25,12 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
-CW v0.1.8 adds Sandbox Profiles: named worker policy contracts for read paths,
+CW v0.1.9 adds the Workflow App SDK: first-class app metadata, validation,
+deterministic app discovery, app CLI/MCP tools, app templates, and run
+state/report metadata. See
+[docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md).
+
+CW v0.1.8 added Sandbox Profiles: named worker policy contracts for read paths,
 write paths, command execution, network access, and environment exposure. CW
 stores and validates the policy, while the agent host enforces OS/process
 runtime controls. See [docs/sandbox-profiles.7.md](docs/sandbox-profiles.7.md).
@@ -40,8 +45,10 @@ cool-workflow
   scripts/cw.js
   workflows/architecture-review.workflow.js
   workflows/research-synthesis.workflow.js
+  apps/workflow-app-sdk-demo/app.json
   docs/agent-sdk.md
   docs/unix-principles.md
+  docs/workflow-app-sdk.7.md
   docs/sandbox-profiles.7.md
   docs/candidate-scoring.7.md
   docs/verifier-gated-commit.7.md
@@ -53,6 +60,15 @@ List bundled workflows:
 
 ```bash
 node scripts/cw.js list
+```
+
+List, inspect, validate, and create workflow apps:
+
+```bash
+node scripts/cw.js app list
+node scripts/cw.js app show workflow-app-sdk-demo
+node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
+node scripts/cw.js app init my-app --title "My App"
 ```
 
 Create a reusable workflow script:
@@ -133,6 +149,8 @@ npm run build
 ```
 
 See [docs/agent-sdk.md](docs/agent-sdk.md) for the developer contract.
+See [docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md) for the app
+contract.
 See [docs/candidate-scoring.7.md](docs/candidate-scoring.7.md) for the
 candidate scoring file contract.
 See [docs/verifier-gated-commit.7.md](docs/verifier-gated-commit.7.md) for the

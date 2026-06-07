@@ -9,6 +9,7 @@ exports.formatHelp = formatHelp;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const workflow_api_1 = require("./workflow-api");
+const workflow_app_sdk_1 = require("./workflow-app-sdk");
 const dispatch_1 = require("./dispatch");
 const harness_1 = require("./harness");
 const commit_1 = require("./commit");
@@ -24,20 +25,118 @@ const sandbox_profile_1 = require("./sandbox-profile");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
+    appsDir;
     constructor({ pluginRoot }) {
         this.pluginRoot = resolvePluginRoot(pluginRoot);
         this.workflowsDir = node_path_1.default.join(this.pluginRoot, "workflows");
+        this.appsDir = node_path_1.default.join(this.pluginRoot, "apps");
     }
     listWorkflows() {
-        return this.loadWorkflowFiles().map((file) => {
-            const workflow = this.loadWorkflow(file);
+        return this.loadWorkflowApps().map((record) => {
+            const summary = (0, workflow_app_sdk_1.summarizeWorkflowApp)(record);
             return {
-                id: workflow.id,
-                title: workflow.title,
-                summary: workflow.summary || "",
-                file
+                id: summary.id,
+                title: summary.title,
+                summary: summary.summary,
+                file: summary.file
             };
         });
+    }
+    listApps() {
+        return this.loadWorkflowApps().map((record) => (0, workflow_app_sdk_1.summarizeWorkflowApp)(record));
+    }
+    showApp(appId) {
+        const record = this.loadWorkflowAppById(appId);
+        const summary = (0, workflow_app_sdk_1.summarizeWorkflowApp)(record);
+        return {
+            ...summary,
+            source: record.source,
+            app: {
+                schemaVersion: record.app.schemaVersion,
+                id: record.app.id,
+                title: record.app.title,
+                summary: record.app.summary || "",
+                version: record.app.version,
+                author: record.app.author,
+                inputs: record.app.inputs || record.app.workflow.inputs,
+                sandboxProfiles: record.app.sandboxProfiles || record.app.workflow.sandboxProfiles || [],
+                compatibility: record.app.compatibility,
+                metadata: record.app.metadata || {}
+            },
+            workflow: {
+                id: record.app.workflow.id,
+                title: record.app.workflow.title,
+                summary: record.app.workflow.summary || "",
+                limits: record.app.workflow.limits,
+                inputs: record.app.workflow.inputs,
+                sandboxProfiles: record.app.workflow.sandboxProfiles || [],
+                phases: record.app.workflow.phases.map((phase) => ({
+                    id: phase.id,
+                    name: phase.name,
+                    status: phase.status,
+                    tasks: phase.tasks.map((task) => ({
+                        id: task.id,
+                        kind: task.kind,
+                        requiresEvidence: Boolean(task.requiresEvidence),
+                        sandboxProfileId: task.sandboxProfileId
+                    }))
+                }))
+            }
+        };
+    }
+    validateApp(target) {
+        try {
+            const record = this.loadWorkflowAppTarget(target);
+            const result = (0, workflow_app_sdk_1.validateWorkflowApp)(record.app, {
+                appPath: record.source.manifestPath || record.source.entrypointPath || record.source.path
+            });
+            return {
+                ...result,
+                summary: (0, workflow_app_sdk_1.summarizeWorkflowApp)(record)
+            };
+        }
+        catch (error) {
+            const issues = validationIssuesFromError(error);
+            return {
+                valid: false,
+                appId: target,
+                appPath: node_path_1.default.resolve(target),
+                issues
+            };
+        }
+    }
+    initApp(appId, options) {
+        const id = (0, workflow_api_1.slugify)(appId);
+        if (!id)
+            throw new Error("App id must include at least one letter or digit");
+        const title = String(options.title || titleize(id));
+        const destinationDir = node_path_1.default.resolve(String(options.directory || options.output || node_path_1.default.join(this.appsDir, id)));
+        const manifestPath = node_path_1.default.join(destinationDir, "app.json");
+        const entrypointPath = node_path_1.default.join(destinationDir, "workflow.js");
+        if (!options.force && (node_fs_1.default.existsSync(manifestPath) || node_fs_1.default.existsSync(entrypointPath))) {
+            throw new Error(`Refusing to overwrite existing workflow app: ${destinationDir}`);
+        }
+        node_fs_1.default.mkdirSync(destinationDir, { recursive: true });
+        node_fs_1.default.writeFileSync(manifestPath, (0, workflow_app_sdk_1.renderWorkflowAppManifestTemplate)(id, title), "utf8");
+        node_fs_1.default.writeFileSync(entrypointPath, (0, workflow_app_sdk_1.renderWorkflowAppEntrypointTemplate)(id, title), "utf8");
+        const validation = this.validateApp(manifestPath);
+        if (!validation.valid) {
+            throw new workflow_app_sdk_1.WorkflowAppValidationError("Generated workflow app is invalid", validation.issues);
+        }
+        return { id, manifestPath, entrypointPath };
+    }
+    packageApp(appId, options = {}) {
+        const record = this.loadWorkflowAppById(appId);
+        const destination = node_path_1.default.resolve(String(options.output ||
+            node_path_1.default.join(process.cwd(), ".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
+        node_fs_1.default.mkdirSync(node_path_1.default.dirname(destination), { recursive: true });
+        (0, state_1.writeJson)(destination, {
+            schemaVersion: 1,
+            app: (0, workflow_app_sdk_1.workflowAppRunMetadata)(record),
+            workflow: record.app.workflow,
+            packagedAt: new Date().toISOString()
+        });
+        return { id: record.app.id, version: record.app.version, path: destination };
     }
     init(workflowId, options) {
         const id = (0, workflow_api_1.slugify)(workflowId);
@@ -49,11 +148,12 @@ class CoolWorkflowRunner {
             throw new Error(`Refusing to overwrite existing workflow: ${destination}`);
         }
         node_fs_1.default.mkdirSync(node_path_1.default.dirname(destination), { recursive: true });
-        node_fs_1.default.writeFileSync(destination, renderWorkflowTemplate(id, title), "utf8");
+        node_fs_1.default.writeFileSync(destination, (0, workflow_app_sdk_1.renderWorkflowAppTemplate)(id, title), "utf8");
         return { id, path: destination };
     }
     plan(workflowId, options) {
-        const workflow = this.loadWorkflowById(workflowId);
+        const appRecord = this.loadWorkflowAppById(workflowId);
+        const workflow = appRecord.app.workflow;
         const inputs = normalizeInputs(options);
         validateInputs(workflow, inputs);
         const cwd = node_path_1.default.resolve(String(inputs.cwd || inputs.repo || process.cwd()));
@@ -72,7 +172,8 @@ class CoolWorkflowRunner {
                 id: workflow.id,
                 title: workflow.title,
                 summary: workflow.summary || "",
-                limits: workflow.limits
+                limits: workflow.limits,
+                app: (0, workflow_app_sdk_1.workflowAppRunMetadata)(appRecord)
             },
             inputs,
             loopStage: "interpret",
@@ -104,7 +205,7 @@ class CoolWorkflowRunner {
             outputs: run.inputs,
             artifacts: [{ id: "state", kind: "json", path: run.paths.state }],
             contractId: contract.id,
-            metadata: { workflowId: workflow.id }
+            metadata: { workflowId: workflow.id, app: (0, workflow_app_sdk_1.workflowAppRunMetadata)(appRecord) }
         }));
         (0, state_1.saveCheckpoint)(run);
         const pipeline = (0, pipeline_runner_1.createPipelineRunner)({ contractId: contract.id, persist: false });
@@ -114,7 +215,16 @@ class CoolWorkflowRunner {
                 outputStatus: "pending",
                 loopStage: "interpret",
                 artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
-                metadata: { workflowId: workflow.id, taskId: task.id, phase: task.phase, taskKind: task.kind, requiresEvidence: task.requiresEvidence }
+                metadata: {
+                    workflowId: workflow.id,
+                    appId: appRecord.app.id,
+                    appVersion: appRecord.app.version,
+                    taskId: task.id,
+                    phase: task.phase,
+                    taskKind: task.kind,
+                    requiresEvidence: task.requiresEvidence,
+                    sandboxProfileId: task.sandboxProfileId
+                }
             });
             task.stateNodeId = taskResult.outputNodeId;
         }
@@ -506,12 +616,48 @@ class CoolWorkflowRunner {
         return (0, state_1.loadRunFromCwd)(runId);
     }
     loadWorkflowById(workflowId) {
-        for (const file of this.loadWorkflowFiles()) {
-            const workflow = this.loadWorkflow(file);
-            if (workflow.id === workflowId)
-                return workflow;
+        return this.loadWorkflowAppById(workflowId).app.workflow;
+    }
+    loadWorkflowAppById(appId) {
+        const record = this.loadWorkflowApps().find((candidate) => candidate.app.id === appId);
+        if (!record)
+            throw new Error(`Workflow app not found: ${appId}`);
+        return record;
+    }
+    loadWorkflowAppTarget(target) {
+        if (!target)
+            throw new Error("Missing workflow app path or id");
+        const resolved = node_path_1.default.resolve(target);
+        if (node_fs_1.default.existsSync(resolved)) {
+            const stat = node_fs_1.default.statSync(resolved);
+            if (stat.isDirectory())
+                return (0, workflow_app_sdk_1.loadWorkflowAppFromManifest)(node_path_1.default.join(resolved, "app.json"));
+            if (node_path_1.default.basename(resolved) === "app.json" || resolved.endsWith(".json"))
+                return (0, workflow_app_sdk_1.loadWorkflowAppFromManifest)(resolved);
+            return (0, workflow_app_sdk_1.loadWorkflowAppFromEntrypoint)(resolved);
         }
-        throw new Error(`Workflow not found: ${workflowId}`);
+        return this.loadWorkflowAppById(target);
+    }
+    loadWorkflowApps() {
+        const records = [
+            ...this.loadWorkflowFiles().map((file) => (0, workflow_app_sdk_1.loadWorkflowAppFromEntrypoint)(file)),
+            ...this.loadAppManifestFiles().map((file) => (0, workflow_app_sdk_1.loadWorkflowAppFromManifest)(file))
+        ].sort((left, right) => {
+            const byId = left.app.id.localeCompare(right.app.id);
+            if (byId)
+                return byId;
+            return (left.source.manifestPath || left.source.entrypointPath || left.source.path)
+                .localeCompare(right.source.manifestPath || right.source.entrypointPath || right.source.path);
+        });
+        const seen = new Map();
+        for (const record of records) {
+            const previous = seen.get(record.app.id);
+            if (previous) {
+                throw new Error(`Duplicate workflow app id ${record.app.id}: ${previous.source.manifestPath || previous.source.entrypointPath || previous.source.path} and ${record.source.manifestPath || record.source.entrypointPath || record.source.path}`);
+            }
+            seen.set(record.app.id, record);
+        }
+        return records;
     }
     loadWorkflowFiles() {
         if (!node_fs_1.default.existsSync(this.workflowsDir))
@@ -522,14 +668,15 @@ class CoolWorkflowRunner {
             .sort()
             .map((file) => node_path_1.default.join(this.workflowsDir, file));
     }
-    loadWorkflow(file) {
-        // Bundled workflows are runtime JavaScript so users can run them without ts-node.
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const workflowFactory = require(file);
-        if (typeof workflowFactory !== "function") {
-            throw new Error(`Workflow file must export a function: ${file}`);
-        }
-        return workflowFactory((0, workflow_api_1.createWorkflowApi)());
+    loadAppManifestFiles() {
+        if (!node_fs_1.default.existsSync(this.appsDir))
+            return [];
+        return node_fs_1.default
+            .readdirSync(this.appsDir, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => node_path_1.default.join(this.appsDir, entry.name, "app.json"))
+            .filter((file) => node_fs_1.default.existsSync(file))
+            .sort();
     }
 }
 exports.CoolWorkflowRunner = CoolWorkflowRunner;
@@ -560,7 +707,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -609,6 +756,7 @@ function flattenTasks(workflow, inputs) {
                 status: "pending",
                 loopStage: "interpret",
                 requiresEvidence: Boolean(task.requiresEvidence),
+                sandboxProfileId: task.sandboxProfileId,
                 prompt: renderPrompt(task.prompt, inputs),
                 taskPath: "",
                 resultPath: ""
@@ -626,6 +774,12 @@ function writeReport(run) {
         "",
         `- Run: ${run.id}`,
         `- Workflow: ${run.workflow.id}`,
+        ...(run.workflow.app
+            ? [
+                `- Workflow App: ${run.workflow.app.id}@${run.workflow.app.version}`,
+                `- Workflow App Source: ${run.workflow.app.source?.manifestPath || run.workflow.app.source?.entrypointPath || run.workflow.app.source?.path || ""}`
+            ]
+            : []),
         `- Created: ${run.createdAt}`,
         `- Updated: ${run.updatedAt}`,
         `- Repository: ${String(run.inputs.repo || run.cwd)}`,
@@ -680,6 +834,7 @@ function summarizeRun(run) {
     return {
         runId: run.id,
         workflowId: run.workflow.id,
+        app: run.workflow.app,
         phases: run.phases,
         tasks: {
             total: run.tasks.length,
@@ -796,10 +951,15 @@ function renderPrompt(prompt, inputs) {
     const invariant = Array.isArray(inputs.invariant)
         ? inputs.invariant.join("; ")
         : String(inputs.invariant || "");
-    return String(prompt)
+    let rendered = String(prompt)
         .replaceAll("{{repo}}", String(inputs.repo || ""))
         .replaceAll("{{question}}", String(inputs.question || ""))
         .replaceAll("{{invariant}}", invariant);
+    for (const [key, value] of Object.entries(inputs)) {
+        const replacement = Array.isArray(value) ? value.join("; ") : String(value ?? "");
+        rendered = rendered.replaceAll(`{{${key}}}`, replacement);
+    }
+    return rendered;
 }
 function formatInputList(value) {
     if (Array.isArray(value))
@@ -862,6 +1022,16 @@ function arrayOption(value) {
 }
 function isSandboxProfileError(error) {
     return error instanceof sandbox_profile_1.SandboxProfileError || Boolean(error && typeof error === "object" && "code" in error && String(error.code).startsWith("sandbox-"));
+}
+function validationIssuesFromError(error) {
+    if (error instanceof workflow_app_sdk_1.WorkflowAppValidationError)
+        return error.issues;
+    return [
+        {
+            code: "workflow-app-invalid",
+            message: error instanceof Error ? error.message : String(error)
+        }
+    ];
 }
 function createRunId(workflowId) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");

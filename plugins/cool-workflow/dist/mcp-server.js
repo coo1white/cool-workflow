@@ -37,7 +37,7 @@ function handleLine(line) {
             sendResult(message.id, {
                 protocolVersion: "2024-11-05",
                 capabilities: { tools: {} },
-                serverInfo: { name: "cool-workflow", version: "0.1.8" }
+                serverInfo: { name: "cool-workflow", version: "0.1.9" }
             });
             return;
         }
@@ -87,6 +87,16 @@ function callTool(name, args) {
                 return runner.commit(String(args.runId || ""), args);
             case "cw_report":
                 return runner.report(String(args.runId || ""));
+            case "cw_app_list":
+                return runner.listApps();
+            case "cw_app_show":
+                return runner.showApp(String(args.appId || ""));
+            case "cw_app_validate":
+                return runner.validateApp(String(args.target || args.appId || args.path || ""));
+            case "cw_app_init":
+                return runner.initApp(String(args.appId || ""), args);
+            case "cw_app_package":
+                return runner.packageApp(String(args.appId || ""), args);
             case "cw_feedback_list":
                 return runner.listFeedback(String(args.runId || ""), args);
             case "cw_feedback_show":
@@ -180,6 +190,28 @@ function toolDefinitions() {
         tool("cw_report", "Render a run report.", {
             runId: stringSchema("Run id"),
             cwd: stringSchema("Run workspace")
+        }),
+        tool("cw_app_list", "List CW workflow apps and legacy workflow files.", {
+            cwd: stringSchema("Workspace")
+        }),
+        tool("cw_app_show", "Show a CW workflow app contract.", {
+            cwd: stringSchema("Workspace"),
+            appId: stringSchema("Workflow app id")
+        }),
+        tool("cw_app_validate", "Validate a CW workflow app by path or id.", {
+            cwd: stringSchema("Workspace"),
+            target: stringSchema("Workflow app path or id")
+        }),
+        tool("cw_app_init", "Create a CW workflow app directory.", {
+            cwd: stringSchema("Workspace"),
+            appId: stringSchema("Workflow app id"),
+            title: stringSchema("Workflow app title"),
+            directory: stringSchema("Destination directory")
+        }),
+        tool("cw_app_package", "Package a CW workflow app as a JSON artifact.", {
+            cwd: stringSchema("Workspace"),
+            appId: stringSchema("Workflow app id"),
+            output: stringSchema("Output package path")
         }),
         tool("cw_feedback_list", "List run feedback records.", {
             runId: stringSchema("Run id"),

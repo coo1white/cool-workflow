@@ -2,7 +2,7 @@
 
 Cool Workflow, or CW, is an independent Agent Workflow SDK by COOLWHITE LLC.
 
-CW packages a TypeScript Node/Bun runtime, reusable workflow definitions,
+CW packages a TypeScript Node/Bun runtime, reusable workflow apps,
 scheduled tasks, state checkpoints, adversarial verification, and an MCP
 JSON-RPC 2.0 bridge.
 
@@ -15,6 +15,7 @@ interpret -> act -> observe -> adjust -> checkpoint
 ## What It Includes
 
 - Developer-facing workflow SDK contracts.
+- Workflow App SDK for versioned, validated, reusable workflow apps.
 - Router / Orchestrator for workflow definitions and phase gates.
 - Subagent dispatch manifests for fan-out work.
 - Deterministic harness prompts for repeatable agent tasks.
@@ -56,6 +57,8 @@ Verifier-gated commits.
 ```
 
 See [unix-principles.md](plugins/cool-workflow/docs/unix-principles.md).
+See [workflow-app-sdk.7.md](plugins/cool-workflow/docs/workflow-app-sdk.7.md)
+for the app contract.
 See [verifier-gated-commit.7.md](plugins/cool-workflow/docs/verifier-gated-commit.7.md)
 for the commit/checkpoint contract.
 See [sandbox-profiles.7.md](plugins/cool-workflow/docs/sandbox-profiles.7.md)
@@ -67,6 +70,7 @@ for the worker sandbox policy contract.
 Core runtime: 100% TypeScript
 Runtime target: Node.js / Bun-compatible CommonJS
 Workflow apps: JavaScript orchestration modules
+Workflow app manifests: apps/<app-id>/app.json
 Published runtime: generated JavaScript in dist/
 ```
 
@@ -102,6 +106,9 @@ CW without installing TypeScript dependencies.
 ```bash
 cd plugins/cool-workflow
 node scripts/cw.js list
+node scripts/cw.js app list
+node scripts/cw.js app show workflow-app-sdk-demo
+node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
 node scripts/cw.js plan architecture-review \
   --repo /path/to/repo \
   --question "Is this architecture sound?"
@@ -138,6 +145,7 @@ plugins/cool-workflow/src/            TypeScript source
 plugins/cool-workflow/dist/           Runtime JavaScript committed for users
 plugins/cool-workflow/skills/         Agent host skill entrypoint
 plugins/cool-workflow/workflows/      Bundled workflow definitions
+plugins/cool-workflow/apps/           Workflow App SDK examples/manifests
 plugins/cool-workflow/docs/           Feature and SDK notes
 examples/                             Example workflow outputs
 ```

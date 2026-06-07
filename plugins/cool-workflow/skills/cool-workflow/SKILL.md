@@ -31,8 +31,12 @@ CW has three layers:
   deterministic harness, verifier, commits, and reports.
 
 Treat CW like a platform SDK. The runtime owns the contract, and developers
-write workflow apps against it using `workflow`, `phase`, `agent`, and
-`artifact`.
+write workflow apps against it using `defineWorkflowApp`, `workflow`, `phase`,
+`agent`, `artifact`, and `input`.
+
+First-class workflow apps can live under `apps/<app-id>/app.json` with a
+plain JavaScript workflow entrypoint. Legacy `workflows/*.workflow.js` factory
+files remain valid and are wrapped as compatibility apps.
 
 The runner does not directly spawn workers. It writes pending agent tasks to
 `.cw/runs/<run-id>/tasks/*.md`. The agent host reads those tasks, spawns workers
@@ -60,6 +64,10 @@ Use the plugin root when possible:
 
 ```bash
 node scripts/cw.js list
+node scripts/cw.js app list
+node scripts/cw.js app show workflow-app-sdk-demo
+node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
+node scripts/cw.js app init my-app --title "My App"
 node scripts/cw.js init my-workflow --title "My Workflow"
 node scripts/cw.js plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
 node scripts/cw.js status <run-id>

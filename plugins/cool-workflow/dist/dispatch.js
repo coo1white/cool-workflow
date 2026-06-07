@@ -27,7 +27,8 @@ function nextDispatchTasks(run, limit) {
         .map(formatDispatchTask);
 }
 function createDispatchManifest(run, limit, options = {}) {
-    const sandboxProfileId = String(options.sandboxProfileId || options.sandbox || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
+    const requestedSandboxProfileId = options.sandboxProfileId || options.sandbox;
+    const sandboxProfileId = String(requestedSandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
     (0, sandbox_profile_1.resolveSandboxProfileById)(sandboxProfileId, (0, sandbox_profile_1.sandboxContextForValidation)(run.cwd));
     const tasks = nextDispatchTasks(run, limit);
     if (!tasks.length) {
@@ -45,16 +46,19 @@ function createDispatchManifest(run, limit, options = {}) {
     node_fs_1.default.mkdirSync(run.paths.dispatchesDir, { recursive: true });
     const taskIds = new Set(tasks.map((task) => task.id));
     const createdAt = new Date().toISOString();
+    const selectedSandboxProfileIds = new Set();
     let sandboxPolicy;
     for (const task of run.tasks) {
         if (taskIds.has(task.id)) {
+            const taskSandboxProfileId = String(requestedSandboxProfileId || task.sandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
+            selectedSandboxProfileIds.add(taskSandboxProfileId);
             task.status = "running";
             task.loopStage = "act";
             task.dispatchId = dispatchId;
             task.dispatchedAt = createdAt;
             const scope = (0, worker_isolation_1.allocateWorkerScope)(run, task, {
                 dispatchId,
-                sandboxProfileId,
+                sandboxProfileId: taskSandboxProfileId,
                 status: "running",
                 persist: false,
                 metadata: { dispatchId, phase: task.phase }
@@ -72,20 +76,20 @@ function createDispatchManifest(run, limit, options = {}) {
         tasks: run.tasks.filter((task) => taskIds.has(task.id)).map(formatDispatchTask),
         manifestPath,
         workerIndexPath: run.paths.workersDir ? node_path_1.default.join(run.paths.workersDir, "index.json") : undefined,
-        sandboxProfileId,
-        sandboxPolicy
+        sandboxProfileId: selectedSandboxProfileIds.size === 1 ? [...selectedSandboxProfileIds][0] : "mixed",
+        sandboxPolicy: selectedSandboxProfileIds.size === 1 ? sandboxPolicy : undefined
     };
     const dispatchNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
         id: `${run.id}:dispatch:${dispatchId}`,
         kind: "dispatch",
         status: "running",
         loopStage: "act",
-        inputs: { taskIds: tasks.map((task) => task.id), phase: manifest.phase, sandboxProfileId },
-        outputs: { dispatchId, sandboxProfileId },
+        inputs: { taskIds: tasks.map((task) => task.id), phase: manifest.phase, sandboxProfileId: manifest.sandboxProfileId },
+        outputs: { dispatchId, sandboxProfileId: manifest.sandboxProfileId },
         artifacts: [{ id: "dispatch", kind: "json", path: manifestPath }],
         parents: tasks.map((task) => `${run.id}:task:${task.id}`),
         contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
-        metadata: { sandboxProfileId, sandboxPolicy }
+        metadata: { sandboxProfileId: manifest.sandboxProfileId, sandboxPolicy: manifest.sandboxPolicy }
     }));
     manifest.stateNodeId = dispatchNode.id;
     for (const task of run.tasks) {
@@ -104,7 +108,7 @@ function createDispatchManifest(run, limit, options = {}) {
         createdAt,
         stateNodeId: dispatchNode.id,
         workerIds: run.tasks.filter((task) => taskIds.has(task.id) && task.workerId).map((task) => String(task.workerId)),
-        sandboxProfileId
+        sandboxProfileId: manifest.sandboxProfileId
     });
     updatePhaseStatuses(run);
     (0, state_1.writeJson)(manifestPath, manifest);

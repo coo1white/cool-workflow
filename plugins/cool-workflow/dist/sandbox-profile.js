@@ -4,6 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SandboxProfileError = exports.DEFAULT_SANDBOX_PROFILE_ID = exports.SANDBOX_PROFILE_SCHEMA_VERSION = void 0;
+exports.bundledSandboxProfileIds = bundledSandboxProfileIds;
+exports.isBundledSandboxProfileId = isBundledSandboxProfileId;
 exports.listBundledSandboxProfiles = listBundledSandboxProfiles;
 exports.showBundledSandboxProfile = showBundledSandboxProfile;
 exports.resolveSandboxProfileById = resolveSandboxProfileById;
@@ -102,6 +104,12 @@ const BUNDLED_PROFILE_DEFINITIONS = [
         ]
     }
 ];
+function bundledSandboxProfileIds() {
+    return BUNDLED_PROFILE_DEFINITIONS.map((profile) => profile.id).sort();
+}
+function isBundledSandboxProfileId(id) {
+    return BUNDLED_PROFILE_DEFINITIONS.some((profile) => profile.id === id);
+}
 function listBundledSandboxProfiles(context = defaultSandboxContext()) {
     return BUNDLED_PROFILE_DEFINITIONS.map((profile) => resolveSandboxProfile(profile, context));
 }
