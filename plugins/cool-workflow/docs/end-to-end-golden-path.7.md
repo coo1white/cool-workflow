@@ -14,6 +14,10 @@ npm run golden-path
 The command uses only Node.js standard library APIs and the public CW CLI. It
 does not use the network, sleeps, hidden daemon state, or real subagents.
 
+v0.1.13 adds `test/mcp-app-surface-smoke.js`, a sibling deterministic proof
+that drives the same app/worker/candidate/commit/operator chain over MCP stdio
+JSON-RPC instead of direct CLI commands.
+
 ## What It Proves
 
 The runner exercises this chain:
@@ -91,6 +95,9 @@ inspected. Tests run the same script with `--cleanup`.
 The golden path asserts durable state, not just exit codes:
 
 - run state includes workflow app id and version metadata
+- MCP hosts can reproduce the flow with `cw_app_run`, `cw_dispatch`,
+  `cw_worker_manifest`, `cw_worker_output`, `cw_candidate_score`,
+  `cw_candidate_select`, `cw_commit`, and operator summary tools
 - dispatch records a worker id and `readonly` sandbox profile
 - the worker manifest includes resolved sandbox policy data
 - the worker reaches `verified`

@@ -12,6 +12,8 @@ interpret -> act -> observe -> adjust -> checkpoint
 
 - Developer-facing workflow SDK contracts.
 - Workflow App SDK for versioned, validated, reusable workflow apps.
+- Complete MCP / App Surface for app runs, worker output, candidate scoring,
+  sandbox resolution, verifier-gated commits, and operator summaries.
 - Canonical Workflow Apps for architecture review, PR/CI review, release
   preparation, and research synthesis.
 - Operator UX for human `status`, run graphs, report summaries, resource
@@ -59,6 +61,8 @@ Verifier-gated commits.
 ```
 
 See [unix-principles.md](plugins/cool-workflow/docs/unix-principles.md).
+See [mcp-app-surface.7.md](plugins/cool-workflow/docs/mcp-app-surface.7.md)
+for the MCP runtime surface.
 See [operator-ux.7.md](plugins/cool-workflow/docs/operator-ux.7.md) for
 operator inspection commands.
 See [workflow-app-sdk.7.md](plugins/cool-workflow/docs/workflow-app-sdk.7.md)
@@ -123,6 +127,7 @@ node scripts/cw.js app show release-cut
 node scripts/cw.js app validate end-to-end-golden-path
 npm run canonical-apps
 npm run golden-path
+node test/mcp-app-surface-smoke.js
 node scripts/cw.js app show workflow-app-sdk-demo
 node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
 node scripts/cw.js plan architecture-review \

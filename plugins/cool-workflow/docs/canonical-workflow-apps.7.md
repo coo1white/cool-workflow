@@ -51,7 +51,7 @@ packaging, release notes, and final verification.
 ```bash
 node scripts/cw.js plan release-cut \
   --repo /path/to/repo \
-  --version 0.1.12 \
+  --version 0.1.13 \
   --previousVersion 0.1.11 \
   --dryRun true
 ```

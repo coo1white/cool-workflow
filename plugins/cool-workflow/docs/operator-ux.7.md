@@ -1,6 +1,6 @@
 # Operator UX
 
-Cool Workflow v0.1.12 adds a read-only Operator UX layer for understanding a
+Cool Workflow v0.1.12 added a read-only Operator UX layer for understanding a
 run from the console. It does not change workflow state, dispatch workers, score
 candidates, or commit snapshots. It reads `WorkflowRun` state and renders
 deterministic summaries for humans while preserving JSON for scripts and MCP.
@@ -26,6 +26,11 @@ node scripts/cw.js status <run-id> --format json
 
 `CoolWorkflowRunner.status()` and MCP `cw_status` continue to return structured
 status data for integrations.
+
+In v0.1.13, MCP also exposes JSON-native operator tools:
+`cw_operator_status`, `cw_operator_graph`, `cw_operator_report`,
+`cw_worker_summary`, `cw_candidate_summary`, `cw_feedback_summary`, and
+`cw_commit_summary`.
 
 ## Next Actions
 
