@@ -5,11 +5,11 @@ Generated from the current repository code on 2026-06-07 by `npm run sync:projec
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.1.22`
-- Source modules: `31`
+- Version: `0.1.23`
+- Source modules: `32`
 - Workflow apps: `6`
-- Docs: `28`
-- Smoke tests: `21`
+- Docs: `29`
+- Smoke tests: `22`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -80,6 +80,7 @@ multi-agent host -> topology -> blackboard/coordinator
 
 ### Other Source Modules
 
+- [multi-agent-eval.ts](../src/multi-agent-eval.ts)
 - [multi-agent-operator-ux.ts](../src/multi-agent-operator-ux.ts)
 - [multi-agent-trust.ts](../src/multi-agent-trust.ts)
 - [state-migrations.ts](../src/state-migrations.ts)
@@ -108,6 +109,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Cool Workflow Docs](index.md)
 - [MCP App Surface](mcp-app-surface.7.md)
 - [Multi-Agent CLI + MCP Surface](multi-agent-cli-mcp-surface.7.md)
+- [Multi-Agent Eval & Replay Harness](multi-agent-eval-replay-harness.7.md)
 - [Multi-Agent Operator UX](multi-agent-operator-ux.7.md)
 - [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md)
 - [Multi-Agent Topologies](multi-agent-topologies.7.md)
@@ -138,6 +140,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [error-feedback-smoke.js](../test/error-feedback-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
 - [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
+- [multi-agent-eval-replay-harness-smoke.js](../test/multi-agent-eval-replay-harness-smoke.js)
 - [multi-agent-operator-ux-smoke.js](../test/multi-agent-operator-ux-smoke.js)
 - [multi-agent-runtime-core-smoke.js](../test/multi-agent-runtime-core-smoke.js)
 - [multi-agent-topologies-smoke.js](../test/multi-agent-topologies-smoke.js)

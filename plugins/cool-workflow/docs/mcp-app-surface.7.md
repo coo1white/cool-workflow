@@ -137,6 +137,19 @@ These tools expose role policies, permission decisions, blackboard write audit,
 message provenance, judge rationales, panel decisions, and policy violations in
 deterministic JSON.
 
+v0.1.23 adds eval/replay parity for multi-agent regression gates:
+
+- `cw_eval_snapshot`
+- `cw_eval_replay`
+- `cw_eval_compare`
+- `cw_eval_score`
+- `cw_eval_gate`
+- `cw_eval_report`
+
+These tools create replay snapshots, run isolated replays, compare normalized
+baseline/replay records, score metrics, fail closed on regressions, and return
+artifact paths in deterministic JSON.
+
 Read and inspect:
 
 - `cw_multi_agent_summary`

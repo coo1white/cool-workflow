@@ -30,6 +30,7 @@ const coordinator_1 = require("./coordinator");
 const topology_1 = require("./topology");
 const multi_agent_host_1 = require("./multi-agent-host");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
+const multi_agent_eval_1 = require("./multi-agent-eval");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -836,6 +837,24 @@ class CoolWorkflowRunner {
         (0, state_1.saveCheckpoint)(run);
         return response;
     }
+    evalSnapshot(runId, options = {}) {
+        return (0, multi_agent_eval_1.createMultiAgentReplaySnapshot)(this.loadRun(runId), options);
+    }
+    evalReplay(target, options = {}) {
+        return (0, multi_agent_eval_1.replayMultiAgentSnapshot)(target, options);
+    }
+    evalCompare(baseline, replay) {
+        return (0, multi_agent_eval_1.compareMultiAgentReplay)(baseline, replay);
+    }
+    evalScore(target) {
+        return (0, multi_agent_eval_1.scoreMultiAgentReplay)(target);
+    }
+    evalGate(target) {
+        return (0, multi_agent_eval_1.gateMultiAgentEval)(target);
+    }
+    evalReport(target) {
+        return (0, multi_agent_eval_1.reportMultiAgentEval)(target);
+    }
     listTopologies() {
         return (0, topology_1.listTopologyDefinitions)();
     }
@@ -1396,6 +1415,7 @@ function formatHelp() {
         "  audit attest <run-id> [--worker ID] [--hostEnforced true] [--env NAME]",
         "  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]",
         "  candidate list|summary|register|score|rank|select|reject <run-id>",
+        "  eval snapshot|replay|compare|score|gate|report",
         "  blackboard summary|graph|resolve <run-id>",
         "  blackboard topic create <run-id> --id <topic-id> --title TEXT",
         "  blackboard message post|list <run-id>",

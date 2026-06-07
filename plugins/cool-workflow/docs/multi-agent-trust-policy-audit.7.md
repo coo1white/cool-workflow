@@ -3,6 +3,9 @@
 CW v0.1.22 extends the existing trust-audit layer with first-class
 multi-agent policy, provenance, blackboard write audit, and judge rationale.
 It does not introduce a second audit subsystem.
+CW v0.1.23 includes these trust projections in eval/replay comparison so
+missing provenance, changed policy violations, or missing judge rationale fail
+the regression gate.
 
 ## Model
 

@@ -13,11 +13,12 @@ Read these in order when you are new to CW:
 9. [Multi-Agent CLI + MCP Surface](multi-agent-cli-mcp-surface.7.md) - preferred host loop for run, status, step, blackboard, score, and select.
 10. [Multi-Agent Operator UX](multi-agent-operator-ux.7.md) - graph, dependencies, failures, and evidence adoption for topology-backed multi-agent runs.
 11. [Multi-Agent Trust / Policy / Audit](multi-agent-trust-policy-audit.7.md) - role authority, message provenance, blackboard write audit, judge rationale, and policy violations.
-12. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, topology, multi-agent, blackboard, coordinator, and trust summaries.
-13. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
-14. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
-15. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
-16. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+12. [Multi-Agent Eval & Replay Harness](multi-agent-eval-replay-harness.7.md) - snapshots, isolated replays, comparison, scoring, gates, reports, and MCP parity.
+13. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, topology, multi-agent, blackboard, coordinator, and trust summaries.
+14. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
+15. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
+16. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
+17. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

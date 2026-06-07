@@ -14,8 +14,8 @@ Create a run with a canonical workflow app:
 ```bash
 node scripts/cw.js plan release-cut \
   --repo "$PWD" \
-  --version 0.1.22 \
-  --previousVersion 0.1.21 \
+  --version 0.1.23 \
+  --previousVersion 0.1.22 \
   --releaseBranch main \
   --dryRun true
 ```
@@ -47,6 +47,12 @@ node scripts/cw.js audit multi-agent <run-id>
 node scripts/cw.js audit policy <run-id>
 node scripts/cw.js audit blackboard <run-id>
 node scripts/cw.js audit judge <run-id>
+node scripts/cw.js eval snapshot <run-id> --id <suite-id>
+node scripts/cw.js eval replay .cw/evals/<suite-id>/snapshot.json
+node scripts/cw.js eval compare .cw/evals/<suite-id>/snapshot.json .cw/evals/<suite-id>/replay-run.json
+node scripts/cw.js eval score .cw/evals/<suite-id>/replay-run.json
+node scripts/cw.js eval gate .cw/evals/<suite-id>
+node scripts/cw.js eval report .cw/evals/<suite-id>/replay-run.json
 node scripts/cw.js report <run-id> --show
 ```
 
@@ -57,6 +63,7 @@ npm run check
 npm test
 npm run canonical-apps
 npm run golden-path
+npm run eval:replay
 npm run fixture-compat
 ```
 
@@ -85,3 +92,8 @@ accepted. Multi-agent trust records add role policy, blackboard write audit,
 message provenance, judge rationale, and policy violations. Inspect them with
 `audit summary`, `audit worker`, `audit provenance`, `audit multi-agent`,
 `audit policy`, `audit blackboard`, and `audit judge`.
+
+Eval/replay artifacts live under `.cw/evals/<suite-id>/`. They let a release
+gate prove replay completion, graph/dependency parity, evidence adoption,
+trust/policy/audit parity, judge rationale, candidate scoring, selection, and
+verifier-gated commit readiness without running live agents.

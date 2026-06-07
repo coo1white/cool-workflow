@@ -12,6 +12,7 @@ const scheduler_1 = require("./scheduler");
 const triggers_1 = require("./triggers");
 const operator_ux_1 = require("./operator-ux");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
+const multi_agent_eval_1 = require("./multi-agent-eval");
 async function main() {
     const args = (0, orchestrator_1.parseArgv)(process.argv.slice(2));
     const runner = new orchestrator_1.CoolWorkflowRunner({
@@ -308,6 +309,41 @@ async function main() {
                 default:
                     throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|graph|dependencies|failures|evidence|show|role|group|membership|fanout|fanin <run-id> [id]");
             }
+        }
+        case "eval": {
+            const [subcommand, first, second] = args.positionals;
+            let result;
+            switch (subcommand) {
+                case "snapshot":
+                    result = runner.evalSnapshot(required(first, "run id"), args.options);
+                    break;
+                case "replay":
+                    result = runner.evalReplay(required(first, "snapshot id or path"), args.options);
+                    break;
+                case "compare":
+                    result = runner.evalCompare(required(first, "baseline id or path"), required(second, "replay id or path"));
+                    break;
+                case "score":
+                    result = runner.evalScore(required(first, "replay id or path"));
+                    break;
+                case "gate":
+                    result = runner.evalGate(required(first, "suite id or path"));
+                    if (!wantsJson(args.options) && result.status === "fail")
+                        process.exitCode = 1;
+                    break;
+                case "report":
+                    result = runner.evalReport(required(first, "replay id or path"));
+                    break;
+                default:
+                    throw new Error("Usage: cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>");
+            }
+            if (wantsJson(args.options))
+                printJson(result);
+            else
+                process.stdout.write(`${(0, multi_agent_eval_1.formatMultiAgentEval)(result)}\n`);
+            if (subcommand === "gate" && result.status === "fail")
+                process.exitCode = 1;
+            return;
         }
         case "blackboard": {
             const [subcommand, action, runId] = args.positionals;

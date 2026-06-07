@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.23
+
+- Added Multi-Agent Eval & Replay Harness with deterministic replay snapshots,
+  isolated replay runs, normalized comparison, scoring, fail-closed gate, and
+  markdown reports under `.cw/evals/<suite-id>/`.
+- Added CLI commands: `eval snapshot`, `eval replay`, `eval compare`,
+  `eval score`, `eval gate`, and `eval report`, each with deterministic JSON
+  through `--json` or `--format json`.
+- Added MCP parity tools: `cw_eval_snapshot`, `cw_eval_replay`,
+  `cw_eval_compare`, `cw_eval_score`, `cw_eval_gate`, and `cw_eval_report`.
+- Added replay metrics for graph, dependencies, evidence adoption,
+  trust/policy/audit, policy violations, blackboard provenance, judge
+  rationale, candidate scoring, selection, verifier-gated commit readiness, and
+  report parity.
+- Added `npm run eval:replay`, `docs/multi-agent-eval-replay-harness.7.md`,
+  and `test/multi-agent-eval-replay-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.22
 
 - Added Multi-Agent Trust / Policy / Audit on top of the existing trust-audit

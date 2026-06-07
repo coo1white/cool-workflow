@@ -24,6 +24,7 @@ import {
   formatMultiAgentFailures,
   formatMultiAgentOperatorStatus
 } from "./multi-agent-operator-ux";
+import { formatMultiAgentEval } from "./multi-agent-eval";
 
 async function main(): Promise<void> {
   const args = parseArgv(process.argv.slice(2));
@@ -283,6 +284,37 @@ async function main(): Promise<void> {
         default:
           throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|graph|dependencies|failures|evidence|show|role|group|membership|fanout|fanin <run-id> [id]");
       }
+    }
+    case "eval": {
+      const [subcommand, first, second] = args.positionals;
+      let result: unknown;
+      switch (subcommand) {
+        case "snapshot":
+          result = runner.evalSnapshot(required(first, "run id"), args.options);
+          break;
+        case "replay":
+          result = runner.evalReplay(required(first, "snapshot id or path"), args.options);
+          break;
+        case "compare":
+          result = runner.evalCompare(required(first, "baseline id or path"), required(second, "replay id or path"));
+          break;
+        case "score":
+          result = runner.evalScore(required(first, "replay id or path"));
+          break;
+        case "gate":
+          result = runner.evalGate(required(first, "suite id or path"));
+          if (!wantsJson(args.options) && (result as { status?: string }).status === "fail") process.exitCode = 1;
+          break;
+        case "report":
+          result = runner.evalReport(required(first, "replay id or path"));
+          break;
+        default:
+          throw new Error("Usage: cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>");
+      }
+      if (wantsJson(args.options)) printJson(result);
+      else process.stdout.write(`${formatMultiAgentEval(result)}\n`);
+      if (subcommand === "gate" && (result as { status?: string }).status === "fail") process.exitCode = 1;
+      return;
     }
     case "blackboard": {
       const [subcommand, action, runId] = args.positionals;

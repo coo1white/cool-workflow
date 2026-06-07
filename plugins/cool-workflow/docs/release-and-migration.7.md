@@ -69,6 +69,8 @@ mutated.
 - `node test/multi-agent-runtime-core-smoke.js`
 - `node test/coordinator-blackboard-smoke.js`
 - `node test/multi-agent-topologies-smoke.js`
+- `node test/multi-agent-eval-replay-harness-smoke.js`
+- `npm run eval:replay`
 - dogfood release smoke coverage
 - `npm run canonical-apps`
 - `npm run golden-path`
@@ -97,6 +99,10 @@ For v0.1.22, the gate includes Multi-Agent Trust / Policy / Audit smoke
 coverage for role policy, permission decisions, blackboard write audit, message
 provenance, judge rationale, panel decisions, policy violations, report output,
 audit provenance, and MCP parity.
+
+For v0.1.23, the gate includes Multi-Agent Eval & Replay Harness smoke
+coverage for replay snapshots, isolated replay runs, normalized comparison,
+scoring, fail-closed regression detection, report output, and MCP parity.
 
 The host loop must preserve CLI/MCP parity, stable JSON responses,
 blackboard/audit provenance, evidence-required scoring, fail-closed selection,
