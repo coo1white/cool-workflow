@@ -101,6 +101,63 @@
   missing evidence or failed selection gates.
 - Added candidate run state paths, report summaries, docs, and smoke coverage.
 
+## 0.1.5
+
+- Added Worker Isolation as an explicit boundary around dispatched task work.
+- Added worker scope allocation, durable worker manifests, worker-local
+  `input.md`, `result.md`, `artifacts/`, and `logs/` paths.
+- Added worker CLI commands for listing, showing, manifest inspection, output
+  recording, failure recording, and boundary validation.
+- Connected worker output to result nodes, verifier nodes, ErrorFeedback, and
+  report summaries.
+- Added worker failure preservation for missing results and invalid output
+  boundaries.
+- Added `worker-isolation.7.md` and smoke coverage for worker manifests,
+  accepted output, failed output, and CLI worker commands.
+
+## 0.1.4
+
+- Added ErrorFeedback as durable diagnostic and correction state for failed
+  workflow operations.
+- Added feedback records with status, severity, classification, source, code,
+  retryability, evidence, artifacts, and resolution metadata.
+- Added feedback collection from failed StateNode errors and pipeline failures.
+- Added correction-task generation under run task files and verifier-gated
+  feedback resolution.
+- Added CLI and MCP surfaces for feedback list, show, collect, task, and
+  resolve operations.
+- Added `error-feedback.7.md`, report feedback sections, and smoke coverage for
+  classification, tasking, resolution, and rejected corrections.
+
+## 0.1.3
+
+- Added Pipeline Runner as the contract-driven StateNode execution kernel.
+- Added runnable pipeline-stage discovery and stage execution for the default
+  `input -> plan -> dispatch -> result -> verify -> commit -> report` flow.
+- Added contract-aware output node creation, parent/child linking, artifact and
+  evidence attachment, and structured failure preservation.
+- Added `contract show`, `node list`, `node show`, and `node graph` inspection
+  commands.
+- Added verifier-gated commit-stage handling while keeping non-gated snapshots
+  as completed checkpoint nodes.
+- Added `pipeline-runner.7.md` and smoke coverage for legal stage advancement,
+  graph inspection, and preserved failure nodes.
+
+## 0.1.2
+
+- Added StateNode as the durable JSON representation for meaningful CW runtime
+  transitions.
+- Added PipelineContract as the ABI between workflow state, artifacts,
+  evidence, verifier gates, and commit/report stages.
+- Added explicit state-node creation, legal status transitions, parent/child
+  linking, structured node errors, and contract validation.
+- Added node and contract arrays to run state while keeping older runs readable
+  through loader defaults.
+- Added input, task, dispatch, result, verifier, commit, report, and error node
+  kinds for inspectable workflow history.
+- Added `state-node.7.md` and smoke coverage for node creation, transition
+  validation, evidence requirements, and commit-gate invariants.
+
 ## 0.1.1
 
 - Added `/loop`-compatible CLI shortcut via `cw.js loop`.
