@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorkflowAppValidationError = exports.CURRENT_COOL_WORKFLOW_VERSION = exports.WORKFLOW_APP_SCHEMA_VERSION = exports.workflow = exports.slugify = exports.phase = exports.input = exports.createWorkflowApi = exports.artifact = exports.agent = void 0;
+exports.WorkflowAppValidationError = exports.workflow = exports.slugify = exports.phase = exports.input = exports.createWorkflowApi = exports.artifact = exports.agent = void 0;
 exports.defineWorkflowApp = defineWorkflowApp;
 exports.validateWorkflowApp = validateWorkflowApp;
 exports.assertValidWorkflowApp = assertValidWorkflowApp;
@@ -27,8 +27,7 @@ Object.defineProperty(exports, "phase", { enumerable: true, get: function () { r
 Object.defineProperty(exports, "slugify", { enumerable: true, get: function () { return workflow_api_1.slugify; } });
 Object.defineProperty(exports, "workflow", { enumerable: true, get: function () { return workflow_api_1.workflow; } });
 const sandbox_profile_1 = require("./sandbox-profile");
-exports.WORKFLOW_APP_SCHEMA_VERSION = 1;
-exports.CURRENT_COOL_WORKFLOW_VERSION = "0.1.13";
+const version_1 = require("./version");
 class WorkflowAppValidationError extends Error {
     issues;
     constructor(message, issues) {
@@ -53,8 +52,8 @@ function validateWorkflowApp(candidate, options = {}) {
         };
     }
     const app = candidate;
-    if (app.schemaVersion !== exports.WORKFLOW_APP_SCHEMA_VERSION) {
-        issues.push(issue("workflow-app-schema-version", `Workflow app schemaVersion must be ${exports.WORKFLOW_APP_SCHEMA_VERSION}`, joinPath(appPath, "schemaVersion")));
+    if (app.schemaVersion !== version_1.WORKFLOW_APP_SCHEMA_VERSION) {
+        issues.push(issue("workflow-app-schema-version", `Workflow app schemaVersion must be ${version_1.WORKFLOW_APP_SCHEMA_VERSION}`, joinPath(appPath, "schemaVersion")));
     }
     validateAppId(app.id, issues, joinPath(appPath, "id"));
     if (!isNonEmptyString(app.title)) {
@@ -216,7 +215,7 @@ function summarizeWorkflowApp(record) {
 }
 function workflowAppRunMetadata(record) {
     return {
-        schemaVersion: exports.WORKFLOW_APP_SCHEMA_VERSION,
+        schemaVersion: version_1.WORKFLOW_APP_SCHEMA_VERSION,
         id: record.app.id,
         title: record.app.title,
         summary: record.app.summary || record.app.workflow.summary || "",
@@ -230,7 +229,7 @@ function workflowAppRunMetadata(record) {
 }
 function createLegacyWorkflowApp(workflowDefinition, source) {
     return {
-        schemaVersion: exports.WORKFLOW_APP_SCHEMA_VERSION,
+        schemaVersion: version_1.WORKFLOW_APP_SCHEMA_VERSION,
         id: workflowDefinition.id,
         title: workflowDefinition.title,
         summary: workflowDefinition.summary || "",
@@ -239,7 +238,7 @@ function createLegacyWorkflowApp(workflowDefinition, source) {
         inputs: workflowDefinition.inputs || [],
         sandboxProfiles: workflowDefinition.sandboxProfiles || collectWorkflowSandboxProfiles(workflowDefinition),
         compatibility: {
-            maxVersion: exports.CURRENT_COOL_WORKFLOW_VERSION,
+            maxVersion: version_1.CURRENT_COOL_WORKFLOW_VERSION,
             notes: "Compatibility wrapper for legacy .workflow.js factory files."
         },
         metadata: {
@@ -253,7 +252,7 @@ function renderWorkflowAppTemplate(id, title) {
 }
 function renderWorkflowAppManifestTemplate(id, title) {
     return `${JSON.stringify({
-        schemaVersion: exports.WORKFLOW_APP_SCHEMA_VERSION,
+        schemaVersion: version_1.WORKFLOW_APP_SCHEMA_VERSION,
         id,
         title,
         summary: "Describe what this workflow app does.",
@@ -441,8 +440,8 @@ function validateCompatibility(value, issues, pathName) {
         issues.push(issue("workflow-app-compatibility", "Workflow app compatibility must be an object", pathName));
         return;
     }
-    if (value.workflowSchemaVersion !== undefined && value.workflowSchemaVersion !== exports.WORKFLOW_APP_SCHEMA_VERSION) {
-        issues.push(issue("workflow-app-compatibility", `Workflow schema version must be ${exports.WORKFLOW_APP_SCHEMA_VERSION}`, joinPath(pathName, "workflowSchemaVersion")));
+    if (value.workflowSchemaVersion !== undefined && value.workflowSchemaVersion !== version_1.WORKFLOW_APP_SCHEMA_VERSION) {
+        issues.push(issue("workflow-app-compatibility", `Workflow schema version must be ${version_1.WORKFLOW_APP_SCHEMA_VERSION}`, joinPath(pathName, "workflowSchemaVersion")));
     }
     for (const key of ["coolWorkflow", "node", "notes"]) {
         if (value[key] !== undefined && !isNonEmptyString(value[key])) {
@@ -453,16 +452,16 @@ function validateCompatibility(value, issues, pathName) {
         if (!isSemver(value.minVersion)) {
             issues.push(issue("workflow-app-compatibility", "Compatibility minVersion must be semver", joinPath(pathName, "minVersion")));
         }
-        else if (compareSemver(exports.CURRENT_COOL_WORKFLOW_VERSION, value.minVersion) < 0) {
-            issues.push(issue("workflow-app-incompatible", `Workflow app requires Cool Workflow >= ${value.minVersion}; current is ${exports.CURRENT_COOL_WORKFLOW_VERSION}`, joinPath(pathName, "minVersion")));
+        else if (compareSemver(version_1.CURRENT_COOL_WORKFLOW_VERSION, value.minVersion) < 0) {
+            issues.push(issue("workflow-app-incompatible", `Workflow app requires Cool Workflow >= ${value.minVersion}; current is ${version_1.CURRENT_COOL_WORKFLOW_VERSION}`, joinPath(pathName, "minVersion")));
         }
     }
     if (value.maxVersion !== undefined) {
         if (!isSemver(value.maxVersion)) {
             issues.push(issue("workflow-app-compatibility", "Compatibility maxVersion must be semver", joinPath(pathName, "maxVersion")));
         }
-        else if (compareSemver(exports.CURRENT_COOL_WORKFLOW_VERSION, value.maxVersion) > 0) {
-            issues.push(issue("workflow-app-incompatible", `Workflow app supports Cool Workflow <= ${value.maxVersion}; current is ${exports.CURRENT_COOL_WORKFLOW_VERSION}`, joinPath(pathName, "maxVersion")));
+        else if (compareSemver(version_1.CURRENT_COOL_WORKFLOW_VERSION, value.maxVersion) > 0) {
+            issues.push(issue("workflow-app-incompatible", `Workflow app supports Cool Workflow <= ${value.maxVersion}; current is ${version_1.CURRENT_COOL_WORKFLOW_VERSION}`, joinPath(pathName, "maxVersion")));
         }
     }
 }
@@ -570,7 +569,7 @@ function isWorkflowDefinition(value) {
         Array.isArray(value.inputs));
 }
 function isWorkflowAppDefinition(value) {
-    return isRecord(value) && value.schemaVersion === exports.WORKFLOW_APP_SCHEMA_VERSION && isNonEmptyString(value.id) && "workflow" in value;
+    return isRecord(value) && value.schemaVersion === version_1.WORKFLOW_APP_SCHEMA_VERSION && isNonEmptyString(value.id) && "workflow" in value;
 }
 function isWorkflowEntrypoint(value) {
     return isRecord(value) && "entrypoint" in value && !("phases" in value);

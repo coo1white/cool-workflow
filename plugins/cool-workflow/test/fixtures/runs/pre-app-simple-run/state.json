@@ -1,0 +1,27 @@
+{
+  "id": "pre-app-simple-run",
+  "workflowId": "research-synthesis",
+  "createdAt": "2024-01-01T00:00:00.000Z",
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "cwd": "/tmp/cw-fixture-pre-app",
+  "inputs": {
+    "question": "What changed before Workflow App SDK metadata existed?"
+  },
+  "loopStage": "interpret",
+  "tasks": [
+    {
+      "id": "scope:question",
+      "kind": "agent",
+      "phase": "Scope",
+      "status": "pending",
+      "requiresEvidence": false,
+      "prompt": "Scope the question.",
+      "taskPath": "",
+      "resultPath": "",
+      "loopStage": "interpret"
+    }
+  ],
+  "userMetadata": {
+    "preserve": "unknown top-level data"
+  }
+}

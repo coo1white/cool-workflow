@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { RunPaths, WorkflowRun } from "./types";
+import { migrateRunState, StateMigrationResult } from "./state-migrations";
+import { CURRENT_RUN_STATE_SCHEMA_VERSION } from "./version";
+
+export { CURRENT_RUN_STATE_SCHEMA_VERSION };
 
 export function createRunPaths(runDir: string): RunPaths {
   return {
@@ -38,19 +42,33 @@ export function ensureRunDirs(paths: RunPaths): void {
 
 export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun {
   if (!runId) throw new Error("Missing run id");
-  const run = readJson(path.join(cwd, ".cw", "runs", runId, "state.json")) as WorkflowRun;
-  run.paths.stateNodesDir = run.paths.stateNodesDir || path.join(run.paths.runDir, "nodes");
-  run.paths.feedbackDir = run.paths.feedbackDir || path.join(run.paths.runDir, "feedback");
-  run.paths.workersDir = run.paths.workersDir || path.join(run.paths.runDir, "workers");
-  run.paths.candidatesDir = run.paths.candidatesDir || path.join(run.paths.runDir, "candidates");
-  run.nodes = run.nodes || [];
-  run.contracts = run.contracts || [];
-  run.feedback = run.feedback || [];
-  run.workers = run.workers || [];
-  run.sandboxProfiles = run.sandboxProfiles || [];
-  run.candidates = run.candidates || [];
-  run.candidateSelections = run.candidateSelections || [];
-  return run;
+  const statePath = path.join(cwd, ".cw", "runs", runId, "state.json");
+  const result = loadRunStateFile(statePath, { dryRun: true });
+  if (result.report.status === "unsupported") {
+    throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
+  }
+  return result.run;
+}
+
+export function loadRunStateFile(statePath: string, options: { dryRun?: boolean } = {}): StateMigrationResult {
+  const result = migrateRunState(readJson(statePath), {
+    statePath,
+    dryRun: options.dryRun === undefined ? true : options.dryRun
+  });
+  if (result.report.status === "unsupported") return result;
+  return result;
+}
+
+export function checkRunStateFile(statePath: string): StateMigrationResult {
+  return loadRunStateFile(statePath, { dryRun: true });
+}
+
+export function migrateRunStateFile(statePath: string, options: { write?: boolean } = {}): StateMigrationResult {
+  const result = loadRunStateFile(statePath, { dryRun: !options.write });
+  if (result.report.status !== "unsupported" && options.write && result.report.writeRequired) {
+    writeJson(statePath, result.run);
+  }
+  return result;
 }
 
 export function saveCheckpoint(run: WorkflowRun): void {

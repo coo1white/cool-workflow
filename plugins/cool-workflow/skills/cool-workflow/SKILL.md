@@ -102,6 +102,10 @@ node scripts/cw.js worker summary <run-id>
 node scripts/cw.js candidate summary <run-id>
 node scripts/cw.js feedback summary <run-id>
 node scripts/cw.js commit summary <run-id>
+node scripts/cw.js state check <run-id>
+npm run fixture-compat
+npm run version:sync
+npm run release:check
 node scripts/cw.js loop --intervalMinutes 30 --prompt "Continue this workflow."
 node scripts/cw.js schedule create --kind loop --intervalMinutes 30 --prompt "Continue this workflow."
 node scripts/cw.js schedule due
@@ -155,6 +159,16 @@ workflow app -> plan -> dispatch -> isolated worker -> candidate scoring
 The golden path uses a temporary workspace, writes a simulated worker
 `cw:result` to the worker manifest's declared `result.md`, and asserts durable
 state files instead of relying only on exit codes.
+
+Use `npm run release:check` for v0.1.14+ release discipline. It is a dry-run
+gate that builds, type-checks, runs tests, validates canonical apps and golden
+path behavior, checks old run fixtures, verifies version synchronization, and
+does not tag, push, publish, or mutate fixtures.
+
+Durable run state lives at `.cw/runs/<run-id>/state.json`. Use
+`node scripts/cw.js state check <run-id>` to dry-run migration and
+normalization. Newer unsupported schemas fail closed; unknown user data should
+be preserved.
 
 Sandbox Profiles are named CW policy contracts. They describe worker read
 paths, write paths, command policy, network policy, environment exposure, and

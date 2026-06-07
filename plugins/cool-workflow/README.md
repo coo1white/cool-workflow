@@ -26,6 +26,11 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.14 adds Release & Migration Discipline: explicit run-state schema
+migration policy, fixture-based backward compatibility tests, version
+synchronization checks, and a dry-run release gate. See
+[docs/release-and-migration.7.md](docs/release-and-migration.7.md).
+
 CW v0.1.13 completes the MCP / App Surface so agent hosts can treat CW as a
 runtime instead of a CLI wrapper. MCP now covers app runs, worker inspection and
 output recording, candidate scoring/selection, sandbox profile resolution,
@@ -76,6 +81,9 @@ cool-workflow
   apps/release-cut/app.json
   apps/research-synthesis/app.json
   apps/workflow-app-sdk-demo/app.json
+  docs/index.md
+  docs/getting-started.md
+  docs/release-and-migration.7.md
   docs/agent-sdk.md
   docs/unix-principles.md
   docs/mcp-app-surface.7.md
@@ -137,6 +145,7 @@ node scripts/cw.js worker summary <run-id>
 node scripts/cw.js candidate summary <run-id>
 node scripts/cw.js feedback summary <run-id>
 node scripts/cw.js commit summary <run-id>
+node scripts/cw.js state check <run-id>
 ```
 
 MCP hosts can drive the same flow with JSON tools:
@@ -202,8 +211,11 @@ node scripts/cw.js report <run-id>
 Run the deterministic release golden path:
 
 ```bash
+npm run release:check
 npm run canonical-apps
 npm run golden-path
+npm run fixture-compat
+npm run version:sync
 ```
 
 Run data lives under `.cw/runs/<run-id>/` in `--cwd`, or in `--repo` when
@@ -217,6 +229,10 @@ npm run build
 ```
 
 See [docs/agent-sdk.md](docs/agent-sdk.md) for the developer contract.
+See [docs/index.md](docs/index.md) for a docs map.
+See [docs/getting-started.md](docs/getting-started.md) for a clone-to-run path.
+See [docs/release-and-migration.7.md](docs/release-and-migration.7.md) for
+release and migration discipline.
 See [docs/operator-ux.7.md](docs/operator-ux.7.md) for the operator command
 surface.
 See [docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md) for the app

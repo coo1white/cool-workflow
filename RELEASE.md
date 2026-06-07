@@ -1,34 +1,71 @@
 # Release Checklist
 
-Use this checklist before publishing a new Cool Workflow release.
+Use this checklist before publishing Cool Workflow v0.1.14 or later.
 
-1. Update `plugins/cool-workflow/package.json`.
-2. Update the package manifest.
-3. Rebuild and check the TypeScript runtime:
+## Dry-Run Gate
+
+From a fresh checkout:
 
 ```bash
 cd plugins/cool-workflow
 npm install
-npm run build
-npm run check
-node scripts/cw.js list
-node scripts/cw.js schedule list
-rm -rf node_modules
+npm run release:check
 ```
 
-4. Validate the package manifest when local validation tools are available.
+`npm run release:check` is non-destructive. It does not tag, push, publish, or
+rewrite fixture files. It verifies docs presence, build, type check, default
+tests, canonical apps, golden path, fixture compatibility, and version
+synchronization.
 
-5. Confirm the public marketplace catalog points at the plugin:
+## Required Manual Review
 
-```bash
-cat .agents/plugins/marketplace.json
+1. Confirm `CHANGELOG.md` contains the target version.
+2. Confirm `plugins/cool-workflow/docs/release-and-migration.7.md` describes
+   migration compatibility and unsupported cases.
+3. Confirm `node scripts/cw.js state check <run-id>` reports expected migration
+   status for any release-candidate run state you intend to preserve.
+4. Confirm `npm run version:sync` passes after `npm run build`.
+5. Confirm generated `plugins/cool-workflow/dist/` output is committed.
+
+## Version Surfaces
+
+The version synchronization check covers:
+
+- `plugins/cool-workflow/package.json`
+- `plugins/cool-workflow/.codex-plugin/plugin.json`
+- `plugins/cool-workflow/src/version.ts`
+- SDK and MCP server version use
+- canonical workflow app manifests
+- golden path and MCP smoke expectations
+- README, changelog, release docs, and release/migration docs
+- generated `dist/` output
+
+## Migration Discipline
+
+Durable run state lives at `.cw/runs/<run-id>/state.json`. Loading follows:
+
+```text
+read JSON -> detect schema -> migrate -> normalize -> validate -> report
 ```
 
-6. Tag the release:
+Dry-run migration checks:
 
 ```bash
-git tag v0.1.1
+node scripts/cw.js state check <run-id>
+node scripts/cw.js state check <run-id> --state /path/to/state.json
+```
+
+Only use `--write` when intentionally normalizing a state file in place.
+
+## Publish Steps
+
+After the dry-run gate and manual review pass, tagging, pushing, and publishing
+remain explicit maintainer actions:
+
+```bash
+git tag v0.1.14
 git push origin main --tags
 ```
 
-Users can clone the repository and run `plugins/cool-workflow/scripts/cw.js`.
+Package publication, marketplace updates, or plugin cache updates should be run
+only when the maintainer intends to publish.

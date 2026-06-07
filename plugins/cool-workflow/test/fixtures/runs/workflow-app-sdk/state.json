@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "workflow-app-sdk",
+  "createdAt": "2025-02-01T00:00:00.000Z",
+  "updatedAt": "2025-02-01T00:00:00.000Z",
+  "cwd": "/tmp/cw-fixture-app-sdk",
+  "workflow": {
+    "id": "research-synthesis",
+    "title": "Research Synthesis",
+    "summary": "Fixture with first-class app metadata.",
+    "limits": {
+      "maxAgents": 8,
+      "maxConcurrentAgents": 4
+    },
+    "app": {
+      "schemaVersion": 1,
+      "id": "research-synthesis",
+      "title": "Research Synthesis",
+      "version": "0.1.9",
+      "compatibility": {
+        "minVersion": "0.1.9",
+        "workflowSchemaVersion": 1
+      },
+      "metadata": {
+        "canonical": true
+      }
+    }
+  },
+  "inputs": {
+    "question": "Can app metadata be loaded?"
+  },
+  "loopStage": "interpret",
+  "phases": [],
+  "tasks": [],
+  "dispatches": [],
+  "commits": []
+}

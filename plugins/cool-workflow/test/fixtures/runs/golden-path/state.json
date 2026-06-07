@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "id": "golden-path",
+  "createdAt": "2025-03-01T00:00:00.000Z",
+  "updatedAt": "2025-03-01T00:00:00.000Z",
+  "cwd": "/tmp/cw-fixture-golden",
+  "workflow": {
+    "id": "end-to-end-golden-path",
+    "title": "End-to-End Golden Path",
+    "summary": "Fixture with golden path worker, candidate, and commit state.",
+    "limits": {
+      "maxAgents": 1,
+      "maxConcurrentAgents": 1
+    },
+    "app": {
+      "schemaVersion": 1,
+      "id": "end-to-end-golden-path",
+      "title": "End-to-End Golden Path",
+      "version": "0.1.10",
+      "metadata": {
+        "canonical": true
+      }
+    }
+  },
+  "inputs": {
+    "question": "Can golden path state be inspected?"
+  },
+  "loopStage": "checkpoint",
+  "phases": [
+    {
+      "id": "golden-path",
+      "name": "Golden Path",
+      "status": "completed",
+      "taskIds": [
+        "golden:prove"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "golden:prove",
+      "kind": "agent",
+      "phase": "Golden Path",
+      "status": "completed",
+      "requiresEvidence": true,
+      "prompt": "Prove the golden path.",
+      "taskPath": "",
+      "resultPath": "/tmp/cw-fixture-golden/result.md",
+      "loopStage": "observe",
+      "resultNodeId": "golden-path:result:golden:prove",
+      "verifierNodeId": "golden-path:verifier:golden:prove",
+      "workerId": "worker-golden"
+    }
+  ],
+  "dispatches": [],
+  "commits": [
+    {
+      "id": "state-golden",
+      "createdAt": "2025-03-01T00:00:01.000Z",
+      "reason": "golden path verified",
+      "loopStage": "checkpoint",
+      "statePath": "/tmp/cw-fixture-golden/state.json",
+      "reportPath": "/tmp/cw-fixture-golden/report.md",
+      "snapshotPath": "/tmp/cw-fixture-golden/commits/state-golden.json",
+      "verifierGated": true,
+      "checkpoint": false,
+      "verifierNodeId": "golden-path:verifier:golden:prove",
+      "evidence": [
+        {
+          "id": "evidence:1",
+          "locator": "/tmp/cw-fixture-golden/evidence.md:1"
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "schemaVersion": 1,
+      "id": "golden-path:result:golden:prove",
+      "kind": "result",
+      "status": "completed",
+      "loopStage": "observe",
+      "createdAt": "2025-03-01T00:00:01.000Z",
+      "updatedAt": "2025-03-01T00:00:01.000Z",
+      "inputs": {},
+      "outputs": {},
+      "artifacts": [],
+      "evidence": [
+        {
+          "id": "evidence:1",
+          "locator": "/tmp/cw-fixture-golden/evidence.md:1"
+        }
+      ],
+      "errors": [],
+      "parents": [],
+      "children": []
+    },
+    {
+      "schemaVersion": 1,
+      "id": "golden-path:verifier:golden:prove",
+      "kind": "verifier",
+      "status": "verified",
+      "loopStage": "adjust",
+      "createdAt": "2025-03-01T00:00:01.000Z",
+      "updatedAt": "2025-03-01T00:00:01.000Z",
+      "inputs": {},
+      "outputs": {},
+      "artifacts": [],
+      "evidence": [
+        {
+          "id": "evidence:1",
+          "locator": "/tmp/cw-fixture-golden/evidence.md:1"
+        }
+      ],
+      "errors": [],
+      "parents": [],
+      "children": []
+    }
+  ],
+  "workers": [
+    {
+      "schemaVersion": 1,
+      "id": "worker-golden",
+      "runId": "golden-path",
+      "taskId": "golden:prove",
+      "createdAt": "2025-03-01T00:00:00.000Z",
+      "updatedAt": "2025-03-01T00:00:01.000Z",
+      "status": "verified",
+      "workerDir": "/tmp/cw-fixture-golden/workers/worker-golden",
+      "inputPath": "/tmp/cw-fixture-golden/workers/worker-golden/input.md",
+      "resultPath": "/tmp/cw-fixture-golden/workers/worker-golden/result.md",
+      "artifactsDir": "/tmp/cw-fixture-golden/workers/worker-golden/artifacts",
+      "logsDir": "/tmp/cw-fixture-golden/workers/worker-golden/logs",
+      "allowedPaths": [],
+      "feedbackIds": [],
+      "errors": []
+    }
+  ],
+  "candidates": [
+    {
+      "schemaVersion": 1,
+      "id": "golden-candidate",
+      "runId": "golden-path",
+      "kind": "worker-output",
+      "status": "verified",
+      "createdAt": "2025-03-01T00:00:01.000Z",
+      "updatedAt": "2025-03-01T00:00:01.000Z",
+      "workerId": "worker-golden",
+      "taskId": "golden:prove",
+      "resultNodeId": "golden-path:result:golden:prove",
+      "verifierNodeId": "golden-path:verifier:golden:prove",
+      "artifacts": [],
+      "evidence": [
+        {
+          "id": "evidence:1",
+          "locator": "/tmp/cw-fixture-golden/evidence.md:1"
+        }
+      ],
+      "scores": [],
+      "feedbackIds": []
+    }
+  ],
+  "candidateSelections": []
+}

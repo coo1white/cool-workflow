@@ -3,15 +3,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.CURRENT_RUN_STATE_SCHEMA_VERSION = void 0;
 exports.createRunPaths = createRunPaths;
 exports.ensureRunDirs = ensureRunDirs;
 exports.loadRunFromCwd = loadRunFromCwd;
+exports.loadRunStateFile = loadRunStateFile;
+exports.checkRunStateFile = checkRunStateFile;
+exports.migrateRunStateFile = migrateRunStateFile;
 exports.saveCheckpoint = saveCheckpoint;
 exports.readJson = readJson;
 exports.writeJson = writeJson;
 exports.safeFileName = safeFileName;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const state_migrations_1 = require("./state-migrations");
+const version_1 = require("./version");
+Object.defineProperty(exports, "CURRENT_RUN_STATE_SCHEMA_VERSION", { enumerable: true, get: function () { return version_1.CURRENT_RUN_STATE_SCHEMA_VERSION; } });
 function createRunPaths(runDir) {
     return {
         runDir,
@@ -47,19 +54,31 @@ function ensureRunDirs(paths) {
 function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (!runId)
         throw new Error("Missing run id");
-    const run = readJson(node_path_1.default.join(cwd, ".cw", "runs", runId, "state.json"));
-    run.paths.stateNodesDir = run.paths.stateNodesDir || node_path_1.default.join(run.paths.runDir, "nodes");
-    run.paths.feedbackDir = run.paths.feedbackDir || node_path_1.default.join(run.paths.runDir, "feedback");
-    run.paths.workersDir = run.paths.workersDir || node_path_1.default.join(run.paths.runDir, "workers");
-    run.paths.candidatesDir = run.paths.candidatesDir || node_path_1.default.join(run.paths.runDir, "candidates");
-    run.nodes = run.nodes || [];
-    run.contracts = run.contracts || [];
-    run.feedback = run.feedback || [];
-    run.workers = run.workers || [];
-    run.sandboxProfiles = run.sandboxProfiles || [];
-    run.candidates = run.candidates || [];
-    run.candidateSelections = run.candidateSelections || [];
-    return run;
+    const statePath = node_path_1.default.join(cwd, ".cw", "runs", runId, "state.json");
+    const result = loadRunStateFile(statePath, { dryRun: true });
+    if (result.report.status === "unsupported") {
+        throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
+    }
+    return result.run;
+}
+function loadRunStateFile(statePath, options = {}) {
+    const result = (0, state_migrations_1.migrateRunState)(readJson(statePath), {
+        statePath,
+        dryRun: options.dryRun === undefined ? true : options.dryRun
+    });
+    if (result.report.status === "unsupported")
+        return result;
+    return result;
+}
+function checkRunStateFile(statePath) {
+    return loadRunStateFile(statePath, { dryRun: true });
+}
+function migrateRunStateFile(statePath, options = {}) {
+    const result = loadRunStateFile(statePath, { dryRun: !options.write });
+    if (result.report.status !== "unsupported" && options.write && result.report.writeRequired) {
+        writeJson(statePath, result.run);
+    }
+    return result;
 }
 function saveCheckpoint(run) {
     run.updatedAt = new Date().toISOString();
