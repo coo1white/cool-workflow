@@ -108,6 +108,7 @@ function normalizeRunState(state, context) {
     setDefault(paths, "candidatesDir", node_path_1.default.join(baseRunDir, "candidates"), context, "paths.candidatesDir is required", "paths.candidatesDir");
     setDefault(paths, "multiAgentDir", node_path_1.default.join(baseRunDir, "multi-agent"), context, "paths.multiAgentDir is required", "paths.multiAgentDir");
     setDefault(paths, "blackboardDir", node_path_1.default.join(baseRunDir, "blackboard"), context, "paths.blackboardDir is required", "paths.blackboardDir");
+    setDefault(paths, "topologiesDir", node_path_1.default.join(baseRunDir, "topologies"), context, "paths.topologiesDir is required", "paths.topologiesDir");
     ensureArray(state, "tasks", context);
     ensureArray(state, "dispatches", context);
     ensureArray(state, "commits", context);
@@ -167,6 +168,19 @@ function normalizeRunState(state, context) {
             }
         }
     }
+    if (!isRecord(state.topologies)) {
+        setValue(state, "topologies", {
+            schemaVersion: 1,
+            runs: []
+        }, context, "topologies state is required");
+    }
+    else {
+        const topologies = state.topologies;
+        setDefault(topologies, "schemaVersion", 1, context, "topologies.schemaVersion is required", "topologies.schemaVersion");
+        if (!Array.isArray(topologies.runs)) {
+            setValue(topologies, "runs", [], context, "topologies.runs must be an array", "topologies.runs");
+        }
+    }
     if (!Array.isArray(state.phases)) {
         const phases = derivePhases(Array.isArray(state.tasks) ? state.tasks : []);
         setValue(state, "phases", phases, context, "phases derived from tasks");
@@ -192,6 +206,8 @@ function validateMigratedRunState(state, report) {
         report.errors.push("multiAgent must be an object.");
     if (!isRecord(state.blackboard))
         report.errors.push("blackboard must be an object.");
+    if (!isRecord(state.topologies))
+        report.errors.push("topologies must be an object.");
 }
 function detectSchemaVersion(value) {
     if (!isRecord(value) || value.schemaVersion === undefined)

@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing Cool Workflow v0.1.18 or later.
+Use this checklist before publishing Cool Workflow v0.1.19 or later.
 
 ## Dry-Run Gate
 
@@ -33,7 +33,10 @@ logs, and release verdict.
    status for any release-candidate run state you intend to preserve.
 4. Confirm `npm run version:sync` passes after `npm run build`.
 5. Confirm generated `plugins/cool-workflow/dist/` output is committed.
-6. Confirm `npm run dogfood:release` reports `ready-dry-run` and inspect the
+6. Confirm topology docs and smoke coverage are present:
+   `docs/multi-agent-topologies.7.md` and
+   `test/multi-agent-topologies-smoke.js`.
+7. Confirm `npm run dogfood:release` reports `ready-dry-run` and inspect the
    run with `status`, `graph`, `report --show`, `candidate summary`,
    `commit summary`, `audit summary`, and `audit provenance`.
 
@@ -74,7 +77,7 @@ After the dry-run gate and manual review pass, tagging, pushing, and publishing
 remain explicit maintainer actions:
 
 ```bash
-git tag v0.1.18
+git tag v0.1.19
 git push origin main --tags
 ```
 
@@ -82,4 +85,4 @@ Package publication, marketplace updates, or plugin cache updates should be run
 only when the maintainer intends to publish. Local tag creation, push, package
 publish, and marketplace update remain separate visible steps. Dry-run dogfood
 mode never performs them; execute-style flags must include an explicit
-target-version confirmation such as `--confirm-release-actions=0.1.18`.
+target-version confirmation such as `--confirm-release-actions=0.1.19`.

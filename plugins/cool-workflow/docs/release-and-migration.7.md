@@ -68,6 +68,7 @@ mutated.
 - `npm test`
 - `node test/multi-agent-runtime-core-smoke.js`
 - `node test/coordinator-blackboard-smoke.js`
+- `node test/multi-agent-topologies-smoke.js`
 - dogfood release smoke coverage
 - `npm run canonical-apps`
 - `npm run golden-path`
@@ -82,6 +83,9 @@ test so audit/provenance coverage remains part of release discipline.
 
 For v0.1.18, the gate includes Coordinator / Blackboard smoke coverage and
 fixture normalization for empty blackboard state on older runs.
+
+For v0.1.19, the gate includes Multi-Agent Topologies smoke coverage and
+fixture normalization for empty topology state on older runs.
 
 For v0.1.16, release discipline adds Dogfood One Real Repo. `npm run
 dogfood:release` runs the canonical `release-cut` app against the real Cool

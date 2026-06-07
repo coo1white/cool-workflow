@@ -22,7 +22,8 @@ export function createRunPaths(runDir: string): RunPaths {
     workersDir: path.join(runDir, "workers"),
     candidatesDir: path.join(runDir, "candidates"),
     multiAgentDir: path.join(runDir, "multi-agent"),
-    blackboardDir: path.join(runDir, "blackboard")
+    blackboardDir: path.join(runDir, "blackboard"),
+    topologiesDir: path.join(runDir, "topologies")
   };
 }
 
@@ -40,7 +41,8 @@ export function ensureRunDirs(paths: RunPaths): void {
     paths.workersDir || path.join(paths.runDir, "workers"),
     paths.candidatesDir || path.join(paths.runDir, "candidates"),
     paths.multiAgentDir || path.join(paths.runDir, "multi-agent"),
-    paths.blackboardDir || path.join(paths.runDir, "blackboard")
+    paths.blackboardDir || path.join(paths.runDir, "blackboard"),
+    paths.topologiesDir || path.join(paths.runDir, "topologies")
   ]) {
     fs.mkdirSync(dir, { recursive: true });
   }

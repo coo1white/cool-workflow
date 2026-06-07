@@ -140,6 +140,48 @@ async function main() {
                 process.stdout.write(`${(0, operator_ux_1.formatOperatorGraph)(graph)}\n`);
             return;
         }
+        case "topology": {
+            const [subcommand, first, second] = args.positionals;
+            switch (subcommand) {
+                case "list":
+                    printJson(runner.listTopologies());
+                    return;
+                case "show":
+                    if (second)
+                        printJson(runner.showTopologyRun(required(first, "run id"), second));
+                    else
+                        printJson(runner.showTopology(required(first, "topology id")));
+                    return;
+                case "validate": {
+                    const result = runner.validateTopology(required(first, "topology id"));
+                    printJson(result);
+                    if (!result.valid)
+                        process.exitCode = 1;
+                    return;
+                }
+                case "apply":
+                    printJson(runner.applyTopology(required(first, "run id"), required(second, "topology id"), args.options));
+                    return;
+                case "summary": {
+                    const summary = runner.topologySummary(required(first, "run id"));
+                    if (wantsJson(args.options))
+                        printJson(summary);
+                    else
+                        process.stdout.write(`${(0, operator_ux_1.formatTopologySummary)(summary)}\n`);
+                    return;
+                }
+                case "graph": {
+                    const graph = runner.topologyGraph(required(first, "run id"));
+                    if (wantsJson(args.options))
+                        printJson(graph);
+                    else
+                        process.stdout.write(`${(0, operator_ux_1.formatOperatorGraph)({ runId: required(first, "run id"), nodes: graph.nodes, edges: graph.edges })}\n`);
+                    return;
+                }
+                default:
+                    throw new Error("Usage: cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>");
+            }
+        }
         case "multi-agent": {
             const [subcommand, runId, id] = args.positionals;
             switch (subcommand) {

@@ -18,11 +18,13 @@ exports.formatCandidateSummary = formatCandidateSummary;
 exports.formatFeedbackSummary = formatFeedbackSummary;
 exports.formatCommitSummary = formatCommitSummary;
 exports.formatMultiAgentSummary = formatMultiAgentSummary;
+exports.formatTopologySummary = formatTopologySummary;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
+const topology_1 = require("./topology");
 function summarizeOperatorRun(run) {
     const tasks = summarizeTasks(run.tasks || []);
     const phases = summarizePhases(run);
@@ -30,11 +32,12 @@ function summarizeOperatorRun(run) {
     const candidates = summarizeOperatorCandidates(run);
     const feedback = summarizeOperatorFeedback(run);
     const commits = summarizeOperatorCommits(run);
+    const topologies = (0, topology_1.summarizeTopologies)(run);
     const multiAgent = (0, multi_agent_1.summarizeMultiAgent)(run);
     const blackboard = (0, coordinator_1.summarizeBlackboard)(run);
     const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
     const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
-    const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, multiAgent, blackboard);
+    const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, topologies, multiAgent, blackboard);
     return {
         runId: run.id,
         workflowId: run.workflow.id,
@@ -51,12 +54,13 @@ function summarizeOperatorRun(run) {
         candidates,
         feedback,
         commits,
+        topologies,
         multiAgent,
         blackboard,
         trust,
         reportPath: run.paths.report,
         evidencePaths: evidencePathsFor(run),
-        nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits, blackboard })
+        nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits, topologies, blackboard })
     };
 }
 function adviseNoRun() {
@@ -251,6 +255,11 @@ function buildOperatorGraph(run) {
         addNode(node.id, node.kind, node.status, node.label, node.path);
     for (const edge of multiAgentGraph.edges)
         addEdge(edge.from, edge.to, edge.label);
+    const topologyGraph = (0, topology_1.buildTopologyGraph)(run);
+    for (const node of topologyGraph.nodes)
+        addNode(node.id, node.kind, node.status, node.label, node.path);
+    for (const edge of topologyGraph.edges)
+        addEdge(edge.from, edge.to, edge.label);
     const blackboardGraph = (0, coordinator_1.buildBlackboardGraph)(run);
     for (const node of blackboardGraph.nodes)
         addNode(node.id, node.kind, node.status, node.label, node.path);
@@ -282,6 +291,8 @@ function formatOperatorStatus(summary) {
         "",
         formatCommitPanel(summary.commits),
         "",
+        formatTopologyPanel(summary.topologies),
+        "",
         formatMultiAgentPanel(summary.multiAgent),
         "",
         formatBlackboardPanel(summary.blackboard),
@@ -307,6 +318,8 @@ function formatOperatorReport(summary) {
         "Resource Commands",
         `  node scripts/cw.js graph ${summary.runId}`,
         `  node scripts/cw.js worker summary ${summary.runId}`,
+        `  node scripts/cw.js topology summary ${summary.runId}`,
+        `  node scripts/cw.js topology graph ${summary.runId}`,
         `  node scripts/cw.js multi-agent summary ${summary.runId}`,
         `  node scripts/cw.js multi-agent graph ${summary.runId}`,
         `  node scripts/cw.js blackboard summary ${summary.runId}`,
@@ -364,6 +377,30 @@ function formatTrustPanel(summary) {
 }
 function formatMultiAgentSummary(summary) {
     return formatMultiAgentPanel(summary);
+}
+function formatTopologySummary(summary) {
+    return formatTopologyPanel(summary);
+}
+function formatTopologyPanel(summary) {
+    const lines = [
+        "Topologies",
+        `  runs=${summary.totalRuns}; status=${formatCounts(summary.runsByStatus)}; official=${summary.officialTopologies.join(", ")}`
+    ];
+    for (const record of summary.active.slice(0, 6)) {
+        lines.push(`  ${record.id}: ${record.topologyId}, status=${record.status}, readiness=${record.readiness}`);
+        lines.push(`    run=${record.multiAgentRunId} board=${record.blackboardId}`);
+        lines.push(`    roles=${record.roles.join(", ") || "none"} topics=${record.topics.join(", ") || "none"}`);
+        lines.push(`    fanout=${record.fanouts.join(", ") || "none"} fanin=${record.fanins.join(", ") || "none"}`);
+        for (const missing of record.missingEvidence.slice(0, 4))
+            lines.push(`    missing=${missing}`);
+        for (const conflict of record.conflicts.slice(0, 4))
+            lines.push(`    conflict=${conflict}`);
+        if (record.nextActions[0])
+            lines.push(`    next=${record.nextActions[0]}`);
+    }
+    if (summary.nextAction)
+        lines.push(`  next=${summary.nextAction}`);
+    return lines.join("\n");
 }
 function formatMultiAgentPanel(summary) {
     const lines = [
@@ -463,6 +500,15 @@ function adviseNextSteps(run, summary) {
         });
         return actions;
     }
+    const topologyAction = summary.topologies.active.find((topology) => topology.nextActions.length)?.nextActions[0];
+    if (topologyAction) {
+        actions.push({
+            command: topologyAction,
+            reason: "An active topology has a deterministic next action.",
+            priority: "high"
+        });
+        return actions;
+    }
     if (summary.tasks.total > 0 && summary.tasks.completed.length === summary.tasks.total && summary.commits.verifierGated > 0) {
         actions.push({
             command: `node scripts/cw.js report ${run.id} --show`,
@@ -556,7 +602,7 @@ function phaseStatusFromTasks(run, taskIds) {
         return "blocked";
     return "pending";
 }
-function blockedReasonsFor(run, feedback, workers, candidates, multiAgent, blackboard) {
+function blockedReasonsFor(run, feedback, workers, candidates, topologies, multiAgent, blackboard) {
     const reasons = [];
     if (feedback.open.length)
         reasons.push(`${feedback.open.length} open/tasked feedback record(s)`);
@@ -566,6 +612,10 @@ function blockedReasonsFor(run, feedback, workers, candidates, multiAgent, black
         reasons.push("failed task(s)");
     if (candidates.problems.length)
         reasons.push(...candidates.problems.slice(0, 2));
+    for (const topology of topologies.active) {
+        if (topology.status === "blocked")
+            reasons.push(`topology ${topology.id} blocked: ${topology.missingEvidence[0] || "missing evidence"}`);
+    }
     if (multiAgent.blockedReasons.length)
         reasons.push(...multiAgent.blockedReasons.slice(0, 2));
     if (blackboard.conflicts.length)

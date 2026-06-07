@@ -128,6 +128,16 @@ import {
   resolveBlackboard,
   summarizeBlackboard
 } from "./coordinator";
+import {
+  applyTopology,
+  buildTopologyGraph,
+  ensureTopologyState,
+  getTopologyDefinition,
+  listTopologyDefinitions,
+  showTopologyRun,
+  summarizeTopologies,
+  validateTopologyDefinition
+} from "./topology";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -339,10 +349,15 @@ export class CoolWorkflowRunner {
         artifacts: [],
         snapshots: [],
         decisions: []
+      },
+      topologies: {
+        schemaVersion: 1,
+        runs: []
       }
     };
     ensureTrustAudit(run);
     ensureMultiAgentState(run);
+    ensureTopologyState(run);
 
     writeTaskFiles(run);
     const contract = upsertRunContract(run, createDefaultPipelineContract());
@@ -873,6 +888,51 @@ export class CoolWorkflowRunner {
 
   multiAgentGraph(runId: string): ReturnType<typeof buildMultiAgentGraph> {
     return buildMultiAgentGraph(this.loadRun(runId));
+  }
+
+  listTopologies(): ReturnType<typeof listTopologyDefinitions> {
+    return listTopologyDefinitions();
+  }
+
+  showTopology(topologyId: string): NonNullable<ReturnType<typeof getTopologyDefinition>> {
+    const definition = getTopologyDefinition(topologyId);
+    if (!definition) throw new Error(`Unknown topology id: ${topologyId}`);
+    return definition;
+  }
+
+  validateTopology(topologyId: string): ReturnType<typeof validateTopologyDefinition> {
+    return validateTopologyDefinition(topologyId);
+  }
+
+  applyTopology(runId: string, topologyId: string, options: Record<string, unknown> = {}): ReturnType<typeof applyTopology> {
+    const run = this.loadRun(runId);
+    const record = applyTopology(run, topologyId, {
+      id: stringOption(options.id),
+      title: stringOption(options.title),
+      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+      blackboardId: stringOption(options.blackboard || options.blackboardId),
+      taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
+      mapperCount: numberOption(options.mapperCount || options.mappers || options.mapper),
+      judgeCount: numberOption(options.judgeCount || options.judges || options.judge),
+      debateRounds: numberOption(options.debateRounds || options.rounds),
+      collectInitialFanin: Boolean(options.collectInitialFanin || options["collect-initial-fanin"]),
+      metadata: metadataOption(options)
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  showTopologyRun(runId: string, topologyRunId: string): ReturnType<typeof showTopologyRun> {
+    return showTopologyRun(this.loadRun(runId), topologyRunId);
+  }
+
+  topologySummary(runId: string): ReturnType<typeof summarizeTopologies> {
+    return summarizeTopologies(this.loadRun(runId));
+  }
+
+  topologyGraph(runId: string): ReturnType<typeof buildTopologyGraph> {
+    return buildTopologyGraph(this.loadRun(runId));
   }
 
   createMultiAgentRun(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createMultiAgentRun> {

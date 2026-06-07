@@ -517,7 +517,7 @@ function attachDispatchToMultiAgent(run, input) {
         throw new Error("Dispatch multi-agent attach requires --multi-agent-group or --multiAgentGroup");
     if (group.multiAgentRunId !== multiAgentRun.id)
         throw new Error(`Group ${group.id} does not belong to MultiAgentRun ${multiAgentRun.id}`);
-    const roleIds = unique([...(input.roleId ? [input.roleId] : []), ...(fanout ? fanout.roleIds : [])]);
+    const roleIds = input.roleId ? [input.roleId] : unique([...(fanout ? fanout.roleIds : [])]);
     if (roleIds.length !== 1) {
         throw new Error(`Dispatch multi-agent attach requires exactly one role for deterministic membership; found ${roleIds.length || 0}`);
     }

@@ -160,6 +160,7 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
   setDefault(paths, "candidatesDir", path.join(baseRunDir, "candidates"), context, "paths.candidatesDir is required", "paths.candidatesDir");
   setDefault(paths, "multiAgentDir", path.join(baseRunDir, "multi-agent"), context, "paths.multiAgentDir is required", "paths.multiAgentDir");
   setDefault(paths, "blackboardDir", path.join(baseRunDir, "blackboard"), context, "paths.blackboardDir is required", "paths.blackboardDir");
+  setDefault(paths, "topologiesDir", path.join(baseRunDir, "topologies"), context, "paths.topologiesDir is required", "paths.topologiesDir");
 
   ensureArray(state, "tasks", context);
   ensureArray(state, "dispatches", context);
@@ -218,6 +219,18 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
       }
     }
   }
+  if (!isRecord(state.topologies)) {
+    setValue(state, "topologies", {
+      schemaVersion: 1,
+      runs: []
+    }, context, "topologies state is required");
+  } else {
+    const topologies = state.topologies as Record<string, unknown>;
+    setDefault(topologies, "schemaVersion", 1, context, "topologies.schemaVersion is required", "topologies.schemaVersion");
+    if (!Array.isArray(topologies.runs)) {
+      setValue(topologies, "runs", [], context, "topologies.runs must be an array", "topologies.runs");
+    }
+  }
 
   if (!Array.isArray(state.phases)) {
     const phases = derivePhases(Array.isArray(state.tasks) ? state.tasks : []);
@@ -239,6 +252,7 @@ function validateMigratedRunState(state: Record<string, unknown>, report: StateM
   }
   if (!isRecord(state.multiAgent)) report.errors.push("multiAgent must be an object.");
   if (!isRecord(state.blackboard)) report.errors.push("blackboard must be an object.");
+  if (!isRecord(state.topologies)) report.errors.push("topologies must be an object.");
 }
 
 function detectSchemaVersion(value: unknown): number {
