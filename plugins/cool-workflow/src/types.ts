@@ -273,6 +273,7 @@ export type ErrorFeedbackClassification =
   | "missing-evidence"
   | "parse-error"
   | "pipeline-failure"
+  | "sandbox-policy"
   | "runtime-error"
   | "unknown";
 export type ErrorFeedbackSource =
@@ -329,6 +330,95 @@ export interface CorrectionTaskResult {
   metadata?: Record<string, unknown>;
 }
 
+export type SandboxPolicyMode = "none" | "allowlist" | "any";
+
+export interface SandboxCommandPolicy {
+  mode: SandboxPolicyMode;
+  allow?: string[];
+  deny?: string[];
+}
+
+export interface SandboxNetworkPolicy {
+  mode: SandboxPolicyMode;
+  allow?: string[];
+}
+
+export interface SandboxEnvironmentPolicy {
+  inherit?: boolean;
+  expose: string[];
+  deny?: string[];
+}
+
+export interface SandboxWorkerOutputPolicy {
+  result: boolean;
+  artifacts: boolean;
+  logs: boolean;
+}
+
+export interface SandboxProfileDefinition {
+  schemaVersion: 1;
+  id: string;
+  title: string;
+  description?: string;
+  readPaths?: string[];
+  writePaths?: string[];
+  workerOutput?: Partial<SandboxWorkerOutputPolicy>;
+  execute?: SandboxCommandPolicy;
+  network?: SandboxNetworkPolicy;
+  env?: SandboxEnvironmentPolicy;
+  hostInstructions?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface SandboxEnforcementContract {
+  enforcedByCW: string[];
+  hostRequired: string[];
+}
+
+export interface ResolvedSandboxPolicy {
+  schemaVersion: 1;
+  id: string;
+  title: string;
+  description?: string;
+  readPaths: string[];
+  writePaths: string[];
+  workerOutput: SandboxWorkerOutputPolicy;
+  execute: SandboxCommandPolicy;
+  network: SandboxNetworkPolicy;
+  env: SandboxEnvironmentPolicy;
+  enforcement: SandboxEnforcementContract;
+  hostInstructions: string[];
+  resolvedAt: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface SandboxResolutionContext {
+  cwd: string;
+  runDir?: string;
+  workerDir?: string;
+  inputPath?: string;
+  resultPath?: string;
+  artifactsDir?: string;
+  logsDir?: string;
+  extraReadPaths?: string[];
+  extraWritePaths?: string[];
+  allowArtifacts?: boolean;
+  allowLogs?: boolean;
+}
+
+export interface SandboxProfileValidationIssue {
+  code: string;
+  message: string;
+  path?: string;
+}
+
+export interface SandboxProfileValidationResult {
+  valid: boolean;
+  profileFile: string;
+  issues: SandboxProfileValidationIssue[];
+  profile?: ResolvedSandboxPolicy;
+}
+
 export type WorkerIsolationStatus =
   | "allocated"
   | "running"
@@ -341,6 +431,9 @@ export interface WorkerIsolationPolicy {
   allowArtifacts?: boolean;
   allowLogs?: boolean;
   allowedPaths?: string[];
+  readPaths?: string[];
+  writePaths?: string[];
+  sandboxProfileId?: string;
 }
 
 export interface WorkerBoundaryViolation {
@@ -374,6 +467,8 @@ export interface WorkerScope {
   artifactsDir: string;
   logsDir: string;
   allowedPaths: string[];
+  sandboxProfileId?: string;
+  sandboxPolicy?: ResolvedSandboxPolicy;
   stateNodeId?: string;
   resultNodeId?: string;
   feedbackIds: string[];
@@ -397,6 +492,14 @@ export interface WorkerManifest {
   artifactsDir: string;
   logsDir: string;
   allowedPaths: string[];
+  sandboxProfileId?: string;
+  sandboxPolicy?: ResolvedSandboxPolicy;
+  sandbox?: {
+    profileId: string;
+    policy: ResolvedSandboxPolicy;
+    enforcedByCW: string[];
+    hostRequired: string[];
+  };
   instructions: string[];
   taskPath?: string;
   prompt?: string;
@@ -411,6 +514,7 @@ export interface WorkerManifest {
 export interface WorkerIsolationOptions {
   workerId?: string;
   dispatchId?: string;
+  sandboxProfileId?: string;
   status?: WorkerIsolationStatus;
   policy?: WorkerIsolationPolicy;
   metadata?: Record<string, unknown>;
@@ -530,6 +634,8 @@ export interface RunTask {
   verifierNodeId?: string;
   workerId?: string;
   workerManifestPath?: string;
+  sandboxProfileId?: string;
+  sandboxPolicy?: ResolvedSandboxPolicy;
 }
 
 export interface DispatchTask {
@@ -543,6 +649,8 @@ export interface DispatchTask {
   workerManifestPath?: string;
   workerDir?: string;
   workerResultPath?: string;
+  sandboxProfileId?: string;
+  sandboxPolicy?: ResolvedSandboxPolicy;
 }
 
 export interface DispatchManifest {
@@ -556,6 +664,8 @@ export interface DispatchManifest {
   manifestPath?: string | null;
   stateNodeId?: string;
   workerIndexPath?: string;
+  sandboxProfileId?: string;
+  sandboxPolicy?: ResolvedSandboxPolicy;
 }
 
 export interface RunDispatch {
@@ -566,6 +676,7 @@ export interface RunDispatch {
   createdAt: string;
   stateNodeId?: string;
   workerIds?: string[];
+  sandboxProfileId?: string;
 }
 
 export interface StateCommit {
@@ -610,6 +721,7 @@ export interface WorkflowRun {
   contracts?: PipelineContract[];
   feedback?: ErrorFeedbackRecord[];
   workers?: WorkerScope[];
+  sandboxProfiles?: ResolvedSandboxPolicy[];
   candidates?: CandidateRecord[];
   candidateSelections?: CandidateSelection[];
 }

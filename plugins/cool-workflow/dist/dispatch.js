@@ -14,6 +14,7 @@ const state_1 = require("./state");
 const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
 const worker_isolation_1 = require("./worker-isolation");
+const sandbox_profile_1 = require("./sandbox-profile");
 function nextDispatchTasks(run, limit) {
     const runnablePhase = firstRunnablePhase(run);
     if (!runnablePhase)
@@ -25,7 +26,9 @@ function nextDispatchTasks(run, limit) {
         .slice(0, max)
         .map(formatDispatchTask);
 }
-function createDispatchManifest(run, limit) {
+function createDispatchManifest(run, limit, options = {}) {
+    const sandboxProfileId = String(options.sandboxProfileId || options.sandbox || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
+    (0, sandbox_profile_1.resolveSandboxProfileById)(sandboxProfileId, (0, sandbox_profile_1.sandboxContextForValidation)(run.cwd));
     const tasks = nextDispatchTasks(run, limit);
     if (!tasks.length) {
         return {
@@ -33,7 +36,8 @@ function createDispatchManifest(run, limit) {
             runId: run.id,
             dispatchId: null,
             tasks: [],
-            manifestPath: null
+            manifestPath: null,
+            sandboxProfileId
         };
     }
     const dispatchId = createDispatchId();
@@ -41,18 +45,21 @@ function createDispatchManifest(run, limit) {
     node_fs_1.default.mkdirSync(run.paths.dispatchesDir, { recursive: true });
     const taskIds = new Set(tasks.map((task) => task.id));
     const createdAt = new Date().toISOString();
+    let sandboxPolicy;
     for (const task of run.tasks) {
         if (taskIds.has(task.id)) {
             task.status = "running";
             task.loopStage = "act";
             task.dispatchId = dispatchId;
             task.dispatchedAt = createdAt;
-            (0, worker_isolation_1.allocateWorkerScope)(run, task, {
+            const scope = (0, worker_isolation_1.allocateWorkerScope)(run, task, {
                 dispatchId,
+                sandboxProfileId,
                 status: "running",
                 persist: false,
                 metadata: { dispatchId, phase: task.phase }
             });
+            sandboxPolicy = sandboxPolicy || scope.sandboxPolicy;
         }
     }
     const manifest = {
@@ -64,18 +71,21 @@ function createDispatchManifest(run, limit) {
         instructions: "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw.js result <run-id> <task-id> <file>`.",
         tasks: run.tasks.filter((task) => taskIds.has(task.id)).map(formatDispatchTask),
         manifestPath,
-        workerIndexPath: run.paths.workersDir ? node_path_1.default.join(run.paths.workersDir, "index.json") : undefined
+        workerIndexPath: run.paths.workersDir ? node_path_1.default.join(run.paths.workersDir, "index.json") : undefined,
+        sandboxProfileId,
+        sandboxPolicy
     };
     const dispatchNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
         id: `${run.id}:dispatch:${dispatchId}`,
         kind: "dispatch",
         status: "running",
         loopStage: "act",
-        inputs: { taskIds: tasks.map((task) => task.id), phase: manifest.phase },
-        outputs: { dispatchId },
+        inputs: { taskIds: tasks.map((task) => task.id), phase: manifest.phase, sandboxProfileId },
+        outputs: { dispatchId, sandboxProfileId },
         artifacts: [{ id: "dispatch", kind: "json", path: manifestPath }],
         parents: tasks.map((task) => `${run.id}:task:${task.id}`),
-        contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID
+        contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+        metadata: { sandboxProfileId, sandboxPolicy }
     }));
     manifest.stateNodeId = dispatchNode.id;
     for (const task of run.tasks) {
@@ -93,7 +103,8 @@ function createDispatchManifest(run, limit) {
         manifestPath,
         createdAt,
         stateNodeId: dispatchNode.id,
-        workerIds: run.tasks.filter((task) => taskIds.has(task.id) && task.workerId).map((task) => String(task.workerId))
+        workerIds: run.tasks.filter((task) => taskIds.has(task.id) && task.workerId).map((task) => String(task.workerId)),
+        sandboxProfileId
     });
     updatePhaseStatuses(run);
     (0, state_1.writeJson)(manifestPath, manifest);
@@ -136,7 +147,9 @@ function formatDispatchTask(task) {
         workerId: task.workerId,
         workerManifestPath: task.workerManifestPath,
         workerDir: task.workerManifestPath ? node_path_1.default.dirname(task.workerManifestPath) : undefined,
-        workerResultPath: task.workerId && task.workerManifestPath ? node_path_1.default.join(node_path_1.default.dirname(task.workerManifestPath), "result.md") : undefined
+        workerResultPath: task.workerId && task.workerManifestPath ? node_path_1.default.join(node_path_1.default.dirname(task.workerManifestPath), "result.md") : undefined,
+        sandboxProfileId: task.sandboxProfileId,
+        sandboxPolicy: task.sandboxPolicy
     };
 }
 function createDispatchId() {

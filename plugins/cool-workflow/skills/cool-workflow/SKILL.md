@@ -45,7 +45,8 @@ results with the runner.
 2. Run `node scripts/cw.js plan <workflow-id> ...` from the plugin root or use
    the absolute plugin script path.
 3. Run `node scripts/cw.js dispatch <run-id> --limit N` to create a dispatch
-   manifest for the current phase.
+   manifest for the current phase. Use `--sandbox <profile-id>` when the user
+   or workflow needs an explicit worker policy profile.
 4. If the user explicitly asked for agents, spawn one subagent per dispatched
    task with disjoint scopes.
 5. Save each subagent summary to `.cw/runs/<run-id>/results/<task-id>.md`.
@@ -63,6 +64,10 @@ node scripts/cw.js init my-workflow --title "My Workflow"
 node scripts/cw.js plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
 node scripts/cw.js status <run-id>
 node scripts/cw.js dispatch <run-id> --limit 6
+node scripts/cw.js dispatch <run-id> --sandbox readonly
+node scripts/cw.js sandbox list
+node scripts/cw.js sandbox show readonly
+node scripts/cw.js sandbox validate ./site-sandbox.json
 node scripts/cw.js result <run-id> <task-id> /path/to/result.md
 node scripts/cw.js commit <run-id> --verifier <node-id> --reason "verified result"
 node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified winner"
@@ -87,6 +92,12 @@ Run data is written to `.cw/runs/<run-id>/` in `--cwd`, or in `--repo` when
 `--cwd` is not provided.
 
 The runtime source is TypeScript under `src/` and compiles to `dist/`.
+
+Sandbox Profiles are named CW policy contracts. They describe worker read
+paths, write paths, command policy, network policy, environment exposure, and
+host enforcement requirements. CW enforces profile validation and worker result
+acceptance; the agent host enforces OS/process/network/environment controls.
+Inspect profile state with `worker manifest <run-id> <worker-id>`.
 
 CW records the model loop explicitly as:
 

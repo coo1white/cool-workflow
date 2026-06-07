@@ -25,6 +25,11 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.8 adds Sandbox Profiles: named worker policy contracts for read paths,
+write paths, command execution, network access, and environment exposure. CW
+stores and validates the policy, while the agent host enforces OS/process
+runtime controls. See [docs/sandbox-profiles.7.md](docs/sandbox-profiles.7.md).
+
 ## Structure
 
 ```text
@@ -37,6 +42,7 @@ cool-workflow
   workflows/research-synthesis.workflow.js
   docs/agent-sdk.md
   docs/unix-principles.md
+  docs/sandbox-profiles.7.md
   docs/candidate-scoring.7.md
   docs/verifier-gated-commit.7.md
 ```
@@ -68,6 +74,15 @@ Create a dispatch manifest for the current runnable phase:
 
 ```bash
 node scripts/cw.js dispatch <run-id> --limit 6
+node scripts/cw.js dispatch <run-id> --sandbox readonly
+```
+
+Inspect sandbox profiles:
+
+```bash
+node scripts/cw.js sandbox list
+node scripts/cw.js sandbox show readonly
+node scripts/cw.js sandbox validate ./site-sandbox.json
 ```
 
 Record an agent result after a worker finishes:
@@ -122,6 +137,8 @@ See [docs/candidate-scoring.7.md](docs/candidate-scoring.7.md) for the
 candidate scoring file contract.
 See [docs/verifier-gated-commit.7.md](docs/verifier-gated-commit.7.md) for the
 commit gate contract.
+See [docs/sandbox-profiles.7.md](docs/sandbox-profiles.7.md) for the sandbox
+profile contract.
 
 ## License
 

@@ -1,10 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
-import { DispatchManifest, DispatchTask, RunPhase, RunTask, WorkflowRun } from "./types";
+import { DispatchManifest, DispatchTask, ResolvedSandboxPolicy, RunPhase, RunTask, WorkflowRun } from "./types";
 import { writeJson } from "./state";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import { appendRunNode, createStateNode, transitionStateNode } from "./state-node";
 import { allocateWorkerScope } from "./worker-isolation";
+import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation } from "./sandbox-profile";
+
+export interface DispatchOptions {
+  sandboxProfileId?: string;
+  sandbox?: string;
+}
 
 export function nextDispatchTasks(run: WorkflowRun, limit?: number): DispatchTask[] {
   const runnablePhase = firstRunnablePhase(run);
@@ -17,7 +23,9 @@ export function nextDispatchTasks(run: WorkflowRun, limit?: number): DispatchTas
     .map(formatDispatchTask);
 }
 
-export function createDispatchManifest(run: WorkflowRun, limit?: number): DispatchManifest {
+export function createDispatchManifest(run: WorkflowRun, limit?: number, options: DispatchOptions = {}): DispatchManifest {
+  const sandboxProfileId = String(options.sandboxProfileId || options.sandbox || DEFAULT_SANDBOX_PROFILE_ID);
+  resolveSandboxProfileById(sandboxProfileId, sandboxContextForValidation(run.cwd));
   const tasks = nextDispatchTasks(run, limit);
   if (!tasks.length) {
     return {
@@ -25,7 +33,8 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
       runId: run.id,
       dispatchId: null,
       tasks: [],
-      manifestPath: null
+      manifestPath: null,
+      sandboxProfileId
     };
   }
 
@@ -34,6 +43,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
   fs.mkdirSync(run.paths.dispatchesDir, { recursive: true });
   const taskIds = new Set(tasks.map((task) => task.id));
   const createdAt = new Date().toISOString();
+  let sandboxPolicy: ResolvedSandboxPolicy | undefined;
 
   for (const task of run.tasks) {
     if (taskIds.has(task.id)) {
@@ -41,12 +51,14 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
       task.loopStage = "act";
       task.dispatchId = dispatchId;
       task.dispatchedAt = createdAt;
-      allocateWorkerScope(run, task, {
+      const scope = allocateWorkerScope(run, task, {
         dispatchId,
+        sandboxProfileId,
         status: "running",
         persist: false,
         metadata: { dispatchId, phase: task.phase }
       });
+      sandboxPolicy = sandboxPolicy || scope.sandboxPolicy;
     }
   }
 
@@ -60,7 +72,9 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
       "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw.js result <run-id> <task-id> <file>`.",
     tasks: run.tasks.filter((task) => taskIds.has(task.id)).map(formatDispatchTask),
     manifestPath,
-    workerIndexPath: run.paths.workersDir ? path.join(run.paths.workersDir, "index.json") : undefined
+    workerIndexPath: run.paths.workersDir ? path.join(run.paths.workersDir, "index.json") : undefined,
+    sandboxProfileId,
+    sandboxPolicy
   };
 
   const dispatchNode = appendRunNode(
@@ -70,11 +84,12 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
       kind: "dispatch",
       status: "running",
       loopStage: "act",
-      inputs: { taskIds: tasks.map((task) => task.id), phase: manifest.phase },
-      outputs: { dispatchId },
+      inputs: { taskIds: tasks.map((task) => task.id), phase: manifest.phase, sandboxProfileId },
+      outputs: { dispatchId, sandboxProfileId },
       artifacts: [{ id: "dispatch", kind: "json", path: manifestPath }],
       parents: tasks.map((task) => `${run.id}:task:${task.id}`),
-      contractId: DEFAULT_PIPELINE_CONTRACT_ID
+      contractId: DEFAULT_PIPELINE_CONTRACT_ID,
+      metadata: { sandboxProfileId, sandboxPolicy }
     })
   );
   manifest.stateNodeId = dispatchNode.id;
@@ -94,7 +109,8 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number): Dispat
     manifestPath,
     createdAt,
     stateNodeId: dispatchNode.id,
-    workerIds: run.tasks.filter((task) => taskIds.has(task.id) && task.workerId).map((task) => String(task.workerId))
+    workerIds: run.tasks.filter((task) => taskIds.has(task.id) && task.workerId).map((task) => String(task.workerId)),
+    sandboxProfileId
   });
   updatePhaseStatuses(run);
   writeJson(manifestPath, manifest);
@@ -135,7 +151,9 @@ export function formatDispatchTask(task: RunTask): DispatchTask {
     workerId: task.workerId,
     workerManifestPath: task.workerManifestPath,
     workerDir: task.workerManifestPath ? path.dirname(task.workerManifestPath) : undefined,
-    workerResultPath: task.workerId && task.workerManifestPath ? path.join(path.dirname(task.workerManifestPath), "result.md") : undefined
+    workerResultPath: task.workerId && task.workerManifestPath ? path.join(path.dirname(task.workerManifestPath), "result.md") : undefined,
+    sandboxProfileId: task.sandboxProfileId,
+    sandboxPolicy: task.sandboxPolicy
   };
 }
 

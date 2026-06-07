@@ -48,6 +48,13 @@ import {
   selectCandidate,
   summarizeCandidates
 } from "./candidate-scoring";
+import {
+  listBundledSandboxProfiles,
+  SandboxProfileError,
+  sandboxContextForValidation,
+  showBundledSandboxProfile,
+  validateSandboxProfileFile
+} from "./sandbox-profile";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -125,6 +132,7 @@ export class CoolWorkflowRunner {
       contracts: [],
       feedback: [],
       workers: [],
+      sandboxProfiles: [],
       candidates: [],
       candidateSelections: []
     };
@@ -172,12 +180,36 @@ export class CoolWorkflowRunner {
 
   dispatch(runId: string, options: Record<string, unknown>): DispatchManifest {
     const run = this.loadRun(runId);
-    const manifest = createDispatchManifest(run, numberOption(options.limit));
-    run.loopStage = "act";
-    if (manifest.dispatchId) commitState(run, `dispatch:${manifest.dispatchId}`);
-    saveCheckpoint(run);
-    writeReport(run);
-    return manifest;
+    try {
+      const manifest = createDispatchManifest(run, numberOption(options.limit), {
+        sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId)
+      });
+      run.loopStage = "act";
+      if (manifest.dispatchId) commitState(run, `dispatch:${manifest.dispatchId}`);
+      saveCheckpoint(run);
+      writeReport(run);
+      return manifest;
+    } catch (error) {
+      if (isSandboxProfileError(error)) {
+        run.loopStage = "adjust";
+        recordFeedback(run, {
+          source: "cli",
+          error: {
+            code: error.code,
+            message: error.message,
+            at: new Date().toISOString(),
+            path: error.path,
+            retryable: false,
+            details: error.details
+          },
+          retryable: false,
+          metadata: { sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId) }
+        }, { persist: false });
+        writeReport(run);
+        saveCheckpoint(run);
+      }
+      throw error;
+    }
   }
 
   recordResult(runId: string, taskId: string, resultPath: string): RunSummary {
@@ -284,14 +316,22 @@ export class CoolWorkflowRunner {
 
   recordWorkerOutput(runId: string, workerId: string, resultPath: string): RunSummary {
     const run = this.loadRun(runId);
-    recordWorkerOutput(run, workerId, resultPath, { persist: false });
-    run.loopStage = "observe";
-    updatePhaseStatuses(run);
-    validateRunGates(run);
-    commitState(run, `worker:${workerId}:result`);
-    writeReport(run);
-    saveCheckpoint(run);
-    return summarizeRun(run);
+    try {
+      recordWorkerOutput(run, workerId, resultPath, { persist: false });
+      run.loopStage = "observe";
+      updatePhaseStatuses(run);
+      validateRunGates(run);
+      commitState(run, `worker:${workerId}:result`);
+      writeReport(run);
+      saveCheckpoint(run);
+      return summarizeRun(run);
+    } catch (error) {
+      run.loopStage = "adjust";
+      updatePhaseStatuses(run);
+      writeReport(run);
+      saveCheckpoint(run);
+      throw error;
+    }
   }
 
   recordWorkerFailure(
@@ -322,6 +362,18 @@ export class CoolWorkflowRunner {
 
   validateWorker(runId: string, workerId: string, targetPath?: string): ReturnType<typeof validateWorkerBoundary> {
     return validateWorkerBoundary(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
+  }
+
+  listSandboxProfiles(options: Record<string, unknown> = {}): ReturnType<typeof listBundledSandboxProfiles> {
+    return listBundledSandboxProfiles(sandboxContextForValidation(String(options.cwd || process.cwd())));
+  }
+
+  showSandboxProfile(profileId: string, options: Record<string, unknown> = {}): ReturnType<typeof showBundledSandboxProfile> {
+    return showBundledSandboxProfile(profileId, sandboxContextForValidation(String(options.cwd || process.cwd())));
+  }
+
+  validateSandboxProfile(profileFile: string, options: Record<string, unknown> = {}): ReturnType<typeof validateSandboxProfileFile> {
+    return validateSandboxProfileFile(profileFile, sandboxContextForValidation(String(options.cwd || process.cwd())));
   }
 
   listCandidates(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listCandidates> {
@@ -601,7 +653,7 @@ export function parseArgv(argv: string[]): {
 }
 
 export function formatHelp(): string {
-  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 
 function appendOption(options: Record<string, unknown>, key: string, value: string | boolean): void {
@@ -698,6 +750,10 @@ function writeReport(run: WorkflowRun): string {
     "## Workers",
     "",
     ...renderWorkers(workerSummary),
+    "",
+    "## Sandbox Profiles",
+    "",
+    ...renderSandboxProfiles(run),
     "",
     "## Candidates",
     "",
@@ -796,6 +852,18 @@ function renderWorkers(summary: ReturnType<typeof summarizeWorkers>): string[] {
   return lines;
 }
 
+function renderSandboxProfiles(run: WorkflowRun): string[] {
+  const profiles = run.sandboxProfiles || [];
+  if (!profiles.length) return ["No sandbox profiles selected yet."];
+  return profiles.map((profile) =>
+    [
+      `- ${profile.id}: read=${profile.readPaths.length}, write=${profile.writePaths.length}, execute=${profile.execute.mode}, network=${profile.network.mode}`,
+      `  enforcedByCW=${profile.enforcement.enforcedByCW.join("; ")}`,
+      `  hostRequired=${profile.enforcement.hostRequired.join("; ")}`
+    ].join("\n")
+  );
+}
+
 function renderCandidates(summary: ReturnType<typeof summarizeCandidates>): string[] {
   if (!summary.total) return ["No candidates yet."];
   return [
@@ -892,6 +960,10 @@ function mergeEvidence<T extends { id: string }>(left: T[], right: T[]): T[] {
 function arrayOption(value: unknown): unknown[] {
   if (value === undefined || value === null || value === true) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+function isSandboxProfileError(error: unknown): error is SandboxProfileError {
+  return error instanceof SandboxProfileError || Boolean(error && typeof error === "object" && "code" in error && String((error as { code?: unknown }).code).startsWith("sandbox-"));
 }
 
 function createRunId(workflowId: string): string {

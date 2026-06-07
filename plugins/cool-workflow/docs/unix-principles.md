@@ -18,6 +18,7 @@ CW already stores:
 - routine trigger events in `.cw/routines/`
 - candidate scoring records in `.cw/runs/<run-id>/candidates/`
 - commit gate failures in `.cw/runs/<run-id>/feedback/`
+- sandbox profile selections in worker, dispatch, feedback, and report state
 
 The practical rule is:
 
@@ -42,6 +43,7 @@ recordResult()
 verify()
 commit()
 report()
+sandbox()
 schedule()
 trigger()
 ```
@@ -88,9 +90,15 @@ Useful isolation layers:
 - separate run directories
 - separate workspace or sandbox directories for risky work
 - separate score/evidence records for competing candidates
+- named sandbox profiles for read/write/execute/network/env policy
 
 Worker failure should not corrupt the workflow kernel. A failed worker is a
 state transition, not a process-wide failure.
+
+Sandbox Profiles keep policy explicit. CW stores the profile id and resolved
+policy in durable state, validates paths, and accepts or rejects worker output
+against the write policy. The agent host remains responsible for OS-level file
+access, command execution, network access, and environment filtering.
 
 ## 5. Verifier-Gated Commits
 
@@ -120,6 +128,7 @@ committed state.
 The kernel provides deterministic pipes.
 Workers explore in isolation.
 Verifiers decide what may be committed.
+Hosts enforce runtime sandbox policy.
 ```
 
 This keeps CW small, inspectable, and extensible.

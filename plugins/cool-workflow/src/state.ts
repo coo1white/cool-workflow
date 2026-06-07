@@ -47,6 +47,7 @@ export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun 
   run.contracts = run.contracts || [];
   run.feedback = run.feedback || [];
   run.workers = run.workers || [];
+  run.sandboxProfiles = run.sandboxProfiles || [];
   run.candidates = run.candidates || [];
   run.candidateSelections = run.candidateSelections || [];
   return run;
