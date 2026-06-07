@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.17
+
+- Added Multi-Agent Runtime Core with durable `MultiAgentRun`, `AgentRole`,
+  `AgentGroup`, `AgentMembership`, `AgentFanout`, and `AgentFanin` records.
+- Added lifecycle validation for multi-agent runs and fail-closed membership,
+  duplicate assignment, and missing fanin evidence handling.
+- Added dispatch attachment so workers can carry multi-agent run, group, role,
+  membership, and fanout metadata without replacing existing dispatch flows.
+- Added multi-agent Operator UX panels, graph nodes/edges, report sections,
+  trust audit events, and evidence provenance for membership output and fanin.
+- Added CLI and MCP parity for multi-agent summary, graph, show, create,
+  lifecycle transition, fanout, and fanin collection operations.
+- Added fixture compatibility normalization so older runs load with empty
+  multi-agent state while preserving unknown user data.
+- Added `docs/multi-agent-runtime-core.7.md` and
+  `test/multi-agent-runtime-core-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.16
 
 - Added `npm run dogfood:release`, a dry-run release proof that uses the

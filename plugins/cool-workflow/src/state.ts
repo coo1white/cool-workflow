@@ -20,7 +20,8 @@ export function createRunPaths(runDir: string): RunPaths {
     feedbackDir: path.join(runDir, "feedback"),
     auditDir: path.join(runDir, "audit"),
     workersDir: path.join(runDir, "workers"),
-    candidatesDir: path.join(runDir, "candidates")
+    candidatesDir: path.join(runDir, "candidates"),
+    multiAgentDir: path.join(runDir, "multi-agent")
   };
 }
 
@@ -36,7 +37,8 @@ export function ensureRunDirs(paths: RunPaths): void {
     paths.feedbackDir,
     paths.auditDir || path.join(paths.runDir, "audit"),
     paths.workersDir || path.join(paths.runDir, "workers"),
-    paths.candidatesDir || path.join(paths.runDir, "candidates")
+    paths.candidatesDir || path.join(paths.runDir, "candidates"),
+    paths.multiAgentDir || path.join(paths.runDir, "multi-agent")
   ]) {
     fs.mkdirSync(dir, { recursive: true });
   }

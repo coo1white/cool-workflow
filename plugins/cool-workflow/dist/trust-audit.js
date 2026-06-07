@@ -55,6 +55,12 @@ function recordTrustAuditEvent(run, input) {
         scoreId: input.scoreId,
         selectionId: input.selectionId,
         commitId: input.commitId,
+        multiAgentRunId: input.multiAgentRunId,
+        agentRoleId: input.agentRoleId,
+        agentGroupId: input.agentGroupId,
+        agentMembershipId: input.agentMembershipId,
+        agentFanoutId: input.agentFanoutId,
+        agentFaninId: input.agentFaninId,
         sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
         policyRef: input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined,
         policySnapshot: redactPolicy(input.policySnapshot),
@@ -133,7 +139,21 @@ function summarizeTrustAudit(run) {
         bySandboxProfile: countBy(events.filter((event) => event.sandboxProfileId), (event) => event.sandboxProfileId || "none"),
         workers: workerRows(events, run),
         candidates: candidateRows(events, run),
-        commits: commitRows(events, run)
+        commits: commitRows(events, run),
+        multiAgent: {
+            runs: run.multiAgent?.runs.length || 0,
+            roles: run.multiAgent?.roles.length || 0,
+            groups: run.multiAgent?.groups.length || 0,
+            memberships: run.multiAgent?.memberships.length || 0,
+            fanouts: run.multiAgent?.fanouts.length || 0,
+            fanins: run.multiAgent?.fanins.length || 0,
+            events: events.filter((event) => Boolean(event.multiAgentRunId ||
+                event.agentRoleId ||
+                event.agentGroupId ||
+                event.agentMembershipId ||
+                event.agentFanoutId ||
+                event.agentFaninId)).length
+        }
     };
     (0, state_1.writeJson)(audit.summaryPath, summary);
     (0, state_1.writeJson)(audit.indexPath, {
@@ -150,6 +170,12 @@ function summarizeTrustAudit(run) {
             candidateId: event.candidateId,
             selectionId: event.selectionId,
             commitId: event.commitId,
+            multiAgentRunId: event.multiAgentRunId,
+            agentRoleId: event.agentRoleId,
+            agentGroupId: event.agentGroupId,
+            agentMembershipId: event.agentMembershipId,
+            agentFanoutId: event.agentFanoutId,
+            agentFaninId: event.agentFaninId,
             sandboxProfileId: event.sandboxProfileId
         }))
     });

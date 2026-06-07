@@ -12,6 +12,12 @@ export type StateNodeKind =
   | "candidate"
   | "verifier"
   | "commit"
+  | "multi-agent-run"
+  | "agent-role"
+  | "agent-group"
+  | "agent-membership"
+  | "agent-fanout"
+  | "agent-fanin"
   | "report"
   | "schedule"
   | "trigger"
@@ -169,6 +175,7 @@ export interface RunPaths {
   auditDir?: string;
   workersDir?: string;
   candidatesDir?: string;
+  multiAgentDir?: string;
 }
 
 export interface RunPhase {
@@ -256,6 +263,12 @@ export interface TrustAuditEvent {
   scoreId?: string;
   selectionId?: string;
   commitId?: string;
+  multiAgentRunId?: string;
+  agentRoleId?: string;
+  agentGroupId?: string;
+  agentMembershipId?: string;
+  agentFanoutId?: string;
+  agentFaninId?: string;
   sandboxProfileId?: string;
   policyRef?: string;
   policySnapshot?: ResolvedSandboxPolicy;
@@ -303,6 +316,15 @@ export interface TrustAuditSummary {
     evidenceCount: number;
     rationale?: Record<string, unknown>;
   }>;
+  multiAgent: {
+    runs: number;
+    roles: number;
+    groups: number;
+    memberships: number;
+    fanouts: number;
+    fanins: number;
+    events: number;
+  };
 }
 
 export interface StateNodeError {
@@ -613,6 +635,208 @@ export interface SandboxProfileValidationResult {
   profile?: ResolvedSandboxPolicy;
 }
 
+export type MultiAgentLifecycleStatus =
+  | "planned"
+  | "forming"
+  | "running"
+  | "collecting"
+  | "verifying"
+  | "completed"
+  | "failed"
+  | "cancelled";
+export type AgentRoleStatus = "planned" | "active" | "completed" | "blocked" | "cancelled";
+export type AgentGroupStatus = MultiAgentLifecycleStatus;
+export type AgentMembershipStatus =
+  | "planned"
+  | "assigned"
+  | "running"
+  | "reported"
+  | "verified"
+  | "failed"
+  | "cancelled";
+export type AgentFanoutStatus = "planned" | "dispatched" | "completed" | "failed" | "cancelled";
+export type AgentFaninStatus = "planned" | "collecting" | "blocked" | "ready" | "verifying" | "completed" | "failed";
+
+export interface MultiAgentLifecycleEvent {
+  at: string;
+  from?: string;
+  to: string;
+  actor?: string;
+  reason?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface MultiAgentLinkage {
+  workflowRunId: string;
+  phase?: string;
+  phaseId?: string;
+  taskIds?: string[];
+  dispatchIds?: string[];
+  workerIds?: string[];
+  candidateIds?: string[];
+  verifierNodeIds?: string[];
+  commitIds?: string[];
+  auditEventIds?: string[];
+}
+
+export interface MultiAgentRun {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: MultiAgentLifecycleStatus;
+  title?: string;
+  objective?: string;
+  parentMultiAgentRunId?: string;
+  childMultiAgentRunIds: string[];
+  roleIds: string[];
+  groupIds: string[];
+  fanoutIds: string[];
+  faninIds: string[];
+  lifecycle: MultiAgentLifecycleEvent[];
+  links: MultiAgentLinkage;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentRole {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  multiAgentRunId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: AgentRoleStatus;
+  title: string;
+  responsibilities: string[];
+  requiredEvidence: string[];
+  sandboxProfileHints: string[];
+  expectedArtifacts: string[];
+  faninObligations: string[];
+  lifecycle: MultiAgentLifecycleEvent[];
+  parentRoleId?: string;
+  childRoleIds: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentGroup {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  multiAgentRunId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: AgentGroupStatus;
+  title?: string;
+  phase?: string;
+  phaseId?: string;
+  taskIds: string[];
+  roleIds: string[];
+  membershipIds: string[];
+  workerIds: string[];
+  fanoutIds: string[];
+  faninIds: string[];
+  lifecycle: MultiAgentLifecycleEvent[];
+  parentGroupId?: string;
+  childGroupIds: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentMembership {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  multiAgentRunId: string;
+  groupId: string;
+  roleId: string;
+  taskId: string;
+  workerId?: string;
+  dispatchId?: string;
+  fanoutId?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: AgentMembershipStatus;
+  lifecycle: MultiAgentLifecycleEvent[];
+  resultNodeId?: string;
+  verifierNodeId?: string;
+  evidenceRefs: string[];
+  artifactPaths: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentFanout {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  multiAgentRunId: string;
+  groupId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: AgentFanoutStatus;
+  reason: string;
+  roleIds: string[];
+  taskIds: string[];
+  workerIds: string[];
+  membershipIds: string[];
+  dispatchIds: string[];
+  concurrencyLimit?: number;
+  sandboxProfileChoices: Record<string, string>;
+  expectedReturnShape: string;
+  lifecycle: MultiAgentLifecycleEvent[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface AgentFaninEvidenceCoverage {
+  membershipId: string;
+  roleId: string;
+  taskId: string;
+  workerId?: string;
+  evidenceRefs: string[];
+  resultNodeId?: string;
+  verifierNodeId?: string;
+  complete: boolean;
+}
+
+export interface AgentFanin {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  multiAgentRunId: string;
+  groupId: string;
+  fanoutId?: string;
+  createdAt: string;
+  updatedAt: string;
+  status: AgentFaninStatus;
+  strategy: string;
+  requiredRoleIds: string[];
+  reportedMembershipIds: string[];
+  missingMembershipIds: string[];
+  missingRoleIds: string[];
+  evidenceCoverage: AgentFaninEvidenceCoverage[];
+  verifierReady: boolean;
+  blockedReasons: string[];
+  lifecycle: MultiAgentLifecycleEvent[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface MultiAgentState {
+  schemaVersion: 1;
+  runs: MultiAgentRun[];
+  roles: AgentRole[];
+  groups: AgentGroup[];
+  memberships: AgentMembership[];
+  fanouts: AgentFanout[];
+  fanins: AgentFanin[];
+}
+
+export interface WorkerMultiAgentMetadata {
+  runId: string;
+  groupId: string;
+  roleId: string;
+  membershipId?: string;
+  fanoutId?: string;
+}
+
 export type WorkerIsolationStatus =
   | "allocated"
   | "running"
@@ -669,6 +893,7 @@ export interface WorkerScope {
   feedbackIds: string[];
   errors: StateNodeError[];
   output?: WorkerOutputRecord;
+  multiAgent?: WorkerMultiAgentMetadata;
   metadata?: Record<string, unknown>;
 }
 
@@ -703,6 +928,7 @@ export interface WorkerManifest {
   feedbackIds?: string[];
   errors?: StateNodeError[];
   output?: WorkerOutputRecord;
+  multiAgent?: WorkerMultiAgentMetadata;
   metadata?: Record<string, unknown>;
 }
 
@@ -712,6 +938,7 @@ export interface WorkerIsolationOptions {
   sandboxProfileId?: string;
   status?: WorkerIsolationStatus;
   policy?: WorkerIsolationPolicy;
+  multiAgent?: WorkerMultiAgentMetadata;
   metadata?: Record<string, unknown>;
   persist?: boolean;
 }
@@ -845,6 +1072,7 @@ export interface RunTask {
   workerManifestPath?: string;
   sandboxProfileId?: string;
   sandboxPolicy?: ResolvedSandboxPolicy;
+  multiAgent?: WorkerMultiAgentMetadata;
 }
 
 export interface DispatchTask {
@@ -860,6 +1088,7 @@ export interface DispatchTask {
   workerResultPath?: string;
   sandboxProfileId?: string;
   sandboxPolicy?: ResolvedSandboxPolicy;
+  multiAgent?: WorkerMultiAgentMetadata;
 }
 
 export interface DispatchManifest {
@@ -875,6 +1104,13 @@ export interface DispatchManifest {
   workerIndexPath?: string;
   sandboxProfileId?: string;
   sandboxPolicy?: ResolvedSandboxPolicy;
+  multiAgent?: {
+    runId?: string;
+    groupId?: string;
+    roleId?: string;
+    fanoutId?: string;
+    membershipIds?: string[];
+  };
 }
 
 export interface RunDispatch {
@@ -886,6 +1122,13 @@ export interface RunDispatch {
   stateNodeId?: string;
   workerIds?: string[];
   sandboxProfileId?: string;
+  multiAgent?: {
+    runId?: string;
+    groupId?: string;
+    roleId?: string;
+    fanoutId?: string;
+    membershipIds?: string[];
+  };
 }
 
 export interface StateCommit {
@@ -941,6 +1184,7 @@ export interface WorkflowRun {
   sandboxProfiles?: ResolvedSandboxPolicy[];
   candidates?: CandidateRecord[];
   candidateSelections?: CandidateSelection[];
+  multiAgent?: MultiAgentState;
 }
 
 export interface RunSummary {

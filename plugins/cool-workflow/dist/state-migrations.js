@@ -106,6 +106,7 @@ function normalizeRunState(state, context) {
     setDefault(paths, "auditDir", node_path_1.default.join(baseRunDir, "audit"), context, "paths.auditDir is required", "paths.auditDir");
     setDefault(paths, "workersDir", node_path_1.default.join(baseRunDir, "workers"), context, "paths.workersDir is required", "paths.workersDir");
     setDefault(paths, "candidatesDir", node_path_1.default.join(baseRunDir, "candidates"), context, "paths.candidatesDir is required", "paths.candidatesDir");
+    setDefault(paths, "multiAgentDir", node_path_1.default.join(baseRunDir, "multi-agent"), context, "paths.multiAgentDir is required", "paths.multiAgentDir");
     ensureArray(state, "tasks", context);
     ensureArray(state, "dispatches", context);
     ensureArray(state, "commits", context);
@@ -124,6 +125,26 @@ function normalizeRunState(state, context) {
     ensureArray(state, "sandboxProfiles", context);
     ensureArray(state, "candidates", context);
     ensureArray(state, "candidateSelections", context);
+    if (!isRecord(state.multiAgent)) {
+        setValue(state, "multiAgent", {
+            schemaVersion: 1,
+            runs: [],
+            roles: [],
+            groups: [],
+            memberships: [],
+            fanouts: [],
+            fanins: []
+        }, context, "multiAgent state is required");
+    }
+    else {
+        const multiAgent = state.multiAgent;
+        setDefault(multiAgent, "schemaVersion", 1, context, "multiAgent.schemaVersion is required", "multiAgent.schemaVersion");
+        for (const key of ["runs", "roles", "groups", "memberships", "fanouts", "fanins"]) {
+            if (!Array.isArray(multiAgent[key])) {
+                setValue(multiAgent, key, [], context, `multiAgent.${key} must be an array`, `multiAgent.${key}`);
+            }
+        }
+    }
     if (!Array.isArray(state.phases)) {
         const phases = derivePhases(Array.isArray(state.tasks) ? state.tasks : []);
         setValue(state, "phases", phases, context, "phases derived from tasks");
@@ -145,6 +166,8 @@ function validateMigratedRunState(state, report) {
         if (!Array.isArray(state[key]))
             report.errors.push(`${key} must be an array.`);
     }
+    if (!isRecord(state.multiAgent))
+        report.errors.push("multiAgent must be an object.");
 }
 function detectSchemaVersion(value) {
     if (!isRecord(value) || value.schemaVersion === undefined)

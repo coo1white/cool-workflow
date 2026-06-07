@@ -66,6 +66,7 @@ mutated.
 - `npm run build`
 - `npm run check`
 - `npm test`
+- `node test/multi-agent-runtime-core-smoke.js`
 - dogfood release smoke coverage
 - `npm run canonical-apps`
 - `npm run golden-path`
@@ -84,6 +85,12 @@ Workflow repository in dry-run mode and produces a CW report, audit summary,
 provenance, release candidate, score, selection, and verifier-gated
 commit/checkpoint. `npm run release:check` includes the dogfood smoke test so
 the wiring stays covered without recursively running the full release gate.
+
+For v0.1.17, release discipline adds Multi-Agent Runtime Core coverage.
+`npm run release:check` runs `test/multi-agent-runtime-core-smoke.js` directly
+and through `npm test`. Older fixture runs normalize with empty multi-agent
+state under `multiAgent` and `.cw/runs/<run-id>/multi-agent/`, while unknown
+user data remains preserved.
 
 ## Unsupported Cases
 

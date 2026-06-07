@@ -17,9 +17,11 @@ exports.formatWorkerSummary = formatWorkerSummary;
 exports.formatCandidateSummary = formatCandidateSummary;
 exports.formatFeedbackSummary = formatFeedbackSummary;
 exports.formatCommitSummary = formatCommitSummary;
+exports.formatMultiAgentSummary = formatMultiAgentSummary;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const trust_audit_1 = require("./trust-audit");
+const multi_agent_1 = require("./multi-agent");
 function summarizeOperatorRun(run) {
     const tasks = summarizeTasks(run.tasks || []);
     const phases = summarizePhases(run);
@@ -27,9 +29,10 @@ function summarizeOperatorRun(run) {
     const candidates = summarizeOperatorCandidates(run);
     const feedback = summarizeOperatorFeedback(run);
     const commits = summarizeOperatorCommits(run);
+    const multiAgent = (0, multi_agent_1.summarizeMultiAgent)(run);
     const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
     const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
-    const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates);
+    const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, multiAgent);
     return {
         runId: run.id,
         workflowId: run.workflow.id,
@@ -46,6 +49,7 @@ function summarizeOperatorRun(run) {
         candidates,
         feedback,
         commits,
+        multiAgent,
         trust,
         reportPath: run.paths.report,
         evidencePaths: evidencePathsFor(run),
@@ -239,6 +243,11 @@ function buildOperatorGraph(run) {
         addEdge(feedback.nodeId, `${run.id}:feedback:${feedback.id}`);
         addEdge(feedback.taskId ? `${run.id}:task:${feedback.taskId}` : undefined, `${run.id}:feedback:${feedback.id}`);
     }
+    const multiAgentGraph = (0, multi_agent_1.buildMultiAgentGraph)(run);
+    for (const node of multiAgentGraph.nodes)
+        addNode(node.id, node.kind, node.status, node.label, node.path);
+    for (const edge of multiAgentGraph.edges)
+        addEdge(edge.from, edge.to, edge.label);
     return {
         runId: run.id,
         nodes: [...nodes.values()].sort(compareGraphNodes),
@@ -265,6 +274,8 @@ function formatOperatorStatus(summary) {
         "",
         formatCommitPanel(summary.commits),
         "",
+        formatMultiAgentPanel(summary.multiAgent),
+        "",
         formatTrustPanel(summary.trust),
         "",
         `Report: ${summary.reportPath}`,
@@ -286,6 +297,8 @@ function formatOperatorReport(summary) {
         "Resource Commands",
         `  node scripts/cw.js graph ${summary.runId}`,
         `  node scripts/cw.js worker summary ${summary.runId}`,
+        `  node scripts/cw.js multi-agent summary ${summary.runId}`,
+        `  node scripts/cw.js multi-agent graph ${summary.runId}`,
         `  node scripts/cw.js candidate summary ${summary.runId}`,
         `  node scripts/cw.js feedback summary ${summary.runId}`,
         `  node scripts/cw.js commit summary ${summary.runId}`,
@@ -334,6 +347,30 @@ function formatTrustPanel(summary) {
     for (const worker of summary.workers.slice(0, 6)) {
         lines.push(`  worker ${worker.workerId}: sandbox=${worker.sandboxProfileId || "none"}, decisions=${formatCounts(worker.decisions)}, denied=${worker.denied}`);
     }
+    return lines.join("\n");
+}
+function formatMultiAgentSummary(summary) {
+    return formatMultiAgentPanel(summary);
+}
+function formatMultiAgentPanel(summary) {
+    const lines = [
+        "Multi-Agent",
+        `  runs=${summary.totalRuns}; status=${formatCounts(summary.runsByStatus)}`,
+        `  roles=${summary.roles}; groups=${summary.groups} (${formatCounts(summary.groupsByStatus)})`,
+        `  memberships=${summary.memberships} (${formatCounts(summary.membershipsByStatus)})`,
+        `  fanouts=${summary.fanouts}; fanins=${summary.fanins} (${formatCounts(summary.faninsByStatus)})`
+    ];
+    for (const group of summary.groupsDetail.slice(0, 6)) {
+        lines.push(`  group ${group.id}: ${group.status}, phase=${group.phase || "none"}, run=${group.multiAgentRunId}`);
+        for (const role of group.roles.slice(0, 6)) {
+            lines.push(`    role ${role.roleId}: memberships=${role.memberships}, reported=${role.reported}, missing=${role.missing}`);
+        }
+        lines.push(`    fanout=${group.fanouts.join(", ") || "none"} fanin=${group.fanins.join(", ") || "none"}`);
+    }
+    for (const reason of summary.blockedReasons.slice(0, 6))
+        lines.push(`  blocked: ${reason}`);
+    if (summary.nextAction)
+        lines.push(`  next=${summary.nextAction}`);
     return lines.join("\n");
 }
 function adviseNextSteps(run, summary) {
@@ -479,7 +516,7 @@ function phaseStatusFromTasks(run, taskIds) {
         return "blocked";
     return "pending";
 }
-function blockedReasonsFor(run, feedback, workers, candidates) {
+function blockedReasonsFor(run, feedback, workers, candidates, multiAgent) {
     const reasons = [];
     if (feedback.open.length)
         reasons.push(`${feedback.open.length} open/tasked feedback record(s)`);
@@ -489,6 +526,8 @@ function blockedReasonsFor(run, feedback, workers, candidates) {
         reasons.push("failed task(s)");
     if (candidates.problems.length)
         reasons.push(...candidates.problems.slice(0, 2));
+    if (multiAgent.blockedReasons.length)
+        reasons.push(...multiAgent.blockedReasons.slice(0, 2));
     return reasons;
 }
 function candidateProblems(candidates, selections) {

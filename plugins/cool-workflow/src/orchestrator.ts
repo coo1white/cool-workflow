@@ -97,6 +97,24 @@ import {
   summarizeTrustAudit,
   workerTrustAudit
 } from "./trust-audit";
+import {
+  assignAgentMembership,
+  buildMultiAgentGraph,
+  collectAgentFanin,
+  createAgentFanout,
+  createAgentGroup,
+  createAgentRole,
+  createMultiAgentRun,
+  ensureMultiAgentState,
+  getAgentFanin,
+  getAgentFanout,
+  getAgentGroup,
+  getAgentMembership,
+  getAgentRole,
+  getMultiAgentRun,
+  summarizeMultiAgent,
+  transitionMultiAgentRun
+} from "./multi-agent";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -289,9 +307,19 @@ export class CoolWorkflowRunner {
       workers: [],
       sandboxProfiles: [],
       candidates: [],
-      candidateSelections: []
+      candidateSelections: [],
+      multiAgent: {
+        schemaVersion: 1,
+        runs: [],
+        roles: [],
+        groups: [],
+        memberships: [],
+        fanouts: [],
+        fanins: []
+      }
     };
     ensureTrustAudit(run);
+    ensureMultiAgentState(run);
 
     writeTaskFiles(run);
     const contract = upsertRunContract(run, createDefaultPipelineContract());
@@ -351,7 +379,11 @@ export class CoolWorkflowRunner {
     const run = this.loadRun(runId);
     try {
       const manifest = createDispatchManifest(run, numberOption(options.limit), {
-        sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId)
+        sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
+        multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+        multiAgentGroupId: stringOption(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
+        multiAgentRoleId: stringOption(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
+        multiAgentFanoutId: stringOption(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"])
       });
       run.loopStage = "act";
       if (manifest.dispatchId) commitState(run, `dispatch:${manifest.dispatchId}`);
@@ -812,6 +844,171 @@ export class CoolWorkflowRunner {
     return buildOperatorGraph(this.loadRun(runId));
   }
 
+  multiAgentSummary(runId: string): ReturnType<typeof summarizeMultiAgent> {
+    return summarizeMultiAgent(this.loadRun(runId));
+  }
+
+  multiAgentGraph(runId: string): ReturnType<typeof buildMultiAgentGraph> {
+    return buildMultiAgentGraph(this.loadRun(runId));
+  }
+
+  createMultiAgentRun(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createMultiAgentRun> {
+    const run = this.loadRun(runId);
+    const record = createMultiAgentRun(run, {
+      id: stringOption(options.id),
+      title: stringOption(options.title),
+      objective: stringOption(options.objective || options.reason),
+      parentMultiAgentRunId: stringOption(options.parent || options.parentMultiAgentRunId),
+      phase: stringOption(options.phase),
+      phaseId: stringOption(options.phaseId),
+      metadata: metadataOption(options)
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  transitionMultiAgentRun(runId: string, multiAgentRunId: string, options: Record<string, unknown> = {}): ReturnType<typeof transitionMultiAgentRun> {
+    const run = this.loadRun(runId);
+    const record = transitionMultiAgentRun(run, multiAgentRunId, String(options.status || "running") as never, {
+      reason: stringOption(options.reason),
+      actor: stringOption(options.actor),
+      metadata: metadataOption(options)
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  createAgentRole(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createAgentRole> {
+    const run = this.loadRun(runId);
+    const record = createAgentRole(run, {
+      id: stringOption(options.id),
+      multiAgentRunId: requiredStringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
+      title: stringOption(options.title),
+      responsibilities: arrayOption(options.responsibility || options.responsibilities).map(String),
+      requiredEvidence: arrayOption(options.requiredEvidence || options["required-evidence"]).map(String),
+      sandboxProfileHints: arrayOption(options.sandbox || options.sandboxProfile || options.sandboxProfileHint || options["sandbox-profile"]).map(String),
+      expectedArtifacts: arrayOption(options.expectedArtifact || options.expectedArtifacts || options["expected-artifact"]).map(String),
+      faninObligations: arrayOption(options.faninObligation || options.faninObligations || options["fanin-obligation"]).map(String),
+      parentRoleId: stringOption(options.parent || options.parentRoleId),
+      metadata: metadataOption(options)
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  createAgentGroup(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createAgentGroup> {
+    const run = this.loadRun(runId);
+    const record = createAgentGroup(run, {
+      id: stringOption(options.id),
+      multiAgentRunId: requiredStringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
+      title: stringOption(options.title),
+      phase: stringOption(options.phase),
+      phaseId: stringOption(options.phaseId),
+      taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
+      parentGroupId: stringOption(options.parent || options.parentGroupId),
+      metadata: metadataOption(options)
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  assignAgentMembership(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof assignAgentMembership> {
+    const run = this.loadRun(runId);
+    const record = assignAgentMembership(run, {
+      id: stringOption(options.id),
+      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+      groupId: requiredStringOption(options.group || options.groupId || options["multi-agent-group"], "group id"),
+      roleId: requiredStringOption(options.role || options.roleId || options["multi-agent-role"], "role id"),
+      taskId: requiredStringOption(options.task || options.taskId, "task id"),
+      workerId: stringOption(options.worker || options.workerId),
+      dispatchId: stringOption(options.dispatch || options.dispatchId),
+      fanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
+      status: stringOption(options.status) as never,
+      metadata: metadataOption(options)
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  createAgentFanout(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createAgentFanout> {
+    const run = this.loadRun(runId);
+    const record = createAgentFanout(run, {
+      id: stringOption(options.id),
+      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+      groupId: requiredStringOption(options.group || options.groupId || options["multi-agent-group"], "group id"),
+      reason: stringOption(options.reason) || "work split",
+      roleIds: arrayOption(options.role || options.roleId || options.roles).map(String),
+      taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
+      workerIds: arrayOption(options.worker || options.workerId || options.workers).map(String),
+      membershipIds: arrayOption(options.membership || options.membershipId || options.memberships).map(String),
+      dispatchIds: arrayOption(options.dispatch || options.dispatchId || options.dispatches).map(String),
+      concurrencyLimit: numberOption(options.limit || options.concurrency || options.concurrencyLimit),
+      sandboxProfileChoices: parseSandboxChoices(options),
+      expectedReturnShape: stringOption(options.expectedReturnShape || options["expected-return-shape"]),
+      metadata: metadataOption(options)
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  collectAgentFanin(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof collectAgentFanin> {
+    const run = this.loadRun(runId);
+    const record = collectAgentFanin(run, {
+      id: stringOption(options.id),
+      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+      groupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
+      fanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
+      requiredRoleIds: arrayOption(options.requiredRole || options.requiredRoleId || options["required-role"]).map(String),
+      strategy: stringOption(options.strategy),
+      metadata: metadataOption(options)
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  showMultiAgentRun(runId: string, multiAgentRunId: string): NonNullable<ReturnType<typeof getMultiAgentRun>> {
+    const record = getMultiAgentRun(this.loadRun(runId), multiAgentRunId);
+    if (!record) throw new Error(`Unknown MultiAgentRun id for run ${runId}: ${multiAgentRunId}`);
+    return record;
+  }
+
+  showAgentRole(runId: string, roleId: string): NonNullable<ReturnType<typeof getAgentRole>> {
+    const record = getAgentRole(this.loadRun(runId), roleId);
+    if (!record) throw new Error(`Unknown AgentRole id for run ${runId}: ${roleId}`);
+    return record;
+  }
+
+  showAgentGroup(runId: string, groupId: string): NonNullable<ReturnType<typeof getAgentGroup>> {
+    const record = getAgentGroup(this.loadRun(runId), groupId);
+    if (!record) throw new Error(`Unknown AgentGroup id for run ${runId}: ${groupId}`);
+    return record;
+  }
+
+  showAgentMembership(runId: string, membershipId: string): NonNullable<ReturnType<typeof getAgentMembership>> {
+    const record = getAgentMembership(this.loadRun(runId), membershipId);
+    if (!record) throw new Error(`Unknown AgentMembership id for run ${runId}: ${membershipId}`);
+    return record;
+  }
+
+  showAgentFanout(runId: string, fanoutId: string): NonNullable<ReturnType<typeof getAgentFanout>> {
+    const record = getAgentFanout(this.loadRun(runId), fanoutId);
+    if (!record) throw new Error(`Unknown AgentFanout id for run ${runId}: ${fanoutId}`);
+    return record;
+  }
+
+  showAgentFanin(runId: string, faninId: string): NonNullable<ReturnType<typeof getAgentFanin>> {
+    const record = getAgentFanin(this.loadRun(runId), faninId);
+    if (!record) throw new Error(`Unknown AgentFanin id for run ${runId}: ${faninId}`);
+    return record;
+  }
+
   checkState(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof migrateRunStateFile>["report"] {
     const cwd = path.resolve(String(options.cwd || process.cwd()));
     const statePath = options.state
@@ -1102,6 +1299,10 @@ function writeReport(run: WorkflowRun): string {
     "",
     ...renderWorkers(workerSummary),
     "",
+    "## Multi-Agent Runtime",
+    "",
+    ...renderMultiAgent(run),
+    "",
     "## Sandbox Profiles",
     "",
     ...renderSandboxProfiles(run),
@@ -1216,6 +1417,33 @@ function renderWorkers(summary: ReturnType<typeof summarizeWorkers>): string[] {
   return lines;
 }
 
+function renderMultiAgent(run: WorkflowRun): string[] {
+  const summary = summarizeMultiAgent(run);
+  if (!summary.totalRuns) return ["No multi-agent runtime records yet."];
+  const lines = [
+    `- Runs: ${summary.totalRuns} (${formatCounts(summary.runsByStatus)})`,
+    `- Roles: ${summary.roles}`,
+    `- Groups: ${summary.groups} (${formatCounts(summary.groupsByStatus)})`,
+    `- Memberships: ${summary.memberships} (${formatCounts(summary.membershipsByStatus)})`,
+    `- Fanouts: ${summary.fanouts}`,
+    `- Fanins: ${summary.fanins} (${formatCounts(summary.faninsByStatus)})`
+  ];
+  if (summary.blockedReasons.length) {
+    lines.push("", "Blocked:");
+    for (const reason of summary.blockedReasons.slice(0, 8)) lines.push(`- ${reason}`);
+  }
+  for (const group of summary.groupsDetail.slice(0, 8)) {
+    lines.push("", `Group ${group.id}: status=${group.status}, phase=${group.phase || "none"}, run=${group.multiAgentRunId}`);
+    for (const role of group.roles) {
+      lines.push(`- role=${role.roleId}, memberships=${role.memberships}, reported=${role.reported}, missing=${role.missing}, requiredEvidence=${role.requiredEvidence}`);
+    }
+    lines.push(`- fanouts=${group.fanouts.join(", ") || "none"}`);
+    lines.push(`- fanins=${group.fanins.join(", ") || "none"}`);
+  }
+  if (summary.nextAction) lines.push("", `Next multi-agent action: ${summary.nextAction}`);
+  return lines;
+}
+
 function renderSandboxProfiles(run: WorkflowRun): string[] {
   const profiles = run.sandboxProfiles || [];
   if (!profiles.length) return ["No sandbox profiles selected yet."];
@@ -1322,6 +1550,34 @@ function numberOption(value: unknown): number | undefined {
 function stringOption(value: unknown): string | undefined {
   if (value === undefined || value === null || value === true) return undefined;
   return String(value);
+}
+
+function requiredStringOption(value: unknown, label: string): string {
+  const parsed = stringOption(value);
+  if (!parsed) throw new Error(`Missing ${label}`);
+  return parsed;
+}
+
+function metadataOption(options: Record<string, unknown>): Record<string, unknown> | undefined {
+  const raw = options.metadata;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+  if (typeof raw === "string") return JSON.parse(raw) as Record<string, unknown>;
+  return undefined;
+}
+
+function parseSandboxChoices(options: Record<string, unknown>): Record<string, string> | undefined {
+  const choices: Record<string, string> = {};
+  const structured = options.sandboxChoices || options.sandboxProfileChoices;
+  if (structured && typeof structured === "object" && !Array.isArray(structured)) {
+    for (const [key, value] of Object.entries(structured as Record<string, unknown>)) choices[key] = String(value);
+  }
+  for (const entry of arrayOption(options.sandboxChoice || options["sandbox-choice"])) {
+    const [key, ...rest] = String(entry).split("=");
+    if (key && rest.length) choices[key] = rest.join("=");
+  }
+  const sandbox = stringOption(options.sandbox || options.sandboxProfile || options.sandboxProfileId);
+  if (sandbox && !Object.keys(choices).length) choices.default = sandbox;
+  return Object.keys(choices).length ? choices : undefined;
 }
 
 function parseCriteria(options: Record<string, unknown>): Record<string, number> {

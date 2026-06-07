@@ -47,6 +47,14 @@ function verifyFixture(fixtureId) {
   assert.ok(Array.isArray(direct.run.nodes));
   assert.ok(Array.isArray(direct.run.feedback));
   assert.ok(Array.isArray(direct.run.workers));
+  assert.ok(direct.run.paths.multiAgentDir.endsWith(path.join(".cw", "runs", fixtureId, "multi-agent")));
+  assert.equal(direct.run.multiAgent.schemaVersion, 1);
+  assert.deepEqual(direct.run.multiAgent.runs, []);
+  assert.deepEqual(direct.run.multiAgent.roles, []);
+  assert.deepEqual(direct.run.multiAgent.groups, []);
+  assert.deepEqual(direct.run.multiAgent.memberships, []);
+  assert.deepEqual(direct.run.multiAgent.fanouts, []);
+  assert.deepEqual(direct.run.multiAgent.fanins, []);
   if (fixtureState.userMetadata) assert.deepEqual(direct.run.userMetadata, fixtureState.userMetadata);
   if (fixtureState.mcpOpaqueMetadata) assert.deepEqual(direct.run.mcpOpaqueMetadata, fixtureState.mcpOpaqueMetadata);
 

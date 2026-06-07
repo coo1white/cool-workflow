@@ -23,6 +23,7 @@ const pipeline_runner_1 = require("./pipeline-runner");
 const verifier_1 = require("./verifier");
 const sandbox_profile_1 = require("./sandbox-profile");
 const trust_audit_1 = require("./trust-audit");
+const multi_agent_1 = require("./multi-agent");
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
 function createWorkerIsolation(options = {}) {
     return {
@@ -86,8 +87,10 @@ function allocateWorkerScope(run, task, options = {}) {
         stateNodeId: task.stateNodeId,
         feedbackIds: [],
         errors: [],
+        multiAgent: options.multiAgent,
         metadata: compactMetadata({
             ...options.metadata,
+            multiAgent: options.multiAgent,
             phase: task.phase,
             kind: task.kind,
             taskPath: task.taskPath
@@ -160,6 +163,7 @@ function writeWorkerManifest(run, scope) {
         feedbackIds: scope.feedbackIds,
         errors: scope.errors,
         output: scope.output,
+        multiAgent: scope.multiAgent,
         metadata: scope.metadata
     };
     (0, state_1.writeJson)(manifestPath(scope), manifest);
@@ -303,6 +307,14 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         resultNodeId: resultNode.id,
         output
     });
+    (0, multi_agent_1.recordMultiAgentWorkerOutput)(run, {
+        workerId,
+        taskId: task.id,
+        resultNodeId: resultNode.id,
+        verifierNodeId: verifierResult.outputNodeId,
+        evidence: resultNode.evidence,
+        artifactPaths: [destination, absoluteResultPath]
+    });
     if (options.persist !== false)
         (0, state_1.saveCheckpoint)(run);
     return output;
@@ -411,6 +423,15 @@ function writeWorkerInput(run, task, scope) {
         `- Artifacts: ${scope.artifactsDir}`,
         `- Logs: ${scope.logsDir}`,
         `- Sandbox Profile: ${scope.sandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID}`,
+        ...(scope.multiAgent
+            ? [
+                `- Multi-Agent Run: ${scope.multiAgent.runId}`,
+                `- Agent Group: ${scope.multiAgent.groupId}`,
+                `- Agent Role: ${scope.multiAgent.roleId}`,
+                `- Agent Membership: ${scope.multiAgent.membershipId || ""}`,
+                `- Agent Fanout: ${scope.multiAgent.fanoutId || ""}`
+            ]
+            : []),
         "",
         "## Task",
         "",
@@ -459,6 +480,7 @@ function writeWorkerIndex(run) {
             manifestPath: manifestPath(scope),
             resultPath: scope.resultPath,
             sandboxProfileId: scope.sandboxProfileId,
+            multiAgent: scope.multiAgent,
             feedbackIds: scope.feedbackIds
         }))
     });

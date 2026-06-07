@@ -26,6 +26,13 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.17 adds Multi-Agent Runtime Core: first-class `MultiAgentRun`,
+`AgentRole`, `AgentGroup`, `AgentMembership`, `AgentFanout`, and `AgentFanin`
+state with lifecycle validation, dispatch attachment, worker manifest metadata,
+fanin evidence coverage, Operator UX panels, trust audit events, CLI commands,
+and MCP parity. See
+[docs/multi-agent-runtime-core.7.md](docs/multi-agent-runtime-core.7.md).
+
 CW v0.1.16 adds Dogfood One Real Repo: a dry-run release proof that runs the
 canonical `release-cut` app against this repository, records real command
 evidence, scores/selects a release candidate, creates a verifier-gated CW state
@@ -94,6 +101,7 @@ cool-workflow
   apps/workflow-app-sdk-demo/app.json
   docs/index.md
   docs/getting-started.md
+  docs/multi-agent-runtime-core.7.md
   docs/dogfood-one-real-repo.7.md
   docs/release-and-migration.7.md
   docs/agent-sdk.md
@@ -154,6 +162,8 @@ node scripts/cw.js graph <run-id>
 node scripts/cw.js graph <run-id> --json
 node scripts/cw.js report <run-id> --show
 node scripts/cw.js worker summary <run-id>
+node scripts/cw.js multi-agent summary <run-id>
+node scripts/cw.js multi-agent graph <run-id>
 node scripts/cw.js candidate summary <run-id>
 node scripts/cw.js feedback summary <run-id>
 node scripts/cw.js commit summary <run-id>
@@ -173,6 +183,7 @@ Create a dispatch manifest for the current runnable phase:
 ```bash
 node scripts/cw.js dispatch <run-id> --limit 6
 node scripts/cw.js dispatch <run-id> --sandbox readonly
+node scripts/cw.js dispatch <run-id> --multi-agent-run ma --multi-agent-group group --multi-agent-role role
 ```
 
 Inspect sandbox profiles:

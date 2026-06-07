@@ -53,7 +53,8 @@ Worker isolation is first-class over MCP:
 
 Worker records expose the worker id, task id, status, worker directory,
 `input.md`, `result.md`, artifacts/logs directories, sandbox profile id,
-sandbox policy, feedback ids, and result/verifier node ids.
+sandbox policy, feedback ids, multi-agent metadata when present, and
+result/verifier node ids.
 
 An agent host should inspect `cw_worker_manifest`, write worker-local output to
 the manifest `resultPath`, then call `cw_worker_output`. CW validates the
@@ -106,6 +107,35 @@ that validate and resolve `sandbox`, `sandboxProfile`, `sandboxProfileId`, or
 `profileId` without dispatching work. `cw_dispatch` accepts all three sandbox
 field spellings for compatibility with different hosts.
 
+## Multi-Agent Runtime
+
+v0.1.17 adds MCP parity for first-class multi-agent state.
+
+Read and inspect:
+
+- `cw_multi_agent_summary`
+- `cw_multi_agent_graph`
+- `cw_multi_agent_run_show`
+- `cw_multi_agent_role_show`
+- `cw_multi_agent_group_show`
+- `cw_multi_agent_membership_show`
+- `cw_multi_agent_fanout_show`
+- `cw_multi_agent_fanin_show`
+
+Safe writes:
+
+- `cw_multi_agent_run_create`
+- `cw_multi_agent_run_transition`
+- `cw_multi_agent_role_create`
+- `cw_multi_agent_group_create`
+- `cw_multi_agent_membership_create`
+- `cw_multi_agent_fanout_create`
+- `cw_multi_agent_fanin_collect`
+
+These tools mirror the CLI state model. CW records and validates roles, groups,
+memberships, fanout/fanin, and lifecycle state; the host still executes agents
+and enforces OS/process/network/environment controls.
+
 ## Verifier-Gated Commit
 
 `cw_commit` accepts verifier-gate fields:
@@ -137,6 +167,7 @@ MCP exposes structured JSON equivalents of Operator UX:
 - `cw_candidate_summary`
 - `cw_feedback_summary`
 - `cw_commit_summary`
+- `cw_multi_agent_summary`
 
 These tools return JSON summaries instead of console text. `cw_operator_report`
 refreshes the Markdown report the same way the CLI renderer does; the rest are

@@ -26,6 +26,7 @@ import {
   validateSandboxWrite
 } from "./sandbox-profile";
 import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit";
+import { recordMultiAgentWorkerOutput } from "./multi-agent";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 
@@ -106,8 +107,10 @@ export function allocateWorkerScope(
     stateNodeId: task.stateNodeId,
     feedbackIds: [],
     errors: [],
+    multiAgent: options.multiAgent,
     metadata: compactMetadata({
       ...options.metadata,
+      multiAgent: options.multiAgent,
       phase: task.phase,
       kind: task.kind,
       taskPath: task.taskPath
@@ -181,6 +184,7 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Worke
     feedbackIds: scope.feedbackIds,
     errors: scope.errors,
     output: scope.output,
+    multiAgent: scope.multiAgent,
     metadata: scope.metadata
   };
   writeJson(manifestPath(scope), manifest);
@@ -341,6 +345,14 @@ export function recordWorkerOutput(
     resultNodeId: resultNode.id,
     output
   });
+  recordMultiAgentWorkerOutput(run, {
+    workerId,
+    taskId: task.id,
+    resultNodeId: resultNode.id,
+    verifierNodeId: verifierResult.outputNodeId,
+    evidence: resultNode.evidence,
+    artifactPaths: [destination, absoluteResultPath]
+  });
   if (options.persist !== false) saveCheckpoint(run);
   return output;
 }
@@ -473,6 +485,15 @@ function writeWorkerInput(run: WorkflowRun, task: RunTask, scope: WorkerScope): 
     `- Artifacts: ${scope.artifactsDir}`,
     `- Logs: ${scope.logsDir}`,
     `- Sandbox Profile: ${scope.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID}`,
+    ...(scope.multiAgent
+      ? [
+          `- Multi-Agent Run: ${scope.multiAgent.runId}`,
+          `- Agent Group: ${scope.multiAgent.groupId}`,
+          `- Agent Role: ${scope.multiAgent.roleId}`,
+          `- Agent Membership: ${scope.multiAgent.membershipId || ""}`,
+          `- Agent Fanout: ${scope.multiAgent.fanoutId || ""}`
+        ]
+      : []),
     "",
     "## Task",
     "",
@@ -525,6 +546,7 @@ function writeWorkerIndex(run: WorkflowRun): void {
       manifestPath: manifestPath(scope),
       resultPath: scope.resultPath,
       sandboxProfileId: scope.sandboxProfileId,
+      multiAgent: scope.multiAgent,
       feedbackIds: scope.feedbackIds
     }))
   });

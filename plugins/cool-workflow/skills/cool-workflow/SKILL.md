@@ -47,6 +47,13 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
+v0.1.17 adds first-class multi-agent runtime state around dispatches:
+`MultiAgentRun`, `AgentRole`, `AgentGroup`, `AgentMembership`, `AgentFanout`,
+and `AgentFanin`. CW records and validates this state; the host still executes
+agents and enforces OS/process/network/environment controls. Invalid lifecycle
+transitions, duplicate memberships, ambiguous dispatch attachment, and missing
+fanin evidence fail closed.
+
 ## Operating Loop
 
 1. Pick or create a workflow.
@@ -89,6 +96,14 @@ node scripts/cw.js graph <run-id>
 node scripts/cw.js graph <run-id> --json
 node scripts/cw.js dispatch <run-id> --limit 6
 node scripts/cw.js dispatch <run-id> --sandbox readonly
+node scripts/cw.js multi-agent summary <run-id>
+node scripts/cw.js multi-agent graph <run-id>
+node scripts/cw.js multi-agent run <run-id> --id ma --objective "coordinated work"
+node scripts/cw.js multi-agent role <run-id> role --multi-agent-run ma --responsibility "do work" --required-evidence "result evidence"
+node scripts/cw.js multi-agent group <run-id> group --multi-agent-run ma --task task-id
+node scripts/cw.js multi-agent fanout <run-id> fanout --group group --reason "split work" --role role --task task-id
+node scripts/cw.js dispatch <run-id> --multi-agent-run ma --multi-agent-group group --multi-agent-role role --multi-agent-fanout fanout
+node scripts/cw.js multi-agent fanin <run-id> fanin --group group --fanout fanout --required-role role
 node scripts/cw.js sandbox list
 node scripts/cw.js sandbox show readonly
 node scripts/cw.js sandbox validate ./site-sandbox.json
@@ -136,7 +151,11 @@ When an MCP host is available, the same runtime surface is exposed with
 JSON-first tools: `cw_app_run`, `cw_dispatch`, `cw_worker_manifest`,
 `cw_worker_output`, `cw_candidate_register`, `cw_candidate_score`,
 `cw_candidate_select`, `cw_commit`, `cw_operator_status`, `cw_operator_graph`,
-and `cw_operator_report`. Preserve CLI/MCP parity when extending CW.
+`cw_operator_report`, `cw_multi_agent_summary`, `cw_multi_agent_graph`,
+`cw_multi_agent_run_create`, `cw_multi_agent_role_create`,
+`cw_multi_agent_group_create`, `cw_multi_agent_membership_create`,
+`cw_multi_agent_fanout_create`, and `cw_multi_agent_fanin_collect`. Preserve
+CLI/MCP parity when extending CW.
 
 Use `npm run canonical-apps` from `plugins/cool-workflow` to validate and plan
 the official app matrix without network access:
@@ -169,8 +188,9 @@ verifier-gated CW state commit or held checkpoint, and writes
 
 Use `npm run release:check` for v0.1.15+ release discipline. It is a dry-run
 gate that builds, type-checks, runs tests, validates canonical apps and golden
-path behavior, checks old run fixtures, runs dogfood smoke coverage, verifies
-version synchronization, and does not tag, push, publish, or mutate fixtures.
+path behavior, checks old run fixtures, runs multi-agent runtime smoke
+coverage, runs dogfood smoke coverage, verifies version synchronization, and
+does not tag, push, publish, or mutate fixtures.
 
 Durable run state lives at `.cw/runs/<run-id>/state.json`. Use
 `node scripts/cw.js state check <run-id>` to dry-run migration and
