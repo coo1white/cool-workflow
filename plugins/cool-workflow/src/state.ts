@@ -18,6 +18,7 @@ export function createRunPaths(runDir: string): RunPaths {
     commitsDir: path.join(runDir, "commits"),
     stateNodesDir: path.join(runDir, "nodes"),
     feedbackDir: path.join(runDir, "feedback"),
+    auditDir: path.join(runDir, "audit"),
     workersDir: path.join(runDir, "workers"),
     candidatesDir: path.join(runDir, "candidates")
   };
@@ -33,6 +34,7 @@ export function ensureRunDirs(paths: RunPaths): void {
     paths.commitsDir,
     paths.stateNodesDir,
     paths.feedbackDir,
+    paths.auditDir || path.join(paths.runDir, "audit"),
     paths.workersDir || path.join(paths.runDir, "workers"),
     paths.candidatesDir || path.join(paths.runDir, "candidates")
   ]) {

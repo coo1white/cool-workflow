@@ -22,6 +22,7 @@ const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const verifier_1 = require("./verifier");
 const sandbox_profile_1 = require("./sandbox-profile");
+const trust_audit_1 = require("./trust-audit");
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
 function createWorkerIsolation(options = {}) {
     return {
@@ -95,6 +96,16 @@ function allocateWorkerScope(run, task, options = {}) {
     writeWorkerInput(run, task, scope);
     writeWorkerManifest(run, scope);
     upsertWorkerScope(run, scope);
+    (0, trust_audit_1.recordTrustAuditEvent)(run, {
+        kind: "worker.sandbox-profile",
+        decision: "recorded",
+        source: "runtime-derived",
+        workerId: scope.id,
+        taskId: task.id,
+        sandboxProfileId: sandboxPolicy.id,
+        policySnapshot: sandboxPolicy,
+        metadata: { dispatchId: scope.dispatchId, workerDir: scope.workerDir, allowedPaths }
+    });
     task.workerId = scope.id;
     task.workerManifestPath = manifestPath(scope);
     task.sandboxProfileId = sandboxPolicy.id;
@@ -179,6 +190,15 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     const absoluteResultPath = node_path_1.default.resolve(resultPath);
     const violation = validateWorkerBoundary(run, workerId, { ...options, policy: options.policy, path: absoluteResultPath });
     if (violation) {
+        (0, trust_audit_1.recordSandboxPathDecision)(run, {
+            workerId,
+            taskId: task.id,
+            sandboxProfileId: scope.sandboxProfileId,
+            policySnapshot: scope.sandboxPolicy,
+            target: absoluteResultPath,
+            decision: "denied",
+            metadata: { code: violation.code, allowedPaths: violation.allowedPaths }
+        });
         recordWorkerFailure(run, workerId, violation, { ...options, path: absoluteResultPath, code: violation.code, retryable: false });
         throw new Error(violation.message);
     }
@@ -193,6 +213,15 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     const rawResult = node_fs_1.default.readFileSync(absoluteResultPath, "utf8");
     const parsedResult = (0, verifier_1.parseResultEnvelope)(rawResult);
     (0, verifier_1.validateResultEnvelope)(task, parsedResult);
+    const pathAudit = (0, trust_audit_1.recordSandboxPathDecision)(run, {
+        workerId,
+        taskId: task.id,
+        sandboxProfileId: scope.sandboxProfileId,
+        policySnapshot: scope.sandboxPolicy,
+        target: absoluteResultPath,
+        decision: "allowed",
+        metadata: { operation: "worker-output-acceptance" }
+    });
     const destination = node_path_1.default.join(run.paths.resultsDir, `${(0, state_1.safeFileName)(task.id)}.md`);
     node_fs_1.default.mkdirSync(run.paths.resultsDir, { recursive: true });
     node_fs_1.default.copyFileSync(absoluteResultPath, destination);
@@ -201,12 +230,12 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     task.resultPath = destination;
     task.loopStage = "observe";
     task.result = parsedResult;
-    const evidence = parsedResult.evidence.map((entry, index) => ({
+    const evidence = (0, trust_audit_1.normalizeEvidence)(run, parsedResult.evidence.map((entry, index) => ({
         id: `result:${index + 1}`,
         source: "cw:result",
         locator: entry,
         summary: entry
-    }));
+    })), { source: "cw-validated", workerId, taskId: task.id, auditEventIds: [pathAudit.id] });
     const resultNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
         id: `${run.id}:result:${task.id}`,
         kind: "result",
@@ -221,8 +250,30 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         evidence,
         parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
         contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
-        metadata: { taskId: task.id, workerId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId }
+        metadata: { taskId: task.id, workerId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId, auditEventIds: [pathAudit.id] }
     }));
+    const acceptedAudit = (0, trust_audit_1.recordTrustAuditEvent)(run, {
+        kind: "worker.output",
+        decision: "accepted",
+        source: "cw-validated",
+        workerId,
+        taskId: task.id,
+        nodeId: resultNode.id,
+        sandboxProfileId: scope.sandboxProfileId,
+        policySnapshot: scope.sandboxPolicy,
+        normalizedPath: absoluteResultPath,
+        evidence,
+        parentEventIds: [pathAudit.id],
+        metadata: { destination }
+    });
+    resultNode.evidence = (0, trust_audit_1.normalizeEvidence)(run, resultNode.evidence, {
+        source: "cw-validated",
+        workerId,
+        taskId: task.id,
+        resultNodeId: resultNode.id,
+        auditEventIds: [pathAudit.id, acceptedAudit.id]
+    });
+    (0, state_node_1.appendRunNode)(run, resultNode);
     task.resultNodeId = resultNode.id;
     const verifierResult = (0, pipeline_runner_1.createPipelineRunner)({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
         outputNodeId: `${run.id}:verifier:${task.id}`,
@@ -242,7 +293,8 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         resultPath: absoluteResultPath,
         recordedAt: new Date().toISOString(),
         stateNodeId: resultNode.id,
-        verifierNodeId: verifierResult.outputNodeId
+        verifierNodeId: verifierResult.outputNodeId,
+        auditEventIds: [pathAudit.id, acceptedAudit.id]
     };
     updateWorkerScope(run, {
         ...scope,
@@ -300,6 +352,22 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
             details: structured.details
         }
     }, { persist: false });
+    (0, trust_audit_1.recordTrustAuditEvent)(run, {
+        kind: "worker.failure",
+        decision: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "denied" : "failed",
+        source: structured.code.startsWith("sandbox-") || structured.code === "worker-boundary-violation" ? "cw-validated" : "runtime-derived",
+        workerId,
+        taskId: task.id,
+        nodeId: failureNode.id,
+        feedbackIds: [feedback.id],
+        sandboxProfileId: scope.sandboxProfileId,
+        policySnapshot: scope.sandboxPolicy,
+        normalizedPath: structured.path,
+        metadata: {
+            code: structured.code,
+            dispatchId: scope.dispatchId
+        }
+    });
     updateWorkerScope(run, {
         ...scope,
         updatedAt: new Date().toISOString(),

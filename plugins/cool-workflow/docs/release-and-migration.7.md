@@ -1,6 +1,6 @@
 # Release And Migration Discipline
 
-CW v0.1.14 makes release checks and durable run-state compatibility explicit.
+CW v0.1.14 made release checks and durable run-state compatibility explicit.
 
 ## Who Is Affected
 
@@ -60,7 +60,7 @@ mutated.
 
 ## Release Check
 
-`npm run release:check` is the release gate for v0.1.14. It runs:
+`npm run release:check` is the release gate for v0.1.14 and later. It runs:
 
 - docs presence checks
 - `npm run build`
@@ -73,6 +73,9 @@ mutated.
 
 The command is dry-run and non-destructive. Tagging, pushing, and publishing
 remain manual release actions after the gate passes.
+
+For v0.1.15, the same gate also includes the Security / Trust Hardening smoke
+test so audit/provenance coverage remains part of release discipline.
 
 ## Unsupported Cases
 

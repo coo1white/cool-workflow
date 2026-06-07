@@ -155,6 +155,7 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
   setDefault(paths, "commitsDir", path.join(baseRunDir, "commits"), context, "paths.commitsDir is required", "paths.commitsDir");
   setDefault(paths, "stateNodesDir", path.join(baseRunDir, "nodes"), context, "paths.stateNodesDir is required", "paths.stateNodesDir");
   setDefault(paths, "feedbackDir", path.join(baseRunDir, "feedback"), context, "paths.feedbackDir is required", "paths.feedbackDir");
+  setDefault(paths, "auditDir", path.join(baseRunDir, "audit"), context, "paths.auditDir is required", "paths.auditDir");
   setDefault(paths, "workersDir", path.join(baseRunDir, "workers"), context, "paths.workersDir is required", "paths.workersDir");
   setDefault(paths, "candidatesDir", path.join(baseRunDir, "candidates"), context, "paths.candidatesDir is required", "paths.candidatesDir");
 
@@ -164,6 +165,14 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
   ensureArray(state, "nodes", context);
   ensureArray(state, "contracts", context);
   ensureArray(state, "feedback", context);
+  if (!isRecord(state.audit)) {
+    setValue(state, "audit", {
+      schemaVersion: 1,
+      eventLogPath: path.join(String(paths.auditDir), "events.jsonl"),
+      summaryPath: path.join(String(paths.auditDir), "summary.json"),
+      indexPath: path.join(String(paths.auditDir), "index.json")
+    }, context, "audit metadata is required");
+  }
   ensureArray(state, "workers", context);
   ensureArray(state, "sandboxProfiles", context);
   ensureArray(state, "candidates", context);

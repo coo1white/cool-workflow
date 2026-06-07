@@ -166,6 +166,7 @@ export interface RunPaths {
   commitsDir: string;
   stateNodesDir: string;
   feedbackDir: string;
+  auditDir?: string;
   workersDir?: string;
   candidatesDir?: string;
 }
@@ -203,6 +204,105 @@ export interface StateEvidence {
   path?: string;
   locator?: string;
   summary?: string;
+  provenance?: EvidenceProvenance;
+}
+
+export type TrustAuditSource =
+  | "cw-validated"
+  | "host-attested"
+  | "operator-recorded"
+  | "runtime-derived";
+
+export type TrustAuditDecision =
+  | "allowed"
+  | "denied"
+  | "accepted"
+  | "rejected"
+  | "recorded"
+  | "validated"
+  | "failed";
+
+export interface EvidenceProvenance {
+  schemaVersion: 1;
+  runId?: string;
+  source: TrustAuditSource;
+  workerId?: string;
+  taskId?: string;
+  resultNodeId?: string;
+  verifierNodeId?: string;
+  candidateId?: string;
+  scoreId?: string;
+  selectionId?: string;
+  commitId?: string;
+  parentEvidenceIds?: string[];
+  auditEventIds?: string[];
+  note?: string;
+}
+
+export interface TrustAuditEvent {
+  schemaVersion: 1;
+  id: string;
+  createdAt: string;
+  runId: string;
+  kind: string;
+  decision: TrustAuditDecision;
+  source: TrustAuditSource;
+  actor?: string;
+  workerId?: string;
+  taskId?: string;
+  nodeId?: string;
+  feedbackIds?: string[];
+  candidateId?: string;
+  scoreId?: string;
+  selectionId?: string;
+  commitId?: string;
+  sandboxProfileId?: string;
+  policyRef?: string;
+  policySnapshot?: ResolvedSandboxPolicy;
+  normalizedPath?: string;
+  command?: string;
+  networkTarget?: string;
+  envVars?: string[];
+  evidence?: StateEvidence[];
+  evidenceRefs?: string[];
+  parentEventIds?: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface TrustAuditSummary {
+  schemaVersion: 1;
+  runId: string;
+  generatedAt?: string;
+  eventCount: number;
+  eventLogPath: string;
+  indexPath: string;
+  summaryPath: string;
+  byKind: Record<string, number>;
+  byDecision: Record<string, number>;
+  bySource: Record<string, number>;
+  bySandboxProfile: Record<string, number>;
+  workers: Array<{
+    workerId: string;
+    taskId?: string;
+    sandboxProfileId?: string;
+    decisions: Record<string, number>;
+    denied: number;
+    feedbackIds: string[];
+  }>;
+  candidates: Array<{
+    candidateId: string;
+    scoreIds: string[];
+    selectionIds: string[];
+    evidenceCount: number;
+  }>;
+  commits: Array<{
+    commitId: string;
+    verifierGated: boolean;
+    candidateId?: string;
+    selectionId?: string;
+    evidenceCount: number;
+    rationale?: Record<string, unknown>;
+  }>;
 }
 
 export interface StateNodeError {
@@ -544,6 +644,7 @@ export interface WorkerOutputRecord {
   recordedAt: string;
   stateNodeId?: string;
   verifierNodeId?: string;
+  auditEventIds?: string[];
 }
 
 export interface WorkerScope {
@@ -706,7 +807,21 @@ export interface CandidateSelection {
   evidence: StateEvidence[];
   artifacts: StateArtifact[];
   feedbackIds: string[];
+  acceptanceRationale?: AcceptanceRationale;
   metadata?: Record<string, unknown>;
+}
+
+export interface AcceptanceRationale {
+  schemaVersion: 1;
+  selectedCandidateId?: string;
+  scoreId?: string;
+  scoreCriteria?: Record<string, number>;
+  verifierNodeId?: string;
+  evidenceCount: number;
+  sandboxProfileId?: string;
+  workerId?: string;
+  commitGateResult?: "passed" | "blocked" | "checkpoint";
+  auditEventIds?: string[];
 }
 
 export interface RunTask {
@@ -789,6 +904,7 @@ export interface StateCommit {
   candidateId?: string;
   selectionId?: string;
   evidence?: StateEvidence[];
+  acceptanceRationale?: AcceptanceRationale;
   metadata?: Record<string, unknown>;
 }
 
@@ -815,6 +931,12 @@ export interface WorkflowRun {
   nodes?: StateNode[];
   contracts?: PipelineContract[];
   feedback?: ErrorFeedbackRecord[];
+  audit?: {
+    schemaVersion: 1;
+    eventLogPath?: string;
+    summaryPath?: string;
+    indexPath?: string;
+  };
   workers?: WorkerScope[];
   sandboxProfiles?: ResolvedSandboxPolicy[];
   candidates?: CandidateRecord[];

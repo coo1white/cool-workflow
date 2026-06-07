@@ -14,8 +14,8 @@ Create a run with a canonical workflow app:
 ```bash
 node scripts/cw.js plan release-cut \
   --repo "$PWD" \
-  --version 0.1.14 \
-  --previousVersion 0.1.13 \
+  --version 0.1.15 \
+  --previousVersion 0.1.14 \
   --releaseBranch main \
   --dryRun true
 ```
@@ -27,6 +27,7 @@ node scripts/cw.js status <run-id>
 node scripts/cw.js graph <run-id>
 node scripts/cw.js dispatch <run-id> --limit 1 --sandbox readonly
 node scripts/cw.js worker summary <run-id>
+node scripts/cw.js audit summary <run-id>
 node scripts/cw.js report <run-id> --show
 ```
 
@@ -50,3 +51,9 @@ The release check is non-destructive. It builds, type-checks, runs tests,
 validates canonical apps and golden path behavior, checks old fixture
 compatibility, verifies docs, and checks version synchronization. It does not
 tag, push, publish, or rewrite fixture files.
+
+Trust audit records live under `.cw/runs/<run-id>/audit/`. CW records the
+sandbox profile used by each worker, allowed and denied decisions, evidence
+provenance, and why selected candidates or verifier-gated commits were
+accepted. Inspect them with `audit summary`, `audit worker`, and
+`audit provenance`.

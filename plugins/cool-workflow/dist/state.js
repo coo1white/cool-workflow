@@ -31,6 +31,7 @@ function createRunPaths(runDir) {
         commitsDir: node_path_1.default.join(runDir, "commits"),
         stateNodesDir: node_path_1.default.join(runDir, "nodes"),
         feedbackDir: node_path_1.default.join(runDir, "feedback"),
+        auditDir: node_path_1.default.join(runDir, "audit"),
         workersDir: node_path_1.default.join(runDir, "workers"),
         candidatesDir: node_path_1.default.join(runDir, "candidates")
     };
@@ -45,6 +46,7 @@ function ensureRunDirs(paths) {
         paths.commitsDir,
         paths.stateNodesDir,
         paths.feedbackDir,
+        paths.auditDir || node_path_1.default.join(paths.runDir, "audit"),
         paths.workersDir || node_path_1.default.join(paths.runDir, "workers"),
         paths.candidatesDir || node_path_1.default.join(paths.runDir, "candidates")
     ]) {

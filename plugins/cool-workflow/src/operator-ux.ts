@@ -15,8 +15,10 @@ import {
   TaskStatus,
   WorkerIsolationStatus,
   WorkerScope,
-  WorkflowRun
+  WorkflowRun,
+  TrustAuditSummary
 } from "./types";
+import { summarizeTrustAudit } from "./trust-audit";
 
 export interface OperatorRecommendation {
   command: string;
@@ -140,6 +142,7 @@ export interface OperatorRunSummary {
   candidates: OperatorCandidateSummary;
   feedback: OperatorFeedbackSummary;
   commits: OperatorCommitSummary;
+  trust: TrustAuditSummary;
   reportPath: string;
   evidencePaths: string[];
   nextActions: OperatorRecommendation[];
@@ -164,6 +167,7 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
   const candidates = summarizeOperatorCandidates(run);
   const feedback = summarizeOperatorFeedback(run);
   const commits = summarizeOperatorCommits(run);
+  const trust = summarizeTrustAudit(run);
   const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
   const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates);
   return {
@@ -182,6 +186,7 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
     candidates,
     feedback,
     commits,
+    trust,
     reportPath: run.paths.report,
     evidencePaths: evidencePathsFor(run),
     nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits })
@@ -402,6 +407,8 @@ export function formatOperatorStatus(summary: OperatorRunSummary): string {
     "",
     formatCommitPanel(summary.commits),
     "",
+    formatTrustPanel(summary.trust),
+    "",
     `Report: ${summary.reportPath}`,
     "",
     "Next Action",
@@ -424,7 +431,9 @@ export function formatOperatorReport(summary: OperatorRunSummary): string {
     `  node scripts/cw.js worker summary ${summary.runId}`,
     `  node scripts/cw.js candidate summary ${summary.runId}`,
     `  node scripts/cw.js feedback summary ${summary.runId}`,
-    `  node scripts/cw.js commit summary ${summary.runId}`
+    `  node scripts/cw.js commit summary ${summary.runId}`,
+    `  node scripts/cw.js audit summary ${summary.runId}`,
+    `  node scripts/cw.js audit provenance ${summary.runId}`
   ].join("\n");
 }
 
@@ -460,6 +469,20 @@ export function formatFeedbackSummary(summary: OperatorFeedbackSummary): string 
 
 export function formatCommitSummary(summary: OperatorCommitSummary): string {
   return formatCommitPanel(summary);
+}
+
+function formatTrustPanel(summary: TrustAuditSummary): string {
+  const lines = [
+    "Trust Audit",
+    `  total=${summary.eventCount}; decision=${formatCounts(summary.byDecision)}; source=${formatCounts(summary.bySource)}`,
+    `  sandbox=${formatCounts(summary.bySandboxProfile)}`,
+    `  events=${summary.eventLogPath}`,
+    `  summary=${summary.summaryPath}`
+  ];
+  for (const worker of summary.workers.slice(0, 6)) {
+    lines.push(`  worker ${worker.workerId}: sandbox=${worker.sandboxProfileId || "none"}, decisions=${formatCounts(worker.decisions)}, denied=${worker.denied}`);
+  }
+  return lines.join("\n");
 }
 
 function adviseNextSteps(

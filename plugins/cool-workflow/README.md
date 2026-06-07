@@ -26,7 +26,12 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
-CW v0.1.14 adds Release & Migration Discipline: explicit run-state schema
+CW v0.1.15 adds Security / Trust Hardening: durable trust audit records,
+worker sandbox decision history, evidence provenance, acceptance rationale,
+and CLI/MCP audit inspection. See
+[docs/security-trust-hardening.7.md](docs/security-trust-hardening.7.md).
+
+CW v0.1.14 added Release & Migration Discipline: explicit run-state schema
 migration policy, fixture-based backward compatibility tests, version
 synchronization checks, and a dry-run release gate. See
 [docs/release-and-migration.7.md](docs/release-and-migration.7.md).

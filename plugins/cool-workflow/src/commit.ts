@@ -7,6 +7,7 @@ import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./p
 import { appendRunNode, createStateNode, linkStateNodes, recordNodeError, upsertRunContract } from "./state-node";
 import { createPipelineRunner } from "./pipeline-runner";
 import { recordFeedback } from "./error-feedback";
+import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent, validateAcceptanceRationale } from "./trust-audit";
 
 export interface CommitStateOptions {
   reason: string;
@@ -27,6 +28,7 @@ interface CommitGate {
   selectionNodeId?: string;
   evidence: StateEvidence[];
   errors: StateNodeError[];
+  rationale?: ReturnType<typeof buildAcceptanceRationale>;
   metadata: Record<string, unknown>;
 }
 
@@ -54,6 +56,30 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
   fs.mkdirSync(run.paths.commitsDir, { recursive: true });
   const id = createCommitId();
   const snapshotPath = path.join(run.paths.commitsDir, `${id}.json`);
+  const audit = gate.verifierGated
+    ? recordTrustAuditEvent(run, {
+        kind: "commit.gate",
+        decision: "accepted",
+        source: "cw-validated",
+        workerId: gate.rationale?.workerId,
+        nodeId: gate.verifierNodeId,
+        candidateId: gate.candidateId,
+        selectionId: gate.selectionId,
+        commitId: id,
+        sandboxProfileId: gate.rationale?.sandboxProfileId,
+        evidence: gate.evidence,
+        metadata: gate.rationale as unknown as Record<string, unknown> | undefined
+      })
+    : undefined;
+  const evidence = normalizeEvidence(run, gate.evidence, {
+    source: gate.verifierGated ? "cw-validated" : "runtime-derived",
+    workerId: gate.rationale?.workerId,
+    verifierNodeId: gate.verifierNodeId,
+    candidateId: gate.candidateId,
+    selectionId: gate.selectionId,
+    commitId: id,
+    auditEventIds: audit ? [audit.id] : []
+  });
   const commit: StateCommit = {
     id,
     createdAt: new Date().toISOString(),
@@ -68,7 +94,14 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
     verifierNodeId: gate.verifierNodeId,
     candidateId: gate.candidateId,
     selectionId: gate.selectionId,
-    evidence: gate.evidence,
+    evidence,
+    acceptanceRationale: gate.rationale
+      ? {
+          ...gate.rationale,
+          commitGateResult: gate.verifierGated ? "passed" : "checkpoint",
+          auditEventIds: audit ? [...(gate.rationale.auditEventIds || []), audit.id] : gate.rationale.auditEventIds
+        }
+      : undefined,
     metadata: {
       ...(options.metadata || {}),
       ...gate.metadata
@@ -224,6 +257,28 @@ function resolveCommitGate(run: WorkflowRun, options: CommitStateOptions): Commi
     }
   }
 
+  let rationale: ReturnType<typeof buildAcceptanceRationale> | undefined;
+  if (verifierGated && candidateId && selectionId) {
+    const candidate = findCandidate(run, candidateId);
+    const selection = findSelection(run, selectionId);
+    const score = selection?.scoreId ? findScore(run, candidateId, selection.scoreId) : undefined;
+    rationale = selection?.acceptanceRationale || buildAcceptanceRationale({
+      selectedCandidateId: candidateId,
+      scoreId: selection?.scoreId,
+      scoreCriteria: score?.criteria,
+      verifierNodeId,
+      evidenceCount: verifierNode?.evidence.length || 0,
+      sandboxProfileId: sandboxProfileForCandidate(run, candidate),
+      workerId: candidate?.workerId,
+      commitGateResult: "passed"
+    });
+    for (const failure of validateAcceptanceRationale(rationale)) {
+      errors.push(error("commit-rationale-incomplete", `Verifier-gated commit cannot explain acceptance: ${failure}`, {
+        details: { candidateId, selectionId, verifierNodeId }
+      }));
+    }
+  }
+
   return {
     verifierGated: true,
     verifierNodeId,
@@ -232,6 +287,7 @@ function resolveCommitGate(run: WorkflowRun, options: CommitStateOptions): Commi
     selectionNodeId,
     evidence: verifierNode?.evidence || [],
     errors,
+    rationale,
     metadata: {
       ...metadata,
       verifierNodeId,
@@ -264,7 +320,7 @@ function recordCommitNode(run: WorkflowRun, commit: StateCommit, options: Commit
           selectionId: gate.selectionId
         },
         artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
-        evidence: verifierNode.evidence,
+        evidence: commit.evidence || verifierNode.evidence,
         metadata: {
           ...(options.metadata || {}),
           reason: options.reason,
@@ -274,7 +330,8 @@ function recordCommitNode(run: WorkflowRun, commit: StateCommit, options: Commit
           verifierNodeId: verifierNode.id,
           candidateId: gate.candidateId,
           selectionId: gate.selectionId,
-          selectionNodeId: gate.selectionNodeId
+          selectionNodeId: gate.selectionNodeId,
+          acceptanceRationale: commit.acceptanceRationale
         }
       }
     );
@@ -405,6 +462,23 @@ function findSelectionNode(run: WorkflowRun, selectionId: string): StateNode | u
 
 function findCandidate(run: WorkflowRun, candidateId: string) {
   return (run.candidates || []).find((candidate) => candidate.id === candidateId);
+}
+
+function findScore(run: WorkflowRun, candidateId: string, scoreId: string): { criteria: Record<string, number> } | undefined {
+  const file = path.join(run.paths.candidatesDir || path.join(run.paths.runDir, "candidates"), safeFileName(candidateId), "scores", `${safeFileName(scoreId)}.json`);
+  if (!fs.existsSync(file)) return undefined;
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8")) as { criteria: Record<string, number> };
+  } catch {
+    return undefined;
+  }
+}
+
+function sandboxProfileForCandidate(run: WorkflowRun, candidate: ReturnType<typeof findCandidate>): string | undefined {
+  const worker = candidate?.workerId ? (run.workers || []).find((entry) => entry.id === candidate.workerId) : undefined;
+  if (worker?.sandboxProfileId) return worker.sandboxProfileId;
+  const task = candidate?.taskId ? (run.tasks || []).find((entry) => entry.id === candidate.taskId) : undefined;
+  return task?.sandboxProfileId;
 }
 
 function findNode(run: WorkflowRun, nodeId: string): StateNode | undefined {

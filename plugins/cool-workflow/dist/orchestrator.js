@@ -23,6 +23,7 @@ const worker_isolation_1 = require("./worker-isolation");
 const candidate_scoring_1 = require("./candidate-scoring");
 const sandbox_profile_1 = require("./sandbox-profile");
 const operator_ux_1 = require("./operator-ux");
+const trust_audit_1 = require("./trust-audit");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -191,11 +192,18 @@ class CoolWorkflowRunner {
             nodes: [],
             contracts: [],
             feedback: [],
+            audit: {
+                schemaVersion: 1,
+                eventLogPath: paths.auditDir ? node_path_1.default.join(paths.auditDir, "events.jsonl") : undefined,
+                summaryPath: paths.auditDir ? node_path_1.default.join(paths.auditDir, "summary.json") : undefined,
+                indexPath: paths.auditDir ? node_path_1.default.join(paths.auditDir, "index.json") : undefined
+            },
             workers: [],
             sandboxProfiles: [],
             candidates: [],
             candidateSelections: []
         };
+        (0, trust_audit_1.ensureTrustAudit)(run);
         (0, harness_1.writeTaskFiles)(run);
         const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
         const inputNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
@@ -412,6 +420,104 @@ class CoolWorkflowRunner {
     }
     validateWorker(runId, workerId, targetPath) {
         return (0, worker_isolation_1.validateWorkerBoundary)(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
+    }
+    auditSummary(runId) {
+        return (0, trust_audit_1.summarizeTrustAudit)(this.loadRun(runId));
+    }
+    workerAudit(runId, workerId) {
+        return (0, trust_audit_1.workerTrustAudit)(this.loadRun(runId), workerId);
+    }
+    evidenceProvenance(runId, options = {}) {
+        return (0, trust_audit_1.evidenceProvenance)(this.loadRun(runId), {
+            workerId: stringOption(options.worker || options.workerId),
+            candidateId: stringOption(options.candidate || options.candidateId),
+            commitId: stringOption(options.commit || options.commitId)
+        });
+    }
+    recordAuditAttestation(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const workerId = stringOption(options.worker || options.workerId);
+        const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
+        const event = (0, trust_audit_1.recordHostAttestation)(run, {
+            actor: stringOption(options.actor) || "host",
+            workerId,
+            taskId: worker?.taskId || stringOption(options.task || options.taskId),
+            sandboxProfileId: worker?.sandboxProfileId || stringOption(options.sandboxProfileId),
+            policySnapshot: worker?.sandboxPolicy,
+            command: stringOption(options.command),
+            networkTarget: stringOption(options.network || options.networkTarget),
+            envVars: valuesOption(options.env || options.envVar || options.envVars),
+            metadata: {
+                note: stringOption(options.note || options.message),
+                hostEnforced: options.hostEnforced === undefined ? undefined : Boolean(options.hostEnforced)
+            }
+        });
+        (0, state_1.saveCheckpoint)(run);
+        return event;
+    }
+    recordAuditDecision(runId, workerId, options = {}) {
+        const run = this.loadRun(runId);
+        const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);
+        if (!worker)
+            throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
+        const kind = stringOption(options.kind) || inferAuditDecisionKind(options);
+        const target = stringOption(options.path || options.command || options.network || options.networkTarget || options.env || options.envVar);
+        if (!target)
+            throw new Error("Missing audit decision target: provide --path, --command, --network, or --env");
+        const policy = worker.sandboxPolicy;
+        let denied = null;
+        if (kind === "sandbox.command") {
+            denied = policy ? (0, sandbox_profile_1.validateSandboxCommand)(policy, target, workerId) : null;
+        }
+        else if (kind === "sandbox.network") {
+            denied = policy ? (0, sandbox_profile_1.validateSandboxNetwork)(policy, target, workerId) : null;
+        }
+        else if (kind === "sandbox.env") {
+            const name = target.includes("=") ? target.split("=")[0] : target;
+            const allowed = Boolean(policy?.env.inherit || policy?.env.expose.includes(name));
+            denied = allowed ? null : { code: "sandbox-env-denied", message: `Worker ${workerId} env var is outside sandbox profile ${policy?.id || "unknown"}: ${name}` };
+        }
+        else {
+            denied = (0, worker_isolation_1.validateWorkerBoundary)(run, workerId, { path: target });
+        }
+        const feedbackIds = [];
+        if (denied) {
+            const failure = (0, worker_isolation_1.recordWorkerFailure)(run, workerId, {
+                code: denied.code,
+                message: denied.message,
+                at: new Date().toISOString(),
+                path: denied.path || (kind === "sandbox.path" ? node_path_1.default.resolve(target) : undefined),
+                retryable: false
+            }, { persist: false });
+            feedbackIds.push(...(failure.feedbackIds || []));
+        }
+        const event = kind === "sandbox.path"
+            ? (0, trust_audit_1.recordSandboxPathDecision)(run, {
+                workerId,
+                taskId: worker.taskId,
+                sandboxProfileId: worker.sandboxProfileId,
+                policySnapshot: policy,
+                target,
+                decision: denied ? "denied" : "allowed",
+                feedbackIds,
+                metadata: { code: denied?.code }
+            })
+            : (0, trust_audit_1.recordSandboxPolicyDecision)(run, {
+                kind,
+                decision: denied ? "denied" : "allowed",
+                workerId,
+                taskId: worker.taskId,
+                sandboxProfileId: worker.sandboxProfileId,
+                policySnapshot: policy,
+                command: kind === "sandbox.command" ? target : undefined,
+                networkTarget: kind === "sandbox.network" ? target : undefined,
+                envVars: kind === "sandbox.env" ? [target.includes("=") ? target.split("=")[0] : target] : undefined,
+                feedbackIds,
+                metadata: { code: denied?.code }
+            });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return event;
     }
     listSandboxProfiles(options = {}) {
         return (0, sandbox_profile_1.listBundledSandboxProfiles)((0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
@@ -739,7 +845,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id> [--json|--format json]\n  next <run-id> [--limit N]\n  graph <run-id> [--json]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  state check <run-id> [--state PATH] [--write]\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  commit summary <run-id> [--json]\n  report <run-id> [--show|--summary]\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id> [--json]\n  feedback list <run-id> [--status open]\n  feedback summary <run-id> [--json]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker summary <run-id> [--json]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate summary <run-id> [--json]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id> [--json|--format json]\n  next <run-id> [--limit N]\n  graph <run-id> [--json]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  state check <run-id> [--state PATH] [--write]\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  commit summary <run-id> [--json]\n  report <run-id> [--show|--summary]\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id> [--json]\n  feedback list <run-id> [--status open]\n  feedback summary <run-id> [--json]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker summary <run-id> [--json]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  audit summary <run-id>\n  audit worker <run-id> <worker-id>\n  audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]\n  audit attest <run-id> [--worker ID] [--hostEnforced true] [--env NAME]\n  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]\n  candidate list <run-id> [--status scored]\n  candidate summary <run-id> [--json]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -844,6 +950,14 @@ function writeReport(run) {
         "## Sandbox Profiles",
         "",
         ...renderSandboxProfiles(run),
+        "",
+        "## Trust Audit",
+        "",
+        ...renderTrustAudit(run),
+        "",
+        "## Acceptance Rationale",
+        "",
+        ...renderAcceptanceRationale(run),
         "",
         "## Candidates",
         "",
@@ -968,6 +1082,34 @@ function renderCandidates(summary) {
         `- Ranking: ${summary.rankingPath}`
     ];
 }
+function renderTrustAudit(run) {
+    const summary = (0, trust_audit_1.summarizeTrustAudit)(run);
+    return [
+        `- Events: ${summary.eventCount}`,
+        `- Decisions: ${formatCounts(summary.byDecision)}`,
+        `- Sources: ${formatCounts(summary.bySource)}`,
+        `- Sandbox profiles: ${formatCounts(summary.bySandboxProfile)}`,
+        `- Event log: ${summary.eventLogPath}`,
+        `- Summary: ${summary.summaryPath}`,
+        `- Index: ${summary.indexPath}`
+    ];
+}
+function renderAcceptanceRationale(run) {
+    const lines = [];
+    for (const selection of run.candidateSelections || []) {
+        const rationale = selection.acceptanceRationale;
+        if (!rationale)
+            continue;
+        lines.push(`- Selection ${selection.id}: candidate=${rationale.selectedCandidateId || selection.candidateId}, score=${rationale.scoreId || "none"}, verifier=${rationale.verifierNodeId || "none"}, evidence=${rationale.evidenceCount}, sandbox=${rationale.sandboxProfileId || "none"}, worker=${rationale.workerId || "none"}`);
+    }
+    for (const commit of run.commits || []) {
+        if (!commit.acceptanceRationale)
+            continue;
+        const rationale = commit.acceptanceRationale;
+        lines.push(`- Commit ${commit.id}: gate=${rationale.commitGateResult || "unknown"}, candidate=${rationale.selectedCandidateId || commit.candidateId || "none"}, score=${rationale.scoreId || "none"}, verifier=${rationale.verifierNodeId || commit.verifierNodeId || "none"}, evidence=${rationale.evidenceCount}, sandbox=${rationale.sandboxProfileId || "none"}, worker=${rationale.workerId || "none"}`);
+    }
+    return lines.length ? lines : ["No accepted candidate or verifier-gated commit rationale yet."];
+}
 function formatCommitGate(commit) {
     return [
         `verifier=${commit.verifierNodeId || "unknown"}`,
@@ -1064,6 +1206,18 @@ function arrayOption(value) {
     if (value === undefined || value === null || value === true)
         return [];
     return Array.isArray(value) ? value : [value];
+}
+function valuesOption(value) {
+    return arrayOption(value).map((entry) => String(entry).split("=")[0]).filter(Boolean);
+}
+function inferAuditDecisionKind(options) {
+    if (options.command)
+        return "sandbox.command";
+    if (options.network || options.networkTarget)
+        return "sandbox.network";
+    if (options.env || options.envVar)
+        return "sandbox.env";
+    return "sandbox.path";
 }
 function isSandboxProfileError(error) {
     return error instanceof sandbox_profile_1.SandboxProfileError || Boolean(error && typeof error === "object" && "code" in error && String(error.code).startsWith("sandbox-"));

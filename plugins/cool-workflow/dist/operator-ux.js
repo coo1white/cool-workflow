@@ -19,6 +19,7 @@ exports.formatFeedbackSummary = formatFeedbackSummary;
 exports.formatCommitSummary = formatCommitSummary;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const trust_audit_1 = require("./trust-audit");
 function summarizeOperatorRun(run) {
     const tasks = summarizeTasks(run.tasks || []);
     const phases = summarizePhases(run);
@@ -26,6 +27,7 @@ function summarizeOperatorRun(run) {
     const candidates = summarizeOperatorCandidates(run);
     const feedback = summarizeOperatorFeedback(run);
     const commits = summarizeOperatorCommits(run);
+    const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
     const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
     const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates);
     return {
@@ -44,6 +46,7 @@ function summarizeOperatorRun(run) {
         candidates,
         feedback,
         commits,
+        trust,
         reportPath: run.paths.report,
         evidencePaths: evidencePathsFor(run),
         nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits })
@@ -262,6 +265,8 @@ function formatOperatorStatus(summary) {
         "",
         formatCommitPanel(summary.commits),
         "",
+        formatTrustPanel(summary.trust),
+        "",
         `Report: ${summary.reportPath}`,
         "",
         "Next Action",
@@ -283,7 +288,9 @@ function formatOperatorReport(summary) {
         `  node scripts/cw.js worker summary ${summary.runId}`,
         `  node scripts/cw.js candidate summary ${summary.runId}`,
         `  node scripts/cw.js feedback summary ${summary.runId}`,
-        `  node scripts/cw.js commit summary ${summary.runId}`
+        `  node scripts/cw.js commit summary ${summary.runId}`,
+        `  node scripts/cw.js audit summary ${summary.runId}`,
+        `  node scripts/cw.js audit provenance ${summary.runId}`
     ].join("\n");
 }
 function formatOperatorGraph(graph) {
@@ -315,6 +322,19 @@ function formatFeedbackSummary(summary) {
 }
 function formatCommitSummary(summary) {
     return formatCommitPanel(summary);
+}
+function formatTrustPanel(summary) {
+    const lines = [
+        "Trust Audit",
+        `  total=${summary.eventCount}; decision=${formatCounts(summary.byDecision)}; source=${formatCounts(summary.bySource)}`,
+        `  sandbox=${formatCounts(summary.bySandboxProfile)}`,
+        `  events=${summary.eventLogPath}`,
+        `  summary=${summary.summaryPath}`
+    ];
+    for (const worker of summary.workers.slice(0, 6)) {
+        lines.push(`  worker ${worker.workerId}: sandbox=${worker.sandboxProfileId || "none"}, decisions=${formatCounts(worker.decisions)}, denied=${worker.denied}`);
+    }
+    return lines.join("\n");
 }
 function adviseNextSteps(run, summary) {
     const actions = [];

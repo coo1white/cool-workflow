@@ -14,6 +14,8 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Workflow App SDK for versioned, validated, reusable workflow apps.
 - Complete MCP / App Surface for app runs, worker output, candidate scoring,
   sandbox resolution, verifier-gated commits, and operator summaries.
+- Security / Trust Hardening for durable audit records, sandbox decision
+  history, evidence provenance, acceptance rationale, and CLI/MCP audit tools.
 - Release & Migration Discipline for explicit run-state migrations,
   fixture-based backward compatibility, version synchronization, and a dry-run
   release gate.
@@ -68,7 +70,9 @@ See [index.md](plugins/cool-workflow/docs/index.md) for the docs map.
 See [getting-started.md](plugins/cool-workflow/docs/getting-started.md) for a
 fresh clone path.
 See [release-and-migration.7.md](plugins/cool-workflow/docs/release-and-migration.7.md)
-for v0.1.14 release and migration discipline.
+for release and migration discipline.
+See [security-trust-hardening.7.md](plugins/cool-workflow/docs/security-trust-hardening.7.md)
+for v0.1.15 audit and trust hardening.
 See [mcp-app-surface.7.md](plugins/cool-workflow/docs/mcp-app-surface.7.md)
 for the MCP runtime surface.
 See [operator-ux.7.md](plugins/cool-workflow/docs/operator-ux.7.md) for

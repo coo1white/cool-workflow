@@ -248,6 +248,28 @@ async function main() {
                     throw new Error("Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
             }
         }
+        case "audit": {
+            const [subcommand, runId, id] = args.positionals;
+            switch (subcommand) {
+                case "summary":
+                    printJson(runner.auditSummary(required(runId, "run id")));
+                    return;
+                case "worker":
+                    printJson(runner.workerAudit(required(runId, "run id"), required(id, "worker id")));
+                    return;
+                case "provenance":
+                    printJson(runner.evidenceProvenance(required(runId, "run id"), args.options));
+                    return;
+                case "attest":
+                    printJson(runner.recordAuditAttestation(required(runId, "run id"), args.options));
+                    return;
+                case "decision":
+                    printJson(runner.recordAuditDecision(required(runId, "run id"), required(id, "worker id"), args.options));
+                    return;
+                default:
+                    throw new Error("Usage: cw.js audit summary|worker|provenance|attest|decision <run-id> [worker-id]");
+            }
+        }
         case "candidate": {
             const [subcommand, runId, candidateId, reason] = args.positionals;
             switch (subcommand) {

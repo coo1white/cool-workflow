@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing Cool Workflow v0.1.14 or later.
+Use this checklist before publishing Cool Workflow v0.1.15 or later.
 
 ## Dry-Run Gate
 
@@ -63,7 +63,7 @@ After the dry-run gate and manual review pass, tagging, pushing, and publishing
 remain explicit maintainer actions:
 
 ```bash
-git tag v0.1.14
+git tag v0.1.15
 git push origin main --tags
 ```
 

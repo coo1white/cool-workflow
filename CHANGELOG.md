@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.15
+
+- Added durable trust audit records under `.cw/runs/<run-id>/audit/` with
+  append-friendly `events.jsonl` plus deterministic `index.json` and
+  `summary.json`.
+- Added worker sandbox audit coverage for selected profiles, policy snapshots,
+  allowed output paths, denied out-of-profile paths, command/network/env
+  validation decisions, feedback links, and host attestations.
+- Added optional evidence provenance on `StateEvidence` while preserving
+  backward compatibility for older run state.
+- Added acceptance rationale for selected candidates and verifier-gated commits:
+  candidate, score, criteria, verifier, evidence count, sandbox profile, worker,
+  and commit gate result.
+- Added CLI and MCP audit tools for summaries, worker audit, provenance,
+  attestations, and policy decisions.
+- Added `docs/security-trust-hardening.7.md` and
+  `test/security-trust-hardening-smoke.js`.
+
 ## 0.1.14
 
 - Added explicit run-state migration policy with `src/state-migrations.ts`,

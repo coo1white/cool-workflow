@@ -160,7 +160,7 @@ The golden path uses a temporary workspace, writes a simulated worker
 `cw:result` to the worker manifest's declared `result.md`, and asserts durable
 state files instead of relying only on exit codes.
 
-Use `npm run release:check` for v0.1.14+ release discipline. It is a dry-run
+Use `npm run release:check` for v0.1.15+ release discipline. It is a dry-run
 gate that builds, type-checks, runs tests, validates canonical apps and golden
 path behavior, checks old run fixtures, verifies version synchronization, and
 does not tag, push, publish, or mutate fixtures.

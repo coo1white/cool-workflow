@@ -16,6 +16,7 @@ const checks = [
         "docs/index.md",
         "docs/getting-started.md",
         "docs/release-and-migration.7.md",
+        "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
       ]) {
@@ -27,6 +28,7 @@ const checks = [
   { name: "build", command: ["npm", "run", "build"] },
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "tests", command: ["npm", "test"] },
+  { name: "security trust smoke", command: ["node", "test/security-trust-hardening-smoke.js"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },
   { name: "golden path", command: ["npm", "run", "golden-path"] },
   { name: "fixture compatibility", command: ["npm", "run", "fixture-compat"] },

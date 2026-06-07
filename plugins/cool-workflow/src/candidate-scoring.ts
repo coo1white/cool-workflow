@@ -17,6 +17,7 @@ import {
 import { recordFeedback } from "./error-feedback";
 import { safeFileName, saveCheckpoint, writeJson } from "./state";
 import { appendRunNode, createStateNode, linkStateNodes } from "./state-node";
+import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent } from "./trust-audit";
 
 export const CANDIDATE_SCHEMA_VERSION = 1;
 
@@ -104,12 +105,30 @@ export function registerCandidate(
     verifierNodeId: input.verifierNodeId,
     resultPath: input.resultPath,
     artifacts: input.artifacts || artifactsFromInput(input),
-    evidence: input.evidence || evidenceFromInput(run, input),
+    evidence: normalizeEvidence(run, input.evidence || evidenceFromInput(run, input), {
+      source: input.workerId ? "cw-validated" : "operator-recorded",
+      workerId: input.workerId,
+      taskId: input.taskId,
+      resultNodeId: input.resultNodeId,
+      verifierNodeId: input.verifierNodeId,
+      candidateId: id
+    }),
     scores: [],
     feedbackIds: [],
     metadata: compactMetadata(input.metadata || {})
   };
   upsertCandidate(run, candidate);
+  recordTrustAuditEvent(run, {
+    kind: "candidate.register",
+    decision: "recorded",
+    source: input.workerId ? "cw-validated" : "operator-recorded",
+    workerId: input.workerId,
+    taskId: input.taskId,
+    nodeId: input.resultNodeId,
+    candidateId: candidate.id,
+    evidence: candidate.evidence,
+    metadata: { kind: candidate.kind, verifierNodeId: candidate.verifierNodeId }
+  });
   appendCandidateNode(run, candidate, "registered");
   if (shouldPersist(options)) saveCheckpoint(run);
   return candidate;
@@ -145,7 +164,11 @@ export function scoreCandidate(
 ): CandidateScore {
   const candidate = requireCandidate(run, candidateId);
   const scoreId = input.id || createScoreId(candidateId);
-  const evidence = input.evidence || [];
+  const evidence = normalizeEvidence(run, input.evidence || [], {
+    source: "operator-recorded",
+    candidateId,
+    scoreId
+  });
   const policy = mergePolicy(options.policy);
   if (policy.requireEvidence && !evidence.length) {
     const feedback = recordCandidateFailure(run, candidate, "candidate-score-missing-evidence", {
@@ -189,6 +212,25 @@ export function scoreCandidate(
     evidence: mergeById(candidate.evidence, evidence),
     artifacts: mergeById(candidate.artifacts, score.artifacts)
   });
+  const scoreAudit = recordTrustAuditEvent(run, {
+    kind: "candidate.score",
+    decision: score.verdict === "fail" ? "rejected" : "accepted",
+    source: "operator-recorded",
+    candidateId,
+    scoreId: score.id,
+    workerId: candidate.workerId,
+    taskId: candidate.taskId,
+    nodeId: candidate.verifierNodeId || candidate.resultNodeId,
+    evidence: score.evidence,
+    metadata: { criteria: score.criteria, normalized: score.normalized, verdict: score.verdict }
+  });
+  score.evidence = normalizeEvidence(run, score.evidence, {
+    source: "operator-recorded",
+    candidateId,
+    scoreId: score.id,
+    auditEventIds: [scoreAudit.id]
+  });
+  writeScore(run, candidateId, score);
   appendCandidateNode(run, updated, "scored", score);
   writeCandidateIndex(run);
   if (shouldPersist(options)) saveCheckpoint(run);
@@ -292,15 +334,62 @@ export function selectCandidate(
     scoreId: bestScore?.id,
     rankingPath: options.rankingPath || rankingPath(run),
     reason: options.reason || "selected candidate",
-    evidence: mergeEvidence(candidate.evidence, verifierNode?.evidence || []),
+    evidence: normalizeEvidence(run, mergeEvidence(candidate.evidence, verifierNode?.evidence || []), {
+      source: "cw-validated",
+      workerId: candidate.workerId,
+      taskId: candidate.taskId,
+      resultNodeId: candidate.resultNodeId,
+      verifierNodeId: candidate.verifierNodeId,
+      candidateId,
+      scoreId: bestScore?.id
+    }),
     artifacts: candidate.artifacts,
     feedbackIds: [],
+    acceptanceRationale: buildAcceptanceRationale({
+      selectedCandidateId: candidateId,
+      scoreId: bestScore?.id,
+      scoreCriteria: bestScore?.criteria,
+      verifierNodeId: candidate.verifierNodeId,
+      evidenceCount: mergeEvidence(candidate.evidence, verifierNode?.evidence || []).length,
+      sandboxProfileId: sandboxProfileForCandidate(run, candidate),
+      workerId: candidate.workerId,
+      commitGateResult: "passed"
+    }),
     metadata: compactMetadata({
       ...(options.metadata || {}),
       rank: ranked?.rank,
       normalized: bestScore?.normalized
     })
   };
+  const selectionAudit = recordTrustAuditEvent(run, {
+    kind: "candidate.selection",
+    decision: "accepted",
+    source: "cw-validated",
+    workerId: candidate.workerId,
+    taskId: candidate.taskId,
+    nodeId: candidate.verifierNodeId,
+    candidateId,
+    scoreId: bestScore?.id,
+    selectionId: selection.id,
+    sandboxProfileId: selection.acceptanceRationale?.sandboxProfileId,
+    evidence: selection.evidence,
+    metadata: selection.acceptanceRationale as unknown as Record<string, unknown>
+  });
+  selection.evidence = normalizeEvidence(run, selection.evidence, {
+    source: "cw-validated",
+    workerId: candidate.workerId,
+    taskId: candidate.taskId,
+    resultNodeId: candidate.resultNodeId,
+    verifierNodeId: candidate.verifierNodeId,
+    candidateId,
+    scoreId: bestScore?.id,
+    selectionId: selection.id,
+    auditEventIds: [selectionAudit.id]
+  });
+  selection.acceptanceRationale = buildAcceptanceRationale({
+    ...selection.acceptanceRationale,
+    auditEventIds: [selectionAudit.id]
+  });
   run.candidateSelections = [...(run.candidateSelections || []), selection];
   writeSelection(run, selection);
   const updated = updateCandidate(run, {
@@ -685,6 +774,13 @@ function mergeEvidence(left: StateEvidence[], right: StateEvidence[]): StateEvid
     else merged.push(item);
   }
   return merged;
+}
+
+function sandboxProfileForCandidate(run: WorkflowRun, candidate: CandidateRecord): string | undefined {
+  const worker = candidate.workerId ? (run.workers || []).find((entry) => entry.id === candidate.workerId) : undefined;
+  if (worker?.sandboxProfileId) return worker.sandboxProfileId;
+  const task = candidate.taskId ? (run.tasks || []).find((entry) => entry.id === candidate.taskId) : undefined;
+  return task?.sandboxProfileId;
 }
 
 function unique(values: string[]): string[] {

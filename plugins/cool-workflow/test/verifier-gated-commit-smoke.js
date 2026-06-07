@@ -44,7 +44,9 @@ const run = {
       resultPath,
       loopStage: "observe",
       resultNodeId: "commit-smoke:result:task-one",
-      verifierNodeId: "commit-smoke:verifier:task-one"
+      verifierNodeId: "commit-smoke:verifier:task-one",
+      workerId: "worker-one",
+      sandboxProfileId: "readonly"
     }
   ],
   dispatches: [],
@@ -53,7 +55,35 @@ const run = {
   nodes: [],
   contracts: [],
   feedback: [],
-  workers: [],
+  workers: [
+    {
+      schemaVersion: 1,
+      id: "worker-one",
+      runId: "commit-smoke",
+      taskId: "task-one",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      status: "verified",
+      workerDir: path.join(paths.workersDir, "worker-one"),
+      inputPath: path.join(paths.workersDir, "worker-one", "input.md"),
+      resultPath,
+      artifactsDir: path.join(paths.workersDir, "worker-one", "artifacts"),
+      logsDir: path.join(paths.workersDir, "worker-one", "logs"),
+      allowedPaths: [resultPath],
+      sandboxProfileId: "readonly",
+      resultNodeId: "commit-smoke:result:task-one",
+      feedbackIds: [],
+      errors: [],
+      output: {
+        workerId: "worker-one",
+        taskId: "task-one",
+        resultPath,
+        recordedAt: new Date().toISOString(),
+        stateNodeId: "commit-smoke:result:task-one",
+        verifierNodeId: "commit-smoke:verifier:task-one"
+      }
+    }
+  ],
   candidates: [],
   candidateSelections: []
 };
@@ -163,7 +193,9 @@ const candidate = registerCandidate(
   run,
   {
     id: "candidate-one",
-    kind: "manual",
+    kind: "worker-output",
+    workerId: "worker-one",
+    taskId: "task-one",
     resultNodeId: "commit-smoke:result:task-one",
     verifierNodeId: "commit-smoke:verifier:task-one",
     resultPath

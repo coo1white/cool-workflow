@@ -90,6 +90,16 @@ function callTool(name, args) {
                 return runner.summarizeFeedbackRecords(String(args.runId || ""));
             case "cw_commit_summary":
                 return runner.summarizeCommitRecords(String(args.runId || ""));
+            case "cw_audit_summary":
+                return runner.auditSummary(String(args.runId || ""));
+            case "cw_audit_worker":
+                return runner.workerAudit(String(args.runId || ""), String(args.workerId || ""));
+            case "cw_audit_provenance":
+                return runner.evidenceProvenance(String(args.runId || ""), args);
+            case "cw_audit_attest":
+                return runner.recordAuditAttestation(String(args.runId || ""), args);
+            case "cw_audit_decision":
+                return runner.recordAuditDecision(String(args.runId || ""), String(args.workerId || ""), args);
             case "cw_dispatch":
                 return runner.dispatch(String(args.runId || ""), args);
             case "cw_sandbox_list":
@@ -300,6 +310,34 @@ function toolDefinitions() {
         tool("cw_candidate_summary", "Read the structured candidate summary for a run.", runIdSchema()),
         tool("cw_feedback_summary", "Read the structured feedback summary for a run.", runIdSchema()),
         tool("cw_commit_summary", "Read the structured commit summary for a run.", runIdSchema()),
+        tool("cw_audit_summary", "Read durable trust/audit summary for a run.", runIdSchema()),
+        tool("cw_audit_worker", "Read trust/audit events for one worker.", workerIdSchema()),
+        tool("cw_audit_provenance", "Inspect evidence provenance for a run, worker, candidate, or commit.", {
+            ...runIdSchema(),
+            workerId: stringSchema("Optional worker id"),
+            worker: stringSchema("Optional worker id"),
+            candidateId: stringSchema("Optional candidate id"),
+            candidate: stringSchema("Optional candidate id"),
+            commitId: stringSchema("Optional commit id"),
+            commit: stringSchema("Optional commit id")
+        }),
+        tool("cw_audit_attest", "Record a host/operator sandbox attestation without storing secrets.", {
+            ...runIdSchema(),
+            workerId: stringSchema("Optional worker id"),
+            worker: stringSchema("Optional worker id"),
+            actor: stringSchema("Host/operator actor"),
+            hostEnforced: booleanSchema("Whether the host says enforcement was active"),
+            env: arraySchema("Environment variable names only"),
+            note: stringSchema("Short attestation note")
+        }),
+        tool("cw_audit_decision", "Validate and record a sandbox path/command/network/env decision.", {
+            ...workerIdSchema(),
+            path: stringSchema("Path to validate"),
+            command: stringSchema("Command to validate"),
+            network: stringSchema("Network target to validate"),
+            env: stringSchema("Environment variable name to validate"),
+            kind: stringSchema("sandbox.path, sandbox.command, sandbox.network, or sandbox.env")
+        }),
         tool("cw_dispatch", "Create a subagent dispatch manifest.", {
             runId: stringSchema("Run id"),
             cwd: stringSchema("Run workspace"),

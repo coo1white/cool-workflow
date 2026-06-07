@@ -13,6 +13,7 @@ const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const error_feedback_1 = require("./error-feedback");
+const trust_audit_1 = require("./trust-audit");
 class CommitGateError extends Error {
     structured;
     feedbackId;
@@ -35,6 +36,30 @@ function commitState(run, input) {
     node_fs_1.default.mkdirSync(run.paths.commitsDir, { recursive: true });
     const id = createCommitId();
     const snapshotPath = node_path_1.default.join(run.paths.commitsDir, `${id}.json`);
+    const audit = gate.verifierGated
+        ? (0, trust_audit_1.recordTrustAuditEvent)(run, {
+            kind: "commit.gate",
+            decision: "accepted",
+            source: "cw-validated",
+            workerId: gate.rationale?.workerId,
+            nodeId: gate.verifierNodeId,
+            candidateId: gate.candidateId,
+            selectionId: gate.selectionId,
+            commitId: id,
+            sandboxProfileId: gate.rationale?.sandboxProfileId,
+            evidence: gate.evidence,
+            metadata: gate.rationale
+        })
+        : undefined;
+    const evidence = (0, trust_audit_1.normalizeEvidence)(run, gate.evidence, {
+        source: gate.verifierGated ? "cw-validated" : "runtime-derived",
+        workerId: gate.rationale?.workerId,
+        verifierNodeId: gate.verifierNodeId,
+        candidateId: gate.candidateId,
+        selectionId: gate.selectionId,
+        commitId: id,
+        auditEventIds: audit ? [audit.id] : []
+    });
     const commit = {
         id,
         createdAt: new Date().toISOString(),
@@ -49,7 +74,14 @@ function commitState(run, input) {
         verifierNodeId: gate.verifierNodeId,
         candidateId: gate.candidateId,
         selectionId: gate.selectionId,
-        evidence: gate.evidence,
+        evidence,
+        acceptanceRationale: gate.rationale
+            ? {
+                ...gate.rationale,
+                commitGateResult: gate.verifierGated ? "passed" : "checkpoint",
+                auditEventIds: audit ? [...(gate.rationale.auditEventIds || []), audit.id] : gate.rationale.auditEventIds
+            }
+            : undefined,
         metadata: {
             ...(options.metadata || {}),
             ...gate.metadata
@@ -202,6 +234,27 @@ function resolveCommitGate(run, options) {
             }));
         }
     }
+    let rationale;
+    if (verifierGated && candidateId && selectionId) {
+        const candidate = findCandidate(run, candidateId);
+        const selection = findSelection(run, selectionId);
+        const score = selection?.scoreId ? findScore(run, candidateId, selection.scoreId) : undefined;
+        rationale = selection?.acceptanceRationale || (0, trust_audit_1.buildAcceptanceRationale)({
+            selectedCandidateId: candidateId,
+            scoreId: selection?.scoreId,
+            scoreCriteria: score?.criteria,
+            verifierNodeId,
+            evidenceCount: verifierNode?.evidence.length || 0,
+            sandboxProfileId: sandboxProfileForCandidate(run, candidate),
+            workerId: candidate?.workerId,
+            commitGateResult: "passed"
+        });
+        for (const failure of (0, trust_audit_1.validateAcceptanceRationale)(rationale)) {
+            errors.push(error("commit-rationale-incomplete", `Verifier-gated commit cannot explain acceptance: ${failure}`, {
+                details: { candidateId, selectionId, verifierNodeId }
+            }));
+        }
+    }
     return {
         verifierGated: true,
         verifierNodeId,
@@ -210,6 +263,7 @@ function resolveCommitGate(run, options) {
         selectionNodeId,
         evidence: verifierNode?.evidence || [],
         errors,
+        rationale,
         metadata: {
             ...metadata,
             verifierNodeId,
@@ -236,7 +290,7 @@ function recordCommitNode(run, commit, options, gate) {
                 selectionId: gate.selectionId
             },
             artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
-            evidence: verifierNode.evidence,
+            evidence: commit.evidence || verifierNode.evidence,
             metadata: {
                 ...(options.metadata || {}),
                 reason: options.reason,
@@ -246,7 +300,8 @@ function recordCommitNode(run, commit, options, gate) {
                 verifierNodeId: verifierNode.id,
                 candidateId: gate.candidateId,
                 selectionId: gate.selectionId,
-                selectionNodeId: gate.selectionNodeId
+                selectionNodeId: gate.selectionNodeId,
+                acceptanceRationale: commit.acceptanceRationale
             }
         });
         if (gate.selectionNodeId && commitResult.outputNodeId) {
@@ -356,6 +411,24 @@ function findSelectionNode(run, selectionId) {
 }
 function findCandidate(run, candidateId) {
     return (run.candidates || []).find((candidate) => candidate.id === candidateId);
+}
+function findScore(run, candidateId, scoreId) {
+    const file = node_path_1.default.join(run.paths.candidatesDir || node_path_1.default.join(run.paths.runDir, "candidates"), (0, state_1.safeFileName)(candidateId), "scores", `${(0, state_1.safeFileName)(scoreId)}.json`);
+    if (!node_fs_1.default.existsSync(file))
+        return undefined;
+    try {
+        return JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+    }
+    catch {
+        return undefined;
+    }
+}
+function sandboxProfileForCandidate(run, candidate) {
+    const worker = candidate?.workerId ? (run.workers || []).find((entry) => entry.id === candidate.workerId) : undefined;
+    if (worker?.sandboxProfileId)
+        return worker.sandboxProfileId;
+    const task = candidate?.taskId ? (run.tasks || []).find((entry) => entry.id === candidate.taskId) : undefined;
+    return task?.sandboxProfileId;
 }
 function findNode(run, nodeId) {
     return (run.nodes || []).find((node) => node.id === nodeId);
