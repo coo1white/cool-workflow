@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.6
+
+- Added Candidate Scoring records for competing worker outputs.
+- Added candidate registration, scoring, ranking, selection, rejection, and
+  summary CLI commands.
+- Added verifier-gated candidate selection with ErrorFeedback records for
+  missing evidence or failed selection gates.
+- Added candidate run state paths, report summaries, docs, and smoke coverage.
+
 ## 0.1.1
 
 - Added `/loop`-compatible CLI shortcut via `cw.js loop`.

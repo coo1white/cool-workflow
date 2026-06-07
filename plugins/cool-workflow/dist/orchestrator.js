@@ -19,6 +19,7 @@ const error_feedback_1 = require("./error-feedback");
 const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const worker_isolation_1 = require("./worker-isolation");
+const candidate_scoring_1 = require("./candidate-scoring");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -87,7 +88,9 @@ class CoolWorkflowRunner {
             nodes: [],
             contracts: [],
             feedback: [],
-            workers: []
+            workers: [],
+            candidates: [],
+            candidateSelections: []
         };
         (0, harness_1.writeTaskFiles)(run);
         const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
@@ -260,6 +263,110 @@ class CoolWorkflowRunner {
     validateWorker(runId, workerId, targetPath) {
         return (0, worker_isolation_1.validateWorkerBoundary)(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
     }
+    listCandidates(runId, options = {}) {
+        return (0, candidate_scoring_1.listCandidates)(this.loadRun(runId), {
+            status: options.status ? String(options.status) : undefined,
+            kind: options.kind ? String(options.kind) : undefined
+        });
+    }
+    showCandidate(runId, candidateId) {
+        const candidate = (0, candidate_scoring_1.getCandidate)(this.loadRun(runId), candidateId);
+        if (!candidate)
+            throw new Error(`Unknown candidate id for run ${runId}: ${candidateId}`);
+        return candidate;
+    }
+    registerCandidate(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const workerId = options.worker ? String(options.worker) : undefined;
+        const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
+        if (workerId && !worker)
+            throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
+        const task = worker ? run.tasks.find((candidate) => candidate.id === worker.taskId) : undefined;
+        const resultNodeId = stringOption(options.resultNode) || worker?.resultNodeId || task?.resultNodeId;
+        const verifierNodeId = stringOption(options.verifierNode) || worker?.output?.verifierNodeId || task?.verifierNodeId;
+        const resultPath = stringOption(options.resultPath) || worker?.output?.resultPath || task?.resultPath;
+        const resultNode = resultNodeId ? run.nodes?.find((node) => node.id === resultNodeId) : undefined;
+        const verifierNode = verifierNodeId ? run.nodes?.find((node) => node.id === verifierNodeId) : undefined;
+        const candidate = (0, candidate_scoring_1.registerCandidate)(run, {
+            id: stringOption(options.id),
+            kind: stringOption(options.kind),
+            workerId,
+            taskId: stringOption(options.task) || worker?.taskId,
+            resultNodeId,
+            verifierNodeId,
+            resultPath,
+            artifacts: [
+                ...(resultPath ? [{ id: "result", kind: "markdown", path: node_path_1.default.resolve(resultPath) }] : []),
+                ...(worker ? [{ id: "worker", kind: "json", path: node_path_1.default.join(worker.workerDir, "worker.json") }] : [])
+            ],
+            evidence: mergeEvidence(resultNode?.evidence || [], verifierNode?.evidence || []),
+            metadata: {
+                source: worker ? "worker" : "manual",
+                workerDir: worker?.workerDir
+            }
+        }, { persist: false });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return candidate;
+    }
+    scoreCandidate(runId, candidateId, options = {}) {
+        const run = this.loadRun(runId);
+        const score = (0, candidate_scoring_1.scoreCandidate)(run, candidateId, {
+            id: stringOption(options.id),
+            scorer: stringOption(options.scorer),
+            criteria: parseCriteria(options),
+            maxTotal: numberOption(options.maxTotal || options.max),
+            verdict: stringOption(options.verdict),
+            evidence: parseEvidence(options.evidence),
+            notes: stringOption(options.notes)
+        }, { persist: false });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return score;
+    }
+    rankCandidates(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const ranking = (0, candidate_scoring_1.rankCandidates)(run, {
+            includeRejected: Boolean(options.includeRejected),
+            policy: {
+                minNormalized: numberOption(options.minNormalized),
+                requireEvidence: options.requireEvidence === undefined ? undefined : Boolean(options.requireEvidence),
+                requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate),
+                tieBreaker: stringOption(options.tieBreaker)
+            }
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return ranking;
+    }
+    selectCandidate(runId, candidateId, options = {}) {
+        const run = this.loadRun(runId);
+        const selection = (0, candidate_scoring_1.selectCandidate)(run, candidateId, {
+            selectedBy: stringOption(options.by) || stringOption(options.selectedBy),
+            reason: stringOption(options.reason),
+            scoreId: stringOption(options.score),
+            allowUnverified: Boolean(options.allowUnverified)
+        }, {
+            persist: false,
+            policy: {
+                minNormalized: numberOption(options.minNormalized),
+                requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate)
+            }
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return selection;
+    }
+    rejectCandidate(runId, candidateId, reason) {
+        const run = this.loadRun(runId);
+        const candidate = (0, candidate_scoring_1.rejectCandidate)(run, candidateId, reason, { persist: false });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return candidate;
+    }
+    summarizeCandidateRecords(runId) {
+        return (0, candidate_scoring_1.summarizeCandidates)(this.loadRun(runId));
+    }
     report(runId) {
         const run = this.loadRun(runId);
         return { path: writeReport(run) };
@@ -390,7 +497,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -450,6 +557,7 @@ function flattenTasks(workflow, inputs) {
 function writeReport(run) {
     (0, dispatch_1.updatePhaseStatuses)(run);
     const workerSummary = (0, worker_isolation_1.summarizeWorkers)(run);
+    const candidateSummary = (0, candidate_scoring_1.summarizeCandidates)(run);
     const report = [
         `# ${run.workflow.title}`,
         "",
@@ -483,6 +591,10 @@ function writeReport(run) {
         "## Workers",
         "",
         ...renderWorkers(workerSummary),
+        "",
+        "## Candidates",
+        "",
+        ...renderCandidates(candidateSummary),
         "",
         "## Pending Tasks",
         "",
@@ -571,6 +683,18 @@ function renderWorkers(summary) {
     }
     return lines;
 }
+function renderCandidates(summary) {
+    if (!summary.total)
+        return ["No candidates yet."];
+    return [
+        `- Total: ${summary.total}`,
+        `- By status: ${formatCounts(summary.byStatus)}`,
+        `- By kind: ${formatCounts(summary.byKind)}`,
+        `- Selections: ${summary.selections}`,
+        `- Index: ${summary.indexPath}`,
+        `- Ranking: ${summary.rankingPath}`
+    ];
+}
 function formatCounts(counts) {
     const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));
     if (!entries.length)
@@ -599,6 +723,51 @@ function numberOption(value) {
         return undefined;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
+}
+function stringOption(value) {
+    if (value === undefined || value === null || value === true)
+        return undefined;
+    return String(value);
+}
+function parseCriteria(options) {
+    const criteria = {};
+    const rawCriteria = options.criterion || options.criteria || options.score;
+    for (const entry of arrayOption(rawCriteria)) {
+        const [key, value] = String(entry).split("=");
+        if (!key || value === undefined)
+            continue;
+        criteria[key] = Number(value);
+    }
+    if (!Object.keys(criteria).length && options.total !== undefined) {
+        criteria.total = Number(options.total);
+    }
+    if (!Object.keys(criteria).length)
+        throw new Error("Missing score criteria. Use --criterion name=value");
+    return criteria;
+}
+function parseEvidence(value) {
+    return arrayOption(value).map((entry, index) => ({
+        id: `score:${index + 1}`,
+        source: "candidate-score",
+        locator: String(entry),
+        summary: String(entry)
+    }));
+}
+function mergeEvidence(left, right) {
+    const merged = [...left];
+    for (const item of right) {
+        const index = merged.findIndex((entry) => entry.id === item.id);
+        if (index >= 0)
+            merged[index] = item;
+        else
+            merged.push(item);
+    }
+    return merged;
+}
+function arrayOption(value) {
+    if (value === undefined || value === null || value === true)
+        return [];
+    return Array.isArray(value) ? value : [value];
 }
 function createRunId(workflowId) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");

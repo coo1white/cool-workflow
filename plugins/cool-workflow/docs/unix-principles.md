@@ -16,6 +16,7 @@ CW already stores:
 - state snapshots in `.cw/runs/<run-id>/commits/`
 - schedules in `.cw/schedules/tasks.json`
 - routine trigger events in `.cw/routines/`
+- candidate scoring records in `.cw/runs/<run-id>/candidates/`
 
 The practical rule is:
 
@@ -101,10 +102,10 @@ The preferred merge rule is:
 only verified state becomes committed state
 ```
 
-For competing branches, the future shape is:
+For competing branches, the shape is:
 
 ```text
-candidate workers -> verifier scores -> selected winner -> commit()
+candidate workers -> score records -> verifier-gated selection -> commit()
 ```
 
 ## 6. Practical Operating Rule

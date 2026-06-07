@@ -24,7 +24,8 @@ function createRunPaths(runDir) {
         commitsDir: node_path_1.default.join(runDir, "commits"),
         stateNodesDir: node_path_1.default.join(runDir, "nodes"),
         feedbackDir: node_path_1.default.join(runDir, "feedback"),
-        workersDir: node_path_1.default.join(runDir, "workers")
+        workersDir: node_path_1.default.join(runDir, "workers"),
+        candidatesDir: node_path_1.default.join(runDir, "candidates")
     };
 }
 function ensureRunDirs(paths) {
@@ -37,7 +38,8 @@ function ensureRunDirs(paths) {
         paths.commitsDir,
         paths.stateNodesDir,
         paths.feedbackDir,
-        paths.workersDir || node_path_1.default.join(paths.runDir, "workers")
+        paths.workersDir || node_path_1.default.join(paths.runDir, "workers"),
+        paths.candidatesDir || node_path_1.default.join(paths.runDir, "candidates")
     ]) {
         node_fs_1.default.mkdirSync(dir, { recursive: true });
     }
@@ -49,10 +51,13 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
     run.paths.stateNodesDir = run.paths.stateNodesDir || node_path_1.default.join(run.paths.runDir, "nodes");
     run.paths.feedbackDir = run.paths.feedbackDir || node_path_1.default.join(run.paths.runDir, "feedback");
     run.paths.workersDir = run.paths.workersDir || node_path_1.default.join(run.paths.runDir, "workers");
+    run.paths.candidatesDir = run.paths.candidatesDir || node_path_1.default.join(run.paths.runDir, "candidates");
     run.nodes = run.nodes || [];
     run.contracts = run.contracts || [];
     run.feedback = run.feedback || [];
     run.workers = run.workers || [];
+    run.candidates = run.candidates || [];
+    run.candidateSelections = run.candidateSelections || [];
     return run;
 }
 function saveCheckpoint(run) {
