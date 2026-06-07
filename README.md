@@ -18,6 +18,8 @@ interpret -> act -> observe -> adjust -> checkpoint
 - Workflow App SDK for versioned, validated, reusable workflow apps.
 - Canonical Workflow Apps for architecture review, PR/CI review, release
   preparation, and research synthesis.
+- Operator UX for human `status`, run graphs, report summaries, resource
+  summaries, and deterministic next-step recommendations.
 - Router / Orchestrator for workflow definitions and phase gates.
 - Subagent dispatch manifests for fan-out work.
 - Deterministic harness prompts for repeatable agent tasks.
@@ -61,6 +63,8 @@ Verifier-gated commits.
 ```
 
 See [unix-principles.md](plugins/cool-workflow/docs/unix-principles.md).
+See [operator-ux.7.md](plugins/cool-workflow/docs/operator-ux.7.md) for
+operator inspection commands.
 See [workflow-app-sdk.7.md](plugins/cool-workflow/docs/workflow-app-sdk.7.md)
 for the app contract.
 See [canonical-workflow-apps.7.md](plugins/cool-workflow/docs/canonical-workflow-apps.7.md)
@@ -130,6 +134,14 @@ node scripts/cw.js plan architecture-review \
   --question "Is this architecture sound?"
 node scripts/cw.js dispatch <run-id> --limit 6
 node scripts/cw.js dispatch <run-id> --sandbox readonly
+node scripts/cw.js status <run-id>
+node scripts/cw.js status <run-id> --json
+node scripts/cw.js graph <run-id>
+node scripts/cw.js report <run-id> --show
+node scripts/cw.js worker summary <run-id>
+node scripts/cw.js candidate summary <run-id>
+node scripts/cw.js feedback summary <run-id>
+node scripts/cw.js commit summary <run-id>
 node scripts/cw.js sandbox list
 node scripts/cw.js sandbox show readonly
 node scripts/cw.js report <run-id>

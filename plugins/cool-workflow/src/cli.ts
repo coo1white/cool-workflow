@@ -5,6 +5,16 @@ import { CoolWorkflowRunner, formatHelp, parseArgv } from "./orchestrator";
 import { DesktopSchedulerDaemon } from "./daemon";
 import { Scheduler } from "./scheduler";
 import { RoutineTriggerBridge } from "./triggers";
+import {
+  adviseNoRun,
+  formatCandidateSummary,
+  formatCommitSummary,
+  formatFeedbackSummary,
+  formatOperatorGraph,
+  formatOperatorReport,
+  formatOperatorStatus,
+  formatWorkerSummary
+} from "./operator-ux";
 
 async function main(): Promise<void> {
   const args = parseArgv(process.argv.slice(2));
@@ -67,7 +77,12 @@ async function main(): Promise<void> {
       return;
     }
     case "status":
-      printJson(runner.status(required(args.positionals[0], "run id")));
+      if (!args.positionals[0]) {
+        const nextActions = adviseNoRun();
+        if (wantsJson(args.options)) printJson({ runId: null, nextActions });
+        else process.stdout.write(`No run selected\n\nNext Action\n${nextActions.map((action) => `  ${action.command}\n    reason: ${action.reason}`).join("\n")}\n`);
+      } else if (wantsJson(args.options)) printJson(runner.status(args.positionals[0]));
+      else process.stdout.write(`${formatOperatorStatus(runner.operatorStatus(args.positionals[0]))}\n`);
       return;
     case "next":
       printJson(runner.next(required(args.positionals[0], "run id"), args.options));
@@ -81,11 +96,27 @@ async function main(): Promise<void> {
       return;
     }
     case "commit":
+      if (args.positionals[0] === "summary") {
+        const summary = runner.summarizeCommitRecords(required(args.positionals[1], "run id"));
+        if (wantsJson(args.options)) printJson(summary);
+        else process.stdout.write(`${formatCommitSummary(summary)}\n`);
+        return;
+      }
       printJson(runner.commit(required(args.positionals[0], "run id"), args.options));
       return;
     case "report": {
       const report = runner.report(required(args.positionals[0], "run id"));
-      process.stdout.write(`${report.path}\n`);
+      if (args.options.show || args.options.summary) {
+        process.stdout.write(`${formatOperatorReport(runner.operatorReport(required(args.positionals[0], "run id")))}\n`);
+      } else {
+        process.stdout.write(`${report.path}\n`);
+      }
+      return;
+    }
+    case "graph": {
+      const graph = runner.operatorGraph(required(args.positionals[0], "run id"));
+      if (wantsJson(args.options)) printJson(graph);
+      else process.stdout.write(`${formatOperatorGraph(graph)}\n`);
       return;
     }
     case "sandbox": {
@@ -124,7 +155,8 @@ async function main(): Promise<void> {
           printJson(runner.showNode(required(runId, "run id"), required(nodeId, "node id")));
           return;
         case "graph":
-          printJson(runner.graphNodes(required(runId, "run id")));
+          if (wantsJson(args.options)) printJson(runner.graphNodes(required(runId, "run id")));
+          else process.stdout.write(`${formatOperatorGraph(runner.operatorGraph(required(runId, "run id")))}\n`);
           return;
         default:
           throw new Error("Usage: cw.js node list|show|graph <run-id> [node-id]");
@@ -142,6 +174,12 @@ async function main(): Promise<void> {
         case "collect":
           printJson(runner.collectFeedback(required(runId, "run id")));
           return;
+        case "summary": {
+          const summary = runner.summarizeFeedbackRecords(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(summary);
+          else process.stdout.write(`${formatFeedbackSummary(summary)}\n`);
+          return;
+        }
         case "task":
           printJson(runner.createFeedbackTask(required(runId, "run id"), required(feedbackId, "feedback id"), args.options));
           return;
@@ -149,7 +187,7 @@ async function main(): Promise<void> {
           printJson(runner.resolveFeedback(required(runId, "run id"), required(feedbackId, "feedback id"), args.options));
           return;
         default:
-          throw new Error("Usage: cw.js feedback list|show|collect|task|resolve <run-id> [feedback-id]");
+          throw new Error("Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
       }
     }
     case "worker": {
@@ -158,6 +196,12 @@ async function main(): Promise<void> {
         case "list":
           printJson(runner.listWorkers(required(runId, "run id"), args.options));
           return;
+        case "summary": {
+          const summary = runner.summarizeWorkerRecords(required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(summary);
+          else process.stdout.write(`${formatWorkerSummary(summary)}\n`);
+          return;
+        }
         case "show":
           printJson(runner.showWorker(required(runId, "run id"), required(workerId, "worker id")));
           return;
@@ -187,7 +231,7 @@ async function main(): Promise<void> {
           printJson(runner.validateWorker(required(runId, "run id"), required(workerId, "worker id"), resultPath));
           return;
         default:
-          throw new Error("Usage: cw.js worker list|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
+          throw new Error("Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
       }
     }
     case "candidate": {
@@ -221,7 +265,8 @@ async function main(): Promise<void> {
           );
           return;
         case "summary":
-          printJson(runner.summarizeCandidateRecords(required(runId, "run id")));
+          if (wantsJson(args.options)) printJson(runner.summarizeCandidateOperatorRecords(required(runId, "run id")));
+          else process.stdout.write(`${formatCandidateSummary(runner.summarizeCandidateOperatorRecords(required(runId, "run id")))}\n`);
           return;
         default:
           throw new Error("Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
@@ -314,6 +359,10 @@ function required(value: string | undefined, label: string): string {
 
 function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function wantsJson(options: Record<string, unknown>): boolean {
+  return Boolean(options.json || options.format === "json");
 }
 
 main().catch((error: unknown) => {

@@ -26,7 +26,12 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
-CW v0.1.11 adds Canonical Workflow Apps: official app-directory userland for
+CW v0.1.12 adds Operator UX: human-readable status, graph, report summaries,
+resource summaries, commit/feedback/worker/candidate panels, and deterministic
+next-step recommendations. JSON remains available with `--json` or
+`--format json`. See [docs/operator-ux.7.md](docs/operator-ux.7.md).
+
+CW v0.1.11 added Canonical Workflow Apps: official app-directory userland for
 `architecture-review`, `pr-review-fix-ci`, `release-cut`, and
 `research-synthesis`. They validate and plan through `npm run canonical-apps`
 and are the app matrix used to judge whether the SDK is pleasant, stable, and
@@ -67,6 +72,7 @@ cool-workflow
   apps/workflow-app-sdk-demo/app.json
   docs/agent-sdk.md
   docs/unix-principles.md
+  docs/operator-ux.7.md
   docs/workflow-app-sdk.7.md
   docs/sandbox-profiles.7.md
   docs/candidate-scoring.7.md
@@ -109,6 +115,20 @@ node scripts/cw.js plan architecture-review \
   --repo /path/to/repo \
   --question "Is this architecture sound?" \
   --invariant "single-box self-hosted"
+```
+
+Inspect a run as an operator:
+
+```bash
+node scripts/cw.js status <run-id>
+node scripts/cw.js status <run-id> --json
+node scripts/cw.js graph <run-id>
+node scripts/cw.js graph <run-id> --json
+node scripts/cw.js report <run-id> --show
+node scripts/cw.js worker summary <run-id>
+node scripts/cw.js candidate summary <run-id>
+node scripts/cw.js feedback summary <run-id>
+node scripts/cw.js commit summary <run-id>
 ```
 
 Create a dispatch manifest for the current runnable phase:
@@ -181,6 +201,8 @@ npm run build
 ```
 
 See [docs/agent-sdk.md](docs/agent-sdk.md) for the developer contract.
+See [docs/operator-ux.7.md](docs/operator-ux.7.md) for the operator command
+surface.
 See [docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md) for the app
 contract.
 See [docs/canonical-workflow-apps.7.md](docs/canonical-workflow-apps.7.md) for

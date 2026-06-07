@@ -83,6 +83,9 @@ npm run golden-path
 node scripts/cw.js init my-workflow --title "My Workflow"
 node scripts/cw.js plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
 node scripts/cw.js status <run-id>
+node scripts/cw.js status <run-id> --json
+node scripts/cw.js graph <run-id>
+node scripts/cw.js graph <run-id> --json
 node scripts/cw.js dispatch <run-id> --limit 6
 node scripts/cw.js dispatch <run-id> --sandbox readonly
 node scripts/cw.js sandbox list
@@ -93,6 +96,11 @@ node scripts/cw.js commit <run-id> --verifier <node-id> --reason "verified resul
 node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified winner"
 node scripts/cw.js commit <run-id> --allow-unverified-checkpoint --reason "manual checkpoint"
 node scripts/cw.js report <run-id>
+node scripts/cw.js report <run-id> --show
+node scripts/cw.js worker summary <run-id>
+node scripts/cw.js candidate summary <run-id>
+node scripts/cw.js feedback summary <run-id>
+node scripts/cw.js commit summary <run-id>
 node scripts/cw.js loop --intervalMinutes 30 --prompt "Continue this workflow."
 node scripts/cw.js schedule create --kind loop --intervalMinutes 30 --prompt "Continue this workflow."
 node scripts/cw.js schedule due
@@ -112,6 +120,12 @@ Run data is written to `.cw/runs/<run-id>/` in `--cwd`, or in `--repo` when
 `--cwd` is not provided.
 
 The runtime source is TypeScript under `src/` and compiles to `dist/`.
+
+Operator UX is human-readable by default for `status`, `graph`, report
+`--show`/`--summary`, and resource `summary` commands. Use `--json` or
+`--format json` when scripts or MCP-style integrations need structured output.
+Status recommendations should be treated as deterministic hints, not hidden
+automation.
 
 Use `npm run canonical-apps` from `plugins/cool-workflow` to validate and plan
 the official app matrix without network access:
