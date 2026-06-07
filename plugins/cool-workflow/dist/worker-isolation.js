@@ -596,6 +596,16 @@ function publishWorkerOutputToBlackboard(run, scope, task, summary, destination,
         artifactRefIds: artifactRefs.map((artifact) => artifact.id),
         evidenceRefs: evidence.map((entry) => entry.locator || entry.path || entry.summary || entry.id).filter(Boolean),
         auditEventIds: [acceptedAuditId],
+        links: {
+            multiAgentRunId: scope.multiAgent?.runId,
+            agentGroupId: scope.multiAgent?.groupId,
+            agentRoleId: scope.multiAgent?.roleId,
+            agentMembershipId: scope.multiAgent?.membershipId,
+            agentFanoutId: scope.multiAgent?.fanoutId,
+            taskId: task.id,
+            workerId: scope.id,
+            auditEventIds: [acceptedAuditId]
+        },
         metadata: {
             taskId: task.id,
             resultPath: destination,

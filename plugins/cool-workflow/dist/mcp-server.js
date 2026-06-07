@@ -182,6 +182,16 @@ function callTool(name, args) {
                 return runner.workerAudit(String(args.runId || ""), String(args.workerId || ""));
             case "cw_audit_provenance":
                 return runner.evidenceProvenance(String(args.runId || ""), args);
+            case "cw_audit_multi_agent":
+                return runner.auditMultiAgent(String(args.runId || ""));
+            case "cw_audit_policy":
+                return runner.auditPolicy(String(args.runId || ""));
+            case "cw_audit_role":
+                return runner.auditRole(String(args.runId || ""), String(args.roleId || args.id || ""));
+            case "cw_audit_blackboard":
+                return runner.auditBlackboard(String(args.runId || ""));
+            case "cw_audit_judge":
+                return runner.auditJudge(String(args.runId || ""));
             case "cw_audit_attest":
                 return runner.recordAuditAttestation(String(args.runId || ""), args);
             case "cw_audit_decision":
@@ -657,6 +667,15 @@ function toolDefinitions() {
             commitId: stringSchema("Optional commit id"),
             commit: stringSchema("Optional commit id")
         }),
+        tool("cw_audit_multi_agent", "Read multi-agent trust, policy, blackboard write, provenance, judge, and violation audit projections.", runIdSchema()),
+        tool("cw_audit_policy", "Read role policies, permission decisions, and policy violations for a run.", runIdSchema()),
+        tool("cw_audit_role", "Read policy and audit events for one multi-agent role.", {
+            ...runIdSchema(),
+            roleId: stringSchema("Agent role id"),
+            id: stringSchema("Agent role id")
+        }),
+        tool("cw_audit_blackboard", "Read blackboard write audit and message provenance for a run.", runIdSchema()),
+        tool("cw_audit_judge", "Read judge rationale and panel decision audit records for a run.", runIdSchema()),
         tool("cw_audit_attest", "Record a host/operator sandbox attestation without storing secrets.", {
             ...runIdSchema(),
             workerId: stringSchema("Optional worker id"),

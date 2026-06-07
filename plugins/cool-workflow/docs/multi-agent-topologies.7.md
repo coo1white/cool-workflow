@@ -94,3 +94,9 @@ fanin and score evidence support a panel decision.
 Trust audit summaries include topology event counts, and audit provenance can
 follow worker evidence into blackboard artifacts, fanin, candidate selection,
 commits, and reports.
+
+CW v0.1.22 adds policy-aware topology inspection. Applying a topology records
+role policies, message provenance, blackboard write audit, judge rationale,
+panel decisions, and policy violations through the same trust-audit log used by
+worker sandbox and evidence provenance records. Judge-panel selection now
+requires evidence-backed judge rationale and panel-chair rationale.

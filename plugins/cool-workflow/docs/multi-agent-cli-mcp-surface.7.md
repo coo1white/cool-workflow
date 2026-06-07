@@ -125,3 +125,7 @@ included in `npm test` and `npm run release:check`.
 
 `test/multi-agent-operator-ux-smoke.js` covers the v0.1.21 graph,
 dependencies, failures, evidence adoption, report output, and MCP parity.
+
+`test/multi-agent-trust-policy-audit-smoke.js` covers the v0.1.22
+role-policy, blackboard-write, message-provenance, judge-rationale,
+policy-violation, report, audit provenance, and MCP parity surface.

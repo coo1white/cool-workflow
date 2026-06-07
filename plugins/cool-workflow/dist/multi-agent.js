@@ -29,6 +29,7 @@ const state_1 = require("./state");
 const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
 const trust_audit_1 = require("./trust-audit");
+const multi_agent_trust_1 = require("./multi-agent-trust");
 exports.MULTI_AGENT_SCHEMA_VERSION = 1;
 function ensureMultiAgentState(run) {
     run.paths.multiAgentDir = multiAgentRoot(run);
@@ -121,6 +122,21 @@ function createMultiAgentRun(run, input = {}) {
             phaseId: input.phaseId,
             blackboardId: input.blackboardId,
             blackboardTopicIds: unique(input.topicIds || [])
+        },
+        policy: {
+            schemaVersion: 1,
+            id: `${id}-policy`,
+            policyRef: `multiAgent.runs.${id}.policy`,
+            subjectKind: "multi-agent-run",
+            subjectId: id,
+            allowedBlackboardTopicIds: unique(input.topicIds || ["*"]),
+            allowedWriteOperations: ["message", "context", "artifact", "snapshot", "topic", "coordinator-decision"],
+            allowedCandidateOperations: ["register", "score", "select"],
+            allowedJudgeOperations: ["verdict", "rationale", "panel-decision"],
+            sandboxProfileHints: [],
+            requiredEvidenceRefs: [],
+            deniedOperations: [],
+            metadata: { title: input.title }
         },
         metadata: compact(input.metadata)
     };
@@ -255,8 +271,10 @@ function createAgentRole(run, input) {
         lifecycle: [lifecycleEvent(undefined, "planned", "created")],
         parentRoleId: input.parentRoleId,
         childRoleIds: [],
+        policy: undefined,
         metadata: compact(input.metadata)
     };
+    role.policy = (0, multi_agent_trust_1.policyForRole)(role);
     if (role.parentRoleId) {
         const parent = requireAgentRole(run, role.parentRoleId);
         parent.childRoleIds = unique([...parent.childRoleIds, role.id]);
@@ -284,6 +302,7 @@ function createAgentRole(run, input) {
             faninObligations: role.faninObligations
         }
     });
+    (0, multi_agent_trust_1.recordRolePolicyAudit)(run, role);
     persistMultiAgentState(run);
     return role;
 }
@@ -320,8 +339,10 @@ function createAgentGroup(run, input) {
         lifecycle: [lifecycleEvent(undefined, "forming", "created")],
         parentGroupId: input.parentGroupId,
         childGroupIds: [],
+        policy: undefined,
         metadata: compact(input.metadata)
     };
+    group.policy = (0, multi_agent_trust_1.policyForGroup)(group);
     if (group.parentGroupId) {
         const parent = requireAgentGroup(run, group.parentGroupId);
         parent.childGroupIds = unique([...parent.childGroupIds, group.id]);
@@ -393,8 +414,10 @@ function assignAgentMembership(run, input) {
         topicIds: unique([...(group.topicIds || []), ...(role.topicIds || []), ...(input.topicIds || [])]),
         blackboardMessageIds: [],
         blackboardArtifactRefIds: [],
+        policy: undefined,
         metadata: compact(input.metadata)
     };
+    membership.policy = (0, multi_agent_trust_1.policyForMembership)(membership, role);
     state.memberships.push(membership);
     group.membershipIds = unique([...group.membershipIds, membership.id]);
     group.roleIds = unique([...group.roleIds, role.id]);
@@ -468,6 +491,21 @@ function createAgentFanout(run, input) {
         blackboardId: input.blackboardId || group.blackboardId || multiAgentRun.blackboardId,
         topicIds: unique([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
         lifecycle: [lifecycleEvent(undefined, "planned", "created")],
+        policy: {
+            schemaVersion: 1,
+            id: `${id}-policy`,
+            policyRef: `multiAgent.fanouts.${id}.policy`,
+            subjectKind: "fanout",
+            subjectId: id,
+            allowedBlackboardTopicIds: unique(fanoutTopicIds(group, multiAgentRun, input)),
+            allowedWriteOperations: ["message", "context", "artifact"],
+            allowedCandidateOperations: ["register"],
+            allowedJudgeOperations: [],
+            sandboxProfileHints: unique(Object.values(input.sandboxProfileChoices || {}).map(String)),
+            requiredEvidenceRefs: [],
+            deniedOperations: [],
+            metadata: { reason: input.reason }
+        },
         metadata: compact(input.metadata)
     };
     state.fanouts.push(fanout);
@@ -679,6 +717,21 @@ function collectAgentFanin(run, input) {
         blackboardArtifactRefIds: unique(coverage.flatMap((entry) => entry.blackboardArtifactRefIds || [])),
         blackboardMessageIds: unique(coverage.flatMap((entry) => entry.blackboardMessageIds || [])),
         lifecycle: [lifecycleEvent(undefined, status, "collected")],
+        policy: {
+            schemaVersion: 1,
+            id: `${id}-policy`,
+            policyRef: `multiAgent.fanins.${id}.policy`,
+            subjectKind: "fanin",
+            subjectId: id,
+            allowedBlackboardTopicIds: unique([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
+            allowedWriteOperations: ["message", "context", "artifact", "snapshot", "coordinator-decision"],
+            allowedCandidateOperations: verifierReady ? ["register", "score", "select"] : [],
+            allowedJudgeOperations: verifierReady ? ["panel-decision", "rationale"] : [],
+            sandboxProfileHints: [],
+            requiredEvidenceRefs: unique(coverage.flatMap((entry) => entry.evidenceRefs)),
+            deniedOperations: verifierReady ? [] : blockedReasons.map((reason) => ({ operation: "candidate.select", reason })),
+            metadata: { verifierReady, strategy: input.strategy || "required-role-evidence" }
+        },
         metadata: compact(input.metadata)
     };
     state.fanins.push(fanin);
@@ -930,6 +983,9 @@ function multiAgentRoot(run) {
 }
 function recordPath(run, kind, id) {
     return node_path_1.default.join(multiAgentRoot(run), kind, `${(0, state_1.safeFileName)(id)}.json`);
+}
+function fanoutTopicIds(group, multiAgentRun, input) {
+    return [...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])];
 }
 function writeRecord(run, kind, record) {
     (0, state_1.writeJson)(recordPath(run, kind, record.id), record);

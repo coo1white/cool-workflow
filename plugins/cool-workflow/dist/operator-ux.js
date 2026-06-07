@@ -19,9 +19,11 @@ exports.formatFeedbackSummary = formatFeedbackSummary;
 exports.formatCommitSummary = formatCommitSummary;
 exports.formatMultiAgentSummary = formatMultiAgentSummary;
 exports.formatTopologySummary = formatTopologySummary;
+exports.formatMultiAgentTrustAudit = formatMultiAgentTrustAudit;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const trust_audit_1 = require("./trust-audit");
+const multi_agent_trust_1 = require("./multi-agent-trust");
 const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
 const topology_1 = require("./topology");
@@ -38,6 +40,7 @@ function summarizeOperatorRun(run) {
     const multiAgentOperator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
     const blackboard = (0, coordinator_1.summarizeBlackboard)(run);
     const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
+    const multiAgentTrust = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(run);
     const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
     const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, topologies, multiAgent, blackboard);
     return {
@@ -61,6 +64,7 @@ function summarizeOperatorRun(run) {
         multiAgentOperator,
         blackboard,
         trust,
+        multiAgentTrust,
         reportPath: run.paths.report,
         evidencePaths: evidencePathsFor(run),
         nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits, topologies, blackboard })
@@ -308,6 +312,8 @@ function formatOperatorStatus(summary) {
         "",
         formatTrustPanel(summary.trust),
         "",
+        formatMultiAgentTrustAudit(summary.multiAgentTrust),
+        "",
         `Report: ${summary.reportPath}`,
         "",
         "Next Action",
@@ -347,7 +353,11 @@ function formatOperatorReport(summary) {
         `  node scripts/cw.js feedback summary ${summary.runId}`,
         `  node scripts/cw.js commit summary ${summary.runId}`,
         `  node scripts/cw.js audit summary ${summary.runId}`,
-        `  node scripts/cw.js audit provenance ${summary.runId}`
+        `  node scripts/cw.js audit provenance ${summary.runId}`,
+        `  node scripts/cw.js audit multi-agent ${summary.runId}`,
+        `  node scripts/cw.js audit policy ${summary.runId}`,
+        `  node scripts/cw.js audit blackboard ${summary.runId}`,
+        `  node scripts/cw.js audit judge ${summary.runId}`
     ].join("\n");
 }
 function formatOperatorGraph(graph) {
@@ -385,6 +395,7 @@ function formatTrustPanel(summary) {
         "Trust Audit",
         `  total=${summary.eventCount}; decision=${formatCounts(summary.byDecision)}; source=${formatCounts(summary.bySource)}`,
         `  sandbox=${formatCounts(summary.bySandboxProfile)}`,
+        `  multi-agent trust=${summary.multiAgentTrust ? formatCounts(summary.multiAgentTrust) : "none"}`,
         `  events=${summary.eventLogPath}`,
         `  summary=${summary.summaryPath}`
     ];
@@ -398,6 +409,39 @@ function formatMultiAgentSummary(summary) {
 }
 function formatTopologySummary(summary) {
     return formatTopologyPanel(summary);
+}
+function formatMultiAgentTrustAudit(view) {
+    const rolePolicies = arrayView(view.rolePolicies);
+    const permissionDecisions = arrayView(view.permissionDecisions);
+    const blackboardWrites = arrayView(view.blackboardWrites);
+    const messageProvenance = arrayView(view.messageProvenance);
+    const judgeRationales = arrayView(view.judgeRationales);
+    const panelDecisions = arrayView(view.panelDecisions);
+    const policyViolations = arrayView(view.policyViolations);
+    return [
+        `Multi-Agent Trust: ${String(view.runId || "unknown")}`,
+        "",
+        "Role Policies",
+        ...formatRolePolicyRows(rolePolicies),
+        "",
+        "Permission Decisions",
+        ...formatAuditRows(permissionDecisions),
+        "",
+        "Blackboard Write Audit",
+        ...formatAuditRows(blackboardWrites),
+        "",
+        "Message Provenance",
+        ...formatAuditRows(messageProvenance),
+        "",
+        "Judge Rationales",
+        ...formatAuditRows([...judgeRationales, ...panelDecisions]),
+        "",
+        "Policy Violations",
+        ...formatAuditRows(policyViolations),
+        "",
+        "Next Action",
+        `  ${String(view.nextAction || `node scripts/cw.js audit multi-agent ${String(view.runId || "<run-id>")} --json`)}`
+    ].join("\n");
 }
 function formatTopologyPanel(summary) {
     const lines = [
@@ -459,6 +503,41 @@ function formatBlackboardPanel(summary) {
     if (summary.nextAction)
         lines.push(`  next=${summary.nextAction}`);
     return lines.join("\n");
+}
+function arrayView(value) {
+    return Array.isArray(value) ? value : [];
+}
+function formatRolePolicyRows(rows) {
+    if (!rows.length)
+        return ["  none"];
+    return rows.slice(0, 40).map((row) => {
+        const writes = Array.isArray(row.allowedWriteOperations) ? row.allowedWriteOperations.join(",") : "none";
+        const candidates = Array.isArray(row.allowedCandidateOperations) ? row.allowedCandidateOperations.join(",") : "none";
+        const judges = Array.isArray(row.allowedJudgeOperations) ? row.allowedJudgeOperations.join(",") : "none";
+        const topics = Array.isArray(row.allowedBlackboardTopicIds) ? row.allowedBlackboardTopicIds.join(",") : "none";
+        return `  ${String(row.policyRef || row.id || row.subjectId)} subject=${String(row.subjectKind || "unknown")}:${String(row.subjectId || "unknown")} topics=${topics} writes=${writes} candidates=${candidates} judges=${judges}`;
+    });
+}
+function formatAuditRows(rows) {
+    if (!rows.length)
+        return ["  none"];
+    return rows.slice(0, 60).map((row) => {
+        const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+        const ids = [
+            row.agentRoleId ? `role=${row.agentRoleId}` : "",
+            row.agentMembershipId ? `membership=${row.agentMembershipId}` : "",
+            row.blackboardMessageId ? `message=${row.blackboardMessageId}` : "",
+            row.blackboardContextId ? `context=${row.blackboardContextId}` : "",
+            row.blackboardArtifactRefId ? `artifact=${row.blackboardArtifactRefId}` : "",
+            row.coordinatorDecisionId ? `decision=${row.coordinatorDecisionId}` : "",
+            row.candidateId ? `candidate=${row.candidateId}` : "",
+            row.scoreId ? `score=${row.scoreId}` : "",
+            row.selectionId ? `selection=${row.selectionId}` : ""
+        ].filter(Boolean).join(" ");
+        const reason = metadata.reason ? ` reason=${String(metadata.reason)}` : "";
+        const operation = metadata.operation ? ` operation=${String(metadata.operation)}` : "";
+        return `  [${String(row.decision || "recorded")}] ${String(row.kind || "event")} ${String(row.id || "")}${operation}${ids ? ` ${ids}` : ""}${row.policyRef ? ` policy=${String(row.policyRef)}` : ""}${reason}`;
+    });
 }
 function adviseNextSteps(run, summary) {
     const actions = [];

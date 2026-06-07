@@ -291,6 +291,7 @@ export interface TrustAuditEvent {
   topologyRunId?: string;
   sandboxProfileId?: string;
   policyRef?: string;
+  multiAgentPolicyRef?: string;
   policySnapshot?: ResolvedSandboxPolicy;
   normalizedPath?: string;
   command?: string;
@@ -358,6 +359,15 @@ export interface TrustAuditSummary {
   topologies?: {
     runs: number;
     events: number;
+  };
+  multiAgentTrust?: {
+    rolePolicies: number;
+    permissionDecisions: number;
+    blackboardWrites: number;
+    messageProvenance: number;
+    judgeRationales: number;
+    panelDecisions: number;
+    policyViolations: number;
   };
 }
 
@@ -700,6 +710,42 @@ export interface MultiAgentLifecycleEvent {
   metadata?: Record<string, unknown>;
 }
 
+export type MultiAgentPolicyWriteOperation =
+  | "message"
+  | "context"
+  | "artifact"
+  | "snapshot"
+  | "topic"
+  | "coordinator-decision";
+export type MultiAgentPolicyCandidateOperation = "register" | "score" | "select";
+export type MultiAgentPolicyJudgeOperation = "verdict" | "rationale" | "panel-decision";
+export type MultiAgentPolicyOperation =
+  | MultiAgentPolicyWriteOperation
+  | `candidate.${MultiAgentPolicyCandidateOperation}`
+  | `judge.${MultiAgentPolicyJudgeOperation}`;
+
+export interface MultiAgentDeniedOperation {
+  operation: MultiAgentPolicyOperation | string;
+  reason: string;
+}
+
+export interface MultiAgentPolicy {
+  schemaVersion: 1;
+  id: string;
+  policyRef: string;
+  subjectKind: "multi-agent-run" | "role" | "group" | "membership" | "fanout" | "fanin" | "topology";
+  subjectId: string;
+  allowedBlackboardTopicIds: string[];
+  allowedWriteOperations: MultiAgentPolicyWriteOperation[];
+  allowedCandidateOperations: MultiAgentPolicyCandidateOperation[];
+  allowedJudgeOperations: MultiAgentPolicyJudgeOperation[];
+  sandboxProfileHints: string[];
+  requiredEvidenceRefs: string[];
+  requiredEvidenceFor?: Record<string, string[]>;
+  deniedOperations: MultiAgentDeniedOperation[];
+  metadata?: Record<string, unknown>;
+}
+
 export interface MultiAgentLinkage {
   workflowRunId: string;
   phase?: string;
@@ -734,6 +780,7 @@ export interface MultiAgentRun {
   topicIds?: string[];
   lifecycle: MultiAgentLifecycleEvent[];
   links: MultiAgentLinkage;
+  policy?: MultiAgentPolicy;
   metadata?: Record<string, unknown>;
 }
 
@@ -756,6 +803,7 @@ export interface AgentRole {
   lifecycle: MultiAgentLifecycleEvent[];
   parentRoleId?: string;
   childRoleIds: string[];
+  policy?: MultiAgentPolicy;
   metadata?: Record<string, unknown>;
 }
 
@@ -781,6 +829,7 @@ export interface AgentGroup {
   lifecycle: MultiAgentLifecycleEvent[];
   parentGroupId?: string;
   childGroupIds: string[];
+  policy?: MultiAgentPolicy;
   metadata?: Record<string, unknown>;
 }
 
@@ -807,6 +856,7 @@ export interface AgentMembership {
   topicIds?: string[];
   blackboardMessageIds?: string[];
   blackboardArtifactRefIds?: string[];
+  policy?: MultiAgentPolicy;
   metadata?: Record<string, unknown>;
 }
 
@@ -831,6 +881,7 @@ export interface AgentFanout {
   blackboardId?: string;
   topicIds?: string[];
   lifecycle: MultiAgentLifecycleEvent[];
+  policy?: MultiAgentPolicy;
   metadata?: Record<string, unknown>;
 }
 
@@ -870,6 +921,7 @@ export interface AgentFanin {
   blackboardArtifactRefIds?: string[];
   blackboardMessageIds?: string[];
   lifecycle: MultiAgentLifecycleEvent[];
+  policy?: MultiAgentPolicy;
   metadata?: Record<string, unknown>;
 }
 
@@ -977,6 +1029,7 @@ export interface MultiAgentTopologyRun {
     commitIds: string[];
     auditEventIds: string[];
   };
+  policy?: MultiAgentPolicy;
   metadata?: Record<string, unknown>;
 }
 
@@ -1052,6 +1105,26 @@ export interface BlackboardLinks {
   evidenceRefs?: string[];
 }
 
+export interface BlackboardMessageProvenance {
+  schemaVersion: 1;
+  authorKind: BlackboardAuthorKind;
+  authorId: string;
+  multiAgentRunId?: string;
+  agentRoleId?: string;
+  agentGroupId?: string;
+  agentMembershipId?: string;
+  agentFanoutId?: string;
+  agentFaninId?: string;
+  workerId?: string;
+  source: TrustAuditSource;
+  linkedEvidenceRefs: string[];
+  linkedAuditEventIds: string[];
+  parentMessageIds: string[];
+  topicScope: string;
+  bodyHash?: string;
+  locator?: string;
+}
+
 export interface BlackboardRecordBase {
   schemaVersion: 1;
   id: string;
@@ -1117,6 +1190,7 @@ export interface BlackboardMessage extends BlackboardRecordBase {
   linkedArtifactRefIds: string[];
   linkedAuditEventIds: string[];
   links: BlackboardLinks;
+  provenance?: BlackboardMessageProvenance;
 }
 
 export interface BlackboardContext extends BlackboardRecordBase {
@@ -1430,6 +1504,8 @@ export interface AcceptanceRationale {
   workerId?: string;
   commitGateResult?: "passed" | "blocked" | "checkpoint";
   auditEventIds?: string[];
+  judgeRationaleIds?: string[];
+  panelDecisionId?: string;
 }
 
 export interface RunTask {

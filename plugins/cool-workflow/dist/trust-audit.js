@@ -71,7 +71,8 @@ function recordTrustAuditEvent(run, input) {
         topologyId: input.topologyId,
         topologyRunId: input.topologyRunId,
         sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
-        policyRef: input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined,
+        policyRef: input.policyRef || (input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined),
+        multiAgentPolicyRef: input.policyRef,
         policySnapshot: redactPolicy(input.policySnapshot),
         normalizedPath: input.normalizedPath ? node_path_1.default.resolve(input.normalizedPath) : undefined,
         command: input.command,
@@ -182,6 +183,15 @@ function summarizeTrustAudit(run) {
         topologies: {
             runs: run.topologies?.runs.length || 0,
             events: events.filter((event) => Boolean(event.topologyId || event.topologyRunId || event.kind.startsWith("topology."))).length
+        },
+        multiAgentTrust: {
+            rolePolicies: events.filter((event) => event.kind === "multi-agent.role-policy").length,
+            permissionDecisions: events.filter((event) => event.kind === "multi-agent.permission").length,
+            blackboardWrites: events.filter((event) => event.kind === "blackboard.write").length,
+            messageProvenance: events.filter((event) => event.kind === "blackboard.message-provenance").length,
+            judgeRationales: events.filter((event) => event.kind === "judge.rationale").length,
+            panelDecisions: events.filter((event) => event.kind === "judge.panel-decision").length,
+            policyViolations: events.filter((event) => event.kind === "policy.violation").length
         }
     };
     (0, state_1.writeJson)(audit.summaryPath, summary);
@@ -214,7 +224,9 @@ function summarizeTrustAudit(run) {
             coordinatorDecisionId: event.coordinatorDecisionId,
             topologyId: event.topologyId,
             topologyRunId: event.topologyRunId,
-            sandboxProfileId: event.sandboxProfileId
+            sandboxProfileId: event.sandboxProfileId,
+            policyRef: event.policyRef,
+            multiAgentPolicyRef: event.multiAgentPolicyRef
         }))
     });
     run.audit = audit;

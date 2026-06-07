@@ -14,6 +14,7 @@ const operator_ux_1 = require("./operator-ux");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const candidate_scoring_1 = require("./candidate-scoring");
 const trust_audit_1 = require("./trust-audit");
+const multi_agent_trust_1 = require("./multi-agent-trust");
 function hostRun(run, options = {}) {
     const topologyId = stringOption(options.topology || options.topologyId || options.id);
     if (!topologyId)
@@ -258,6 +259,39 @@ function hostScore(run, options = {}) {
     const evidence = explicitEvidence(options);
     if (!evidence.length)
         throw new Error(`Candidate ${candidate.id} score requires evidence`);
+    const authority = authorityOptions(options);
+    if (authority.agentRoleId || authority.agentMembershipId) {
+        const rationale = stringOption(options.rationale || options.notes || options.reason);
+        if (!rationale)
+            throw new Error(`Candidate ${candidate.id} judge score requires rationale`);
+        const permission = (0, multi_agent_trust_1.assertMultiAgentActionAllowed)(run, {
+            operation: "judge.rationale",
+            actor: authority.actor,
+            multiAgentRunId: authority.multiAgentRunId || topology?.multiAgentRunId,
+            agentRoleId: authority.agentRoleId,
+            agentGroupId: authority.agentGroupId,
+            agentMembershipId: authority.agentMembershipId,
+            blackboardId: topology?.blackboardId,
+            blackboardTopicId: topology?.topicIds[0],
+            candidateId: candidate.id,
+            evidenceRefs: evidence.map((entry) => entry.locator || entry.summary || entry.id).filter(Boolean)
+        });
+        (0, multi_agent_trust_1.recordJudgeRationaleAudit)(run, {
+            kind: "judge.rationale",
+            actor: authority.actor,
+            multiAgentRunId: authority.multiAgentRunId || topology?.multiAgentRunId,
+            agentRoleId: authority.agentRoleId,
+            agentGroupId: authority.agentGroupId,
+            agentMembershipId: authority.agentMembershipId,
+            blackboardId: topology?.blackboardId,
+            blackboardTopicId: topology?.topicIds[0],
+            candidateId: candidate.id,
+            evidenceRefs: evidence.map((entry) => entry.locator || entry.summary || entry.id).filter(Boolean),
+            rationale,
+            policyRef: permission.policyRef,
+            parentEventIds: [permission.event.id]
+        });
+    }
     const score = (0, candidate_scoring_1.scoreCandidate)(run, candidate.id, {
         id: stringOption(options.score || options.scoreId),
         scorer: stringOption(options.scorer) || "multi-agent-host",
@@ -288,6 +322,26 @@ function hostSelect(run, options = {}) {
     const candidate = resolveCandidate(run, options) || topRankedCandidate(run);
     if (!candidate)
         throw new Error("multi-agent select requires a scored candidate");
+    const authority = authorityOptions(options);
+    if (authority.agentRoleId || authority.agentMembershipId) {
+        const scoreId = stringOption(options.score || options.scoreId) || candidate.scores.at(-1);
+        if (!(0, multi_agent_trust_1.hasAcceptedJudgeRationale)(run, { multiAgentRunId: authority.multiAgentRunId || topology?.multiAgentRunId, candidateId: candidate.id, scoreId })) {
+            throw new Error(`Candidate ${candidate.id} selection requires accepted judge rationale with evidence`);
+        }
+        (0, multi_agent_trust_1.assertMultiAgentActionAllowed)(run, {
+            operation: "candidate.select",
+            actor: authority.actor,
+            multiAgentRunId: authority.multiAgentRunId || topology?.multiAgentRunId,
+            agentRoleId: authority.agentRoleId,
+            agentGroupId: authority.agentGroupId,
+            agentMembershipId: authority.agentMembershipId,
+            blackboardId: topology?.blackboardId,
+            blackboardTopicId: topology?.topicIds.at(-1),
+            candidateId: candidate.id,
+            scoreId,
+            evidenceRefs: explicitEvidence(options).map((entry) => entry.locator || entry.summary || entry.id).filter(Boolean)
+        });
+    }
     const selection = (0, candidate_scoring_1.selectCandidate)(run, candidate.id, {
         selectedBy: stringOption(options.by || options.selectedBy) || "multi-agent-host",
         reason: requireString(options.reason || "Selected by high-level multi-agent host surface.", "selection reason"),
@@ -310,6 +364,13 @@ function hostSelect(run, options = {}) {
             reason: selection.reason,
             subjectIds: [selection.candidateId, selection.id],
             evidenceRefs: selection.evidence.map((entry) => entry.locator || entry.summary || entry.id).filter(Boolean),
+            author: authority.actor,
+            links: {
+                multiAgentRunId: authority.multiAgentRunId || topology.multiAgentRunId,
+                agentGroupId: authority.agentGroupId,
+                agentRoleId: authority.agentRoleId,
+                agentMembershipId: authority.agentMembershipId
+            },
             metadata: { hostSurface: "multi-agent.select", selectionId: selection.id }
         });
     }
@@ -622,6 +683,25 @@ function explicitEvidence(options) {
         locator: String(entry),
         summary: String(entry)
     }));
+}
+function authorityOptions(options) {
+    const agentRoleId = stringOption(options.role || options.roleId || options["multi-agent-role"]);
+    const agentGroupId = stringOption(options.group || options.groupId || options["multi-agent-group"]);
+    const agentMembershipId = stringOption(options.membership || options.membershipId || options["multi-agent-membership"]);
+    const actor = agentMembershipId
+        ? { kind: "membership", id: agentMembershipId }
+        : agentRoleId
+            ? { kind: "role", id: agentRoleId }
+            : agentGroupId
+                ? { kind: "group", id: agentGroupId }
+                : undefined;
+    return {
+        actor,
+        multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+        agentRoleId,
+        agentGroupId,
+        agentMembershipId
+    };
 }
 function candidateEvidence(candidate) {
     return (candidate.evidence || []).map((entry, index) => ({

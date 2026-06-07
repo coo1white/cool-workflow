@@ -2,6 +2,9 @@
 
 CW v0.1.15 adds a local trust audit layer for worker sandbox decisions,
 evidence provenance, candidate selection, and verifier-gated commits.
+CW v0.1.22 reuses this same layer for multi-agent role policy, blackboard
+write audit, message provenance, judge rationale, panel decisions, and policy
+violations.
 
 ## Audit Records
 
@@ -52,6 +55,11 @@ The audit layer makes that boundary inspectable; it is not a kernel.
 node scripts/cw.js audit summary <run-id>
 node scripts/cw.js audit worker <run-id> <worker-id>
 node scripts/cw.js audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]
+node scripts/cw.js audit multi-agent <run-id>
+node scripts/cw.js audit policy <run-id>
+node scripts/cw.js audit role <run-id> <role-id>
+node scripts/cw.js audit blackboard <run-id>
+node scripts/cw.js audit judge <run-id>
 node scripts/cw.js audit attest <run-id> --worker <worker-id> --hostEnforced true
 node scripts/cw.js audit decision <run-id> <worker-id> --path <path>
 node scripts/cw.js audit decision <run-id> <worker-id> --command "npm test"
@@ -97,6 +105,11 @@ The MCP server exposes matching tools:
 - `cw_audit_summary`
 - `cw_audit_worker`
 - `cw_audit_provenance`
+- `cw_audit_multi_agent`
+- `cw_audit_policy`
+- `cw_audit_role`
+- `cw_audit_blackboard`
+- `cw_audit_judge`
 - `cw_audit_attest`
 - `cw_audit_decision`
 

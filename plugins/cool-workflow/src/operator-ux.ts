@@ -20,6 +20,7 @@ import {
   TrustAuditSummary
 } from "./types";
 import { summarizeTrustAudit } from "./trust-audit";
+import { summarizeMultiAgentTrust } from "./multi-agent-trust";
 import { buildMultiAgentGraph, MultiAgentSummary, summarizeMultiAgent } from "./multi-agent";
 import { buildBlackboardGraph, summarizeBlackboard } from "./coordinator";
 import { buildTopologyGraph, summarizeTopologies } from "./topology";
@@ -158,6 +159,7 @@ export interface OperatorRunSummary {
   multiAgentOperator: MultiAgentOperatorStatus;
   blackboard: ReturnType<typeof summarizeBlackboard>;
   trust: TrustAuditSummary;
+  multiAgentTrust: ReturnType<typeof summarizeMultiAgentTrust>;
   reportPath: string;
   evidencePaths: string[];
   nextActions: OperatorRecommendation[];
@@ -187,6 +189,7 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
   const multiAgentOperator = summarizeMultiAgentOperator(run);
   const blackboard = summarizeBlackboard(run);
   const trust = summarizeTrustAudit(run);
+  const multiAgentTrust = summarizeMultiAgentTrust(run);
   const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
   const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, topologies, multiAgent, blackboard);
   return {
@@ -210,6 +213,7 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
     multiAgentOperator,
     blackboard,
     trust,
+    multiAgentTrust,
     reportPath: run.paths.report,
     evidencePaths: evidencePathsFor(run),
     nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits, topologies, blackboard })
@@ -453,6 +457,8 @@ export function formatOperatorStatus(summary: OperatorRunSummary): string {
     "",
     formatTrustPanel(summary.trust),
     "",
+    formatMultiAgentTrustAudit(summary.multiAgentTrust as unknown as Record<string, unknown>),
+    "",
     `Report: ${summary.reportPath}`,
     "",
     "Next Action",
@@ -493,7 +499,11 @@ export function formatOperatorReport(summary: OperatorRunSummary): string {
     `  node scripts/cw.js feedback summary ${summary.runId}`,
     `  node scripts/cw.js commit summary ${summary.runId}`,
     `  node scripts/cw.js audit summary ${summary.runId}`,
-    `  node scripts/cw.js audit provenance ${summary.runId}`
+    `  node scripts/cw.js audit provenance ${summary.runId}`,
+    `  node scripts/cw.js audit multi-agent ${summary.runId}`,
+    `  node scripts/cw.js audit policy ${summary.runId}`,
+    `  node scripts/cw.js audit blackboard ${summary.runId}`,
+    `  node scripts/cw.js audit judge ${summary.runId}`
   ].join("\n");
 }
 
@@ -536,6 +546,7 @@ function formatTrustPanel(summary: TrustAuditSummary): string {
     "Trust Audit",
     `  total=${summary.eventCount}; decision=${formatCounts(summary.byDecision)}; source=${formatCounts(summary.bySource)}`,
     `  sandbox=${formatCounts(summary.bySandboxProfile)}`,
+    `  multi-agent trust=${summary.multiAgentTrust ? formatCounts(summary.multiAgentTrust as unknown as Record<string, number>) : "none"}`,
     `  events=${summary.eventLogPath}`,
     `  summary=${summary.summaryPath}`
   ];
@@ -551,6 +562,40 @@ export function formatMultiAgentSummary(summary: MultiAgentSummary): string {
 
 export function formatTopologySummary(summary: TopologySummary): string {
   return formatTopologyPanel(summary);
+}
+
+export function formatMultiAgentTrustAudit(view: Record<string, unknown>): string {
+  const rolePolicies = arrayView(view.rolePolicies);
+  const permissionDecisions = arrayView(view.permissionDecisions);
+  const blackboardWrites = arrayView(view.blackboardWrites);
+  const messageProvenance = arrayView(view.messageProvenance);
+  const judgeRationales = arrayView(view.judgeRationales);
+  const panelDecisions = arrayView(view.panelDecisions);
+  const policyViolations = arrayView(view.policyViolations);
+  return [
+    `Multi-Agent Trust: ${String(view.runId || "unknown")}`,
+    "",
+    "Role Policies",
+    ...formatRolePolicyRows(rolePolicies),
+    "",
+    "Permission Decisions",
+    ...formatAuditRows(permissionDecisions),
+    "",
+    "Blackboard Write Audit",
+    ...formatAuditRows(blackboardWrites),
+    "",
+    "Message Provenance",
+    ...formatAuditRows(messageProvenance),
+    "",
+    "Judge Rationales",
+    ...formatAuditRows([...judgeRationales, ...panelDecisions]),
+    "",
+    "Policy Violations",
+    ...formatAuditRows(policyViolations),
+    "",
+    "Next Action",
+    `  ${String(view.nextAction || `node scripts/cw.js audit multi-agent ${String(view.runId || "<run-id>")} --json`)}`
+  ].join("\n");
 }
 
 function formatTopologyPanel(summary: TopologySummary): string {
@@ -605,6 +650,42 @@ function formatBlackboardPanel(summary: ReturnType<typeof summarizeBlackboard>):
   for (const missing of summary.missingEvidence.slice(0, 5)) lines.push(`  missing: ${missing}`);
   if (summary.nextAction) lines.push(`  next=${summary.nextAction}`);
   return lines.join("\n");
+}
+
+function arrayView(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value) ? value as Array<Record<string, unknown>> : [];
+}
+
+function formatRolePolicyRows(rows: Array<Record<string, unknown>>): string[] {
+  if (!rows.length) return ["  none"];
+  return rows.slice(0, 40).map((row) => {
+    const writes = Array.isArray(row.allowedWriteOperations) ? row.allowedWriteOperations.join(",") : "none";
+    const candidates = Array.isArray(row.allowedCandidateOperations) ? row.allowedCandidateOperations.join(",") : "none";
+    const judges = Array.isArray(row.allowedJudgeOperations) ? row.allowedJudgeOperations.join(",") : "none";
+    const topics = Array.isArray(row.allowedBlackboardTopicIds) ? row.allowedBlackboardTopicIds.join(",") : "none";
+    return `  ${String(row.policyRef || row.id || row.subjectId)} subject=${String(row.subjectKind || "unknown")}:${String(row.subjectId || "unknown")} topics=${topics} writes=${writes} candidates=${candidates} judges=${judges}`;
+  });
+}
+
+function formatAuditRows(rows: Array<Record<string, unknown>>): string[] {
+  if (!rows.length) return ["  none"];
+  return rows.slice(0, 60).map((row) => {
+    const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata as Record<string, unknown> : {};
+    const ids = [
+      row.agentRoleId ? `role=${row.agentRoleId}` : "",
+      row.agentMembershipId ? `membership=${row.agentMembershipId}` : "",
+      row.blackboardMessageId ? `message=${row.blackboardMessageId}` : "",
+      row.blackboardContextId ? `context=${row.blackboardContextId}` : "",
+      row.blackboardArtifactRefId ? `artifact=${row.blackboardArtifactRefId}` : "",
+      row.coordinatorDecisionId ? `decision=${row.coordinatorDecisionId}` : "",
+      row.candidateId ? `candidate=${row.candidateId}` : "",
+      row.scoreId ? `score=${row.scoreId}` : "",
+      row.selectionId ? `selection=${row.selectionId}` : ""
+    ].filter(Boolean).join(" ");
+    const reason = metadata.reason ? ` reason=${String(metadata.reason)}` : "";
+    const operation = metadata.operation ? ` operation=${String(metadata.operation)}` : "";
+    return `  [${String(row.decision || "recorded")}] ${String(row.kind || "event")} ${String(row.id || "")}${operation}${ids ? ` ${ids}` : ""}${row.policyRef ? ` policy=${String(row.policyRef)}` : ""}${reason}`;
+  });
 }
 
 function adviseNextSteps(
