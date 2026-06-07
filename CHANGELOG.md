@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.19
+
+- Added Multi-Agent Topologies as official userland recipes over Multi-Agent
+  Runtime Core and Coordinator / Blackboard.
+- Added typed topology contracts and durable topology run records under
+  `.cw/runs/<run-id>/topologies/`.
+- Added official `map-reduce`, `debate`, and `judge-panel` definitions with
+  roles, groups, blackboard topics, phases, fanout/fanin strategy, required
+  evidence, coordinator decision expectations, candidate expectations, and
+  verifier gates.
+- Added `cw topology list|show|validate|apply|summary|graph` plus MCP parity
+  through `cw_topology_*` tools.
+- Added Topologies panels to `status` and `report --show`, topology graph
+  nodes/edges, trust-audit topology event counts, and evidence provenance links
+  through generated multi-agent and blackboard records.
+- Preserved fail-closed fanin behavior for missing mapper evidence, debate
+  messages/decisions, and judge-panel evidence.
+- Added `docs/multi-agent-topologies.7.md` and
+  `test/multi-agent-topologies-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.18
 
 - Added Coordinator / Blackboard as the shared coordination substrate for future

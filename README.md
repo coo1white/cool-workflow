@@ -16,6 +16,10 @@ interpret -> act -> observe -> adjust -> checkpoint
   sandbox resolution, verifier-gated commits, and operator summaries.
 - Security / Trust Hardening for durable audit records, sandbox decision
   history, evidence provenance, acceptance rationale, and CLI/MCP audit tools.
+- Multi-Agent Topologies for official `map-reduce`, `debate`, and
+  `judge-panel` coordination patterns that materialize roles, groups, fanout,
+  fanin, blackboard topics, coordinator decisions, topology graphs, and trust
+  audit provenance.
 - Coordinator / Blackboard for durable shared topics, messages, context frames,
   artifact refs, snapshots, coordinator decisions, conflict handling, and
   ready-for-fanin evidence summaries.
@@ -84,6 +88,8 @@ See [dogfood-one-real-repo.7.md](plugins/cool-workflow/docs/dogfood-one-real-rep
 for the v0.1.16 real-repository dogfood release proof.
 See [coordinator-blackboard.7.md](plugins/cool-workflow/docs/coordinator-blackboard.7.md)
 for the v0.1.18 shared coordination substrate.
+See [multi-agent-topologies.7.md](plugins/cool-workflow/docs/multi-agent-topologies.7.md)
+for the v0.1.19 official map-reduce, debate, and judge-panel recipes.
 See [multi-agent-runtime-core.7.md](plugins/cool-workflow/docs/multi-agent-runtime-core.7.md)
 for the v0.1.17 multi-agent runtime state model.
 See [security-trust-hardening.7.md](plugins/cool-workflow/docs/security-trust-hardening.7.md)
@@ -102,6 +108,40 @@ See [sandbox-profiles.7.md](plugins/cool-workflow/docs/sandbox-profiles.7.md)
 for the worker sandbox policy contract.
 See [end-to-end-golden-path.7.md](plugins/cool-workflow/docs/end-to-end-golden-path.7.md)
 for the release integration proof.
+
+## Multi-Agent Topologies
+
+CW v0.1.19 adds official topology recipes on top of the Multi-Agent Runtime
+Core and Coordinator / Blackboard:
+
+- `map-reduce` fans out mapper roles, indexes mapper evidence, then reduces
+  only after required fanin evidence is present.
+- `debate` records opposing claims, rebuttal rounds, conflict context,
+  coordinator decisions, and final synthesis.
+- `judge-panel` collects independent judge outputs, aggregates score evidence,
+  and records a panel decision with provenance.
+
+Topologies are not hidden automation. Applying one materializes ordinary CW
+records: a `MultiAgentRun`, roles, groups, fanout, optional fanin, blackboard
+topics, messages, coordinator decisions, audit events, graph nodes, and
+deterministic next actions. Topology run records live under
+`.cw/runs/<run-id>/topologies/`, are referenced from `state.json`, and appear
+in `status`, `graph`, `report --show`, and trust audit summaries.
+
+```bash
+node scripts/cw.js topology list
+node scripts/cw.js topology show map-reduce
+node scripts/cw.js topology validate map-reduce
+node scripts/cw.js topology apply <run-id> map-reduce --task <task-id> --mappers 2
+node scripts/cw.js topology apply <run-id> debate --id debate-round --rounds 2
+node scripts/cw.js topology apply <run-id> judge-panel --judges 3
+node scripts/cw.js topology summary <run-id>
+node scripts/cw.js topology graph <run-id>
+```
+
+MCP hosts get the same surface through `cw_topology_list`,
+`cw_topology_show`, `cw_topology_validate`, `cw_topology_apply`,
+`cw_topology_summary`, and `cw_topology_graph`.
 
 ## Language Contract
 
@@ -171,6 +211,14 @@ node scripts/cw.js status <run-id>
 node scripts/cw.js status <run-id> --json
 node scripts/cw.js graph <run-id>
 node scripts/cw.js report <run-id> --show
+node scripts/cw.js topology list
+node scripts/cw.js topology show map-reduce
+node scripts/cw.js topology validate map-reduce
+node scripts/cw.js topology apply <run-id> map-reduce --task <task-id> --mappers 2
+node scripts/cw.js topology apply <run-id> debate --id debate-round
+node scripts/cw.js topology apply <run-id> judge-panel --judges 3
+node scripts/cw.js topology summary <run-id>
+node scripts/cw.js topology graph <run-id>
 node scripts/cw.js worker summary <run-id>
 node scripts/cw.js candidate summary <run-id>
 node scripts/cw.js feedback summary <run-id>

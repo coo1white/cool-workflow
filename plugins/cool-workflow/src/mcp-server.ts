@@ -126,6 +126,19 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.collectAgentFanin(String(args.runId || ""), args);
       case "cw_multi_agent_fanin_show":
         return runner.showAgentFanin(String(args.runId || ""), String(args.faninId || args.id || ""));
+      case "cw_topology_list":
+        return runner.listTopologies();
+      case "cw_topology_show":
+        if (args.runId && (args.topologyRunId || args.id)) return runner.showTopologyRun(String(args.runId || ""), String(args.topologyRunId || args.id || ""));
+        return runner.showTopology(String(args.topologyId || args.id || ""));
+      case "cw_topology_validate":
+        return runner.validateTopology(String(args.topologyId || args.id || ""));
+      case "cw_topology_apply":
+        return runner.applyTopology(String(args.runId || ""), String(args.topologyId || args.id || ""), args);
+      case "cw_topology_summary":
+        return runner.topologySummary(String(args.runId || ""));
+      case "cw_topology_graph":
+        return runner.topologyGraph(String(args.runId || ""));
       case "cw_blackboard_summary":
         return runner.blackboardSummary(String(args.runId || ""), args);
       case "cw_blackboard_graph":
@@ -476,6 +489,31 @@ function toolDefinitions(): unknown[] {
       faninId: stringSchema("AgentFanin id"),
       id: stringSchema("Alias for faninId")
     }),
+    tool("cw_topology_list", "List official multi-agent topology definitions.", {}),
+    tool("cw_topology_show", "Show an official topology definition or a topology run when runId is provided.", {
+      ...runIdSchema(),
+      topologyId: stringSchema("Official topology id"),
+      topologyRunId: stringSchema("Topology run id"),
+      id: stringSchema("Alias for topologyId or topologyRunId")
+    }),
+    tool("cw_topology_validate", "Validate an official topology definition.", {
+      topologyId: stringSchema("Official topology id"),
+      id: stringSchema("Alias for topologyId")
+    }),
+    tool("cw_topology_apply", "Apply an official topology to a CW run using multi-agent and blackboard records.", {
+      ...runIdSchema(),
+      topologyId: stringSchema("map-reduce, debate, or judge-panel"),
+      id: stringSchema("Optional topology run id"),
+      task: arraySchema("Task ids"),
+      mapperCount: numberSchema("Mapper count for map-reduce"),
+      judgeCount: numberSchema("Judge count for judge-panel"),
+      debateRounds: numberSchema("Debate rounds for debate"),
+      blackboardId: stringSchema("Optional blackboard id"),
+      multiAgentRunId: stringSchema("Optional MultiAgentRun id"),
+      collectInitialFanin: booleanSchema("Collect an initial fail-closed fanin immediately")
+    }),
+    tool("cw_topology_summary", "Read topology progress and next actions for a run.", runIdSchema()),
+    tool("cw_topology_graph", "Read topology graph nodes and edges for a run.", runIdSchema()),
     tool("cw_blackboard_summary", "Read blackboard/coordinator summary for a run.", runIdSchema()),
     tool("cw_blackboard_graph", "Read blackboard/coordinator graph nodes and edges.", runIdSchema()),
     tool("cw_blackboard_resolve", "Create or resolve the blackboard for a run or MultiAgentRun.", {

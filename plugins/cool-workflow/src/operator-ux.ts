@@ -16,11 +16,13 @@ import {
   WorkerIsolationStatus,
   WorkerScope,
   WorkflowRun,
+  TopologySummary,
   TrustAuditSummary
 } from "./types";
 import { summarizeTrustAudit } from "./trust-audit";
 import { buildMultiAgentGraph, MultiAgentSummary, summarizeMultiAgent } from "./multi-agent";
 import { buildBlackboardGraph, summarizeBlackboard } from "./coordinator";
+import { buildTopologyGraph, summarizeTopologies } from "./topology";
 
 export interface OperatorRecommendation {
   command: string;
@@ -144,6 +146,7 @@ export interface OperatorRunSummary {
   candidates: OperatorCandidateSummary;
   feedback: OperatorFeedbackSummary;
   commits: OperatorCommitSummary;
+  topologies: TopologySummary;
   multiAgent: MultiAgentSummary;
   blackboard: ReturnType<typeof summarizeBlackboard>;
   trust: TrustAuditSummary;
@@ -171,11 +174,12 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
   const candidates = summarizeOperatorCandidates(run);
   const feedback = summarizeOperatorFeedback(run);
   const commits = summarizeOperatorCommits(run);
+  const topologies = summarizeTopologies(run);
   const multiAgent = summarizeMultiAgent(run);
   const blackboard = summarizeBlackboard(run);
   const trust = summarizeTrustAudit(run);
   const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
-  const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, multiAgent, blackboard);
+  const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, topologies, multiAgent, blackboard);
   return {
     runId: run.id,
     workflowId: run.workflow.id,
@@ -192,12 +196,13 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
     candidates,
     feedback,
     commits,
+    topologies,
     multiAgent,
     blackboard,
     trust,
     reportPath: run.paths.report,
     evidencePaths: evidencePathsFor(run),
-    nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits, blackboard })
+    nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits, topologies, blackboard })
   };
 }
 
@@ -390,6 +395,9 @@ export function buildOperatorGraph(run: WorkflowRun): OperatorGraph {
   const multiAgentGraph = buildMultiAgentGraph(run);
   for (const node of multiAgentGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
   for (const edge of multiAgentGraph.edges) addEdge(edge.from, edge.to, edge.label);
+  const topologyGraph = buildTopologyGraph(run);
+  for (const node of topologyGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
+  for (const edge of topologyGraph.edges) addEdge(edge.from, edge.to, edge.label);
   const blackboardGraph = buildBlackboardGraph(run);
   for (const node of blackboardGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
   for (const edge of blackboardGraph.edges) addEdge(edge.from, edge.to, edge.label);
@@ -421,6 +429,8 @@ export function formatOperatorStatus(summary: OperatorRunSummary): string {
     "",
     formatCommitPanel(summary.commits),
     "",
+    formatTopologyPanel(summary.topologies),
+    "",
     formatMultiAgentPanel(summary.multiAgent),
     "",
     formatBlackboardPanel(summary.blackboard),
@@ -447,6 +457,8 @@ export function formatOperatorReport(summary: OperatorRunSummary): string {
     "Resource Commands",
     `  node scripts/cw.js graph ${summary.runId}`,
     `  node scripts/cw.js worker summary ${summary.runId}`,
+    `  node scripts/cw.js topology summary ${summary.runId}`,
+    `  node scripts/cw.js topology graph ${summary.runId}`,
     `  node scripts/cw.js multi-agent summary ${summary.runId}`,
     `  node scripts/cw.js multi-agent graph ${summary.runId}`,
     `  node scripts/cw.js blackboard summary ${summary.runId}`,
@@ -512,6 +524,28 @@ export function formatMultiAgentSummary(summary: MultiAgentSummary): string {
   return formatMultiAgentPanel(summary);
 }
 
+export function formatTopologySummary(summary: TopologySummary): string {
+  return formatTopologyPanel(summary);
+}
+
+function formatTopologyPanel(summary: TopologySummary): string {
+  const lines = [
+    "Topologies",
+    `  runs=${summary.totalRuns}; status=${formatCounts(summary.runsByStatus)}; official=${summary.officialTopologies.join(", ")}`
+  ];
+  for (const record of summary.active.slice(0, 6)) {
+    lines.push(`  ${record.id}: ${record.topologyId}, status=${record.status}, readiness=${record.readiness}`);
+    lines.push(`    run=${record.multiAgentRunId} board=${record.blackboardId}`);
+    lines.push(`    roles=${record.roles.join(", ") || "none"} topics=${record.topics.join(", ") || "none"}`);
+    lines.push(`    fanout=${record.fanouts.join(", ") || "none"} fanin=${record.fanins.join(", ") || "none"}`);
+    for (const missing of record.missingEvidence.slice(0, 4)) lines.push(`    missing=${missing}`);
+    for (const conflict of record.conflicts.slice(0, 4)) lines.push(`    conflict=${conflict}`);
+    if (record.nextActions[0]) lines.push(`    next=${record.nextActions[0]}`);
+  }
+  if (summary.nextAction) lines.push(`  next=${summary.nextAction}`);
+  return lines.join("\n");
+}
+
 function formatMultiAgentPanel(summary: MultiAgentSummary): string {
   const lines = [
     "Multi-Agent",
@@ -550,7 +584,7 @@ function formatBlackboardPanel(summary: ReturnType<typeof summarizeBlackboard>):
 
 function adviseNextSteps(
   run: WorkflowRun,
-  summary: Pick<OperatorRunSummary, "tasks" | "workers" | "candidates" | "feedback" | "commits" | "blackboard">
+  summary: Pick<OperatorRunSummary, "tasks" | "workers" | "candidates" | "feedback" | "commits" | "topologies" | "blackboard">
 ): OperatorRecommendation[] {
   const actions: OperatorRecommendation[] = [];
   if (summary.feedback.open.length) {
@@ -605,6 +639,15 @@ function adviseNextSteps(
     actions.push({
       command: summary.blackboard.nextAction,
       reason: "Blackboard shared context is not ready for fanin yet.",
+      priority: "high"
+    });
+    return actions;
+  }
+  const topologyAction = summary.topologies.active.find((topology) => topology.nextActions.length)?.nextActions[0];
+  if (topologyAction) {
+    actions.push({
+      command: topologyAction,
+      reason: "An active topology has a deterministic next action.",
       priority: "high"
     });
     return actions;
@@ -711,6 +754,7 @@ function blockedReasonsFor(
   feedback: OperatorFeedbackSummary,
   workers: OperatorWorkerSummary,
   candidates: OperatorCandidateSummary,
+  topologies: TopologySummary,
   multiAgent: MultiAgentSummary,
   blackboard: ReturnType<typeof summarizeBlackboard>
 ): string[] {
@@ -719,6 +763,9 @@ function blockedReasonsFor(
   if (workers.failed.length) reasons.push(`${workers.failed.length} failed/rejected worker(s)`);
   if (run.tasks.some((task) => task.status === "failed")) reasons.push("failed task(s)");
   if (candidates.problems.length) reasons.push(...candidates.problems.slice(0, 2));
+  for (const topology of topologies.active) {
+    if (topology.status === "blocked") reasons.push(`topology ${topology.id} blocked: ${topology.missingEvidence[0] || "missing evidence"}`);
+  }
   if (multiAgent.blockedReasons.length) reasons.push(...multiAgent.blockedReasons.slice(0, 2));
   if (blackboard.conflicts.length) reasons.push(`${blackboard.conflicts.length} blackboard conflict(s)`);
   if (blackboard.missingEvidence.length) reasons.push(...blackboard.missingEvidence.slice(0, 2));

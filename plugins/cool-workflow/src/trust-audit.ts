@@ -41,6 +41,8 @@ export interface RecordTrustAuditInput {
   blackboardArtifactRefId?: string;
   blackboardSnapshotId?: string;
   coordinatorDecisionId?: string;
+  topologyId?: string;
+  topologyRunId?: string;
   sandboxProfileId?: string;
   policySnapshot?: ResolvedSandboxPolicy;
   normalizedPath?: string;
@@ -113,6 +115,8 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     blackboardArtifactRefId: input.blackboardArtifactRefId,
     blackboardSnapshotId: input.blackboardSnapshotId,
     coordinatorDecisionId: input.coordinatorDecisionId,
+    topologyId: input.topologyId,
+    topologyRunId: input.topologyRunId,
     sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
     policyRef: input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined,
     policySnapshot: redactPolicy(input.policySnapshot),
@@ -240,6 +244,10 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
           event.coordinatorDecisionId
         )
       ).length
+    },
+    topologies: {
+      runs: run.topologies?.runs.length || 0,
+      events: events.filter((event) => Boolean(event.topologyId || event.topologyRunId || event.kind.startsWith("topology."))).length
     }
   };
   writeJson(audit.summaryPath, summary);
@@ -270,6 +278,8 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
       blackboardArtifactRefId: event.blackboardArtifactRefId,
       blackboardSnapshotId: event.blackboardSnapshotId,
       coordinatorDecisionId: event.coordinatorDecisionId,
+      topologyId: event.topologyId,
+      topologyRunId: event.topologyRunId,
       sandboxProfileId: event.sandboxProfileId
     }))
   });

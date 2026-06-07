@@ -26,10 +26,18 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.19 adds Multi-Agent Topologies: official `map-reduce`, `debate`, and
+`judge-panel` coordination definitions with validation, apply-time
+materialization, topology run state, topology graphs, Operator UX panels, trust
+audit provenance, CLI commands, and MCP parity. Applying a topology creates the
+linked MultiAgentRun, roles, groups, fanout, blackboard topics, coordinator
+decisions, and deterministic next actions that the agent host can execute.
+See [docs/multi-agent-topologies.7.md](docs/multi-agent-topologies.7.md).
+
 CW v0.1.18 adds Coordinator / Blackboard: first-class shared topics,
 messages, context frames, artifact refs, snapshots, and coordinator decisions.
-The blackboard is the coordination filesystem future debate, judge,
-map-reduce, swarm, committee, and synthesis topologies will consume. See
+The blackboard is the coordination filesystem used by topology runs to index
+evidence, conflicts, fanin readiness, and synthesis decisions. See
 [docs/coordinator-blackboard.7.md](docs/coordinator-blackboard.7.md).
 
 CW v0.1.17 added Multi-Agent Runtime Core: first-class `MultiAgentRun`,
@@ -168,6 +176,8 @@ node scripts/cw.js status <run-id> --json
 node scripts/cw.js graph <run-id>
 node scripts/cw.js graph <run-id> --json
 node scripts/cw.js report <run-id> --show
+node scripts/cw.js topology summary <run-id>
+node scripts/cw.js topology graph <run-id>
 node scripts/cw.js worker summary <run-id>
 node scripts/cw.js multi-agent summary <run-id>
 node scripts/cw.js multi-agent graph <run-id>
@@ -185,12 +195,46 @@ cw_app_run -> cw_dispatch -> cw_worker_manifest -> cw_worker_output
 -> cw_commit -> cw_operator_report
 ```
 
+MCP also exposes topology tools:
+
+```text
+cw_topology_list
+cw_topology_show
+cw_topology_validate
+cw_topology_apply
+cw_topology_summary
+cw_topology_graph
+```
+
+List, inspect, validate, and apply official multi-agent topologies:
+
+```bash
+node scripts/cw.js topology list
+node scripts/cw.js topology show map-reduce
+node scripts/cw.js topology show debate
+node scripts/cw.js topology show judge-panel
+node scripts/cw.js topology validate map-reduce
+node scripts/cw.js topology apply <run-id> map-reduce --task <task-id> --mappers 2
+node scripts/cw.js topology apply <run-id> debate --id debate-round --rounds 2
+node scripts/cw.js topology apply <run-id> judge-panel --judgeCount 3
+node scripts/cw.js topology summary <run-id>
+node scripts/cw.js topology summary <run-id> --json
+node scripts/cw.js topology graph <run-id>
+node scripts/cw.js topology graph <run-id> --json
+node scripts/cw.js topology show <run-id> <topology-run-id>
+```
+
+Topology runs are stored under `.cw/runs/<run-id>/topologies/`, referenced from
+`state.json`, included in operator status and graph output, and counted in the
+trust audit summary.
+
 Create a dispatch manifest for the current runnable phase:
 
 ```bash
 node scripts/cw.js dispatch <run-id> --limit 6
 node scripts/cw.js dispatch <run-id> --sandbox readonly
 node scripts/cw.js dispatch <run-id> --multi-agent-run ma --multi-agent-group group --multi-agent-role role
+node scripts/cw.js dispatch <run-id> --multi-agent-fanout <fanout-id>
 ```
 
 Inspect sandbox profiles:
@@ -247,6 +291,7 @@ npm run canonical-apps
 npm run golden-path
 npm run fixture-compat
 npm run version:sync
+npm test
 ```
 
 Run data lives under `.cw/runs/<run-id>/` in `--cwd`, or in `--repo` when

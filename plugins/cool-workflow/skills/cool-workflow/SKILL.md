@@ -47,11 +47,17 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
+v0.1.19 adds Multi-Agent Topologies as official userland recipes on top of the
+process table and shared coordination filesystem. `map-reduce`, `debate`, and
+`judge-panel` materialize ordinary MultiAgentRun, role, group, fanout/fanin,
+blackboard topic/message/artifact, coordinator decision, candidate, commit, and
+audit records. Topologies are deterministic recipes, not hidden autonomous
+coordination.
+
 v0.1.18 adds Coordinator / Blackboard as the shared coordination substrate:
 durable blackboards, topics, messages, context frames, artifact refs,
 snapshots, and coordinator decisions under `.cw/runs/<run-id>/blackboard/`.
-It comes before higher-level topologies such as debate, judge, map-reduce,
-swarm, committee, and synthesis.
+It is the shared filesystem used by higher-level topologies.
 
 v0.1.17 added first-class multi-agent runtime state around dispatches:
 `MultiAgentRun`, `AgentRole`, `AgentGroup`, `AgentMembership`, `AgentFanout`,
@@ -102,6 +108,12 @@ node scripts/cw.js graph <run-id>
 node scripts/cw.js graph <run-id> --json
 node scripts/cw.js dispatch <run-id> --limit 6
 node scripts/cw.js dispatch <run-id> --sandbox readonly
+node scripts/cw.js topology list
+node scripts/cw.js topology show map-reduce
+node scripts/cw.js topology validate map-reduce
+node scripts/cw.js topology apply <run-id> map-reduce --task task-id --mapper-count 2
+node scripts/cw.js topology summary <run-id>
+node scripts/cw.js topology graph <run-id>
 node scripts/cw.js multi-agent summary <run-id>
 node scripts/cw.js multi-agent graph <run-id>
 node scripts/cw.js multi-agent run <run-id> --id ma --objective "coordinated work"
@@ -165,7 +177,9 @@ When an MCP host is available, the same runtime surface is exposed with
 JSON-first tools: `cw_app_run`, `cw_dispatch`, `cw_worker_manifest`,
 `cw_worker_output`, `cw_candidate_register`, `cw_candidate_score`,
 `cw_candidate_select`, `cw_commit`, `cw_operator_status`, `cw_operator_graph`,
-`cw_operator_report`, `cw_multi_agent_summary`, `cw_multi_agent_graph`,
+`cw_operator_report`, `cw_topology_list`, `cw_topology_show`,
+`cw_topology_validate`, `cw_topology_apply`, `cw_topology_summary`,
+`cw_topology_graph`, `cw_multi_agent_summary`, `cw_multi_agent_graph`,
 `cw_multi_agent_run_create`, `cw_multi_agent_role_create`,
 `cw_multi_agent_group_create`, `cw_multi_agent_membership_create`,
 `cw_multi_agent_fanout_create`, `cw_multi_agent_fanin_collect`,

@@ -68,6 +68,8 @@ function recordTrustAuditEvent(run, input) {
         blackboardArtifactRefId: input.blackboardArtifactRefId,
         blackboardSnapshotId: input.blackboardSnapshotId,
         coordinatorDecisionId: input.coordinatorDecisionId,
+        topologyId: input.topologyId,
+        topologyRunId: input.topologyRunId,
         sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
         policyRef: input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined,
         policySnapshot: redactPolicy(input.policySnapshot),
@@ -176,6 +178,10 @@ function summarizeTrustAudit(run) {
                 event.blackboardArtifactRefId ||
                 event.blackboardSnapshotId ||
                 event.coordinatorDecisionId)).length
+        },
+        topologies: {
+            runs: run.topologies?.runs.length || 0,
+            events: events.filter((event) => Boolean(event.topologyId || event.topologyRunId || event.kind.startsWith("topology."))).length
         }
     };
     (0, state_1.writeJson)(audit.summaryPath, summary);
@@ -206,6 +212,8 @@ function summarizeTrustAudit(run) {
             blackboardArtifactRefId: event.blackboardArtifactRefId,
             blackboardSnapshotId: event.blackboardSnapshotId,
             coordinatorDecisionId: event.coordinatorDecisionId,
+            topologyId: event.topologyId,
+            topologyRunId: event.topologyRunId,
             sandboxProfileId: event.sandboxProfileId
         }))
     });

@@ -19,6 +19,8 @@ export type StateNodeKind =
   | "blackboard-artifact"
   | "blackboard-snapshot"
   | "coordinator-decision"
+  | "topology-run"
+  | "topology-phase"
   | "multi-agent-run"
   | "agent-role"
   | "agent-group"
@@ -184,6 +186,7 @@ export interface RunPaths {
   candidatesDir?: string;
   multiAgentDir?: string;
   blackboardDir?: string;
+  topologiesDir?: string;
 }
 
 export interface RunPhase {
@@ -284,6 +287,8 @@ export interface TrustAuditEvent {
   blackboardArtifactRefId?: string;
   blackboardSnapshotId?: string;
   coordinatorDecisionId?: string;
+  topologyId?: string;
+  topologyRunId?: string;
   sandboxProfileId?: string;
   policyRef?: string;
   policySnapshot?: ResolvedSandboxPolicy;
@@ -348,6 +353,10 @@ export interface TrustAuditSummary {
     artifacts: number;
     snapshots: number;
     decisions: number;
+    events: number;
+  };
+  topologies?: {
+    runs: number;
     events: number;
   };
 }
@@ -872,6 +881,132 @@ export interface MultiAgentState {
   memberships: AgentMembership[];
   fanouts: AgentFanout[];
   fanins: AgentFanin[];
+}
+
+export type MultiAgentTopologyId = "map-reduce" | "debate" | "judge-panel";
+export type TopologyRunStatus = "planned" | "running" | "blocked" | "ready" | "completed" | "failed";
+
+export interface TopologyRoleSpec {
+  id: string;
+  title: string;
+  responsibilities: string[];
+  groupId?: string;
+  count?: number;
+  requiredEvidence: string[];
+  expectedArtifacts: string[];
+  faninObligations: string[];
+}
+
+export interface TopologyPhaseSpec {
+  id: string;
+  title: string;
+  roleIds: string[];
+  fanout?: boolean;
+  fanin?: boolean;
+  requiredEvidence: string[];
+  coordinatorDecisionKinds: CoordinatorDecisionKind[];
+}
+
+export interface MultiAgentTopologyDefinition {
+  schemaVersion: 1;
+  id: MultiAgentTopologyId;
+  title: string;
+  summary: string;
+  roles: TopologyRoleSpec[];
+  groups: Array<{ id: string; title: string; roleIds: string[] }>;
+  blackboardTopics: Array<{ id: string; title: string; description: string }>;
+  phases: TopologyPhaseSpec[];
+  fanoutStrategy: string;
+  faninStrategy: string;
+  requiredEvidence: string[];
+  coordinatorDecisions: CoordinatorDecisionKind[];
+  candidateExpectations: string[];
+  verifierGates: string[];
+}
+
+export interface TopologyValidationIssue {
+  code: string;
+  message: string;
+  path?: string;
+}
+
+export interface TopologyValidationResult {
+  valid: boolean;
+  topologyId: string;
+  issues: TopologyValidationIssue[];
+  definition?: MultiAgentTopologyDefinition;
+}
+
+export interface MultiAgentTopologyRun {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  topologyId: MultiAgentTopologyId;
+  createdAt: string;
+  updatedAt: string;
+  status: TopologyRunStatus;
+  title: string;
+  multiAgentRunId: string;
+  blackboardId: string;
+  topicIds: string[];
+  roleIds: string[];
+  groupIds: string[];
+  fanoutIds: string[];
+  faninIds: string[];
+  messageIds: string[];
+  artifactRefIds: string[];
+  coordinatorDecisionIds: string[];
+  candidateIds: string[];
+  selectionIds: string[];
+  commitIds: string[];
+  missingEvidence: string[];
+  conflicts: string[];
+  nextActions: string[];
+  links: {
+    workflowRunId: string;
+    multiAgentRunId: string;
+    blackboardId: string;
+    blackboardTopicIds: string[];
+    agentRoleIds: string[];
+    agentGroupIds: string[];
+    agentFanoutIds: string[];
+    agentFaninIds: string[];
+    coordinatorDecisionIds: string[];
+    candidateIds: string[];
+    selectionIds: string[];
+    commitIds: string[];
+    auditEventIds: string[];
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface TopologyState {
+  schemaVersion: 1;
+  runs: MultiAgentTopologyRun[];
+}
+
+export interface TopologySummary {
+  runId: string;
+  totalRuns: number;
+  runsByStatus: Record<string, number>;
+  officialTopologies: string[];
+  active: Array<{
+    id: string;
+    topologyId: string;
+    status: TopologyRunStatus;
+    multiAgentRunId: string;
+    blackboardId: string;
+    roles: string[];
+    groups: string[];
+    topics: string[];
+    fanouts: string[];
+    fanins: string[];
+    missingEvidence: string[];
+    conflicts: string[];
+    readiness: string;
+    nextActions: string[];
+  }>;
+  nextAction?: string;
 }
 
 export interface WorkerMultiAgentMetadata {
@@ -1438,6 +1573,7 @@ export interface WorkflowRun {
   candidateSelections?: CandidateSelection[];
   multiAgent?: MultiAgentState;
   blackboard?: BlackboardState;
+  topologies?: TopologyState;
 }
 
 export interface RunSummary {

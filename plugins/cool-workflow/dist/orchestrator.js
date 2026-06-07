@@ -26,6 +26,7 @@ const operator_ux_1 = require("./operator-ux");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
+const topology_1 = require("./topology");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -222,10 +223,15 @@ class CoolWorkflowRunner {
                 artifacts: [],
                 snapshots: [],
                 decisions: []
+            },
+            topologies: {
+                schemaVersion: 1,
+                runs: []
             }
         };
         (0, trust_audit_1.ensureTrustAudit)(run);
         (0, multi_agent_1.ensureMultiAgentState)(run);
+        (0, topology_1.ensureTopologyState)(run);
         (0, harness_1.writeTaskFiles)(run);
         const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
         const inputNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
@@ -706,6 +712,45 @@ class CoolWorkflowRunner {
     }
     multiAgentGraph(runId) {
         return (0, multi_agent_1.buildMultiAgentGraph)(this.loadRun(runId));
+    }
+    listTopologies() {
+        return (0, topology_1.listTopologyDefinitions)();
+    }
+    showTopology(topologyId) {
+        const definition = (0, topology_1.getTopologyDefinition)(topologyId);
+        if (!definition)
+            throw new Error(`Unknown topology id: ${topologyId}`);
+        return definition;
+    }
+    validateTopology(topologyId) {
+        return (0, topology_1.validateTopologyDefinition)(topologyId);
+    }
+    applyTopology(runId, topologyId, options = {}) {
+        const run = this.loadRun(runId);
+        const record = (0, topology_1.applyTopology)(run, topologyId, {
+            id: stringOption(options.id),
+            title: stringOption(options.title),
+            multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
+            mapperCount: numberOption(options.mapperCount || options.mappers || options.mapper),
+            judgeCount: numberOption(options.judgeCount || options.judges || options.judge),
+            debateRounds: numberOption(options.debateRounds || options.rounds),
+            collectInitialFanin: Boolean(options.collectInitialFanin || options["collect-initial-fanin"]),
+            metadata: metadataOption(options)
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return record;
+    }
+    showTopologyRun(runId, topologyRunId) {
+        return (0, topology_1.showTopologyRun)(this.loadRun(runId), topologyRunId);
+    }
+    topologySummary(runId) {
+        return (0, topology_1.summarizeTopologies)(this.loadRun(runId));
+    }
+    topologyGraph(runId) {
+        return (0, topology_1.buildTopologyGraph)(this.loadRun(runId));
     }
     createMultiAgentRun(runId, options = {}) {
         const run = this.loadRun(runId);
