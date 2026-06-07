@@ -37,6 +37,7 @@ cool-workflow
   workflows/research-synthesis.workflow.js
   docs/agent-sdk.md
   docs/unix-principles.md
+  docs/candidate-scoring.7.md
 ```
 
 ## Commands
@@ -74,6 +75,20 @@ Record an agent result after a worker finishes:
 node scripts/cw.js result <run-id> <task-id> path/to/result.md
 ```
 
+Register, score, rank, and verifier-gate a candidate output:
+
+```bash
+node scripts/cw.js candidate register <run-id> --worker <worker-id>
+node scripts/cw.js candidate score <run-id> <candidate-id> \
+  --criterion correctness=4 \
+  --criterion evidence=4 \
+  --criterion fit=2 \
+  --maxTotal 10 \
+  --evidence /path/to/file.ts:42
+node scripts/cw.js candidate rank <run-id>
+node scripts/cw.js candidate select <run-id> <candidate-id> --reason "verified winner"
+```
+
 Create a deterministic state commit:
 
 ```bash
@@ -97,6 +112,8 @@ npm run build
 ```
 
 See [docs/agent-sdk.md](docs/agent-sdk.md) for the developer contract.
+See [docs/candidate-scoring.7.md](docs/candidate-scoring.7.md) for the
+candidate scoring file contract.
 
 ## License
 

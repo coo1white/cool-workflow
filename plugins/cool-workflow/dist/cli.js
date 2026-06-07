@@ -141,6 +141,37 @@ async function main() {
                     throw new Error("Usage: cw.js worker list|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
             }
         }
+        case "candidate": {
+            const [subcommand, runId, candidateId, reason] = args.positionals;
+            switch (subcommand) {
+                case "list":
+                    printJson(runner.listCandidates(required(runId, "run id"), args.options));
+                    return;
+                case "show":
+                    printJson(runner.showCandidate(required(runId, "run id"), required(candidateId, "candidate id")));
+                    return;
+                case "register":
+                    printJson(runner.registerCandidate(required(runId, "run id"), args.options));
+                    return;
+                case "score":
+                    printJson(runner.scoreCandidate(required(runId, "run id"), required(candidateId, "candidate id"), args.options));
+                    return;
+                case "rank":
+                    printJson(runner.rankCandidates(required(runId, "run id"), args.options));
+                    return;
+                case "select":
+                    printJson(runner.selectCandidate(required(runId, "run id"), required(candidateId, "candidate id"), args.options));
+                    return;
+                case "reject":
+                    printJson(runner.rejectCandidate(required(runId, "run id"), required(candidateId, "candidate id"), String(args.options.reason || args.options.message || reason || "rejected")));
+                    return;
+                case "summary":
+                    printJson(runner.summarizeCandidateRecords(required(runId, "run id")));
+                    return;
+                default:
+                    throw new Error("Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
+            }
+        }
         case "loop": {
             printJson(scheduler.create({ ...args.options, kind: "loop" }));
             return;

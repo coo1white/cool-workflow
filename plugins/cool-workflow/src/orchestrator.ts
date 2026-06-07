@@ -38,6 +38,16 @@ import {
   validateWorkerBoundary,
   writeWorkerManifest
 } from "./worker-isolation";
+import {
+  getCandidate,
+  listCandidates,
+  rankCandidates,
+  registerCandidate,
+  rejectCandidate,
+  scoreCandidate,
+  selectCandidate,
+  summarizeCandidates
+} from "./candidate-scoring";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -114,7 +124,9 @@ export class CoolWorkflowRunner {
       nodes: [],
       contracts: [],
       feedback: [],
-      workers: []
+      workers: [],
+      candidates: [],
+      candidateSelections: []
     };
 
     writeTaskFiles(run);
@@ -312,6 +324,116 @@ export class CoolWorkflowRunner {
     return validateWorkerBoundary(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
   }
 
+  listCandidates(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listCandidates> {
+    return listCandidates(this.loadRun(runId), {
+      status: options.status ? String(options.status) as never : undefined,
+      kind: options.kind ? String(options.kind) as never : undefined
+    });
+  }
+
+  showCandidate(runId: string, candidateId: string): NonNullable<ReturnType<typeof getCandidate>> {
+    const candidate = getCandidate(this.loadRun(runId), candidateId);
+    if (!candidate) throw new Error(`Unknown candidate id for run ${runId}: ${candidateId}`);
+    return candidate;
+  }
+
+  registerCandidate(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof registerCandidate> {
+    const run = this.loadRun(runId);
+    const workerId = options.worker ? String(options.worker) : undefined;
+    const worker = workerId ? getWorkerScope(run, workerId) : undefined;
+    if (workerId && !worker) throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
+    const task = worker ? run.tasks.find((candidate) => candidate.id === worker.taskId) : undefined;
+    const resultNodeId = stringOption(options.resultNode) || worker?.resultNodeId || task?.resultNodeId;
+    const verifierNodeId = stringOption(options.verifierNode) || worker?.output?.verifierNodeId || task?.verifierNodeId;
+    const resultPath = stringOption(options.resultPath) || worker?.output?.resultPath || task?.resultPath;
+    const resultNode = resultNodeId ? run.nodes?.find((node) => node.id === resultNodeId) : undefined;
+    const verifierNode = verifierNodeId ? run.nodes?.find((node) => node.id === verifierNodeId) : undefined;
+    const candidate = registerCandidate(run, {
+      id: stringOption(options.id),
+      kind: stringOption(options.kind) as never,
+      workerId,
+      taskId: stringOption(options.task) || worker?.taskId,
+      resultNodeId,
+      verifierNodeId,
+      resultPath,
+      artifacts: [
+        ...(resultPath ? [{ id: "result", kind: "markdown", path: path.resolve(resultPath) }] : []),
+        ...(worker ? [{ id: "worker", kind: "json", path: path.join(worker.workerDir, "worker.json") }] : [])
+      ] as never,
+      evidence: mergeEvidence(resultNode?.evidence || [], verifierNode?.evidence || []),
+      metadata: {
+        source: worker ? "worker" : "manual",
+        workerDir: worker?.workerDir
+      }
+    }, { persist: false });
+    writeReport(run);
+    saveCheckpoint(run);
+    return candidate;
+  }
+
+  scoreCandidate(runId: string, candidateId: string, options: Record<string, unknown> = {}): ReturnType<typeof scoreCandidate> {
+    const run = this.loadRun(runId);
+    const score = scoreCandidate(run, candidateId, {
+      id: stringOption(options.id),
+      scorer: stringOption(options.scorer),
+      criteria: parseCriteria(options),
+      maxTotal: numberOption(options.maxTotal || options.max),
+      verdict: stringOption(options.verdict) as never,
+      evidence: parseEvidence(options.evidence),
+      notes: stringOption(options.notes)
+    }, { persist: false });
+    writeReport(run);
+    saveCheckpoint(run);
+    return score;
+  }
+
+  rankCandidates(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof rankCandidates> {
+    const run = this.loadRun(runId);
+    const ranking = rankCandidates(run, {
+      includeRejected: Boolean(options.includeRejected),
+      policy: {
+        minNormalized: numberOption(options.minNormalized),
+        requireEvidence: options.requireEvidence === undefined ? undefined : Boolean(options.requireEvidence),
+        requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate),
+        tieBreaker: stringOption(options.tieBreaker) as never
+      }
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return ranking;
+  }
+
+  selectCandidate(runId: string, candidateId: string, options: Record<string, unknown> = {}): ReturnType<typeof selectCandidate> {
+    const run = this.loadRun(runId);
+    const selection = selectCandidate(run, candidateId, {
+      selectedBy: stringOption(options.by) || stringOption(options.selectedBy),
+      reason: stringOption(options.reason),
+      scoreId: stringOption(options.score),
+      allowUnverified: Boolean(options.allowUnverified)
+    }, {
+      persist: false,
+      policy: {
+        minNormalized: numberOption(options.minNormalized),
+        requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate)
+      }
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return selection;
+  }
+
+  rejectCandidate(runId: string, candidateId: string, reason: string): ReturnType<typeof rejectCandidate> {
+    const run = this.loadRun(runId);
+    const candidate = rejectCandidate(run, candidateId, reason, { persist: false });
+    writeReport(run);
+    saveCheckpoint(run);
+    return candidate;
+  }
+
+  summarizeCandidateRecords(runId: string): ReturnType<typeof summarizeCandidates> {
+    return summarizeCandidates(this.loadRun(runId));
+  }
+
   report(runId: string): { path: string } {
     const run = this.loadRun(runId);
     return { path: writeReport(run) };
@@ -462,7 +584,7 @@ export function parseArgv(argv: string[]): {
 }
 
 export function formatHelp(): string {
-  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> [--reason TEXT]\n  report <run-id>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 
 function appendOption(options: Record<string, unknown>, key: string, value: string | boolean): void {
@@ -525,6 +647,7 @@ function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unkno
 function writeReport(run: WorkflowRun): string {
   updatePhaseStatuses(run);
   const workerSummary = summarizeWorkers(run);
+  const candidateSummary = summarizeCandidates(run);
   const report = [
     `# ${run.workflow.title}`,
     "",
@@ -558,6 +681,10 @@ function writeReport(run: WorkflowRun): string {
     "## Workers",
     "",
     ...renderWorkers(workerSummary),
+    "",
+    "## Candidates",
+    "",
+    ...renderCandidates(candidateSummary),
     "",
     "## Pending Tasks",
     "",
@@ -648,6 +775,18 @@ function renderWorkers(summary: ReturnType<typeof summarizeWorkers>): string[] {
   return lines;
 }
 
+function renderCandidates(summary: ReturnType<typeof summarizeCandidates>): string[] {
+  if (!summary.total) return ["No candidates yet."];
+  return [
+    `- Total: ${summary.total}`,
+    `- By status: ${formatCounts(summary.byStatus)}`,
+    `- By kind: ${formatCounts(summary.byKind)}`,
+    `- Selections: ${summary.selections}`,
+    `- Index: ${summary.indexPath}`,
+    `- Ranking: ${summary.rankingPath}`
+  ];
+}
+
 function formatCounts(counts: Record<string, number>): string {
   const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));
   if (!entries.length) return "none";
@@ -677,6 +816,50 @@ function numberOption(value: unknown): number | undefined {
   if (value === undefined || value === null || value === true) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function stringOption(value: unknown): string | undefined {
+  if (value === undefined || value === null || value === true) return undefined;
+  return String(value);
+}
+
+function parseCriteria(options: Record<string, unknown>): Record<string, number> {
+  const criteria: Record<string, number> = {};
+  const rawCriteria = options.criterion || options.criteria || options.score;
+  for (const entry of arrayOption(rawCriteria)) {
+    const [key, value] = String(entry).split("=");
+    if (!key || value === undefined) continue;
+    criteria[key] = Number(value);
+  }
+  if (!Object.keys(criteria).length && options.total !== undefined) {
+    criteria.total = Number(options.total);
+  }
+  if (!Object.keys(criteria).length) throw new Error("Missing score criteria. Use --criterion name=value");
+  return criteria;
+}
+
+function parseEvidence(value: unknown) {
+  return arrayOption(value).map((entry, index) => ({
+    id: `score:${index + 1}`,
+    source: "candidate-score",
+    locator: String(entry),
+    summary: String(entry)
+  }));
+}
+
+function mergeEvidence<T extends { id: string }>(left: T[], right: T[]): T[] {
+  const merged = [...left];
+  for (const item of right) {
+    const index = merged.findIndex((entry) => entry.id === item.id);
+    if (index >= 0) merged[index] = item;
+    else merged.push(item);
+  }
+  return merged;
+}
+
+function arrayOption(value: unknown): unknown[] {
+  if (value === undefined || value === null || value === true) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
 function createRunId(workflowId: string): string {
