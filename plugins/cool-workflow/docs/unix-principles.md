@@ -22,6 +22,7 @@ CW already stores:
 - workflow app identity and version in `.cw/runs/<run-id>/state.json`
 - canonical app matrix run state in temporary `.cw/runs/<run-id>/` workspaces
 - golden path proof artifacts in temporary `.cw/runs/<run-id>/` workspaces
+- operator summaries derived from state without mutating run files
 
 The practical rule is:
 
@@ -66,7 +67,11 @@ system. Apps are userland: versioned, validated, inspectable definitions that
 can be listed, shown, validated, initialized, packaged, planned, and reported
 without depending on hidden runner internals.
 
-The v0.1.11 canonical apps are maintained userland:
+The v0.1.12 Operator UX layer is userland over state. It renders `status`,
+`graph`, `report --show`, and resource summaries without owning core
+transitions.
+
+The v0.1.12 canonical apps are maintained userland:
 
 ```text
 architecture-review
@@ -104,6 +109,9 @@ workflow definition
 Each stage should have a readable artifact. If a stage fails, its error output
 should become input for the next correction step instead of disappearing into a
 black box.
+
+Operator views follow the same rule: console summaries point to plain files,
+while `--json` and `--format json` preserve scriptable output.
 
 The release golden path is the regression form of this rule:
 

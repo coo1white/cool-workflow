@@ -22,6 +22,7 @@ const pipeline_runner_1 = require("./pipeline-runner");
 const worker_isolation_1 = require("./worker-isolation");
 const candidate_scoring_1 = require("./candidate-scoring");
 const sandbox_profile_1 = require("./sandbox-profile");
+const operator_ux_1 = require("./operator-ux");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -235,6 +236,9 @@ class CoolWorkflowRunner {
     }
     status(runId) {
         return summarizeRun(this.loadRun(runId));
+    }
+    operatorStatus(runId) {
+        return (0, operator_ux_1.summarizeOperatorRun)(this.loadRun(runId));
     }
     next(runId, options) {
         return (0, dispatch_1.nextDispatchTasks)(this.loadRun(runId), numberOption(options.limit));
@@ -522,9 +526,26 @@ class CoolWorkflowRunner {
     summarizeCandidateRecords(runId) {
         return (0, candidate_scoring_1.summarizeCandidates)(this.loadRun(runId));
     }
+    summarizeWorkerRecords(runId) {
+        return (0, operator_ux_1.summarizeOperatorWorkers)(this.loadRun(runId));
+    }
+    summarizeCandidateOperatorRecords(runId) {
+        return (0, operator_ux_1.summarizeOperatorCandidates)(this.loadRun(runId));
+    }
+    summarizeFeedbackRecords(runId) {
+        return (0, operator_ux_1.summarizeOperatorFeedback)(this.loadRun(runId));
+    }
+    summarizeCommitRecords(runId) {
+        return (0, operator_ux_1.summarizeOperatorCommits)(this.loadRun(runId));
+    }
     report(runId) {
         const run = this.loadRun(runId);
         return { path: writeReport(run) };
+    }
+    operatorReport(runId) {
+        const run = this.loadRun(runId);
+        writeReport(run);
+        return (0, operator_ux_1.summarizeOperatorRun)(run);
     }
     showContract(runId, contractId) {
         const run = this.loadRun(runId);
@@ -544,6 +565,9 @@ class CoolWorkflowRunner {
             parents: node.parents,
             children: node.children
         }));
+    }
+    operatorGraph(runId) {
+        return (0, operator_ux_1.buildOperatorGraph)(this.loadRun(runId));
     }
     commit(runId, input = {}) {
         const run = this.loadRun(runId);
@@ -707,7 +731,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id> [--json|--format json]\n  next <run-id> [--limit N]\n  graph <run-id> [--json]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  commit summary <run-id> [--json]\n  report <run-id> [--show|--summary]\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id> [--json]\n  feedback list <run-id> [--status open]\n  feedback summary <run-id> [--json]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker summary <run-id> [--json]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate summary <run-id> [--json]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {

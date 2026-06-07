@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.12
+
+- Added Operator UX read-only summaries in `src/operator-ux.ts`.
+- Made CLI `status` human-readable by default while preserving
+  `status --json`, `status --format json`, `runner.status()`, and MCP
+  `cw_status` structured output.
+- Added top-level `graph <run-id>` with `--json` and kept `node graph`
+  compatible.
+- Added console report views with `report <run-id> --show` and `--summary`.
+- Added human and JSON resource summaries for workers, candidates, feedback,
+  and commits, including gated commit/checkpoint visibility.
+- Added deterministic next-step recommendations for dispatch, worker output,
+  feedback, candidate scoring/selection, verifier-gated commit, and report.
+- Added `docs/operator-ux.7.md`, documentation updates, and
+  `test/operator-ux-smoke.js`.
+- Bumped package, plugin, canonical app, SDK, and MCP versions to `0.1.12`.
+
 ## 0.1.11
 
 - Added canonical Workflow App SDK apps: `architecture-review`,

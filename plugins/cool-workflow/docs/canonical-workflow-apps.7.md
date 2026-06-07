@@ -51,8 +51,8 @@ packaging, release notes, and final verification.
 ```bash
 node scripts/cw.js plan release-cut \
   --repo /path/to/repo \
-  --version 0.1.11 \
-  --previousVersion 0.1.10 \
+  --version 0.1.12 \
+  --previousVersion 0.1.11 \
   --dryRun true
 ```
 
@@ -126,3 +126,11 @@ workflow app -> plan -> dispatch -> isolated worker -> candidate scoring
 
 Together they keep the kernel small while making the maintained userland boring,
 inspectable, and useful.
+
+Use the Operator UX commands to inspect any canonical app run:
+
+```bash
+node scripts/cw.js status <run-id>
+node scripts/cw.js graph <run-id>
+node scripts/cw.js report <run-id> --summary
+```

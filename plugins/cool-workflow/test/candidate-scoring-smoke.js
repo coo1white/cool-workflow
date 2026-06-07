@@ -197,7 +197,7 @@ const cliRank = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/c
 }));
 assert.equal(cliRank.candidates[0].candidateId, "candidate-one");
 
-const cliSummary = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "candidate", "summary", "candidate-smoke"], {
+const cliSummary = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "candidate", "summary", "candidate-smoke", "--json"], {
   cwd: tmp,
   encoding: "utf8"
 }));

@@ -203,7 +203,7 @@ kind by id.
 
 ## Canonical Apps
 
-CW v0.1.11 includes four maintained canonical app directories:
+CW v0.1.12 includes four maintained canonical app directories:
 
 - `architecture-review`
 - `pr-review-fix-ci`

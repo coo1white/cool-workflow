@@ -49,6 +49,9 @@ node scripts/cw.js candidate select <run-id> golden-candidate --reason "golden p
 node scripts/cw.js commit <run-id> --selection <selection-id> \
   --reason "golden path verifier-gated commit"
 node scripts/cw.js report <run-id>
+node scripts/cw.js status <run-id>
+node scripts/cw.js graph <run-id>
+node scripts/cw.js report <run-id> --show
 ```
 
 After dispatch, the script reads the generated worker manifest and writes a
@@ -99,6 +102,7 @@ The golden path asserts durable state, not just exit codes:
 - the final commit references the selection, candidate, verifier node, and
   evidence
 - the report mentions the workflow app, candidates, and verifier-gated commit
+- operator status, graph, report, and summary commands can inspect the run
 - no ErrorFeedback records are produced
 
 If this command fails, one of the base integration contracts is broken.
