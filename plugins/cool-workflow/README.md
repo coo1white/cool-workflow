@@ -26,6 +26,14 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.20 adds Multi-Agent CLI + MCP Surface: the preferred host loop for
+`multi-agent run`, `multi-agent status`, `multi-agent step`,
+`multi-agent blackboard`, `multi-agent score`, and `multi-agent select`.
+The matching MCP tools are `cw_multi_agent_run`, `cw_multi_agent_status`,
+`cw_multi_agent_step`, `cw_multi_agent_blackboard`, `cw_multi_agent_score`,
+and `cw_multi_agent_select`. See
+[docs/multi-agent-cli-mcp-surface.7.md](docs/multi-agent-cli-mcp-surface.7.md).
+
 CW v0.1.19 adds Multi-Agent Topologies: official `map-reduce`, `debate`, and
 `judge-panel` coordination definitions with validation, apply-time
 materialization, topology run state, topology graphs, Operator UX panels, trust

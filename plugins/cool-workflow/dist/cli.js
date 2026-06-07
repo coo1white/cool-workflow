@@ -185,6 +185,21 @@ async function main() {
         case "multi-agent": {
             const [subcommand, runId, id] = args.positionals;
             switch (subcommand) {
+                case "status":
+                    printJson(runner.hostMultiAgentStatus(required(runId, "run id")));
+                    return;
+                case "step":
+                    printJson(runner.hostMultiAgentStep(required(runId, "run id"), args.options));
+                    return;
+                case "blackboard":
+                    printJson(runner.hostMultiAgentBlackboard(required(runId, "run id"), id, args.options));
+                    return;
+                case "score":
+                    printJson(runner.hostMultiAgentScore(required(runId, "run id"), { ...args.options, candidate: args.options.candidate || args.options.candidateId || id }));
+                    return;
+                case "select":
+                    printJson(runner.hostMultiAgentSelect(required(runId, "run id"), { ...args.options, candidate: args.options.candidate || args.options.candidateId || id }));
+                    return;
                 case "summary": {
                     const summary = runner.multiAgentSummary(required(runId, "run id"));
                     if (wantsJson(args.options))
@@ -202,6 +217,16 @@ async function main() {
                     return;
                 }
                 case "run":
+                    if (!runId ||
+                        args.options.topology ||
+                        args.options.topologyId ||
+                        args.options.app ||
+                        args.options.appId ||
+                        args.options.workflow ||
+                        args.options.workflowId) {
+                        printJson(runner.hostMultiAgentRun(runId, args.options));
+                        return;
+                    }
                     if (id && !args.options.id && !args.options.status)
                         printJson(runner.showMultiAgentRun(required(runId, "run id"), id));
                     else if (id && args.options.status)
@@ -253,7 +278,7 @@ async function main() {
                     }
                     return;
                 default:
-                    throw new Error("Usage: cw.js multi-agent summary|graph|run|show|role|group|membership|fanout|fanin <run-id> [id]");
+                    throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|graph|show|role|group|membership|fanout|fanin <run-id> [id]");
             }
         }
         case "blackboard": {

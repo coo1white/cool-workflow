@@ -94,6 +94,18 @@ function callTool(name, args) {
                 return runner.multiAgentSummary(String(args.runId || ""));
             case "cw_multi_agent_graph":
                 return runner.multiAgentGraph(String(args.runId || ""));
+            case "cw_multi_agent_run":
+                return runner.hostMultiAgentRun(optionalString(args.runId), args);
+            case "cw_multi_agent_status":
+                return runner.hostMultiAgentStatus(String(args.runId || ""));
+            case "cw_multi_agent_step":
+                return runner.hostMultiAgentStep(String(args.runId || ""), args);
+            case "cw_multi_agent_blackboard":
+                return runner.hostMultiAgentBlackboard(String(args.runId || ""), optionalString(args.action || args.operation), args);
+            case "cw_multi_agent_score":
+                return runner.hostMultiAgentScore(String(args.runId || ""), args);
+            case "cw_multi_agent_select":
+                return runner.hostMultiAgentSelect(String(args.runId || ""), args);
             case "cw_multi_agent_run_create":
                 return runner.createMultiAgentRun(String(args.runId || ""), args);
             case "cw_multi_agent_run_transition":
@@ -380,6 +392,55 @@ function toolDefinitions() {
         tool("cw_commit_summary", "Read the structured commit summary for a run.", runIdSchema()),
         tool("cw_multi_agent_summary", "Read the structured multi-agent runtime summary for a run.", runIdSchema()),
         tool("cw_multi_agent_graph", "Read the structured multi-agent runtime graph for a run.", runIdSchema()),
+        tool("cw_multi_agent_run", "Preferred host API: create or attach a high-level multi-agent run from an app/workflow run and topology without dispatching workers.", {
+            ...runIdSchema(),
+            cwd: stringSchema("Run workspace"),
+            app: stringSchema("Optional workflow app id when creating a new workflow run"),
+            appId: stringSchema("Optional workflow app id when creating a new workflow run"),
+            workflow: stringSchema("Optional workflow id when creating a new workflow run"),
+            workflowId: stringSchema("Optional workflow id when creating a new workflow run"),
+            topology: stringSchema("map-reduce, debate, or judge-panel"),
+            topologyId: stringSchema("Alias for topology"),
+            task: arraySchema("Optional task ids for topology materialization"),
+            mapperCount: numberSchema("Mapper count for map-reduce"),
+            judgeCount: numberSchema("Judge count for judge-panel"),
+            debateRounds: numberSchema("Debate rounds for debate")
+        }),
+        tool("cw_multi_agent_status", "Preferred host API: read combined topology, multi-agent, blackboard, worker, candidate, commit, and audit status.", runIdSchema()),
+        tool("cw_multi_agent_step", "Preferred host API: perform one deterministic safe step without spawning agents.", {
+            ...runIdSchema(),
+            sandbox: stringSchema("Sandbox profile for any dispatch manifest created by this step"),
+            limit: numberSchema("Maximum dispatch tasks, defaults to 1")
+        }),
+        tool("cw_multi_agent_blackboard", "Preferred host API: operate on the active multi-agent blackboard while preserving provenance.", {
+            ...runIdSchema(),
+            action: stringSchema("summary, topics, messages, post, artifacts, add-artifact, context, or snapshot"),
+            blackboardId: stringSchema("Optional blackboard id; omitted only when unambiguous"),
+            topicId: stringSchema("Optional topic id; omitted only when unambiguous"),
+            body: stringSchema("Message or context body"),
+            kind: stringSchema("Artifact or context kind"),
+            path: stringSchema("Artifact path"),
+            evidence: arraySchema("Evidence refs")
+        }),
+        tool("cw_multi_agent_score", "Preferred host API: score a candidate with evidence; never selects automatically.", {
+            ...runIdSchema(),
+            candidate: stringSchema("Candidate id"),
+            candidateId: stringSchema("Alias for candidate"),
+            worker: stringSchema("Optional worker id to register as a candidate first"),
+            criterion: arraySchema("Score criteria as name=value"),
+            criteria: objectSchema("Structured score criteria"),
+            evidence: arraySchema("Required evidence refs"),
+            maxTotal: numberSchema("Optional max total")
+        }),
+        tool("cw_multi_agent_select", "Preferred host API: select a scored candidate only when verifier and score gates pass.", {
+            ...runIdSchema(),
+            candidate: stringSchema("Candidate id"),
+            candidateId: stringSchema("Alias for candidate"),
+            score: stringSchema("Optional score id"),
+            scoreId: stringSchema("Alias for score"),
+            reason: stringSchema("Acceptance rationale"),
+            allowUnverified: booleanSchema("Explicitly bypass verifier gate")
+        }),
         tool("cw_multi_agent_run_create", "Create a MultiAgentRun state record.", {
             ...runIdSchema(),
             id: stringSchema("Optional MultiAgentRun id"),

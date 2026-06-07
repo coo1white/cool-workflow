@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.20
+
+- Added the high-level Multi-Agent CLI + MCP Surface for the host loop:
+  `multi-agent run -> status -> step -> blackboard -> score -> select`.
+- Added JSON-first CLI responses and MCP tools:
+  `cw_multi_agent_run`, `cw_multi_agent_status`, `cw_multi_agent_step`,
+  `cw_multi_agent_blackboard`, `cw_multi_agent_score`, and
+  `cw_multi_agent_select`.
+- Composed the host surface over existing topology, multi-agent, blackboard,
+  candidate, commit, and audit primitives without replacing the kernel state
+  model.
+- Added fail-closed handling for ambiguous topology/blackboard state, incomplete
+  fanin, missing score evidence, unscored candidates, and unsafe selection.
+- Added host-friendly blackboard operations with provenance-preserving message,
+  artifact, context, and snapshot actions.
+- Added `docs/multi-agent-cli-mcp-surface.7.md` and
+  `test/multi-agent-cli-mcp-surface-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.19
 
 - Added Multi-Agent Topologies as official userland recipes over Multi-Agent

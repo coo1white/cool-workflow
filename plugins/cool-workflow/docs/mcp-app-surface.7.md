@@ -111,6 +111,20 @@ field spellings for compatibility with different hosts.
 
 v0.1.17 adds MCP parity for first-class multi-agent state.
 
+v0.1.20 adds preferred host-facing tools for the full multi-agent loop:
+
+- `cw_multi_agent_run`
+- `cw_multi_agent_status`
+- `cw_multi_agent_step`
+- `cw_multi_agent_blackboard`
+- `cw_multi_agent_score`
+- `cw_multi_agent_select`
+
+Use these when an agent host wants to drive `run -> status -> step ->
+blackboard -> score -> select` without manually plumbing topology, blackboard,
+candidate, and audit ids. The lower-level tools below remain advanced
+primitives.
+
 Read and inspect:
 
 - `cw_multi_agent_summary`

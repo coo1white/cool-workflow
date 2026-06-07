@@ -47,6 +47,12 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
+v0.1.20 adds the high-level Multi-Agent CLI + MCP host surface. Prefer
+`multi-agent run -> status -> step -> blackboard -> score -> select` and the
+matching MCP tools when an agent host needs to drive multi-agent work without
+manual id plumbing. The surface wraps existing topology, multi-agent,
+blackboard, candidate, commit, and audit primitives; it does not replace them.
+
 v0.1.19 adds Multi-Agent Topologies as official userland recipes on top of the
 process table and shared coordination filesystem. `map-reduce`, `debate`, and
 `judge-panel` materialize ordinary MultiAgentRun, role, group, fanout/fanin,
@@ -116,6 +122,12 @@ node scripts/cw.js topology summary <run-id>
 node scripts/cw.js topology graph <run-id>
 node scripts/cw.js multi-agent summary <run-id>
 node scripts/cw.js multi-agent graph <run-id>
+node scripts/cw.js multi-agent run <run-id> --topology judge-panel --task task-id
+node scripts/cw.js multi-agent status <run-id>
+node scripts/cw.js multi-agent step <run-id> --sandbox readonly
+node scripts/cw.js multi-agent blackboard <run-id> summary
+node scripts/cw.js multi-agent score <run-id> candidate-id --criterion correctness=1 --evidence ref
+node scripts/cw.js multi-agent select <run-id> candidate-id --reason "verified winner"
 node scripts/cw.js multi-agent run <run-id> --id ma --objective "coordinated work"
 node scripts/cw.js multi-agent role <run-id> role --multi-agent-run ma --responsibility "do work" --required-evidence "result evidence"
 node scripts/cw.js multi-agent group <run-id> group --multi-agent-run ma --task task-id
@@ -180,6 +192,8 @@ JSON-first tools: `cw_app_run`, `cw_dispatch`, `cw_worker_manifest`,
 `cw_operator_report`, `cw_topology_list`, `cw_topology_show`,
 `cw_topology_validate`, `cw_topology_apply`, `cw_topology_summary`,
 `cw_topology_graph`, `cw_multi_agent_summary`, `cw_multi_agent_graph`,
+`cw_multi_agent_run`, `cw_multi_agent_status`, `cw_multi_agent_step`,
+`cw_multi_agent_blackboard`, `cw_multi_agent_score`, `cw_multi_agent_select`,
 `cw_multi_agent_run_create`, `cw_multi_agent_role_create`,
 `cw_multi_agent_group_create`, `cw_multi_agent_membership_create`,
 `cw_multi_agent_fanout_create`, `cw_multi_agent_fanin_collect`,
@@ -218,9 +232,9 @@ verifier-gated CW state commit or held checkpoint, and writes
 
 Use `npm run release:check` for v0.1.15+ release discipline. It is a dry-run
 gate that builds, type-checks, runs tests, validates canonical apps and golden
-path behavior, checks old run fixtures, runs multi-agent runtime smoke
-coverage, runs dogfood smoke coverage, verifies version synchronization, and
-does not tag, push, publish, or mutate fixtures.
+path behavior, checks old run fixtures, runs multi-agent runtime, topology, and
+CLI/MCP host-surface smoke coverage, runs dogfood smoke coverage, verifies
+version synchronization, and does not tag, push, publish, or mutate fixtures.
 
 Durable run state lives at `.cw/runs/<run-id>/state.json`. Use
 `node scripts/cw.js state check <run-id>` to dry-run migration and
