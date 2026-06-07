@@ -12,6 +12,13 @@ export type StateNodeKind =
   | "candidate"
   | "verifier"
   | "commit"
+  | "blackboard"
+  | "blackboard-topic"
+  | "blackboard-message"
+  | "blackboard-context"
+  | "blackboard-artifact"
+  | "blackboard-snapshot"
+  | "coordinator-decision"
   | "multi-agent-run"
   | "agent-role"
   | "agent-group"
@@ -176,6 +183,7 @@ export interface RunPaths {
   workersDir?: string;
   candidatesDir?: string;
   multiAgentDir?: string;
+  blackboardDir?: string;
 }
 
 export interface RunPhase {
@@ -269,6 +277,13 @@ export interface TrustAuditEvent {
   agentMembershipId?: string;
   agentFanoutId?: string;
   agentFaninId?: string;
+  blackboardId?: string;
+  blackboardTopicId?: string;
+  blackboardMessageId?: string;
+  blackboardContextId?: string;
+  blackboardArtifactRefId?: string;
+  blackboardSnapshotId?: string;
+  coordinatorDecisionId?: string;
   sandboxProfileId?: string;
   policyRef?: string;
   policySnapshot?: ResolvedSandboxPolicy;
@@ -323,6 +338,16 @@ export interface TrustAuditSummary {
     memberships: number;
     fanouts: number;
     fanins: number;
+    events: number;
+  };
+  blackboard?: {
+    boards: number;
+    topics: number;
+    messages: number;
+    contexts: number;
+    artifacts: number;
+    snapshots: number;
+    decisions: number;
     events: number;
   };
 }
@@ -677,6 +702,8 @@ export interface MultiAgentLinkage {
   verifierNodeIds?: string[];
   commitIds?: string[];
   auditEventIds?: string[];
+  blackboardId?: string;
+  blackboardTopicIds?: string[];
 }
 
 export interface MultiAgentRun {
@@ -694,6 +721,8 @@ export interface MultiAgentRun {
   groupIds: string[];
   fanoutIds: string[];
   faninIds: string[];
+  blackboardId?: string;
+  topicIds?: string[];
   lifecycle: MultiAgentLifecycleEvent[];
   links: MultiAgentLinkage;
   metadata?: Record<string, unknown>;
@@ -713,6 +742,8 @@ export interface AgentRole {
   sandboxProfileHints: string[];
   expectedArtifacts: string[];
   faninObligations: string[];
+  blackboardId?: string;
+  topicIds?: string[];
   lifecycle: MultiAgentLifecycleEvent[];
   parentRoleId?: string;
   childRoleIds: string[];
@@ -736,6 +767,8 @@ export interface AgentGroup {
   workerIds: string[];
   fanoutIds: string[];
   faninIds: string[];
+  blackboardId?: string;
+  topicIds?: string[];
   lifecycle: MultiAgentLifecycleEvent[];
   parentGroupId?: string;
   childGroupIds: string[];
@@ -761,6 +794,10 @@ export interface AgentMembership {
   verifierNodeId?: string;
   evidenceRefs: string[];
   artifactPaths: string[];
+  blackboardId?: string;
+  topicIds?: string[];
+  blackboardMessageIds?: string[];
+  blackboardArtifactRefIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -782,6 +819,8 @@ export interface AgentFanout {
   concurrencyLimit?: number;
   sandboxProfileChoices: Record<string, string>;
   expectedReturnShape: string;
+  blackboardId?: string;
+  topicIds?: string[];
   lifecycle: MultiAgentLifecycleEvent[];
   metadata?: Record<string, unknown>;
 }
@@ -792,6 +831,8 @@ export interface AgentFaninEvidenceCoverage {
   taskId: string;
   workerId?: string;
   evidenceRefs: string[];
+  blackboardMessageIds?: string[];
+  blackboardArtifactRefIds?: string[];
   resultNodeId?: string;
   verifierNodeId?: string;
   complete: boolean;
@@ -815,6 +856,10 @@ export interface AgentFanin {
   evidenceCoverage: AgentFaninEvidenceCoverage[];
   verifierReady: boolean;
   blockedReasons: string[];
+  blackboardId?: string;
+  topicIds?: string[];
+  blackboardArtifactRefIds?: string[];
+  blackboardMessageIds?: string[];
   lifecycle: MultiAgentLifecycleEvent[];
   metadata?: Record<string, unknown>;
 }
@@ -835,6 +880,187 @@ export interface WorkerMultiAgentMetadata {
   roleId: string;
   membershipId?: string;
   fanoutId?: string;
+}
+
+export type BlackboardRecordStatus = "active" | "open" | "resolved" | "superseded" | "conflicting" | "rejected" | "archived";
+export type BlackboardScopeKind = "run" | "multi-agent-run" | "group" | "role" | "membership" | "task" | "worker" | "candidate" | "verifier" | "commit" | "operator";
+export type BlackboardAuthorKind = "runtime" | "operator" | "worker" | "role" | "group" | "membership" | "coordinator" | "verifier";
+export type BlackboardContextKind = "fact" | "constraint" | "assumption" | "question" | "decision";
+export type CoordinatorDecisionKind = "context-update" | "artifact-index" | "candidate-synthesis" | "conflict-resolution" | "fanin-readiness" | "message-moderation";
+export type CoordinatorDecisionOutcome = "accepted" | "rejected" | "superseded" | "conflicting" | "ready" | "blocked";
+
+export interface BlackboardAuthor {
+  kind: BlackboardAuthorKind;
+  id: string;
+  displayName?: string;
+}
+
+export interface BlackboardScope {
+  kind: BlackboardScopeKind;
+  id: string;
+}
+
+export interface BlackboardLinks {
+  workflowRunId: string;
+  multiAgentRunId?: string;
+  agentGroupId?: string;
+  agentRoleId?: string;
+  agentMembershipId?: string;
+  agentFanoutId?: string;
+  agentFaninId?: string;
+  taskId?: string;
+  workerId?: string;
+  candidateId?: string;
+  verifierNodeId?: string;
+  commitId?: string;
+  auditEventIds?: string[];
+  evidenceRefs?: string[];
+}
+
+export interface BlackboardRecordBase {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  blackboardId: string;
+  createdAt: string;
+  updatedAt: string;
+  author: BlackboardAuthor;
+  scope: BlackboardScope;
+  status: BlackboardRecordStatus;
+  parentIds: string[];
+  tags: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface Blackboard {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  createdAt: string;
+  updatedAt: string;
+  author: BlackboardAuthor;
+  scope: BlackboardScope;
+  status: BlackboardRecordStatus;
+  parentIds: string[];
+  tags: string[];
+  title: string;
+  topicIds: string[];
+  messageCount: number;
+  contextIds: string[];
+  artifactRefIds: string[];
+  snapshotIds: string[];
+  decisionIds: string[];
+  links: BlackboardLinks;
+  paths: {
+    root: string;
+    index: string;
+    messages: string;
+    topicsDir: string;
+    contextsDir: string;
+    artifactsDir: string;
+    snapshotsDir: string;
+    decisionsDir: string;
+  };
+  metadata?: Record<string, unknown>;
+}
+
+export interface BlackboardTopic extends BlackboardRecordBase {
+  title: string;
+  description?: string;
+  messageIds: string[];
+  contextIds: string[];
+  artifactRefIds: string[];
+  links: BlackboardLinks;
+}
+
+export interface BlackboardMessage extends BlackboardRecordBase {
+  topicId: string;
+  body: string;
+  visibility: "public" | "group" | "role" | "private";
+  replyToId?: string;
+  linkedEvidenceRefs: string[];
+  linkedArtifactRefIds: string[];
+  linkedAuditEventIds: string[];
+  links: BlackboardLinks;
+}
+
+export interface BlackboardContext extends BlackboardRecordBase {
+  topicId: string;
+  kind: BlackboardContextKind;
+  key: string;
+  value: string;
+  supersedesContextIds: string[];
+  supersededByContextId?: string;
+  conflictingContextIds: string[];
+  decisionId?: string;
+  evidenceRefs: string[];
+  artifactRefIds: string[];
+  links: BlackboardLinks;
+}
+
+export interface BlackboardArtifactRef extends BlackboardRecordBase {
+  topicId?: string;
+  kind: string;
+  path?: string;
+  locator?: string;
+  owner: BlackboardAuthor;
+  source: string;
+  provenance: BlackboardLinks;
+  evidenceRefs: string[];
+  checksum?: string;
+  trustAuditEventIds: string[];
+}
+
+export interface BlackboardSnapshot extends BlackboardRecordBase {
+  topicIds: string[];
+  messageIds: string[];
+  contextIds: string[];
+  artifactRefIds: string[];
+  decisionIds: string[];
+  snapshotPath: string;
+  indexPath: string;
+  summary: Record<string, unknown>;
+  links: BlackboardLinks;
+}
+
+export interface CoordinatorDecision extends BlackboardRecordBase {
+  kind: CoordinatorDecisionKind;
+  outcome: CoordinatorDecisionOutcome;
+  subjectIds: string[];
+  reason: string;
+  evidenceRefs: string[];
+  artifactRefIds: string[];
+  messageIds: string[];
+  links: BlackboardLinks;
+}
+
+export interface BlackboardState {
+  schemaVersion: 1;
+  boards: Blackboard[];
+  topics: BlackboardTopic[];
+  messages: BlackboardMessage[];
+  contexts: BlackboardContext[];
+  artifacts: BlackboardArtifactRef[];
+  snapshots: BlackboardSnapshot[];
+  decisions: CoordinatorDecision[];
+}
+
+export interface BlackboardSummary {
+  runId: string;
+  blackboardId?: string;
+  topics: number;
+  messages: number;
+  contexts: number;
+  artifacts: number;
+  snapshots: number;
+  decisions: number;
+  openQuestions: BlackboardContext[];
+  conflicts: BlackboardContext[];
+  missingEvidence: string[];
+  readyForFanin: boolean;
+  latestSnapshotPath?: string;
+  indexPath?: string;
+  nextAction?: string;
 }
 
 export type WorkerIsolationStatus =
@@ -894,6 +1120,16 @@ export interface WorkerScope {
   errors: StateNodeError[];
   output?: WorkerOutputRecord;
   multiAgent?: WorkerMultiAgentMetadata;
+  blackboard?: {
+    id: string;
+    topicIds: string[];
+    indexPath: string;
+    messagesPath: string;
+    topicsDir: string;
+    contextsDir: string;
+    artifactsDir: string;
+    instructions: string[];
+  };
   metadata?: Record<string, unknown>;
 }
 
@@ -929,6 +1165,16 @@ export interface WorkerManifest {
   errors?: StateNodeError[];
   output?: WorkerOutputRecord;
   multiAgent?: WorkerMultiAgentMetadata;
+  blackboard?: {
+    id: string;
+    topicIds: string[];
+    indexPath: string;
+    messagesPath: string;
+    topicsDir: string;
+    contextsDir: string;
+    artifactsDir: string;
+    instructions: string[];
+  };
   metadata?: Record<string, unknown>;
 }
 
@@ -1111,6 +1357,12 @@ export interface DispatchManifest {
     fanoutId?: string;
     membershipIds?: string[];
   };
+  blackboard?: {
+    id: string;
+    topicIds: string[];
+    indexPath: string;
+    messagesPath: string;
+  };
 }
 
 export interface RunDispatch {
@@ -1185,6 +1437,7 @@ export interface WorkflowRun {
   candidates?: CandidateRecord[];
   candidateSelections?: CandidateSelection[];
   multiAgent?: MultiAgentState;
+  blackboard?: BlackboardState;
 }
 
 export interface RunSummary {

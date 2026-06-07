@@ -14,8 +14,8 @@ Create a run with a canonical workflow app:
 ```bash
 node scripts/cw.js plan release-cut \
   --repo "$PWD" \
-  --version 0.1.17 \
-  --previousVersion 0.1.16 \
+  --version 0.1.18 \
+  --previousVersion 0.1.17 \
   --releaseBranch main \
   --dryRun true
 ```

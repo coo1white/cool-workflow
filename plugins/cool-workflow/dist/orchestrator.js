@@ -25,6 +25,7 @@ const sandbox_profile_1 = require("./sandbox-profile");
 const operator_ux_1 = require("./operator-ux");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
+const coordinator_1 = require("./coordinator");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -211,6 +212,16 @@ class CoolWorkflowRunner {
                 memberships: [],
                 fanouts: [],
                 fanins: []
+            },
+            blackboard: {
+                schemaVersion: 1,
+                boards: [],
+                topics: [],
+                messages: [],
+                contexts: [],
+                artifacts: [],
+                snapshots: [],
+                decisions: []
             }
         };
         (0, trust_audit_1.ensureTrustAudit)(run);
@@ -705,6 +716,8 @@ class CoolWorkflowRunner {
             parentMultiAgentRunId: stringOption(options.parent || options.parentMultiAgentRunId),
             phase: stringOption(options.phase),
             phaseId: stringOption(options.phaseId),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
             metadata: metadataOption(options)
         });
         writeReport(run);
@@ -734,6 +747,8 @@ class CoolWorkflowRunner {
             expectedArtifacts: arrayOption(options.expectedArtifact || options.expectedArtifacts || options["expected-artifact"]).map(String),
             faninObligations: arrayOption(options.faninObligation || options.faninObligations || options["fanin-obligation"]).map(String),
             parentRoleId: stringOption(options.parent || options.parentRoleId),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
             metadata: metadataOption(options)
         });
         writeReport(run);
@@ -750,6 +765,8 @@ class CoolWorkflowRunner {
             phaseId: stringOption(options.phaseId),
             taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
             parentGroupId: stringOption(options.parent || options.parentGroupId),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
             metadata: metadataOption(options)
         });
         writeReport(run);
@@ -768,6 +785,8 @@ class CoolWorkflowRunner {
             dispatchId: stringOption(options.dispatch || options.dispatchId),
             fanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
             status: stringOption(options.status),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
             metadata: metadataOption(options)
         });
         writeReport(run);
@@ -789,6 +808,8 @@ class CoolWorkflowRunner {
             concurrencyLimit: numberOption(options.limit || options.concurrency || options.concurrencyLimit),
             sandboxProfileChoices: parseSandboxChoices(options),
             expectedReturnShape: stringOption(options.expectedReturnShape || options["expected-return-shape"]),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
             metadata: metadataOption(options)
         });
         writeReport(run);
@@ -804,6 +825,8 @@ class CoolWorkflowRunner {
             fanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
             requiredRoleIds: arrayOption(options.requiredRole || options.requiredRoleId || options["required-role"]).map(String),
             strategy: stringOption(options.strategy),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
             metadata: metadataOption(options)
         });
         writeReport(run);
@@ -845,6 +868,159 @@ class CoolWorkflowRunner {
         if (!record)
             throw new Error(`Unknown AgentFanin id for run ${runId}: ${faninId}`);
         return record;
+    }
+    blackboardSummary(runId, options = {}) {
+        return (0, coordinator_1.summarizeBlackboard)(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+    }
+    coordinatorSummary(runId, options = {}) {
+        return (0, coordinator_1.summarizeBlackboard)(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+    }
+    blackboardGraph(runId) {
+        return (0, coordinator_1.buildBlackboardGraph)(this.loadRun(runId));
+    }
+    resolveRunBlackboard(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const board = (0, coordinator_1.resolveBlackboard)(run, {
+            id: stringOption(options.id || options.blackboard || options.blackboardId),
+            title: stringOption(options.title),
+            multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+            groupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
+            roleId: stringOption(options.role || options.roleId || options["multi-agent-role"]),
+            membershipId: stringOption(options.membership || options.membershipId || options["multi-agent-membership"]),
+            author: parseBlackboardAuthor(options),
+            scope: parseBlackboardScope(options),
+            tags: arrayOption(options.tag || options.tags).map(String),
+            metadata: metadataOption(options)
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return board;
+    }
+    createBlackboardTopic(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const topic = (0, coordinator_1.createBlackboardTopic)(run, {
+            id: stringOption(options.id),
+            title: requiredStringOption(options.title, "topic title"),
+            description: stringOption(options.description),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            author: parseBlackboardAuthor(options),
+            scope: parseBlackboardScope(options),
+            tags: arrayOption(options.tag || options.tags).map(String),
+            metadata: metadataOption(options)
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return topic;
+    }
+    postBlackboardMessage(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const message = (0, coordinator_1.postBlackboardMessage)(run, {
+            id: stringOption(options.id),
+            topicId: requiredStringOption(options.topic || options.topicId, "topic id"),
+            body: requiredStringOption(options.body || options.message, "message body"),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            replyToId: stringOption(options.replyTo || options.replyToId || options.parent),
+            visibility: stringOption(options.visibility),
+            author: parseBlackboardAuthor(options),
+            scope: parseBlackboardScope(options),
+            evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
+            artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
+            auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
+            parentIds: arrayOption(options.parentId || options.parentIds).map(String),
+            tags: arrayOption(options.tag || options.tags).map(String),
+            metadata: metadataOption(options)
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return message;
+    }
+    listBlackboardMessages(runId, options = {}) {
+        return (0, coordinator_1.listBlackboardMessages)(this.loadRun(runId), {
+            topicId: stringOption(options.topic || options.topicId),
+            blackboardId: stringOption(options.blackboard || options.blackboardId)
+        });
+    }
+    putBlackboardContext(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const context = (0, coordinator_1.putBlackboardContext)(run, {
+            id: stringOption(options.id),
+            topicId: requiredStringOption(options.topic || options.topicId, "topic id"),
+            kind: requiredStringOption(options.kind, "context kind"),
+            key: stringOption(options.key),
+            value: requiredStringOption(options.value || options.body, "context value"),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            supersedesContextIds: arrayOption(options.supersedes || options.supersedesContext || options.supersedesContextId).map(String),
+            author: parseBlackboardAuthor(options),
+            scope: parseBlackboardScope(options),
+            evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
+            artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
+            parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
+            tags: arrayOption(options.tag || options.tags).map(String),
+            metadata: metadataOption(options)
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return context;
+    }
+    addBlackboardArtifact(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const artifact = (0, coordinator_1.addBlackboardArtifact)(run, {
+            id: stringOption(options.id),
+            topicId: stringOption(options.topic || options.topicId),
+            kind: requiredStringOption(options.kind, "artifact kind"),
+            path: stringOption(options.path),
+            locator: stringOption(options.locator),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            owner: parseBlackboardAuthor({ ...options, authorKind: options.ownerKind || options.authorKind, authorId: options.owner || options.ownerId || options.authorId }),
+            author: parseBlackboardAuthor(options),
+            scope: parseBlackboardScope(options),
+            source: stringOption(options.source),
+            provenance: parseBlackboardLinks(run.id, options),
+            evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
+            auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
+            parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
+            tags: arrayOption(options.tag || options.tags).map(String),
+            metadata: metadataOption(options)
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return artifact;
+    }
+    listBlackboardArtifacts(runId, options = {}) {
+        return (0, coordinator_1.listBlackboardArtifacts)(this.loadRun(runId), {
+            topicId: stringOption(options.topic || options.topicId),
+            blackboardId: stringOption(options.blackboard || options.blackboardId)
+        });
+    }
+    snapshotBlackboard(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const snapshot = (0, coordinator_1.createBlackboardSnapshot)(run, stringOption(options.blackboard || options.blackboardId));
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return snapshot;
+    }
+    recordCoordinatorDecision(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const decision = (0, coordinator_1.recordCoordinatorDecision)(run, {
+            id: stringOption(options.id),
+            blackboardId: stringOption(options.blackboard || options.blackboardId),
+            kind: requiredStringOption(options.kind, "decision kind"),
+            outcome: requiredStringOption(options.outcome, "decision outcome"),
+            reason: requiredStringOption(options.reason, "decision reason"),
+            subjectIds: arrayOption(options.subject || options.subjectId || options.subjectIds).map(String),
+            topicId: stringOption(options.topic || options.topicId),
+            author: parseBlackboardAuthor({ ...options, authorKind: options.authorKind || "coordinator", authorId: options.authorId || "cw" }),
+            scope: parseBlackboardScope(options),
+            evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
+            artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
+            messageIds: arrayOption(options.message || options.messageId || options.messageIds).map(String),
+            parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
+            tags: arrayOption(options.tag || options.tags).map(String),
+            metadata: metadataOption(options)
+        });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return decision;
     }
     checkState(runId, options = {}) {
         const cwd = node_path_1.default.resolve(String(options.cwd || process.cwd()));
@@ -1016,7 +1192,7 @@ function parseArgv(argv) {
     return { command, positionals, options };
 }
 function formatHelp() {
-    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id> [--json|--format json]\n  next <run-id> [--limit N]\n  graph <run-id> [--json]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  state check <run-id> [--state PATH] [--write]\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  commit summary <run-id> [--json]\n  report <run-id> [--show|--summary]\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id> [--json]\n  feedback list <run-id> [--status open]\n  feedback summary <run-id> [--json]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker summary <run-id> [--json]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  audit summary <run-id>\n  audit worker <run-id> <worker-id>\n  audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]\n  audit attest <run-id> [--worker ID] [--hostEnforced true] [--env NAME]\n  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]\n  candidate list <run-id> [--status scored]\n  candidate summary <run-id> [--json]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+    return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id> [--json|--format json]\n  next <run-id> [--limit N]\n  graph <run-id> [--json]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  state check <run-id> [--state PATH] [--write]\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  commit summary <run-id> [--json]\n  report <run-id> [--show|--summary]\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id> [--json]\n  feedback list <run-id> [--status open]\n  feedback summary <run-id> [--json]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker summary <run-id> [--json]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  audit summary <run-id>\n  audit worker <run-id> <worker-id>\n  audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]\n  audit attest <run-id> [--worker ID] [--hostEnforced true] [--env NAME]\n  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]\n  candidate list <run-id> [--status scored]\n  candidate summary <run-id> [--json]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  blackboard summary <run-id>\n  blackboard graph <run-id>\n  blackboard topic create <run-id> --id <topic-id> --title TEXT\n  blackboard message post <run-id> --topic <topic-id> --body TEXT\n  blackboard message list <run-id> [--topic <topic-id>]\n  blackboard context put <run-id> --topic <topic-id> --kind fact|constraint|assumption|question|decision --value TEXT\n  blackboard artifact add <run-id> --path PATH --kind KIND\n  blackboard artifact list <run-id>\n  blackboard snapshot <run-id>\n  coordinator summary <run-id>\n  coordinator decision <run-id> --kind KIND --outcome OUTCOME --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -1121,6 +1297,10 @@ function writeReport(run) {
         "## Multi-Agent Runtime",
         "",
         ...renderMultiAgent(run),
+        "",
+        "## Blackboard / Coordinator",
+        "",
+        ...renderBlackboard(run),
         "",
         "## Sandbox Profiles",
         "",
@@ -1264,6 +1444,42 @@ function renderMultiAgent(run) {
         lines.push("", `Next multi-agent action: ${summary.nextAction}`);
     return lines;
 }
+function renderBlackboard(run) {
+    const summary = (0, coordinator_1.summarizeBlackboard)(run);
+    if (!summary.blackboardId)
+        return ["No blackboard records yet."];
+    const lines = [
+        `- Blackboard: ${summary.blackboardId}`,
+        `- Topics: ${summary.topics}`,
+        `- Messages: ${summary.messages}`,
+        `- Contexts: ${summary.contexts}`,
+        `- Artifacts: ${summary.artifacts}`,
+        `- Snapshots: ${summary.snapshots}`,
+        `- Decisions: ${summary.decisions}`,
+        `- Ready for fanin: ${summary.readyForFanin ? "yes" : "no"}`,
+        `- Index: ${summary.indexPath || "none"}`,
+        `- Latest snapshot: ${summary.latestSnapshotPath || "none"}`
+    ];
+    if (summary.openQuestions.length) {
+        lines.push("", "Open questions:");
+        for (const question of summary.openQuestions.slice(0, 8))
+            lines.push(`- ${question.id}: ${question.key}=${question.value}`);
+    }
+    if (summary.conflicts.length) {
+        lines.push("", "Conflicts:");
+        for (const conflict of summary.conflicts.slice(0, 8)) {
+            lines.push(`- ${conflict.id}: ${conflict.key} conflicts with ${conflict.conflictingContextIds.join(", ") || "unknown"}`);
+        }
+    }
+    if (summary.missingEvidence.length) {
+        lines.push("", "Missing evidence:");
+        for (const item of summary.missingEvidence.slice(0, 8))
+            lines.push(`- ${item}`);
+    }
+    if (summary.nextAction)
+        lines.push("", `Next coordinator action: ${summary.nextAction}`);
+    return lines;
+}
 function renderSandboxProfiles(run) {
     const profiles = run.sandboxProfiles || [];
     if (!profiles.length)
@@ -1376,6 +1592,50 @@ function metadataOption(options) {
     if (typeof raw === "string")
         return JSON.parse(raw);
     return undefined;
+}
+function parseBlackboardAuthor(options) {
+    const structured = options.author;
+    if (structured && typeof structured === "object" && !Array.isArray(structured))
+        return structured;
+    const id = stringOption(options.authorId || options.author || options.worker || options.workerId || options.role || options.roleId || options.group || options.groupId);
+    const kind = stringOption(options.authorKind || options.sourceKind || options.source);
+    const displayName = stringOption(options.authorName || options.displayName);
+    if (!id && !kind && !displayName)
+        return undefined;
+    return { kind: kind, id, displayName };
+}
+function parseBlackboardScope(options) {
+    const structured = options.scope;
+    if (structured && typeof structured === "object" && !Array.isArray(structured))
+        return structured;
+    const kind = stringOption(options.scopeKind);
+    const id = stringOption(options.scopeId);
+    if (!kind && !id)
+        return undefined;
+    return { kind: kind, id };
+}
+function parseBlackboardLinks(runId, options) {
+    const structured = options.provenance || options.links;
+    if (structured && typeof structured === "object" && !Array.isArray(structured))
+        return structured;
+    const links = {
+        workflowRunId: runId,
+        multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+        agentGroupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
+        agentRoleId: stringOption(options.role || options.roleId || options["multi-agent-role"]),
+        agentMembershipId: stringOption(options.membership || options.membershipId || options["multi-agent-membership"]),
+        agentFanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
+        agentFaninId: stringOption(options.fanin || options.faninId || options["multi-agent-fanin"]),
+        taskId: stringOption(options.task || options.taskId),
+        workerId: stringOption(options.worker || options.workerId),
+        candidateId: stringOption(options.candidate || options.candidateId),
+        verifierNodeId: stringOption(options.verifier || options.verifierNode || options.verifierNodeId),
+        commitId: stringOption(options.commit || options.commitId),
+        auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
+        evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String)
+    };
+    const entries = Object.entries(links).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length));
+    return entries.length > 1 ? Object.fromEntries(entries) : undefined;
 }
 function parseSandboxChoices(options) {
     const choices = {};

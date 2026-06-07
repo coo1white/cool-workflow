@@ -16,7 +16,7 @@ npm run dogfood:release
 ```
 
 The command targets the repository two directories above the package, uses
-`release-cut`, sets `version=0.1.17`, `previousVersion=0.1.16`, the current git
+`release-cut`, sets `version=0.1.18`, `previousVersion=0.1.17`, the current git
 branch, and `dryRun=true`. It writes a machine-readable summary to:
 
 ```text
@@ -68,7 +68,7 @@ Inspect trust records:
 ```bash
 node scripts/cw.js audit summary <run-id>
 node scripts/cw.js audit provenance <run-id>
-node scripts/cw.js audit provenance <run-id> --candidate dogfood-release-0.1.17
+node scripts/cw.js audit provenance <run-id> --candidate dogfood-release-0.1.18
 node scripts/cw.js audit provenance <run-id> --commit <commit-id>
 ```
 
@@ -106,13 +106,13 @@ run passes:
 npm run dogfood:release
 npm run release:check
 git status --short --branch
-git tag v0.1.17
+git tag v0.1.18
 git push origin main --tags
 ```
 
 Package publish and plugin marketplace updates should be separate visible
 steps. If future execute flags are used, they must be explicit, for example
-`--execute --tag --confirm-release-actions=0.1.17`. The script refuses tag,
+`--execute --tag --confirm-release-actions=0.1.18`. The script refuses tag,
 push, or publish flags in dry-run mode and refuses execute mode without the
 target-version confirmation.
 

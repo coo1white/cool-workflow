@@ -20,6 +20,7 @@ import {
 } from "./types";
 import { summarizeTrustAudit } from "./trust-audit";
 import { buildMultiAgentGraph, MultiAgentSummary, summarizeMultiAgent } from "./multi-agent";
+import { buildBlackboardGraph, summarizeBlackboard } from "./coordinator";
 
 export interface OperatorRecommendation {
   command: string;
@@ -144,6 +145,7 @@ export interface OperatorRunSummary {
   feedback: OperatorFeedbackSummary;
   commits: OperatorCommitSummary;
   multiAgent: MultiAgentSummary;
+  blackboard: ReturnType<typeof summarizeBlackboard>;
   trust: TrustAuditSummary;
   reportPath: string;
   evidencePaths: string[];
@@ -170,9 +172,10 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
   const feedback = summarizeOperatorFeedback(run);
   const commits = summarizeOperatorCommits(run);
   const multiAgent = summarizeMultiAgent(run);
+  const blackboard = summarizeBlackboard(run);
   const trust = summarizeTrustAudit(run);
   const activePhase = phases.find((phase) => phase.status === "running") || phases.find((phase) => phase.status === "pending");
-  const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, multiAgent);
+  const blockedReasons = blockedReasonsFor(run, feedback, workers, candidates, multiAgent, blackboard);
   return {
     runId: run.id,
     workflowId: run.workflow.id,
@@ -190,10 +193,11 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
     feedback,
     commits,
     multiAgent,
+    blackboard,
     trust,
     reportPath: run.paths.report,
     evidencePaths: evidencePathsFor(run),
-    nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits })
+    nextActions: adviseNextSteps(run, { tasks, workers, candidates, feedback, commits, blackboard })
   };
 }
 
@@ -386,6 +390,9 @@ export function buildOperatorGraph(run: WorkflowRun): OperatorGraph {
   const multiAgentGraph = buildMultiAgentGraph(run);
   for (const node of multiAgentGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
   for (const edge of multiAgentGraph.edges) addEdge(edge.from, edge.to, edge.label);
+  const blackboardGraph = buildBlackboardGraph(run);
+  for (const node of blackboardGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
+  for (const edge of blackboardGraph.edges) addEdge(edge.from, edge.to, edge.label);
 
   return {
     runId: run.id,
@@ -416,6 +423,8 @@ export function formatOperatorStatus(summary: OperatorRunSummary): string {
     "",
     formatMultiAgentPanel(summary.multiAgent),
     "",
+    formatBlackboardPanel(summary.blackboard),
+    "",
     formatTrustPanel(summary.trust),
     "",
     `Report: ${summary.reportPath}`,
@@ -440,6 +449,9 @@ export function formatOperatorReport(summary: OperatorRunSummary): string {
     `  node scripts/cw.js worker summary ${summary.runId}`,
     `  node scripts/cw.js multi-agent summary ${summary.runId}`,
     `  node scripts/cw.js multi-agent graph ${summary.runId}`,
+    `  node scripts/cw.js blackboard summary ${summary.runId}`,
+    `  node scripts/cw.js blackboard graph ${summary.runId}`,
+    `  node scripts/cw.js coordinator summary ${summary.runId}`,
     `  node scripts/cw.js candidate summary ${summary.runId}`,
     `  node scripts/cw.js feedback summary ${summary.runId}`,
     `  node scripts/cw.js commit summary ${summary.runId}`,
@@ -520,9 +532,25 @@ function formatMultiAgentPanel(summary: MultiAgentSummary): string {
   return lines.join("\n");
 }
 
+function formatBlackboardPanel(summary: ReturnType<typeof summarizeBlackboard>): string {
+  const lines = [
+    "Blackboard / Coordinator",
+    `  board=${summary.blackboardId || "none"}; topics=${summary.topics}; messages=${summary.messages}; contexts=${summary.contexts}; artifacts=${summary.artifacts}`,
+    `  open questions=${summary.openQuestions.length}; conflicts=${summary.conflicts.length}; missing evidence=${summary.missingEvidence.length}`,
+    `  ready for fanin=${summary.readyForFanin ? "yes" : "no"}`,
+    `  index=${summary.indexPath || "none"}`,
+    `  latest snapshot=${summary.latestSnapshotPath || "none"}`
+  ];
+  for (const question of summary.openQuestions.slice(0, 5)) lines.push(`  question ${question.id}: ${question.value}`);
+  for (const conflict of summary.conflicts.slice(0, 5)) lines.push(`  conflict ${conflict.id}: ${conflict.key} -> ${conflict.conflictingContextIds.join(", ") || "unindexed"}`);
+  for (const missing of summary.missingEvidence.slice(0, 5)) lines.push(`  missing: ${missing}`);
+  if (summary.nextAction) lines.push(`  next=${summary.nextAction}`);
+  return lines.join("\n");
+}
+
 function adviseNextSteps(
   run: WorkflowRun,
-  summary: Pick<OperatorRunSummary, "tasks" | "workers" | "candidates" | "feedback" | "commits">
+  summary: Pick<OperatorRunSummary, "tasks" | "workers" | "candidates" | "feedback" | "commits" | "blackboard">
 ): OperatorRecommendation[] {
   const actions: OperatorRecommendation[] = [];
   if (summary.feedback.open.length) {
@@ -569,6 +597,14 @@ function adviseNextSteps(
     actions.push({
       command: `node scripts/cw.js dispatch ${run.id} --limit ${limit}`,
       reason: `${summary.tasks.pending.length} pending task(s) are ready for the active phase.`,
+      priority: "high"
+    });
+    return actions;
+  }
+  if (summary.blackboard.blackboardId && summary.blackboard.nextAction && !summary.blackboard.readyForFanin) {
+    actions.push({
+      command: summary.blackboard.nextAction,
+      reason: "Blackboard shared context is not ready for fanin yet.",
       priority: "high"
     });
     return actions;
@@ -675,7 +711,8 @@ function blockedReasonsFor(
   feedback: OperatorFeedbackSummary,
   workers: OperatorWorkerSummary,
   candidates: OperatorCandidateSummary,
-  multiAgent: MultiAgentSummary
+  multiAgent: MultiAgentSummary,
+  blackboard: ReturnType<typeof summarizeBlackboard>
 ): string[] {
   const reasons: string[] = [];
   if (feedback.open.length) reasons.push(`${feedback.open.length} open/tasked feedback record(s)`);
@@ -683,6 +720,8 @@ function blockedReasonsFor(
   if (run.tasks.some((task) => task.status === "failed")) reasons.push("failed task(s)");
   if (candidates.problems.length) reasons.push(...candidates.problems.slice(0, 2));
   if (multiAgent.blockedReasons.length) reasons.push(...multiAgent.blockedReasons.slice(0, 2));
+  if (blackboard.conflicts.length) reasons.push(`${blackboard.conflicts.length} blackboard conflict(s)`);
+  if (blackboard.missingEvidence.length) reasons.push(...blackboard.missingEvidence.slice(0, 2));
   return reasons;
 }
 

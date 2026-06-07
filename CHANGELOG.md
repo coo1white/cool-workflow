@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.1.18
+
+- Added Coordinator / Blackboard as the shared coordination substrate for future
+  debate, judge, map-reduce, swarm, committee, and synthesis topologies.
+- Added durable `Blackboard`, `BlackboardTopic`, `BlackboardMessage`,
+  `BlackboardContext`, `BlackboardArtifactRef`, `BlackboardSnapshot`, and
+  `CoordinatorDecision` records with schema versions, stable ids, timestamps,
+  authorship, scope, status, parent refs, tags, metadata, and cross-links.
+- Added `.cw/runs/<run-id>/blackboard/` storage with deterministic
+  `index.json`, append-friendly `messages.jsonl`, and per-record JSON mirrors
+  for topics, contexts, artifacts, snapshots, and decisions.
+- Added explicit conflicting context handling, artifact indexing, snapshot
+  creation, coordinator decisions, ready-for-fanin summaries, Operator UX
+  panels, graph nodes/edges, and report output.
+- Added CLI and MCP parity for blackboard summary, topics, messages, context
+  frames, artifacts, snapshots, coordinator summary, and coordinator decisions.
+- Linked Multi-Agent Runtime records, worker manifests, accepted worker output,
+  fanin evidence coverage, trust audit events, candidates, commits, and reports
+  to blackboard provenance.
+- Added migration normalization so older runs load with empty blackboard state
+  while preserving unknown user data.
+- Added `docs/coordinator-blackboard.7.md` and
+  `test/coordinator-blackboard-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.17
 
 - Added Multi-Agent Runtime Core with durable `MultiAgentRun`, `AgentRole`,

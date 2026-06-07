@@ -55,6 +55,15 @@ function verifyFixture(fixtureId) {
   assert.deepEqual(direct.run.multiAgent.memberships, []);
   assert.deepEqual(direct.run.multiAgent.fanouts, []);
   assert.deepEqual(direct.run.multiAgent.fanins, []);
+  assert.ok(direct.run.paths.blackboardDir.endsWith(path.join(".cw", "runs", fixtureId, "blackboard")));
+  assert.equal(direct.run.blackboard.schemaVersion, 1);
+  assert.deepEqual(direct.run.blackboard.boards, []);
+  assert.deepEqual(direct.run.blackboard.topics, []);
+  assert.deepEqual(direct.run.blackboard.messages, []);
+  assert.deepEqual(direct.run.blackboard.contexts, []);
+  assert.deepEqual(direct.run.blackboard.artifacts, []);
+  assert.deepEqual(direct.run.blackboard.snapshots, []);
+  assert.deepEqual(direct.run.blackboard.decisions, []);
   if (fixtureState.userMetadata) assert.deepEqual(direct.run.userMetadata, fixtureState.userMetadata);
   if (fixtureState.mcpOpaqueMetadata) assert.deepEqual(direct.run.mcpOpaqueMetadata, fixtureState.mcpOpaqueMetadata);
 

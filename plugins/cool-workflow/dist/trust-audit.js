@@ -61,6 +61,13 @@ function recordTrustAuditEvent(run, input) {
         agentMembershipId: input.agentMembershipId,
         agentFanoutId: input.agentFanoutId,
         agentFaninId: input.agentFaninId,
+        blackboardId: input.blackboardId,
+        blackboardTopicId: input.blackboardTopicId,
+        blackboardMessageId: input.blackboardMessageId,
+        blackboardContextId: input.blackboardContextId,
+        blackboardArtifactRefId: input.blackboardArtifactRefId,
+        blackboardSnapshotId: input.blackboardSnapshotId,
+        coordinatorDecisionId: input.coordinatorDecisionId,
         sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
         policyRef: input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined,
         policySnapshot: redactPolicy(input.policySnapshot),
@@ -153,6 +160,22 @@ function summarizeTrustAudit(run) {
                 event.agentMembershipId ||
                 event.agentFanoutId ||
                 event.agentFaninId)).length
+        },
+        blackboard: {
+            boards: run.blackboard?.boards.length || 0,
+            topics: run.blackboard?.topics.length || 0,
+            messages: run.blackboard?.messages.length || 0,
+            contexts: run.blackboard?.contexts.length || 0,
+            artifacts: run.blackboard?.artifacts.length || 0,
+            snapshots: run.blackboard?.snapshots.length || 0,
+            decisions: run.blackboard?.decisions.length || 0,
+            events: events.filter((event) => Boolean(event.blackboardId ||
+                event.blackboardTopicId ||
+                event.blackboardMessageId ||
+                event.blackboardContextId ||
+                event.blackboardArtifactRefId ||
+                event.blackboardSnapshotId ||
+                event.coordinatorDecisionId)).length
         }
     };
     (0, state_1.writeJson)(audit.summaryPath, summary);
@@ -176,6 +199,13 @@ function summarizeTrustAudit(run) {
             agentMembershipId: event.agentMembershipId,
             agentFanoutId: event.agentFanoutId,
             agentFaninId: event.agentFaninId,
+            blackboardId: event.blackboardId,
+            blackboardTopicId: event.blackboardTopicId,
+            blackboardMessageId: event.blackboardMessageId,
+            blackboardContextId: event.blackboardContextId,
+            blackboardArtifactRefId: event.blackboardArtifactRefId,
+            blackboardSnapshotId: event.blackboardSnapshotId,
+            coordinatorDecisionId: event.coordinatorDecisionId,
             sandboxProfileId: event.sandboxProfileId
         }))
     });

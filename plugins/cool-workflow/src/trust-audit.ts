@@ -34,6 +34,13 @@ export interface RecordTrustAuditInput {
   agentMembershipId?: string;
   agentFanoutId?: string;
   agentFaninId?: string;
+  blackboardId?: string;
+  blackboardTopicId?: string;
+  blackboardMessageId?: string;
+  blackboardContextId?: string;
+  blackboardArtifactRefId?: string;
+  blackboardSnapshotId?: string;
+  coordinatorDecisionId?: string;
   sandboxProfileId?: string;
   policySnapshot?: ResolvedSandboxPolicy;
   normalizedPath?: string;
@@ -99,6 +106,13 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     agentMembershipId: input.agentMembershipId,
     agentFanoutId: input.agentFanoutId,
     agentFaninId: input.agentFaninId,
+    blackboardId: input.blackboardId,
+    blackboardTopicId: input.blackboardTopicId,
+    blackboardMessageId: input.blackboardMessageId,
+    blackboardContextId: input.blackboardContextId,
+    blackboardArtifactRefId: input.blackboardArtifactRefId,
+    blackboardSnapshotId: input.blackboardSnapshotId,
+    coordinatorDecisionId: input.coordinatorDecisionId,
     sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
     policyRef: input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined,
     policySnapshot: redactPolicy(input.policySnapshot),
@@ -206,6 +220,26 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
             event.agentFaninId
         )
       ).length
+    },
+    blackboard: {
+      boards: run.blackboard?.boards.length || 0,
+      topics: run.blackboard?.topics.length || 0,
+      messages: run.blackboard?.messages.length || 0,
+      contexts: run.blackboard?.contexts.length || 0,
+      artifacts: run.blackboard?.artifacts.length || 0,
+      snapshots: run.blackboard?.snapshots.length || 0,
+      decisions: run.blackboard?.decisions.length || 0,
+      events: events.filter((event) =>
+        Boolean(
+          event.blackboardId ||
+            event.blackboardTopicId ||
+            event.blackboardMessageId ||
+            event.blackboardContextId ||
+            event.blackboardArtifactRefId ||
+            event.blackboardSnapshotId ||
+          event.coordinatorDecisionId
+        )
+      ).length
     }
   };
   writeJson(audit.summaryPath, summary);
@@ -229,6 +263,13 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
       agentMembershipId: event.agentMembershipId,
       agentFanoutId: event.agentFanoutId,
       agentFaninId: event.agentFaninId,
+      blackboardId: event.blackboardId,
+      blackboardTopicId: event.blackboardTopicId,
+      blackboardMessageId: event.blackboardMessageId,
+      blackboardContextId: event.blackboardContextId,
+      blackboardArtifactRefId: event.blackboardArtifactRefId,
+      blackboardSnapshotId: event.blackboardSnapshotId,
+      coordinatorDecisionId: event.coordinatorDecisionId,
       sandboxProfileId: event.sandboxProfileId
     }))
   });

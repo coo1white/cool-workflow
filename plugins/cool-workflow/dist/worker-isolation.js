@@ -24,6 +24,7 @@ const verifier_1 = require("./verifier");
 const sandbox_profile_1 = require("./sandbox-profile");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
+const coordinator_1 = require("./coordinator");
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
 function createWorkerIsolation(options = {}) {
     return {
@@ -164,6 +165,7 @@ function writeWorkerManifest(run, scope) {
         errors: scope.errors,
         output: scope.output,
         multiAgent: scope.multiAgent,
+        blackboard: blackboardManifest(run, scope),
         metadata: scope.metadata
     };
     (0, state_1.writeJson)(manifestPath(scope), manifest);
@@ -307,13 +309,16 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         resultNodeId: resultNode.id,
         output
     });
+    const blackboardLinks = publishWorkerOutputToBlackboard(run, scope, task, parsedResult.summary, destination, absoluteResultPath, resultNode.evidence, acceptedAudit.id);
     (0, multi_agent_1.recordMultiAgentWorkerOutput)(run, {
         workerId,
         taskId: task.id,
         resultNodeId: resultNode.id,
         verifierNodeId: verifierResult.outputNodeId,
         evidence: resultNode.evidence,
-        artifactPaths: [destination, absoluteResultPath]
+        artifactPaths: [destination, absoluteResultPath],
+        blackboardMessageIds: blackboardLinks.messageIds,
+        blackboardArtifactRefIds: blackboardLinks.artifactRefIds
     });
     if (options.persist !== false)
         (0, state_1.saveCheckpoint)(run);
@@ -532,6 +537,90 @@ function sandboxPolicyForBoundary(run, scope, options = {}) {
         allowArtifacts: options.policy?.allowArtifacts,
         allowLogs: options.policy?.allowLogs
     });
+}
+function blackboardManifest(run, scope) {
+    const linkage = blackboardLinkage(run, scope);
+    if (!linkage.blackboardId)
+        return undefined;
+    const root = run.paths.blackboardDir || node_path_1.default.join(run.paths.runDir, "blackboard");
+    return {
+        id: linkage.blackboardId,
+        topicIds: linkage.topicIds,
+        indexPath: node_path_1.default.join(root, "index.json"),
+        messagesPath: node_path_1.default.join(root, "messages.jsonl"),
+        topicsDir: node_path_1.default.join(root, "topics"),
+        contextsDir: node_path_1.default.join(root, "contexts"),
+        artifactsDir: node_path_1.default.join(root, "artifacts"),
+        instructions: [
+            "Use the blackboard as shared coordination context.",
+            "Read index.json and the relevant topic/context/artifact files before synthesizing.",
+            "Cite blackboard artifact refs or message refs in result evidence when relevant.",
+            "Do not edit blackboard files directly; CW records accepted worker output into the blackboard."
+        ]
+    };
+}
+function publishWorkerOutputToBlackboard(run, scope, task, summary, destination, workerResultPath, evidence, acceptedAuditId) {
+    const linkage = blackboardLinkage(run, scope);
+    if (!linkage.blackboardId || !linkage.topicIds.length)
+        return { messageIds: [], artifactRefIds: [] };
+    const topicId = linkage.topicIds[0];
+    const artifactRefs = [
+        (0, coordinator_1.addBlackboardArtifact)(run, {
+            topicId,
+            blackboardId: linkage.blackboardId,
+            kind: "worker-result",
+            path: destination,
+            owner: { kind: "worker", id: scope.id },
+            author: { kind: "runtime", id: "cw" },
+            source: "cw-validated-worker-output",
+            provenance: {
+                workerId: scope.id,
+                taskId: task.id,
+                multiAgentRunId: scope.multiAgent?.runId,
+                agentGroupId: scope.multiAgent?.groupId,
+                agentRoleId: scope.multiAgent?.roleId,
+                agentMembershipId: scope.multiAgent?.membershipId,
+                auditEventIds: [acceptedAuditId]
+            },
+            evidenceRefs: evidence.map((entry) => entry.locator || entry.path || entry.summary || entry.id).filter(Boolean),
+            auditEventIds: [acceptedAuditId],
+            metadata: { workerResultPath }
+        })
+    ];
+    const message = (0, coordinator_1.postBlackboardMessage)(run, {
+        topicId,
+        blackboardId: linkage.blackboardId,
+        body: summary,
+        author: { kind: "worker", id: scope.id },
+        scope: { kind: "worker", id: scope.id },
+        artifactRefIds: artifactRefs.map((artifact) => artifact.id),
+        evidenceRefs: evidence.map((entry) => entry.locator || entry.path || entry.summary || entry.id).filter(Boolean),
+        auditEventIds: [acceptedAuditId],
+        metadata: {
+            taskId: task.id,
+            resultPath: destination,
+            multiAgent: scope.multiAgent
+        }
+    });
+    return {
+        messageIds: [message.id],
+        artifactRefIds: artifactRefs.map((artifact) => artifact.id)
+    };
+}
+function blackboardLinkage(run, scope) {
+    const membershipId = scope.multiAgent?.membershipId;
+    const membership = membershipId ? run.multiAgent?.memberships.find((entry) => entry.id === membershipId) : undefined;
+    const group = scope.multiAgent?.groupId ? run.multiAgent?.groups.find((entry) => entry.id === scope.multiAgent?.groupId) : undefined;
+    const role = scope.multiAgent?.roleId ? run.multiAgent?.roles.find((entry) => entry.id === scope.multiAgent?.roleId) : undefined;
+    const multiAgentRun = scope.multiAgent?.runId ? run.multiAgent?.runs.find((entry) => entry.id === scope.multiAgent?.runId) : undefined;
+    const blackboardId = membership?.blackboardId || group?.blackboardId || role?.blackboardId || multiAgentRun?.blackboardId;
+    const topicIds = unique([
+        ...(membership?.topicIds || []),
+        ...(group?.topicIds || []),
+        ...(role?.topicIds || []),
+        ...(multiAgentRun?.topicIds || [])
+    ]);
+    return { blackboardId, topicIds };
 }
 function manifestPath(scope) {
     return node_path_1.default.join(scope.workerDir, "worker.json");
