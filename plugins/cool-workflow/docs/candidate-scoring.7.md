@@ -78,6 +78,12 @@ Selection is conservative by default:
 Operators can record an unverified selection only with an explicit option. That
 records selection state but does not turn the candidate into committed state.
 
+Committed state has a stricter rule. A candidate can be promoted by
+`cw.js commit --candidate` or `cw.js commit --selection` only when it has score
+evidence, a verified selection, and a linked verifier node with evidence.
+Rejected, failed, unscored, unselected, and unverified candidates are blocked
+and produce ErrorFeedback.
+
 ## FAILURE MODES
 
 Missing score evidence fails scoring and records feedback.

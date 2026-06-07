@@ -64,7 +64,9 @@ node scripts/cw.js plan architecture-review --repo /path/to/repo --question "Is 
 node scripts/cw.js status <run-id>
 node scripts/cw.js dispatch <run-id> --limit 6
 node scripts/cw.js result <run-id> <task-id> /path/to/result.md
-node scripts/cw.js commit <run-id> --reason "manual checkpoint"
+node scripts/cw.js commit <run-id> --verifier <node-id> --reason "verified result"
+node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified winner"
+node scripts/cw.js commit <run-id> --allow-unverified-checkpoint --reason "manual checkpoint"
 node scripts/cw.js report <run-id>
 node scripts/cw.js loop --intervalMinutes 30 --prompt "Continue this workflow."
 node scripts/cw.js schedule create --kind loop --intervalMinutes 30 --prompt "Continue this workflow."

@@ -17,6 +17,7 @@ CW already stores:
 - schedules in `.cw/schedules/tasks.json`
 - routine trigger events in `.cw/routines/`
 - candidate scoring records in `.cw/runs/<run-id>/candidates/`
+- commit gate failures in `.cw/runs/<run-id>/feedback/`
 
 The practical rule is:
 
@@ -68,7 +69,7 @@ workflow definition
 -> worker result
 -> result envelope
 -> verifier gate
--> state commit
+-> verifier-gated commit or explicit checkpoint
 -> report
 ```
 
@@ -105,8 +106,13 @@ only verified state becomes committed state
 For competing branches, the shape is:
 
 ```text
-candidate workers -> score records -> verifier-gated selection -> commit()
+candidate workers -> score records -> verifier-gated selection
+-> verifier-gated commit()
 ```
+
+Non-gated snapshots are checkpoints. They are allowed as audit and resume
+records, but reports and commit records must not present them as verifier-gated
+committed state.
 
 ## 6. Practical Operating Rule
 

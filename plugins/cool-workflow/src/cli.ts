@@ -56,7 +56,7 @@ async function main(): Promise<void> {
       return;
     }
     case "commit":
-      printJson(runner.commit(required(args.positionals[0], "run id"), String(args.options.reason || "manual")));
+      printJson(runner.commit(required(args.positionals[0], "run id"), args.options));
       return;
     case "report": {
       const report = runner.report(required(args.positionals[0], "run id"));

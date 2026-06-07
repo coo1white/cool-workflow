@@ -44,7 +44,7 @@ function handleLine(line: string): void {
       sendResult(message.id, {
         protocolVersion: "2024-11-05",
         capabilities: { tools: {} },
-        serverInfo: { name: "cool-workflow", version: "0.1.5" }
+        serverInfo: { name: "cool-workflow", version: "0.1.7" }
       });
       return;
     }
@@ -83,7 +83,7 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
       case "cw_result":
         return runner.recordResult(String(args.runId || ""), String(args.taskId || ""), String(args.resultPath || ""));
       case "cw_commit":
-        return runner.commit(String(args.runId || ""), String(args.reason || "manual"));
+        return runner.commit(String(args.runId || ""), args);
       case "cw_report":
         return runner.report(String(args.runId || ""));
       case "cw_feedback_list":
@@ -155,9 +155,13 @@ function toolDefinitions(): unknown[] {
       resultPath: stringSchema("Result markdown path"),
       cwd: stringSchema("Run workspace")
     }),
-    tool("cw_commit", "Create a state commit snapshot.", {
+    tool("cw_commit", "Create a verifier-gated commit or explicit checkpoint.", {
       runId: stringSchema("Run id"),
       reason: stringSchema("Commit reason"),
+      verifier: stringSchema("Verified verifier node id"),
+      candidate: stringSchema("Verified candidate id"),
+      selection: stringSchema("Verified candidate selection id"),
+      allowUnverifiedCheckpoint: { type: "boolean", description: "Write a non-gated checkpoint instead of committed state" },
       cwd: stringSchema("Run workspace")
     }),
     tool("cw_report", "Render a run report.", {

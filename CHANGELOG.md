@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.7
+
+- Added Verifier-Gated Commit as a first-class commit path.
+- Added commit metadata for `verifierGated`, checkpoint status, verifier nodes,
+  candidate ids, selection ids, and verifier evidence.
+- Made CLI commits fail closed unless `--verifier`, `--candidate`,
+  `--selection`, or `--allow-unverified-checkpoint` is supplied.
+- Added ErrorFeedback and error-node records for blocked commit attempts.
+- Kept non-gated internal snapshots compatible as explicit checkpoints.
+- Updated reports to distinguish verifier-gated commits from checkpoints.
+- Added verifier-gated commit docs and smoke coverage.
+
 ## 0.1.6
 
 - Added Candidate Scoring records for competing worker outputs.

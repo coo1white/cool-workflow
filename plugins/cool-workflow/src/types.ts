@@ -578,6 +578,13 @@ export interface StateCommit {
   snapshotPath: string;
   gitHead?: string;
   stateNodeId?: string;
+  verifierGated?: boolean;
+  checkpoint?: boolean;
+  verifierNodeId?: string;
+  candidateId?: string;
+  selectionId?: string;
+  evidence?: StateEvidence[];
+  metadata?: Record<string, unknown>;
 }
 
 export interface WorkflowRun {
