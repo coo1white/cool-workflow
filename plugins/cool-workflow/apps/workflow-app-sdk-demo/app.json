@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "workflow-app-sdk-demo",
+  "title": "Workflow App SDK Demo",
+  "summary": "Small SDK app showing inputs, phases, evidence gates, and sandbox profile hints.",
+  "version": "0.1.0",
+  "author": "COOLWHITE LLC",
+  "inputs": [
+    {
+      "name": "question",
+      "type": "string",
+      "required": true,
+      "description": "Question or implementation task this app should plan."
+    }
+  ],
+  "sandboxProfiles": [
+    "readonly",
+    "workspace-write"
+  ],
+  "compatibility": {
+    "minVersion": "0.1.9"
+  },
+  "metadata": {
+    "example": true
+  },
+  "workflow": {
+    "entrypoint": "workflow.js"
+  }
+}

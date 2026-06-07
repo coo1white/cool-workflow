@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.1.9
+
+- Added Workflow App SDK with `defineWorkflowApp`, `workflow`, `phase`,
+  `agent`, `artifact`, and `input` helpers in `workflow-app-sdk`.
+- Added durable workflow app metadata for schema version, id, title, summary,
+  version, author, inputs, sandbox profiles, compatibility, and metadata.
+- Added fail-closed app/workflow validation for ids, required fields, semver,
+  inputs, limits, phases, duplicate task ids, evidence flags, sandbox profile
+  references, and compatibility constraints.
+- Added deterministic discovery for legacy `workflows/*.workflow.js` files and
+  first-class `apps/<app-id>/app.json` app directories.
+- Added CLI commands for `app list`, `app show`, `app validate`, `app init`,
+  and `app package`.
+- Added MCP tools `cw_app_list`, `cw_app_show`, `cw_app_validate`,
+  `cw_app_init`, and `cw_app_package`.
+- Added SDK app templates and the runnable `workflow-app-sdk-demo` example.
+- Added app id/version/source metadata to run state, status summaries, and
+  reports.
+- Added smoke coverage for legacy planning, SDK app validation, invalid app
+  failures, app CLI commands, sandbox hints, and app metadata.
+
 ## 0.1.8
 
 - Added Sandbox Profiles as named, durable worker policy contracts.

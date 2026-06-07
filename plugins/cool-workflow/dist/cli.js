@@ -32,6 +32,32 @@ async function main() {
             printJson(runner.init(workflowId, args.options));
             return;
         }
+        case "app": {
+            const [subcommand, appIdOrPath] = args.positionals;
+            switch (subcommand) {
+                case "list":
+                    printJson(runner.listApps());
+                    return;
+                case "show":
+                    printJson(runner.showApp(required(appIdOrPath, "app id")));
+                    return;
+                case "validate": {
+                    const result = runner.validateApp(required(appIdOrPath, "app path or id"));
+                    printJson(result);
+                    if (!result.valid)
+                        process.exitCode = 1;
+                    return;
+                }
+                case "init":
+                    printJson(runner.initApp(required(appIdOrPath, "app id"), args.options));
+                    return;
+                case "package":
+                    printJson(runner.packageApp(required(appIdOrPath, "app id"), args.options));
+                    return;
+                default:
+                    throw new Error("Usage: cw.js app list|show|validate|init|package [app-id|path]");
+            }
+        }
         case "plan": {
             const [workflowId] = args.positionals;
             if (!workflowId)

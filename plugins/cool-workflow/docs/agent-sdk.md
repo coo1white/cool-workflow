@@ -33,33 +33,66 @@ The loop maps to concrete SDK operations:
 A workflow app defines:
 
 - `id`, `title`, and `summary`
+- `schemaVersion`, app `version`, compatibility, and metadata when using the
+  first-class Workflow App SDK contract
 - required and repeated inputs
 - phase order
 - agent tasks
 - artifact tasks
 - concurrency limits
 - evidence requirements
+- sandbox profile hints
 
 Example:
 
 ```js
-module.exports = ({ workflow, phase, agent, artifact }) =>
-  workflow({
+const {
+  defineWorkflowApp,
+  workflow,
+  phase,
+  agent,
+  artifact,
+  input
+} = require("../dist/workflow-app-sdk");
+
+const inputs = [input("repo", { type: "path", required: true })];
+
+module.exports = defineWorkflowApp({
+  schemaVersion: 1,
+  id: "example-review",
+  title: "Example Review",
+  summary: "Review a repository with evidence.",
+  version: "0.1.0",
+  inputs,
+  sandboxProfiles: ["readonly"],
+  compatibility: {
+    minVersion: "0.1.9"
+  },
+  workflow: workflow({
     id: "example-review",
     title: "Example Review",
-    inputs: [{ name: "repo", required: true }],
+    inputs,
+    sandboxProfiles: ["readonly"],
     phases: [
       phase("Map", [
-        agent("map:system", "Map the system boundaries.")
+        agent("map:system", "Map the system boundaries.", {
+          sandboxProfileId: "readonly"
+        })
       ]),
       phase("Verdict", [
         artifact("verdict", "Write the final evidence-backed verdict.", {
-          requiresEvidence: true
+          requiresEvidence: true,
+          sandboxProfileId: "readonly"
         })
       ])
     ]
-  });
+  })
+});
 ```
+
+Legacy `module.exports = ({ workflow, phase, agent, artifact }) => workflow(...)`
+files remain loadable. CW wraps them as compatibility apps with version `0.0.0`
+so existing workflow ids still plan and dispatch.
 
 ## Language Contract
 
@@ -73,10 +106,15 @@ Workflow apps are JavaScript modules:
 
 ```text
 workflows/*.workflow.js
+apps/<app-id>/app.json
+apps/<app-id>/workflow.js
 ```
 
 This is intentional. The runtime is strongly typed for maintainability, while
 workflow scripts can run without `ts-node`.
+
+See [workflow-app-sdk.7.md](workflow-app-sdk.7.md) for the full app contract,
+validation rules, CLI commands, MCP tools, and state/report fields.
 
 ## Evidence Contract
 

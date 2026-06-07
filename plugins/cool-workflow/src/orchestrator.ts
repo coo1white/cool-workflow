@@ -2,12 +2,27 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   DispatchManifest,
+  LoadedWorkflowApp,
   RunSummary,
   RunTask,
+  WorkflowAppSummary,
+  WorkflowAppValidationIssue,
+  WorkflowAppValidationResult,
   WorkflowDefinition,
   WorkflowRun
 } from "./types";
-import { createWorkflowApi, slugify } from "./workflow-api";
+import { slugify } from "./workflow-api";
+import {
+  WorkflowAppValidationError,
+  loadWorkflowAppFromEntrypoint,
+  loadWorkflowAppFromManifest,
+  renderWorkflowAppEntrypointTemplate,
+  renderWorkflowAppManifestTemplate,
+  renderWorkflowAppTemplate,
+  summarizeWorkflowApp,
+  validateWorkflowApp,
+  workflowAppRunMetadata
+} from "./workflow-app-sdk";
 import { createDispatchManifest, firstRunnablePhase, nextDispatchTasks, updatePhaseStatuses } from "./dispatch";
 import { writeTaskFiles } from "./harness";
 import { commitState } from "./commit";
@@ -59,22 +74,127 @@ import {
 export class CoolWorkflowRunner {
   pluginRoot: string;
   workflowsDir: string;
+  appsDir: string;
 
   constructor({ pluginRoot }: { pluginRoot: string }) {
     this.pluginRoot = resolvePluginRoot(pluginRoot);
     this.workflowsDir = path.join(this.pluginRoot, "workflows");
+    this.appsDir = path.join(this.pluginRoot, "apps");
   }
 
   listWorkflows(): Array<{ id: string; title: string; summary: string; file: string }> {
-    return this.loadWorkflowFiles().map((file) => {
-      const workflow = this.loadWorkflow(file);
+    return this.loadWorkflowApps().map((record) => {
+      const summary = summarizeWorkflowApp(record);
       return {
-        id: workflow.id,
-        title: workflow.title,
-        summary: workflow.summary || "",
-        file
+        id: summary.id,
+        title: summary.title,
+        summary: summary.summary,
+        file: summary.file
       };
     });
+  }
+
+  listApps(): WorkflowAppSummary[] {
+    return this.loadWorkflowApps().map((record) => summarizeWorkflowApp(record));
+  }
+
+  showApp(appId: string): Record<string, unknown> {
+    const record = this.loadWorkflowAppById(appId);
+    const summary = summarizeWorkflowApp(record);
+    return {
+      ...summary,
+      source: record.source,
+      app: {
+        schemaVersion: record.app.schemaVersion,
+        id: record.app.id,
+        title: record.app.title,
+        summary: record.app.summary || "",
+        version: record.app.version,
+        author: record.app.author,
+        inputs: record.app.inputs || record.app.workflow.inputs,
+        sandboxProfiles: record.app.sandboxProfiles || record.app.workflow.sandboxProfiles || [],
+        compatibility: record.app.compatibility,
+        metadata: record.app.metadata || {}
+      },
+      workflow: {
+        id: record.app.workflow.id,
+        title: record.app.workflow.title,
+        summary: record.app.workflow.summary || "",
+        limits: record.app.workflow.limits,
+        inputs: record.app.workflow.inputs,
+        sandboxProfiles: record.app.workflow.sandboxProfiles || [],
+        phases: record.app.workflow.phases.map((phase) => ({
+          id: phase.id,
+          name: phase.name,
+          status: phase.status,
+          tasks: phase.tasks.map((task) => ({
+            id: task.id,
+            kind: task.kind,
+            requiresEvidence: Boolean(task.requiresEvidence),
+            sandboxProfileId: task.sandboxProfileId
+          }))
+        }))
+      }
+    };
+  }
+
+  validateApp(target: string): WorkflowAppValidationResult {
+    try {
+      const record = this.loadWorkflowAppTarget(target);
+      const result = validateWorkflowApp(record.app, {
+        appPath: record.source.manifestPath || record.source.entrypointPath || record.source.path
+      });
+      return {
+        ...result,
+        summary: summarizeWorkflowApp(record)
+      };
+    } catch (error) {
+      const issues = validationIssuesFromError(error);
+      return {
+        valid: false,
+        appId: target,
+        appPath: path.resolve(target),
+        issues
+      };
+    }
+  }
+
+  initApp(appId: string, options: Record<string, unknown>): { id: string; manifestPath: string; entrypointPath: string } {
+    const id = slugify(appId);
+    if (!id) throw new Error("App id must include at least one letter or digit");
+    const title = String(options.title || titleize(id));
+    const destinationDir = path.resolve(String(options.directory || options.output || path.join(this.appsDir, id)));
+    const manifestPath = path.join(destinationDir, "app.json");
+    const entrypointPath = path.join(destinationDir, "workflow.js");
+    if (!options.force && (fs.existsSync(manifestPath) || fs.existsSync(entrypointPath))) {
+      throw new Error(`Refusing to overwrite existing workflow app: ${destinationDir}`);
+    }
+    fs.mkdirSync(destinationDir, { recursive: true });
+    fs.writeFileSync(manifestPath, renderWorkflowAppManifestTemplate(id, title), "utf8");
+    fs.writeFileSync(entrypointPath, renderWorkflowAppEntrypointTemplate(id, title), "utf8");
+    const validation = this.validateApp(manifestPath);
+    if (!validation.valid) {
+      throw new WorkflowAppValidationError("Generated workflow app is invalid", validation.issues);
+    }
+    return { id, manifestPath, entrypointPath };
+  }
+
+  packageApp(appId: string, options: Record<string, unknown> = {}): { id: string; version: string; path: string } {
+    const record = this.loadWorkflowAppById(appId);
+    const destination = path.resolve(
+      String(
+        options.output ||
+          path.join(process.cwd(), ".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)
+      )
+    );
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    writeJson(destination, {
+      schemaVersion: 1,
+      app: workflowAppRunMetadata(record),
+      workflow: record.app.workflow,
+      packagedAt: new Date().toISOString()
+    });
+    return { id: record.app.id, version: record.app.version, path: destination };
   }
 
   init(workflowId: string, options: Record<string, unknown>): { id: string; path: string } {
@@ -88,12 +208,13 @@ export class CoolWorkflowRunner {
       throw new Error(`Refusing to overwrite existing workflow: ${destination}`);
     }
     fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.writeFileSync(destination, renderWorkflowTemplate(id, title), "utf8");
+    fs.writeFileSync(destination, renderWorkflowAppTemplate(id, title), "utf8");
     return { id, path: destination };
   }
 
   plan(workflowId: string, options: Record<string, unknown>): WorkflowRun {
-    const workflow = this.loadWorkflowById(workflowId);
+    const appRecord = this.loadWorkflowAppById(workflowId);
+    const workflow = appRecord.app.workflow;
     const inputs = normalizeInputs(options);
     validateInputs(workflow, inputs);
 
@@ -114,7 +235,8 @@ export class CoolWorkflowRunner {
         id: workflow.id,
         title: workflow.title,
         summary: workflow.summary || "",
-        limits: workflow.limits
+        limits: workflow.limits,
+        app: workflowAppRunMetadata(appRecord)
       },
       inputs,
       loopStage: "interpret",
@@ -149,7 +271,7 @@ export class CoolWorkflowRunner {
         outputs: run.inputs,
         artifacts: [{ id: "state", kind: "json", path: run.paths.state }],
         contractId: contract.id,
-        metadata: { workflowId: workflow.id }
+        metadata: { workflowId: workflow.id, app: workflowAppRunMetadata(appRecord) }
       })
     );
     saveCheckpoint(run);
@@ -160,7 +282,16 @@ export class CoolWorkflowRunner {
         outputStatus: "pending",
         loopStage: "interpret",
         artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
-        metadata: { workflowId: workflow.id, taskId: task.id, phase: task.phase, taskKind: task.kind, requiresEvidence: task.requiresEvidence }
+        metadata: {
+          workflowId: workflow.id,
+          appId: appRecord.app.id,
+          appVersion: appRecord.app.version,
+          taskId: task.id,
+          phase: task.phase,
+          taskKind: task.kind,
+          requiresEvidence: task.requiresEvidence,
+          sandboxProfileId: task.sandboxProfileId
+        }
       });
       task.stateNodeId = taskResult.outputNodeId;
     }
@@ -590,11 +721,48 @@ export class CoolWorkflowRunner {
   }
 
   loadWorkflowById(workflowId: string): WorkflowDefinition {
-    for (const file of this.loadWorkflowFiles()) {
-      const workflow = this.loadWorkflow(file);
-      if (workflow.id === workflowId) return workflow;
+    return this.loadWorkflowAppById(workflowId).app.workflow;
+  }
+
+  private loadWorkflowAppById(appId: string): LoadedWorkflowApp {
+    const record = this.loadWorkflowApps().find((candidate) => candidate.app.id === appId);
+    if (!record) throw new Error(`Workflow app not found: ${appId}`);
+    return record;
+  }
+
+  private loadWorkflowAppTarget(target: string): LoadedWorkflowApp {
+    if (!target) throw new Error("Missing workflow app path or id");
+    const resolved = path.resolve(target);
+    if (fs.existsSync(resolved)) {
+      const stat = fs.statSync(resolved);
+      if (stat.isDirectory()) return loadWorkflowAppFromManifest(path.join(resolved, "app.json"));
+      if (path.basename(resolved) === "app.json" || resolved.endsWith(".json")) return loadWorkflowAppFromManifest(resolved);
+      return loadWorkflowAppFromEntrypoint(resolved);
     }
-    throw new Error(`Workflow not found: ${workflowId}`);
+    return this.loadWorkflowAppById(target);
+  }
+
+  private loadWorkflowApps(): LoadedWorkflowApp[] {
+    const records = [
+      ...this.loadWorkflowFiles().map((file) => loadWorkflowAppFromEntrypoint(file)),
+      ...this.loadAppManifestFiles().map((file) => loadWorkflowAppFromManifest(file))
+    ].sort((left, right) => {
+      const byId = left.app.id.localeCompare(right.app.id);
+      if (byId) return byId;
+      return (left.source.manifestPath || left.source.entrypointPath || left.source.path)
+        .localeCompare(right.source.manifestPath || right.source.entrypointPath || right.source.path);
+    });
+    const seen = new Map<string, LoadedWorkflowApp>();
+    for (const record of records) {
+      const previous = seen.get(record.app.id);
+      if (previous) {
+        throw new Error(
+          `Duplicate workflow app id ${record.app.id}: ${previous.source.manifestPath || previous.source.entrypointPath || previous.source.path} and ${record.source.manifestPath || record.source.entrypointPath || record.source.path}`
+        );
+      }
+      seen.set(record.app.id, record);
+    }
+    return records;
   }
 
   private loadWorkflowFiles(): string[] {
@@ -606,14 +774,14 @@ export class CoolWorkflowRunner {
       .map((file) => path.join(this.workflowsDir, file));
   }
 
-  private loadWorkflow(file: string): WorkflowDefinition {
-    // Bundled workflows are runtime JavaScript so users can run them without ts-node.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const workflowFactory = require(file) as unknown;
-    if (typeof workflowFactory !== "function") {
-      throw new Error(`Workflow file must export a function: ${file}`);
-    }
-    return workflowFactory(createWorkflowApi()) as WorkflowDefinition;
+  private loadAppManifestFiles(): string[] {
+    if (!fs.existsSync(this.appsDir)) return [];
+    return fs
+      .readdirSync(this.appsDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(this.appsDir, entry.name, "app.json"))
+      .filter((file) => fs.existsSync(file))
+      .sort();
   }
 }
 
@@ -653,7 +821,7 @@ export function parseArgv(argv: string[]): {
 }
 
 export function formatHelp(): string {
-  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
+  return `Cool Workflow\n\nCommands:\n  list\n  init <workflow-id> [--title TEXT] [--output PATH]\n  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]\n  status <run-id>\n  next <run-id> [--limit N]\n  dispatch <run-id> [--limit N] [--sandbox PROFILE]\n  result <run-id> <task-id> <result-file>\n  commit <run-id> --verifier <node-id> [--reason TEXT]\n  commit <run-id> --candidate <candidate-id> [--reason TEXT]\n  commit <run-id> --selection <selection-id> [--reason TEXT]\n  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]\n  report <run-id>\n  app list\n  app show <app-id>\n  app validate <path-or-app-id>\n  app init <app-id> --title TEXT\n  app package <app-id> [--output PATH]\n  sandbox list\n  sandbox show <profile-id>\n  sandbox validate <profile-file>\n  contract show <run-id> [contract-id]\n  node list <run-id>\n  node show <run-id> <node-id>\n  node graph <run-id>\n  feedback list <run-id> [--status open]\n  feedback show <run-id> <feedback-id>\n  feedback collect <run-id>\n  feedback task <run-id> <feedback-id> [--verify CMD]\n  feedback resolve <run-id> <feedback-id> --node <node-id>\n  worker list <run-id> [--status running]\n  worker show <run-id> <worker-id>\n  worker manifest <run-id> <worker-id>\n  worker output <run-id> <worker-id> <result-file>\n  worker fail <run-id> <worker-id> --message TEXT\n  worker validate <run-id> <worker-id> [path]\n  candidate list <run-id> [--status scored]\n  candidate register <run-id> --worker <worker-id>\n  candidate score <run-id> <candidate-id> --criterion name=value --evidence PATH\n  candidate rank <run-id>\n  candidate select <run-id> <candidate-id> [--reason TEXT]\n  candidate reject <run-id> <candidate-id> --reason TEXT\n  loop --intervalMinutes 30 --prompt TEXT\n  schedule create --kind loop --intervalMinutes 30 --prompt TEXT\n  schedule list [--status active]\n  schedule due\n  schedule complete <schedule-id>\n  schedule pause <schedule-id>\n  schedule resume <schedule-id>\n  schedule run-now <schedule-id>\n  schedule history [schedule-id]\n  schedule daemon [--once] [--intervalSeconds 60]\n  schedule delete <schedule-id>\n  routine create --kind api|github --prompt TEXT [--match JSON]\n  routine fire api|github [payload.json]\n  routine list\n  routine events [trigger-id]\n  routine delete <trigger-id>\n\n`;
 }
 
 function appendOption(options: Record<string, unknown>, key: string, value: string | boolean): void {
@@ -704,6 +872,7 @@ function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unkno
         status: "pending",
         loopStage: "interpret",
         requiresEvidence: Boolean(task.requiresEvidence),
+        sandboxProfileId: task.sandboxProfileId,
         prompt: renderPrompt(task.prompt, inputs),
         taskPath: "",
         resultPath: ""
@@ -722,6 +891,12 @@ function writeReport(run: WorkflowRun): string {
     "",
     `- Run: ${run.id}`,
     `- Workflow: ${run.workflow.id}`,
+    ...(run.workflow.app
+      ? [
+          `- Workflow App: ${run.workflow.app.id}@${run.workflow.app.version}`,
+          `- Workflow App Source: ${run.workflow.app.source?.manifestPath || run.workflow.app.source?.entrypointPath || run.workflow.app.source?.path || ""}`
+        ]
+      : []),
     `- Created: ${run.createdAt}`,
     `- Updated: ${run.updatedAt}`,
     `- Repository: ${String(run.inputs.repo || run.cwd)}`,
@@ -777,6 +952,7 @@ function summarizeRun(run: WorkflowRun): RunSummary {
   return {
     runId: run.id,
     workflowId: run.workflow.id,
+    app: run.workflow.app,
     phases: run.phases,
     tasks: {
       total: run.tasks.length,
@@ -897,10 +1073,15 @@ function renderPrompt(prompt: string, inputs: Record<string, unknown>): string {
   const invariant = Array.isArray(inputs.invariant)
     ? inputs.invariant.join("; ")
     : String(inputs.invariant || "");
-  return String(prompt)
+  let rendered = String(prompt)
     .replaceAll("{{repo}}", String(inputs.repo || ""))
     .replaceAll("{{question}}", String(inputs.question || ""))
     .replaceAll("{{invariant}}", invariant);
+  for (const [key, value] of Object.entries(inputs)) {
+    const replacement = Array.isArray(value) ? value.join("; ") : String(value ?? "");
+    rendered = rendered.replaceAll(`{{${key}}}`, replacement);
+  }
+  return rendered;
 }
 
 function formatInputList(value: unknown): string {
@@ -964,6 +1145,16 @@ function arrayOption(value: unknown): unknown[] {
 
 function isSandboxProfileError(error: unknown): error is SandboxProfileError {
   return error instanceof SandboxProfileError || Boolean(error && typeof error === "object" && "code" in error && String((error as { code?: unknown }).code).startsWith("sandbox-"));
+}
+
+function validationIssuesFromError(error: unknown): WorkflowAppValidationIssue[] {
+  if (error instanceof WorkflowAppValidationError) return error.issues;
+  return [
+    {
+      code: "workflow-app-invalid",
+      message: error instanceof Error ? error.message : String(error)
+    }
+  ];
 }
 
 function createRunId(workflowId: string): string {

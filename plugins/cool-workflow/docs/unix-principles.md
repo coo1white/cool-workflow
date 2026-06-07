@@ -19,6 +19,7 @@ CW already stores:
 - candidate scoring records in `.cw/runs/<run-id>/candidates/`
 - commit gate failures in `.cw/runs/<run-id>/feedback/`
 - sandbox profile selections in worker, dispatch, feedback, and report state
+- workflow app identity and version in `.cw/runs/<run-id>/state.json`
 
 The practical rule is:
 
@@ -31,8 +32,8 @@ This keeps the runtime deterministic and keeps agent work auditable.
 
 ## 2. Small Kernel, Composable Userland
 
-CW should keep the kernel small. The kernel owns state transitions and contracts;
-workflow apps own domain behavior.
+CW should keep the kernel small. The kernel owns state transitions and stable
+contracts; workflow apps own domain behavior.
 
 Core system calls:
 
@@ -52,10 +53,16 @@ The kernel should avoid hard-coded business logic. New behavior should usually
 enter as:
 
 - a workflow app
+- a workflow app manifest under `apps/<app-id>/app.json`
 - a verifier
 - a scheduler policy
 - a routine trigger
 - an external worker
+
+Workflow App SDK v0.1.9 makes this split concrete. The runner is the base
+system. Apps are userland: versioned, validated, inspectable definitions that
+can be listed, shown, validated, initialized, packaged, planned, and reported
+without depending on hidden runner internals.
 
 ## 3. Pipelines Over Monoliths
 
@@ -65,6 +72,7 @@ The standard pipeline is:
 
 ```text
 workflow definition
+-> app contract validation
 -> validated input
 -> task files
 -> dispatch manifest
