@@ -19,7 +19,9 @@ const canonicalApps = [
 function main() {
   const checks = [];
   checkJson("plugins/cool-workflow/package.json", "version", VERSION, checks);
-  checkJson("plugins/cool-workflow/package-lock.json", "version", VERSION, checks);
+  // package-lock.json is a gitignored install artifact (the documented install
+  // uses `npm install --no-package-lock`), so only validate it when present.
+  checkJsonIfPresent("plugins/cool-workflow/package-lock.json", "version", VERSION, checks);
   checkJson("plugins/cool-workflow/.codex-plugin/plugin.json", "version", VERSION, checks);
   checkIncludes("plugins/cool-workflow/src/version.ts", `CURRENT_COOL_WORKFLOW_VERSION = "${VERSION}"`, checks);
   checkIncludes("plugins/cool-workflow/src/version.ts", "CURRENT_RUN_STATE_SCHEMA_VERSION = 1", checks);
@@ -57,6 +59,17 @@ function main() {
 function checkJson(relativePath, key, expected, checks) {
   const file = path.join(repoRoot, relativePath);
   assert.ok(fs.existsSync(file), `${relativePath} must exist`);
+  const value = JSON.parse(fs.readFileSync(file, "utf8"))[key];
+  assert.equal(value, expected, `${relativePath}.${key} must be ${expected}`);
+  checks.push({ path: relativePath, key, value });
+}
+
+function checkJsonIfPresent(relativePath, key, expected, checks) {
+  const file = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(file)) {
+    checks.push({ path: relativePath, key, skipped: "absent" });
+    return;
+  }
   const value = JSON.parse(fs.readFileSync(file, "utf8"))[key];
   assert.equal(value, expected, `${relativePath}.${key} must be ${expected}`);
   checks.push({ path: relativePath, key, value });
