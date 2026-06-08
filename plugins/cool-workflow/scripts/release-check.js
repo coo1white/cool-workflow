@@ -21,6 +21,7 @@ const checks = [
         "docs/multi-agent-trust-policy-audit.7.md",
         "docs/multi-agent-eval-replay-harness.7.md",
         "docs/state-explosion-management.7.md",
+        "docs/evidence-adoption-reasoning-chain.7.md",
         "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
@@ -47,6 +48,7 @@ const checks = [
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },
   { name: "golden path", command: ["npm", "run", "golden-path"] },
   { name: "fixture compatibility", command: ["npm", "run", "fixture-compat"] },
+  { name: "vendor manifest synchronization", command: ["npm", "run", "gen:manifests", "--", "--check"] },
   { name: "version synchronization", command: ["npm", "run", "version:sync"] }
 ];
 

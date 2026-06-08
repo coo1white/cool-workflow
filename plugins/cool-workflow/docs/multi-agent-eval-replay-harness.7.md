@@ -13,6 +13,11 @@ Pre-0.1.25 snapshots load with empty summary sections, so old fixtures stay
 backward compatible. See
 [state-explosion-management.7.md](state-explosion-management.7.md).
 
+CW v0.1.26 adds Evidence Adoption Reasoning Chain metrics: `reasoning_freshness`,
+`reasoning_chain_parity`, and `reasoning_unexplained_parity`. Pre-0.1.26
+snapshots load with empty reasoning sections. See
+[evidence-adoption-reasoning-chain.7.md](evidence-adoption-reasoning-chain.7.md).
+
 The harness is intentionally file-first:
 
 - snapshots, replay runs, comparisons, scores, findings, gates, and reports are

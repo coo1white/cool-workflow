@@ -171,6 +171,12 @@ import {
   stateExplosionReportLines,
   summarizeBlackboardDigest
 } from "./state-explosion";
+import {
+  buildEvidenceReasoningReport,
+  loadEvidenceReasoningIndex,
+  refreshEvidenceReasoning,
+  showEvidenceReasoning
+} from "./evidence-reasoning";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -1003,7 +1009,31 @@ export class CoolWorkflowRunner {
   }
 
   multiAgentEvidence(runId: string): ReturnType<typeof summarizeMultiAgentOperator>["evidence"] {
-    return summarizeMultiAgentOperator(this.loadRun(runId)).evidence;
+    const run = this.loadRun(runId);
+    const rows = summarizeMultiAgentOperator(run).evidence;
+    // Additive enrichment: attach the derived rationale status so `multi-agent
+    // evidence` answers WHAT + whether the WHY is recorded, without changing the
+    // existing row shape (POLA: old consumers ignore the new optional field).
+    const report = buildEvidenceReasoningReport(run, { index: loadEvidenceReasoningIndex(run) });
+    const byId = new Map(report.chains.map((chain) => [chain.id, chain.rationaleStatus]));
+    for (const row of rows) row.rationaleStatus = byId.get(row.id);
+    return rows;
+  }
+
+  multiAgentReasoning(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof buildEvidenceReasoningReport> {
+    const run = this.loadRun(runId);
+    if (options.refresh) {
+      refreshEvidenceReasoning(run);
+      saveCheckpoint(run);
+    }
+    return showEvidenceReasoning(run, { evidenceId: stringOption(options.evidence || options.evidenceId || options.id) });
+  }
+
+  multiAgentReasoningRefresh(runId: string): ReturnType<typeof refreshEvidenceReasoning> {
+    const run = this.loadRun(runId);
+    const index = refreshEvidenceReasoning(run);
+    saveCheckpoint(run);
+    return index;
   }
 
   summaryRefresh(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof refreshStateExplosionSummaries> {

@@ -26,6 +26,7 @@ import {
 } from "./multi-agent-operator-ux";
 import { formatMultiAgentEval } from "./multi-agent-eval";
 import { formatBlackboardDigest, formatCompactGraph, formatStateExplosionReport } from "./state-explosion";
+import { formatEvidenceReasoningReport } from "./evidence-reasoning";
 
 async function main(): Promise<void> {
   const args = parseArgv(process.argv.slice(2));
@@ -261,6 +262,17 @@ async function main(): Promise<void> {
           else process.stdout.write(`${formatMultiAgentEvidence(rows)}\n`);
           return;
         }
+        case "reasoning": {
+          if (args.options.refresh && !args.options.evidence && !args.options.evidenceId) {
+            const index = runner.multiAgentReasoningRefresh(required(runId, "run id"));
+            printJson(index);
+            return;
+          }
+          const report = runner.multiAgentReasoning(required(runId, "run id"), { ...args.options, evidence: args.options.evidence || args.options.evidenceId || id });
+          if (wantsJson(args.options)) printJson(report);
+          else process.stdout.write(`${formatEvidenceReasoningReport(report)}\n`);
+          return;
+        }
         case "run":
           if (
             !runId ||
@@ -317,7 +329,7 @@ async function main(): Promise<void> {
           }
           return;
         default:
-          throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|show|role|group|membership|fanout|fanin <run-id> [id]");
+          throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]");
       }
     }
     case "eval": {

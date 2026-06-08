@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.1.26
+
+- Added the Evidence Adoption Reasoning Chain: a derived, versioned,
+  provenance-backed view that explains *why* each evidence item was adopted,
+  rejected, superseded, or conflicting, complementing the existing *what* in
+  `multi-agent evidence`.
+- Added derived record types (`EvidenceReasoningStep`, `EvidenceReasoningChain`,
+  `EvidenceReasoningReport`) in `src/types.ts` with status enums including the
+  fail-closed `unexplained` state. They reuse existing provenance / trust /
+  rationale types by reference and never fork them.
+- Added `src/evidence-reasoning.ts`, which derives, per gate (`fanin`,
+  `candidate-score`, `selection`, `verifier`, `commit`), the decision, basis
+  (evidence refs + provenance source + audit ids), authority
+  (role/membership/worker + role `policyRef`), rationale (selection reason,
+  acceptance rationale, score notes/verdict, verifier gate, commit reason,
+  coordinator decision, judge rationale), and counterfactual (rejected
+  candidates, failed scores, rejected/superseded decisions). No new
+  source-of-truth records are mutated.
+- Added durable storage under `.cw/runs/<run-id>/reasoning/` (`index.json` +
+  per-chain records + `report.json`) with a `sourceFingerprint` and
+  `valid|stale|absent` freshness, mirroring the v0.1.25 summaries pattern. Raw
+  results, candidates, scores, selections, commits, and audit records are never
+  deleted or overwritten.
+- Added `multi-agent reasoning <run-id> [--evidence <id>] [--refresh]
+  [--json|--format json]` and integrated an additive `rationaleStatus`
+  (`explained|unexplained|not-applicable`) into `multi-agent evidence` rows.
+  Added a single new console panel, `Adoption Rationale`.
+- Added MCP parity: `cw_evidence_reasoning` and `cw_evidence_reasoning_refresh`,
+  mirroring the CLI contract exactly.
+- Reasoning steps are on the critical path and are exempt from state-explosion
+  compaction: every decision-gate node backing an adopted chain (notably score
+  nodes, otherwise collapsible) is protected and never collapsed into a synthetic
+  summary node.
+- Fail closed, never infer: an adoption whose rationale cannot be traced renders
+  as `unexplained` and is never silently treated as explained.
+- Eval/replay now regression-gates reasoning with new replay-stable metrics:
+  `reasoning_freshness`, `reasoning_chain_parity`, and
+  `reasoning_unexplained_parity`. Pre-0.1.26 snapshots load with empty reasoning
+  sections, preserving backward compatibility.
+- Added `docs/evidence-adoption-reasoning-chain.7.md` (added to the docs reading
+  order) and `test/evidence-adoption-reasoning-smoke.js`, included in `npm test`
+  and `npm run release:check`.
+
 ## 0.1.25
 
 - Added State Explosion Management: a derived, versioned, provenance-backed

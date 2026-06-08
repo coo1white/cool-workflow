@@ -18,6 +18,11 @@ summary nodes while preserving the critical path, failures, missing evidence,
 policy violations, and judge rationale. See
 [state-explosion-management.7.md](state-explosion-management.7.md).
 
+CW v0.1.26 adds the `Adoption Rationale` panel and the `multi-agent reasoning`
+view, which explains *why* each evidence item was adopted. Reasoning steps are on
+the critical path and are never collapsed by compaction. See
+[evidence-adoption-reasoning-chain.7.md](evidence-adoption-reasoning-chain.7.md).
+
 The model is derived from:
 
 - `WorkflowRun` tasks, dispatches, workers, nodes, feedback, candidates,

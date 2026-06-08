@@ -8,6 +8,7 @@ import { summarizeOperatorRun } from "./operator-ux";
 import { summarizeTopologies } from "./topology";
 import { summarizeTrustAudit } from "./trust-audit";
 import { normalizeStateExplosionForEval } from "./state-explosion";
+import { normalizeEvidenceReasoningForEval } from "./evidence-reasoning";
 import { readJson, safeFileName, writeJson } from "./state";
 import { WorkflowRun } from "./types";
 
@@ -220,6 +221,11 @@ interface MultiAgentEvalNormalized {
   criticalPath?: string[];
   evidenceDigest?: string[];
   expansionRefs?: string[];
+  // Evidence Adoption Reasoning Chain (v0.1.26) artifacts. Optional on legacy
+  // snapshots; default to [] when absent so old fixtures stay loadable.
+  reasoningFreshness?: string[];
+  reasoningChains?: string[];
+  reasoningUnexplained?: string[];
 }
 
 const METRIC_SECTIONS: Array<{ metric: string; section: keyof MultiAgentEvalNormalized; title: string }> = [
@@ -259,7 +265,16 @@ const SUMMARY_METRIC_SECTIONS: Array<{ metric: string; section: keyof MultiAgent
   { metric: "expansion_ref_integrity", section: "expansionRefs", title: "Expansion ref integrity" }
 ];
 
-const ALL_METRIC_SECTIONS = [...METRIC_SECTIONS, ...SUMMARY_METRIC_SECTIONS];
+// v0.1.26 Evidence Adoption Reasoning Chain metrics. Kept separate (like the
+// v0.1.25 summary metrics) so assertNormalizedShape stays backward compatible
+// with pre-0.1.26 snapshots that lack these sections.
+const REASONING_METRIC_SECTIONS: Array<{ metric: string; section: keyof MultiAgentEvalNormalized; title: string }> = [
+  { metric: "reasoning_freshness", section: "reasoningFreshness", title: "Reasoning chain freshness" },
+  { metric: "reasoning_chain_parity", section: "reasoningChains", title: "Reasoning chain parity" },
+  { metric: "reasoning_unexplained_parity", section: "reasoningUnexplained", title: "Fail-closed unexplained parity" }
+];
+
+const ALL_METRIC_SECTIONS = [...METRIC_SECTIONS, ...SUMMARY_METRIC_SECTIONS, ...REASONING_METRIC_SECTIONS];
 
 export function createMultiAgentReplaySnapshot(run: WorkflowRun, options: Record<string, unknown> = {}): MultiAgentReplaySnapshot {
   const id = safeFileName(String(options.id || options.snapshot || `${run.id}-snapshot`));
@@ -554,6 +569,11 @@ export function reportMultiAgentEval(target: string): MultiAgentEvalReport {
     metricLine(score, "evidence_digest_parity"),
     metricLine(score, "expansion_ref_integrity"),
     "",
+    "## Evidence Adoption Reasoning Chain",
+    metricLine(score, "reasoning_freshness"),
+    metricLine(score, "reasoning_chain_parity"),
+    metricLine(score, "reasoning_unexplained_parity"),
+    "",
     "## Regression Findings",
     ...(score.findings.length ? score.findings.map((entry) => `- ${entry.severity.toUpperCase()} ${entry.category}: ${entry.reason}`) : ["- none"]),
     "",
@@ -824,7 +844,8 @@ function normalizeRun(run: WorkflowRun): MultiAgentEvalNormalized {
       evidenceCount: (entry.evidence || []).length
     }))),
     reportSections: reportSections(run),
-    ...normalizeStateExplosionForEval(run)
+    ...normalizeStateExplosionForEval(run),
+    ...normalizeEvidenceReasoningForEval(run)
   };
 }
 

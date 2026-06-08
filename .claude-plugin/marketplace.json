@@ -1,0 +1,18 @@
+{
+  "name": "cool-workflow",
+  "owner": {
+    "name": "COOLWHITE LLC"
+  },
+  "metadata": {
+    "description": "Agent Workflow SDK with TypeScript orchestration, dispatch, evidence-gated verification, state commits, scheduling, routines, multi-agent coordination, and MCP.",
+    "version": "0.1.26"
+  },
+  "plugins": [
+    {
+      "name": "cool-workflow",
+      "source": "./plugins/cool-workflow",
+      "description": "Agent Workflow SDK with TypeScript orchestration, dispatch, evidence-gated verification, state commits, scheduling, routines, multi-agent coordination, and MCP.",
+      "category": "productivity"
+    }
+  ]
+}

@@ -14,6 +14,12 @@ CW v0.1.25 extends this surface with State Explosion Management commands:
 `cw_multi_agent_graph_compact`. All responses keep source refs and expansion
 hints. See [state-explosion-management.7.md](state-explosion-management.7.md).
 
+CW v0.1.26 adds `multi-agent reasoning <run-id> [--evidence <id>] [--refresh]`
+(MCP: `cw_evidence_reasoning`, `cw_evidence_reasoning_refresh`), which explains
+*why* each evidence item was adopted, and an additive `rationaleStatus` field on
+`multi-agent evidence` rows. See
+[evidence-adoption-reasoning-chain.7.md](evidence-adoption-reasoning-chain.7.md).
+
 This is userland over the existing kernel records. The low-level topology,
 multi-agent, blackboard, candidate, audit, and commit primitives remain
 available, but agent hosts should use this high-level surface when driving a
