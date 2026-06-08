@@ -1,6 +1,6 @@
 {
   "name": "cool-workflow",
-  "version": "0.1.32",
+  "version": "0.1.33",
   "description": "Workflow App SDK and TypeScript orchestration runtime for agent workflows.",
   "type": "commonjs",
   "license": "BSD-2-Clause",
@@ -33,11 +33,12 @@
     "sync:project-index": "node scripts/sync-project-index.js",
     "bump:version": "node scripts/bump-version.js",
     "new:feature": "node scripts/new-feature.js",
+    "forward-ref": "node scripts/forward-ref-docs.js",
     "gen:manifests": "node scripts/gen-manifests.js",
     "parity:check": "node scripts/parity-check.js --check",
     "version:sync": "node scripts/version-sync-check.js",
     "release:check": "node scripts/release-check.js",
-    "test": "node dist/cli.js list && node test/state-node-smoke.js && node test/pipeline-runner-smoke.js && node test/error-feedback-smoke.js && node test/worker-isolation-smoke.js && node test/sandbox-profile-smoke.js && node test/execution-backends-smoke.js && node test/web-desktop-workbench-smoke.js && node test/candidate-scoring-smoke.js && node test/verifier-gated-commit-smoke.js && node test/security-trust-hardening-smoke.js && node test/workflow-app-sdk-smoke.js && node test/canonical-workflow-apps-smoke.js && node test/end-to-end-golden-path-smoke.js && node test/operator-ux-smoke.js && node test/mcp-app-surface-smoke.js && node test/multi-agent-runtime-core-smoke.js && node test/coordinator-blackboard-smoke.js && node test/multi-agent-topologies-smoke.js && node test/multi-agent-cli-mcp-surface-smoke.js && node test/multi-agent-operator-ux-smoke.js && node test/multi-agent-trust-policy-audit-smoke.js && node test/multi-agent-eval-replay-harness-smoke.js && node test/state-explosion-management-smoke.js && node test/evidence-adoption-reasoning-smoke.js && node test/robustness-hardening-smoke.js && node test/cli-mcp-parity-smoke.js && node test/run-registry-control-plane-smoke.js && node test/observability-cost-accounting-smoke.js && node test/team-collaboration-smoke.js && node test/run-fixture-compat-smoke.js && node test/dogfood-release-smoke.js",
+    "test": "node dist/cli.js list && node test/state-node-smoke.js && node test/pipeline-runner-smoke.js && node test/error-feedback-smoke.js && node test/worker-isolation-smoke.js && node test/sandbox-profile-smoke.js && node test/execution-backends-smoke.js && node test/web-desktop-workbench-smoke.js && node test/candidate-scoring-smoke.js && node test/verifier-gated-commit-smoke.js && node test/security-trust-hardening-smoke.js && node test/workflow-app-sdk-smoke.js && node test/canonical-workflow-apps-smoke.js && node test/end-to-end-golden-path-smoke.js && node test/operator-ux-smoke.js && node test/mcp-app-surface-smoke.js && node test/multi-agent-runtime-core-smoke.js && node test/coordinator-blackboard-smoke.js && node test/multi-agent-topologies-smoke.js && node test/multi-agent-cli-mcp-surface-smoke.js && node test/multi-agent-operator-ux-smoke.js && node test/multi-agent-trust-policy-audit-smoke.js && node test/multi-agent-eval-replay-harness-smoke.js && node test/state-explosion-management-smoke.js && node test/evidence-adoption-reasoning-smoke.js && node test/robustness-hardening-smoke.js && node test/cli-mcp-parity-smoke.js && node test/run-registry-control-plane-smoke.js && node test/observability-cost-accounting-smoke.js && node test/team-collaboration-smoke.js && node test/release-tooling-smoke.js && node test/run-fixture-compat-smoke.js && node test/dogfood-release-smoke.js",
     "eval:replay": "npm run build --silent && node test/multi-agent-eval-replay-harness-smoke.js"
   },
   "devDependencies": {

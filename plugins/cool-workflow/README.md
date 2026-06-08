@@ -543,3 +543,7 @@ Verification and synthesis tasks require a structured result block:
 }
 ```
 ````
+
+## Release Tooling (v0.1.33)
+
+the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a de-duplicated release gate. See release-tooling(7).

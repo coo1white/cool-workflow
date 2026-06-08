@@ -219,3 +219,7 @@ recording who approved the very artifact that shipped. Policy (required approval
 authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
 unchanged). The verbs are parity-gated and render read-only in the v0.1.30
 Workbench. See [Team Collaboration](team-collaboration.7.md).
+
+## Release Tooling (v0.1.33)
+
+the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a de-duplicated release gate. See release-tooling(7).
