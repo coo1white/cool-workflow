@@ -330,6 +330,21 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.selectCandidate(String(args.runId || ""), String(args.candidateId || ""), args);
       case "cw_candidate_reject":
         return runner.rejectCandidate(String(args.runId || ""), String(args.candidateId || ""), String(args.reason || "rejected"));
+      // ---- Team Collaboration (v0.1.32) ----
+      case "cw_approve":
+        return runner.collaborationApprove(String(args.runId || ""), String(args.targetKind || args.kind || ""), String(args.targetId || args.target || ""), args);
+      case "cw_reject":
+        return runner.collaborationReject(String(args.runId || ""), String(args.targetKind || args.kind || ""), String(args.targetId || args.target || ""), args);
+      case "cw_comment_add":
+        return runner.collaborationComment(String(args.runId || ""), String(args.targetKind || args.kind || ""), String(args.targetId || args.target || ""), args);
+      case "cw_comment_list":
+        return runner.collaborationCommentList(String(args.runId || ""), args);
+      case "cw_handoff":
+        return runner.collaborationHandoff(String(args.runId || ""), String(args.targetKind || args.kind || ""), String(args.targetId || args.target || ""), args);
+      case "cw_review_status":
+        return runner.reviewStatus(String(args.runId || ""), args);
+      case "cw_review_policy":
+        return runner.reviewPolicy(String(args.runId || ""), args);
       case "cw_feedback_list":
         return runner.listFeedback(String(args.runId || ""), args);
       case "cw_feedback_show":
@@ -446,6 +461,9 @@ function requiredArgsForTool(name: string): string[] {
   if (name === "cw_schedule_delete" || name === "cw_schedule_complete" || name === "cw_schedule_pause" || name === "cw_schedule_resume" || name === "cw_schedule_run_now") return ["id"];
   if (name === "cw_routine_delete") return ["id"];
   if (name === "cw_routine_fire") return ["kind"];
+  if (name === "cw_approve" || name === "cw_reject") return ["runId", "targetKind|kind", "targetId|target"];
+  if (name === "cw_comment_add") return ["runId", "targetKind|kind", "targetId|target", "body|message|text"];
+  if (name === "cw_handoff") return ["runId", "targetKind|kind", "targetId|target", "to|toActor"];
   if (name === "cw_run_show" || name === "cw_run_resume" || name === "cw_run_rerun") return ["runId"];
   if (name === "cw_run_archive") return ["runId|olderThanDays"];
   if (name === "cw_queue_show") return ["id"];
@@ -540,6 +558,9 @@ function requiredArgsForTool(name: string): string[] {
     "cw_candidate_rank",
     "cw_candidate_select",
     "cw_candidate_reject",
+    "cw_review_status",
+    "cw_review_policy",
+    "cw_comment_list",
     "cw_feedback_list",
     "cw_feedback_collect",
     "cw_feedback_task",
@@ -1112,6 +1133,55 @@ function toolDefinitions(): unknown[] {
       ...candidateIdSchema(),
       reason: stringSchema("Rejection reason")
     }),
+    tool("cw_approve", "Append a host-attested approval of a candidate/commit/selection (review gate counts it).", {
+      ...runIdSchema(),
+      ...collaborationTargetSchema(),
+      ...actorSchema(),
+      rationale: stringSchema("Approval rationale"),
+      supersedes: stringSchema("Prior approval record this revises")
+    }),
+    tool("cw_reject", "Append a host-attested rejection (a blocking veto) of a candidate/commit/selection.", {
+      ...runIdSchema(),
+      ...collaborationTargetSchema(),
+      ...actorSchema(),
+      rationale: stringSchema("Rejection rationale")
+    }),
+    tool("cw_comment_add", "Append a comment to a durable target (run/task/candidate/selection/commit/node).", {
+      ...runIdSchema(),
+      ...collaborationTargetSchema(),
+      ...actorSchema(),
+      body: stringSchema("Comment body"),
+      thread: stringSchema("Thread id"),
+      parent: stringSchema("Parent comment id")
+    }),
+    tool("cw_comment_list", "List append-only comments for a run (optionally one target).", {
+      ...runIdSchema(),
+      targetKind: stringSchema("Optional target kind filter"),
+      target: stringSchema("Optional target id filter")
+    }),
+    tool("cw_handoff", "Record an ownership transfer (from-actor → to-actor) of a run/task.", {
+      ...runIdSchema(),
+      ...collaborationTargetSchema(),
+      ...actorSchema(),
+      to: stringSchema("To-actor id"),
+      toRole: stringSchema("To-actor role"),
+      from: stringSchema("From-actor id (defaults to recorder)"),
+      reason: stringSchema("Handoff reason")
+    }),
+    tool("cw_review_status", "Read the derived per-target review state + collaboration timeline for a run.", {
+      ...runIdSchema(),
+      targetKind: stringSchema("Optional target kind filter"),
+      target: stringSchema("Optional target id filter"),
+      now: stringSchema("Injected ISO timestamp (deterministic reports)")
+    }),
+    tool("cw_review_policy", "Set the run's review-gate policy (data, not kernel): required approvals, authorized roles.", {
+      ...runIdSchema(),
+      requiredApprovals: numberSchema("Approvals required (0 = no gate)"),
+      authorizedRoles: stringSchema("Comma-separated authorized roles; * = any"),
+      allowSelfApproval: booleanSchema("Allow producers to approve their own work"),
+      requireAttestedActor: booleanSchema("Require host-attested approvers"),
+      appliesTo: stringSchema("Comma-separated target kinds (e.g. commit,selection)")
+    }),
     tool("cw_feedback_list", "List run feedback records.", {
       runId: stringSchema("Run id"),
       cwd: stringSchema("Run workspace"),
@@ -1351,6 +1421,24 @@ function candidateIdSchema(): Record<string, unknown> {
   return {
     ...runIdSchema(),
     candidateId: stringSchema("Candidate id")
+  };
+}
+
+function collaborationTargetSchema(): Record<string, unknown> {
+  return {
+    targetKind: stringSchema("Target kind: run|task|candidate|selection|commit|node"),
+    targetId: stringSchema("Target id")
+  };
+}
+
+function actorSchema(): Record<string, unknown> {
+  return {
+    actor: stringSchema("Actor id (absent => unattributed)"),
+    actorKind: stringSchema("Actor kind: operator|worker|role|membership|group|host|service"),
+    role: stringSchema("Authorizing role id/title"),
+    displayName: stringSchema("Actor display name"),
+    attested: booleanSchema("Host attests this identity's provenance"),
+    attestation: stringSchema("Attestation: host-attested|operator-recorded")
   };
 }
 

@@ -22,6 +22,7 @@ const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const worker_isolation_1 = require("./worker-isolation");
 const candidate_scoring_1 = require("./candidate-scoring");
+const collaboration_1 = require("./collaboration");
 const sandbox_profile_1 = require("./sandbox-profile");
 const execution_backend_1 = require("./execution-backend");
 const operator_ux_1 = require("./operator-ux");
@@ -750,6 +751,91 @@ class CoolWorkflowRunner {
         writeReport(run);
         (0, state_1.saveCheckpoint)(run);
         return candidate;
+    }
+    // ---- Team Collaboration (v0.1.32) -------------------------------------
+    // Append-only, host-attested (never authenticated) approvals/comments/handoffs
+    // + a derived review state. Both CLI and MCP route through these methods, so
+    // `cw <cmd> --json` is identical to `cw_<tool>` (the parity gate).
+    collaborationApprove(runId, targetKind, targetId, options = {}, decision = "approve") {
+        const run = this.loadRun(runId);
+        const record = (0, collaboration_1.recordApproval)(run, {
+            target: collaborationTarget(targetKind, targetId),
+            decision,
+            ...actorInputFrom(options),
+            rationale: stringOption(options.rationale) || stringOption(options.reason) || stringOption(options.message),
+            supersedes: stringOption(options.supersedes)
+        }, { persist: false });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return record;
+    }
+    collaborationReject(runId, targetKind, targetId, options = {}) {
+        return this.collaborationApprove(runId, targetKind, targetId, options, "reject");
+    }
+    collaborationComment(runId, targetKind, targetId, options = {}) {
+        const run = this.loadRun(runId);
+        const record = (0, collaboration_1.recordComment)(run, {
+            target: collaborationTarget(targetKind, targetId),
+            body: stringOption(options.body) || stringOption(options.message) || stringOption(options.text) || "",
+            threadId: stringOption(options.thread) || stringOption(options.threadId),
+            parentId: stringOption(options.parent) || stringOption(options.parentId),
+            ...actorInputFrom(options)
+        }, { persist: false });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return record;
+    }
+    collaborationCommentList(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const target = collaborationTargetMaybe(stringOption(options.targetKind) || stringOption(options.kind), stringOption(options.target) || stringOption(options.targetId));
+        const comments = (0, collaboration_1.listComments)(run, target);
+        return { schemaVersion: 1, surface: "collaboration", runId, target, count: comments.length, comments };
+    }
+    collaborationHandoff(runId, targetKind, targetId, options = {}) {
+        const run = this.loadRun(runId);
+        const record = (0, collaboration_1.recordHandoff)(run, {
+            target: collaborationTarget(targetKind, targetId),
+            toActor: stringOption(firstDefined(options, "to", "toActor")),
+            toActorKind: stringOption(firstDefined(options, "toKind", "to-kind", "toActorKind")),
+            toRole: stringOption(firstDefined(options, "toRole", "to-role")),
+            toDisplayName: stringOption(firstDefined(options, "toName", "to-name", "toDisplayName")),
+            toAttested: Boolean(firstDefined(options, "toAttested", "to-attested")),
+            fromActor: stringOption(firstDefined(options, "from", "fromActor")),
+            fromActorKind: stringOption(firstDefined(options, "fromKind", "from-kind", "fromActorKind")),
+            fromRole: stringOption(firstDefined(options, "fromRole", "from-role")),
+            reason: stringOption(options.reason) || stringOption(options.message) || "handoff",
+            ...actorInputFrom(options)
+        }, { persist: false });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return record;
+    }
+    reviewStatus(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const now = typeof options.now === "string" && options.now ? options.now : new Date().toISOString();
+        const target = collaborationTargetMaybe(stringOption(options.targetKind) || stringOption(options.kind), stringOption(options.target) || stringOption(options.targetId));
+        return (0, collaboration_1.buildReviewStatusReport)(run, { now, target });
+    }
+    reviewPolicy(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const allowSelf = firstDefined(options, "allowSelfApproval", "allow-self-approval");
+        const requireAttested = firstDefined(options, "requireAttestedActor", "require-attested-actor");
+        const policy = (0, collaboration_1.setReviewPolicy)(run, {
+            requiredApprovals: numberOption(firstDefined(options, "requiredApprovals", "required-approvals", "required", "approvals")),
+            authorizedRoles: stringOption(firstDefined(options, "authorizedRoles", "authorized-roles", "roles")),
+            allowSelfApproval: allowSelf === undefined ? undefined : Boolean(allowSelf),
+            requireAttestedActor: requireAttested === undefined ? undefined : Boolean(requireAttested),
+            appliesTo: stringOption(firstDefined(options, "appliesTo", "applies-to", "targets"))
+        }, { persist: false });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return { schemaVersion: 1, surface: "collaboration", runId, policy };
+    }
+    formatReviewStatus(report) {
+        return (0, collaboration_1.formatReviewStatus)(report);
+    }
+    formatCommentList(comments) {
+        return (0, collaboration_1.formatCommentList)(comments);
     }
     summarizeCandidateRecords(runId) {
         return (0, candidate_scoring_1.summarizeCandidates)(this.loadRun(runId));
@@ -1935,6 +2021,40 @@ function requiredStringOption(value, label) {
     if (!parsed)
         throw new Error(`Missing ${label}`);
     return parsed;
+}
+const COLLABORATION_TARGET_KINDS = ["run", "task", "candidate", "selection", "commit", "node"];
+function collaborationTarget(kind, id) {
+    const normalizedKind = stringOption(kind);
+    const normalizedId = stringOption(id);
+    if (!normalizedKind || !COLLABORATION_TARGET_KINDS.includes(normalizedKind)) {
+        throw new Error(`Target kind must be one of ${COLLABORATION_TARGET_KINDS.join("|")}`);
+    }
+    if (!normalizedId)
+        throw new Error("Missing target id");
+    return { kind: normalizedKind, id: normalizedId };
+}
+function collaborationTargetMaybe(kind, id) {
+    if (!kind && !id)
+        return undefined;
+    return collaborationTarget(String(kind || ""), String(id || ""));
+}
+function actorInputFrom(options) {
+    return {
+        actor: stringOption(firstDefined(options, "actor", "by")),
+        actorKind: stringOption(firstDefined(options, "actorKind", "actor-kind", "kind")),
+        role: stringOption(firstDefined(options, "role", "roleId", "role-id")),
+        displayName: stringOption(firstDefined(options, "displayName", "display-name", "name")),
+        attested: Boolean(options.attested),
+        attestation: stringOption(options.attestation)
+    };
+}
+/** First option value present under any of the given keys (camelCase or dashed). */
+function firstDefined(options, ...keys) {
+    for (const key of keys) {
+        if (options[key] !== undefined)
+            return options[key];
+    }
+    return undefined;
 }
 function graphViewOption(value) {
     const parsed = stringOption(value);

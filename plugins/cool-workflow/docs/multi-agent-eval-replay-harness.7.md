@@ -228,3 +228,16 @@ and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested us
 × a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
 verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
+
+
+## Team Collaboration (v0.1.32)
+
+v0.1.32 adds Team Collaboration: a host-attested actor and append-only
+approvals/rejections/comments/handoffs provenance-linked to a durable target,
+plus a review gate that STACKS ON the verifier gate — required approvals from
+authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
+and never instead of them, failing closed on quorum/authority/self-approval and
+recording who approved the very artifact that shipped. Policy (required approvals,
+authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
+unchanged). The verbs are parity-gated and render read-only in the v0.1.30
+Workbench. See [Team Collaboration](team-collaboration.7.md).

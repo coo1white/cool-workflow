@@ -25,7 +25,8 @@ Read these in order when you are new to CW:
 21. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
 22. [Web / Desktop Workbench](web-desktop-workbench.7.md) - a read-only, localhost-only human console rendering the run graph, blackboard, worker logs, candidate compare, and audit timeline over existing capability payloads — a third front door that holds no authoritative state.
 23. [Observability + Cost Accounting](observability-cost-accounting.7.md) - derived time/duration, failure/verifier/acceptance rates with sample counts and fail-closed `n/a`, plus host-attested token usage and attested-vs-estimated cost with explicit `unreported` coverage; pricing is policy as data.
-24. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+24. [Team Collaboration](team-collaboration.7.md) - host-attested actor, append-only approvals/rejections/comments/handoffs provenance-linked to durable targets, and a review gate that stacks on the verifier gate (required approvals from authorized roles, fail-closed quorum/authority/self-approval); policy is data.
+25. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

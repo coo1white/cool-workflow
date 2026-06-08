@@ -125,6 +125,14 @@ function buildPanels(runner: CoolWorkflowRunner, runId: string): WorkbenchRunPan
       ),
       policy: panel("audit.policy", `cw audit policy ${runId} --json`, "cw_audit_policy", () => runner.auditPolicy(runId)),
       judge: panel("audit.judge", `cw audit judge ${runId} --json`, "cw_audit_judge", () => runner.auditJudge(runId))
+    },
+    // Collaboration (v0.1.32) — derived per-target review state (pending/approved/
+    // rejected/blocked/unattributed, required vs recorded), the append-only
+    // approval/comment/handoff timeline, and the run owner. Read-only; equals
+    // `cw review status <run> --json` and `cw comment list <run> --json`.
+    collaboration: {
+      review: panel("review.status", `cw review status ${runId} --json`, "cw_review_status", () => runner.reviewStatus(runId)),
+      comments: panel("comment.list", `cw comment list ${runId} --json`, "cw_comment_list", () => runner.collaborationCommentList(runId))
     }
   };
 }

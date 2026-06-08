@@ -1,9 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ActorAttestation,
+  CollaborationTarget,
+  CollaborationTargetKind,
+  CommentRecord,
   DispatchManifest,
   LoadedWorkflowApp,
   MetricsReport,
+  ReviewStatusReport,
   RunSummary,
   RunTask,
   WorkflowAppSummary,
@@ -77,6 +82,16 @@ import {
   selectCandidate,
   summarizeCandidates
 } from "./candidate-scoring";
+import {
+  buildReviewStatusReport,
+  formatCommentList,
+  formatReviewStatus,
+  listComments,
+  recordApproval,
+  recordComment,
+  recordHandoff,
+  setReviewPolicy
+} from "./collaboration";
 import {
   listBundledSandboxProfiles,
   SandboxProfileError,
@@ -956,6 +971,124 @@ export class CoolWorkflowRunner {
     writeReport(run);
     saveCheckpoint(run);
     return candidate;
+  }
+
+  // ---- Team Collaboration (v0.1.32) -------------------------------------
+  // Append-only, host-attested (never authenticated) approvals/comments/handoffs
+  // + a derived review state. Both CLI and MCP route through these methods, so
+  // `cw <cmd> --json` is identical to `cw_<tool>` (the parity gate).
+
+  collaborationApprove(runId: string, targetKind: string, targetId: string, options: Record<string, unknown> = {}, decision: "approve" | "reject" = "approve") {
+    const run = this.loadRun(runId);
+    const record = recordApproval(
+      run,
+      {
+        target: collaborationTarget(targetKind, targetId),
+        decision,
+        ...actorInputFrom(options),
+        rationale: stringOption(options.rationale) || stringOption(options.reason) || stringOption(options.message),
+        supersedes: stringOption(options.supersedes)
+      },
+      { persist: false }
+    );
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  collaborationReject(runId: string, targetKind: string, targetId: string, options: Record<string, unknown> = {}) {
+    return this.collaborationApprove(runId, targetKind, targetId, options, "reject");
+  }
+
+  collaborationComment(runId: string, targetKind: string, targetId: string, options: Record<string, unknown> = {}) {
+    const run = this.loadRun(runId);
+    const record = recordComment(
+      run,
+      {
+        target: collaborationTarget(targetKind, targetId),
+        body: stringOption(options.body) || stringOption(options.message) || stringOption(options.text) || "",
+        threadId: stringOption(options.thread) || stringOption(options.threadId),
+        parentId: stringOption(options.parent) || stringOption(options.parentId),
+        ...actorInputFrom(options)
+      },
+      { persist: false }
+    );
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  collaborationCommentList(runId: string, options: Record<string, unknown> = {}): {
+    schemaVersion: 1;
+    surface: "collaboration";
+    runId: string;
+    target?: CollaborationTarget;
+    count: number;
+    comments: CommentRecord[];
+  } {
+    const run = this.loadRun(runId);
+    const target = collaborationTargetMaybe(stringOption(options.targetKind) || stringOption(options.kind), stringOption(options.target) || stringOption(options.targetId));
+    const comments = listComments(run, target);
+    return { schemaVersion: 1, surface: "collaboration", runId, target, count: comments.length, comments };
+  }
+
+  collaborationHandoff(runId: string, targetKind: string, targetId: string, options: Record<string, unknown> = {}) {
+    const run = this.loadRun(runId);
+    const record = recordHandoff(
+      run,
+      {
+        target: collaborationTarget(targetKind, targetId),
+        toActor: stringOption(firstDefined(options, "to", "toActor")),
+        toActorKind: stringOption(firstDefined(options, "toKind", "to-kind", "toActorKind")),
+        toRole: stringOption(firstDefined(options, "toRole", "to-role")),
+        toDisplayName: stringOption(firstDefined(options, "toName", "to-name", "toDisplayName")),
+        toAttested: Boolean(firstDefined(options, "toAttested", "to-attested")),
+        fromActor: stringOption(firstDefined(options, "from", "fromActor")),
+        fromActorKind: stringOption(firstDefined(options, "fromKind", "from-kind", "fromActorKind")),
+        fromRole: stringOption(firstDefined(options, "fromRole", "from-role")),
+        reason: stringOption(options.reason) || stringOption(options.message) || "handoff",
+        ...actorInputFrom(options)
+      },
+      { persist: false }
+    );
+    writeReport(run);
+    saveCheckpoint(run);
+    return record;
+  }
+
+  reviewStatus(runId: string, options: Record<string, unknown> = {}): ReviewStatusReport {
+    const run = this.loadRun(runId);
+    const now = typeof options.now === "string" && options.now ? options.now : new Date().toISOString();
+    const target = collaborationTargetMaybe(stringOption(options.targetKind) || stringOption(options.kind), stringOption(options.target) || stringOption(options.targetId));
+    return buildReviewStatusReport(run, { now, target });
+  }
+
+  reviewPolicy(runId: string, options: Record<string, unknown> = {}) {
+    const run = this.loadRun(runId);
+    const allowSelf = firstDefined(options, "allowSelfApproval", "allow-self-approval");
+    const requireAttested = firstDefined(options, "requireAttestedActor", "require-attested-actor");
+    const policy = setReviewPolicy(
+      run,
+      {
+        requiredApprovals: numberOption(firstDefined(options, "requiredApprovals", "required-approvals", "required", "approvals")),
+        authorizedRoles: stringOption(firstDefined(options, "authorizedRoles", "authorized-roles", "roles")),
+        allowSelfApproval: allowSelf === undefined ? undefined : Boolean(allowSelf),
+        requireAttestedActor: requireAttested === undefined ? undefined : Boolean(requireAttested),
+        appliesTo: stringOption(firstDefined(options, "appliesTo", "applies-to", "targets"))
+      },
+      { persist: false }
+    );
+    writeReport(run);
+    saveCheckpoint(run);
+    return { schemaVersion: 1 as const, surface: "collaboration" as const, runId, policy };
+  }
+
+  formatReviewStatus(report: ReviewStatusReport): string {
+    return formatReviewStatus(report);
+  }
+
+  formatCommentList(comments: CommentRecord[]): string {
+    return formatCommentList(comments);
   }
 
   summarizeCandidateRecords(runId: string): ReturnType<typeof summarizeCandidates> {
@@ -2228,6 +2361,49 @@ function requiredStringOption(value: unknown, label: string): string {
   const parsed = stringOption(value);
   if (!parsed) throw new Error(`Missing ${label}`);
   return parsed;
+}
+
+const COLLABORATION_TARGET_KINDS: CollaborationTargetKind[] = ["run", "task", "candidate", "selection", "commit", "node"];
+
+function collaborationTarget(kind: string, id: string): CollaborationTarget {
+  const normalizedKind = stringOption(kind);
+  const normalizedId = stringOption(id);
+  if (!normalizedKind || !(COLLABORATION_TARGET_KINDS as string[]).includes(normalizedKind)) {
+    throw new Error(`Target kind must be one of ${COLLABORATION_TARGET_KINDS.join("|")}`);
+  }
+  if (!normalizedId) throw new Error("Missing target id");
+  return { kind: normalizedKind as CollaborationTargetKind, id: normalizedId };
+}
+
+function collaborationTargetMaybe(kind: string | undefined, id: string | undefined): CollaborationTarget | undefined {
+  if (!kind && !id) return undefined;
+  return collaborationTarget(String(kind || ""), String(id || ""));
+}
+
+function actorInputFrom(options: Record<string, unknown>): {
+  actor?: string;
+  actorKind?: string;
+  role?: string;
+  displayName?: string;
+  attested?: boolean;
+  attestation?: ActorAttestation;
+} {
+  return {
+    actor: stringOption(firstDefined(options, "actor", "by")),
+    actorKind: stringOption(firstDefined(options, "actorKind", "actor-kind", "kind")),
+    role: stringOption(firstDefined(options, "role", "roleId", "role-id")),
+    displayName: stringOption(firstDefined(options, "displayName", "display-name", "name")),
+    attested: Boolean(options.attested),
+    attestation: stringOption(options.attestation) as ActorAttestation | undefined
+  };
+}
+
+/** First option value present under any of the given keys (camelCase or dashed). */
+function firstDefined(options: Record<string, unknown>, ...keys: string[]): unknown {
+  for (const key of keys) {
+    if (options[key] !== undefined) return options[key];
+  }
+  return undefined;
 }
 
 function graphViewOption(value: unknown): GraphView {

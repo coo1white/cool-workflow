@@ -240,6 +240,25 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
     }
   }
 
+  // Team Collaboration (v0.1.32) is purely additive: pre-v0.1.32 runs carry no
+  // `collaboration` and load unchanged (absent => no approvals, no review gate).
+  // When present, normalize its append-only arrays so a partial object is honest.
+  if (state.collaboration !== undefined) {
+    if (!isRecord(state.collaboration)) {
+      context.errors.push("collaboration must be an object when present.");
+      setValue(state, "collaboration", { schemaVersion: 1, approvals: [], comments: [], handoffs: [] }, context, "collaboration must be an object");
+    } else {
+      const collaboration = state.collaboration as Record<string, unknown>;
+      setDefault(collaboration, "schemaVersion", 1, context, "collaboration.schemaVersion is required", "collaboration.schemaVersion");
+      for (const key of ["approvals", "comments", "handoffs"]) {
+        if (!Array.isArray(collaboration[key])) {
+          if (collaboration[key] !== undefined) context.errors.push(`collaboration.${key} must be an array when present.`);
+          setValue(collaboration, key, [], context, `collaboration.${key} must be an array`, `collaboration.${key}`);
+        }
+      }
+    }
+  }
+
   if (!Array.isArray(state.phases)) {
     if (state.phases !== undefined) context.errors.push("phases must be an array when present.");
     const phases = derivePhases(Array.isArray(state.tasks) ? state.tasks : []);

@@ -14,6 +14,7 @@ const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const error_feedback_1 = require("./error-feedback");
 const trust_audit_1 = require("./trust-audit");
+const collaboration_1 = require("./collaboration");
 class CommitGateError extends Error {
     structured;
     feedbackId;
@@ -82,6 +83,7 @@ function commitState(run, input) {
                 auditEventIds: audit ? [...(gate.rationale.auditEventIds || []), audit.id] : gate.rationale.auditEventIds
             }
             : undefined,
+        review: gate.review,
         metadata: {
             ...(options.metadata || {}),
             ...gate.metadata
@@ -255,6 +257,25 @@ function resolveCommitGate(run, options) {
             }));
         }
     }
+    // REVIEW GATE — POLICY layered ON TOP of the verifier MECHANISM. These errors
+    // can only ADD constraints (required approvals from authorized roles); they
+    // never relax verifier acceptance. Empty unless a policy applies to commits.
+    // Fail closed: a commit lacking its required approvals is BLOCKED here.
+    const reviewErrors = (0, collaboration_1.reviewGateErrors)(run, {
+        targetKind: "commit",
+        candidateId,
+        selectionId,
+        selfActorIds: (0, collaboration_1.selfActorIdsForCandidate)(run, candidateId, selectionId)
+    });
+    errors.push(...reviewErrors);
+    const review = errors.length
+        ? undefined
+        : (0, collaboration_1.commitReviewProvenance)(run, {
+            targetKind: "commit",
+            candidateId,
+            selectionId,
+            selfActorIds: (0, collaboration_1.selfActorIdsForCandidate)(run, candidateId, selectionId)
+        });
     return {
         verifierGated: true,
         verifierNodeId,
@@ -264,6 +285,7 @@ function resolveCommitGate(run, options) {
         evidence: verifierNode?.evidence || [],
         errors,
         rationale,
+        review,
         metadata: {
             ...metadata,
             verifierNodeId,

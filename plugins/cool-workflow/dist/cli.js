@@ -722,6 +722,58 @@ async function main() {
                     throw new Error("Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
             }
         }
+        // ---- Team Collaboration (v0.1.32) ------------------------------------
+        case "approve": {
+            const [targetKind, runId, targetId] = args.positionals;
+            printJson(runner.collaborationApprove(required(runId, "run id"), required(targetKind, "target kind (candidate|commit|selection|run|task|node)"), required(targetId, "target id"), args.options));
+            return;
+        }
+        case "reject": {
+            const [targetKind, runId, targetId] = args.positionals;
+            printJson(runner.collaborationReject(required(runId, "run id"), required(targetKind, "target kind (candidate|commit|selection|run|task|node)"), required(targetId, "target id"), args.options));
+            return;
+        }
+        case "comment": {
+            const [subcommand, ...rest] = args.positionals;
+            if (subcommand === "add") {
+                const [targetKind, runId, targetId] = rest;
+                printJson(runner.collaborationComment(required(runId, "run id"), required(targetKind, "target kind"), required(targetId, "target id"), args.options));
+                return;
+            }
+            if (subcommand === "list") {
+                const result = runner.collaborationCommentList(required(rest[0], "run id"), args.options);
+                if (wantsJson(args.options))
+                    printJson(result);
+                else
+                    process.stdout.write(`${runner.formatCommentList(result.comments)}\n`);
+                return;
+            }
+            throw new Error("Usage: cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]");
+        }
+        case "handoff": {
+            const [targetKind, runId, targetIdRaw] = args.positionals;
+            const kind = required(targetKind, "target kind (run|task|candidate|commit|node)");
+            const rid = required(runId, "run id");
+            const targetId = targetIdRaw || (kind === "run" ? rid : undefined);
+            printJson(runner.collaborationHandoff(rid, kind, required(targetId, "target id"), args.options));
+            return;
+        }
+        case "review": {
+            const [subcommand, runId] = args.positionals;
+            if (subcommand === "status") {
+                const report = runner.reviewStatus(required(runId, "run id"), args.options);
+                if (wantsJson(args.options))
+                    printJson(report);
+                else
+                    process.stdout.write(`${runner.formatReviewStatus(report)}\n`);
+                return;
+            }
+            if (subcommand === "policy") {
+                printJson(runner.reviewPolicy(required(runId, "run id"), args.options));
+                return;
+            }
+            throw new Error("Usage: cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection");
+        }
         case "loop": {
             printJson(scheduler.create({ ...args.options, kind: "loop" }));
             return;
