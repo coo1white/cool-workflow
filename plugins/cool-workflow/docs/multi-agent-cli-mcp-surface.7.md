@@ -208,3 +208,7 @@ Workbench. See [Team Collaboration](team-collaboration.7.md).
 ## Release Tooling (v0.1.33)
 
 the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a de-duplicated release gate. See release-tooling(7).
+
+## Real Execution Backend Integrations (v0.1.34)
+
+container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).

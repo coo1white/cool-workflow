@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.34
+
+- Added Real Execution Backend Integrations: container/remote/ci backends really drive docker/podman, a remote runner, and a CI job — opt-in, fail-closed, byte-stable evidence vs node
+
 ## 0.1.33
 
 - Added Release Tooling: one-command version bump across every surface plus a per-feature scaffolder, and a de-duplicated release gate

@@ -512,26 +512,56 @@ function delegate(
       { ready: probe.ready }
     );
   }
+  // A delegating backend that really executes needs a command. Refuse otherwise
+  // rather than fabricate a completed run.
+  if (!request.command) {
+    return refusedEnvelope(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to delegate`, {
+      ready: probe.ready
+    });
+  }
   const attestation = attestSandbox(descriptor, policy, {
     mode: "execute",
     ready: true,
     handle,
     notes: [`delegated: ${descriptor.id} -> ${handle.ref}`]
   });
+
+  // v0.1.34: drivers REALLY execute. The result/evidence are the SAME canonical
+  // shape executeLocal produces (command:/exitCode:/stdoutSha256:), so a delegated
+  // run is byte-stable against node; the handle lives in provenance, NEVER in
+  // evidence. Any runtime/transport failure FAILS CLOSED (refused), never a
+  // fabricated completion.
+  return descriptor.id === "container"
+    ? runContainer(descriptor, policy, request, label, handle, attestation)
+    : runHttpDelegation(descriptor, policy, request, label, handle, attestation);
+}
+
+/** Build the canonical completed/failed envelope shared by every real backend —
+ *  identical to executeLocal's, so evidence is byte-stable across backends. The
+ *  handle is recorded in provenance only. */
+function delegatedEnvelope(
+  descriptor: BackendDescriptor,
+  label: string,
+  handle: BackendExecutionHandle,
+  attestation: SandboxAttestation,
+  command: string,
+  args: string[],
+  exitCode: number | null,
+  stdout: string
+): ExecutionResultEnvelope {
+  const digest = sha256(stdout);
+  const status: ExecutionResultEnvelope["status"] = exitCode === 0 ? "completed" : "failed";
   const evidence = [
-    `command:${[request.command, ...(request.args || [])].filter(Boolean).join(" ")}`.trim(),
-    `delegated:${descriptor.id}`,
-    `handle:${handle.ref}`
+    `command:${[command, ...args].join(" ")}`,
+    `exitCode:${exitCode === null ? "null" : exitCode}`,
+    `stdoutSha256:${digest}`
   ];
-  const resultEnvelope: ResultEnvelope = {
-    summary: `${label}: delegated to ${descriptor.id} runner (${handle.ref})`,
-    findings: [],
-    evidence
-  };
+  const summary =
+    status === "completed" ? `${label}: completed (exit 0)` : `${label}: failed (exit ${exitCode === null ? "null" : exitCode})`;
   return {
     schemaVersion: 1,
-    status: "completed",
-    result: resultEnvelope,
+    status,
+    result: { summary, findings: [], evidence },
     evidence,
     provenance: {
       schemaVersion: 1,
@@ -542,6 +572,177 @@ function delegate(
       handle
     }
   };
+}
+
+/** container — real `docker`/`podman run` under the sandbox contract. Maps the
+ *  profile onto container isolation (network namespace, read-only workspace mount,
+ *  filtered env) and captures the container command's exit + stdout digest. Fails
+ *  closed when no runtime is on PATH, the daemon is unreachable, or the runtime
+ *  itself errors (exit 125) — distinct from the command's own non-zero exit. */
+function runContainer(
+  descriptor: BackendDescriptor,
+  policy: ResolvedSandboxPolicy,
+  request: ExecutionRequest,
+  label: string,
+  handle: BackendExecutionHandle,
+  attestation: SandboxAttestation
+): ExecutionResultEnvelope {
+  const runtime = hasExecutable("docker") ? "docker" : hasExecutable("podman") ? "podman" : undefined;
+  if (!runtime) {
+    return refusedEnvelope(descriptor, policy, label, "runtime-unavailable", "no container runtime (docker/podman) on PATH", {
+      attestation
+    });
+  }
+  // Daemon pre-flight. A present CLI with an UNREACHABLE daemon must fail closed —
+  // never be mistaken for a container command that ran and exited non-zero (the
+  // run exit code is not a reliable daemon-down signal across runtimes). `version
+  // --format {{.Server.Version}}` returns the SERVER version only when reachable.
+  const ping = spawnSync(runtime, ["version", "--format", "{{.Server.Version}}"], { encoding: "utf8", timeout: 15000 });
+  const daemonUp = !ping.error && ping.status === 0 && String(ping.stdout || "").trim().length > 0;
+  if (!daemonUp) {
+    const why = (String(ping.stderr || "").split("\n").find((line) => line.trim()) || `${runtime} daemon not reachable`).trim();
+    return refusedEnvelope(descriptor, policy, label, "runtime-unavailable", `${runtime} daemon is not reachable: ${why}`, {
+      attestation
+    });
+  }
+  const command = String(request.command);
+  const args = (request.args || []).map(String);
+  const cwd = request.cwd || process.cwd();
+
+  const runArgs = ["run", "--rm"];
+  // network: enforce isolation when the policy restricts it (container kernel
+  // namespace genuinely enforces this — that is why `network` is declared enforce).
+  if (policy.network.mode !== "any") runArgs.push("--network", "none");
+  // read/write: mount the workspace read-only at the same path; CW's own
+  // worker-output acceptance still bounds writes. (Write-through mounts can be a
+  // later refinement; read-only is the safe default.)
+  runArgs.push("-v", `${cwd}:${cwd}:ro`, "-w", cwd);
+  // env: only the explicitly exposed names cross into the container — the image
+  // provides its own PATH/HOME, so we never inject host-specific base env.
+  if (policy.env.inherit || (policy.env.expose && policy.env.expose.length)) {
+    for (const name of policy.env.inherit ? Object.keys(process.env) : policy.env.expose || []) {
+      if (name === "PATH" || name === "HOME") continue;
+      const value = process.env[name];
+      if (value !== undefined) runArgs.push("-e", `${name}=${value}`);
+    }
+  }
+  runArgs.push(handle.ref, command, ...args);
+
+  const result = spawnSync(runtime, runArgs, {
+    cwd,
+    encoding: "utf8",
+    timeout: request.timeoutMs,
+    maxBuffer: 32 * 1024 * 1024
+  });
+
+  if (result.error) {
+    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `${runtime} run failed: ${messageOf(result.error)}`, {
+      attestation
+    });
+  }
+  const exitCode = typeof result.status === "number" ? result.status : null;
+  // docker/podman exit 125 = the runtime itself failed (daemon down, bad image,
+  // bad flags) — NOT the container command's exit. Fail closed, do not record a
+  // command result that never ran.
+  if (exitCode === 125 || exitCode === null) {
+    const why = (String(result.stderr || "").split("\n").find((line) => line.trim()) || "container runtime error").trim();
+    return refusedEnvelope(descriptor, policy, label, "runtime-unavailable", `${runtime} could not run the container: ${why}`, {
+      attestation
+    });
+  }
+  return delegatedEnvelope(descriptor, label, handle, attestation, command, args, exitCode, String(result.stdout || ""));
+}
+
+// A self-contained Node child that performs the remote/CI delegation: it reads a
+// JSON job on stdin, POSTs it to the endpoint, optionally polls a returned jobId,
+// and prints `{ exitCode, stdout }` (or `{ error }`) on stdout. Node-only (global
+// fetch, node >=18), so the driver stays portable and synchronous from CW's view.
+const HTTP_DELEGATE_CHILD = `
+(async () => {
+  const read = () => new Promise((res) => { let b = ""; process.stdin.on("data", (c) => (b += c)); process.stdin.on("end", () => res(b)); });
+  try {
+    const job = JSON.parse((await read()) || "{}");
+    const endpoint = process.env.CW_DELEGATE_ENDPOINT;
+    if (!endpoint) throw new Error("no endpoint");
+    const post = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(job) });
+    if (!post.ok) throw new Error("runner responded " + post.status);
+    let data = await post.json();
+    // Poll a returned jobId until the runner reports done.
+    let guard = 0;
+    while (data && data.jobId && data.done !== true && guard++ < 600) {
+      await new Promise((r) => setTimeout(r, 1000));
+      const poll = await fetch(endpoint + (endpoint.includes("?") ? "&" : "?") + "jobId=" + encodeURIComponent(data.jobId));
+      if (!poll.ok) throw new Error("poll responded " + poll.status);
+      data = await poll.json();
+    }
+    if (typeof data.exitCode !== "number") throw new Error("runner did not report an exitCode");
+    process.stdout.write(JSON.stringify({ exitCode: data.exitCode, stdout: String(data.stdout || "") }));
+  } catch (e) {
+    process.stdout.write(JSON.stringify({ error: e && e.message ? e.message : String(e) }));
+  }
+})();
+`;
+
+/** remote / ci — real HTTP delegation. POSTs the job to the configured endpoint
+ *  (and polls a returned jobId) via a Node child, then records the runner's exit +
+ *  stdout digest as canonical evidence. Fails closed when the endpoint is missing,
+ *  unreachable, errors, or returns no exitCode. Untestable without a live runner,
+ *  but the refusal paths are exercised by the smoke. */
+function runHttpDelegation(
+  descriptor: BackendDescriptor,
+  policy: ResolvedSandboxPolicy,
+  request: ExecutionRequest,
+  label: string,
+  handle: BackendExecutionHandle,
+  attestation: SandboxAttestation
+): ExecutionResultEnvelope {
+  const endpoint = handle.endpoint;
+  if (!endpoint) {
+    return refusedEnvelope(descriptor, policy, label, "delegation-target-missing", `Backend ${descriptor.id} has no endpoint to POST to`, {
+      attestation
+    });
+  }
+  const command = String(request.command);
+  const args = (request.args || []).map(String);
+  const job = JSON.stringify({
+    command,
+    args,
+    env: buildChildEnv(policy),
+    sandboxProfileId: policy.id,
+    jobId: handle.jobId
+  });
+
+  const child = spawnSync(process.execPath, ["-e", HTTP_DELEGATE_CHILD], {
+    input: job,
+    env: { ...process.env, CW_DELEGATE_ENDPOINT: endpoint },
+    encoding: "utf8",
+    timeout: request.timeoutMs || 120000,
+    maxBuffer: 32 * 1024 * 1024
+  });
+  if (child.error) {
+    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `${descriptor.id} delegation failed: ${messageOf(child.error)}`, {
+      attestation
+    });
+  }
+  let parsed: { exitCode?: number; stdout?: string; error?: string };
+  try {
+    parsed = JSON.parse(String(child.stdout || "").trim() || "{}");
+  } catch {
+    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `${descriptor.id} runner returned an unparseable response`, {
+      attestation
+    });
+  }
+  if (parsed.error || typeof parsed.exitCode !== "number") {
+    return refusedEnvelope(
+      descriptor,
+      policy,
+      label,
+      "delegation-failed",
+      `${descriptor.id} runner error: ${parsed.error || "no exitCode reported"}`,
+      { attestation }
+    );
+  }
+  return delegatedEnvelope(descriptor, label, handle, attestation, command, args, parsed.exitCode, String(parsed.stdout || ""));
 }
 
 function delegationHandle(descriptor: BackendDescriptor, request: ExecutionRequest): BackendExecutionHandle | undefined {
@@ -646,7 +847,7 @@ export function backendProbePayload(
 // Helpers.
 // ---------------------------------------------------------------------------
 
-function buildChildEnv(policy: ResolvedSandboxPolicy): NodeJS.ProcessEnv {
+export function buildChildEnv(policy: ResolvedSandboxPolicy): NodeJS.ProcessEnv {
   if (policy.env.inherit) return { ...process.env };
   // A minimal base so the interpreter resolves; everything else is filtered per
   // the env policy. PATH is always provided; HOME is included for tool resolution.
@@ -693,7 +894,7 @@ function hasExecutable(name: string): boolean {
   return false;
 }
 
-function sha256(value: string): string {
+export function sha256(value: string): string {
   return `sha256:${crypto.createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
 
