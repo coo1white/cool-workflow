@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.1.32
+
+- Added Team Collaboration: the human-decision layer on top of the existing
+  verifier-gated runtime. A host-attested `Actor`, append-only approvals,
+  rejections, comments, and handoffs, and a review gate that STACKS ON the verifier
+  gate. Before v0.1.32 there was no review/approval/comment/handoff/identity
+  concept; the foundations (trust-audit `actor`, candidate `selectedBy`, role
+  policies, verifier-gated commits) already existed, and this release layers on top
+  of them without changing them.
+- IDENTITY IS ATTESTED, NOT AUTHENTICATED. An `Actor` is host-attested provenance
+  (`host-attested`/`operator-recorded`), never an authenticated principal — CW is
+  not an auth server. An absent identity is the explicit `unattributed` actor
+  (`{ kind: "unattributed", attested: false }`), never a fabricated one;
+  unattributed approvals surface honestly and never count. Extends the trust-audit
+  `actor` field and the v0.1.29/v0.1.31 attestation pattern.
+- APPEND-ONLY, PROVENANCE-LINKED. `approve`/`reject`/`comment add`/`handoff` append
+  records to `run.collaboration` (additive/optional state; pre-v0.1.32 runs load
+  unchanged) and link each to a `collaboration.*` trust-audit event. The approved
+  artifact is NEVER edited in place — "who approved what" is a provenance link, not
+  a field overwrite; a correction is a NEW record via `supersedes`. "Who approved
+  which candidate/commit" is answered from the records.
+- REVIEW GATES STACK ON THE VERIFIER GATE; THEY NEVER BYPASS IT. `reviewGateErrors`
+  runs INSIDE `resolveCommitGate` (and `selectCandidate`) AFTER the verifier checks
+  and can only ADD a required-approvals constraint. An approval can never turn an
+  unverified result into a committed one. A gate-satisfied commit is stamped with a
+  `CommitReviewProvenance` recording WHO approved the very artifact that shipped.
+- FAIL CLOSED ON AUTHORITY AND QUORUM. `deriveReviewState` counts only distinct,
+  attested, authorized, non-self approvals; short of `requiredApprovals` the status
+  is `pending`/`blocked`/`unattributed`/`rejected` and the commit is BLOCKED, the
+  failure recording exactly which approvals are missing. Self-approval, quorum,
+  authorized roles, and attestation requirements are configurable POLICY as data
+  (`review policy`), default off (`requiredApprovals: 0`).
+- COLLABORATION IS STATE, NOT CHAT. Comments attach to a durable target
+  (`run|task|candidate|selection|commit|node`); a handoff is an explicit ownership
+  transfer (from-actor → to-actor, reason) and the current owner is DERIVED from the
+  latest handoff, never overwritten. A `ReviewStatusReport` exposes per-target
+  review state and a chronological timeline.
+- ONE SOURCE, EVERY SURFACE. `approve`, `reject`, `comment add|list`, `handoff`,
+  `review status`, and `review policy` are declared once in the capability registry,
+  so `cw <cmd> --json` is identical to `cw_<tool>` (read-only `review status`/
+  `comment list` proven byte-for-byte by the payload-identity probe). The v0.1.30
+  Workbench renders a read-only review/collaboration panel; the v0.1.31 metrics
+  report adds derived approval-rate, time-to-approval, handoff-count, and
+  reviewer-count from recorded timestamps (deterministic over a fixed snapshot).
+
 ## 0.1.31
 
 - Added Observability + Cost Accounting: a derived per-run report

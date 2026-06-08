@@ -10,7 +10,9 @@ const PANEL_GROUPS = [
   { key: "blackboard", label: "Blackboard", panels: ["coordinator", "digest", "graph"] },
   { key: "worker", label: "Worker logs", panels: ["summary"] },
   { key: "candidate", label: "Candidate compare", panels: ["summary", "reasoning"] },
-  { key: "audit", label: "Audit timeline", panels: ["summary", "multiAgent", "policy", "judge"] }
+  { key: "audit", label: "Audit timeline", panels: ["summary", "multiAgent", "policy", "judge"] },
+  { key: "metrics", label: "Metrics & cost", panels: ["report"] },
+  { key: "collaboration", label: "Review & collaboration", panels: ["review", "comments"] }
 ];
 
 const state = { activeRunId: null, activeTab: "graph" };

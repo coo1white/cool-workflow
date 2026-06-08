@@ -42,6 +42,7 @@ exports.deriveFailureRate = deriveFailureRate;
 exports.deriveVerifierPassRate = deriveVerifierPassRate;
 exports.deriveCandidateAcceptanceRate = deriveCandidateAcceptanceRate;
 exports.deriveMetricsReport = deriveMetricsReport;
+exports.deriveCollaborationMetrics = deriveCollaborationMetrics;
 exports.metricsDir = metricsDir;
 exports.loadPersistedMetricsFingerprint = loadPersistedMetricsFingerprint;
 exports.loadPersistedMetricsReport = loadPersistedMetricsReport;
@@ -443,11 +444,52 @@ function deriveMetricsReport(run, options) {
         usage: totals,
         cost,
         attestedUsage: rows,
+        collaboration: deriveCollaborationMetrics(run),
         nextAction: totals.unreportedUnits > 0 && totals.attestedUnits === 0
             ? "No attested usage yet — record host usage on result/worker intake (cw result ... --usage-input-tokens N --usage-output-tokens M --usage-model ID)."
             : `node scripts/cw.js metrics show ${run.id} --json`
     };
     return report;
+}
+/** v0.1.32 collaboration metrics — counts, approval rate, and time-to-approval,
+ *  all from append-only records + recorded timestamps. The ONLY now-derived
+ *  field anywhere in the report remains `generatedAt`; these are byte-stable. */
+function deriveCollaborationMetrics(run) {
+    const collab = run.collaboration;
+    const approvalRecords = (collab?.approvals || []).filter((record) => record.decision === "approve");
+    const rejectionRecords = (collab?.approvals || []).filter((record) => record.decision === "reject");
+    const reviewers = new Set(approvalRecords.map((record) => record.actor?.id).filter((id) => id && id !== "unattributed"));
+    const samples = [];
+    for (const record of approvalRecords) {
+        const createdAt = targetCreatedAt(run, record.target);
+        const ms = durationMs(createdAt, record.createdAt);
+        if (ms !== null)
+            samples.push(ms);
+    }
+    const meanMs = samples.length ? Math.round(samples.reduce((acc, ms) => acc + ms, 0) / samples.length) : null;
+    const maxMs = samples.length ? Math.max(...samples) : null;
+    return {
+        approvals: approvalRecords.length,
+        rejections: rejectionRecords.length,
+        comments: (collab?.comments || []).length,
+        handoffs: (collab?.handoffs || []).length,
+        reviewers: reviewers.size,
+        approvalRate: rate("approval", approvalRecords.length, approvalRecords.length + rejectionRecords.length, {
+            approve: approvalRecords.length,
+            reject: rejectionRecords.length
+        }),
+        timeToApproval: { samples: samples.length, meanMs, maxMs }
+    };
+}
+/** Recorded creation timestamp of an approval's target (for time-to-approval). */
+function targetCreatedAt(run, target) {
+    if (target.kind === "candidate")
+        return (run.candidates || []).find((entry) => entry.id === target.id)?.createdAt;
+    if (target.kind === "commit")
+        return (run.commits || []).find((entry) => entry.id === target.id)?.createdAt;
+    if (target.kind === "selection")
+        return (run.candidateSelections || []).find((entry) => entry.id === target.id)?.selectedAt;
+    return undefined;
 }
 // ---------------------------------------------------------------------------
 // Persistence — a rebuildable, fingerprinted snapshot (fail-closed freshness).
@@ -788,6 +830,8 @@ function formatMetricsReport(report) {
     lines.push(`  failure-rate:    ${formatRate(report.rates.failure)}`);
     lines.push(`  verifier-pass:   ${formatRate(report.rates.verifierPass)}`);
     lines.push(`  cand-acceptance: ${formatRate(report.rates.candidateAcceptance)}`);
+    const collab = report.collaboration;
+    lines.push(`  collaboration:   approvals=${collab.approvals} rejections=${collab.rejections} comments=${collab.comments} handoffs=${collab.handoffs} reviewers=${collab.reviewers}  approval-rate=${formatRate(collab.approvalRate)}  time-to-approval=${collab.timeToApproval.meanMs === null ? "n/a" : `${Math.round(collab.timeToApproval.meanMs / 1000)}s`} (${collab.timeToApproval.samples} samples)`);
     const cov = report.usage.coverage === null ? "n/a" : `${(report.usage.coverage * 100).toFixed(0)}%`;
     lines.push(`  usage: attested=${report.usage.attestedUnits}/${report.usage.units} units (coverage ${cov}), unreported=${report.usage.unreportedUnits}; tokens in=${report.usage.inputTokens} out=${report.usage.outputTokens} total=${report.usage.totalTokens}`);
     lines.push(`  cost:  ${formatCost(report.cost)}`);

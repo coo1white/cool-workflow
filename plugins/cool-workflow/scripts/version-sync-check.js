@@ -7,7 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.31";
+const VERSION = "0.1.32";
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",
@@ -81,6 +81,13 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/observability-cost-accounting.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "observability-cost-accounting.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/observability-cost-accounting-smoke.js", "observability-cost-accounting-smoke", checks);
+  checkIncludes("plugins/cool-workflow/docs/team-collaboration.7.md", "Team Collaboration", checks);
+  checkIncludes("plugins/cool-workflow/docs/team-collaboration.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "team-collaboration.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/team-collaboration-smoke.js", "team-collaboration-smoke", checks);
+  checkIncludes("plugins/cool-workflow/src/collaboration.ts", "deriveReviewState", checks);
+  checkIncludes("plugins/cool-workflow/dist/collaboration.js", "deriveReviewState", checks);
+  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "review.status", checks);
   checkIncludes("plugins/cool-workflow/src/observability.ts", "deriveMetricsReport", checks);
   checkIncludes("plugins/cool-workflow/dist/observability.js", "deriveMetricsReport", checks);
   checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "metrics.show", checks);

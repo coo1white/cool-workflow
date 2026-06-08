@@ -19,6 +19,7 @@ const error_feedback_1 = require("./error-feedback");
 const state_1 = require("./state");
 const state_node_1 = require("./state-node");
 const trust_audit_1 = require("./trust-audit");
+const collaboration_1 = require("./collaboration");
 exports.CANDIDATE_SCHEMA_VERSION = 1;
 function createCandidateScoring(options = {}) {
     return {
@@ -242,6 +243,16 @@ function selectCandidate(run, candidateId, options = {}, scoringOptions = {}) {
         failures.push(error("candidate-selection-score-below-threshold", `Candidate ${candidateId} score is below threshold`, {
             details: { normalized: bestScore?.normalized ?? 0, minNormalized: policy.minNormalized }
         }));
+    }
+    // REVIEW GATE on selection — POLICY layered on the verifier gate above, never
+    // replacing it. Empty unless a review policy applies to "selection"; fails
+    // closed when required approvals from authorized roles are missing.
+    for (const reviewError of (0, collaboration_1.reviewGateErrors)(run, {
+        targetKind: "selection",
+        candidateId,
+        selfActorIds: (0, collaboration_1.selfActorIdsForCandidate)(run, candidateId)
+    })) {
+        failures.push(reviewError);
     }
     if (failures.length) {
         const feedbackIds = failures.map((failure) => recordCandidateFailure(run, candidate, failure.code, {

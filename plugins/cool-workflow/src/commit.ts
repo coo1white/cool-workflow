@@ -8,6 +8,7 @@ import { appendRunNode, createStateNode, linkStateNodes, recordNodeError, upsert
 import { createPipelineRunner } from "./pipeline-runner";
 import { recordFeedback } from "./error-feedback";
 import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent, validateAcceptanceRationale } from "./trust-audit";
+import { commitReviewProvenance, reviewGateErrors, selfActorIdsForCandidate } from "./collaboration";
 
 export interface CommitStateOptions {
   reason: string;
@@ -29,6 +30,7 @@ interface CommitGate {
   evidence: StateEvidence[];
   errors: StateNodeError[];
   rationale?: ReturnType<typeof buildAcceptanceRationale>;
+  review?: ReturnType<typeof commitReviewProvenance>;
   metadata: Record<string, unknown>;
 }
 
@@ -102,6 +104,7 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
           auditEventIds: audit ? [...(gate.rationale.auditEventIds || []), audit.id] : gate.rationale.auditEventIds
         }
       : undefined,
+    review: gate.review,
     metadata: {
       ...(options.metadata || {}),
       ...gate.metadata
@@ -279,6 +282,26 @@ function resolveCommitGate(run: WorkflowRun, options: CommitStateOptions): Commi
     }
   }
 
+  // REVIEW GATE — POLICY layered ON TOP of the verifier MECHANISM. These errors
+  // can only ADD constraints (required approvals from authorized roles); they
+  // never relax verifier acceptance. Empty unless a policy applies to commits.
+  // Fail closed: a commit lacking its required approvals is BLOCKED here.
+  const reviewErrors = reviewGateErrors(run, {
+    targetKind: "commit",
+    candidateId,
+    selectionId,
+    selfActorIds: selfActorIdsForCandidate(run, candidateId, selectionId)
+  });
+  errors.push(...reviewErrors);
+  const review = errors.length
+    ? undefined
+    : commitReviewProvenance(run, {
+        targetKind: "commit",
+        candidateId,
+        selectionId,
+        selfActorIds: selfActorIdsForCandidate(run, candidateId, selectionId)
+      });
+
   return {
     verifierGated: true,
     verifierNodeId,
@@ -288,6 +311,7 @@ function resolveCommitGate(run: WorkflowRun, options: CommitStateOptions): Commi
     evidence: verifierNode?.evidence || [],
     errors,
     rationale,
+    review,
     metadata: {
       ...metadata,
       verifierNodeId,

@@ -18,6 +18,7 @@ import { recordFeedback } from "./error-feedback";
 import { safeFileName, saveCheckpoint, writeJson } from "./state";
 import { appendRunNode, createStateNode, linkStateNodes } from "./state-node";
 import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent } from "./trust-audit";
+import { reviewGateErrors, selfActorIdsForCandidate } from "./collaboration";
 
 export const CANDIDATE_SCHEMA_VERSION = 1;
 
@@ -303,6 +304,16 @@ export function selectCandidate(
     failures.push(error("candidate-selection-score-below-threshold", `Candidate ${candidateId} score is below threshold`, {
       details: { normalized: bestScore?.normalized ?? 0, minNormalized: policy.minNormalized }
     }));
+  }
+  // REVIEW GATE on selection — POLICY layered on the verifier gate above, never
+  // replacing it. Empty unless a review policy applies to "selection"; fails
+  // closed when required approvals from authorized roles are missing.
+  for (const reviewError of reviewGateErrors(run, {
+    targetKind: "selection",
+    candidateId,
+    selfActorIds: selfActorIdsForCandidate(run, candidateId)
+  })) {
+    failures.push(reviewError);
   }
   if (failures.length) {
     const feedbackIds = failures.map((failure) =>

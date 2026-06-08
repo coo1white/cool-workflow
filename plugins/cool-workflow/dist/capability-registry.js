@@ -337,7 +337,22 @@ exports.CAPABILITY_REGISTRY = [
     // recorded timestamps, only the ISO `generatedAt` is now-derived), and the
     // v0.1.30 Workbench metrics panel embeds the same payload read-only.
     { capability: "metrics.show", summary: "Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage).", entry: "metricsShow", surface: "both", cli: { path: ["metrics", "show"], jsonMode: "flag" }, mcp: { tool: "cw_metrics_show" } },
-    { capability: "metrics.summary", summary: "Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns.", entry: "metricsSummary", surface: "both", cli: { path: ["metrics", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_metrics_summary" } }
+    { capability: "metrics.summary", summary: "Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns.", entry: "metricsSummary", surface: "both", cli: { path: ["metrics", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_metrics_summary" } },
+    // ---- team collaboration (v0.1.32) ---------------------------------------
+    // The human-decision layer: append-only, host-ATTESTED (never authenticated)
+    // approvals/comments/handoffs provenance-linked to a durable target, plus a
+    // review-gate POLICY that STACKS ON the verifier gate. Each verb routes through
+    // ONE orchestrator method, so `cw <cmd> --json` is identical to `cw_<tool>`.
+    // Mutating verbs (approve/reject/comment add/handoff/review policy) are
+    // both-surface and payload-identical but excluded from the read-only payload
+    // probe; the read-only review status / comment list ARE probed.
+    { capability: "approve", summary: "Append a host-attested approval of a candidate/commit/selection.", entry: "collaborationApprove", surface: "both", cli: { path: ["approve"], jsonMode: "default" }, mcp: { tool: "cw_approve" } },
+    { capability: "reject", summary: "Append a host-attested rejection (blocking veto) of a candidate/commit/selection.", entry: "collaborationReject", surface: "both", cli: { path: ["reject"], jsonMode: "default" }, mcp: { tool: "cw_reject" } },
+    { capability: "comment.add", summary: "Append a comment to a durable target.", entry: "collaborationComment", surface: "both", cli: { path: ["comment", "add"], caseTokens: ["comment"], jsonMode: "default" }, mcp: { tool: "cw_comment_add" } },
+    { capability: "comment.list", summary: "List append-only comments for a run (optionally one target).", entry: "collaborationCommentList", surface: "both", cli: { path: ["comment", "list"], caseTokens: ["comment"], jsonMode: "flag" }, mcp: { tool: "cw_comment_list" } },
+    { capability: "handoff", summary: "Record an ownership transfer (from-actor → to-actor) of a run/task.", entry: "collaborationHandoff", surface: "both", cli: { path: ["handoff"], jsonMode: "default" }, mcp: { tool: "cw_handoff" } },
+    { capability: "review.status", summary: "Read the derived per-target review state + collaboration timeline for a run.", entry: "reviewStatus", surface: "both", cli: { path: ["review", "status"], caseTokens: ["review"], jsonMode: "flag" }, mcp: { tool: "cw_review_status" } },
+    { capability: "review.policy", summary: "Set the run's review-gate policy (required approvals, authorized roles, self-approval rule).", entry: "reviewPolicy", surface: "both", cli: { path: ["review", "policy"], caseTokens: ["review"], jsonMode: "default" }, mcp: { tool: "cw_review_policy" } }
 ];
 // ---------------------------------------------------------------------------
 // Derivations + the fail-closed parity report builder.

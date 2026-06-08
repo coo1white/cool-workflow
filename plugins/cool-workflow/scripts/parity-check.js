@@ -52,7 +52,9 @@ const RUN_PROBES = [
   ["audit.summary", [], "cw_audit_summary"],
   ["multi-agent.summary", ["--json"], "cw_multi_agent_summary"],
   ["workbench.view", ["--json"], "cw_workbench_view"],
-  ["metrics.show", ["--json"], "cw_metrics_show"]
+  ["metrics.show", ["--json"], "cw_metrics_show"],
+  ["review.status", ["--json"], "cw_review_status"],
+  ["comment.list", ["--json"], "cw_comment_list"]
 ];
 const GLOBAL_PROBES = [
   ["list", "cw_list"],

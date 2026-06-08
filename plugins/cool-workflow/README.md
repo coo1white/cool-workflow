@@ -26,6 +26,24 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.32 adds Team Collaboration: a host-attested actor, append-only
+approvals/rejections/comments/handoffs provenance-linked to a durable target
+(`run|task|candidate|selection|commit|node`), and a review gate that STACKS ON the
+verifier gate. Identity is ATTESTED provenance, never authenticated — an absent
+identity is the explicit `unattributed` actor, never a fabricated one. The review
+gate is POLICY layered on the verifier MECHANISM: it runs inside `resolveCommitGate`
+AFTER the verifier checks and can only ADD a required-approvals constraint, never
+remove the verifier's — so an approval can never turn an unverified result into a
+committed one. It FAILS CLOSED on quorum, authority, self-approval, and
+unattributed actors, recording exactly which approvals are missing, and a
+gate-satisfied commit is stamped with WHO approved the very artifact that shipped.
+Required approvals, authorized roles, and the self-approval rule are POLICY as data
+(`review policy`), default off (pre-v0.1.32 behavior unchanged). Each verb is
+declared once in the capability registry so `cw <cmd> --json` is identical to
+`cw_<tool>`; the v0.1.30 Workbench renders the review timeline read-only and the
+v0.1.31 metrics report adds derived approval-rate/time-to-approval/handoff-count.
+See [docs/team-collaboration.7.md](docs/team-collaboration.7.md).
+
 CW v0.1.29 adds Execution Backends: the execution layer is lifted OUT of the
 kernel into pluggable, swappable drivers — `node`, `bun`, `shell`, `container`,
 `remote`, and `ci` — behind ONE narrow `ExecutionBackend` contract
