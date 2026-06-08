@@ -89,6 +89,31 @@ function main() {
     }
   }
 
+  // 5b. Scripts + test assertions that hard-code the CURRENT version as a
+  //     current-version reference. A TARGETED `current -> next` replace is safe:
+  //     it only swaps the exact old version string, leaving historical refs
+  //     (minVersion, "pre-vX", fixed demo versions) untouched. This is the
+  //     surface that caused the stale `@0.1.31` failure. Docs and CHANGELOG are
+  //     intentionally excluded — their version labels are historical feature tags.
+  const targeted = [
+    "scripts/golden-path.js",
+    "scripts/canonical-apps.js",
+    "scripts/dogfood-release.js",
+    "test/dogfood-release-smoke.js",
+    "test/mcp-app-surface-smoke.js",
+    "test/canonical-workflow-apps-smoke.js",
+    "test/workflow-app-sdk-smoke.js",
+    "test/operator-ux-smoke.js"
+  ];
+  for (const rel of targeted) {
+    const abs = path.join(pluginRoot, rel);
+    if (!fs.existsSync(abs)) continue;
+    const text = fs.readFileSync(abs, "utf8");
+    if (!text.includes(current)) continue;
+    fs.writeFileSync(abs, text.split(current).join(next));
+    note(rel);
+  }
+
   process.stdout.write(`bump:version ${current} -> ${next}\n`);
   for (const rel of touched) process.stdout.write(`  updated  ${rel}\n`);
 
