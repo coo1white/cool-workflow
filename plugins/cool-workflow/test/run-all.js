@@ -23,13 +23,38 @@
 
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const testDir = __dirname;
 const packageDir = path.resolve(testDir, "..");
 const SELF = path.basename(__filename);
 
-const concurrency = Math.max(1, Number(process.env.CW_TEST_CONCURRENCY) || 1);
+// Concurrency precedence: `--concurrency <n|auto>` (portable, Windows-safe) >
+// CW_TEST_CONCURRENCY env > sequential default (1). Sequential stays the default
+// for the authoritative gate (`npm test`); `npm run test:fast` passes `auto`.
+//
+// `auto` is cores-aware AND capped: it prefers os.availableParallelism() (which
+// respects CPU affinity, so it is sane in many containers) and falls back to
+// os.cpus(); the Math.min cap bounds oversubscription even when the count is
+// over-reported (a CPU-quota container reports HOST cores), and the suite sees no
+// benefit past ~8 anyway. Floor of 2 so `auto` is always actually parallel.
+function argConcurrency() {
+  const args = process.argv.slice(2);
+  const eq = args.find((a) => a.startsWith("--concurrency="));
+  if (eq) return eq.slice("--concurrency=".length);
+  const i = args.indexOf("--concurrency");
+  return i >= 0 ? args[i + 1] : undefined;
+}
+function resolveConcurrency() {
+  const raw = argConcurrency() ?? process.env.CW_TEST_CONCURRENCY;
+  if (raw === "auto") {
+    const cores = (typeof os.availableParallelism === "function" ? os.availableParallelism() : 0) || os.cpus().length || 4;
+    return Math.min(8, Math.max(2, cores - 1));
+  }
+  return Math.max(1, Number(raw) || 1);
+}
+const concurrency = resolveConcurrency();
 
 const smokes = fs
   .readdirSync(testDir)
