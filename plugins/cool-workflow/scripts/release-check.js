@@ -26,6 +26,7 @@ const checks = [
         "docs/run-registry-control-plane.7.md",
         "docs/execution-backends.7.md",
         "docs/web-desktop-workbench.7.md",
+        "docs/observability-cost-accounting.7.md",
         "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
@@ -46,6 +47,7 @@ const checks = [
   { name: "multi-agent eval replay harness smoke", command: ["node", "test/multi-agent-eval-replay-harness-smoke.js"] },
   { name: "state explosion management smoke", command: ["node", "test/state-explosion-management-smoke.js"] },
   { name: "run registry control plane smoke", command: ["node", "test/run-registry-control-plane-smoke.js"] },
+  { name: "observability cost accounting smoke", command: ["node", "test/observability-cost-accounting-smoke.js"] },
   { name: "execution backends smoke", command: ["node", "test/execution-backends-smoke.js"] },
   { name: "web desktop workbench smoke", command: ["node", "test/web-desktop-workbench-smoke.js"] },
   { name: "robustness hardening smoke", command: ["node", "test/robustness-hardening-smoke.js"] },

@@ -217,3 +217,14 @@ the CLI and MCP that holds no authoritative state and forks no schema: each pane
 equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
 re-derives everything from disk. See
 [web-desktop-workbench.7.md](web-desktop-workbench.7.md).
+
+## Observability + Cost Accounting (v0.1.31)
+
+v0.1.31 adds Observability + Cost Accounting: `metrics show`/`metrics summary`
+derive durations, failure/verifier/acceptance rates (with sample counts and
+fail-closed `n/a`), and host-attested token/cost from existing durable run state
+— no metrics database, no collector daemon, no hidden counter. Usage is additive
+and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
+× a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
+verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
+[observability-cost-accounting.7.md](observability-cost-accounting.7.md).

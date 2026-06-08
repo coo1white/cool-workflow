@@ -8,6 +8,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const orchestrator_1 = require("./orchestrator");
 const capability_core_1 = require("./capability-core");
+const observability_1 = require("./observability");
 const run_registry_1 = require("./run-registry");
 const daemon_1 = require("./daemon");
 const scheduler_1 = require("./scheduler");
@@ -98,7 +99,7 @@ async function main() {
             return;
         case "result": {
             const [runId, taskId, resultPath] = args.positionals;
-            printJson(runner.recordResult(required(runId, "run id"), required(taskId, "task id"), required(resultPath, "result file")));
+            printJson(runner.recordResult(required(runId, "run id"), required(taskId, "task id"), required(resultPath, "result file"), args.options));
             return;
         }
         case "state": {
@@ -613,7 +614,7 @@ async function main() {
                     printJson(runner.showWorkerManifest(required(runId, "run id"), required(workerId, "worker id")));
                     return;
                 case "output":
-                    printJson(runner.recordWorkerOutput(required(runId, "run id"), required(workerId, "worker id"), required(resultPath, "result file")));
+                    printJson(runner.recordWorkerOutput(required(runId, "run id"), required(workerId, "worker id"), required(resultPath, "result file"), args.options));
                     return;
                 case "fail":
                     printJson(runner.recordWorkerFailure(required(runId, "run id"), required(workerId, "worker id"), String(args.options.message || args.options.m || required(resultPath, "failure message")), args.options));
@@ -818,6 +819,29 @@ async function main() {
                 }
                 default:
                     throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
+            }
+        }
+        case "metrics": {
+            const [subcommand, runId] = args.positionals;
+            switch (subcommand) {
+                case "show": {
+                    const report = runner.metricsShow(required(runId, "run id"), args.options);
+                    if (wantsJson(args.options))
+                        printJson(report);
+                    else
+                        process.stdout.write(`${(0, observability_1.formatMetricsReport)(report)}\n`);
+                    return;
+                }
+                case "summary": {
+                    const report = (0, capability_core_1.metricsSummary)((0, capability_core_1.runRegistryFor)(args.options, runner), runner, args.options);
+                    if (wantsJson(args.options))
+                        printJson(report);
+                    else
+                        process.stdout.write(`${(0, observability_1.formatMetricsSummary)(report)}\n`);
+                    return;
+                }
+                default:
+                    throw new Error("Usage: cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]");
             }
         }
         case "run": {

@@ -258,7 +258,7 @@ function callTool(name, args) {
             case "cw_backend_probe":
                 return runner.probeBackend((0, capability_core_1.optionalString)(args.backendId || args.backend), args);
             case "cw_result":
-                return runner.recordResult(String(args.runId || ""), String(args.taskId || ""), String(args.resultPath || ""));
+                return runner.recordResult(String(args.runId || ""), String(args.taskId || ""), String(args.resultPath || ""), args);
             case "cw_commit":
                 return (0, capability_core_1.commitEnvelope)(runner, String(args.runId || ""), args);
             case "cw_report":
@@ -280,7 +280,7 @@ function callTool(name, args) {
             case "cw_worker_manifest":
                 return runner.showWorkerManifest(String(args.runId || ""), String(args.workerId || ""));
             case "cw_worker_output":
-                return runner.recordWorkerOutput(String(args.runId || ""), String(args.workerId || ""), String(args.resultPath || ""));
+                return runner.recordWorkerOutput(String(args.runId || ""), String(args.workerId || ""), String(args.resultPath || ""), args);
             case "cw_worker_fail":
                 return runner.recordWorkerFailure(String(args.runId || ""), String(args.workerId || ""), String(args.message || ""), args);
             case "cw_worker_validate":
@@ -341,6 +341,10 @@ function callTool(name, args) {
                 return (0, capability_core_1.runRegistryRefresh)((0, capability_core_1.runRegistryFor)(args, runner), args);
             case "cw_registry_show":
                 return (0, capability_core_1.runRegistryShow)((0, capability_core_1.runRegistryFor)(args, runner), args);
+            case "cw_metrics_show":
+                return runner.metricsShow(String(args.runId || ""), args);
+            case "cw_metrics_summary":
+                return (0, capability_core_1.metricsSummary)((0, capability_core_1.runRegistryFor)(args, runner), runner, args);
             case "cw_run_search":
                 return (0, capability_core_1.runSearch)((0, capability_core_1.runRegistryFor)(args, runner), args);
             case "cw_run_list":
@@ -474,6 +478,7 @@ function requiredArgsForTool(name) {
         "cw_evidence_reasoning_refresh",
         "cw_summary_refresh",
         "cw_summary_show",
+        "cw_metrics_show",
         "cw_blackboard_summarize",
         "cw_multi_agent_summarize",
         "cw_multi_agent_graph_compact",
@@ -1198,6 +1203,18 @@ function toolDefinitions() {
         tool("cw_registry_show", "Read the run registry index with valid|stale|absent freshness against current source state. Fails closed: tampered/missing source surfaces as stale/missing with rebuild guidance, never a fabricated status.", {
             cwd: stringSchema("Repo workspace"),
             scope: stringSchema("repo (default) or home (cross-repo)")
+        }),
+        tool("cw_metrics_show", "Read the DERIVED per-run observability + attested-cost report: durations from recorded timestamps, failure/verifier/acceptance rates with sample counts (n/a on zero samples), attested token usage with coverage, and cost (attested vs estimated vs unreported). Deterministic over a fixed snapshot; never fabricates a counter.", {
+            runId: stringSchema("Run id"),
+            cwd: stringSchema("Repo workspace"),
+            pricing: stringSchema("Pricing policy path, or 'default' for the bundled example (POLICY, optional). Absent ⇒ cost is unpriced/unreported, never guessed."),
+            now: stringSchema("Optional injected ISO wall-clock for deterministic eval/replay (only affects generatedAt).")
+        }),
+        tool("cw_metrics_summary", "Read the cross-repo observability + cost rollup over the run registry, with per-app and per-backend breakdowns. Rates pool samples; usage/cost sum attested values with explicit coverage and unreported. Unreadable runs are counted, never dropped.", {
+            cwd: stringSchema("Repo workspace"),
+            scope: stringSchema("repo (default) or home (cross-repo)"),
+            pricing: stringSchema("Pricing policy path or 'default' (POLICY, optional)."),
+            now: stringSchema("Optional injected ISO wall-clock for deterministic eval/replay.")
         }),
         tool("cw_run_search", "Search runs by app, lifecycle status, time range, repo, and free-text over metadata. Deterministic and paginated; cross-repo by default. Re-derived from source.", {
             cwd: stringSchema("Repo workspace"),

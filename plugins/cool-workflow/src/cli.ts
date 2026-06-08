@@ -4,6 +4,7 @@ import path from "node:path";
 import { CoolWorkflowRunner, formatHelp, parseArgv } from "./orchestrator";
 import {
   appRun,
+  metricsSummary,
   planSummary,
   queueAdd,
   queueDrain,
@@ -21,6 +22,7 @@ import {
   runShow,
   sandboxChoose
 } from "./capability-core";
+import { formatMetricsReport, formatMetricsSummary } from "./observability";
 import {
   formatHistory,
   formatQueueList,
@@ -129,7 +131,14 @@ async function main(): Promise<void> {
       return;
     case "result": {
       const [runId, taskId, resultPath] = args.positionals;
-      printJson(runner.recordResult(required(runId, "run id"), required(taskId, "task id"), required(resultPath, "result file")));
+      printJson(
+        runner.recordResult(
+          required(runId, "run id"),
+          required(taskId, "task id"),
+          required(resultPath, "result file"),
+          args.options
+        )
+      );
       return;
     }
     case "state": {
@@ -590,7 +599,8 @@ async function main(): Promise<void> {
             runner.recordWorkerOutput(
               required(runId, "run id"),
               required(workerId, "worker id"),
-              required(resultPath, "result file")
+              required(resultPath, "result file"),
+              args.options
             )
           );
           return;
@@ -794,6 +804,27 @@ async function main(): Promise<void> {
         }
         default:
           throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
+      }
+    }
+    case "metrics": {
+      const [subcommand, runId] = args.positionals;
+      switch (subcommand) {
+        case "show": {
+          const report = runner.metricsShow(required(runId, "run id"), args.options);
+          if (wantsJson(args.options)) printJson(report);
+          else process.stdout.write(`${formatMetricsReport(report)}\n`);
+          return;
+        }
+        case "summary": {
+          const report = metricsSummary(runRegistryFor(args.options, runner), runner, args.options);
+          if (wantsJson(args.options)) printJson(report);
+          else process.stdout.write(`${formatMetricsSummary(report)}\n`);
+          return;
+        }
+        default:
+          throw new Error(
+            "Usage: cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]"
+          );
       }
     }
     case "run": {

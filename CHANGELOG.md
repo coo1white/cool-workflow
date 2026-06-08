@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.1.31
+
+- Added Observability + Cost Accounting: a derived per-run report
+  (`cw metrics show`) and cross-repo rollup (`cw metrics summary`) covering
+  time/duration, failure rate, verifier pass rate, candidate acceptance rate, and
+  token/cost. The metrics are a DERIVED PROJECTION of existing durable run state —
+  timestamps → durations, verifier nodes → pass rate, candidates → acceptance
+  rate, failed workers/memberships/feedback → failure rate. There is NO metrics
+  database, NO background collector daemon, and NO hidden counter, following the
+  v0.1.25 state-explosion and v0.1.28 registry discipline.
+- COST IS ATTESTED, NEVER MEASURED OR FABRICATED. CW does not call the model; the
+  host/worker does. An additive, optional `UsageRecord` is accepted on the
+  EXISTING result/worker intake path (`cw result ... --usage-input-tokens N
+  --usage-output-tokens M --usage-model ID`, and likewise `cw worker output`) and
+  recorded verbatim as host-attested provenance on the task/worker record — never
+  on `ResultEnvelope`, which stays stable. Absent usage is an explicit
+  `unreported`, never 0. Cost is `attested` only when derived from attested usage
+  × a recorded pricing policy with an exact model match; default/fallback pricing
+  is a SEPARATE `estimated` figure, and the two are never conflated. `unpriced`
+  (attested usage, no policy) and `unreported` (no usage) are surfaced with
+  coverage.
+- A COUNTER YOU CANNOT TRUST IS WORSE THAN NONE. Every rate is a `RateMetric` with
+  `state` (`ok`/`n/a`), `count`, `total`, `rate`, and per-bucket sample counts; a
+  rate over zero samples is `n/a` with null count/rate — never a fabricated
+  0%/100%. Durations come from recorded timestamps (`dispatchedAt`→`completedAt`,
+  worker `createdAt`→output `recordedAt`, run `createdAt`→`updatedAt`); in-flight
+  items are marked explicitly with a null duration.
+- DETERMINISTIC & REPLAYABLE. `deriveMetricsReport(run, { now, policy })` is a
+  PURE function; wall-clock `now` is injected (the only now-derived field is
+  `generatedAt`), so a report over a fixed snapshot is byte-reproducible
+  (eval/replay agnostic). The per-run report persists a rebuildable, fingerprinted
+  snapshot under `.cw/runs/<id>/metrics/`; the cross-repo summary reports each
+  run's snapshot freshness as `valid|stale|absent` against current source — fail
+  closed.
+- MECHANISM VS POLICY. The runtime records attested usage and derives
+  rates/durations; the pricing table is POLICY supplied as DATA (`CostPolicy`),
+  kept out of the kernel. A bundled EXAMPLE policy lives at
+  `manifest/pricing.policy.json`; `--pricing <path>|default` selects one. The same
+  attested usage yields different cost under different pricing without touching the
+  runtime.
+- ONE SOURCE, EVERY SURFACE. `metrics.show` and `metrics.summary` are declared in
+  `src/capability-registry.ts`, so `cw <cmd> --json` is byte-identical to
+  `cw_<tool>` (now-derived `generatedAt` neutralized by the parity probe, which
+  gains `metrics.show`/`metrics.summary` probes). The v0.1.30 Workbench renders a
+  new read-only metrics panel from the same payload, showing coverage and
+  `unreported`/`n/a` honestly.
+- BACKWARD COMPATIBLE, ADDITIVE. Usage/cost fields are additive and optional; old
+  runs load and report `unreported` cost while still yielding correct time and
+  rate metrics from their existing timestamps and outcomes. The run-state and
+  `ResultEnvelope` schemas are unchanged (run-state schema version stays 1).
+- Docs: `docs/observability-cost-accounting.7.md` (added to `docs/index.md`).
+  Tests: `test/observability-cost-accounting-smoke.js` proving durations from
+  recorded timestamps, correct rates with sample counts, `n/a` on zero samples,
+  attested-vs-estimated cost separation, `unreported` surfaced with coverage,
+  determinism over a fixed snapshot, and `cw <cmd> --json` == `cw_<cmd>`; wired
+  into `npm test`, `release:check`, and `parity:check`.
+
 ## 0.1.30
 
 - Added the Web / Desktop Workbench: a human-facing console rendering a run's

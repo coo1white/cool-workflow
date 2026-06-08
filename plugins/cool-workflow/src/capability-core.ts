@@ -13,7 +13,10 @@
 import { CoolWorkflowRunner } from "./orchestrator";
 import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
 import { RunRegistry, isRunLifecycleState } from "./run-registry";
+import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
+import { loadRunStateFile } from "./state";
 import {
+  MetricsSummaryReport,
   RunHistoryResult,
   RunLifecycleState,
   RunQueueEntry,
@@ -261,6 +264,43 @@ export function runHistory(reg: RunRegistry, args: Record<string, unknown>): Run
     limit: args.limit === undefined ? undefined : Number(args.limit),
     offset: args.offset === undefined ? undefined : Number(args.offset)
   });
+}
+
+// ---- observability + cost accounting (v0.1.31) ----------------------------
+// MECHANISM, ONE SOURCE: both `cw metrics summary --json` and `cw_metrics_summary`
+// route through this function. It enumerates the v0.1.28 registry (derived live
+// from source), loads each run's durable state, and DERIVES the cross-repo
+// rollup. Runs whose source is unreadable are counted in `unreadableRuns` (fail
+// closed), never silently dropped. Pricing is POLICY via `--pricing`; `now` is
+// injectable via `args.now` for eval/replay determinism.
+export function metricsSummary(
+  reg: RunRegistry,
+  runner: CoolWorkflowRunner,
+  args: Record<string, unknown>
+): MetricsSummaryReport {
+  const scope = scopeOf(args, "repo");
+  const report = reg.show({ scope });
+  const policy = loadCostPolicy(args, runner.pluginRoot);
+  const now = optionalString(args.now) || new Date().toISOString();
+  const inputs: SummaryRunInput[] = [];
+  let unreadableRuns = 0;
+  for (const record of report.index.records) {
+    try {
+      const loaded = loadRunStateFile(record.statePath, { dryRun: true });
+      if (loaded.report.status === "unsupported") {
+        unreadableRuns++;
+        continue;
+      }
+      inputs.push({
+        run: loaded.run,
+        repo: record.repo,
+        persistedFingerprint: loadPersistedMetricsFingerprint(loaded.run)
+      });
+    } catch {
+      unreadableRuns++;
+    }
+  }
+  return deriveMetricsSummary(inputs, { now, scope, policy, unreadableRuns });
 }
 
 function parseLifecycleList(value: unknown): RunLifecycleState[] {

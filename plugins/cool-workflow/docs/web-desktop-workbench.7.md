@@ -130,3 +130,14 @@ existing capability payloads. Removing it leaves the SDK fully functional.
 
 See also [Operator UX](operator-ux.7.md), [CLI ↔ MCP Parity](cli-mcp-parity.7.md),
 and [Run Registry / Control Plane](run-registry-control-plane.7.md).
+
+## Observability + Cost Accounting (v0.1.31)
+
+v0.1.31 adds Observability + Cost Accounting: `metrics show`/`metrics summary`
+derive durations, failure/verifier/acceptance rates (with sample counts and
+fail-closed `n/a`), and host-attested token/cost from existing durable run state
+— no metrics database, no collector daemon, no hidden counter. Usage is additive
+and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
+× a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
+verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
+[observability-cost-accounting.7.md](observability-cost-accounting.7.md).

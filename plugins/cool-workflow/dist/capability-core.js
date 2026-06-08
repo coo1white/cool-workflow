@@ -30,11 +30,14 @@ exports.queueList = queueList;
 exports.queueDrain = queueDrain;
 exports.queueShow = queueShow;
 exports.runHistory = runHistory;
+exports.metricsSummary = metricsSummary;
 exports.sandboxProfileIdFrom = sandboxProfileIdFrom;
 exports.withoutRuntimeKeys = withoutRuntimeKeys;
 exports.optionalString = optionalString;
 exports.isRecord = isRecord;
 const run_registry_1 = require("./run-registry");
+const observability_1 = require("./observability");
+const state_1 = require("./state");
 // ---- canonical plan payload -----------------------------------------------
 // Both `cw plan` (default + --json) and `cw_plan` resolve to this exact object.
 function planSummary(runner, workflowId, options) {
@@ -243,6 +246,39 @@ function runHistory(reg, args) {
         limit: args.limit === undefined ? undefined : Number(args.limit),
         offset: args.offset === undefined ? undefined : Number(args.offset)
     });
+}
+// ---- observability + cost accounting (v0.1.31) ----------------------------
+// MECHANISM, ONE SOURCE: both `cw metrics summary --json` and `cw_metrics_summary`
+// route through this function. It enumerates the v0.1.28 registry (derived live
+// from source), loads each run's durable state, and DERIVES the cross-repo
+// rollup. Runs whose source is unreadable are counted in `unreadableRuns` (fail
+// closed), never silently dropped. Pricing is POLICY via `--pricing`; `now` is
+// injectable via `args.now` for eval/replay determinism.
+function metricsSummary(reg, runner, args) {
+    const scope = scopeOf(args, "repo");
+    const report = reg.show({ scope });
+    const policy = (0, observability_1.loadCostPolicy)(args, runner.pluginRoot);
+    const now = optionalString(args.now) || new Date().toISOString();
+    const inputs = [];
+    let unreadableRuns = 0;
+    for (const record of report.index.records) {
+        try {
+            const loaded = (0, state_1.loadRunStateFile)(record.statePath, { dryRun: true });
+            if (loaded.report.status === "unsupported") {
+                unreadableRuns++;
+                continue;
+            }
+            inputs.push({
+                run: loaded.run,
+                repo: record.repo,
+                persistedFingerprint: (0, observability_1.loadPersistedMetricsFingerprint)(loaded.run)
+            });
+        }
+        catch {
+            unreadableRuns++;
+        }
+    }
+    return (0, observability_1.deriveMetricsSummary)(inputs, { now, scope, policy, unreadableRuns });
 }
 function parseLifecycleList(value) {
     const raw = Array.isArray(value) ? value : value === undefined ? [] : [value];

@@ -395,7 +395,17 @@ export const CAPABILITY_REGISTRY: CapabilityDescriptor[] = [
   { capability: "workbench.serve", summary: "Describe/serve the optional localhost-only, read-only Workbench host.", entry: "buildWorkbenchServeDescriptor", surface: "both", cli: { path: ["workbench", "serve"], jsonMode: "flag" }, mcp: { tool: "cw_workbench_serve" },
     payloadIdentical: false,
     reason:
-      "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host (like `schedule daemon`), which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift." }
+      "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host (like `schedule daemon`), which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift." },
+
+  // ---- observability + cost accounting (v0.1.31) --------------------------
+  // DERIVED metrics + ATTESTED cost over existing durable state — no metrics db,
+  // no collector daemon, no hidden counter. Per-run `metrics.show` and cross-repo
+  // `metrics.summary` are two renderings of ONE core (src/observability.ts):
+  // `cw <cmd> --json` is byte-identical to the MCP tool (durations come from
+  // recorded timestamps, only the ISO `generatedAt` is now-derived), and the
+  // v0.1.30 Workbench metrics panel embeds the same payload read-only.
+  { capability: "metrics.show", summary: "Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage).", entry: "metricsShow", surface: "both", cli: { path: ["metrics", "show"], jsonMode: "flag" }, mcp: { tool: "cw_metrics_show" } },
+  { capability: "metrics.summary", summary: "Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns.", entry: "metricsSummary", surface: "both", cli: { path: ["metrics", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_metrics_summary" } }
 ];
 
 // ---------------------------------------------------------------------------

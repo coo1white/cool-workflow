@@ -187,3 +187,22 @@ the CLI and MCP that holds no authoritative state and forks no schema: each pane
 equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
 re-derives everything from disk. See
 [web-desktop-workbench.7.md](web-desktop-workbench.7.md).
+
+## Observability + Cost Accounting (v0.1.31)
+
+v0.1.31 adds Observability + Cost Accounting: `metrics show`/`metrics summary`
+derive time/duration, failure/verifier/acceptance rates (with sample counts and
+fail-closed `n/a`), and token/cost from existing durable run state — no metrics
+database, no collector daemon, no hidden counter. The migration is ADDITIVE and
+backward compatible: an optional, host-attested `UsageRecord` rides on the
+task/worker record via the EXISTING result/worker intake (absent ⇒ `unreported`,
+never 0); `ResultEnvelope` and the run-state schema are unchanged (schema version
+stays 1), so old runs load and report `unreported` cost while still yielding
+correct time and rate metrics from their recorded timestamps and outcomes. Cost
+is `attested` only from attested usage × a recorded pricing policy; assumed
+pricing is a separate `estimated` figure. Pricing is POLICY supplied as data
+(`--pricing <path>|default`), out of the kernel. The per-run report persists a
+rebuildable, fingerprinted snapshot under `.cw/runs/<id>/metrics/`, and the
+cross-repo summary reports each snapshot's `valid|stale|absent` freshness against
+current source. See
+[observability-cost-accounting.7.md](observability-cost-accounting.7.md).
