@@ -3,6 +3,22 @@
 ## 0.1.33
 
 - Added Release Tooling: one-command version bump across every surface plus a per-feature scaffolder, and a de-duplicated release gate
+- Architecture pass — same fail-closed discipline applied to the build itself:
+  - `dist/` drift gate: `dist:check` snapshots `dist/`, rebuilds, and fails closed
+    if the output differs (git-independent, so a consistent uncommitted tree is not
+    punished); CI also fails on committed drift via `git status --porcelain`. Wired
+    into `release:check` as the `dist freshness` gate.
+  - Smoke runner: the 30-deep `&&` chain in `npm test` is replaced by a
+    discovery-based runner (`test/run-all.js`) that isolates each smoke in its own
+    process, continues past failures with per-file PASS/FAIL reporting, and fails
+    closed on a smoke that exists on disk but was never wired in (which surfaced
+    `multi-agent-eval-replay-smoke.js`, silently dropped from the old chain).
+    `test:fast` opts into parallelism.
+  - `types.ts` (3095 lines) split into domain files under `src/types/` behind a
+    barrel; every importer keeps importing `./types` and the exported surface is
+    byte-identical.
+  - `orchestrator.ts` decomposed: report rendering and CLI option parsing extracted
+    into `src/orchestrator/report.ts` and `src/orchestrator/cli-options.ts`.
 
 ## 0.1.32
 

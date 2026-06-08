@@ -1,9 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
-  ActorAttestation,
   CollaborationTarget,
-  CollaborationTargetKind,
   CommentRecord,
   DispatchManifest,
   LoadedWorkflowApp,
@@ -12,7 +10,6 @@ import {
   RunSummary,
   RunTask,
   WorkflowAppSummary,
-  WorkflowAppValidationIssue,
   WorkflowAppValidationResult,
   WorkflowDefinition,
   WorkflowRun
@@ -29,7 +26,7 @@ import {
   validateWorkflowApp,
   workflowAppRunMetadata
 } from "./workflow-app-sdk";
-import { createDispatchManifest, firstRunnablePhase, nextDispatchTasks, updatePhaseStatuses } from "./dispatch";
+import { createDispatchManifest, nextDispatchTasks, updatePhaseStatuses } from "./dispatch";
 import { writeTaskFiles } from "./harness";
 import { commitState } from "./commit";
 import { assertTaskCanComplete, parseResultEnvelope, validateResultEnvelope, validateRunGates } from "./verifier";
@@ -55,7 +52,6 @@ import {
   listFeedback,
   recordFeedback,
   resolveFeedback,
-  summarizeFeedback
 } from "./error-feedback";
 import {
   appendRunNode,
@@ -68,7 +64,6 @@ import {
   listWorkerScopes,
   recordWorkerFailure,
   recordWorkerOutput,
-  summarizeWorkers,
   validateWorkerBoundary,
   writeWorkerManifest
 } from "./worker-isolation";
@@ -94,7 +89,6 @@ import {
 } from "./collaboration";
 import {
   listBundledSandboxProfiles,
-  SandboxProfileError,
   sandboxContextForValidation,
   showBundledSandboxProfile,
   validateSandboxCommand,
@@ -185,12 +179,9 @@ import {
 import {
   buildCompactGraph,
   buildStateExplosionReport,
-  GRAPH_VIEWS,
-  GraphView,
   loadStateExplosionSummaryIndex,
   refreshStateExplosionSummaries,
   showStateExplosionSummary,
-  stateExplosionReportLines,
   summarizeBlackboardDigest
 } from "./state-explosion";
 import {
@@ -199,6 +190,33 @@ import {
   refreshEvidenceReasoning,
   showEvidenceReasoning
 } from "./evidence-reasoning";
+import { summarizeRun, writeReport } from "./orchestrator/report";
+import {
+  actorInputFrom,
+  arrayOption,
+  collaborationTarget,
+  collaborationTargetMaybe,
+  firstDefined,
+  graphViewOption,
+  graphViewsOption,
+  inferAuditDecisionKind,
+  isMissing,
+  isSandboxProfileError,
+  mergeEvidence,
+  metadataOption,
+  numberOption,
+  parseBlackboardAuthor,
+  parseBlackboardLinks,
+  parseBlackboardScope,
+  parseCriteria,
+  parseEvidence,
+  parseSandboxChoices,
+  requiredStringOption,
+  stringOption,
+  validationIssuesFromError,
+  valuesOption,
+  withoutHostRunKeys
+} from "./orchestrator/cli-options";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -2013,315 +2031,6 @@ function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unkno
   return tasks;
 }
 
-function writeReport(run: WorkflowRun): string {
-  updatePhaseStatuses(run);
-  const workerSummary = summarizeWorkers(run);
-  const candidateSummary = summarizeCandidates(run);
-  const report = [
-    `# ${run.workflow.title}`,
-    "",
-    `- Run: ${run.id}`,
-    `- Workflow: ${run.workflow.id}`,
-    ...(run.workflow.app
-      ? [
-          `- Workflow App: ${run.workflow.app.id}@${run.workflow.app.version}`,
-          `- Workflow App Source: ${run.workflow.app.source?.manifestPath || run.workflow.app.source?.entrypointPath || run.workflow.app.source?.path || ""}`
-        ]
-      : []),
-    `- Created: ${run.createdAt}`,
-    `- Updated: ${run.updatedAt}`,
-    `- Repository: ${String(run.inputs.repo || run.cwd)}`,
-    `- Question: ${String(run.inputs.question || "")}`,
-    `- Invariants: ${formatInputList(run.inputs.invariant)}`,
-    `- Loop Stage: ${run.loopStage}`,
-    "",
-    "## Phase Status",
-    "",
-    "| Phase | Status | Completed | Total |",
-    "| --- | --- | ---: | ---: |",
-    ...run.phases.map((phase) => {
-      const phaseTasks = run.tasks.filter((task) => phase.taskIds.includes(task.id));
-      const completed = phaseTasks.filter((task) => task.status === "completed").length;
-      return `| ${phase.name} | ${phase.status} | ${completed} | ${phaseTasks.length} |`;
-    }),
-    "",
-    "## State Commits",
-    "",
-    ...renderCommits(run),
-    "",
-    "## Error Feedback",
-    "",
-    ...renderFeedback(run),
-    "",
-    "## Workers",
-    "",
-    ...renderWorkers(workerSummary),
-    "",
-    "## State Size & Compaction",
-    "",
-    ...renderStateSize(run),
-    "",
-    "## Multi-Agent Runtime",
-    "",
-    ...renderMultiAgent(run),
-    "",
-    "## Blackboard / Coordinator",
-    "",
-    ...renderBlackboard(run),
-    "",
-    "## Sandbox Profiles",
-    "",
-    ...renderSandboxProfiles(run),
-    "",
-    "## Trust Audit",
-    "",
-    ...renderTrustAudit(run),
-    "",
-    "## Acceptance Rationale",
-    "",
-    ...renderAcceptanceRationale(run),
-    "",
-    "## Candidates",
-    "",
-    ...renderCandidates(candidateSummary),
-    "",
-    "## Pending Tasks",
-    "",
-    ...renderPendingTasks(run),
-    "",
-    "## Results",
-    "",
-    ...renderResults(run)
-  ].join("\n");
-  fs.writeFileSync(run.paths.report, report, "utf8");
-  return run.paths.report;
-}
-
-function summarizeRun(run: WorkflowRun): RunSummary {
-  updatePhaseStatuses(run);
-  const workerSummary = summarizeWorkers(run);
-  return {
-    runId: run.id,
-    workflowId: run.workflow.id,
-    app: run.workflow.app,
-    phases: run.phases,
-    tasks: {
-      total: run.tasks.length,
-      pending: run.tasks.filter((task) => task.status === "pending").length,
-      running: run.tasks.filter((task) => task.status === "running").length,
-      failed: run.tasks.filter((task) => task.status === "failed").length,
-      completed: run.tasks.filter((task) => task.status === "completed").length
-    },
-    loopStage: run.loopStage,
-    next: firstRunnablePhase(run)?.name || null,
-    reportPath: run.paths.report,
-    commits: run.commits,
-    workers: {
-      total: workerSummary.total,
-      byStatus: workerSummary.byStatus
-    }
-  };
-}
-
-function renderPendingTasks(run: WorkflowRun): string[] {
-  const pending = run.tasks.filter((task) => task.status === "pending" || task.status === "running");
-  if (!pending.length) return ["No pending tasks."];
-  return pending.map((task) => `- ${task.id} (${task.phase}, ${task.status}): ${task.taskPath}`);
-}
-
-function renderResults(run: WorkflowRun): string[] {
-  const completed = run.tasks.filter((task) => task.status === "completed");
-  if (!completed.length) return ["No completed results yet."];
-  const lines: string[] = [];
-  for (const task of completed) {
-    lines.push(`### ${task.id}`, "", `Result: ${task.resultPath}`, "");
-    if (task.resultPath && fs.existsSync(task.resultPath)) {
-      lines.push(fs.readFileSync(task.resultPath, "utf8").trim(), "");
-    } else {
-      lines.push("_Result file is not present on this host; state metadata remains inspectable._", "");
-    }
-  }
-  return lines;
-}
-
-function renderCommits(run: WorkflowRun): string[] {
-  if (!run.commits.length) return ["No state commits yet."];
-  return run.commits.map((commit) => {
-    const kind = commit.verifierGated ? "verifier-gated commit" : "checkpoint";
-    const gate = commit.verifierGated ? formatCommitGate(commit) : "verifierGated=false";
-    return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${commit.snapshotPath})`;
-  });
-}
-
-function renderFeedback(run: WorkflowRun): string[] {
-  const summary = summarizeFeedback(run);
-  if (!summary.total) return ["No feedback records."];
-  return [
-    `- Total: ${summary.total}`,
-    `- By status: ${formatCounts(summary.byStatus)}`,
-    `- By severity: ${formatCounts(summary.bySeverity)}`,
-    `- By classification: ${formatCounts(summary.byClassification)}`,
-    "",
-    ...summary.artifacts.map((artifact) => `- ${artifact}`)
-  ];
-}
-
-function renderWorkers(summary: ReturnType<typeof summarizeWorkers>): string[] {
-  if (!summary.total) return ["No worker scopes yet."];
-  const lines = [
-    `- Total: ${summary.total}`,
-    `- By status: ${formatCounts(summary.byStatus)}`,
-    "",
-    ...summary.manifestPaths.map((artifact) => `- ${artifact}`)
-  ];
-  if (summary.failed.length) {
-    lines.push("", "Failed or rejected:");
-    for (const worker of summary.failed) {
-      lines.push(`- ${worker.id} (${worker.status}) feedback=${worker.feedbackIds.join(",") || "none"}`);
-    }
-  }
-  return lines;
-}
-
-function renderStateSize(run: WorkflowRun): string[] {
-  const index = loadStateExplosionSummaryIndex(run);
-  const report = buildStateExplosionReport(run, { index });
-  return stateExplosionReportLines(report);
-}
-
-function renderMultiAgent(run: WorkflowRun): string[] {
-  const summary = summarizeMultiAgent(run);
-  if (!summary.totalRuns) return ["No multi-agent runtime records yet."];
-  const lines = [
-    `- Runs: ${summary.totalRuns} (${formatCounts(summary.runsByStatus)})`,
-    `- Roles: ${summary.roles}`,
-    `- Groups: ${summary.groups} (${formatCounts(summary.groupsByStatus)})`,
-    `- Memberships: ${summary.memberships} (${formatCounts(summary.membershipsByStatus)})`,
-    `- Fanouts: ${summary.fanouts}`,
-    `- Fanins: ${summary.fanins} (${formatCounts(summary.faninsByStatus)})`
-  ];
-  if (summary.blockedReasons.length) {
-    lines.push("", "Blocked:");
-    for (const reason of summary.blockedReasons.slice(0, 8)) lines.push(`- ${reason}`);
-  }
-  for (const group of summary.groupsDetail.slice(0, 8)) {
-    lines.push("", `Group ${group.id}: status=${group.status}, phase=${group.phase || "none"}, run=${group.multiAgentRunId}`);
-    for (const role of group.roles) {
-      lines.push(`- role=${role.roleId}, memberships=${role.memberships}, reported=${role.reported}, missing=${role.missing}, requiredEvidence=${role.requiredEvidence}`);
-    }
-    lines.push(`- fanouts=${group.fanouts.join(", ") || "none"}`);
-    lines.push(`- fanins=${group.fanins.join(", ") || "none"}`);
-  }
-  if (summary.nextAction) lines.push("", `Next multi-agent action: ${summary.nextAction}`);
-  return lines;
-}
-
-function renderBlackboard(run: WorkflowRun): string[] {
-  const summary = summarizeBlackboard(run);
-  if (!summary.blackboardId) return ["No blackboard records yet."];
-  const lines = [
-    `- Blackboard: ${summary.blackboardId}`,
-    `- Topics: ${summary.topics}`,
-    `- Messages: ${summary.messages}`,
-    `- Contexts: ${summary.contexts}`,
-    `- Artifacts: ${summary.artifacts}`,
-    `- Snapshots: ${summary.snapshots}`,
-    `- Decisions: ${summary.decisions}`,
-    `- Ready for fanin: ${summary.readyForFanin ? "yes" : "no"}`,
-    `- Index: ${summary.indexPath || "none"}`,
-    `- Latest snapshot: ${summary.latestSnapshotPath || "none"}`
-  ];
-  if (summary.openQuestions.length) {
-    lines.push("", "Open questions:");
-    for (const question of summary.openQuestions.slice(0, 8)) lines.push(`- ${question.id}: ${question.key}=${question.value}`);
-  }
-  if (summary.conflicts.length) {
-    lines.push("", "Conflicts:");
-    for (const conflict of summary.conflicts.slice(0, 8)) {
-      lines.push(`- ${conflict.id}: ${conflict.key} conflicts with ${conflict.conflictingContextIds.join(", ") || "unknown"}`);
-    }
-  }
-  if (summary.missingEvidence.length) {
-    lines.push("", "Missing evidence:");
-    for (const item of summary.missingEvidence.slice(0, 8)) lines.push(`- ${item}`);
-  }
-  if (summary.nextAction) lines.push("", `Next coordinator action: ${summary.nextAction}`);
-  return lines;
-}
-
-function renderSandboxProfiles(run: WorkflowRun): string[] {
-  const profiles = run.sandboxProfiles || [];
-  if (!profiles.length) return ["No sandbox profiles selected yet."];
-  return profiles.map((profile) =>
-    [
-      `- ${profile.id}: read=${profile.readPaths.length}, write=${profile.writePaths.length}, execute=${profile.execute.mode}, network=${profile.network.mode}`,
-      `  enforcedByCW=${profile.enforcement.enforcedByCW.join("; ")}`,
-      `  hostRequired=${profile.enforcement.hostRequired.join("; ")}`
-    ].join("\n")
-  );
-}
-
-function renderCandidates(summary: ReturnType<typeof summarizeCandidates>): string[] {
-  if (!summary.total) return ["No candidates yet."];
-  return [
-    `- Total: ${summary.total}`,
-    `- By status: ${formatCounts(summary.byStatus)}`,
-    `- By kind: ${formatCounts(summary.byKind)}`,
-    `- Selections: ${summary.selections}`,
-    `- Index: ${summary.indexPath}`,
-    `- Ranking: ${summary.rankingPath}`
-  ];
-}
-
-function renderTrustAudit(run: WorkflowRun): string[] {
-  const summary = summarizeTrustAudit(run);
-  return [
-    `- Events: ${summary.eventCount}`,
-    `- Decisions: ${formatCounts(summary.byDecision)}`,
-    `- Sources: ${formatCounts(summary.bySource)}`,
-    `- Sandbox profiles: ${formatCounts(summary.bySandboxProfile)}`,
-    `- Event log: ${summary.eventLogPath}`,
-    `- Summary: ${summary.summaryPath}`,
-    `- Index: ${summary.indexPath}`
-  ];
-}
-
-function renderAcceptanceRationale(run: WorkflowRun): string[] {
-  const lines: string[] = [];
-  for (const selection of run.candidateSelections || []) {
-    const rationale = selection.acceptanceRationale;
-    if (!rationale) continue;
-    lines.push(
-      `- Selection ${selection.id}: candidate=${rationale.selectedCandidateId || selection.candidateId}, score=${rationale.scoreId || "none"}, verifier=${rationale.verifierNodeId || "none"}, evidence=${rationale.evidenceCount}, sandbox=${rationale.sandboxProfileId || "none"}, worker=${rationale.workerId || "none"}`
-    );
-  }
-  for (const commit of run.commits || []) {
-    if (!commit.acceptanceRationale) continue;
-    const rationale = commit.acceptanceRationale;
-    lines.push(
-      `- Commit ${commit.id}: gate=${rationale.commitGateResult || "unknown"}, candidate=${rationale.selectedCandidateId || commit.candidateId || "none"}, score=${rationale.scoreId || "none"}, verifier=${rationale.verifierNodeId || commit.verifierNodeId || "none"}, evidence=${rationale.evidenceCount}, sandbox=${rationale.sandboxProfileId || "none"}, worker=${rationale.workerId || "none"}`
-    );
-  }
-  return lines.length ? lines : ["No accepted candidate or verifier-gated commit rationale yet."];
-}
-
-function formatCommitGate(commit: WorkflowRun["commits"][number]): string {
-  return [
-    `verifier=${commit.verifierNodeId || "unknown"}`,
-    commit.candidateId ? `candidate=${commit.candidateId}` : "",
-    commit.selectionId ? `selection=${commit.selectionId}` : "",
-    `evidence=${commit.evidence?.length || 0}`
-  ]
-    .filter(Boolean)
-    .join(", ");
-}
-
-function formatCounts(counts: Record<string, number>): string {
-  const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));
-  if (!entries.length) return "none";
-  return entries.map(([key, value]) => `${key}=${value}`).join(", ");
-}
-
 function renderPrompt(prompt: string, inputs: Record<string, unknown>): string {
   const invariant = Array.isArray(inputs.invariant)
     ? inputs.invariant.join("; ")
@@ -2335,267 +2044,6 @@ function renderPrompt(prompt: string, inputs: Record<string, unknown>): string {
     rendered = rendered.replaceAll(`{{${key}}}`, replacement);
   }
   return rendered;
-}
-
-function formatInputList(value: unknown): string {
-  if (Array.isArray(value)) return value.join("; ");
-  return value ? String(value) : "";
-}
-
-function isMissing(value: unknown): boolean {
-  return value === undefined || value === null || value === "";
-}
-
-function numberOption(value: unknown): number | undefined {
-  if (value === undefined || value === null || value === true) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function stringOption(value: unknown): string | undefined {
-  if (value === undefined || value === null || value === true) return undefined;
-  return String(value);
-}
-
-function requiredStringOption(value: unknown, label: string): string {
-  const parsed = stringOption(value);
-  if (!parsed) throw new Error(`Missing ${label}`);
-  return parsed;
-}
-
-const COLLABORATION_TARGET_KINDS: CollaborationTargetKind[] = ["run", "task", "candidate", "selection", "commit", "node"];
-
-function collaborationTarget(kind: string, id: string): CollaborationTarget {
-  const normalizedKind = stringOption(kind);
-  const normalizedId = stringOption(id);
-  if (!normalizedKind || !(COLLABORATION_TARGET_KINDS as string[]).includes(normalizedKind)) {
-    throw new Error(`Target kind must be one of ${COLLABORATION_TARGET_KINDS.join("|")}`);
-  }
-  if (!normalizedId) throw new Error("Missing target id");
-  return { kind: normalizedKind as CollaborationTargetKind, id: normalizedId };
-}
-
-function collaborationTargetMaybe(kind: string | undefined, id: string | undefined): CollaborationTarget | undefined {
-  if (!kind && !id) return undefined;
-  return collaborationTarget(String(kind || ""), String(id || ""));
-}
-
-function actorInputFrom(options: Record<string, unknown>): {
-  actor?: string;
-  actorKind?: string;
-  role?: string;
-  displayName?: string;
-  attested?: boolean;
-  attestation?: ActorAttestation;
-} {
-  return {
-    actor: stringOption(firstDefined(options, "actor", "by")),
-    actorKind: stringOption(firstDefined(options, "actorKind", "actor-kind", "kind")),
-    role: stringOption(firstDefined(options, "role", "roleId", "role-id")),
-    displayName: stringOption(firstDefined(options, "displayName", "display-name", "name")),
-    attested: Boolean(options.attested),
-    attestation: stringOption(options.attestation) as ActorAttestation | undefined
-  };
-}
-
-/** First option value present under any of the given keys (camelCase or dashed). */
-function firstDefined(options: Record<string, unknown>, ...keys: string[]): unknown {
-  for (const key of keys) {
-    if (options[key] !== undefined) return options[key];
-  }
-  return undefined;
-}
-
-function graphViewOption(value: unknown): GraphView {
-  const parsed = stringOption(value);
-  if (!parsed) return "compact";
-  if (!(GRAPH_VIEWS as string[]).includes(parsed)) {
-    throw new Error(`Unknown graph view: ${parsed}. Valid views: ${GRAPH_VIEWS.join(", ")}`);
-  }
-  return parsed as GraphView;
-}
-
-function graphViewsOption(options: Record<string, unknown>): GraphView[] | undefined {
-  const raw = arrayOption(options.view || options.views).map(String);
-  if (!raw.length) return undefined;
-  for (const view of raw) {
-    if (!(GRAPH_VIEWS as string[]).includes(view)) {
-      throw new Error(`Unknown graph view: ${view}. Valid views: ${GRAPH_VIEWS.join(", ")}`);
-    }
-  }
-  return raw as GraphView[];
-}
-
-function metadataOption(options: Record<string, unknown>): Record<string, unknown> | undefined {
-  const raw = options.metadata;
-  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
-  if (typeof raw === "string") return JSON.parse(raw) as Record<string, unknown>;
-  return undefined;
-}
-
-function withoutHostRunKeys(args: Record<string, unknown>): Record<string, unknown> {
-  const copy = { ...args };
-  for (const key of [
-    "app",
-    "appId",
-    "workflow",
-    "workflowId",
-    "inputs",
-    "topology",
-    "topologyId",
-    "topologyRun",
-    "topologyRunId",
-    "multiAgentRun",
-    "multiAgentRunId",
-    "blackboard",
-    "blackboardId",
-    "mapperCount",
-    "mappers",
-    "mapper",
-    "judgeCount",
-    "judges",
-    "judge",
-    "debateRounds",
-    "rounds",
-    "collectInitialFanin",
-    "collect-initial-fanin"
-  ]) {
-    delete copy[key];
-  }
-  return { ...copy, ...(optionsRecord(args.inputs) || {}) };
-}
-
-function optionsRecord(value: unknown): Record<string, unknown> | undefined {
-  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
-  return undefined;
-}
-
-function parseBlackboardAuthor(options: Record<string, unknown>): { kind?: never; id?: string; displayName?: string } | undefined {
-  const structured = options.author;
-  if (structured && typeof structured === "object" && !Array.isArray(structured)) return structured as never;
-  const id = stringOption(options.authorId || options.author || options.worker || options.workerId || options.role || options.roleId || options.group || options.groupId);
-  const kind = stringOption(options.authorKind || options.sourceKind || options.source);
-  const displayName = stringOption(options.authorName || options.displayName);
-  if (!id && !kind && !displayName) return undefined;
-  return { kind: kind as never, id, displayName };
-}
-
-function parseBlackboardScope(options: Record<string, unknown>): { kind?: never; id?: string } | undefined {
-  const structured = options.scope;
-  if (structured && typeof structured === "object" && !Array.isArray(structured)) return structured as never;
-  const kind = stringOption(options.scopeKind);
-  const id = stringOption(options.scopeId);
-  if (!kind && !id) return undefined;
-  return { kind: kind as never, id };
-}
-
-function parseBlackboardLinks(runId: string, options: Record<string, unknown>): Record<string, unknown> | undefined {
-  const structured = options.provenance || options.links;
-  if (structured && typeof structured === "object" && !Array.isArray(structured)) return structured as Record<string, unknown>;
-  const links = {
-    workflowRunId: runId,
-    multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-    agentGroupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
-    agentRoleId: stringOption(options.role || options.roleId || options["multi-agent-role"]),
-    agentMembershipId: stringOption(options.membership || options.membershipId || options["multi-agent-membership"]),
-    agentFanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
-    agentFaninId: stringOption(options.fanin || options.faninId || options["multi-agent-fanin"]),
-    taskId: stringOption(options.task || options.taskId),
-    workerId: stringOption(options.worker || options.workerId),
-    candidateId: stringOption(options.candidate || options.candidateId),
-    verifierNodeId: stringOption(options.verifier || options.verifierNode || options.verifierNodeId),
-    commitId: stringOption(options.commit || options.commitId),
-    auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
-    evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String)
-  };
-  const entries = Object.entries(links).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length));
-  return entries.length > 1 ? Object.fromEntries(entries) : undefined;
-}
-
-function parseSandboxChoices(options: Record<string, unknown>): Record<string, string> | undefined {
-  const choices: Record<string, string> = {};
-  const structured = options.sandboxChoices || options.sandboxProfileChoices;
-  if (structured && typeof structured === "object" && !Array.isArray(structured)) {
-    for (const [key, value] of Object.entries(structured as Record<string, unknown>)) choices[key] = String(value);
-  }
-  for (const entry of arrayOption(options.sandboxChoice || options["sandbox-choice"])) {
-    const [key, ...rest] = String(entry).split("=");
-    if (key && rest.length) choices[key] = rest.join("=");
-  }
-  const sandbox = stringOption(options.sandbox || options.sandboxProfile || options.sandboxProfileId);
-  if (sandbox && !Object.keys(choices).length) choices.default = sandbox;
-  return Object.keys(choices).length ? choices : undefined;
-}
-
-function parseCriteria(options: Record<string, unknown>): Record<string, number> {
-  const criteria: Record<string, number> = {};
-  const structured = options.criteria;
-  if (structured && typeof structured === "object" && !Array.isArray(structured)) {
-    for (const [key, value] of Object.entries(structured as Record<string, unknown>)) {
-      const parsed = Number(value);
-      if (key && Number.isFinite(parsed)) criteria[key] = parsed;
-    }
-  }
-  const rawCriteria = options.criterion || (typeof structured === "object" && !Array.isArray(structured) ? undefined : structured) || options.score;
-  for (const entry of arrayOption(rawCriteria)) {
-    const [key, value] = String(entry).split("=");
-    if (!key || value === undefined) continue;
-    criteria[key] = Number(value);
-  }
-  if (!Object.keys(criteria).length && options.total !== undefined) {
-    criteria.total = Number(options.total);
-  }
-  if (!Object.keys(criteria).length) throw new Error("Missing score criteria. Use --criterion name=value");
-  return criteria;
-}
-
-function parseEvidence(value: unknown) {
-  return arrayOption(value).map((entry, index) => ({
-    id: `score:${index + 1}`,
-    source: "candidate-score",
-    locator: String(entry),
-    summary: String(entry)
-  }));
-}
-
-function mergeEvidence<T extends { id: string }>(left: T[], right: T[]): T[] {
-  const merged = [...left];
-  for (const item of right) {
-    const index = merged.findIndex((entry) => entry.id === item.id);
-    if (index >= 0) merged[index] = item;
-    else merged.push(item);
-  }
-  return merged;
-}
-
-function arrayOption(value: unknown): unknown[] {
-  if (value === undefined || value === null || value === true) return [];
-  return Array.isArray(value) ? value : [value];
-}
-
-function valuesOption(value: unknown): string[] {
-  return arrayOption(value).map((entry) => String(entry).split("=")[0]).filter(Boolean);
-}
-
-function inferAuditDecisionKind(options: Record<string, unknown>): string {
-  if (options.command) return "sandbox.command";
-  if (options.network || options.networkTarget) return "sandbox.network";
-  if (options.env || options.envVar) return "sandbox.env";
-  return "sandbox.path";
-}
-
-function isSandboxProfileError(error: unknown): error is SandboxProfileError {
-  return error instanceof SandboxProfileError || Boolean(error && typeof error === "object" && "code" in error && String((error as { code?: unknown }).code).startsWith("sandbox-"));
-}
-
-function validationIssuesFromError(error: unknown): WorkflowAppValidationIssue[] {
-  if (error instanceof WorkflowAppValidationError) return error.issues;
-  return [
-    {
-      code: "workflow-app-invalid",
-      message: error instanceof Error ? error.message : String(error)
-    }
-  ];
 }
 
 function createRunId(workflowId: string): string {

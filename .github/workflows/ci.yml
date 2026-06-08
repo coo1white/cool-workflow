@@ -20,6 +20,16 @@ jobs:
           node-version: "22"
       - run: npm install --no-package-lock
       - run: npm run build
+      # Committed dist/ must equal a fresh build of src/ (fail closed on drift).
+      # `git status --porcelain` catches modified AND added/deleted dist files;
+      # `git diff` would miss untracked ones. release:check re-verifies via dist:check.
+      - run: |
+          drift="$(git status --porcelain -- dist)"
+          if [ -n "$drift" ]; then
+            echo "committed dist/ is stale — rebuild with 'npm run build' and commit:"
+            echo "$drift"
+            exit 1
+          fi
       - run: npm run check
       - run: node scripts/cw.js list
       - run: node scripts/cw.js schedule list
