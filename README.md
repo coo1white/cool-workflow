@@ -12,6 +12,45 @@ plan -> dispatch -> record evidence -> verify -> commit/checkpoint -> report
 It is a small TypeScript/Node runtime with a CLI, MCP tools, reusable workflow
 apps, multi-agent coordination records, and release-grade replay checks.
 
+## What I actually built
+
+Most "agent frameworks" treat a task as one long prompt and hope for the best.
+Cool Workflow treats it as a **runtime problem**: make the work durable,
+inspectable, and verifiable, the same way an OS makes processes durable and
+inspectable.
+
+The whole system is one idea repeated at every layer:
+
+```text
+plan → dispatch → record evidence → verify → verifier-gated commit → report
+```
+
+- **Explicit state, no magic.** Every run is plain JSON under `.cw/runs/<id>/`.
+  You can read it, diff it, resume it, replay it. There is no hidden dashboard
+  database and the runtime never *infers* success — ambiguity is a visible state.
+- **Evidence over vibes.** Results carry provenance. The Evidence Adoption
+  reasoning chain records *why* something was adopted or rejected — basis,
+  authority, rationale, and the counterfactual it beat — and fails closed to
+  `unexplained` rather than fabricating a reason.
+- **Multi-agent as a process table.** Roles, memberships, a shared blackboard,
+  and reusable topologies (map-reduce, debate, judge-panel) with policy + audit.
+- **Verified, not hand-checked.** A deterministic eval/replay harness and a
+  verifier-gated commit model gate every release; `release:check` is a dry-run
+  that builds, type-checks, tests, replays, and self-dogfoods on this repo.
+- **One kernel, many front doors.** A shared CLI + MCP (JSON-RPC 2.0) runtime;
+  vendor plugin manifests (Claude, Codex, …) are *generated* from a single
+  source of truth, with a fail-closed drift check so no adapter forks the logic.
+
+Design philosophy is deliberately Unix/BSD:
+
+```text
+Small kernel. Explicit state. Composable pipes.
+Isolated workers. Verifier-gated commits. Docs as man pages.
+```
+
+~22k lines across 34 modules · 26 smoke tests · 6 bundled workflow apps ·
+27 tagged releases · MCP-native.
+
 ## Why CW Exists
 
 Agent work gets hard to trust when the task is long, parallel, or high-stakes.
