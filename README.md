@@ -1,13 +1,23 @@
-# Cool Workflow
-
-Cool Workflow (CW) is an Agent Workflow SDK for turning broad agent tasks into
-durable, inspectable workflow runs.
-
-Instead of treating agent work as one long prompt, CW makes the work visible:
-
 ```text
-plan -> dispatch -> record evidence -> verify -> commit/checkpoint -> report
+══════════════════════════════════════════════════════════════════════
+  C O O L   W O R K F L O W   ·   CW
+  auditable agent-workflow control-plane — delegate, don't execute
+  plan → dispatch → record → verify → commit → report
+══════════════════════════════════════════════════════════════════════
 ```
+
+[![CI](https://img.shields.io/github/actions/workflow/status/coo1white/cool-workflow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/coo1white/cool-workflow/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
+[![license](https://img.shields.io/github/license/coo1white/cool-workflow?style=flat-square&color=blue)](LICENSE)
+![MCP](https://img.shields.io/badge/MCP-native-8A2BE2?style=flat-square)
+![runtime](https://img.shields.io/badge/runtime-TypeScript%20%C2%B7%20Node-3178C6?style=flat-square)
+
+**Cool Workflow (CW)** is an Agent Workflow SDK for turning broad agent tasks
+into durable, inspectable workflow runs. It records what happens; the agent
+host still runs the models. CW makes the work durable, inspectable, verifiable,
+and replayable — without ever becoming the executor.
+
+**[Quick Start](#quick-start)** · [Install](#install-as-a-plugin) · [Concepts](#the-mental-model) · [What's Included](#what-is-included) · [Apps](#bundled-workflow-apps) · [Multi-Agent](#multi-agent-work) · [Eval / Replay](#eval-and-replay) · [Docs](#docs)
 
 It is a small TypeScript/Node runtime with a CLI, MCP tools, reusable workflow
 apps, multi-agent coordination records, and release-grade replay checks.
@@ -49,7 +59,7 @@ Isolated workers. Verifier-gated commits. Docs as man pages.
 ```
 
 ~22k lines across 34 modules · 26 smoke tests · 6 bundled workflow apps ·
-27 tagged releases · MCP-native.
+evidence-gated commits · deterministic replay.
 
 ## Why CW Exists
 

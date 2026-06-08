@@ -1,5 +1,20 @@
 # Cool Workflow
 
+```text
+══════════════════════════════════════════════════════════════════════
+  auditable agent-workflow control-plane — delegate, don't execute
+  plan → dispatch → record → verify → commit → report
+══════════════════════════════════════════════════════════════════════
+```
+
+[![CI](https://img.shields.io/github/actions/workflow/status/coo1white/cool-workflow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/coo1white/cool-workflow/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
+[![license](https://img.shields.io/github/license/coo1white/cool-workflow?style=flat-square&color=blue)](../../LICENSE)
+![MCP](https://img.shields.io/badge/MCP-native-8A2BE2?style=flat-square)
+![runtime](https://img.shields.io/badge/runtime-TypeScript%20%C2%B7%20Node-3178C6?style=flat-square)
+
+**[Structure](#structure)** · [Commands](#commands) · [Result Envelope](#result-envelope) · [Scheduled Tasks](#scheduled-tasks) · [License](#license)
+
 Cool Workflow, or CW, is an independent Agent Workflow SDK packaged as a
 TypeScript runtime. It provides a COL-Architecture: Router / Orchestrator,
 Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State
