@@ -100,7 +100,7 @@ coverage for role policy, permission decisions, blackboard write audit, message
 provenance, judge rationale, panel decisions, policy violations, report output,
 audit provenance, and MCP parity.
 
-For v0.1.23, the gate includes Multi-Agent Eval & Replay Harness smoke
+For v0.1.24, the gate includes Multi-Agent Eval & Replay Harness smoke
 coverage for replay snapshots, isolated replay runs, normalized comparison,
 scoring, fail-closed regression detection, report output, and MCP parity.
 

@@ -829,6 +829,7 @@ function loadSnapshot(target: string): MultiAgentReplaySnapshot {
   const resolved = resolveSnapshotPath(target);
   const snapshot = readJson(resolved) as MultiAgentReplaySnapshot;
   if (snapshot.kind !== "multi-agent-replay-snapshot") throw new Error(`Not a replay snapshot: ${resolved}`);
+  assertSnapshotShape(snapshot, resolved);
   return snapshot;
 }
 
@@ -836,13 +837,49 @@ function loadReplay(target: string): MultiAgentReplayRun {
   const resolved = resolveReplayPath(target);
   const replay = readJson(resolved) as MultiAgentReplayRun;
   if (replay.kind !== "multi-agent-replay-run") throw new Error(`Not a replay run: ${resolved}`);
+  assertReplayShape(replay, resolved);
   return replay;
 }
 
 function loadBaselineNormalized(target: string): { id: string; path: string; normalized: MultiAgentEvalNormalized } {
   const snapshotPath = resolveSnapshotPath(target);
   const snapshot = readJson(snapshotPath) as MultiAgentReplaySnapshot;
+  if (snapshot.kind !== "multi-agent-replay-snapshot") throw new Error(`Not a replay snapshot: ${snapshotPath}`);
+  assertSnapshotShape(snapshot, snapshotPath);
   return { id: snapshot.id, path: snapshotPath, normalized: snapshot.normalized };
+}
+
+function assertSnapshotShape(snapshot: MultiAgentReplaySnapshot, file: string): void {
+  if (!snapshot.id) throw new Error(`Replay snapshot missing id: ${file}`);
+  if (!snapshot.runId) throw new Error(`Replay snapshot missing runId: ${file}`);
+  if (!snapshot.paths || !snapshot.paths.suiteDir || !snapshot.paths.snapshotPath) {
+    throw new Error(`Replay snapshot missing paths.suiteDir or paths.snapshotPath: ${file}`);
+  }
+  assertNormalizedShape(snapshot.normalized, `Replay snapshot missing normalized section: ${file}`);
+}
+
+function assertReplayShape(replay: MultiAgentReplayRun, file: string): void {
+  if (!replay.id) throw new Error(`Replay run missing id: ${file}`);
+  if (!replay.snapshotId) throw new Error(`Replay run missing snapshotId: ${file}`);
+  if (replay.status !== "completed" && replay.status !== "failed") {
+    throw new Error(`Replay run has unsupported status ${String(replay.status)}: ${file}`);
+  }
+  if (!replay.paths || !replay.paths.suiteDir || !replay.paths.replayRunPath || !replay.paths.snapshotPath) {
+    throw new Error(`Replay run missing paths.suiteDir, paths.replayRunPath, or paths.snapshotPath: ${file}`);
+  }
+  if (!Array.isArray(replay.errors)) throw new Error(`Replay run errors must be an array: ${file}`);
+  assertNormalizedShape(replay.replay, `Replay run missing replay section: ${file}`);
+}
+
+function assertNormalizedShape(value: MultiAgentEvalNormalized, message: string): void {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(message);
+  for (const key of METRIC_SECTIONS.map((entry) => entry.section)) {
+    if (key === "workflow") {
+      if (!value.workflow || typeof value.workflow !== "object" || Array.isArray(value.workflow)) throw new Error(`${message}; workflow must be an object`);
+    } else if (!Array.isArray(value[key])) {
+      throw new Error(`${message}; ${String(key)} must be an array`);
+    }
+  }
 }
 
 function loadOrCompareForTarget(target: string): MultiAgentEvalComparison {

@@ -86,7 +86,12 @@ export function saveCheckpoint(run: WorkflowRun): void {
 
 export function readJson(file: string): unknown {
   if (!fs.existsSync(file)) throw new Error(`File not found: ${file}`);
-  return JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Invalid JSON in ${file}: ${message}`);
+  }
 }
 
 export function writeJson(file: string, value: unknown): void {

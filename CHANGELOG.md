@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.1.24
+
+- Added a robustness hardening pass for state loading, migrations, MCP tool
+  calls, multi-agent persistence, blackboard persistence, and eval/replay
+  artifact parsing.
+- State JSON parse failures now include deterministic file-path context, and
+  migrations fail closed when known fields are present with unsupported shapes
+  instead of silently replacing malformed data.
+- MCP `tools/call` now rejects malformed argument payloads and missing required
+  arguments with actionable operator errors.
+- Multi-agent and blackboard plain-file mirrors now reject safe-file-name id
+  collisions before persistence.
+- Eval/replay commands now validate snapshot, replay, and baseline artifact
+  shape before scoring or comparing.
+- Added `test/robustness-hardening-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.23
 
 - Added Multi-Agent Eval & Replay Harness with deterministic replay snapshots,

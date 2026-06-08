@@ -7,7 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.23";
+const VERSION = "0.1.24";
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",

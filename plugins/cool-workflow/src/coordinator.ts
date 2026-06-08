@@ -864,6 +864,11 @@ export function buildBlackboardGraph(run: WorkflowRun): BlackboardGraph {
 export function persistBlackboardState(run: WorkflowRun): void {
   const state = ensureBlackboardState(run);
   const root = blackboardRoot(run);
+  assertNoRecordPathCollisions("BlackboardTopic", state.topics);
+  assertNoRecordPathCollisions("BlackboardContext", state.contexts);
+  assertNoRecordPathCollisions("BlackboardArtifactRef", state.artifacts);
+  assertNoRecordPathCollisions("BlackboardSnapshot", state.snapshots);
+  assertNoRecordPathCollisions("CoordinatorDecision", state.decisions);
   const index = {
     schemaVersion: BLACKBOARD_SCHEMA_VERSION,
     runId: run.id,
@@ -1208,6 +1213,18 @@ function checksumFile(file: string): string {
 
 function assertUnique(items: Array<{ id: string }>, id: string, label: string): void {
   if (items.some((item) => item.id === id)) throw new Error(`Duplicate ${label} id: ${id}`);
+}
+
+function assertNoRecordPathCollisions(label: string, records: Array<{ id: string }>): void {
+  const seen = new Map<string, string>();
+  for (const record of records) {
+    const safe = safeFileName(record.id);
+    const existing = seen.get(safe);
+    if (existing && existing !== record.id) {
+      throw new Error(`${label} ids ${existing} and ${record.id} collide on safe file name ${safe}`);
+    }
+    seen.set(safe, record.id);
+  }
 }
 
 function indexRow(record: { id: string; status?: string; updatedAt?: string; blackboardId?: string; topicId?: string }): Record<string, unknown> {

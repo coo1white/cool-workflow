@@ -47,7 +47,7 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
-v0.1.23 adds Multi-Agent Eval & Replay Harness. Use `eval snapshot`,
+v0.1.24 adds Multi-Agent Eval & Replay Harness. Use `eval snapshot`,
 `eval replay`, `eval compare`, `eval score`, `eval gate`, and `eval report`
 when a topology-backed multi-agent run needs release-gate evidence. Artifacts
 live under `.cw/evals/<suite-id>/` as plain JSON plus `report.md`, and MCP

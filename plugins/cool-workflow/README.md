@@ -26,6 +26,10 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.24 hardens state loading, migrations, MCP tool calls, multi-agent and
+blackboard persistence, and eval/replay artifact validation with fail-closed
+operator diagnostics.
+
 CW v0.1.23 adds Multi-Agent Eval & Replay Harness: deterministic snapshots,
 isolated replays, normalized comparisons, replay scoring, release gates, human
 reports, and MCP parity for topology-backed multi-agent runs. See

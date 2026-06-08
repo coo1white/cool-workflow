@@ -60,6 +60,12 @@ function ensureMultiAgentState(run) {
 function persistMultiAgentState(run) {
     const state = ensureMultiAgentState(run);
     const root = multiAgentRoot(run);
+    assertNoRecordPathCollisions("MultiAgentRun", state.runs);
+    assertNoRecordPathCollisions("AgentRole", state.roles);
+    assertNoRecordPathCollisions("AgentGroup", state.groups);
+    assertNoRecordPathCollisions("AgentMembership", state.memberships);
+    assertNoRecordPathCollisions("AgentFanout", state.fanouts);
+    assertNoRecordPathCollisions("AgentFanin", state.fanins);
     (0, state_1.writeJson)(node_path_1.default.join(root, "index.json"), {
         schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
         runId: run.id,
@@ -989,6 +995,17 @@ function fanoutTopicIds(group, multiAgentRun, input) {
 }
 function writeRecord(run, kind, record) {
     (0, state_1.writeJson)(recordPath(run, kind, record.id), record);
+}
+function assertNoRecordPathCollisions(label, records) {
+    const seen = new Map();
+    for (const record of records) {
+        const safe = (0, state_1.safeFileName)(record.id);
+        const existing = seen.get(safe);
+        if (existing && existing !== record.id) {
+            throw new Error(`${label} ids ${existing} and ${record.id} collide on safe file name ${safe}`);
+        }
+        seen.set(safe, record.id);
+    }
 }
 function indexRow(record) {
     return { id: record.id, status: record.status, updatedAt: record.updatedAt };

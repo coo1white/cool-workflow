@@ -46,6 +46,7 @@ export interface StateMigrationStep {
 interface StateMigrationContext {
   statePath?: string;
   changes: StateMigrationChange[];
+  errors: string[];
 }
 
 export const RUN_STATE_MIGRATIONS: StateMigrationStep[] = [
@@ -87,19 +88,19 @@ export function migrateRunState(
 
   if (report.detectedSchemaVersion < MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
     report.status = "unsupported";
-    report.errors.push(`Unsupported run-state schemaVersion ${report.detectedSchemaVersion}.`);
+    report.errors.push(`Unsupported run-state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)}.`);
     return { run: clone(input) as unknown as WorkflowRun, report };
   }
   if (report.detectedSchemaVersion > CURRENT_RUN_STATE_SCHEMA_VERSION) {
     report.status = "unsupported";
     report.errors.push(
-      `Run state schemaVersion ${report.detectedSchemaVersion} is newer than this CW runtime (${CURRENT_RUN_STATE_SCHEMA_VERSION}).`
+      `Run state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)} is newer than this CW runtime (${CURRENT_RUN_STATE_SCHEMA_VERSION}).`
     );
     return { run: clone(input) as unknown as WorkflowRun, report };
   }
 
   const state = clone(input) as Record<string, unknown>;
-  const context: StateMigrationContext = { statePath: options.statePath, changes: report.changes };
+  const context: StateMigrationContext = { statePath: options.statePath, changes: report.changes, errors: report.errors };
   let schemaVersion = report.detectedSchemaVersion;
   while (schemaVersion < CURRENT_RUN_STATE_SCHEMA_VERSION) {
     const step = RUN_STATE_MIGRATIONS.find((candidate) => candidate.from === schemaVersion);
@@ -169,6 +170,7 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
   ensureArray(state, "contracts", context);
   ensureArray(state, "feedback", context);
   if (!isRecord(state.audit)) {
+    if (state.audit !== undefined) context.errors.push("audit must be an object when present.");
     setValue(state, "audit", {
       schemaVersion: 1,
       eventLogPath: path.join(String(paths.auditDir), "events.jsonl"),
@@ -181,6 +183,7 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
   ensureArray(state, "candidates", context);
   ensureArray(state, "candidateSelections", context);
   if (!isRecord(state.multiAgent)) {
+    if (state.multiAgent !== undefined) context.errors.push("multiAgent must be an object when present.");
     setValue(state, "multiAgent", {
       schemaVersion: 1,
       runs: [],
@@ -195,11 +198,13 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
     setDefault(multiAgent, "schemaVersion", 1, context, "multiAgent.schemaVersion is required", "multiAgent.schemaVersion");
     for (const key of ["runs", "roles", "groups", "memberships", "fanouts", "fanins"]) {
       if (!Array.isArray(multiAgent[key])) {
+        if (multiAgent[key] !== undefined) context.errors.push(`multiAgent.${key} must be an array when present.`);
         setValue(multiAgent, key, [], context, `multiAgent.${key} must be an array`, `multiAgent.${key}`);
       }
     }
   }
   if (!isRecord(state.blackboard)) {
+    if (state.blackboard !== undefined) context.errors.push("blackboard must be an object when present.");
     setValue(state, "blackboard", {
       schemaVersion: 1,
       boards: [],
@@ -215,11 +220,13 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
     setDefault(blackboard, "schemaVersion", 1, context, "blackboard.schemaVersion is required", "blackboard.schemaVersion");
     for (const key of ["boards", "topics", "messages", "contexts", "artifacts", "snapshots", "decisions"]) {
       if (!Array.isArray(blackboard[key])) {
+        if (blackboard[key] !== undefined) context.errors.push(`blackboard.${key} must be an array when present.`);
         setValue(blackboard, key, [], context, `blackboard.${key} must be an array`, `blackboard.${key}`);
       }
     }
   }
   if (!isRecord(state.topologies)) {
+    if (state.topologies !== undefined) context.errors.push("topologies must be an object when present.");
     setValue(state, "topologies", {
       schemaVersion: 1,
       runs: []
@@ -228,11 +235,13 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
     const topologies = state.topologies as Record<string, unknown>;
     setDefault(topologies, "schemaVersion", 1, context, "topologies.schemaVersion is required", "topologies.schemaVersion");
     if (!Array.isArray(topologies.runs)) {
+      if (topologies.runs !== undefined) context.errors.push("topologies.runs must be an array when present.");
       setValue(topologies, "runs", [], context, "topologies.runs must be an array", "topologies.runs");
     }
   }
 
   if (!Array.isArray(state.phases)) {
+    if (state.phases !== undefined) context.errors.push("phases must be an array when present.");
     const phases = derivePhases(Array.isArray(state.tasks) ? state.tasks : []);
     setValue(state, "phases", phases, context, "phases derived from tasks");
   }
@@ -261,6 +270,13 @@ function detectSchemaVersion(value: unknown): number {
   return Number(value.schemaVersion);
 }
 
+function schemaVersionDescription(input: unknown, detected: number): string {
+  if (!isRecord(input)) return "non-object";
+  if (input.schemaVersion === undefined) return String(LEGACY_RUN_STATE_SCHEMA_VERSION);
+  if (Number.isFinite(detected)) return String(detected);
+  return `invalid (${typeof input.schemaVersion}: ${String(input.schemaVersion)})`;
+}
+
 function ensureRecord(
   state: Record<string, unknown>,
   key: string,
@@ -268,12 +284,14 @@ function ensureRecord(
   reason: string
 ): Record<string, unknown> {
   if (isRecord(state[key])) return state[key] as Record<string, unknown>;
+  if (state[key] !== undefined) context.errors.push(`${key} must be an object when present.`);
   setValue(state, key, {}, context, reason);
   return state[key] as Record<string, unknown>;
 }
 
 function ensureArray(state: Record<string, unknown>, key: string, context: StateMigrationContext): void {
   if (Array.isArray(state[key])) return;
+  if (state[key] !== undefined) context.errors.push(`${key} must be an array when present.`);
   setValue(state, key, [], context, `${key} must be an array`);
 }
 

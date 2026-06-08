@@ -130,6 +130,6 @@ dependencies, failures, evidence adoption, report output, and MCP parity.
 role-policy, blackboard-write, message-provenance, judge-rationale,
 policy-violation, report, audit provenance, and MCP parity surface.
 
-`test/multi-agent-eval-replay-harness-smoke.js` covers the v0.1.23 eval/replay
+`test/multi-agent-eval-replay-harness-smoke.js` covers the v0.1.24 eval/replay
 commands and MCP tools: snapshot, replay, compare, score, gate, report, and
 controlled regression detection.
