@@ -14,5 +14,6 @@ adversarially verified against the source for code-accuracy.
 | v0.1.35 | [Node Snapshot / Diff / Replay](v0.1.35-node-snapshot-diff-replay.md) | v0.1.23 eval/replay — per-node snapshot, diff, and deterministic single-node replay. |
 | v0.1.36 | [Contract Migration Tooling](v0.1.36-contract-migration-tooling.md) | `state-migrations.ts` — a declared migration registry with compatibility proofs, fail-closed, append-only. |
 | v0.1.37 | [Control-Plane Scheduling](v0.1.37-control-plane-scheduling.md) | v0.1.28 Run Registry queue — priority, concurrency limits, retry/backoff as policy-as-data. |
+| v0.1.38 | [Agent Delegation Drive](v0.1.38-agent-delegation-drive.md) | v0.1.29/34 delegating backends — an `agent` driver that spawns an external agent process per worker (`claude -p` / `codex exec` / HTTP), captures result.md + attestation, and auto-drives plan→dispatch→fulfill→accept→commit. First turnkey product: architecture-review. |
 
 Run them in order: each assumes the previous version has shipped.
