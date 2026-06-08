@@ -150,6 +150,20 @@ These tools create replay snapshots, run isolated replays, compare normalized
 baseline/replay records, score metrics, fail closed on regressions, and return
 artifact paths in deterministic JSON.
 
+v0.1.25 adds State Explosion Management parity for large multi-agent runs:
+
+- `cw_summary_refresh`
+- `cw_summary_show`
+- `cw_blackboard_summarize`
+- `cw_multi_agent_summarize`
+- `cw_multi_agent_graph_compact`
+
+These tools refresh durable, versioned summary records, read the stale-aware
+state-explosion report, return the blackboard digest, and return compact or
+focused graph views with synthetic summary nodes. Every response keeps source
+refs and expansion hints and never deletes raw blackboard, graph, audit, or
+evidence records.
+
 Read and inspect:
 
 - `cw_multi_agent_summary`

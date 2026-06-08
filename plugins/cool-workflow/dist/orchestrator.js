@@ -31,6 +31,7 @@ const topology_1 = require("./topology");
 const multi_agent_host_1 = require("./multi-agent-host");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
+const state_explosion_1 = require("./state-explosion");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -790,6 +791,39 @@ class CoolWorkflowRunner {
     multiAgentEvidence(runId) {
         return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(this.loadRun(runId)).evidence;
     }
+    summaryRefresh(runId, options = {}) {
+        const run = this.loadRun(runId);
+        const index = (0, state_explosion_1.refreshStateExplosionSummaries)(run, { views: graphViewsOption(options) });
+        writeReport(run);
+        (0, state_1.saveCheckpoint)(run);
+        return index;
+    }
+    summaryShow(runId) {
+        const run = this.loadRun(runId);
+        const report = (0, state_explosion_1.showStateExplosionSummary)(run);
+        (0, state_1.saveCheckpoint)(run);
+        return report;
+    }
+    blackboardSummarize(runId, options = {}) {
+        return (0, state_explosion_1.summarizeBlackboardDigest)(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+    }
+    multiAgentSummarize(runId) {
+        const run = this.loadRun(runId);
+        const index = (0, state_explosion_1.loadStateExplosionSummaryIndex)(run);
+        return (0, state_explosion_1.buildStateExplosionReport)(run, { index });
+    }
+    multiAgentGraphView(runId, options = {}) {
+        const view = graphViewOption(options.view);
+        return (0, state_explosion_1.buildCompactGraph)(this.loadRun(runId), view, {
+            focus: stringOption(options.focus),
+            depth: numberOption(options.depth)
+        });
+    }
+    stateExplosionReport(runId) {
+        const run = this.loadRun(runId);
+        const index = (0, state_explosion_1.loadStateExplosionSummaryIndex)(run);
+        return (0, state_explosion_1.buildStateExplosionReport)(run, { index });
+    }
     hostMultiAgentRun(runId, options = {}) {
         const workflowId = stringOption(options.app || options.appId || options.workflow || options.workflowId);
         const run = runId
@@ -1416,7 +1450,8 @@ function formatHelp() {
         "  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]",
         "  candidate list|summary|register|score|rank|select|reject <run-id>",
         "  eval snapshot|replay|compare|score|gate|report",
-        "  blackboard summary|graph|resolve <run-id>",
+        "  summary refresh|show <run-id> [--json]",
+        "  blackboard summary|summarize|graph|resolve <run-id>",
         "  blackboard topic create <run-id> --id <topic-id> --title TEXT",
         "  blackboard message post|list <run-id>",
         "  blackboard context put <run-id>",
@@ -1424,7 +1459,8 @@ function formatHelp() {
         "  blackboard snapshot <run-id>",
         "  coordinator summary <run-id>",
         "  coordinator decision <run-id> --kind KIND --outcome OUTCOME --reason TEXT",
-        "  multi-agent run|status|step|blackboard|score|select|summary|graph|dependencies|failures|evidence <run-id>",
+        "  multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence <run-id>",
+        "  multi-agent graph <run-id> --view full|compact|critical-path|failures|evidence|trust|topology|blackboard|candidate|commit-gate [--focus ID] [--depth N]",
         "  topology list|show|validate|apply|summary|graph",
         "  schedule create|list|due|complete|pause|resume|run-now|history|daemon|delete",
         "  routine create|fire|list|events|delete",
@@ -1531,6 +1567,10 @@ function writeReport(run) {
         "## Workers",
         "",
         ...renderWorkers(workerSummary),
+        "",
+        "## State Size & Compaction",
+        "",
+        ...renderStateSize(run),
         "",
         "## Multi-Agent Runtime",
         "",
@@ -1652,6 +1692,11 @@ function renderWorkers(summary) {
         }
     }
     return lines;
+}
+function renderStateSize(run) {
+    const index = (0, state_explosion_1.loadStateExplosionSummaryIndex)(run);
+    const report = (0, state_explosion_1.buildStateExplosionReport)(run, { index });
+    return (0, state_explosion_1.stateExplosionReportLines)(report);
 }
 function renderMultiAgent(run) {
     const summary = (0, multi_agent_1.summarizeMultiAgent)(run);
@@ -1822,6 +1867,26 @@ function requiredStringOption(value, label) {
     if (!parsed)
         throw new Error(`Missing ${label}`);
     return parsed;
+}
+function graphViewOption(value) {
+    const parsed = stringOption(value);
+    if (!parsed)
+        return "compact";
+    if (!state_explosion_1.GRAPH_VIEWS.includes(parsed)) {
+        throw new Error(`Unknown graph view: ${parsed}. Valid views: ${state_explosion_1.GRAPH_VIEWS.join(", ")}`);
+    }
+    return parsed;
+}
+function graphViewsOption(options) {
+    const raw = arrayOption(options.view || options.views).map(String);
+    if (!raw.length)
+        return undefined;
+    for (const view of raw) {
+        if (!state_explosion_1.GRAPH_VIEWS.includes(view)) {
+            throw new Error(`Unknown graph view: ${view}. Valid views: ${state_explosion_1.GRAPH_VIEWS.join(", ")}`);
+        }
+    }
+    return raw;
 }
 function metadataOption(options) {
     const raw = options.metadata;

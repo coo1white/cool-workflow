@@ -3,6 +3,15 @@
 CW v0.1.18 adds the Coordinator / Blackboard layer. Multi-Agent Runtime Core is
 the process table; the blackboard is the shared coordination filesystem.
 
+CW v0.1.25 adds `blackboard summarize <run-id>` (MCP: `cw_blackboard_summarize`),
+a deterministic blackboard digest with topic rollups, thread summaries,
+unresolved questions, conflicts, decisions, artifacts, adopted and missing
+evidence, policy violations, judge rationale, recent changes, and high-signal
+records. The digest is a derived userland index: it preserves links back to
+source messages, contexts, artifacts, snapshots, coordinator decisions, and
+audit events, and never deletes raw records. See
+[state-explosion-management.7.md](state-explosion-management.7.md).
+
 This release defines stable primitives for shared context, messages, artifact
 indexing, snapshots, and coordinator decisions. It does not implement debate,
 judge, map-reduce, swarm, committee, or synthesis topologies yet. Those

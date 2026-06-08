@@ -26,6 +26,17 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.25 adds State Explosion Management: durable, versioned,
+provenance-backed summary records (`MultiAgentSummaryIndex`,
+`BlackboardSummaryRecord`, `GraphSummaryRecord`, `OperatorDigest`,
+`StateExplosionReport`), compact and focused graph views with synthetic summary
+nodes, blackboard digests, and eval/replay-gated freshness checks. Summaries are
+derived userland indexes that never delete raw blackboard, graph, audit, or
+evidence records and fail closed when stale. New surfaces: `summary refresh`,
+`summary show`, `blackboard summarize`, `multi-agent summarize`, and
+`multi-agent graph --view`. See
+[docs/state-explosion-management.7.md](docs/state-explosion-management.7.md).
+
 CW v0.1.24 hardens state loading, migrations, MCP tool calls, multi-agent and
 blackboard persistence, and eval/replay artifact validation with fail-closed
 operator diagnostics.

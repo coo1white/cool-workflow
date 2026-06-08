@@ -104,6 +104,16 @@ For v0.1.24, the gate includes Multi-Agent Eval & Replay Harness smoke
 coverage for replay snapshots, isolated replay runs, normalized comparison,
 scoring, fail-closed regression detection, report output, and MCP parity.
 
+For v0.1.25, the gate includes State Explosion Management smoke coverage for
+durable summary records, compact and focused graph views, blackboard digests,
+critical-path preservation, fail-closed stale-summary detection, eval/replay
+summary metrics (`summary_freshness`, `compact_graph_parity`,
+`blackboard_digest_parity`, `critical_path_parity`, `evidence_digest_parity`,
+`expansion_ref_integrity`), and CLI/MCP parity. Summaries are derived userland
+indexes; raw blackboard, graph, audit, and evidence records are never deleted,
+and migrations remain backward compatible (pre-0.1.25 eval snapshots load with
+empty summary sections).
+
 The host loop must preserve CLI/MCP parity, stable JSON responses,
 blackboard/audit provenance, evidence-required scoring, fail-closed selection,
 and compatibility with the lower-level topology, multi-agent, blackboard, and

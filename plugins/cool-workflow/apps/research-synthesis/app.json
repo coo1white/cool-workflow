@@ -3,7 +3,7 @@
   "id": "research-synthesis",
   "title": "Research Synthesis",
   "summary": "Split a research question into claims, investigate sources, cross-check evidence, verify claims, and synthesize a concise answer.",
-  "version": "0.1.24",
+  "version": "0.1.25",
   "author": "COOLWHITE LLC",
   "inputs": [
     {
@@ -34,9 +34,9 @@
     "locked-down"
   ],
   "compatibility": {
-    "minVersion": "0.1.24",
+    "minVersion": "0.1.25",
     "workflowSchemaVersion": 1,
-    "notes": "Canonical v0.1.24 app migrated from the legacy research-synthesis workflow."
+    "notes": "Canonical v0.1.25 app migrated from the legacy research-synthesis workflow."
   },
   "metadata": {
     "canonical": true,

@@ -20,6 +20,7 @@ const checks = [
         "docs/multi-agent-operator-ux.7.md",
         "docs/multi-agent-trust-policy-audit.7.md",
         "docs/multi-agent-eval-replay-harness.7.md",
+        "docs/state-explosion-management.7.md",
         "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
@@ -38,6 +39,7 @@ const checks = [
   { name: "multi-agent operator UX smoke", command: ["node", "test/multi-agent-operator-ux-smoke.js"] },
   { name: "multi-agent trust policy audit smoke", command: ["node", "test/multi-agent-trust-policy-audit-smoke.js"] },
   { name: "multi-agent eval replay harness smoke", command: ["node", "test/multi-agent-eval-replay-harness-smoke.js"] },
+  { name: "state explosion management smoke", command: ["node", "test/state-explosion-management-smoke.js"] },
   { name: "robustness hardening smoke", command: ["node", "test/robustness-hardening-smoke.js"] },
   { name: "eval replay release gate", command: ["npm", "run", "eval:replay"] },
   { name: "security trust smoke", command: ["node", "test/security-trust-hardening-smoke.js"] },

@@ -47,6 +47,18 @@ The runner does not directly spawn workers. It writes pending agent tasks to
 when the user explicitly asks for agent/parallel/background work, then records
 results with the runner.
 
+v0.1.25 adds State Explosion Management. When a multi-agent run grows too large
+to read, use `summary refresh <run-id>` then `summary show <run-id>` for a
+durable, provenance-backed digest, `blackboard summarize <run-id>` for the
+blackboard digest, `multi-agent summarize <run-id>` for the combined report, and
+`multi-agent graph <run-id> --view compact|critical-path|failures|... [--focus
+<id>] [--depth <n>]` for compact and focused graph views. Summaries are derived
+indexes that never delete raw records and fail closed when stale; every synthetic
+summary node carries source ids and an expansion command. MCP parity is available
+through `cw_summary_refresh`, `cw_summary_show`, `cw_blackboard_summarize`,
+`cw_multi_agent_summarize`, and `cw_multi_agent_graph_compact`. Run
+`npm run release:check` before tagging a release.
+
 v0.1.24 adds Multi-Agent Eval & Replay Harness. Use `eval snapshot`,
 `eval replay`, `eval compare`, `eval score`, `eval gate`, and `eval report`
 when a topology-backed multi-agent run needs release-gate evidence. Artifacts
