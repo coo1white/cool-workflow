@@ -146,3 +146,7 @@ honors the candidate's approvals and records who approved the shipped commit.
 CW is the base system. Workflow apps are userland. Collaboration adds the human
 decision as durable, attested, append-only state — never a hidden dashboard, never
 a bypass of the verifier gate.
+
+## Release Tooling (v0.1.33)
+
+the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a de-duplicated release gate. See release-tooling(7).

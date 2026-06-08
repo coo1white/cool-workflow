@@ -87,6 +87,10 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/team-collaboration.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "team-collaboration.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/team-collaboration-smoke.js", "team-collaboration-smoke", checks);
+  checkIncludes("plugins/cool-workflow/docs/release-tooling.7.md", "Release Tooling", checks);
+  checkIncludes("plugins/cool-workflow/docs/release-tooling.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "release-tooling.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/release-tooling-smoke.js", "release-tooling-smoke", checks);
   checkIncludes("plugins/cool-workflow/src/collaboration.ts", "deriveReviewState", checks);
   checkIncludes("plugins/cool-workflow/dist/collaboration.js", "deriveReviewState", checks);
   checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "review.status", checks);

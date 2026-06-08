@@ -80,10 +80,19 @@ function main() {
   setNestedVersion(path.join(pluginRoot, "manifest", "plugin.manifest.json"), next);
   note("manifest/plugin.manifest.json");
 
-  // 5. canonical apps app.json (top-level version only; never minVersion)
-  const appsDir = path.join(pluginRoot, "apps");
-  for (const appId of fs.readdirSync(appsDir)) {
-    const appJson = path.join(appsDir, appId, "app.json");
+  // 5. canonical apps app.json (top-level version only; never minVersion).
+  //    ONLY the canonical apps track the runtime version — workflow-app-sdk-demo
+  //    is pinned (e.g. 0.1.0) and must NOT be bumped. This list mirrors the one
+  //    version-sync-check.js asserts.
+  const CANONICAL_APPS = [
+    "architecture-review",
+    "end-to-end-golden-path",
+    "pr-review-fix-ci",
+    "release-cut",
+    "research-synthesis"
+  ];
+  for (const appId of CANONICAL_APPS) {
+    const appJson = path.join(pluginRoot, "apps", appId, "app.json");
     if (fs.existsSync(appJson) && replaceFirstVersionField(appJson, next)) {
       note(`apps/${appId}/app.json`);
     }
@@ -105,12 +114,22 @@ function main() {
     "test/workflow-app-sdk-smoke.js",
     "test/operator-ux-smoke.js"
   ];
+  // The version appears in THREE forms across scripts/tests: plain (`0.1.32`),
+  // a regex literal (`0\.1\.32`, from `assert.match(report, /...@0\.1\.32/)`),
+  // and a RegExp string (`0\\.1\\.32`, from `new RegExp(\`...@0\\.1\\.32\`)`).
+  // A plain replace silently misses the escaped forms — the exact "escaped-dot"
+  // surface that fails version:sync mid-release. Replace all three, most-escaped
+  // first so the forms can never overlap.
+  const esc1 = (v) => v.replace(/\./g, "\\.");
+  const esc2 = (v) => v.replace(/\./g, "\\\\.");
+  const forms = [[esc2(current), esc2(next)], [esc1(current), esc1(next)], [current, next]];
   for (const rel of targeted) {
     const abs = path.join(pluginRoot, rel);
     if (!fs.existsSync(abs)) continue;
-    const text = fs.readFileSync(abs, "utf8");
-    if (!text.includes(current)) continue;
-    fs.writeFileSync(abs, text.split(current).join(next));
+    let text = fs.readFileSync(abs, "utf8");
+    if (!forms.some(([from]) => text.includes(from))) continue;
+    for (const [from, to] of forms) text = text.split(from).join(to);
+    fs.writeFileSync(abs, text);
     note(rel);
   }
 

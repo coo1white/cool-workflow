@@ -2,10 +2,12 @@
   "_comment": "SINGLE SOURCE OF TRUTH for every vendor manifest. Edit THIS file, then run `npm run gen:manifests`. Do NOT hand-edit the generated vendor manifests (.claude-plugin/, .codex-plugin/, .agents/, .mcp.json) — `npm run gen:manifests -- --check` (run by release:check) will fail if they drift from this source.",
   "identity": {
     "name": "cool-workflow",
-    "version": "0.1.32",
+    "version": "0.1.33",
     "license": "BSD-2-Clause",
     "homepage": "https://github.com/coo1white/cool-workflow",
-    "author": { "name": "COOLWHITE LLC" },
+    "author": {
+      "name": "COOLWHITE LLC"
+    },
     "keywords": [
       "workflow",
       "agent-sdk",
@@ -25,7 +27,11 @@
   "interface": {
     "displayName": "Cool Workflow",
     "category": "Productivity",
-    "capabilities": ["Interactive", "Read", "Write"],
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
     "brandColor": "#2563EB",
     "defaultPrompt": [
       "Use Cool Workflow to plan this as phases and agents.",

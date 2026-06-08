@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.33
+
+- Added Release Tooling: one-command version bump across every surface plus a per-feature scaffolder, and a de-duplicated release gate
+
 ## 0.1.32
 
 - Added Team Collaboration: the human-decision layer on top of the existing

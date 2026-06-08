@@ -28,6 +28,7 @@ const checks = [
         "docs/web-desktop-workbench.7.md",
         "docs/observability-cost-accounting.7.md",
         "docs/team-collaboration.7.md",
+        "docs/release-tooling.7.md",
         "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
