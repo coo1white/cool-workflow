@@ -23,7 +23,8 @@ Read these in order when you are new to CW:
 19. [CLI ↔ MCP Parity](cli-mcp-parity.7.md) - the capability registry and fail-closed gate proving the CLI and MCP surfaces render one data source.
 20. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
 21. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
-22. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+22. [Web / Desktop Workbench](web-desktop-workbench.7.md) - a read-only, localhost-only human console rendering the run graph, blackboard, worker logs, candidate compare, and audit timeline over existing capability payloads — a third front door that holds no authoritative state.
+23. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

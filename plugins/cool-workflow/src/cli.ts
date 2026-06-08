@@ -32,6 +32,8 @@ import {
 import { DesktopSchedulerDaemon } from "./daemon";
 import { Scheduler } from "./scheduler";
 import { RoutineTriggerBridge } from "./triggers";
+import { buildWorkbenchRunView, buildWorkbenchServeDescriptor } from "./workbench";
+import { WorkbenchHost } from "./workbench-host";
 import {
   adviseNoRun,
   formatCandidateSummary,
@@ -862,6 +864,36 @@ async function main(): Promise<void> {
       else process.stdout.write(`${formatHistory(result)}\n`);
       return;
     }
+    case "workbench": {
+      const [subcommand, runId] = args.positionals;
+      switch (subcommand) {
+        case "view": {
+          // Read-only five-panel view of one run. Same core entry as cw_workbench_view.
+          const view = buildWorkbenchRunView(runner, required(runId, "run id"));
+          if (wantsJson(args.options)) printJson(view);
+          else process.stdout.write(`${formatWorkbenchView(view)}\n`);
+          return;
+        }
+        case "serve": {
+          // The OPTIONAL localhost host. `--once`/`--json` emit the descriptor only
+          // (no server); the default starts the read-only, localhost-only host.
+          if (args.options.once || wantsJson(args.options)) {
+            printJson(buildWorkbenchServeDescriptor(runner, { ...args.options, once: true }));
+            return;
+          }
+          const host = new WorkbenchHost({
+            runner,
+            cwd: String(args.options.cwd || process.cwd()),
+            port: Number(args.options.port) || undefined,
+            scope: args.options.scope === "repo" ? "repo" : "home"
+          });
+          await host.run();
+          return;
+        }
+        default:
+          throw new Error("Usage: cw.js workbench serve [--port N] [--once] | view <run-id> [--json]");
+      }
+    }
     default:
       throw new Error(`Unknown command: ${args.command}`);
   }
@@ -878,6 +910,21 @@ function printJson(value: unknown): void {
 
 function wantsJson(options: Record<string, unknown>): boolean {
   return Boolean(options.json || options.format === "json");
+}
+
+function formatWorkbenchView(view: ReturnType<typeof buildWorkbenchRunView>): string {
+  const lines = [
+    `Workbench view ${view.runId} (${view.resolved ? "resolved" : "UNRESOLVED"})`,
+    view.error ? `  error: ${view.error}` : ""
+  ].filter(Boolean);
+  for (const [group, panels] of Object.entries(view.panels)) {
+    lines.push(`  ${group}:`);
+    for (const [name, panel] of Object.entries(panels as Record<string, { status: string; capability: string; error?: string }>)) {
+      const note = panel.status === "present" ? panel.capability : `absent (${panel.error || "unreadable"})`;
+      lines.push(`    ${name}: ${panel.status} — ${note}`);
+    }
+  }
+  return lines.join("\n");
 }
 
 main().catch((error: unknown) => {

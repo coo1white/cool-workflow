@@ -25,6 +25,7 @@ const checks = [
         "docs/cli-mcp-parity.7.md",
         "docs/run-registry-control-plane.7.md",
         "docs/execution-backends.7.md",
+        "docs/web-desktop-workbench.7.md",
         "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
@@ -46,6 +47,7 @@ const checks = [
   { name: "state explosion management smoke", command: ["node", "test/state-explosion-management-smoke.js"] },
   { name: "run registry control plane smoke", command: ["node", "test/run-registry-control-plane-smoke.js"] },
   { name: "execution backends smoke", command: ["node", "test/execution-backends-smoke.js"] },
+  { name: "web desktop workbench smoke", command: ["node", "test/web-desktop-workbench-smoke.js"] },
   { name: "robustness hardening smoke", command: ["node", "test/robustness-hardening-smoke.js"] },
   { name: "eval replay release gate", command: ["npm", "run", "eval:replay"] },
   { name: "security trust smoke", command: ["node", "test/security-trust-hardening-smoke.js"] },

@@ -318,7 +318,17 @@ exports.CAPABILITY_REGISTRY = [
     { capability: "queue.list", summary: "List the durable run queue in policy order.", entry: "runRegistry.queueList", surface: "both", cli: { path: ["queue", "list"], jsonMode: "flag" }, mcp: { tool: "cw_queue_list" } },
     { capability: "queue.drain", summary: "Mark the next ready queue entries drained (the host still executes).", entry: "runRegistry.queueDrain", surface: "both", cli: { path: ["queue", "drain"], jsonMode: "default" }, mcp: { tool: "cw_queue_drain" } },
     { capability: "queue.show", summary: "Show one durable queue entry.", entry: "runRegistry.queueShow", surface: "both", cli: { path: ["queue", "show"], jsonMode: "default" }, mcp: { tool: "cw_queue_show" } },
-    { capability: "history", summary: "Read a cross-repo unified run timeline (newest first).", entry: "runRegistry.history", surface: "both", cli: { path: ["history"], jsonMode: "flag" }, mcp: { tool: "cw_history" } }
+    { capability: "history", summary: "Read a cross-repo unified run timeline (newest first).", entry: "runRegistry.history", surface: "both", cli: { path: ["history"], jsonMode: "flag" }, mcp: { tool: "cw_history" } },
+    // ---- web / desktop workbench (v0.1.30) ----------------------------------
+    // A THIRD FRONT DOOR — a read-only renderer, not a new brain. Both verbs route
+    // through the single core in src/workbench.ts; each panel of `workbench.view`
+    // embeds, verbatim, the canonical `--json` payload of an already-declared
+    // capability (graph/blackboard/worker/candidate/audit), so the Workbench can
+    // show nothing the CLI/MCP cannot. It holds zero authoritative state.
+    { capability: "workbench.view", summary: "Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit).", entry: "buildWorkbenchRunView", surface: "both", cli: { path: ["workbench", "view"], jsonMode: "flag" }, mcp: { tool: "cw_workbench_view" } },
+    { capability: "workbench.serve", summary: "Describe/serve the optional localhost-only, read-only Workbench host.", entry: "buildWorkbenchServeDescriptor", surface: "both", cli: { path: ["workbench", "serve"], jsonMode: "flag" }, mcp: { tool: "cw_workbench_serve" },
+        payloadIdentical: false,
+        reason: "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host (like `schedule daemon`), which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift." }
 ];
 // ---------------------------------------------------------------------------
 // Derivations + the fail-closed parity report builder.

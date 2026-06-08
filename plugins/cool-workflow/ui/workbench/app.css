@@ -1,0 +1,76 @@
+/* Cool Workflow Workbench — static, dependency-light styling.
+   No framework; system fonts only; ~self-contained. */
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1d212a;
+  --ink: #e6e8ec;
+  --muted: #8a92a3;
+  --line: #2a2f3a;
+  --accent: #5aa9ff;
+  --present: #3fb950;
+  --absent: #d29922;
+  --bad: #f85149;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+}
+header { padding: 14px 20px; border-bottom: 1px solid var(--line); }
+header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+header .muted, .muted { color: var(--muted); font-weight: 400; }
+header .trust { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+main { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 64px); }
+.sidebar { border-right: 1px solid var(--line); overflow-y: auto; padding: 12px; }
+.bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+button {
+  background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px;
+}
+button:hover { border-color: var(--accent); }
+input[type="search"] {
+  width: 100%; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px;
+}
+.freshness { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.run-list { list-style: none; margin: 0; padding: 0; }
+.run-list li {
+  padding: 8px; border: 1px solid var(--line); border-radius: 6px;
+  margin-bottom: 6px; cursor: pointer; background: var(--panel);
+}
+.run-list li:hover { border-color: var(--accent); }
+.run-list li.active { border-color: var(--accent); background: var(--panel-2); }
+.run-list .rid { font-family: ui-monospace, monospace; font-size: 12px; }
+.run-list .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.detail { overflow-y: auto; padding: 16px 20px; }
+.detail .empty { color: var(--muted); }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; }
+.tabs button.tab { background: transparent; border: 1px solid transparent; }
+.tabs button.tab.active { border-color: var(--line); background: var(--panel-2); }
+.panel-card { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px; background: var(--panel); }
+.panel-card > .head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid var(--line);
+}
+.panel-card > .head .title { font-weight: 600; }
+.panel-card > .head .src { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
+.badge.present { color: var(--present); border-color: var(--present); }
+.badge.absent { color: var(--absent); border-color: var(--absent); }
+.badge.stale { color: var(--absent); border-color: var(--absent); }
+.badge.valid { color: var(--present); border-color: var(--present); }
+.badge.missing, .badge.bad { color: var(--bad); border-color: var(--bad); }
+pre.json {
+  margin: 0; padding: 12px; overflow-x: auto; font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.5;
+  color: var(--ink); white-space: pre; max-height: 460px;
+}
+.panel-card .absent-note { padding: 10px 12px; color: var(--absent); font-size: 12px; }
+.kv { display: flex; gap: 16px; flex-wrap: wrap; padding: 8px 12px; font-size: 12px; color: var(--muted); }
+.kv b { color: var(--ink); font-weight: 600; }
+.err { color: var(--bad); }

@@ -204,3 +204,13 @@ never in the result envelope.
 sandbox-profiles(7), worker-isolation(7), cli-mcp-parity(7),
 run-registry-control-plane(7), security-trust-hardening(7)
 ```
+## Web / Desktop Workbench (v0.1.30)
+
+v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
+console that renders this surface (and the other four operator panels — run
+graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
+reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR alongside
+the CLI and MCP that holds no authoritative state and forks no schema: each panel
+equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
+re-derives everything from disk. See
+[web-desktop-workbench.7.md](web-desktop-workbench.7.md).

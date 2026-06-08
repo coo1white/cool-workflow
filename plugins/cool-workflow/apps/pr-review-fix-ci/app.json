@@ -3,7 +3,7 @@
   "id": "pr-review-fix-ci",
   "title": "PR Review Fix CI",
   "summary": "Review a pull request or branch, inspect CI failures, diagnose actionable issues, optionally patch, verify, and summarize with evidence.",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "author": "COOLWHITE LLC",
   "inputs": [
     {
@@ -43,9 +43,9 @@
     "workspace-write"
   ],
   "compatibility": {
-    "minVersion": "0.1.29",
+    "minVersion": "0.1.30",
     "workflowSchemaVersion": 1,
-    "notes": "Canonical v0.1.29 app for PR review, CI diagnosis, and optional patch work."
+    "notes": "Canonical v0.1.30 app for PR review, CI diagnosis, and optional patch work."
   },
   "metadata": {
     "canonical": true,

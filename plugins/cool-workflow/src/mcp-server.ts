@@ -3,6 +3,7 @@ import path from "node:path";
 import { CoolWorkflowRunner } from "./orchestrator";
 import { Scheduler } from "./scheduler";
 import { RoutineTriggerBridge } from "./triggers";
+import { buildWorkbenchRunView, buildWorkbenchServeDescriptor } from "./workbench";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "./version";
 import {
   appRun,
@@ -392,6 +393,13 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return queueShow(runRegistryFor(args, runner), String(args.id || ""));
       case "cw_history":
         return runHistory(runRegistryFor(args, runner), args);
+      case "cw_workbench_view":
+        return buildWorkbenchRunView(runner, String(args.runId || ""));
+      case "cw_workbench_serve":
+        // MCP cannot start a blocking server; it returns the descriptor only
+        // (identical to `cw workbench serve --json`). The CLI default additionally
+        // starts the localhost host — declared divergence (see capability-registry).
+        return buildWorkbenchServeDescriptor(runner, { ...args, once: true });
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -457,6 +465,7 @@ function requiredArgsForTool(name: string): string[] {
     "cw_operator_graph",
     "cw_operator_report",
     "cw_worker_summary",
+    "cw_workbench_view",
     "cw_candidate_summary",
     "cw_feedback_summary",
     "cw_commit_summary",
@@ -581,6 +590,12 @@ function toolDefinitions(): unknown[] {
     tool("cw_operator_graph", "Read the structured Operator UX run graph.", runIdSchema()),
     tool("cw_operator_report", "Refresh and read the structured Operator UX report summary.", runIdSchema()),
     tool("cw_worker_summary", "Read the structured worker summary for a run.", runIdSchema()),
+    tool("cw_workbench_view", "Read the read-only five-panel Workbench view (graph, blackboard, worker, candidate, audit) for one run. Each panel embeds the verbatim `cw <cmd> --json` payload of one existing capability; absent panels are surfaced honestly. Peer of `cw workbench view`.", runIdSchema()),
+    tool("cw_workbench_serve", "Describe the optional localhost-only, read-only Workbench host (bind, scope, routes). Returns the serve descriptor identical to `cw workbench serve --json`; MCP never starts the blocking server.", {
+      cwd: stringSchema("Run workspace"),
+      port: numberSchema("Optional loopback port, defaults to 7717"),
+      scope: stringSchema("Registry scope: repo|home")
+    }),
     tool("cw_candidate_summary", "Read the structured candidate summary for a run.", runIdSchema()),
     tool("cw_feedback_summary", "Read the structured feedback summary for a run.", runIdSchema()),
     tool("cw_commit_summary", "Read the structured commit summary for a run.", runIdSchema()),

@@ -46,6 +46,22 @@ executor. Selection mirrors `--sandbox` with a parallel `--backend` flag and
 reproduces pre-v0.1.29 behavior exactly. See
 [docs/execution-backends.7.md](docs/execution-backends.7.md).
 
+CW v0.1.30 adds the Web / Desktop Workbench: a human-facing console rendering a
+run's run graph, blackboard, worker logs, candidate compare, and audit timeline,
+plus a cross-run entry point over the v0.1.28 Run Registry. It is a THIRD FRONT
+DOOR alongside the CLI (human speed) and MCP (machine context) — all three are
+presentation policy over ONE mechanism. Upholding CW's "no hidden dashboard
+database" promise, the Workbench holds ZERO authoritative state: it is a
+stateless, READ-ONLY renderer over the durable `.cw/` files and the existing
+capability payloads, so each panel equals its `cw <cmd> --json` payload
+byte-for-byte (parity-gated) and refresh re-derives everything from disk — delete
+the host and nothing is lost. The optional localhost host (`cw workbench serve`)
+binds `127.0.0.1` only, is read-only (writes refused `405`), rejects non-localhost
+`Host` headers and path traversal, and fails closed on unreadable state. It is an
+OPTIONAL surface: the committed `dist/` and a plain `node` runtime keep working
+with the Workbench (and its dependency-light static UI) absent. See
+[docs/web-desktop-workbench.7.md](docs/web-desktop-workbench.7.md).
+
 CW v0.1.28 adds the Run Registry / Control Plane: a layer that manages MANY
 workflow runs across repositories — `run search`, `run resume`, `run archive`, a
 durable `queue`, cross-repo `history`, and failed-run `run rerun` — over the
