@@ -40,6 +40,7 @@
     "version:sync": "node scripts/version-sync-check.js",
     "release:check": "node scripts/release-check.js",
     "test": "node dist/cli.js list && node test/run-all.js",
+    "test:fast": "node dist/cli.js list && node test/run-all.js --concurrency auto",
     "eval:replay": "npm run build --silent && node test/multi-agent-eval-replay-harness-smoke.js"
   },
   "devDependencies": {
