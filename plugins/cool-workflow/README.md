@@ -46,6 +46,22 @@ executor. Selection mirrors `--sandbox` with a parallel `--backend` flag and
 reproduces pre-v0.1.29 behavior exactly. See
 [docs/execution-backends.7.md](docs/execution-backends.7.md).
 
+CW v0.1.31 adds Observability + Cost Accounting: time/duration, failure rate,
+verifier pass rate, candidate acceptance rate, and token/cost — all DERIVED from
+the run state CW already keeps (timestamps → durations; verifier nodes → pass
+rate; candidates → acceptance; failed workers/feedback → failure rate). There is
+NO metrics database, NO collector daemon, NO hidden counter. A rate over zero
+samples is `n/a`, never a fabricated 0%/100%. Cost is ATTESTED, never measured:
+CW does not call the model, so token usage is recorded as host-attested
+provenance on the existing result/worker intake (absent ⇒ `unreported`, never 0),
+and a monetary figure is `attested` only from attested usage × a recorded pricing
+policy — assumed pricing is a SEPARATE `estimated` figure, never conflated.
+Pricing is POLICY as data (`--pricing <path>|default`), out of the kernel.
+`metrics show`/`metrics summary` are declared once in the capability registry so
+`cw <cmd> --json` is byte-identical to `cw_<tool>`, and the v0.1.30 Workbench
+renders a read-only metrics panel from the same payload. See
+[docs/observability-cost-accounting.7.md](docs/observability-cost-accounting.7.md).
+
 CW v0.1.30 adds the Web / Desktop Workbench: a human-facing console rendering a
 run's run graph, blackboard, worker logs, candidate compare, and audit timeline,
 plus a cross-run entry point over the v0.1.28 Run Registry. It is a THIRD FRONT

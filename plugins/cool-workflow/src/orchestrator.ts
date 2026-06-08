@@ -3,6 +3,7 @@ import path from "node:path";
 import {
   DispatchManifest,
   LoadedWorkflowApp,
+  MetricsReport,
   RunSummary,
   RunTask,
   WorkflowAppSummary,
@@ -37,6 +38,11 @@ import {
   writeJson
 } from "./state";
 import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
+import {
+  loadCostPolicy,
+  parseUsageFromArgs,
+  showMetricsReport
+} from "./observability";
 import {
   collectRunErrors,
   createCorrectionTask,
@@ -492,10 +498,13 @@ export class CoolWorkflowRunner {
     }
   }
 
-  recordResult(runId: string, taskId: string, resultPath: string): RunSummary {
+  recordResult(runId: string, taskId: string, resultPath: string, options: Record<string, unknown> = {}): RunSummary {
     const run = this.loadRun(runId);
     const task = run.tasks.find((candidate) => candidate.id === taskId);
     if (!task) throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
+    // Host-attested token usage (v0.1.31), if the caller supplied it. CW records
+    // it verbatim as provenance and NEVER synthesizes it; absent ⇒ `unreported`.
+    const usage = parseUsageFromArgs(options, new Date().toISOString());
     try {
       assertTaskCanComplete(run, task);
 
@@ -516,6 +525,7 @@ export class CoolWorkflowRunner {
       task.resultPath = destination;
       task.loopStage = "observe";
       task.result = parsedResult;
+      if (usage) task.usage = usage;
       const resultNode = appendRunNode(
         run,
         createStateNode({
@@ -594,10 +604,16 @@ export class CoolWorkflowRunner {
     return writeWorkerManifest(run, worker);
   }
 
-  recordWorkerOutput(runId: string, workerId: string, resultPath: string): RunSummary {
+  recordWorkerOutput(runId: string, workerId: string, resultPath: string, options: Record<string, unknown> = {}): RunSummary {
     const run = this.loadRun(runId);
+    const usage = parseUsageFromArgs(options, new Date().toISOString());
     try {
       recordWorkerOutput(run, workerId, resultPath, { persist: false });
+      if (usage) {
+        const worker = getWorkerScope(run, workerId);
+        // Host-attested token usage rides on the worker record as provenance.
+        if (worker) worker.usage = usage;
+      }
       run.loopStage = "observe";
       updatePhaseStatuses(run);
       validateRunGates(run);
@@ -1065,6 +1081,18 @@ export class CoolWorkflowRunner {
     const report = showStateExplosionSummary(run);
     saveCheckpoint(run);
     return report;
+  }
+
+  /** Observability + cost report for ONE run (v0.1.31). DERIVED from durable
+   *  state; persists a fingerprinted snapshot under `metrics/` but NEVER mutates
+   *  the run's own state.json (no saveCheckpoint), so the source — and therefore
+   *  the report — is stable across repeated reads. `now` is injectable via
+   *  `args.now` for eval/replay determinism; pricing is POLICY via `--pricing`. */
+  metricsShow(runId: string, args: Record<string, unknown> = {}): MetricsReport {
+    const run = this.loadRun(runId);
+    const policy = loadCostPolicy(args, this.pluginRoot);
+    const now = typeof args.now === "string" && args.now ? args.now : new Date().toISOString();
+    return showMetricsReport(run, { now, policy });
   }
 
   blackboardSummarize(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof summarizeBlackboardDigest> {

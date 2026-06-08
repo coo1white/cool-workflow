@@ -51,14 +51,16 @@ const RUN_PROBES = [
   ["commit.summary", ["--json"], "cw_commit_summary"],
   ["audit.summary", [], "cw_audit_summary"],
   ["multi-agent.summary", ["--json"], "cw_multi_agent_summary"],
-  ["workbench.view", ["--json"], "cw_workbench_view"]
+  ["workbench.view", ["--json"], "cw_workbench_view"],
+  ["metrics.show", ["--json"], "cw_metrics_show"]
 ];
 const GLOBAL_PROBES = [
   ["list", "cw_list"],
   ["app.list", "cw_app_list"],
   ["topology.list", "cw_topology_list"],
   ["sandbox.list", "cw_sandbox_list"],
-  ["backend.list", "cw_backend_list"]
+  ["backend.list", "cw_backend_list"],
+  ["metrics.summary", "cw_metrics_summary"]
 ];
 
 function capById(id) {

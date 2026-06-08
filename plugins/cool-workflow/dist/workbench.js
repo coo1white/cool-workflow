@@ -80,6 +80,12 @@ function buildPanels(runner, runId) {
             summary: panel("candidate.summary", `cw candidate summary ${runId} --json`, "cw_candidate_summary", () => runner.summarizeCandidateOperatorRecords(runId)),
             reasoning: panel("multi-agent.reasoning", `cw multi-agent reasoning ${runId} --json`, "cw_evidence_reasoning", () => runner.multiAgentReasoning(runId))
         },
+        // Observability + cost (v0.1.31) — durations, failure/verifier/acceptance
+        // rates with sample counts, attested usage + cost, coverage, `unreported`/
+        // `n/a` shown honestly. Equals `cw metrics show <run> --json` byte-for-byte.
+        metrics: {
+            report: panel("metrics.show", `cw metrics show ${runId} --json`, "cw_metrics_show", () => runner.metricsShow(runId))
+        },
         // Audit timeline — trust-audit events, role policy decisions, provenance,
         // judge/chair rationale, and policy violations.
         audit: {

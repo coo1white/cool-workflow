@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "bundled-example-v1",
+  "currency": "USD",
+  "source": "Bundled EXAMPLE pricing policy (data, not kernel). Prices are USD per 1e6 tokens and are an editable starting point, NOT a live price feed. Copy this file, edit the numbers for your contract, and pass it with `--pricing <path>` to override. When no policy is supplied at all, cost is reported `unreported`/`unpriced`, never guessed.",
+  "models": [
+    { "model": "claude-opus-4-8", "inputPerMillion": 15, "outputPerMillion": 75 },
+    { "model": "claude-opus-4-1", "inputPerMillion": 15, "outputPerMillion": 75 },
+    { "model": "claude-sonnet-4-6", "inputPerMillion": 3, "outputPerMillion": 15 },
+    { "model": "claude-sonnet-4-5", "inputPerMillion": 3, "outputPerMillion": 15 },
+    { "model": "claude-haiku-4-5", "inputPerMillion": 1, "outputPerMillion": 5 }
+  ],
+  "defaultPrice": { "inputPerMillion": 3, "outputPerMillion": 15 }
+}

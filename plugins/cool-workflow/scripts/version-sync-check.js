@@ -7,7 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.30";
+const VERSION = "0.1.31";
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",
@@ -77,6 +77,14 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/web-desktop-workbench.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "web-desktop-workbench.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/web-desktop-workbench-smoke.js", "web-desktop-workbench-smoke", checks);
+  checkIncludes("plugins/cool-workflow/docs/observability-cost-accounting.7.md", "Observability + Cost Accounting", checks);
+  checkIncludes("plugins/cool-workflow/docs/observability-cost-accounting.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "observability-cost-accounting.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/observability-cost-accounting-smoke.js", "observability-cost-accounting-smoke", checks);
+  checkIncludes("plugins/cool-workflow/src/observability.ts", "deriveMetricsReport", checks);
+  checkIncludes("plugins/cool-workflow/dist/observability.js", "deriveMetricsReport", checks);
+  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "metrics.show", checks);
+  checkIncludes("plugins/cool-workflow/manifest/pricing.policy.json", "schemaVersion", checks);
   checkIncludes("plugins/cool-workflow/src/workbench.ts", "buildWorkbenchRunView", checks);
   checkIncludes("plugins/cool-workflow/dist/workbench.js", "buildWorkbenchRunView", checks);
   checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "workbench.view", checks);
