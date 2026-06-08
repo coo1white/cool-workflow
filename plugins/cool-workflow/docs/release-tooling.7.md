@@ -72,3 +72,7 @@ the mechanical surfaces a tag must update.
 ## See Also
 
 cli-mcp-parity(7), release-and-migration(7), dogfood-one-real-repo(7)
+
+## Real Execution Backend Integrations (v0.1.34)
+
+container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).

@@ -3,7 +3,7 @@
   "id": "pr-review-fix-ci",
   "title": "PR Review Fix CI",
   "summary": "Review a pull request or branch, inspect CI failures, diagnose actionable issues, optionally patch, verify, and summarize with evidence.",
-  "version": "0.1.33",
+  "version": "0.1.34",
   "author": "COOLWHITE LLC",
   "inputs": [
     {

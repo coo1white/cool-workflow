@@ -33,7 +33,8 @@ const VERSION_DOCS = [
   "web-desktop-workbench.7.md",
   "observability-cost-accounting.7.md",
   "team-collaboration.7.md",
-  "release-and-migration.7.md"
+  "release-and-migration.7.md",
+  "release-tooling.7.md"
 ];
 
 function main() {

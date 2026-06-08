@@ -244,13 +244,17 @@ const containerEnvelope = runBackend({
   label: "cw-self-verify",
   delegation: { image: "cw/test", digest: "sha256:deadbeef" }
 });
-assert.equal(containerEnvelope.status, "completed", "container delegation with an image completes");
-assert.ok(containerEnvelope.provenance.handle, "container records a delegation handle");
+// v0.1.34: the container backend really executes. An unrunnable image (no
+// reachable daemon/registry) FAILS CLOSED — never a fabricated completion — while
+// still recording the delegation handle + attestation in provenance.
+assert.equal(containerEnvelope.status, "refused", "container with an unrunnable image fails closed (no fabricated completion)");
+assert.equal(containerEnvelope.provenance.attestation.status, "refused");
+assert.ok(containerEnvelope.provenance.handle, "container records a delegation handle even on refusal");
 assert.equal(containerEnvelope.provenance.handle.kind, "container");
 assert.equal(containerEnvelope.provenance.handle.image, "cw/test");
 assert.equal(containerEnvelope.provenance.handle.ref, "cw/test@sha256:deadbeef");
-assert.ok(containerEnvelope.provenance.attestation.handle, "the attestation carries the handle");
-assert.ok(containerEnvelope.evidence.some((e) => e === "delegated:container"), "delegation is recorded as evidence");
+assert.ok(containerEnvelope.evidence.some((e) => e.startsWith("refused:")), "refusal is recorded as evidence");
+assert.ok(!containerEnvelope.evidence.some((e) => e.startsWith("stdoutSha256:")), "nothing ran — no output digest");
 
 // ---------------------------------------------------------------------------
 // 5. KERNEL STAYS BACKEND-AGNOSTIC. Worker output + verifier work identically on

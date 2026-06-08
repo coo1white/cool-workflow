@@ -28,6 +28,7 @@ Read these in order when you are new to CW:
 24. [Team Collaboration](team-collaboration.7.md) - host-attested actor, append-only approvals/rejections/comments/handoffs provenance-linked to durable targets, and a review gate that stacks on the verifier gate (required approvals from authorized roles, fail-closed quorum/authority/self-approval); policy is data.
 25. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 26. [Release Tooling](release-tooling.7.md) - one-command version bump across every surface, a per-feature scaffolder, forward-reference doc automation, and a de-duplicated release gate.
+27. [Real Execution Backend Integrations](real-execution-backends.7.md) - container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, byte-stable evidence vs node, fail-closed on an unavailable runtime/endpoint.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and
