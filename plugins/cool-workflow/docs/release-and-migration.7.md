@@ -150,3 +150,10 @@ CW does not silently load:
 
 When compatibility is ambiguous, hold the release and add a fixture or migration
 step before proceeding.
+## v0.1.27 — CLI ↔ MCP Parity
+
+v0.1.27 adds a declared capability registry and a fail-closed `npm run
+parity:check` (wired into `release:check`) guaranteeing the CLI and MCP surfaces
+are two renderings of one data source. No run-state schema change: pre-0.1.27
+runs load unchanged, and every pre-0.1.27 CLI command and MCP tool keeps working.
+See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).

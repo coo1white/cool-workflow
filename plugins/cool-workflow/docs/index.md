@@ -18,9 +18,10 @@ Read these in order when you are new to CW:
 14. [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md) - derived, fingerprinted reasoning chains explaining why each evidence item was adopted/rejected with basis, authority, rationale, and counterfactual, and a fail-closed `unexplained` state.
 15. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, topology, multi-agent, blackboard, coordinator, and trust summaries.
 16. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
-17. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
-18. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
-19. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+17. [CLI ↔ MCP Parity](cli-mcp-parity.7.md) - the capability registry and fail-closed gate proving the CLI and MCP surfaces render one data source.
+18. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
+19. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
+20. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

@@ -5,7 +5,7 @@ const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const TARGET_VERSION = "0.1.26";
+const TARGET_VERSION = "0.1.27";
 const PREVIOUS_VERSION = "0.1.24";
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
@@ -319,7 +319,25 @@ function commandsForTask(taskId, context) {
             ]
           ]
         },
-        { id: "docs-index", cwd: repoRoot, command: ["rg", ["-n", "dogfood", "plugins/cool-workflow/docs/index.md", "README.md"]] }
+        {
+          id: "docs-index",
+          cwd: repoRoot,
+          // Portable docs-index check: assert both files reference the dogfood
+          // proof without depending on ripgrep, which is not preinstalled on
+          // stock CI runners (an external `rg` would ENOENT and hold the verdict).
+          command: [
+            node,
+            [
+              "-e",
+              [
+                "const fs=require('fs');",
+                "const files=['plugins/cool-workflow/docs/index.md','README.md'];",
+                "for (const f of files) { if (!fs.readFileSync(f,'utf8').toLowerCase().includes('dogfood')) throw new Error(f+' missing dogfood reference'); }",
+                "console.log('docs index references dogfood');"
+              ].join("")
+            ]
+          ]
+        }
       ];
     case "package:artifacts":
       if (smoke) {

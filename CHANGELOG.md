@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.1.27
+
+- Added CLI ↔ MCP Parity: a formal, tested guarantee that the command-line
+  surface and the MCP surface are two renderings of ONE data source (mechanism
+  vs policy — the shared core is the single source of truth, rendering is the
+  only difference).
+- Added `src/capability-registry.ts`: the single declared registry of every
+  capability (`CapabilityDescriptor`, `ParitySurface`, `ParityReport`), mapping
+  each capability to its CLI command, MCP tool, shared core `entry`, and JSON
+  contract. The CLI dispatch tokens and the MCP tool list are validated against
+  it; a capability on only one surface must be recorded as surface-specific with
+  a reason or the gate fails closed.
+- Added `src/capability-core.ts`, relocating composite logic (`planSummary`,
+  `appRun`, `sandboxChoose`, `commitEnvelope`, `compactOperatorStatus`) out of
+  `mcp-server.ts` so no capability logic lives on only one surface.
+- Closed surface gaps: added MCP tools `cw_init`, `cw_next`, `cw_state_check`,
+  `cw_contract_show`, `cw_node_list`, `cw_node_show`, `cw_node_graph`; added CLI
+  commands `app run`, `operator status`, `operator report`, `sandbox choose`,
+  `sandbox resolve`, and `report --json`. The registry now declares 132
+  capabilities across 129 MCP tools.
+- Added `scripts/parity-check.js` (`npm run parity:check`) and
+  `test/cli-mcp-parity-smoke.js`: fail-closed gates asserting registry⇄CLI⇄MCP
+  coverage, `cw <cmd> --json` == `cw_<tool>` payload identity on a real run, and
+  drift detection on injected divergence. Wired into `release:check` and
+  `npm test`.
+- Added `docs/cli-mcp-parity.7.md` (the parity matrix and the human-vs-machine
+  contract); the only declared payload projection is `commit` (raw
+  StateCommitResult for the CLI vs an operator envelope for `cw_commit`, both
+  from the single entry `runner.commit`).
+- Added an additive `disposition` (`adopted` | `inspectable` | `blocking`) to
+  multi-agent operator evidence rows, plus an `inspectableEvidence` summary list.
+  Once a run has a verifier-gated commit, the selected path is decided, so
+  missing/pending evidence for sibling roles never driven as separate workers
+  (e.g. undriven judge-panel judges) is reported as inspectable operator state,
+  not a hidden failure. The raw `status` field is unchanged; `disposition` is the
+  operator-facing reading. The human `multi-agent status` and `status` views
+  label these rows accordingly.
+- CI (`.github/workflows/ci.yml`) now runs `npm test` and `npm run release:check`
+  on every push and pull request, not just `install`/`build`/`check`/`list`.
+- No run-state schema change. Pre-0.1.27 runs load unchanged and every
+  pre-0.1.27 CLI command and MCP tool keeps working.
+
 ## 0.1.26
 
 - Added the Evidence Adoption Reasoning Chain: a derived, versioned,

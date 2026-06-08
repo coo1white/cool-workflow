@@ -23,6 +23,16 @@ view, which explains *why* each evidence item was adopted. Reasoning steps are o
 the critical path and are never collapsed by compaction. See
 [evidence-adoption-reasoning-chain.7.md](evidence-adoption-reasoning-chain.7.md).
 
+CW v0.1.27 adds an additive evidence `disposition` (`adopted` | `inspectable` |
+`blocking`) and an `inspectableEvidence` list. The raw `status` (the adoption
+state) is unchanged; `disposition` is the operator-facing reading of it. Before a
+verifier-gated commit, a missing/pending row genuinely blocks. After a
+verifier-gated commit the selected path is decided, so missing/pending evidence
+for sibling roles that were never driven as separate workers — for example
+undriven judge-panel judges — is inspectable operator state, not a hidden
+failure. The `multi-agent status` "Missing Evidence" header and the `status`
+panel report the blocking-vs-inspectable split so the operator is not misled.
+
 The model is derived from:
 
 - `WorkflowRun` tasks, dispatches, workers, nodes, feedback, candidates,
@@ -186,3 +196,9 @@ run with a successful worker evidence path, a failed worker path, blocked fanin
 evidence, score and selection records, a verifier-gated commit, human CLI
 assertions, JSON CLI assertions, MCP parity assertions, and report assertions.
 It is included in `npm test` and `npm run release:check`.
+## CLI ↔ MCP Parity (v0.1.27)
+
+Every command and tool referenced above is declared in the v0.1.27 capability
+registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
+so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).

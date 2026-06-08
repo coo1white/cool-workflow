@@ -152,3 +152,9 @@ worker result / blackboard / coordinator decision
 
 No daemon, no hidden dashboard, no LLM call. The chain is derived from recorded
 state by `src/evidence-reasoning.ts` and rendered on demand.
+## CLI ↔ MCP Parity (v0.1.27)
+
+Every command and tool referenced above is declared in the v0.1.27 capability
+registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
+so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
