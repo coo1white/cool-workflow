@@ -99,6 +99,10 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "node-snapshot-diff-replay.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/node-snapshot-diff-replay-smoke.js", "node-snapshot-diff-replay-smoke", checks);
+  checkIncludes("plugins/cool-workflow/docs/contract-migration-tooling.7.md", "Contract Migration Tooling", checks);
+  checkIncludes("plugins/cool-workflow/docs/contract-migration-tooling.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "contract-migration-tooling.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/contract-migration-tooling-smoke.js", "contract-migration-tooling-smoke", checks);
   checkIncludes("plugins/cool-workflow/src/collaboration.ts", "deriveReviewState", checks);
   checkIncludes("plugins/cool-workflow/dist/collaboration.js", "deriveReviewState", checks);
   checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "review.status", checks);

@@ -86,3 +86,7 @@ additive and changes no behavior.
 
 state-node(7), multi-agent-eval-replay-harness(7), state-explosion-management(7),
 cli-mcp-parity(7)
+
+## Contract Migration Tooling (v0.1.36)
+
+first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover. See contract-migration-tooling(7).
