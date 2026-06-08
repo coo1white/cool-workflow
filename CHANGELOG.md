@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.1.29
+
+- Added Execution Backends: the execution layer is lifted OUT of the kernel into
+  pluggable, swappable drivers — `node`, `bun`, `shell`, `container`, `remote`,
+  and `ci` — behind ONE narrow `ExecutionBackend` contract
+  (`src/execution-backend.ts`). Modeled on a BSD VFS / device-driver layer, the
+  kernel (orchestrator/dispatch/pipeline-runner) contains NO backend-specific
+  branching; all execution flows through the driver. WHAT to run and which
+  evidence to record is kernel policy; HOW and WHERE it runs is the driver's
+  concern.
+- Added backend/driver types to `src/types.ts` (`ExecutionBackend`,
+  `BackendDescriptor`, `BackendCapability`, `ExecutionRequest`,
+  `ExecutionResultEnvelope`, `SandboxAttestation`, `BackendSelection`,
+  `BackendProbeResult`, `SandboxDimension`) with explicit readiness/support/
+  attestation enums. They reuse existing dispatch/worker/result/sandbox/
+  provenance types and never fork them; the `ResultEnvelope` schema is unchanged.
+- The sandbox profile is the contract: every backend maps the five dimensions
+  (read/write/command/network/env) onto enforce/attest/unsupported and records a
+  `SandboxAttestation`. A backend that cannot enforce or attest a required
+  dimension, is not ready, or is handed a profile-denied command FAILS CLOSED
+  (`status: "refused"`) — it never silently downgrades to unsandboxed execution.
+- Identical envelopes, any backend: the result/evidence envelope and provenance
+  are schema-identical regardless of which backend ran a task. CW's own
+  self-verify produces byte-stable result/evidence on `node`, `shell`, and `bun`;
+  only `provenance.backendId` and the attestation differ. The default (`node`)
+  backend reproduces pre-v0.1.29 behavior exactly.
+- CW delegates; it does not become the executor. `container`/`remote`/`ci` are
+  delegating drivers that record a handle + attestation + result and fail closed
+  when no delegation target is configured. CW does not reimplement a container
+  runtime or a CI system.
+- Selection mirrors `--sandbox`: a parallel `--backend <id>` flag (and
+  `CW_BACKEND` env, then `node` default) on `dispatch`, `multi-agent step/run`,
+  plus `backend list|show|probe`. All declared once in `src/capability-registry.ts`
+  (3 new capabilities) so `cw <cmd> --json` is schema-identical to `cw_<tool>` and
+  passes the v0.1.27 parity gate; `backend.list` is added to the parity payload
+  probe.
+- Durable, inspectable state: the selected backend + attestation are recorded per
+  task in the dispatch manifest, worker scope, and worker manifest (a `backend`
+  block alongside `sandbox`), and the v0.1.28 run registry surfaces a record's
+  distinct `backends`. Operator status/report show backend + attestation per
+  worker. Eval/replay, the verifier gates, and the registry stay backend-agnostic.
+- Added `docs/execution-backends.7.md` and `test/execution-backends-smoke.js`
+  (wired into `npm test`, `release:check`, and `version:sync`) proving byte-stable
+  envelopes across node/shell/bun, the fail-closed refusals, recorded provenance +
+  delegation handles, and the backend-agnostic verifier/registry.
+
 ## 0.1.28
 
 - Added the Run Registry / Control Plane: a layer that manages MANY workflow runs

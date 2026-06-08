@@ -7,7 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.28";
+const VERSION = "0.1.29";
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",
@@ -69,6 +69,13 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/run-registry-control-plane.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "run-registry-control-plane.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/run-registry-control-plane-smoke.js", "run-registry-control-plane-smoke", checks);
+  checkIncludes("plugins/cool-workflow/docs/execution-backends.7.md", "Execution Backends", checks);
+  checkIncludes("plugins/cool-workflow/docs/execution-backends.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "execution-backends.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/execution-backends-smoke.js", "execution-backends-smoke", checks);
+  checkIncludes("plugins/cool-workflow/src/execution-backend.ts", "ExecutionBackend", checks);
+  checkIncludes("plugins/cool-workflow/dist/execution-backend.js", "ExecutionBackend", checks);
+  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "backend.list", checks);
   checkIncludes("plugins/cool-workflow/src/run-registry.ts", "RunRegistry", checks);
   checkIncludes("plugins/cool-workflow/dist/run-registry.js", "RunRegistry", checks);
   checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "registry.refresh", checks);

@@ -85,6 +85,7 @@ function summarizeOperatorWorkers(run) {
         total: workers.length,
         byStatus: countByKnown(workers, (worker) => worker.status, ["allocated", "running", "completed", "failed", "rejected", "verified"]),
         bySandboxProfile: countBy(workers, (worker) => worker.sandboxProfileId || "none"),
+        byBackend: countBy(workers, (worker) => worker.backendId || "none"),
         manifestPaths: workers.map(workerManifestPath),
         resultPaths: workers.map((worker) => worker.output?.resultPath || worker.resultPath).filter(Boolean),
         failed: workers
@@ -101,6 +102,8 @@ function summarizeOperatorWorkers(run) {
             taskId: worker.taskId,
             status: worker.status,
             sandboxProfileId: worker.sandboxProfileId,
+            backendId: worker.backendId,
+            backendAttestationStatus: worker.backendAttestation?.status,
             manifestPath: workerManifestPath(worker),
             resultPath: worker.output?.resultPath || worker.resultPath,
             feedbackIds: worker.feedbackIds || []
@@ -795,9 +798,13 @@ function evidencePathsFor(run) {
     return [...values].sort();
 }
 function formatWorkerPanel(summary) {
-    const lines = ["Workers", `  total=${summary.total}; status=${formatCounts(summary.byStatus)}; sandbox=${formatCounts(summary.bySandboxProfile)}`];
+    const lines = [
+        "Workers",
+        `  total=${summary.total}; status=${formatCounts(summary.byStatus)}; sandbox=${formatCounts(summary.bySandboxProfile)}; backend=${formatCounts(summary.byBackend)}`
+    ];
     for (const worker of summary.workers.slice(0, 8)) {
-        lines.push(`  ${worker.id}: ${worker.status}, task=${worker.taskId}, sandbox=${worker.sandboxProfileId || "none"}`);
+        const attestation = worker.backendAttestationStatus ? `/${worker.backendAttestationStatus}` : "";
+        lines.push(`  ${worker.id}: ${worker.status}, task=${worker.taskId}, sandbox=${worker.sandboxProfileId || "none"}, backend=${worker.backendId || "none"}${attestation}`);
         lines.push(`    manifest=${worker.manifestPath}`);
         lines.push(`    result=${worker.resultPath}`);
         if (worker.feedbackIds.length)

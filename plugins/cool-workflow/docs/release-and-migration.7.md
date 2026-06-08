@@ -167,3 +167,13 @@ until the first `registry refresh`), and the registry, archive/provenance
 overlays, queue, and home discovery set are all derivable files that can be
 deleted and rebuilt from source. See
 [run-registry-control-plane.7.md](run-registry-control-plane.7.md).
+
+## Execution Backends (v0.1.29)
+
+v0.1.29 lifts execution into a pluggable driver layer: one narrow `ExecutionBackend`
+contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
+drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
+`backend list|show|probe`. The result/evidence envelope is schema-identical across
+backends; the backend id + sandbox attestation are recorded as provenance, so this
+surface is unchanged regardless of which backend executed a run. See
+[execution-backends.7.md](execution-backends.7.md).

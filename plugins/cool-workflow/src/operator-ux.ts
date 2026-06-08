@@ -58,6 +58,7 @@ export interface OperatorWorkerSummary {
   total: number;
   byStatus: Record<WorkerIsolationStatus, number>;
   bySandboxProfile: Record<string, number>;
+  byBackend: Record<string, number>;
   manifestPaths: string[];
   resultPaths: string[];
   failed: Array<{ id: string; status: WorkerIsolationStatus; taskId: string; feedbackIds: string[]; errors: string[] }>;
@@ -66,6 +67,8 @@ export interface OperatorWorkerSummary {
     taskId: string;
     status: WorkerIsolationStatus;
     sandboxProfileId?: string;
+    backendId?: string;
+    backendAttestationStatus?: string;
     manifestPath: string;
     resultPath: string;
     feedbackIds: string[];
@@ -236,6 +239,7 @@ export function summarizeOperatorWorkers(run: WorkflowRun): OperatorWorkerSummar
     total: workers.length,
     byStatus: countByKnown(workers, (worker) => worker.status, ["allocated", "running", "completed", "failed", "rejected", "verified"]),
     bySandboxProfile: countBy(workers, (worker) => worker.sandboxProfileId || "none"),
+    byBackend: countBy(workers, (worker) => worker.backendId || "none"),
     manifestPaths: workers.map(workerManifestPath),
     resultPaths: workers.map((worker) => worker.output?.resultPath || worker.resultPath).filter(Boolean),
     failed: workers
@@ -252,6 +256,8 @@ export function summarizeOperatorWorkers(run: WorkflowRun): OperatorWorkerSummar
       taskId: worker.taskId,
       status: worker.status,
       sandboxProfileId: worker.sandboxProfileId,
+      backendId: worker.backendId,
+      backendAttestationStatus: worker.backendAttestation?.status,
       manifestPath: workerManifestPath(worker),
       resultPath: worker.output?.resultPath || worker.resultPath,
       feedbackIds: worker.feedbackIds || []
@@ -938,9 +944,15 @@ function evidencePathsFor(run: WorkflowRun): string[] {
 }
 
 function formatWorkerPanel(summary: OperatorWorkerSummary): string {
-  const lines = ["Workers", `  total=${summary.total}; status=${formatCounts(summary.byStatus)}; sandbox=${formatCounts(summary.bySandboxProfile)}`];
+  const lines = [
+    "Workers",
+    `  total=${summary.total}; status=${formatCounts(summary.byStatus)}; sandbox=${formatCounts(summary.bySandboxProfile)}; backend=${formatCounts(summary.byBackend)}`
+  ];
   for (const worker of summary.workers.slice(0, 8)) {
-    lines.push(`  ${worker.id}: ${worker.status}, task=${worker.taskId}, sandbox=${worker.sandboxProfileId || "none"}`);
+    const attestation = worker.backendAttestationStatus ? `/${worker.backendAttestationStatus}` : "";
+    lines.push(
+      `  ${worker.id}: ${worker.status}, task=${worker.taskId}, sandbox=${worker.sandboxProfileId || "none"}, backend=${worker.backendId || "none"}${attestation}`
+    );
     lines.push(`    manifest=${worker.manifestPath}`);
     lines.push(`    result=${worker.resultPath}`);
     if (worker.feedbackIds.length) lines.push(`    feedback=${worker.feedbackIds.join(", ")}`);

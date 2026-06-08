@@ -348,6 +348,7 @@ export class RunRegistry {
       commitCount: (run.commits || []).length,
       verifierGatedCommitCount: li.verifierGatedCommits,
       openFeedbackCount: li.openFeedback,
+      backends: distinctBackends(run),
       inputsDigest: digestInputs(run.inputs),
       sourceFingerprint: fingerprintRun(run),
       freshness: "valid",
@@ -919,6 +920,20 @@ function matchesQuery(record: RunRecord, query: RunSearchQuery): boolean {
  *  Descriptive intent keys (question, prompt, ...) come first so they survive
  *  truncation; the rest follow alphabetically. Deterministic and compact. */
 const DIGEST_PRIORITY_KEYS = ["question", "prompt", "task", "summary", "title", "objective", "focus", "topic"];
+/** Distinct execution backends used by a run's dispatches/tasks, recomputed from
+ *  source state. Sorted; empty for pre-v0.1.29 / default-only runs that never
+ *  recorded a backend. The registry stays backend-agnostic — this is metadata. */
+function distinctBackends(run: WorkflowRun): string[] {
+  const backends = new Set<string>();
+  for (const dispatch of run.dispatches || []) {
+    if (dispatch.backendId) backends.add(dispatch.backendId);
+  }
+  for (const task of run.tasks || []) {
+    if (task.backendId) backends.add(task.backendId);
+  }
+  return [...backends].sort();
+}
+
 function digestInputs(inputs: Record<string, unknown> | undefined): string | undefined {
   if (!inputs || typeof inputs !== "object") return undefined;
   const keys = Object.keys(inputs);

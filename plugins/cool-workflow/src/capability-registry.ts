@@ -308,6 +308,11 @@ export const CAPABILITY_REGISTRY: CapabilityDescriptor[] = [
   { capability: "sandbox.choose", summary: "Resolve and validate a sandbox profile choice.", entry: "sandboxChoose", surface: "both", cli: { path: ["sandbox", "choose"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_choose" } },
   { capability: "sandbox.resolve", summary: "Alias of sandbox.choose.", entry: "sandboxChoose", surface: "both", cli: { path: ["sandbox", "resolve"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_resolve" } },
 
+  // ---- execution backends (v0.1.29) ---------------------------------------
+  { capability: "backend.list", summary: "List available execution backends and their capabilities.", entry: "listBackends", surface: "both", cli: { path: ["backend", "list"], jsonMode: "default" }, mcp: { tool: "cw_backend_list" } },
+  { capability: "backend.show", summary: "Show one execution backend descriptor.", entry: "showBackend", surface: "both", cli: { path: ["backend", "show"], jsonMode: "default" }, mcp: { tool: "cw_backend_show" } },
+  { capability: "backend.probe", summary: "Probe execution backend readiness (live, deterministic).", entry: "probeBackend", surface: "both", cli: { path: ["backend", "probe"], jsonMode: "default" }, mcp: { tool: "cw_backend_probe" } },
+
   // ---- worker isolation ---------------------------------------------------
   { capability: "worker.list", summary: "List worker isolation scopes.", entry: "listWorkers", surface: "both", cli: { path: ["worker", "list"], jsonMode: "default" }, mcp: { tool: "cw_worker_list" } },
   { capability: "worker.summary", summary: "Read the structured worker summary.", entry: "summarizeWorkerRecords", surface: "both", cli: { path: ["worker", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_worker_summary" } },

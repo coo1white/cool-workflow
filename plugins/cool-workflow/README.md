@@ -26,6 +26,26 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.29 adds Execution Backends: the execution layer is lifted OUT of the
+kernel into pluggable, swappable drivers — `node`, `bun`, `shell`, `container`,
+`remote`, and `ci` — behind ONE narrow `ExecutionBackend` contract
+(`src/execution-backend.ts`). Modeled on a BSD VFS / device-driver layer, the
+kernel (orchestrator/dispatch/pipeline-runner) never learns which backend ran a
+task: WHAT to run and which evidence to record is kernel policy; HOW and WHERE it
+runs is the driver's concern. The sandbox profile is the contract — every backend
+enforces or attests each requested read/write/command/network/env dimension, or
+FAILS CLOSED rather than silently running unsandboxed. The result/evidence
+envelope is schema-identical across backends (CW's own self-verify produces
+byte-stable evidence on `node`, `shell`, and `bun`); the backend id + sandbox
+attestation are recorded AS provenance, so eval/replay, the verifier gates, and
+the v0.1.28 run registry stay backend-agnostic. The container/remote/ci drivers
+DELEGATE and record a handle + attestation + result — CW does not become the
+executor. Selection mirrors `--sandbox` with a parallel `--backend` flag and
+`backend list|show|probe`, declared once in the capability registry so
+`cw <cmd> --json` is schema-identical to `cw_<tool>`. The default (`node`) backend
+reproduces pre-v0.1.29 behavior exactly. See
+[docs/execution-backends.7.md](docs/execution-backends.7.md).
+
 CW v0.1.28 adds the Run Registry / Control Plane: a layer that manages MANY
 workflow runs across repositories — `run search`, `run resume`, `run archive`, a
 durable `queue`, cross-repo `history`, and failed-run `run rerun` — over the
@@ -208,6 +228,7 @@ cool-workflow
   docs/candidate-scoring.7.md
   docs/verifier-gated-commit.7.md
   docs/run-registry-control-plane.7.md
+  docs/execution-backends.7.md
 ```
 
 ## Commands

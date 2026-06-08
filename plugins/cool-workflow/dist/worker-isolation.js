@@ -22,6 +22,7 @@ const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const verifier_1 = require("./verifier");
 const sandbox_profile_1 = require("./sandbox-profile");
+const execution_backend_1 = require("./execution-backend");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
@@ -66,6 +67,17 @@ function allocateWorkerScope(run, task, options = {}) {
     });
     const allowedPaths = (0, sandbox_profile_1.effectiveSandboxWritePaths)(sandboxPolicy);
     (0, sandbox_profile_1.upsertRunSandboxPolicy)(run, sandboxPolicy);
+    // Execution backend selection (mechanism vs policy): the worker scope records
+    // WHICH backend was selected + its sandbox attestation. The dispatch path is a
+    // delegate-host execution (the host runs the worker), so the backend enforces
+    // only CW's own worker-output acceptance and attests the rest — reproducing
+    // pre-v0.1.29 behavior exactly for the default (node) backend. Only recorded
+    // when a backend was explicitly selected.
+    const backendSelection = options.backendSelection || (options.backendId ? (0, execution_backend_1.resolveBackendSelection)(options.backendId) : undefined);
+    const backendId = backendSelection?.backendId;
+    const backendAttestation = backendId
+        ? options.backendAttestation || (0, execution_backend_1.attestSandbox)((0, execution_backend_1.getBackendDescriptor)(backendId), sandboxPolicy, { mode: "delegate-host" })
+        : undefined;
     node_fs_1.default.mkdirSync(artifactsDir, { recursive: true });
     node_fs_1.default.mkdirSync(logsDir, { recursive: true });
     const scope = {
@@ -85,6 +97,9 @@ function allocateWorkerScope(run, task, options = {}) {
         allowedPaths,
         sandboxProfileId: sandboxPolicy.id,
         sandboxPolicy,
+        backendId,
+        backendSelection,
+        backendAttestation,
         stateNodeId: task.stateNodeId,
         feedbackIds: [],
         errors: [],
@@ -110,10 +125,33 @@ function allocateWorkerScope(run, task, options = {}) {
         policySnapshot: sandboxPolicy,
         metadata: { dispatchId: scope.dispatchId, workerDir: scope.workerDir, allowedPaths }
     });
+    if (backendId && backendAttestation) {
+        (0, trust_audit_1.recordTrustAuditEvent)(run, {
+            kind: "worker.backend",
+            decision: backendAttestation.status === "refused" ? "denied" : "recorded",
+            source: "runtime-derived",
+            workerId: scope.id,
+            taskId: task.id,
+            sandboxProfileId: sandboxPolicy.id,
+            policySnapshot: sandboxPolicy,
+            metadata: {
+                backendId,
+                backendSelection,
+                attestationStatus: backendAttestation.status,
+                enforced: backendAttestation.enforced,
+                attested: backendAttestation.attested,
+                unenforceable: backendAttestation.unenforceable,
+                dispatchId: scope.dispatchId
+            }
+        });
+    }
     task.workerId = scope.id;
     task.workerManifestPath = manifestPath(scope);
     task.sandboxProfileId = sandboxPolicy.id;
     task.sandboxPolicy = sandboxPolicy;
+    task.backendId = backendId;
+    task.backendSelection = backendSelection;
+    task.backendAttestation = backendAttestation;
     writeWorkerIndex(run);
     if (options.persist !== false)
         (0, state_1.saveCheckpoint)(run);
@@ -146,6 +184,19 @@ function writeWorkerManifest(run, scope) {
                 policy: sandboxPolicy,
                 enforcedByCW: sandboxPolicy.enforcement.enforcedByCW,
                 hostRequired: sandboxPolicy.enforcement.hostRequired
+            }
+            : undefined,
+        backendId: scope.backendId,
+        backendSelection: scope.backendSelection,
+        backendAttestation: scope.backendAttestation,
+        backend: scope.backendId && scope.backendAttestation
+            ? {
+                id: scope.backendId,
+                locality: scope.backendAttestation.locality,
+                kind: scope.backendAttestation.kind,
+                enforces: scope.backendAttestation.enforced,
+                attests: scope.backendAttestation.attested,
+                attestation: scope.backendAttestation
             }
             : undefined,
         instructions: [
@@ -485,6 +536,7 @@ function writeWorkerIndex(run) {
             manifestPath: manifestPath(scope),
             resultPath: scope.resultPath,
             sandboxProfileId: scope.sandboxProfileId,
+            backendId: scope.backendId,
             multiAgent: scope.multiAgent,
             feedbackIds: scope.feedbackIds
         }))

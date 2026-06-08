@@ -6,11 +6,13 @@ import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import { appendRunNode, createStateNode, transitionStateNode } from "./state-node";
 import { allocateWorkerScope, writeWorkerManifest } from "./worker-isolation";
 import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation } from "./sandbox-profile";
+import { resolveBackendSelection } from "./execution-backend";
 import { attachDispatchToMultiAgent } from "./multi-agent";
 
 export interface DispatchOptions {
   sandboxProfileId?: string;
   sandbox?: string;
+  backendId?: string;
   multiAgentRunId?: string;
   multiAgentGroupId?: string;
   multiAgentRoleId?: string;
@@ -32,6 +34,10 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
   const requestedSandboxProfileId = options.sandboxProfileId || options.sandbox;
   const sandboxProfileId = String(requestedSandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID);
   resolveSandboxProfileById(sandboxProfileId, sandboxContextForValidation(run.cwd));
+  // Resolve the execution backend once (mechanism vs policy): the kernel records
+  // WHICH backend was selected; it never branches on which one. Defaults to node
+  // (behavior-preserving) when no `--backend` flag / CW_BACKEND env is set.
+  const backendSelection = resolveBackendSelection(options.backendId);
   const tasks = nextDispatchTasks(run, limit);
   if (!tasks.length) {
     return {
@@ -40,7 +46,9 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
       dispatchId: null,
       tasks: [],
       manifestPath: null,
-      sandboxProfileId
+      sandboxProfileId,
+      backendId: backendSelection.backendId,
+      backendSelection
     };
   }
 
@@ -63,6 +71,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
       const scope = allocateWorkerScope(run, task, {
         dispatchId,
         sandboxProfileId: taskSandboxProfileId,
+        backendSelection,
         status: "running",
         persist: false,
         metadata: { dispatchId, phase: task.phase }
@@ -100,6 +109,9 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
     workerIndexPath: run.paths.workersDir ? path.join(run.paths.workersDir, "index.json") : undefined,
     sandboxProfileId: selectedSandboxProfileIds.size === 1 ? [...selectedSandboxProfileIds][0] : "mixed",
     sandboxPolicy: selectedSandboxProfileIds.size === 1 ? sandboxPolicy : undefined,
+    backendId: backendSelection.backendId,
+    backendSelection,
+    backendAttestation: selectedRunTasks.find((task) => task.backendAttestation)?.backendAttestation,
     multiAgent: multiAgentAttachment.multiAgent
       ? {
           ...multiAgentAttachment.multiAgent,
@@ -142,6 +154,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
       stateNodeId: dispatchNode.id,
       workerIds: selectedRunTasks.filter((task) => task.workerId).map((task) => String(task.workerId)),
       sandboxProfileId: manifest.sandboxProfileId,
+      backendId: backendSelection.backendId,
       multiAgent: manifest.multiAgent
   });
   updatePhaseStatuses(run);
@@ -186,6 +199,8 @@ export function formatDispatchTask(task: RunTask): DispatchTask {
     workerResultPath: task.workerId && task.workerManifestPath ? path.join(path.dirname(task.workerManifestPath), "result.md") : undefined,
     sandboxProfileId: task.sandboxProfileId,
     sandboxPolicy: task.sandboxPolicy,
+    backendId: task.backendId,
+    backendAttestation: task.backendAttestation,
     multiAgent: task.multiAgent
   };
 }
