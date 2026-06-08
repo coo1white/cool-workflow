@@ -746,6 +746,11 @@ function buildBlackboardGraph(run) {
 function persistBlackboardState(run) {
     const state = ensureBlackboardState(run);
     const root = blackboardRoot(run);
+    assertNoRecordPathCollisions("BlackboardTopic", state.topics);
+    assertNoRecordPathCollisions("BlackboardContext", state.contexts);
+    assertNoRecordPathCollisions("BlackboardArtifactRef", state.artifacts);
+    assertNoRecordPathCollisions("BlackboardSnapshot", state.snapshots);
+    assertNoRecordPathCollisions("CoordinatorDecision", state.decisions);
     const index = {
         schemaVersion: exports.BLACKBOARD_SCHEMA_VERSION,
         runId: run.id,
@@ -1071,6 +1076,17 @@ function checksumFile(file) {
 function assertUnique(items, id, label) {
     if (items.some((item) => item.id === id))
         throw new Error(`Duplicate ${label} id: ${id}`);
+}
+function assertNoRecordPathCollisions(label, records) {
+    const seen = new Map();
+    for (const record of records) {
+        const safe = (0, state_1.safeFileName)(record.id);
+        const existing = seen.get(safe);
+        if (existing && existing !== record.id) {
+            throw new Error(`${label} ids ${existing} and ${record.id} collide on safe file name ${safe}`);
+        }
+        seen.set(safe, record.id);
+    }
 }
 function indexRow(record) {
     return { id: record.id, blackboardId: record.blackboardId, topicId: record.topicId, status: record.status, updatedAt: record.updatedAt };

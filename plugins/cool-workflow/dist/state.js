@@ -95,7 +95,13 @@ function saveCheckpoint(run) {
 function readJson(file) {
     if (!node_fs_1.default.existsSync(file))
         throw new Error(`File not found: ${file}`);
-    return JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+    try {
+        return JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new Error(`Invalid JSON in ${file}: ${message}`);
+    }
 }
 function writeJson(file, value) {
     node_fs_1.default.mkdirSync(node_path_1.default.dirname(file), { recursive: true });

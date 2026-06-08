@@ -137,7 +137,7 @@ These tools expose role policies, permission decisions, blackboard write audit,
 message provenance, judge rationales, panel decisions, and policy violations in
 deterministic JSON.
 
-v0.1.23 adds eval/replay parity for multi-agent regression gates:
+v0.1.24 adds eval/replay parity for multi-agent regression gates:
 
 - `cw_eval_snapshot`
 - `cw_eval_replay`

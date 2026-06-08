@@ -40,16 +40,16 @@ function migrateRunState(input, options = {}) {
     }
     if (report.detectedSchemaVersion < version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
-        report.errors.push(`Unsupported run-state schemaVersion ${report.detectedSchemaVersion}.`);
+        report.errors.push(`Unsupported run-state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)}.`);
         return { run: clone(input), report };
     }
     if (report.detectedSchemaVersion > version_1.CURRENT_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
-        report.errors.push(`Run state schemaVersion ${report.detectedSchemaVersion} is newer than this CW runtime (${version_1.CURRENT_RUN_STATE_SCHEMA_VERSION}).`);
+        report.errors.push(`Run state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)} is newer than this CW runtime (${version_1.CURRENT_RUN_STATE_SCHEMA_VERSION}).`);
         return { run: clone(input), report };
     }
     const state = clone(input);
-    const context = { statePath: options.statePath, changes: report.changes };
+    const context = { statePath: options.statePath, changes: report.changes, errors: report.errors };
     let schemaVersion = report.detectedSchemaVersion;
     while (schemaVersion < version_1.CURRENT_RUN_STATE_SCHEMA_VERSION) {
         const step = exports.RUN_STATE_MIGRATIONS.find((candidate) => candidate.from === schemaVersion);
@@ -116,6 +116,8 @@ function normalizeRunState(state, context) {
     ensureArray(state, "contracts", context);
     ensureArray(state, "feedback", context);
     if (!isRecord(state.audit)) {
+        if (state.audit !== undefined)
+            context.errors.push("audit must be an object when present.");
         setValue(state, "audit", {
             schemaVersion: 1,
             eventLogPath: node_path_1.default.join(String(paths.auditDir), "events.jsonl"),
@@ -128,6 +130,8 @@ function normalizeRunState(state, context) {
     ensureArray(state, "candidates", context);
     ensureArray(state, "candidateSelections", context);
     if (!isRecord(state.multiAgent)) {
+        if (state.multiAgent !== undefined)
+            context.errors.push("multiAgent must be an object when present.");
         setValue(state, "multiAgent", {
             schemaVersion: 1,
             runs: [],
@@ -143,11 +147,15 @@ function normalizeRunState(state, context) {
         setDefault(multiAgent, "schemaVersion", 1, context, "multiAgent.schemaVersion is required", "multiAgent.schemaVersion");
         for (const key of ["runs", "roles", "groups", "memberships", "fanouts", "fanins"]) {
             if (!Array.isArray(multiAgent[key])) {
+                if (multiAgent[key] !== undefined)
+                    context.errors.push(`multiAgent.${key} must be an array when present.`);
                 setValue(multiAgent, key, [], context, `multiAgent.${key} must be an array`, `multiAgent.${key}`);
             }
         }
     }
     if (!isRecord(state.blackboard)) {
+        if (state.blackboard !== undefined)
+            context.errors.push("blackboard must be an object when present.");
         setValue(state, "blackboard", {
             schemaVersion: 1,
             boards: [],
@@ -164,11 +172,15 @@ function normalizeRunState(state, context) {
         setDefault(blackboard, "schemaVersion", 1, context, "blackboard.schemaVersion is required", "blackboard.schemaVersion");
         for (const key of ["boards", "topics", "messages", "contexts", "artifacts", "snapshots", "decisions"]) {
             if (!Array.isArray(blackboard[key])) {
+                if (blackboard[key] !== undefined)
+                    context.errors.push(`blackboard.${key} must be an array when present.`);
                 setValue(blackboard, key, [], context, `blackboard.${key} must be an array`, `blackboard.${key}`);
             }
         }
     }
     if (!isRecord(state.topologies)) {
+        if (state.topologies !== undefined)
+            context.errors.push("topologies must be an object when present.");
         setValue(state, "topologies", {
             schemaVersion: 1,
             runs: []
@@ -178,10 +190,14 @@ function normalizeRunState(state, context) {
         const topologies = state.topologies;
         setDefault(topologies, "schemaVersion", 1, context, "topologies.schemaVersion is required", "topologies.schemaVersion");
         if (!Array.isArray(topologies.runs)) {
+            if (topologies.runs !== undefined)
+                context.errors.push("topologies.runs must be an array when present.");
             setValue(topologies, "runs", [], context, "topologies.runs must be an array", "topologies.runs");
         }
     }
     if (!Array.isArray(state.phases)) {
+        if (state.phases !== undefined)
+            context.errors.push("phases must be an array when present.");
         const phases = derivePhases(Array.isArray(state.tasks) ? state.tasks : []);
         setValue(state, "phases", phases, context, "phases derived from tasks");
     }
@@ -216,15 +232,28 @@ function detectSchemaVersion(value) {
         return Number.POSITIVE_INFINITY;
     return Number(value.schemaVersion);
 }
+function schemaVersionDescription(input, detected) {
+    if (!isRecord(input))
+        return "non-object";
+    if (input.schemaVersion === undefined)
+        return String(version_1.LEGACY_RUN_STATE_SCHEMA_VERSION);
+    if (Number.isFinite(detected))
+        return String(detected);
+    return `invalid (${typeof input.schemaVersion}: ${String(input.schemaVersion)})`;
+}
 function ensureRecord(state, key, context, reason) {
     if (isRecord(state[key]))
         return state[key];
+    if (state[key] !== undefined)
+        context.errors.push(`${key} must be an object when present.`);
     setValue(state, key, {}, context, reason);
     return state[key];
 }
 function ensureArray(state, key, context) {
     if (Array.isArray(state[key]))
         return;
+    if (state[key] !== undefined)
+        context.errors.push(`${key} must be an array when present.`);
     setValue(state, key, [], context, `${key} must be an array`);
 }
 function setDefault(state, key, value, context, reason, reportPath = key) {

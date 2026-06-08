@@ -8,7 +8,7 @@ CW v0.1.22 adds trust panels to the same operator path so role policy,
 permission decisions, blackboard write audit, message provenance, judge
 rationale, panel decisions, and policy violations are visible beside topology
 and evidence state.
-CW v0.1.23 uses the same operator-derived graph, dependency, failure, evidence,
+CW v0.1.24 uses the same operator-derived graph, dependency, failure, evidence,
 trust, and report views as replay comparison inputs for the Multi-Agent Eval &
 Replay Harness.
 

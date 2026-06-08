@@ -185,6 +185,12 @@ export function ensureMultiAgentState(run: WorkflowRun): MultiAgentState {
 export function persistMultiAgentState(run: WorkflowRun): void {
   const state = ensureMultiAgentState(run);
   const root = multiAgentRoot(run);
+  assertNoRecordPathCollisions("MultiAgentRun", state.runs);
+  assertNoRecordPathCollisions("AgentRole", state.roles);
+  assertNoRecordPathCollisions("AgentGroup", state.groups);
+  assertNoRecordPathCollisions("AgentMembership", state.memberships);
+  assertNoRecordPathCollisions("AgentFanout", state.fanouts);
+  assertNoRecordPathCollisions("AgentFanin", state.fanins);
   writeJson(path.join(root, "index.json"), {
     schemaVersion: MULTI_AGENT_SCHEMA_VERSION,
     runId: run.id,
@@ -1104,6 +1110,18 @@ function fanoutTopicIds(group: AgentGroup, multiAgentRun: MultiAgentRun, input: 
 
 function writeRecord(run: WorkflowRun, kind: string, record: { id: string }): void {
   writeJson(recordPath(run, kind, record.id), record);
+}
+
+function assertNoRecordPathCollisions(label: string, records: Array<{ id: string }>): void {
+  const seen = new Map<string, string>();
+  for (const record of records) {
+    const safe = safeFileName(record.id);
+    const existing = seen.get(safe);
+    if (existing && existing !== record.id) {
+      throw new Error(`${label} ids ${existing} and ${record.id} collide on safe file name ${safe}`);
+    }
+    seen.set(safe, record.id);
+  }
 }
 
 function indexRow(record: { id: string; status?: string; updatedAt?: string }): Record<string, unknown> {

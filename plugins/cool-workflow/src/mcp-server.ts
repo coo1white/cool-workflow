@@ -55,7 +55,9 @@ function handleLine(line: string): void {
       return;
     }
     if (message.method === "tools/call") {
-      const result = callTool(message.params?.name || "", message.params?.arguments || {});
+      const toolName = requiredToolName(message.params?.name);
+      const toolArgs = requiredToolArguments(toolName, message.params?.arguments);
+      const result = callTool(toolName, toolArgs);
       sendResult(message.id, {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
       });
@@ -406,6 +408,123 @@ function optionalString(value: unknown): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function requiredToolName(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) throw new Error("MCP tools/call missing required field: name");
+  return value;
+}
+
+function requiredToolArguments(name: string, value: unknown): Record<string, unknown> {
+  if (value === undefined || value === null) value = {};
+  if (!isRecord(value)) throw new Error(`MCP tool ${name} arguments must be an object.`);
+  const args = value as Record<string, unknown>;
+  for (const group of requiredArgsForTool(name)) {
+    const keys = group.split("|");
+    if (!keys.some((key) => args[key] !== undefined && args[key] !== null && args[key] !== "")) {
+      throw new Error(`MCP tool ${name} missing required argument: ${keys.join(" or ")}`);
+    }
+  }
+  return args;
+}
+
+function requiredArgsForTool(name: string): string[] {
+  if (name === "cw_plan") return ["workflowId"];
+  if (name === "cw_app_run") return ["appId"];
+  if (name === "cw_eval_replay") return ["snapshot|snapshotId|path"];
+  if (name === "cw_eval_compare") return ["baseline|baselinePath", "replay|replayPath"];
+  if (name === "cw_eval_score" || name === "cw_eval_report") return ["replay|replayPath|path"];
+  if (name === "cw_eval_gate") return ["suite|suiteId|path"];
+  if (name === "cw_topology_show" || name === "cw_topology_validate") return ["topologyId|id"];
+  if (name === "cw_topology_apply") return ["runId", "topologyId|id"];
+  if (name === "cw_sandbox_show") return ["profileId"];
+  if (name === "cw_sandbox_validate") return ["profileFile"];
+  if (name === "cw_schedule_delete" || name === "cw_schedule_complete" || name === "cw_schedule_pause" || name === "cw_schedule_resume" || name === "cw_schedule_run_now") return ["id"];
+  if (name === "cw_routine_delete") return ["id"];
+  if (name === "cw_routine_fire") return ["kind"];
+  if (name.endsWith("_show")) {
+    if (name.includes("_role_")) return ["runId", "roleId"];
+    if (name.includes("_group_")) return ["runId", "groupId"];
+    if (name.includes("_membership_")) return ["runId", "membershipId"];
+    if (name.includes("_fanout_")) return ["runId", "fanoutId"];
+    if (name.includes("_fanin_")) return ["runId", "faninId"];
+    if (name.includes("_candidate_")) return ["runId", "candidateId"];
+    if (name.includes("_feedback_")) return ["runId", "feedbackId"];
+    if (name.includes("_worker_")) return ["runId", "workerId"];
+  }
+  if (name.startsWith("cw_") && [
+    "cw_status",
+    "cw_operator_status",
+    "cw_operator_graph",
+    "cw_operator_report",
+    "cw_worker_summary",
+    "cw_candidate_summary",
+    "cw_feedback_summary",
+    "cw_commit_summary",
+    "cw_multi_agent_summary",
+    "cw_multi_agent_graph",
+    "cw_multi_agent_dependencies",
+    "cw_multi_agent_failures",
+    "cw_multi_agent_evidence",
+    "cw_multi_agent_status",
+    "cw_multi_agent_step",
+    "cw_multi_agent_blackboard",
+    "cw_multi_agent_score",
+    "cw_multi_agent_select",
+    "cw_eval_snapshot",
+    "cw_multi_agent_run_create",
+    "cw_multi_agent_run_transition",
+    "cw_multi_agent_run_show",
+    "cw_multi_agent_role_create",
+    "cw_multi_agent_group_create",
+    "cw_multi_agent_membership_create",
+    "cw_multi_agent_fanout_create",
+    "cw_multi_agent_fanin_collect",
+    "cw_topology_summary",
+    "cw_topology_graph",
+    "cw_blackboard_summary",
+    "cw_blackboard_graph",
+    "cw_blackboard_resolve",
+    "cw_blackboard_topic_create",
+    "cw_blackboard_message_post",
+    "cw_blackboard_message_list",
+    "cw_blackboard_context_put",
+    "cw_blackboard_artifact_add",
+    "cw_blackboard_artifact_list",
+    "cw_blackboard_snapshot",
+    "cw_coordinator_summary",
+    "cw_coordinator_decision",
+    "cw_audit_summary",
+    "cw_audit_worker",
+    "cw_audit_provenance",
+    "cw_audit_multi_agent",
+    "cw_audit_policy",
+    "cw_audit_role",
+    "cw_audit_blackboard",
+    "cw_audit_judge",
+    "cw_audit_attest",
+    "cw_audit_decision",
+    "cw_dispatch",
+    "cw_result",
+    "cw_commit",
+    "cw_report",
+    "cw_worker_list",
+    "cw_worker_manifest",
+    "cw_worker_output",
+    "cw_worker_fail",
+    "cw_worker_validate",
+    "cw_candidate_list",
+    "cw_candidate_register",
+    "cw_candidate_score",
+    "cw_candidate_rank",
+    "cw_candidate_select",
+    "cw_candidate_reject",
+    "cw_feedback_list",
+    "cw_feedback_collect",
+    "cw_feedback_task",
+    "cw_feedback_resolve"
+  ].includes(name)) return ["runId"];
+  return [];
 }
 
 function toolDefinitions(): unknown[] {

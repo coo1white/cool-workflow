@@ -1,6 +1,6 @@
 # Multi-Agent Eval & Replay Harness
 
-CW v0.1.23 adds a deterministic replay harness for topology-backed
+CW v0.1.24 adds a deterministic replay harness for topology-backed
 multi-agent runs. It turns a completed run into plain JSON evidence that can be
 replayed without live agents, compared with normalized rules, scored, and used
 as a release gate.
