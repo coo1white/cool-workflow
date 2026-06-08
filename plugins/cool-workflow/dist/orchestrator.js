@@ -36,6 +36,8 @@ const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const state_explosion_1 = require("./state-explosion");
 const evidence_reasoning_1 = require("./evidence-reasoning");
+const report_1 = require("./orchestrator/report");
+const cli_options_1 = require("./orchestrator/cli-options");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -110,7 +112,7 @@ class CoolWorkflowRunner {
             };
         }
         catch (error) {
-            const issues = validationIssuesFromError(error);
+            const issues = (0, cli_options_1.validationIssuesFromError)(error);
             return {
                 valid: false,
                 appId: target,
@@ -274,40 +276,40 @@ class CoolWorkflowRunner {
             });
             task.stateNodeId = taskResult.outputNodeId;
         }
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, commit_1.commitState)(run, "initial-plan");
         (0, state_1.saveCheckpoint)(run);
         return run;
     }
     status(runId) {
-        return summarizeRun(this.loadRun(runId));
+        return (0, report_1.summarizeRun)(this.loadRun(runId));
     }
     operatorStatus(runId) {
         return (0, operator_ux_1.summarizeOperatorRun)(this.loadRun(runId));
     }
     next(runId, options) {
-        return (0, dispatch_1.nextDispatchTasks)(this.loadRun(runId), numberOption(options.limit));
+        return (0, dispatch_1.nextDispatchTasks)(this.loadRun(runId), (0, cli_options_1.numberOption)(options.limit));
     }
     dispatch(runId, options) {
         const run = this.loadRun(runId);
         try {
-            const manifest = (0, dispatch_1.createDispatchManifest)(run, numberOption(options.limit), {
-                sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
-                backendId: stringOption(options.backend) || stringOption(options.backendId) || stringOption(options.executionBackend),
-                multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-                multiAgentGroupId: stringOption(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
-                multiAgentRoleId: stringOption(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
-                multiAgentFanoutId: stringOption(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"])
+            const manifest = (0, dispatch_1.createDispatchManifest)(run, (0, cli_options_1.numberOption)(options.limit), {
+                sandboxProfileId: (0, cli_options_1.stringOption)(options.sandbox) || (0, cli_options_1.stringOption)(options.sandboxProfile) || (0, cli_options_1.stringOption)(options.sandboxProfileId),
+                backendId: (0, cli_options_1.stringOption)(options.backend) || (0, cli_options_1.stringOption)(options.backendId) || (0, cli_options_1.stringOption)(options.executionBackend),
+                multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+                multiAgentGroupId: (0, cli_options_1.stringOption)(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
+                multiAgentRoleId: (0, cli_options_1.stringOption)(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
+                multiAgentFanoutId: (0, cli_options_1.stringOption)(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"])
             });
             run.loopStage = "act";
             if (manifest.dispatchId)
                 (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
             (0, state_1.saveCheckpoint)(run);
-            writeReport(run);
+            (0, report_1.writeReport)(run);
             return manifest;
         }
         catch (error) {
-            if (isSandboxProfileError(error)) {
+            if ((0, cli_options_1.isSandboxProfileError)(error)) {
                 run.loopStage = "adjust";
                 (0, error_feedback_1.recordFeedback)(run, {
                     source: "cli",
@@ -320,9 +322,9 @@ class CoolWorkflowRunner {
                         details: error.details
                     },
                     retryable: false,
-                    metadata: { sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId) }
+                    metadata: { sandboxProfileId: (0, cli_options_1.stringOption)(options.sandbox) || (0, cli_options_1.stringOption)(options.sandboxProfile) || (0, cli_options_1.stringOption)(options.sandboxProfileId) }
                 }, { persist: false });
-                writeReport(run);
+                (0, report_1.writeReport)(run);
                 (0, state_1.saveCheckpoint)(run);
             }
             throw error;
@@ -390,9 +392,9 @@ class CoolWorkflowRunner {
             });
             task.verifierNodeId = verifierResult.outputNodeId;
             (0, commit_1.commitState)(run, `result:${taskId}`);
-            writeReport(run);
+            (0, report_1.writeReport)(run);
             (0, state_1.saveCheckpoint)(run);
-            return summarizeRun(run);
+            return (0, report_1.summarizeRun)(run);
         }
         catch (error) {
             (0, error_feedback_1.recordFeedback)(run, {
@@ -408,7 +410,7 @@ class CoolWorkflowRunner {
                     resultNodeId: task.resultNodeId
                 }
             });
-            writeReport(run);
+            (0, report_1.writeReport)(run);
             throw error;
         }
     }
@@ -445,14 +447,14 @@ class CoolWorkflowRunner {
             (0, dispatch_1.updatePhaseStatuses)(run);
             (0, verifier_1.validateRunGates)(run);
             (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-            writeReport(run);
+            (0, report_1.writeReport)(run);
             (0, state_1.saveCheckpoint)(run);
-            return summarizeRun(run);
+            return (0, report_1.summarizeRun)(run);
         }
         catch (error) {
             run.loopStage = "adjust";
             (0, dispatch_1.updatePhaseStatuses)(run);
-            writeReport(run);
+            (0, report_1.writeReport)(run);
             (0, state_1.saveCheckpoint)(run);
             throw error;
         }
@@ -468,7 +470,7 @@ class CoolWorkflowRunner {
         }, { persist: false });
         run.loopStage = "adjust";
         (0, dispatch_1.updatePhaseStatuses)(run);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return failure;
     }
@@ -541,26 +543,26 @@ class CoolWorkflowRunner {
     }
     evidenceProvenance(runId, options = {}) {
         return (0, trust_audit_1.evidenceProvenance)(this.loadRun(runId), {
-            workerId: stringOption(options.worker || options.workerId),
-            candidateId: stringOption(options.candidate || options.candidateId),
-            commitId: stringOption(options.commit || options.commitId)
+            workerId: (0, cli_options_1.stringOption)(options.worker || options.workerId),
+            candidateId: (0, cli_options_1.stringOption)(options.candidate || options.candidateId),
+            commitId: (0, cli_options_1.stringOption)(options.commit || options.commitId)
         });
     }
     recordAuditAttestation(runId, options = {}) {
         const run = this.loadRun(runId);
-        const workerId = stringOption(options.worker || options.workerId);
+        const workerId = (0, cli_options_1.stringOption)(options.worker || options.workerId);
         const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
         const event = (0, trust_audit_1.recordHostAttestation)(run, {
-            actor: stringOption(options.actor) || "host",
+            actor: (0, cli_options_1.stringOption)(options.actor) || "host",
             workerId,
-            taskId: worker?.taskId || stringOption(options.task || options.taskId),
-            sandboxProfileId: worker?.sandboxProfileId || stringOption(options.sandboxProfileId),
+            taskId: worker?.taskId || (0, cli_options_1.stringOption)(options.task || options.taskId),
+            sandboxProfileId: worker?.sandboxProfileId || (0, cli_options_1.stringOption)(options.sandboxProfileId),
             policySnapshot: worker?.sandboxPolicy,
-            command: stringOption(options.command),
-            networkTarget: stringOption(options.network || options.networkTarget),
-            envVars: valuesOption(options.env || options.envVar || options.envVars),
+            command: (0, cli_options_1.stringOption)(options.command),
+            networkTarget: (0, cli_options_1.stringOption)(options.network || options.networkTarget),
+            envVars: (0, cli_options_1.valuesOption)(options.env || options.envVar || options.envVars),
             metadata: {
-                note: stringOption(options.note || options.message),
+                note: (0, cli_options_1.stringOption)(options.note || options.message),
                 hostEnforced: options.hostEnforced === undefined ? undefined : Boolean(options.hostEnforced)
             }
         });
@@ -572,8 +574,8 @@ class CoolWorkflowRunner {
         const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);
         if (!worker)
             throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
-        const kind = stringOption(options.kind) || inferAuditDecisionKind(options);
-        const target = stringOption(options.path || options.command || options.network || options.networkTarget || options.env || options.envVar);
+        const kind = (0, cli_options_1.stringOption)(options.kind) || (0, cli_options_1.inferAuditDecisionKind)(options);
+        const target = (0, cli_options_1.stringOption)(options.path || options.command || options.network || options.networkTarget || options.env || options.envVar);
         if (!target)
             throw new Error("Missing audit decision target: provide --path, --command, --network, or --env");
         const policy = worker.sandboxPolicy;
@@ -627,7 +629,7 @@ class CoolWorkflowRunner {
                 feedbackIds,
                 metadata: { code: denied?.code }
             });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return event;
     }
@@ -670,16 +672,16 @@ class CoolWorkflowRunner {
         if (workerId && !worker)
             throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
         const task = worker ? run.tasks.find((candidate) => candidate.id === worker.taskId) : undefined;
-        const resultNodeId = stringOption(options.resultNode) || worker?.resultNodeId || task?.resultNodeId;
-        const verifierNodeId = stringOption(options.verifierNode) || worker?.output?.verifierNodeId || task?.verifierNodeId;
-        const resultPath = stringOption(options.resultPath) || worker?.output?.resultPath || task?.resultPath;
+        const resultNodeId = (0, cli_options_1.stringOption)(options.resultNode) || worker?.resultNodeId || task?.resultNodeId;
+        const verifierNodeId = (0, cli_options_1.stringOption)(options.verifierNode) || worker?.output?.verifierNodeId || task?.verifierNodeId;
+        const resultPath = (0, cli_options_1.stringOption)(options.resultPath) || worker?.output?.resultPath || task?.resultPath;
         const resultNode = resultNodeId ? run.nodes?.find((node) => node.id === resultNodeId) : undefined;
         const verifierNode = verifierNodeId ? run.nodes?.find((node) => node.id === verifierNodeId) : undefined;
         const candidate = (0, candidate_scoring_1.registerCandidate)(run, {
-            id: stringOption(options.id),
-            kind: stringOption(options.kind),
+            id: (0, cli_options_1.stringOption)(options.id),
+            kind: (0, cli_options_1.stringOption)(options.kind),
             workerId,
-            taskId: stringOption(options.task) || worker?.taskId,
+            taskId: (0, cli_options_1.stringOption)(options.task) || worker?.taskId,
             resultNodeId,
             verifierNodeId,
             resultPath,
@@ -687,28 +689,28 @@ class CoolWorkflowRunner {
                 ...(resultPath ? [{ id: "result", kind: "markdown", path: node_path_1.default.resolve(resultPath) }] : []),
                 ...(worker ? [{ id: "worker", kind: "json", path: node_path_1.default.join(worker.workerDir, "worker.json") }] : [])
             ],
-            evidence: mergeEvidence(resultNode?.evidence || [], verifierNode?.evidence || []),
+            evidence: (0, cli_options_1.mergeEvidence)(resultNode?.evidence || [], verifierNode?.evidence || []),
             metadata: {
                 source: worker ? "worker" : "manual",
                 workerDir: worker?.workerDir
             }
         }, { persist: false });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return candidate;
     }
     scoreCandidate(runId, candidateId, options = {}) {
         const run = this.loadRun(runId);
         const score = (0, candidate_scoring_1.scoreCandidate)(run, candidateId, {
-            id: stringOption(options.id),
-            scorer: stringOption(options.scorer),
-            criteria: parseCriteria(options),
-            maxTotal: numberOption(options.maxTotal || options.max),
-            verdict: stringOption(options.verdict),
-            evidence: parseEvidence(options.evidence),
-            notes: stringOption(options.notes)
+            id: (0, cli_options_1.stringOption)(options.id),
+            scorer: (0, cli_options_1.stringOption)(options.scorer),
+            criteria: (0, cli_options_1.parseCriteria)(options),
+            maxTotal: (0, cli_options_1.numberOption)(options.maxTotal || options.max),
+            verdict: (0, cli_options_1.stringOption)(options.verdict),
+            evidence: (0, cli_options_1.parseEvidence)(options.evidence),
+            notes: (0, cli_options_1.stringOption)(options.notes)
         }, { persist: false });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return score;
     }
@@ -717,38 +719,38 @@ class CoolWorkflowRunner {
         const ranking = (0, candidate_scoring_1.rankCandidates)(run, {
             includeRejected: Boolean(options.includeRejected),
             policy: {
-                minNormalized: numberOption(options.minNormalized),
+                minNormalized: (0, cli_options_1.numberOption)(options.minNormalized),
                 requireEvidence: options.requireEvidence === undefined ? undefined : Boolean(options.requireEvidence),
                 requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate),
-                tieBreaker: stringOption(options.tieBreaker)
+                tieBreaker: (0, cli_options_1.stringOption)(options.tieBreaker)
             }
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return ranking;
     }
     selectCandidate(runId, candidateId, options = {}) {
         const run = this.loadRun(runId);
         const selection = (0, candidate_scoring_1.selectCandidate)(run, candidateId, {
-            selectedBy: stringOption(options.by) || stringOption(options.selectedBy),
-            reason: stringOption(options.reason),
-            scoreId: stringOption(options.score),
+            selectedBy: (0, cli_options_1.stringOption)(options.by) || (0, cli_options_1.stringOption)(options.selectedBy),
+            reason: (0, cli_options_1.stringOption)(options.reason),
+            scoreId: (0, cli_options_1.stringOption)(options.score),
             allowUnverified: Boolean(options.allowUnverified)
         }, {
             persist: false,
             policy: {
-                minNormalized: numberOption(options.minNormalized),
+                minNormalized: (0, cli_options_1.numberOption)(options.minNormalized),
                 requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate)
             }
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return selection;
     }
     rejectCandidate(runId, candidateId, reason) {
         const run = this.loadRun(runId);
         const candidate = (0, candidate_scoring_1.rejectCandidate)(run, candidateId, reason, { persist: false });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return candidate;
     }
@@ -759,13 +761,13 @@ class CoolWorkflowRunner {
     collaborationApprove(runId, targetKind, targetId, options = {}, decision = "approve") {
         const run = this.loadRun(runId);
         const record = (0, collaboration_1.recordApproval)(run, {
-            target: collaborationTarget(targetKind, targetId),
+            target: (0, cli_options_1.collaborationTarget)(targetKind, targetId),
             decision,
-            ...actorInputFrom(options),
-            rationale: stringOption(options.rationale) || stringOption(options.reason) || stringOption(options.message),
-            supersedes: stringOption(options.supersedes)
+            ...(0, cli_options_1.actorInputFrom)(options),
+            rationale: (0, cli_options_1.stringOption)(options.rationale) || (0, cli_options_1.stringOption)(options.reason) || (0, cli_options_1.stringOption)(options.message),
+            supersedes: (0, cli_options_1.stringOption)(options.supersedes)
         }, { persist: false });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
@@ -775,59 +777,59 @@ class CoolWorkflowRunner {
     collaborationComment(runId, targetKind, targetId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, collaboration_1.recordComment)(run, {
-            target: collaborationTarget(targetKind, targetId),
-            body: stringOption(options.body) || stringOption(options.message) || stringOption(options.text) || "",
-            threadId: stringOption(options.thread) || stringOption(options.threadId),
-            parentId: stringOption(options.parent) || stringOption(options.parentId),
-            ...actorInputFrom(options)
+            target: (0, cli_options_1.collaborationTarget)(targetKind, targetId),
+            body: (0, cli_options_1.stringOption)(options.body) || (0, cli_options_1.stringOption)(options.message) || (0, cli_options_1.stringOption)(options.text) || "",
+            threadId: (0, cli_options_1.stringOption)(options.thread) || (0, cli_options_1.stringOption)(options.threadId),
+            parentId: (0, cli_options_1.stringOption)(options.parent) || (0, cli_options_1.stringOption)(options.parentId),
+            ...(0, cli_options_1.actorInputFrom)(options)
         }, { persist: false });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
     collaborationCommentList(runId, options = {}) {
         const run = this.loadRun(runId);
-        const target = collaborationTargetMaybe(stringOption(options.targetKind) || stringOption(options.kind), stringOption(options.target) || stringOption(options.targetId));
+        const target = (0, cli_options_1.collaborationTargetMaybe)((0, cli_options_1.stringOption)(options.targetKind) || (0, cli_options_1.stringOption)(options.kind), (0, cli_options_1.stringOption)(options.target) || (0, cli_options_1.stringOption)(options.targetId));
         const comments = (0, collaboration_1.listComments)(run, target);
         return { schemaVersion: 1, surface: "collaboration", runId, target, count: comments.length, comments };
     }
     collaborationHandoff(runId, targetKind, targetId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, collaboration_1.recordHandoff)(run, {
-            target: collaborationTarget(targetKind, targetId),
-            toActor: stringOption(firstDefined(options, "to", "toActor")),
-            toActorKind: stringOption(firstDefined(options, "toKind", "to-kind", "toActorKind")),
-            toRole: stringOption(firstDefined(options, "toRole", "to-role")),
-            toDisplayName: stringOption(firstDefined(options, "toName", "to-name", "toDisplayName")),
-            toAttested: Boolean(firstDefined(options, "toAttested", "to-attested")),
-            fromActor: stringOption(firstDefined(options, "from", "fromActor")),
-            fromActorKind: stringOption(firstDefined(options, "fromKind", "from-kind", "fromActorKind")),
-            fromRole: stringOption(firstDefined(options, "fromRole", "from-role")),
-            reason: stringOption(options.reason) || stringOption(options.message) || "handoff",
-            ...actorInputFrom(options)
+            target: (0, cli_options_1.collaborationTarget)(targetKind, targetId),
+            toActor: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "to", "toActor")),
+            toActorKind: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "toKind", "to-kind", "toActorKind")),
+            toRole: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "toRole", "to-role")),
+            toDisplayName: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "toName", "to-name", "toDisplayName")),
+            toAttested: Boolean((0, cli_options_1.firstDefined)(options, "toAttested", "to-attested")),
+            fromActor: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "from", "fromActor")),
+            fromActorKind: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "fromKind", "from-kind", "fromActorKind")),
+            fromRole: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "fromRole", "from-role")),
+            reason: (0, cli_options_1.stringOption)(options.reason) || (0, cli_options_1.stringOption)(options.message) || "handoff",
+            ...(0, cli_options_1.actorInputFrom)(options)
         }, { persist: false });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
     reviewStatus(runId, options = {}) {
         const run = this.loadRun(runId);
         const now = typeof options.now === "string" && options.now ? options.now : new Date().toISOString();
-        const target = collaborationTargetMaybe(stringOption(options.targetKind) || stringOption(options.kind), stringOption(options.target) || stringOption(options.targetId));
+        const target = (0, cli_options_1.collaborationTargetMaybe)((0, cli_options_1.stringOption)(options.targetKind) || (0, cli_options_1.stringOption)(options.kind), (0, cli_options_1.stringOption)(options.target) || (0, cli_options_1.stringOption)(options.targetId));
         return (0, collaboration_1.buildReviewStatusReport)(run, { now, target });
     }
     reviewPolicy(runId, options = {}) {
         const run = this.loadRun(runId);
-        const allowSelf = firstDefined(options, "allowSelfApproval", "allow-self-approval");
-        const requireAttested = firstDefined(options, "requireAttestedActor", "require-attested-actor");
+        const allowSelf = (0, cli_options_1.firstDefined)(options, "allowSelfApproval", "allow-self-approval");
+        const requireAttested = (0, cli_options_1.firstDefined)(options, "requireAttestedActor", "require-attested-actor");
         const policy = (0, collaboration_1.setReviewPolicy)(run, {
-            requiredApprovals: numberOption(firstDefined(options, "requiredApprovals", "required-approvals", "required", "approvals")),
-            authorizedRoles: stringOption(firstDefined(options, "authorizedRoles", "authorized-roles", "roles")),
+            requiredApprovals: (0, cli_options_1.numberOption)((0, cli_options_1.firstDefined)(options, "requiredApprovals", "required-approvals", "required", "approvals")),
+            authorizedRoles: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "authorizedRoles", "authorized-roles", "roles")),
             allowSelfApproval: allowSelf === undefined ? undefined : Boolean(allowSelf),
             requireAttestedActor: requireAttested === undefined ? undefined : Boolean(requireAttested),
-            appliesTo: stringOption(firstDefined(options, "appliesTo", "applies-to", "targets"))
+            appliesTo: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "appliesTo", "applies-to", "targets"))
         }, { persist: false });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return { schemaVersion: 1, surface: "collaboration", runId, policy };
     }
@@ -854,11 +856,11 @@ class CoolWorkflowRunner {
     }
     report(runId) {
         const run = this.loadRun(runId);
-        return { path: writeReport(run) };
+        return { path: (0, report_1.writeReport)(run) };
     }
     operatorReport(runId) {
         const run = this.loadRun(runId);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         return (0, operator_ux_1.summarizeOperatorRun)(run);
     }
     showContract(runId, contractId) {
@@ -919,7 +921,7 @@ class CoolWorkflowRunner {
             (0, evidence_reasoning_1.refreshEvidenceReasoning)(run);
             (0, state_1.saveCheckpoint)(run);
         }
-        return (0, evidence_reasoning_1.showEvidenceReasoning)(run, { evidenceId: stringOption(options.evidence || options.evidenceId || options.id) });
+        return (0, evidence_reasoning_1.showEvidenceReasoning)(run, { evidenceId: (0, cli_options_1.stringOption)(options.evidence || options.evidenceId || options.id) });
     }
     multiAgentReasoningRefresh(runId) {
         const run = this.loadRun(runId);
@@ -929,8 +931,8 @@ class CoolWorkflowRunner {
     }
     summaryRefresh(runId, options = {}) {
         const run = this.loadRun(runId);
-        const index = (0, state_explosion_1.refreshStateExplosionSummaries)(run, { views: graphViewsOption(options) });
-        writeReport(run);
+        const index = (0, state_explosion_1.refreshStateExplosionSummaries)(run, { views: (0, cli_options_1.graphViewsOption)(options) });
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return index;
     }
@@ -952,7 +954,7 @@ class CoolWorkflowRunner {
         return (0, observability_1.showMetricsReport)(run, { now, policy });
     }
     blackboardSummarize(runId, options = {}) {
-        return (0, state_explosion_1.summarizeBlackboardDigest)(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+        return (0, state_explosion_1.summarizeBlackboardDigest)(this.loadRun(runId), (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId));
     }
     multiAgentSummarize(runId) {
         const run = this.loadRun(runId);
@@ -960,10 +962,10 @@ class CoolWorkflowRunner {
         return (0, state_explosion_1.buildStateExplosionReport)(run, { index });
     }
     multiAgentGraphView(runId, options = {}) {
-        const view = graphViewOption(options.view);
+        const view = (0, cli_options_1.graphViewOption)(options.view);
         return (0, state_explosion_1.buildCompactGraph)(this.loadRun(runId), view, {
-            focus: stringOption(options.focus),
-            depth: numberOption(options.depth)
+            focus: (0, cli_options_1.stringOption)(options.focus),
+            depth: (0, cli_options_1.numberOption)(options.depth)
         });
     }
     stateExplosionReport(runId) {
@@ -972,49 +974,49 @@ class CoolWorkflowRunner {
         return (0, state_explosion_1.buildStateExplosionReport)(run, { index });
     }
     hostMultiAgentRun(runId, options = {}) {
-        const workflowId = stringOption(options.app || options.appId || options.workflow || options.workflowId);
+        const workflowId = (0, cli_options_1.stringOption)(options.app || options.appId || options.workflow || options.workflowId);
         const run = runId
             ? this.loadRun(runId)
             : workflowId
-                ? this.plan(workflowId, withoutHostRunKeys(options))
+                ? this.plan(workflowId, (0, cli_options_1.withoutHostRunKeys)(options))
                 : undefined;
         if (!run)
             throw new Error("multi-agent run requires <run-id> or --app <app-id>");
         const response = (0, multi_agent_host_1.hostRun)(run, options);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return response;
     }
     hostMultiAgentStatus(runId) {
         const run = this.loadRun(runId);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         return (0, multi_agent_host_1.hostStatus)(run);
     }
     hostMultiAgentStep(runId, options = {}) {
         const run = this.loadRun(runId);
         const response = (0, multi_agent_host_1.hostStep)(run, options);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return response;
     }
     hostMultiAgentBlackboard(runId, action, options = {}) {
         const run = this.loadRun(runId);
         const response = (0, multi_agent_host_1.hostBlackboard)(run, action, options);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return response;
     }
     hostMultiAgentScore(runId, options = {}) {
         const run = this.loadRun(runId);
         const response = (0, multi_agent_host_1.hostScore)(run, options);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return response;
     }
     hostMultiAgentSelect(runId, options = {}) {
         const run = this.loadRun(runId);
         const response = (0, multi_agent_host_1.hostSelect)(run, options);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return response;
     }
@@ -1051,18 +1053,18 @@ class CoolWorkflowRunner {
     applyTopology(runId, topologyId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, topology_1.applyTopology)(run, topologyId, {
-            id: stringOption(options.id),
-            title: stringOption(options.title),
-            multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
-            mapperCount: numberOption(options.mapperCount || options["mapper-count"] || options.mappers || options.mapper),
-            judgeCount: numberOption(options.judgeCount || options["judge-count"] || options.judges || options.judge),
-            debateRounds: numberOption(options.debateRounds || options["debate-rounds"] || options.rounds),
+            id: (0, cli_options_1.stringOption)(options.id),
+            title: (0, cli_options_1.stringOption)(options.title),
+            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            taskIds: (0, cli_options_1.arrayOption)(options.task || options.taskId || options.tasks).map(String),
+            mapperCount: (0, cli_options_1.numberOption)(options.mapperCount || options["mapper-count"] || options.mappers || options.mapper),
+            judgeCount: (0, cli_options_1.numberOption)(options.judgeCount || options["judge-count"] || options.judges || options.judge),
+            debateRounds: (0, cli_options_1.numberOption)(options.debateRounds || options["debate-rounds"] || options.rounds),
             collectInitialFanin: Boolean(options.collectInitialFanin || options["collect-initial-fanin"]),
-            metadata: metadataOption(options)
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
@@ -1078,126 +1080,126 @@ class CoolWorkflowRunner {
     createMultiAgentRun(runId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, multi_agent_1.createMultiAgentRun)(run, {
-            id: stringOption(options.id),
-            title: stringOption(options.title),
-            objective: stringOption(options.objective || options.reason),
-            parentMultiAgentRunId: stringOption(options.parent || options.parentMultiAgentRunId),
-            phase: stringOption(options.phase),
-            phaseId: stringOption(options.phaseId),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            title: (0, cli_options_1.stringOption)(options.title),
+            objective: (0, cli_options_1.stringOption)(options.objective || options.reason),
+            parentMultiAgentRunId: (0, cli_options_1.stringOption)(options.parent || options.parentMultiAgentRunId),
+            phase: (0, cli_options_1.stringOption)(options.phase),
+            phaseId: (0, cli_options_1.stringOption)(options.phaseId),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
     transitionMultiAgentRun(runId, multiAgentRunId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, multi_agent_1.transitionMultiAgentRun)(run, multiAgentRunId, String(options.status || "running"), {
-            reason: stringOption(options.reason),
-            actor: stringOption(options.actor),
-            metadata: metadataOption(options)
+            reason: (0, cli_options_1.stringOption)(options.reason),
+            actor: (0, cli_options_1.stringOption)(options.actor),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
     createAgentRole(runId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, multi_agent_1.createAgentRole)(run, {
-            id: stringOption(options.id),
-            multiAgentRunId: requiredStringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
-            title: stringOption(options.title),
-            responsibilities: arrayOption(options.responsibility || options.responsibilities).map(String),
-            requiredEvidence: arrayOption(options.requiredEvidence || options["required-evidence"]).map(String),
-            sandboxProfileHints: arrayOption(options.sandbox || options.sandboxProfile || options.sandboxProfileHint || options["sandbox-profile"]).map(String),
-            expectedArtifacts: arrayOption(options.expectedArtifact || options.expectedArtifacts || options["expected-artifact"]).map(String),
-            faninObligations: arrayOption(options.faninObligation || options.faninObligations || options["fanin-obligation"]).map(String),
-            parentRoleId: stringOption(options.parent || options.parentRoleId),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            multiAgentRunId: (0, cli_options_1.requiredStringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
+            title: (0, cli_options_1.stringOption)(options.title),
+            responsibilities: (0, cli_options_1.arrayOption)(options.responsibility || options.responsibilities).map(String),
+            requiredEvidence: (0, cli_options_1.arrayOption)(options.requiredEvidence || options["required-evidence"]).map(String),
+            sandboxProfileHints: (0, cli_options_1.arrayOption)(options.sandbox || options.sandboxProfile || options.sandboxProfileHint || options["sandbox-profile"]).map(String),
+            expectedArtifacts: (0, cli_options_1.arrayOption)(options.expectedArtifact || options.expectedArtifacts || options["expected-artifact"]).map(String),
+            faninObligations: (0, cli_options_1.arrayOption)(options.faninObligation || options.faninObligations || options["fanin-obligation"]).map(String),
+            parentRoleId: (0, cli_options_1.stringOption)(options.parent || options.parentRoleId),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
     createAgentGroup(runId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, multi_agent_1.createAgentGroup)(run, {
-            id: stringOption(options.id),
-            multiAgentRunId: requiredStringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
-            title: stringOption(options.title),
-            phase: stringOption(options.phase),
-            phaseId: stringOption(options.phaseId),
-            taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
-            parentGroupId: stringOption(options.parent || options.parentGroupId),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            multiAgentRunId: (0, cli_options_1.requiredStringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
+            title: (0, cli_options_1.stringOption)(options.title),
+            phase: (0, cli_options_1.stringOption)(options.phase),
+            phaseId: (0, cli_options_1.stringOption)(options.phaseId),
+            taskIds: (0, cli_options_1.arrayOption)(options.task || options.taskId || options.tasks).map(String),
+            parentGroupId: (0, cli_options_1.stringOption)(options.parent || options.parentGroupId),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
     assignAgentMembership(runId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, multi_agent_1.assignAgentMembership)(run, {
-            id: stringOption(options.id),
-            multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            groupId: requiredStringOption(options.group || options.groupId || options["multi-agent-group"], "group id"),
-            roleId: requiredStringOption(options.role || options.roleId || options["multi-agent-role"], "role id"),
-            taskId: requiredStringOption(options.task || options.taskId, "task id"),
-            workerId: stringOption(options.worker || options.workerId),
-            dispatchId: stringOption(options.dispatch || options.dispatchId),
-            fanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
-            status: stringOption(options.status),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+            groupId: (0, cli_options_1.requiredStringOption)(options.group || options.groupId || options["multi-agent-group"], "group id"),
+            roleId: (0, cli_options_1.requiredStringOption)(options.role || options.roleId || options["multi-agent-role"], "role id"),
+            taskId: (0, cli_options_1.requiredStringOption)(options.task || options.taskId, "task id"),
+            workerId: (0, cli_options_1.stringOption)(options.worker || options.workerId),
+            dispatchId: (0, cli_options_1.stringOption)(options.dispatch || options.dispatchId),
+            fanoutId: (0, cli_options_1.stringOption)(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
+            status: (0, cli_options_1.stringOption)(options.status),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
     createAgentFanout(runId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, multi_agent_1.createAgentFanout)(run, {
-            id: stringOption(options.id),
-            multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            groupId: requiredStringOption(options.group || options.groupId || options["multi-agent-group"], "group id"),
-            reason: stringOption(options.reason) || "work split",
-            roleIds: arrayOption(options.role || options.roleId || options.roles).map(String),
-            taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
-            workerIds: arrayOption(options.worker || options.workerId || options.workers).map(String),
-            membershipIds: arrayOption(options.membership || options.membershipId || options.memberships).map(String),
-            dispatchIds: arrayOption(options.dispatch || options.dispatchId || options.dispatches).map(String),
-            concurrencyLimit: numberOption(options.limit || options.concurrency || options.concurrencyLimit),
-            sandboxProfileChoices: parseSandboxChoices(options),
-            expectedReturnShape: stringOption(options.expectedReturnShape || options["expected-return-shape"]),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+            groupId: (0, cli_options_1.requiredStringOption)(options.group || options.groupId || options["multi-agent-group"], "group id"),
+            reason: (0, cli_options_1.stringOption)(options.reason) || "work split",
+            roleIds: (0, cli_options_1.arrayOption)(options.role || options.roleId || options.roles).map(String),
+            taskIds: (0, cli_options_1.arrayOption)(options.task || options.taskId || options.tasks).map(String),
+            workerIds: (0, cli_options_1.arrayOption)(options.worker || options.workerId || options.workers).map(String),
+            membershipIds: (0, cli_options_1.arrayOption)(options.membership || options.membershipId || options.memberships).map(String),
+            dispatchIds: (0, cli_options_1.arrayOption)(options.dispatch || options.dispatchId || options.dispatches).map(String),
+            concurrencyLimit: (0, cli_options_1.numberOption)(options.limit || options.concurrency || options.concurrencyLimit),
+            sandboxProfileChoices: (0, cli_options_1.parseSandboxChoices)(options),
+            expectedReturnShape: (0, cli_options_1.stringOption)(options.expectedReturnShape || options["expected-return-shape"]),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
     collectAgentFanin(runId, options = {}) {
         const run = this.loadRun(runId);
         const record = (0, multi_agent_1.collectAgentFanin)(run, {
-            id: stringOption(options.id),
-            multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            groupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
-            fanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
-            requiredRoleIds: arrayOption(options.requiredRole || options.requiredRoleId || options["required-role"]).map(String),
-            strategy: stringOption(options.strategy),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+            groupId: (0, cli_options_1.stringOption)(options.group || options.groupId || options["multi-agent-group"]),
+            fanoutId: (0, cli_options_1.stringOption)(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
+            requiredRoleIds: (0, cli_options_1.arrayOption)(options.requiredRole || options.requiredRoleId || options["required-role"]).map(String),
+            strategy: (0, cli_options_1.stringOption)(options.strategy),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return record;
     }
@@ -1238,10 +1240,10 @@ class CoolWorkflowRunner {
         return record;
     }
     blackboardSummary(runId, options = {}) {
-        return (0, coordinator_1.summarizeBlackboard)(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+        return (0, coordinator_1.summarizeBlackboard)(this.loadRun(runId), (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId));
     }
     coordinatorSummary(runId, options = {}) {
-        return (0, coordinator_1.summarizeBlackboard)(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+        return (0, coordinator_1.summarizeBlackboard)(this.loadRun(runId), (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId));
     }
     blackboardGraph(runId) {
         return (0, coordinator_1.buildBlackboardGraph)(this.loadRun(runId));
@@ -1249,144 +1251,144 @@ class CoolWorkflowRunner {
     resolveRunBlackboard(runId, options = {}) {
         const run = this.loadRun(runId);
         const board = (0, coordinator_1.resolveBlackboard)(run, {
-            id: stringOption(options.id || options.blackboard || options.blackboardId),
-            title: stringOption(options.title),
-            multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            groupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
-            roleId: stringOption(options.role || options.roleId || options["multi-agent-role"]),
-            membershipId: stringOption(options.membership || options.membershipId || options["multi-agent-membership"]),
-            author: parseBlackboardAuthor(options),
-            scope: parseBlackboardScope(options),
-            tags: arrayOption(options.tag || options.tags).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id || options.blackboard || options.blackboardId),
+            title: (0, cli_options_1.stringOption)(options.title),
+            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+            groupId: (0, cli_options_1.stringOption)(options.group || options.groupId || options["multi-agent-group"]),
+            roleId: (0, cli_options_1.stringOption)(options.role || options.roleId || options["multi-agent-role"]),
+            membershipId: (0, cli_options_1.stringOption)(options.membership || options.membershipId || options["multi-agent-membership"]),
+            author: (0, cli_options_1.parseBlackboardAuthor)(options),
+            scope: (0, cli_options_1.parseBlackboardScope)(options),
+            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return board;
     }
     createBlackboardTopic(runId, options = {}) {
         const run = this.loadRun(runId);
         const topic = (0, coordinator_1.createBlackboardTopic)(run, {
-            id: stringOption(options.id),
-            title: requiredStringOption(options.title, "topic title"),
-            description: stringOption(options.description),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            author: parseBlackboardAuthor(options),
-            scope: parseBlackboardScope(options),
-            tags: arrayOption(options.tag || options.tags).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            title: (0, cli_options_1.requiredStringOption)(options.title, "topic title"),
+            description: (0, cli_options_1.stringOption)(options.description),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            author: (0, cli_options_1.parseBlackboardAuthor)(options),
+            scope: (0, cli_options_1.parseBlackboardScope)(options),
+            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return topic;
     }
     postBlackboardMessage(runId, options = {}) {
         const run = this.loadRun(runId);
         const message = (0, coordinator_1.postBlackboardMessage)(run, {
-            id: stringOption(options.id),
-            topicId: requiredStringOption(options.topic || options.topicId, "topic id"),
-            body: requiredStringOption(options.body || options.message, "message body"),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            replyToId: stringOption(options.replyTo || options.replyToId || options.parent),
-            visibility: stringOption(options.visibility),
-            author: parseBlackboardAuthor(options),
-            scope: parseBlackboardScope(options),
-            evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-            artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-            auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
-            parentIds: arrayOption(options.parentId || options.parentIds).map(String),
-            tags: arrayOption(options.tag || options.tags).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            topicId: (0, cli_options_1.requiredStringOption)(options.topic || options.topicId, "topic id"),
+            body: (0, cli_options_1.requiredStringOption)(options.body || options.message, "message body"),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            replyToId: (0, cli_options_1.stringOption)(options.replyTo || options.replyToId || options.parent),
+            visibility: (0, cli_options_1.stringOption)(options.visibility),
+            author: (0, cli_options_1.parseBlackboardAuthor)(options),
+            scope: (0, cli_options_1.parseBlackboardScope)(options),
+            evidenceRefs: (0, cli_options_1.arrayOption)(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
+            artifactRefIds: (0, cli_options_1.arrayOption)(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
+            auditEventIds: (0, cli_options_1.arrayOption)(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
+            parentIds: (0, cli_options_1.arrayOption)(options.parentId || options.parentIds).map(String),
+            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return message;
     }
     listBlackboardMessages(runId, options = {}) {
         return (0, coordinator_1.listBlackboardMessages)(this.loadRun(runId), {
-            topicId: stringOption(options.topic || options.topicId),
-            blackboardId: stringOption(options.blackboard || options.blackboardId)
+            topicId: (0, cli_options_1.stringOption)(options.topic || options.topicId),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId)
         });
     }
     putBlackboardContext(runId, options = {}) {
         const run = this.loadRun(runId);
         const context = (0, coordinator_1.putBlackboardContext)(run, {
-            id: stringOption(options.id),
-            topicId: requiredStringOption(options.topic || options.topicId, "topic id"),
-            kind: requiredStringOption(options.kind, "context kind"),
-            key: stringOption(options.key),
-            value: requiredStringOption(options.value || options.body, "context value"),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            supersedesContextIds: arrayOption(options.supersedes || options.supersedesContext || options.supersedesContextId).map(String),
-            author: parseBlackboardAuthor(options),
-            scope: parseBlackboardScope(options),
-            evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-            artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-            parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
-            tags: arrayOption(options.tag || options.tags).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            topicId: (0, cli_options_1.requiredStringOption)(options.topic || options.topicId, "topic id"),
+            kind: (0, cli_options_1.requiredStringOption)(options.kind, "context kind"),
+            key: (0, cli_options_1.stringOption)(options.key),
+            value: (0, cli_options_1.requiredStringOption)(options.value || options.body, "context value"),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            supersedesContextIds: (0, cli_options_1.arrayOption)(options.supersedes || options.supersedesContext || options.supersedesContextId).map(String),
+            author: (0, cli_options_1.parseBlackboardAuthor)(options),
+            scope: (0, cli_options_1.parseBlackboardScope)(options),
+            evidenceRefs: (0, cli_options_1.arrayOption)(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
+            artifactRefIds: (0, cli_options_1.arrayOption)(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
+            parentIds: (0, cli_options_1.arrayOption)(options.parent || options.parentId || options.parentIds).map(String),
+            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return context;
     }
     addBlackboardArtifact(runId, options = {}) {
         const run = this.loadRun(runId);
         const artifact = (0, coordinator_1.addBlackboardArtifact)(run, {
-            id: stringOption(options.id),
-            topicId: stringOption(options.topic || options.topicId),
-            kind: requiredStringOption(options.kind, "artifact kind"),
-            path: stringOption(options.path),
-            locator: stringOption(options.locator),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            owner: parseBlackboardAuthor({ ...options, authorKind: options.ownerKind || options.authorKind, authorId: options.owner || options.ownerId || options.authorId }),
-            author: parseBlackboardAuthor(options),
-            scope: parseBlackboardScope(options),
-            source: stringOption(options.source),
-            provenance: parseBlackboardLinks(run.id, options),
-            evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-            auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
-            parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
-            tags: arrayOption(options.tag || options.tags).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            topicId: (0, cli_options_1.stringOption)(options.topic || options.topicId),
+            kind: (0, cli_options_1.requiredStringOption)(options.kind, "artifact kind"),
+            path: (0, cli_options_1.stringOption)(options.path),
+            locator: (0, cli_options_1.stringOption)(options.locator),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            owner: (0, cli_options_1.parseBlackboardAuthor)({ ...options, authorKind: options.ownerKind || options.authorKind, authorId: options.owner || options.ownerId || options.authorId }),
+            author: (0, cli_options_1.parseBlackboardAuthor)(options),
+            scope: (0, cli_options_1.parseBlackboardScope)(options),
+            source: (0, cli_options_1.stringOption)(options.source),
+            provenance: (0, cli_options_1.parseBlackboardLinks)(run.id, options),
+            evidenceRefs: (0, cli_options_1.arrayOption)(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
+            auditEventIds: (0, cli_options_1.arrayOption)(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
+            parentIds: (0, cli_options_1.arrayOption)(options.parent || options.parentId || options.parentIds).map(String),
+            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return artifact;
     }
     listBlackboardArtifacts(runId, options = {}) {
         return (0, coordinator_1.listBlackboardArtifacts)(this.loadRun(runId), {
-            topicId: stringOption(options.topic || options.topicId),
-            blackboardId: stringOption(options.blackboard || options.blackboardId)
+            topicId: (0, cli_options_1.stringOption)(options.topic || options.topicId),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId)
         });
     }
     snapshotBlackboard(runId, options = {}) {
         const run = this.loadRun(runId);
-        const snapshot = (0, coordinator_1.createBlackboardSnapshot)(run, stringOption(options.blackboard || options.blackboardId));
-        writeReport(run);
+        const snapshot = (0, coordinator_1.createBlackboardSnapshot)(run, (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId));
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return snapshot;
     }
     recordCoordinatorDecision(runId, options = {}) {
         const run = this.loadRun(runId);
         const decision = (0, coordinator_1.recordCoordinatorDecision)(run, {
-            id: stringOption(options.id),
-            blackboardId: stringOption(options.blackboard || options.blackboardId),
-            kind: requiredStringOption(options.kind, "decision kind"),
-            outcome: requiredStringOption(options.outcome, "decision outcome"),
-            reason: requiredStringOption(options.reason, "decision reason"),
-            subjectIds: arrayOption(options.subject || options.subjectId || options.subjectIds).map(String),
-            topicId: stringOption(options.topic || options.topicId),
-            author: parseBlackboardAuthor({ ...options, authorKind: options.authorKind || "coordinator", authorId: options.authorId || "cw" }),
-            scope: parseBlackboardScope(options),
-            evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-            artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-            messageIds: arrayOption(options.message || options.messageId || options.messageIds).map(String),
-            parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
-            tags: arrayOption(options.tag || options.tags).map(String),
-            metadata: metadataOption(options)
+            id: (0, cli_options_1.stringOption)(options.id),
+            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
+            kind: (0, cli_options_1.requiredStringOption)(options.kind, "decision kind"),
+            outcome: (0, cli_options_1.requiredStringOption)(options.outcome, "decision outcome"),
+            reason: (0, cli_options_1.requiredStringOption)(options.reason, "decision reason"),
+            subjectIds: (0, cli_options_1.arrayOption)(options.subject || options.subjectId || options.subjectIds).map(String),
+            topicId: (0, cli_options_1.stringOption)(options.topic || options.topicId),
+            author: (0, cli_options_1.parseBlackboardAuthor)({ ...options, authorKind: options.authorKind || "coordinator", authorId: options.authorId || "cw" }),
+            scope: (0, cli_options_1.parseBlackboardScope)(options),
+            evidenceRefs: (0, cli_options_1.arrayOption)(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
+            artifactRefIds: (0, cli_options_1.arrayOption)(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
+            messageIds: (0, cli_options_1.arrayOption)(options.message || options.messageId || options.messageIds).map(String),
+            parentIds: (0, cli_options_1.arrayOption)(options.parent || options.parentId || options.parentIds).map(String),
+            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
+            metadata: (0, cli_options_1.metadataOption)(options)
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return decision;
     }
@@ -1406,20 +1408,20 @@ class CoolWorkflowRunner {
         const hasGateOption = Boolean(options.verifier || options.verifierNode || options["verifier-node"] || options.candidate || options.selection);
         try {
             const commit = (0, commit_1.commitState)(run, {
-                reason: stringOption(options.reason) || "manual",
-                verifierNodeId: stringOption(options.verifier) || stringOption(options.verifierNode) || stringOption(options["verifier-node"]),
-                candidateId: stringOption(options.candidate),
-                selectionId: stringOption(options.selection),
+                reason: (0, cli_options_1.stringOption)(options.reason) || "manual",
+                verifierNodeId: (0, cli_options_1.stringOption)(options.verifier) || (0, cli_options_1.stringOption)(options.verifierNode) || (0, cli_options_1.stringOption)(options["verifier-node"]),
+                candidateId: (0, cli_options_1.stringOption)(options.candidate),
+                selectionId: (0, cli_options_1.stringOption)(options.selection),
                 verifierGated: hasGateOption || !allowCheckpoint,
                 allowUnverifiedCheckpoint: allowCheckpoint,
                 source: "cli"
             });
-            writeReport(run);
+            (0, report_1.writeReport)(run);
             (0, state_1.saveCheckpoint)(run);
             return { runId, commit };
         }
         catch (error) {
-            writeReport(run);
+            (0, report_1.writeReport)(run);
             (0, state_1.saveCheckpoint)(run);
             throw error;
         }
@@ -1427,7 +1429,7 @@ class CoolWorkflowRunner {
     collectFeedback(runId) {
         const run = this.loadRun(runId);
         const collected = (0, error_feedback_1.collectRunErrors)(run);
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return collected;
     }
@@ -1450,7 +1452,7 @@ class CoolWorkflowRunner {
             verifierCommand: options.verify ? String(options.verify) : undefined,
             guidance: options.guidance ? String(options.guidance) : undefined
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return feedback;
     }
@@ -1461,7 +1463,7 @@ class CoolWorkflowRunner {
             nodeId: options.node ? String(options.node) : undefined,
             message: options.message ? String(options.message) : undefined
         });
-        writeReport(run);
+        (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
         return feedback;
     }
@@ -1649,7 +1651,7 @@ function normalizeInputs(options) {
 }
 function validateInputs(workflow, inputs) {
     for (const input of workflow.inputs || []) {
-        if (input.required && isMissing(inputs[input.name])) {
+        if (input.required && (0, cli_options_1.isMissing)(inputs[input.name])) {
             throw new Error(`Missing required input --${input.name}`);
         }
     }
@@ -1678,311 +1680,6 @@ function flattenTasks(workflow, inputs) {
     }
     return tasks;
 }
-function writeReport(run) {
-    (0, dispatch_1.updatePhaseStatuses)(run);
-    const workerSummary = (0, worker_isolation_1.summarizeWorkers)(run);
-    const candidateSummary = (0, candidate_scoring_1.summarizeCandidates)(run);
-    const report = [
-        `# ${run.workflow.title}`,
-        "",
-        `- Run: ${run.id}`,
-        `- Workflow: ${run.workflow.id}`,
-        ...(run.workflow.app
-            ? [
-                `- Workflow App: ${run.workflow.app.id}@${run.workflow.app.version}`,
-                `- Workflow App Source: ${run.workflow.app.source?.manifestPath || run.workflow.app.source?.entrypointPath || run.workflow.app.source?.path || ""}`
-            ]
-            : []),
-        `- Created: ${run.createdAt}`,
-        `- Updated: ${run.updatedAt}`,
-        `- Repository: ${String(run.inputs.repo || run.cwd)}`,
-        `- Question: ${String(run.inputs.question || "")}`,
-        `- Invariants: ${formatInputList(run.inputs.invariant)}`,
-        `- Loop Stage: ${run.loopStage}`,
-        "",
-        "## Phase Status",
-        "",
-        "| Phase | Status | Completed | Total |",
-        "| --- | --- | ---: | ---: |",
-        ...run.phases.map((phase) => {
-            const phaseTasks = run.tasks.filter((task) => phase.taskIds.includes(task.id));
-            const completed = phaseTasks.filter((task) => task.status === "completed").length;
-            return `| ${phase.name} | ${phase.status} | ${completed} | ${phaseTasks.length} |`;
-        }),
-        "",
-        "## State Commits",
-        "",
-        ...renderCommits(run),
-        "",
-        "## Error Feedback",
-        "",
-        ...renderFeedback(run),
-        "",
-        "## Workers",
-        "",
-        ...renderWorkers(workerSummary),
-        "",
-        "## State Size & Compaction",
-        "",
-        ...renderStateSize(run),
-        "",
-        "## Multi-Agent Runtime",
-        "",
-        ...renderMultiAgent(run),
-        "",
-        "## Blackboard / Coordinator",
-        "",
-        ...renderBlackboard(run),
-        "",
-        "## Sandbox Profiles",
-        "",
-        ...renderSandboxProfiles(run),
-        "",
-        "## Trust Audit",
-        "",
-        ...renderTrustAudit(run),
-        "",
-        "## Acceptance Rationale",
-        "",
-        ...renderAcceptanceRationale(run),
-        "",
-        "## Candidates",
-        "",
-        ...renderCandidates(candidateSummary),
-        "",
-        "## Pending Tasks",
-        "",
-        ...renderPendingTasks(run),
-        "",
-        "## Results",
-        "",
-        ...renderResults(run)
-    ].join("\n");
-    node_fs_1.default.writeFileSync(run.paths.report, report, "utf8");
-    return run.paths.report;
-}
-function summarizeRun(run) {
-    (0, dispatch_1.updatePhaseStatuses)(run);
-    const workerSummary = (0, worker_isolation_1.summarizeWorkers)(run);
-    return {
-        runId: run.id,
-        workflowId: run.workflow.id,
-        app: run.workflow.app,
-        phases: run.phases,
-        tasks: {
-            total: run.tasks.length,
-            pending: run.tasks.filter((task) => task.status === "pending").length,
-            running: run.tasks.filter((task) => task.status === "running").length,
-            failed: run.tasks.filter((task) => task.status === "failed").length,
-            completed: run.tasks.filter((task) => task.status === "completed").length
-        },
-        loopStage: run.loopStage,
-        next: (0, dispatch_1.firstRunnablePhase)(run)?.name || null,
-        reportPath: run.paths.report,
-        commits: run.commits,
-        workers: {
-            total: workerSummary.total,
-            byStatus: workerSummary.byStatus
-        }
-    };
-}
-function renderPendingTasks(run) {
-    const pending = run.tasks.filter((task) => task.status === "pending" || task.status === "running");
-    if (!pending.length)
-        return ["No pending tasks."];
-    return pending.map((task) => `- ${task.id} (${task.phase}, ${task.status}): ${task.taskPath}`);
-}
-function renderResults(run) {
-    const completed = run.tasks.filter((task) => task.status === "completed");
-    if (!completed.length)
-        return ["No completed results yet."];
-    const lines = [];
-    for (const task of completed) {
-        lines.push(`### ${task.id}`, "", `Result: ${task.resultPath}`, "");
-        if (task.resultPath && node_fs_1.default.existsSync(task.resultPath)) {
-            lines.push(node_fs_1.default.readFileSync(task.resultPath, "utf8").trim(), "");
-        }
-        else {
-            lines.push("_Result file is not present on this host; state metadata remains inspectable._", "");
-        }
-    }
-    return lines;
-}
-function renderCommits(run) {
-    if (!run.commits.length)
-        return ["No state commits yet."];
-    return run.commits.map((commit) => {
-        const kind = commit.verifierGated ? "verifier-gated commit" : "checkpoint";
-        const gate = commit.verifierGated ? formatCommitGate(commit) : "verifierGated=false";
-        return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${commit.snapshotPath})`;
-    });
-}
-function renderFeedback(run) {
-    const summary = (0, error_feedback_1.summarizeFeedback)(run);
-    if (!summary.total)
-        return ["No feedback records."];
-    return [
-        `- Total: ${summary.total}`,
-        `- By status: ${formatCounts(summary.byStatus)}`,
-        `- By severity: ${formatCounts(summary.bySeverity)}`,
-        `- By classification: ${formatCounts(summary.byClassification)}`,
-        "",
-        ...summary.artifacts.map((artifact) => `- ${artifact}`)
-    ];
-}
-function renderWorkers(summary) {
-    if (!summary.total)
-        return ["No worker scopes yet."];
-    const lines = [
-        `- Total: ${summary.total}`,
-        `- By status: ${formatCounts(summary.byStatus)}`,
-        "",
-        ...summary.manifestPaths.map((artifact) => `- ${artifact}`)
-    ];
-    if (summary.failed.length) {
-        lines.push("", "Failed or rejected:");
-        for (const worker of summary.failed) {
-            lines.push(`- ${worker.id} (${worker.status}) feedback=${worker.feedbackIds.join(",") || "none"}`);
-        }
-    }
-    return lines;
-}
-function renderStateSize(run) {
-    const index = (0, state_explosion_1.loadStateExplosionSummaryIndex)(run);
-    const report = (0, state_explosion_1.buildStateExplosionReport)(run, { index });
-    return (0, state_explosion_1.stateExplosionReportLines)(report);
-}
-function renderMultiAgent(run) {
-    const summary = (0, multi_agent_1.summarizeMultiAgent)(run);
-    if (!summary.totalRuns)
-        return ["No multi-agent runtime records yet."];
-    const lines = [
-        `- Runs: ${summary.totalRuns} (${formatCounts(summary.runsByStatus)})`,
-        `- Roles: ${summary.roles}`,
-        `- Groups: ${summary.groups} (${formatCounts(summary.groupsByStatus)})`,
-        `- Memberships: ${summary.memberships} (${formatCounts(summary.membershipsByStatus)})`,
-        `- Fanouts: ${summary.fanouts}`,
-        `- Fanins: ${summary.fanins} (${formatCounts(summary.faninsByStatus)})`
-    ];
-    if (summary.blockedReasons.length) {
-        lines.push("", "Blocked:");
-        for (const reason of summary.blockedReasons.slice(0, 8))
-            lines.push(`- ${reason}`);
-    }
-    for (const group of summary.groupsDetail.slice(0, 8)) {
-        lines.push("", `Group ${group.id}: status=${group.status}, phase=${group.phase || "none"}, run=${group.multiAgentRunId}`);
-        for (const role of group.roles) {
-            lines.push(`- role=${role.roleId}, memberships=${role.memberships}, reported=${role.reported}, missing=${role.missing}, requiredEvidence=${role.requiredEvidence}`);
-        }
-        lines.push(`- fanouts=${group.fanouts.join(", ") || "none"}`);
-        lines.push(`- fanins=${group.fanins.join(", ") || "none"}`);
-    }
-    if (summary.nextAction)
-        lines.push("", `Next multi-agent action: ${summary.nextAction}`);
-    return lines;
-}
-function renderBlackboard(run) {
-    const summary = (0, coordinator_1.summarizeBlackboard)(run);
-    if (!summary.blackboardId)
-        return ["No blackboard records yet."];
-    const lines = [
-        `- Blackboard: ${summary.blackboardId}`,
-        `- Topics: ${summary.topics}`,
-        `- Messages: ${summary.messages}`,
-        `- Contexts: ${summary.contexts}`,
-        `- Artifacts: ${summary.artifacts}`,
-        `- Snapshots: ${summary.snapshots}`,
-        `- Decisions: ${summary.decisions}`,
-        `- Ready for fanin: ${summary.readyForFanin ? "yes" : "no"}`,
-        `- Index: ${summary.indexPath || "none"}`,
-        `- Latest snapshot: ${summary.latestSnapshotPath || "none"}`
-    ];
-    if (summary.openQuestions.length) {
-        lines.push("", "Open questions:");
-        for (const question of summary.openQuestions.slice(0, 8))
-            lines.push(`- ${question.id}: ${question.key}=${question.value}`);
-    }
-    if (summary.conflicts.length) {
-        lines.push("", "Conflicts:");
-        for (const conflict of summary.conflicts.slice(0, 8)) {
-            lines.push(`- ${conflict.id}: ${conflict.key} conflicts with ${conflict.conflictingContextIds.join(", ") || "unknown"}`);
-        }
-    }
-    if (summary.missingEvidence.length) {
-        lines.push("", "Missing evidence:");
-        for (const item of summary.missingEvidence.slice(0, 8))
-            lines.push(`- ${item}`);
-    }
-    if (summary.nextAction)
-        lines.push("", `Next coordinator action: ${summary.nextAction}`);
-    return lines;
-}
-function renderSandboxProfiles(run) {
-    const profiles = run.sandboxProfiles || [];
-    if (!profiles.length)
-        return ["No sandbox profiles selected yet."];
-    return profiles.map((profile) => [
-        `- ${profile.id}: read=${profile.readPaths.length}, write=${profile.writePaths.length}, execute=${profile.execute.mode}, network=${profile.network.mode}`,
-        `  enforcedByCW=${profile.enforcement.enforcedByCW.join("; ")}`,
-        `  hostRequired=${profile.enforcement.hostRequired.join("; ")}`
-    ].join("\n"));
-}
-function renderCandidates(summary) {
-    if (!summary.total)
-        return ["No candidates yet."];
-    return [
-        `- Total: ${summary.total}`,
-        `- By status: ${formatCounts(summary.byStatus)}`,
-        `- By kind: ${formatCounts(summary.byKind)}`,
-        `- Selections: ${summary.selections}`,
-        `- Index: ${summary.indexPath}`,
-        `- Ranking: ${summary.rankingPath}`
-    ];
-}
-function renderTrustAudit(run) {
-    const summary = (0, trust_audit_1.summarizeTrustAudit)(run);
-    return [
-        `- Events: ${summary.eventCount}`,
-        `- Decisions: ${formatCounts(summary.byDecision)}`,
-        `- Sources: ${formatCounts(summary.bySource)}`,
-        `- Sandbox profiles: ${formatCounts(summary.bySandboxProfile)}`,
-        `- Event log: ${summary.eventLogPath}`,
-        `- Summary: ${summary.summaryPath}`,
-        `- Index: ${summary.indexPath}`
-    ];
-}
-function renderAcceptanceRationale(run) {
-    const lines = [];
-    for (const selection of run.candidateSelections || []) {
-        const rationale = selection.acceptanceRationale;
-        if (!rationale)
-            continue;
-        lines.push(`- Selection ${selection.id}: candidate=${rationale.selectedCandidateId || selection.candidateId}, score=${rationale.scoreId || "none"}, verifier=${rationale.verifierNodeId || "none"}, evidence=${rationale.evidenceCount}, sandbox=${rationale.sandboxProfileId || "none"}, worker=${rationale.workerId || "none"}`);
-    }
-    for (const commit of run.commits || []) {
-        if (!commit.acceptanceRationale)
-            continue;
-        const rationale = commit.acceptanceRationale;
-        lines.push(`- Commit ${commit.id}: gate=${rationale.commitGateResult || "unknown"}, candidate=${rationale.selectedCandidateId || commit.candidateId || "none"}, score=${rationale.scoreId || "none"}, verifier=${rationale.verifierNodeId || commit.verifierNodeId || "none"}, evidence=${rationale.evidenceCount}, sandbox=${rationale.sandboxProfileId || "none"}, worker=${rationale.workerId || "none"}`);
-    }
-    return lines.length ? lines : ["No accepted candidate or verifier-gated commit rationale yet."];
-}
-function formatCommitGate(commit) {
-    return [
-        `verifier=${commit.verifierNodeId || "unknown"}`,
-        commit.candidateId ? `candidate=${commit.candidateId}` : "",
-        commit.selectionId ? `selection=${commit.selectionId}` : "",
-        `evidence=${commit.evidence?.length || 0}`
-    ]
-        .filter(Boolean)
-        .join(", ");
-}
-function formatCounts(counts) {
-    const entries = Object.entries(counts).sort(([left], [right]) => left.localeCompare(right));
-    if (!entries.length)
-        return "none";
-    return entries.map(([key, value]) => `${key}=${value}`).join(", ");
-}
 function renderPrompt(prompt, inputs) {
     const invariant = Array.isArray(inputs.invariant)
         ? inputs.invariant.join("; ")
@@ -1996,263 +1693,6 @@ function renderPrompt(prompt, inputs) {
         rendered = rendered.replaceAll(`{{${key}}}`, replacement);
     }
     return rendered;
-}
-function formatInputList(value) {
-    if (Array.isArray(value))
-        return value.join("; ");
-    return value ? String(value) : "";
-}
-function isMissing(value) {
-    return value === undefined || value === null || value === "";
-}
-function numberOption(value) {
-    if (value === undefined || value === null || value === true)
-        return undefined;
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-}
-function stringOption(value) {
-    if (value === undefined || value === null || value === true)
-        return undefined;
-    return String(value);
-}
-function requiredStringOption(value, label) {
-    const parsed = stringOption(value);
-    if (!parsed)
-        throw new Error(`Missing ${label}`);
-    return parsed;
-}
-const COLLABORATION_TARGET_KINDS = ["run", "task", "candidate", "selection", "commit", "node"];
-function collaborationTarget(kind, id) {
-    const normalizedKind = stringOption(kind);
-    const normalizedId = stringOption(id);
-    if (!normalizedKind || !COLLABORATION_TARGET_KINDS.includes(normalizedKind)) {
-        throw new Error(`Target kind must be one of ${COLLABORATION_TARGET_KINDS.join("|")}`);
-    }
-    if (!normalizedId)
-        throw new Error("Missing target id");
-    return { kind: normalizedKind, id: normalizedId };
-}
-function collaborationTargetMaybe(kind, id) {
-    if (!kind && !id)
-        return undefined;
-    return collaborationTarget(String(kind || ""), String(id || ""));
-}
-function actorInputFrom(options) {
-    return {
-        actor: stringOption(firstDefined(options, "actor", "by")),
-        actorKind: stringOption(firstDefined(options, "actorKind", "actor-kind", "kind")),
-        role: stringOption(firstDefined(options, "role", "roleId", "role-id")),
-        displayName: stringOption(firstDefined(options, "displayName", "display-name", "name")),
-        attested: Boolean(options.attested),
-        attestation: stringOption(options.attestation)
-    };
-}
-/** First option value present under any of the given keys (camelCase or dashed). */
-function firstDefined(options, ...keys) {
-    for (const key of keys) {
-        if (options[key] !== undefined)
-            return options[key];
-    }
-    return undefined;
-}
-function graphViewOption(value) {
-    const parsed = stringOption(value);
-    if (!parsed)
-        return "compact";
-    if (!state_explosion_1.GRAPH_VIEWS.includes(parsed)) {
-        throw new Error(`Unknown graph view: ${parsed}. Valid views: ${state_explosion_1.GRAPH_VIEWS.join(", ")}`);
-    }
-    return parsed;
-}
-function graphViewsOption(options) {
-    const raw = arrayOption(options.view || options.views).map(String);
-    if (!raw.length)
-        return undefined;
-    for (const view of raw) {
-        if (!state_explosion_1.GRAPH_VIEWS.includes(view)) {
-            throw new Error(`Unknown graph view: ${view}. Valid views: ${state_explosion_1.GRAPH_VIEWS.join(", ")}`);
-        }
-    }
-    return raw;
-}
-function metadataOption(options) {
-    const raw = options.metadata;
-    if (raw && typeof raw === "object" && !Array.isArray(raw))
-        return raw;
-    if (typeof raw === "string")
-        return JSON.parse(raw);
-    return undefined;
-}
-function withoutHostRunKeys(args) {
-    const copy = { ...args };
-    for (const key of [
-        "app",
-        "appId",
-        "workflow",
-        "workflowId",
-        "inputs",
-        "topology",
-        "topologyId",
-        "topologyRun",
-        "topologyRunId",
-        "multiAgentRun",
-        "multiAgentRunId",
-        "blackboard",
-        "blackboardId",
-        "mapperCount",
-        "mappers",
-        "mapper",
-        "judgeCount",
-        "judges",
-        "judge",
-        "debateRounds",
-        "rounds",
-        "collectInitialFanin",
-        "collect-initial-fanin"
-    ]) {
-        delete copy[key];
-    }
-    return { ...copy, ...(optionsRecord(args.inputs) || {}) };
-}
-function optionsRecord(value) {
-    if (value && typeof value === "object" && !Array.isArray(value))
-        return value;
-    return undefined;
-}
-function parseBlackboardAuthor(options) {
-    const structured = options.author;
-    if (structured && typeof structured === "object" && !Array.isArray(structured))
-        return structured;
-    const id = stringOption(options.authorId || options.author || options.worker || options.workerId || options.role || options.roleId || options.group || options.groupId);
-    const kind = stringOption(options.authorKind || options.sourceKind || options.source);
-    const displayName = stringOption(options.authorName || options.displayName);
-    if (!id && !kind && !displayName)
-        return undefined;
-    return { kind: kind, id, displayName };
-}
-function parseBlackboardScope(options) {
-    const structured = options.scope;
-    if (structured && typeof structured === "object" && !Array.isArray(structured))
-        return structured;
-    const kind = stringOption(options.scopeKind);
-    const id = stringOption(options.scopeId);
-    if (!kind && !id)
-        return undefined;
-    return { kind: kind, id };
-}
-function parseBlackboardLinks(runId, options) {
-    const structured = options.provenance || options.links;
-    if (structured && typeof structured === "object" && !Array.isArray(structured))
-        return structured;
-    const links = {
-        workflowRunId: runId,
-        multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-        agentGroupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
-        agentRoleId: stringOption(options.role || options.roleId || options["multi-agent-role"]),
-        agentMembershipId: stringOption(options.membership || options.membershipId || options["multi-agent-membership"]),
-        agentFanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
-        agentFaninId: stringOption(options.fanin || options.faninId || options["multi-agent-fanin"]),
-        taskId: stringOption(options.task || options.taskId),
-        workerId: stringOption(options.worker || options.workerId),
-        candidateId: stringOption(options.candidate || options.candidateId),
-        verifierNodeId: stringOption(options.verifier || options.verifierNode || options.verifierNodeId),
-        commitId: stringOption(options.commit || options.commitId),
-        auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
-        evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String)
-    };
-    const entries = Object.entries(links).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length));
-    return entries.length > 1 ? Object.fromEntries(entries) : undefined;
-}
-function parseSandboxChoices(options) {
-    const choices = {};
-    const structured = options.sandboxChoices || options.sandboxProfileChoices;
-    if (structured && typeof structured === "object" && !Array.isArray(structured)) {
-        for (const [key, value] of Object.entries(structured))
-            choices[key] = String(value);
-    }
-    for (const entry of arrayOption(options.sandboxChoice || options["sandbox-choice"])) {
-        const [key, ...rest] = String(entry).split("=");
-        if (key && rest.length)
-            choices[key] = rest.join("=");
-    }
-    const sandbox = stringOption(options.sandbox || options.sandboxProfile || options.sandboxProfileId);
-    if (sandbox && !Object.keys(choices).length)
-        choices.default = sandbox;
-    return Object.keys(choices).length ? choices : undefined;
-}
-function parseCriteria(options) {
-    const criteria = {};
-    const structured = options.criteria;
-    if (structured && typeof structured === "object" && !Array.isArray(structured)) {
-        for (const [key, value] of Object.entries(structured)) {
-            const parsed = Number(value);
-            if (key && Number.isFinite(parsed))
-                criteria[key] = parsed;
-        }
-    }
-    const rawCriteria = options.criterion || (typeof structured === "object" && !Array.isArray(structured) ? undefined : structured) || options.score;
-    for (const entry of arrayOption(rawCriteria)) {
-        const [key, value] = String(entry).split("=");
-        if (!key || value === undefined)
-            continue;
-        criteria[key] = Number(value);
-    }
-    if (!Object.keys(criteria).length && options.total !== undefined) {
-        criteria.total = Number(options.total);
-    }
-    if (!Object.keys(criteria).length)
-        throw new Error("Missing score criteria. Use --criterion name=value");
-    return criteria;
-}
-function parseEvidence(value) {
-    return arrayOption(value).map((entry, index) => ({
-        id: `score:${index + 1}`,
-        source: "candidate-score",
-        locator: String(entry),
-        summary: String(entry)
-    }));
-}
-function mergeEvidence(left, right) {
-    const merged = [...left];
-    for (const item of right) {
-        const index = merged.findIndex((entry) => entry.id === item.id);
-        if (index >= 0)
-            merged[index] = item;
-        else
-            merged.push(item);
-    }
-    return merged;
-}
-function arrayOption(value) {
-    if (value === undefined || value === null || value === true)
-        return [];
-    return Array.isArray(value) ? value : [value];
-}
-function valuesOption(value) {
-    return arrayOption(value).map((entry) => String(entry).split("=")[0]).filter(Boolean);
-}
-function inferAuditDecisionKind(options) {
-    if (options.command)
-        return "sandbox.command";
-    if (options.network || options.networkTarget)
-        return "sandbox.network";
-    if (options.env || options.envVar)
-        return "sandbox.env";
-    return "sandbox.path";
-}
-function isSandboxProfileError(error) {
-    return error instanceof sandbox_profile_1.SandboxProfileError || Boolean(error && typeof error === "object" && "code" in error && String(error.code).startsWith("sandbox-"));
-}
-function validationIssuesFromError(error) {
-    if (error instanceof workflow_app_sdk_1.WorkflowAppValidationError)
-        return error.issues;
-    return [
-        {
-            code: "workflow-app-invalid",
-            message: error instanceof Error ? error.message : String(error)
-        }
-    ];
 }
 function createRunId(workflowId) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");

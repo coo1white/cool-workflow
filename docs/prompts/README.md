@@ -1,0 +1,18 @@
+# Roadmap Build Prompts
+
+Bootstrap development prompts for upcoming Cool Workflow releases. Each is a
+self-contained spec to develop one version by **dogfooding the live plugin**
+(`claude --plugin-dir`), following the project's FreeBSD discipline and the
+v0.1.33 Release Tooling flow (`bump:version` / `new:feature` / `forward-ref`).
+
+These were generated grounded in the actual modules each feature touches, then
+adversarially verified against the source for code-accuracy.
+
+| Version | Prompt | Builds on |
+| --- | --- | --- |
+| v0.1.34 | [Real Execution Backend Integrations](v0.1.34-real-execution-backends.md) | v0.1.29 ExecutionBackend driver layer — make container/remote/ci really drive docker/podman, a remote runner, a CI job; opt-in, fail-closed, byte-stable evidence vs `node`. |
+| v0.1.35 | [Node Snapshot / Diff / Replay](v0.1.35-node-snapshot-diff-replay.md) | v0.1.23 eval/replay — per-node snapshot, diff, and deterministic single-node replay. |
+| v0.1.36 | [Contract Migration Tooling](v0.1.36-contract-migration-tooling.md) | `state-migrations.ts` — a declared migration registry with compatibility proofs, fail-closed, append-only. |
+| v0.1.37 | [Control-Plane Scheduling](v0.1.37-control-plane-scheduling.md) | v0.1.28 Run Registry queue — priority, concurrency limits, retry/backoff as policy-as-data. |
+
+Run them in order: each assumes the previous version has shipped.

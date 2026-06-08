@@ -46,7 +46,9 @@ const checks = [
   // (parity, manifest drift, version sync). `npm test` already runs every smoke,
   // including eval-replay-harness, fixture-compat, dogfood, security, and the
   // per-feature smokes.
-  { name: "build", command: ["npm", "run", "build"] },
+  // `dist:check` builds from src/ AND fails closed if the committed dist/ drifted
+  // from that fresh build — strictly stronger than a bare `npm run build`.
+  { name: "dist freshness", command: ["npm", "run", "dist:check"] },
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "tests", command: ["npm", "test"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },
