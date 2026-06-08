@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.1.25
+
+- Added State Explosion Management: a derived, versioned, provenance-backed
+  summarization and compaction layer for large multi-agent runs.
+- Added durable summary records (`MultiAgentSummaryIndex`,
+  `BlackboardSummaryRecord`, `GraphSummaryRecord`, `OperatorDigest`,
+  `StateExplosionReport`) under `.cw/runs/<run-id>/summaries/`. Raw blackboard,
+  graph, audit, and evidence records are never deleted or overwritten.
+- Added `blackboard summarize` (deterministic blackboard digest), `multi-agent
+  summarize`, `summary refresh`, `summary show`, and compact/focused graph views
+  via `multi-agent graph --view <view> [--focus <id>] [--depth <n>]`. Compact
+  views collapse high-volume records into synthetic summary nodes that expose
+  collapsed counts, source ids, dominant status, blocked reason, and an
+  expansion command. The critical path, failures, missing evidence, policy
+  violations, and judge rationale are never hidden.
+- Summaries are stale-aware and fail closed: `summary show` recomputes the
+  source fingerprint and reports `stale` when source records change.
+- Added MCP parity: `cw_summary_refresh`, `cw_summary_show`,
+  `cw_blackboard_summarize`, `cw_multi_agent_summarize`, and
+  `cw_multi_agent_graph_compact`, all returning source refs and expansion hints.
+- Eval/replay now captures and regression-gates summary artifacts with new
+  metrics: `summary_freshness`, `compact_graph_parity`,
+  `blackboard_digest_parity`, `critical_path_parity`, `evidence_digest_parity`,
+  and `expansion_ref_integrity`. Pre-0.1.25 snapshots load with empty summary
+  sections, preserving backward compatibility.
+- Summary generation is recorded in the trust-audit log (`summary.refresh`,
+  `summary.stale`) without storing secrets or large raw message bodies.
+- The run report now includes a `## State Size & Compaction` section, and
+  `report --show` appends the state-explosion panels.
+- Added `docs/state-explosion-management.7.md` and
+  `test/state-explosion-management-smoke.js`, included in `npm test` and
+  `npm run release:check`.
+
 ## 0.1.24
 
 - Added a robustness hardening pass for state loading, migrations, MCP tool

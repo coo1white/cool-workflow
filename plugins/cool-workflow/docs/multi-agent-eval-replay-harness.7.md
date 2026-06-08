@@ -1,9 +1,17 @@
 # Multi-Agent Eval & Replay Harness
 
-CW v0.1.24 adds a deterministic replay harness for topology-backed
+CW v0.1.23 added a deterministic replay harness for topology-backed
 multi-agent runs. It turns a completed run into plain JSON evidence that can be
 replayed without live agents, compared with normalized rules, scored, and used
 as a release gate.
+
+CW v0.1.25 extends the harness with State Explosion Management metrics so the
+derived summary layer is regression-gated alongside the raw run:
+`summary_freshness`, `compact_graph_parity`, `blackboard_digest_parity`,
+`critical_path_parity`, `evidence_digest_parity`, and `expansion_ref_integrity`.
+Pre-0.1.25 snapshots load with empty summary sections, so old fixtures stay
+backward compatible. See
+[state-explosion-management.7.md](state-explosion-management.7.md).
 
 The harness is intentionally file-first:
 

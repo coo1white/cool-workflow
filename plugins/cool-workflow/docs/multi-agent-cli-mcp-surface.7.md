@@ -6,6 +6,14 @@ CW v0.1.20 adds the preferred host-facing control loop for multi-agent work:
 multi-agent run -> status -> step -> blackboard -> score -> select
 ```
 
+CW v0.1.25 extends this surface with State Explosion Management commands:
+`summary refresh`, `summary show`, `blackboard summarize`,
+`multi-agent summarize`, and `multi-agent graph --view <view>` (with optional
+`--focus <id>` and `--depth <n>`). Matching MCP tools are `cw_summary_refresh`,
+`cw_summary_show`, `cw_blackboard_summarize`, `cw_multi_agent_summarize`, and
+`cw_multi_agent_graph_compact`. All responses keep source refs and expansion
+hints. See [state-explosion-management.7.md](state-explosion-management.7.md).
+
 This is userland over the existing kernel records. The low-level topology,
 multi-agent, blackboard, candidate, audit, and commit primitives remain
 available, but agent hosts should use this high-level surface when driving a

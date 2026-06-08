@@ -18,7 +18,7 @@ fs.writeFileSync(evidencePath, "eval replay evidence\n", "utf8");
 const evidenceLocator = `${evidencePath}:1`;
 
 (async () => {
-  const plan = runJson(["plan", "architecture-review", "--repo", tmp, "--question", "Prove v0.1.24 multi-agent eval replay."]);
+  const plan = runJson(["plan", "architecture-review", "--repo", tmp, "--question", "Prove v0.1.25 multi-agent eval replay."]);
   runJson([
     "multi-agent",
     "run",

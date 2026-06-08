@@ -1,6 +1,6 @@
 {
   "name": "cool-workflow",
-  "version": "0.1.24",
+  "version": "0.1.25",
   "description": "Agent Workflow SDK with TypeScript COL orchestration, dispatch, verification, state commits, scheduling, routines, and MCP.",
   "author": {
     "name": "COOLWHITE LLC"

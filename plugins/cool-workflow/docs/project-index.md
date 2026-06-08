@@ -1,15 +1,15 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-07 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-08 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.1.24`
-- Source modules: `32`
+- Version: `0.1.25`
+- Source modules: `33`
 - Workflow apps: `6`
-- Docs: `29`
-- Smoke tests: `22`
+- Docs: `30`
+- Smoke tests: `25`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -83,6 +83,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [multi-agent-eval.ts](../src/multi-agent-eval.ts)
 - [multi-agent-operator-ux.ts](../src/multi-agent-operator-ux.ts)
 - [multi-agent-trust.ts](../src/multi-agent-trust.ts)
+- [state-explosion.ts](../src/state-explosion.ts)
 - [state-migrations.ts](../src/state-migrations.ts)
 
 ## Workflow Apps
@@ -122,6 +123,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [SANDBOX-PROFILES(7)](sandbox-profiles.7.md)
 - [Scheduled Tasks](scheduled-tasks.md)
 - [Security / Trust Hardening](security-trust-hardening.7.md)
+- [State Explosion Management](state-explosion-management.7.md)
 - [STATE-NODE(7)](state-node.7.md)
 - [Unix-Inspired Workflow Principles](unix-principles.md)
 - [VERIFIER-GATED-COMMIT(7)](verifier-gated-commit.7.md)
@@ -141,15 +143,18 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
 - [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
 - [multi-agent-eval-replay-harness-smoke.js](../test/multi-agent-eval-replay-harness-smoke.js)
+- [multi-agent-eval-replay-smoke.js](../test/multi-agent-eval-replay-smoke.js)
 - [multi-agent-operator-ux-smoke.js](../test/multi-agent-operator-ux-smoke.js)
 - [multi-agent-runtime-core-smoke.js](../test/multi-agent-runtime-core-smoke.js)
 - [multi-agent-topologies-smoke.js](../test/multi-agent-topologies-smoke.js)
 - [multi-agent-trust-policy-audit-smoke.js](../test/multi-agent-trust-policy-audit-smoke.js)
 - [operator-ux-smoke.js](../test/operator-ux-smoke.js)
 - [pipeline-runner-smoke.js](../test/pipeline-runner-smoke.js)
+- [robustness-hardening-smoke.js](../test/robustness-hardening-smoke.js)
 - [run-fixture-compat-smoke.js](../test/run-fixture-compat-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)
 - [security-trust-hardening-smoke.js](../test/security-trust-hardening-smoke.js)
+- [state-explosion-management-smoke.js](../test/state-explosion-management-smoke.js)
 - [state-node-smoke.js](../test/state-node-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)
 - [worker-isolation-smoke.js](../test/worker-isolation-smoke.js)

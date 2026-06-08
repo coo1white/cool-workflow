@@ -13,6 +13,7 @@ const triggers_1 = require("./triggers");
 const operator_ux_1 = require("./operator-ux");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
+const state_explosion_1 = require("./state-explosion");
 async function main() {
     const args = (0, orchestrator_1.parseArgv)(process.argv.slice(2));
     const runner = new orchestrator_1.CoolWorkflowRunner({
@@ -125,9 +126,11 @@ async function main() {
             printJson(runner.commit(required(args.positionals[0], "run id"), args.options));
             return;
         case "report": {
-            const report = runner.report(required(args.positionals[0], "run id"));
+            const runId = required(args.positionals[0], "run id");
+            const report = runner.report(runId);
             if (args.options.show || args.options.summary) {
-                process.stdout.write(`${(0, operator_ux_1.formatOperatorReport)(runner.operatorReport(required(args.positionals[0], "run id")))}\n`);
+                process.stdout.write(`${(0, operator_ux_1.formatOperatorReport)(runner.operatorReport(runId))}\n`);
+                process.stdout.write(`\n${(0, state_explosion_1.formatStateExplosionReport)(runner.stateExplosionReport(runId))}\n`);
             }
             else {
                 process.stdout.write(`${report.path}\n`);
@@ -184,6 +187,29 @@ async function main() {
                     throw new Error("Usage: cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>");
             }
         }
+        case "summary": {
+            const [subcommand, runId] = args.positionals;
+            switch (subcommand) {
+                case "refresh": {
+                    const index = runner.summaryRefresh(required(runId, "run id"), args.options);
+                    if (wantsJson(args.options))
+                        printJson(index);
+                    else
+                        process.stdout.write(`${(0, state_explosion_1.formatStateExplosionReport)(runner.summaryShow(required(runId, "run id")))}\n`);
+                    return;
+                }
+                case "show": {
+                    const report = runner.summaryShow(required(runId, "run id"));
+                    if (wantsJson(args.options))
+                        printJson(report);
+                    else
+                        process.stdout.write(`${(0, state_explosion_1.formatStateExplosionReport)(report)}\n`);
+                    return;
+                }
+                default:
+                    throw new Error("Usage: cw.js summary refresh|show <run-id> [--json]");
+            }
+        }
         case "multi-agent": {
             const [subcommand, runId, id] = args.positionals;
             switch (subcommand) {
@@ -213,7 +239,24 @@ async function main() {
                         process.stdout.write(`${(0, operator_ux_1.formatMultiAgentSummary)(summary)}\n`);
                     return;
                 }
+                case "summarize": {
+                    const report = runner.multiAgentSummarize(required(runId, "run id"));
+                    if (wantsJson(args.options))
+                        printJson(report);
+                    else
+                        process.stdout.write(`${(0, state_explosion_1.formatStateExplosionReport)(report)}\n`);
+                    return;
+                }
                 case "graph": {
+                    const wantsView = args.options.view || args.options.focus || args.options.depth;
+                    if (wantsView) {
+                        const graph = runner.multiAgentGraphView(required(runId, "run id"), args.options);
+                        if (wantsJson(args.options))
+                            printJson(graph);
+                        else
+                            process.stdout.write(`${(0, state_explosion_1.formatCompactGraph)(graph)}\n`);
+                        return;
+                    }
                     const graph = runner.multiAgentOperatorGraph(required(runId, "run id"));
                     if (wantsJson(args.options))
                         printJson(graph);
@@ -307,7 +350,7 @@ async function main() {
                     }
                     return;
                 default:
-                    throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|graph|dependencies|failures|evidence|show|role|group|membership|fanout|fanin <run-id> [id]");
+                    throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|show|role|group|membership|fanout|fanin <run-id> [id]");
             }
         }
         case "eval": {
@@ -351,6 +394,14 @@ async function main() {
                 case "summary":
                     printJson(runner.blackboardSummary(required(action, "run id"), args.options));
                     return;
+                case "summarize": {
+                    const digest = runner.blackboardSummarize(required(action, "run id"), args.options);
+                    if (wantsJson(args.options))
+                        printJson(digest);
+                    else
+                        process.stdout.write(`${(0, state_explosion_1.formatBlackboardDigest)(digest)}\n`);
+                    return;
+                }
                 case "graph":
                     printJson(runner.blackboardGraph(required(action, "run id")));
                     return;
@@ -395,7 +446,7 @@ async function main() {
                 default:
                     break;
             }
-            throw new Error("Usage: cw.js blackboard summary|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
+            throw new Error("Usage: cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
         }
         case "coordinator": {
             const [subcommand, runId] = args.positionals;

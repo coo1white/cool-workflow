@@ -18,6 +18,7 @@ const multi_agent_trust_1 = require("./multi-agent-trust");
 const operator_ux_1 = require("./operator-ux");
 const topology_1 = require("./topology");
 const trust_audit_1 = require("./trust-audit");
+const state_explosion_1 = require("./state-explosion");
 const state_1 = require("./state");
 const METRIC_SECTIONS = [
     { metric: "replay_completed", section: "workflow", title: "Replay completed" },
@@ -43,6 +44,18 @@ const METRIC_SECTIONS = [
     { metric: "verifier_commit_gate_parity", section: "verifierCommitGate", title: "Verifier commit gate parity" },
     { metric: "report_parity", section: "reportSections", title: "Report parity" }
 ];
+// v0.1.25 State Explosion Management metrics. Kept separate from METRIC_SECTIONS
+// so assertNormalizedShape (which requires every METRIC_SECTIONS array) stays
+// backward compatible with pre-0.1.25 snapshots that lack these sections.
+const SUMMARY_METRIC_SECTIONS = [
+    { metric: "summary_freshness", section: "summaryFreshness", title: "Summary freshness" },
+    { metric: "compact_graph_parity", section: "compactGraphShape", title: "Compact graph parity" },
+    { metric: "blackboard_digest_parity", section: "blackboardDigest", title: "Blackboard digest parity" },
+    { metric: "critical_path_parity", section: "criticalPath", title: "Critical path parity" },
+    { metric: "evidence_digest_parity", section: "evidenceDigest", title: "Evidence digest parity" },
+    { metric: "expansion_ref_integrity", section: "expansionRefs", title: "Expansion ref integrity" }
+];
+const ALL_METRIC_SECTIONS = [...METRIC_SECTIONS, ...SUMMARY_METRIC_SECTIONS];
 function createMultiAgentReplaySnapshot(run, options = {}) {
     const id = (0, state_1.safeFileName)(String(options.id || options.snapshot || `${run.id}-snapshot`));
     const suiteDir = evalSuiteDir(run.cwd, id);
@@ -125,7 +138,7 @@ function compareMultiAgentReplay(baselineTarget, replayTarget) {
     const findingsPath = node_path_1.default.join(suiteDir, "findings.json");
     const sections = {};
     const findings = [];
-    for (const spec of METRIC_SECTIONS) {
+    for (const spec of ALL_METRIC_SECTIONS) {
         const { baselineValue, replayValue } = comparisonValues(spec.metric, spec.section, baseline.normalized, replay);
         const equal = stableStringify(baselineValue) === stableStringify(replayValue);
         const id = String(spec.section);
@@ -187,14 +200,14 @@ function comparisonValues(metric, section, baseline, replay) {
         };
     }
     return {
-        baselineValue: baseline[section],
-        replayValue: replay.replay[section]
+        baselineValue: baseline[section] ?? [],
+        replayValue: replay.replay[section] ?? []
     };
 }
 function scoreMultiAgentReplay(target) {
     const comparison = loadOrCompareForTarget(target);
     const scorePath = node_path_1.default.join(comparison.paths.suiteDir, "score.json");
-    const metrics = METRIC_SECTIONS.map((spec) => {
+    const metrics = ALL_METRIC_SECTIONS.map((spec) => {
         const section = comparison.sections[String(spec.section)];
         const passed = section?.status === "pass";
         return {
@@ -318,6 +331,14 @@ function reportMultiAgentEval(target) {
         metricLine(score, "selection_parity"),
         metricLine(score, "verifier_commit_gate_parity"),
         "",
+        "## State Explosion Summaries",
+        metricLine(score, "summary_freshness"),
+        metricLine(score, "compact_graph_parity"),
+        metricLine(score, "blackboard_digest_parity"),
+        metricLine(score, "critical_path_parity"),
+        metricLine(score, "evidence_digest_parity"),
+        metricLine(score, "expansion_ref_integrity"),
+        "",
         "## Regression Findings",
         ...(score.findings.length ? score.findings.map((entry) => `- ${entry.severity.toUpperCase()} ${entry.category}: ${entry.reason}`) : ["- none"]),
         "",
@@ -394,6 +415,9 @@ function formatMultiAgentEval(value) {
             "",
             "Selection / Commit Gate",
             `  ${metricStatus(value, "selection_parity")}; ${metricStatus(value, "verifier_commit_gate_parity")}`,
+            "",
+            "State Explosion Summaries",
+            `  ${metricStatus(value, "summary_freshness")}; ${metricStatus(value, "compact_graph_parity")}; ${metricStatus(value, "blackboard_digest_parity")}; ${metricStatus(value, "critical_path_parity")}; ${metricStatus(value, "evidence_digest_parity")}; ${metricStatus(value, "expansion_ref_integrity")}`,
             "",
             "Regression Findings",
             ...(value.findings.length ? value.findings.map((entry) => `  ${entry.severity} ${entry.category}: ${entry.reason}`) : ["  none"]),
@@ -581,7 +605,8 @@ function normalizeRun(run) {
             verifierNodeId: entry.verifierNodeId,
             evidenceCount: (entry.evidence || []).length
         }))),
-        reportSections: reportSections(run)
+        reportSections: reportSections(run),
+        ...(0, state_explosion_1.normalizeStateExplosionForEval)(run)
     };
 }
 function collectCandidateScores(run) {

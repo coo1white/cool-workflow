@@ -11,6 +11,12 @@ and evidence state.
 CW v0.1.24 uses the same operator-derived graph, dependency, failure, evidence,
 trust, and report views as replay comparison inputs for the Multi-Agent Eval &
 Replay Harness.
+CW v0.1.25 layers State Explosion Management on top of these operator views: when
+a run grows large, `summary show`, `multi-agent summarize`, and
+`multi-agent graph --view compact` collapse high-volume records into synthetic
+summary nodes while preserving the critical path, failures, missing evidence,
+policy violations, and judge rationale. See
+[state-explosion-management.7.md](state-explosion-management.7.md).
 
 The model is derived from:
 

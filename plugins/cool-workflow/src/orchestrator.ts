@@ -160,6 +160,17 @@ import {
   reportMultiAgentEval,
   scoreMultiAgentReplay
 } from "./multi-agent-eval";
+import {
+  buildCompactGraph,
+  buildStateExplosionReport,
+  GRAPH_VIEWS,
+  GraphView,
+  loadStateExplosionSummaryIndex,
+  refreshStateExplosionSummaries,
+  showStateExplosionSummary,
+  stateExplosionReportLines,
+  summarizeBlackboardDigest
+} from "./state-explosion";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -995,6 +1006,45 @@ export class CoolWorkflowRunner {
     return summarizeMultiAgentOperator(this.loadRun(runId)).evidence;
   }
 
+  summaryRefresh(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof refreshStateExplosionSummaries> {
+    const run = this.loadRun(runId);
+    const index = refreshStateExplosionSummaries(run, { views: graphViewsOption(options) });
+    writeReport(run);
+    saveCheckpoint(run);
+    return index;
+  }
+
+  summaryShow(runId: string): ReturnType<typeof showStateExplosionSummary> {
+    const run = this.loadRun(runId);
+    const report = showStateExplosionSummary(run);
+    saveCheckpoint(run);
+    return report;
+  }
+
+  blackboardSummarize(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof summarizeBlackboardDigest> {
+    return summarizeBlackboardDigest(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+  }
+
+  multiAgentSummarize(runId: string): ReturnType<typeof buildStateExplosionReport> {
+    const run = this.loadRun(runId);
+    const index = loadStateExplosionSummaryIndex(run);
+    return buildStateExplosionReport(run, { index });
+  }
+
+  multiAgentGraphView(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof buildCompactGraph> {
+    const view = graphViewOption(options.view);
+    return buildCompactGraph(this.loadRun(runId), view, {
+      focus: stringOption(options.focus),
+      depth: numberOption(options.depth)
+    });
+  }
+
+  stateExplosionReport(runId: string): ReturnType<typeof buildStateExplosionReport> {
+    const run = this.loadRun(runId);
+    const index = loadStateExplosionSummaryIndex(run);
+    return buildStateExplosionReport(run, { index });
+  }
+
   hostMultiAgentRun(runId: string | undefined, options: Record<string, unknown> = {}): ReturnType<typeof hostRun> {
     const workflowId = stringOption(options.app || options.appId || options.workflow || options.workflowId);
     const run = runId
@@ -1672,7 +1722,8 @@ export function formatHelp(): string {
     "  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]",
     "  candidate list|summary|register|score|rank|select|reject <run-id>",
     "  eval snapshot|replay|compare|score|gate|report",
-    "  blackboard summary|graph|resolve <run-id>",
+    "  summary refresh|show <run-id> [--json]",
+    "  blackboard summary|summarize|graph|resolve <run-id>",
     "  blackboard topic create <run-id> --id <topic-id> --title TEXT",
     "  blackboard message post|list <run-id>",
     "  blackboard context put <run-id>",
@@ -1680,7 +1731,8 @@ export function formatHelp(): string {
     "  blackboard snapshot <run-id>",
     "  coordinator summary <run-id>",
     "  coordinator decision <run-id> --kind KIND --outcome OUTCOME --reason TEXT",
-    "  multi-agent run|status|step|blackboard|score|select|summary|graph|dependencies|failures|evidence <run-id>",
+    "  multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence <run-id>",
+    "  multi-agent graph <run-id> --view full|compact|critical-path|failures|evidence|trust|topology|blackboard|candidate|commit-gate [--focus ID] [--depth N]",
     "  topology list|show|validate|apply|summary|graph",
     "  schedule create|list|due|complete|pause|resume|run-now|history|daemon|delete",
     "  routine create|fire|list|events|delete",
@@ -1790,6 +1842,10 @@ function writeReport(run: WorkflowRun): string {
     "## Workers",
     "",
     ...renderWorkers(workerSummary),
+    "",
+    "## State Size & Compaction",
+    "",
+    ...renderStateSize(run),
     "",
     "## Multi-Agent Runtime",
     "",
@@ -1911,6 +1967,12 @@ function renderWorkers(summary: ReturnType<typeof summarizeWorkers>): string[] {
     }
   }
   return lines;
+}
+
+function renderStateSize(run: WorkflowRun): string[] {
+  const index = loadStateExplosionSummaryIndex(run);
+  const report = buildStateExplosionReport(run, { index });
+  return stateExplosionReportLines(report);
 }
 
 function renderMultiAgent(run: WorkflowRun): string[] {
@@ -2085,6 +2147,26 @@ function requiredStringOption(value: unknown, label: string): string {
   const parsed = stringOption(value);
   if (!parsed) throw new Error(`Missing ${label}`);
   return parsed;
+}
+
+function graphViewOption(value: unknown): GraphView {
+  const parsed = stringOption(value);
+  if (!parsed) return "compact";
+  if (!(GRAPH_VIEWS as string[]).includes(parsed)) {
+    throw new Error(`Unknown graph view: ${parsed}. Valid views: ${GRAPH_VIEWS.join(", ")}`);
+  }
+  return parsed as GraphView;
+}
+
+function graphViewsOption(options: Record<string, unknown>): GraphView[] | undefined {
+  const raw = arrayOption(options.view || options.views).map(String);
+  if (!raw.length) return undefined;
+  for (const view of raw) {
+    if (!(GRAPH_VIEWS as string[]).includes(view)) {
+      throw new Error(`Unknown graph view: ${view}. Valid views: ${GRAPH_VIEWS.join(", ")}`);
+    }
+  }
+  return raw as GraphView[];
 }
 
 function metadataOption(options: Record<string, unknown>): Record<string, unknown> | undefined {

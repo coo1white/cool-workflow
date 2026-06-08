@@ -120,6 +120,16 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.hostMultiAgentScore(String(args.runId || ""), args);
       case "cw_multi_agent_select":
         return runner.hostMultiAgentSelect(String(args.runId || ""), args);
+      case "cw_summary_refresh":
+        return runner.summaryRefresh(String(args.runId || ""), args);
+      case "cw_summary_show":
+        return runner.summaryShow(String(args.runId || ""));
+      case "cw_blackboard_summarize":
+        return runner.blackboardSummarize(String(args.runId || ""), args);
+      case "cw_multi_agent_summarize":
+        return runner.multiAgentSummarize(String(args.runId || ""));
+      case "cw_multi_agent_graph_compact":
+        return runner.multiAgentGraphView(String(args.runId || ""), args);
       case "cw_eval_snapshot":
         return runner.evalSnapshot(String(args.runId || ""), args);
       case "cw_eval_replay":
@@ -466,6 +476,11 @@ function requiredArgsForTool(name: string): string[] {
     "cw_multi_agent_dependencies",
     "cw_multi_agent_failures",
     "cw_multi_agent_evidence",
+    "cw_summary_refresh",
+    "cw_summary_show",
+    "cw_blackboard_summarize",
+    "cw_multi_agent_summarize",
+    "cw_multi_agent_graph_compact",
     "cw_multi_agent_status",
     "cw_multi_agent_step",
     "cw_multi_agent_blackboard",
@@ -559,6 +574,23 @@ function toolDefinitions(): unknown[] {
     tool("cw_multi_agent_dependencies", "Read derived multi-agent dependency edges for operator inspection.", runIdSchema()),
     tool("cw_multi_agent_failures", "Read failed, blocked, rejected, and ambiguous multi-agent records.", runIdSchema()),
     tool("cw_multi_agent_evidence", "Read evidence adoption status from worker output through selection and commit.", runIdSchema()),
+    tool("cw_summary_refresh", "Refresh durable, versioned, provenance-backed state-explosion summaries (blackboard digest, compact graph views, operator digest) without deleting raw records. Response includes source refs and expansion hints.", {
+      ...runIdSchema(),
+      cwd: stringSchema("Run workspace"),
+      view: arraySchema("Optional graph views to materialize (full, compact, critical-path, failures, evidence, trust, topology, blackboard, candidate, commit-gate)")
+    }),
+    tool("cw_summary_show", "Read the persisted state-explosion report and detect stale or missing summaries against current source state. Fails closed (status=stale) when source records changed.", runIdSchema()),
+    tool("cw_blackboard_summarize", "Read a deterministic blackboard digest (topic rollups, threads, conflicts, decisions, missing evidence, judge rationale) with source refs preserved.", {
+      ...runIdSchema(),
+      blackboardId: stringSchema("Optional blackboard id; omitted when unambiguous")
+    }),
+    tool("cw_multi_agent_summarize", "Read the combined state-explosion report (state size, compact graph, blackboard digest, critical path, failures, evidence, trust digest, hidden source records, expansion commands).", runIdSchema()),
+    tool("cw_multi_agent_graph_compact", "Read a compact or focused multi-agent graph view with synthetic summary nodes that expose collapsed counts, dominant status, blocked reason, and an expansion command.", {
+      ...runIdSchema(),
+      view: stringSchema("full, compact, critical-path, failures, evidence, trust, topology, blackboard, candidate, or commit-gate"),
+      focus: stringSchema("Optional node id to center the view on"),
+      depth: numberSchema("Neighborhood depth when focusing, defaults to 1")
+    }),
     tool("cw_multi_agent_run", "Preferred host API: create or attach a high-level multi-agent run from an app/workflow run and topology without dispatching workers.", {
       ...runIdSchema(),
       cwd: stringSchema("Run workspace"),

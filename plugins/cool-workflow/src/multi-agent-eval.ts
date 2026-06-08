@@ -7,6 +7,7 @@ import { summarizeMultiAgentTrust } from "./multi-agent-trust";
 import { summarizeOperatorRun } from "./operator-ux";
 import { summarizeTopologies } from "./topology";
 import { summarizeTrustAudit } from "./trust-audit";
+import { normalizeStateExplosionForEval } from "./state-explosion";
 import { readJson, safeFileName, writeJson } from "./state";
 import { WorkflowRun } from "./types";
 
@@ -211,6 +212,14 @@ interface MultiAgentEvalNormalized {
   selectedCandidates: string[];
   verifierCommitGate: string[];
   reportSections: string[];
+  // State Explosion Management (v0.1.25) summary artifacts. Optional on legacy
+  // snapshots; default to [] when absent so old fixtures stay loadable.
+  summaryFreshness?: string[];
+  compactGraphShape?: string[];
+  blackboardDigest?: string[];
+  criticalPath?: string[];
+  evidenceDigest?: string[];
+  expansionRefs?: string[];
 }
 
 const METRIC_SECTIONS: Array<{ metric: string; section: keyof MultiAgentEvalNormalized; title: string }> = [
@@ -237,6 +246,20 @@ const METRIC_SECTIONS: Array<{ metric: string; section: keyof MultiAgentEvalNorm
   { metric: "verifier_commit_gate_parity", section: "verifierCommitGate", title: "Verifier commit gate parity" },
   { metric: "report_parity", section: "reportSections", title: "Report parity" }
 ];
+
+// v0.1.25 State Explosion Management metrics. Kept separate from METRIC_SECTIONS
+// so assertNormalizedShape (which requires every METRIC_SECTIONS array) stays
+// backward compatible with pre-0.1.25 snapshots that lack these sections.
+const SUMMARY_METRIC_SECTIONS: Array<{ metric: string; section: keyof MultiAgentEvalNormalized; title: string }> = [
+  { metric: "summary_freshness", section: "summaryFreshness", title: "Summary freshness" },
+  { metric: "compact_graph_parity", section: "compactGraphShape", title: "Compact graph parity" },
+  { metric: "blackboard_digest_parity", section: "blackboardDigest", title: "Blackboard digest parity" },
+  { metric: "critical_path_parity", section: "criticalPath", title: "Critical path parity" },
+  { metric: "evidence_digest_parity", section: "evidenceDigest", title: "Evidence digest parity" },
+  { metric: "expansion_ref_integrity", section: "expansionRefs", title: "Expansion ref integrity" }
+];
+
+const ALL_METRIC_SECTIONS = [...METRIC_SECTIONS, ...SUMMARY_METRIC_SECTIONS];
 
 export function createMultiAgentReplaySnapshot(run: WorkflowRun, options: Record<string, unknown> = {}): MultiAgentReplaySnapshot {
   const id = safeFileName(String(options.id || options.snapshot || `${run.id}-snapshot`));
@@ -322,7 +345,7 @@ export function compareMultiAgentReplay(baselineTarget: string, replayTarget: st
   const findingsPath = path.join(suiteDir, "findings.json");
   const sections: Record<string, MultiAgentComparisonSection> = {};
   const findings: MultiAgentRegressionFinding[] = [];
-  for (const spec of METRIC_SECTIONS) {
+  for (const spec of ALL_METRIC_SECTIONS) {
     const { baselineValue, replayValue } = comparisonValues(spec.metric, spec.section, baseline.normalized, replay);
     const equal = stableStringify(baselineValue) === stableStringify(replayValue);
     const id = String(spec.section);
@@ -390,15 +413,15 @@ function comparisonValues(
     };
   }
   return {
-    baselineValue: baseline[section],
-    replayValue: replay.replay[section]
+    baselineValue: baseline[section] ?? [],
+    replayValue: replay.replay[section] ?? []
   };
 }
 
 export function scoreMultiAgentReplay(target: string): MultiAgentEvalScore {
   const comparison = loadOrCompareForTarget(target);
   const scorePath = path.join(comparison.paths.suiteDir, "score.json");
-  const metrics = METRIC_SECTIONS.map((spec) => {
+  const metrics = ALL_METRIC_SECTIONS.map((spec) => {
     const section = comparison.sections[String(spec.section)];
     const passed = section?.status === "pass";
     return {
@@ -523,6 +546,14 @@ export function reportMultiAgentEval(target: string): MultiAgentEvalReport {
     metricLine(score, "selection_parity"),
     metricLine(score, "verifier_commit_gate_parity"),
     "",
+    "## State Explosion Summaries",
+    metricLine(score, "summary_freshness"),
+    metricLine(score, "compact_graph_parity"),
+    metricLine(score, "blackboard_digest_parity"),
+    metricLine(score, "critical_path_parity"),
+    metricLine(score, "evidence_digest_parity"),
+    metricLine(score, "expansion_ref_integrity"),
+    "",
     "## Regression Findings",
     ...(score.findings.length ? score.findings.map((entry) => `- ${entry.severity.toUpperCase()} ${entry.category}: ${entry.reason}`) : ["- none"]),
     "",
@@ -600,6 +631,9 @@ export function formatMultiAgentEval(value: unknown): string {
       "",
       "Selection / Commit Gate",
       `  ${metricStatus(value, "selection_parity")}; ${metricStatus(value, "verifier_commit_gate_parity")}`,
+      "",
+      "State Explosion Summaries",
+      `  ${metricStatus(value, "summary_freshness")}; ${metricStatus(value, "compact_graph_parity")}; ${metricStatus(value, "blackboard_digest_parity")}; ${metricStatus(value, "critical_path_parity")}; ${metricStatus(value, "evidence_digest_parity")}; ${metricStatus(value, "expansion_ref_integrity")}`,
       "",
       "Regression Findings",
       ...(value.findings.length ? value.findings.map((entry) => `  ${entry.severity} ${entry.category}: ${entry.reason}`) : ["  none"]),
@@ -789,7 +823,8 @@ function normalizeRun(run: WorkflowRun): MultiAgentEvalNormalized {
       verifierNodeId: entry.verifierNodeId,
       evidenceCount: (entry.evidence || []).length
     }))),
-    reportSections: reportSections(run)
+    reportSections: reportSections(run),
+    ...normalizeStateExplosionForEval(run)
   };
 }
 
