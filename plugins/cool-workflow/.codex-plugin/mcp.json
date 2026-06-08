@@ -3,7 +3,7 @@
     "cool-workflow": {
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/dist/mcp-server.js"
+        "./dist/mcp-server.js"
       ]
     }
   }

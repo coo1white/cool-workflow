@@ -5,6 +5,11 @@ blackboard and graph output can become too large to read. This release adds a
 first-class summarization and compaction layer that makes complex runs
 understandable without hiding source truth.
 
+CW v0.1.26 builds on this layer with the Evidence Adoption Reasoning Chain, which
+reuses the same derived, fingerprinted, fail-closed discipline and whose
+reasoning steps are exempt from the compaction described here. See
+[evidence-adoption-reasoning-chain.7.md](evidence-adoption-reasoning-chain.7.md).
+
 The design follows a base-system observability philosophy:
 
 - raw state is the source of truth

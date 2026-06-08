@@ -57,6 +57,10 @@ export interface MultiAgentOperatorEvidence {
   provenanceSource?: string;
   status: MultiAgentOperatorEvidenceStatus;
   reason?: string;
+  // v0.1.26: derived adoption-rationale status, attached by the runner from the
+  // Evidence Adoption Reasoning Chain. Optional + additive so pre-v0.1.26
+  // consumers and snapshots ignore it (STABLE INTERFACES & BACKWARD COMPAT).
+  rationaleStatus?: "explained" | "unexplained" | "not-applicable";
 }
 
 export interface MultiAgentOperatorStatus {
@@ -447,7 +451,8 @@ function formatEvidence(title: string, rows: MultiAgentOperatorEvidence[]): stri
     const adopted = row.adoptedBy.length ? ` adoptedBy=${row.adoptedBy.join(",")}` : "";
     const rejected = row.rejectedBy.length ? ` rejectedBy=${row.rejectedBy.join(",")}` : "";
     const pending = row.pendingConsumers.length ? ` pending=${row.pendingConsumers.join(",")}` : "";
-    lines.push(`  [${row.status}] ${row.id} ${ref} source=${row.sourceKind}:${row.sourceId || "unknown"}${adopted}${rejected}${pending}`);
+    const rationale = row.rationaleStatus ? ` rationale=${row.rationaleStatus}` : "";
+    lines.push(`  [${row.status}] ${row.id} ${ref} source=${row.sourceKind}:${row.sourceId || "unknown"}${rationale}${adopted}${rejected}${pending}`);
   }
   if (rows.length > 60) lines.push(`  ... ${rows.length - 60} more`);
   return lines.join("\n");

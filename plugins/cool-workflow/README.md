@@ -26,6 +26,21 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.26 adds the Evidence Adoption Reasoning Chain: a derived, fingerprinted,
+fail-closed view that explains *why* each evidence item was adopted, rejected,
+superseded, or conflicting. For every gate (`fanin`, `candidate-score`,
+`selection`, `verifier`, `commit`) it records the decision, basis (evidence +
+provenance + trust source), authority (role/membership/worker + role policy),
+rationale (reusing existing reason fields), and counterfactual (the alternatives
+that lost). A "why" that cannot be traced to a real record renders as
+`unexplained` rather than a fabricated rationale. New surfaces: `multi-agent
+reasoning <run-id> [--evidence <id>] [--refresh]`, the MCP tools
+`cw_evidence_reasoning` and `cw_evidence_reasoning_refresh`, and an additive
+`rationaleStatus` on `multi-agent evidence`. The chain is derived, never
+authoritative over raw state, and stored under `.cw/runs/<run-id>/reasoning/`.
+See
+[docs/evidence-adoption-reasoning-chain.7.md](docs/evidence-adoption-reasoning-chain.7.md).
+
 CW v0.1.25 adds State Explosion Management: durable, versioned,
 provenance-backed summary records (`MultiAgentSummaryIndex`,
 `BlackboardSummaryRecord`, `GraphSummaryRecord`, `OperatorDigest`,

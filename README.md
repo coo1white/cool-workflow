@@ -62,6 +62,47 @@ Run data is written to `.cw/runs/<run-id>/` in the target repo/cwd.
 `dispatch` creates task manifests for an agent host or operator to execute; CW
 records the state and evidence, while the host still runs the workers.
 
+## Install as a Plugin
+
+CW ships vendor manifests for multiple agent hosts. All of them are generated
+from one source of truth (`plugins/cool-workflow/manifest/plugin.manifest.json`)
+and point at the same shared runtime — no forked logic per vendor. See
+[plugins/cool-workflow/manifest/README.md](plugins/cool-workflow/manifest/README.md).
+
+### Claude Code
+
+Add this repository as a local marketplace, then install the plugin:
+
+```text
+/plugin marketplace add /absolute/path/to/cool-workflow
+/plugin install cool-workflow@cool-workflow
+```
+
+Or load it for a single session without installing:
+
+```bash
+claude --plugin-dir /absolute/path/to/cool-workflow/plugins/cool-workflow
+```
+
+To persist for a project/team, add to `.claude/settings.json`:
+
+```json
+{
+  "enabledPlugins": { "cool-workflow@cool-workflow": true }
+}
+```
+
+The Claude MCP server is auto-discovered from `plugins/cool-workflow/.mcp.json`
+(it resolves `${CLAUDE_PLUGIN_ROOT}/dist/mcp-server.js`). After installing,
+`/plugin list` confirms the plugin and `/reload-plugins` reloads after changes.
+
+### Codex / other hosts
+
+Codex reads `plugins/cool-workflow/.codex-plugin/plugin.json`, which references
+its own `.codex-plugin/mcp.json`. The bundled `skills/` and `dist/` runtime are
+shared across every vendor. Even where plugins are unavailable, the CLI
+(`node scripts/cw.js ...`) is the lowest-common-denominator interface.
+
 ## The Mental Model
 
 CW is a base system. Workflow apps are userland.

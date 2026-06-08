@@ -108,6 +108,10 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.multiAgentFailures(String(args.runId || ""));
       case "cw_multi_agent_evidence":
         return runner.multiAgentEvidence(String(args.runId || ""));
+      case "cw_evidence_reasoning":
+        return runner.multiAgentReasoning(String(args.runId || ""), args);
+      case "cw_evidence_reasoning_refresh":
+        return runner.multiAgentReasoningRefresh(String(args.runId || ""));
       case "cw_multi_agent_run":
         return runner.hostMultiAgentRun(optionalString(args.runId), args);
       case "cw_multi_agent_status":
@@ -476,6 +480,8 @@ function requiredArgsForTool(name: string): string[] {
     "cw_multi_agent_dependencies",
     "cw_multi_agent_failures",
     "cw_multi_agent_evidence",
+    "cw_evidence_reasoning",
+    "cw_evidence_reasoning_refresh",
     "cw_summary_refresh",
     "cw_summary_show",
     "cw_blackboard_summarize",
@@ -573,7 +579,13 @@ function toolDefinitions(): unknown[] {
     tool("cw_multi_agent_graph", "Read the structured multi-agent operator graph for a run.", runIdSchema()),
     tool("cw_multi_agent_dependencies", "Read derived multi-agent dependency edges for operator inspection.", runIdSchema()),
     tool("cw_multi_agent_failures", "Read failed, blocked, rejected, and ambiguous multi-agent records.", runIdSchema()),
-    tool("cw_multi_agent_evidence", "Read evidence adoption status from worker output through selection and commit.", runIdSchema()),
+    tool("cw_multi_agent_evidence", "Read evidence adoption status from worker output through selection and commit. Each row carries a derived rationaleStatus (explained|unexplained|not-applicable).", runIdSchema()),
+    tool("cw_evidence_reasoning", "Explain WHY each evidence item was adopted/rejected/superseded/conflicting: a derived, fingerprinted reasoning chain with decision, basis, authority, rationale, and counterfactual per gate (fanin, candidate-score, selection, verifier, commit). Fails closed to `unexplained` when a rationale cannot be traced. Reads valid|stale|absent freshness against current source state.", {
+      ...runIdSchema(),
+      evidence: stringSchema("Optional evidence id/ref to explain a single adoption"),
+      refresh: stringSchema("Set to refresh the durable reasoning index before reading")
+    }),
+    tool("cw_evidence_reasoning_refresh", "Refresh the durable, versioned, provenance-backed Evidence Adoption Reasoning Chain index under .cw/runs/<id>/reasoning/ (index.json + per-chain records) without mutating raw state.", runIdSchema()),
     tool("cw_summary_refresh", "Refresh durable, versioned, provenance-backed state-explosion summaries (blackboard digest, compact graph views, operator digest) without deleting raw records. Response includes source refs and expansion hints.", {
       ...runIdSchema(),
       cwd: stringSchema("Run workspace"),

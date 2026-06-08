@@ -114,6 +114,13 @@ indexes; raw blackboard, graph, audit, and evidence records are never deleted,
 and migrations remain backward compatible (pre-0.1.25 eval snapshots load with
 empty summary sections).
 
+For v0.1.26, the gate includes Evidence Adoption Reasoning Chain smoke coverage
+for derived, fingerprinted reasoning chains, fail-closed `unexplained` detection,
+reasoning steps exempt from compaction, eval/replay reasoning metrics
+(`reasoning_freshness`, `reasoning_chain_parity`, `reasoning_unexplained_parity`),
+and CLI/MCP parity. The reasoning chain is derived, never authoritative over raw
+state, and pre-0.1.26 snapshots load with empty reasoning sections.
+
 The host loop must preserve CLI/MCP parity, stable JSON responses,
 blackboard/audit provenance, evidence-required scoring, fail-closed selection,
 and compatibility with the lower-level topology, multi-agent, blackboard, and

@@ -25,6 +25,7 @@ const state_1 = require("./state");
 const coordinator_1 = require("./coordinator");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const trust_audit_1 = require("./trust-audit");
+const evidence_reasoning_1 = require("./evidence-reasoning");
 exports.STATE_EXPLOSION_SCHEMA_VERSION = 1;
 exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS = {
     graphNodes: 40,
@@ -319,6 +320,11 @@ function buildCompactGraph(run, view = "compact", options = {}) {
         if (isProtectedStatus(node.status))
             protectedIds.add(node.id);
     }
+    // v0.1.26: reasoning steps are on the critical path and must never be collapsed
+    // into a synthetic summary node — protect every decision-gate node backing an
+    // adopted reasoning chain (notably score nodes, which are otherwise collapsed).
+    for (const id of (0, evidence_reasoning_1.reasoningCriticalNodeIds)(run))
+        protectedIds.add(id);
     for (const failure of operator.failures) {
         if (failure.linked)
             protectedIds.add(failure.linked);

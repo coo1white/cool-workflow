@@ -19,6 +19,7 @@ const operator_ux_1 = require("./operator-ux");
 const topology_1 = require("./topology");
 const trust_audit_1 = require("./trust-audit");
 const state_explosion_1 = require("./state-explosion");
+const evidence_reasoning_1 = require("./evidence-reasoning");
 const state_1 = require("./state");
 const METRIC_SECTIONS = [
     { metric: "replay_completed", section: "workflow", title: "Replay completed" },
@@ -55,7 +56,15 @@ const SUMMARY_METRIC_SECTIONS = [
     { metric: "evidence_digest_parity", section: "evidenceDigest", title: "Evidence digest parity" },
     { metric: "expansion_ref_integrity", section: "expansionRefs", title: "Expansion ref integrity" }
 ];
-const ALL_METRIC_SECTIONS = [...METRIC_SECTIONS, ...SUMMARY_METRIC_SECTIONS];
+// v0.1.26 Evidence Adoption Reasoning Chain metrics. Kept separate (like the
+// v0.1.25 summary metrics) so assertNormalizedShape stays backward compatible
+// with pre-0.1.26 snapshots that lack these sections.
+const REASONING_METRIC_SECTIONS = [
+    { metric: "reasoning_freshness", section: "reasoningFreshness", title: "Reasoning chain freshness" },
+    { metric: "reasoning_chain_parity", section: "reasoningChains", title: "Reasoning chain parity" },
+    { metric: "reasoning_unexplained_parity", section: "reasoningUnexplained", title: "Fail-closed unexplained parity" }
+];
+const ALL_METRIC_SECTIONS = [...METRIC_SECTIONS, ...SUMMARY_METRIC_SECTIONS, ...REASONING_METRIC_SECTIONS];
 function createMultiAgentReplaySnapshot(run, options = {}) {
     const id = (0, state_1.safeFileName)(String(options.id || options.snapshot || `${run.id}-snapshot`));
     const suiteDir = evalSuiteDir(run.cwd, id);
@@ -339,6 +348,11 @@ function reportMultiAgentEval(target) {
         metricLine(score, "evidence_digest_parity"),
         metricLine(score, "expansion_ref_integrity"),
         "",
+        "## Evidence Adoption Reasoning Chain",
+        metricLine(score, "reasoning_freshness"),
+        metricLine(score, "reasoning_chain_parity"),
+        metricLine(score, "reasoning_unexplained_parity"),
+        "",
         "## Regression Findings",
         ...(score.findings.length ? score.findings.map((entry) => `- ${entry.severity.toUpperCase()} ${entry.category}: ${entry.reason}`) : ["- none"]),
         "",
@@ -606,7 +620,8 @@ function normalizeRun(run) {
             evidenceCount: (entry.evidence || []).length
         }))),
         reportSections: reportSections(run),
-        ...(0, state_explosion_1.normalizeStateExplosionForEval)(run)
+        ...(0, state_explosion_1.normalizeStateExplosionForEval)(run),
+        ...(0, evidence_reasoning_1.normalizeEvidenceReasoningForEval)(run)
     };
 }
 function collectCandidateScores(run) {

@@ -32,6 +32,7 @@ const multi_agent_host_1 = require("./multi-agent-host");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const state_explosion_1 = require("./state-explosion");
+const evidence_reasoning_1 = require("./evidence-reasoning");
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -789,7 +790,30 @@ class CoolWorkflowRunner {
         return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(this.loadRun(runId)).failures;
     }
     multiAgentEvidence(runId) {
-        return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(this.loadRun(runId)).evidence;
+        const run = this.loadRun(runId);
+        const rows = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run).evidence;
+        // Additive enrichment: attach the derived rationale status so `multi-agent
+        // evidence` answers WHAT + whether the WHY is recorded, without changing the
+        // existing row shape (POLA: old consumers ignore the new optional field).
+        const report = (0, evidence_reasoning_1.buildEvidenceReasoningReport)(run, { index: (0, evidence_reasoning_1.loadEvidenceReasoningIndex)(run) });
+        const byId = new Map(report.chains.map((chain) => [chain.id, chain.rationaleStatus]));
+        for (const row of rows)
+            row.rationaleStatus = byId.get(row.id);
+        return rows;
+    }
+    multiAgentReasoning(runId, options = {}) {
+        const run = this.loadRun(runId);
+        if (options.refresh) {
+            (0, evidence_reasoning_1.refreshEvidenceReasoning)(run);
+            (0, state_1.saveCheckpoint)(run);
+        }
+        return (0, evidence_reasoning_1.showEvidenceReasoning)(run, { evidenceId: stringOption(options.evidence || options.evidenceId || options.id) });
+    }
+    multiAgentReasoningRefresh(runId) {
+        const run = this.loadRun(runId);
+        const index = (0, evidence_reasoning_1.refreshEvidenceReasoning)(run);
+        (0, state_1.saveCheckpoint)(run);
+        return index;
     }
     summaryRefresh(runId, options = {}) {
         const run = this.loadRun(runId);

@@ -7,7 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.25";
+const VERSION = "0.1.26";
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",
@@ -23,6 +23,8 @@ function main() {
   // uses `npm install --no-package-lock`), so only validate it when present.
   checkJsonIfPresent("plugins/cool-workflow/package-lock.json", "version", VERSION, checks);
   checkJson("plugins/cool-workflow/.codex-plugin/plugin.json", "version", VERSION, checks);
+  checkNestedJson("plugins/cool-workflow/manifest/plugin.manifest.json", ["identity", "version"], VERSION, checks);
+  checkJson("plugins/cool-workflow/.claude-plugin/plugin.json", "version", VERSION, checks);
   checkIncludes("plugins/cool-workflow/src/version.ts", `CURRENT_COOL_WORKFLOW_VERSION = "${VERSION}"`, checks);
   checkIncludes("plugins/cool-workflow/src/version.ts", "CURRENT_RUN_STATE_SCHEMA_VERSION = 1", checks);
   checkIncludes("plugins/cool-workflow/src/mcp-server.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);
@@ -41,6 +43,7 @@ function main() {
   checkIncludes("plugins/cool-workflow/test/multi-agent-cli-mcp-surface-smoke.js", "multi-agent-cli-mcp-surface-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/multi-agent-eval-replay-harness-smoke.js", "multi-agent-eval-replay-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/state-explosion-management-smoke.js", "state-explosion-management-smoke", checks);
+  checkIncludes("plugins/cool-workflow/test/evidence-adoption-reasoning-smoke.js", "evidence-adoption-reasoning-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/mcp-app-surface-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/canonical-workflow-apps-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/workflow-app-sdk-smoke.js", VERSION, checks);
@@ -56,6 +59,8 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/state-explosion-management.7.md", "State Explosion Management", checks);
   checkIncludes("plugins/cool-workflow/docs/state-explosion-management.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/evidence-adoption-reasoning-chain.7.md", "Evidence Adoption Reasoning Chain", checks);
+  checkIncludes("plugins/cool-workflow/docs/evidence-adoption-reasoning-chain.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/coordinator-blackboard.7.md", "Coordinator / Blackboard", checks);
   checkIncludes("plugins/cool-workflow/docs/multi-agent-runtime-core.7.md", "Multi-Agent Runtime Core", checks);
   checkIncludes("plugins/cool-workflow/docs/dogfood-one-real-repo.7.md", "Dogfood One Real Repo", checks);
@@ -75,6 +80,15 @@ function checkJson(relativePath, key, expected, checks) {
   const value = JSON.parse(fs.readFileSync(file, "utf8"))[key];
   assert.equal(value, expected, `${relativePath}.${key} must be ${expected}`);
   checks.push({ path: relativePath, key, value });
+}
+
+function checkNestedJson(relativePath, keyPath, expected, checks) {
+  const file = path.join(repoRoot, relativePath);
+  assert.ok(fs.existsSync(file), `${relativePath} must exist`);
+  let value = JSON.parse(fs.readFileSync(file, "utf8"));
+  for (const key of keyPath) value = value?.[key];
+  assert.equal(value, expected, `${relativePath}.${keyPath.join(".")} must be ${expected}`);
+  checks.push({ path: relativePath, key: keyPath.join("."), value });
 }
 
 function checkJsonIfPresent(relativePath, key, expected, checks) {

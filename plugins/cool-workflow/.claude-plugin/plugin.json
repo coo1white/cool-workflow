@@ -1,0 +1,20 @@
+{
+  "name": "cool-workflow",
+  "description": "Agent Workflow SDK with TypeScript orchestration, dispatch, evidence-gated verification, state commits, scheduling, routines, multi-agent coordination, and MCP.",
+  "version": "0.1.26",
+  "author": {
+    "name": "COOLWHITE LLC"
+  },
+  "homepage": "https://github.com/coo1white/cool-workflow",
+  "license": "BSD-2-Clause",
+  "keywords": [
+    "workflow",
+    "agent-sdk",
+    "dynamic-workflows",
+    "subagents",
+    "orchestration",
+    "agents",
+    "multi-agent",
+    "mcp"
+  ]
+}

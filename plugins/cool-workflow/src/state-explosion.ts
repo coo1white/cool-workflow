@@ -12,6 +12,7 @@ import {
   MultiAgentOperatorFailure
 } from "./multi-agent-operator-ux";
 import { recordTrustAuditEvent } from "./trust-audit";
+import { reasoningCriticalNodeIds } from "./evidence-reasoning";
 
 export const STATE_EXPLOSION_SCHEMA_VERSION = 1;
 
@@ -546,6 +547,10 @@ export function buildCompactGraph(
   for (const node of full.nodes) {
     if (isProtectedStatus(node.status)) protectedIds.add(node.id);
   }
+  // v0.1.26: reasoning steps are on the critical path and must never be collapsed
+  // into a synthetic summary node — protect every decision-gate node backing an
+  // adopted reasoning chain (notably score nodes, which are otherwise collapsed).
+  for (const id of reasoningCriticalNodeIds(run)) protectedIds.add(id);
   for (const failure of operator.failures) {
     if (failure.linked) protectedIds.add(failure.linked);
   }

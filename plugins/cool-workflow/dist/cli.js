@@ -14,6 +14,7 @@ const operator_ux_1 = require("./operator-ux");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const state_explosion_1 = require("./state-explosion");
+const evidence_reasoning_1 = require("./evidence-reasoning");
 async function main() {
     const args = (0, orchestrator_1.parseArgv)(process.argv.slice(2));
     const runner = new orchestrator_1.CoolWorkflowRunner({
@@ -288,6 +289,19 @@ async function main() {
                         process.stdout.write(`${(0, multi_agent_operator_ux_1.formatMultiAgentEvidence)(rows)}\n`);
                     return;
                 }
+                case "reasoning": {
+                    if (args.options.refresh && !args.options.evidence && !args.options.evidenceId) {
+                        const index = runner.multiAgentReasoningRefresh(required(runId, "run id"));
+                        printJson(index);
+                        return;
+                    }
+                    const report = runner.multiAgentReasoning(required(runId, "run id"), { ...args.options, evidence: args.options.evidence || args.options.evidenceId || id });
+                    if (wantsJson(args.options))
+                        printJson(report);
+                    else
+                        process.stdout.write(`${(0, evidence_reasoning_1.formatEvidenceReasoningReport)(report)}\n`);
+                    return;
+                }
                 case "run":
                     if (!runId ||
                         args.options.topology ||
@@ -350,7 +364,7 @@ async function main() {
                     }
                     return;
                 default:
-                    throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|show|role|group|membership|fanout|fanin <run-id> [id]");
+                    throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]");
             }
         }
         case "eval": {
