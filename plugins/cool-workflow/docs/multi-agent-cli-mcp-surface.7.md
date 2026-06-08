@@ -147,3 +147,9 @@ policy-violation, report, audit provenance, and MCP parity surface.
 `test/multi-agent-eval-replay-harness-smoke.js` covers the v0.1.24 eval/replay
 commands and MCP tools: snapshot, replay, compare, score, gate, report, and
 controlled regression detection.
+## CLI ↔ MCP Parity (v0.1.27)
+
+Every command and tool referenced above is declared in the v0.1.27 capability
+registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
+so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).

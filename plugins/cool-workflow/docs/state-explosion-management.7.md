@@ -146,3 +146,9 @@ Pre-0.1.25 runs have no `summaries/` directory; `summary show` reports `absent`
 and recommends `summary refresh`. Pre-0.1.25 eval snapshots load with empty
 summary sections, so existing fixtures and replays remain backward compatible.
 Newer unsupported run-state schemas still fail closed.
+## CLI ↔ MCP Parity (v0.1.27)
+
+Every command and tool referenced above is declared in the v0.1.27 capability
+registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
+so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).

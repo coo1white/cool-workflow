@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CoolWorkflowRunner, formatHelp, parseArgv } from "./orchestrator";
+import { appRun, planSummary, sandboxChoose } from "./capability-core";
 import { DesktopSchedulerDaemon } from "./daemon";
 import { Scheduler } from "./scheduler";
 import { RoutineTriggerBridge } from "./triggers";
@@ -71,21 +72,17 @@ async function main(): Promise<void> {
         case "package":
           printJson(runner.packageApp(required(appIdOrPath, "app id"), args.options));
           return;
+        case "run":
+          printJson(appRun(runner, { ...args.options, appId: required(appIdOrPath, "app id") }));
+          return;
         default:
-          throw new Error("Usage: cw.js app list|show|validate|init|package [app-id|path]");
+          throw new Error("Usage: cw.js app list|show|validate|init|package|run [app-id|path]");
       }
     }
     case "plan": {
       const [workflowId] = args.positionals;
       if (!workflowId) throw new Error("Missing workflow id. Example: cw.js plan architecture-review");
-      const run = runner.plan(workflowId, args.options);
-      printJson({
-        runId: run.id,
-        workflowId: run.workflow.id,
-        statePath: run.paths.state,
-        reportPath: run.paths.report,
-        pendingTasks: run.tasks.filter((task) => task.status === "pending").length
-      });
+      printJson(planSummary(runner, workflowId, args.options));
       return;
     }
     case "status":
@@ -132,13 +129,30 @@ async function main(): Promise<void> {
     case "report": {
       const runId = required(args.positionals[0], "run id");
       const report = runner.report(runId);
-      if (args.options.show || args.options.summary) {
+      if (wantsJson(args.options)) {
+        printJson(report);
+      } else if (args.options.show || args.options.summary) {
         process.stdout.write(`${formatOperatorReport(runner.operatorReport(runId))}\n`);
         process.stdout.write(`\n${formatStateExplosionReport(runner.stateExplosionReport(runId))}\n`);
       } else {
         process.stdout.write(`${report.path}\n`);
       }
       return;
+    }
+    case "operator": {
+      const [subcommand, runId] = args.positionals;
+      switch (subcommand) {
+        case "status":
+          if (wantsJson(args.options)) printJson(runner.operatorStatus(required(runId, "run id")));
+          else process.stdout.write(`${formatOperatorStatus(runner.operatorStatus(required(runId, "run id")))}\n`);
+          return;
+        case "report":
+          if (wantsJson(args.options)) printJson(runner.operatorReport(required(runId, "run id")));
+          else process.stdout.write(`${formatOperatorReport(runner.operatorReport(required(runId, "run id")))}\n`);
+          return;
+        default:
+          throw new Error("Usage: cw.js operator status|report <run-id> [--json]");
+      }
     }
     case "graph": {
       const graph = runner.operatorGraph(required(args.positionals[0], "run id"));
@@ -446,8 +460,12 @@ async function main(): Promise<void> {
         case "validate":
           printJson(runner.validateSandboxProfile(required(profileIdOrFile, "profile file"), args.options));
           return;
+        case "choose":
+        case "resolve":
+          printJson(sandboxChoose(runner, { ...args.options, profileId: profileIdOrFile || args.options.profileId }));
+          return;
         default:
-          throw new Error("Usage: cw.js sandbox list|show|validate [profile-id|profile-file]");
+          throw new Error("Usage: cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
       }
     }
     case "contract": {

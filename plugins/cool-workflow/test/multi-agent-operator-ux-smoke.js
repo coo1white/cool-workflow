@@ -147,6 +147,25 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.ok(evidence.some((entry) => entry.scoreIds.includes(score.data.id)));
   assert.ok(evidence.some((entry) => entry.selectionIds.includes(selection.data.id)));
 
+  // v0.1.27 (topic1): after a verifier-gated commit, missing/pending evidence
+  // for undriven sibling roles is inspectable operator state, NOT a hidden
+  // failure. `status` is unchanged; `disposition` reads it for the operator.
+  const pendingEvidence = evidence.filter((entry) => entry.status === "missing" || entry.status === "pending");
+  assert.ok(pendingEvidence.length >= 1, "judge-panel run leaves undriven-role evidence");
+  assert.ok(
+    pendingEvidence.every((entry) => entry.disposition === "inspectable"),
+    "post verifier-gated-commit, missing/pending evidence is inspectable, not blocking"
+  );
+  assert.ok(
+    evidence.every((entry) => ["adopted", "inspectable", "blocking"].includes(entry.disposition)),
+    "every evidence row carries a derived disposition"
+  );
+  assert.match(evidenceText, /disposition=inspectable/);
+  const maStatus = runJson(["multi-agent", "status", plan.runId, "--json"]);
+  assert.ok(maStatus.summaries.multiAgentOperator.inspectableEvidence.length >= 1);
+  const maStatusText = runText(["multi-agent", "status", plan.runId]);
+  assert.match(maStatusText, /inspectable rows are not failures/);
+
   const graphText = runText(["multi-agent", "graph", plan.runId]);
   assert.match(graphText, /Run Graph:/);
   assert.match(graphText, /agent-membership/);

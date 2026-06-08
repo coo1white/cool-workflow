@@ -25,6 +25,7 @@ function summarizeMultiAgentOperator(run) {
     const evidence = deriveEvidence(run);
     const missingEvidence = evidence.filter((entry) => entry.status === "missing" || entry.status === "pending" || entry.status === "conflicting");
     const adoptedEvidence = evidence.filter((entry) => entry.status === "adopted");
+    const inspectableEvidence = missingEvidence.filter((entry) => entry.disposition === "inspectable");
     const activeTopologyIds = new Set(topologies.active.map((entry) => entry.id));
     const activeMultiAgentRunIds = new Set(topologies.active.map((entry) => entry.multiAgentRunId));
     const state = run.multiAgent;
@@ -51,6 +52,7 @@ function summarizeMultiAgentOperator(run) {
         evidence,
         missingEvidence,
         adoptedEvidence,
+        inspectableEvidence,
         nextAction,
         summaries: { topologies, multiAgent, blackboard, trust }
     };
@@ -150,7 +152,9 @@ function formatMultiAgentOperatorStatus(status) {
         "",
         formatEvidence("Adopted Evidence", status.adoptedEvidence),
         "",
-        formatEvidence("Missing Evidence", status.missingEvidence),
+        formatEvidence(status.inspectableEvidence.length
+            ? `Missing Evidence (blocking=${status.missingEvidence.length - status.inspectableEvidence.length}, inspectable=${status.inspectableEvidence.length}; a verifier-gated commit decided the selection — inspectable rows are not failures)`
+            : "Missing Evidence", status.missingEvidence),
         "",
         "Next Action",
         `  ${status.nextAction}`
@@ -382,7 +386,21 @@ function deriveEvidence(run) {
         for (const missing of topology.missingEvidence || [])
             ensure(`${topology.id}:missing:${missing}`, { ref: missing, sourceKind: "runtime", sourceId: topology.id, status: "missing", pendingConsumers: [topology.id], reason: missing });
     }
-    return [...rows.values()].map(normalizeEvidenceStatus).sort((left, right) => statusRank(left.status) - statusRank(right.status) || left.id.localeCompare(right.id));
+    // Once any verifier-gated commit exists the selected path is decided; rows
+    // that still read missing/pending/conflicting are then inspectable operator
+    // state (e.g. sibling judge-panel roles never driven as separate workers),
+    // not blocking failures. Before a verifier-gated commit, those same rows
+    // genuinely block. `disposition` is the operator-facing reading of `status`.
+    const committed = (run.commits || []).some((commit) => commit.verifierGated);
+    const blocks = (status) => status === "missing" || status === "pending" || status === "conflicting";
+    const withDisposition = (row) => ({
+        ...row,
+        disposition: row.status === "adopted" ? "adopted" : blocks(row.status) && !committed ? "blocking" : "inspectable"
+    });
+    return [...rows.values()]
+        .map(normalizeEvidenceStatus)
+        .map(withDisposition)
+        .sort((left, right) => statusRank(left.status) - statusRank(right.status) || left.id.localeCompare(right.id));
 }
 function formatDependencies(rows) {
     const lines = ["Dependencies"];
@@ -414,7 +432,8 @@ function formatEvidence(title, rows) {
         const rejected = row.rejectedBy.length ? ` rejectedBy=${row.rejectedBy.join(",")}` : "";
         const pending = row.pendingConsumers.length ? ` pending=${row.pendingConsumers.join(",")}` : "";
         const rationale = row.rationaleStatus ? ` rationale=${row.rationaleStatus}` : "";
-        lines.push(`  [${row.status}] ${row.id} ${ref} source=${row.sourceKind}:${row.sourceId || "unknown"}${rationale}${adopted}${rejected}${pending}`);
+        const disposition = row.disposition === "inspectable" ? " disposition=inspectable" : "";
+        lines.push(`  [${row.status}] ${row.id} ${ref} source=${row.sourceKind}:${row.sourceId || "unknown"}${rationale}${disposition}${adopted}${rejected}${pending}`);
     }
     if (rows.length > 60)
         lines.push(`  ... ${rows.length - 60} more`);

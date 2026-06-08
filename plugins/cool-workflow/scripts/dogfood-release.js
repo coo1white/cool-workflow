@@ -5,7 +5,7 @@ const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const TARGET_VERSION = "0.1.26";
+const TARGET_VERSION = "0.1.27";
 const PREVIOUS_VERSION = "0.1.24";
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");

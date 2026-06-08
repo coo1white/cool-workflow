@@ -26,6 +26,16 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.27 adds CLI ↔ MCP Parity: the command-line surface and the MCP surface
+are now two renderings of ONE data source, declared in a single capability
+registry (`src/capability-registry.ts`) and enforced fail-closed. Each capability
+names one shared core `entry`; `cw <cmd> --json` is payload-identical to the
+matching `cw_<tool>` MCP result, the CLI stays terse for humans while MCP stays
+complete for machines, and `npm run parity:check` (wired into `release:check`)
+blocks any drift — a capability on only one surface, an undeclared tool or
+command, or a payload divergence. See
+[docs/cli-mcp-parity.7.md](docs/cli-mcp-parity.7.md).
+
 CW v0.1.26 adds the Evidence Adoption Reasoning Chain: a derived, fingerprinted,
 fail-closed view that explains *why* each evidence item was adopted, rejected,
 superseded, or conflicting. For every gate (`fanin`, `candidate-score`,

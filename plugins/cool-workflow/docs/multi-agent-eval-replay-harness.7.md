@@ -184,3 +184,9 @@ The gate proves the replay completed, graph/dependencies stayed stable,
 evidence adoption stayed traceable, trust/policy/audit records remained
 explainable, judge rationale is present, scoring/selection did not regress, and
 verifier-gated commit readiness still holds.
+## CLI ↔ MCP Parity (v0.1.27)
+
+Every command and tool referenced above is declared in the v0.1.27 capability
+registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
+so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).

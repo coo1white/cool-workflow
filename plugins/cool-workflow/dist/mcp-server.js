@@ -9,6 +9,7 @@ const orchestrator_1 = require("./orchestrator");
 const scheduler_1 = require("./scheduler");
 const triggers_1 = require("./triggers");
 const version_1 = require("./version");
+const capability_core_1 = require("./capability-core");
 const runner = new orchestrator_1.CoolWorkflowRunner({
     pluginRoot: node_path_1.default.resolve(__dirname, "..")
 });
@@ -73,11 +74,25 @@ function callTool(name, args) {
             case "cw_list":
                 return runner.listWorkflows();
             case "cw_plan":
-                return runner.plan(String(args.workflowId || ""), args);
+                return (0, capability_core_1.planSummary)(runner, String(args.workflowId || ""), args);
             case "cw_app_run":
-                return appRun(args);
+                return (0, capability_core_1.appRun)(runner, args);
             case "cw_status":
                 return runner.status(String(args.runId || ""));
+            case "cw_init":
+                return runner.init(String(args.workflowId || ""), args);
+            case "cw_next":
+                return runner.next(String(args.runId || ""), args);
+            case "cw_state_check":
+                return runner.checkState(String(args.runId || ""), args);
+            case "cw_contract_show":
+                return runner.showContract(String(args.runId || ""), (0, capability_core_1.optionalString)(args.contractId));
+            case "cw_node_list":
+                return runner.listNodes(String(args.runId || ""));
+            case "cw_node_show":
+                return runner.showNode(String(args.runId || ""), String(args.nodeId || ""));
+            case "cw_node_graph":
+                return runner.graphNodes(String(args.runId || ""));
             case "cw_operator_status":
                 return runner.operatorStatus(String(args.runId || ""));
             case "cw_operator_graph":
@@ -107,13 +122,13 @@ function callTool(name, args) {
             case "cw_evidence_reasoning_refresh":
                 return runner.multiAgentReasoningRefresh(String(args.runId || ""));
             case "cw_multi_agent_run":
-                return runner.hostMultiAgentRun(optionalString(args.runId), args);
+                return runner.hostMultiAgentRun((0, capability_core_1.optionalString)(args.runId), args);
             case "cw_multi_agent_status":
                 return runner.hostMultiAgentStatus(String(args.runId || ""));
             case "cw_multi_agent_step":
                 return runner.hostMultiAgentStep(String(args.runId || ""), args);
             case "cw_multi_agent_blackboard":
-                return runner.hostMultiAgentBlackboard(String(args.runId || ""), optionalString(args.action || args.operation), args);
+                return runner.hostMultiAgentBlackboard(String(args.runId || ""), (0, capability_core_1.optionalString)(args.action || args.operation), args);
             case "cw_multi_agent_score":
                 return runner.hostMultiAgentScore(String(args.runId || ""), args);
             case "cw_multi_agent_select":
@@ -234,11 +249,11 @@ function callTool(name, args) {
                 return runner.validateSandboxProfile(String(args.profileFile || ""), args);
             case "cw_sandbox_choose":
             case "cw_sandbox_resolve":
-                return sandboxResolve(args);
+                return (0, capability_core_1.sandboxChoose)(runner, args);
             case "cw_result":
                 return runner.recordResult(String(args.runId || ""), String(args.taskId || ""), String(args.resultPath || ""));
             case "cw_commit":
-                return commitResult(String(args.runId || ""), args);
+                return (0, capability_core_1.commitEnvelope)(runner, String(args.runId || ""), args);
             case "cw_report":
                 return runner.report(String(args.runId || ""));
             case "cw_app_list":
@@ -262,7 +277,7 @@ function callTool(name, args) {
             case "cw_worker_fail":
                 return runner.recordWorkerFailure(String(args.runId || ""), String(args.workerId || ""), String(args.message || ""), args);
             case "cw_worker_validate":
-                return runner.validateWorker(String(args.runId || ""), String(args.workerId || ""), optionalString(args.path || args.resultPath));
+                return runner.validateWorker(String(args.runId || ""), String(args.workerId || ""), (0, capability_core_1.optionalString)(args.path || args.resultPath));
             case "cw_candidate_list":
                 return runner.listCandidates(String(args.runId || ""), args);
             case "cw_candidate_show":
@@ -323,90 +338,6 @@ function callTool(name, args) {
         process.chdir(previousCwd);
     }
 }
-function appRun(args) {
-    const appId = String(args.appId || args.workflowId || "");
-    const inputs = isRecord(args.inputs) ? args.inputs : {};
-    const planOptions = { ...inputs, ...withoutRuntimeKeys(args) };
-    const sandboxProfileId = sandboxProfileIdFrom(args);
-    const resolvedSandbox = sandboxProfileId ? runner.showSandboxProfile(sandboxProfileId, args) : undefined;
-    const run = runner.plan(appId, planOptions);
-    const status = runner.operatorStatus(run.id);
-    return {
-        runId: run.id,
-        workflowId: run.workflow.id,
-        appId: run.workflow.app?.id || appId,
-        appVersion: run.workflow.app?.version,
-        statePath: run.paths.state,
-        reportPath: run.paths.report,
-        pendingTasks: run.tasks.filter((task) => task.status === "pending").length,
-        operatorStatus: compactOperatorStatus(status),
-        nextActions: status.nextActions,
-        sandboxProfileId,
-        sandboxProfile: resolvedSandbox
-    };
-}
-function sandboxResolve(args) {
-    const profileId = sandboxProfileIdFrom(args) || "readonly";
-    const profile = runner.showSandboxProfile(profileId, args);
-    return {
-        profileId,
-        sandboxProfileId: profile.id,
-        valid: true,
-        profile
-    };
-}
-function commitResult(runId, args) {
-    const result = runner.commit(runId, args);
-    const commit = result.commit;
-    const status = runner.operatorStatus(runId);
-    return {
-        runId,
-        commitId: commit.id,
-        verifierGated: commit.verifierGated,
-        checkpoint: commit.checkpoint,
-        verifierNodeId: commit.verifierNodeId,
-        candidateId: commit.candidateId,
-        selectionId: commit.selectionId,
-        evidenceCount: (commit.evidence || []).length,
-        snapshotPath: commit.snapshotPath,
-        nextActions: status.nextActions,
-        commit
-    };
-}
-function compactOperatorStatus(status) {
-    return {
-        runId: status.runId,
-        workflowId: status.workflowId,
-        appId: status.appId,
-        appVersion: status.appVersion,
-        loopStage: status.loopStage,
-        activePhase: status.activePhase,
-        blocked: status.blocked,
-        blockedReasons: status.blockedReasons,
-        pendingTasks: status.tasks.pending.length,
-        runningTasks: status.tasks.running.length,
-        completedTasks: status.tasks.completed.length,
-        nextActions: status.nextActions
-    };
-}
-function sandboxProfileIdFrom(args) {
-    return optionalString(args.sandbox || args.sandboxProfile || args.sandboxProfileId || args.profileId);
-}
-function withoutRuntimeKeys(args) {
-    const copy = { ...args };
-    for (const key of ["appId", "workflowId", "inputs", "sandbox", "sandboxProfile", "sandboxProfileId", "profileId"]) {
-        delete copy[key];
-    }
-    return copy;
-}
-function optionalString(value) {
-    if (value === undefined || value === null || value === "")
-        return undefined;
-    return String(value);
-}
-function isRecord(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
 function requiredToolName(value) {
     if (typeof value !== "string" || !value.trim())
         throw new Error("MCP tools/call missing required field: name");
@@ -415,7 +346,7 @@ function requiredToolName(value) {
 function requiredToolArguments(name, value) {
     if (value === undefined || value === null)
         value = {};
-    if (!isRecord(value))
+    if (!(0, capability_core_1.isRecord)(value))
         throw new Error(`MCP tool ${name} arguments must be an object.`);
     const args = value;
     for (const group of requiredArgsForTool(name)) {
@@ -427,10 +358,12 @@ function requiredToolArguments(name, value) {
     return args;
 }
 function requiredArgsForTool(name) {
-    if (name === "cw_plan")
+    if (name === "cw_plan" || name === "cw_init")
         return ["workflowId"];
     if (name === "cw_app_run")
         return ["appId"];
+    if (name === "cw_node_show")
+        return ["runId", "nodeId"];
     if (name === "cw_eval_replay")
         return ["snapshot|snapshotId|path"];
     if (name === "cw_eval_compare")
@@ -473,6 +406,11 @@ function requiredArgsForTool(name) {
     }
     if (name.startsWith("cw_") && [
         "cw_status",
+        "cw_next",
+        "cw_state_check",
+        "cw_contract_show",
+        "cw_node_list",
+        "cw_node_graph",
         "cw_operator_status",
         "cw_operator_graph",
         "cw_operator_report",
@@ -573,6 +511,30 @@ function toolDefinitions() {
             runId: stringSchema("Run id"),
             cwd: stringSchema("Run workspace")
         }),
+        tool("cw_init", "Scaffold a new workflow definition. Peer of `cw init`.", {
+            workflowId: stringSchema("Workflow id"),
+            title: stringSchema("Workflow title"),
+            output: stringSchema("Output directory")
+        }),
+        tool("cw_next", "Read the next recommended tasks for a run. Peer of `cw next`.", {
+            ...runIdSchema(),
+            limit: numberSchema("Maximum tasks to return")
+        }),
+        tool("cw_state_check", "Check run-state schema compatibility. Peer of `cw state check`.", {
+            ...runIdSchema(),
+            state: stringSchema("Explicit state file path"),
+            write: booleanSchema("Persist a migrated copy when supported")
+        }),
+        tool("cw_contract_show", "Show a run's pipeline contract. Peer of `cw contract show`.", {
+            ...runIdSchema(),
+            contractId: stringSchema("Optional contract id")
+        }),
+        tool("cw_node_list", "List state nodes for a run. Peer of `cw node list`.", runIdSchema()),
+        tool("cw_node_show", "Show one state node for a run. Peer of `cw node show`.", {
+            ...runIdSchema(),
+            nodeId: stringSchema("Node id")
+        }),
+        tool("cw_node_graph", "Read the state-node graph for a run. Peer of `cw node graph`.", runIdSchema()),
         tool("cw_operator_status", "Read the structured Operator UX run status.", runIdSchema()),
         tool("cw_operator_graph", "Read the structured Operator UX run graph.", runIdSchema()),
         tool("cw_operator_report", "Refresh and read the structured Operator UX report summary.", runIdSchema()),
