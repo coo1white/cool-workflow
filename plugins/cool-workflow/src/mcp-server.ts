@@ -10,6 +10,20 @@ import {
   isRecord,
   optionalString,
   planSummary,
+  queueAdd,
+  queueDrain,
+  queueList,
+  queueShow,
+  runArchive,
+  runHistory,
+  runList,
+  runRegistryFor,
+  runRegistryRefresh,
+  runRegistryShow,
+  runRerun,
+  runResume,
+  runSearch,
+  runShow,
   sandboxChoose
 } from "./capability-core";
 
@@ -346,6 +360,32 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return triggers.fire(String(args.kind || "api"), args.payload || args);
       case "cw_routine_events":
         return triggers.events(args.id ? String(args.id) : undefined);
+      case "cw_registry_refresh":
+        return runRegistryRefresh(runRegistryFor(args, runner), args);
+      case "cw_registry_show":
+        return runRegistryShow(runRegistryFor(args, runner), args);
+      case "cw_run_search":
+        return runSearch(runRegistryFor(args, runner), args);
+      case "cw_run_list":
+        return runList(runRegistryFor(args, runner), args);
+      case "cw_run_show":
+        return runShow(runRegistryFor(args, runner), String(args.runId || ""), args);
+      case "cw_run_resume":
+        return runResume(runRegistryFor(args, runner), String(args.runId || ""), args);
+      case "cw_run_archive":
+        return runArchive(runRegistryFor(args, runner), optionalString(args.runId), args);
+      case "cw_run_rerun":
+        return runRerun(runRegistryFor(args, runner), String(args.runId || ""), args);
+      case "cw_queue_add":
+        return queueAdd(runRegistryFor(args, runner), args);
+      case "cw_queue_list":
+        return queueList(runRegistryFor(args, runner), args);
+      case "cw_queue_drain":
+        return queueDrain(runRegistryFor(args, runner), args);
+      case "cw_queue_show":
+        return queueShow(runRegistryFor(args, runner), String(args.id || ""));
+      case "cw_history":
+        return runHistory(runRegistryFor(args, runner), args);
       default:
         throw new Error(`Unknown tool: ${name}`);
     }
@@ -387,6 +427,9 @@ function requiredArgsForTool(name: string): string[] {
   if (name === "cw_schedule_delete" || name === "cw_schedule_complete" || name === "cw_schedule_pause" || name === "cw_schedule_resume" || name === "cw_schedule_run_now") return ["id"];
   if (name === "cw_routine_delete") return ["id"];
   if (name === "cw_routine_fire") return ["kind"];
+  if (name === "cw_run_show" || name === "cw_run_resume" || name === "cw_run_rerun") return ["runId"];
+  if (name === "cw_run_archive") return ["runId|olderThanDays"];
+  if (name === "cw_queue_show") return ["id"];
   if (name.endsWith("_show")) {
     if (name.includes("_role_")) return ["runId", "roleId"];
     if (name.includes("_group_")) return ["runId", "groupId"];
@@ -1116,6 +1159,91 @@ function toolDefinitions(): unknown[] {
     tool("cw_routine_delete", "Delete a routine-style trigger.", {
       cwd: stringSchema("Workspace"),
       id: stringSchema("Trigger id")
+    }),
+    tool("cw_registry_refresh", "Recompute and persist the derived run registry index from source state.json. Registers the current repo for cross-repo discovery. Never mutates source state.", {
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("repo (default) or home (cross-repo)")
+    }),
+    tool("cw_registry_show", "Read the run registry index with valid|stale|absent freshness against current source state. Fails closed: tampered/missing source surfaces as stale/missing with rebuild guidance, never a fabricated status.", {
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("repo (default) or home (cross-repo)")
+    }),
+    tool("cw_run_search", "Search runs by app, lifecycle status, time range, repo, and free-text over metadata. Deterministic and paginated; cross-repo by default. Re-derived from source.", {
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      text: stringSchema("Free-text over runId/app/workflow/title/repo/lifecycle/inputs"),
+      app: stringSchema("App or workflow id filter"),
+      status: stringSchema("queued|running|blocked|completed|failed|archived"),
+      repo: stringSchema("Repo root filter"),
+      since: stringSchema("ISO lower bound on createdAt"),
+      until: stringSchema("ISO upper bound on createdAt"),
+      includeArchived: booleanSchema("Include archived runs (default true)"),
+      limit: numberSchema("Page size (default 50)"),
+      offset: numberSchema("Page offset (default 0)")
+    }),
+    tool("cw_run_list", "List indexed runs across repos (search with no filters), deterministic and paginated.", {
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      includeArchived: booleanSchema("Include archived runs (default true)"),
+      limit: numberSchema("Page size (default 50)"),
+      offset: numberSchema("Page offset (default 0)")
+    }),
+    tool("cw_run_show", "Resolve one run by id across the registry; fail closed with found=false/freshness=missing when source state is gone (never a fabricated status).", {
+      runId: stringSchema("Run id"),
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo")
+    }),
+    tool("cw_run_resume", "Resolve a run by id and continue it from durable state: returns next runnable tasks and next actions. Read-only over source state.", {
+      runId: stringSchema("Run id"),
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      limit: numberSchema("Max next tasks to return (default 5)")
+    }),
+    tool("cw_run_archive", "Archive or unarchive a run via an overlay mark (never deletes source). With olderThanDays instead of runId, apply a retention policy. Archived runs stay searchable.", {
+      runId: stringSchema("Run id to archive (omit to use a retention policy)"),
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      reason: stringSchema("Archive reason"),
+      unarchive: booleanSchema("Clear the archive overlay instead of setting it"),
+      olderThanDays: numberSchema("Retention window: archive eligible runs older than N days"),
+      state: stringSchema("Lifecycle states eligible for retention archiving")
+    }),
+    tool("cw_run_rerun", "Re-run a failed run as a NEW run that links to the original via provenance (inputs reused). The original failed run is preserved for audit.", {
+      runId: stringSchema("Failed run id to rerun"),
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      reason: stringSchema("Rerun reason")
+    }),
+    tool("cw_queue_add", "Enqueue a pending/planned run with explicit ordering policy (lower priority drains first). Plain files; the host still executes workers.", {
+      cwd: stringSchema("Repo workspace"),
+      runId: stringSchema("Optional existing planned run id"),
+      appId: stringSchema("App id to run"),
+      workflowId: stringSchema("Workflow id to run"),
+      repo: stringSchema("Repo root that owns the run (default cwd)"),
+      priority: numberSchema("Ordering priority (lower drains first, default 100)"),
+      note: stringSchema("Free-text note")
+    }),
+    tool("cw_queue_list", "List the durable run queue in policy order (priority asc, then enqueuedAt).", {
+      cwd: stringSchema("Repo workspace"),
+      status: stringSchema("pending|ready|draining|drained|cancelled"),
+      repo: stringSchema("Repo root filter")
+    }),
+    tool("cw_queue_drain", "Mark the next ready queue entries drained in policy order and return them; the host executes the workers.", {
+      cwd: stringSchema("Repo workspace"),
+      limit: numberSchema("How many entries to drain (default 1)"),
+      repo: stringSchema("Repo root filter")
+    }),
+    tool("cw_queue_show", "Show one durable queue entry.", {
+      cwd: stringSchema("Repo workspace"),
+      id: stringSchema("Queue entry id")
+    }),
+    tool("cw_history", "Read a cross-repo unified run timeline (newest first), deterministic and paginated, with provenance links.", {
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      app: stringSchema("App or workflow id filter"),
+      status: stringSchema("Lifecycle status filter"),
+      limit: numberSchema("Page size (default 50)"),
+      offset: numberSchema("Page offset (default 0)")
     })
   ];
 }

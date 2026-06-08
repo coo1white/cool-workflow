@@ -153,3 +153,10 @@ Every command and tool referenced above is declared in the v0.1.27 capability
 registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
 so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
+
+## Run Registry / Control Plane (v0.1.28)
+
+The runs described here are indexed, searchable, resumable, archivable, and
+rerunnable across repos by the v0.1.28 Run Registry / Control Plane, which derives
+a fingerprinted, fail-closed index over the same per-run `.cw/runs/<id>/state.json`
+source of truth. See [run-registry-control-plane.7.md](run-registry-control-plane.7.md).

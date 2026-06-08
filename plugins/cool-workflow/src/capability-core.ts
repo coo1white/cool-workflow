@@ -12,6 +12,17 @@
 
 import { CoolWorkflowRunner } from "./orchestrator";
 import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
+import { RunRegistry, isRunLifecycleState } from "./run-registry";
+import {
+  RunHistoryResult,
+  RunLifecycleState,
+  RunQueueEntry,
+  RunRegistryReport,
+  RunRerunResult,
+  RunResumeResult,
+  RunSearchResult,
+  RunShowResult
+} from "./types";
 
 // ---- canonical plan payload -----------------------------------------------
 // Both `cw plan` (default + --json) and `cw_plan` resolve to this exact object.
@@ -113,6 +124,152 @@ export function compactOperatorStatus(status: OperatorRunSummary): Record<string
     completedTasks: status.tasks.completed.length,
     nextActions: status.nextActions as OperatorRecommendation[]
   };
+}
+
+// ---- run registry / control plane (v0.1.28) -------------------------------
+// MECHANISM, ONE SOURCE: the CLI and MCP surfaces both route through these
+// functions so `cw <cmd> --json` is byte-identical to `cw_<tool>`. Each accepts
+// the raw CLI options OR the raw MCP arguments and normalizes them identically,
+// then calls the single RunRegistry method. The registry is constructed from the
+// same resolved cwd on both surfaces (CLI: --cwd|process.cwd(); MCP chdir'd to
+// args.cwd), so repo/home roots line up.
+
+export function runRegistryFor(args: Record<string, unknown>, planner: CoolWorkflowRunner): RunRegistry {
+  return new RunRegistry(String(args.cwd || process.cwd()), planner);
+}
+
+function scopeOf(args: Record<string, unknown>, fallback: "repo" | "home"): "repo" | "home" {
+  if (args.scope === "repo") return "repo";
+  if (args.scope === "home") return "home";
+  return fallback;
+}
+
+function lifecycleOf(value: unknown): RunLifecycleState | undefined {
+  return isRunLifecycleState(value) ? value : undefined;
+}
+
+function flag(value: unknown): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (value === false || value === "false" || value === "no" || value === "0") return false;
+  return Boolean(value);
+}
+
+export function runRegistryRefresh(reg: RunRegistry, args: Record<string, unknown>): RunRegistryReport {
+  return reg.refresh({ scope: scopeOf(args, "repo") });
+}
+
+export function runRegistryShow(reg: RunRegistry, args: Record<string, unknown>): RunRegistryReport {
+  return reg.show({ scope: scopeOf(args, "repo") });
+}
+
+export function runSearch(reg: RunRegistry, args: Record<string, unknown>): RunSearchResult {
+  return reg.search({
+    scope: scopeOf(args, "home"),
+    text: optionalString(args.text || args.q || args.query),
+    app: optionalString(args.app || args.appId),
+    status: lifecycleOf(args.status),
+    repo: optionalString(args.repo),
+    since: optionalString(args.since),
+    until: optionalString(args.until),
+    includeArchived: flag(args.includeArchived ?? args["include-archived"]),
+    limit: args.limit === undefined ? undefined : Number(args.limit),
+    offset: args.offset === undefined ? undefined : Number(args.offset)
+  });
+}
+
+export function runList(reg: RunRegistry, args: Record<string, unknown>): RunSearchResult {
+  return reg.list({
+    scope: scopeOf(args, "home"),
+    includeArchived: flag(args.includeArchived ?? args["include-archived"]),
+    limit: args.limit === undefined ? undefined : Number(args.limit),
+    offset: args.offset === undefined ? undefined : Number(args.offset)
+  });
+}
+
+export function runShow(reg: RunRegistry, runId: string, args: Record<string, unknown>): RunShowResult {
+  return reg.showRun(runId, { scope: scopeOf(args, "home") });
+}
+
+export function runResume(reg: RunRegistry, runId: string, args: Record<string, unknown>): RunResumeResult {
+  return reg.resume(runId, {
+    scope: scopeOf(args, "home"),
+    limit: args.limit === undefined ? undefined : Number(args.limit)
+  });
+}
+
+export function runArchive(reg: RunRegistry, runId: string | undefined, args: Record<string, unknown>): unknown {
+  if (runId) {
+    return reg.archive(runId, {
+      scope: scopeOf(args, "home"),
+      reason: optionalString(args.reason),
+      unarchive: flag(args.unarchive)
+    });
+  }
+  const days = Number(args.olderThanDays ?? args["older-than-days"]);
+  const states = parseLifecycleList(args.state ?? args.status);
+  return reg.archiveByPolicy(
+    {
+      schemaVersion: 1,
+      archiveOlderThanDays: Number.isFinite(days) ? days : 0,
+      archiveStates: states.length ? states : ["completed", "failed"],
+      defaultQueuePriority: 100
+    },
+    { scope: scopeOf(args, "home") }
+  );
+}
+
+export function runRerun(reg: RunRegistry, runId: string, args: Record<string, unknown>): RunRerunResult {
+  return reg.rerun(runId, { scope: scopeOf(args, "home"), reason: optionalString(args.reason) });
+}
+
+export function queueAdd(reg: RunRegistry, args: Record<string, unknown>): unknown {
+  return reg.queueAdd({
+    runId: optionalString(args.runId),
+    appId: optionalString(args.appId || args.app),
+    workflowId: optionalString(args.workflowId || args.workflow),
+    repo: optionalString(args.repo),
+    priority: args.priority === undefined ? undefined : Number(args.priority),
+    note: optionalString(args.note),
+    id: optionalString(args.id)
+  });
+}
+
+export function queueList(reg: RunRegistry, args: Record<string, unknown>): { schemaVersion: 1; total: number; entries: RunQueueEntry[] } {
+  const status = optionalString(args.status);
+  return reg.queueList({
+    status: status as RunQueueEntry["status"] | undefined,
+    repo: optionalString(args.repo)
+  });
+}
+
+export function queueDrain(reg: RunRegistry, args: Record<string, unknown>): unknown {
+  return reg.queueDrain({
+    limit: args.limit === undefined ? undefined : Number(args.limit),
+    repo: optionalString(args.repo)
+  });
+}
+
+export function queueShow(reg: RunRegistry, id: string): unknown {
+  return reg.queueShow(id);
+}
+
+export function runHistory(reg: RunRegistry, args: Record<string, unknown>): RunHistoryResult {
+  return reg.history({
+    scope: scopeOf(args, "home"),
+    app: optionalString(args.app || args.appId),
+    status: lifecycleOf(args.status),
+    limit: args.limit === undefined ? undefined : Number(args.limit),
+    offset: args.offset === undefined ? undefined : Number(args.offset)
+  });
+}
+
+function parseLifecycleList(value: unknown): RunLifecycleState[] {
+  const raw = Array.isArray(value) ? value : value === undefined ? [] : [value];
+  const out: RunLifecycleState[] = [];
+  for (const item of raw) {
+    if (isRunLifecycleState(item)) out.push(item);
+  }
+  return out;
 }
 
 // ---- shared argument helpers ----------------------------------------------

@@ -8,6 +8,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const orchestrator_1 = require("./orchestrator");
 const capability_core_1 = require("./capability-core");
+const run_registry_1 = require("./run-registry");
 const daemon_1 = require("./daemon");
 const scheduler_1 = require("./scheduler");
 const triggers_1 = require("./triggers");
@@ -776,6 +777,110 @@ async function main() {
                 default:
                     throw new Error("Usage: cw.js routine create|list|delete|fire|events");
             }
+        }
+        case "registry": {
+            const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
+            const [subcommand] = args.positionals;
+            switch (subcommand) {
+                case "refresh": {
+                    const report = (0, capability_core_1.runRegistryRefresh)(registry, args.options);
+                    if (wantsJson(args.options))
+                        printJson(report);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatRegistryReport)(report)}\n`);
+                    return;
+                }
+                case "show": {
+                    const report = (0, capability_core_1.runRegistryShow)(registry, args.options);
+                    if (wantsJson(args.options))
+                        printJson(report);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatRegistryReport)(report)}\n`);
+                    return;
+                }
+                default:
+                    throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
+            }
+        }
+        case "run": {
+            const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
+            const [subcommand, id] = args.positionals;
+            switch (subcommand) {
+                case "search": {
+                    const result = (0, capability_core_1.runSearch)(registry, args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatRunSearch)(result)}\n`);
+                    return;
+                }
+                case "list": {
+                    const result = (0, capability_core_1.runList)(registry, args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatRunSearch)(result)}\n`);
+                    return;
+                }
+                case "show": {
+                    const result = (0, capability_core_1.runShow)(registry, required(id, "run id"), args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatRunShow)(result)}\n`);
+                    return;
+                }
+                case "resume": {
+                    const result = (0, capability_core_1.runResume)(registry, required(id, "run id"), args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatResume)(result)}\n`);
+                    return;
+                }
+                case "archive":
+                    printJson((0, capability_core_1.runArchive)(registry, id, args.options));
+                    return;
+                case "rerun":
+                    printJson((0, capability_core_1.runRerun)(registry, required(id, "run id"), args.options));
+                    return;
+                default:
+                    throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun [run-id] [--scope repo|home] [--json]");
+            }
+        }
+        case "queue": {
+            const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
+            const [subcommand, id] = args.positionals;
+            switch (subcommand) {
+                case "add":
+                    printJson((0, capability_core_1.queueAdd)(registry, args.options));
+                    return;
+                case "list": {
+                    const result = (0, capability_core_1.queueList)(registry, args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatQueueList)(result)}\n`);
+                    return;
+                }
+                case "drain":
+                    printJson((0, capability_core_1.queueDrain)(registry, args.options));
+                    return;
+                case "show":
+                    printJson((0, capability_core_1.queueShow)(registry, required(id, "queue id")));
+                    return;
+                default:
+                    throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
+            }
+        }
+        case "history": {
+            const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
+            const result = (0, capability_core_1.runHistory)(registry, args.options);
+            if (wantsJson(args.options))
+                printJson(result);
+            else
+                process.stdout.write(`${(0, run_registry_1.formatHistory)(result)}\n`);
+            return;
         }
         default:
             throw new Error(`Unknown command: ${args.command}`);

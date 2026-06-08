@@ -23,6 +23,7 @@ const checks = [
         "docs/state-explosion-management.7.md",
         "docs/evidence-adoption-reasoning-chain.7.md",
         "docs/cli-mcp-parity.7.md",
+        "docs/run-registry-control-plane.7.md",
         "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
@@ -42,6 +43,7 @@ const checks = [
   { name: "multi-agent trust policy audit smoke", command: ["node", "test/multi-agent-trust-policy-audit-smoke.js"] },
   { name: "multi-agent eval replay harness smoke", command: ["node", "test/multi-agent-eval-replay-harness-smoke.js"] },
   { name: "state explosion management smoke", command: ["node", "test/state-explosion-management-smoke.js"] },
+  { name: "run registry control plane smoke", command: ["node", "test/run-registry-control-plane-smoke.js"] },
   { name: "robustness hardening smoke", command: ["node", "test/robustness-hardening-smoke.js"] },
   { name: "eval replay release gate", command: ["npm", "run", "eval:replay"] },
   { name: "security trust smoke", command: ["node", "test/security-trust-hardening-smoke.js"] },
