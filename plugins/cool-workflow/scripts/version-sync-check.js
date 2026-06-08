@@ -7,7 +7,9 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.32";
+// Single source of truth: package.json. `scripts/bump-version.js` rewrites this
+// (and every other surface); version:sync then asserts all surfaces equal it.
+const VERSION = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8")).version;
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",

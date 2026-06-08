@@ -31,6 +31,8 @@
     "canonical-apps": "node scripts/canonical-apps.js",
     "fixture-compat": "node test/run-fixture-compat-smoke.js",
     "sync:project-index": "node scripts/sync-project-index.js",
+    "bump:version": "node scripts/bump-version.js",
+    "new:feature": "node scripts/new-feature.js",
     "gen:manifests": "node scripts/gen-manifests.js",
     "parity:check": "node scripts/parity-check.js --check",
     "version:sync": "node scripts/version-sync-check.js",
