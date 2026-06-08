@@ -133,6 +133,12 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.nodeReplay(String(args.runId || ""), String(args.snapshotId || ""), args);
       case "cw_node_replay_verify":
         return runner.nodeReplayVerify(String(args.runId || ""), String(args.replayId || ""), args);
+      case "cw_migration_list":
+        return runner.migrationList();
+      case "cw_migration_check":
+        return runner.migrationCheck(String(args.target || args.runId || ""), args);
+      case "cw_migration_prove":
+        return runner.migrationProve(String(args.target || args.runId || ""), args);
       case "cw_operator_status":
         return runner.operatorStatus(String(args.runId || ""));
       case "cw_operator_graph":
@@ -641,6 +647,17 @@ function toolDefinitions(): unknown[] {
     tool("cw_node_replay_verify", "Verify a node replay against a fresh snapshot of its source. Peer of `cw node verify`.", {
       ...runIdSchema(),
       replayId: stringSchema("Replay id")
+    }),
+    tool("cw_migration_list", "List the declared migration registry (contracts + edges + compatibility proofs). Peer of `cw migration list`.", {}),
+    tool("cw_migration_check", "Dry-run migration verdict for a run-state or workflow-app target; fail-closed on an unreachable version. Peer of `cw migration check`.", {
+      target: stringSchema("Run id, or path to a state.json / app.json"),
+      contract: stringSchema("run-state | workflow-app (default run-state)"),
+      cwd: stringSchema("Run workspace")
+    }),
+    tool("cw_migration_prove", "Round-trip / non-destruction migration proof for a target (validates-at-current, append-only, idempotent, source-immutable). Peer of `cw migration prove`.", {
+      target: stringSchema("Run id, or path to a state.json / app.json"),
+      contract: stringSchema("run-state | workflow-app (default run-state)"),
+      cwd: stringSchema("Run workspace")
     }),
     tool("cw_operator_status", "Read the structured Operator UX run status.", runIdSchema()),
     tool("cw_operator_graph", "Read the structured Operator UX run graph.", runIdSchema()),

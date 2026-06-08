@@ -184,6 +184,7 @@ import {
   readNodeSnapshot,
   readNodeReplay
 } from "./node-snapshot";
+import { listMigrationContracts, checkMigration, proveMigration, MigrationContractId } from "./contract-migration";
 import {
   buildCompactGraph,
   buildStateExplosionReport,
@@ -1372,6 +1373,38 @@ export class CoolWorkflowRunner {
   nodeReplayVerify(runId: string, replayId: string, options: Record<string, unknown> = {}): ReturnType<typeof verifyNodeReplay> {
     const run = this.loadRun(runId);
     return verifyNodeReplay(run, readNodeReplay(run, replayId), options);
+  }
+
+  // ---- contract migration (v0.1.36) ---------------------------------------
+  migrationList(): { contracts: ReturnType<typeof listMigrationContracts> } {
+    return { contracts: listMigrationContracts() };
+  }
+
+  migrationCheck(target: string, options: Record<string, unknown> = {}): ReturnType<typeof checkMigration> {
+    const { snapshot, contract } = this.loadMigrationSnapshot(target, options);
+    return checkMigration(contract, snapshot);
+  }
+
+  migrationProve(target: string, options: Record<string, unknown> = {}): ReturnType<typeof proveMigration> {
+    const { snapshot, contract, dir } = this.loadMigrationSnapshot(target, options);
+    const proof = proveMigration(contract, snapshot);
+    // Append-only: persist the proof beside the target, NEVER overwriting source.
+    try {
+      writeJson(path.join(dir, "migration", `${proof.fingerprint.replace("sha256:", "").slice(0, 16)}.json`), proof);
+    } catch {
+      /* read-only target — the proof is still returned */
+    }
+    return proof;
+  }
+
+  loadMigrationSnapshot(target: string, options: Record<string, unknown>): { snapshot: unknown; contract: MigrationContractId; dir: string } {
+    const contract: MigrationContractId = options.contract === "workflow-app" ? "workflow-app" : "run-state";
+    const file =
+      fs.existsSync(target) && fs.statSync(target).isFile()
+        ? path.resolve(target)
+        : path.join(process.cwd(), ".cw", "runs", target, "state.json");
+    if (!fs.existsSync(file)) throw new Error(`Migration target not found: ${target}`);
+    return { snapshot: JSON.parse(fs.readFileSync(file, "utf8")), contract, dir: path.dirname(file) };
   }
 
   listTopologies(): ReturnType<typeof listTopologyDefinitions> {

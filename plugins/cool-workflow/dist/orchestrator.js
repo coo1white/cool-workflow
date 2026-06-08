@@ -35,6 +35,7 @@ const multi_agent_host_1 = require("./multi-agent-host");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const node_snapshot_1 = require("./node-snapshot");
+const contract_migration_1 = require("./contract-migration");
 const state_explosion_1 = require("./state-explosion");
 const evidence_reasoning_1 = require("./evidence-reasoning");
 const report_1 = require("./orchestrator/report");
@@ -1054,6 +1055,35 @@ class CoolWorkflowRunner {
     nodeReplayVerify(runId, replayId, options = {}) {
         const run = this.loadRun(runId);
         return (0, node_snapshot_1.verifyNodeReplay)(run, (0, node_snapshot_1.readNodeReplay)(run, replayId), options);
+    }
+    // ---- contract migration (v0.1.36) ---------------------------------------
+    migrationList() {
+        return { contracts: (0, contract_migration_1.listMigrationContracts)() };
+    }
+    migrationCheck(target, options = {}) {
+        const { snapshot, contract } = this.loadMigrationSnapshot(target, options);
+        return (0, contract_migration_1.checkMigration)(contract, snapshot);
+    }
+    migrationProve(target, options = {}) {
+        const { snapshot, contract, dir } = this.loadMigrationSnapshot(target, options);
+        const proof = (0, contract_migration_1.proveMigration)(contract, snapshot);
+        // Append-only: persist the proof beside the target, NEVER overwriting source.
+        try {
+            (0, state_1.writeJson)(node_path_1.default.join(dir, "migration", `${proof.fingerprint.replace("sha256:", "").slice(0, 16)}.json`), proof);
+        }
+        catch {
+            /* read-only target — the proof is still returned */
+        }
+        return proof;
+    }
+    loadMigrationSnapshot(target, options) {
+        const contract = options.contract === "workflow-app" ? "workflow-app" : "run-state";
+        const file = node_fs_1.default.existsSync(target) && node_fs_1.default.statSync(target).isFile()
+            ? node_path_1.default.resolve(target)
+            : node_path_1.default.join(process.cwd(), ".cw", "runs", target, "state.json");
+        if (!node_fs_1.default.existsSync(file))
+            throw new Error(`Migration target not found: ${target}`);
+        return { snapshot: JSON.parse(node_fs_1.default.readFileSync(file, "utf8")), contract, dir: node_path_1.default.dirname(file) };
     }
     listTopologies() {
         return (0, topology_1.listTopologyDefinitions)();

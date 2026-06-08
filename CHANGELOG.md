@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.36
+
+- Added Contract Migration Tooling: first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover over the existing migrateRunState pipeline
+
 ## 0.1.35
 
 - Added Node Snapshot / Diff / Replay: per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness and v0.1.25 fingerprint/freshness pattern

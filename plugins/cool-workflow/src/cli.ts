@@ -566,6 +566,22 @@ async function main(): Promise<void> {
           throw new Error("Usage: cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
       }
     }
+    case "migration": {
+      const [subcommand, target] = args.positionals;
+      switch (subcommand) {
+        case "list":
+          printJson(runner.migrationList());
+          return;
+        case "check":
+          printJson(runner.migrationCheck(required(target, "target (run-id or state/app file)"), args.options));
+          return;
+        case "prove":
+          printJson(runner.migrationProve(required(target, "target (run-id or state/app file)"), args.options));
+          return;
+        default:
+          throw new Error("Usage: cw.js migration list|check|prove [target] [--contract run-state|workflow-app]");
+      }
+    }
     case "feedback": {
       const [subcommand, runId, feedbackId] = args.positionals;
       switch (subcommand) {
