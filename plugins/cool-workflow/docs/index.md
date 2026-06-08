@@ -29,6 +29,7 @@ Read these in order when you are new to CW:
 25. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 26. [Release Tooling](release-tooling.7.md) - one-command version bump across every surface, a per-feature scaffolder, forward-reference doc automation, and a de-duplicated release gate.
 27. [Real Execution Backend Integrations](real-execution-backends.7.md) - container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, byte-stable evidence vs node, fail-closed on an unavailable runtime/endpoint.
+28. [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md) - per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the eval harness; sha256-fingerprinted with fail-closed `valid|stale|absent` freshness.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

@@ -89,3 +89,7 @@ real execution is strictly opt-in. The `ResultEnvelope` schema is unchanged.
 
 execution-backends(7), sandbox-profiles(7), cli-mcp-parity(7),
 run-registry-control-plane(7)
+
+## Node Snapshot / Diff / Replay (v0.1.35)
+
+per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).

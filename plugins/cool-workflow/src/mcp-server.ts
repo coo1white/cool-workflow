@@ -121,6 +121,18 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.showNode(String(args.runId || ""), String(args.nodeId || ""));
       case "cw_node_graph":
         return runner.graphNodes(String(args.runId || ""));
+      case "cw_node_snapshot":
+        return runner.nodeSnapshot(String(args.runId || ""), String(args.nodeId || ""), args);
+      case "cw_node_diff":
+        return runner.nodeDiff(
+          String(args.runId || ""),
+          String(args.baselineSnapshotId || args.baseline || ""),
+          String(args.candidateSnapshotId || args.candidate || "")
+        );
+      case "cw_node_replay":
+        return runner.nodeReplay(String(args.runId || ""), String(args.snapshotId || ""), args);
+      case "cw_node_replay_verify":
+        return runner.nodeReplayVerify(String(args.runId || ""), String(args.replayId || ""), args);
       case "cw_operator_status":
         return runner.operatorStatus(String(args.runId || ""));
       case "cw_operator_graph":
@@ -613,6 +625,23 @@ function toolDefinitions(): unknown[] {
       nodeId: stringSchema("Node id")
     }),
     tool("cw_node_graph", "Read the state-node graph for a run. Peer of `cw node graph`.", runIdSchema()),
+    tool("cw_node_snapshot", "Snapshot one state node into a derived, sha256-fingerprinted projection. Peer of `cw node snapshot`.", {
+      ...runIdSchema(),
+      nodeId: stringSchema("Node id")
+    }),
+    tool("cw_node_diff", "Structurally diff two node snapshots (stable, sorted). Peer of `cw node diff`.", {
+      ...runIdSchema(),
+      baselineSnapshotId: stringSchema("Baseline snapshot id"),
+      candidateSnapshotId: stringSchema("Candidate snapshot id")
+    }),
+    tool("cw_node_replay", "Deterministically replay one node from a snapshot; fail-closed on source drift. Peer of `cw node replay`.", {
+      ...runIdSchema(),
+      snapshotId: stringSchema("Snapshot id")
+    }),
+    tool("cw_node_replay_verify", "Verify a node replay against a fresh snapshot of its source. Peer of `cw node verify`.", {
+      ...runIdSchema(),
+      replayId: stringSchema("Replay id")
+    }),
     tool("cw_operator_status", "Read the structured Operator UX run status.", runIdSchema()),
     tool("cw_operator_graph", "Read the structured Operator UX run graph.", runIdSchema()),
     tool("cw_operator_report", "Refresh and read the structured Operator UX report summary.", runIdSchema()),

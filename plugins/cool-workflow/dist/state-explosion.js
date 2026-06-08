@@ -18,6 +18,7 @@ exports.formatCompactGraph = formatCompactGraph;
 exports.formatBlackboardDigest = formatBlackboardDigest;
 exports.stateExplosionReportLines = stateExplosionReportLines;
 exports.normalizeStateExplosionForEval = normalizeStateExplosionForEval;
+exports.fingerprintStrings = fingerprintStrings;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));

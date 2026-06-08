@@ -30,6 +30,7 @@ const checks = [
         "docs/team-collaboration.7.md",
         "docs/release-tooling.7.md",
         "docs/real-execution-backends.7.md",
+        "docs/node-snapshot-diff-replay.7.md",
         "docs/security-trust-hardening.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"

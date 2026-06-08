@@ -177,6 +177,14 @@ import {
   scoreMultiAgentReplay
 } from "./multi-agent-eval";
 import {
+  snapshotNode,
+  diffNodeSnapshots,
+  replayNodeSnapshot,
+  verifyNodeReplay,
+  readNodeSnapshot,
+  readNodeReplay
+} from "./node-snapshot";
+import {
   buildCompactGraph,
   buildStateExplosionReport,
   loadStateExplosionSummaryIndex,
@@ -1344,6 +1352,26 @@ export class CoolWorkflowRunner {
 
   evalReport(target: string): ReturnType<typeof reportMultiAgentEval> {
     return reportMultiAgentEval(target);
+  }
+
+  // ---- node snapshot / diff / replay (v0.1.35) ----------------------------
+  nodeSnapshot(runId: string, nodeId: string, options: Record<string, unknown> = {}): ReturnType<typeof snapshotNode> {
+    return snapshotNode(this.loadRun(runId), nodeId, options);
+  }
+
+  nodeDiff(runId: string, baselineSnapshotId: string, candidateSnapshotId: string): ReturnType<typeof diffNodeSnapshots> {
+    const run = this.loadRun(runId);
+    return diffNodeSnapshots(readNodeSnapshot(run, baselineSnapshotId), readNodeSnapshot(run, candidateSnapshotId));
+  }
+
+  nodeReplay(runId: string, snapshotId: string, options: Record<string, unknown> = {}): ReturnType<typeof replayNodeSnapshot> {
+    const run = this.loadRun(runId);
+    return replayNodeSnapshot(run, readNodeSnapshot(run, snapshotId), options);
+  }
+
+  nodeReplayVerify(runId: string, replayId: string, options: Record<string, unknown> = {}): ReturnType<typeof verifyNodeReplay> {
+    const run = this.loadRun(runId);
+    return verifyNodeReplay(run, readNodeReplay(run, replayId), options);
   }
 
   listTopologies(): ReturnType<typeof listTopologyDefinitions> {

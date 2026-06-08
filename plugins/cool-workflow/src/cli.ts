@@ -544,8 +544,26 @@ async function main(): Promise<void> {
           if (wantsJson(args.options)) printJson(runner.graphNodes(required(runId, "run id")));
           else process.stdout.write(`${formatOperatorGraph(runner.operatorGraph(required(runId, "run id")))}\n`);
           return;
+        case "snapshot":
+          printJson(runner.nodeSnapshot(required(runId, "run id"), required(nodeId, "node id")));
+          return;
+        case "diff":
+          printJson(
+            runner.nodeDiff(
+              required(runId, "run id"),
+              required(nodeId, "baseline snapshot id"),
+              required(args.positionals[3], "candidate snapshot id")
+            )
+          );
+          return;
+        case "replay":
+          printJson(runner.nodeReplay(required(runId, "run id"), required(nodeId, "snapshot id")));
+          return;
+        case "verify":
+          printJson(runner.nodeReplayVerify(required(runId, "run id"), required(nodeId, "replay id")));
+          return;
         default:
-          throw new Error("Usage: cw.js node list|show|graph <run-id> [node-id]");
+          throw new Error("Usage: cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
       }
     }
     case "feedback": {
