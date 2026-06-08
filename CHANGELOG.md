@@ -1,5 +1,45 @@
 # Changelog
 
+## 0.1.30
+
+- Added the Web / Desktop Workbench: a human-facing console rendering a run's
+  five operator surfaces — run graph, blackboard, worker logs, candidate compare,
+  and audit timeline — plus a cross-run entry point over the v0.1.28 Run Registry.
+  It is a THIRD FRONT DOOR alongside the CLI (human speed) and MCP (machine
+  context): all three are presentation policy over ONE mechanism (the kernel +
+  durable `.cw/` state).
+- NO HIDDEN DASHBOARD. The Workbench holds ZERO authoritative state. It is a
+  stateless, read-only RENDERER over the durable `.cw/` files and existing
+  capability payloads; refresh re-derives everything from disk, and deleting the
+  host loses nothing — the data IS the files. The view models in `src/types.ts`
+  (`WorkbenchRunView`, `WorkbenchPanel`, `WorkbenchServeDescriptor`) are DERIVED
+  projections that embed existing payloads; no run/state schema is forked.
+- ONE MECHANISM, THREE RENDERINGS. `src/workbench.ts` assembles every panel by
+  calling the SAME capability core entries the CLI/MCP route through. Each
+  `workbench.view` panel equals its underlying `cw <cmd> --json` payload
+  byte-for-byte, parity-gated via a new `workbench.view` probe in
+  `scripts/parity-check.js`. The Workbench can show nothing the CLI/MCP cannot.
+- New declared capabilities `workbench.view` and `workbench.serve`
+  (`src/capability-registry.ts`), CLI `cw workbench view|serve`, and MCP tools
+  `cw_workbench_view` / `cw_workbench_serve`. `cw_workbench_serve` returns the
+  serve descriptor only (an MCP stdio host cannot start a blocking server) — the
+  single declared, documented payload divergence; the descriptor itself is
+  identical across surfaces.
+- LEAST PRIVILEGE, LOCAL BY DEFAULT. The optional host (`src/workbench-host.ts`)
+  binds `127.0.0.1` ONLY, is read-only (every route is `GET`; writes are refused
+  `405`), rejects non-localhost `Host` headers (`403`, a DNS-rebinding defense)
+  and path traversal (`403`), and fails closed on unreadable/stale state.
+- OPTIONAL SURFACE. The Workbench (and its dependency-light static UI under
+  `ui/workbench/`) is not a required dependency of the SDK: the committed `dist/`
+  and a plain `node` runtime keep working with it absent. The kernel imports the
+  Workbench never; the Workbench imports the kernel. No heavy frontend framework
+  enters the runtime package.
+- Docs: `docs/web-desktop-workbench.7.md` (added to `docs/index.md`). Tests:
+  `test/web-desktop-workbench-smoke.js` (panel parity, read-only/localhost host,
+  freshness honesty, SDK-without-Workbench), wired into `npm test`,
+  `release:check`, `parity:check`, and `version:sync`. No run-state schema change;
+  no migration required.
+
 ## 0.1.29
 
 - Added Execution Backends: the execution layer is lifted OUT of the kernel into

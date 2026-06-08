@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cool Workflow Workbench</title>
+    <!-- Dependency-light: no framework, no bundler, no network. Static assets
+         only; all data is fetched from the localhost read-only JSON routes. -->
+    <link rel="stylesheet" href="/ui/app.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Cool Workflow <span class="muted">Workbench</span></h1>
+      <p class="trust">read-only · localhost · no hidden dashboard — every view re-derived from <code>.cw/</code> files</p>
+    </header>
+    <main>
+      <section id="index-panel" class="sidebar">
+        <div class="bar">
+          <strong>Runs</strong>
+          <button id="refresh" title="Re-derive from disk">refresh</button>
+        </div>
+        <input id="filter" type="search" placeholder="filter runs (app/status/text)" />
+        <div id="registry-freshness" class="freshness"></div>
+        <ul id="run-list" class="run-list"></ul>
+      </section>
+      <section id="run-panel" class="detail">
+        <p class="empty">Select a run to inspect its graph, blackboard, worker logs, candidate compare, and audit timeline.</p>
+      </section>
+    </main>
+    <script src="/ui/app.js"></script>
+  </body>
+</html>

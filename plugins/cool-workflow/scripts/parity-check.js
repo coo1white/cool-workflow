@@ -50,7 +50,8 @@ const RUN_PROBES = [
   ["feedback.summary", ["--json"], "cw_feedback_summary"],
   ["commit.summary", ["--json"], "cw_commit_summary"],
   ["audit.summary", [], "cw_audit_summary"],
-  ["multi-agent.summary", ["--json"], "cw_multi_agent_summary"]
+  ["multi-agent.summary", ["--json"], "cw_multi_agent_summary"],
+  ["workbench.view", ["--json"], "cw_workbench_view"]
 ];
 const GLOBAL_PROBES = [
   ["list", "cw_list"],

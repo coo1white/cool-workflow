@@ -219,3 +219,13 @@ drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
 backends; the backend id + sandbox attestation are recorded as provenance, so this
 surface is unchanged regardless of which backend executed a run. See
 [execution-backends.7.md](execution-backends.7.md).
+## Web / Desktop Workbench (v0.1.30)
+
+v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
+console that renders this surface (and the other four operator panels — run
+graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
+reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR alongside
+the CLI and MCP that holds no authoritative state and forks no schema: each panel
+equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
+re-derives everything from disk. See
+[web-desktop-workbench.7.md](web-desktop-workbench.7.md).
