@@ -14,7 +14,19 @@ import { CoolWorkflowRunner } from "./orchestrator";
 import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
 import { RunRegistry, isRunLifecycleState } from "./run-registry";
 import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
-import { loadRunStateFile } from "./state";
+import { loadRunStateFile, readJson, writeJson } from "./state";
+import fs from "node:fs";
+import {
+  DEFAULT_SCHEDULING_POLICY,
+  normalizeSchedulingPolicy,
+  planSchedule,
+  applyLease,
+  leaseRelease,
+  leaseComplete,
+  reclaimExpired,
+  resetEntry
+} from "./scheduling";
+import { SchedulingPolicy, SchedulingPolicyReport } from "./types";
 import {
   MetricsSummaryReport,
   RunHistoryResult,
@@ -254,6 +266,80 @@ export function queueDrain(reg: RunRegistry, args: Record<string, unknown>): unk
 
 export function queueShow(reg: RunRegistry, id: string): unknown {
   return reg.queueShow(id);
+}
+
+// ---- control-plane scheduling (v0.1.37) -----------------------------------
+function loadSchedulingPolicy(reg: RunRegistry): { policy: SchedulingPolicy; source: "default" | "file" } {
+  const file = reg.schedulingPolicyPath();
+  if (fs.existsSync(file)) {
+    try {
+      return { policy: normalizeSchedulingPolicy(readJson(file) as Partial<SchedulingPolicy>), source: "file" };
+    } catch {
+      /* fall through to default */
+    }
+  }
+  return { policy: DEFAULT_SCHEDULING_POLICY, source: "default" };
+}
+function schedNow(args: Record<string, unknown>): string {
+  return optionalString(args.now) || new Date().toISOString();
+}
+function isTrue(value: unknown): boolean {
+  return value === true || value === "true" || value === "1";
+}
+
+export function schedPlan(reg: RunRegistry, args: Record<string, unknown>): unknown {
+  return planSchedule(reg.loadQueueEntries(), loadSchedulingPolicy(reg).policy, schedNow(args));
+}
+export function schedLease(reg: RunRegistry, args: Record<string, unknown>): unknown {
+  const now = schedNow(args);
+  const policy = loadSchedulingPolicy(reg).policy;
+  const limit = args.limit === undefined ? undefined : Number(args.limit);
+  const { entries, leases } = applyLease(reg.loadQueueEntries(), policy, now, limit);
+  reg.saveQueueEntries(entries);
+  return { schemaVersion: 1, now, granted: leases.length, leases };
+}
+export function schedRelease(reg: RunRegistry, args: Record<string, unknown>): unknown {
+  const now = schedNow(args);
+  const failed = isTrue(args.failed);
+  const { entries, matched } = leaseRelease(reg.loadQueueEntries(), String(args.leaseId || ""), loadSchedulingPolicy(reg).policy, now, {
+    failed,
+    reason: optionalString(args.reason)
+  });
+  if (!matched) throw new Error(`No active lease to release: ${args.leaseId}`);
+  reg.saveQueueEntries(entries);
+  return { schemaVersion: 1, released: String(args.leaseId || ""), failed };
+}
+export function schedComplete(reg: RunRegistry, args: Record<string, unknown>): unknown {
+  const { entries, matched } = leaseComplete(reg.loadQueueEntries(), String(args.leaseId || ""), schedNow(args));
+  if (!matched) throw new Error(`No active lease to complete: ${args.leaseId}`);
+  reg.saveQueueEntries(entries);
+  return { schemaVersion: 1, completed: String(args.leaseId || "") };
+}
+export function schedReclaim(reg: RunRegistry, args: Record<string, unknown>): unknown {
+  const now = schedNow(args);
+  const { entries, reclaimed } = reclaimExpired(reg.loadQueueEntries(), loadSchedulingPolicy(reg).policy, now);
+  reg.saveQueueEntries(entries);
+  return { schemaVersion: 1, now, reclaimed };
+}
+export function schedReset(reg: RunRegistry, args: Record<string, unknown>): unknown {
+  const { entries, matched } = resetEntry(reg.loadQueueEntries(), String(args.id || ""));
+  if (!matched) throw new Error(`No parked entry to reset: ${args.id}`);
+  reg.saveQueueEntries(entries);
+  return { schemaVersion: 1, reset: String(args.id || "") };
+}
+export function schedPolicyShow(reg: RunRegistry): SchedulingPolicyReport {
+  const { policy, source } = loadSchedulingPolicy(reg);
+  return { schemaVersion: 1, policy, source };
+}
+export function schedPolicySet(reg: RunRegistry, args: Record<string, unknown>): SchedulingPolicyReport {
+  const current = loadSchedulingPolicy(reg).policy;
+  const patch: Partial<SchedulingPolicy> = {};
+  for (const key of ["maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"] as const) {
+    if (args[key] !== undefined) patch[key] = Number(args[key]);
+  }
+  const policy = normalizeSchedulingPolicy({ ...current, ...patch });
+  writeJson(reg.schedulingPolicyPath(), policy);
+  return { schemaVersion: 1, policy, source: "file" };
 }
 
 export function runHistory(reg: RunRegistry, args: Record<string, unknown>): RunHistoryResult {

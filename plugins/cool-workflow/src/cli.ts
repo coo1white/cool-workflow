@@ -20,7 +20,15 @@ import {
   runResume,
   runSearch,
   runShow,
-  sandboxChoose
+  sandboxChoose,
+  schedPlan,
+  schedLease,
+  schedRelease,
+  schedComplete,
+  schedReclaim,
+  schedReset,
+  schedPolicyShow,
+  schedPolicySet
 } from "./capability-core";
 import { formatMetricsReport, formatMetricsSummary } from "./observability";
 import {
@@ -993,6 +1001,41 @@ async function main(): Promise<void> {
           return;
         default:
           throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
+      }
+    }
+    case "sched": {
+      const registry = runRegistryFor(args.options, runner);
+      const [subcommand, idArg] = args.positionals;
+      switch (subcommand) {
+        case "plan":
+          printJson(schedPlan(registry, args.options));
+          return;
+        case "lease":
+          printJson(schedLease(registry, args.options));
+          return;
+        case "release":
+          printJson(schedRelease(registry, { ...args.options, leaseId: args.options.leaseId || idArg }));
+          return;
+        case "complete":
+          printJson(schedComplete(registry, { ...args.options, leaseId: args.options.leaseId || idArg }));
+          return;
+        case "reclaim":
+          printJson(schedReclaim(registry, args.options));
+          return;
+        case "reset":
+          printJson(schedReset(registry, { ...args.options, id: args.options.id || idArg }));
+          return;
+        case "policy": {
+          const [, action] = args.positionals;
+          if (action === "set") {
+            printJson(schedPolicySet(registry, args.options));
+            return;
+          }
+          printJson(schedPolicyShow(registry));
+          return;
+        }
+        default:
+          throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
       }
     }
     case "history": {

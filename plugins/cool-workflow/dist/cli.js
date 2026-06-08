@@ -995,6 +995,41 @@ async function main() {
                     throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
             }
         }
+        case "sched": {
+            const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
+            const [subcommand, idArg] = args.positionals;
+            switch (subcommand) {
+                case "plan":
+                    printJson((0, capability_core_1.schedPlan)(registry, args.options));
+                    return;
+                case "lease":
+                    printJson((0, capability_core_1.schedLease)(registry, args.options));
+                    return;
+                case "release":
+                    printJson((0, capability_core_1.schedRelease)(registry, { ...args.options, leaseId: args.options.leaseId || idArg }));
+                    return;
+                case "complete":
+                    printJson((0, capability_core_1.schedComplete)(registry, { ...args.options, leaseId: args.options.leaseId || idArg }));
+                    return;
+                case "reclaim":
+                    printJson((0, capability_core_1.schedReclaim)(registry, args.options));
+                    return;
+                case "reset":
+                    printJson((0, capability_core_1.schedReset)(registry, { ...args.options, id: args.options.id || idArg }));
+                    return;
+                case "policy": {
+                    const [, action] = args.positionals;
+                    if (action === "set") {
+                        printJson((0, capability_core_1.schedPolicySet)(registry, args.options));
+                        return;
+                    }
+                    printJson((0, capability_core_1.schedPolicyShow)(registry));
+                    return;
+                }
+                default:
+                    throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
+            }
+        }
         case "history": {
             const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
             const result = (0, capability_core_1.runHistory)(registry, args.options);

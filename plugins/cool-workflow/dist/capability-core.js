@@ -10,6 +10,9 @@
 // in only one surface is exactly the cross-surface drift v0.1.27 forbids.
 //
 // See docs/cli-mcp-parity.7.md and src/capability-registry.ts.
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.planSummary = planSummary;
 exports.appRun = appRun;
@@ -29,6 +32,14 @@ exports.queueAdd = queueAdd;
 exports.queueList = queueList;
 exports.queueDrain = queueDrain;
 exports.queueShow = queueShow;
+exports.schedPlan = schedPlan;
+exports.schedLease = schedLease;
+exports.schedRelease = schedRelease;
+exports.schedComplete = schedComplete;
+exports.schedReclaim = schedReclaim;
+exports.schedReset = schedReset;
+exports.schedPolicyShow = schedPolicyShow;
+exports.schedPolicySet = schedPolicySet;
 exports.runHistory = runHistory;
 exports.metricsSummary = metricsSummary;
 exports.sandboxProfileIdFrom = sandboxProfileIdFrom;
@@ -38,6 +49,8 @@ exports.isRecord = isRecord;
 const run_registry_1 = require("./run-registry");
 const observability_1 = require("./observability");
 const state_1 = require("./state");
+const node_fs_1 = __importDefault(require("node:fs"));
+const scheduling_1 = require("./scheduling");
 // ---- canonical plan payload -----------------------------------------------
 // Both `cw plan` (default + --json) and `cw_plan` resolve to this exact object.
 function planSummary(runner, workflowId, options) {
@@ -237,6 +250,83 @@ function queueDrain(reg, args) {
 }
 function queueShow(reg, id) {
     return reg.queueShow(id);
+}
+// ---- control-plane scheduling (v0.1.37) -----------------------------------
+function loadSchedulingPolicy(reg) {
+    const file = reg.schedulingPolicyPath();
+    if (node_fs_1.default.existsSync(file)) {
+        try {
+            return { policy: (0, scheduling_1.normalizeSchedulingPolicy)((0, state_1.readJson)(file)), source: "file" };
+        }
+        catch {
+            /* fall through to default */
+        }
+    }
+    return { policy: scheduling_1.DEFAULT_SCHEDULING_POLICY, source: "default" };
+}
+function schedNow(args) {
+    return optionalString(args.now) || new Date().toISOString();
+}
+function isTrue(value) {
+    return value === true || value === "true" || value === "1";
+}
+function schedPlan(reg, args) {
+    return (0, scheduling_1.planSchedule)(reg.loadQueueEntries(), loadSchedulingPolicy(reg).policy, schedNow(args));
+}
+function schedLease(reg, args) {
+    const now = schedNow(args);
+    const policy = loadSchedulingPolicy(reg).policy;
+    const limit = args.limit === undefined ? undefined : Number(args.limit);
+    const { entries, leases } = (0, scheduling_1.applyLease)(reg.loadQueueEntries(), policy, now, limit);
+    reg.saveQueueEntries(entries);
+    return { schemaVersion: 1, now, granted: leases.length, leases };
+}
+function schedRelease(reg, args) {
+    const now = schedNow(args);
+    const failed = isTrue(args.failed);
+    const { entries, matched } = (0, scheduling_1.leaseRelease)(reg.loadQueueEntries(), String(args.leaseId || ""), loadSchedulingPolicy(reg).policy, now, {
+        failed,
+        reason: optionalString(args.reason)
+    });
+    if (!matched)
+        throw new Error(`No active lease to release: ${args.leaseId}`);
+    reg.saveQueueEntries(entries);
+    return { schemaVersion: 1, released: String(args.leaseId || ""), failed };
+}
+function schedComplete(reg, args) {
+    const { entries, matched } = (0, scheduling_1.leaseComplete)(reg.loadQueueEntries(), String(args.leaseId || ""), schedNow(args));
+    if (!matched)
+        throw new Error(`No active lease to complete: ${args.leaseId}`);
+    reg.saveQueueEntries(entries);
+    return { schemaVersion: 1, completed: String(args.leaseId || "") };
+}
+function schedReclaim(reg, args) {
+    const now = schedNow(args);
+    const { entries, reclaimed } = (0, scheduling_1.reclaimExpired)(reg.loadQueueEntries(), loadSchedulingPolicy(reg).policy, now);
+    reg.saveQueueEntries(entries);
+    return { schemaVersion: 1, now, reclaimed };
+}
+function schedReset(reg, args) {
+    const { entries, matched } = (0, scheduling_1.resetEntry)(reg.loadQueueEntries(), String(args.id || ""));
+    if (!matched)
+        throw new Error(`No parked entry to reset: ${args.id}`);
+    reg.saveQueueEntries(entries);
+    return { schemaVersion: 1, reset: String(args.id || "") };
+}
+function schedPolicyShow(reg) {
+    const { policy, source } = loadSchedulingPolicy(reg);
+    return { schemaVersion: 1, policy, source };
+}
+function schedPolicySet(reg, args) {
+    const current = loadSchedulingPolicy(reg).policy;
+    const patch = {};
+    for (const key of ["maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"]) {
+        if (args[key] !== undefined)
+            patch[key] = Number(args[key]);
+    }
+    const policy = (0, scheduling_1.normalizeSchedulingPolicy)({ ...current, ...patch });
+    (0, state_1.writeJson)(reg.schedulingPolicyPath(), policy);
+    return { schemaVersion: 1, policy, source: "file" };
 }
 function runHistory(reg, args) {
     return reg.history({

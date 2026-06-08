@@ -78,3 +78,7 @@ over the existing transform. Pre-0.1.36 runs and apps load unchanged.
 
 release-and-migration(7), state-explosion-management(7), workflow-app-sdk(7),
 cli-mcp-parity(7)
+
+## Control-Plane Scheduling (v0.1.37)
+
+priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue; policy-as-data, deterministic. See control-plane-scheduling(7).

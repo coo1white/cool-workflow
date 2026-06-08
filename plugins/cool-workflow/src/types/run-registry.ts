@@ -104,11 +104,71 @@ export interface RunQueueEntry {
   repo: string;
   priority: number;
   enqueuedAt: string;
-  status: "pending" | "ready" | "draining" | "drained" | "cancelled";
+  status: "pending" | "ready" | "draining" | "drained" | "cancelled" | "leased" | "parked";
   drainedAt?: string;
   inputs?: Record<string, unknown>;
   provenance?: RunProvenance;
   note?: string;
+  // Control-Plane Scheduling (v0.1.37) — additive; pre-0.1.37 queues load unchanged.
+  /** Number of failed/expired attempts so far. */
+  attempts?: number;
+  /** Active lease handle; held by the host while executing. */
+  leaseId?: string;
+  /** Lease TTL deadline (ISO). A lease past this is reclaimable (host died). */
+  leaseExpiresAt?: string;
+  /** Earliest ISO time this entry may be re-selected (set by backoff). */
+  nextEligibleAt?: string;
+  /** Set when parked past the retry budget; only `sched reset` clears it. */
+  parkedReason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Control-Plane Scheduling (v0.1.37) — policy-as-data over the queue. The queue
+// has order; this adds concurrency ceilings, leases, retry/backoff, and a
+// fail-closed park state. Deterministic: all selection takes an injected `now`.
+// ---------------------------------------------------------------------------
+
+export interface SchedulingPolicy {
+  schemaVersion: 1;
+  /** Hard ceiling on in-flight (leased) entries. Never exceeded. */
+  maxConcurrent: number;
+  /** Park an entry once attempts reach this. */
+  maxAttempts: number;
+  /** Lease TTL in ms. */
+  leaseTtlMs: number;
+  /** Backoff curve: baseMs * factor^(attempts-1), capped at capMs. No jitter. */
+  backoffBaseMs: number;
+  backoffFactor: number;
+  backoffCapMs: number;
+}
+
+export interface SchedulingLease {
+  id: string;
+  leaseId: string;
+  leaseExpiresAt: string;
+  attempts: number;
+  priority: number;
+}
+
+export interface SchedulingSkip {
+  id: string;
+  reason: "concurrency-ceiling" | "parked" | "backoff" | "leased" | "terminal";
+}
+
+export interface SchedulingLeasePlan {
+  schemaVersion: 1;
+  now: string;
+  maxConcurrent: number;
+  inFlight: number;
+  available: number;
+  leases: SchedulingLease[];
+  skipped: SchedulingSkip[];
+}
+
+export interface SchedulingPolicyReport {
+  schemaVersion: 1;
+  policy: SchedulingPolicy;
+  source: "default" | "file";
 }
 
 /** Lifecycle-policy knobs. POLICY, not mechanism — kept out of the index and
