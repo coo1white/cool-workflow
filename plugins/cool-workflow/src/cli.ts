@@ -2,7 +2,33 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CoolWorkflowRunner, formatHelp, parseArgv } from "./orchestrator";
-import { appRun, planSummary, sandboxChoose } from "./capability-core";
+import {
+  appRun,
+  planSummary,
+  queueAdd,
+  queueDrain,
+  queueList,
+  queueShow,
+  runArchive,
+  runHistory,
+  runList,
+  runRegistryFor,
+  runRegistryRefresh,
+  runRegistryShow,
+  runRerun,
+  runResume,
+  runSearch,
+  runShow,
+  sandboxChoose
+} from "./capability-core";
+import {
+  formatHistory,
+  formatQueueList,
+  formatRegistryReport,
+  formatResume,
+  formatRunSearch,
+  formatRunShow
+} from "./run-registry";
 import { DesktopSchedulerDaemon } from "./daemon";
 import { Scheduler } from "./scheduler";
 import { RoutineTriggerBridge } from "./triggers";
@@ -731,6 +757,94 @@ async function main(): Promise<void> {
         default:
           throw new Error("Usage: cw.js routine create|list|delete|fire|events");
       }
+    }
+    case "registry": {
+      const registry = runRegistryFor(args.options, runner);
+      const [subcommand] = args.positionals;
+      switch (subcommand) {
+        case "refresh": {
+          const report = runRegistryRefresh(registry, args.options);
+          if (wantsJson(args.options)) printJson(report);
+          else process.stdout.write(`${formatRegistryReport(report)}\n`);
+          return;
+        }
+        case "show": {
+          const report = runRegistryShow(registry, args.options);
+          if (wantsJson(args.options)) printJson(report);
+          else process.stdout.write(`${formatRegistryReport(report)}\n`);
+          return;
+        }
+        default:
+          throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
+      }
+    }
+    case "run": {
+      const registry = runRegistryFor(args.options, runner);
+      const [subcommand, id] = args.positionals;
+      switch (subcommand) {
+        case "search": {
+          const result = runSearch(registry, args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatRunSearch(result)}\n`);
+          return;
+        }
+        case "list": {
+          const result = runList(registry, args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatRunSearch(result)}\n`);
+          return;
+        }
+        case "show": {
+          const result = runShow(registry, required(id, "run id"), args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatRunShow(result)}\n`);
+          return;
+        }
+        case "resume": {
+          const result = runResume(registry, required(id, "run id"), args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatResume(result)}\n`);
+          return;
+        }
+        case "archive":
+          printJson(runArchive(registry, id, args.options));
+          return;
+        case "rerun":
+          printJson(runRerun(registry, required(id, "run id"), args.options));
+          return;
+        default:
+          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun [run-id] [--scope repo|home] [--json]");
+      }
+    }
+    case "queue": {
+      const registry = runRegistryFor(args.options, runner);
+      const [subcommand, id] = args.positionals;
+      switch (subcommand) {
+        case "add":
+          printJson(queueAdd(registry, args.options));
+          return;
+        case "list": {
+          const result = queueList(registry, args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatQueueList(result)}\n`);
+          return;
+        }
+        case "drain":
+          printJson(queueDrain(registry, args.options));
+          return;
+        case "show":
+          printJson(queueShow(registry, required(id, "queue id")));
+          return;
+        default:
+          throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
+      }
+    }
+    case "history": {
+      const registry = runRegistryFor(args.options, runner);
+      const result = runHistory(registry, args.options);
+      if (wantsJson(args.options)) printJson(result);
+      else process.stdout.write(`${formatHistory(result)}\n`);
+      return;
     }
     default:
       throw new Error(`Unknown command: ${args.command}`);

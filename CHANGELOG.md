@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.1.28
+
+- Added the Run Registry / Control Plane: a layer that manages MANY workflow runs
+  across repositories — search, resume, archive, a durable queue, cross-repo
+  history, and failed-run rerun — over the per-run `.cw/runs/<id>/state.json`,
+  which remains the single source of truth.
+- Added `src/run-registry.ts` (`RunRegistry`): a DERIVED, rebuildable index over
+  runs. It scans source `state.json`, classifies lifecycle, and never mutates
+  source. Mechanism vs policy — retention windows, queue ordering, and archive
+  thresholds are configurable (`RunRegistryPolicy`, flags), not baked into the
+  index.
+- Added registry/index/lifecycle types to `src/types.ts` (`RunRecord`,
+  `RunRegistryIndex`, `RunRegistryReport`, `RunLifecycleState`, `RunQueueEntry`,
+  `RunProvenance`, `RunSearchResult`, `RunResumeResult`, `RunRerunResult`,
+  `RunHistoryResult`, `RunShowResult`) with explicit status enums including the
+  fail-closed `stale`/`missing` states. They reuse existing run/state types and
+  never fork them.
+- Documented lifecycle state machine (`queued → running → blocked → completed →
+  failed → archived`), derived from source state and never invented; `archived`
+  is an overlay that preserves the underlying `derivedLifecycle` for search.
+- Cross-repo discovery is plain files under a home registry resolved from
+  `CW_HOME`, then `XDG_STATE_HOME/cool-workflow`, then
+  `~/.local/state/cool-workflow`: `repos.json` (registered roots), `index.json`,
+  and `queue.json`, plus per-repo `.cw/registry/{index,archive,provenance}.json`.
+  No hidden database; no daemon required to read state.
+- Added CLI commands and MCP tools, each declared once in the v0.1.28 capability
+  registry so `cw <cmd> --json` is schema-identical to `cw_<tool>`: `registry
+  refresh|show`, `run search|list|show|resume|archive|rerun`, `queue
+  add|list|drain|show`, and cross-repo `history` (13 new capabilities; the
+  registry now declares 145 capabilities across 142 MCP tools).
+- Resume resolves a run by id across repos and continues from durable state
+  (read-only over source). Archive is an overlay mark that never deletes source
+  truth and keeps the run searchable. Rerun creates a NEW run that links to the
+  original via provenance (`rerunOf`/`originRunId`/`generation`); the failed run
+  is preserved for audit.
+- Fail closed: tampered source surfaces as `stale` (named in `staleRuns`),
+  missing source as `missing` (named in `missingRuns`, never fabricated into the
+  records), and `run show` of a deleted run returns `found: false` /
+  `freshness: missing` rather than a live status.
+- Added `test/run-registry-control-plane-smoke.js` proving cross-repo indexing,
+  search determinism, resume-by-id, queue ordering, archive without data loss,
+  rerun provenance linkage, fail-closed `stale`/`missing`, and CLI ↔ MCP payload
+  identity. Wired into `npm test` and `npm run release:check`.
+- Added `docs/run-registry-control-plane.7.md` (index model, lifecycle state
+  machine, queue/archive/rerun semantics, cross-repo layout) and added it to
+  `docs/index.md`.
+- No run-state schema change. Pre-0.1.28 single-repo runs and existing
+  `.cw/runs/` layouts keep working with an empty, rebuildable registry, and every
+  pre-0.1.28 CLI command and MCP tool keeps working.
+
 ## 0.1.27
 
 - Added CLI ↔ MCP Parity: a formal, tested guarantee that the command-line

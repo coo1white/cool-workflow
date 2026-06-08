@@ -7,7 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const VERSION = "0.1.27";
+const VERSION = "0.1.28";
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",
@@ -65,6 +65,13 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/cli-mcp-parity.7.md", "CLI", checks);
   checkIncludes("plugins/cool-workflow/docs/cli-mcp-parity.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "cli-mcp-parity.7.md", checks);
+  checkIncludes("plugins/cool-workflow/docs/run-registry-control-plane.7.md", "Run Registry / Control Plane", checks);
+  checkIncludes("plugins/cool-workflow/docs/run-registry-control-plane.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "run-registry-control-plane.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/run-registry-control-plane-smoke.js", "run-registry-control-plane-smoke", checks);
+  checkIncludes("plugins/cool-workflow/src/run-registry.ts", "RunRegistry", checks);
+  checkIncludes("plugins/cool-workflow/dist/run-registry.js", "RunRegistry", checks);
+  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "registry.refresh", checks);
   checkIncludes("plugins/cool-workflow/package.json", "parity:check", checks);
   checkIncludes("plugins/cool-workflow/scripts/parity-check.js", "buildParityReport", checks);
   checkIncludes("plugins/cool-workflow/test/cli-mcp-parity-smoke.js", "cli-mcp-parity-smoke", checks);

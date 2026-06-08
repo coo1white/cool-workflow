@@ -26,6 +26,20 @@ CW follows a small set of Unix-inspired workflow principles: small kernel,
 explicit state, composable pipes, isolated workers, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
+CW v0.1.28 adds the Run Registry / Control Plane: a layer that manages MANY
+workflow runs across repositories — `run search`, `run resume`, `run archive`, a
+durable `queue`, cross-repo `history`, and failed-run `run rerun` — over the
+per-run `.cw/runs/<id>/state.json`, which stays the single source of truth. The
+registry (`src/run-registry.ts`) is a DERIVED, rebuildable, fingerprinted index:
+it classifies a documented lifecycle (`queued → running → blocked → completed →
+failed → archived`), discovers runs cross-repo through a plain-file home registry
+(`CW_HOME`/XDG), and fails closed — tampered or missing source surfaces as
+`stale`/`missing` and triggers a rebuild, never a fabricated status. Resume
+continues a run, rerun creates a NEW run linked to the original by provenance, and
+archive marks without deleting source. Every verb is declared once in the
+capability registry, so `cw <cmd> --json` is schema-identical to `cw_<tool>`. See
+[docs/run-registry-control-plane.7.md](docs/run-registry-control-plane.7.md).
+
 CW v0.1.27 adds CLI ↔ MCP Parity: the command-line surface and the MCP surface
 are now two renderings of ONE data source, declared in a single capability
 registry (`src/capability-registry.ts`) and enforced fail-closed. Each capability
@@ -193,6 +207,7 @@ cool-workflow
   docs/sandbox-profiles.7.md
   docs/candidate-scoring.7.md
   docs/verifier-gated-commit.7.md
+  docs/run-registry-control-plane.7.md
 ```
 
 ## Commands
@@ -348,6 +363,21 @@ Render a report:
 node scripts/cw.js report <run-id>
 ```
 
+Manage runs across repos with the control plane (derived, fail-closed registry):
+
+```bash
+node scripts/cw.js registry refresh --scope home
+node scripts/cw.js run search --app architecture-review --status failed
+node scripts/cw.js run show <run-id>
+node scripts/cw.js run resume <run-id>
+node scripts/cw.js run rerun <failed-run-id> --reason "retry"
+node scripts/cw.js run archive <run-id> --reason "old"
+node scripts/cw.js queue add --app release-cut --priority 10
+node scripts/cw.js queue list
+node scripts/cw.js queue drain --limit 1
+node scripts/cw.js history --scope home --json
+```
+
 Run the deterministic release golden path:
 
 ```bash
@@ -391,6 +421,8 @@ See [docs/sandbox-profiles.7.md](docs/sandbox-profiles.7.md) for the sandbox
 profile contract.
 See [docs/end-to-end-golden-path.7.md](docs/end-to-end-golden-path.7.md) for
 the release golden path contract.
+See [docs/run-registry-control-plane.7.md](docs/run-registry-control-plane.7.md)
+for the cross-repo run registry / control plane contract.
 
 ## License
 

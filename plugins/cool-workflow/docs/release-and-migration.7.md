@@ -157,3 +157,13 @@ parity:check` (wired into `release:check`) guaranteeing the CLI and MCP surfaces
 are two renderings of one data source. No run-state schema change: pre-0.1.27
 runs load unchanged, and every pre-0.1.27 CLI command and MCP tool keeps working.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
+
+## Run Registry / Control Plane (v0.1.28)
+
+v0.1.28 adds a derived, rebuildable run registry over the same durable run state.
+No run-state schema change: pre-0.1.28 single-repo runs and existing `.cw/runs/`
+layouts keep working with an empty registry (`registry show` reports `absent`
+until the first `registry refresh`), and the registry, archive/provenance
+overlays, queue, and home discovery set are all derivable files that can be
+deleted and rebuilt from source. See
+[run-registry-control-plane.7.md](run-registry-control-plane.7.md).

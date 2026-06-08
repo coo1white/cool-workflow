@@ -296,7 +296,25 @@ exports.CAPABILITY_REGISTRY = [
     { capability: "routine.list", summary: "List routine-style triggers.", entry: "triggers.list", surface: "both", cli: { path: ["routine", "list"], jsonMode: "default" }, mcp: { tool: "cw_routine_list" } },
     { capability: "routine.delete", summary: "Delete a routine-style trigger.", entry: "triggers.delete", surface: "both", cli: { path: ["routine", "delete"], jsonMode: "default" }, mcp: { tool: "cw_routine_delete" } },
     { capability: "routine.fire", summary: "Record an API/GitHub trigger event.", entry: "triggers.fire", surface: "both", cli: { path: ["routine", "fire"], jsonMode: "default" }, mcp: { tool: "cw_routine_fire" } },
-    { capability: "routine.events", summary: "List routine trigger events.", entry: "triggers.events", surface: "both", cli: { path: ["routine", "events"], jsonMode: "default" }, mcp: { tool: "cw_routine_events" } }
+    { capability: "routine.events", summary: "List routine trigger events.", entry: "triggers.events", surface: "both", cli: { path: ["routine", "events"], jsonMode: "default" }, mcp: { tool: "cw_routine_events" } },
+    // ---- run registry / control plane (v0.1.28) -----------------------------
+    // A derived, fingerprinted, fail-closed index over `.cw/runs/<id>/state.json`
+    // across repos. Every verb is declared once here so the CLI and MCP surfaces
+    // are two renderings of one source and pass the parity gate. `cw <cmd> --json`
+    // is schema-identical to `cw_<tool>`; the per-run state.json remains the truth.
+    { capability: "registry.refresh", summary: "Recompute and persist the derived run registry index.", entry: "runRegistry.refresh", surface: "both", cli: { path: ["registry", "refresh"], jsonMode: "flag" }, mcp: { tool: "cw_registry_refresh" } },
+    { capability: "registry.show", summary: "Read the run registry index with valid|stale|absent freshness.", entry: "runRegistry.show", surface: "both", cli: { path: ["registry", "show"], jsonMode: "flag" }, mcp: { tool: "cw_registry_show" } },
+    { capability: "run.search", summary: "Search runs by app/status/time/repo/free-text, deterministic + paginated.", entry: "runRegistry.search", surface: "both", cli: { path: ["run", "search"], jsonMode: "flag" }, mcp: { tool: "cw_run_search" } },
+    { capability: "run.list", summary: "List indexed runs across repos (search with no filters).", entry: "runRegistry.list", surface: "both", cli: { path: ["run", "list"], jsonMode: "flag" }, mcp: { tool: "cw_run_list" } },
+    { capability: "run.show", summary: "Resolve one run by id across the registry; fail closed on missing source.", entry: "runRegistry.showRun", surface: "both", cli: { path: ["run", "show"], jsonMode: "flag" }, mcp: { tool: "cw_run_show" } },
+    { capability: "run.resume", summary: "Resolve a run by id and continue it from durable state.", entry: "runRegistry.resume", surface: "both", cli: { path: ["run", "resume"], jsonMode: "flag" }, mcp: { tool: "cw_run_resume" } },
+    { capability: "run.archive", summary: "Archive/unarchive a run (overlay mark; never deletes source).", entry: "runRegistry.archive", surface: "both", cli: { path: ["run", "archive"], jsonMode: "default" }, mcp: { tool: "cw_run_archive" } },
+    { capability: "run.rerun", summary: "Re-run a failed run as a NEW run linked to the original by provenance.", entry: "runRegistry.rerun", surface: "both", cli: { path: ["run", "rerun"], jsonMode: "default" }, mcp: { tool: "cw_run_rerun" } },
+    { capability: "queue.add", summary: "Enqueue a pending/planned run with explicit ordering policy.", entry: "runRegistry.queueAdd", surface: "both", cli: { path: ["queue", "add"], jsonMode: "default" }, mcp: { tool: "cw_queue_add" } },
+    { capability: "queue.list", summary: "List the durable run queue in policy order.", entry: "runRegistry.queueList", surface: "both", cli: { path: ["queue", "list"], jsonMode: "flag" }, mcp: { tool: "cw_queue_list" } },
+    { capability: "queue.drain", summary: "Mark the next ready queue entries drained (the host still executes).", entry: "runRegistry.queueDrain", surface: "both", cli: { path: ["queue", "drain"], jsonMode: "default" }, mcp: { tool: "cw_queue_drain" } },
+    { capability: "queue.show", summary: "Show one durable queue entry.", entry: "runRegistry.queueShow", surface: "both", cli: { path: ["queue", "show"], jsonMode: "default" }, mcp: { tool: "cw_queue_show" } },
+    { capability: "history", summary: "Read a cross-repo unified run timeline (newest first).", entry: "runRegistry.history", surface: "both", cli: { path: ["history"], jsonMode: "flag" }, mcp: { tool: "cw_history" } }
 ];
 // ---------------------------------------------------------------------------
 // Derivations + the fail-closed parity report builder.

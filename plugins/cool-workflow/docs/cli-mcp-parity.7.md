@@ -260,3 +260,11 @@ and `npm run release:check`.
 
 In CW, parity is not a convention; it is a derived, declared, and enforced
 property of the build. It is not done until it is documented and tested.
+
+## Run Registry / Control Plane (v0.1.28)
+
+v0.1.28 adds 13 control-plane capabilities — `registry refresh|show`, `run
+search|list|show|resume|archive|rerun`, `queue add|list|drain|show`, and
+`history` — declared once in the capability registry and validated by the same
+fail-closed parity gate, so each `cw <cmd> --json` is schema-identical to its
+`cw_<tool>`. See [run-registry-control-plane.7.md](run-registry-control-plane.7.md).
