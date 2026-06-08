@@ -37,28 +37,19 @@ const checks = [
       }
     }
   },
+  // NOTE: the individual `node test/<x>-smoke.js` steps were removed — every one
+  // is already run by `npm test` below (proven by set intersection). Re-running
+  // them here doubled wall time (~86s -> ~25s) without adding coverage. The steps
+  // kept below are the ones NOT covered by `npm test`: the build/typecheck, the
+  // app/script runners (canonical-apps, golden-path), and the dedicated gates
+  // (parity, manifest drift, version sync). `npm test` already runs every smoke,
+  // including eval-replay-harness, fixture-compat, dogfood, security, and the
+  // per-feature smokes.
   { name: "build", command: ["npm", "run", "build"] },
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "tests", command: ["npm", "test"] },
-  { name: "multi-agent runtime core smoke", command: ["node", "test/multi-agent-runtime-core-smoke.js"] },
-  { name: "multi-agent topologies smoke", command: ["node", "test/multi-agent-topologies-smoke.js"] },
-  { name: "multi-agent CLI MCP surface smoke", command: ["node", "test/multi-agent-cli-mcp-surface-smoke.js"] },
-  { name: "multi-agent operator UX smoke", command: ["node", "test/multi-agent-operator-ux-smoke.js"] },
-  { name: "multi-agent trust policy audit smoke", command: ["node", "test/multi-agent-trust-policy-audit-smoke.js"] },
-  { name: "multi-agent eval replay harness smoke", command: ["node", "test/multi-agent-eval-replay-harness-smoke.js"] },
-  { name: "state explosion management smoke", command: ["node", "test/state-explosion-management-smoke.js"] },
-  { name: "run registry control plane smoke", command: ["node", "test/run-registry-control-plane-smoke.js"] },
-  { name: "observability cost accounting smoke", command: ["node", "test/observability-cost-accounting-smoke.js"] },
-  { name: "team collaboration smoke", command: ["node", "test/team-collaboration-smoke.js"] },
-  { name: "execution backends smoke", command: ["node", "test/execution-backends-smoke.js"] },
-  { name: "web desktop workbench smoke", command: ["node", "test/web-desktop-workbench-smoke.js"] },
-  { name: "robustness hardening smoke", command: ["node", "test/robustness-hardening-smoke.js"] },
-  { name: "eval replay release gate", command: ["npm", "run", "eval:replay"] },
-  { name: "security trust smoke", command: ["node", "test/security-trust-hardening-smoke.js"] },
-  { name: "dogfood release smoke", command: ["node", "test/dogfood-release-smoke.js"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },
   { name: "golden path", command: ["npm", "run", "golden-path"] },
-  { name: "fixture compatibility", command: ["npm", "run", "fixture-compat"] },
   { name: "CLI MCP parity", command: ["npm", "run", "parity:check"] },
   { name: "vendor manifest synchronization", command: ["npm", "run", "gen:manifests", "--", "--check"] },
   { name: "version synchronization", command: ["npm", "run", "version:sync"] }
