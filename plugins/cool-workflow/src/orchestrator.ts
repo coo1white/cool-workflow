@@ -80,6 +80,7 @@ import {
   validateSandboxNetwork,
   validateSandboxProfileFile
 } from "./sandbox-profile";
+import { backendListPayload, backendProbePayload, backendShowPayload } from "./execution-backend";
 import {
   buildOperatorGraph,
   summarizeOperatorCandidates,
@@ -457,6 +458,7 @@ export class CoolWorkflowRunner {
     try {
       const manifest = createDispatchManifest(run, numberOption(options.limit), {
         sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
+        backendId: stringOption(options.backend) || stringOption(options.backendId) || stringOption(options.executionBackend),
         multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
         multiAgentGroupId: stringOption(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
         multiAgentRoleId: stringOption(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
@@ -818,6 +820,20 @@ export class CoolWorkflowRunner {
 
   validateSandboxProfile(profileFile: string, options: Record<string, unknown> = {}): ReturnType<typeof validateSandboxProfileFile> {
     return validateSandboxProfileFile(profileFile, sandboxContextForValidation(String(options.cwd || process.cwd())));
+  }
+
+  listBackends(options: Record<string, unknown> = {}): ReturnType<typeof backendListPayload> {
+    void options;
+    return backendListPayload();
+  }
+
+  showBackend(backendId: string, options: Record<string, unknown> = {}): ReturnType<typeof backendShowPayload> {
+    void options;
+    return backendShowPayload(backendId);
+  }
+
+  probeBackend(backendId: string | undefined, options: Record<string, unknown> = {}): ReturnType<typeof backendProbePayload> {
+    return backendProbePayload(backendId, { cwd: String(options.cwd || process.cwd()) });
   }
 
   listCandidates(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listCandidates> {
@@ -1725,7 +1741,7 @@ export function formatHelp(): string {
     "  status <run-id> [--json|--format json]",
     "  next <run-id> [--limit N]",
     "  graph <run-id> [--json]",
-    "  dispatch <run-id> [--limit N] [--sandbox PROFILE]",
+    "  dispatch <run-id> [--limit N] [--sandbox PROFILE] [--backend node|bun|shell|container|remote|ci]",
     "  result <run-id> <task-id> <result-file>",
     "  state check <run-id> [--state PATH] [--write]",
     "  commit <run-id> --verifier <node-id> [--reason TEXT]",
@@ -1736,6 +1752,7 @@ export function formatHelp(): string {
     "  report <run-id> [--show|--summary]",
     "  app list|show|validate|init|package",
     "  sandbox list|show|validate",
+    "  backend list|show|probe [backend-id]",
     "  contract show <run-id> [contract-id]",
     "  node list|show|graph <run-id>",
     "  feedback list|summary|show|collect|task|resolve <run-id>",

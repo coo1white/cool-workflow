@@ -207,3 +207,13 @@ Every command and tool referenced above is declared in the capability registry
 (`src/capability-registry.ts`) and validated by `npm run parity:check`, so
 `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
+
+## Execution Backends (v0.1.29)
+
+v0.1.29 lifts execution into a pluggable driver layer: one narrow `ExecutionBackend`
+contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
+drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
+`backend list|show|probe`. The result/evidence envelope is schema-identical across
+backends; the backend id + sandbox attestation are recorded as provenance, so this
+surface is unchanged regardless of which backend executed a run. See
+[execution-backends.7.md](execution-backends.7.md).

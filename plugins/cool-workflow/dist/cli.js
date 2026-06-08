@@ -515,6 +515,22 @@ async function main() {
                     throw new Error("Usage: cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
             }
         }
+        case "backend": {
+            const [subcommand, backendId] = args.positionals;
+            switch (subcommand) {
+                case "list":
+                    printJson(runner.listBackends(args.options));
+                    return;
+                case "show":
+                    printJson(runner.showBackend(required(backendId, "backend id"), args.options));
+                    return;
+                case "probe":
+                    printJson(runner.probeBackend(backendId, args.options));
+                    return;
+                default:
+                    throw new Error("Usage: cw.js backend list|show|probe [backend-id]");
+            }
+        }
         case "contract": {
             const [subcommand, runId, contractId] = args.positionals;
             switch (subcommand) {

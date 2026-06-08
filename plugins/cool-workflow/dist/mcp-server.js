@@ -250,6 +250,12 @@ function callTool(name, args) {
             case "cw_sandbox_choose":
             case "cw_sandbox_resolve":
                 return (0, capability_core_1.sandboxChoose)(runner, args);
+            case "cw_backend_list":
+                return runner.listBackends(args);
+            case "cw_backend_show":
+                return runner.showBackend(String(args.backendId || args.backend || ""), args);
+            case "cw_backend_probe":
+                return runner.probeBackend((0, capability_core_1.optionalString)(args.backendId || args.backend), args);
             case "cw_result":
                 return runner.recordResult(String(args.runId || ""), String(args.taskId || ""), String(args.resultPath || ""));
             case "cw_commit":
@@ -620,6 +626,7 @@ function toolDefinitions() {
         tool("cw_multi_agent_step", "Preferred host API: perform one deterministic safe step without spawning agents.", {
             ...runIdSchema(),
             sandbox: stringSchema("Sandbox profile for any dispatch manifest created by this step"),
+            backend: stringSchema("Execution backend for any dispatch manifest created by this step (node, bun, shell, container, remote, ci)"),
             limit: numberSchema("Maximum dispatch tasks, defaults to 1")
         }),
         tool("cw_multi_agent_blackboard", "Preferred host API: operate on the active multi-agent blackboard while preserving provenance.", {
@@ -927,7 +934,9 @@ function toolDefinitions() {
             limit: numberSchema("Max tasks to dispatch"),
             sandbox: stringSchema("Sandbox profile id"),
             sandboxProfile: stringSchema("Sandbox profile id"),
-            sandboxProfileId: stringSchema("Sandbox profile id")
+            sandboxProfileId: stringSchema("Sandbox profile id"),
+            backend: stringSchema("Execution backend id (node, bun, shell, container, remote, ci)"),
+            backendId: stringSchema("Execution backend id")
         }),
         tool("cw_sandbox_list", "List bundled sandbox profiles.", {
             cwd: stringSchema("Workspace used to resolve profile paths")
@@ -953,6 +962,17 @@ function toolDefinitions() {
             sandbox: stringSchema("Sandbox profile id"),
             sandboxProfile: stringSchema("Sandbox profile id"),
             sandboxProfileId: stringSchema("Sandbox profile id")
+        }),
+        tool("cw_backend_list", "List available execution backends and their capabilities.", {
+            cwd: stringSchema("Workspace")
+        }),
+        tool("cw_backend_show", "Show one execution backend descriptor.", {
+            cwd: stringSchema("Workspace"),
+            backendId: stringSchema("Execution backend id (node, bun, shell, container, remote, ci)")
+        }),
+        tool("cw_backend_probe", "Probe execution backend readiness (live, deterministic).", {
+            cwd: stringSchema("Workspace"),
+            backendId: stringSchema("Execution backend id; omit to probe all backends")
         }),
         tool("cw_result", "Record a subagent result.", {
             runId: stringSchema("Run id"),

@@ -17,12 +17,13 @@ Read these in order when you are new to CW:
 13. [State Explosion Management](state-explosion-management.7.md) - durable summary records, compact and focused graph views, blackboard digests, and stale-aware compaction for large multi-agent runs.
 14. [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md) - derived, fingerprinted reasoning chains explaining why each evidence item was adopted/rejected with basis, authority, rationale, and counterfactual, and a fail-closed `unexplained` state.
 15. [Run Registry / Control Plane](run-registry-control-plane.7.md) - derived, fingerprinted, fail-closed index over runs across repos: search, resume, archive, durable queue, cross-repo history, and failed-run rerun with provenance.
-16. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, topology, multi-agent, blackboard, coordinator, and trust summaries.
-17. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
-18. [CLI ↔ MCP Parity](cli-mcp-parity.7.md) - the capability registry and fail-closed gate proving the CLI and MCP surfaces render one data source.
-19. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
-20. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
-21. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+16. [Execution Backends](execution-backends.7.md) - the pluggable driver layer (node/bun/shell/container/remote/ci): one narrow `ExecutionBackend` contract, sandbox attestation, identical envelopes across backends, and fail-closed delegation.
+17. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, topology, multi-agent, blackboard, coordinator, and trust summaries.
+18. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
+19. [CLI ↔ MCP Parity](cli-mcp-parity.7.md) - the capability registry and fail-closed gate proving the CLI and MCP surfaces render one data source.
+20. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
+21. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
+22. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

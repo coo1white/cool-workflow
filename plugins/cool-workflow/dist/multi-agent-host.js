@@ -90,6 +90,7 @@ function hostStep(run, options = {}) {
     if (dispatchPlan) {
         const manifest = (0, dispatch_1.createDispatchManifest)(run, dispatchPlan.limit, {
             sandboxProfileId: dispatchPlan.sandboxProfileId,
+            backendId: dispatchPlan.backendId,
             multiAgentRunId: topology.multiAgentRunId,
             multiAgentGroupId: dispatchPlan.groupId,
             multiAgentRoleId: dispatchPlan.roleId,
@@ -515,6 +516,7 @@ function nextDispatchPlan(run, topology, options) {
     return {
         limit: numberOption(options.limit) || 1,
         sandboxProfileId: stringOption(options.sandbox || options.sandboxProfile || options.sandboxProfileId) || "readonly",
+        backendId: stringOption(options.backend || options.backendId || options.executionBackend),
         groupId: group.id,
         fanoutId: fanout.id,
         roleId

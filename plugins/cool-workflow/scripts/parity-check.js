@@ -56,7 +56,8 @@ const GLOBAL_PROBES = [
   ["list", "cw_list"],
   ["app.list", "cw_app_list"],
   ["topology.list", "cw_topology_list"],
-  ["sandbox.list", "cw_sandbox_list"]
+  ["sandbox.list", "cw_sandbox_list"],
+  ["backend.list", "cw_backend_list"]
 ];
 
 function capById(id) {

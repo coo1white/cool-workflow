@@ -22,6 +22,7 @@ const pipeline_runner_1 = require("./pipeline-runner");
 const worker_isolation_1 = require("./worker-isolation");
 const candidate_scoring_1 = require("./candidate-scoring");
 const sandbox_profile_1 = require("./sandbox-profile");
+const execution_backend_1 = require("./execution-backend");
 const operator_ux_1 = require("./operator-ux");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_trust_1 = require("./multi-agent-trust");
@@ -290,6 +291,7 @@ class CoolWorkflowRunner {
         try {
             const manifest = (0, dispatch_1.createDispatchManifest)(run, numberOption(options.limit), {
                 sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
+                backendId: stringOption(options.backend) || stringOption(options.backendId) || stringOption(options.executionBackend),
                 multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
                 multiAgentGroupId: stringOption(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
                 multiAgentRoleId: stringOption(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
@@ -623,6 +625,17 @@ class CoolWorkflowRunner {
     }
     validateSandboxProfile(profileFile, options = {}) {
         return (0, sandbox_profile_1.validateSandboxProfileFile)(profileFile, (0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
+    }
+    listBackends(options = {}) {
+        void options;
+        return (0, execution_backend_1.backendListPayload)();
+    }
+    showBackend(backendId, options = {}) {
+        void options;
+        return (0, execution_backend_1.backendShowPayload)(backendId);
+    }
+    probeBackend(backendId, options = {}) {
+        return (0, execution_backend_1.backendProbePayload)(backendId, { cwd: String(options.cwd || process.cwd()) });
     }
     listCandidates(runId, options = {}) {
         return (0, candidate_scoring_1.listCandidates)(this.loadRun(runId), {
@@ -1447,7 +1460,7 @@ function formatHelp() {
         "  status <run-id> [--json|--format json]",
         "  next <run-id> [--limit N]",
         "  graph <run-id> [--json]",
-        "  dispatch <run-id> [--limit N] [--sandbox PROFILE]",
+        "  dispatch <run-id> [--limit N] [--sandbox PROFILE] [--backend node|bun|shell|container|remote|ci]",
         "  result <run-id> <task-id> <result-file>",
         "  state check <run-id> [--state PATH] [--write]",
         "  commit <run-id> --verifier <node-id> [--reason TEXT]",
@@ -1458,6 +1471,7 @@ function formatHelp() {
         "  report <run-id> [--show|--summary]",
         "  app list|show|validate|init|package",
         "  sandbox list|show|validate",
+        "  backend list|show|probe [backend-id]",
         "  contract show <run-id> [contract-id]",
         "  node list|show|graph <run-id>",
         "  feedback list|summary|show|collect|task|resolve <run-id>",

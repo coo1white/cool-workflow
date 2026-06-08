@@ -97,7 +97,7 @@ function openMcp() {
   const a1 = plan(repoA, "architecture-review", { question: "repoA alpha control plane" });
   const a2 = plan(repoA, "architecture-review", { question: "repoA beta" });
   const b1 = plan(repoB, "architecture-review", { question: "repoB gamma deliberately failed" });
-  const b2 = plan(repoB, "release-cut", { version: "0.1.28", question: "repoB delta" });
+  const b2 = plan(repoB, "release-cut", { version: "0.1.29", question: "repoB delta" });
 
   // realize lifecycles via source edits (the registry must re-derive from source).
   editState(a2.paths.state, (s) => s.tasks.forEach((t) => (t.status = "completed"))); // a2 -> completed

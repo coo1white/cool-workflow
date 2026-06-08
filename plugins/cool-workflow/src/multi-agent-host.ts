@@ -163,6 +163,7 @@ export function hostStep(run: WorkflowRun, options: Record<string, unknown> = {}
   if (dispatchPlan) {
     const manifest = createDispatchManifest(run, dispatchPlan.limit, {
       sandboxProfileId: dispatchPlan.sandboxProfileId,
+      backendId: dispatchPlan.backendId,
       multiAgentRunId: topology.multiAgentRunId,
       multiAgentGroupId: dispatchPlan.groupId,
       multiAgentRoleId: dispatchPlan.roleId,
@@ -590,6 +591,7 @@ function nextDispatchPlan(run: WorkflowRun, topology: MultiAgentTopologyRun | un
   return {
     limit: numberOption(options.limit) || 1,
     sandboxProfileId: stringOption(options.sandbox || options.sandboxProfile || options.sandboxProfileId) || "readonly",
+    backendId: stringOption(options.backend || options.backendId || options.executionBackend),
     groupId: group.id,
     fanoutId: fanout.id,
     roleId
