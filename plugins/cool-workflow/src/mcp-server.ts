@@ -26,7 +26,15 @@ import {
   runResume,
   runSearch,
   runShow,
-  sandboxChoose
+  sandboxChoose,
+  schedPlan,
+  schedLease,
+  schedRelease,
+  schedComplete,
+  schedReclaim,
+  schedReset,
+  schedPolicyShow,
+  schedPolicySet
 } from "./capability-core";
 
 interface JsonRpcRequest {
@@ -429,6 +437,22 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return queueDrain(runRegistryFor(args, runner), args);
       case "cw_queue_show":
         return queueShow(runRegistryFor(args, runner), String(args.id || ""));
+      case "cw_sched_plan":
+        return schedPlan(runRegistryFor(args, runner), args);
+      case "cw_sched_lease":
+        return schedLease(runRegistryFor(args, runner), args);
+      case "cw_sched_release":
+        return schedRelease(runRegistryFor(args, runner), args);
+      case "cw_sched_complete":
+        return schedComplete(runRegistryFor(args, runner), args);
+      case "cw_sched_reclaim":
+        return schedReclaim(runRegistryFor(args, runner), args);
+      case "cw_sched_reset":
+        return schedReset(runRegistryFor(args, runner), args);
+      case "cw_sched_policy_show":
+        return schedPolicyShow(runRegistryFor(args, runner));
+      case "cw_sched_policy_set":
+        return schedPolicySet(runRegistryFor(args, runner), args);
       case "cw_history":
         return runHistory(runRegistryFor(args, runner), args);
       case "cw_workbench_view":
@@ -1405,6 +1429,42 @@ function toolDefinitions(): unknown[] {
     tool("cw_queue_show", "Show one durable queue entry.", {
       cwd: stringSchema("Repo workspace"),
       id: stringSchema("Queue entry id")
+    }),
+    tool("cw_sched_plan", "Read-only control-plane lease plan for the queue+policy+now (deterministic; concurrency-bounded). Peer of `cw sched plan`.", {
+      cwd: stringSchema("Repo workspace")
+    }),
+    tool("cw_sched_lease", "Claim eligible queue entries as leases; never exceeds the concurrency ceiling. Peer of `cw sched lease`.", {
+      cwd: stringSchema("Repo workspace"),
+      limit: stringSchema("Max leases to grant")
+    }),
+    tool("cw_sched_release", "Release a held lease; failed=true increments attempts (retry/backoff or park). Peer of `cw sched release`.", {
+      cwd: stringSchema("Repo workspace"),
+      leaseId: stringSchema("Lease id"),
+      failed: stringSchema("true to count a failed attempt"),
+      reason: stringSchema("Release reason")
+    }),
+    tool("cw_sched_complete", "Complete a held lease (terminal success). Peer of `cw sched complete`.", {
+      cwd: stringSchema("Repo workspace"),
+      leaseId: stringSchema("Lease id")
+    }),
+    tool("cw_sched_reclaim", "Reclaim expired leases (host died); each counts one failed attempt. Peer of `cw sched reclaim`.", {
+      cwd: stringSchema("Repo workspace")
+    }),
+    tool("cw_sched_reset", "Reset a parked entry back to ready (operator recovery; the only way back). Peer of `cw sched reset`.", {
+      cwd: stringSchema("Repo workspace"),
+      id: stringSchema("Queue entry id")
+    }),
+    tool("cw_sched_policy_show", "Show the scheduling policy (file or conservative default). Peer of `cw sched policy show`.", {
+      cwd: stringSchema("Repo workspace")
+    }),
+    tool("cw_sched_policy_set", "Set scheduling policy fields (concurrency, attempts, lease TTL, backoff). Peer of `cw sched policy set`.", {
+      cwd: stringSchema("Repo workspace"),
+      maxConcurrent: stringSchema("Hard concurrency ceiling"),
+      maxAttempts: stringSchema("Retry budget before park"),
+      leaseTtlMs: stringSchema("Lease TTL (ms)"),
+      backoffBaseMs: stringSchema("Backoff base (ms)"),
+      backoffFactor: stringSchema("Backoff factor"),
+      backoffCapMs: stringSchema("Backoff cap (ms)")
     }),
     tool("cw_history", "Read a cross-repo unified run timeline (newest first), deterministic and paginated, with provenance links.", {
       cwd: stringSchema("Repo workspace"),

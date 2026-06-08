@@ -220,3 +220,7 @@ per-node snapshot, structural diff, and isolated deterministic replay over State
 ## Contract Migration Tooling (v0.1.36)
 
 first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover. See contract-migration-tooling(7).
+
+## Control-Plane Scheduling (v0.1.37)
+
+priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue; policy-as-data, deterministic. See control-plane-scheduling(7).

@@ -103,6 +103,10 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/contract-migration-tooling.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "contract-migration-tooling.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/contract-migration-tooling-smoke.js", "contract-migration-tooling-smoke", checks);
+  checkIncludes("plugins/cool-workflow/docs/control-plane-scheduling.7.md", "Control-Plane Scheduling", checks);
+  checkIncludes("plugins/cool-workflow/docs/control-plane-scheduling.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "control-plane-scheduling.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/control-plane-scheduling-smoke.js", "control-plane-scheduling-smoke", checks);
   checkIncludes("plugins/cool-workflow/src/collaboration.ts", "deriveReviewState", checks);
   checkIncludes("plugins/cool-workflow/dist/collaboration.js", "deriveReviewState", checks);
   checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "review.status", checks);

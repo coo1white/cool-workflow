@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing Cool Workflow v0.1.36 or later.
+Use this checklist before publishing Cool Workflow v0.1.37 or later.
 
 ## Dry-Run Gate
 

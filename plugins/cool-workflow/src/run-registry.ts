@@ -301,6 +301,20 @@ export class RunRegistry {
     writeJson(this.queueFilePath(), { schemaVersion: 1, entries });
   }
 
+  // Public queue accessors for the v0.1.37 control-plane scheduler (it operates ON
+  // this queue store via pure functions in scheduling.ts; the queue file is never
+  // duplicated). The scheduling-policy file lives beside the queue in the home
+  // registry, plain and diffable.
+  loadQueueEntries(): RunQueueEntry[] {
+    return this.loadQueue();
+  }
+  saveQueueEntries(entries: RunQueueEntry[]): void {
+    this.saveQueue(entries);
+  }
+  schedulingPolicyPath(): string {
+    return path.join(this.homeRegistryDir(), "scheduling-policy.json");
+  }
+
   // ---- record derivation (always from source) -----------------------------
   /** Derive a RunRecord from a run directory's source state.json. Returns the
    *  record, or null when source is unreadable/unsupported (caller decides how to
@@ -885,7 +899,7 @@ function compareHistory(a: RunRecord, b: RunRecord): number {
   return a.runId.localeCompare(b.runId);
 }
 
-function compareQueue(a: RunQueueEntry, b: RunQueueEntry): number {
+export function compareQueue(a: RunQueueEntry, b: RunQueueEntry): number {
   if (a.priority !== b.priority) return a.priority - b.priority;
   if (a.enqueuedAt !== b.enqueuedAt) return a.enqueuedAt < b.enqueuedAt ? -1 : 1;
   return a.id.localeCompare(b.id);

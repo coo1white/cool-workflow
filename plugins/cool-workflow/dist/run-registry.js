@@ -37,6 +37,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.RunRegistry = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.RUN_REGISTRY_SCHEMA_VERSION = void 0;
 exports.resolveCwHome = resolveCwHome;
 exports.deriveLifecycle = deriveLifecycle;
+exports.compareQueue = compareQueue;
 exports.isRunLifecycleState = isRunLifecycleState;
 exports.formatRegistryReport = formatRegistryReport;
 exports.formatRunSearch = formatRunSearch;
@@ -251,6 +252,19 @@ class RunRegistry {
     }
     saveQueue(entries) {
         (0, state_1.writeJson)(this.queueFilePath(), { schemaVersion: 1, entries });
+    }
+    // Public queue accessors for the v0.1.37 control-plane scheduler (it operates ON
+    // this queue store via pure functions in scheduling.ts; the queue file is never
+    // duplicated). The scheduling-policy file lives beside the queue in the home
+    // registry, plain and diffable.
+    loadQueueEntries() {
+        return this.loadQueue();
+    }
+    saveQueueEntries(entries) {
+        this.saveQueue(entries);
+    }
+    schedulingPolicyPath() {
+        return node_path_1.default.join(this.homeRegistryDir(), "scheduling-policy.json");
     }
     // ---- record derivation (always from source) -----------------------------
     /** Derive a RunRecord from a run directory's source state.json. Returns the

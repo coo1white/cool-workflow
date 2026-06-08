@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.37
+
+- Added Control-Plane Scheduling: priority + concurrency limits + lease lifecycle + retry/backoff + park policy over the v0.1.28 Run Registry queue; policy-as-data, fail-closed, deterministic
+
 ## 0.1.36
 
 - Added Contract Migration Tooling: first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover over the existing migrateRunState pipeline

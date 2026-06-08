@@ -1,6 +1,6 @@
 {
   "name": "cool-workflow",
-  "version": "0.1.36",
+  "version": "0.1.37",
   "description": "Workflow App SDK and TypeScript orchestration runtime for agent workflows.",
   "type": "commonjs",
   "license": "BSD-2-Clause",
