@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.35
+
+- Added Node Snapshot / Diff / Replay: per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness and v0.1.25 fingerprint/freshness pattern
+
 ## 0.1.34
 
 - Added Real Execution Backend Integrations: container/remote/ci backends really drive docker/podman, a remote runner, and a CI job — opt-in, fail-closed, byte-stable evidence vs node

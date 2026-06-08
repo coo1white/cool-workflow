@@ -34,6 +34,7 @@ const topology_1 = require("./topology");
 const multi_agent_host_1 = require("./multi-agent-host");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
+const node_snapshot_1 = require("./node-snapshot");
 const state_explosion_1 = require("./state-explosion");
 const evidence_reasoning_1 = require("./evidence-reasoning");
 const report_1 = require("./orchestrator/report");
@@ -1037,6 +1038,22 @@ class CoolWorkflowRunner {
     }
     evalReport(target) {
         return (0, multi_agent_eval_1.reportMultiAgentEval)(target);
+    }
+    // ---- node snapshot / diff / replay (v0.1.35) ----------------------------
+    nodeSnapshot(runId, nodeId, options = {}) {
+        return (0, node_snapshot_1.snapshotNode)(this.loadRun(runId), nodeId, options);
+    }
+    nodeDiff(runId, baselineSnapshotId, candidateSnapshotId) {
+        const run = this.loadRun(runId);
+        return (0, node_snapshot_1.diffNodeSnapshots)((0, node_snapshot_1.readNodeSnapshot)(run, baselineSnapshotId), (0, node_snapshot_1.readNodeSnapshot)(run, candidateSnapshotId));
+    }
+    nodeReplay(runId, snapshotId, options = {}) {
+        const run = this.loadRun(runId);
+        return (0, node_snapshot_1.replayNodeSnapshot)(run, (0, node_snapshot_1.readNodeSnapshot)(run, snapshotId), options);
+    }
+    nodeReplayVerify(runId, replayId, options = {}) {
+        const run = this.loadRun(runId);
+        return (0, node_snapshot_1.verifyNodeReplay)(run, (0, node_snapshot_1.readNodeReplay)(run, replayId), options);
     }
     listTopologies() {
         return (0, topology_1.listTopologyDefinitions)();

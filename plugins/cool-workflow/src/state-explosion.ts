@@ -1439,7 +1439,7 @@ function fingerprintRecords(records: Array<{ id: string; status?: string; update
   return fingerprintStrings(records.map((r) => `${r.id}:${r.status || ""}`).sort());
 }
 
-function fingerprintStrings(values: string[]): string {
+export function fingerprintStrings(values: string[]): string {
   const hash = crypto.createHash("sha256");
   hash.update(JSON.stringify([...values].sort()));
   return `sha256:${hash.digest("hex").slice(0, 32)}`;

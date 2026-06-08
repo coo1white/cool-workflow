@@ -76,3 +76,7 @@ cli-mcp-parity(7), release-and-migration(7), dogfood-one-real-repo(7)
 ## Real Execution Backend Integrations (v0.1.34)
 
 container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+
+## Node Snapshot / Diff / Replay (v0.1.35)
+
+per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).

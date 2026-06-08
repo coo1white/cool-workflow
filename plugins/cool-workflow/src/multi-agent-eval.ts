@@ -1000,7 +1000,7 @@ function loadSuiteFromDir(suiteDir: string): MultiAgentEvalSuite {
   };
 }
 
-function normalizeValue(value: unknown): unknown {
+export function normalizeValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizeValue);
   if (!value || typeof value !== "object") {
     if (typeof value === "string") return normalizeString(value);
@@ -1028,13 +1028,13 @@ function normalizeString(value: string): string {
     .replace(/\/var\/folders\/[^"\s]+|\/tmp\/[^"\s]+|\/private\/tmp\/[^"\s]+/g, "<tmp>");
 }
 
-function lines(value: unknown): string[] {
+export function lines(value: unknown): string[] {
   const normalized = normalizeValue(value);
   if (Array.isArray(normalized)) return normalized.map((entry) => stableStringify(entry)).sort();
   return [stableStringify(normalized)].sort();
 }
 
-function stableStringify(value: unknown): string {
+export function stableStringify(value: unknown): string {
   return JSON.stringify(normalizeValue(value));
 }
 

@@ -34,7 +34,8 @@ const VERSION_DOCS = [
   "observability-cost-accounting.7.md",
   "team-collaboration.7.md",
   "release-and-migration.7.md",
-  "release-tooling.7.md"
+  "release-tooling.7.md",
+  "real-execution-backends.7.md"
 ];
 
 function main() {
