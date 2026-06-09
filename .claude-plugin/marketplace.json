@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "Agent Workflow SDK with TypeScript orchestration, dispatch, evidence-gated verification, state commits, scheduling, routines, multi-agent coordination, and MCP.",
-    "version": "0.1.49"
+    "version": "0.1.51"
   },
   "plugins": [
     {

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.51
+
+- Auto-compaction trigger point fix. v0.1.48's compaction hook fired on every `saveCheckpoint()`, causing test fixture fingerprint instability. Fix: `maybeCompactRun()` is now called only after major lifecycle mutations (commit) via `lifecycle-operations.ts`. Also fixes dogfood-release smoke test by correcting the content-surface version-sync pipeline (use `npm run bump:version`, never hand-edit version.ts alone).
+
+## 0.1.50
+
+- Auto-compaction trigger point fix (incomplete — see 0.1.51).
+
 ## 0.1.49
 
 - CI fix: CHANGELOG.md and RELEASE.md are content surfaces that the dogfood-release smoke test reads from the git commit (`git show HEAD:<path>`). These must contain the target version string in the released commit. The bump-version script only covers structured surfaces; content surface updates are now documented as a release step.
