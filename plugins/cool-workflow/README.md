@@ -627,6 +627,6 @@ State auto-compaction via `setPostSaveCallback()` hook — after every `saveChec
 
 CHANGELOG.md and RELEASE.md are content surfaces checked by the dogfood-release gate. The bump-version script covers structured surfaces only; content surface updates are now documented as a release step.
 
-## Auto-Compaction Fix (v0.1.50–0.1.51)
+## Auto-Compaction Fix (v0.1.50, v0.1.51)
 
 Auto-compaction hook moved from `saveCheckpoint()` to explicit `maybeCompactRun()` calls after major lifecycle mutations. Fixes test fixture fingerprint instability. Also fixes the dogfood-release version-sync pipeline: always use `npm run bump:version`, never hand-edit version.ts alone.
