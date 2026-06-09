@@ -230,6 +230,9 @@ class CoolWorkflowRunner {
             throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
         return worker;
     }
+    reclaimOrphans(runId, now) {
+        return (0, worker_isolation_1.reclaimOrphans)(this.loadRun(runId), now);
+    }
     showWorkerManifest(runId, workerId) {
         const run = this.loadRun(runId);
         const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);

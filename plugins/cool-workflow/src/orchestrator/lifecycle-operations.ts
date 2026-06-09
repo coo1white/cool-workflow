@@ -133,7 +133,12 @@ export function plan(appRecord: LoadedWorkflowApp, options: Record<string, unkno
   ensureTopologyState(run);
 
   writeTaskFiles(run);
-  const contract = upsertRunContract(run, createDefaultPipelineContract());
+  // Use app's custom pipeline if defined; fall back to default (v0.1.56).
+  const defaultContract = createDefaultPipelineContract();
+  const appPipeline = appRecord.app.pipeline;
+  const contract = appPipeline
+    ? upsertRunContract(run, { ...defaultContract, ...appPipeline, id: defaultContract.id })
+    : upsertRunContract(run, defaultContract);
   const inputNode = appendRunNode(
     run,
     createStateNode({

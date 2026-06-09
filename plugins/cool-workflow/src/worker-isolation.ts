@@ -7,6 +7,7 @@ import {
   StateNodeError,
   WorkerBoundaryViolation,
   WorkerIsolationOptions,
+  WorkerIsolationStatus,
   WorkerManifest,
   WorkerOutputRecord,
   WorkerScope,
@@ -637,6 +638,54 @@ export function summarizeWorkers(run: WorkflowRun): {
       .filter((scope) => scope.status === "failed" || scope.status === "rejected")
       .map((scope) => ({ id: scope.id, status: scope.status, feedbackIds: scope.feedbackIds || [] }))
   };
+}
+
+// ---- Worker orphan reclamation (v0.1.57) ----------------------------------
+// BSD discipline (jails): stuck processes get killed. Workers with a timeout
+// that have been running too long are marked as `orphaned`. The caller can
+// then decide whether to retry or park. Reclamation is deterministic: pure
+// function of current time + worker state.
+
+export interface ReclaimOrphansResult {
+  runId: string;
+  reclaimed: number;
+  orphans: Array<{ workerId: string; taskId: string; elapsedMs: number; timeoutMs: number }>;
+}
+
+export function reclaimOrphans(run: WorkflowRun, now?: string): ReclaimOrphansResult {
+  const nowMs = now ? Date.parse(now) : Date.now();
+  if (!Number.isFinite(nowMs)) throw new Error("Invalid reclaim 'now': " + String(now));
+  const orphans: ReclaimOrphansResult["orphans"] = [];
+  const activeStatuses = new Set<WorkerIsolationStatus>(["allocated", "running"]);
+  for (const scope of run.workers || []) {
+    if (!activeStatuses.has(scope.status)) continue;
+    if (!scope.timeoutMs || scope.timeoutMs <= 0) continue;
+    const createdAtMs = Date.parse(scope.createdAt);
+    if (!Number.isFinite(createdAtMs)) continue;
+    const elapsedMs = nowMs - createdAtMs;
+    if (elapsedMs < scope.timeoutMs) continue;
+    scope.status = "orphaned";
+    scope.updatedAt = new Date(nowMs).toISOString();
+    scope.errors.push({
+      code: "worker-orphaned",
+      message: `Worker exceeded timeout of ${scope.timeoutMs}ms (elapsed: ${elapsedMs}ms).`,
+      at: new Date(nowMs).toISOString(),
+      retryable: true
+    });
+    upsertWorkerScope(run, scope);
+    orphans.push({ workerId: scope.id, taskId: scope.taskId, elapsedMs, timeoutMs: scope.timeoutMs });
+  }
+  if (orphans.length) {
+    writeWorkerIndex(run);
+    saveWorkerCheckpoint(run);
+  }
+  return { runId: run.id, reclaimed: orphans.length, orphans };
+}
+
+function saveWorkerCheckpoint(run: WorkflowRun): void {
+  // Durable write via atomic temp+rename (same contract as saveCheckpoint)
+  // For worker index, the atomic write in writeWorkerIndex already handles it.
+  // This is a no-op wrapper that signals the checkpoint boundary.
 }
 
 function ensureWorkerState(run: WorkflowRun): void {
