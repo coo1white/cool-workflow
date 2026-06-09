@@ -13,6 +13,7 @@ exports.migrateRunStateFile = migrateRunStateFile;
 exports.saveCheckpoint = saveCheckpoint;
 exports.readJson = readJson;
 exports.writeJson = writeJson;
+exports.withFileLock = withFileLock;
 exports.safeFileName = safeFileName;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -90,7 +91,8 @@ function migrateRunStateFile(statePath, options = {}) {
 }
 function saveCheckpoint(run) {
     run.updatedAt = new Date().toISOString();
-    writeJson(run.paths.state, run);
+    // state.json is the single source of truth — write it DURABLY (v0.1.40).
+    writeJson(run.paths.state, run, { durable: true });
 }
 function readJson(file) {
     if (!node_fs_1.default.existsSync(file))
@@ -103,9 +105,110 @@ function readJson(file) {
         throw new Error(`Invalid JSON in ${file}: ${message}`);
     }
 }
-function writeJson(file, value) {
+// ---------------------------------------------------------------------------
+// Atomic, optionally-durable JSON write (v0.1.40, closes the prior P1).
+//
+// ORDER IS THE SAFETY PROPERTY: write to a unique temp file, then rename over the
+// target. `rename(2)` is atomic on POSIX, so a crash/`ENOSPC` mid-write can never
+// leave a truncated `state.json` that throws `Invalid JSON` on reload — a reader
+// always sees EITHER the old bytes OR the new bytes, never a torn file. With
+// `{ durable: true }` we additionally fsync the file (and best-effort the dir)
+// before/after the rename so the bytes survive power loss — used for AUTHORITATIVE
+// state (state.json, registry overlays, the scheduler store, reclaimed.json). The
+// fsync is skipped for high-frequency derived/rebuildable writes so the atomic
+// rename (the actual torn-write fix) stays cheap everywhere.
+// ---------------------------------------------------------------------------
+let atomicWriteCounter = 0;
+function writeJson(file, value, options = {}) {
     node_fs_1.default.mkdirSync(node_path_1.default.dirname(file), { recursive: true });
-    node_fs_1.default.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    const tmp = `${file}.tmp.${process.pid}.${atomicWriteCounter++}`;
+    const fd = node_fs_1.default.openSync(tmp, "w");
+    try {
+        node_fs_1.default.writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+        if (options.durable)
+            node_fs_1.default.fsyncSync(fd);
+    }
+    finally {
+        node_fs_1.default.closeSync(fd);
+    }
+    try {
+        node_fs_1.default.renameSync(tmp, file);
+    }
+    catch (error) {
+        try {
+            node_fs_1.default.rmSync(tmp, { force: true });
+        }
+        catch {
+            /* best-effort temp cleanup */
+        }
+        throw error;
+    }
+    if (options.durable) {
+        try {
+            const dirFd = node_fs_1.default.openSync(node_path_1.default.dirname(file), "r");
+            try {
+                node_fs_1.default.fsyncSync(dirFd);
+            }
+            finally {
+                node_fs_1.default.closeSync(dirFd);
+            }
+        }
+        catch {
+            /* directory fsync is best-effort (not supported on every platform) */
+        }
+    }
+}
+// ---------------------------------------------------------------------------
+// Portable advisory file lock (v0.1.40) — serialize cross-process read-modify-
+// write on shared stores (home queue, scheduler store, archive overlay, the
+// per-run reclamation chain) so a concurrent writer can never lose a record.
+// O_EXCL (`wx`) is portable (no native flock); a stale holder is stolen so a
+// crashed process can never wedge the store forever.
+// ---------------------------------------------------------------------------
+const FILE_LOCK_STALE_MS = 30_000;
+function sleepSync(ms) {
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+/** Run `fn` while holding an advisory lock for `targetPath`; always released. */
+function withFileLock(targetPath, fn) {
+    const lock = `${targetPath}.lock`;
+    node_fs_1.default.mkdirSync(node_path_1.default.dirname(lock), { recursive: true });
+    let acquired = false;
+    for (let attempt = 0; attempt < 240 && !acquired; attempt++) {
+        try {
+            const fd = node_fs_1.default.openSync(lock, "wx");
+            node_fs_1.default.writeFileSync(fd, `${process.pid}@${new Date().toISOString()}\n`, "utf8");
+            node_fs_1.default.closeSync(fd);
+            acquired = true;
+        }
+        catch (error) {
+            if (!(error && typeof error === "object" && error.code === "EEXIST"))
+                throw error;
+            try {
+                if (Date.now() - node_fs_1.default.statSync(lock).mtimeMs > FILE_LOCK_STALE_MS) {
+                    node_fs_1.default.rmSync(lock, { force: true });
+                    continue;
+                }
+            }
+            catch {
+                continue; // lock vanished between open and stat — retry immediately
+            }
+            sleepSync(25);
+        }
+    }
+    if (!acquired)
+        throw new Error(`could not acquire file lock for ${targetPath}`);
+    try {
+        return fn();
+    }
+    finally {
+        try {
+            node_fs_1.default.rmSync(lock, { force: true });
+        }
+        catch {
+            /* releasing a missing lock is fine */
+        }
+    }
 }
 function safeFileName(value) {
     return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");

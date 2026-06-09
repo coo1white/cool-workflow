@@ -266,3 +266,7 @@ spawn an external agent process per worker, capture result.md + attestation, aut
 ## Run Retention & Provable Reclamation (v0.1.39)
 
 tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it
+
+## Durable State & Locking (v0.1.40)
+
+atomic temp->rename writes + fsync-durability for authoritative stores; portable stale-stealing file lock serializing the cross-process read-modify-write stores

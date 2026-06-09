@@ -155,7 +155,9 @@ class Scheduler {
         };
     }
     save(store) {
-        (0, state_1.writeJson)(this.storePath, store);
+        // Authoritative scheduler store — atomic + durable (v0.1.40). writeJson is now
+        // always atomic (temp → rename), so a crash mid-write can never truncate it.
+        (0, state_1.writeJson)(this.storePath, store, { durable: true });
     }
 }
 exports.Scheduler = Scheduler;

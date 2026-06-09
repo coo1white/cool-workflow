@@ -239,13 +239,17 @@ class RunRegistry {
     registerRepo(repo = this.repoRoot) {
         const resolved = node_path_1.default.resolve(repo);
         const file = this.reposFilePath();
-        const current = this.loadRepos();
-        const already = current.repos.some((entry) => node_path_1.default.resolve(entry.root) === resolved);
-        if (!already)
-            current.repos.push({ root: resolved, addedAt: new Date().toISOString() });
-        current.repos.sort((a, b) => a.root.localeCompare(b.root));
-        (0, state_1.writeJson)(file, current);
-        return { registered: !already, repos: current.repos.map((entry) => entry.root) };
+        // Cross-process read-modify-write: lock so a concurrent register can't drop a
+        // repo (v0.1.40, P1-D), and persist durably.
+        return (0, state_1.withFileLock)(file, () => {
+            const current = this.loadRepos();
+            const already = current.repos.some((entry) => node_path_1.default.resolve(entry.root) === resolved);
+            if (!already)
+                current.repos.push({ root: resolved, addedAt: new Date().toISOString() });
+            current.repos.sort((a, b) => a.root.localeCompare(b.root));
+            (0, state_1.writeJson)(file, current, { durable: true });
+            return { registered: !already, repos: current.repos.map((entry) => entry.root) };
+        });
     }
     queueFilePath() {
         return node_path_1.default.join(this.homeRegistryDir(), "queue.json");
@@ -263,7 +267,7 @@ class RunRegistry {
         }
     }
     saveQueue(entries) {
-        (0, state_1.writeJson)(this.queueFilePath(), { schemaVersion: 1, entries });
+        (0, state_1.writeJson)(this.queueFilePath(), { schemaVersion: 1, entries }, { durable: true });
     }
     // Public queue accessors for the v0.1.37 control-plane scheduler (it operates ON
     // this queue store via pure functions in scheduling.ts; the queue file is never
@@ -663,14 +667,17 @@ class RunRegistry {
             throw new Error(`Cannot archive: run ${runId} not found in source state (fail closed).`);
         const repo = located.record.repo;
         const file = node_path_1.default.join(this.repoRegistryDir(repo), "archive.json");
-        const overlay = this.loadArchiveOverlay(repo);
-        if (options.unarchive) {
-            delete overlay.archived[runId];
-        }
-        else {
-            overlay.archived[runId] = { archivedAt: new Date().toISOString(), reason: options.reason };
-        }
-        (0, state_1.writeJson)(file, overlay);
+        // Lock the archive-overlay read-modify-write (v0.1.40, P1-D) + durable write.
+        (0, state_1.withFileLock)(file, () => {
+            const overlay = this.loadArchiveOverlay(repo);
+            if (options.unarchive) {
+                delete overlay.archived[runId];
+            }
+            else {
+                overlay.archived[runId] = { archivedAt: new Date().toISOString(), reason: options.reason };
+            }
+            (0, state_1.writeJson)(file, overlay, { durable: true });
+        });
         const record = this.deriveRecord(repo, located.record.runDir);
         return {
             runId,
@@ -957,7 +964,7 @@ class RunRegistry {
         const provFile = node_path_1.default.join(this.repoRegistryDir(original.repo), "provenance.json");
         const provOverlay = this.loadProvenanceOverlay(original.repo);
         provOverlay.links[newRun.id] = provenance;
-        (0, state_1.writeJson)(provFile, provOverlay);
+        (0, state_1.writeJson)(provFile, provOverlay, { durable: true });
         return {
             schemaVersion: 1,
             originalRunId: runId,
@@ -979,25 +986,29 @@ class RunRegistry {
     }
     // ---- queue (durable, ordered; drained by the host) ----------------------
     queueAdd(options = {}) {
-        const entries = this.loadQueue();
         const repo = options.repo ? node_path_1.default.resolve(options.repo) : this.repoRoot;
-        const entry = {
-            schemaVersion: 1,
-            id: options.id || queueId(),
-            runId: options.runId,
-            appId: options.appId,
-            workflowId: options.workflowId,
-            repo,
-            priority: Number.isFinite(options.priority) ? Number(options.priority) : exports.DEFAULT_RUN_REGISTRY_POLICY.defaultQueuePriority,
-            enqueuedAt: new Date().toISOString(),
-            status: "pending",
-            inputs: options.inputs,
-            note: options.note
-        };
-        entries.push(entry);
-        this.registerRepo(repo);
-        this.saveQueue(entries);
-        return entry;
+        // Cross-process read-modify-write on the home queue: lock so a concurrently
+        // added task can never vanish (v0.1.40, P1-D).
+        return (0, state_1.withFileLock)(this.queueFilePath(), () => {
+            const entries = this.loadQueue();
+            const entry = {
+                schemaVersion: 1,
+                id: options.id || queueId(),
+                runId: options.runId,
+                appId: options.appId,
+                workflowId: options.workflowId,
+                repo,
+                priority: Number.isFinite(options.priority) ? Number(options.priority) : exports.DEFAULT_RUN_REGISTRY_POLICY.defaultQueuePriority,
+                enqueuedAt: new Date().toISOString(),
+                status: "pending",
+                inputs: options.inputs,
+                note: options.note
+            };
+            entries.push(entry);
+            this.registerRepo(repo);
+            this.saveQueue(entries);
+            return entry;
+        });
     }
     queueList(options = {}) {
         let entries = this.loadQueue();
@@ -1020,22 +1031,27 @@ class RunRegistry {
      *  CW records readiness/order; the HOST still executes the workers. */
     queueDrain(options = {}) {
         const limit = clampInt(options.limit, 1, 1);
-        const entries = this.loadQueue();
         const repoFilter = options.repo ? node_path_1.default.resolve(options.repo) : undefined;
-        const drainable = entries
-            .filter((e) => e.status === "pending" || e.status === "ready")
-            .filter((e) => !repoFilter || node_path_1.default.resolve(e.repo) === repoFilter)
-            .sort(compareQueue);
-        const drained = [];
-        const drainedAt = new Date().toISOString();
-        for (const entry of drainable.slice(0, limit)) {
-            entry.status = "drained";
-            entry.drainedAt = drainedAt;
-            drained.push(entry);
-        }
-        this.saveQueue(entries);
-        const remaining = entries.filter((e) => e.status === "pending" || e.status === "ready").length;
-        return { schemaVersion: 1, drained, remaining };
+        // Lock the drain RMW so two hosts can never double-drain the same entry
+        // (v0.1.40, P1-D — the scheduling kernel's concurrency ceiling now holds
+        // across processes, not just within one).
+        return (0, state_1.withFileLock)(this.queueFilePath(), () => {
+            const entries = this.loadQueue();
+            const drainable = entries
+                .filter((e) => e.status === "pending" || e.status === "ready")
+                .filter((e) => !repoFilter || node_path_1.default.resolve(e.repo) === repoFilter)
+                .sort(compareQueue);
+            const drained = [];
+            const drainedAt = new Date().toISOString();
+            for (const entry of drainable.slice(0, limit)) {
+                entry.status = "drained";
+                entry.drainedAt = drainedAt;
+                drained.push(entry);
+            }
+            this.saveQueue(entries);
+            const remaining = entries.filter((e) => e.status === "pending" || e.status === "ready").length;
+            return { schemaVersion: 1, drained, remaining };
+        });
     }
     // ---- cross-repo history (unified timeline) ------------------------------
     history(options = {}) {

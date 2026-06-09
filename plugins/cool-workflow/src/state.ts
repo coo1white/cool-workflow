@@ -81,7 +81,8 @@ export function migrateRunStateFile(statePath: string, options: { write?: boolea
 
 export function saveCheckpoint(run: WorkflowRun): void {
   run.updatedAt = new Date().toISOString();
-  writeJson(run.paths.state, run);
+  // state.json is the single source of truth — write it DURABLY (v0.1.40).
+  writeJson(run.paths.state, run, { durable: true });
 }
 
 export function readJson(file: string): unknown {
@@ -94,9 +95,104 @@ export function readJson(file: string): unknown {
   }
 }
 
-export function writeJson(file: string, value: unknown): void {
+// ---------------------------------------------------------------------------
+// Atomic, optionally-durable JSON write (v0.1.40, closes the prior P1).
+//
+// ORDER IS THE SAFETY PROPERTY: write to a unique temp file, then rename over the
+// target. `rename(2)` is atomic on POSIX, so a crash/`ENOSPC` mid-write can never
+// leave a truncated `state.json` that throws `Invalid JSON` on reload — a reader
+// always sees EITHER the old bytes OR the new bytes, never a torn file. With
+// `{ durable: true }` we additionally fsync the file (and best-effort the dir)
+// before/after the rename so the bytes survive power loss — used for AUTHORITATIVE
+// state (state.json, registry overlays, the scheduler store, reclaimed.json). The
+// fsync is skipped for high-frequency derived/rebuildable writes so the atomic
+// rename (the actual torn-write fix) stays cheap everywhere.
+// ---------------------------------------------------------------------------
+
+let atomicWriteCounter = 0;
+
+export function writeJson(file: string, value: unknown, options: { durable?: boolean } = {}): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  const tmp = `${file}.tmp.${process.pid}.${atomicWriteCounter++}`;
+  const fd = fs.openSync(tmp, "w");
+  try {
+    fs.writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    if (options.durable) fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  try {
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    try {
+      fs.rmSync(tmp, { force: true });
+    } catch {
+      /* best-effort temp cleanup */
+    }
+    throw error;
+  }
+  if (options.durable) {
+    try {
+      const dirFd = fs.openSync(path.dirname(file), "r");
+      try {
+        fs.fsyncSync(dirFd);
+      } finally {
+        fs.closeSync(dirFd);
+      }
+    } catch {
+      /* directory fsync is best-effort (not supported on every platform) */
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Portable advisory file lock (v0.1.40) — serialize cross-process read-modify-
+// write on shared stores (home queue, scheduler store, archive overlay, the
+// per-run reclamation chain) so a concurrent writer can never lose a record.
+// O_EXCL (`wx`) is portable (no native flock); a stale holder is stolen so a
+// crashed process can never wedge the store forever.
+// ---------------------------------------------------------------------------
+
+const FILE_LOCK_STALE_MS = 30_000;
+
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** Run `fn` while holding an advisory lock for `targetPath`; always released. */
+export function withFileLock<T>(targetPath: string, fn: () => T): T {
+  const lock = `${targetPath}.lock`;
+  fs.mkdirSync(path.dirname(lock), { recursive: true });
+  let acquired = false;
+  for (let attempt = 0; attempt < 240 && !acquired; attempt++) {
+    try {
+      const fd = fs.openSync(lock, "wx");
+      fs.writeFileSync(fd, `${process.pid}@${new Date().toISOString()}\n`, "utf8");
+      fs.closeSync(fd);
+      acquired = true;
+    } catch (error) {
+      if (!(error && typeof error === "object" && (error as { code?: string }).code === "EEXIST")) throw error;
+      try {
+        if (Date.now() - fs.statSync(lock).mtimeMs > FILE_LOCK_STALE_MS) {
+          fs.rmSync(lock, { force: true });
+          continue;
+        }
+      } catch {
+        continue; // lock vanished between open and stat — retry immediately
+      }
+      sleepSync(25);
+    }
+  }
+  if (!acquired) throw new Error(`could not acquire file lock for ${targetPath}`);
+  try {
+    return fn();
+  } finally {
+    try {
+      fs.rmSync(lock, { force: true });
+    } catch {
+      /* releasing a missing lock is fine */
+    }
+  }
 }
 
 export function safeFileName(value: string): string {

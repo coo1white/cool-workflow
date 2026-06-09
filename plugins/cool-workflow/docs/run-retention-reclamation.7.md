@@ -158,3 +158,7 @@ semantics. Nothing in the original audit log is ever edited or erased.
 - `docs/node-snapshot-diff-replay.7.md` — the v0.1.35 snapshot engine reconstruction layers beside.
 - `docs/control-plane-scheduling.7.md` — the v0.1.37 policy-as-data lineage.
 - `docs/team-collaboration.7.md` — the v0.1.32 append-only log sealed in the skeleton.
+
+## Durable State & Locking (v0.1.40)
+
+atomic temp->rename writes + fsync-durability for authoritative stores; portable stale-stealing file lock serializing the cross-process read-modify-write stores

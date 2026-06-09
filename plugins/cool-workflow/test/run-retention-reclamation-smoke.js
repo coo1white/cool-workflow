@@ -23,6 +23,7 @@ const {
   planReclamation,
   extractSkeleton,
   validateSkeleton,
+  validateSkeletonAgainstRun,
   verifyReclamation,
   loadReclamationLog,
   reclaimedLogPath,
@@ -416,6 +417,25 @@ function fileManifest(root) {
   }
   assert.equal(loadNodeSnapshot(reloaded, snapshotNode(reloaded, built.resultNodeId, { persist: false })).freshness, "valid", "reloaded result node stays valid after a saveCheckpoint-free reclaim");
   void out;
+}
+
+// ===========================================================================
+// I — Skeleton content fidelity (v0.1.40 P2-A): reclamation REFUSES if
+// extraction dropped audit content the run actually has, not just on missing keys.
+// ===========================================================================
+{
+  const repo = makeRepo();
+  const { run } = makeAcceptedRun(repo, "content-fidelity");
+  const skeleton = extractSkeleton(run);
+  // A faithful skeleton has no content loss.
+  assert.deepEqual(validateSkeletonAgainstRun(run, skeleton), [], "faithful skeleton reports no content loss");
+  // Simulate an extraction that drops the commit records the run has.
+  const dropped = { ...skeleton, commits: [] };
+  const loss = validateSkeletonAgainstRun(run, dropped);
+  assert.ok(loss.some((r) => r.startsWith("commits-dropped")), "dropping sealed commits the run has is flagged");
+  // Simulate an extraction that drops evidence digests the run has.
+  const droppedEvidence = { ...skeleton, evidenceDigests: [] };
+  assert.ok(validateSkeletonAgainstRun(run, droppedEvidence).includes("evidence-dropped"), "dropping sealed evidence the run has is flagged");
 }
 
 process.stdout.write("run-retention-reclamation-smoke: ok\n");
