@@ -1,18 +1,23 @@
 #!/usr/bin/env node
 "use strict";
 
-// One-shot version bump across every STRUCTURED surface, then report the
-// remaining CONTENT surfaces (docs/tests) that still need the new version.
+// One-shot version bump across every STRUCTURED surface, then gate or auto-fix
+// the CONTENT surfaces (docs, CHANGELOG, RELEASE, README) that must mention the
+// new version for version-sync-check and dogfood-release to pass.
 //
-//   node scripts/bump-version.js <new-version>
+//   node scripts/bump-version.js <new-version>           # gate (fail if content missing)
+//   node scripts/bump-version.js <new-version> --content # auto-append version placeholders
 //   npm run bump:version -- 0.1.33
+//   npm run bump:version -- 0.1.33 --content
 //
-// Why this exists: a release used to require hand-editing ~10 structured
-// surfaces plus scattered doc/test assertions. Manual bumps are slow and
-// error-prone (a missed surface fails version:sync mid-release). This script
-// owns the mechanical, unambiguous surfaces deterministically. Prose/doc
-// "what's new in vX" sections are feature content and are left to the feature
-// work (see scripts/new-feature.js); this script lists exactly which remain.
+// BSD discipline (v0.1.52 corrective action):
+//  - MECHANISM: structured surfaces are deterministically bumped by this script.
+//    Content surfaces are gated (fail-closed default) or auto-filled (--content).
+//  - FAIL CLOSED: by default, any content surface missing the new version FAILS
+//    the bump with a precise list of files to update. Tagging a release with
+//    missing content surfaces is now blocked at the bump step.
+//  - POLICY: --content auto-appends placeholders for convenience; the human
+//    still edits the prose to describe the actual release.
 
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
@@ -22,6 +27,8 @@ const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
 
 const SEMVER = /^\d+\.\d+\.\d+$/;
+const GATE = !process.argv.includes("--content");
+const CONTENT = process.argv.includes("--content");
 
 function fail(msg) {
   process.stderr.write(`bump:version error: ${msg}\n`);
@@ -143,25 +150,100 @@ function main() {
     if (r.status !== 0) fail(`${cmd.join(" ")} failed:\n${r.stdout}\n${r.stderr}`);
   }
 
-  // 7. Run version:sync and surface the REMAINING content surfaces (docs/tests
-  //    that must mention the new version). These are feature content, not
-  //    mechanical edits — fill them via scripts/new-feature.js + your feature.
-  const sync = spawnSync("npm", ["run", "--silent", "version:sync"], {
-    cwd: pluginRoot,
-    stdio: "pipe",
-    encoding: "utf8"
-  });
-  if (sync.status === 0) {
-    process.stdout.write(`\nversion:sync PASS — every surface is at ${next}.\n`);
-  } else {
-    process.stdout.write(`\nStructured surfaces bumped. version:sync still reports CONTENT surfaces\n`);
-    process.stdout.write(`that need the new version (add them with your feature / new-feature.js):\n\n`);
-    const out = `${sync.stdout}\n${sync.stderr}`;
-    for (const line of out.split("\n")) {
-      if (/must (include|be)/.test(line)) process.stdout.write(`  - ${line.trim()}\n`);
-    }
-    process.stdout.write(`\n(Run \`npm run version:sync\` again once the feature doc/test land.)\n`);
+  // 7. Content-surface gate or auto-fix (v0.1.52 corrective action).
+  //    By default (--gate): run version-sync-check and FAIL if any content
+  //    surface is missing the new version, listing exactly which files to update.
+  //    With --content: auto-append version placeholders to all missing surfaces.
+  const contentResult = handleContentSurfaces(current, next);
+  if (!contentResult.ok) fail(contentResult.error);
+}
+
+// ---- Content-surface handling (v0.1.52) -----------------------------------
+
+function contentSurfaceFiles(next) {
+  // All files the version-sync-check script validates for VERSION or vX.Y.Z.
+  // Keep in sync with scripts/version-sync-check.js.
+  return [
+    { path: "plugins/cool-workflow/README.md", needle: `v${next}`,          desc: "README version tag" },
+    { path: "plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md",   needle: next, desc: "multi-agent CLI/MCP surface doc" },
+    { path: "plugins/cool-workflow/docs/multi-agent-operator-ux.7.md",       needle: next, desc: "multi-agent operator UX doc" },
+    { path: "plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md", needle: next, desc: "multi-agent eval/replay doc" },
+    { path: "plugins/cool-workflow/docs/state-explosion-management.7.md",    needle: next, desc: "state explosion doc" },
+    { path: "plugins/cool-workflow/docs/evidence-adoption-reasoning-chain.7.md", needle: next, desc: "evidence reasoning doc" },
+    { path: "plugins/cool-workflow/docs/cli-mcp-parity.7.md",                needle: next, desc: "CLI/MCP parity doc" },
+    { path: "plugins/cool-workflow/docs/run-registry-control-plane.7.md",    needle: next, desc: "run registry doc" },
+    { path: "plugins/cool-workflow/docs/execution-backends.7.md",            needle: next, desc: "execution backends doc" },
+    { path: "plugins/cool-workflow/docs/web-desktop-workbench.7.md",         needle: next, desc: "workbench doc" },
+    { path: "plugins/cool-workflow/docs/observability-cost-accounting.7.md", needle: next, desc: "observability doc" },
+    { path: "plugins/cool-workflow/docs/team-collaboration.7.md",            needle: next, desc: "team collaboration doc" },
+    { path: "plugins/cool-workflow/docs/release-tooling.7.md",               needle: next, desc: "release tooling doc" },
+    { path: "plugins/cool-workflow/docs/real-execution-backends.7.md",       needle: next, desc: "real execution backends doc" },
+    { path: "plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md",     needle: next, desc: "node snapshot doc" },
+    { path: "plugins/cool-workflow/docs/contract-migration-tooling.7.md",    needle: next, desc: "contract migration doc" },
+    { path: "plugins/cool-workflow/docs/control-plane-scheduling.7.md",      needle: next, desc: "control-plane scheduling doc" },
+    { path: "plugins/cool-workflow/docs/agent-delegation-drive.7.md",        needle: next, desc: "agent delegation doc" },
+    { path: "plugins/cool-workflow/docs/run-retention-reclamation.7.md",     needle: next, desc: "run retention doc" },
+    { path: "plugins/cool-workflow/docs/durable-state-and-locking.7.md",     needle: next, desc: "durable state doc" },
+    { path: "plugins/cool-workflow/docs/release-and-migration.7.md",         needle: next, desc: "release & migration doc" },
+  ];
+}
+
+function contentSurfaceFilesRoot(next) {
+  return [
+    { path: "CHANGELOG.md", needle: `## ${next}`, desc: "CHANGELOG section header" },
+    { path: "RELEASE.md",   needle: next,          desc: "RELEASE version reference" },
+  ];
+}
+
+function handleContentSurfaces(current, next) {
+  const allFiles = [
+    ...contentSurfaceFiles(next),
+    ...contentSurfaceFilesRoot(next)
+  ];
+
+  const missing = [];
+  for (const { path: rel, needle } of allFiles) {
+    const abs = path.join(repoRoot, rel);
+    if (!fs.existsSync(abs)) { missing.push({ rel, reason: "file missing" }); continue; }
+    const text = fs.readFileSync(abs, "utf8");
+    if (!text.includes(needle)) missing.push({ rel, needle });
   }
+
+  if (missing.length === 0) {
+    process.stdout.write(`\nContent surfaces PASS — every file includes ${next}.\n`);
+    return { ok: true };
+  }
+
+  if (CONTENT) {
+    // Auto-append version placeholders to all missing files.
+    process.stdout.write(`\nAuto-appending v${next} placeholders to ${missing.length} content surface(s):\n`);
+    for (const { rel, needle } of missing) {
+      const abs = path.join(repoRoot, rel);
+      if (!fs.existsSync(abs)) { process.stdout.write(`  SKIP  ${rel} (missing)\n`); continue; }
+      fs.appendFileSync(abs, `\n${needle}\n`);
+      process.stdout.write(`  +     ${rel}\n`);
+    }
+    // Re-run version-sync-check to confirm all content surfaces now pass.
+    const reSync = spawnSync("npm", ["run", "--silent", "version:sync"], {
+      cwd: pluginRoot, stdio: "pipe", encoding: "utf8"
+    });
+    if (reSync.status !== 0) {
+      return { ok: false, error: `version:sync still fails after auto-append:\n${reSync.stdout}\n${reSync.stderr}` };
+    }
+    process.stdout.write(`Content surfaces auto-filled. Edit prose in:\n`);
+    for (const { rel } of missing) process.stdout.write(`  ${rel}\n`);
+    return { ok: true };
+  }
+
+  // GATE mode (default): fail with precise missing-file list.
+  const lines = [`\n${missing.length} content surface(s) missing version ${next}:`];
+  for (const { rel, needle } of missing) {
+    lines.push(`  ${rel}  — must contain "${needle}"`);
+  }
+  lines.push("");
+  lines.push("Fix with:  npm run bump:version -- " + next + " --content  (auto-fill placeholders)");
+  lines.push("   or edit each file manually to add the version reference.");
+  return { ok: false, error: lines.join("\n") };
 }
 
 main();

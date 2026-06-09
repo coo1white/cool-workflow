@@ -104,3 +104,5 @@ only when the maintainer intends to publish. Local tag creation, push, package
 publish, and marketplace update remain separate visible steps. Dry-run dogfood
 mode never performs them; execute-style flags must include an explicit
 target-version confirmation such as `--confirm-release-actions=0.1.24`.
+
+0.1.52
