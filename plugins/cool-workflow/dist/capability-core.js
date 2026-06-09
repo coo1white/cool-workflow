@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.QUICKSTART_DEFAULT_APP = void 0;
 exports.planSummary = planSummary;
 exports.appRun = appRun;
 exports.sandboxChoose = sandboxChoose;
@@ -42,6 +43,7 @@ exports.schedPolicyShow = schedPolicyShow;
 exports.schedPolicySet = schedPolicySet;
 exports.runDrivePreview = runDrivePreview;
 exports.runDrive = runDrive;
+exports.quickstart = quickstart;
 exports.backendAgentConfigShow = backendAgentConfigShow;
 exports.backendAgentConfigSet = backendAgentConfigSet;
 exports.gcPlan = gcPlan;
@@ -402,6 +404,91 @@ function runDrive(runner, args) {
         if (process.cwd() !== cwd0)
             process.chdir(cwd0);
     }
+}
+/** The app the one-command quickstart plans when none is named. */
+exports.QUICKSTART_DEFAULT_APP = "architecture-review";
+/** ONE-COMMAND quickstart (v0.1.38+): plan(app) -> run --drive -> report in a single
+ *  invocation, so a newcomer gets a cited risk report from one command on a target
+ *  repo. This is a THIN UX wrapper — NOT a new engine: it composes the EXISTING
+ *  `runDrive` core (which already plans the run, then delegates every worker to the
+ *  configured agent backend and commits) and then writes the report. It introduces
+ *  no second executor, queue, or scheduler, and imports no model SDK.
+ *
+ *  RED LINE (DIRECTION.md): worker execution still DELEGATES to the operator's own
+ *  agent backend (claude -p / codex exec / HTTP endpoint). With no agent configured
+ *  the drive fails closed (status=blocked) and we never fabricate a completion. */
+function quickstart(runner, args) {
+    const appId = String(args.appId || args.app || args.workflowId || exports.QUICKSTART_DEFAULT_APP);
+    const agentConfigured = Boolean((0, agent_config_1.resolveAgentConfig)(args).command || (0, agent_config_1.resolveAgentConfig)(args).endpoint);
+    // `--preview`: read-only, deterministic next-step projection (no spawn, no commit).
+    // Plan a fresh run (the read-only first verb) then project the next drive step.
+    if (isTrue(args.preview)) {
+        const cwd0 = process.cwd();
+        try {
+            let runId = optionalString(args.runId || args.run);
+            let repoCwd = optionalString(args.repo);
+            if (!runId) {
+                const run = runner.plan(appId, planInputsFor(args));
+                runId = run.id;
+                repoCwd = run.cwd;
+            }
+            if (repoCwd && repoCwd !== process.cwd() && node_fs_1.default.existsSync(repoCwd))
+                process.chdir(repoCwd);
+            return (0, drive_1.drivePreview)(runner, runId, args);
+        }
+        finally {
+            if (process.cwd() !== cwd0)
+                process.chdir(cwd0);
+        }
+    }
+    // Drive end-to-end (or one `--once` step). runDrive plans the run, delegates each
+    // worker to the agent backend, and commits — we add only the report write + a
+    // single assembled payload. No orchestration is duplicated here.
+    const result = runDrive(runner, { ...args, appId });
+    // Always (re)write the report so the one command yields a report.md on disk, even
+    // when the drive blocked/parked (a partial report is still useful triage).
+    const cwd0 = process.cwd();
+    let reportPath = result.reportPath;
+    try {
+        const run = runner.loadRun(result.runId);
+        if (run.cwd && run.cwd !== process.cwd() && node_fs_1.default.existsSync(run.cwd))
+            process.chdir(run.cwd);
+        reportPath = runner.report(result.runId).path;
+    }
+    finally {
+        if (process.cwd() !== cwd0)
+            process.chdir(cwd0);
+    }
+    let hint;
+    if (!agentConfigured) {
+        hint =
+            "agent backend not configured — set CW_AGENT_COMMAND (e.g. \"claude -p\") or pass --agent-command, then re-run. The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.";
+    }
+    else if (result.status === "parked") {
+        hint = `a worker parked past its retry budget — inspect: cw run show ${result.runId}`;
+    }
+    else if (result.status === "blocked") {
+        hint = `the drive is blocked — inspect: cw run drive ${result.runId}`;
+    }
+    else if (result.status === "in-progress") {
+        hint = `one step advanced (--once) — continue: cw quickstart ${appId} --run ${result.runId} --once`;
+    }
+    return {
+        schemaVersion: 1,
+        appId,
+        runId: result.runId,
+        workflowId: result.workflowId,
+        status: result.status,
+        plannedWorkers: result.plannedWorkers,
+        completedWorkers: result.completedWorkers,
+        parkedWorkers: result.parkedWorkers,
+        commitId: result.commitId,
+        reportPath,
+        statePath: result.statePath,
+        agentConfigured,
+        steps: result.steps,
+        hint
+    };
 }
 /** Read-only, deterministic projection of the effective agent config (secret-stripped). */
 function backendAgentConfigShow(args) {

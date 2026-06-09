@@ -78,12 +78,59 @@ CW gives agent hosts a shared runtime contract:
 
 ## Quick Start
 
-You can inspect the bundled runtime immediately because `dist/` is committed.
+Get a cited architecture-risk report on any repo in **one command**:
 
 ```bash
 git clone https://github.com/coo1white/cool-workflow.git
 cd cool-workflow/plugins/cool-workflow
 
+node scripts/cw.js quickstart architecture-review \
+  --repo /path/to/your/repo \
+  --question "What are the main architecture risks?" \
+  --agent-command "claude -p"
+```
+
+That single command plans the run, drives every worker to completion, and writes
+the report — no copied run id, no 10-step ritual. The JSON it prints back carries
+the `runId`, `status`, `completedWorkers`, and the `reportPath`:
+
+```bash
+# read the generated report
+cat /path/to/your/repo/.cw/runs/<runId>/report.md
+```
+
+**`quickstart` drives YOUR agent, it does not run a model.** CW is an auditable
+control plane: the one command sequences the recorded `plan -> run --drive ->
+report` pipeline and **delegates** every worker to the agent backend *you*
+configure (`--agent-command "claude -p"`, `--agent-command "codex exec"`, or
+`--agent-endpoint https://…`). CW never embeds a model SDK, never holds an API
+key, and never executes a model itself. With **no** agent configured it **fails
+closed** — it reports `status: blocked` and refuses rather than fabricating a
+completion:
+
+```bash
+# no --agent-command and no CW_AGENT_COMMAND ⇒ status: blocked, never fabricated
+node scripts/cw.js quickstart architecture-review --repo ../.. --question "risks?"
+```
+
+Set the backend once via the environment instead of a flag:
+
+```bash
+export CW_AGENT_COMMAND="claude -p"
+node scripts/cw.js quickstart architecture-review --repo ../.. --question "risks?"
+```
+
+Add `--preview` for a read-only, deterministic dry run (it plans and projects the
+next step but spawns nothing and commits nothing). `audit-run` is an alias of
+`quickstart`.
+
+### Under the hood
+
+`quickstart` is a thin convenience wrapper, not a new engine — it composes the
+existing verbs you can also run by hand. First, inspect the bundled runtime
+(`dist/` is committed, so it works immediately):
+
+```bash
 node scripts/cw.js list
 node scripts/cw.js app list
 node scripts/cw.js app show architecture-review
@@ -97,14 +144,21 @@ node scripts/cw.js plan architecture-review \
   --question "What are the main architecture risks?"
 ```
 
-Copy the returned `runId`, then inspect the run:
+Copy the returned `runId`, then drive it (delegating to your agent) and inspect:
 
 ```bash
+node scripts/cw.js run <run-id> --drive --agent-command "claude -p"
 node scripts/cw.js status <run-id>
 node scripts/cw.js graph <run-id>
-node scripts/cw.js dispatch <run-id> --limit 1 --sandbox readonly
 node scripts/cw.js worker summary <run-id>
 node scripts/cw.js report <run-id> --show
+```
+
+Or step the pipeline manually, dispatching one worker at a time:
+
+```bash
+node scripts/cw.js dispatch <run-id> --limit 1 --sandbox readonly
+node scripts/cw.js worker summary <run-id>
 ```
 
 Run data is written to `.cw/runs/<run-id>/` in the target repo/cwd.
@@ -321,6 +375,23 @@ Start here:
 - [Release And Migration](plugins/cool-workflow/docs/release-and-migration.7.md)
 
 Full docs map: [plugins/cool-workflow/docs/index.md](plugins/cool-workflow/docs/index.md)
+
+## Work With Me
+
+CW is maintained by COOLWHITE LLC. Beyond the open-source SDK, the following
+engagements are available:
+
+- **Architecture-risk audits** — review your agent workflows for evidence-chain
+  gaps, trust boundaries, and verifier coverage.
+- **CW integration** — wire CW into your pipeline: plugin customization,
+  multi-agent topology, and verifier/commit-gate policy.
+- **Custom audit/compliance layers** — domain-specific evidence models,
+  approval and handoff governance, attestation workflows.
+
+For inquiries, open a
+[GitHub Issue](https://github.com/coo1white/cool-workflow/issues) or start a
+[GitHub Discussion](https://github.com/coo1white/cool-workflow/discussions). For
+direct contact: `[contact — fill in]`.
 
 ## Status
 

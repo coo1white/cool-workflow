@@ -238,6 +238,12 @@ function selectCandidate(run, candidateId, options = {}, scoringOptions = {}) {
         else if (!verifierNode.evidence.length) {
             failures.push(error("candidate-selection-missing-evidence", `Candidate ${candidateId} verifier node has no evidence`));
         }
+        else if (emptyCaptureWarning(run, verifierNode)) {
+            // HARD no-false-green gate (v0.1.43) — kept in SYNC with the commit gate
+            // (commit.ts emptyCaptureWarning): a verifier node whose backing result was
+            // an empty-capture must not be selectable, so selection + commit agree.
+            failures.push(error("candidate-selection-empty-capture", `Candidate ${candidateId} verifier node has no real evidence (empty-capture result)`));
+        }
     }
     if (policy.minNormalized !== undefined && (bestScore?.normalized ?? 0) < policy.minNormalized) {
         failures.push(error("candidate-selection-score-below-threshold", `Candidate ${candidateId} score is below threshold`, {
@@ -634,6 +640,17 @@ function error(code, message, options = {}) {
         retryable: false,
         details: options.details
     };
+}
+/** HARD no-false-green gate (v0.1.43) — kept in SYNC with commit.ts. Traces a
+ *  verifier node back to its source result node and returns the empty-capture
+ *  marker (set at ingest via isEmptyCapture) when present. Reads ONLY persisted
+ *  state, so selection replays deterministically. */
+function emptyCaptureWarning(run, verifierNode) {
+    const resultNodeId = (typeof verifierNode.inputs?.inputNodeId === "string" ? verifierNode.inputs.inputNodeId : undefined) ||
+        verifierNode.parents[0];
+    const resultNode = resultNodeId ? run.nodes?.find((node) => node.id === resultNodeId) : undefined;
+    const warning = resultNode?.metadata?.captureWarning;
+    return typeof warning === "string" && warning ? warning : undefined;
 }
 function mergeCandidates(left, right) {
     const merged = [...left];

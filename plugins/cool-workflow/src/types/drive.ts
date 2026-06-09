@@ -55,6 +55,35 @@ export interface DriveResult {
   statePath: string;
 }
 
+/** The result of the one-command `quickstart` wrapper: plan(app) -> run --drive ->
+ *  report, assembled from the EXISTING verbs only (no second executor/scheduler).
+ *  Carries the drive outcome verbatim plus the written report path so a newcomer
+ *  gets a run id, a status, and a cited report in ONE invocation. `--preview`
+ *  returns a DrivePreview instead (read-only next-step projection, no mutation). */
+export interface QuickstartResult {
+  schemaVersion: 1;
+  /** The app planned + driven (defaults to architecture-review). */
+  appId: string;
+  runId: string;
+  workflowId: string;
+  /** Mirrors DriveResult.status: complete | parked | blocked | in-progress. */
+  status: DriveResult["status"];
+  plannedWorkers: number;
+  completedWorkers: number;
+  parkedWorkers: number;
+  commitId?: string;
+  reportPath: string;
+  statePath: string;
+  /** True iff an agent command-template/endpoint was configured. When false the
+   *  drive fails closed (status=blocked) — CW never fabricates a completion. */
+  agentConfigured: boolean;
+  /** The deterministic drive steps (verbatim from drive()), for inspection. */
+  steps: DriveStep[];
+  /** Operator-facing next action when the drive did not complete (e.g. how to
+   *  configure the agent backend, or where the parked worker is). */
+  hint?: string;
+}
+
 /** Read-only, deterministic preview of the drive loop's NEXT step for a run —
  *  no mutation, no spawn. Counts come from state; safe for CLI<->MCP parity. */
 export interface DrivePreview {
