@@ -40,6 +40,8 @@ import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "../
 import { createPipelineRunner } from "../pipeline-runner";
 import { commitState } from "../commit";
 import { recordFeedback } from "../error-feedback";
+import { recordTrustAuditEvent } from "../trust-audit";
+import { isEmptyCapture } from "../result-normalize";
 import {
   getWorkerScope,
   recordWorkerFailure as recordWorkerFailureImpl,
@@ -254,10 +256,24 @@ export function recordResult(run: WorkflowRun, taskId: string, resultPath: strin
         })),
         parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
         contractId: DEFAULT_PIPELINE_CONTRACT_ID,
-        metadata: { taskId: task.id }
+        metadata: {
+          taskId: task.id,
+          // Empty-capture warning (v0.1.42): surfaced, never silently passed.
+          ...(isEmptyCapture(parsedResult) ? { captureWarning: "no findings or evidence captured from result.md" } : {})
+        }
       })
     );
     task.resultNodeId = resultNode.id;
+    if (isEmptyCapture(parsedResult)) {
+      recordTrustAuditEvent(run, {
+        kind: "worker.capture-warning",
+        decision: "recorded",
+        source: "cw-validated",
+        taskId: task.id,
+        nodeId: resultNode.id,
+        metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination }
+      });
+    }
     updatePhaseStatuses(run);
     validateRunGates(run);
     const verifierResult = createPipelineRunner({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {

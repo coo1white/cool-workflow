@@ -7,6 +7,7 @@ exports.validateResultEnvelope = validateResultEnvelope;
 exports.validateRunGates = validateRunGates;
 const dispatch_1 = require("./dispatch");
 const evidence_grounding_1 = require("./evidence-grounding");
+const result_normalize_1 = require("./result-normalize");
 function assertTaskCanComplete(run, task) {
     const runnablePhase = (0, dispatch_1.firstRunnablePhase)(run);
     if (!runnablePhase || runnablePhase.name !== task.phase) {
@@ -16,27 +17,12 @@ function assertTaskCanComplete(run, task) {
         throw new Error(`Task ${task.id} cannot be completed from status ${task.status}`);
     }
 }
+// Ingest is delegated to the robust normalizer (v0.1.42): canonical
+// `{summary, findings, evidence}` passes through unchanged, but when the agent
+// uses its own shape (or prose) CW extracts findings from alternative keys and
+// DERIVES grounded evidence itself rather than capturing nothing.
 function parseResultEnvelope(markdown) {
-    const match = markdown.match(/```cw:result\s*([\s\S]*?)```/);
-    if (!match) {
-        return {
-            summary: firstNonEmptyLine(markdown),
-            findings: [],
-            evidence: []
-        };
-    }
-    try {
-        const parsed = JSON.parse(match[1]);
-        return {
-            summary: parsed.summary || firstNonEmptyLine(markdown),
-            findings: Array.isArray(parsed.findings) ? parsed.findings : [],
-            evidence: Array.isArray(parsed.evidence) ? parsed.evidence : []
-        };
-    }
-    catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        throw new Error(`Invalid cw:result JSON: ${message}`);
-    }
+    return (0, result_normalize_1.normalizeResultEnvelope)(markdown);
 }
 /** Whether a task's result MUST carry evidence (verify/verdict/synthesis tasks
  *  and any task that opted in via requiresEvidence). The commit gate reuses this
@@ -79,10 +65,4 @@ function validateFinding(task, finding) {
     if (["P0", "P1", "P2"].includes(finding.severity || "") && !(0, evidence_grounding_1.hasGroundedEvidence)(finding.evidence)) {
         throw new Error(`Task ${task.id} finding ${finding.id} severity ${finding.severity} requires grounded evidence (a path-like locator, URL, or namespace:value token)`);
     }
-}
-function firstNonEmptyLine(markdown) {
-    return (markdown
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .find((line) => line && !line.startsWith("#")) || "");
 }

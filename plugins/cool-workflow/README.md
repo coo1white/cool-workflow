@@ -594,3 +594,7 @@ every authoritative write is now atomic (temp -> rename, so a crash can never tr
 ## Self-Audit Hardening & Pure-Router Decomposition (v0.1.41)
 
 closes the v0.1.41 architecture self-audit's real findings and pays down its top maintainability debt. Hardening: evidence-gated commits now require GROUNDED locators (path/URL/namespace:value), not just presence, with opt-in `CW_REQUIRE_RESOLVABLE_EVIDENCE` on-disk resolution; the trust-audit event log is appended with fsync (durable like state.json); path containment is symlink-hardened (realpath of the deepest existing ancestor) across sandbox checks and reclamation proofs; worker ids are deterministic; coordinator secret redaction recurses. Maintainability: the `descriptor.id ===` switches in the execution backend are gone — drivers self-describe through a `registerBackend` registry — and the ~2100-line CoolWorkflowRunner god-object is decomposed into per-domain operation modules under `src/orchestrator/`, leaving the runner a pure `loadRun -> delegate` router. Behavior-preserving (verified by adversarial review + full release:check).
+
+## Robust Result Ingest (v0.1.42)
+
+capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure

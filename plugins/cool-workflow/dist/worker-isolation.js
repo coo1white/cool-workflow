@@ -22,6 +22,7 @@ const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const verifier_1 = require("./verifier");
 const evidence_grounding_1 = require("./evidence-grounding");
+const result_normalize_1 = require("./result-normalize");
 const sandbox_profile_1 = require("./sandbox-profile");
 const execution_backend_1 = require("./execution-backend");
 const trust_audit_1 = require("./trust-audit");
@@ -347,6 +348,9 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
             workerDir: scope.workerDir,
             sandboxProfileId: scope.sandboxProfileId,
             auditEventIds: [pathAudit.id],
+            // Empty-capture warning (v0.1.42): even after robust normalization the result
+            // yielded NO findings and NO evidence — surfaced, never silently passed.
+            ...((0, result_normalize_1.isEmptyCapture)(parsedResult) ? { captureWarning: "no findings or evidence captured from result.md" } : {}),
             // Folded into the snapshotted node body so v0.1.35 replay re-verifies the
             // prompt/result/model digests WITHOUT re-spawning the agent. NOT evidence.
             ...(agentDelegation ? { agentDelegation } : {})
@@ -375,6 +379,20 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     });
     (0, state_node_1.appendRunNode)(run, resultNode);
     task.resultNodeId = resultNode.id;
+    // Warn (don't silently pass) when a worker's result captured no structured signal
+    // at all — the v0.1.41 self-audit's "accepted with evidenceCount:0" failure mode.
+    if ((0, result_normalize_1.isEmptyCapture)(parsedResult)) {
+        (0, trust_audit_1.recordTrustAuditEvent)(run, {
+            kind: "worker.capture-warning",
+            decision: "recorded",
+            source: "cw-validated",
+            workerId,
+            taskId: task.id,
+            nodeId: resultNode.id,
+            parentEventIds: [acceptedAudit.id],
+            metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination }
+        });
+    }
     // The agent-hop attestation event — hung off worker.output, alongside
     // worker.backend. Recorded in trust-audit/provenance, NEVER in node evidence.
     if (agentDelegation) {

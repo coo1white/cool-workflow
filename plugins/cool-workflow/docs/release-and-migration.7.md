@@ -255,3 +255,7 @@ atomic temp->rename writes + fsync-durability for authoritative stores; portable
 ## Self-Audit Hardening & Pure-Router Decomposition (v0.1.41)
 
 evidence grounding + durable audit append + symlink-hardened containment + deterministic worker ids + recursive redaction; BackendRegistry self-describing drivers (no per-id switches); orchestrator god-object decomposed into per-domain operation modules (pure loadRun->delegate router)
+
+## Robust Result Ingest (v0.1.42)
+
+capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure

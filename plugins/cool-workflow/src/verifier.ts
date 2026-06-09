@@ -1,6 +1,7 @@
 import { Finding, ResultEnvelope, RunTask, WorkflowRun } from "./types";
 import { firstRunnablePhase } from "./dispatch";
 import { hasGroundedEvidence } from "./evidence-grounding";
+import { normalizeResultEnvelope } from "./result-normalize";
 
 export function assertTaskCanComplete(run: WorkflowRun, task: RunTask): void {
   const runnablePhase = firstRunnablePhase(run);
@@ -14,26 +15,12 @@ export function assertTaskCanComplete(run: WorkflowRun, task: RunTask): void {
   }
 }
 
+// Ingest is delegated to the robust normalizer (v0.1.42): canonical
+// `{summary, findings, evidence}` passes through unchanged, but when the agent
+// uses its own shape (or prose) CW extracts findings from alternative keys and
+// DERIVES grounded evidence itself rather than capturing nothing.
 export function parseResultEnvelope(markdown: string): ResultEnvelope {
-  const match = markdown.match(/```cw:result\s*([\s\S]*?)```/);
-  if (!match) {
-    return {
-      summary: firstNonEmptyLine(markdown),
-      findings: [],
-      evidence: []
-    };
-  }
-  try {
-    const parsed = JSON.parse(match[1]) as Partial<ResultEnvelope>;
-    return {
-      summary: parsed.summary || firstNonEmptyLine(markdown),
-      findings: Array.isArray(parsed.findings) ? parsed.findings : [],
-      evidence: Array.isArray(parsed.evidence) ? parsed.evidence : []
-    };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid cw:result JSON: ${message}`);
-  }
+  return normalizeResultEnvelope(markdown);
 }
 
 /** Whether a task's result MUST carry evidence (verify/verdict/synthesis tasks
@@ -90,11 +77,3 @@ function validateFinding(task: RunTask, finding: Finding): void {
   }
 }
 
-function firstNonEmptyLine(markdown: string): string {
-  return (
-    markdown
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .find((line) => line && !line.startsWith("#")) || ""
-  );
-}
