@@ -114,3 +114,4 @@ The MCP server exposes matching tools:
 - `cw_audit_decision`
 
 Existing MCP tool names remain stable.
+0.1.51

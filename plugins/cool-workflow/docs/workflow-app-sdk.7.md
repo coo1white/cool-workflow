@@ -271,3 +271,4 @@ apps/research-synthesis/app.json
 test/workflow-app-sdk-smoke.js
 test/canonical-workflow-apps-smoke.js
 ```
+0.1.51

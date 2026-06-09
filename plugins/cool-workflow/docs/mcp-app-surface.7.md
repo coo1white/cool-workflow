@@ -232,3 +232,4 @@ The CLI remains the easiest way for humans to drive a run. MCP is the stable
 tool surface for agent hosts. New runtime capabilities should appear in both
 surfaces, keep old names as aliases or wrappers, and use explicit JSON
 contracts rather than host-specific policy hidden in the bridge.
+0.1.51

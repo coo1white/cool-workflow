@@ -133,3 +133,4 @@ remains in worker scopes and manifests as the effective write-path alias for
 older callers. New hosts should read `sandboxPolicy.readPaths` and
 `sandboxPolicy.writePaths`, then apply worker output allowances from
 `sandboxPolicy.workerOutput`.
+0.1.51

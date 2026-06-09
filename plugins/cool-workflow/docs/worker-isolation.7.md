@@ -160,3 +160,4 @@ Existing `plan`, `dispatch`, `result`, `node`, `contract`, and `feedback`
 commands remain compatible. The legacy `result` command still accepts a task id
 and result file. The stricter boundary-aware path is the `worker output`
 command.
+0.1.51

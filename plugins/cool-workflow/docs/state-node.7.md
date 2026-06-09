@@ -93,3 +93,4 @@ Link a verifier node to a commit node:
 ```ts
 const [verifier, commit] = linkStateNodes(verifierNode, commitNode);
 ```
+0.1.51

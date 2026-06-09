@@ -103,3 +103,4 @@ fields are initialized when state loads.
 
 Existing workflow, worker, feedback, node, contract, result, commit, and report
 commands remain compatible.
+0.1.51

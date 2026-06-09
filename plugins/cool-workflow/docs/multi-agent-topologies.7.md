@@ -100,3 +100,4 @@ role policies, message provenance, blackboard write audit, judge rationale,
 panel decisions, and policy violations through the same trust-audit log used by
 worker sandbox and evidence provenance records. Judge-panel selection now
 requires evidence-backed judge rationale and panel-chair rationale.
+0.1.51

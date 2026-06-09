@@ -177,3 +177,4 @@ no hidden daemon assumption
 
 When in doubt, inspect `.cw/runs/<run-id>/state.json`, the resource directories,
 and the command-specific `--json` output.
+0.1.51

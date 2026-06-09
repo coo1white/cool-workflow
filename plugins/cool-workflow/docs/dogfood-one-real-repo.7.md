@@ -165,3 +165,4 @@ It splits into two halves, exactly like the release dogfood above:
   The model runs in the external agent's process, never inside CW: this script
   spawns the agent and records its attested output; it imports no model SDK and
   holds no API key.
+0.1.51

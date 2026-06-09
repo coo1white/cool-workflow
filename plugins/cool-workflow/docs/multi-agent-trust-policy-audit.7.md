@@ -151,3 +151,4 @@ allowed and denied blackboard writes, message provenance, role/membership/worker
 links, accepted judge rationale, missing-rationale and missing-evidence failure
 paths, CLI output assertions, MCP parity assertions, report assertions, and
 audit provenance assertions.
+0.1.51

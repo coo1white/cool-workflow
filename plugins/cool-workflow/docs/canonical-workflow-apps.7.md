@@ -134,3 +134,4 @@ node scripts/cw.js status <run-id>
 node scripts/cw.js graph <run-id>
 node scripts/cw.js report <run-id> --summary
 ```
+0.1.51

@@ -137,3 +137,4 @@ commit records and keeps older run state readable.
 Programmatic snapshots that do not request a verifier gate remain checkpoints.
 The CLI `commit` command is stricter: a plain manual commit fails closed unless
 the operator passes `--allow-unverified-checkpoint`.
+0.1.51

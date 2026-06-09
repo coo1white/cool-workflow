@@ -180,3 +180,4 @@ Older v0.1.17 and earlier runs normalize with empty blackboard state and a
 `.cw/runs/<run-id>/blackboard/` path. Unknown user data is preserved.
 
 Newer unsupported run-state schemas still fail closed.
+0.1.51

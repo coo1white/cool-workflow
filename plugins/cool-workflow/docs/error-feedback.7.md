@@ -150,3 +150,4 @@ Error Feedback is introduced in CW v0.1.4. It adds optional `feedback` state and
 initialized when the run is loaded.
 
 Existing workflow, node, contract, pipeline, and CLI behavior is preserved.
+0.1.51
