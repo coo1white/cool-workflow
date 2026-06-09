@@ -586,3 +586,7 @@ spawn an external agent process per worker, capture result.md + attestation, aut
 ## Run Retention & Provable Reclamation (v0.1.39)
 
 tiered, append-only, cryptographically-verifiable disk reclamation: `gc plan|run|verify` seal the audit skeleton, free the reconstructable/scratch bulk, and prove it via a hash-chained tombstone. Write-ahead + fail-closed (skeleton -> tombstone -> fsync -> free); explicit capability downgrade (verify-only / re-runnable-by-reconstruction); CW never reclaims by default.
+
+## Durable State & Locking (v0.1.40)
+
+every authoritative write is now atomic (temp -> rename, so a crash can never truncate state.json) with fsync-durability for the audit-essential stores; the cross-process read-modify-write stores (home queue, archive overlay, reclamation chain) are serialized by a portable stale-stealing file lock. Closes the architecture self-audit's non-atomic/unlocked P1 and pulls reclamation's result-node re-point inside the write-ahead boundary (durable persist + dangling-ref proof before any free) with a content-validated skeleton.

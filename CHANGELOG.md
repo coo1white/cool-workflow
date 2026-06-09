@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.40
+
+- Added Durable State & Locking (reclamation-durability hardening from the v0.1.39 architecture self-audit): `state.ts:writeJson` is now atomic (temp -> rename) for every authoritative write — a crash/ENOSPC mid-write can no longer truncate state.json — with fsync-durability for the audit-essential stores (state.json, registry overlays, scheduler store, reclaimed.json). A portable stale-stealing `withFileLock` now serializes the cross-process read-modify-write stores (home queue add/drain, archive overlay, repos registry, reclamation chain). Reclamation's result-node re-point moved INSIDE the write-ahead boundary (`prepareFree`: re-point -> durable persist -> prove no node references a freed path / `loadNodeSnapshot` valid, fail-closed `repoint-incomplete`, before any byte is freed), the tombstone-chain build+commit is lock-serialized, and `validateSkeleton` now refuses (`skeleton-incomplete`) when extraction dropped commits/evidence the run actually has.
+
 ## 0.1.39
 
 - Added Run Retention & Provable Reclamation: a tiered (live -> archived -> reclaimed), append-only, cryptographically-verifiable disk GC over the v0.1.28 archive overlay. `gc plan` (dry-run, frees nothing), `gc run` (write-ahead transaction: seal skeleton -> write tombstone with a pre-deletion sha256 per path -> fsync into reclaimed.json -> free bulk), and `gc verify` (re-prove skeleton-complete + hash-chain untampered + reconstructable artifacts re-derived from RETAINED inputs). Fail-closed eligibility, explicit/queryable capability downgrade, eager worker-scratch reclaim with result-node re-pointing, and a SKELETON_REQUIRED_KEYS contract. CW never reclaims by default.

@@ -34,6 +34,7 @@ Read these in order when you are new to CW:
 30. [Control-Plane Scheduling](control-plane-scheduling.7.md) - priority + hard concurrency ceiling + lease lifecycle + retry/backoff + fail-closed park policy over the v0.1.28 Run Registry queue; policy-as-data, deterministic, with a read-only `sched plan`.
 31. [Agent Delegation Drive](agent-delegation-drive.7.md) - the `agent` backend delegates each worker to an EXTERNAL agent process (claude/codex/HTTP endpoint) and `run --drive` auto-advances plan→dispatch→fulfill→accept→commit; the model runs in the agent's process, never in CW. Two-layer evidence, operator-vs-attested model, fail-closed park, replay without re-spawn.
 32. [Run Retention & Provable Reclamation](run-retention-reclamation.7.md) - tiered, append-only, cryptographically-verifiable disk reclamation over the v0.1.28 archive overlay: seal the audit skeleton, free the reconstructable/scratch bulk, and prove it via a hash-chained tombstone; `gc plan|run|verify`, write-ahead + fail-closed, explicit capability downgrade.
+33. [Durable State & Locking](durable-state-and-locking.7.md) - atomic (temp→rename) writes for every authoritative store with fsync-durability for the audit-essential ones, plus a portable stale-stealing file lock serializing the cross-process read-modify-write stores (home queue, archive overlay, reclamation chain); closes the prior verdict's non-atomic/unlocked P1.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

@@ -37,6 +37,7 @@ exports.reclaimedLogPath = reclaimedLogPath;
 exports.loadReclamationLog = loadReclamationLog;
 exports.extractSkeleton = extractSkeleton;
 exports.validateSkeleton = validateSkeleton;
+exports.validateSkeletonAgainstRun = validateSkeletonAgainstRun;
 exports.planReclamation = planReclamation;
 exports.genesisPrevHash = genesisPrevHash;
 exports.computeTombstoneHash = computeTombstoneHash;
@@ -53,6 +54,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const node_snapshot_1 = require("./node-snapshot");
+const state_1 = require("./state");
 const trust_audit_1 = require("./trust-audit");
 exports.RECLAMATION_SCHEMA_VERSION = 1;
 /** The skeleton schema is the contract for what MUST survive every reclamation.
@@ -145,102 +147,18 @@ function contentDigest(p) {
     walk(p, "");
     return sha256OfString(parts.join("\n"));
 }
-// ---------------------------------------------------------------------------
-// Durable write (temp → fsync → rename → fsync dir). The tombstone commit MUST
-// be durable before any byte is freed — order is the safety property.
-// ---------------------------------------------------------------------------
-function writeJsonDurable(file, value) {
-    node_fs_1.default.mkdirSync(node_path_1.default.dirname(file), { recursive: true });
-    const tmp = `${file}.tmp-${sha256Hex(file).slice(0, 8)}`;
-    const fd = node_fs_1.default.openSync(tmp, "w");
-    try {
-        node_fs_1.default.writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-        node_fs_1.default.fsyncSync(fd);
-    }
-    finally {
-        node_fs_1.default.closeSync(fd);
-    }
-    node_fs_1.default.renameSync(tmp, file);
-    try {
-        const dirFd = node_fs_1.default.openSync(node_path_1.default.dirname(file), "r");
-        try {
-            node_fs_1.default.fsyncSync(dirFd);
-        }
-        finally {
-            node_fs_1.default.closeSync(dirFd);
-        }
-    }
-    catch {
-        /* directory fsync is best-effort (not supported on every platform) */
-    }
-}
-/** Persist a run's authoritative state.json DURABLY (temp → fsync → rename). The
- *  re-point that scratch reclamation depends on MUST be persisted this way BEFORE
- *  any byte is freed — see prepareFree(). Mirrors saveCheckpoint but atomic. */
+/** Persist a run's authoritative state.json DURABLY (atomic temp → fsync →
+ *  rename). The re-point that scratch reclamation depends on MUST be persisted
+ *  this way BEFORE any byte is freed — see prepareFree(). */
 function persistRunDurable(run) {
     run.updatedAt = new Date().toISOString();
-    writeJsonDurable(run.paths.state, run);
+    (0, state_1.writeJson)(run.paths.state, run, { durable: true });
 }
-// ---------------------------------------------------------------------------
-// Per-run reclamation lock (P1-C) — serialize the read-modify-write on
-// reclaimed.json so two concurrent reclaimers can never lose a tombstone
-// (freed-without-proof). Portable advisory lock via O_EXCL (`wx`), with a stale
-// steal so a crashed holder can never wedge the run forever.
-// ---------------------------------------------------------------------------
-const RECLAIM_LOCK_STALE_MS = 30_000;
-function sleepSync(ms) {
-    // Synchronous, deterministic sleep without busy-spinning the CPU.
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
-}
-function lockPath(run) {
-    return node_path_1.default.join(run.paths.runDir, ".reclaim.lock");
-}
-function acquireRunLock(run) {
-    const file = lockPath(run);
-    node_fs_1.default.mkdirSync(node_path_1.default.dirname(file), { recursive: true });
-    for (let attempt = 0; attempt < 200; attempt++) {
-        try {
-            const fd = node_fs_1.default.openSync(file, "wx");
-            node_fs_1.default.writeFileSync(fd, `${process.pid}@${new Date().toISOString()}\n`, "utf8");
-            node_fs_1.default.closeSync(fd);
-            return () => {
-                try {
-                    node_fs_1.default.rmSync(file, { force: true });
-                }
-                catch {
-                    /* releasing a missing lock is fine */
-                }
-            };
-        }
-        catch (error) {
-            if (!(error && typeof error === "object" && error.code === "EEXIST"))
-                throw error;
-            // Steal a stale lock (a crashed holder must not wedge the run forever).
-            try {
-                const age = Date.now() - node_fs_1.default.statSync(file).mtimeMs;
-                if (age > RECLAIM_LOCK_STALE_MS) {
-                    node_fs_1.default.rmSync(file, { force: true });
-                    continue;
-                }
-            }
-            catch {
-                /* lock vanished between open and stat — retry immediately */
-                continue;
-            }
-            sleepSync(25);
-        }
-    }
-    throw new ReclamationError("reclaim-locked", `could not acquire reclamation lock for run ${run.id}`);
-}
-/** Run `fn` while holding the per-run reclamation lock; always released. */
+/** Run `fn` while holding the per-run reclamation lock (serializes the
+ *  reclaimed.json read-modify-write so a concurrent reclaimer can never lose a
+ *  tombstone). Generalized into state.ts's portable withFileLock (P1-C/P1-D). */
 function withRunLock(run, fn) {
-    const release = acquireRunLock(run);
-    try {
-        return fn();
-    }
-    finally {
-        release();
-    }
+    return (0, state_1.withFileLock)(reclaimedLogPath(run), fn);
 }
 // ---------------------------------------------------------------------------
 // The per-run reclamation log (`reclaimed.json`) — an append-only chain of
@@ -415,8 +333,36 @@ function validateSkeleton(skeleton) {
             missing.push(key);
         if (key === "auditLog" && (typeof value !== "object" || !value.digest))
             missing.push(key);
+        if (key === "attestationChain" && (typeof value !== "object" || typeof value.auditLogDigest !== "string"))
+            missing.push(key);
+        if (key === "commits" && !Array.isArray(value))
+            missing.push(key);
+        if (key === "evidenceDigests" && !Array.isArray(value))
+            missing.push(key);
     }
     return missing;
+}
+/** P2-A content fidelity (v0.1.40): a complete-SHAPED skeleton is not enough —
+ *  reclamation must REFUSE if extraction dropped audit content the run actually
+ *  has. When the run carries commits/evidence, the sealed skeleton MUST carry
+ *  them too (extraction maps 1:1). Returns the content-loss reasons, empty when
+ *  faithful. This is the run-aware counterpart to validateSkeleton's shape check. */
+function validateSkeletonAgainstRun(run, skeleton) {
+    const failures = [];
+    const runCommits = (run.commits || []).length;
+    if (runCommits > 0 && skeleton.commits.length !== runCommits) {
+        failures.push(`commits-dropped(run=${runCommits},sealed=${skeleton.commits.length})`);
+    }
+    const runHasEvidence = (run.nodes || []).some((n) => (n.evidence || []).length) ||
+        (run.candidates || []).some((c) => (c.evidence || []).length) ||
+        (run.candidateSelections || []).some((s) => (s.evidence || []).length) ||
+        (run.commits || []).some((c) => (c.evidence || []).length);
+    if (runHasEvidence && skeleton.evidenceDigests.length === 0) {
+        failures.push("evidence-dropped");
+    }
+    if (!skeleton.finalVerdict || !skeleton.finalVerdict.lifecycle)
+        failures.push("verdict-missing");
+    return failures;
 }
 // ---------------------------------------------------------------------------
 // Reference graph — the load-bearing classifier guard. A candidate/blackboard
@@ -678,7 +624,7 @@ function buildTombstone(run, skeleton, plan, options = {}) {
 function commitTombstone(run, tombstone) {
     const log = loadReclamationLog(run);
     log.tombstones.push(tombstone);
-    writeJsonDurable(reclaimedLogPath(run), log);
+    (0, state_1.writeJson)(reclaimedLogPath(run), log, { durable: true });
     try {
         (0, trust_audit_1.recordTrustAuditEvent)(run, {
             kind: "run.reclamation",
@@ -809,6 +755,11 @@ function runReclamation(run, options = {}) {
     const missing = validateSkeleton(skeleton);
     if (missing.length) {
         throw new ReclamationError("skeleton-incomplete", `Skeleton missing required keys: ${missing.join(", ")}`, { missing });
+    }
+    // P2-A: also refuse if extraction dropped audit content the run actually has.
+    const contentLoss = validateSkeletonAgainstRun(run, skeleton);
+    if (contentLoss.length) {
+        throw new ReclamationError("skeleton-incomplete", `Skeleton dropped audit content: ${contentLoss.join(", ")}`, { contentLoss });
     }
     if (options.faultAfter === "skeleton")
         throw new ReclamationAbort("skeleton");
