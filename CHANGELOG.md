@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.49
+
+- CI fix: CHANGELOG.md and RELEASE.md are content surfaces that the dogfood-release smoke test reads from the git commit (`git show HEAD:<path>`). These must contain the target version string in the released commit. The bump-version script only covers structured surfaces; content surface updates are now documented as a release step.
+
 ## 0.1.48
 
 - P2 fixes for v0.2.0 readiness. State auto-compaction: `saveCheckpoint()` now triggers `computeStateSize()` after every write via a `setPostSaveCallback()` hook; compaction runs automatically when graph nodes exceed 40 or edges exceed 60 (BSD: mechanism in state.ts, policy in orchestrator constructor). Agent code dedup: `multi-agent-host.ts` now documents its delegation relationship to `lifecycle-operations.ts`, establishing the shared mechanism between single-agent and multi-agent paths. npm scripts: added `ci` aggregate (build → check → test → release:check), cleaned `test:fast` and `eval:replay`. P2-1 confirmed already-done (types barrel exists universally). P2-3/P2-5/P2-6 deferred to v0.2.0.
