@@ -849,9 +849,9 @@ class RunRegistry {
                     policy: { reclaimAfterArchiveDays: policy.reclaimAfterArchiveDays, keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots },
                     reclaimPolicy: { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots }
                 });
-                // Persist any result-node artifact re-point so no surviving node refers to
-                // a freed path on next load.
-                (0, state_1.saveCheckpoint)(run);
+                // No post-free saveCheckpoint: runReclamation now DURABLY persists the
+                // result-node re-point inside the transaction (before any byte is freed),
+                // so state.json can never reference a freed path even on a crash here.
                 reclaimed.push({
                     runId: record.runId,
                     bytesFreed: result.bytesFreed,
