@@ -9,6 +9,8 @@ import { createPipelineRunner } from "./pipeline-runner";
 import { recordFeedback } from "./error-feedback";
 import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent, validateAcceptanceRationale } from "./trust-audit";
 import { commitReviewProvenance, reviewGateErrors, selfActorIdsForCandidate } from "./collaboration";
+import { hasGroundedEvidence, requireResolvableEvidence, unresolvedFileEvidence } from "./evidence-grounding";
+import { taskRequiresEvidence } from "./verifier";
 
 export interface CommitStateOptions {
   reason: string;
@@ -118,6 +120,28 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
   });
   run.commits.push(commit);
   return commit;
+}
+
+/** A verifier node is held to the grounded-evidence bar when its backing task
+ *  requires evidence, or when it backs an explicit candidate/selection commit
+ *  (no 1:1 task — these are the higher-stakes commits the gate exists for). */
+function verifierNodeRequiresEvidence(run: WorkflowRun, verifierNode: StateNode): boolean {
+  const marker = ":verifier:";
+  const idx = verifierNode.id.indexOf(marker);
+  const taskId = idx >= 0 ? verifierNode.id.slice(idx + marker.length) : undefined;
+  const task = taskId ? run.tasks.find((candidate) => candidate.id === taskId) : undefined;
+  if (task) return taskRequiresEvidence(task);
+  return true; // candidate/selection verifier with no 1:1 task — enforce grounding.
+}
+
+function evidenceLocatorString(entry: StateEvidence): string | undefined {
+  const ref = entry.locator || entry.path || entry.summary || entry.id;
+  return ref ? String(ref) : undefined;
+}
+
+/** Base dirs used to resolve file-style evidence locators in strict mode. */
+function commitEvidenceBaseDirs(run: WorkflowRun): string[] {
+  return Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir].filter(Boolean)));
 }
 
 function normalizeCommitOptions(input: string | CommitStateOptions): CommitStateOptions {
@@ -257,6 +281,32 @@ function resolveCommitGate(run: WorkflowRun, options: CommitStateOptions): Commi
         nodeId: verifierNode.id,
         details: { verifierNodeId: verifierNode.id }
       }));
+    } else if (verifierNodeRequiresEvidence(run, verifierNode)) {
+      // Evidence grounding (v0.1.40 self-audit P1/P2): for verifier nodes whose
+      // task REQUIRES evidence (verify/verdict/requiresEvidence, and explicit
+      // candidate/selection commits), the gate must not accept unverifiable free
+      // text. Require at least one GROUNDED locator (path-like / URL /
+      // namespace:value), and — when the operator opts in via
+      // CW_REQUIRE_RESOLVABLE_EVIDENCE — that file-style locators actually resolve
+      // on disk. Closes the "presence != existence" gap. Optional-evidence tasks
+      // (e.g. map/assess) keep the length-only check so the gate is never stricter
+      // than result acceptance was.
+      const locators = verifierNode.evidence.map(evidenceLocatorString).filter(Boolean) as string[];
+      if (!hasGroundedEvidence(locators)) {
+        errors.push(error("commit-verifier-evidence-ungrounded", `Verifier node ${verifierNode.id} evidence is not grounded (needs a path-like locator, URL, or namespace:value token)`, {
+          nodeId: verifierNode.id,
+          details: { verifierNodeId: verifierNode.id, evidence: locators }
+        }));
+      }
+      if (requireResolvableEvidence()) {
+        const unresolved = unresolvedFileEvidence(locators, commitEvidenceBaseDirs(run));
+        if (unresolved.length) {
+          errors.push(error("commit-verifier-evidence-unresolvable", `Verifier node ${verifierNode.id} cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`, {
+            nodeId: verifierNode.id,
+            details: { verifierNodeId: verifierNode.id, unresolved }
+          }));
+        }
+      }
     }
   }
 

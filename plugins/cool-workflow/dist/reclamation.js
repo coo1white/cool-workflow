@@ -654,7 +654,10 @@ function commitTombstone(run, tombstone) {
  *  crash can never leave state.json pointing at a freed path. */
 function prepareFree(run, tombstone) {
     const runDir = run.paths.runDir;
-    const scratchDirs = tombstone.freed.filter((f) => f.kind === "scratch").map((f) => node_path_1.default.resolve(node_path_1.default.join(runDir, f.path)));
+    // Symlink-hardened (v0.1.40 self-audit P1): realResolve follows symlinks so the
+    // containment proofs below cannot be bypassed by an artifact symlinked across
+    // the freed/retained boundary.
+    const scratchDirs = tombstone.freed.filter((f) => f.kind === "scratch").map((f) => (0, state_1.realResolve)(node_path_1.default.join(runDir, f.path)));
     if (!scratchDirs.length)
         return; // nothing references a freed path; no state change needed.
     const repointed = new Set();
@@ -669,7 +672,7 @@ function prepareFree(run, tombstone) {
         for (const artifact of node.artifacts || []) {
             if (!artifact.path)
                 continue;
-            const resolved = node_path_1.default.resolve(artifact.path);
+            const resolved = (0, state_1.realResolve)(artifact.path);
             for (const scratchDir of scratchDirs) {
                 if (resolved === scratchDir || resolved.startsWith(scratchDir + node_path_1.default.sep)) {
                     throw new ReclamationError("repoint-incomplete", `node ${node.id} artifact ${artifact.id} still references freed scratch path ${artifact.path}`, {
@@ -714,7 +717,8 @@ function freeBulk(run, tombstone) {
 /** Re-point a node's artifacts off `freedScratchDir` to the retained `result`
  *  copy. Returns the ids of nodes actually changed (for the validity proof). */
 function repointResultNodeArtifacts(run, freedScratchDir) {
-    const freedPrefix = node_path_1.default.resolve(freedScratchDir) + node_path_1.default.sep;
+    const freedReal = (0, state_1.realResolve)(freedScratchDir);
+    const freedPrefix = freedReal + node_path_1.default.sep;
     const changedIds = [];
     for (const node of run.nodes || []) {
         if (!node.artifacts)
@@ -723,8 +727,8 @@ function repointResultNodeArtifacts(run, freedScratchDir) {
         for (const artifact of node.artifacts) {
             if (!artifact.path)
                 continue;
-            const resolved = node_path_1.default.resolve(artifact.path);
-            if (resolved === node_path_1.default.resolve(freedScratchDir) || resolved.startsWith(freedPrefix)) {
+            const resolved = (0, state_1.realResolve)(artifact.path);
+            if (resolved === freedReal || resolved.startsWith(freedPrefix)) {
                 // Re-point to the retained results/<task>.md copy (the `result` artifact).
                 const retained = node.artifacts.find((a) => a.id === "result" && a.path && node_fs_1.default.existsSync(a.path));
                 if (retained && retained.path) {

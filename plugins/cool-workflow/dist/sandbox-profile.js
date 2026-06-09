@@ -23,6 +23,7 @@ exports.sandboxContextForRun = sandboxContextForRun;
 exports.sandboxContextForValidation = sandboxContextForValidation;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const state_1 = require("./state");
 exports.SANDBOX_PROFILE_SCHEMA_VERSION = 1;
 exports.DEFAULT_SANDBOX_PROFILE_ID = "default";
 class SandboxProfileError extends Error {
@@ -304,7 +305,10 @@ function validateSandboxPathAccess(mode, policy, rawPath, allowedPaths, workerId
         return denied(`sandbox-${mode}-denied`, `Worker ${workerId} ${mode} path is malformed: ${rawPath}`, rawPath, allowedPaths);
     }
     const candidate = node_path_1.default.resolve(rawPath);
-    const insideAllowedPath = allowedPaths.some((allowed) => candidate === allowed || candidate.startsWith(`${allowed}${node_path_1.default.sep}`));
+    // Symlink-hardened (v0.1.40 self-audit P1): isContainedPath realpaths both sides
+    // so a planted symlink whose textual path looks "inside" an allowed root but
+    // whose real target escapes it is denied, not silently accepted.
+    const insideAllowedPath = allowedPaths.some((allowed) => (0, state_1.isContainedPath)(candidate, allowed));
     if (!insideAllowedPath) {
         return denied(`sandbox-${mode}-denied`, `Worker ${workerId} ${mode} path is outside sandbox profile ${policy.id}: ${candidate}`, candidate, allowedPaths);
     }

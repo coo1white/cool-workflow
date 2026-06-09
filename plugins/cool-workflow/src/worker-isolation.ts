@@ -18,6 +18,7 @@ import { recordFeedback } from "./error-feedback";
 import { appendRunNode, createStateNode, linkStateNodes, recordNodeError } from "./state-node";
 import { createPipelineRunner } from "./pipeline-runner";
 import { parseResultEnvelope, validateResultEnvelope } from "./verifier";
+import { requireResolvableEvidence, unresolvedFileEvidence } from "./evidence-grounding";
 import {
   DEFAULT_SANDBOX_PROFILE_ID,
   effectiveSandboxWritePaths,
@@ -64,7 +65,7 @@ export function allocateWorkerScope(
   if (existing) return existing;
 
   const now = new Date().toISOString();
-  const workerId = options.workerId || createWorkerId(task.id);
+  const workerId = options.workerId || createWorkerId(run, task.id);
   const workerDir = path.join(workerRoot(run), safeFileName(workerId));
   const inputPath = path.join(workerDir, "input.md");
   const resultPath = path.join(workerDir, "result.md");
@@ -302,6 +303,27 @@ export function recordWorkerOutput(
   const rawResult = fs.readFileSync(absoluteResultPath, "utf8");
   const parsedResult = parseResultEnvelope(rawResult);
   validateResultEnvelope(task, parsedResult);
+
+  // Strict evidence resolution (v0.1.40 self-audit P1, opt-in via
+  // CW_REQUIRE_RESOLVABLE_EVIDENCE): fail closed if the result cites file-style
+  // evidence that does not resolve on disk, so a worker cannot land a result
+  // whose evidence locators point nowhere. Off by default — the default gate is
+  // the deterministic grounding check in validateResultEnvelope.
+  if (requireResolvableEvidence()) {
+    const baseDirs = Array.from(
+      new Set([run.cwd, process.cwd(), scope.workerDir, run.paths.runDir].filter(Boolean))
+    );
+    const unresolved = unresolvedFileEvidence(parsedResult.evidence, baseDirs);
+    if (unresolved.length) {
+      const error = structuredError(
+        "worker-evidence-unresolvable",
+        `Worker ${workerId} result cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`,
+        { path: absoluteResultPath, retryable: false }
+      );
+      recordWorkerFailure(run, workerId, error, { ...options, persist: options.persist });
+      throw new Error(error.message);
+    }
+  }
 
   // Agent Delegation Drive (v0.1.38): if this worker's result.md was produced by an
   // EXTERNAL agent, record the agent-hop attestation AS PROVENANCE — the agent
@@ -844,9 +866,17 @@ function manifestPath(scope: WorkerScope): string {
   return path.join(scope.workerDir, "worker.json");
 }
 
-function createWorkerId(taskId: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `worker-${safeFileName(taskId)}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic worker id (v0.1.40 self-audit P2): a wall-clock stamp + Math.random()
+// made every dispatch mint a different id, so audit references were not reproducible
+// across re-runs of the same inputs. The id is now derived from the task plus a
+// per-task sequence (count of worker scopes already allocated for that task + 1),
+// so re-running the same workflow yields byte-identical worker ids while retries of
+// the SAME task still get a fresh, unique id. (workerId is excluded from the
+// snapshot source fingerprint, so this does not change replay digests.)
+function createWorkerId(run: WorkflowRun, taskId: string): string {
+  const prefix = `worker-${safeFileName(taskId)}-`;
+  const seq = (run.workers || []).filter((scope) => scope.id.startsWith(prefix)).length + 1;
+  return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 
 function workerArtifacts(scope: WorkerScope): StateArtifact[] {

@@ -2,9 +2,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.assertTaskCanComplete = assertTaskCanComplete;
 exports.parseResultEnvelope = parseResultEnvelope;
+exports.taskRequiresEvidence = taskRequiresEvidence;
 exports.validateResultEnvelope = validateResultEnvelope;
 exports.validateRunGates = validateRunGates;
 const dispatch_1 = require("./dispatch");
+const evidence_grounding_1 = require("./evidence-grounding");
 function assertTaskCanComplete(run, task) {
     const runnablePhase = (0, dispatch_1.firstRunnablePhase)(run);
     if (!runnablePhase || runnablePhase.name !== task.phase) {
@@ -36,13 +38,19 @@ function parseResultEnvelope(markdown) {
         throw new Error(`Invalid cw:result JSON: ${message}`);
     }
 }
-function validateResultEnvelope(task, result) {
-    const mustHaveEvidence = task.requiresEvidence ||
+/** Whether a task's result MUST carry evidence (verify/verdict/synthesis tasks
+ *  and any task that opted in via requiresEvidence). The commit gate reuses this
+ *  so its evidence-grounding check matches the acceptance-time policy exactly. */
+function taskRequiresEvidence(task) {
+    return Boolean(task.requiresEvidence ||
         /^verify[:/]/i.test(task.id) ||
         /^verdict[:/]/i.test(task.id) ||
-        /^synthesis[:/]/i.test(task.id);
-    if (mustHaveEvidence && !hasEvidence(result)) {
-        throw new Error(`Task ${task.id} requires cw:result evidence`);
+        /^synthesis[:/]/i.test(task.id));
+}
+function validateResultEnvelope(task, result) {
+    const mustHaveEvidence = taskRequiresEvidence(task);
+    if (mustHaveEvidence && !(0, evidence_grounding_1.hasGroundedEvidence)(result.evidence)) {
+        throw new Error(`Task ${task.id} requires grounded cw:result evidence (a path-like locator, URL, or namespace:value token — not free text)`);
     }
     for (const finding of result.findings || []) {
         validateFinding(task, finding);
@@ -68,12 +76,9 @@ function validateFinding(task, finding) {
         !["real", "conditional", "non-issue", "unknown"].includes(finding.classification)) {
         throw new Error(`Task ${task.id} finding ${finding.id} has invalid classification`);
     }
-    if (["P0", "P1", "P2"].includes(finding.severity || "") && !hasEvidence(finding)) {
-        throw new Error(`Task ${task.id} finding ${finding.id} severity ${finding.severity} requires evidence`);
+    if (["P0", "P1", "P2"].includes(finding.severity || "") && !(0, evidence_grounding_1.hasGroundedEvidence)(finding.evidence)) {
+        throw new Error(`Task ${task.id} finding ${finding.id} severity ${finding.severity} requires grounded evidence (a path-like locator, URL, or namespace:value token)`);
     }
-}
-function hasEvidence(value) {
-    return Array.isArray(value.evidence) && value.evidence.some((entry) => String(entry).trim());
 }
 function firstNonEmptyLine(markdown) {
     return (markdown

@@ -1,5 +1,6 @@
 import { Finding, ResultEnvelope, RunTask, WorkflowRun } from "./types";
 import { firstRunnablePhase } from "./dispatch";
+import { hasGroundedEvidence } from "./evidence-grounding";
 
 export function assertTaskCanComplete(run: WorkflowRun, task: RunTask): void {
   const runnablePhase = firstRunnablePhase(run);
@@ -35,14 +36,24 @@ export function parseResultEnvelope(markdown: string): ResultEnvelope {
   }
 }
 
-export function validateResultEnvelope(task: RunTask, result: ResultEnvelope): void {
-  const mustHaveEvidence =
+/** Whether a task's result MUST carry evidence (verify/verdict/synthesis tasks
+ *  and any task that opted in via requiresEvidence). The commit gate reuses this
+ *  so its evidence-grounding check matches the acceptance-time policy exactly. */
+export function taskRequiresEvidence(task: { id: string; requiresEvidence?: boolean }): boolean {
+  return Boolean(
     task.requiresEvidence ||
-    /^verify[:/]/i.test(task.id) ||
-    /^verdict[:/]/i.test(task.id) ||
-    /^synthesis[:/]/i.test(task.id);
-  if (mustHaveEvidence && !hasEvidence(result)) {
-    throw new Error(`Task ${task.id} requires cw:result evidence`);
+      /^verify[:/]/i.test(task.id) ||
+      /^verdict[:/]/i.test(task.id) ||
+      /^synthesis[:/]/i.test(task.id)
+  );
+}
+
+export function validateResultEnvelope(task: RunTask, result: ResultEnvelope): void {
+  const mustHaveEvidence = taskRequiresEvidence(task);
+  if (mustHaveEvidence && !hasGroundedEvidence(result.evidence)) {
+    throw new Error(
+      `Task ${task.id} requires grounded cw:result evidence (a path-like locator, URL, or namespace:value token — not free text)`
+    );
   }
   for (const finding of result.findings || []) {
     validateFinding(task, finding);
@@ -72,13 +83,11 @@ function validateFinding(task: RunTask, finding: Finding): void {
   ) {
     throw new Error(`Task ${task.id} finding ${finding.id} has invalid classification`);
   }
-  if (["P0", "P1", "P2"].includes(finding.severity || "") && !hasEvidence(finding)) {
-    throw new Error(`Task ${task.id} finding ${finding.id} severity ${finding.severity} requires evidence`);
+  if (["P0", "P1", "P2"].includes(finding.severity || "") && !hasGroundedEvidence(finding.evidence)) {
+    throw new Error(
+      `Task ${task.id} finding ${finding.id} severity ${finding.severity} requires grounded evidence (a path-like locator, URL, or namespace:value token)`
+    );
   }
-}
-
-function hasEvidence(value: { evidence?: string[] }): boolean {
-  return Array.isArray(value.evidence) && value.evidence.some((entry) => String(entry).trim());
 }
 
 function firstNonEmptyLine(markdown: string): string {
