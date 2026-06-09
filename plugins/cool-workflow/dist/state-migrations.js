@@ -9,6 +9,7 @@ exports.migrateRunState = migrateRunState;
 exports.reverseRunState = reverseRunState;
 const node_path_1 = __importDefault(require("node:path"));
 const version_1 = require("./version");
+const run_state_schema_1 = require("./run-state-schema");
 exports.RUN_STATE_MIGRATIONS = [
     {
         from: version_1.LEGACY_RUN_STATE_SCHEMA_VERSION,
@@ -354,27 +355,21 @@ function normalizeRunState(state, context) {
     }
 }
 function validateMigratedRunState(state, report) {
-    for (const key of ["schemaVersion", "id", "createdAt", "updatedAt", "cwd", "workflow", "inputs", "loopStage", "phases", "tasks", "dispatches", "commits", "paths"]) {
+    for (const key of run_state_schema_1.REQUIRED_TOP_LEVEL_KEYS) {
         if (!(key in state))
             report.errors.push(`Missing required run-state field: ${key}.`);
     }
     if (state.schemaVersion !== version_1.CURRENT_RUN_STATE_SCHEMA_VERSION) {
         report.errors.push(`Expected schemaVersion ${version_1.CURRENT_RUN_STATE_SCHEMA_VERSION}; found ${String(state.schemaVersion)}.`);
     }
-    if (!isRecord(state.workflow))
-        report.errors.push("workflow must be an object.");
-    if (!isRecord(state.paths))
-        report.errors.push("paths must be an object.");
-    for (const key of ["phases", "tasks", "dispatches", "commits"]) {
+    for (const key of run_state_schema_1.REQUIRED_RECORD_KEYS) {
+        if (key in state && !isRecord(state[key]))
+            report.errors.push(`${key} must be an object.`);
+    }
+    for (const key of run_state_schema_1.REQUIRED_ARRAY_KEYS) {
         if (!Array.isArray(state[key]))
             report.errors.push(`${key} must be an array.`);
     }
-    if (!isRecord(state.multiAgent))
-        report.errors.push("multiAgent must be an object.");
-    if (!isRecord(state.blackboard))
-        report.errors.push("blackboard must be an object.");
-    if (!isRecord(state.topologies))
-        report.errors.push("topologies must be an object.");
 }
 function detectSchemaVersion(value) {
     if (!isRecord(value) || value.schemaVersion === undefined)
