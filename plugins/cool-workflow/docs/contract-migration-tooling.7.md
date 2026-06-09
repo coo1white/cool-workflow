@@ -106,3 +106,7 @@ capture findings/evidence from any reasonable agent shape (alt keys + prose), CW
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
 Hard gate blocking empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
+
+## Release-Gate Determinism & Agents Vendor (v0.1.44)
+
+Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.

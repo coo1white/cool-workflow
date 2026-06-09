@@ -2,7 +2,7 @@
   "_comment": "SINGLE SOURCE OF TRUTH for every vendor manifest. Edit THIS file, then run `npm run gen:manifests`. Do NOT hand-edit the generated vendor manifests (.claude-plugin/, .codex-plugin/, .agents/, .mcp.json) — `npm run gen:manifests -- --check` (run by release:check) will fail if they drift from this source.",
   "identity": {
     "name": "cool-workflow",
-    "version": "0.1.43",
+    "version": "0.1.44",
     "license": "BSD-2-Clause",
     "homepage": "https://github.com/coo1white/cool-workflow",
     "author": {
@@ -59,6 +59,11 @@
       "marketplace": ".agents/plugins/marketplace.json",
       "plugin": "plugins/cool-workflow/.codex-plugin/plugin.json",
       "mcp": "plugins/cool-workflow/.codex-plugin/mcp.json",
+      "pluginRootVar": "./"
+    },
+    "agents": {
+      "plugin": ".agents/plugins/cool-workflow/plugin.json",
+      "mcp": ".agents/plugins/cool-workflow/mcp.json",
       "pluginRootVar": "./"
     }
   }

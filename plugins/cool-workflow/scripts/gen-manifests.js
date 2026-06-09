@@ -9,6 +9,11 @@
 // Mechanism vs policy (BSD discipline): the shared assets (skills/, dist/,
 // apps/, the MCP server) live once; each vendor manifest is a thin, generated
 // adapter. Edit manifest/plugin.manifest.json, never the generated files.
+//
+// Targets:
+//   claude  — .claude-plugin/marketplace.json + plugins/cool-workflow/.claude-plugin/
+//   codex   — .agents/plugins/marketplace.json + plugins/cool-workflow/.codex-plugin/
+//   agents  — .agents/plugins/cool-workflow/        (common interface for all non-Claude AI)
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -102,6 +107,37 @@ function build(src) {
   outputs.push({
     path: targets.codex.mcp,
     json: mcpConfig(mcp, layout, targets.codex.pluginRootVar)
+  });
+
+  // ---- .agents/plugins/<name>/ ------------------------------------------
+  // Self-contained plugin directory under .agents/ for all non-Claude AI agents
+  outputs.push({
+    path: targets.agents.plugin,
+    json: {
+      name: identity.name,
+      description: descriptions.standard,
+      version: identity.version,
+      author: identity.author,
+      homepage: identity.homepage,
+      license: identity.license,
+      keywords: identity.keywords,
+      skills: layout.skillsDir,
+      mcpServers: "./.codex-plugin/mcp.json",
+      interface: {
+        displayName: ui.displayName,
+        shortDescription: descriptions.short,
+        longDescription: descriptions.long,
+        developerName: identity.author.name,
+        category: ui.category,
+        capabilities: ui.capabilities,
+        brandColor: ui.brandColor,
+        defaultPrompt: ui.defaultPrompt
+      }
+    }
+  });
+  outputs.push({
+    path: targets.agents.mcp,
+    json: mcpConfig(mcp, layout, targets.agents.pluginRootVar)
   });
 
   return outputs;
