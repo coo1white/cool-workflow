@@ -243,3 +243,7 @@ evidence grounding + durable audit append + symlink-hardened containment + deter
 ## Robust Result Ingest (v0.1.42)
 
 capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
+
+## No-False-Green Gate & Launch Prep (v0.1.43)
+
+Hard gate blocking empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
