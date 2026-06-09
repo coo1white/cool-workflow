@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.44
+
+- Release-gate determinism: `version-sync-check.js` and `dogfood-release.js` now validate version surfaces against the released commit (`git show HEAD:<path>`) rather than the mutable working tree. A repo synced by an external process (iCloud/Spotlight/editor) can transiently write-then-revert a tracked surface; a release-gate read landing in that window made the gate false-RED on a clean tree (and a gate trusting an uncommitted edit could false-GREEN). Reading immutable HEAD bytes removes the entire class. Portable (node + git only).
+- `agents` vendor target: a generated `.agents/plugins/cool-workflow/` (plugin.json + mcp.json) adapter from the single manifest source, giving any non-Claude AI agent one common interface to CW.
+
 ## 0.1.43
 
 - Hard no-false-green gate. v0.1.42's robust ingest accepts an empty-capture result (no findings AND no grounded evidence even after normalization) with a recorded `captureWarning` — but such a result could still back a `verified` verifier node carrying only a non-grounded summary fallback, which passed the verifier-not-verified, evidence-length, and grounding checks (the last fires only for evidence-requiring tasks) and so committed clean/green for optional-evidence tasks (e.g. `map:`). `resolveCommitGate` now resolves the verifier node back to its source result node (via `inputs.inputNodeId`, then first parent) and fails closed with `commit-rationale-empty-capture` before the rationale is built; candidate selection fails closed symmetrically with `candidate-selection-empty-capture`. The decision reads ONLY persisted node metadata (no clock/ordering), so a reloaded-from-disk run reaches the same gate verdict (replay-stable). Covered by `test/no-false-green-smoke.js`, which proves the gate fires (CommitGateError + `commit-gate-failed` node + feedback), keeps selection in sync, survives reload, and never blocks a result that normalizes to real grounded evidence.
