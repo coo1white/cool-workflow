@@ -113,6 +113,26 @@ function verifierNodeRequiresEvidence(run, verifierNode) {
         return (0, verifier_1.taskRequiresEvidence)(task);
     return true; // candidate/selection verifier with no 1:1 task — enforce grounding.
 }
+/** The HARD no-false-green gate (DIRECTION.md "ambiguity is a visible state").
+ *  A verifier node is built FROM a result node; when that result captured no
+ *  structured signal at all the result node carries an `metadata.captureWarning`
+ *  marker (set in worker-isolation / lifecycle ingest via isEmptyCapture). The
+ *  worker output is still ACCEPTED (a recorded warning, never a silent pass), but
+ *  a verifier-GATED commit must NOT be able to present that zero-evidence result
+ *  as clean/green. We detect it here, reading ONLY persisted state (the source
+ *  result node's metadata) — purely functional, no clock/ordering — so snapshot
+ *  replay reaches the same gate decision. Returns the marker string, or undefined.
+ *
+ *  Resolution trail: verifier node -> its input/parent result node. We look at
+ *  `inputs.inputNodeId` (set by runPipelineStage) first, then fall back to the
+ *  first parent, so it works regardless of which ingest path produced the node. */
+function emptyCaptureWarning(run, verifierNode) {
+    const resultNodeId = (typeof verifierNode.inputs?.inputNodeId === "string" ? verifierNode.inputs.inputNodeId : undefined) ||
+        verifierNode.parents[0];
+    const resultNode = resultNodeId ? findNode(run, resultNodeId) : undefined;
+    const warning = resultNode?.metadata?.captureWarning;
+    return typeof warning === "string" && warning ? warning : undefined;
+}
 function evidenceLocatorString(entry) {
     const ref = entry.locator || entry.path || entry.summary || entry.id;
     return ref ? String(ref) : undefined;
@@ -249,6 +269,20 @@ function resolveCommitGate(run, options) {
             errors.push(error("commit-verifier-not-verified", `Verifier node ${verifierNode.id} is ${verifierNode.status}`, {
                 nodeId: verifierNode.id,
                 details: { verifierNodeId: verifierNode.id, status: verifierNode.status }
+            }));
+        }
+        // HARD no-false-green gate (v0.1.43): if the backing result was an
+        // empty-capture (no findings AND no evidence even after robust
+        // normalization), the verifier node only carries a non-grounded summary
+        // fallback. That can otherwise pass the length-only path for
+        // optional-evidence tasks and present a 0-real-evidence review as
+        // clean/green. Block it BEFORE the rationale is built so the commit fails
+        // visibly (commit-gate-failed node + feedback) instead of silently passing.
+        const captureWarning = emptyCaptureWarning(run, verifierNode);
+        if (captureWarning) {
+            errors.push(error("commit-rationale-empty-capture", `Verifier node ${verifierNode.id} cannot back a commit: ${captureWarning}`, {
+                nodeId: verifierNode.id,
+                details: { verifierNodeId: verifierNode.id, reason: captureWarning }
             }));
         }
         if (!verifierNode.evidence.length) {
