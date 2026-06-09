@@ -76,7 +76,18 @@ CW gives agent hosts a shared runtime contract:
 | Multi-agent work gets messy | Topologies, blackboards, fanout/fanin, operator views |
 | Releases need confidence | Golden path, fixture compatibility, eval/replay gates |
 
+## Philosophy
+
+The agent ecosystem today looks like the Linux distro wars of the late 1990s: dozens of frameworks, each a single opinionated blob with its own incompatible state format, fighting over the same ground. What is missing is not another framework. It is a *base system* — small, complete, coherent, ruthlessly documented — on top of which everything else is userland.
+
+CW takes FreeBSD as its blueprint, not Linux. Not the market share — the engineering philosophy. **One artifact:** kernel, userland, and docs are versioned and released together, so the run-state format, scheduler semantics, isolation contract, and documentation evolve in lockstep. **Jails:** sandbox profiles are isolation contracts the runtime is moving to *enforce*, not merely record — policy that is not enforced is decoration. **ABI discipline:** on-disk run state is treated like a syscall ABI, with versioned schemas and replay compatibility across releases, so last year's audit history still parses, still replays, still audits. **Release engineering as a feature:** every release is gated by a deterministic harness that builds, type-checks, tests, replays, and dogfoods on this repo.
+
+And, like FreeBSD's base contains no X11, CW commits to a **Never list**: no model calls in base, no prompt management or routing, no hosted dashboard as the source of truth, and no inferred success — the runtime reports `unexplained` rather than guessing.
+
+Read the full argument: [**Manifesto: Agents Need FreeBSD**](https://github.com/coo1white/cool-workflow/wiki/Manifesto:-Agents-Need-FreeBSD).
+
 ## Quick Start
+
 
 Get a cited architecture-risk report on any repo in **one command**:
 
