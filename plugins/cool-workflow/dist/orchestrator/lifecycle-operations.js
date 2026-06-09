@@ -38,6 +38,7 @@ const commit_1 = require("../commit");
 const error_feedback_1 = require("../error-feedback");
 const trust_audit_2 = require("../trust-audit");
 const result_normalize_1 = require("../result-normalize");
+const state_explosion_1 = require("../state-explosion");
 const worker_isolation_1 = require("../worker-isolation");
 function plan(appRecord, options) {
     const workflow = appRecord.app.workflow;
@@ -357,6 +358,7 @@ function commit(run, input = {}) {
         });
         (0, report_1.writeReport)(run);
         (0, state_1.saveCheckpoint)(run);
+        (0, state_explosion_1.maybeCompactRun)(run);
         return { runId: run.id, commit: commitRecord };
     }
     catch (error) {

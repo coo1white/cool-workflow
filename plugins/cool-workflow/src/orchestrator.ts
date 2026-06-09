@@ -5,7 +5,7 @@ import { slugify } from "./workflow-api";
 import { WorkflowAppValidationError, loadWorkflowAppFromEntrypoint, loadWorkflowAppFromManifest, renderWorkflowAppEntrypointTemplate, renderWorkflowAppManifestTemplate, renderWorkflowAppTemplate, summarizeWorkflowApp, validateWorkflowApp, workflowAppRunMetadata } from "./workflow-app-sdk";
 import { nextDispatchTasks } from "./dispatch";
 
-import { loadRunFromCwd, saveCheckpoint, setPostSaveCallback, writeJson } from "./state";
+import { loadRunFromCwd, saveCheckpoint, writeJson } from "./state";
 
 import { loadCostPolicy, showMetricsReport } from "./observability";
 
@@ -23,7 +23,7 @@ import { buildMultiAgentOperatorGraph, summarizeMultiAgentOperator } from "./mul
 import { compareMultiAgentReplay, createMultiAgentReplaySnapshot, gateMultiAgentEval, replayMultiAgentSnapshot, reportMultiAgentEval, scoreMultiAgentReplay } from "./multi-agent-eval";
 import { snapshotNode, diffNodeSnapshots, replayNodeSnapshot, verifyNodeReplay, readNodeSnapshot, readNodeReplay } from "./node-snapshot";
 
-import { buildCompactGraph, buildStateExplosionReport, computeStateSize, loadStateExplosionSummaryIndex, refreshStateExplosionSummaries, showStateExplosionSummary, summarizeBlackboardDigest } from "./state-explosion";
+import { buildCompactGraph, buildStateExplosionReport, loadStateExplosionSummaryIndex, refreshStateExplosionSummaries, showStateExplosionSummary, summarizeBlackboardDigest } from "./state-explosion";
 import { buildEvidenceReasoningReport, loadEvidenceReasoningIndex, refreshEvidenceReasoning, showEvidenceReasoning } from "./evidence-reasoning";
 import { summarizeRun, writeReport } from "./orchestrator/report";
 import { graphViewOption, graphViewsOption, numberOption, stringOption, validationIssuesFromError, withoutHostRunKeys } from "./orchestrator/cli-options";
@@ -46,21 +46,6 @@ export class CoolWorkflowRunner {
     this.pluginRoot = resolvePluginRoot(pluginRoot);
     this.workflowsDir = path.join(this.pluginRoot, "workflows");
     this.appsDir = path.join(this.pluginRoot, "apps");
-    // Auto-compaction hook (v0.1.48, P2-4): after every state write, check if
-    // state explosion thresholds are exceeded and auto-compact if needed.
-    // BSD: mechanism is setPostSaveCallback (state.ts); policy is the check
-    // criteria here (what thresholds, whether to compact).
-    setPostSaveCallback((run) => {
-      try {
-        const size = computeStateSize(run);
-        if (size.compactionRecommended) {
-          refreshStateExplosionSummaries(run);
-        }
-      } catch {
-        // Auto-compaction is a best-effort optimization; never fail a save
-        // for a compaction error.
-      }
-    });
   }
 
   listWorkflows(): Array<{ id: string; title: string; summary: string; file: string }> {

@@ -9,7 +9,7 @@ exports.summarizeBlackboardDigest = summarizeBlackboardDigest;
 exports.buildCompactGraph = buildCompactGraph;
 exports.buildOperatorDigest = buildOperatorDigest;
 exports.buildStateExplosionReport = buildStateExplosionReport;
-exports.summariesDir = summariesDir;
+exports.maybeCompactRun = maybeCompactRun;
 exports.refreshStateExplosionSummaries = refreshStateExplosionSummaries;
 exports.loadStateExplosionSummaryIndex = loadStateExplosionSummaryIndex;
 exports.showStateExplosionSummary = showStateExplosionSummary;
@@ -818,6 +818,20 @@ function currentEntryFingerprint(run, entry, records) {
 // ---------------------------------------------------------------------------
 // Persistence + refresh
 // ---------------------------------------------------------------------------
+/** Check state size and auto-compact if thresholds exceeded. Best-effort —
+ *  errors are silently caught; never fail a state mutation for compaction.
+ *  BSD: mechanism (check + refresh); policy (when to call) is at the call site. */
+function maybeCompactRun(run) {
+    try {
+        const size = computeStateSize(run);
+        if (size.compactionRecommended) {
+            refreshStateExplosionSummaries(run);
+        }
+    }
+    catch {
+        // Best-effort optimization only.
+    }
+}
 function summariesDir(run) {
     return node_path_1.default.join(run.paths.runDir, "summaries");
 }

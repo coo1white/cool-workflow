@@ -1080,7 +1080,21 @@ function currentEntryFingerprint(
 // Persistence + refresh
 // ---------------------------------------------------------------------------
 
-export function summariesDir(run: WorkflowRun): string {
+/** Check state size and auto-compact if thresholds exceeded. Best-effort —
+ *  errors are silently caught; never fail a state mutation for compaction.
+ *  BSD: mechanism (check + refresh); policy (when to call) is at the call site. */
+export function maybeCompactRun(run: WorkflowRun): void {
+  try {
+    const size = computeStateSize(run);
+    if (size.compactionRecommended) {
+      refreshStateExplosionSummaries(run);
+    }
+  } catch {
+    // Best-effort optimization only.
+  }
+}
+
+function summariesDir(run: WorkflowRun): string {
   return path.join(run.paths.runDir, "summaries");
 }
 

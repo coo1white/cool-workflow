@@ -42,6 +42,7 @@ import { commitState } from "../commit";
 import { recordFeedback } from "../error-feedback";
 import { recordTrustAuditEvent } from "../trust-audit";
 import { isEmptyCapture } from "../result-normalize";
+import { maybeCompactRun } from "../state-explosion";
 import {
   getWorkerScope,
   recordWorkerFailure as recordWorkerFailureImpl,
@@ -391,6 +392,7 @@ export function commit(run: WorkflowRun, input: string | Record<string, unknown>
     });
     writeReport(run);
     saveCheckpoint(run);
+    maybeCompactRun(run);
     return { runId: run.id, commit: commitRecord };
   } catch (error) {
     writeReport(run);
