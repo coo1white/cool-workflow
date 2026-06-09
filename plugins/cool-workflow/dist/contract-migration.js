@@ -95,7 +95,7 @@ function detectVersion(contractId, snapshot) {
         return declared;
     return contractId === "run-state" ? version_1.LEGACY_RUN_STATE_SCHEMA_VERSION : 0;
 }
-/** Fail-closed reachability: detected -> current, or a named refusal with no write. */
+/** Fail-closed reachability: detected -> current using the DAG path resolver. */
 function resolveChain(contract, detected) {
     if (detected < contract.minVersion) {
         return { reachable: false, chain: [], error: `${contract.contract} schemaVersion ${detected} is below the minimum supported ${contract.minVersion}` };
@@ -103,6 +103,27 @@ function resolveChain(contract, detected) {
     if (detected > contract.currentVersion) {
         return { reachable: false, chain: [], error: `${contract.contract} schemaVersion ${detected} is newer than this runtime (${contract.currentVersion})` };
     }
+    // Use the run-state migration DAG path resolver when applicable
+    if (contract.contract === "run-state") {
+        const resolved = (0, state_migrations_1.findMigrationPath)(state_migrations_1.RUN_STATE_MIGRATIONS, detected, contract.currentVersion);
+        if (!resolved.reachable)
+            return { reachable: false, chain: [], error: resolved.error };
+        // Derive the version chain from the path
+        const chain = [detected];
+        let v = detected;
+        for (const step of resolved.path) {
+            v = step.reverse ? step.edge.from : step.edge.to;
+            chain.push(v);
+        }
+        return { reachable: true, chain };
+    }
+    // workflow-app: no edges yet, simple check
+    if (contract.edges.length === 0) {
+        if (detected === contract.currentVersion)
+            return { reachable: true, chain: [detected] };
+        return { reachable: false, chain: [], error: `${contract.contract} schemaVersion ${detected} is not current (${contract.currentVersion}) and no migration edges exist` };
+    }
+    // Generic edge-based chain resolution
     const chain = [detected];
     let version = detected;
     while (version < contract.currentVersion) {

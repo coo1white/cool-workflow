@@ -26,7 +26,7 @@ import {
   MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION,
   WORKFLOW_APP_SCHEMA_VERSION
 } from "./version";
-import { RUN_STATE_MIGRATIONS, migrateRunState, StateCompatibilityStatus } from "./state-migrations";
+import { RUN_STATE_MIGRATIONS, migrateRunState, findMigrationPath, StateCompatibilityStatus } from "./state-migrations";
 
 export const CONTRACT_MIGRATION_SCHEMA_VERSION = 1;
 
@@ -150,7 +150,7 @@ function detectVersion(contractId: MigrationContractId, snapshot: unknown): numb
   return contractId === "run-state" ? LEGACY_RUN_STATE_SCHEMA_VERSION : 0;
 }
 
-/** Fail-closed reachability: detected -> current, or a named refusal with no write. */
+/** Fail-closed reachability: detected -> current using the DAG path resolver. */
 export function resolveChain(contract: MigrationContract, detected: number): { reachable: boolean; chain: number[]; error?: string } {
   if (detected < contract.minVersion) {
     return { reachable: false, chain: [], error: `${contract.contract} schemaVersion ${detected} is below the minimum supported ${contract.minVersion}` };
@@ -158,6 +158,25 @@ export function resolveChain(contract: MigrationContract, detected: number): { r
   if (detected > contract.currentVersion) {
     return { reachable: false, chain: [], error: `${contract.contract} schemaVersion ${detected} is newer than this runtime (${contract.currentVersion})` };
   }
+  // Use the run-state migration DAG path resolver when applicable
+  if (contract.contract === "run-state") {
+    const resolved = findMigrationPath(RUN_STATE_MIGRATIONS, detected, contract.currentVersion);
+    if (!resolved.reachable) return { reachable: false, chain: [], error: resolved.error };
+    // Derive the version chain from the path
+    const chain = [detected];
+    let v = detected;
+    for (const step of resolved.path) {
+      v = step.reverse ? step.edge.from : step.edge.to;
+      chain.push(v);
+    }
+    return { reachable: true, chain };
+  }
+  // workflow-app: no edges yet, simple check
+  if (contract.edges.length === 0) {
+    if (detected === contract.currentVersion) return { reachable: true, chain: [detected] };
+    return { reachable: false, chain: [], error: `${contract.contract} schemaVersion ${detected} is not current (${contract.currentVersion}) and no migration edges exist` };
+  }
+  // Generic edge-based chain resolution
   const chain = [detected];
   let version = detected;
   while (version < contract.currentVersion) {

@@ -41,12 +41,21 @@ export interface StateMigrationStep {
   to: number;
   description: string;
   migrate(state: Record<string, unknown>, context: StateMigrationContext): void;
+  /** Optional reverse migration (BSD: mechanism, not policy — whether to reverse is caller policy).
+   *  When present, this step supports traversing the edge in the reverse direction
+   *  for rollback or schema downgrade. Absent reverse means the edge is irreversible. */
+  reverse?(state: Record<string, unknown>, context: StateMigrationContext): void;
 }
 
 interface StateMigrationContext {
   statePath?: string;
   changes: StateMigrationChange[];
   errors: string[];
+}
+
+export interface MigrationPathStep {
+  edge: StateMigrationStep;
+  reverse: boolean;
 }
 
 export const RUN_STATE_MIGRATIONS: StateMigrationStep[] = [
@@ -56,9 +65,72 @@ export const RUN_STATE_MIGRATIONS: StateMigrationStep[] = [
     description: "Mark legacy run state without schemaVersion as run-state schema 1.",
     migrate(state, context) {
       setDefault(state, "schemaVersion", CURRENT_RUN_STATE_SCHEMA_VERSION, context, "legacy run state did not declare schemaVersion");
+    },
+    reverse(state, context) {
+      // Reverse: remove schemaVersion to return to legacy format.
+      // Only removes if the value equals CURRENT_RUN_STATE_SCHEMA_VERSION (fail-closed).
+      if (state.schemaVersion === CURRENT_RUN_STATE_SCHEMA_VERSION) {
+        delete state.schemaVersion;
+        context.changes.push({ path: "schemaVersion", before: CURRENT_RUN_STATE_SCHEMA_VERSION, after: undefined, reason: "reverse: legacy run state unmarks schemaVersion" });
+      }
     }
   }
 ];
+
+// BSD discipline: mechanism — BFS shortest-path resolver over a directed graph of
+// migration steps. Forward edges use `from -> to`; reverse edges use `to -> from`
+// when a step has a `reverse()` function. Fail-closed: no path → named refusal.
+export function findMigrationPath(
+  steps: readonly StateMigrationStep[],
+  fromVersion: number,
+  toVersion: number
+): { reachable: boolean; path: MigrationPathStep[]; error?: string } {
+  if (fromVersion === toVersion) return { reachable: true, path: [] };
+
+  // Build adjacency: for each step, record forward (from->to) and optional reverse (to->from)
+  const forward = new Map<number, Array<{ edge: StateMigrationStep; reverse: boolean }>>();
+  const reverse = new Map<number, Array<{ edge: StateMigrationStep; reverse: boolean }>>();
+  for (const step of steps) {
+    if (!forward.has(step.from)) forward.set(step.from, []);
+    forward.get(step.from)!.push({ edge: step, reverse: false });
+    if (step.reverse) {
+      if (!reverse.has(step.to)) reverse.set(step.to, []);
+      reverse.get(step.to)!.push({ edge: step, reverse: true });
+    }
+  }
+
+  // BFS over the combined graph (forward + reverse moves)
+  interface BfsNode { version: number; path: MigrationPathStep[]; }
+  const visited = new Set<number>();
+  const queue: BfsNode[] = [{ version: fromVersion, path: [] }];
+  visited.add(fromVersion);
+
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    // Try forward moves
+    const fwd = forward.get(current.version) || [];
+    for (const move of fwd) {
+      const next = move.edge.to;
+      if (next === toVersion) return { reachable: true, path: [...current.path, { edge: move.edge, reverse: false }] };
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push({ version: next, path: [...current.path, { edge: move.edge, reverse: false }] });
+      }
+    }
+    // Try reverse moves (only when reverse() is defined on the step)
+    const rev = reverse.get(current.version) || [];
+    for (const move of rev) {
+      const next = move.edge.from; // reverse direction
+      if (next === toVersion) return { reachable: true, path: [...current.path, { edge: move.edge, reverse: true }] };
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push({ version: next, path: [...current.path, { edge: move.edge, reverse: true }] });
+      }
+    }
+  }
+
+  return { reachable: false, path: [], error: `no migration path from schemaVersion ${fromVersion} to ${toVersion}` };
+}
 
 export function migrateRunState(
   input: unknown,
@@ -101,16 +173,18 @@ export function migrateRunState(
 
   const state = clone(input) as Record<string, unknown>;
   const context: StateMigrationContext = { statePath: options.statePath, changes: report.changes, errors: report.errors };
-  let schemaVersion = report.detectedSchemaVersion;
-  while (schemaVersion < CURRENT_RUN_STATE_SCHEMA_VERSION) {
-    const step = RUN_STATE_MIGRATIONS.find((candidate) => candidate.from === schemaVersion);
-    if (!step) {
-      report.status = "unsupported";
-      report.errors.push(`No migration step from run-state schemaVersion ${schemaVersion}.`);
-      return { run: state as unknown as WorkflowRun, report };
+  const resolved = findMigrationPath(RUN_STATE_MIGRATIONS, report.detectedSchemaVersion, CURRENT_RUN_STATE_SCHEMA_VERSION);
+  if (!resolved.reachable) {
+    report.status = "unsupported";
+    report.errors.push(resolved.error || `No migration path from run-state schemaVersion ${report.detectedSchemaVersion}.`);
+    return { run: state as unknown as WorkflowRun, report };
+  }
+  for (const step of resolved.path) {
+    if (step.reverse) {
+      step.edge.reverse!(state, context);
+    } else {
+      step.edge.migrate(state, context);
     }
-    step.migrate(state, context);
-    schemaVersion = step.to;
   }
 
   normalizeRunState(state, context);
@@ -119,6 +193,81 @@ export function migrateRunState(
   report.writeRequired = report.changes.length > 0;
   if (report.errors.length > 0) report.status = "unsupported";
   else if (report.detectedSchemaVersion < CURRENT_RUN_STATE_SCHEMA_VERSION) report.status = "migrated";
+  else if (report.changes.length > 0) report.status = "normalized";
+  else report.status = "current";
+
+  return { run: state as unknown as WorkflowRun, report };
+}
+
+// BSD discipline: mechanism — reverse migration along the DAG graph. The caller
+// supplies a target version; the graph resolver finds a path (which may include
+// forward steps AND reverse steps). Fail-closed: no path => named refusal.
+// POLICY (kept out of the kernel): whether to reverse, and to which version.
+export function reverseRunState(
+  input: unknown,
+  targetSchemaVersion: number,
+  options: { statePath?: string; dryRun?: boolean } = {}
+): StateMigrationResult {
+  const report: StateMigrationReport = {
+    status: "current",
+    statePath: options.statePath,
+    detectedSchemaVersion: detectSchemaVersion(input),
+    currentSchemaVersion: targetSchemaVersion,
+    supportedSchemaVersions: {
+      min: MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION,
+      max: CURRENT_RUN_STATE_SCHEMA_VERSION
+    },
+    dryRun: Boolean(options.dryRun),
+    writeRequired: false,
+    changes: [],
+    warnings: [],
+    errors: []
+  };
+
+  if (!isRecord(input)) {
+    report.status = "unsupported";
+    report.errors.push("Run state must be a JSON object.");
+    return { run: {} as WorkflowRun, report };
+  }
+
+  if (targetSchemaVersion < MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
+    report.status = "unsupported";
+    report.errors.push(`Target schemaVersion ${targetSchemaVersion} is below the minimum supported ${MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION}.`);
+    return { run: clone(input) as unknown as WorkflowRun, report };
+  }
+  if (targetSchemaVersion > CURRENT_RUN_STATE_SCHEMA_VERSION) {
+    report.status = "unsupported";
+    report.errors.push(`Target schemaVersion ${targetSchemaVersion} is newer than this CW runtime (${CURRENT_RUN_STATE_SCHEMA_VERSION}).`);
+    return { run: clone(input) as unknown as WorkflowRun, report };
+  }
+
+  const state = clone(input) as Record<string, unknown>;
+  const context: StateMigrationContext = { statePath: options.statePath, changes: report.changes, errors: report.errors };
+  const resolved = findMigrationPath(RUN_STATE_MIGRATIONS, report.detectedSchemaVersion, targetSchemaVersion);
+  if (!resolved.reachable) {
+    report.status = "unsupported";
+    report.errors.push(resolved.error || `No reverse path from schemaVersion ${report.detectedSchemaVersion} to ${targetSchemaVersion}.`);
+    return { run: state as unknown as WorkflowRun, report };
+  }
+  // Apply each step along the path; reverse=true calls edge.reverse(), false calls edge.migrate()
+  for (const step of resolved.path) {
+    if (step.reverse) {
+      step.edge.reverse!(state, context);
+    } else {
+      step.edge.migrate(state, context);
+    }
+  }
+
+  // warn on destructive changes (reverse steps that mutate or remove data)
+  for (const change of report.changes) {
+    if (change.after === undefined && change.before !== undefined) {
+      report.warnings.push(`Destructive reverse change at ${change.path}: removed ${JSON.stringify(change.before)}`);
+    }
+  }
+
+  report.writeRequired = report.changes.length > 0;
+  if (report.errors.length > 0) report.status = "unsupported";
+  else if (report.detectedSchemaVersion !== targetSchemaVersion) report.status = "migrated";
   else if (report.changes.length > 0) report.status = "normalized";
   else report.status = "current";
 
