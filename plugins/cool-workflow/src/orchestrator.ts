@@ -10,7 +10,7 @@ import { loadRunFromCwd, saveCheckpoint, writeJson } from "./state";
 import { loadCostPolicy, showMetricsReport } from "./observability";
 
 import { createPipelineRunner } from "./pipeline-runner";
-import { getWorkerScope, listWorkerScopes, validateWorkerBoundary, writeWorkerManifest } from "./worker-isolation";
+import { getWorkerScope, listWorkerScopes, reclaimOrphans, validateWorkerBoundary, writeWorkerManifest } from "./worker-isolation";
 import { summarizeCandidates } from "./candidate-scoring";
 import { listBundledSandboxProfiles, sandboxContextForValidation, showBundledSandboxProfile, validateSandboxProfileFile } from "./sandbox-profile";
 import { backendListPayload, backendProbePayload, backendShowPayload } from "./execution-backend";
@@ -215,6 +215,10 @@ export class CoolWorkflowRunner {
     const worker = getWorkerScope(this.loadRun(runId), workerId);
     if (!worker) throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
     return worker;
+  }
+
+  reclaimOrphans(runId: string, now?: string): ReturnType<typeof reclaimOrphans> {
+    return reclaimOrphans(this.loadRun(runId), now);
   }
 
   showWorkerManifest(runId: string, workerId: string): ReturnType<typeof writeWorkerManifest> {

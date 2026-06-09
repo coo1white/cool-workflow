@@ -10,7 +10,8 @@ export type WorkerIsolationStatus =
   | "completed"
   | "failed"
   | "rejected"
-  | "verified";
+  | "verified"
+  | "orphaned";
 
 export interface WorkerIsolationPolicy {
   allowArtifacts?: boolean;
@@ -79,6 +80,10 @@ export interface WorkerScope {
    *  optional: absent means `unreported`, NEVER zero. Recorded verbatim as
    *  provenance on worker-output intake; CW never synthesizes it. */
   usage?: UsageRecord;
+  /** TTL in ms from `createdAt` before the worker is considered orphaned (v0.1.57).
+   *  Defaults to 0 (no timeout). When > 0 and elapsed, `reclaimOrphans()` marks
+   *  the worker as `orphaned`. FreeBSD jails philosophy: stuck processes get killed. */
+  timeoutMs?: number;
   metadata?: Record<string, unknown>;
 }
 
