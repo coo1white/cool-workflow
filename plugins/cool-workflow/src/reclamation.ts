@@ -29,6 +29,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { normalizeValue, stableStringify } from "./multi-agent-eval";
+import { loadNodeSnapshot, snapshotNode } from "./node-snapshot";
 import { recordTrustAuditEvent } from "./trust-audit";
 import {
   FreedManifestEntry,
@@ -160,6 +161,76 @@ function writeJsonDurable(file: string, value: unknown): void {
     }
   } catch {
     /* directory fsync is best-effort (not supported on every platform) */
+  }
+}
+
+/** Persist a run's authoritative state.json DURABLY (temp → fsync → rename). The
+ *  re-point that scratch reclamation depends on MUST be persisted this way BEFORE
+ *  any byte is freed — see prepareFree(). Mirrors saveCheckpoint but atomic. */
+function persistRunDurable(run: WorkflowRun): void {
+  run.updatedAt = new Date().toISOString();
+  writeJsonDurable(run.paths.state, run);
+}
+
+// ---------------------------------------------------------------------------
+// Per-run reclamation lock (P1-C) — serialize the read-modify-write on
+// reclaimed.json so two concurrent reclaimers can never lose a tombstone
+// (freed-without-proof). Portable advisory lock via O_EXCL (`wx`), with a stale
+// steal so a crashed holder can never wedge the run forever.
+// ---------------------------------------------------------------------------
+
+const RECLAIM_LOCK_STALE_MS = 30_000;
+
+function sleepSync(ms: number): void {
+  // Synchronous, deterministic sleep without busy-spinning the CPU.
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function lockPath(run: WorkflowRun): string {
+  return path.join(run.paths.runDir, ".reclaim.lock");
+}
+
+function acquireRunLock(run: WorkflowRun): () => void {
+  const file = lockPath(run);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  for (let attempt = 0; attempt < 200; attempt++) {
+    try {
+      const fd = fs.openSync(file, "wx");
+      fs.writeFileSync(fd, `${process.pid}@${new Date().toISOString()}\n`, "utf8");
+      fs.closeSync(fd);
+      return () => {
+        try {
+          fs.rmSync(file, { force: true });
+        } catch {
+          /* releasing a missing lock is fine */
+        }
+      };
+    } catch (error) {
+      if (!(error && typeof error === "object" && (error as { code?: string }).code === "EEXIST")) throw error;
+      // Steal a stale lock (a crashed holder must not wedge the run forever).
+      try {
+        const age = Date.now() - fs.statSync(file).mtimeMs;
+        if (age > RECLAIM_LOCK_STALE_MS) {
+          fs.rmSync(file, { force: true });
+          continue;
+        }
+      } catch {
+        /* lock vanished between open and stat — retry immediately */
+        continue;
+      }
+      sleepSync(25);
+    }
+  }
+  throw new ReclamationError("reclaim-locked", `could not acquire reclamation lock for run ${run.id}`);
+}
+
+/** Run `fn` while holding the per-run reclamation lock; always released. */
+function withRunLock<T>(run: WorkflowRun, fn: () => T): T {
+  const release = acquireRunLock(run);
+  try {
+    return fn();
+  } finally {
+    release();
   }
 }
 
@@ -657,20 +728,63 @@ export function commitTombstone(run: WorkflowRun, tombstone: ReclamationTombston
   }
 }
 
-/** STEP 4: free the bulk DATA bytes. For scratch, re-point the result node's
- *  worker-result artifact to the RETAINED results/<task>.md copy and prove the
- *  result-node snapshot stays `valid` BEFORE deleting — no surviving node may
- *  reference a freed path. */
+/** STEP 4 (preparation, P1-A + P1-B): re-point every surviving node's artifacts
+ *  off the scratch paths about to vanish, DURABLY persist that state.json change,
+ *  and PROVE no surviving node still references a freed path (and that each
+ *  re-pointed result node's snapshot stays `valid`) — BEFORE a single byte is
+ *  freed. Fail closed (`repoint-incomplete`) if the proof does not hold, so a
+ *  crash can never leave state.json pointing at a freed path. */
+export function prepareFree(run: WorkflowRun, tombstone: ReclamationTombstone): void {
+  const runDir = run.paths.runDir;
+  const scratchDirs = tombstone.freed.filter((f) => f.kind === "scratch").map((f) => path.resolve(path.join(runDir, f.path)));
+  if (!scratchDirs.length) return; // nothing references a freed path; no state change needed.
+
+  const repointed = new Set<string>();
+  for (const scratchDir of scratchDirs) {
+    for (const id of repointResultNodeArtifacts(run, scratchDir)) repointed.add(id);
+  }
+
+  // Durably persist the re-point so it survives a crash BEFORE the free runs.
+  persistRunDurable(run);
+
+  // PROOF 1: no surviving node artifact may resolve inside any freed scratch dir.
+  for (const node of run.nodes || []) {
+    for (const artifact of node.artifacts || []) {
+      if (!artifact.path) continue;
+      const resolved = path.resolve(artifact.path);
+      for (const scratchDir of scratchDirs) {
+        if (resolved === scratchDir || resolved.startsWith(scratchDir + path.sep)) {
+          throw new ReclamationError("repoint-incomplete", `node ${node.id} artifact ${artifact.id} still references freed scratch path ${artifact.path}`, {
+            nodeId: node.id,
+            artifactId: artifact.id,
+            path: artifact.path
+          });
+        }
+      }
+    }
+  }
+
+  // PROOF 2: each re-pointed result node's snapshot stays `valid` (not `absent`).
+  for (const nodeId of repointed) {
+    try {
+      const fresh = snapshotNode(run, nodeId, { persist: false });
+      const { freshness } = loadNodeSnapshot(run, fresh);
+      if (freshness === "absent") {
+        throw new ReclamationError("repoint-incomplete", `re-pointed node ${nodeId} snapshot is absent (dangling artifact)`, { nodeId });
+      }
+    } catch (error) {
+      if (error instanceof ReclamationError) throw error;
+      throw new ReclamationError("repoint-incomplete", `could not prove re-pointed node ${nodeId} stays valid: ${(error as Error).message}`, { nodeId });
+    }
+  }
+}
+
+/** STEP 5: free the bulk DATA bytes. Pure deletion — every re-point is already
+ *  done and DURABLY persisted by prepareFree(), so a crash here can never leave a
+ *  surviving node referencing a freed path. */
 export function freeBulk(run: WorkflowRun, tombstone: ReclamationTombstone): number {
   const runDir = run.paths.runDir;
   let freedBytes = 0;
-  // First re-point any result nodes that reference scratch paths about to vanish.
-  for (const entry of tombstone.freed) {
-    if (entry.kind !== "scratch") continue;
-    const abs = path.join(runDir, entry.path);
-    repointResultNodeArtifacts(run, abs);
-  }
-  // Then delete the freed paths.
   for (const entry of tombstone.freed) {
     const abs = path.join(runDir, entry.path);
     const before = dirBytes(abs);
@@ -680,8 +794,11 @@ export function freeBulk(run: WorkflowRun, tombstone: ReclamationTombstone): num
   return freedBytes;
 }
 
-function repointResultNodeArtifacts(run: WorkflowRun, freedScratchDir: string): void {
+/** Re-point a node's artifacts off `freedScratchDir` to the retained `result`
+ *  copy. Returns the ids of nodes actually changed (for the validity proof). */
+function repointResultNodeArtifacts(run: WorkflowRun, freedScratchDir: string): string[] {
   const freedPrefix = path.resolve(freedScratchDir) + path.sep;
+  const changedIds: string[] = [];
   for (const node of run.nodes || []) {
     if (!node.artifacts) continue;
     let changed = false;
@@ -689,8 +806,7 @@ function repointResultNodeArtifacts(run: WorkflowRun, freedScratchDir: string): 
       if (!artifact.path) continue;
       const resolved = path.resolve(artifact.path);
       if (resolved === path.resolve(freedScratchDir) || resolved.startsWith(freedPrefix)) {
-        // Re-point to the retained results/<task>.md copy (the `result` artifact),
-        // or fall back to dropping by pointing at the run's retained result.
+        // Re-point to the retained results/<task>.md copy (the `result` artifact).
         const retained = node.artifacts.find((a) => a.id === "result" && a.path && fs.existsSync(a.path));
         if (retained && retained.path) {
           artifact.path = retained.path;
@@ -698,8 +814,12 @@ function repointResultNodeArtifacts(run: WorkflowRun, freedScratchDir: string): 
         }
       }
     }
-    if (changed) node.updatedAt = new Date().toISOString();
+    if (changed) {
+      node.updatedAt = new Date().toISOString();
+      changedIds.push(node.id);
+    }
   }
+  return changedIds;
 }
 
 // ---------------------------------------------------------------------------
@@ -721,9 +841,13 @@ export interface RunReclamationResult {
   plan: ReclamationPlan;
 }
 
-/** Execute the write-ahead, fail-closed reclamation transaction. The ONLY
- *  ordering allowed is: extract+seal skeleton → build tombstone → commit (fsync)
- *  → free bulk. `faultAfter` aborts after the named step so crash-safety is
+/** Execute the write-ahead, fail-closed reclamation transaction. Ordering is the
+ *  safety property: extract+seal skeleton → [under the per-run lock: build
+ *  tombstone → commit (fsync)] → re-point + DURABLY persist state + prove no
+ *  dangling reference → free bulk. The lock (P1-C) makes the chain read-modify-
+ *  write atomic so a concurrent reclaimer can never lose a tombstone. The durable
+ *  re-point BEFORE free (P1-A) means a crash can never leave state.json pointing
+ *  at a freed path. `faultAfter` aborts after the named step so crash-safety is
  *  testable by design — a crash leaves EITHER the full run OR a complete
  *  tombstone, never a half-deleted run with no proof. */
 export function runReclamation(run: WorkflowRun, options: RunReclamationOptions = {}): RunReclamationResult {
@@ -735,16 +859,23 @@ export function runReclamation(run: WorkflowRun, options: RunReclamationOptions 
   }
   if (options.faultAfter === "skeleton") throw new ReclamationAbort("skeleton");
 
-  // STEP 2 — build the full tombstone (pre-deletion sha256 per path + chain).
-  const plan = planReclamation(run, options.reclaimPolicy || {});
-  const tombstone = buildTombstone(run, skeleton, plan, { now: options.now, actor: options.actor, policy: options.policy });
-  if (options.faultAfter === "tombstone-write") throw new ReclamationAbort("tombstone-write");
-
-  // STEP 3 — commit the tombstone durably (fsync) into the append-only overlay.
-  commitTombstone(run, tombstone);
+  // STEPS 2-3 — under the per-run lock so the chain's read (prevTombstoneHash) and
+  // append are atomic: build the full tombstone (pre-deletion sha256 + chain) and
+  // commit it durably (fsync) into the append-only overlay.
+  const { plan, tombstone } = withRunLock(run, () => {
+    const builtPlan = planReclamation(run, options.reclaimPolicy || {});
+    const builtTombstone = buildTombstone(run, skeleton, builtPlan, { now: options.now, actor: options.actor, policy: options.policy });
+    if (options.faultAfter === "tombstone-write") throw new ReclamationAbort("tombstone-write");
+    commitTombstone(run, builtTombstone);
+    return { plan: builtPlan, tombstone: builtTombstone };
+  });
   if (options.faultAfter === "tombstone-commit") throw new ReclamationAbort("tombstone-commit");
 
-  // STEP 4 — ONLY NOW free the bulk bytes.
+  // STEP 4 — re-point surviving nodes off the scratch, DURABLY persist that
+  // state change, and PROVE no node references a freed path — all before freeing.
+  prepareFree(run, tombstone);
+
+  // STEP 5 — ONLY NOW free the bulk bytes.
   const bytesFreed = freeBulk(run, tombstone);
   return { tombstone, bytesFreed, plan };
 }

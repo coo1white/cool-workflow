@@ -391,4 +391,31 @@ function fileManifest(root) {
   void archived;
 }
 
+// ===========================================================================
+// H — Durability fix (v0.1.40 P1-A): the result-node re-point is DURABLY
+// persisted to state.json INSIDE the transaction, before any byte is freed —
+// so a fresh reload never references a freed scratch path.
+// ===========================================================================
+{
+  const repo = makeRepo();
+  const built = makeAcceptedRun(repo, "durable-repoint");
+  const run = built.run;
+  const scratchDir = built.scope.workerDir;
+  const out = runReclamation(run, { reclaimPolicy: { keepSnapshots: true } });
+  // NOTE: no saveCheckpoint() here — runReclamation must have persisted the
+  // re-point itself. Reload from disk to prove it.
+  const reloaded = require("../dist/state").loadRunFromCwd("durable-repoint", repo);
+  const reNode = reloaded.nodes.find((n) => n.id === built.resultNodeId);
+  for (const artifact of reNode.artifacts) {
+    if (!artifact.path) continue;
+    assert.ok(
+      !path.resolve(artifact.path).startsWith(path.resolve(scratchDir) + path.sep) && path.resolve(artifact.path) !== path.resolve(scratchDir),
+      `no surviving artifact references the freed scratch dir (got ${artifact.path})`
+    );
+    assert.ok(fs.existsSync(artifact.path), `every surviving artifact path exists on disk: ${artifact.path}`);
+  }
+  assert.equal(loadNodeSnapshot(reloaded, snapshotNode(reloaded, built.resultNodeId, { persist: false })).freshness, "valid", "reloaded result node stays valid after a saveCheckpoint-free reclaim");
+  void out;
+}
+
 process.stdout.write("run-retention-reclamation-smoke: ok\n");
