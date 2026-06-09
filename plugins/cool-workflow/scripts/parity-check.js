@@ -54,7 +54,8 @@ const RUN_PROBES = [
   ["workbench.view", ["--json"], "cw_workbench_view"],
   ["metrics.show", ["--json"], "cw_metrics_show"],
   ["review.status", ["--json"], "cw_review_status"],
-  ["comment.list", ["--json"], "cw_comment_list"]
+  ["comment.list", ["--json"], "cw_comment_list"],
+  ["run.drive", ["--json"], "cw_run_drive"]
 ];
 const GLOBAL_PROBES = [
   ["list", "cw_list"],
@@ -62,6 +63,7 @@ const GLOBAL_PROBES = [
   ["topology.list", "cw_topology_list"],
   ["sandbox.list", "cw_sandbox_list"],
   ["backend.list", "cw_backend_list"],
+  ["backend.agent.config.show", "cw_backend_agent_config_show"],
   ["metrics.summary", "cw_metrics_summary"]
 ];
 

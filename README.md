@@ -317,6 +317,7 @@ Start here:
 - [MCP App Surface](plugins/cool-workflow/docs/mcp-app-surface.7.md)
 - [Multi-Agent CLI + MCP Surface](plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md)
 - [Multi-Agent Eval & Replay Harness](plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md)
+- [Agent Delegation Drive](plugins/cool-workflow/docs/agent-delegation-drive.7.md)
 - [Release And Migration](plugins/cool-workflow/docs/release-and-migration.7.md)
 
 Full docs map: [plugins/cool-workflow/docs/index.md](plugins/cool-workflow/docs/index.md)

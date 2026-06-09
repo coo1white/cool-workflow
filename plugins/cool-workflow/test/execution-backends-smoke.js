@@ -53,7 +53,7 @@ const listPayload = backendListPayload();
 assert.equal(listPayload.default, "node", "node is the default backend");
 assert.equal(DEFAULT_BACKEND_ID, "node");
 const ids = listPayload.backends.map((b) => b.id);
-assert.deepEqual(ids, ["bun", "ci", "container", "node", "remote", "shell"], "all six drivers present, sorted");
+assert.deepEqual(ids, ["agent", "bun", "ci", "container", "node", "remote", "shell"], "all seven drivers present, sorted (v0.1.38 adds agent)");
 for (const descriptor of listBackendDescriptors()) {
   assert.equal(descriptor.schemaVersion, 1);
   assert.equal(descriptor.capabilities.length, 5, `${descriptor.id} declares all five sandbox dimensions`);

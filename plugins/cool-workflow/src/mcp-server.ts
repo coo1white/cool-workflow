@@ -34,7 +34,11 @@ import {
   schedReclaim,
   schedReset,
   schedPolicyShow,
-  schedPolicySet
+  schedPolicySet,
+  runDrive,
+  runDrivePreview,
+  backendAgentConfigShow,
+  backendAgentConfigSet
 } from "./capability-core";
 
 interface JsonRpcRequest {
@@ -309,6 +313,10 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.showBackend(String(args.backendId || args.backend || ""), args);
       case "cw_backend_probe":
         return runner.probeBackend(optionalString(args.backendId || args.backend), args);
+      case "cw_backend_agent_config_show":
+        return backendAgentConfigShow(args);
+      case "cw_backend_agent_config_set":
+        return backendAgentConfigSet(args);
       case "cw_result":
         return runner.recordResult(String(args.runId || ""), String(args.taskId || ""), String(args.resultPath || ""), args);
       case "cw_commit":
@@ -429,6 +437,10 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runArchive(runRegistryFor(args, runner), optionalString(args.runId), args);
       case "cw_run_rerun":
         return runRerun(runRegistryFor(args, runner), String(args.runId || ""), args);
+      case "cw_run_drive":
+        return runDrivePreview(runner, args);
+      case "cw_run_drive_step":
+        return runDrive(runner, args);
       case "cw_queue_add":
         return queueAdd(runRegistryFor(args, runner), args);
       case "cw_queue_list":
@@ -1090,6 +1102,18 @@ function toolDefinitions(): unknown[] {
       cwd: stringSchema("Workspace"),
       backendId: stringSchema("Execution backend id; omit to probe all backends")
     }),
+    tool("cw_backend_agent_config_show", "Show the effective agent delegation config (flags>env>file, secret-stripped, host-stable). Read-only.", {
+      cwd: stringSchema("Workspace"),
+      agentCommand: stringSchema("Override: agent command-template (e.g. 'claude -p --output-format json {{manifest}}')"),
+      agentEndpoint: stringSchema("Override: agent HTTP endpoint"),
+      agentModel: stringSchema("Override: operator-chosen model (policy, NOT the attested model)")
+    }),
+    tool("cw_backend_agent_config_set", "Persist the durable agent delegation config under $CW_HOME (command-template/endpoint/model). API keys are NEVER written — they come from the agent's own env. Mutating.", {
+      cwd: stringSchema("Workspace"),
+      agentCommand: stringSchema("Agent command-template (binary + argv with {{manifest}}/{{input}}/{{result}}/{{model}})"),
+      agentEndpoint: stringSchema("Agent HTTP endpoint to POST the manifest to"),
+      agentModel: stringSchema("Operator-chosen model interpolated into {{model}} (policy, not attested)")
+    }),
     tool("cw_result", "Record a subagent result.", {
       runId: stringSchema("Run id"),
       taskId: stringSchema("Task id"),
@@ -1406,6 +1430,19 @@ function toolDefinitions(): unknown[] {
       cwd: stringSchema("Repo workspace"),
       scope: stringSchema("home (default, cross-repo) or repo"),
       reason: stringSchema("Rerun reason")
+    }),
+    tool("cw_run_drive", "Preview the next agent-delegation drive step for a run (read-only, deterministic). Counts come from state; no spawn, no mutation.", {
+      runId: stringSchema("Run id to preview"),
+      cwd: stringSchema("Run workspace")
+    }),
+    tool("cw_run_drive_step", "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit). The model runs in the external agent's process, never in CW. --once advances exactly one step. Mutating.", {
+      runId: stringSchema("Run id to continue (omit to plan a fresh run for appId)"),
+      appId: stringSchema("App id to plan + drive (e.g. architecture-review)"),
+      repo: stringSchema("Target repository to analyze"),
+      question: stringSchema("The question the audited report answers"),
+      once: booleanSchema("Advance exactly one step then stop"),
+      now: stringSchema("Injected ISO timestamp for deterministic scheduling"),
+      cwd: stringSchema("Run workspace")
     }),
     tool("cw_queue_add", "Enqueue a pending/planned run with explicit ordering policy (lower priority drains first). Plain files; the host still executes workers.", {
       cwd: stringSchema("Repo workspace"),

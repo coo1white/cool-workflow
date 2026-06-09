@@ -40,12 +40,18 @@ exports.schedReclaim = schedReclaim;
 exports.schedReset = schedReset;
 exports.schedPolicyShow = schedPolicyShow;
 exports.schedPolicySet = schedPolicySet;
+exports.runDrivePreview = runDrivePreview;
+exports.runDrive = runDrive;
+exports.backendAgentConfigShow = backendAgentConfigShow;
+exports.backendAgentConfigSet = backendAgentConfigSet;
 exports.runHistory = runHistory;
 exports.metricsSummary = metricsSummary;
 exports.sandboxProfileIdFrom = sandboxProfileIdFrom;
 exports.withoutRuntimeKeys = withoutRuntimeKeys;
 exports.optionalString = optionalString;
 exports.isRecord = isRecord;
+const drive_1 = require("./drive");
+const agent_config_1 = require("./agent-config");
 const run_registry_1 = require("./run-registry");
 const observability_1 = require("./observability");
 const state_1 = require("./state");
@@ -327,6 +333,81 @@ function schedPolicySet(reg, args) {
     const policy = (0, scheduling_1.normalizeSchedulingPolicy)({ ...current, ...patch });
     (0, state_1.writeJson)(reg.schedulingPolicyPath(), policy);
     return { schemaVersion: 1, policy, source: "file" };
+}
+// ---- agent delegation drive (v0.1.38) -------------------------------------
+// MECHANISM, ONE SOURCE: both surfaces route drive/preview/config through these.
+// The read-only preview + config-show payloads are deterministic (counts from
+// state, host-stable config path) with NO now-derived numeric field, so
+// `cw <cmd> --json` is byte-identical to `cw_<tool>`.
+/** Read-only, deterministic preview of a run's NEXT drive step. */
+function runDrivePreview(runner, args) {
+    return (0, drive_1.drivePreview)(runner, String(args.runId || ""), args);
+}
+const DRIVE_RUNTIME_KEYS = [
+    "once",
+    "now",
+    "preview",
+    "step",
+    "drive",
+    "json",
+    "format",
+    "run",
+    "runId",
+    "cwd",
+    "agentCommand",
+    "agent-command",
+    "agentArgs",
+    "agent-args",
+    "agentEndpoint",
+    "agent-endpoint",
+    "agentModel",
+    "agent-model",
+    "agentTimeoutMs",
+    "agent-timeout-ms"
+];
+function planInputsFor(args) {
+    const copy = withoutRuntimeKeys(args);
+    for (const key of DRIVE_RUNTIME_KEYS)
+        delete copy[key];
+    return copy;
+}
+/** Mutating drive step/run. Plans a fresh run for an app id, or continues a run id.
+ *  The agent hop goes ONLY through the agent backend; this composes existing verbs.
+ *
+ *  The run lives under its repo's `.cw/` and every runner verb resolves a run from
+ *  the process cwd, so the drive operates WITH the run's repo as cwd (exactly how
+ *  the golden path runs each verb from the repo dir) — then restores cwd. This lets
+ *  `cw run <app> --drive --repo X` work when invoked from anywhere. */
+function runDrive(runner, args) {
+    const cwd0 = process.cwd();
+    try {
+        let runId = optionalString(args.runId || args.run);
+        let repoCwd = optionalString(args.repo);
+        if (!runId) {
+            const appId = String(args.appId || args.workflowId || args.app || "");
+            if (!appId)
+                throw new Error("run --drive requires an app id (or --run <run-id> to continue)");
+            const run = runner.plan(appId, planInputsFor(args));
+            runId = run.id;
+            repoCwd = run.cwd;
+        }
+        if (repoCwd && repoCwd !== process.cwd() && node_fs_1.default.existsSync(repoCwd))
+            process.chdir(repoCwd);
+        return (0, drive_1.drive)(runner, runId, { once: isTrue(args.once), now: optionalString(args.now), args });
+    }
+    finally {
+        if (process.cwd() !== cwd0)
+            process.chdir(cwd0);
+    }
+}
+/** Read-only, deterministic projection of the effective agent config (secret-stripped). */
+function backendAgentConfigShow(args) {
+    return (0, agent_config_1.agentConfigShow)(args);
+}
+/** Persist the durable agent config (secret-stripped) and return the new state. */
+function backendAgentConfigSet(args) {
+    (0, agent_config_1.setAgentConfigFile)(args);
+    return (0, agent_config_1.agentConfigShow)(args);
 }
 function runHistory(reg, args) {
     return reg.history({

@@ -155,12 +155,24 @@ export interface ExecutionRequest {
   manifest?: WorkerManifest;
   /** Stable label used in deterministic evidence (defaults to the command). */
   label?: string;
-  /** Delegation target for delegating backends (image/endpoint/job). */
+  /** Delegation target for delegating backends (image/endpoint/job/agent). */
   delegation?: {
     image?: string;
     digest?: string;
     endpoint?: string;
     jobId?: string;
+    /** agent backend (v0.1.38): the external agent BINARY to spawn argv-style
+     *  (shell:false). The model lives in the agent's process, never in CW. */
+    command?: string;
+    /** agent backend: the argv TEMPLATE after the binary. `{{manifest}}`,
+     *  `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`, `{{prompt}}` are
+     *  substituted into DISCRETE argv elements (never a shell-interpreted string). */
+    args?: string[];
+    /** agent backend: OPERATOR-chosen model interpolated into `{{model}}` as
+     *  policy-as-data. Recorded ONLY in secret-stripped args provenance — it is
+     *  NEVER the source of the attested UsageRecord.model (which comes solely from
+     *  what the agent reports back). */
+    model?: string;
   };
   timeoutMs?: number;
   metadata?: Record<string, unknown>;
@@ -188,6 +200,60 @@ export interface ExecutionResultEnvelope {
   /** Canonical evidence refs (deterministic; backend-independent). */
   evidence: string[];
   provenance: ExecutionProvenance;
+}
+
+// ---------------------------------------------------------------------------
+// Agent Delegation Drive (v0.1.38) — the `agent` backend delegates each worker
+// to an EXTERNAL agent process (claude -p / codex exec / an HTTP agent endpoint)
+// and records the attested result. The model runs in the agent's process, NEVER
+// inside CW. These are plain provenance records — additive, reusing
+// BackendExecutionHandle (`kind: "process"`) and UsageRecord.model. NO model SDK
+// type is introduced here.
+// ---------------------------------------------------------------------------
+
+/** Vendor-neutral agent delegation config (POLICY, expressed as DATA). Resolved
+ *  flags > env (CW_AGENT_COMMAND / CW_AGENT_ENDPOINT / CW_AGENT_MODEL) > a durable
+ *  $CW_HOME/agent-config.json. claude / codex / ollama / an HTTP endpoint are
+ *  CONFIGS, never CW dependencies. Fails closed when neither command nor endpoint
+ *  is configured. */
+export interface AgentDelegationConfig {
+  schemaVersion: 1;
+  /** The agent BINARY to spawn argv-style (shell:false). */
+  command?: string;
+  /** The argv TEMPLATE after the binary, with `{{...}}` placeholders. */
+  args?: string[];
+  /** An HTTP agent endpoint to POST the manifest to (alternative to command). */
+  endpoint?: string;
+  /** OPERATOR-chosen model interpolated into `{{model}}` — policy, NOT the
+   *  attested model. */
+  model?: string;
+  /** Spawn/POST timeout in ms. */
+  timeoutMs?: number;
+  /** Where this config was resolved from (provenance for the show verb). */
+  source?: "flag" | "env" | "file" | "none";
+}
+
+/** The attestation/provenance recorded for ONE agent-fulfilled worker. Lives in
+ *  `provenance`/trust-audit and is folded into the snapshotted node body, NEVER in
+ *  `evidence`. The `model` here is the agent-REPORTED model (`unreported` when the
+ *  agent reports none — never backfilled from CW_AGENT_MODEL). */
+export interface AgentDelegationProvenance {
+  schemaVersion: 1;
+  backendId: "agent";
+  /** The agent invocation handle (`kind: "process"`). */
+  handle: BackendExecutionHandle;
+  /** Agent-REPORTED model id, or `unreported`. Sourced SOLELY from the agent's
+   *  own output — never from the operator-chosen CW_AGENT_MODEL. */
+  model: string;
+  /** sha256 of the worker prompt CW handed the agent (input.md / manifest prompt). */
+  promptDigest: string;
+  /** sha256 of the accepted result.md. */
+  resultDigest: string;
+  /** The secret-stripped agent command + args provenance (redacted). */
+  command?: string;
+  args: string[];
+  /** The agent child's exit code (null = no exit reported). */
+  exitCode: number | null;
 }
 
 /** The narrow driver contract. One interface; many interchangeable drivers. */

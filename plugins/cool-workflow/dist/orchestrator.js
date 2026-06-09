@@ -437,8 +437,12 @@ class CoolWorkflowRunner {
     recordWorkerOutput(runId, workerId, resultPath, options = {}) {
         const run = this.loadRun(runId);
         const usage = (0, observability_1.parseUsageFromArgs)(options, new Date().toISOString());
+        // Agent Delegation Drive (v0.1.38): the drive loop passes the agent-hop
+        // attestation through verbatim so recordWorkerOutput can fold the digests +
+        // model into provenance/trust-audit. Absent for a hand-fulfilled worker.
+        const agentDelegation = options.agentDelegation || undefined;
         try {
-            (0, worker_isolation_1.recordWorkerOutput)(run, workerId, resultPath, { persist: false });
+            (0, worker_isolation_1.recordWorkerOutput)(run, workerId, resultPath, { persist: false, agentDelegation });
             if (usage) {
                 const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);
                 // Host-attested token usage rides on the worker record as provenance.

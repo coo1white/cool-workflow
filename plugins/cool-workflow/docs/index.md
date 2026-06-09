@@ -32,6 +32,7 @@ Read these in order when you are new to CW:
 28. [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md) - per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the eval harness; sha256-fingerprinted with fail-closed `valid|stale|absent` freshness.
 29. [Contract Migration Tooling](contract-migration-tooling.7.md) - a declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover over the existing migrateRunState pipeline.
 30. [Control-Plane Scheduling](control-plane-scheduling.7.md) - priority + hard concurrency ceiling + lease lifecycle + retry/backoff + fail-closed park policy over the v0.1.28 Run Registry queue; policy-as-data, deterministic, with a read-only `sched plan`.
+31. [Agent Delegation Drive](agent-delegation-drive.7.md) - the `agent` backend delegates each worker to an EXTERNAL agent process (claude/codex/HTTP endpoint) and `run --drive` auto-advances plan→dispatch→fulfill→accept→commit; the model runs in the agent's process, never in CW. Two-layer evidence, operator-vs-attested model, fail-closed park, replay without re-spawn.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must preserve that line: stable contracts, explicit compatibility checks, and

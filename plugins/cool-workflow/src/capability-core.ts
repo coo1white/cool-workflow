@@ -11,6 +11,9 @@
 // See docs/cli-mcp-parity.7.md and src/capability-registry.ts.
 
 import { CoolWorkflowRunner } from "./orchestrator";
+import { drive, drivePreview } from "./drive";
+import { agentConfigShow, setAgentConfigFile, AgentConfigShowResult } from "./agent-config";
+import { DrivePreview, DriveResult } from "./types";
 import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
 import { RunRegistry, isRunLifecycleState } from "./run-registry";
 import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
@@ -340,6 +343,83 @@ export function schedPolicySet(reg: RunRegistry, args: Record<string, unknown>):
   const policy = normalizeSchedulingPolicy({ ...current, ...patch });
   writeJson(reg.schedulingPolicyPath(), policy);
   return { schemaVersion: 1, policy, source: "file" };
+}
+
+// ---- agent delegation drive (v0.1.38) -------------------------------------
+// MECHANISM, ONE SOURCE: both surfaces route drive/preview/config through these.
+// The read-only preview + config-show payloads are deterministic (counts from
+// state, host-stable config path) with NO now-derived numeric field, so
+// `cw <cmd> --json` is byte-identical to `cw_<tool>`.
+
+/** Read-only, deterministic preview of a run's NEXT drive step. */
+export function runDrivePreview(runner: CoolWorkflowRunner, args: Record<string, unknown>): DrivePreview {
+  return drivePreview(runner, String(args.runId || ""), args);
+}
+
+const DRIVE_RUNTIME_KEYS = [
+  "once",
+  "now",
+  "preview",
+  "step",
+  "drive",
+  "json",
+  "format",
+  "run",
+  "runId",
+  "cwd",
+  "agentCommand",
+  "agent-command",
+  "agentArgs",
+  "agent-args",
+  "agentEndpoint",
+  "agent-endpoint",
+  "agentModel",
+  "agent-model",
+  "agentTimeoutMs",
+  "agent-timeout-ms"
+];
+
+function planInputsFor(args: Record<string, unknown>): Record<string, unknown> {
+  const copy = withoutRuntimeKeys(args);
+  for (const key of DRIVE_RUNTIME_KEYS) delete copy[key];
+  return copy;
+}
+
+/** Mutating drive step/run. Plans a fresh run for an app id, or continues a run id.
+ *  The agent hop goes ONLY through the agent backend; this composes existing verbs.
+ *
+ *  The run lives under its repo's `.cw/` and every runner verb resolves a run from
+ *  the process cwd, so the drive operates WITH the run's repo as cwd (exactly how
+ *  the golden path runs each verb from the repo dir) — then restores cwd. This lets
+ *  `cw run <app> --drive --repo X` work when invoked from anywhere. */
+export function runDrive(runner: CoolWorkflowRunner, args: Record<string, unknown>): DriveResult {
+  const cwd0 = process.cwd();
+  try {
+    let runId = optionalString(args.runId || args.run);
+    let repoCwd = optionalString(args.repo);
+    if (!runId) {
+      const appId = String(args.appId || args.workflowId || args.app || "");
+      if (!appId) throw new Error("run --drive requires an app id (or --run <run-id> to continue)");
+      const run = runner.plan(appId, planInputsFor(args));
+      runId = run.id;
+      repoCwd = run.cwd;
+    }
+    if (repoCwd && repoCwd !== process.cwd() && fs.existsSync(repoCwd)) process.chdir(repoCwd);
+    return drive(runner, runId, { once: isTrue(args.once), now: optionalString(args.now), args });
+  } finally {
+    if (process.cwd() !== cwd0) process.chdir(cwd0);
+  }
+}
+
+/** Read-only, deterministic projection of the effective agent config (secret-stripped). */
+export function backendAgentConfigShow(args: Record<string, unknown>): AgentConfigShowResult {
+  return agentConfigShow(args);
+}
+
+/** Persist the durable agent config (secret-stripped) and return the new state. */
+export function backendAgentConfigSet(args: Record<string, unknown>): AgentConfigShowResult {
+  setAgentConfigFile(args);
+  return agentConfigShow(args);
 }
 
 export function runHistory(reg: RunRegistry, args: Record<string, unknown>): RunHistoryResult {
