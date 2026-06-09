@@ -34,6 +34,7 @@ import {
   gcVerify,
   runDrive,
   runDrivePreview,
+  quickstart,
   backendAgentConfigShow,
   backendAgentConfigSet
 } from "./capability-core";
@@ -126,6 +127,17 @@ async function main(): Promise<void> {
         default:
           throw new Error("Usage: cw.js app list|show|validate|init|package|run [app-id|path]");
       }
+    }
+    case "quickstart":
+    case "audit-run": {
+      // ONE-COMMAND first value (v0.1.38+): plan(app) -> run --drive -> report in a
+      // single invocation. A thin UX wrapper over the EXISTING drive() pipeline — it
+      // DELEGATES worker execution to the operator's configured agent backend and
+      // fails closed (status=blocked) when none is set. No new executor/scheduler.
+      const [appId] = args.positionals;
+      const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
+      printJson(quickstart(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) }));
+      return;
     }
     case "plan": {
       const [workflowId] = args.positionals;
