@@ -376,6 +376,23 @@ Start here:
 
 Full docs map: [plugins/cool-workflow/docs/index.md](plugins/cool-workflow/docs/index.md)
 
+## Work With Me
+
+CW is maintained by COOLWHITE LLC. Beyond the open-source SDK, the following
+engagements are available:
+
+- **Architecture-risk audits** — review your agent workflows for evidence-chain
+  gaps, trust boundaries, and verifier coverage.
+- **CW integration** — wire CW into your pipeline: plugin customization,
+  multi-agent topology, and verifier/commit-gate policy.
+- **Custom audit/compliance layers** — domain-specific evidence models,
+  approval and handoff governance, attestation workflows.
+
+For inquiries, open a
+[GitHub Issue](https://github.com/coo1white/cool-workflow/issues) or start a
+[GitHub Discussion](https://github.com/coo1white/cool-workflow/discussions). For
+direct contact: `[contact — fill in]`.
+
 ## Status
 
 CW is an independent Agent Workflow SDK by COOLWHITE LLC. It is released under
