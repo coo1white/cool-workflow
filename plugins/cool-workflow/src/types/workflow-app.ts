@@ -1,4 +1,5 @@
 import type { PhaseStatus, TaskKind, TaskStatus } from "./core";
+import type { PipelineContract } from "./pipeline";
 
 export interface WorkflowLimits {
   maxAgents: number;
@@ -68,6 +69,10 @@ export interface WorkflowAppDefinition {
   inputs?: WorkflowInputDefinition[];
   sandboxProfiles?: string[];
   compatibility?: WorkflowAppCompatibility;
+  /** Optional custom pipeline contract. Fields override the default pipeline.
+   *  Apps can tune stages, failure policy, evidence policy, and commit policy
+   *  without replacing the entire contract (v0.1.56). */
+  pipeline?: Partial<PipelineContract>;
   metadata?: Record<string, unknown>;
 }
 

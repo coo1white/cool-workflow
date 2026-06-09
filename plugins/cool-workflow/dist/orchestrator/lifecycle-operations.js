@@ -116,7 +116,12 @@ function plan(appRecord, options) {
     (0, multi_agent_1.ensureMultiAgentState)(run);
     (0, topology_1.ensureTopologyState)(run);
     (0, harness_1.writeTaskFiles)(run);
-    const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
+    // Use app's custom pipeline if defined; fall back to default (v0.1.56).
+    const defaultContract = (0, pipeline_contract_1.createDefaultPipelineContract)();
+    const appPipeline = appRecord.app.pipeline;
+    const contract = appPipeline
+        ? (0, state_node_1.upsertRunContract)(run, { ...defaultContract, ...appPipeline, id: defaultContract.id })
+        : (0, state_node_1.upsertRunContract)(run, defaultContract);
     const inputNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
         id: `${run.id}:input`,
         kind: "input",
