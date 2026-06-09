@@ -268,6 +268,38 @@ function executeCommandsForTask(context, taskId, manifest) {
   return results;
 }
 
+// Read a release surface from the COMMIT being released (the blob at HEAD), not
+// the mutable working tree. A release gate that reads the working tree can
+// false-RED when a concurrent writer briefly mutates-then-reverts a surface
+// (the read lands in that window) even though the committed tree is correct and
+// `git status` is clean — and could false-GREEN on an uncommitted local edit.
+// `git show HEAD:<path>` is immutable for the life of the commit, so the gate is
+// deterministic. Falls back to the working tree only when the path is not
+// tracked at HEAD or we are not in a git work tree. Emitted as a `node -e` body
+// so each check stays a separate audited evidence command (cwd: repoRoot).
+// node + git only — no ripgrep (CI portability rule).
+function releaseSourceReaderSnippet() {
+  return [
+    "const cp=require('child_process');",
+    "const fs=require('fs');",
+    "function readHead(f){",
+    " const r=cp.spawnSync('git',['show','HEAD:'+f],{encoding:'utf8',maxBuffer:1024*1024*32});",
+    " if(r.status===0) return r.stdout;",
+    " return null;",
+    "}",
+    "function readSurface(f){",
+    " const h=readHead(f);",
+    " if(h!==null) return h;",
+    " return fs.existsSync(f)?fs.readFileSync(f,'utf8'):null;",
+    "}",
+    "function surfaceExists(f){",
+    " const r=cp.spawnSync('git',['cat-file','-e','HEAD:'+f],{encoding:'utf8'});",
+    " if(r.status===0) return true;",
+    " return fs.existsSync(f);",
+    "}"
+  ].join("");
+}
+
 function commandsForTask(taskId, context) {
   const smoke = context.options.smoke;
   const versionCheck = { id: "version-sync", cwd: pluginRoot, command: [node, ["scripts/version-sync-check.js"]] };
@@ -290,11 +322,13 @@ function commandsForTask(taskId, context) {
             [
               "-e",
               [
-                "const fs=require('fs');",
+                releaseSourceReaderSnippet(),
                 "for (const f of ['plugins/cool-workflow/package.json','plugins/cool-workflow/src/version.ts','CHANGELOG.md','RELEASE.md']) {",
-                ` if (!fs.readFileSync(f,'utf8').includes('${TARGET_VERSION}')) throw new Error(f+' missing ${TARGET_VERSION}');`,
+                " const t=readSurface(f);",
+                ` if (t===null) throw new Error(f+' missing from release commit');`,
+                ` if (!t.includes('${TARGET_VERSION}')) throw new Error(f+' missing ${TARGET_VERSION}');`,
                 "}",
-                "console.log('version surfaces include target release');"
+                "console.log('version surfaces include target release (from release commit)');"
               ].join("")
             ]
           ]
@@ -310,11 +344,13 @@ function commandsForTask(taskId, context) {
             [
               "-e",
               [
-                "const fs=require('fs');",
+                releaseSourceReaderSnippet(),
                 "const files=['docs/dogfood-one-real-repo.7.md','plugins/cool-workflow/docs/dogfood-one-real-repo.7.md','README.md','plugins/cool-workflow/README.md','CHANGELOG.md','RELEASE.md'];",
-                "for (const f of files) { if (!fs.existsSync(f)) throw new Error('missing '+f); }",
-                `if (!fs.readFileSync('CHANGELOG.md','utf8').includes('## ${TARGET_VERSION}')) throw new Error('changelog missing target');`,
-                "console.log('dogfood release docs present');"
+                "for (const f of files) { if (!surfaceExists(f)) throw new Error('missing '+f); }",
+                "const changelog=readSurface('CHANGELOG.md');",
+                "if (changelog===null) throw new Error('CHANGELOG.md missing from release commit');",
+                `if (!changelog.includes('## ${TARGET_VERSION}')) throw new Error('changelog missing target');`,
+                "console.log('dogfood release docs present (from release commit)');"
               ].join("")
             ]
           ]
@@ -330,10 +366,10 @@ function commandsForTask(taskId, context) {
             [
               "-e",
               [
-                "const fs=require('fs');",
+                releaseSourceReaderSnippet(),
                 "const files=['plugins/cool-workflow/docs/index.md','README.md'];",
-                "for (const f of files) { if (!fs.readFileSync(f,'utf8').toLowerCase().includes('dogfood')) throw new Error(f+' missing dogfood reference'); }",
-                "console.log('docs index references dogfood');"
+                "for (const f of files) { const t=readSurface(f); if (t===null) throw new Error(f+' missing from release commit'); if (!t.toLowerCase().includes('dogfood')) throw new Error(f+' missing dogfood reference'); }",
+                "console.log('docs index references dogfood (from release commit)');"
               ].join("")
             ]
           ]

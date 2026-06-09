@@ -4,12 +4,49 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
+
+// Deterministic source-of-record: validate the COMMIT being released (the blob
+// at HEAD), NOT the mutable working tree. A working tree is a moving target —
+// any concurrent editor, formatter, or stray process can write-then-revert a
+// surface file, and a read that lands in that window makes a release gate
+// false-RED on a clean tree (and, symmetrically, a gate that trusts an
+// uncommitted edit could false-GREEN). Reading `git show HEAD:<path>` removes
+// that entire failure class: the bytes are immutable for the life of the commit.
+// CI checks out HEAD, so HEAD === the tree it is releasing.
+//
+// Fallback to the filesystem only when we cannot read from HEAD: not a git work
+// tree, or the path is not tracked at HEAD (e.g. the gitignored package-lock).
+// node + git only — no ripgrep (CI portability rule).
+const insideGitWorkTree = (() => {
+  const r = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: repoRoot, encoding: "utf8" });
+  return r.status === 0 && (r.stdout || "").trim() === "true";
+})();
+
+function readReleaseSource(relativePath) {
+  // relativePath is repoRoot-relative (the form every check below already uses).
+  if (insideGitWorkTree) {
+    const r = spawnSync("git", ["show", `HEAD:${relativePath}`], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024 * 32
+    });
+    if (r.status === 0) return { text: r.stdout, exists: true, fromHead: true };
+    // Not tracked at HEAD — fall through to the working tree (e.g. package-lock).
+  }
+  const abs = path.join(repoRoot, relativePath);
+  if (!fs.existsSync(abs)) return { text: null, exists: false, fromHead: false };
+  return { text: fs.readFileSync(abs, "utf8"), exists: true, fromHead: false };
+}
+
 // Single source of truth: package.json. `scripts/bump-version.js` rewrites this
 // (and every other surface); version:sync then asserts all surfaces equal it.
-const VERSION = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8")).version;
+// Read it from the released commit so the asserted-against version is itself
+// taken from HEAD, not a half-written working copy.
+const VERSION = JSON.parse(readReleaseSource("plugins/cool-workflow/package.json").text).version;
 const canonicalApps = [
   "architecture-review",
   "end-to-end-golden-path",
@@ -155,42 +192,43 @@ function main() {
   checkIncludes("RELEASE.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/skills/cool-workflow/SKILL.md", "release:check", checks);
 
-  process.stdout.write(`${JSON.stringify({ ok: true, version: VERSION, checks }, null, 2)}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ ok: true, version: VERSION, source: insideGitWorkTree ? "git:HEAD" : "working-tree", checks }, null, 2)}\n`
+  );
 }
 
 function checkJson(relativePath, key, expected, checks) {
-  const file = path.join(repoRoot, relativePath);
-  assert.ok(fs.existsSync(file), `${relativePath} must exist`);
-  const value = JSON.parse(fs.readFileSync(file, "utf8"))[key];
+  const src = readReleaseSource(relativePath);
+  assert.ok(src.exists, `${relativePath} must exist`);
+  const value = JSON.parse(src.text)[key];
   assert.equal(value, expected, `${relativePath}.${key} must be ${expected}`);
   checks.push({ path: relativePath, key, value });
 }
 
 function checkNestedJson(relativePath, keyPath, expected, checks) {
-  const file = path.join(repoRoot, relativePath);
-  assert.ok(fs.existsSync(file), `${relativePath} must exist`);
-  let value = JSON.parse(fs.readFileSync(file, "utf8"));
+  const src = readReleaseSource(relativePath);
+  assert.ok(src.exists, `${relativePath} must exist`);
+  let value = JSON.parse(src.text);
   for (const key of keyPath) value = value?.[key];
   assert.equal(value, expected, `${relativePath}.${keyPath.join(".")} must be ${expected}`);
   checks.push({ path: relativePath, key: keyPath.join("."), value });
 }
 
 function checkJsonIfPresent(relativePath, key, expected, checks) {
-  const file = path.join(repoRoot, relativePath);
-  if (!fs.existsSync(file)) {
+  const src = readReleaseSource(relativePath);
+  if (!src.exists) {
     checks.push({ path: relativePath, key, skipped: "absent" });
     return;
   }
-  const value = JSON.parse(fs.readFileSync(file, "utf8"))[key];
+  const value = JSON.parse(src.text)[key];
   assert.equal(value, expected, `${relativePath}.${key} must be ${expected}`);
   checks.push({ path: relativePath, key, value });
 }
 
 function checkIncludes(relativePath, needle, checks) {
-  const file = path.join(repoRoot, relativePath);
-  assert.ok(fs.existsSync(file), `${relativePath} must exist`);
-  const text = fs.readFileSync(file, "utf8");
-  assert.ok(text.includes(needle), `${relativePath} must include ${needle}`);
+  const src = readReleaseSource(relativePath);
+  assert.ok(src.exists, `${relativePath} must exist`);
+  assert.ok(src.text.includes(needle), `${relativePath} must include ${needle}`);
   checks.push({ path: relativePath, includes: needle });
 }
 
