@@ -20,6 +20,7 @@ exports.buildAcceptanceRationale = buildAcceptanceRationale;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
+const evidence_grounding_1 = require("./evidence-grounding");
 exports.TRUST_AUDIT_SCHEMA_VERSION = 1;
 function ensureTrustAudit(run) {
     const auditDir = auditRoot(run);
@@ -255,8 +256,12 @@ function workerTrustAudit(run, workerId) {
     return { workerId, events: listTrustAuditEvents(run).filter((event) => event.workerId === workerId) };
 }
 function normalizeEvidence(run, evidence, provenance) {
+    const baseDirs = [run.cwd, run.paths.runDir].filter(Boolean);
     return evidence.map((entry) => ({
         ...entry,
+        // Auto-compute confidence tier from locator shape + (in strict mode) filesystem.
+        // "verified" is never auto-assigned — requires explicit host attestation (v0.1.55).
+        confidence: entry.confidence || (0, evidence_grounding_1.computeEvidenceConfidence)(entry.locator || entry.path || entry.summary, baseDirs),
         provenance: {
             schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
             runId: run.id,

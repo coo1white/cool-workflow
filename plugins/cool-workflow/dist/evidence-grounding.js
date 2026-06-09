@@ -8,6 +8,9 @@ exports.hasGroundedEvidence = hasGroundedEvidence;
 exports.requireResolvableEvidence = requireResolvableEvidence;
 exports.resolveEvidenceLocator = resolveEvidenceLocator;
 exports.unresolvedFileEvidence = unresolvedFileEvidence;
+exports.computeEvidenceConfidence = computeEvidenceConfidence;
+exports.computeEvidenceConfidenceTiers = computeEvidenceConfidenceTiers;
+exports.maxEvidenceConfidence = maxEvidenceConfidence;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 // ---------------------------------------------------------------------------
@@ -101,4 +104,40 @@ function unresolvedFileEvidence(evidence, baseDirs) {
     return evidence
         .map((entry) => String(entry))
         .filter((entry) => resolveEvidenceLocator(entry, baseDirs) === "unresolved");
+}
+/** Compute the confidence tier for a single evidence string. Deterministic:
+ *  pure function of the string and optional base dirs for resolution. */
+function computeEvidenceConfidence(raw, baseDirs) {
+    if (!isGroundedEvidence(raw))
+        return "ungrounded";
+    if (!baseDirs || !baseDirs.length || !requireResolvableEvidence())
+        return "grounded";
+    const value = String(raw).trim();
+    const shape = classify(value);
+    if (shape.kind === "url")
+        return "grounded"; // URLs not resolved yet
+    if (shape.kind === "opaque")
+        return "grounded"; // namespace:value tokens are grounded
+    // File-style: try resolution
+    const resolution = resolveEvidenceLocator(value, baseDirs);
+    return resolution === "resolved" ? "resolvable" : "grounded";
+}
+/** Compute confidence tiers for an array of evidence entries. */
+function computeEvidenceConfidenceTiers(evidence, baseDirs) {
+    if (!Array.isArray(evidence))
+        return [];
+    return evidence.map((entry) => computeEvidenceConfidence(entry, baseDirs));
+}
+/** The highest confidence tier in an evidence array. Used for gate decisions. */
+function maxEvidenceConfidence(evidence, baseDirs) {
+    const tiers = computeEvidenceConfidenceTiers(evidence, baseDirs);
+    if (!tiers.length)
+        return "ungrounded";
+    const order = ["ungrounded", "grounded", "resolvable", "verified"];
+    let max = "ungrounded";
+    for (const tier of tiers) {
+        if (order.indexOf(tier) > order.indexOf(max))
+            max = tier;
+    }
+    return max;
 }
