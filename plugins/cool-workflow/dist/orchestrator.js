@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -11,35 +44,31 @@ const node_path_1 = __importDefault(require("node:path"));
 const workflow_api_1 = require("./workflow-api");
 const workflow_app_sdk_1 = require("./workflow-app-sdk");
 const dispatch_1 = require("./dispatch");
-const harness_1 = require("./harness");
-const commit_1 = require("./commit");
-const verifier_1 = require("./verifier");
 const state_1 = require("./state");
-const pipeline_contract_1 = require("./pipeline-contract");
 const observability_1 = require("./observability");
-const error_feedback_1 = require("./error-feedback");
-const state_node_1 = require("./state-node");
 const pipeline_runner_1 = require("./pipeline-runner");
 const worker_isolation_1 = require("./worker-isolation");
 const candidate_scoring_1 = require("./candidate-scoring");
-const collaboration_1 = require("./collaboration");
 const sandbox_profile_1 = require("./sandbox-profile");
 const execution_backend_1 = require("./execution-backend");
 const operator_ux_1 = require("./operator-ux");
-const trust_audit_1 = require("./trust-audit");
-const multi_agent_trust_1 = require("./multi-agent-trust");
 const multi_agent_1 = require("./multi-agent");
-const coordinator_1 = require("./coordinator");
-const topology_1 = require("./topology");
-const multi_agent_host_1 = require("./multi-agent-host");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const node_snapshot_1 = require("./node-snapshot");
-const contract_migration_1 = require("./contract-migration");
 const state_explosion_1 = require("./state-explosion");
 const evidence_reasoning_1 = require("./evidence-reasoning");
 const report_1 = require("./orchestrator/report");
 const cli_options_1 = require("./orchestrator/cli-options");
+const auditOps = __importStar(require("./orchestrator/audit-operations"));
+const candidateOps = __importStar(require("./orchestrator/candidate-operations"));
+const collaborationOps = __importStar(require("./orchestrator/collaboration-operations"));
+const maOps = __importStar(require("./orchestrator/multi-agent-operations"));
+const hostOps = __importStar(require("./orchestrator/host-operations"));
+const feedbackOps = __importStar(require("./orchestrator/feedback-operations"));
+const topologyOps = __importStar(require("./orchestrator/topology-operations"));
+const lifecycleOps = __importStar(require("./orchestrator/lifecycle-operations"));
+const migrationOps = __importStar(require("./orchestrator/migration-operations"));
 class CoolWorkflowRunner {
     pluginRoot;
     workflowsDir;
@@ -169,119 +198,11 @@ class CoolWorkflowRunner {
         node_fs_1.default.writeFileSync(destination, (0, workflow_app_sdk_1.renderWorkflowAppTemplate)(id, title), "utf8");
         return { id, path: destination };
     }
+    // Core run lifecycle — delegated to ./orchestrator/lifecycle-operations. The
+    // runner resolves the workflow app record (instance-stateful) then hands the
+    // engine work to the module; the runner is now a pure router.
     plan(workflowId, options) {
-        const appRecord = this.loadWorkflowAppById(workflowId);
-        const workflow = appRecord.app.workflow;
-        const inputs = normalizeInputs(options);
-        validateInputs(workflow, inputs);
-        const cwd = node_path_1.default.resolve(String(inputs.cwd || inputs.repo || process.cwd()));
-        const runId = createRunId(workflow.id);
-        const runDir = node_path_1.default.join(cwd, ".cw", "runs", runId);
-        const paths = (0, state_1.createRunPaths)(runDir);
-        (0, state_1.ensureRunDirs)(paths);
-        const tasks = flattenTasks(workflow, inputs);
-        const run = {
-            schemaVersion: 1,
-            id: runId,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            cwd,
-            workflow: {
-                id: workflow.id,
-                title: workflow.title,
-                summary: workflow.summary || "",
-                limits: workflow.limits,
-                app: (0, workflow_app_sdk_1.workflowAppRunMetadata)(appRecord)
-            },
-            inputs,
-            loopStage: "interpret",
-            phases: workflow.phases.map((phase) => ({
-                id: phase.id || (0, workflow_api_1.slugify)(phase.name),
-                name: phase.name,
-                status: "pending",
-                taskIds: phase.tasks.map((task) => task.id)
-            })),
-            tasks,
-            dispatches: [],
-            commits: [],
-            paths,
-            nodes: [],
-            contracts: [],
-            feedback: [],
-            audit: {
-                schemaVersion: 1,
-                eventLogPath: paths.auditDir ? node_path_1.default.join(paths.auditDir, "events.jsonl") : undefined,
-                summaryPath: paths.auditDir ? node_path_1.default.join(paths.auditDir, "summary.json") : undefined,
-                indexPath: paths.auditDir ? node_path_1.default.join(paths.auditDir, "index.json") : undefined
-            },
-            workers: [],
-            sandboxProfiles: [],
-            candidates: [],
-            candidateSelections: [],
-            multiAgent: {
-                schemaVersion: 1,
-                runs: [],
-                roles: [],
-                groups: [],
-                memberships: [],
-                fanouts: [],
-                fanins: []
-            },
-            blackboard: {
-                schemaVersion: 1,
-                boards: [],
-                topics: [],
-                messages: [],
-                contexts: [],
-                artifacts: [],
-                snapshots: [],
-                decisions: []
-            },
-            topologies: {
-                schemaVersion: 1,
-                runs: []
-            }
-        };
-        (0, trust_audit_1.ensureTrustAudit)(run);
-        (0, multi_agent_1.ensureMultiAgentState)(run);
-        (0, topology_1.ensureTopologyState)(run);
-        (0, harness_1.writeTaskFiles)(run);
-        const contract = (0, state_node_1.upsertRunContract)(run, (0, pipeline_contract_1.createDefaultPipelineContract)());
-        const inputNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
-            id: `${run.id}:input`,
-            kind: "input",
-            status: "completed",
-            loopStage: "interpret",
-            outputs: run.inputs,
-            artifacts: [{ id: "state", kind: "json", path: run.paths.state }],
-            contractId: contract.id,
-            metadata: { workflowId: workflow.id, app: (0, workflow_app_sdk_1.workflowAppRunMetadata)(appRecord) }
-        }));
-        (0, state_1.saveCheckpoint)(run);
-        const pipeline = (0, pipeline_runner_1.createPipelineRunner)({ contractId: contract.id, persist: false });
-        for (const task of run.tasks) {
-            const taskResult = pipeline.runPipelineStage(run, "plan", inputNode.id, {
-                outputNodeId: `${run.id}:task:${task.id}`,
-                outputStatus: "pending",
-                loopStage: "interpret",
-                artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
-                metadata: {
-                    workflowId: workflow.id,
-                    appId: appRecord.app.id,
-                    appVersion: appRecord.app.version,
-                    taskId: task.id,
-                    phase: task.phase,
-                    taskKind: task.kind,
-                    requiresEvidence: task.requiresEvidence,
-                    sandboxProfileId: task.sandboxProfileId
-                }
-            });
-            task.stateNodeId = taskResult.outputNodeId;
-        }
-        (0, report_1.writeReport)(run);
-        (0, commit_1.commitState)(run, "initial-plan");
-        (0, state_1.saveCheckpoint)(run);
-        return run;
+        return lifecycleOps.plan(this.loadWorkflowAppById(workflowId), options);
     }
     status(runId) {
         return (0, report_1.summarizeRun)(this.loadRun(runId));
@@ -293,128 +214,10 @@ class CoolWorkflowRunner {
         return (0, dispatch_1.nextDispatchTasks)(this.loadRun(runId), (0, cli_options_1.numberOption)(options.limit));
     }
     dispatch(runId, options) {
-        const run = this.loadRun(runId);
-        try {
-            const manifest = (0, dispatch_1.createDispatchManifest)(run, (0, cli_options_1.numberOption)(options.limit), {
-                sandboxProfileId: (0, cli_options_1.stringOption)(options.sandbox) || (0, cli_options_1.stringOption)(options.sandboxProfile) || (0, cli_options_1.stringOption)(options.sandboxProfileId),
-                backendId: (0, cli_options_1.stringOption)(options.backend) || (0, cli_options_1.stringOption)(options.backendId) || (0, cli_options_1.stringOption)(options.executionBackend),
-                multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-                multiAgentGroupId: (0, cli_options_1.stringOption)(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
-                multiAgentRoleId: (0, cli_options_1.stringOption)(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
-                multiAgentFanoutId: (0, cli_options_1.stringOption)(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"])
-            });
-            run.loopStage = "act";
-            if (manifest.dispatchId)
-                (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
-            (0, state_1.saveCheckpoint)(run);
-            (0, report_1.writeReport)(run);
-            return manifest;
-        }
-        catch (error) {
-            if ((0, cli_options_1.isSandboxProfileError)(error)) {
-                run.loopStage = "adjust";
-                (0, error_feedback_1.recordFeedback)(run, {
-                    source: "cli",
-                    error: {
-                        code: error.code,
-                        message: error.message,
-                        at: new Date().toISOString(),
-                        path: error.path,
-                        retryable: false,
-                        details: error.details
-                    },
-                    retryable: false,
-                    metadata: { sandboxProfileId: (0, cli_options_1.stringOption)(options.sandbox) || (0, cli_options_1.stringOption)(options.sandboxProfile) || (0, cli_options_1.stringOption)(options.sandboxProfileId) }
-                }, { persist: false });
-                (0, report_1.writeReport)(run);
-                (0, state_1.saveCheckpoint)(run);
-            }
-            throw error;
-        }
+        return lifecycleOps.dispatch(this.loadRun(runId), options);
     }
     recordResult(runId, taskId, resultPath, options = {}) {
-        const run = this.loadRun(runId);
-        const task = run.tasks.find((candidate) => candidate.id === taskId);
-        if (!task)
-            throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
-        // Host-attested token usage (v0.1.31), if the caller supplied it. CW records
-        // it verbatim as provenance and NEVER synthesizes it; absent ⇒ `unreported`.
-        const usage = (0, observability_1.parseUsageFromArgs)(options, new Date().toISOString());
-        try {
-            (0, verifier_1.assertTaskCanComplete)(run, task);
-            const absoluteResultPath = node_path_1.default.resolve(resultPath);
-            if (!node_fs_1.default.existsSync(absoluteResultPath)) {
-                throw new Error(`Result file does not exist: ${absoluteResultPath}`);
-            }
-            const rawResult = node_fs_1.default.readFileSync(absoluteResultPath, "utf8");
-            run.loopStage = "observe";
-            const parsedResult = (0, verifier_1.parseResultEnvelope)(rawResult);
-            run.loopStage = "adjust";
-            (0, verifier_1.validateResultEnvelope)(task, parsedResult);
-            const destination = node_path_1.default.join(run.paths.resultsDir, `${(0, state_1.safeFileName)(taskId)}.md`);
-            node_fs_1.default.copyFileSync(absoluteResultPath, destination);
-            task.status = "completed";
-            task.completedAt = new Date().toISOString();
-            task.resultPath = destination;
-            task.loopStage = "observe";
-            task.result = parsedResult;
-            if (usage)
-                task.usage = usage;
-            const resultNode = (0, state_node_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
-                id: `${run.id}:result:${task.id}`,
-                kind: "result",
-                status: "completed",
-                loopStage: "observe",
-                inputs: { taskId: task.id, dispatchId: task.dispatchId },
-                outputs: parsedResult,
-                artifacts: [{ id: "result", kind: "markdown", path: destination }],
-                evidence: parsedResult.evidence.map((entry, index) => ({
-                    id: `result:${index + 1}`,
-                    source: "cw:result",
-                    locator: entry,
-                    summary: entry
-                })),
-                parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
-                contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
-                metadata: { taskId: task.id }
-            }));
-            task.resultNodeId = resultNode.id;
-            (0, dispatch_1.updatePhaseStatuses)(run);
-            (0, verifier_1.validateRunGates)(run);
-            const verifierResult = (0, pipeline_runner_1.createPipelineRunner)({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
-                outputNodeId: `${run.id}:verifier:${task.id}`,
-                outputStatus: "verified",
-                loopStage: "adjust",
-                outputs: { accepted: true },
-                artifacts: [{ id: "result", kind: "markdown", path: destination }],
-                evidence: resultNode.evidence.length
-                    ? resultNode.evidence
-                    : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
-                metadata: { taskId: task.id, resultNodeId: resultNode.id }
-            });
-            task.verifierNodeId = verifierResult.outputNodeId;
-            (0, commit_1.commitState)(run, `result:${taskId}`);
-            (0, report_1.writeReport)(run);
-            (0, state_1.saveCheckpoint)(run);
-            return (0, report_1.summarizeRun)(run);
-        }
-        catch (error) {
-            (0, error_feedback_1.recordFeedback)(run, {
-                source: "verifier",
-                error: error instanceof Error ? error : String(error),
-                taskId: task.id,
-                path: resultPath ? node_path_1.default.resolve(resultPath) : undefined,
-                retryable: false,
-                metadata: {
-                    taskStatus: task.status,
-                    dispatchId: task.dispatchId,
-                    stateNodeId: task.stateNodeId,
-                    resultNodeId: task.resultNodeId
-                }
-            });
-            (0, report_1.writeReport)(run);
-            throw error;
-        }
+        return lifecycleOps.recordResult(this.loadRun(runId), taskId, resultPath, options);
     }
     listWorkers(runId, options = {}) {
         return (0, worker_isolation_1.listWorkerScopes)(this.loadRun(runId), {
@@ -435,209 +238,46 @@ class CoolWorkflowRunner {
         return (0, worker_isolation_1.writeWorkerManifest)(run, worker);
     }
     recordWorkerOutput(runId, workerId, resultPath, options = {}) {
-        const run = this.loadRun(runId);
-        const usage = (0, observability_1.parseUsageFromArgs)(options, new Date().toISOString());
-        // Agent Delegation Drive (v0.1.38): the drive loop passes the agent-hop
-        // attestation through verbatim so recordWorkerOutput can fold the digests +
-        // model into provenance/trust-audit. Absent for a hand-fulfilled worker.
-        const agentDelegation = options.agentDelegation || undefined;
-        try {
-            (0, worker_isolation_1.recordWorkerOutput)(run, workerId, resultPath, { persist: false, agentDelegation });
-            if (usage) {
-                const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);
-                // Host-attested token usage rides on the worker record as provenance.
-                if (worker)
-                    worker.usage = usage;
-            }
-            run.loopStage = "observe";
-            (0, dispatch_1.updatePhaseStatuses)(run);
-            (0, verifier_1.validateRunGates)(run);
-            (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-            (0, report_1.writeReport)(run);
-            (0, state_1.saveCheckpoint)(run);
-            return (0, report_1.summarizeRun)(run);
-        }
-        catch (error) {
-            run.loopStage = "adjust";
-            (0, dispatch_1.updatePhaseStatuses)(run);
-            (0, report_1.writeReport)(run);
-            (0, state_1.saveCheckpoint)(run);
-            throw error;
-        }
+        return lifecycleOps.recordWorkerOutput(this.loadRun(runId), workerId, resultPath, options);
     }
     recordWorkerFailure(runId, workerId, message, options = {}) {
-        const run = this.loadRun(runId);
-        const failure = (0, worker_isolation_1.recordWorkerFailure)(run, workerId, {
-            code: String(options.code || "worker-runtime-error"),
-            message,
-            at: new Date().toISOString(),
-            path: options.path ? node_path_1.default.resolve(String(options.path)) : undefined,
-            retryable: Boolean(options.retryable)
-        }, { persist: false });
-        run.loopStage = "adjust";
-        (0, dispatch_1.updatePhaseStatuses)(run);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return failure;
+        return lifecycleOps.recordWorkerFailure(this.loadRun(runId), workerId, message, options);
     }
     validateWorker(runId, workerId, targetPath) {
         return (0, worker_isolation_1.validateWorkerBoundary)(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
     }
+    // Audit domain — delegated to ./orchestrator/audit-operations (v0.1.40 P3
+    // router pattern). The runner stays the routing surface; the logic lives in the
+    // domain module. Public signatures are unchanged.
     auditSummary(runId) {
-        return (0, trust_audit_1.summarizeTrustAudit)(this.loadRun(runId));
+        return auditOps.auditSummary(this.loadRun(runId));
     }
     auditMultiAgent(runId) {
-        return (0, multi_agent_trust_1.summarizeMultiAgentTrust)(this.loadRun(runId));
+        return auditOps.auditMultiAgent(this.loadRun(runId));
     }
     auditPolicy(runId) {
-        const run = this.loadRun(runId);
-        const summary = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(run);
-        return {
-            schemaVersion: 1,
-            runId,
-            rolePolicies: summary.rolePolicies,
-            permissionDecisions: summary.permissionDecisions,
-            policyViolations: summary.policyViolations,
-            nextAction: summary.nextAction
-        };
+        return auditOps.auditPolicy(this.loadRun(runId));
     }
     auditRole(runId, roleId) {
-        const run = this.loadRun(runId);
-        const summary = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(run);
-        const events = (0, trust_audit_1.listTrustAuditEvents)(run).filter((event) => event.agentRoleId === roleId);
-        return {
-            schemaVersion: 1,
-            runId,
-            roleId,
-            role: run.multiAgent?.roles.find((entry) => entry.id === roleId),
-            rolePolicies: summary.rolePolicies.filter((entry) => entry.subjectId === roleId),
-            permissionDecisions: events.filter((event) => event.kind === "multi-agent.permission"),
-            blackboardWrites: events.filter((event) => event.kind === "blackboard.write"),
-            messageProvenance: events.filter((event) => event.kind === "blackboard.message-provenance"),
-            judgeRationales: events.filter((event) => event.kind === "judge.rationale"),
-            panelDecisions: events.filter((event) => event.kind === "judge.panel-decision"),
-            policyViolations: events.filter((event) => event.kind === "policy.violation"),
-            events,
-            nextAction: `node scripts/cw.js audit multi-agent ${runId} --json`
-        };
+        return auditOps.auditRole(this.loadRun(runId), roleId);
     }
     auditBlackboard(runId) {
-        const summary = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(this.loadRun(runId));
-        return {
-            schemaVersion: 1,
-            runId,
-            blackboardWrites: summary.blackboardWrites,
-            messageProvenance: summary.messageProvenance,
-            policyViolations: summary.policyViolations.filter((event) => event.blackboardId),
-            nextAction: summary.nextAction
-        };
+        return auditOps.auditBlackboard(this.loadRun(runId));
     }
     auditJudge(runId) {
-        const summary = (0, multi_agent_trust_1.summarizeMultiAgentTrust)(this.loadRun(runId));
-        return {
-            schemaVersion: 1,
-            runId,
-            judgeRationales: summary.judgeRationales,
-            panelDecisions: summary.panelDecisions,
-            permissionDecisions: summary.permissionDecisions.filter((event) => String(event.metadata?.operation || "").startsWith("judge.")),
-            policyViolations: summary.policyViolations.filter((event) => String(event.metadata?.operation || "").startsWith("judge.")),
-            nextAction: summary.nextAction
-        };
+        return auditOps.auditJudge(this.loadRun(runId));
     }
     workerAudit(runId, workerId) {
-        return (0, trust_audit_1.workerTrustAudit)(this.loadRun(runId), workerId);
+        return auditOps.workerAudit(this.loadRun(runId), workerId);
     }
     evidenceProvenance(runId, options = {}) {
-        return (0, trust_audit_1.evidenceProvenance)(this.loadRun(runId), {
-            workerId: (0, cli_options_1.stringOption)(options.worker || options.workerId),
-            candidateId: (0, cli_options_1.stringOption)(options.candidate || options.candidateId),
-            commitId: (0, cli_options_1.stringOption)(options.commit || options.commitId)
-        });
+        return auditOps.auditEvidenceProvenance(this.loadRun(runId), options);
     }
     recordAuditAttestation(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const workerId = (0, cli_options_1.stringOption)(options.worker || options.workerId);
-        const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
-        const event = (0, trust_audit_1.recordHostAttestation)(run, {
-            actor: (0, cli_options_1.stringOption)(options.actor) || "host",
-            workerId,
-            taskId: worker?.taskId || (0, cli_options_1.stringOption)(options.task || options.taskId),
-            sandboxProfileId: worker?.sandboxProfileId || (0, cli_options_1.stringOption)(options.sandboxProfileId),
-            policySnapshot: worker?.sandboxPolicy,
-            command: (0, cli_options_1.stringOption)(options.command),
-            networkTarget: (0, cli_options_1.stringOption)(options.network || options.networkTarget),
-            envVars: (0, cli_options_1.valuesOption)(options.env || options.envVar || options.envVars),
-            metadata: {
-                note: (0, cli_options_1.stringOption)(options.note || options.message),
-                hostEnforced: options.hostEnforced === undefined ? undefined : Boolean(options.hostEnforced)
-            }
-        });
-        (0, state_1.saveCheckpoint)(run);
-        return event;
+        return auditOps.recordAuditAttestation(this.loadRun(runId), options);
     }
     recordAuditDecision(runId, workerId, options = {}) {
-        const run = this.loadRun(runId);
-        const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);
-        if (!worker)
-            throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
-        const kind = (0, cli_options_1.stringOption)(options.kind) || (0, cli_options_1.inferAuditDecisionKind)(options);
-        const target = (0, cli_options_1.stringOption)(options.path || options.command || options.network || options.networkTarget || options.env || options.envVar);
-        if (!target)
-            throw new Error("Missing audit decision target: provide --path, --command, --network, or --env");
-        const policy = worker.sandboxPolicy;
-        let denied = null;
-        if (kind === "sandbox.command") {
-            denied = policy ? (0, sandbox_profile_1.validateSandboxCommand)(policy, target, workerId) : null;
-        }
-        else if (kind === "sandbox.network") {
-            denied = policy ? (0, sandbox_profile_1.validateSandboxNetwork)(policy, target, workerId) : null;
-        }
-        else if (kind === "sandbox.env") {
-            const name = target.includes("=") ? target.split("=")[0] : target;
-            const allowed = Boolean(policy?.env.inherit || policy?.env.expose.includes(name));
-            denied = allowed ? null : { code: "sandbox-env-denied", message: `Worker ${workerId} env var is outside sandbox profile ${policy?.id || "unknown"}: ${name}` };
-        }
-        else {
-            denied = (0, worker_isolation_1.validateWorkerBoundary)(run, workerId, { path: target });
-        }
-        const feedbackIds = [];
-        if (denied) {
-            const failure = (0, worker_isolation_1.recordWorkerFailure)(run, workerId, {
-                code: denied.code,
-                message: denied.message,
-                at: new Date().toISOString(),
-                path: denied.path || (kind === "sandbox.path" ? node_path_1.default.resolve(target) : undefined),
-                retryable: false
-            }, { persist: false });
-            feedbackIds.push(...(failure.feedbackIds || []));
-        }
-        const event = kind === "sandbox.path"
-            ? (0, trust_audit_1.recordSandboxPathDecision)(run, {
-                workerId,
-                taskId: worker.taskId,
-                sandboxProfileId: worker.sandboxProfileId,
-                policySnapshot: policy,
-                target,
-                decision: denied ? "denied" : "allowed",
-                feedbackIds,
-                metadata: { code: denied?.code }
-            })
-            : (0, trust_audit_1.recordSandboxPolicyDecision)(run, {
-                kind,
-                decision: denied ? "denied" : "allowed",
-                workerId,
-                taskId: worker.taskId,
-                sandboxProfileId: worker.sandboxProfileId,
-                policySnapshot: policy,
-                command: kind === "sandbox.command" ? target : undefined,
-                networkTarget: kind === "sandbox.network" ? target : undefined,
-                envVars: kind === "sandbox.env" ? [target.includes("=") ? target.split("=")[0] : target] : undefined,
-                feedbackIds,
-                metadata: { code: denied?.code }
-            });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return event;
+        return auditOps.recordAuditDecision(this.loadRun(runId), workerId, options);
     }
     listSandboxProfiles(options = {}) {
         return (0, sandbox_profile_1.listBundledSandboxProfiles)((0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
@@ -659,191 +299,58 @@ class CoolWorkflowRunner {
     probeBackend(backendId, options = {}) {
         return (0, execution_backend_1.backendProbePayload)(backendId, { cwd: String(options.cwd || process.cwd()) });
     }
+    // Candidate domain — delegated to ./orchestrator/candidate-operations.
     listCandidates(runId, options = {}) {
-        return (0, candidate_scoring_1.listCandidates)(this.loadRun(runId), {
-            status: options.status ? String(options.status) : undefined,
-            kind: options.kind ? String(options.kind) : undefined
-        });
+        return candidateOps.listCandidates(this.loadRun(runId), options);
     }
     showCandidate(runId, candidateId) {
-        const candidate = (0, candidate_scoring_1.getCandidate)(this.loadRun(runId), candidateId);
-        if (!candidate)
-            throw new Error(`Unknown candidate id for run ${runId}: ${candidateId}`);
-        return candidate;
+        return candidateOps.showCandidate(this.loadRun(runId), candidateId);
     }
     registerCandidate(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const workerId = options.worker ? String(options.worker) : undefined;
-        const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
-        if (workerId && !worker)
-            throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
-        const task = worker ? run.tasks.find((candidate) => candidate.id === worker.taskId) : undefined;
-        const resultNodeId = (0, cli_options_1.stringOption)(options.resultNode) || worker?.resultNodeId || task?.resultNodeId;
-        const verifierNodeId = (0, cli_options_1.stringOption)(options.verifierNode) || worker?.output?.verifierNodeId || task?.verifierNodeId;
-        const resultPath = (0, cli_options_1.stringOption)(options.resultPath) || worker?.output?.resultPath || task?.resultPath;
-        const resultNode = resultNodeId ? run.nodes?.find((node) => node.id === resultNodeId) : undefined;
-        const verifierNode = verifierNodeId ? run.nodes?.find((node) => node.id === verifierNodeId) : undefined;
-        const candidate = (0, candidate_scoring_1.registerCandidate)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            kind: (0, cli_options_1.stringOption)(options.kind),
-            workerId,
-            taskId: (0, cli_options_1.stringOption)(options.task) || worker?.taskId,
-            resultNodeId,
-            verifierNodeId,
-            resultPath,
-            artifacts: [
-                ...(resultPath ? [{ id: "result", kind: "markdown", path: node_path_1.default.resolve(resultPath) }] : []),
-                ...(worker ? [{ id: "worker", kind: "json", path: node_path_1.default.join(worker.workerDir, "worker.json") }] : [])
-            ],
-            evidence: (0, cli_options_1.mergeEvidence)(resultNode?.evidence || [], verifierNode?.evidence || []),
-            metadata: {
-                source: worker ? "worker" : "manual",
-                workerDir: worker?.workerDir
-            }
-        }, { persist: false });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return candidate;
+        return candidateOps.registerCandidate(this.loadRun(runId), options);
     }
     scoreCandidate(runId, candidateId, options = {}) {
-        const run = this.loadRun(runId);
-        const score = (0, candidate_scoring_1.scoreCandidate)(run, candidateId, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            scorer: (0, cli_options_1.stringOption)(options.scorer),
-            criteria: (0, cli_options_1.parseCriteria)(options),
-            maxTotal: (0, cli_options_1.numberOption)(options.maxTotal || options.max),
-            verdict: (0, cli_options_1.stringOption)(options.verdict),
-            evidence: (0, cli_options_1.parseEvidence)(options.evidence),
-            notes: (0, cli_options_1.stringOption)(options.notes)
-        }, { persist: false });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return score;
+        return candidateOps.scoreCandidate(this.loadRun(runId), candidateId, options);
     }
     rankCandidates(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const ranking = (0, candidate_scoring_1.rankCandidates)(run, {
-            includeRejected: Boolean(options.includeRejected),
-            policy: {
-                minNormalized: (0, cli_options_1.numberOption)(options.minNormalized),
-                requireEvidence: options.requireEvidence === undefined ? undefined : Boolean(options.requireEvidence),
-                requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate),
-                tieBreaker: (0, cli_options_1.stringOption)(options.tieBreaker)
-            }
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return ranking;
+        return candidateOps.rankCandidates(this.loadRun(runId), options);
     }
     selectCandidate(runId, candidateId, options = {}) {
-        const run = this.loadRun(runId);
-        const selection = (0, candidate_scoring_1.selectCandidate)(run, candidateId, {
-            selectedBy: (0, cli_options_1.stringOption)(options.by) || (0, cli_options_1.stringOption)(options.selectedBy),
-            reason: (0, cli_options_1.stringOption)(options.reason),
-            scoreId: (0, cli_options_1.stringOption)(options.score),
-            allowUnverified: Boolean(options.allowUnverified)
-        }, {
-            persist: false,
-            policy: {
-                minNormalized: (0, cli_options_1.numberOption)(options.minNormalized),
-                requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate)
-            }
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return selection;
+        return candidateOps.selectCandidate(this.loadRun(runId), candidateId, options);
     }
     rejectCandidate(runId, candidateId, reason) {
-        const run = this.loadRun(runId);
-        const candidate = (0, candidate_scoring_1.rejectCandidate)(run, candidateId, reason, { persist: false });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return candidate;
+        return candidateOps.rejectCandidate(this.loadRun(runId), candidateId, reason);
     }
-    // ---- Team Collaboration (v0.1.32) -------------------------------------
+    // ---- Team Collaboration (v0.1.32) — delegated to ./orchestrator/collaboration-operations.
     // Append-only, host-attested (never authenticated) approvals/comments/handoffs
     // + a derived review state. Both CLI and MCP route through these methods, so
     // `cw <cmd> --json` is identical to `cw_<tool>` (the parity gate).
     collaborationApprove(runId, targetKind, targetId, options = {}, decision = "approve") {
-        const run = this.loadRun(runId);
-        const record = (0, collaboration_1.recordApproval)(run, {
-            target: (0, cli_options_1.collaborationTarget)(targetKind, targetId),
-            decision,
-            ...(0, cli_options_1.actorInputFrom)(options),
-            rationale: (0, cli_options_1.stringOption)(options.rationale) || (0, cli_options_1.stringOption)(options.reason) || (0, cli_options_1.stringOption)(options.message),
-            supersedes: (0, cli_options_1.stringOption)(options.supersedes)
-        }, { persist: false });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return collaborationOps.collaborationApprove(this.loadRun(runId), targetKind, targetId, options, decision);
     }
     collaborationReject(runId, targetKind, targetId, options = {}) {
         return this.collaborationApprove(runId, targetKind, targetId, options, "reject");
     }
     collaborationComment(runId, targetKind, targetId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, collaboration_1.recordComment)(run, {
-            target: (0, cli_options_1.collaborationTarget)(targetKind, targetId),
-            body: (0, cli_options_1.stringOption)(options.body) || (0, cli_options_1.stringOption)(options.message) || (0, cli_options_1.stringOption)(options.text) || "",
-            threadId: (0, cli_options_1.stringOption)(options.thread) || (0, cli_options_1.stringOption)(options.threadId),
-            parentId: (0, cli_options_1.stringOption)(options.parent) || (0, cli_options_1.stringOption)(options.parentId),
-            ...(0, cli_options_1.actorInputFrom)(options)
-        }, { persist: false });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return collaborationOps.collaborationComment(this.loadRun(runId), targetKind, targetId, options);
     }
     collaborationCommentList(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const target = (0, cli_options_1.collaborationTargetMaybe)((0, cli_options_1.stringOption)(options.targetKind) || (0, cli_options_1.stringOption)(options.kind), (0, cli_options_1.stringOption)(options.target) || (0, cli_options_1.stringOption)(options.targetId));
-        const comments = (0, collaboration_1.listComments)(run, target);
-        return { schemaVersion: 1, surface: "collaboration", runId, target, count: comments.length, comments };
+        return collaborationOps.collaborationCommentList(this.loadRun(runId), options);
     }
     collaborationHandoff(runId, targetKind, targetId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, collaboration_1.recordHandoff)(run, {
-            target: (0, cli_options_1.collaborationTarget)(targetKind, targetId),
-            toActor: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "to", "toActor")),
-            toActorKind: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "toKind", "to-kind", "toActorKind")),
-            toRole: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "toRole", "to-role")),
-            toDisplayName: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "toName", "to-name", "toDisplayName")),
-            toAttested: Boolean((0, cli_options_1.firstDefined)(options, "toAttested", "to-attested")),
-            fromActor: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "from", "fromActor")),
-            fromActorKind: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "fromKind", "from-kind", "fromActorKind")),
-            fromRole: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "fromRole", "from-role")),
-            reason: (0, cli_options_1.stringOption)(options.reason) || (0, cli_options_1.stringOption)(options.message) || "handoff",
-            ...(0, cli_options_1.actorInputFrom)(options)
-        }, { persist: false });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return collaborationOps.collaborationHandoff(this.loadRun(runId), targetKind, targetId, options);
     }
     reviewStatus(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const now = typeof options.now === "string" && options.now ? options.now : new Date().toISOString();
-        const target = (0, cli_options_1.collaborationTargetMaybe)((0, cli_options_1.stringOption)(options.targetKind) || (0, cli_options_1.stringOption)(options.kind), (0, cli_options_1.stringOption)(options.target) || (0, cli_options_1.stringOption)(options.targetId));
-        return (0, collaboration_1.buildReviewStatusReport)(run, { now, target });
+        return collaborationOps.reviewStatus(this.loadRun(runId), options);
     }
     reviewPolicy(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const allowSelf = (0, cli_options_1.firstDefined)(options, "allowSelfApproval", "allow-self-approval");
-        const requireAttested = (0, cli_options_1.firstDefined)(options, "requireAttestedActor", "require-attested-actor");
-        const policy = (0, collaboration_1.setReviewPolicy)(run, {
-            requiredApprovals: (0, cli_options_1.numberOption)((0, cli_options_1.firstDefined)(options, "requiredApprovals", "required-approvals", "required", "approvals")),
-            authorizedRoles: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "authorizedRoles", "authorized-roles", "roles")),
-            allowSelfApproval: allowSelf === undefined ? undefined : Boolean(allowSelf),
-            requireAttestedActor: requireAttested === undefined ? undefined : Boolean(requireAttested),
-            appliesTo: (0, cli_options_1.stringOption)((0, cli_options_1.firstDefined)(options, "appliesTo", "applies-to", "targets"))
-        }, { persist: false });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return { schemaVersion: 1, surface: "collaboration", runId, policy };
+        return collaborationOps.reviewPolicy(this.loadRun(runId), options);
     }
     formatReviewStatus(report) {
-        return (0, collaboration_1.formatReviewStatus)(report);
+        return collaborationOps.formatReviewStatus(report);
     }
     formatCommentList(comments) {
-        return (0, collaboration_1.formatCommentList)(comments);
+        return collaborationOps.formatCommentList(comments);
     }
     summarizeCandidateRecords(runId) {
         return (0, candidate_scoring_1.summarizeCandidates)(this.loadRun(runId));
@@ -979,6 +486,8 @@ class CoolWorkflowRunner {
         const index = (0, state_explosion_1.loadStateExplosionSummaryIndex)(run);
         return (0, state_explosion_1.buildStateExplosionReport)(run, { index });
     }
+    // Host multi-agent — delegated to ./orchestrator/host-operations. The runner
+    // keeps the load-or-plan policy here because it owns plan().
     hostMultiAgentRun(runId, options = {}) {
         const workflowId = (0, cli_options_1.stringOption)(options.app || options.appId || options.workflow || options.workflowId);
         const run = runId
@@ -988,43 +497,22 @@ class CoolWorkflowRunner {
                 : undefined;
         if (!run)
             throw new Error("multi-agent run requires <run-id> or --app <app-id>");
-        const response = (0, multi_agent_host_1.hostRun)(run, options);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return response;
+        return hostOps.hostMultiAgentRun(run, options);
     }
     hostMultiAgentStatus(runId) {
-        const run = this.loadRun(runId);
-        (0, report_1.writeReport)(run);
-        return (0, multi_agent_host_1.hostStatus)(run);
+        return hostOps.hostMultiAgentStatus(this.loadRun(runId));
     }
     hostMultiAgentStep(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const response = (0, multi_agent_host_1.hostStep)(run, options);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return response;
+        return hostOps.hostMultiAgentStep(this.loadRun(runId), options);
     }
     hostMultiAgentBlackboard(runId, action, options = {}) {
-        const run = this.loadRun(runId);
-        const response = (0, multi_agent_host_1.hostBlackboard)(run, action, options);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return response;
+        return hostOps.hostMultiAgentBlackboard(this.loadRun(runId), action, options);
     }
     hostMultiAgentScore(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const response = (0, multi_agent_host_1.hostScore)(run, options);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return response;
+        return hostOps.hostMultiAgentScore(this.loadRun(runId), options);
     }
     hostMultiAgentSelect(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const response = (0, multi_agent_host_1.hostSelect)(run, options);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return response;
+        return hostOps.hostMultiAgentSelect(this.loadRun(runId), options);
     }
     evalSnapshot(runId, options = {}) {
         return (0, multi_agent_eval_1.createMultiAgentReplaySnapshot)(this.loadRun(runId), options);
@@ -1061,462 +549,138 @@ class CoolWorkflowRunner {
         return (0, node_snapshot_1.verifyNodeReplay)(run, (0, node_snapshot_1.readNodeReplay)(run, replayId), options);
     }
     // ---- contract migration (v0.1.36) ---------------------------------------
+    // Contract migration — delegated to ./orchestrator/migration-operations.
     migrationList() {
-        return { contracts: (0, contract_migration_1.listMigrationContracts)() };
+        return migrationOps.migrationList();
     }
     migrationCheck(target, options = {}) {
-        const { snapshot, contract } = this.loadMigrationSnapshot(target, options);
-        return (0, contract_migration_1.checkMigration)(contract, snapshot);
+        return migrationOps.migrationCheck(target, options);
     }
     migrationProve(target, options = {}) {
-        const { snapshot, contract, dir } = this.loadMigrationSnapshot(target, options);
-        const proof = (0, contract_migration_1.proveMigration)(contract, snapshot);
-        // Append-only: persist the proof beside the target, NEVER overwriting source.
-        try {
-            (0, state_1.writeJson)(node_path_1.default.join(dir, "migration", `${proof.fingerprint.replace("sha256:", "").slice(0, 16)}.json`), proof);
-        }
-        catch {
-            /* read-only target — the proof is still returned */
-        }
-        return proof;
+        return migrationOps.migrationProve(target, options);
     }
     loadMigrationSnapshot(target, options) {
-        const contract = options.contract === "workflow-app" ? "workflow-app" : "run-state";
-        const file = node_fs_1.default.existsSync(target) && node_fs_1.default.statSync(target).isFile()
-            ? node_path_1.default.resolve(target)
-            : node_path_1.default.join(process.cwd(), ".cw", "runs", target, "state.json");
-        if (!node_fs_1.default.existsSync(file))
-            throw new Error(`Migration target not found: ${target}`);
-        return { snapshot: JSON.parse(node_fs_1.default.readFileSync(file, "utf8")), contract, dir: node_path_1.default.dirname(file) };
+        return migrationOps.loadMigrationSnapshot(target, options);
     }
+    // Topology — delegated to ./orchestrator/topology-operations.
     listTopologies() {
-        return (0, topology_1.listTopologyDefinitions)();
+        return topologyOps.listTopologies();
     }
     showTopology(topologyId) {
-        const definition = (0, topology_1.getTopologyDefinition)(topologyId);
-        if (!definition)
-            throw new Error(`Unknown topology id: ${topologyId}`);
-        return definition;
+        return topologyOps.showTopology(topologyId);
     }
     validateTopology(topologyId) {
-        return (0, topology_1.validateTopologyDefinition)(topologyId);
+        return topologyOps.validateTopology(topologyId);
     }
     applyTopology(runId, topologyId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, topology_1.applyTopology)(run, topologyId, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            title: (0, cli_options_1.stringOption)(options.title),
-            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            taskIds: (0, cli_options_1.arrayOption)(options.task || options.taskId || options.tasks).map(String),
-            mapperCount: (0, cli_options_1.numberOption)(options.mapperCount || options["mapper-count"] || options.mappers || options.mapper),
-            judgeCount: (0, cli_options_1.numberOption)(options.judgeCount || options["judge-count"] || options.judges || options.judge),
-            debateRounds: (0, cli_options_1.numberOption)(options.debateRounds || options["debate-rounds"] || options.rounds),
-            collectInitialFanin: Boolean(options.collectInitialFanin || options["collect-initial-fanin"]),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return topologyOps.applyTopology(this.loadRun(runId), topologyId, options);
     }
     showTopologyRun(runId, topologyRunId) {
-        return (0, topology_1.showTopologyRun)(this.loadRun(runId), topologyRunId);
+        return topologyOps.showTopologyRun(this.loadRun(runId), topologyRunId);
     }
     topologySummary(runId) {
-        return (0, topology_1.summarizeTopologies)(this.loadRun(runId));
+        return topologyOps.topologySummary(this.loadRun(runId));
     }
     topologyGraph(runId) {
-        return (0, topology_1.buildTopologyGraph)(this.loadRun(runId));
+        return topologyOps.topologyGraph(this.loadRun(runId));
     }
+    // Multi-agent lifecycle + blackboard — delegated to ./orchestrator/multi-agent-operations.
     createMultiAgentRun(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, multi_agent_1.createMultiAgentRun)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            title: (0, cli_options_1.stringOption)(options.title),
-            objective: (0, cli_options_1.stringOption)(options.objective || options.reason),
-            parentMultiAgentRunId: (0, cli_options_1.stringOption)(options.parent || options.parentMultiAgentRunId),
-            phase: (0, cli_options_1.stringOption)(options.phase),
-            phaseId: (0, cli_options_1.stringOption)(options.phaseId),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return maOps.createMultiAgentRun(this.loadRun(runId), options);
     }
     transitionMultiAgentRun(runId, multiAgentRunId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, multi_agent_1.transitionMultiAgentRun)(run, multiAgentRunId, String(options.status || "running"), {
-            reason: (0, cli_options_1.stringOption)(options.reason),
-            actor: (0, cli_options_1.stringOption)(options.actor),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return maOps.transitionMultiAgentRun(this.loadRun(runId), multiAgentRunId, options);
     }
     createAgentRole(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, multi_agent_1.createAgentRole)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            multiAgentRunId: (0, cli_options_1.requiredStringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
-            title: (0, cli_options_1.stringOption)(options.title),
-            responsibilities: (0, cli_options_1.arrayOption)(options.responsibility || options.responsibilities).map(String),
-            requiredEvidence: (0, cli_options_1.arrayOption)(options.requiredEvidence || options["required-evidence"]).map(String),
-            sandboxProfileHints: (0, cli_options_1.arrayOption)(options.sandbox || options.sandboxProfile || options.sandboxProfileHint || options["sandbox-profile"]).map(String),
-            expectedArtifacts: (0, cli_options_1.arrayOption)(options.expectedArtifact || options.expectedArtifacts || options["expected-artifact"]).map(String),
-            faninObligations: (0, cli_options_1.arrayOption)(options.faninObligation || options.faninObligations || options["fanin-obligation"]).map(String),
-            parentRoleId: (0, cli_options_1.stringOption)(options.parent || options.parentRoleId),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return maOps.createAgentRole(this.loadRun(runId), options);
     }
     createAgentGroup(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, multi_agent_1.createAgentGroup)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            multiAgentRunId: (0, cli_options_1.requiredStringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
-            title: (0, cli_options_1.stringOption)(options.title),
-            phase: (0, cli_options_1.stringOption)(options.phase),
-            phaseId: (0, cli_options_1.stringOption)(options.phaseId),
-            taskIds: (0, cli_options_1.arrayOption)(options.task || options.taskId || options.tasks).map(String),
-            parentGroupId: (0, cli_options_1.stringOption)(options.parent || options.parentGroupId),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return maOps.createAgentGroup(this.loadRun(runId), options);
     }
     assignAgentMembership(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, multi_agent_1.assignAgentMembership)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            groupId: (0, cli_options_1.requiredStringOption)(options.group || options.groupId || options["multi-agent-group"], "group id"),
-            roleId: (0, cli_options_1.requiredStringOption)(options.role || options.roleId || options["multi-agent-role"], "role id"),
-            taskId: (0, cli_options_1.requiredStringOption)(options.task || options.taskId, "task id"),
-            workerId: (0, cli_options_1.stringOption)(options.worker || options.workerId),
-            dispatchId: (0, cli_options_1.stringOption)(options.dispatch || options.dispatchId),
-            fanoutId: (0, cli_options_1.stringOption)(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
-            status: (0, cli_options_1.stringOption)(options.status),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return maOps.assignAgentMembership(this.loadRun(runId), options);
     }
     createAgentFanout(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, multi_agent_1.createAgentFanout)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            groupId: (0, cli_options_1.requiredStringOption)(options.group || options.groupId || options["multi-agent-group"], "group id"),
-            reason: (0, cli_options_1.stringOption)(options.reason) || "work split",
-            roleIds: (0, cli_options_1.arrayOption)(options.role || options.roleId || options.roles).map(String),
-            taskIds: (0, cli_options_1.arrayOption)(options.task || options.taskId || options.tasks).map(String),
-            workerIds: (0, cli_options_1.arrayOption)(options.worker || options.workerId || options.workers).map(String),
-            membershipIds: (0, cli_options_1.arrayOption)(options.membership || options.membershipId || options.memberships).map(String),
-            dispatchIds: (0, cli_options_1.arrayOption)(options.dispatch || options.dispatchId || options.dispatches).map(String),
-            concurrencyLimit: (0, cli_options_1.numberOption)(options.limit || options.concurrency || options.concurrencyLimit),
-            sandboxProfileChoices: (0, cli_options_1.parseSandboxChoices)(options),
-            expectedReturnShape: (0, cli_options_1.stringOption)(options.expectedReturnShape || options["expected-return-shape"]),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return maOps.createAgentFanout(this.loadRun(runId), options);
     }
     collectAgentFanin(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const record = (0, multi_agent_1.collectAgentFanin)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            groupId: (0, cli_options_1.stringOption)(options.group || options.groupId || options["multi-agent-group"]),
-            fanoutId: (0, cli_options_1.stringOption)(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
-            requiredRoleIds: (0, cli_options_1.arrayOption)(options.requiredRole || options.requiredRoleId || options["required-role"]).map(String),
-            strategy: (0, cli_options_1.stringOption)(options.strategy),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            topicIds: (0, cli_options_1.arrayOption)(options.topic || options.topicId || options.topics).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return record;
+        return maOps.collectAgentFanin(this.loadRun(runId), options);
     }
     showMultiAgentRun(runId, multiAgentRunId) {
-        const record = (0, multi_agent_1.getMultiAgentRun)(this.loadRun(runId), multiAgentRunId);
-        if (!record)
-            throw new Error(`Unknown MultiAgentRun id for run ${runId}: ${multiAgentRunId}`);
-        return record;
+        return maOps.showMultiAgentRun(this.loadRun(runId), multiAgentRunId);
     }
     showAgentRole(runId, roleId) {
-        const record = (0, multi_agent_1.getAgentRole)(this.loadRun(runId), roleId);
-        if (!record)
-            throw new Error(`Unknown AgentRole id for run ${runId}: ${roleId}`);
-        return record;
+        return maOps.showAgentRole(this.loadRun(runId), roleId);
     }
     showAgentGroup(runId, groupId) {
-        const record = (0, multi_agent_1.getAgentGroup)(this.loadRun(runId), groupId);
-        if (!record)
-            throw new Error(`Unknown AgentGroup id for run ${runId}: ${groupId}`);
-        return record;
+        return maOps.showAgentGroup(this.loadRun(runId), groupId);
     }
     showAgentMembership(runId, membershipId) {
-        const record = (0, multi_agent_1.getAgentMembership)(this.loadRun(runId), membershipId);
-        if (!record)
-            throw new Error(`Unknown AgentMembership id for run ${runId}: ${membershipId}`);
-        return record;
+        return maOps.showAgentMembership(this.loadRun(runId), membershipId);
     }
     showAgentFanout(runId, fanoutId) {
-        const record = (0, multi_agent_1.getAgentFanout)(this.loadRun(runId), fanoutId);
-        if (!record)
-            throw new Error(`Unknown AgentFanout id for run ${runId}: ${fanoutId}`);
-        return record;
+        return maOps.showAgentFanout(this.loadRun(runId), fanoutId);
     }
     showAgentFanin(runId, faninId) {
-        const record = (0, multi_agent_1.getAgentFanin)(this.loadRun(runId), faninId);
-        if (!record)
-            throw new Error(`Unknown AgentFanin id for run ${runId}: ${faninId}`);
-        return record;
+        return maOps.showAgentFanin(this.loadRun(runId), faninId);
     }
     blackboardSummary(runId, options = {}) {
-        return (0, coordinator_1.summarizeBlackboard)(this.loadRun(runId), (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId));
+        return maOps.blackboardSummary(this.loadRun(runId), options);
     }
     coordinatorSummary(runId, options = {}) {
-        return (0, coordinator_1.summarizeBlackboard)(this.loadRun(runId), (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId));
+        return maOps.blackboardSummary(this.loadRun(runId), options);
     }
     blackboardGraph(runId) {
-        return (0, coordinator_1.buildBlackboardGraph)(this.loadRun(runId));
+        return maOps.blackboardGraph(this.loadRun(runId));
     }
     resolveRunBlackboard(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const board = (0, coordinator_1.resolveBlackboard)(run, {
-            id: (0, cli_options_1.stringOption)(options.id || options.blackboard || options.blackboardId),
-            title: (0, cli_options_1.stringOption)(options.title),
-            multiAgentRunId: (0, cli_options_1.stringOption)(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-            groupId: (0, cli_options_1.stringOption)(options.group || options.groupId || options["multi-agent-group"]),
-            roleId: (0, cli_options_1.stringOption)(options.role || options.roleId || options["multi-agent-role"]),
-            membershipId: (0, cli_options_1.stringOption)(options.membership || options.membershipId || options["multi-agent-membership"]),
-            author: (0, cli_options_1.parseBlackboardAuthor)(options),
-            scope: (0, cli_options_1.parseBlackboardScope)(options),
-            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return board;
+        return maOps.resolveRunBlackboard(this.loadRun(runId), options);
     }
     createBlackboardTopic(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const topic = (0, coordinator_1.createBlackboardTopic)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            title: (0, cli_options_1.requiredStringOption)(options.title, "topic title"),
-            description: (0, cli_options_1.stringOption)(options.description),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            author: (0, cli_options_1.parseBlackboardAuthor)(options),
-            scope: (0, cli_options_1.parseBlackboardScope)(options),
-            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return topic;
+        return maOps.createBlackboardTopic(this.loadRun(runId), options);
     }
     postBlackboardMessage(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const message = (0, coordinator_1.postBlackboardMessage)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            topicId: (0, cli_options_1.requiredStringOption)(options.topic || options.topicId, "topic id"),
-            body: (0, cli_options_1.requiredStringOption)(options.body || options.message, "message body"),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            replyToId: (0, cli_options_1.stringOption)(options.replyTo || options.replyToId || options.parent),
-            visibility: (0, cli_options_1.stringOption)(options.visibility),
-            author: (0, cli_options_1.parseBlackboardAuthor)(options),
-            scope: (0, cli_options_1.parseBlackboardScope)(options),
-            evidenceRefs: (0, cli_options_1.arrayOption)(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-            artifactRefIds: (0, cli_options_1.arrayOption)(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-            auditEventIds: (0, cli_options_1.arrayOption)(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
-            parentIds: (0, cli_options_1.arrayOption)(options.parentId || options.parentIds).map(String),
-            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return message;
+        return maOps.postBlackboardMessage(this.loadRun(runId), options);
     }
     listBlackboardMessages(runId, options = {}) {
-        return (0, coordinator_1.listBlackboardMessages)(this.loadRun(runId), {
-            topicId: (0, cli_options_1.stringOption)(options.topic || options.topicId),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId)
-        });
+        return maOps.listBlackboardMessages(this.loadRun(runId), options);
     }
     putBlackboardContext(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const context = (0, coordinator_1.putBlackboardContext)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            topicId: (0, cli_options_1.requiredStringOption)(options.topic || options.topicId, "topic id"),
-            kind: (0, cli_options_1.requiredStringOption)(options.kind, "context kind"),
-            key: (0, cli_options_1.stringOption)(options.key),
-            value: (0, cli_options_1.requiredStringOption)(options.value || options.body, "context value"),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            supersedesContextIds: (0, cli_options_1.arrayOption)(options.supersedes || options.supersedesContext || options.supersedesContextId).map(String),
-            author: (0, cli_options_1.parseBlackboardAuthor)(options),
-            scope: (0, cli_options_1.parseBlackboardScope)(options),
-            evidenceRefs: (0, cli_options_1.arrayOption)(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-            artifactRefIds: (0, cli_options_1.arrayOption)(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-            parentIds: (0, cli_options_1.arrayOption)(options.parent || options.parentId || options.parentIds).map(String),
-            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return context;
+        return maOps.putBlackboardContext(this.loadRun(runId), options);
     }
     addBlackboardArtifact(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const artifact = (0, coordinator_1.addBlackboardArtifact)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            topicId: (0, cli_options_1.stringOption)(options.topic || options.topicId),
-            kind: (0, cli_options_1.requiredStringOption)(options.kind, "artifact kind"),
-            path: (0, cli_options_1.stringOption)(options.path),
-            locator: (0, cli_options_1.stringOption)(options.locator),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            owner: (0, cli_options_1.parseBlackboardAuthor)({ ...options, authorKind: options.ownerKind || options.authorKind, authorId: options.owner || options.ownerId || options.authorId }),
-            author: (0, cli_options_1.parseBlackboardAuthor)(options),
-            scope: (0, cli_options_1.parseBlackboardScope)(options),
-            source: (0, cli_options_1.stringOption)(options.source),
-            provenance: (0, cli_options_1.parseBlackboardLinks)(run.id, options),
-            evidenceRefs: (0, cli_options_1.arrayOption)(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-            auditEventIds: (0, cli_options_1.arrayOption)(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
-            parentIds: (0, cli_options_1.arrayOption)(options.parent || options.parentId || options.parentIds).map(String),
-            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return artifact;
+        return maOps.addBlackboardArtifact(this.loadRun(runId), options);
     }
     listBlackboardArtifacts(runId, options = {}) {
-        return (0, coordinator_1.listBlackboardArtifacts)(this.loadRun(runId), {
-            topicId: (0, cli_options_1.stringOption)(options.topic || options.topicId),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId)
-        });
+        return maOps.listBlackboardArtifacts(this.loadRun(runId), options);
     }
     snapshotBlackboard(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const snapshot = (0, coordinator_1.createBlackboardSnapshot)(run, (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId));
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return snapshot;
+        return maOps.snapshotBlackboard(this.loadRun(runId), options);
     }
     recordCoordinatorDecision(runId, options = {}) {
-        const run = this.loadRun(runId);
-        const decision = (0, coordinator_1.recordCoordinatorDecision)(run, {
-            id: (0, cli_options_1.stringOption)(options.id),
-            blackboardId: (0, cli_options_1.stringOption)(options.blackboard || options.blackboardId),
-            kind: (0, cli_options_1.requiredStringOption)(options.kind, "decision kind"),
-            outcome: (0, cli_options_1.requiredStringOption)(options.outcome, "decision outcome"),
-            reason: (0, cli_options_1.requiredStringOption)(options.reason, "decision reason"),
-            subjectIds: (0, cli_options_1.arrayOption)(options.subject || options.subjectId || options.subjectIds).map(String),
-            topicId: (0, cli_options_1.stringOption)(options.topic || options.topicId),
-            author: (0, cli_options_1.parseBlackboardAuthor)({ ...options, authorKind: options.authorKind || "coordinator", authorId: options.authorId || "cw" }),
-            scope: (0, cli_options_1.parseBlackboardScope)(options),
-            evidenceRefs: (0, cli_options_1.arrayOption)(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-            artifactRefIds: (0, cli_options_1.arrayOption)(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-            messageIds: (0, cli_options_1.arrayOption)(options.message || options.messageId || options.messageIds).map(String),
-            parentIds: (0, cli_options_1.arrayOption)(options.parent || options.parentId || options.parentIds).map(String),
-            tags: (0, cli_options_1.arrayOption)(options.tag || options.tags).map(String),
-            metadata: (0, cli_options_1.metadataOption)(options)
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return decision;
+        return maOps.recordCoordinatorDecision(this.loadRun(runId), options);
     }
     checkState(runId, options = {}) {
-        const cwd = node_path_1.default.resolve(String(options.cwd || process.cwd()));
-        const statePath = options.state
-            ? node_path_1.default.resolve(String(options.state))
-            : node_path_1.default.join(cwd, ".cw", "runs", runId, "state.json");
-        const result = (0, state_1.migrateRunStateFile)(statePath, { write: Boolean(options.write) });
-        return result.report;
+        return lifecycleOps.checkState(runId, options);
     }
     commit(runId, input = {}) {
-        const run = this.loadRun(runId);
-        run.loopStage = "checkpoint";
-        const options = typeof input === "string" ? { reason: input } : input;
-        const allowCheckpoint = Boolean(options.allowUnverifiedCheckpoint || options["allow-unverified-checkpoint"]);
-        const hasGateOption = Boolean(options.verifier || options.verifierNode || options["verifier-node"] || options.candidate || options.selection);
-        try {
-            const commit = (0, commit_1.commitState)(run, {
-                reason: (0, cli_options_1.stringOption)(options.reason) || "manual",
-                verifierNodeId: (0, cli_options_1.stringOption)(options.verifier) || (0, cli_options_1.stringOption)(options.verifierNode) || (0, cli_options_1.stringOption)(options["verifier-node"]),
-                candidateId: (0, cli_options_1.stringOption)(options.candidate),
-                selectionId: (0, cli_options_1.stringOption)(options.selection),
-                verifierGated: hasGateOption || !allowCheckpoint,
-                allowUnverifiedCheckpoint: allowCheckpoint,
-                source: "cli"
-            });
-            (0, report_1.writeReport)(run);
-            (0, state_1.saveCheckpoint)(run);
-            return { runId, commit };
-        }
-        catch (error) {
-            (0, report_1.writeReport)(run);
-            (0, state_1.saveCheckpoint)(run);
-            throw error;
-        }
+        return lifecycleOps.commit(this.loadRun(runId), input);
     }
+    // Feedback — delegated to ./orchestrator/feedback-operations.
     collectFeedback(runId) {
-        const run = this.loadRun(runId);
-        const collected = (0, error_feedback_1.collectRunErrors)(run);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return collected;
+        return feedbackOps.collectFeedback(this.loadRun(runId));
     }
     listFeedback(runId, options = {}) {
-        return (0, error_feedback_1.listFeedback)(this.loadRun(runId), {
-            status: options.status ? String(options.status) : undefined,
-            severity: options.severity ? String(options.severity) : undefined,
-            classification: options.classification ? String(options.classification) : undefined
-        });
+        return feedbackOps.listFeedback(this.loadRun(runId), options);
     }
     showFeedback(runId, feedbackId) {
-        const feedback = (0, error_feedback_1.getFeedback)(this.loadRun(runId), feedbackId);
-        if (!feedback)
-            throw new Error(`Unknown feedback id for run ${runId}: ${feedbackId}`);
-        return feedback;
+        return feedbackOps.showFeedback(this.loadRun(runId), feedbackId);
     }
     createFeedbackTask(runId, feedbackId, options = {}) {
-        const run = this.loadRun(runId);
-        const feedback = (0, error_feedback_1.createCorrectionTask)(run, feedbackId, {
-            verifierCommand: options.verify ? String(options.verify) : undefined,
-            guidance: options.guidance ? String(options.guidance) : undefined
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return feedback;
+        return feedbackOps.createFeedbackTask(this.loadRun(runId), feedbackId, options);
     }
     resolveFeedback(runId, feedbackId, options = {}) {
-        const run = this.loadRun(runId);
-        const feedback = (0, error_feedback_1.resolveFeedback)(run, feedbackId, {
-            status: options.status === "rejected" ? "rejected" : "resolved",
-            nodeId: options.node ? String(options.node) : undefined,
-            message: options.message ? String(options.message) : undefined
-        });
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
-        return feedback;
+        return feedbackOps.resolveFeedback(this.loadRun(runId), feedbackId, options);
     }
     loadRun(runId) {
         return (0, state_1.loadRunFromCwd)(runId);
@@ -1683,73 +847,6 @@ function appendOption(options, key, value) {
     }
     options[key] = value;
 }
-function normalizeInputs(options) {
-    const inputs = {};
-    for (const [key, value] of Object.entries(options)) {
-        if (key === "arg") {
-            const pairs = Array.isArray(value) ? value : [value];
-            for (const pair of pairs) {
-                const [argKey, ...rest] = String(pair).split("=");
-                inputs[argKey] = rest.join("=");
-            }
-            continue;
-        }
-        inputs[key] = value;
-    }
-    if (inputs.repo && !inputs.cwd)
-        inputs.cwd = inputs.repo;
-    return inputs;
-}
-function validateInputs(workflow, inputs) {
-    for (const input of workflow.inputs || []) {
-        if (input.required && (0, cli_options_1.isMissing)(inputs[input.name])) {
-            throw new Error(`Missing required input --${input.name}`);
-        }
-    }
-}
-function flattenTasks(workflow, inputs) {
-    const seen = new Set();
-    const tasks = [];
-    for (const phase of workflow.phases) {
-        for (const task of phase.tasks) {
-            if (seen.has(task.id))
-                throw new Error(`Duplicate task id: ${task.id}`);
-            seen.add(task.id);
-            tasks.push({
-                id: task.id,
-                kind: task.kind,
-                phase: phase.name,
-                status: "pending",
-                loopStage: "interpret",
-                requiresEvidence: Boolean(task.requiresEvidence),
-                sandboxProfileId: task.sandboxProfileId,
-                prompt: renderPrompt(task.prompt, inputs),
-                taskPath: "",
-                resultPath: ""
-            });
-        }
-    }
-    return tasks;
-}
-function renderPrompt(prompt, inputs) {
-    const invariant = Array.isArray(inputs.invariant)
-        ? inputs.invariant.join("; ")
-        : String(inputs.invariant || "");
-    let rendered = String(prompt)
-        .replaceAll("{{repo}}", String(inputs.repo || ""))
-        .replaceAll("{{question}}", String(inputs.question || ""))
-        .replaceAll("{{invariant}}", invariant);
-    for (const [key, value] of Object.entries(inputs)) {
-        const replacement = Array.isArray(value) ? value.join("; ") : String(value ?? "");
-        rendered = rendered.replaceAll(`{{${key}}}`, replacement);
-    }
-    return rendered;
-}
-function createRunId(workflowId) {
-    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    const suffix = Math.random().toString(36).slice(2, 8);
-    return `${workflowId}-${stamp}-${suffix}`;
-}
 function resolvePluginRoot(candidate) {
     let current = node_path_1.default.resolve(candidate);
     for (let depth = 0; depth < 5; depth += 1) {
@@ -1759,9 +856,6 @@ function resolvePluginRoot(candidate) {
         current = node_path_1.default.dirname(current);
     }
     throw new Error("Run cw.js from the cool-workflow plugin directory");
-}
-function renderWorkflowTemplate(id, title) {
-    return `module.exports = ({ workflow, phase, agent, artifact }) =>\n  workflow({\n    id: ${JSON.stringify(id)},\n    title: ${JSON.stringify(title)},\n    summary: "Describe what this workflow does.",\n    limits: {\n      maxAgents: 8,\n      maxConcurrentAgents: 4\n    },\n    inputs: [\n      { name: "question", required: true }\n    ],\n    phases: [\n      phase("Map", [\n        agent("map:context", "Map the task context, constraints, and evidence needed for {{question}}.")\n      ]),\n      phase("Assess", [\n        agent("assess:risks", "Assess risks, tradeoffs, and unknowns for {{question}}.")\n      ]),\n      phase("Synthesize", [\n        artifact("synthesis:report", "Synthesize the final answer for {{question}}.", { requiresEvidence: true })\n      ])\n    ]\n  });\n`;
 }
 function titleize(value) {
     return value
