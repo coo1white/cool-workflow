@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OFFICIAL_TOPOLOGIES = exports.TOPOLOGY_SCHEMA_VERSION = void 0;
 exports.ensureTopologyState = ensureTopologyState;
 exports.persistTopologyState = persistTopologyState;
+exports.registerTopology = registerTopology;
 exports.listTopologyDefinitions = listTopologyDefinitions;
 exports.getTopologyDefinition = getTopologyDefinition;
 exports.validateTopologyDefinition = validateTopologyDefinition;
@@ -128,11 +129,32 @@ function persistTopologyState(run) {
     for (const record of state.runs)
         (0, state_1.writeJson)(topologyRunPath(run, record.id), record);
 }
+// ---- Topology registry (v0.1.53) — MECHANISM, not policy ------------------
+// SEPARATE MECHANISM FROM POLICY. The Map is mechanism; OFFICIAL_TOPOLOGIES and
+// any registerTopology() calls are policy. listTopologyDefinitions() composes
+// them — consumers see one merged set, never two.
+const _topologyRegistry = new Map();
+/** Register a topology definition. Later registrations with the same id
+ *  overwrite earlier ones (last-write-wins dedup). */
+function registerTopology(definition) {
+    _topologyRegistry.set(definition.id, clone(definition));
+}
 function listTopologyDefinitions() {
-    return exports.OFFICIAL_TOPOLOGIES.map((definition) => clone(definition));
+    const merged = exports.OFFICIAL_TOPOLOGIES.map((definition) => clone(definition));
+    for (const registered of _topologyRegistry.values()) {
+        const idx = merged.findIndex((d) => d.id === registered.id);
+        if (idx >= 0)
+            merged[idx] = clone(registered);
+        else
+            merged.push(clone(registered));
+    }
+    return merged;
 }
 function getTopologyDefinition(topologyId) {
-    return listTopologyDefinitions().find((definition) => definition.id === topologyId);
+    const registered = _topologyRegistry.get(topologyId);
+    if (registered)
+        return clone(registered);
+    return exports.OFFICIAL_TOPOLOGIES.find((definition) => definition.id === topologyId);
 }
 function validateTopologyDefinition(topologyId) {
     const definition = getTopologyDefinition(topologyId);
@@ -404,13 +426,10 @@ function materializedRoles(definition, input) {
     const count = definition.id === "map-reduce" ? Math.max(1, input.mapperCount || 2) : definition.id === "judge-panel" ? Math.max(2, input.judgeCount || 3) : 1;
     const roles = [];
     for (const role of definition.roles) {
-        if (role.id === "mapper") {
-            for (let index = 1; index <= count; index += 1)
-                roles.push(expandRole(role, `mapper-${index}`, `Mapper ${index}`));
-        }
-        else if (role.id === "judge") {
-            for (let index = 1; index <= count; index += 1)
-                roles.push(expandRole(role, `judge-${index}`, `Judge ${index}`));
+        const roleCount = role.count ?? (role.id === "mapper" || role.id === "judge" ? count : 1);
+        if (roleCount > 1) {
+            for (let index = 1; index <= roleCount; index += 1)
+                roles.push(expandRole(role, `${role.id}-${index}`, `${role.title} ${index}`));
         }
         else {
             roles.push(expandRole(role, role.id, role.title));
