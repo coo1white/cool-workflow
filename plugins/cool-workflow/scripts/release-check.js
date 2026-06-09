@@ -57,6 +57,7 @@ const checks = [
   // from that fresh build — strictly stronger than a bare `npm run build`.
   { name: "dist freshness", command: ["npm", "run", "dist:check"] },
   { name: "type check", command: ["npm", "run", "check"] },
+  { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.js"] },
   { name: "tests", command: ["npm", "test"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },
   { name: "golden path", command: ["npm", "run", "golden-path"] },

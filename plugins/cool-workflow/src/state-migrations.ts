@@ -4,6 +4,7 @@ import {
   LEGACY_RUN_STATE_SCHEMA_VERSION,
   MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION
 } from "./version";
+import { REQUIRED_TOP_LEVEL_KEYS, REQUIRED_ARRAY_KEYS, REQUIRED_RECORD_KEYS, OPTIONAL_TOP_LEVEL_KEYS } from "./run-state-schema";
 import { LoopStage, WorkflowRun } from "./types";
 
 export type StateCompatibilityStatus = "current" | "migrated" | "normalized" | "unsupported";
@@ -416,20 +417,18 @@ function normalizeRunState(state: Record<string, unknown>, context: StateMigrati
 }
 
 function validateMigratedRunState(state: Record<string, unknown>, report: StateMigrationReport): void {
-  for (const key of ["schemaVersion", "id", "createdAt", "updatedAt", "cwd", "workflow", "inputs", "loopStage", "phases", "tasks", "dispatches", "commits", "paths"]) {
+  for (const key of REQUIRED_TOP_LEVEL_KEYS) {
     if (!(key in state)) report.errors.push(`Missing required run-state field: ${key}.`);
   }
   if (state.schemaVersion !== CURRENT_RUN_STATE_SCHEMA_VERSION) {
     report.errors.push(`Expected schemaVersion ${CURRENT_RUN_STATE_SCHEMA_VERSION}; found ${String(state.schemaVersion)}.`);
   }
-  if (!isRecord(state.workflow)) report.errors.push("workflow must be an object.");
-  if (!isRecord(state.paths)) report.errors.push("paths must be an object.");
-  for (const key of ["phases", "tasks", "dispatches", "commits"]) {
+  for (const key of REQUIRED_RECORD_KEYS) {
+    if (key in state && !isRecord(state[key])) report.errors.push(`${key} must be an object.`);
+  }
+  for (const key of REQUIRED_ARRAY_KEYS) {
     if (!Array.isArray(state[key])) report.errors.push(`${key} must be an array.`);
   }
-  if (!isRecord(state.multiAgent)) report.errors.push("multiAgent must be an object.");
-  if (!isRecord(state.blackboard)) report.errors.push("blackboard must be an object.");
-  if (!isRecord(state.topologies)) report.errors.push("topologies must be an object.");
 }
 
 function detectSchemaVersion(value: unknown): number {
