@@ -857,3 +857,5 @@
 - Added MCP JSON-RPC 2.0 bridge.
 - Added scheduled tasks for loop, cron, and reminder workflows.
 - Added public package structure for GitHub distribution.
+
+## 0.1.52
