@@ -60,6 +60,11 @@
       "plugin": "plugins/cool-workflow/.codex-plugin/plugin.json",
       "mcp": "plugins/cool-workflow/.codex-plugin/mcp.json",
       "pluginRootVar": "./"
+    },
+    "agents": {
+      "plugin": ".agents/plugins/cool-workflow/plugin.json",
+      "mcp": ".agents/plugins/cool-workflow/mcp.json",
+      "pluginRootVar": "./"
     }
   }
 }
