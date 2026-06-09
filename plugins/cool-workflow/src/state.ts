@@ -83,6 +83,18 @@ export function saveCheckpoint(run: WorkflowRun): void {
   run.updatedAt = new Date().toISOString();
   // state.json is the single source of truth — write it DURABLY (v0.1.40).
   writeJson(run.paths.state, run, { durable: true });
+  // Auto-compaction hook (v0.1.48, P2-4): optional post-save callback set by
+  // the orchestrator to check state size and auto-trigger compaction when
+  // thresholds are exceeded. Mechanism in state.ts; policy in the caller.
+  if (_postSaveCallback) _postSaveCallback(run);
+}
+
+let _postSaveCallback: ((run: WorkflowRun) => void) | null = null;
+
+/** Set an optional post-save hook called after every saveCheckpoint().
+ *  Used by the orchestrator for automatic state-compaction (v0.1.48). */
+export function setPostSaveCallback(cb: ((run: WorkflowRun) => void) | null): void {
+  _postSaveCallback = cb;
 }
 
 export function readJson(file: string): unknown {

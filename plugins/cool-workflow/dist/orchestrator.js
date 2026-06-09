@@ -77,6 +77,22 @@ class CoolWorkflowRunner {
         this.pluginRoot = resolvePluginRoot(pluginRoot);
         this.workflowsDir = node_path_1.default.join(this.pluginRoot, "workflows");
         this.appsDir = node_path_1.default.join(this.pluginRoot, "apps");
+        // Auto-compaction hook (v0.1.48, P2-4): after every state write, check if
+        // state explosion thresholds are exceeded and auto-compact if needed.
+        // BSD: mechanism is setPostSaveCallback (state.ts); policy is the check
+        // criteria here (what thresholds, whether to compact).
+        (0, state_1.setPostSaveCallback)((run) => {
+            try {
+                const size = (0, state_explosion_1.computeStateSize)(run);
+                if (size.compactionRecommended) {
+                    (0, state_explosion_1.refreshStateExplosionSummaries)(run);
+                }
+            }
+            catch {
+                // Auto-compaction is a best-effort optimization; never fail a save
+                // for a compaction error.
+            }
+        });
     }
     listWorkflows() {
         return this.loadWorkflowApps().map((record) => {
