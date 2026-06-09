@@ -8,9 +8,16 @@
 // expressed here and called identically by both surfaces. A composite that lives
 // in only one surface is exactly the cross-surface drift v0.1.27 forbids.
 //
+// From v0.1.46: each exported entry function SHOULD self-register its capability
+// metadata via registerCapability() from capability-registry.ts. This replaces
+// the manual "add an entry to the giant array in capability-registry.ts" workflow
+// with automatic discovery. New capabilities just add a registerCapability() call
+// next to their implementation — no need to touch capability-registry.ts.
+//
 // See docs/cli-mcp-parity.7.md and src/capability-registry.ts.
 
 import { CoolWorkflowRunner } from "./orchestrator";
+import { registerCapability } from "./capability-registry";
 import { drive, drivePreview } from "./drive";
 import { agentConfigShow, setAgentConfigFile, resolveAgentConfig, AgentConfigShowResult } from "./agent-config";
 import { DrivePreview, DriveResult, QuickstartResult } from "./types";
@@ -63,6 +70,9 @@ export function planSummary(
   };
 }
 
+// Auto-register with the capability registry (v0.1.46 — no need to edit capability-registry.ts)
+registerCapability({ capability: "plan", summary: "Plan a workflow run on a repo + app.", entry: "planSummary", surface: "both", cli: { path: ["plan"], jsonMode: "default" }, mcp: { tool: "cw_plan" } });
+
 // ---- canonical app-run payload --------------------------------------------
 // Both `cw app run` and `cw_app_run` resolve to this exact object. Structured
 // app inputs + optional sandbox resolution, then a compact operator status.
@@ -88,6 +98,8 @@ export function appRun(runner: CoolWorkflowRunner, args: Record<string, unknown>
     sandboxProfile: resolvedSandbox
   };
 }
+
+registerCapability({ capability: "app.run", summary: "Plan a run on a named app with structured inputs.", entry: "appRun", surface: "both", cli: { path: ["app", "run"], caseTokens: ["app"], jsonMode: "default" }, mcp: { tool: "cw_app_run" } });
 
 // ---- canonical sandbox choice payload -------------------------------------
 // Both `cw sandbox choose|resolve` and `cw_sandbox_choose|cw_sandbox_resolve`
@@ -130,6 +142,8 @@ export function commitEnvelope(
     commit
   };
 }
+
+registerCapability({ capability: "commit", summary: "Create a verifier-gated state commit with evidence.", entry: "commitEnvelope", surface: "both", cli: { path: ["commit"], jsonMode: "default" }, mcp: { tool: "cw_commit" }, payloadIdentical: false, reason: "CLI renders a human summary with path hints; MCP returns the structured commit payload alone." });
 
 export function compactOperatorStatus(status: OperatorRunSummary): Record<string, unknown> {
   return {

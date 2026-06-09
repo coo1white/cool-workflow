@@ -25,15 +25,35 @@
 // manifest generator's `--check`.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CAPABILITY_REGISTRY = void 0;
+exports.registerCapability = registerCapability;
 exports.declaredMcpTools = declaredMcpTools;
 exports.declaredCliTokens = declaredCliTokens;
 exports.requiresReason = requiresReason;
 exports.payloadIdenticalCapabilities = payloadIdenticalCapabilities;
 exports.buildParityReport = buildParityReport;
+// ---- Auto-discovery registration infrastructure (v0.1.46) ------------------
+// BSD discipline (mechanism, not policy):
+//   - registerCapability() is MECHANISM — a simple append-only collector with
+//     last-write-wins deduplication by capability id.
+//   - WHICH capabilities exist is POLICY — declared here (BUILTIN_CAPABILITIES)
+//     or in any module that imports registerCapability().
+//   - This replaces the "single giant manual array" workflow: new capabilities
+//     call registerCapability() from capability-core.ts (colocated with their
+//     implementation) and are auto-discovered. No need to find the right index
+//     in capability-registry.ts.
+//   - Backward compat: all existing entries bulk-register; consumers see the
+//     same CAPABILITY_REGISTRY shape.
+//
+const _registryMap = new Map();
+/** Register a capability descriptor. Later registrations with the same
+ *  capability id overwrite earlier ones (last-write-wins dedup). */
+function registerCapability(descriptor) {
+    _registryMap.set(descriptor.capability, descriptor);
+}
 // ---------------------------------------------------------------------------
-// The registry. Grouped to mirror the CLI dispatch and the MCP tool list.
+// Builtin entries. Grouped to mirror the CLI dispatch and the MCP tool list.
 // ---------------------------------------------------------------------------
-exports.CAPABILITY_REGISTRY = [
+const BUILTIN_CAPABILITIES = [
     // ---- top-level workflow & run lifecycle ---------------------------------
     {
         capability: "help",
@@ -390,6 +410,15 @@ exports.CAPABILITY_REGISTRY = [
     { capability: "review.status", summary: "Read the derived per-target review state + collaboration timeline for a run.", entry: "reviewStatus", surface: "both", cli: { path: ["review", "status"], caseTokens: ["review"], jsonMode: "flag" }, mcp: { tool: "cw_review_status" } },
     { capability: "review.policy", summary: "Set the run's review-gate policy (required approvals, authorized roles, self-approval rule).", entry: "reviewPolicy", surface: "both", cli: { path: ["review", "policy"], caseTokens: ["review"], jsonMode: "default" }, mcp: { tool: "cw_review_policy" } }
 ];
+// Bulk-register all builtin capability declarations at module load.
+for (const cap of BUILTIN_CAPABILITIES) {
+    _registryMap.set(cap.capability, cap);
+}
+/** The fully-built capability registry — all builtin + auto-discovered entries,
+ *  deduplicated by capability id (last-registered wins). External modules (e.g.
+ *  capability-core.ts) call registerCapability() at load time to auto-discover
+ *  new capabilities — no need to touch this file. */
+exports.CAPABILITY_REGISTRY = Array.from(_registryMap.values());
 // ---------------------------------------------------------------------------
 // Derivations + the fail-closed parity report builder.
 // ---------------------------------------------------------------------------
