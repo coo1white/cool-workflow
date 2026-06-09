@@ -11,6 +11,7 @@ exports.loadRunStateFile = loadRunStateFile;
 exports.checkRunStateFile = checkRunStateFile;
 exports.migrateRunStateFile = migrateRunStateFile;
 exports.saveCheckpoint = saveCheckpoint;
+exports.setPostSaveCallback = setPostSaveCallback;
 exports.readJson = readJson;
 exports.writeJson = writeJson;
 exports.durableAppendFileSync = durableAppendFileSync;
@@ -96,6 +97,17 @@ function saveCheckpoint(run) {
     run.updatedAt = new Date().toISOString();
     // state.json is the single source of truth — write it DURABLY (v0.1.40).
     writeJson(run.paths.state, run, { durable: true });
+    // Auto-compaction hook (v0.1.48, P2-4): optional post-save callback set by
+    // the orchestrator to check state size and auto-trigger compaction when
+    // thresholds are exceeded. Mechanism in state.ts; policy in the caller.
+    if (_postSaveCallback)
+        _postSaveCallback(run);
+}
+let _postSaveCallback = null;
+/** Set an optional post-save hook called after every saveCheckpoint().
+ *  Used by the orchestrator for automatic state-compaction (v0.1.48). */
+function setPostSaveCallback(cb) {
+    _postSaveCallback = cb;
 }
 function readJson(file) {
     if (!node_fs_1.default.existsSync(file))

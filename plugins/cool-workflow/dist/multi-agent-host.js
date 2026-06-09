@@ -6,6 +6,13 @@ exports.hostStep = hostStep;
 exports.hostBlackboard = hostBlackboard;
 exports.hostScore = hostScore;
 exports.hostSelect = hostSelect;
+// Multi-Agent Host — the high-level orchestrator for topology-backed multi-agent
+// workflows. Delegates common lifecycle steps (plan, dispatch, commit) to
+// orchestrator/lifecycle-operations.ts; handles ONLY multi-agent-specific steps
+// here (fanin collection, judge rationale, topology application). Adding a new
+// lifecycle step: prefer adding it to lifecycle-operations.ts and calling it
+// from here — keep the single-agent and multi-agent paths sharing one mechanism.
+// See P2-2 (v0.1.48) and src/orchestrator/lifecycle-operations.ts.
 const dispatch_1 = require("./dispatch");
 const coordinator_1 = require("./coordinator");
 const multi_agent_1 = require("./multi-agent");
