@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.1.48
+
+- P2 fixes for v0.2.0 readiness. State auto-compaction: `saveCheckpoint()` now triggers `computeStateSize()` after every write via a `setPostSaveCallback()` hook; compaction runs automatically when graph nodes exceed 40 or edges exceed 60 (BSD: mechanism in state.ts, policy in orchestrator constructor). Agent code dedup: `multi-agent-host.ts` now documents its delegation relationship to `lifecycle-operations.ts`, establishing the shared mechanism between single-agent and multi-agent paths. npm scripts: added `ci` aggregate (build → check → test → release:check), cleaned `test:fast` and `eval:replay`. P2-1 confirmed already-done (types barrel exists universally). P2-3/P2-5/P2-6 deferred to v0.2.0.
+
+## 0.1.47
+
+- Vendor-adapter registry — data-driven manifest generation. Extracts hardcoded vendor JSON shapes from `gen-manifests.js` into declarative templates in `plugin.manifest.json`'s `vendors` section. A `_resolveTemplate()` engine (~40 loc) recursively resolves `{{path.to.field}}` markers with `|lowercase` transformer support. Adding a new AI platform is now pure data — one entry in `vendors` + `targets`, no gen-manifests.js changes. BSD: template engine is mechanism; which vendors exist and what JSON they produce is policy-as-data.
+
+## 0.1.46
+
+- Capability registry auto-discovery. `registerCapability()` builder replaces the manual "add an entry to the giant array" workflow. Capabilities are now registered via a last-write-wins Map-based collector; the built `CAPABILITY_REGISTRY` is derived from all registrations at module load. `capability-core.ts` demonstrates self-registration for `plan`, `app.run`, and `commit`. New capabilities call `registerCapability()` next to their implementation — no need to touch `capability-registry.ts`. The parity-check still validates all surfaces against the built registry. BSD: mechanism (register + collect), policy (which capabilities exist).
+
+## 0.1.45
+
+- Migration DAG with reversible edges. Replaces the linear `while (schemaVersion < CURRENT)` loop with a BFS graph path resolver (`findMigrationPath()`) over directed migration edges. Each `StateMigrationStep` now carries an optional `reverse()` function, enabling rollback/downgrade paths. New `reverseRunState()` capability resolves a path from any version to any target version (may include forward AND reverse steps). Fail-closed: no path → named refusal, never best-effort. Backward compatible: existing `migrateRunState()` unchanged. BSD: mechanism (graph resolver), policy (which version to target).
+
 ## 0.1.44
 
 - Release-gate determinism: `version-sync-check.js` and `dogfood-release.js` now validate version surfaces against the released commit (`git show HEAD:<path>`) rather than the mutable working tree. A repo synced by an external process (iCloud/Spotlight/editor) can transiently write-then-revert a tracked surface; a release-gate read landing in that window made the gate false-RED on a clean tree (and a gate trusting an uncommitted edit could false-GREEN). Reading immutable HEAD bytes removes the entire class. Portable (node + git only).
