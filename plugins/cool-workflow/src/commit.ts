@@ -20,6 +20,8 @@ export interface CommitStateOptions {
   verifierGated?: boolean;
   allowUnverifiedCheckpoint?: boolean;
   source?: "runtime" | "cli" | "manual";
+  /** Registered verifier ids to run before the commit gate (v0.1.58). */
+  verifierIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
