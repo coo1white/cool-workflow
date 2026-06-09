@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const orchestrator_1 = require("./orchestrator");
+const capability_registry_1 = require("./capability-registry");
 const capability_core_1 = require("./capability-core");
 const observability_1 = require("./observability");
 const run_registry_1 = require("./run-registry");
@@ -68,6 +69,8 @@ async function main() {
                     printJson((0, capability_core_1.appRun)(runner, { ...args.options, appId: required(appIdOrPath, "app id") }));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js app list|show|validate|init|package|run [app-id|path]");
             }
         }
@@ -124,6 +127,8 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js state check <run-id> [--state PATH] [--write]");
             }
         }
@@ -169,6 +174,8 @@ async function main() {
                         process.stdout.write(`${(0, operator_ux_1.formatOperatorReport)(runner.operatorReport(required(runId, "run id")))}\n`);
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js operator status|report <run-id> [--json]");
             }
         }
@@ -219,6 +226,8 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>");
             }
         }
@@ -242,6 +251,8 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js summary refresh|show <run-id> [--json]");
             }
         }
@@ -398,6 +409,8 @@ async function main() {
                     }
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]");
             }
         }
@@ -426,6 +439,8 @@ async function main() {
                     result = runner.evalReport(required(first, "replay id or path"));
                     break;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>");
             }
             if (wantsJson(args.options))
@@ -494,6 +509,8 @@ async function main() {
                 default:
                     break;
             }
+            if (await tryDispatchCli(args, runner))
+                return;
             throw new Error("Usage: cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
         }
         case "coordinator": {
@@ -506,6 +523,8 @@ async function main() {
                     printJson(runner.recordCoordinatorDecision(required(runId, "run id"), args.options));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT");
             }
         }
@@ -526,6 +545,8 @@ async function main() {
                     printJson((0, capability_core_1.sandboxChoose)(runner, { ...args.options, profileId: profileIdOrFile || args.options.profileId }));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
             }
         }
@@ -552,6 +573,8 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]");
             }
         }
@@ -562,6 +585,8 @@ async function main() {
                     printJson(runner.showContract(required(runId, "run id"), contractId));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js contract show <run-id> [contract-id]");
             }
         }
@@ -593,6 +618,8 @@ async function main() {
                     printJson(runner.nodeReplayVerify(required(runId, "run id"), required(nodeId, "replay id")));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
             }
         }
@@ -609,6 +636,8 @@ async function main() {
                     printJson(runner.migrationProve(required(target, "target (run-id or state/app file)"), args.options));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js migration list|check|prove [target] [--contract run-state|workflow-app]");
             }
         }
@@ -639,6 +668,8 @@ async function main() {
                     printJson(runner.resolveFeedback(required(runId, "run id"), required(feedbackId, "feedback id"), args.options));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
             }
         }
@@ -672,6 +703,8 @@ async function main() {
                     printJson(runner.validateWorker(required(runId, "run id"), required(workerId, "worker id"), resultPath));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
             }
         }
@@ -734,6 +767,8 @@ async function main() {
                     printJson(runner.recordAuditDecision(required(runId, "run id"), required(id, "worker id"), args.options));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]");
             }
         }
@@ -768,6 +803,8 @@ async function main() {
                         process.stdout.write(`${(0, operator_ux_1.formatCandidateSummary)(runner.summarizeCandidateOperatorRecords(required(runId, "run id")))}\n`);
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
             }
         }
@@ -797,6 +834,8 @@ async function main() {
                     process.stdout.write(`${runner.formatCommentList(result.comments)}\n`);
                 return;
             }
+            if (await tryDispatchCli(args, runner))
+                return;
             throw new Error("Usage: cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]");
         }
         case "handoff": {
@@ -870,6 +909,8 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon");
             }
         }
@@ -895,6 +936,8 @@ async function main() {
                     printJson(triggers.events(idOrKind));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js routine create|list|delete|fire|events");
             }
         }
@@ -919,6 +962,8 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
             }
         }
@@ -1019,6 +1064,8 @@ async function main() {
                     printJson((0, capability_core_1.runRerun)(registry, required(id, "run id"), args.options));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive [run-id] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
             }
         }
@@ -1044,6 +1091,8 @@ async function main() {
                     printJson((0, capability_core_1.queueShow)(registry, required(id, "queue id")));
                     return;
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
             }
         }
@@ -1079,6 +1128,8 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
             }
         }
@@ -1114,6 +1165,8 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
             }
         }
@@ -1155,12 +1208,38 @@ async function main() {
                     return;
                 }
                 default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
                     throw new Error("Usage: cw.js workbench serve [--port N] [--once] | view <run-id> [--json]");
             }
         }
         default:
+            if (await tryDispatchCli(args, runner))
+                return;
             throw new Error(`Unknown command: ${args.command}`);
     }
+}
+/** Try to dispatch a command through the dynamic capability registry.
+ *  Mechanism: reconstructs the full CLI path, resolves a handler, invokes it.
+ *  Policy: unknown commands fall through to the legacy switch; this is a thin pipe.
+ *  Returns true when the command was dispatched. */
+async function tryDispatchCli(args, runner) {
+    const cliPath = [args.command, ...args.positionals].filter((token) => typeof token === "string");
+    if (!cliPath.length)
+        return false;
+    const capabilityId = (0, capability_registry_1.resolveCliPath)(cliPath);
+    if (!capabilityId)
+        return false;
+    const handler = (0, capability_registry_1.getCapabilityHandler)(capabilityId);
+    if (!handler)
+        return false;
+    const result = await (0, capability_registry_1.dispatchCapability)(capabilityId, args.options, {
+        runner,
+        cwd: String(args.options.cwd || process.cwd())
+    });
+    if (wantsJson(args.options) || handler.descriptor.cli?.jsonMode === "default")
+        printJson(result);
+    return true;
 }
 function required(value, label) {
     if (!value)

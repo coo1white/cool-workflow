@@ -24,7 +24,7 @@
 // itself release-blocking (a fail-closed default), exactly like the vendor
 // manifest generator's `--check`.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CAPABILITY_REGISTRY = void 0;
+exports.getCapabilityHandler = exports.listCapabilityIds = exports.resolveMcpTool = exports.resolveCliPath = exports.dispatchCapability = exports.registerCapabilityHandler = exports.CAPABILITY_REGISTRY = void 0;
 exports.registerCapability = registerCapability;
 exports.declaredMcpTools = declaredMcpTools;
 exports.declaredCliTokens = declaredCliTokens;
@@ -510,3 +510,14 @@ function buildParityReport(input) {
         registryLint
     };
 }
+// ---- Capability Dispatcher bridge (v0.1.53) -------------------------------
+// Re-export the dispatcher primitives so consumers import from one place.
+// Mechanism: the dispatcher routes capability ids to handlers. Policy: which
+// handlers exist is declared via registerCapabilityHandler() at load time.
+var capability_dispatcher_1 = require("./capability-dispatcher");
+Object.defineProperty(exports, "registerCapabilityHandler", { enumerable: true, get: function () { return capability_dispatcher_1.registerCapabilityHandler; } });
+Object.defineProperty(exports, "dispatchCapability", { enumerable: true, get: function () { return capability_dispatcher_1.dispatchCapability; } });
+Object.defineProperty(exports, "resolveCliPath", { enumerable: true, get: function () { return capability_dispatcher_1.resolveCliPath; } });
+Object.defineProperty(exports, "resolveMcpTool", { enumerable: true, get: function () { return capability_dispatcher_1.resolveMcpTool; } });
+Object.defineProperty(exports, "listCapabilityIds", { enumerable: true, get: function () { return capability_dispatcher_1.listCapabilityIds; } });
+Object.defineProperty(exports, "getCapabilityHandler", { enumerable: true, get: function () { return capability_dispatcher_1.getCapabilityHandler; } });

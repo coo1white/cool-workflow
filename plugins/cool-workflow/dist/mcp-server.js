@@ -6,6 +6,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const node_path_1 = __importDefault(require("node:path"));
 const orchestrator_1 = require("./orchestrator");
+const capability_registry_1 = require("./capability-registry");
 const scheduler_1 = require("./scheduler");
 const triggers_1 = require("./triggers");
 const workbench_1 = require("./workbench");
@@ -433,8 +434,22 @@ function callTool(name, args) {
                 // (identical to `cw workbench serve --json`). The CLI default additionally
                 // starts the localhost host — declared divergence (see capability-registry).
                 return (0, workbench_1.buildWorkbenchServeDescriptor)(runner, { ...args, once: true });
-            default:
+            default: {
+                // ---- Dynamic capability dispatch fallback (v0.1.53) ---------------
+                // Mechanism: try the capability registry before failing. Policy: which
+                // tools exist is declared via registerCapabilityHandler at load time.
+                const capabilityId = (0, capability_registry_1.resolveMcpTool)(name);
+                if (capabilityId) {
+                    const handler = (0, capability_registry_1.getCapabilityHandler)(capabilityId);
+                    if (handler) {
+                        return (0, capability_registry_1.dispatchCapability)(capabilityId, args, {
+                            runner,
+                            cwd: process.cwd()
+                        });
+                    }
+                }
                 throw new Error(`Unknown tool: ${name}`);
+            }
         }
     }
     finally {
