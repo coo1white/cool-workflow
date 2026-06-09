@@ -116,3 +116,7 @@ Hard gate blocking empty-capture verifier-gated commits, plus quickstart and lau
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
 Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+
+## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
+
+Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.46), vendor-adapter registry (v0.1.47), state auto-compaction and P2 fixes (v0.1.48), plus CI content-surface determinism hardening (v0.1.49).
