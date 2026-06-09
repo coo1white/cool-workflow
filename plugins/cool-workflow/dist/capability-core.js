@@ -44,6 +44,9 @@ exports.runDrivePreview = runDrivePreview;
 exports.runDrive = runDrive;
 exports.backendAgentConfigShow = backendAgentConfigShow;
 exports.backendAgentConfigSet = backendAgentConfigSet;
+exports.gcPlan = gcPlan;
+exports.gcRun = gcRun;
+exports.gcVerify = gcVerify;
 exports.runHistory = runHistory;
 exports.metricsSummary = metricsSummary;
 exports.sandboxProfileIdFrom = sandboxProfileIdFrom;
@@ -408,6 +411,48 @@ function backendAgentConfigShow(args) {
 function backendAgentConfigSet(args) {
     (0, agent_config_1.setAgentConfigFile)(args);
     return (0, agent_config_1.agentConfigShow)(args);
+}
+// ---- run retention & provable reclamation (v0.1.39) -----------------------
+// MECHANISM, ONE SOURCE: both surfaces route gc plan/run/verify through these.
+// `gc plan`/`gc verify` are read-only + deterministic (only `generatedAt` is
+// now-derived ISO, allowed by the parity rule); `gc run` is the disk-freeing tier.
+function reclaimPolicyFrom(args) {
+    const policy = {};
+    const days = Number(args.reclaimAfterArchiveDays ?? args["reclaim-after-archive-days"] ?? args.olderThanDays ?? args["older-than-days"]);
+    if (Number.isFinite(days))
+        policy.reclaimAfterArchiveDays = days;
+    const keepScratch = flag(args.keepScratch ?? args["keep-scratch"]);
+    if (keepScratch !== undefined)
+        policy.keepScratch = keepScratch;
+    const keepSnapshots = flag(args.keepSnapshots ?? args["keep-snapshots"]);
+    if (keepSnapshots !== undefined)
+        policy.keepSnapshots = keepSnapshots;
+    const maxRuns = Number(args.maxReclaimRuns ?? args["max-reclaim-runs"]);
+    if (Number.isFinite(maxRuns))
+        policy.maxReclaimRuns = maxRuns;
+    const maxBytes = Number(args.maxReclaimBytes ?? args["max-reclaim-bytes"]);
+    if (Number.isFinite(maxBytes))
+        policy.maxReclaimBytes = maxBytes;
+    const states = parseLifecycleList(args.state ?? args.status);
+    if (states.length)
+        policy.reclaimStates = states;
+    return policy;
+}
+function gcPlan(reg, runId, args) {
+    return reg.gcPlan({ scope: scopeOf(args, "home"), runId: runId || optionalString(args.runId), policy: reclaimPolicyFrom(args), now: optionalString(args.now) });
+}
+function gcRun(reg, runId, args) {
+    return reg.gcRun({
+        scope: scopeOf(args, "home"),
+        runId: runId || optionalString(args.runId),
+        policy: reclaimPolicyFrom(args),
+        now: optionalString(args.now),
+        actor: optionalString(args.actor),
+        limit: args.limit === undefined ? undefined : Number(args.limit)
+    });
+}
+function gcVerify(reg, runId, args) {
+    return reg.gcVerify(runId, { scope: scopeOf(args, "home") });
 }
 function runHistory(reg, args) {
     return reg.history({

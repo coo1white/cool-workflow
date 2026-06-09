@@ -36,6 +36,7 @@ __exportStar(require("./types/evidence-reasoning"), exports);
 __exportStar(require("./types/run"), exports);
 __exportStar(require("./types/schedule"), exports);
 __exportStar(require("./types/run-registry"), exports);
+__exportStar(require("./types/reclamation"), exports);
 __exportStar(require("./types/workbench"), exports);
 __exportStar(require("./types/observability"), exports);
 __exportStar(require("./types/collaboration"), exports);

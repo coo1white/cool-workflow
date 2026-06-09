@@ -15,14 +15,39 @@ import type { LoopStage } from "./core";
 
 /** Documented run lifecycle. Derived from source state, never invented.
  *  `archived` is an overlay disposition; `RunRecord.derivedLifecycle` always
- *  preserves the underlying source-derived state so search can still match it. */
+ *  preserves the underlying source-derived state so search can still match it.
+ *  `reclaimed` (v0.1.39) is the new disk-freeing overlay tier above `archived`:
+ *  the audit skeleton is sealed, the reconstructable/scratch bulk is freed, and a
+ *  hash-chained tombstone proves what existed. It is an OVERLAY like `archived`,
+ *  never a value `deriveLifecycle` invents from source. */
 export type RunLifecycleState =
   | "queued"
   | "running"
   | "blocked"
   | "completed"
   | "failed"
-  | "archived";
+  | "archived"
+  | "reclaimed";
+
+/** Lifecycle TIER (v0.1.39) — the disk-disposition axis, orthogonal to the
+ *  task-derived lifecycle. `live` = full bytes on disk; `archived` = full bytes
+ *  + overlay mark; `reclaimed` = tombstone + sealed skeleton, bulk freed. */
+export type RunTier = "live" | "archived" | "reclaimed";
+
+/** What you can still DO with a run after reclamation (v0.1.39). A reclaimed run
+ *  that retained nothing re-derivable advertises `verify-only`; one that retained
+ *  inputs + an `expectDigest` per snapshot advertises
+ *  `re-runnable-by-reconstruction`. Live/archived runs stay `re-runnable`. */
+export type RunCapability = "re-runnable" | "verify-only" | "re-runnable-by-reconstruction";
+
+/** Closed enum of WHY a run carries its capability — asserted exactly, never
+ *  free-text. `gc verify` and `run show` surface this so a downgrade is queryable. */
+export type RunCapabilityReason =
+  | "live-full"
+  | "archived-full"
+  | "scratch-only-reclaimed"
+  | "inputs-and-expectdigest-retained"
+  | "snapshot-reclaimed-no-reconstruction";
 
 /** Per-record freshness against the run's source state.json. `missing` means the
  *  source vanished — fail closed, never fabricated as success. */
@@ -90,6 +115,20 @@ export interface RunRecord {
   sourceFingerprint: string;
   freshness: RunRecordFreshness;
   provenance?: RunProvenance;
+  // Run Retention & Provable Reclamation (v0.1.39) — additive; pre-0.1.39 records
+  // load unchanged (tier defaults to live/archived, capability to re-runnable).
+  /** Disk-disposition tier. `reclaimed` once a `reclaimed.json` overlay exists. */
+  tier?: RunTier;
+  /** What you can still do with the run after any reclamation. */
+  capability?: RunCapability;
+  /** Closed-enum reason behind `capability` (queryable, never prose). */
+  capabilityReason?: RunCapabilityReason;
+  /** When the run was reclaimed (from the tombstone overlay), if reclaimed. */
+  reclaimedAt?: string;
+  /** Total bytes freed by reclamation across all tombstones for this run. */
+  reclaimedBytes?: number;
+  /** The latest tombstone hash in the run's reclamation chain, if reclaimed. */
+  tombstoneHash?: string;
 }
 
 /** A durable, ordered queue entry. Plain files; the host still executes workers.
@@ -181,6 +220,21 @@ export interface RunRegistryPolicy {
   archiveStates: RunLifecycleState[];
   /** Default queue priority for new entries. */
   defaultQueuePriority: number;
+  // Run Retention & Provable Reclamation (v0.1.39) — additive; all defaults
+  // reclaim NOTHING (back-compatible). Reclamation is opt-in and dry-run-first.
+  /** Reclaim an ARCHIVED run only after it has been archived this many days
+   *  (0 = disabled; CW never reclaims by default). */
+  reclaimAfterArchiveDays?: number;
+  /** Derived-lifecycle states eligible for reclamation (terminal only). */
+  reclaimStates?: RunLifecycleState[];
+  /** Keep node snapshots rather than reclaiming reconstructable ones. */
+  keepSnapshots?: boolean;
+  /** Keep worker scratch dirs rather than reclaiming them eagerly. */
+  keepScratch?: boolean;
+  /** Hard ceiling on runs reclaimed in one `gc run` pass (0 = unbounded). */
+  maxReclaimRuns?: number;
+  /** Hard ceiling on bytes freed in one `gc run` pass (0 = unbounded). */
+  maxReclaimBytes?: number;
 }
 
 export interface RunRegistryCounts {
@@ -191,6 +245,8 @@ export interface RunRegistryCounts {
   completed: number;
   failed: number;
   archived: number;
+  /** Runs whose disk bulk has been reclaimed (v0.1.39). */
+  reclaimed: number;
 }
 
 /** The derived, rebuildable index. Persisted under `.cw/registry/` (per-repo) or

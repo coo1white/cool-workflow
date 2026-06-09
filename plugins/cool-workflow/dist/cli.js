@@ -1071,6 +1071,41 @@ async function main() {
                     throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
             }
         }
+        case "gc": {
+            // Run Retention & Provable Reclamation (v0.1.39). `plan` is a pure dry-run
+            // (frees nothing); `run` executes the write-ahead reclamation transaction;
+            // `verify` re-proves a reclaimed run. CW never reclaims by default.
+            const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
+            const [subcommand, id] = args.positionals;
+            switch (subcommand) {
+                case "plan": {
+                    const result = (0, capability_core_1.gcPlan)(registry, id, args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatGcPlan)(result)}\n`);
+                    return;
+                }
+                case "run": {
+                    const result = (0, capability_core_1.gcRun)(registry, id, args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatGcRun)(result)}\n`);
+                    return;
+                }
+                case "verify": {
+                    const result = (0, capability_core_1.gcVerify)(registry, required(id, "run id"), args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, run_registry_1.formatGcVerify)(result)}\n`);
+                    return;
+                }
+                default:
+                    throw new Error("Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
+            }
+        }
         case "history": {
             const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
             const result = (0, capability_core_1.runHistory)(registry, args.options);

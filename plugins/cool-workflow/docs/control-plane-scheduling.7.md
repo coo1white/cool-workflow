@@ -73,3 +73,7 @@ run-registry-control-plane(7), cli-mcp-parity(7), release-and-migration(7)
 ## Agent Delegation Drive (v0.1.38)
 
 spawn an external agent process per worker, capture result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
+
+## Run Retention & Provable Reclamation (v0.1.39)
+
+tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it

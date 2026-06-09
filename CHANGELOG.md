@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.39
+
+- Added Run Retention & Provable Reclamation: a tiered (live -> archived -> reclaimed), append-only, cryptographically-verifiable disk GC over the v0.1.28 archive overlay. `gc plan` (dry-run, frees nothing), `gc run` (write-ahead transaction: seal skeleton -> write tombstone with a pre-deletion sha256 per path -> fsync into reclaimed.json -> free bulk), and `gc verify` (re-prove skeleton-complete + hash-chain untampered + reconstructable artifacts re-derived from RETAINED inputs). Fail-closed eligibility, explicit/queryable capability downgrade, eager worker-scratch reclaim with result-node re-pointing, and a SKELETON_REQUIRED_KEYS contract. CW never reclaims by default.
+
 ## 0.1.38
 
 - Added Agent Delegation Drive: spawn an external agent process per worker to fulfill each worker, capture result.md + attestation, and auto-drive plan->dispatch->fulfill->accept->commit

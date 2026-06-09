@@ -21,6 +21,7 @@ export * from "./types/evidence-reasoning";
 export * from "./types/run";
 export * from "./types/schedule";
 export * from "./types/run-registry";
+export * from "./types/reclamation";
 export * from "./types/workbench";
 export * from "./types/observability";
 export * from "./types/collaboration";

@@ -35,6 +35,9 @@ import {
   schedReset,
   schedPolicyShow,
   schedPolicySet,
+  gcPlan,
+  gcRun,
+  gcVerify,
   runDrive,
   runDrivePreview,
   backendAgentConfigShow,
@@ -465,6 +468,12 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return schedPolicyShow(runRegistryFor(args, runner));
       case "cw_sched_policy_set":
         return schedPolicySet(runRegistryFor(args, runner), args);
+      case "cw_gc_plan":
+        return gcPlan(runRegistryFor(args, runner), optionalString(args.runId), args);
+      case "cw_gc_run":
+        return gcRun(runRegistryFor(args, runner), optionalString(args.runId), args);
+      case "cw_gc_verify":
+        return gcVerify(runRegistryFor(args, runner), String(args.runId || ""), args);
       case "cw_history":
         return runHistory(runRegistryFor(args, runner), args);
       case "cw_workbench_view":
@@ -520,6 +529,7 @@ function requiredArgsForTool(name: string): string[] {
   if (name === "cw_handoff") return ["runId", "targetKind|kind", "targetId|target", "to|toActor"];
   if (name === "cw_run_show" || name === "cw_run_resume" || name === "cw_run_rerun") return ["runId"];
   if (name === "cw_run_archive") return ["runId|olderThanDays"];
+  if (name === "cw_gc_verify") return ["runId"];
   if (name === "cw_queue_show") return ["id"];
   if (name.endsWith("_show")) {
     if (name.includes("_role_")) return ["runId", "roleId"];
@@ -1502,6 +1512,29 @@ function toolDefinitions(): unknown[] {
       backoffBaseMs: stringSchema("Backoff base (ms)"),
       backoffFactor: stringSchema("Backoff factor"),
       backoffCapMs: stringSchema("Backoff cap (ms)")
+    }),
+    tool("cw_gc_plan", "Read-only dry-run of run reclamation: eligible runs, per-kind bytes that WOULD be freed, and the capability downgrade. Frees NOTHING. Peer of `cw gc plan`.", {
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      runId: stringSchema("Plan a single run (optional)"),
+      reclaimAfterArchiveDays: stringSchema("Only reclaim runs archived at least this many days"),
+      keepScratch: stringSchema("true to retain worker scratch"),
+      keepSnapshots: stringSchema("true to retain node snapshots")
+    }),
+    tool("cw_gc_run", "Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free) for eligible runs. Bounded, fail-closed. Peer of `cw gc run`.", {
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      runId: stringSchema("Reclaim a single run (optional)"),
+      reclaimAfterArchiveDays: stringSchema("Only reclaim runs archived at least this many days"),
+      keepScratch: stringSchema("true to retain worker scratch"),
+      keepSnapshots: stringSchema("true to retain node snapshots"),
+      limit: stringSchema("Max runs to reclaim in this pass"),
+      actor: stringSchema("Operator recorded on the reclamation attestation")
+    }),
+    tool("cw_gc_verify", "Re-prove a reclaimed run: skeleton schema-complete, tombstone chain untampered, reconstructable artifacts re-derived from retained inputs. Peer of `cw gc verify`.", {
+      cwd: stringSchema("Repo workspace"),
+      scope: stringSchema("home (default, cross-repo) or repo"),
+      runId: stringSchema("Run id to verify")
     }),
     tool("cw_history", "Read a cross-repo unified run timeline (newest first), deterministic and paginated, with provenance links.", {
       cwd: stringSchema("Repo workspace"),

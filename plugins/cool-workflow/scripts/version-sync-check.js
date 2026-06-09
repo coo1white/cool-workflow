@@ -111,6 +111,11 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/agent-delegation-drive.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "agent-delegation-drive.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/agent-delegation-drive-smoke.js", "agent-delegation-drive-smoke", checks);
+  checkIncludes("plugins/cool-workflow/docs/run-retention-reclamation.7.md", "Run Retention & Provable Reclamation", checks);
+  checkIncludes("plugins/cool-workflow/docs/run-retention-reclamation.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "run-retention-reclamation.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/run-retention-reclamation-smoke.js", "run-retention-reclamation-smoke", checks);
+  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "gc.plan", checks);
   checkIncludes("plugins/cool-workflow/src/drive.ts", "driveStep", checks);
   checkIncludes("plugins/cool-workflow/dist/drive.js", "driveStep", checks);
   checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "run.drive", checks);
