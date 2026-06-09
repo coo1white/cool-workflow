@@ -606,3 +606,23 @@ Hard gate blocking empty-capture verifier-gated commits, plus quickstart and lau
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
 Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+
+## Migration DAG (v0.1.45)
+
+Replaces the linear migration chain with a BFS graph path resolver (`findMigrationPath()`) over directed migration edges. Each `StateMigrationStep` carries an optional `reverse()` function, enabling rollback/downgrade paths via `reverseRunState()`.
+
+## Capability Auto-Discovery (v0.1.46)
+
+`registerCapability()` builder pattern replaces manual registry entries. Capabilities self-register at implementation sites via Map-based dedup; no need to touch `capability-registry.ts`. New capabilities call `registerCapability()` next to their entry function.
+
+## Vendor-Adapter Registry (v0.1.47)
+
+Data-driven manifest generation: vendor JSON shapes extracted from `gen-manifests.js` into declarative templates in `plugin.manifest.json`. A `_resolveTemplate()` engine resolves `{{path.to.field}}` markers. Adding a new AI platform is pure data.
+
+## P2 Fixes (v0.1.48)
+
+State auto-compaction via `setPostSaveCallback()` hook — after every `saveCheckpoint()`, the orchestrator checks `computeStateSize()` and auto-triggers compaction. Agent dedup docs, npm `ci` aggregate script.
+
+## CI Content-Surface Fix (v0.1.49)
+
+CHANGELOG.md and RELEASE.md are content surfaces checked by the dogfood-release gate. The bump-version script covers structured surfaces only; content surface updates are now documented as a release step.
