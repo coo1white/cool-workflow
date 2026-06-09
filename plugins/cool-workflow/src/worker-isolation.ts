@@ -19,6 +19,7 @@ import { appendRunNode, createStateNode, linkStateNodes, recordNodeError } from 
 import { createPipelineRunner } from "./pipeline-runner";
 import { parseResultEnvelope, validateResultEnvelope } from "./verifier";
 import { requireResolvableEvidence, unresolvedFileEvidence } from "./evidence-grounding";
+import { isEmptyCapture } from "./result-normalize";
 import {
   DEFAULT_SANDBOX_PROFILE_ID,
   effectiveSandboxWritePaths,
@@ -394,6 +395,9 @@ export function recordWorkerOutput(
       workerDir: scope.workerDir,
       sandboxProfileId: scope.sandboxProfileId,
       auditEventIds: [pathAudit.id],
+      // Empty-capture warning (v0.1.42): even after robust normalization the result
+      // yielded NO findings and NO evidence — surfaced, never silently passed.
+      ...(isEmptyCapture(parsedResult) ? { captureWarning: "no findings or evidence captured from result.md" } : {}),
       // Folded into the snapshotted node body so v0.1.35 replay re-verifies the
       // prompt/result/model digests WITHOUT re-spawning the agent. NOT evidence.
       ...(agentDelegation ? { agentDelegation } : {})
@@ -423,6 +427,21 @@ export function recordWorkerOutput(
   });
   appendRunNode(run, resultNode);
   task.resultNodeId = resultNode.id;
+
+  // Warn (don't silently pass) when a worker's result captured no structured signal
+  // at all — the v0.1.41 self-audit's "accepted with evidenceCount:0" failure mode.
+  if (isEmptyCapture(parsedResult)) {
+    recordTrustAuditEvent(run, {
+      kind: "worker.capture-warning",
+      decision: "recorded",
+      source: "cw-validated",
+      workerId,
+      taskId: task.id,
+      nodeId: resultNode.id,
+      parentEventIds: [acceptedAudit.id],
+      metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination }
+    });
+  }
 
   // The agent-hop attestation event — hung off worker.output, alongside
   // worker.backend. Recorded in trust-audit/provenance, NEVER in node evidence.

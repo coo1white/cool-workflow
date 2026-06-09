@@ -36,6 +36,8 @@ const pipeline_contract_1 = require("../pipeline-contract");
 const pipeline_runner_1 = require("../pipeline-runner");
 const commit_1 = require("../commit");
 const error_feedback_1 = require("../error-feedback");
+const trust_audit_2 = require("../trust-audit");
+const result_normalize_1 = require("../result-normalize");
 const worker_isolation_1 = require("../worker-isolation");
 function plan(appRecord, options) {
     const workflow = appRecord.app.workflow;
@@ -232,9 +234,23 @@ function recordResult(run, taskId, resultPath, options = {}) {
             })),
             parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
             contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
-            metadata: { taskId: task.id }
+            metadata: {
+                taskId: task.id,
+                // Empty-capture warning (v0.1.42): surfaced, never silently passed.
+                ...((0, result_normalize_1.isEmptyCapture)(parsedResult) ? { captureWarning: "no findings or evidence captured from result.md" } : {})
+            }
         }));
         task.resultNodeId = resultNode.id;
+        if ((0, result_normalize_1.isEmptyCapture)(parsedResult)) {
+            (0, trust_audit_2.recordTrustAuditEvent)(run, {
+                kind: "worker.capture-warning",
+                decision: "recorded",
+                source: "cw-validated",
+                taskId: task.id,
+                nodeId: resultNode.id,
+                metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination }
+            });
+        }
         (0, dispatch_1.updatePhaseStatuses)(run);
         (0, verifier_1.validateRunGates)(run);
         const verifierResult = (0, pipeline_runner_1.createPipelineRunner)({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
