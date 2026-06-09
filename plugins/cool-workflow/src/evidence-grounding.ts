@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { EvidenceConfidence } from "./types";
 
 // ---------------------------------------------------------------------------
 // Evidence grounding (v0.1.40 self-audit P1).
@@ -95,4 +96,42 @@ export function unresolvedFileEvidence(evidence: unknown, baseDirs: string[]): s
   return evidence
     .map((entry) => String(entry))
     .filter((entry) => resolveEvidenceLocator(entry, baseDirs) === "unresolved");
+}
+
+/** Compute the confidence tier for a single evidence string. Deterministic:
+ *  pure function of the string and optional base dirs for resolution. */
+export function computeEvidenceConfidence(raw: unknown, baseDirs?: string[]): EvidenceConfidence {
+  if (!isGroundedEvidence(raw)) return "ungrounded";
+  if (!baseDirs || !baseDirs.length || !requireResolvableEvidence()) return "grounded";
+  const value = String(raw).trim();
+  const shape = classify(value);
+  if (shape.kind === "url") return "grounded"; // URLs not resolved yet
+  if (shape.kind === "opaque") return "grounded"; // namespace:value tokens are grounded
+  // File-style: try resolution
+  const resolution = resolveEvidenceLocator(value, baseDirs);
+  return resolution === "resolved" ? "resolvable" : "grounded";
+}
+
+/** Compute confidence tiers for an array of evidence entries. */
+export function computeEvidenceConfidenceTiers(
+  evidence: unknown,
+  baseDirs?: string[]
+): EvidenceConfidence[] {
+  if (!Array.isArray(evidence)) return [];
+  return evidence.map((entry) => computeEvidenceConfidence(entry, baseDirs));
+}
+
+/** The highest confidence tier in an evidence array. Used for gate decisions. */
+export function maxEvidenceConfidence(
+  evidence: unknown,
+  baseDirs?: string[]
+): EvidenceConfidence {
+  const tiers = computeEvidenceConfidenceTiers(evidence, baseDirs);
+  if (!tiers.length) return "ungrounded";
+  const order: EvidenceConfidence[] = ["ungrounded", "grounded", "resolvable", "verified"];
+  let max = "ungrounded" as EvidenceConfidence;
+  for (const tier of tiers) {
+    if (order.indexOf(tier) > order.indexOf(max)) max = tier;
+  }
+  return max;
 }

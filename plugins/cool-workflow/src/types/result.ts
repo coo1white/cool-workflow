@@ -1,6 +1,8 @@
 import type { FindingClassification, PhaseStatus, Severity } from "./core";
 import type { EvidenceProvenance } from "./trust";
 
+export type EvidenceConfidence = "ungrounded" | "grounded" | "resolvable" | "verified";
+
 export interface RunPaths {
   runDir: string;
   state: string;
@@ -53,5 +55,9 @@ export interface StateEvidence {
   path?: string;
   locator?: string;
   summary?: string;
+  /** Derived confidence tier (v0.1.55): "ungrounded" | "grounded" | "resolvable" | "verified".
+   *  Computed deterministically from the locator shape and (in strict mode) filesystem.
+   *  "verified" is never auto-assigned — requires explicit host attestation. */
+  confidence?: EvidenceConfidence;
   provenance?: EvidenceProvenance;
 }
