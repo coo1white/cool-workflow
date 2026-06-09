@@ -2,7 +2,7 @@
   "_comment": "SINGLE SOURCE OF TRUTH for every vendor manifest. Edit THIS file, then run `npm run gen:manifests`. Do NOT hand-edit the generated vendor manifests (.claude-plugin/, .codex-plugin/, .agents/, .mcp.json) — `npm run gen:manifests -- --check` (run by release:check) will fail if they drift from this source.",
   "identity": {
     "name": "cool-workflow",
-    "version": "0.1.46",
+    "version": "0.1.47",
     "license": "BSD-2-Clause",
     "homepage": "https://github.com/coo1white/cool-workflow",
     "author": {
@@ -65,6 +65,160 @@
       "plugin": ".agents/plugins/cool-workflow/plugin.json",
       "mcp": ".agents/plugins/cool-workflow/mcp.json",
       "pluginRootVar": "./"
+    }
+  },
+  "_comment_vendors": "VENDOR ADAPTER REGISTRY (v0.1.47). Each vendor declares its outputs as templates over the source fields above. Adding a new AI platform: add ONE entry here — no gen-manifests.js changes needed. Templates use {{path.to.field}} interpolation; {{pluginRootVar}} resolves to the vendor's pluginRootVar.",
+  "vendors": {
+    "claude": {
+      "outputs": [
+        {
+          "path": "{{targets.claude.marketplace}}",
+          "json": {
+            "name": "{{identity.name}}",
+            "owner": "{{identity.author}}",
+            "metadata": {
+              "description": "{{descriptions.standard}}",
+              "version": "{{identity.version}}"
+            },
+            "plugins": [
+              {
+                "name": "{{identity.name}}",
+                "source": "{{layout.pluginPathFromRepoRoot}}",
+                "description": "{{descriptions.standard}}",
+                "category": "{{interface.category|lowercase}}"
+              }
+            ]
+          }
+        },
+        {
+          "path": "{{targets.claude.plugin}}",
+          "json": {
+            "name": "{{identity.name}}",
+            "description": "{{descriptions.standard}}",
+            "version": "{{identity.version}}",
+            "author": "{{identity.author}}",
+            "homepage": "{{identity.homepage}}",
+            "license": "{{identity.license}}",
+            "keywords": "{{identity.keywords}}"
+          }
+        },
+        {
+          "path": "{{targets.claude.mcp}}",
+          "json": {
+            "mcpServers": {
+              "{{mcp.serverName}}": {
+                "command": "{{mcp.command}}",
+                "args": [
+                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "codex": {
+      "outputs": [
+        {
+          "path": "{{targets.codex.marketplace}}",
+          "json": {
+            "name": "{{identity.name}}",
+            "interface": {
+              "displayName": "{{interface.displayName}}"
+            },
+            "plugins": [
+              {
+                "name": "{{identity.name}}",
+                "source": {
+                  "source": "local",
+                  "path": "{{layout.pluginPathFromRepoRoot}}"
+                },
+                "policy": {
+                  "installation": "AVAILABLE",
+                  "authentication": "ON_INSTALL"
+                },
+                "category": "{{interface.category}}"
+              }
+            ]
+          }
+        },
+        {
+          "path": "{{targets.codex.plugin}}",
+          "json": {
+            "name": "{{identity.name}}",
+            "version": "{{identity.version}}",
+            "description": "{{descriptions.standard}}",
+            "author": "{{identity.author}}",
+            "keywords": "{{identity.keywords}}",
+            "skills": "{{layout.skillsDir}}",
+            "mcpServers": "./.codex-plugin/mcp.json",
+            "interface": {
+              "displayName": "{{interface.displayName}}",
+              "shortDescription": "{{descriptions.short}}",
+              "longDescription": "{{descriptions.long}}",
+              "developerName": "{{identity.author.name}}",
+              "category": "{{interface.category}}",
+              "capabilities": "{{interface.capabilities}}",
+              "brandColor": "{{interface.brandColor}}",
+              "defaultPrompt": "{{interface.defaultPrompt}}"
+            }
+          }
+        },
+        {
+          "path": "{{targets.codex.mcp}}",
+          "json": {
+            "mcpServers": {
+              "{{mcp.serverName}}": {
+                "command": "{{mcp.command}}",
+                "args": [
+                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "agents": {
+      "outputs": [
+        {
+          "path": "{{targets.agents.plugin}}",
+          "json": {
+            "name": "{{identity.name}}",
+            "description": "{{descriptions.standard}}",
+            "version": "{{identity.version}}",
+            "author": "{{identity.author}}",
+            "homepage": "{{identity.homepage}}",
+            "license": "{{identity.license}}",
+            "keywords": "{{identity.keywords}}",
+            "skills": "{{layout.skillsDir}}",
+            "mcpServers": "./.codex-plugin/mcp.json",
+            "interface": {
+              "displayName": "{{interface.displayName}}",
+              "shortDescription": "{{descriptions.short}}",
+              "longDescription": "{{descriptions.long}}",
+              "developerName": "{{identity.author.name}}",
+              "category": "{{interface.category}}",
+              "capabilities": "{{interface.capabilities}}",
+              "brandColor": "{{interface.brandColor}}",
+              "defaultPrompt": "{{interface.defaultPrompt}}"
+            }
+          }
+        },
+        {
+          "path": "{{targets.agents.mcp}}",
+          "json": {
+            "mcpServers": {
+              "{{mcp.serverName}}": {
+                "command": "{{mcp.command}}",
+                "args": [
+                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
+                ]
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
