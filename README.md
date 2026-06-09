@@ -58,8 +58,8 @@ Small kernel. Explicit state. Composable pipes.
 Isolated workers. Verifier-gated commits. Docs as man pages.
 ```
 
-~22k lines across 34 modules · 26 smoke tests · 6 bundled workflow apps ·
-evidence-gated commits · deterministic replay.
+~22k lines across 36 modules · 45 smoke tests · 6 bundled workflow apps ·
+evidence-gated commits · deterministic replay · agent-driven self-evolution.
 
 ## Why CW Exists
 
@@ -249,9 +249,12 @@ enforces OS/process/network/environment controls.
 | Operator UX | `status`, `graph`, summaries, reports, and deterministic next actions |
 | Coordinator / Blackboard | Shared topics, messages, artifacts, context, snapshots, and decisions |
 | Multi-agent runtime | Runs, roles, groups, memberships, fanout/fanin, and lifecycle state |
-| Multi-agent topologies | Official `map-reduce`, `debate`, and `judge-panel` recipes |
+| Multi-agent topologies | Official `map-reduce`, `debate`, `judge-panel` recipes + open `registerTopology()` |
 | Trust / policy / audit | Provenance, role authority, policy violations, judge rationale |
 | Eval / replay harness | Deterministic snapshots, replay, comparison, scoring, gates, reports |
+| **NEW v0.1.53** | |
+| Capability registry | `registerCapabilityHandler({ descriptor, run })` — new tools auto-register across CLI + MCP + Workbench |
+| Topology registry | `registerTopology(definition)` — custom topologies with data-driven role expansion |
 
 ## Bundled Workflow Apps
 
@@ -301,6 +304,7 @@ Official topology recipes:
 | `map-reduce` | Fan out mapper roles, collect evidence, then reduce |
 | `debate` | Record opposing claims, rebuttals, conflicts, and synthesis |
 | `judge-panel` | Gather independent judge outputs and select with provenance |
+| *custom* | `registerTopology({...})` — open `string` id, data-driven role expansion |
 
 ```bash
 node scripts/cw.js topology list
@@ -327,6 +331,77 @@ node scripts/cw.js eval report .cw/evals/<suite-id>/replay-run.json
 ```
 
 Artifacts live under `.cw/evals/<suite-id>/`.
+
+## Agent-Driven Self-Evolution (v0.1.53)
+
+CW can now extend itself. Agents can register new capabilities and topologies
+at runtime — no manual wiring in 4+ files. The CLI, MCP, and Workbench surfaces
+auto-discover them through the same thin pipe.
+
+**New capability (auto-works on CLI + MCP):**
+
+```ts
+import { registerCapabilityHandler } from "./capability-registry";
+
+registerCapabilityHandler({
+  descriptor: {
+    capability: "my.new.tool",
+    summary: "Does something useful.",
+    entry: "myNewTool",
+    surface: "both",
+    cli: { path: ["my", "new-tool"], jsonMode: "default" },
+    mcp: { tool: "cw_my_new_tool" }
+  },
+  run: async (args, ctx) => {
+    // ctx.runner exposes all orchestrator methods
+    return ctx.runner.listWorkflows();
+  }
+});
+```
+
+**New topology (auto-available in list/validate/apply):**
+
+```ts
+import { registerTopology } from "./topology";
+
+registerTopology({
+  schemaVersion: 1,
+  id: "swarm",
+  title: "Swarm",
+  summary: "Parallel swarm agents with consensus voting.",
+  roles: [
+    { id: "swarm-agent", title: "Swarm Agent",
+      responsibilities: ["Produce shard result with evidence."],
+      requiredEvidence: ["swarm output artifact"],
+      expectedArtifacts: ["swarm result"],
+      faninObligations: ["indexed swarm artifact"],
+      count: 5 }
+  ],
+  groups: [{ id: "swarm", title: "Swarm Group", roleIds: ["swarm-agent"] }],
+  blackboardTopics: [
+    { id: "swarm-outputs", title: "Swarm Outputs", description: "Agent results." }
+  ],
+  phases: [
+    { id: "execute", title: "Execute", roleIds: ["swarm-agent"],
+      fanout: true, fanin: false,
+      requiredEvidence: ["swarm output artifact"],
+      coordinatorDecisionKinds: ["artifact-index"] },
+    { id: "consensus", title: "Consensus", roleIds: ["synthesizer"],
+      fanout: false, fanin: true,
+      requiredEvidence: ["all swarm evidence"],
+      coordinatorDecisionKinds: ["candidate-synthesis"] }
+  ],
+  fanoutStrategy: "one membership per swarm agent role",
+  faninStrategy: "consensus requires all swarm agent evidence",
+  requiredEvidence: ["swarm output artifact", "consensus synthesis"],
+  coordinatorDecisions: ["artifact-index", "candidate-synthesis"],
+  candidateExpectations: ["Synthesis cites swarm agent provenance."],
+  verifierGates: ["Swarm fanin must be ready before commit."]
+});
+```
+
+Design philosophy: **mechanism (Map / pipe) separate from policy (entries).**
+Fail-closed on unknown ids. All 45/45 tests pass.
 
 ## Development
 
@@ -384,6 +459,7 @@ Start here:
 - [Multi-Agent Eval & Replay Harness](plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md)
 - [Agent Delegation Drive](plugins/cool-workflow/docs/agent-delegation-drive.7.md)
 - [Release And Migration](plugins/cool-workflow/docs/release-and-migration.7.md)
+- [Capability & Topology Registry](plugins/cool-workflow/docs/capability-topology-registry.7.md)
 
 Full docs map: [plugins/cool-workflow/docs/index.md](plugins/cool-workflow/docs/index.md)
 
