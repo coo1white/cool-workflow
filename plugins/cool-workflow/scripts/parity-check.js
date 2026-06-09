@@ -55,7 +55,9 @@ const RUN_PROBES = [
   ["metrics.show", ["--json"], "cw_metrics_show"],
   ["review.status", ["--json"], "cw_review_status"],
   ["comment.list", ["--json"], "cw_comment_list"],
-  ["run.drive", ["--json"], "cw_run_drive"]
+  ["run.drive", ["--json"], "cw_run_drive"],
+  ["gc.plan", ["--json"], "cw_gc_plan"],
+  ["gc.verify", ["--json"], "cw_gc_verify"]
 ];
 const GLOBAL_PROBES = [
   ["list", "cw_list"],

@@ -339,6 +339,13 @@ exports.CAPABILITY_REGISTRY = [
     { capability: "sched.reset", summary: "Reset a parked entry to ready (operator recovery).", entry: "schedReset", surface: "both", cli: { path: ["sched", "reset"], caseTokens: ["sched", "reset"], jsonMode: "default" }, mcp: { tool: "cw_sched_reset" } },
     { capability: "sched.policy.show", summary: "Show the scheduling policy (file or default).", entry: "schedPolicyShow", surface: "both", cli: { path: ["sched", "policy"], caseTokens: ["sched", "policy"], jsonMode: "default" }, mcp: { tool: "cw_sched_policy_show" } },
     { capability: "sched.policy.set", summary: "Set scheduling policy fields (concurrency/attempts/backoff/TTL).", entry: "schedPolicySet", surface: "both", cli: { path: ["sched", "policy"], caseTokens: ["sched", "policy"], jsonMode: "default" }, mcp: { tool: "cw_sched_policy_set" } },
+    // ---- run retention & provable reclamation (v0.1.39) ---------------------
+    // Tiered, append-only, cryptographically-verifiable run reclamation. `plan` and
+    // `verify` are read-only + deterministic (only generatedAt is now-derived ISO);
+    // `run` is the disk-freeing tier. All three route through the single core.
+    { capability: "gc.plan", summary: "Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing.", entry: "gcPlan", surface: "both", cli: { path: ["gc", "plan"], caseTokens: ["gc", "plan"], jsonMode: "flag" }, mcp: { tool: "cw_gc_plan" } },
+    { capability: "gc.run", summary: "Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free).", entry: "gcRun", surface: "both", cli: { path: ["gc", "run"], caseTokens: ["gc", "run"], jsonMode: "flag" }, mcp: { tool: "cw_gc_run" }, payloadIdentical: false, reason: "Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone." },
+    { capability: "gc.verify", summary: "Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable.", entry: "gcVerify", surface: "both", cli: { path: ["gc", "verify"], caseTokens: ["gc", "verify"], jsonMode: "flag" }, mcp: { tool: "cw_gc_verify" } },
     { capability: "history", summary: "Read a cross-repo unified run timeline (newest first).", entry: "runRegistry.history", surface: "both", cli: { path: ["history"], jsonMode: "flag" }, mcp: { tool: "cw_history" } },
     // ---- web / desktop workbench (v0.1.30) ----------------------------------
     // A THIRD FRONT DOOR — a read-only renderer, not a new brain. Both verbs route

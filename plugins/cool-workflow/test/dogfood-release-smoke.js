@@ -25,7 +25,7 @@ assert.ok(fs.existsSync(summary.statePath), "dogfood state must exist");
 assert.ok(fs.existsSync(summary.reportPath), "dogfood report must exist");
 assert.ok(fs.existsSync(summary.auditSummaryPath), "audit summary must exist");
 assert.ok(fs.existsSync(summary.summaryPath), "machine summary must exist");
-assert.equal(summary.candidateId, "dogfood-release-0.1.38");
+assert.equal(summary.candidateId, "dogfood-release-0.1.39");
 assert.ok(summary.scoreId);
 assert.ok(summary.selectionId);
 assert.ok(summary.commitId);
@@ -36,9 +36,9 @@ assert.equal(summary.releaseActions.skipped, true);
 const state = JSON.parse(fs.readFileSync(summary.statePath, "utf8"));
 assert.equal(state.workflow.id, "release-cut");
 assert.equal(state.workflow.app.id, "release-cut");
-assert.equal(state.workflow.app.version, "0.1.38");
+assert.equal(state.workflow.app.version, "0.1.39");
 assert.equal(state.inputs.repo, repoRoot);
-assert.equal(state.inputs.version, "0.1.38");
+assert.equal(state.inputs.version, "0.1.39");
 assert.equal(state.inputs.previousVersion, "0.1.31");
 assert.equal(state.inputs.dryRun, "true");
 
@@ -77,17 +77,17 @@ assert.ok(audit.byKind["candidate.selection"] >= 1);
 assert.ok(audit.byKind["commit.gate"] >= 1);
 
 const report = fs.readFileSync(summary.reportPath, "utf8");
-assert.match(report, /Workflow App: release-cut@0\.1\.38/);
+assert.match(report, /Workflow App: release-cut@0\.1\.39/);
 assert.match(report, /## Candidates/);
 assert.match(report, /## Trust Audit/);
 assert.match(report, /## Acceptance Rationale/);
-assert.match(report, /dogfood-release-0\.1\.38/);
+assert.match(report, /dogfood-release-0\.1\.39/);
 
 assert.ok(summary.commandResults.some((entry) => entry.id === "canonical-apps" && entry.status === 0));
 assert.ok(summary.commandResults.some((entry) => entry.id === "golden-path" && entry.status === 0));
 assert.ok(summary.commandResults.every((entry) => fs.existsSync(entry.logPath)));
 
-// v0.1.38: the architecture-review agent-delegation dogfood, --smoke half (CI-
+// v0.1.39: the architecture-review agent-delegation dogfood, --smoke half (CI-
 // verifiable; the live full-drive against a real repo is the maintainer bar, OUT
 // of CI). A hermetic STUB agent drives the real app to a committed audited report.
 const archReview = JSON.parse(

@@ -31,10 +31,14 @@ import {
 } from "./scheduling";
 import { SchedulingPolicy, SchedulingPolicyReport } from "./types";
 import {
+  GcPlanResult,
+  GcRunResult,
+  GcVerifyResult,
   MetricsSummaryReport,
   RunHistoryResult,
   RunLifecycleState,
   RunQueueEntry,
+  RunRegistryPolicy,
   RunRegistryReport,
   RunRerunResult,
   RunResumeResult,
@@ -420,6 +424,46 @@ export function backendAgentConfigShow(args: Record<string, unknown>): AgentConf
 export function backendAgentConfigSet(args: Record<string, unknown>): AgentConfigShowResult {
   setAgentConfigFile(args);
   return agentConfigShow(args);
+}
+
+// ---- run retention & provable reclamation (v0.1.39) -----------------------
+// MECHANISM, ONE SOURCE: both surfaces route gc plan/run/verify through these.
+// `gc plan`/`gc verify` are read-only + deterministic (only `generatedAt` is
+// now-derived ISO, allowed by the parity rule); `gc run` is the disk-freeing tier.
+function reclaimPolicyFrom(args: Record<string, unknown>): Partial<RunRegistryPolicy> {
+  const policy: Partial<RunRegistryPolicy> = {};
+  const days = Number(args.reclaimAfterArchiveDays ?? args["reclaim-after-archive-days"] ?? args.olderThanDays ?? args["older-than-days"]);
+  if (Number.isFinite(days)) policy.reclaimAfterArchiveDays = days;
+  const keepScratch = flag(args.keepScratch ?? args["keep-scratch"]);
+  if (keepScratch !== undefined) policy.keepScratch = keepScratch;
+  const keepSnapshots = flag(args.keepSnapshots ?? args["keep-snapshots"]);
+  if (keepSnapshots !== undefined) policy.keepSnapshots = keepSnapshots;
+  const maxRuns = Number(args.maxReclaimRuns ?? args["max-reclaim-runs"]);
+  if (Number.isFinite(maxRuns)) policy.maxReclaimRuns = maxRuns;
+  const maxBytes = Number(args.maxReclaimBytes ?? args["max-reclaim-bytes"]);
+  if (Number.isFinite(maxBytes)) policy.maxReclaimBytes = maxBytes;
+  const states = parseLifecycleList(args.state ?? args.status);
+  if (states.length) policy.reclaimStates = states;
+  return policy;
+}
+
+export function gcPlan(reg: RunRegistry, runId: string | undefined, args: Record<string, unknown>): GcPlanResult {
+  return reg.gcPlan({ scope: scopeOf(args, "home"), runId: runId || optionalString(args.runId), policy: reclaimPolicyFrom(args), now: optionalString(args.now) });
+}
+
+export function gcRun(reg: RunRegistry, runId: string | undefined, args: Record<string, unknown>): GcRunResult {
+  return reg.gcRun({
+    scope: scopeOf(args, "home"),
+    runId: runId || optionalString(args.runId),
+    policy: reclaimPolicyFrom(args),
+    now: optionalString(args.now),
+    actor: optionalString(args.actor),
+    limit: args.limit === undefined ? undefined : Number(args.limit)
+  });
+}
+
+export function gcVerify(reg: RunRegistry, runId: string, args: Record<string, unknown>): GcVerifyResult {
+  return reg.gcVerify(runId, { scope: scopeOf(args, "home") });
 }
 
 export function runHistory(reg: RunRegistry, args: Record<string, unknown>): RunHistoryResult {

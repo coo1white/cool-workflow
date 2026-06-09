@@ -35,7 +35,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
+  GcPlanEntry,
+  GcPlanResult,
+  GcRunResult,
+  GcVerifyResult,
   LoopStage,
+  ReclaimedOverlay,
+  ReclaimRefusalCode,
+  RunCapability,
+  RunCapabilityReason,
   RunHistoryEntry,
   RunHistoryResult,
   RunLifecycleState,
@@ -53,9 +61,11 @@ import {
   RunSearchQuery,
   RunSearchResult,
   RunShowResult,
+  RunTier,
   WorkflowRun
 } from "./types";
-import { createRunPaths, loadRunStateFile, readJson, writeJson } from "./state";
+import { createRunPaths, loadRunStateFile, readJson, saveCheckpoint, writeJson } from "./state";
+import { planReclamation, runReclamation, verifyReclamation, ReclamationError } from "./reclamation";
 
 export const RUN_REGISTRY_SCHEMA_VERSION = 1 as const;
 
@@ -65,16 +75,24 @@ const LIFECYCLE_STATES: RunLifecycleState[] = [
   "blocked",
   "completed",
   "failed",
-  "archived"
+  "archived",
+  "reclaimed"
 ];
 
 // POLICY defaults. Configurable; never baked into the index. archiveOlderThanDays
-// = 0 disables retention archiving (explicit selection still works).
+// = 0 disables retention archiving (explicit selection still works). The v0.1.39
+// reclamation knobs all default to RECLAIM NOTHING (back-compatible, opt-in).
 export const DEFAULT_RUN_REGISTRY_POLICY: RunRegistryPolicy = {
   schemaVersion: 1,
   archiveOlderThanDays: 0,
   archiveStates: ["completed", "failed"],
-  defaultQueuePriority: 100
+  defaultQueuePriority: 100,
+  reclaimAfterArchiveDays: 0,
+  reclaimStates: ["completed", "failed"],
+  keepSnapshots: false,
+  keepScratch: false,
+  maxReclaimRuns: 0,
+  maxReclaimBytes: 0
 };
 
 // ---------------------------------------------------------------------------
@@ -334,6 +352,18 @@ export class RunRegistry {
     const derived = deriveLifecycle(li);
     const archive = this.loadArchiveOverlay(repo).archived[run.id];
     const provenance = this.loadProvenanceOverlay(repo).links[run.id];
+    // Run Retention & Provable Reclamation (v0.1.39): the per-run reclaimed.json
+    // overlay (if any) raises the disk-tier above `archived` and downgrades the
+    // capability. Derived from source, never invented.
+    const reclaim = loadReclaimedFromDir(runDir);
+    const lastTombstone = reclaim.tombstones[reclaim.tombstones.length - 1];
+    const tier: RunTier = lastTombstone ? "reclaimed" : archive ? "archived" : "live";
+    const capability: RunCapability = lastTombstone ? lastTombstone.capability : "re-runnable";
+    const capabilityReason: RunCapabilityReason = lastTombstone
+      ? lastTombstone.capabilityReason
+      : archive
+        ? "archived-full"
+        : "live-full";
     return {
       schemaVersion: 1,
       runId: run.id,
@@ -347,11 +377,17 @@ export class RunRegistry {
       createdAt: run.createdAt,
       updatedAt: run.updatedAt,
       loopStage: run.loopStage,
-      lifecycle: archive ? "archived" : derived,
+      lifecycle: lastTombstone ? "reclaimed" : archive ? "archived" : derived,
       derivedLifecycle: derived,
       archived: Boolean(archive),
       archivedAt: archive?.archivedAt,
       archiveReason: archive?.reason,
+      tier,
+      capability,
+      capabilityReason,
+      reclaimedAt: lastTombstone?.reclaimedAt,
+      reclaimedBytes: reclaim.tombstones.reduce((sum, t) => sum + (t.bytesFreed || 0), 0) || undefined,
+      tombstoneHash: lastTombstone?.tombstoneHash,
       tasks: {
         total: li.total,
         pending: li.pending,
@@ -721,6 +757,226 @@ export class RunRegistry {
     return { policy, archived: archived.sort(), eligible: eligible.length };
   }
 
+  // ---- Run Retention & Provable Reclamation (v0.1.39) ----------------------
+  // A small, verifiable GC built on the archive overlay. `gc plan` is a pure
+  // dry-run (frees nothing); `gc run` executes the write-ahead reclamation
+  // transaction (skeleton → tombstone → fsync → free); `gc verify` re-proves a
+  // reclaimed run independently. Eligibility is explicit and fail-closed.
+
+  /** Resolve the effective reclamation policy (defaults reclaim NOTHING). */
+  reclamationPolicy(overrides: Partial<RunRegistryPolicy> = {}): RunRegistryPolicy {
+    return { ...DEFAULT_RUN_REGISTRY_POLICY, ...overrides };
+  }
+
+  /** Fail-closed eligibility: terminal AND archived AND no open feedback AND past
+   *  retention. Returns the matching refusal code, or null when eligible. Reads
+   *  the live-source-derived record; order yields distinct, stable codes. */
+  private reclaimEligibility(record: RunRecord, policy: RunRegistryPolicy, nowMs: number): ReclaimRefusalCode | null {
+    if (record.tier === "reclaimed") return "already-reclaimed";
+    const terminalStates = policy.reclaimStates && policy.reclaimStates.length ? policy.reclaimStates : ["completed", "failed"];
+    if (record.derivedLifecycle !== "completed" && record.derivedLifecycle !== "failed") return "non-terminal";
+    if (!terminalStates.includes(record.derivedLifecycle)) return "non-terminal";
+    if (record.openFeedbackCount > 0) return "open-feedback";
+    if (!record.archived) return "not-archived";
+    const days = policy.reclaimAfterArchiveDays ?? 0;
+    if (days > 0) {
+      const archivedAtMs = record.archivedAt ? Date.parse(record.archivedAt) : NaN;
+      if (!Number.isFinite(archivedAtMs)) return "within-retention";
+      if (archivedAtMs > nowMs - days * 24 * 60 * 60 * 1000) return "within-retention";
+    }
+    return null;
+  }
+
+  /** Resolve a single run to a one-element record list via locate() (repo-first),
+   *  avoiding a full-registry scan for single-run gc plan/run. */
+  private recordsForRunId(runId: string, scope: "repo" | "home"): RunRecord[] {
+    const located = this.locate(runId, scope);
+    return located ? [located.record] : [];
+  }
+
+  /** Dry-run: compute eligible runs, per-kind bytes that WOULD be freed, and the
+   *  capability downgrade. Frees NOTHING. */
+  gcPlan(options: { scope?: "repo" | "home"; runId?: string; policy?: Partial<RunRegistryPolicy>; now?: string } = {}): GcPlanResult {
+    const scope = options.scope || "home";
+    const policy = this.reclamationPolicy(options.policy);
+    const nowIso = options.now || new Date().toISOString();
+    const nowMs = Date.parse(nowIso);
+    // Fast, deterministic single-run path: resolve just that run via locate()
+    // (repo-first) so a home-scope plan never re-scans the whole registry.
+    const records = options.runId ? this.recordsForRunId(options.runId, scope) : this.buildIndex(scope).records;
+    const entries: GcPlanEntry[] = [];
+    let bytesToFree = 0;
+    let eligibleCount = 0;
+    for (const record of records) {
+      const refusal = this.reclaimEligibility(record, policy, nowMs);
+      let plan;
+      try {
+        const run = this.loadRun(record.repo, record.runId);
+        plan = planReclamation(run, { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots });
+      } catch {
+        entries.push({
+          runId: record.runId,
+          repo: record.repo,
+          eligible: false,
+          reason: "unreadable",
+          tier: record.tier || "live",
+          capability: record.capability || "re-runnable",
+          capabilityReason: record.capabilityReason || "live-full",
+          bytesToFree: 0,
+          byKind: {},
+          freeable: []
+        });
+        continue;
+      }
+      const eligible = refusal === null;
+      const entry: GcPlanEntry = {
+        runId: record.runId,
+        repo: record.repo,
+        eligible,
+        reason: eligible ? "eligible" : refusal!,
+        tier: record.tier || "live",
+        capability: plan.capability,
+        capabilityReason: plan.capabilityReason,
+        bytesToFree: eligible ? plan.bytesToFree : 0,
+        byKind: eligible ? plan.byKind : {},
+        freeable: eligible ? plan.freeable.map((f) => ({ path: f.path, kind: f.kind, bytes: f.bytes })) : []
+      };
+      entries.push(entry);
+      if (eligible) {
+        eligibleCount += 1;
+        bytesToFree += plan.bytesToFree;
+      }
+    }
+    return {
+      schemaVersion: 1,
+      scope,
+      generatedAt: nowIso,
+      policy: {
+        reclaimAfterArchiveDays: policy.reclaimAfterArchiveDays ?? 0,
+        keepSnapshots: Boolean(policy.keepSnapshots),
+        keepScratch: Boolean(policy.keepScratch),
+        reclaimStates: policy.reclaimStates && policy.reclaimStates.length ? policy.reclaimStates : ["completed", "failed"]
+      },
+      total: entries.length,
+      eligibleCount,
+      bytesToFree,
+      entries,
+      nextAction: eligibleCount ? "node scripts/cw.js gc run" : "node scripts/cw.js run search"
+    };
+  }
+
+  /** Execute the write-ahead reclamation transaction for eligible runs. Bounded
+   *  (`maxReclaimRuns` / `maxReclaimBytes`), fail-closed on any incomplete
+   *  skeleton. Produces a tombstone and frees the bulk. */
+  gcRun(options: { scope?: "repo" | "home"; runId?: string; policy?: Partial<RunRegistryPolicy>; now?: string; actor?: string; limit?: number } = {}): GcRunResult {
+    const scope = options.scope || "home";
+    const policy = this.reclamationPolicy(options.policy);
+    const nowIso = options.now || new Date().toISOString();
+    const nowMs = Date.parse(nowIso);
+    const records = options.runId ? this.recordsForRunId(options.runId, scope) : this.buildIndex(scope).records;
+    const maxRuns = options.limit ?? (policy.maxReclaimRuns || 0);
+    const maxBytes = policy.maxReclaimBytes || 0;
+    const reclaimed: GcRunResult["reclaimed"] = [];
+    const refused: GcRunResult["refused"] = [];
+    let totalBytesFreed = 0;
+    for (const record of records) {
+      const refusal = this.reclaimEligibility(record, policy, nowMs);
+      if (refusal) {
+        refused.push({ runId: record.runId, code: refusal });
+        continue;
+      }
+      if (maxRuns > 0 && reclaimed.length >= maxRuns) break;
+      let run: WorkflowRun;
+      try {
+        run = this.loadRun(record.repo, record.runId);
+      } catch {
+        refused.push({ runId: record.runId, code: "unreadable" });
+        continue;
+      }
+      try {
+        const result = runReclamation(run, {
+          now: nowIso,
+          actor: options.actor,
+          policy: { reclaimAfterArchiveDays: policy.reclaimAfterArchiveDays, keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots },
+          reclaimPolicy: { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots }
+        });
+        // Persist any result-node artifact re-point so no surviving node refers to
+        // a freed path on next load.
+        saveCheckpoint(run);
+        reclaimed.push({
+          runId: record.runId,
+          bytesFreed: result.bytesFreed,
+          tombstoneHash: result.tombstone.tombstoneHash,
+          capability: result.tombstone.capability,
+          capabilityReason: result.tombstone.capabilityReason
+        });
+        totalBytesFreed += result.bytesFreed;
+        if (maxBytes > 0 && totalBytesFreed >= maxBytes) break;
+      } catch (error) {
+        if (error instanceof ReclamationError) refused.push({ runId: record.runId, code: error.code as ReclaimRefusalCode });
+        else throw error;
+      }
+    }
+    return {
+      schemaVersion: 1,
+      scope,
+      generatedAt: nowIso,
+      dryRun: false,
+      reclaimed,
+      refused,
+      totalBytesFreed,
+      nextAction: reclaimed.length ? "node scripts/cw.js gc verify <run-id>" : "node scripts/cw.js gc plan"
+    };
+  }
+
+  /** Re-prove a reclaimed run: skeleton schema-complete, tombstone chain
+   *  recomputed-and-untampered, each reconstructable artifact re-derived from its
+   *  RETAINED inputs to its expectDigest, and eligible-when-reclaimed. */
+  gcVerify(runId: string, options: { scope?: "repo" | "home" } = {}): GcVerifyResult {
+    const scope = options.scope || "home";
+    const located = this.locate(runId, scope);
+    if (!located) {
+      return {
+        schemaVersion: 1,
+        runId,
+        reclaimed: false,
+        verified: false,
+        tier: "live",
+        capability: "re-runnable",
+        chainLength: 0,
+        checks: [{ name: "located", pass: false, code: "not-reclaimed", detail: "run source not found" }],
+        nextAction: "node scripts/cw.js registry refresh" + (scope === "home" ? " --scope home" : "")
+      };
+    }
+    const run = this.loadRun(located.record.repo, runId);
+    const result = verifyReclamation(run);
+    const checks = result.checks.map((c) => ({ name: c.name, pass: c.pass, code: c.code as GcVerifyResult["checks"][number]["code"], detail: c.detail }));
+    // Eligible-when-reclaimed: each tombstone must have sealed a terminal verdict.
+    let eligibleWhenReclaimed = result.reclaimed;
+    for (const tombstone of result.tombstones) {
+      const terminal = tombstone.skeleton.finalVerdict?.terminal === true;
+      if (!terminal) {
+        eligibleWhenReclaimed = false;
+        checks.push({ name: `eligible-when-reclaimed:${tombstone.tombstoneId}`, pass: false, code: "ineligible-when-reclaimed", detail: "non-terminal verdict sealed" });
+      }
+    }
+    const last = result.tombstones[result.tombstones.length - 1];
+    const verified = result.verified && eligibleWhenReclaimed;
+    return {
+      schemaVersion: 1,
+      runId,
+      reclaimed: result.reclaimed,
+      verified,
+      tier: located.record.tier || (result.reclaimed ? "reclaimed" : "live"),
+      capability: located.record.capability || "re-runnable",
+      capabilityReason: located.record.capabilityReason,
+      tombstoneHash: last?.tombstoneHash,
+      chainLength: result.tombstones.length,
+      checks,
+      nextAction: verified ? "node scripts/cw.js run show " + runId : "node scripts/cw.js gc plan"
+    };
+  }
+
   // ---- rerun (NEW run linked to the original; original preserved) ---------
   rerun(runId: string, options: { reason?: string; scope?: "repo" | "home" } = {}): RunRerunResult {
     if (!this.planner) throw new Error("rerun requires a run planner (CoolWorkflowRunner)");
@@ -974,7 +1230,8 @@ function countRecords(records: RunRecord[]): RunRegistryCounts {
     blocked: 0,
     completed: 0,
     failed: 0,
-    archived: 0
+    archived: 0,
+    reclaimed: 0
   };
   for (const record of records) {
     counts[record.lifecycle] = (counts[record.lifecycle] || 0) + 1;
@@ -1004,12 +1261,25 @@ export function isRunLifecycleState(value: unknown): value is RunLifecycleState 
   return typeof value === "string" && (LIFECYCLE_STATES as string[]).includes(value);
 }
 
+/** Read a run dir's `reclaimed.json` overlay (v0.1.39). Fail-closed to an empty
+ *  chain on absence/corruption — a malformed overlay must never brick the run. */
+function loadReclaimedFromDir(runDir: string): ReclaimedOverlay {
+  const file = path.join(runDir, "reclaimed.json");
+  if (!fs.existsSync(file)) return { schemaVersion: 1, runId: "", tombstones: [] };
+  try {
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as ReclaimedOverlay;
+    return { schemaVersion: 1, runId: parsed.runId || "", tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [] };
+  } catch {
+    return { schemaVersion: 1, runId: "", tombstones: [] };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Human formatting (CLI-only; never affects --json / MCP payloads)
 // ---------------------------------------------------------------------------
 
 function countsLine(counts: RunRegistryCounts): string {
-  return `total=${counts.total} queued=${counts.queued} running=${counts.running} blocked=${counts.blocked} completed=${counts.completed} failed=${counts.failed} archived=${counts.archived}`;
+  return `total=${counts.total} queued=${counts.queued} running=${counts.running} blocked=${counts.blocked} completed=${counts.completed} failed=${counts.failed} archived=${counts.archived} reclaimed=${counts.reclaimed}`;
 }
 
 function recordLine(record: RunRecord): string {
@@ -1047,6 +1317,42 @@ export function formatRunShow(result: RunShowResult): string {
     `  commits=${r.commitCount} (verifier-gated=${r.verifierGatedCommitCount}) openFeedback=${r.openFeedbackCount}`
   ];
   if (r.provenance?.rerunOf) lines.push(`  provenance: rerunOf=${r.provenance.rerunOf} gen=${r.provenance.generation} origin=${r.provenance.originRunId}`);
+  if (r.tier && r.tier !== "live") {
+    lines.push(`  tier=${r.tier} capability=${r.capability} reason=${r.capabilityReason}${r.reclaimedBytes ? ` bytesFreed=${r.reclaimedBytes}` : ""}${r.tombstoneHash ? ` tombstone=${r.tombstoneHash.slice(0, 19)}` : ""}`);
+  }
+  return lines.join("\n");
+}
+
+export function formatGcPlan(result: GcPlanResult): string {
+  const lines = [
+    `GC Plan (${result.scope}): ${result.eligibleCount}/${result.total} eligible, ${result.bytesToFree} byte(s) would be freed [DRY-RUN, frees nothing]`,
+    `  policy: reclaimAfterArchiveDays=${result.policy.reclaimAfterArchiveDays} keepScratch=${result.policy.keepScratch} keepSnapshots=${result.policy.keepSnapshots}`
+  ];
+  for (const entry of result.entries) {
+    if (entry.eligible) {
+      const kinds = Object.entries(entry.byKind).map(([k, v]) => `${k}=${v}`).join(" ");
+      lines.push(`  [eligible] ${entry.runId} -> ${entry.capability} (${entry.capabilityReason}) ${entry.bytesToFree}B {${kinds}}`);
+    } else {
+      lines.push(`  [skip:${entry.reason}] ${entry.runId} (tier=${entry.tier})`);
+    }
+  }
+  if (!result.entries.length) lines.push("  (no runs in scope)");
+  return lines.join("\n");
+}
+
+export function formatGcRun(result: GcRunResult): string {
+  const lines = [`GC Run (${result.scope}): reclaimed ${result.reclaimed.length} run(s), freed ${result.totalBytesFreed} byte(s)`];
+  for (const r of result.reclaimed) lines.push(`  [reclaimed] ${r.runId} -> ${r.capability} (${r.capabilityReason}) ${r.bytesFreed}B tombstone=${r.tombstoneHash.slice(0, 19)}`);
+  for (const r of result.refused) lines.push(`  [refused:${r.code}] ${r.runId}`);
+  if (!result.reclaimed.length && !result.refused.length) lines.push("  (nothing eligible)");
+  return lines.join("\n");
+}
+
+export function formatGcVerify(result: GcVerifyResult): string {
+  const lines = [
+    `GC Verify ${result.runId}: reclaimed=${result.reclaimed} verified=${result.verified} tier=${result.tier} capability=${result.capability}${result.tombstoneHash ? ` tombstone=${result.tombstoneHash.slice(0, 19)}` : ""}`
+  ];
+  for (const check of result.checks) lines.push(`  ${check.pass ? "PASS" : "FAIL"} ${check.name}${check.code ? ` [${check.code}]` : ""}${check.detail ? ` (${check.detail})` : ""}`);
   return lines.join("\n");
 }
 

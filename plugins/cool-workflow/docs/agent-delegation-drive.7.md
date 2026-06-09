@@ -149,3 +149,7 @@ additive and optional; older run state loads unchanged. No `.cw/` layout change.
 execution-backends(7), real-execution-backends(7), node-snapshot-diff-replay(7),
 control-plane-scheduling(7), dogfood-one-real-repo(7), cli-mcp-parity(7),
 observability-cost-accounting(7)
+
+## Run Retention & Provable Reclamation (v0.1.39)
+
+tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it
