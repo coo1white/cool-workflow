@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { isContainedPath } from "./state";
 import {
   ResolvedSandboxPolicy,
   SandboxCommandPolicy,
@@ -340,7 +341,10 @@ function validateSandboxPathAccess(
     return denied(`sandbox-${mode}-denied`, `Worker ${workerId} ${mode} path is malformed: ${rawPath}`, rawPath, allowedPaths);
   }
   const candidate = path.resolve(rawPath);
-  const insideAllowedPath = allowedPaths.some((allowed) => candidate === allowed || candidate.startsWith(`${allowed}${path.sep}`));
+  // Symlink-hardened (v0.1.40 self-audit P1): isContainedPath realpaths both sides
+  // so a planted symlink whose textual path looks "inside" an allowed root but
+  // whose real target escapes it is denied, not silently accepted.
+  const insideAllowedPath = allowedPaths.some((allowed) => isContainedPath(candidate, allowed));
   if (!insideAllowedPath) {
     return denied(`sandbox-${mode}-denied`, `Worker ${workerId} ${mode} path is outside sandbox profile ${policy.id}: ${candidate}`, candidate, allowedPaths);
   }

@@ -146,6 +146,61 @@ export function writeJson(file: string, value: unknown, options: { durable?: boo
 }
 
 // ---------------------------------------------------------------------------
+// Durable append (v0.1.40 self-audit P1) — append a line and fsync it before
+// returning. The trust-audit event log is the ONE artifact whose loss breaks
+// audit-completeness/non-repudiation, so unlike high-frequency derived writes it
+// must survive power loss. `appendFileSync` alone does NOT fsync, so a crash
+// after it returns could drop the most recent event while durable state.json
+// advanced past it. We open O_APPEND, write, fsync the fd, then close.
+// ---------------------------------------------------------------------------
+
+export function durableAppendFileSync(file: string, data: string): void {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const fd = fs.openSync(file, "a");
+  try {
+    fs.writeFileSync(fd, data, "utf8");
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Symlink-hardened path containment (v0.1.40 self-audit P1) — `path.resolve()`
+// only normalizes `.`/`..` textually; it does NOT follow symlinks, so a planted
+// symlink whose textual path sits "inside" an allowed root but whose real target
+// escapes it would pass a `startsWith` containment check. `realResolve` resolves
+// the deepest EXISTING ancestor with `realpathSync` (which follows symlinks) and
+// re-joins the not-yet-created remainder, so a not-yet-created file is still
+// pinned to its real parent. `isContainedPath` realpaths BOTH sides so the
+// comparison stays consistent on platforms where the temp root itself is a
+// symlink (e.g. macOS /tmp -> /private/tmp).
+// ---------------------------------------------------------------------------
+
+export function realResolve(target: string): string {
+  let current = path.resolve(target);
+  const tail: string[] = [];
+  // Walk up to the deepest existing ancestor, realpath it, then re-append the tail.
+  for (;;) {
+    try {
+      const real = fs.realpathSync.native ? fs.realpathSync.native(current) : fs.realpathSync(current);
+      return tail.length ? path.join(real, ...tail.reverse()) : real;
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) return path.resolve(target); // reached root; nothing existed
+      tail.push(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+export function isContainedPath(candidate: string, allowed: string): boolean {
+  const realCandidate = realResolve(candidate);
+  const realAllowed = realResolve(allowed);
+  return realCandidate === realAllowed || realCandidate.startsWith(realAllowed + path.sep);
+}
+
+// ---------------------------------------------------------------------------
 // Portable advisory file lock (v0.1.40) — serialize cross-process read-modify-
 // write on shared stores (home queue, scheduler store, archive overlay, the
 // per-run reclamation chain) so a concurrent writer can never lose a record.

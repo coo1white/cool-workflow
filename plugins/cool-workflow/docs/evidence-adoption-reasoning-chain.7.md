@@ -241,3 +241,7 @@ tiered, append-only, cryptographically-verifiable run reclamation: seal the audi
 ## Durable State & Locking (v0.1.40)
 
 atomic temp->rename writes + fsync-durability for authoritative stores; portable stale-stealing file lock serializing the cross-process read-modify-write stores
+
+## Self-Audit Hardening & Pure-Router Decomposition (v0.1.41)
+
+evidence grounding + durable audit append + symlink-hardened containment + deterministic worker ids + recursive redaction; BackendRegistry self-describing drivers (no per-id switches); orchestrator god-object decomposed into per-domain operation modules (pure loadRun->delegate router)

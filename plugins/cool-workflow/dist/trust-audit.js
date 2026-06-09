@@ -88,7 +88,10 @@ function recordTrustAuditEvent(run, input) {
         parentEventIds: unique(input.parentEventIds || []).sort(),
         metadata: scrubMetadata(input.metadata || {})
     });
-    node_fs_1.default.appendFileSync(audit.eventLogPath, `${JSON.stringify(event)}\n`, "utf8");
+    // DURABLE append (v0.1.40 self-audit P1): the audit log is the one artifact
+    // whose loss breaks audit-completeness, so fsync it before returning — never a
+    // bare appendFileSync, which can drop the last event on power loss.
+    (0, state_1.durableAppendFileSync)(audit.eventLogPath, `${JSON.stringify(event)}\n`);
     refreshTrustAudit(run);
     return event;
 }
@@ -194,7 +197,10 @@ function summarizeTrustAudit(run) {
             policyViolations: events.filter((event) => event.kind === "policy.violation").length
         }
     };
-    (0, state_1.writeJson)(audit.summaryPath, summary);
+    // Durable (v0.1.40 self-audit P1): the summary/index are the read-side view of
+    // the audit log; persist them durably so a crash can't leave them pointing past
+    // the last durably-appended event.
+    (0, state_1.writeJson)(audit.summaryPath, summary, { durable: true });
     (0, state_1.writeJson)(audit.indexPath, {
         schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
         runId: run.id,
@@ -228,7 +234,7 @@ function summarizeTrustAudit(run) {
             policyRef: event.policyRef,
             multiAgentPolicyRef: event.multiAgentPolicyRef
         }))
-    });
+    }, { durable: true });
     run.audit = audit;
     return summary;
 }

@@ -1,232 +1,41 @@
 import fs from "node:fs";
 import path from "node:path";
-import {
-  AgentDelegationInput,
-  CollaborationTarget,
-  CommentRecord,
-  DispatchManifest,
-  LoadedWorkflowApp,
-  MetricsReport,
-  ReviewStatusReport,
-  RunSummary,
-  RunTask,
-  WorkflowAppSummary,
-  WorkflowAppValidationResult,
-  WorkflowDefinition,
-  WorkflowRun
-} from "./types";
+import { CommentRecord, DispatchManifest, LoadedWorkflowApp, MetricsReport, ReviewStatusReport, RunSummary, WorkflowAppSummary, WorkflowAppValidationResult, WorkflowDefinition, WorkflowRun } from "./types";
 import { slugify } from "./workflow-api";
-import {
-  WorkflowAppValidationError,
-  loadWorkflowAppFromEntrypoint,
-  loadWorkflowAppFromManifest,
-  renderWorkflowAppEntrypointTemplate,
-  renderWorkflowAppManifestTemplate,
-  renderWorkflowAppTemplate,
-  summarizeWorkflowApp,
-  validateWorkflowApp,
-  workflowAppRunMetadata
-} from "./workflow-app-sdk";
-import { createDispatchManifest, nextDispatchTasks, updatePhaseStatuses } from "./dispatch";
-import { writeTaskFiles } from "./harness";
-import { commitState } from "./commit";
-import { assertTaskCanComplete, parseResultEnvelope, validateResultEnvelope, validateRunGates } from "./verifier";
-import {
-  createRunPaths,
-  ensureRunDirs,
-  loadRunFromCwd,
-  migrateRunStateFile,
-  safeFileName,
-  saveCheckpoint,
-  writeJson
-} from "./state";
-import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
-import {
-  loadCostPolicy,
-  parseUsageFromArgs,
-  showMetricsReport
-} from "./observability";
-import {
-  collectRunErrors,
-  createCorrectionTask,
-  getFeedback,
-  listFeedback,
-  recordFeedback,
-  resolveFeedback,
-} from "./error-feedback";
-import {
-  appendRunNode,
-  createStateNode,
-  upsertRunContract
-} from "./state-node";
+import { WorkflowAppValidationError, loadWorkflowAppFromEntrypoint, loadWorkflowAppFromManifest, renderWorkflowAppEntrypointTemplate, renderWorkflowAppManifestTemplate, renderWorkflowAppTemplate, summarizeWorkflowApp, validateWorkflowApp, workflowAppRunMetadata } from "./workflow-app-sdk";
+import { nextDispatchTasks } from "./dispatch";
+
+import { loadRunFromCwd, saveCheckpoint, writeJson } from "./state";
+
+import { loadCostPolicy, showMetricsReport } from "./observability";
+
 import { createPipelineRunner } from "./pipeline-runner";
-import {
-  getWorkerScope,
-  listWorkerScopes,
-  recordWorkerFailure,
-  recordWorkerOutput,
-  validateWorkerBoundary,
-  writeWorkerManifest
-} from "./worker-isolation";
-import {
-  getCandidate,
-  listCandidates,
-  rankCandidates,
-  registerCandidate,
-  rejectCandidate,
-  scoreCandidate,
-  selectCandidate,
-  summarizeCandidates
-} from "./candidate-scoring";
-import {
-  buildReviewStatusReport,
-  formatCommentList,
-  formatReviewStatus,
-  listComments,
-  recordApproval,
-  recordComment,
-  recordHandoff,
-  setReviewPolicy
-} from "./collaboration";
-import {
-  listBundledSandboxProfiles,
-  sandboxContextForValidation,
-  showBundledSandboxProfile,
-  validateSandboxCommand,
-  validateSandboxNetwork,
-  validateSandboxProfileFile
-} from "./sandbox-profile";
+import { getWorkerScope, listWorkerScopes, validateWorkerBoundary, writeWorkerManifest } from "./worker-isolation";
+import { summarizeCandidates } from "./candidate-scoring";
+import { listBundledSandboxProfiles, sandboxContextForValidation, showBundledSandboxProfile, validateSandboxProfileFile } from "./sandbox-profile";
 import { backendListPayload, backendProbePayload, backendShowPayload } from "./execution-backend";
-import {
-  buildOperatorGraph,
-  summarizeOperatorCandidates,
-  summarizeOperatorCommits,
-  summarizeOperatorFeedback,
-  summarizeOperatorRun,
-  summarizeOperatorWorkers
-} from "./operator-ux";
-import {
-  ensureTrustAudit,
-  evidenceProvenance,
-  listTrustAuditEvents,
-  recordHostAttestation,
-  recordSandboxPathDecision,
-  recordSandboxPolicyDecision,
-  summarizeTrustAudit,
-  workerTrustAudit
-} from "./trust-audit";
+import { buildOperatorGraph, summarizeOperatorCandidates, summarizeOperatorCommits, summarizeOperatorFeedback, summarizeOperatorRun, summarizeOperatorWorkers } from "./operator-ux";
+import { evidenceProvenance, recordHostAttestation, recordSandboxPolicyDecision, summarizeTrustAudit, workerTrustAudit } from "./trust-audit";
 import { summarizeMultiAgentTrust } from "./multi-agent-trust";
-import {
-  assignAgentMembership,
-  buildMultiAgentGraph,
-  collectAgentFanin,
-  createAgentFanout,
-  createAgentGroup,
-  createAgentRole,
-  createMultiAgentRun,
-  ensureMultiAgentState,
-  getAgentFanin,
-  getAgentFanout,
-  getAgentGroup,
-  getAgentMembership,
-  getAgentRole,
-  getMultiAgentRun,
-  summarizeMultiAgent,
-  transitionMultiAgentRun
-} from "./multi-agent";
-import {
-  addBlackboardArtifact,
-  buildBlackboardGraph,
-  createBlackboardSnapshot,
-  createBlackboardTopic,
-  listBlackboardArtifacts,
-  listBlackboardMessages,
-  postBlackboardMessage,
-  putBlackboardContext,
-  recordCoordinatorDecision,
-  resolveBlackboard,
-  summarizeBlackboard
-} from "./coordinator";
-import {
-  applyTopology,
-  buildTopologyGraph,
-  ensureTopologyState,
-  getTopologyDefinition,
-  listTopologyDefinitions,
-  showTopologyRun,
-  summarizeTopologies,
-  validateTopologyDefinition
-} from "./topology";
-import {
-  hostBlackboard,
-  hostRun,
-  hostScore,
-  hostSelect,
-  hostStatus,
-  hostStep
-} from "./multi-agent-host";
-import {
-  buildMultiAgentOperatorGraph,
-  summarizeMultiAgentOperator
-} from "./multi-agent-operator-ux";
-import {
-  compareMultiAgentReplay,
-  createMultiAgentReplaySnapshot,
-  gateMultiAgentEval,
-  replayMultiAgentSnapshot,
-  reportMultiAgentEval,
-  scoreMultiAgentReplay
-} from "./multi-agent-eval";
-import {
-  snapshotNode,
-  diffNodeSnapshots,
-  replayNodeSnapshot,
-  verifyNodeReplay,
-  readNodeSnapshot,
-  readNodeReplay
-} from "./node-snapshot";
-import { listMigrationContracts, checkMigration, proveMigration, MigrationContractId } from "./contract-migration";
-import {
-  buildCompactGraph,
-  buildStateExplosionReport,
-  loadStateExplosionSummaryIndex,
-  refreshStateExplosionSummaries,
-  showStateExplosionSummary,
-  summarizeBlackboardDigest
-} from "./state-explosion";
-import {
-  buildEvidenceReasoningReport,
-  loadEvidenceReasoningIndex,
-  refreshEvidenceReasoning,
-  showEvidenceReasoning
-} from "./evidence-reasoning";
+import { buildMultiAgentGraph, summarizeMultiAgent } from "./multi-agent";
+
+import { buildMultiAgentOperatorGraph, summarizeMultiAgentOperator } from "./multi-agent-operator-ux";
+import { compareMultiAgentReplay, createMultiAgentReplaySnapshot, gateMultiAgentEval, replayMultiAgentSnapshot, reportMultiAgentEval, scoreMultiAgentReplay } from "./multi-agent-eval";
+import { snapshotNode, diffNodeSnapshots, replayNodeSnapshot, verifyNodeReplay, readNodeSnapshot, readNodeReplay } from "./node-snapshot";
+
+import { buildCompactGraph, buildStateExplosionReport, loadStateExplosionSummaryIndex, refreshStateExplosionSummaries, showStateExplosionSummary, summarizeBlackboardDigest } from "./state-explosion";
+import { buildEvidenceReasoningReport, loadEvidenceReasoningIndex, refreshEvidenceReasoning, showEvidenceReasoning } from "./evidence-reasoning";
 import { summarizeRun, writeReport } from "./orchestrator/report";
-import {
-  actorInputFrom,
-  arrayOption,
-  collaborationTarget,
-  collaborationTargetMaybe,
-  firstDefined,
-  graphViewOption,
-  graphViewsOption,
-  inferAuditDecisionKind,
-  isMissing,
-  isSandboxProfileError,
-  mergeEvidence,
-  metadataOption,
-  numberOption,
-  parseBlackboardAuthor,
-  parseBlackboardLinks,
-  parseBlackboardScope,
-  parseCriteria,
-  parseEvidence,
-  parseSandboxChoices,
-  requiredStringOption,
-  stringOption,
-  validationIssuesFromError,
-  valuesOption,
-  withoutHostRunKeys
-} from "./orchestrator/cli-options";
+import { graphViewOption, graphViewsOption, numberOption, stringOption, validationIssuesFromError, withoutHostRunKeys } from "./orchestrator/cli-options";
+import * as auditOps from "./orchestrator/audit-operations";
+import * as candidateOps from "./orchestrator/candidate-operations";
+import * as collaborationOps from "./orchestrator/collaboration-operations";
+import * as maOps from "./orchestrator/multi-agent-operations";
+import * as hostOps from "./orchestrator/host-operations";
+import * as feedbackOps from "./orchestrator/feedback-operations";
+import * as topologyOps from "./orchestrator/topology-operations";
+import * as lifecycleOps from "./orchestrator/lifecycle-operations";
+import * as migrationOps from "./orchestrator/migration-operations";
 
 export class CoolWorkflowRunner {
   pluginRoot: string;
@@ -369,125 +178,11 @@ export class CoolWorkflowRunner {
     return { id, path: destination };
   }
 
+  // Core run lifecycle — delegated to ./orchestrator/lifecycle-operations. The
+  // runner resolves the workflow app record (instance-stateful) then hands the
+  // engine work to the module; the runner is now a pure router.
   plan(workflowId: string, options: Record<string, unknown>): WorkflowRun {
-    const appRecord = this.loadWorkflowAppById(workflowId);
-    const workflow = appRecord.app.workflow;
-    const inputs = normalizeInputs(options);
-    validateInputs(workflow, inputs);
-
-    const cwd = path.resolve(String(inputs.cwd || inputs.repo || process.cwd()));
-    const runId = createRunId(workflow.id);
-    const runDir = path.join(cwd, ".cw", "runs", runId);
-    const paths = createRunPaths(runDir);
-    ensureRunDirs(paths);
-
-    const tasks = flattenTasks(workflow, inputs);
-    const run: WorkflowRun = {
-      schemaVersion: 1,
-      id: runId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      cwd,
-      workflow: {
-        id: workflow.id,
-        title: workflow.title,
-        summary: workflow.summary || "",
-        limits: workflow.limits,
-        app: workflowAppRunMetadata(appRecord)
-      },
-      inputs,
-      loopStage: "interpret",
-      phases: workflow.phases.map((phase) => ({
-        id: phase.id || slugify(phase.name),
-        name: phase.name,
-        status: "pending",
-        taskIds: phase.tasks.map((task) => task.id)
-      })),
-      tasks,
-      dispatches: [],
-      commits: [],
-      paths,
-      nodes: [],
-      contracts: [],
-      feedback: [],
-      audit: {
-        schemaVersion: 1,
-        eventLogPath: paths.auditDir ? path.join(paths.auditDir, "events.jsonl") : undefined,
-        summaryPath: paths.auditDir ? path.join(paths.auditDir, "summary.json") : undefined,
-        indexPath: paths.auditDir ? path.join(paths.auditDir, "index.json") : undefined
-      },
-      workers: [],
-      sandboxProfiles: [],
-      candidates: [],
-      candidateSelections: [],
-      multiAgent: {
-        schemaVersion: 1,
-        runs: [],
-        roles: [],
-        groups: [],
-        memberships: [],
-        fanouts: [],
-        fanins: []
-      },
-      blackboard: {
-        schemaVersion: 1,
-        boards: [],
-        topics: [],
-        messages: [],
-        contexts: [],
-        artifacts: [],
-        snapshots: [],
-        decisions: []
-      },
-      topologies: {
-        schemaVersion: 1,
-        runs: []
-      }
-    };
-    ensureTrustAudit(run);
-    ensureMultiAgentState(run);
-    ensureTopologyState(run);
-
-    writeTaskFiles(run);
-    const contract = upsertRunContract(run, createDefaultPipelineContract());
-    const inputNode = appendRunNode(
-      run,
-      createStateNode({
-        id: `${run.id}:input`,
-        kind: "input",
-        status: "completed",
-        loopStage: "interpret",
-        outputs: run.inputs,
-        artifacts: [{ id: "state", kind: "json", path: run.paths.state }],
-        contractId: contract.id,
-        metadata: { workflowId: workflow.id, app: workflowAppRunMetadata(appRecord) }
-      })
-    );
-    saveCheckpoint(run);
-    const pipeline = createPipelineRunner({ contractId: contract.id, persist: false });
-    for (const task of run.tasks) {
-      const taskResult = pipeline.runPipelineStage(run, "plan", inputNode.id, {
-        outputNodeId: `${run.id}:task:${task.id}`,
-        outputStatus: "pending",
-        loopStage: "interpret",
-        artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
-        metadata: {
-          workflowId: workflow.id,
-          appId: appRecord.app.id,
-          appVersion: appRecord.app.version,
-          taskId: task.id,
-          phase: task.phase,
-          taskKind: task.kind,
-          requiresEvidence: task.requiresEvidence,
-          sandboxProfileId: task.sandboxProfileId
-        }
-      });
-      task.stateNodeId = taskResult.outputNodeId;
-    }
-    writeReport(run);
-    commitState(run, "initial-plan");
-    saveCheckpoint(run);
-    return run;
+    return lifecycleOps.plan(this.loadWorkflowAppById(workflowId), options);
   }
 
   status(runId: string): RunSummary {
@@ -503,129 +198,11 @@ export class CoolWorkflowRunner {
   }
 
   dispatch(runId: string, options: Record<string, unknown>): DispatchManifest {
-    const run = this.loadRun(runId);
-    try {
-      const manifest = createDispatchManifest(run, numberOption(options.limit), {
-        sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
-        backendId: stringOption(options.backend) || stringOption(options.backendId) || stringOption(options.executionBackend),
-        multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-        multiAgentGroupId: stringOption(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
-        multiAgentRoleId: stringOption(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
-        multiAgentFanoutId: stringOption(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"])
-      });
-      run.loopStage = "act";
-      if (manifest.dispatchId) commitState(run, `dispatch:${manifest.dispatchId}`);
-      saveCheckpoint(run);
-      writeReport(run);
-      return manifest;
-    } catch (error) {
-      if (isSandboxProfileError(error)) {
-        run.loopStage = "adjust";
-        recordFeedback(run, {
-          source: "cli",
-          error: {
-            code: error.code,
-            message: error.message,
-            at: new Date().toISOString(),
-            path: error.path,
-            retryable: false,
-            details: error.details
-          },
-          retryable: false,
-          metadata: { sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId) }
-        }, { persist: false });
-        writeReport(run);
-        saveCheckpoint(run);
-      }
-      throw error;
-    }
+    return lifecycleOps.dispatch(this.loadRun(runId), options);
   }
 
   recordResult(runId: string, taskId: string, resultPath: string, options: Record<string, unknown> = {}): RunSummary {
-    const run = this.loadRun(runId);
-    const task = run.tasks.find((candidate) => candidate.id === taskId);
-    if (!task) throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
-    // Host-attested token usage (v0.1.31), if the caller supplied it. CW records
-    // it verbatim as provenance and NEVER synthesizes it; absent ⇒ `unreported`.
-    const usage = parseUsageFromArgs(options, new Date().toISOString());
-    try {
-      assertTaskCanComplete(run, task);
-
-      const absoluteResultPath = path.resolve(resultPath);
-      if (!fs.existsSync(absoluteResultPath)) {
-        throw new Error(`Result file does not exist: ${absoluteResultPath}`);
-      }
-      const rawResult = fs.readFileSync(absoluteResultPath, "utf8");
-      run.loopStage = "observe";
-      const parsedResult = parseResultEnvelope(rawResult);
-      run.loopStage = "adjust";
-      validateResultEnvelope(task, parsedResult);
-
-      const destination = path.join(run.paths.resultsDir, `${safeFileName(taskId)}.md`);
-      fs.copyFileSync(absoluteResultPath, destination);
-      task.status = "completed";
-      task.completedAt = new Date().toISOString();
-      task.resultPath = destination;
-      task.loopStage = "observe";
-      task.result = parsedResult;
-      if (usage) task.usage = usage;
-      const resultNode = appendRunNode(
-        run,
-        createStateNode({
-          id: `${run.id}:result:${task.id}`,
-          kind: "result",
-          status: "completed",
-          loopStage: "observe",
-          inputs: { taskId: task.id, dispatchId: task.dispatchId },
-          outputs: parsedResult as unknown as Record<string, unknown>,
-          artifacts: [{ id: "result", kind: "markdown", path: destination }],
-          evidence: parsedResult.evidence.map((entry, index) => ({
-            id: `result:${index + 1}`,
-            source: "cw:result",
-            locator: entry,
-            summary: entry
-          })),
-          parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
-          contractId: DEFAULT_PIPELINE_CONTRACT_ID,
-          metadata: { taskId: task.id }
-        })
-      );
-      task.resultNodeId = resultNode.id;
-      updatePhaseStatuses(run);
-      validateRunGates(run);
-      const verifierResult = createPipelineRunner({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
-        outputNodeId: `${run.id}:verifier:${task.id}`,
-        outputStatus: "verified",
-        loopStage: "adjust",
-        outputs: { accepted: true },
-        artifacts: [{ id: "result", kind: "markdown", path: destination }],
-        evidence: resultNode.evidence.length
-          ? resultNode.evidence
-          : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
-        metadata: { taskId: task.id, resultNodeId: resultNode.id }
-      });
-      task.verifierNodeId = verifierResult.outputNodeId;
-      commitState(run, `result:${taskId}`);
-      writeReport(run);
-      saveCheckpoint(run);
-      return summarizeRun(run);
-    } catch (error) {
-      recordFeedback(run, {
-        source: "verifier",
-        error: error instanceof Error ? error : String(error),
-        taskId: task.id,
-        path: resultPath ? path.resolve(resultPath) : undefined,
-        retryable: false,
-        metadata: {
-          taskStatus: task.status,
-          dispatchId: task.dispatchId,
-          stateNodeId: task.stateNodeId,
-          resultNodeId: task.resultNodeId
-        }
-      });
-      writeReport(run);
-      throw error;
-    }
+    return lifecycleOps.recordResult(this.loadRun(runId), taskId, resultPath, options);
   }
 
   listWorkers(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listWorkerScopes> {
@@ -648,33 +225,7 @@ export class CoolWorkflowRunner {
   }
 
   recordWorkerOutput(runId: string, workerId: string, resultPath: string, options: Record<string, unknown> = {}): RunSummary {
-    const run = this.loadRun(runId);
-    const usage = parseUsageFromArgs(options, new Date().toISOString());
-    // Agent Delegation Drive (v0.1.38): the drive loop passes the agent-hop
-    // attestation through verbatim so recordWorkerOutput can fold the digests +
-    // model into provenance/trust-audit. Absent for a hand-fulfilled worker.
-    const agentDelegation = (options.agentDelegation as AgentDelegationInput | undefined) || undefined;
-    try {
-      recordWorkerOutput(run, workerId, resultPath, { persist: false, agentDelegation });
-      if (usage) {
-        const worker = getWorkerScope(run, workerId);
-        // Host-attested token usage rides on the worker record as provenance.
-        if (worker) worker.usage = usage;
-      }
-      run.loopStage = "observe";
-      updatePhaseStatuses(run);
-      validateRunGates(run);
-      commitState(run, `worker:${workerId}:result`);
-      writeReport(run);
-      saveCheckpoint(run);
-      return summarizeRun(run);
-    } catch (error) {
-      run.loopStage = "adjust";
-      updatePhaseStatuses(run);
-      writeReport(run);
-      saveCheckpoint(run);
-      throw error;
-    }
+    return lifecycleOps.recordWorkerOutput(this.loadRun(runId), workerId, resultPath, options);
   }
 
   recordWorkerFailure(
@@ -682,195 +233,55 @@ export class CoolWorkflowRunner {
     workerId: string,
     message: string,
     options: Record<string, unknown> = {}
-  ): NonNullable<ReturnType<typeof getWorkerScope>> {
-    const run = this.loadRun(runId);
-    const failure = recordWorkerFailure(
-      run,
-      workerId,
-      {
-        code: String(options.code || "worker-runtime-error"),
-        message,
-        at: new Date().toISOString(),
-        path: options.path ? path.resolve(String(options.path)) : undefined,
-        retryable: Boolean(options.retryable)
-      },
-      { persist: false }
-    );
-    run.loopStage = "adjust";
-    updatePhaseStatuses(run);
-    writeReport(run);
-    saveCheckpoint(run);
-    return failure;
+  ): ReturnType<typeof lifecycleOps.recordWorkerFailure> {
+    return lifecycleOps.recordWorkerFailure(this.loadRun(runId), workerId, message, options);
   }
 
   validateWorker(runId: string, workerId: string, targetPath?: string): ReturnType<typeof validateWorkerBoundary> {
     return validateWorkerBoundary(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
   }
 
+  // Audit domain — delegated to ./orchestrator/audit-operations (v0.1.40 P3
+  // router pattern). The runner stays the routing surface; the logic lives in the
+  // domain module. Public signatures are unchanged.
   auditSummary(runId: string): ReturnType<typeof summarizeTrustAudit> {
-    return summarizeTrustAudit(this.loadRun(runId));
+    return auditOps.auditSummary(this.loadRun(runId));
   }
 
   auditMultiAgent(runId: string): ReturnType<typeof summarizeMultiAgentTrust> {
-    return summarizeMultiAgentTrust(this.loadRun(runId));
+    return auditOps.auditMultiAgent(this.loadRun(runId));
   }
 
   auditPolicy(runId: string): Record<string, unknown> {
-    const run = this.loadRun(runId);
-    const summary = summarizeMultiAgentTrust(run);
-    return {
-      schemaVersion: 1,
-      runId,
-      rolePolicies: summary.rolePolicies,
-      permissionDecisions: summary.permissionDecisions,
-      policyViolations: summary.policyViolations,
-      nextAction: summary.nextAction
-    };
+    return auditOps.auditPolicy(this.loadRun(runId));
   }
 
   auditRole(runId: string, roleId: string): Record<string, unknown> {
-    const run = this.loadRun(runId);
-    const summary = summarizeMultiAgentTrust(run);
-    const events = listTrustAuditEvents(run).filter((event) => event.agentRoleId === roleId);
-    return {
-      schemaVersion: 1,
-      runId,
-      roleId,
-      role: run.multiAgent?.roles.find((entry) => entry.id === roleId),
-      rolePolicies: summary.rolePolicies.filter((entry) => entry.subjectId === roleId),
-      permissionDecisions: events.filter((event) => event.kind === "multi-agent.permission"),
-      blackboardWrites: events.filter((event) => event.kind === "blackboard.write"),
-      messageProvenance: events.filter((event) => event.kind === "blackboard.message-provenance"),
-      judgeRationales: events.filter((event) => event.kind === "judge.rationale"),
-      panelDecisions: events.filter((event) => event.kind === "judge.panel-decision"),
-      policyViolations: events.filter((event) => event.kind === "policy.violation"),
-      events,
-      nextAction: `node scripts/cw.js audit multi-agent ${runId} --json`
-    };
+    return auditOps.auditRole(this.loadRun(runId), roleId);
   }
 
   auditBlackboard(runId: string): Record<string, unknown> {
-    const summary = summarizeMultiAgentTrust(this.loadRun(runId));
-    return {
-      schemaVersion: 1,
-      runId,
-      blackboardWrites: summary.blackboardWrites,
-      messageProvenance: summary.messageProvenance,
-      policyViolations: summary.policyViolations.filter((event) => event.blackboardId),
-      nextAction: summary.nextAction
-    };
+    return auditOps.auditBlackboard(this.loadRun(runId));
   }
 
   auditJudge(runId: string): Record<string, unknown> {
-    const summary = summarizeMultiAgentTrust(this.loadRun(runId));
-    return {
-      schemaVersion: 1,
-      runId,
-      judgeRationales: summary.judgeRationales,
-      panelDecisions: summary.panelDecisions,
-      permissionDecisions: summary.permissionDecisions.filter((event) => String(event.metadata?.operation || "").startsWith("judge.")),
-      policyViolations: summary.policyViolations.filter((event) => String(event.metadata?.operation || "").startsWith("judge.")),
-      nextAction: summary.nextAction
-    };
+    return auditOps.auditJudge(this.loadRun(runId));
   }
 
   workerAudit(runId: string, workerId: string): ReturnType<typeof workerTrustAudit> {
-    return workerTrustAudit(this.loadRun(runId), workerId);
+    return auditOps.workerAudit(this.loadRun(runId), workerId);
   }
 
   evidenceProvenance(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof evidenceProvenance> {
-    return evidenceProvenance(this.loadRun(runId), {
-      workerId: stringOption(options.worker || options.workerId),
-      candidateId: stringOption(options.candidate || options.candidateId),
-      commitId: stringOption(options.commit || options.commitId)
-    });
+    return auditOps.auditEvidenceProvenance(this.loadRun(runId), options);
   }
 
   recordAuditAttestation(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof recordHostAttestation> {
-    const run = this.loadRun(runId);
-    const workerId = stringOption(options.worker || options.workerId);
-    const worker = workerId ? getWorkerScope(run, workerId) : undefined;
-    const event = recordHostAttestation(run, {
-      actor: stringOption(options.actor) || "host",
-      workerId,
-      taskId: worker?.taskId || stringOption(options.task || options.taskId),
-      sandboxProfileId: worker?.sandboxProfileId || stringOption(options.sandboxProfileId),
-      policySnapshot: worker?.sandboxPolicy,
-      command: stringOption(options.command),
-      networkTarget: stringOption(options.network || options.networkTarget),
-      envVars: valuesOption(options.env || options.envVar || options.envVars),
-      metadata: {
-        note: stringOption(options.note || options.message),
-        hostEnforced: options.hostEnforced === undefined ? undefined : Boolean(options.hostEnforced)
-      }
-    });
-    saveCheckpoint(run);
-    return event;
+    return auditOps.recordAuditAttestation(this.loadRun(runId), options);
   }
 
   recordAuditDecision(runId: string, workerId: string, options: Record<string, unknown> = {}): ReturnType<typeof recordSandboxPolicyDecision> {
-    const run = this.loadRun(runId);
-    const worker = getWorkerScope(run, workerId);
-    if (!worker) throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
-    const kind = stringOption(options.kind) || inferAuditDecisionKind(options);
-    const target = stringOption(options.path || options.command || options.network || options.networkTarget || options.env || options.envVar);
-    if (!target) throw new Error("Missing audit decision target: provide --path, --command, --network, or --env");
-    const policy = worker.sandboxPolicy;
-    let denied: { code: string; message: string; path?: string } | null = null;
-    if (kind === "sandbox.command") {
-      denied = policy ? validateSandboxCommand(policy, target, workerId) : null;
-    } else if (kind === "sandbox.network") {
-      denied = policy ? validateSandboxNetwork(policy, target, workerId) : null;
-    } else if (kind === "sandbox.env") {
-      const name = target.includes("=") ? target.split("=")[0] : target;
-      const allowed = Boolean(policy?.env.inherit || policy?.env.expose.includes(name));
-      denied = allowed ? null : { code: "sandbox-env-denied", message: `Worker ${workerId} env var is outside sandbox profile ${policy?.id || "unknown"}: ${name}` };
-    } else {
-      denied = validateWorkerBoundary(run, workerId, { path: target });
-    }
-    const feedbackIds: string[] = [];
-    if (denied) {
-      const failure = recordWorkerFailure(
-        run,
-        workerId,
-        {
-          code: denied.code,
-          message: denied.message,
-          at: new Date().toISOString(),
-          path: denied.path || (kind === "sandbox.path" ? path.resolve(target) : undefined),
-          retryable: false
-        },
-        { persist: false }
-      );
-      feedbackIds.push(...(failure.feedbackIds || []));
-    }
-    const event = kind === "sandbox.path"
-      ? recordSandboxPathDecision(run, {
-          workerId,
-          taskId: worker.taskId,
-          sandboxProfileId: worker.sandboxProfileId,
-          policySnapshot: policy,
-          target,
-          decision: denied ? "denied" : "allowed",
-          feedbackIds,
-          metadata: { code: denied?.code }
-        })
-      : recordSandboxPolicyDecision(run, {
-          kind,
-          decision: denied ? "denied" : "allowed",
-          workerId,
-          taskId: worker.taskId,
-          sandboxProfileId: worker.sandboxProfileId,
-          policySnapshot: policy,
-          command: kind === "sandbox.command" ? target : undefined,
-          networkTarget: kind === "sandbox.network" ? target : undefined,
-          envVars: kind === "sandbox.env" ? [target.includes("=") ? target.split("=")[0] : target] : undefined,
-          feedbackIds,
-          metadata: { code: denied?.code }
-        });
-    writeReport(run);
-    saveCheckpoint(run);
-    return event;
+    return auditOps.recordAuditDecision(this.loadRun(runId), workerId, options);
   }
 
   listSandboxProfiles(options: Record<string, unknown> = {}): ReturnType<typeof listBundledSandboxProfiles> {
@@ -899,133 +310,41 @@ export class CoolWorkflowRunner {
     return backendProbePayload(backendId, { cwd: String(options.cwd || process.cwd()) });
   }
 
-  listCandidates(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listCandidates> {
-    return listCandidates(this.loadRun(runId), {
-      status: options.status ? String(options.status) as never : undefined,
-      kind: options.kind ? String(options.kind) as never : undefined
-    });
+  // Candidate domain — delegated to ./orchestrator/candidate-operations.
+  listCandidates(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof candidateOps.listCandidates> {
+    return candidateOps.listCandidates(this.loadRun(runId), options);
   }
 
-  showCandidate(runId: string, candidateId: string): NonNullable<ReturnType<typeof getCandidate>> {
-    const candidate = getCandidate(this.loadRun(runId), candidateId);
-    if (!candidate) throw new Error(`Unknown candidate id for run ${runId}: ${candidateId}`);
-    return candidate;
+  showCandidate(runId: string, candidateId: string): ReturnType<typeof candidateOps.showCandidate> {
+    return candidateOps.showCandidate(this.loadRun(runId), candidateId);
   }
 
-  registerCandidate(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof registerCandidate> {
-    const run = this.loadRun(runId);
-    const workerId = options.worker ? String(options.worker) : undefined;
-    const worker = workerId ? getWorkerScope(run, workerId) : undefined;
-    if (workerId && !worker) throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
-    const task = worker ? run.tasks.find((candidate) => candidate.id === worker.taskId) : undefined;
-    const resultNodeId = stringOption(options.resultNode) || worker?.resultNodeId || task?.resultNodeId;
-    const verifierNodeId = stringOption(options.verifierNode) || worker?.output?.verifierNodeId || task?.verifierNodeId;
-    const resultPath = stringOption(options.resultPath) || worker?.output?.resultPath || task?.resultPath;
-    const resultNode = resultNodeId ? run.nodes?.find((node) => node.id === resultNodeId) : undefined;
-    const verifierNode = verifierNodeId ? run.nodes?.find((node) => node.id === verifierNodeId) : undefined;
-    const candidate = registerCandidate(run, {
-      id: stringOption(options.id),
-      kind: stringOption(options.kind) as never,
-      workerId,
-      taskId: stringOption(options.task) || worker?.taskId,
-      resultNodeId,
-      verifierNodeId,
-      resultPath,
-      artifacts: [
-        ...(resultPath ? [{ id: "result", kind: "markdown", path: path.resolve(resultPath) }] : []),
-        ...(worker ? [{ id: "worker", kind: "json", path: path.join(worker.workerDir, "worker.json") }] : [])
-      ] as never,
-      evidence: mergeEvidence(resultNode?.evidence || [], verifierNode?.evidence || []),
-      metadata: {
-        source: worker ? "worker" : "manual",
-        workerDir: worker?.workerDir
-      }
-    }, { persist: false });
-    writeReport(run);
-    saveCheckpoint(run);
-    return candidate;
+  registerCandidate(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof candidateOps.registerCandidate> {
+    return candidateOps.registerCandidate(this.loadRun(runId), options);
   }
 
-  scoreCandidate(runId: string, candidateId: string, options: Record<string, unknown> = {}): ReturnType<typeof scoreCandidate> {
-    const run = this.loadRun(runId);
-    const score = scoreCandidate(run, candidateId, {
-      id: stringOption(options.id),
-      scorer: stringOption(options.scorer),
-      criteria: parseCriteria(options),
-      maxTotal: numberOption(options.maxTotal || options.max),
-      verdict: stringOption(options.verdict) as never,
-      evidence: parseEvidence(options.evidence),
-      notes: stringOption(options.notes)
-    }, { persist: false });
-    writeReport(run);
-    saveCheckpoint(run);
-    return score;
+  scoreCandidate(runId: string, candidateId: string, options: Record<string, unknown> = {}): ReturnType<typeof candidateOps.scoreCandidate> {
+    return candidateOps.scoreCandidate(this.loadRun(runId), candidateId, options);
   }
 
-  rankCandidates(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof rankCandidates> {
-    const run = this.loadRun(runId);
-    const ranking = rankCandidates(run, {
-      includeRejected: Boolean(options.includeRejected),
-      policy: {
-        minNormalized: numberOption(options.minNormalized),
-        requireEvidence: options.requireEvidence === undefined ? undefined : Boolean(options.requireEvidence),
-        requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate),
-        tieBreaker: stringOption(options.tieBreaker) as never
-      }
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return ranking;
+  rankCandidates(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof candidateOps.rankCandidates> {
+    return candidateOps.rankCandidates(this.loadRun(runId), options);
   }
 
-  selectCandidate(runId: string, candidateId: string, options: Record<string, unknown> = {}): ReturnType<typeof selectCandidate> {
-    const run = this.loadRun(runId);
-    const selection = selectCandidate(run, candidateId, {
-      selectedBy: stringOption(options.by) || stringOption(options.selectedBy),
-      reason: stringOption(options.reason),
-      scoreId: stringOption(options.score),
-      allowUnverified: Boolean(options.allowUnverified)
-    }, {
-      persist: false,
-      policy: {
-        minNormalized: numberOption(options.minNormalized),
-        requireVerifierGate: options.requireVerifierGate === undefined ? undefined : Boolean(options.requireVerifierGate)
-      }
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return selection;
+  selectCandidate(runId: string, candidateId: string, options: Record<string, unknown> = {}): ReturnType<typeof candidateOps.selectCandidate> {
+    return candidateOps.selectCandidate(this.loadRun(runId), candidateId, options);
   }
 
-  rejectCandidate(runId: string, candidateId: string, reason: string): ReturnType<typeof rejectCandidate> {
-    const run = this.loadRun(runId);
-    const candidate = rejectCandidate(run, candidateId, reason, { persist: false });
-    writeReport(run);
-    saveCheckpoint(run);
-    return candidate;
+  rejectCandidate(runId: string, candidateId: string, reason: string): ReturnType<typeof candidateOps.rejectCandidate> {
+    return candidateOps.rejectCandidate(this.loadRun(runId), candidateId, reason);
   }
 
-  // ---- Team Collaboration (v0.1.32) -------------------------------------
+  // ---- Team Collaboration (v0.1.32) — delegated to ./orchestrator/collaboration-operations.
   // Append-only, host-attested (never authenticated) approvals/comments/handoffs
   // + a derived review state. Both CLI and MCP route through these methods, so
   // `cw <cmd> --json` is identical to `cw_<tool>` (the parity gate).
-
   collaborationApprove(runId: string, targetKind: string, targetId: string, options: Record<string, unknown> = {}, decision: "approve" | "reject" = "approve") {
-    const run = this.loadRun(runId);
-    const record = recordApproval(
-      run,
-      {
-        target: collaborationTarget(targetKind, targetId),
-        decision,
-        ...actorInputFrom(options),
-        rationale: stringOption(options.rationale) || stringOption(options.reason) || stringOption(options.message),
-        supersedes: stringOption(options.supersedes)
-      },
-      { persist: false }
-    );
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+    return collaborationOps.collaborationApprove(this.loadRun(runId), targetKind, targetId, options, decision);
   }
 
   collaborationReject(runId: string, targetKind: string, targetId: string, options: Record<string, unknown> = {}) {
@@ -1033,94 +352,31 @@ export class CoolWorkflowRunner {
   }
 
   collaborationComment(runId: string, targetKind: string, targetId: string, options: Record<string, unknown> = {}) {
-    const run = this.loadRun(runId);
-    const record = recordComment(
-      run,
-      {
-        target: collaborationTarget(targetKind, targetId),
-        body: stringOption(options.body) || stringOption(options.message) || stringOption(options.text) || "",
-        threadId: stringOption(options.thread) || stringOption(options.threadId),
-        parentId: stringOption(options.parent) || stringOption(options.parentId),
-        ...actorInputFrom(options)
-      },
-      { persist: false }
-    );
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+    return collaborationOps.collaborationComment(this.loadRun(runId), targetKind, targetId, options);
   }
 
-  collaborationCommentList(runId: string, options: Record<string, unknown> = {}): {
-    schemaVersion: 1;
-    surface: "collaboration";
-    runId: string;
-    target?: CollaborationTarget;
-    count: number;
-    comments: CommentRecord[];
-  } {
-    const run = this.loadRun(runId);
-    const target = collaborationTargetMaybe(stringOption(options.targetKind) || stringOption(options.kind), stringOption(options.target) || stringOption(options.targetId));
-    const comments = listComments(run, target);
-    return { schemaVersion: 1, surface: "collaboration", runId, target, count: comments.length, comments };
+  collaborationCommentList(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof collaborationOps.collaborationCommentList> {
+    return collaborationOps.collaborationCommentList(this.loadRun(runId), options);
   }
 
   collaborationHandoff(runId: string, targetKind: string, targetId: string, options: Record<string, unknown> = {}) {
-    const run = this.loadRun(runId);
-    const record = recordHandoff(
-      run,
-      {
-        target: collaborationTarget(targetKind, targetId),
-        toActor: stringOption(firstDefined(options, "to", "toActor")),
-        toActorKind: stringOption(firstDefined(options, "toKind", "to-kind", "toActorKind")),
-        toRole: stringOption(firstDefined(options, "toRole", "to-role")),
-        toDisplayName: stringOption(firstDefined(options, "toName", "to-name", "toDisplayName")),
-        toAttested: Boolean(firstDefined(options, "toAttested", "to-attested")),
-        fromActor: stringOption(firstDefined(options, "from", "fromActor")),
-        fromActorKind: stringOption(firstDefined(options, "fromKind", "from-kind", "fromActorKind")),
-        fromRole: stringOption(firstDefined(options, "fromRole", "from-role")),
-        reason: stringOption(options.reason) || stringOption(options.message) || "handoff",
-        ...actorInputFrom(options)
-      },
-      { persist: false }
-    );
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+    return collaborationOps.collaborationHandoff(this.loadRun(runId), targetKind, targetId, options);
   }
 
   reviewStatus(runId: string, options: Record<string, unknown> = {}): ReviewStatusReport {
-    const run = this.loadRun(runId);
-    const now = typeof options.now === "string" && options.now ? options.now : new Date().toISOString();
-    const target = collaborationTargetMaybe(stringOption(options.targetKind) || stringOption(options.kind), stringOption(options.target) || stringOption(options.targetId));
-    return buildReviewStatusReport(run, { now, target });
+    return collaborationOps.reviewStatus(this.loadRun(runId), options);
   }
 
   reviewPolicy(runId: string, options: Record<string, unknown> = {}) {
-    const run = this.loadRun(runId);
-    const allowSelf = firstDefined(options, "allowSelfApproval", "allow-self-approval");
-    const requireAttested = firstDefined(options, "requireAttestedActor", "require-attested-actor");
-    const policy = setReviewPolicy(
-      run,
-      {
-        requiredApprovals: numberOption(firstDefined(options, "requiredApprovals", "required-approvals", "required", "approvals")),
-        authorizedRoles: stringOption(firstDefined(options, "authorizedRoles", "authorized-roles", "roles")),
-        allowSelfApproval: allowSelf === undefined ? undefined : Boolean(allowSelf),
-        requireAttestedActor: requireAttested === undefined ? undefined : Boolean(requireAttested),
-        appliesTo: stringOption(firstDefined(options, "appliesTo", "applies-to", "targets"))
-      },
-      { persist: false }
-    );
-    writeReport(run);
-    saveCheckpoint(run);
-    return { schemaVersion: 1 as const, surface: "collaboration" as const, runId, policy };
+    return collaborationOps.reviewPolicy(this.loadRun(runId), options);
   }
 
   formatReviewStatus(report: ReviewStatusReport): string {
-    return formatReviewStatus(report);
+    return collaborationOps.formatReviewStatus(report);
   }
 
   formatCommentList(comments: CommentRecord[]): string {
-    return formatCommentList(comments);
+    return collaborationOps.formatCommentList(comments);
   }
 
   summarizeCandidateRecords(runId: string): ReturnType<typeof summarizeCandidates> {
@@ -1284,7 +540,9 @@ export class CoolWorkflowRunner {
     return buildStateExplosionReport(run, { index });
   }
 
-  hostMultiAgentRun(runId: string | undefined, options: Record<string, unknown> = {}): ReturnType<typeof hostRun> {
+  // Host multi-agent — delegated to ./orchestrator/host-operations. The runner
+  // keeps the load-or-plan policy here because it owns plan().
+  hostMultiAgentRun(runId: string | undefined, options: Record<string, unknown> = {}): ReturnType<typeof hostOps.hostMultiAgentRun> {
     const workflowId = stringOption(options.app || options.appId || options.workflow || options.workflowId);
     const run = runId
       ? this.loadRun(runId)
@@ -1292,48 +550,27 @@ export class CoolWorkflowRunner {
         ? this.plan(workflowId, withoutHostRunKeys(options))
         : undefined;
     if (!run) throw new Error("multi-agent run requires <run-id> or --app <app-id>");
-    const response = hostRun(run, options);
-    writeReport(run);
-    saveCheckpoint(run);
-    return response;
+    return hostOps.hostMultiAgentRun(run, options);
   }
 
-  hostMultiAgentStatus(runId: string): ReturnType<typeof hostStatus> {
-    const run = this.loadRun(runId);
-    writeReport(run);
-    return hostStatus(run);
+  hostMultiAgentStatus(runId: string): ReturnType<typeof hostOps.hostMultiAgentStatus> {
+    return hostOps.hostMultiAgentStatus(this.loadRun(runId));
   }
 
-  hostMultiAgentStep(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostStep> {
-    const run = this.loadRun(runId);
-    const response = hostStep(run, options);
-    writeReport(run);
-    saveCheckpoint(run);
-    return response;
+  hostMultiAgentStep(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostOps.hostMultiAgentStep> {
+    return hostOps.hostMultiAgentStep(this.loadRun(runId), options);
   }
 
-  hostMultiAgentBlackboard(runId: string, action?: string, options: Record<string, unknown> = {}): ReturnType<typeof hostBlackboard> {
-    const run = this.loadRun(runId);
-    const response = hostBlackboard(run, action, options);
-    writeReport(run);
-    saveCheckpoint(run);
-    return response;
+  hostMultiAgentBlackboard(runId: string, action?: string, options: Record<string, unknown> = {}): ReturnType<typeof hostOps.hostMultiAgentBlackboard> {
+    return hostOps.hostMultiAgentBlackboard(this.loadRun(runId), action, options);
   }
 
-  hostMultiAgentScore(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostScore> {
-    const run = this.loadRun(runId);
-    const response = hostScore(run, options);
-    writeReport(run);
-    saveCheckpoint(run);
-    return response;
+  hostMultiAgentScore(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostOps.hostMultiAgentScore> {
+    return hostOps.hostMultiAgentScore(this.loadRun(runId), options);
   }
 
-  hostMultiAgentSelect(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostSelect> {
-    const run = this.loadRun(runId);
-    const response = hostSelect(run, options);
-    writeReport(run);
-    saveCheckpoint(run);
-    return response;
+  hostMultiAgentSelect(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof hostOps.hostMultiAgentSelect> {
+    return hostOps.hostMultiAgentSelect(this.loadRun(runId), options);
   }
 
   evalSnapshot(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createMultiAgentReplaySnapshot> {
@@ -1381,494 +618,180 @@ export class CoolWorkflowRunner {
   }
 
   // ---- contract migration (v0.1.36) ---------------------------------------
-  migrationList(): { contracts: ReturnType<typeof listMigrationContracts> } {
-    return { contracts: listMigrationContracts() };
+  // Contract migration — delegated to ./orchestrator/migration-operations.
+  migrationList(): ReturnType<typeof migrationOps.migrationList> {
+    return migrationOps.migrationList();
   }
 
-  migrationCheck(target: string, options: Record<string, unknown> = {}): ReturnType<typeof checkMigration> {
-    const { snapshot, contract } = this.loadMigrationSnapshot(target, options);
-    return checkMigration(contract, snapshot);
+  migrationCheck(target: string, options: Record<string, unknown> = {}): ReturnType<typeof migrationOps.migrationCheck> {
+    return migrationOps.migrationCheck(target, options);
   }
 
-  migrationProve(target: string, options: Record<string, unknown> = {}): ReturnType<typeof proveMigration> {
-    const { snapshot, contract, dir } = this.loadMigrationSnapshot(target, options);
-    const proof = proveMigration(contract, snapshot);
-    // Append-only: persist the proof beside the target, NEVER overwriting source.
-    try {
-      writeJson(path.join(dir, "migration", `${proof.fingerprint.replace("sha256:", "").slice(0, 16)}.json`), proof);
-    } catch {
-      /* read-only target — the proof is still returned */
-    }
-    return proof;
+  migrationProve(target: string, options: Record<string, unknown> = {}): ReturnType<typeof migrationOps.migrationProve> {
+    return migrationOps.migrationProve(target, options);
   }
 
-  loadMigrationSnapshot(target: string, options: Record<string, unknown>): { snapshot: unknown; contract: MigrationContractId; dir: string } {
-    const contract: MigrationContractId = options.contract === "workflow-app" ? "workflow-app" : "run-state";
-    const file =
-      fs.existsSync(target) && fs.statSync(target).isFile()
-        ? path.resolve(target)
-        : path.join(process.cwd(), ".cw", "runs", target, "state.json");
-    if (!fs.existsSync(file)) throw new Error(`Migration target not found: ${target}`);
-    return { snapshot: JSON.parse(fs.readFileSync(file, "utf8")), contract, dir: path.dirname(file) };
+  loadMigrationSnapshot(target: string, options: Record<string, unknown>): ReturnType<typeof migrationOps.loadMigrationSnapshot> {
+    return migrationOps.loadMigrationSnapshot(target, options);
   }
 
-  listTopologies(): ReturnType<typeof listTopologyDefinitions> {
-    return listTopologyDefinitions();
+  // Topology — delegated to ./orchestrator/topology-operations.
+  listTopologies(): ReturnType<typeof topologyOps.listTopologies> {
+    return topologyOps.listTopologies();
   }
 
-  showTopology(topologyId: string): NonNullable<ReturnType<typeof getTopologyDefinition>> {
-    const definition = getTopologyDefinition(topologyId);
-    if (!definition) throw new Error(`Unknown topology id: ${topologyId}`);
-    return definition;
+  showTopology(topologyId: string): ReturnType<typeof topologyOps.showTopology> {
+    return topologyOps.showTopology(topologyId);
   }
 
-  validateTopology(topologyId: string): ReturnType<typeof validateTopologyDefinition> {
-    return validateTopologyDefinition(topologyId);
+  validateTopology(topologyId: string): ReturnType<typeof topologyOps.validateTopology> {
+    return topologyOps.validateTopology(topologyId);
   }
 
-  applyTopology(runId: string, topologyId: string, options: Record<string, unknown> = {}): ReturnType<typeof applyTopology> {
-    const run = this.loadRun(runId);
-    const record = applyTopology(run, topologyId, {
-      id: stringOption(options.id),
-      title: stringOption(options.title),
-      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
-      mapperCount: numberOption(options.mapperCount || options["mapper-count"] || options.mappers || options.mapper),
-      judgeCount: numberOption(options.judgeCount || options["judge-count"] || options.judges || options.judge),
-      debateRounds: numberOption(options.debateRounds || options["debate-rounds"] || options.rounds),
-      collectInitialFanin: Boolean(options.collectInitialFanin || options["collect-initial-fanin"]),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+  applyTopology(runId: string, topologyId: string, options: Record<string, unknown> = {}): ReturnType<typeof topologyOps.applyTopology> {
+    return topologyOps.applyTopology(this.loadRun(runId), topologyId, options);
   }
 
-  showTopologyRun(runId: string, topologyRunId: string): ReturnType<typeof showTopologyRun> {
-    return showTopologyRun(this.loadRun(runId), topologyRunId);
+  showTopologyRun(runId: string, topologyRunId: string): ReturnType<typeof topologyOps.showTopologyRun> {
+    return topologyOps.showTopologyRun(this.loadRun(runId), topologyRunId);
   }
 
-  topologySummary(runId: string): ReturnType<typeof summarizeTopologies> {
-    return summarizeTopologies(this.loadRun(runId));
+  topologySummary(runId: string): ReturnType<typeof topologyOps.topologySummary> {
+    return topologyOps.topologySummary(this.loadRun(runId));
   }
 
-  topologyGraph(runId: string): ReturnType<typeof buildTopologyGraph> {
-    return buildTopologyGraph(this.loadRun(runId));
+  topologyGraph(runId: string): ReturnType<typeof topologyOps.topologyGraph> {
+    return topologyOps.topologyGraph(this.loadRun(runId));
   }
 
-  createMultiAgentRun(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createMultiAgentRun> {
-    const run = this.loadRun(runId);
-    const record = createMultiAgentRun(run, {
-      id: stringOption(options.id),
-      title: stringOption(options.title),
-      objective: stringOption(options.objective || options.reason),
-      parentMultiAgentRunId: stringOption(options.parent || options.parentMultiAgentRunId),
-      phase: stringOption(options.phase),
-      phaseId: stringOption(options.phaseId),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+  // Multi-agent lifecycle + blackboard — delegated to ./orchestrator/multi-agent-operations.
+  createMultiAgentRun(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.createMultiAgentRun> {
+    return maOps.createMultiAgentRun(this.loadRun(runId), options);
   }
 
-  transitionMultiAgentRun(runId: string, multiAgentRunId: string, options: Record<string, unknown> = {}): ReturnType<typeof transitionMultiAgentRun> {
-    const run = this.loadRun(runId);
-    const record = transitionMultiAgentRun(run, multiAgentRunId, String(options.status || "running") as never, {
-      reason: stringOption(options.reason),
-      actor: stringOption(options.actor),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+  transitionMultiAgentRun(runId: string, multiAgentRunId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.transitionMultiAgentRun> {
+    return maOps.transitionMultiAgentRun(this.loadRun(runId), multiAgentRunId, options);
   }
 
-  createAgentRole(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createAgentRole> {
-    const run = this.loadRun(runId);
-    const record = createAgentRole(run, {
-      id: stringOption(options.id),
-      multiAgentRunId: requiredStringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
-      title: stringOption(options.title),
-      responsibilities: arrayOption(options.responsibility || options.responsibilities).map(String),
-      requiredEvidence: arrayOption(options.requiredEvidence || options["required-evidence"]).map(String),
-      sandboxProfileHints: arrayOption(options.sandbox || options.sandboxProfile || options.sandboxProfileHint || options["sandbox-profile"]).map(String),
-      expectedArtifacts: arrayOption(options.expectedArtifact || options.expectedArtifacts || options["expected-artifact"]).map(String),
-      faninObligations: arrayOption(options.faninObligation || options.faninObligations || options["fanin-obligation"]).map(String),
-      parentRoleId: stringOption(options.parent || options.parentRoleId),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+  createAgentRole(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.createAgentRole> {
+    return maOps.createAgentRole(this.loadRun(runId), options);
   }
 
-  createAgentGroup(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createAgentGroup> {
-    const run = this.loadRun(runId);
-    const record = createAgentGroup(run, {
-      id: stringOption(options.id),
-      multiAgentRunId: requiredStringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"], "multi-agent run id"),
-      title: stringOption(options.title),
-      phase: stringOption(options.phase),
-      phaseId: stringOption(options.phaseId),
-      taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
-      parentGroupId: stringOption(options.parent || options.parentGroupId),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+  createAgentGroup(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.createAgentGroup> {
+    return maOps.createAgentGroup(this.loadRun(runId), options);
   }
 
-  assignAgentMembership(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof assignAgentMembership> {
-    const run = this.loadRun(runId);
-    const record = assignAgentMembership(run, {
-      id: stringOption(options.id),
-      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-      groupId: requiredStringOption(options.group || options.groupId || options["multi-agent-group"], "group id"),
-      roleId: requiredStringOption(options.role || options.roleId || options["multi-agent-role"], "role id"),
-      taskId: requiredStringOption(options.task || options.taskId, "task id"),
-      workerId: stringOption(options.worker || options.workerId),
-      dispatchId: stringOption(options.dispatch || options.dispatchId),
-      fanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
-      status: stringOption(options.status) as never,
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+  assignAgentMembership(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.assignAgentMembership> {
+    return maOps.assignAgentMembership(this.loadRun(runId), options);
   }
 
-  createAgentFanout(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createAgentFanout> {
-    const run = this.loadRun(runId);
-    const record = createAgentFanout(run, {
-      id: stringOption(options.id),
-      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-      groupId: requiredStringOption(options.group || options.groupId || options["multi-agent-group"], "group id"),
-      reason: stringOption(options.reason) || "work split",
-      roleIds: arrayOption(options.role || options.roleId || options.roles).map(String),
-      taskIds: arrayOption(options.task || options.taskId || options.tasks).map(String),
-      workerIds: arrayOption(options.worker || options.workerId || options.workers).map(String),
-      membershipIds: arrayOption(options.membership || options.membershipId || options.memberships).map(String),
-      dispatchIds: arrayOption(options.dispatch || options.dispatchId || options.dispatches).map(String),
-      concurrencyLimit: numberOption(options.limit || options.concurrency || options.concurrencyLimit),
-      sandboxProfileChoices: parseSandboxChoices(options),
-      expectedReturnShape: stringOption(options.expectedReturnShape || options["expected-return-shape"]),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+  createAgentFanout(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.createAgentFanout> {
+    return maOps.createAgentFanout(this.loadRun(runId), options);
   }
 
-  collectAgentFanin(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof collectAgentFanin> {
-    const run = this.loadRun(runId);
-    const record = collectAgentFanin(run, {
-      id: stringOption(options.id),
-      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-      groupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
-      fanoutId: stringOption(options.fanout || options.fanoutId || options["multi-agent-fanout"]),
-      requiredRoleIds: arrayOption(options.requiredRole || options.requiredRoleId || options["required-role"]).map(String),
-      strategy: stringOption(options.strategy),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      topicIds: arrayOption(options.topic || options.topicId || options.topics).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return record;
+  collectAgentFanin(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.collectAgentFanin> {
+    return maOps.collectAgentFanin(this.loadRun(runId), options);
   }
 
-  showMultiAgentRun(runId: string, multiAgentRunId: string): NonNullable<ReturnType<typeof getMultiAgentRun>> {
-    const record = getMultiAgentRun(this.loadRun(runId), multiAgentRunId);
-    if (!record) throw new Error(`Unknown MultiAgentRun id for run ${runId}: ${multiAgentRunId}`);
-    return record;
+  showMultiAgentRun(runId: string, multiAgentRunId: string): ReturnType<typeof maOps.showMultiAgentRun> {
+    return maOps.showMultiAgentRun(this.loadRun(runId), multiAgentRunId);
   }
 
-  showAgentRole(runId: string, roleId: string): NonNullable<ReturnType<typeof getAgentRole>> {
-    const record = getAgentRole(this.loadRun(runId), roleId);
-    if (!record) throw new Error(`Unknown AgentRole id for run ${runId}: ${roleId}`);
-    return record;
+  showAgentRole(runId: string, roleId: string): ReturnType<typeof maOps.showAgentRole> {
+    return maOps.showAgentRole(this.loadRun(runId), roleId);
   }
 
-  showAgentGroup(runId: string, groupId: string): NonNullable<ReturnType<typeof getAgentGroup>> {
-    const record = getAgentGroup(this.loadRun(runId), groupId);
-    if (!record) throw new Error(`Unknown AgentGroup id for run ${runId}: ${groupId}`);
-    return record;
+  showAgentGroup(runId: string, groupId: string): ReturnType<typeof maOps.showAgentGroup> {
+    return maOps.showAgentGroup(this.loadRun(runId), groupId);
   }
 
-  showAgentMembership(runId: string, membershipId: string): NonNullable<ReturnType<typeof getAgentMembership>> {
-    const record = getAgentMembership(this.loadRun(runId), membershipId);
-    if (!record) throw new Error(`Unknown AgentMembership id for run ${runId}: ${membershipId}`);
-    return record;
+  showAgentMembership(runId: string, membershipId: string): ReturnType<typeof maOps.showAgentMembership> {
+    return maOps.showAgentMembership(this.loadRun(runId), membershipId);
   }
 
-  showAgentFanout(runId: string, fanoutId: string): NonNullable<ReturnType<typeof getAgentFanout>> {
-    const record = getAgentFanout(this.loadRun(runId), fanoutId);
-    if (!record) throw new Error(`Unknown AgentFanout id for run ${runId}: ${fanoutId}`);
-    return record;
+  showAgentFanout(runId: string, fanoutId: string): ReturnType<typeof maOps.showAgentFanout> {
+    return maOps.showAgentFanout(this.loadRun(runId), fanoutId);
   }
 
-  showAgentFanin(runId: string, faninId: string): NonNullable<ReturnType<typeof getAgentFanin>> {
-    const record = getAgentFanin(this.loadRun(runId), faninId);
-    if (!record) throw new Error(`Unknown AgentFanin id for run ${runId}: ${faninId}`);
-    return record;
+  showAgentFanin(runId: string, faninId: string): ReturnType<typeof maOps.showAgentFanin> {
+    return maOps.showAgentFanin(this.loadRun(runId), faninId);
   }
 
-  blackboardSummary(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof summarizeBlackboard> {
-    return summarizeBlackboard(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+  blackboardSummary(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.blackboardSummary> {
+    return maOps.blackboardSummary(this.loadRun(runId), options);
   }
 
-  coordinatorSummary(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof summarizeBlackboard> {
-    return summarizeBlackboard(this.loadRun(runId), stringOption(options.blackboard || options.blackboardId));
+  coordinatorSummary(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.blackboardSummary> {
+    return maOps.blackboardSummary(this.loadRun(runId), options);
   }
 
-  blackboardGraph(runId: string): ReturnType<typeof buildBlackboardGraph> {
-    return buildBlackboardGraph(this.loadRun(runId));
+  blackboardGraph(runId: string): ReturnType<typeof maOps.blackboardGraph> {
+    return maOps.blackboardGraph(this.loadRun(runId));
   }
 
-  resolveRunBlackboard(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof resolveBlackboard> {
-    const run = this.loadRun(runId);
-    const board = resolveBlackboard(run, {
-      id: stringOption(options.id || options.blackboard || options.blackboardId),
-      title: stringOption(options.title),
-      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-      groupId: stringOption(options.group || options.groupId || options["multi-agent-group"]),
-      roleId: stringOption(options.role || options.roleId || options["multi-agent-role"]),
-      membershipId: stringOption(options.membership || options.membershipId || options["multi-agent-membership"]),
-      author: parseBlackboardAuthor(options),
-      scope: parseBlackboardScope(options),
-      tags: arrayOption(options.tag || options.tags).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return board;
+  resolveRunBlackboard(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.resolveRunBlackboard> {
+    return maOps.resolveRunBlackboard(this.loadRun(runId), options);
   }
 
-  createBlackboardTopic(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createBlackboardTopic> {
-    const run = this.loadRun(runId);
-    const topic = createBlackboardTopic(run, {
-      id: stringOption(options.id),
-      title: requiredStringOption(options.title, "topic title"),
-      description: stringOption(options.description),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      author: parseBlackboardAuthor(options),
-      scope: parseBlackboardScope(options),
-      tags: arrayOption(options.tag || options.tags).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return topic;
+  createBlackboardTopic(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.createBlackboardTopic> {
+    return maOps.createBlackboardTopic(this.loadRun(runId), options);
   }
 
-  postBlackboardMessage(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof postBlackboardMessage> {
-    const run = this.loadRun(runId);
-    const message = postBlackboardMessage(run, {
-      id: stringOption(options.id),
-      topicId: requiredStringOption(options.topic || options.topicId, "topic id"),
-      body: requiredStringOption(options.body || options.message, "message body"),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      replyToId: stringOption(options.replyTo || options.replyToId || options.parent),
-      visibility: stringOption(options.visibility) as never,
-      author: parseBlackboardAuthor(options),
-      scope: parseBlackboardScope(options),
-      evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-      artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-      auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
-      parentIds: arrayOption(options.parentId || options.parentIds).map(String),
-      tags: arrayOption(options.tag || options.tags).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return message;
+  postBlackboardMessage(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.postBlackboardMessage> {
+    return maOps.postBlackboardMessage(this.loadRun(runId), options);
   }
 
-  listBlackboardMessages(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listBlackboardMessages> {
-    return listBlackboardMessages(this.loadRun(runId), {
-      topicId: stringOption(options.topic || options.topicId),
-      blackboardId: stringOption(options.blackboard || options.blackboardId)
-    });
+  listBlackboardMessages(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.listBlackboardMessages> {
+    return maOps.listBlackboardMessages(this.loadRun(runId), options);
   }
 
-  putBlackboardContext(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof putBlackboardContext> {
-    const run = this.loadRun(runId);
-    const context = putBlackboardContext(run, {
-      id: stringOption(options.id),
-      topicId: requiredStringOption(options.topic || options.topicId, "topic id"),
-      kind: requiredStringOption(options.kind, "context kind") as never,
-      key: stringOption(options.key),
-      value: requiredStringOption(options.value || options.body, "context value"),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      supersedesContextIds: arrayOption(options.supersedes || options.supersedesContext || options.supersedesContextId).map(String),
-      author: parseBlackboardAuthor(options),
-      scope: parseBlackboardScope(options),
-      evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-      artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-      parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
-      tags: arrayOption(options.tag || options.tags).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return context;
+  putBlackboardContext(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.putBlackboardContext> {
+    return maOps.putBlackboardContext(this.loadRun(runId), options);
   }
 
-  addBlackboardArtifact(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof addBlackboardArtifact> {
-    const run = this.loadRun(runId);
-    const artifact = addBlackboardArtifact(run, {
-      id: stringOption(options.id),
-      topicId: stringOption(options.topic || options.topicId),
-      kind: requiredStringOption(options.kind, "artifact kind"),
-      path: stringOption(options.path),
-      locator: stringOption(options.locator),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      owner: parseBlackboardAuthor({ ...options, authorKind: options.ownerKind || options.authorKind, authorId: options.owner || options.ownerId || options.authorId }),
-      author: parseBlackboardAuthor(options),
-      scope: parseBlackboardScope(options),
-      source: stringOption(options.source),
-      provenance: parseBlackboardLinks(run.id, options),
-      evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-      auditEventIds: arrayOption(options.audit || options.auditEvent || options.auditEventId || options["audit-event"]).map(String),
-      parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
-      tags: arrayOption(options.tag || options.tags).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return artifact;
+  addBlackboardArtifact(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.addBlackboardArtifact> {
+    return maOps.addBlackboardArtifact(this.loadRun(runId), options);
   }
 
-  listBlackboardArtifacts(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listBlackboardArtifacts> {
-    return listBlackboardArtifacts(this.loadRun(runId), {
-      topicId: stringOption(options.topic || options.topicId),
-      blackboardId: stringOption(options.blackboard || options.blackboardId)
-    });
+  listBlackboardArtifacts(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.listBlackboardArtifacts> {
+    return maOps.listBlackboardArtifacts(this.loadRun(runId), options);
   }
 
-  snapshotBlackboard(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createBlackboardSnapshot> {
-    const run = this.loadRun(runId);
-    const snapshot = createBlackboardSnapshot(run, stringOption(options.blackboard || options.blackboardId));
-    writeReport(run);
-    saveCheckpoint(run);
-    return snapshot;
+  snapshotBlackboard(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.snapshotBlackboard> {
+    return maOps.snapshotBlackboard(this.loadRun(runId), options);
   }
 
-  recordCoordinatorDecision(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof recordCoordinatorDecision> {
-    const run = this.loadRun(runId);
-    const decision = recordCoordinatorDecision(run, {
-      id: stringOption(options.id),
-      blackboardId: stringOption(options.blackboard || options.blackboardId),
-      kind: requiredStringOption(options.kind, "decision kind") as never,
-      outcome: requiredStringOption(options.outcome, "decision outcome") as never,
-      reason: requiredStringOption(options.reason, "decision reason"),
-      subjectIds: arrayOption(options.subject || options.subjectId || options.subjectIds).map(String),
-      topicId: stringOption(options.topic || options.topicId),
-      author: parseBlackboardAuthor({ ...options, authorKind: options.authorKind || "coordinator", authorId: options.authorId || "cw" }),
-      scope: parseBlackboardScope(options),
-      evidenceRefs: arrayOption(options.evidence || options.evidenceRef || options["evidence-ref"]).map(String),
-      artifactRefIds: arrayOption(options.artifact || options.artifactRef || options.artifactRefId || options["artifact-ref"]).map(String),
-      messageIds: arrayOption(options.message || options.messageId || options.messageIds).map(String),
-      parentIds: arrayOption(options.parent || options.parentId || options.parentIds).map(String),
-      tags: arrayOption(options.tag || options.tags).map(String),
-      metadata: metadataOption(options)
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return decision;
+  recordCoordinatorDecision(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof maOps.recordCoordinatorDecision> {
+    return maOps.recordCoordinatorDecision(this.loadRun(runId), options);
   }
 
-  checkState(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof migrateRunStateFile>["report"] {
-    const cwd = path.resolve(String(options.cwd || process.cwd()));
-    const statePath = options.state
-      ? path.resolve(String(options.state))
-      : path.join(cwd, ".cw", "runs", runId, "state.json");
-    const result = migrateRunStateFile(statePath, { write: Boolean(options.write) });
-    return result.report;
+  checkState(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof lifecycleOps.checkState> {
+    return lifecycleOps.checkState(runId, options);
   }
 
-  commit(runId: string, input: string | Record<string, unknown> = {}): StateCommitResult {
-    const run = this.loadRun(runId);
-    run.loopStage = "checkpoint";
-    const options = typeof input === "string" ? { reason: input } : input;
-    const allowCheckpoint = Boolean(options.allowUnverifiedCheckpoint || options["allow-unverified-checkpoint"]);
-    const hasGateOption = Boolean(options.verifier || options.verifierNode || options["verifier-node"] || options.candidate || options.selection);
-    try {
-      const commit = commitState(run, {
-        reason: stringOption(options.reason) || "manual",
-        verifierNodeId: stringOption(options.verifier) || stringOption(options.verifierNode) || stringOption(options["verifier-node"]),
-        candidateId: stringOption(options.candidate),
-        selectionId: stringOption(options.selection),
-        verifierGated: hasGateOption || !allowCheckpoint,
-        allowUnverifiedCheckpoint: allowCheckpoint,
-        source: "cli"
-      });
-      writeReport(run);
-      saveCheckpoint(run);
-      return { runId, commit };
-    } catch (error) {
-      writeReport(run);
-      saveCheckpoint(run);
-      throw error;
-    }
+  commit(runId: string, input: string | Record<string, unknown> = {}): ReturnType<typeof lifecycleOps.commit> {
+    return lifecycleOps.commit(this.loadRun(runId), input);
   }
 
-  collectFeedback(runId: string): ReturnType<typeof collectRunErrors> {
-    const run = this.loadRun(runId);
-    const collected = collectRunErrors(run);
-    writeReport(run);
-    saveCheckpoint(run);
-    return collected;
+  // Feedback — delegated to ./orchestrator/feedback-operations.
+  collectFeedback(runId: string): ReturnType<typeof feedbackOps.collectFeedback> {
+    return feedbackOps.collectFeedback(this.loadRun(runId));
   }
 
-  listFeedback(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listFeedback> {
-    return listFeedback(this.loadRun(runId), {
-      status: options.status ? String(options.status) as never : undefined,
-      severity: options.severity ? String(options.severity) as never : undefined,
-      classification: options.classification ? String(options.classification) as never : undefined
-    });
+  listFeedback(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof feedbackOps.listFeedback> {
+    return feedbackOps.listFeedback(this.loadRun(runId), options);
   }
 
-  showFeedback(runId: string, feedbackId: string): NonNullable<ReturnType<typeof getFeedback>> {
-    const feedback = getFeedback(this.loadRun(runId), feedbackId);
-    if (!feedback) throw new Error(`Unknown feedback id for run ${runId}: ${feedbackId}`);
-    return feedback;
+  showFeedback(runId: string, feedbackId: string): ReturnType<typeof feedbackOps.showFeedback> {
+    return feedbackOps.showFeedback(this.loadRun(runId), feedbackId);
   }
 
-  createFeedbackTask(runId: string, feedbackId: string, options: Record<string, unknown> = {}): ReturnType<typeof createCorrectionTask> {
-    const run = this.loadRun(runId);
-    const feedback = createCorrectionTask(run, feedbackId, {
-      verifierCommand: options.verify ? String(options.verify) : undefined,
-      guidance: options.guidance ? String(options.guidance) : undefined
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return feedback;
+  createFeedbackTask(runId: string, feedbackId: string, options: Record<string, unknown> = {}): ReturnType<typeof feedbackOps.createFeedbackTask> {
+    return feedbackOps.createFeedbackTask(this.loadRun(runId), feedbackId, options);
   }
 
-  resolveFeedback(runId: string, feedbackId: string, options: Record<string, unknown> = {}): ReturnType<typeof resolveFeedback> {
-    const run = this.loadRun(runId);
-    const feedback = resolveFeedback(run, feedbackId, {
-      status: options.status === "rejected" ? "rejected" : "resolved",
-      nodeId: options.node ? String(options.node) : undefined,
-      message: options.message ? String(options.message) : undefined
-    });
-    writeReport(run);
-    saveCheckpoint(run);
-    return feedback;
+  resolveFeedback(runId: string, feedbackId: string, options: Record<string, unknown> = {}): ReturnType<typeof feedbackOps.resolveFeedback> {
+    return feedbackOps.resolveFeedback(this.loadRun(runId), feedbackId, options);
   }
 
   loadRun(runId: string): WorkflowRun {
@@ -1938,11 +861,6 @@ export class CoolWorkflowRunner {
       .filter((file) => fs.existsSync(file))
       .sort();
   }
-}
-
-interface StateCommitResult {
-  runId: string;
-  commit: WorkflowRun["commits"][number];
 }
 
 export function parseArgv(argv: string[]): {
@@ -2048,76 +966,6 @@ function appendOption(options: Record<string, unknown>, key: string, value: stri
   options[key] = value;
 }
 
-function normalizeInputs(options: Record<string, unknown>): Record<string, unknown> {
-  const inputs: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(options)) {
-    if (key === "arg") {
-      const pairs = Array.isArray(value) ? value : [value];
-      for (const pair of pairs) {
-        const [argKey, ...rest] = String(pair).split("=");
-        inputs[argKey] = rest.join("=");
-      }
-      continue;
-    }
-    inputs[key] = value;
-  }
-  if (inputs.repo && !inputs.cwd) inputs.cwd = inputs.repo;
-  return inputs;
-}
-
-function validateInputs(workflow: WorkflowDefinition, inputs: Record<string, unknown>): void {
-  for (const input of workflow.inputs || []) {
-    if (input.required && isMissing(inputs[input.name])) {
-      throw new Error(`Missing required input --${input.name}`);
-    }
-  }
-}
-
-function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unknown>): RunTask[] {
-  const seen = new Set<string>();
-  const tasks: RunTask[] = [];
-  for (const phase of workflow.phases) {
-    for (const task of phase.tasks) {
-      if (seen.has(task.id)) throw new Error(`Duplicate task id: ${task.id}`);
-      seen.add(task.id);
-      tasks.push({
-        id: task.id,
-        kind: task.kind,
-        phase: phase.name,
-        status: "pending",
-        loopStage: "interpret",
-        requiresEvidence: Boolean(task.requiresEvidence),
-        sandboxProfileId: task.sandboxProfileId,
-        prompt: renderPrompt(task.prompt, inputs),
-        taskPath: "",
-        resultPath: ""
-      });
-    }
-  }
-  return tasks;
-}
-
-function renderPrompt(prompt: string, inputs: Record<string, unknown>): string {
-  const invariant = Array.isArray(inputs.invariant)
-    ? inputs.invariant.join("; ")
-    : String(inputs.invariant || "");
-  let rendered = String(prompt)
-    .replaceAll("{{repo}}", String(inputs.repo || ""))
-    .replaceAll("{{question}}", String(inputs.question || ""))
-    .replaceAll("{{invariant}}", invariant);
-  for (const [key, value] of Object.entries(inputs)) {
-    const replacement = Array.isArray(value) ? value.join("; ") : String(value ?? "");
-    rendered = rendered.replaceAll(`{{${key}}}`, replacement);
-  }
-  return rendered;
-}
-
-function createRunId(workflowId: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  const suffix = Math.random().toString(36).slice(2, 8);
-  return `${workflowId}-${stamp}-${suffix}`;
-}
-
 function resolvePluginRoot(candidate: string): string {
   let current = path.resolve(candidate);
   for (let depth = 0; depth < 5; depth += 1) {
@@ -2127,10 +975,6 @@ function resolvePluginRoot(candidate: string): string {
     current = path.dirname(current);
   }
   throw new Error("Run cw.js from the cool-workflow plugin directory");
-}
-
-function renderWorkflowTemplate(id: string, title: string): string {
-  return `module.exports = ({ workflow, phase, agent, artifact }) =>\n  workflow({\n    id: ${JSON.stringify(id)},\n    title: ${JSON.stringify(title)},\n    summary: "Describe what this workflow does.",\n    limits: {\n      maxAgents: 8,\n      maxConcurrentAgents: 4\n    },\n    inputs: [\n      { name: "question", required: true }\n    ],\n    phases: [\n      phase("Map", [\n        agent("map:context", "Map the task context, constraints, and evidence needed for {{question}}.")\n      ]),\n      phase("Assess", [\n        agent("assess:risks", "Assess risks, tradeoffs, and unknowns for {{question}}.")\n      ]),\n      phase("Synthesize", [\n        artifact("synthesis:report", "Synthesize the final answer for {{question}}.", { requiresEvidence: true })\n      ])\n    ]\n  });\n`;
 }
 
 function titleize(value: string): string {

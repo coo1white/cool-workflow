@@ -30,7 +30,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { normalizeValue, stableStringify } from "./multi-agent-eval";
 import { loadNodeSnapshot, snapshotNode } from "./node-snapshot";
-import { writeJson, withFileLock } from "./state";
+import { realResolve, writeJson, withFileLock } from "./state";
 import { recordTrustAuditEvent } from "./trust-audit";
 import {
   FreedManifestEntry,
@@ -680,7 +680,10 @@ export function commitTombstone(run: WorkflowRun, tombstone: ReclamationTombston
  *  crash can never leave state.json pointing at a freed path. */
 export function prepareFree(run: WorkflowRun, tombstone: ReclamationTombstone): void {
   const runDir = run.paths.runDir;
-  const scratchDirs = tombstone.freed.filter((f) => f.kind === "scratch").map((f) => path.resolve(path.join(runDir, f.path)));
+  // Symlink-hardened (v0.1.40 self-audit P1): realResolve follows symlinks so the
+  // containment proofs below cannot be bypassed by an artifact symlinked across
+  // the freed/retained boundary.
+  const scratchDirs = tombstone.freed.filter((f) => f.kind === "scratch").map((f) => realResolve(path.join(runDir, f.path)));
   if (!scratchDirs.length) return; // nothing references a freed path; no state change needed.
 
   const repointed = new Set<string>();
@@ -695,7 +698,7 @@ export function prepareFree(run: WorkflowRun, tombstone: ReclamationTombstone): 
   for (const node of run.nodes || []) {
     for (const artifact of node.artifacts || []) {
       if (!artifact.path) continue;
-      const resolved = path.resolve(artifact.path);
+      const resolved = realResolve(artifact.path);
       for (const scratchDir of scratchDirs) {
         if (resolved === scratchDir || resolved.startsWith(scratchDir + path.sep)) {
           throw new ReclamationError("repoint-incomplete", `node ${node.id} artifact ${artifact.id} still references freed scratch path ${artifact.path}`, {
@@ -741,15 +744,16 @@ export function freeBulk(run: WorkflowRun, tombstone: ReclamationTombstone): num
 /** Re-point a node's artifacts off `freedScratchDir` to the retained `result`
  *  copy. Returns the ids of nodes actually changed (for the validity proof). */
 function repointResultNodeArtifacts(run: WorkflowRun, freedScratchDir: string): string[] {
-  const freedPrefix = path.resolve(freedScratchDir) + path.sep;
+  const freedReal = realResolve(freedScratchDir);
+  const freedPrefix = freedReal + path.sep;
   const changedIds: string[] = [];
   for (const node of run.nodes || []) {
     if (!node.artifacts) continue;
     let changed = false;
     for (const artifact of node.artifacts) {
       if (!artifact.path) continue;
-      const resolved = path.resolve(artifact.path);
-      if (resolved === path.resolve(freedScratchDir) || resolved.startsWith(freedPrefix)) {
+      const resolved = realResolve(artifact.path);
+      if (resolved === freedReal || resolved.startsWith(freedPrefix)) {
         // Re-point to the retained results/<task>.md copy (the `result` artifact).
         const retained = node.artifacts.find((a) => a.id === "result" && a.path && fs.existsSync(a.path));
         if (retained && retained.path) {

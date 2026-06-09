@@ -13,6 +13,9 @@ exports.migrateRunStateFile = migrateRunStateFile;
 exports.saveCheckpoint = saveCheckpoint;
 exports.readJson = readJson;
 exports.writeJson = writeJson;
+exports.durableAppendFileSync = durableAppendFileSync;
+exports.realResolve = realResolve;
+exports.isContainedPath = isContainedPath;
 exports.withFileLock = withFileLock;
 exports.safeFileName = safeFileName;
 const node_fs_1 = __importDefault(require("node:fs"));
@@ -157,6 +160,59 @@ function writeJson(file, value, options = {}) {
             /* directory fsync is best-effort (not supported on every platform) */
         }
     }
+}
+// ---------------------------------------------------------------------------
+// Durable append (v0.1.40 self-audit P1) — append a line and fsync it before
+// returning. The trust-audit event log is the ONE artifact whose loss breaks
+// audit-completeness/non-repudiation, so unlike high-frequency derived writes it
+// must survive power loss. `appendFileSync` alone does NOT fsync, so a crash
+// after it returns could drop the most recent event while durable state.json
+// advanced past it. We open O_APPEND, write, fsync the fd, then close.
+// ---------------------------------------------------------------------------
+function durableAppendFileSync(file, data) {
+    node_fs_1.default.mkdirSync(node_path_1.default.dirname(file), { recursive: true });
+    const fd = node_fs_1.default.openSync(file, "a");
+    try {
+        node_fs_1.default.writeFileSync(fd, data, "utf8");
+        node_fs_1.default.fsyncSync(fd);
+    }
+    finally {
+        node_fs_1.default.closeSync(fd);
+    }
+}
+// ---------------------------------------------------------------------------
+// Symlink-hardened path containment (v0.1.40 self-audit P1) — `path.resolve()`
+// only normalizes `.`/`..` textually; it does NOT follow symlinks, so a planted
+// symlink whose textual path sits "inside" an allowed root but whose real target
+// escapes it would pass a `startsWith` containment check. `realResolve` resolves
+// the deepest EXISTING ancestor with `realpathSync` (which follows symlinks) and
+// re-joins the not-yet-created remainder, so a not-yet-created file is still
+// pinned to its real parent. `isContainedPath` realpaths BOTH sides so the
+// comparison stays consistent on platforms where the temp root itself is a
+// symlink (e.g. macOS /tmp -> /private/tmp).
+// ---------------------------------------------------------------------------
+function realResolve(target) {
+    let current = node_path_1.default.resolve(target);
+    const tail = [];
+    // Walk up to the deepest existing ancestor, realpath it, then re-append the tail.
+    for (;;) {
+        try {
+            const real = node_fs_1.default.realpathSync.native ? node_fs_1.default.realpathSync.native(current) : node_fs_1.default.realpathSync(current);
+            return tail.length ? node_path_1.default.join(real, ...tail.reverse()) : real;
+        }
+        catch {
+            const parent = node_path_1.default.dirname(current);
+            if (parent === current)
+                return node_path_1.default.resolve(target); // reached root; nothing existed
+            tail.push(node_path_1.default.basename(current));
+            current = parent;
+        }
+    }
+}
+function isContainedPath(candidate, allowed) {
+    const realCandidate = realResolve(candidate);
+    const realAllowed = realResolve(allowed);
+    return realCandidate === realAllowed || realCandidate.startsWith(realAllowed + node_path_1.default.sep);
 }
 // ---------------------------------------------------------------------------
 // Portable advisory file lock (v0.1.40) — serialize cross-process read-modify-

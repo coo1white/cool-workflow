@@ -1277,10 +1277,31 @@ function compact(value: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined && (!Array.isArray(entry) || entry.length > 0)));
 }
 
+// Recursive secret redaction (v0.1.40 self-audit P3): the previous scrub only
+// inspected TOP-LEVEL keys, so a secret nested under an allowed key
+// (e.g. `metadata.config.token`) leaked into the recorded coordinator decision.
+// Now we recurse into nested objects and arrays so a secret-named key at any depth
+// is dropped and an obvious credential value is redacted.
+const SECRET_KEY_RE = /secret|token|password|credential|authorization|api[_-]?key|env/i;
+const SECRET_VALUE_RE = /secret|token|password|credential/i;
+
+function scrubValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(scrubValue);
+  if (value && typeof value === "object") return scrub(value as Record<string, unknown>);
+  if (typeof value === "string" && SECRET_VALUE_RE.test(value)) return "[redacted]";
+  return value;
+}
+
 function scrub(value: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
   if (!value) return undefined;
-  const entries = Object.entries(value)
-    .filter(([key, entry]) => entry !== undefined && !/secret|token|password|env/i.test(key))
-    .map(([key, entry]) => [key, typeof entry === "string" && /secret|token|password/i.test(entry) ? "[redacted]" : entry]);
-  return entries.length ? Object.fromEntries(entries) : undefined;
+  const result: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (entry === undefined) continue;
+    if (SECRET_KEY_RE.test(key)) {
+      result[key] = "[redacted]";
+    } else {
+      result[key] = scrubValue(entry);
+    }
+  }
+  return Object.keys(result).length ? result : undefined;
 }

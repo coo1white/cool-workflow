@@ -78,3 +78,7 @@ rewritten.
 - `docs/run-retention-reclamation.7.md` — the v0.1.39 reclamation transaction this hardens.
 - `docs/run-registry-control-plane.7.md` — the registry overlays + home queue now locked.
 - `docs/control-plane-scheduling.7.md` — the concurrency ceiling now held across processes.
+
+## Self-Audit Hardening & Pure-Router Decomposition (v0.1.41)
+
+evidence grounding + durable audit append + symlink-hardened containment + deterministic worker ids + recursive redaction; BackendRegistry self-describing drivers (no per-id switches); orchestrator god-object decomposed into per-domain operation modules (pure loadRun->delegate router)

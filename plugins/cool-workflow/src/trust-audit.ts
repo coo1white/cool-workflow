@@ -11,7 +11,7 @@ import {
   TrustAuditSummary,
   WorkflowRun
 } from "./types";
-import { safeFileName, writeJson } from "./state";
+import { durableAppendFileSync, safeFileName, writeJson } from "./state";
 
 export const TRUST_AUDIT_SCHEMA_VERSION = 1;
 
@@ -136,7 +136,10 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     parentEventIds: unique(input.parentEventIds || []).sort(),
     metadata: scrubMetadata(input.metadata || {})
   }) as unknown as TrustAuditEvent;
-  fs.appendFileSync(audit.eventLogPath, `${JSON.stringify(event)}\n`, "utf8");
+  // DURABLE append (v0.1.40 self-audit P1): the audit log is the one artifact
+  // whose loss breaks audit-completeness, so fsync it before returning — never a
+  // bare appendFileSync, which can drop the last event on power loss.
+  durableAppendFileSync(audit.eventLogPath, `${JSON.stringify(event)}\n`);
   refreshTrustAudit(run);
   return event;
 }
@@ -261,7 +264,10 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
       policyViolations: events.filter((event) => event.kind === "policy.violation").length
     }
   };
-  writeJson(audit.summaryPath, summary);
+  // Durable (v0.1.40 self-audit P1): the summary/index are the read-side view of
+  // the audit log; persist them durably so a crash can't leave them pointing past
+  // the last durably-appended event.
+  writeJson(audit.summaryPath, summary, { durable: true });
   writeJson(audit.indexPath, {
     schemaVersion: TRUST_AUDIT_SCHEMA_VERSION,
     runId: run.id,
@@ -295,7 +301,7 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
       policyRef: event.policyRef,
       multiAgentPolicyRef: event.multiAgentPolicyRef
     }))
-  });
+  }, { durable: true });
   run.audit = audit;
   return summary;
 }
