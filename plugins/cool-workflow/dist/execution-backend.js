@@ -27,6 +27,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BackendError = exports.SANDBOX_DIMENSIONS = exports.DEFAULT_BACKEND_ID = exports.EXECUTION_BACKEND_SCHEMA_VERSION = void 0;
+exports.registerBackend = registerBackend;
+exports.getBackendDriver = getBackendDriver;
 exports.listBackendDescriptors = listBackendDescriptors;
 exports.backendIds = backendIds;
 exports.isBackendId = isBackendId;
@@ -161,21 +163,66 @@ function specDescriptor(spec) {
         readiness: spec.readiness
     };
 }
+const BACKEND_REGISTRY = new Map();
+/** Register (or override) a backend driver. The public extension seam. */
+function registerBackend(driver) {
+    BACKEND_REGISTRY.set(driver.spec.id, driver);
+}
+function getBackendDriver(id) {
+    return BACKEND_REGISTRY.get(id);
+}
+function registeredDrivers() {
+    return [...BACKEND_REGISTRY.values()];
+}
 function listBackendDescriptors() {
-    return DRIVER_SPECS.map(specDescriptor).sort((left, right) => left.id.localeCompare(right.id));
+    return registeredDrivers()
+        .map((driver) => specDescriptor(driver.spec))
+        .sort((left, right) => left.id.localeCompare(right.id));
 }
 function backendIds() {
-    return DRIVER_SPECS.map((spec) => spec.id).sort();
+    return registeredDrivers()
+        .map((driver) => driver.spec.id)
+        .sort();
 }
 function isBackendId(id) {
-    return Boolean(id) && DRIVER_SPECS.some((spec) => spec.id === id);
+    return Boolean(id) && BACKEND_REGISTRY.has(id);
 }
 function getBackendDescriptor(id) {
-    const spec = DRIVER_SPECS.find((candidate) => candidate.id === id);
-    if (!spec) {
+    const driver = BACKEND_REGISTRY.get(id);
+    if (!driver) {
         throw new BackendError("backend-not-found", `Execution backend not found: ${id}`, { backendId: id, available: backendIds() });
     }
-    return specDescriptor(spec);
+    return specDescriptor(driver.spec);
+}
+// Register the built-in drivers, each as a COMPLETE self-description: spec +
+// every behavior that used to live behind a `descriptor.id === "..."` branch
+// (spawn style, runtime note, delegate runner, handle builder, commandless flag,
+// readiness probe). Adding a backend now means registerBackend({ spec, ...behaviors })
+// — no central switch to edit. Function declarations below are hoisted, so the
+// closures resolve at call time.
+const BUILTIN_DRIVER_BEHAVIORS = {
+    node: { spawnStyle: "direct", runtimeNote: () => "node", probe: probeNodeBackend },
+    bun: {
+        spawnStyle: "direct",
+        runtimeNote: () => (hasExecutable("bun") ? "bun (node-compatible execution)" : "node-compatible (bun not installed)"),
+        probe: probeBunBackend
+    },
+    shell: { spawnStyle: "shell", runtimeNote: () => "posix-shell", probe: probeShellBackend },
+    container: { delegateRun: ctxDelegate(runContainer), buildHandle: containerHandle, probe: probeContainerBackend },
+    remote: { delegateRun: ctxDelegate(runHttpDelegation), buildHandle: remoteHandle, probe: probeRemoteBackend },
+    ci: { delegateRun: ctxDelegate(runHttpDelegation), buildHandle: ciHandle, probe: probeCiBackend },
+    agent: {
+        delegateRun: ctxDelegate(runAgentProcess),
+        buildHandle: agentHandle,
+        commandlessDelegate: true,
+        probe: probeAgentBackend
+    }
+};
+for (const spec of DRIVER_SPECS) {
+    registerBackend({ spec, ...(BUILTIN_DRIVER_BEHAVIORS[spec.id] || {}) });
+}
+function ctxDelegate(impl) {
+    return (ctx) => impl(ctx.descriptor, ctx.policy, ctx.request, ctx.label, ctx.handle, ctx.attestation);
 }
 // ---------------------------------------------------------------------------
 // Selection & resolution. `--backend <id>` (flag) > CW_BACKEND (env) > default.
@@ -271,81 +318,94 @@ function attestSandbox(descriptor, policy, options = { mode: "execute" }) {
 // ---------------------------------------------------------------------------
 function probeBackend(id, context = {}) {
     const descriptor = getBackendDescriptor(id);
-    const checks = [];
-    let readiness = "unverified";
-    let reason;
-    void context;
-    if (id === "node") {
-        const ok = hasExecutable("node");
-        checks.push({ name: "node-runtime", ok, detail: ok ? "node on PATH" : "node not found on PATH" });
-        readiness = ok ? "ready" : "unavailable";
-        if (!ok)
-            reason = "node runtime not found on PATH";
-    }
-    else if (id === "shell") {
-        const ok = hasExecutable("sh") || node_fs_1.default.existsSync("/bin/sh");
-        checks.push({ name: "posix-shell", ok, detail: ok ? "sh available" : "no POSIX shell found" });
-        readiness = ok ? "ready" : "unavailable";
-        if (!ok)
-            reason = "POSIX shell not found";
-    }
-    else if (id === "bun") {
-        const bun = hasExecutable("bun");
-        const node = hasExecutable("node");
-        checks.push({ name: "bun-runtime", ok: bun, detail: bun ? "bun on PATH" : "bun not found; node-compatible fallback" });
-        checks.push({ name: "node-compatible-fallback", ok: node, detail: node ? "node on PATH" : "node not found on PATH" });
-        readiness = bun || node ? "ready" : "unavailable";
-        if (!bun && node)
-            reason = "bun not installed; executing via node-compatible runtime";
-        if (!bun && !node)
-            reason = "neither bun nor node found on PATH";
-    }
-    else if (id === "container") {
-        const docker = hasExecutable("docker");
-        const podman = hasExecutable("podman");
-        checks.push({ name: "docker", ok: docker, detail: docker ? "docker on PATH" : "docker not found" });
-        checks.push({ name: "podman", ok: podman, detail: podman ? "podman on PATH" : "podman not found" });
-        readiness = docker || podman ? "ready" : "unavailable";
-        if (!docker && !podman)
-            reason = "no container runtime (docker/podman) found; supply --image to delegate explicitly";
-    }
-    else if (id === "remote") {
-        const endpoint = (process.env.CW_REMOTE_ENDPOINT || "").trim();
-        checks.push({ name: "endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_REMOTE_ENDPOINT configured" : "CW_REMOTE_ENDPOINT not set" });
-        readiness = endpoint ? "ready" : "unverified";
-        if (!endpoint)
-            reason = "no remote endpoint configured (set CW_REMOTE_ENDPOINT or pass --endpoint)";
-    }
-    else if (id === "ci") {
-        const endpoint = (process.env.CW_CI_ENDPOINT || "").trim();
-        checks.push({ name: "ci-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_CI_ENDPOINT configured" : "CW_CI_ENDPOINT not set" });
-        readiness = endpoint ? "ready" : "unverified";
-        if (!endpoint)
-            reason = "no CI job target configured (set CW_CI_ENDPOINT or pass --job)";
-    }
-    else if (id === "agent") {
-        // Mirrors remote/ci EXACTLY: unconfigured ⇒ `unverified` (NOT a hard refusal),
-        // configured ⇒ `ready`. "Configured" = a command-template or endpoint is set.
-        const command = (process.env.CW_AGENT_COMMAND || "").trim();
-        const endpoint = (process.env.CW_AGENT_ENDPOINT || "").trim();
-        const configured = Boolean(command || endpoint);
-        checks.push({ name: "agent-command", ok: Boolean(command), detail: command ? "CW_AGENT_COMMAND configured" : "CW_AGENT_COMMAND not set" });
-        checks.push({ name: "agent-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_AGENT_ENDPOINT configured" : "CW_AGENT_ENDPOINT not set" });
-        readiness = configured ? "ready" : "unverified";
-        if (!configured)
-            reason = "no agent configured (set CW_AGENT_COMMAND or CW_AGENT_ENDPOINT, or pass --agent-command/--agent-endpoint)";
-    }
+    const driver = BACKEND_REGISTRY.get(id);
+    // The driver owns its readiness checks; probeBackend just wraps them with the
+    // descriptor-derived envelope. A driver with no probe is unverified by default.
+    const body = driver?.probe
+        ? driver.probe(context)
+        : { checks: [], readiness: descriptor.readiness };
     return {
         schemaVersion: 1,
         backendId: descriptor.id,
         locality: descriptor.locality,
         kind: descriptor.kind,
-        readiness,
-        ready: readiness === "ready",
+        readiness: body.readiness,
+        ready: body.readiness === "ready",
         enforces: descriptor.enforces,
         attests: descriptor.attests,
-        checks,
-        reason
+        checks: body.checks,
+        reason: body.reason
+    };
+}
+function probeNodeBackend() {
+    const ok = hasExecutable("node");
+    return {
+        checks: [{ name: "node-runtime", ok, detail: ok ? "node on PATH" : "node not found on PATH" }],
+        readiness: ok ? "ready" : "unavailable",
+        reason: ok ? undefined : "node runtime not found on PATH"
+    };
+}
+function probeShellBackend() {
+    const ok = hasExecutable("sh") || node_fs_1.default.existsSync("/bin/sh");
+    return {
+        checks: [{ name: "posix-shell", ok, detail: ok ? "sh available" : "no POSIX shell found" }],
+        readiness: ok ? "ready" : "unavailable",
+        reason: ok ? undefined : "POSIX shell not found"
+    };
+}
+function probeBunBackend() {
+    const bun = hasExecutable("bun");
+    const node = hasExecutable("node");
+    return {
+        checks: [
+            { name: "bun-runtime", ok: bun, detail: bun ? "bun on PATH" : "bun not found; node-compatible fallback" },
+            { name: "node-compatible-fallback", ok: node, detail: node ? "node on PATH" : "node not found on PATH" }
+        ],
+        readiness: bun || node ? "ready" : "unavailable",
+        reason: !bun && node ? "bun not installed; executing via node-compatible runtime" : !bun && !node ? "neither bun nor node found on PATH" : undefined
+    };
+}
+function probeContainerBackend() {
+    const docker = hasExecutable("docker");
+    const podman = hasExecutable("podman");
+    return {
+        checks: [
+            { name: "docker", ok: docker, detail: docker ? "docker on PATH" : "docker not found" },
+            { name: "podman", ok: podman, detail: podman ? "podman on PATH" : "podman not found" }
+        ],
+        readiness: docker || podman ? "ready" : "unavailable",
+        reason: docker || podman ? undefined : "no container runtime (docker/podman) found; supply --image to delegate explicitly"
+    };
+}
+function probeRemoteBackend() {
+    const endpoint = (process.env.CW_REMOTE_ENDPOINT || "").trim();
+    return {
+        checks: [{ name: "endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_REMOTE_ENDPOINT configured" : "CW_REMOTE_ENDPOINT not set" }],
+        readiness: endpoint ? "ready" : "unverified",
+        reason: endpoint ? undefined : "no remote endpoint configured (set CW_REMOTE_ENDPOINT or pass --endpoint)"
+    };
+}
+function probeCiBackend() {
+    const endpoint = (process.env.CW_CI_ENDPOINT || "").trim();
+    return {
+        checks: [{ name: "ci-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_CI_ENDPOINT configured" : "CW_CI_ENDPOINT not set" }],
+        readiness: endpoint ? "ready" : "unverified",
+        reason: endpoint ? undefined : "no CI job target configured (set CW_CI_ENDPOINT or pass --job)"
+    };
+}
+function probeAgentBackend() {
+    // Mirrors remote/ci EXACTLY: unconfigured ⇒ `unverified` (NOT a hard refusal),
+    // configured ⇒ `ready`. "Configured" = a command-template or endpoint is set.
+    const command = (process.env.CW_AGENT_COMMAND || "").trim();
+    const endpoint = (process.env.CW_AGENT_ENDPOINT || "").trim();
+    const configured = Boolean(command || endpoint);
+    return {
+        checks: [
+            { name: "agent-command", ok: Boolean(command), detail: command ? "CW_AGENT_COMMAND configured" : "CW_AGENT_COMMAND not set" },
+            { name: "agent-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_AGENT_ENDPOINT configured" : "CW_AGENT_ENDPOINT not set" }
+        ],
+        readiness: configured ? "ready" : "unverified",
+        reason: configured ? undefined : "no agent configured (set CW_AGENT_COMMAND or CW_AGENT_ENDPOINT, or pass --agent-command/--agent-endpoint)"
     };
 }
 // ---------------------------------------------------------------------------
@@ -406,7 +466,8 @@ function executeLocal(descriptor, policy, request, label, attestation) {
     };
     // shell backend runs via /bin/sh -c; node/bun run the command directly
     // (bun is Node-compatible by default so evidence stays byte-stable with node).
-    const result = descriptor.id === "shell"
+    // spawnStyle comes from the registered driver, not a hardcoded id check.
+    const result = getBackendDriver(descriptor.id)?.spawnStyle === "shell"
         ? (0, node_child_process_1.spawnSync)([command, ...args].join(" "), { ...options, shell: true })
         : (0, node_child_process_1.spawnSync)(command, args, { ...options, shell: false });
     const exitCode = typeof result.status === "number" ? result.status : null;
@@ -448,9 +509,9 @@ function delegate(descriptor, policy, request, label, probe) {
         return refusedEnvelope(descriptor, policy, label, "delegation-target-missing", probe.reason || `Backend ${descriptor.id} has no delegation target; refusing rather than running unsandboxed`, { ready: probe.ready });
     }
     // A delegating backend that really executes needs a command. Refuse otherwise
-    // rather than fabricate a completed run. The agent backend is exempt: its command
-    // is the resolved agent invocation carried by the handle, not request.command.
-    if (descriptor.id !== "agent" && !request.command) {
+    // rather than fabricate a completed run. A driver whose command is carried by its
+    // handle (the agent backend) sets commandlessDelegate and is exempt.
+    if (!getBackendDriver(descriptor.id)?.commandlessDelegate && !request.command) {
         return refusedEnvelope(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to delegate`, {
             ready: probe.ready
         });
@@ -465,12 +526,16 @@ function delegate(descriptor, policy, request, label, probe) {
     // shape executeLocal produces (command:/exitCode:/stdoutSha256:), so a delegated
     // run is byte-stable against node; the handle lives in provenance, NEVER in
     // evidence. Any runtime/transport failure FAILS CLOSED (refused), never a
-    // fabricated completion.
-    if (descriptor.id === "container")
-        return runContainer(descriptor, policy, request, label, handle, attestation);
-    if (descriptor.id === "agent")
-        return runAgentProcess(descriptor, policy, request, label, handle, attestation);
-    return runHttpDelegation(descriptor, policy, request, label, handle, attestation);
+    // fabricated completion. The driver's registered delegateRun replaces the old
+    // id switch.
+    const driver = getBackendDriver(descriptor.id);
+    if (!driver?.delegateRun) {
+        return refusedEnvelope(descriptor, policy, label, "backend-not-runnable", `Backend ${descriptor.id} has no delegate runner`, {
+            ready: probe.ready,
+            attestation
+        });
+    }
+    return driver.delegateRun({ descriptor, policy, request, label, handle, attestation });
 }
 /** Build the canonical completed/failed envelope shared by every real backend —
  *  identical to executeLocal's, so evidence is byte-stable across backends. The
@@ -913,54 +978,56 @@ function extractEndpointResult(stdout) {
     return undefined;
 }
 function delegationHandle(descriptor, request) {
+    return getBackendDriver(descriptor.id)?.buildHandle?.(request);
+}
+function containerHandle(request) {
     const delegation = request.delegation || {};
-    if (descriptor.id === "container") {
-        const image = delegation.image || (process.env.CW_CONTAINER_IMAGE || "").trim() || undefined;
-        if (!image)
-            return undefined;
-        const digest = delegation.digest || (process.env.CW_CONTAINER_DIGEST || "").trim() || undefined;
-        const ref = digest ? `${image}@${digest}` : image;
-        return { kind: "container", ref, image, digest };
-    }
-    if (descriptor.id === "remote") {
-        const endpoint = delegation.endpoint || (process.env.CW_REMOTE_ENDPOINT || "").trim() || undefined;
-        if (!endpoint)
-            return undefined;
-        const jobId = delegation.jobId || (process.env.CW_REMOTE_JOB || "").trim() || undefined;
-        const ref = jobId ? `${endpoint}#${jobId}` : endpoint;
-        return { kind: "remote", ref, endpoint, jobId };
-    }
-    if (descriptor.id === "ci") {
-        const endpoint = delegation.endpoint || (process.env.CW_CI_ENDPOINT || "").trim() || undefined;
-        const jobId = delegation.jobId || (process.env.CW_CI_JOB || "").trim() || undefined;
-        if (!endpoint && !jobId)
-            return undefined;
-        const ref = endpoint && jobId ? `${endpoint}#${jobId}` : jobId || endpoint || "";
-        return { kind: "ci", ref, endpoint, jobId };
-    }
-    if (descriptor.id === "agent") {
-        // The agent invocation is POLICY-as-DATA, resolved flags(delegation) > env. The
-        // handle records ONLY secret-stripped provenance; the raw template is re-resolved
-        // inside runAgentProcess for substitution + spawning so no secret ever lands in
-        // a recorded handle/evidence entry.
-        const resolved = resolveAgentInvocation(request);
-        if (!resolved.binary && !resolved.endpoint)
-            return undefined;
-        const strippedArgs = stripSecretArgs(resolved.rawArgs);
-        const ref = resolved.binary ? [resolved.binary, ...strippedArgs].join(" ") : resolved.endpoint || "";
-        return {
-            kind: "process",
-            ref,
-            endpoint: resolved.endpoint,
-            metadata: {
-                mode: resolved.binary ? "command" : "endpoint",
-                command: resolved.binary,
-                args: strippedArgs,
-                model: resolved.model
-            }
-        };
-    }
-    return undefined;
+    const image = delegation.image || (process.env.CW_CONTAINER_IMAGE || "").trim() || undefined;
+    if (!image)
+        return undefined;
+    const digest = delegation.digest || (process.env.CW_CONTAINER_DIGEST || "").trim() || undefined;
+    const ref = digest ? `${image}@${digest}` : image;
+    return { kind: "container", ref, image, digest };
+}
+function remoteHandle(request) {
+    const delegation = request.delegation || {};
+    const endpoint = delegation.endpoint || (process.env.CW_REMOTE_ENDPOINT || "").trim() || undefined;
+    if (!endpoint)
+        return undefined;
+    const jobId = delegation.jobId || (process.env.CW_REMOTE_JOB || "").trim() || undefined;
+    const ref = jobId ? `${endpoint}#${jobId}` : endpoint;
+    return { kind: "remote", ref, endpoint, jobId };
+}
+function ciHandle(request) {
+    const delegation = request.delegation || {};
+    const endpoint = delegation.endpoint || (process.env.CW_CI_ENDPOINT || "").trim() || undefined;
+    const jobId = delegation.jobId || (process.env.CW_CI_JOB || "").trim() || undefined;
+    if (!endpoint && !jobId)
+        return undefined;
+    const ref = endpoint && jobId ? `${endpoint}#${jobId}` : jobId || endpoint || "";
+    return { kind: "ci", ref, endpoint, jobId };
+}
+function agentHandle(request) {
+    // The agent invocation is POLICY-as-DATA, resolved flags(delegation) > env. The
+    // handle records ONLY secret-stripped provenance; the raw template is re-resolved
+    // inside runAgentProcess for substitution + spawning so no secret ever lands in
+    // a recorded handle/evidence entry.
+    const resolved = resolveAgentInvocation(request);
+    if (!resolved.binary && !resolved.endpoint)
+        return undefined;
+    const strippedArgs = stripSecretArgs(resolved.rawArgs);
+    const ref = resolved.binary ? [resolved.binary, ...strippedArgs].join(" ") : resolved.endpoint || "";
+    return {
+        kind: "process",
+        ref,
+        endpoint: resolved.endpoint,
+        metadata: {
+            mode: resolved.binary ? "command" : "endpoint",
+            command: resolved.binary,
+            args: strippedArgs,
+            model: resolved.model
+        }
+    };
 }
 function refusedEnvelope(descriptor, policy, label, code, reason, options = {}) {
     const attestation = options.attestation
@@ -1048,11 +1115,7 @@ function commandDenied(policy, command) {
     return undefined;
 }
 function runtimeNote(descriptor) {
-    if (descriptor.id === "bun")
-        return hasExecutable("bun") ? "bun (node-compatible execution)" : "node-compatible (bun not installed)";
-    if (descriptor.id === "shell")
-        return "posix-shell";
-    return "node";
+    return getBackendDriver(descriptor.id)?.runtimeNote?.() ?? "node";
 }
 function hasExecutable(name) {
     const dirs = (process.env.PATH || "").split(node_path_1.default.delimiter).filter(Boolean);
