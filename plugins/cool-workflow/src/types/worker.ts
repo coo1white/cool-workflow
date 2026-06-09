@@ -1,4 +1,4 @@
-import type { BackendKind, BackendLocality, BackendSelection, SandboxAttestation, SandboxDimension } from "./execution-backend";
+import type { BackendExecutionHandle, BackendKind, BackendLocality, BackendSelection, SandboxAttestation, SandboxDimension } from "./execution-backend";
 import type { UsageRecord } from "./observability";
 import type { ResolvedSandboxPolicy } from "./sandbox";
 import type { StateNodeError } from "./state-node";
@@ -153,4 +153,23 @@ export interface WorkerIsolationOptions {
   multiAgent?: WorkerMultiAgentMetadata;
   metadata?: Record<string, unknown>;
   persist?: boolean;
+  /** Agent Delegation Drive (v0.1.38): when a worker's result.md was produced by
+   *  an EXTERNAL agent via the `agent` backend, the drive loop passes the agent
+   *  hop's attestation here. recordWorkerOutput folds it into the result node's
+   *  metadata (covered by the snapshot body, NEVER in evidence), records a
+   *  `worker.agent-delegation` trust-audit event, and stamps the worker's usage
+   *  model. The result digest is computed from the accepted result.md. */
+  agentDelegation?: AgentDelegationInput;
+}
+
+/** The agent-hop attestation the drive loop hands to recordWorkerOutput. The
+ *  `model` is the agent-REPORTED model (`unreported` if the agent reported none —
+ *  NEVER the operator-chosen CW_AGENT_MODEL). command/args are secret-stripped. */
+export interface AgentDelegationInput {
+  handle: BackendExecutionHandle;
+  model: string;
+  promptDigest: string;
+  command?: string;
+  args: string[];
+  exitCode: number | null;
 }

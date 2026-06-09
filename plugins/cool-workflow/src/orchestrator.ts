@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  AgentDelegationInput,
   CollaborationTarget,
   CommentRecord,
   DispatchManifest,
@@ -649,8 +650,12 @@ export class CoolWorkflowRunner {
   recordWorkerOutput(runId: string, workerId: string, resultPath: string, options: Record<string, unknown> = {}): RunSummary {
     const run = this.loadRun(runId);
     const usage = parseUsageFromArgs(options, new Date().toISOString());
+    // Agent Delegation Drive (v0.1.38): the drive loop passes the agent-hop
+    // attestation through verbatim so recordWorkerOutput can fold the digests +
+    // model into provenance/trust-audit. Absent for a hand-fulfilled worker.
+    const agentDelegation = (options.agentDelegation as AgentDelegationInput | undefined) || undefined;
     try {
-      recordWorkerOutput(run, workerId, resultPath, { persist: false });
+      recordWorkerOutput(run, workerId, resultPath, { persist: false, agentDelegation });
       if (usage) {
         const worker = getWorkerScope(run, workerId);
         // Host-attested token usage rides on the worker record as provenance.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.38
+
+- Added Agent Delegation Drive: spawn an external agent process per worker to fulfill each worker, capture result.md + attestation, and auto-drive plan->dispatch->fulfill->accept->commit
+
 ## 0.1.37
 
 - Added Control-Plane Scheduling: priority + concurrency limits + lease lifecycle + retry/backoff + park policy over the v0.1.28 Run Registry queue; policy-as-data, fail-closed, deterministic

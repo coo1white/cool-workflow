@@ -25,7 +25,8 @@ import {
   upsertRunSandboxPolicy,
   validateSandboxWrite
 } from "./sandbox-profile";
-import { attestSandbox, getBackendDescriptor, resolveBackendSelection } from "./execution-backend";
+import { attestSandbox, getBackendDescriptor, resolveBackendSelection, sha256 } from "./execution-backend";
+import type { AgentDelegationProvenance } from "./types";
 import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit";
 import { recordMultiAgentWorkerOutput } from "./multi-agent";
 import { addBlackboardArtifact, postBlackboardMessage } from "./coordinator";
@@ -301,6 +302,26 @@ export function recordWorkerOutput(
   const rawResult = fs.readFileSync(absoluteResultPath, "utf8");
   const parsedResult = parseResultEnvelope(rawResult);
   validateResultEnvelope(task, parsedResult);
+
+  // Agent Delegation Drive (v0.1.38): if this worker's result.md was produced by an
+  // EXTERNAL agent, record the agent-hop attestation AS PROVENANCE — the agent
+  // (kind:process) handle, the agent-REPORTED model (never CW_AGENT_MODEL), the
+  // prompt digest, the secret-stripped args, and the result digest computed HERE
+  // from the accepted result.md. These live in the result node's metadata (covered
+  // by the v0.1.35 snapshot body) + a trust-audit event, NEVER in `evidence`.
+  const agentDelegation: AgentDelegationProvenance | undefined = options.agentDelegation
+    ? {
+        schemaVersion: 1,
+        backendId: "agent",
+        handle: options.agentDelegation.handle,
+        model: options.agentDelegation.model,
+        promptDigest: options.agentDelegation.promptDigest,
+        resultDigest: sha256(rawResult),
+        command: options.agentDelegation.command,
+        args: options.agentDelegation.args,
+        exitCode: options.agentDelegation.exitCode
+      }
+    : undefined;
   const pathAudit = recordSandboxPathDecision(run, {
     workerId,
     taskId: task.id,
@@ -345,7 +366,16 @@ export function recordWorkerOutput(
       evidence,
       parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [task.stateNodeId || `${run.id}:task:${task.id}`],
       contractId: DEFAULT_PIPELINE_CONTRACT_ID,
-    metadata: { taskId: task.id, workerId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId, auditEventIds: [pathAudit.id] }
+    metadata: {
+      taskId: task.id,
+      workerId,
+      workerDir: scope.workerDir,
+      sandboxProfileId: scope.sandboxProfileId,
+      auditEventIds: [pathAudit.id],
+      // Folded into the snapshotted node body so v0.1.35 replay re-verifies the
+      // prompt/result/model digests WITHOUT re-spawning the agent. NOT evidence.
+      ...(agentDelegation ? { agentDelegation } : {})
+    }
     })
   );
   const acceptedAudit = recordTrustAuditEvent(run, {
@@ -371,6 +401,33 @@ export function recordWorkerOutput(
   });
   appendRunNode(run, resultNode);
   task.resultNodeId = resultNode.id;
+
+  // The agent-hop attestation event — hung off worker.output, alongside
+  // worker.backend. Recorded in trust-audit/provenance, NEVER in node evidence.
+  if (agentDelegation) {
+    recordTrustAuditEvent(run, {
+      kind: "worker.agent-delegation",
+      decision: "recorded",
+      source: "host-attested",
+      workerId,
+      taskId: task.id,
+      nodeId: resultNode.id,
+      sandboxProfileId: scope.sandboxProfileId,
+      policySnapshot: scope.sandboxPolicy,
+      parentEventIds: [acceptedAudit.id],
+      metadata: {
+        backendId: agentDelegation.backendId,
+        handleKind: agentDelegation.handle.kind,
+        handleRef: agentDelegation.handle.ref,
+        model: agentDelegation.model,
+        promptDigest: agentDelegation.promptDigest,
+        resultDigest: agentDelegation.resultDigest,
+        command: agentDelegation.command,
+        args: agentDelegation.args,
+        exitCode: agentDelegation.exitCode
+      }
+    });
+  }
 
   const verifierResult = createPipelineRunner({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
     outputNodeId: `${run.id}:verifier:${task.id}`,
@@ -399,7 +456,21 @@ export function recordWorkerOutput(
     updatedAt: new Date().toISOString(),
     status: verifierResult.status === "advanced" ? "verified" : "completed",
     resultNodeId: resultNode.id,
-    output
+    output,
+    // Host-attested usage model rides on the worker record. Only when the agent
+    // REPORTED a model — `unreported` is recorded as ABSENT (never backfilled from
+    // the operator-chosen CW_AGENT_MODEL).
+    ...(agentDelegation && agentDelegation.model && agentDelegation.model !== "unreported"
+      ? {
+          usage: {
+            schemaVersion: 1 as const,
+            source: "host-attested" as const,
+            model: agentDelegation.model,
+            attestedAt: new Date().toISOString(),
+            note: "agent-delegation host-attested model"
+          }
+        }
+      : {})
   });
   const blackboardLinks = publishWorkerOutputToBlackboard(run, scope, task, parsedResult.summary, destination, absoluteResultPath, resultNode.evidence, acceptedAudit.id);
   recordMultiAgentWorkerOutput(run, {

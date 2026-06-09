@@ -28,7 +28,11 @@ import {
   schedReclaim,
   schedReset,
   schedPolicyShow,
-  schedPolicySet
+  schedPolicySet,
+  runDrive,
+  runDrivePreview,
+  backendAgentConfigShow,
+  backendAgentConfigSet
 } from "./capability-core";
 import { formatMetricsReport, formatMetricsSummary } from "./observability";
 import {
@@ -525,8 +529,18 @@ async function main(): Promise<void> {
         case "probe":
           printJson(runner.probeBackend(backendId, args.options));
           return;
+        case "agent": {
+          // `backend agent config [show]` = read-only; `backend agent config set ...` = mutating.
+          const [, , action] = args.positionals;
+          if (action === "set") {
+            printJson(backendAgentConfigSet(args.options));
+            return;
+          }
+          printJson(backendAgentConfigShow(args.options));
+          return;
+        }
         default:
-          throw new Error("Usage: cw.js backend list|show|probe [backend-id]");
+          throw new Error("Usage: cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]");
       }
     }
     case "contract": {
@@ -943,9 +957,37 @@ async function main(): Promise<void> {
       }
     }
     case "run": {
+      // Agent Delegation Drive (v0.1.38): `cw run <app> --drive [--once]` drives a
+      // run end-to-end by delegating each worker to the agent backend. Distinct from
+      // the run-REGISTRY verbs below. `--preview` (or the `run drive <run-id>` form)
+      // is the read-only, deterministic next-step preview.
+      if (args.options.drive) {
+        const target = args.positionals[0];
+        const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
+        if (args.options.preview) {
+          printJson(runDrivePreview(runner, { ...args.options, runId: runId || target }));
+          return;
+        }
+        const driveArgs = { ...args.options } as Record<string, unknown>;
+        if (runId) driveArgs.runId = runId;
+        else driveArgs.appId = target;
+        printJson(runDrive(runner, driveArgs));
+        return;
+      }
       const registry = runRegistryFor(args.options, runner);
       const [subcommand, id] = args.positionals;
       switch (subcommand) {
+        case "drive": {
+          // `run drive <run-id>` = read-only preview; `--step [--once]` = mutating drive.
+          if (args.options.step) {
+            const driveArgs = { ...args.options } as Record<string, unknown>;
+            if (id) driveArgs.runId = id;
+            printJson(runDrive(runner, driveArgs));
+            return;
+          }
+          printJson(runDrivePreview(runner, { ...args.options, runId: required(id, "run id") }));
+          return;
+        }
         case "search": {
           const result = runSearch(registry, args.options);
           if (wantsJson(args.options)) printJson(result);
@@ -977,7 +1019,7 @@ async function main(): Promise<void> {
           printJson(runRerun(registry, required(id, "run id"), args.options));
           return;
         default:
-          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun [run-id] [--scope repo|home] [--json]");
+          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive [run-id] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
       }
     }
     case "queue": {
@@ -1083,6 +1125,10 @@ async function main(): Promise<void> {
 function required(value: string | undefined, label: string): string {
   if (!value) throw new Error(`Missing ${label}`);
   return value;
+}
+
+function optionalArg(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function printJson(value: unknown): void {

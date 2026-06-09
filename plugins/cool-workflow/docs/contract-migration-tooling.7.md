@@ -82,3 +82,7 @@ cli-mcp-parity(7)
 ## Control-Plane Scheduling (v0.1.37)
 
 priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue; policy-as-data, deterministic. See control-plane-scheduling(7).
+
+## Agent Delegation Drive (v0.1.38)
+
+spawn an external agent process per worker, capture result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit

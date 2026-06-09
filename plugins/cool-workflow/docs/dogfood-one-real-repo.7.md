@@ -127,3 +127,41 @@ profile, worker, and acceptance rationale.
 
 This is intentionally boring release engineering: local-first, inspectable,
 scriptable, and fail-closed.
+
+## Architecture-Review Agent-Delegation Dogfood (v0.1.38)
+
+`scripts/dogfood-architecture-review.js` dogfoods the v0.1.38 Agent Delegation
+Drive: the `architecture-review` app driven end-to-end by the `agent` backend,
+with zero hand-written `result.md`.
+
+It splits into two halves, exactly like the release dogfood above:
+
+- **`--smoke` (CI-verifiable).** A hermetic STUB agent (no live binary, no second
+  repo, no network, no model SDK) drives the real app to a committed audited
+  report. `node scripts/dogfood-architecture-review.js --smoke --json` emits
+  `{ ok: true, mode: "smoke" }` with a `reportPath` and `auditSummaryPath` that
+  exist, the Verdict node accepted, and `audit.byKind["worker.agent-delegation"]
+  >= 1`. This is asserted under `npm test` (`test/dogfood-release-smoke.js`).
+
+- **Live full-drive (MAINTAINER-RUN, OUT OF CI).** With a REAL configured agent
+  (`CW_AGENT_COMMAND`, e.g. `claude -p {{input}}` / `codex exec`, or
+  `--agent-command`) against ONE real external repository:
+
+  ```bash
+  CW_AGENT_COMMAND="claude -p {{input}}" \
+    node scripts/dogfood-architecture-review.js --repo /path/to/real/repo \
+    --question "Audit this repo's architecture and rank the real risks."
+  ```
+
+  This drives plan → dispatch → agent-fulfill → accept/verify → commit for every
+  worker the planner emits, produces the committed audited risk report, and writes
+  a `docs/dogfood/architecture-review-<repo>.md` provenance note recording the repo
+  name and the agent-REPORTED model id. It depends on a live external agent binary
+  and a second repository, which CI cannot have (CI is node/npm/git-only and
+  hermetic), so it is **explicitly OUT of CI** — a maintainer bar run out-of-band,
+  exactly like the "Promote To Real Release Actions" above. The CI/release gate is
+  strictly the stub `--smoke` path.
+
+  The model runs in the external agent's process, never inside CW: this script
+  spawns the agent and records its attested output; it imports no model SDK and
+  holds no API key.

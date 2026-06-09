@@ -151,6 +151,18 @@ const DRIVER_SPECS: DriverSpec[] = [
     delegate: "ci-runner",
     readiness: "unverified",
     support: { read: "attest", write: "attest", command: "enforce", network: "attest", env: "enforce" }
+  },
+  {
+    id: "agent",
+    title: "Agent (external process)",
+    description:
+      "Delegates each worker to an EXTERNAL agent process (claude -p / codex exec / an HTTP agent endpoint) and records the agent CHILD's command + exit + stdout digest as the canonical evidence triple, plus a kind:process handle and the agent-reported model + prompt/result digests as provenance. The MODEL runs in the agent's process, NEVER in CW — CW imports no model SDK and holds no API key; it spawns an out-of-process child argv-style (shell:false) or POSTs to a configured endpoint. CW enforces only the exact argv it spawns; the agent host attests read/write/network/env. Fails closed when no command-template/endpoint is configured, on non-zero exit, or on a missing/invalid result.md.",
+    kind: "delegating",
+    locality: "local",
+    default: false,
+    delegate: "agent-process",
+    readiness: "unverified",
+    support: { read: "attest", write: "attest", command: "enforce", network: "attest", env: "attest" }
   }
 ];
 
@@ -357,6 +369,16 @@ export function probeBackend(id: string, context: { cwd?: string } = {}): Backen
     checks.push({ name: "ci-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_CI_ENDPOINT configured" : "CW_CI_ENDPOINT not set" });
     readiness = endpoint ? "ready" : "unverified";
     if (!endpoint) reason = "no CI job target configured (set CW_CI_ENDPOINT or pass --job)";
+  } else if (id === "agent") {
+    // Mirrors remote/ci EXACTLY: unconfigured ⇒ `unverified` (NOT a hard refusal),
+    // configured ⇒ `ready`. "Configured" = a command-template or endpoint is set.
+    const command = (process.env.CW_AGENT_COMMAND || "").trim();
+    const endpoint = (process.env.CW_AGENT_ENDPOINT || "").trim();
+    const configured = Boolean(command || endpoint);
+    checks.push({ name: "agent-command", ok: Boolean(command), detail: command ? "CW_AGENT_COMMAND configured" : "CW_AGENT_COMMAND not set" });
+    checks.push({ name: "agent-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_AGENT_ENDPOINT configured" : "CW_AGENT_ENDPOINT not set" });
+    readiness = configured ? "ready" : "unverified";
+    if (!configured) reason = "no agent configured (set CW_AGENT_COMMAND or CW_AGENT_ENDPOINT, or pass --agent-command/--agent-endpoint)";
   }
 
   return {
@@ -513,8 +535,9 @@ function delegate(
     );
   }
   // A delegating backend that really executes needs a command. Refuse otherwise
-  // rather than fabricate a completed run.
-  if (!request.command) {
+  // rather than fabricate a completed run. The agent backend is exempt: its command
+  // is the resolved agent invocation carried by the handle, not request.command.
+  if (descriptor.id !== "agent" && !request.command) {
     return refusedEnvelope(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to delegate`, {
       ready: probe.ready
     });
@@ -531,9 +554,9 @@ function delegate(
   // run is byte-stable against node; the handle lives in provenance, NEVER in
   // evidence. Any runtime/transport failure FAILS CLOSED (refused), never a
   // fabricated completion.
-  return descriptor.id === "container"
-    ? runContainer(descriptor, policy, request, label, handle, attestation)
-    : runHttpDelegation(descriptor, policy, request, label, handle, attestation);
+  if (descriptor.id === "container") return runContainer(descriptor, policy, request, label, handle, attestation);
+  if (descriptor.id === "agent") return runAgentProcess(descriptor, policy, request, label, handle, attestation);
+  return runHttpDelegation(descriptor, policy, request, label, handle, attestation);
 }
 
 /** Build the canonical completed/failed envelope shared by every real backend —
@@ -745,6 +768,317 @@ function runHttpDelegation(
   return delegatedEnvelope(descriptor, label, handle, attestation, command, args, parsed.exitCode, String(parsed.stdout || ""));
 }
 
+// ---------------------------------------------------------------------------
+// agent — the v0.1.38 delegating driver. Spawns an EXTERNAL agent process per
+// worker (claude -p / codex exec / …) argv-style (shell:false), or POSTs the
+// manifest to a configured HTTP agent endpoint. The agent reads the worker
+// input/manifest and writes the worker's result.md out-of-process; CW captures
+// the agent CHILD's command + exit + stdout digest as the canonical evidence
+// triple (NEVER the result.md — that is the separate recordWorkerOutput layer)
+// and records the kind:process handle + agent-reported model in provenance.
+//
+// THE RED LINE: CW spawns the agent and records its attested output. It NEVER
+// imports a model SDK, holds an API key, or constructs a model API request. Any
+// API key flows from the agent's OWN inherited env; CW never reads or records it.
+// The operator-chosen CW_AGENT_MODEL is interpolated into `{{model}}` as policy
+// and recorded ONLY in secret-stripped args — it is NEVER the attested model id.
+
+interface AgentInvocation {
+  binary?: string;
+  rawArgs: string[];
+  endpoint?: string;
+  model?: string;
+  timeoutMs?: number;
+}
+
+/** Resolve the agent invocation from the request delegation > env. Vendor-neutral;
+ *  the durable file config is folded in by the drive layer before this point. */
+function resolveAgentInvocation(request: ExecutionRequest): AgentInvocation {
+  const delegation = request.delegation || {};
+  const envCommand = (process.env.CW_AGENT_COMMAND || "").trim();
+  const endpoint = delegation.endpoint || (process.env.CW_AGENT_ENDPOINT || "").trim() || undefined;
+  const model = delegation.model || (process.env.CW_AGENT_MODEL || "").trim() || undefined;
+  // Accept the invocation via delegation (preferred) OR the top-level command/args.
+  let binary = delegation.command || request.command || undefined;
+  let rawArgs = delegation.args ? [...delegation.args] : request.args ? [...request.args] : [];
+  // An env-string command ("claude -p --output-format json {{manifest}}") is split
+  // into a binary + discrete argv template — NEVER shell-interpreted.
+  if (!binary && envCommand) {
+    const parts = envCommand.split(/\s+/).filter(Boolean);
+    binary = parts[0];
+    if (!delegation.args) rawArgs = parts.slice(1);
+  } else if (binary && !delegation.args && /\s/.test(binary)) {
+    const parts = binary.split(/\s+/).filter(Boolean);
+    binary = parts[0];
+    rawArgs = parts.slice(1);
+  }
+  return { binary, rawArgs, endpoint, model, timeoutMs: request.timeoutMs };
+}
+
+const AGENT_SECRET_FLAGS = new Set(["--api-key", "--apikey", "--token", "--key", "--secret", "--password", "--auth", "--bearer"]);
+
+/** Redact secrets from recorded agent args: a value FOLLOWING a known secret flag,
+ *  an `--x-key=...` inline value, or a token that LOOKS like a credential. Never
+ *  record a raw secret in provenance/evidence. Exported so the durable config
+ *  surface strips the SAME way before persisting/showing a command template. */
+export function stripSecretArgs(args: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const arg = String(args[i]);
+    if (AGENT_SECRET_FLAGS.has(arg.toLowerCase())) {
+      out.push(arg);
+      if (i + 1 < args.length) {
+        out.push("<redacted>");
+        i++;
+      }
+      continue;
+    }
+    const inline = arg.match(/^(--?[A-Za-z][\w-]*(?:key|token|secret|password|auth|bearer)[\w-]*)=.*/i);
+    if (inline) {
+      out.push(`${inline[1]}=<redacted>`);
+      continue;
+    }
+    // Bare credential-looking token: a known provider prefix, or a long high-entropy
+    // run with NO path separators (so file paths / {{...}} substitutions survive as
+    // useful provenance). Over-redaction is safe; leaking a key is not.
+    if (/^(sk-|ghp_|gho_|github_pat_|xox[abpr]-|Bearer\s)/.test(arg) || (arg.length >= 32 && /^[A-Za-z0-9_\-]{32,}$/.test(arg))) {
+      out.push("<redacted>");
+      continue;
+    }
+    out.push(arg);
+  }
+  return out;
+}
+
+/** Best-effort parse of the AGENT-reported model id from its stdout. SOLELY the
+ *  agent's own report — `unreported` when absent. Never CW_AGENT_MODEL. */
+function parseAgentReport(stdout: string): { model?: string; usage?: Record<string, unknown> } {
+  const text = String(stdout || "").trim();
+  if (!text) return {};
+  const tryObj = (value: string): Record<string, unknown> | undefined => {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  let obj = tryObj(text);
+  if (!obj) {
+    const line = text
+      .split(/\r?\n/)
+      .reverse()
+      .find((entry) => entry.trim().startsWith("{") && entry.trim().endsWith("}"));
+    if (line) obj = tryObj(line.trim());
+  }
+  if (!obj) return {};
+  const usage = obj.usage && typeof obj.usage === "object" ? (obj.usage as Record<string, unknown>) : undefined;
+  let model =
+    typeof obj.model === "string"
+      ? obj.model
+      : usage && typeof usage.model === "string"
+        ? (usage.model as string)
+        : typeof obj.modelId === "string"
+          ? obj.modelId
+          : undefined;
+  // Some agents (e.g. `claude -p --output-format json`) report no top-level model;
+  // the model id(s) appear as KEYS of a `modelUsage` object. Pick the primary model
+  // (the one with the most input tokens). Still SOLELY the agent's own report.
+  if (!model && obj.modelUsage && typeof obj.modelUsage === "object" && !Array.isArray(obj.modelUsage)) {
+    const entries = Object.entries(obj.modelUsage as Record<string, unknown>);
+    if (entries.length) {
+      const tokensOf = (value: unknown): number => {
+        const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+        const input = Number(record.inputTokens ?? record.input_tokens ?? 0);
+        return Number.isFinite(input) ? input : 0;
+      };
+      entries.sort((left, right) => tokensOf(right[1]) - tokensOf(left[1]));
+      model = entries[0][0];
+    }
+  }
+  return { model, usage };
+}
+
+function agentSubstitutions(request: ExecutionRequest, model?: string): Record<string, string> {
+  const manifest = request.manifest;
+  const workerDir = manifest?.workerDir || request.cwd || "";
+  return {
+    manifest: workerDir ? path.join(workerDir, "worker.json") : "",
+    input: manifest?.inputPath || "",
+    result: manifest?.resultPath || "",
+    workerDir,
+    model: model || "",
+    prompt: manifest?.prompt || ""
+  };
+}
+
+function substituteAgentArg(arg: string, subst: Record<string, string>): string {
+  return arg.replace(/\{\{(\w+)\}\}/g, (_, key: string) => (key in subst ? subst[key] : `{{${key}}}`));
+}
+
+/** Build the recorded process handle for the envelope — secret-stripped + the
+ *  agent-reported model. Same SHAPE that lands in provenance, never in evidence. */
+function recordedAgentHandle(
+  binary: string | undefined,
+  endpoint: string | undefined,
+  recordedArgs: string[],
+  model: string | undefined,
+  reportedModel: string
+): BackendExecutionHandle {
+  const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
+  return {
+    kind: "process",
+    ref,
+    endpoint,
+    metadata: {
+      mode: binary ? "command" : "endpoint",
+      command: binary,
+      args: recordedArgs,
+      model,
+      reportedModel
+    }
+  };
+}
+
+function runAgentProcess(
+  descriptor: BackendDescriptor,
+  policy: ResolvedSandboxPolicy,
+  request: ExecutionRequest,
+  label: string,
+  handle: BackendExecutionHandle,
+  attestation: SandboxAttestation
+): ExecutionResultEnvelope {
+  const resolved = resolveAgentInvocation(request);
+  const subst = agentSubstitutions(request, resolved.model);
+
+  if (resolved.binary) {
+    const realArgs = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
+    const recordedArgs = stripSecretArgs(realArgs);
+    // Spawn the agent argv-style — shell:false, never a shell-interpreted string.
+    // The agent inherits the host env so ITS OWN credentials resolve; CW neither
+    // reads nor records them. CW enforces only the exact argv it spawns.
+    const child = spawnSync(resolved.binary, realArgs, {
+      cwd: request.cwd,
+      env: { ...process.env },
+      encoding: "utf8",
+      timeout: resolved.timeoutMs || 600000,
+      maxBuffer: 32 * 1024 * 1024,
+      shell: false
+    });
+    if (child.error) {
+      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported");
+      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${messageOf(child.error)}`, {
+        attestation: { ...attestation, handle: handleOut }
+      });
+    }
+    const exitCode = typeof child.status === "number" ? child.status : null;
+    const stdout = String(child.stdout || "");
+    const report = parseAgentReport(stdout);
+    const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
+    const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel);
+    if (exitCode === null) {
+      // No exit code (timeout/killed) ⇒ fail closed, never a fabricated completion.
+      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process returned no exit code (timed out or killed)`, {
+        attestation: { ...attestation, handle: handleOut }
+      });
+    }
+    // Evidence triple = the agent CHILD's command/exit/stdout digest (secret-stripped
+    // command), byte-stable in SHAPE with node/container/remote. exit≠0 ⇒ failed.
+    return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, resolved.binary, recordedArgs, exitCode, stdout);
+  }
+
+  if (resolved.endpoint) {
+    return runAgentEndpoint(descriptor, policy, request, label, resolved, attestation);
+  }
+
+  return refusedEnvelope(descriptor, policy, label, "delegation-target-missing", `Backend ${descriptor.id} has no command-template or endpoint configured`, {
+    attestation
+  });
+}
+
+/** Agent HTTP endpoint variant — POSTs the worker manifest/prompt to a configured
+ *  agent endpoint via the shared Node delegate child; if the endpoint returns a
+ *  `result` body, CW writes it to the worker's result.md (the endpoint agent is the
+ *  producer — CW is only transport). Evidence triple = the delegate child's
+ *  exit + stdout digest, identical mechanism to runHttpDelegation. Fails closed. */
+function runAgentEndpoint(
+  descriptor: BackendDescriptor,
+  policy: ResolvedSandboxPolicy,
+  request: ExecutionRequest,
+  label: string,
+  resolved: AgentInvocation,
+  attestation: SandboxAttestation
+): ExecutionResultEnvelope {
+  const endpoint = resolved.endpoint as string;
+  const manifest = request.manifest;
+  const job = JSON.stringify({
+    manifest,
+    prompt: manifest?.prompt,
+    model: resolved.model,
+    resultPath: manifest?.resultPath,
+    sandboxProfileId: policy.id
+  });
+  const child = spawnSync(process.execPath, ["-e", HTTP_DELEGATE_CHILD], {
+    input: job,
+    env: { ...process.env, CW_DELEGATE_ENDPOINT: endpoint },
+    encoding: "utf8",
+    timeout: resolved.timeoutMs || 600000,
+    maxBuffer: 32 * 1024 * 1024
+  });
+  const baseHandle = recordedAgentHandle(undefined, endpoint, [], resolved.model, "unreported");
+  if (child.error) {
+    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint delegation failed: ${messageOf(child.error)}`, {
+      attestation: { ...attestation, handle: baseHandle }
+    });
+  }
+  let parsed: { exitCode?: number; stdout?: string; error?: string };
+  try {
+    parsed = JSON.parse(String(child.stdout || "").trim() || "{}");
+  } catch {
+    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint returned an unparseable response`, {
+      attestation: { ...attestation, handle: baseHandle }
+    });
+  }
+  if (parsed.error || typeof parsed.exitCode !== "number") {
+    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint error: ${parsed.error || "no exitCode reported"}`, {
+      attestation: { ...attestation, handle: baseHandle }
+    });
+  }
+  const stdout = String(parsed.stdout || "");
+  // If the endpoint agent returned the result body, CW (as transport) writes it to
+  // the worker's result.md for the separate recordWorkerOutput layer to accept.
+  const report = parseAgentReport(stdout);
+  if (manifest?.resultPath && report.usage === undefined) {
+    const body = extractEndpointResult(stdout);
+    if (body && !fs.existsSync(manifest.resultPath)) {
+      try {
+        fs.writeFileSync(manifest.resultPath, body, "utf8");
+      } catch {
+        /* the accept layer will fail closed on a missing result.md */
+      }
+    }
+  }
+  const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
+  const handleOut = recordedAgentHandle(undefined, endpoint, [], resolved.model, reportedModel);
+  return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], parsed.exitCode, stdout);
+}
+
+function extractEndpointResult(stdout: string): string | undefined {
+  const text = String(stdout || "").trim();
+  if (!text) return undefined;
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === "object") {
+      if (typeof (parsed as Record<string, unknown>).result === "string") return (parsed as Record<string, unknown>).result as string;
+      if (typeof (parsed as Record<string, unknown>).resultMarkdown === "string") return (parsed as Record<string, unknown>).resultMarkdown as string;
+    }
+  } catch {
+    /* not JSON — treat the raw text as the result body */
+    return text;
+  }
+  return undefined;
+}
+
 function delegationHandle(descriptor: BackendDescriptor, request: ExecutionRequest): BackendExecutionHandle | undefined {
   const delegation = request.delegation || {};
   if (descriptor.id === "container") {
@@ -767,6 +1101,27 @@ function delegationHandle(descriptor: BackendDescriptor, request: ExecutionReque
     if (!endpoint && !jobId) return undefined;
     const ref = endpoint && jobId ? `${endpoint}#${jobId}` : jobId || endpoint || "";
     return { kind: "ci", ref, endpoint, jobId };
+  }
+  if (descriptor.id === "agent") {
+    // The agent invocation is POLICY-as-DATA, resolved flags(delegation) > env. The
+    // handle records ONLY secret-stripped provenance; the raw template is re-resolved
+    // inside runAgentProcess for substitution + spawning so no secret ever lands in
+    // a recorded handle/evidence entry.
+    const resolved = resolveAgentInvocation(request);
+    if (!resolved.binary && !resolved.endpoint) return undefined;
+    const strippedArgs = stripSecretArgs(resolved.rawArgs);
+    const ref = resolved.binary ? [resolved.binary, ...strippedArgs].join(" ") : resolved.endpoint || "";
+    return {
+      kind: "process",
+      ref,
+      endpoint: resolved.endpoint,
+      metadata: {
+        mode: resolved.binary ? "command" : "endpoint",
+        command: resolved.binary,
+        args: strippedArgs,
+        model: resolved.model
+      }
+    };
   }
   return undefined;
 }
