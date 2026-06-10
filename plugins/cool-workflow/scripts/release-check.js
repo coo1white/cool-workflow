@@ -63,7 +63,12 @@ const checks = [
   { name: "golden path", command: ["npm", "run", "golden-path"] },
   { name: "CLI MCP parity", command: ["npm", "run", "parity:check"] },
   { name: "vendor manifest synchronization", command: ["npm", "run", "gen:manifests", "--", "--check"] },
-  { name: "version synchronization", command: ["npm", "run", "version:sync"] }
+  { name: "version synchronization", command: ["npm", "run", "version:sync"] },
+  // Lightweight (~50ms) standalone gate: fail closed if docs/project-index.md has
+  // drifted from a fresh source scan. The teeth-on-the-gate live in
+  // test/project-index-sync-smoke.js (run by `npm test`); this entry gives the
+  // real-doc check its own visible PASS/FAIL line in the release summary.
+  { name: "project index sync", command: ["npm", "run", "index:check"] }
 ];
 
 function main() {

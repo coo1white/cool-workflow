@@ -15,6 +15,16 @@ const obsidianVault = process.env.CW_OBSIDIAN_VAULT || detectObsidianVault();
 const obsidianDir = obsidianVault ? path.join(obsidianVault, "Cool Workflow") : "";
 const generatedDate = new Date().toISOString().slice(0, 10);
 
+// --check  : verify the committed docs/project-index.md still matches a fresh
+//            scan of the source tree, write nothing, exit non-zero on drift.
+// --repo-only : write ONLY the committed repo doc; skip the optional personal
+//            sync targets (Obsidian vault, GitHub wiki working tree).
+// CW_PROJECT_INDEX_PATH : override the doc path that --check compares against
+//            (used by the smoke to point at throwaway fixtures).
+const CHECK = process.argv.includes("--check");
+const REPO_ONLY = process.argv.includes("--repo-only");
+const indexPathOverride = process.env.CW_PROJECT_INDEX_PATH || "";
+
 const moduleCatalog = {
   "Core runtime": [
     ["orchestrator.ts", "Plans runs, loads workflows, records results, writes reports, and exposes runner commands."],
@@ -63,12 +73,45 @@ function main() {
   const smokeTests = listFiles(path.join(pluginRoot, "test"), ".js").filter((file) => file.endsWith("-smoke.js"));
   const context = { apps, docs, sourceFiles, smokeTests };
 
+  // Fail closed if the hand-maintained moduleCatalog references a src module that
+  // no longer exists. Without this the generator emits a dead `../src/<file>` link
+  // and --check would bless it: the catalog region renders identically from the
+  // (stale) constant on both sides, so it is invisible to the diff. This closes
+  // the STRUCTURAL half of the catalog blind spot. Responsibility-PROSE staleness
+  // (a cataloged file whose contents changed) is not auto-derivable from source
+  // and remains out of scope by design — see the PR notes.
+  const catalogedFiles = Object.values(moduleCatalog).flat().map(([file]) => file);
+  const missingCataloged = catalogedFiles.filter((file) => !sourceFiles.includes(file));
+  if (missingCataloged.length > 0) {
+    process.stderr.write(
+      `project-index FAILED: moduleCatalog references src module(s) that no longer exist: ${missingCataloged.join(", ")}.\n` +
+      `A rename/delete must be reflected in moduleCatalog (scripts/sync-project-index.js).\n`
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const repoDoc = indexPathOverride
+    ? path.resolve(indexPathOverride)
+    : path.join(pluginRoot, "docs", "project-index.md");
+  const rendered = renderIndex("repo", context);
+
+  // Gate mode: compare the committed doc against a fresh render and exit
+  // non-zero on drift. Writes nothing and never touches the personal targets.
+  // Deliberately reads the WORKING TREE (not git HEAD like version-sync-check.js):
+  // this gate is meant to catch "you changed source but forgot to regenerate the
+  // index" BEFORE you commit. CI checks out a clean HEAD, so working tree == HEAD
+  // there; there is no concurrent-mutation race here (unlike the release-cut flow).
+  if (CHECK) {
+    checkInSync(repoDoc, rendered);
+    return;
+  }
+
   const outputs = [];
-  const repoDoc = path.join(pluginRoot, "docs", "project-index.md");
-  writeFile(repoDoc, renderIndex("repo", context));
+  writeFile(repoDoc, rendered);
   outputs.push(repoDoc);
 
-  if (obsidianDir) {
+  if (!REPO_ONLY && obsidianDir) {
     fs.mkdirSync(obsidianDir, { recursive: true });
     const obsidianDoc = path.join(obsidianDir, "CW Project Index.md");
     writeFile(obsidianDoc, renderIndex("obsidian", context));
@@ -80,7 +123,7 @@ function main() {
     outputs.push(obsidianDoc);
   }
 
-  if (fs.existsSync(wikiDir)) {
+  if (!REPO_ONLY && fs.existsSync(wikiDir)) {
     const wikiDoc = path.join(wikiDir, "Project-Index.md");
     writeFile(wikiDoc, renderIndex("wiki", context));
     ensureLine(path.join(wikiDir, "_Sidebar.md"), "- [[Project Index]]", "# Cool Workflow");
@@ -292,6 +335,53 @@ function normalizeGitRemote(remote) {
   const sshMatch = remote.match(/^git@github\.com:(.+)$/);
   if (sshMatch) return `https://github.com/${sshMatch[1]}`;
   return remote;
+}
+
+function normalizeForCompare(text) {
+  // Strip ONLY the values derived from the runtime ENVIRONMENT (not the source
+  // tree), so the gate compares purely source-derived content — it can neither
+  // false-RED across machines/forks nor false-GREEN by over-normalizing. Mirrors
+  // the parity payload-identity rule: normalize now/env-derived fields, nothing
+  // else. Exactly two such fields exist in the rendered index:
+  //   1. the generated date ("Generated on <date>") — changes every day;
+  //   2. the Repository URL — derived from `git remote get-url origin`, so it
+  //      differs on every fork/mirror clone of an otherwise in-sync tree.
+  // The Snapshot COUNTS are source-derived and MUST NOT be normalized — a wrong
+  // count is exactly the drift this gate exists to catch.
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(
+      /(Generated from the current repository code on )\d{4}-\d{2}-\d{2}( by)/,
+      "$1<DATE>$2"
+    )
+    .replace(/^(- Repository: ).*$/m, "$1<REPO>");
+}
+
+function checkInSync(repoDoc, rendered) {
+  const rel = path.relative(repoRoot, repoDoc);
+  if (!fs.existsSync(repoDoc)) {
+    process.stderr.write(`project-index check FAILED: ${rel} does not exist.\nRun: (cd plugins/cool-workflow && npm run sync:project-index)\n`);
+    process.exitCode = 1;
+    return;
+  }
+  const committed = normalizeForCompare(fs.readFileSync(repoDoc, "utf8"));
+  const fresh = normalizeForCompare(rendered);
+  if (committed === fresh) {
+    process.stdout.write(`${JSON.stringify({ ok: true, check: true, version: packageJson.version, doc: rel }, null, 2)}\n`);
+    return;
+  }
+  const a = committed.split("\n");
+  const b = fresh.split("\n");
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  process.stderr.write(
+    `project-index check FAILED: ${rel} is stale (does not match a fresh source scan).\n` +
+    `First difference at line ${i + 1}:\n` +
+    `  committed: ${JSON.stringify(a[i] ?? "<missing>")}\n` +
+    `  expected:  ${JSON.stringify(b[i] ?? "<missing>")}\n` +
+    `Regenerate with: (cd plugins/cool-workflow && npm run sync:project-index)\n`
+  );
+  process.exitCode = 1;
 }
 
 main();
