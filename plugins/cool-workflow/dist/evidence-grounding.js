@@ -12,6 +12,7 @@ exports.unresolvedFileEvidence = unresolvedFileEvidence;
 exports.computeEvidenceConfidence = computeEvidenceConfidence;
 exports.computeEvidenceConfidenceTiers = computeEvidenceConfidenceTiers;
 exports.maxEvidenceConfidence = maxEvidenceConfidence;
+exports.extractEvidenceContent = extractEvidenceContent;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 // ---------------------------------------------------------------------------
@@ -147,4 +148,32 @@ function maxEvidenceConfidence(evidence, baseDirs) {
             max = tier;
     }
     return max;
+}
+/** Extract actual content from a file-style evidence locator (v0.1.74).
+ *  For `file.ts:42`, reads the file and returns line 42's content.
+ *  Never fabricates — returns undefined when the file doesn't exist or
+ *  the locator is not file-style. Lines are 1-indexed. */
+function extractEvidenceContent(locator, baseDirs) {
+    const shape = classify(locator);
+    if (shape.kind !== "file" || !shape.pathPart)
+        return undefined;
+    const lineMatch = locator.match(/:(\d+)$/);
+    const lineNum = lineMatch ? Number(lineMatch[1]) : undefined;
+    const candidatePath = node_path_1.default.isAbsolute(shape.pathPart)
+        ? shape.pathPart
+        : baseDirs.filter(Boolean).map((base) => node_path_1.default.resolve(base, shape.pathPart)).find((p) => node_fs_1.default.existsSync(p));
+    if (!candidatePath)
+        return undefined;
+    try {
+        const content = node_fs_1.default.readFileSync(candidatePath, "utf8");
+        if (lineNum && lineNum > 0) {
+            const lines = content.split("\n");
+            return lines[lineNum - 1] || undefined;
+        }
+        // No line number: return first 200 chars as preview
+        return content.slice(0, 200);
+    }
+    catch {
+        return undefined;
+    }
 }

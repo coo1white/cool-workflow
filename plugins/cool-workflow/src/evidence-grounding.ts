@@ -142,3 +142,29 @@ export function maxEvidenceConfidence(
   }
   return max;
 }
+
+/** Extract actual content from a file-style evidence locator (v0.1.74).
+ *  For `file.ts:42`, reads the file and returns line 42's content.
+ *  Never fabricates — returns undefined when the file doesn't exist or
+ *  the locator is not file-style. Lines are 1-indexed. */
+export function extractEvidenceContent(locator: string, baseDirs: string[]): string | undefined {
+  const shape = classify(locator);
+  if (shape.kind !== "file" || !shape.pathPart) return undefined;
+  const lineMatch = locator.match(/:(\d+)$/);
+  const lineNum = lineMatch ? Number(lineMatch[1]) : undefined;
+  const candidatePath = path.isAbsolute(shape.pathPart)
+    ? shape.pathPart
+    : baseDirs.filter(Boolean).map((base) => path.resolve(base, shape.pathPart as string)).find((p) => fs.existsSync(p));
+  if (!candidatePath) return undefined;
+  try {
+    const content = fs.readFileSync(candidatePath, "utf8");
+    if (lineNum && lineNum > 0) {
+      const lines = content.split("\n");
+      return lines[lineNum - 1] || undefined;
+    }
+    // No line number: return first 200 chars as preview
+    return content.slice(0, 200);
+  } catch {
+    return undefined;
+  }
+}
