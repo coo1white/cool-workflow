@@ -482,5 +482,5 @@ direct contact: `[contact — fill in]`.
 
 ## Status
 
-CW is an independent Agent Workflow SDK by COOLWHITE LLC. It is released under
+CW is an independent Agent Workflow by COOLWHITE LLC. It is released under
 the BSD-2-Clause License.
