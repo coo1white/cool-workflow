@@ -212,9 +212,12 @@ function renderIndex(target, context) {
   lines.push("");
   lines.push("## Sync Targets");
   lines.push("");
+  // Keep absolute / personal local paths OUT of the committed doc: describe the
+  // optional sync targets generically. The actual destinations are resolved at
+  // run time from CW_OBSIDIAN_VAULT / CW_GITHUB_WIKI_DIR (see top of this file).
   lines.push(`- Repository docs: ${link("docs/project-index.md", "docs/project-index.md")}`);
-  if (obsidianDir) lines.push(`- Obsidian: \`${path.join(obsidianDir, "CW Project Index.md")}\``);
-  if (fs.existsSync(wikiDir)) lines.push(`- GitHub Wiki: \`${path.join(wikiDir, "Project-Index.md")}\``);
+  lines.push("- Obsidian vault (optional): set `CW_OBSIDIAN_VAULT` to your local vault path.");
+  lines.push("- GitHub Wiki: the `cool-workflow.wiki` working tree (override with `CW_GITHUB_WIKI_DIR`).");
   lines.push("");
   lines.push("## Maintenance");
   lines.push("");

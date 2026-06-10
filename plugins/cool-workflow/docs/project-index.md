@@ -1,15 +1,15 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-08 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-10 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.1.25`
-- Source modules: `33`
+- Version: `0.1.76`
+- Source modules: `54`
 - Workflow apps: `6`
-- Docs: `30`
-- Smoke tests: `25`
+- Docs: `46`
+- Smoke tests: `54`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -80,11 +80,32 @@ multi-agent host -> topology -> blackboard/coordinator
 
 ### Other Source Modules
 
+- [agent-config.ts](../src/agent-config.ts)
+- [capability-core.ts](../src/capability-core.ts)
+- [capability-dispatcher.ts](../src/capability-dispatcher.ts)
+- [capability-registry.ts](../src/capability-registry.ts)
+- [collaboration.ts](../src/collaboration.ts)
+- [contract-migration.ts](../src/contract-migration.ts)
+- [drive.ts](../src/drive.ts)
+- [evidence-grounding.ts](../src/evidence-grounding.ts)
+- [evidence-reasoning.ts](../src/evidence-reasoning.ts)
+- [execution-backend.ts](../src/execution-backend.ts)
 - [multi-agent-eval.ts](../src/multi-agent-eval.ts)
 - [multi-agent-operator-ux.ts](../src/multi-agent-operator-ux.ts)
 - [multi-agent-trust.ts](../src/multi-agent-trust.ts)
+- [node-snapshot.ts](../src/node-snapshot.ts)
+- [observability.ts](../src/observability.ts)
+- [reclamation.ts](../src/reclamation.ts)
+- [result-normalize.ts](../src/result-normalize.ts)
+- [run-export.ts](../src/run-export.ts)
+- [run-registry.ts](../src/run-registry.ts)
+- [run-state-schema.ts](../src/run-state-schema.ts)
+- [scheduling.ts](../src/scheduling.ts)
 - [state-explosion.ts](../src/state-explosion.ts)
 - [state-migrations.ts](../src/state-migrations.ts)
+- [verifier-registry.ts](../src/verifier-registry.ts)
+- [workbench-host.ts](../src/workbench-host.ts)
+- [workbench.ts](../src/workbench.ts)
 
 ## Workflow Apps
 
@@ -99,13 +120,21 @@ multi-agent host -> topology -> blackboard/coordinator
 
 ## Documentation Map
 
-- [agent workflow control-plane](agent-framework.md)
+- [Agent Delegation Drive](agent-delegation-drive.7.md)
+- [Workflow App framework](agent-framework.md)
 - [CANDIDATE-SCORING(7)](candidate-scoring.7.md)
 - [Canonical Workflow Apps](canonical-workflow-apps.7.md)
+- [CAPABILITY-TOPOLOGY-REGISTRY(7) — Cool Workflow Agent-Driven Self-Evolution](capability-topology-registry.7.md)
+- [CLI ↔ MCP Parity](cli-mcp-parity.7.md)
+- [Contract Migration Tooling](contract-migration-tooling.7.md)
+- [Control-Plane Scheduling](control-plane-scheduling.7.md)
 - [Coordinator / Blackboard](coordinator-blackboard.7.md)
 - [Dogfood One Real Repo](dogfood-one-real-repo.7.md)
+- [Durable State & Locking](durable-state-and-locking.7.md)
 - [End-to-End Golden Path](end-to-end-golden-path.7.md)
 - [ERROR-FEEDBACK(7)](error-feedback.7.md)
+- [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md)
+- [EXECUTION-BACKENDS(7)](execution-backends.7.md)
 - [Getting Started](getting-started.md)
 - [Cool Workflow Docs](index.md)
 - [MCP App Surface](mcp-app-surface.7.md)
@@ -115,18 +144,26 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md)
 - [Multi-Agent Topologies](multi-agent-topologies.7.md)
 - [Multi-Agent Trust / Policy / Audit](multi-agent-trust-policy-audit.7.md)
+- [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md)
+- [Observability + Cost Accounting](observability-cost-accounting.7.md)
 - [Operator UX](operator-ux.7.md)
 - [PIPELINE-RUNNER(7)](pipeline-runner.7.md)
 - [Cool Workflow Project Index](project-index.md)
+- [Real Execution Backend Integrations](real-execution-backends.7.md)
 - [Release And Migration Discipline](release-and-migration.7.md)
+- [Release Tooling](release-tooling.7.md)
 - [Routines](routines.md)
+- [Run Registry / Control Plane](run-registry-control-plane.7.md)
+- [Run Retention & Provable Reclamation](run-retention-reclamation.7.md)
 - [SANDBOX-PROFILES(7)](sandbox-profiles.7.md)
 - [Scheduled Tasks](scheduled-tasks.md)
 - [Security / Trust Hardening](security-trust-hardening.7.md)
 - [State Explosion Management](state-explosion-management.7.md)
 - [STATE-NODE(7)](state-node.7.md)
+- [Team Collaboration](team-collaboration.7.md)
 - [Unix-Inspired Workflow Principles](unix-principles.md)
 - [VERIFIER-GATED-COMMIT(7)](verifier-gated-commit.7.md)
+- [Web / Desktop Workbench](web-desktop-workbench.7.md)
 - [WORKER-ISOLATION(7)](worker-isolation.7.md)
 - [Workflow App framework](workflow-app-framework.7.md)
 
@@ -134,12 +171,25 @@ multi-agent host -> topology -> blackboard/coordinator
 
 Smoke tests mirror the public contracts. The high-signal suites are:
 
+- [agent-delegation-drive-smoke.js](../test/agent-delegation-drive-smoke.js)
+- [artifact-integrity-smoke.js](../test/artifact-integrity-smoke.js)
+- [backend-registry-smoke.js](../test/backend-registry-smoke.js)
+- [block-unapproved-tag-smoke.js](../test/block-unapproved-tag-smoke.js)
 - [candidate-scoring-smoke.js](../test/candidate-scoring-smoke.js)
 - [canonical-workflow-apps-smoke.js](../test/canonical-workflow-apps-smoke.js)
+- [cli-mcp-parity-smoke.js](../test/cli-mcp-parity-smoke.js)
+- [contract-migration-tooling-smoke.js](../test/contract-migration-tooling-smoke.js)
+- [control-plane-scheduling-smoke.js](../test/control-plane-scheduling-smoke.js)
 - [coordinator-blackboard-smoke.js](../test/coordinator-blackboard-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
+- [durable-atomic-write-smoke.js](../test/durable-atomic-write-smoke.js)
+- [end-to-end-demo-smoke.js](../test/end-to-end-demo-smoke.js)
 - [end-to-end-golden-path-smoke.js](../test/end-to-end-golden-path-smoke.js)
+- [error-feedback-resolution-smoke.js](../test/error-feedback-resolution-smoke.js)
 - [error-feedback-smoke.js](../test/error-feedback-smoke.js)
+- [evidence-adoption-reasoning-smoke.js](../test/evidence-adoption-reasoning-smoke.js)
+- [evidence-content-extraction-smoke.js](../test/evidence-content-extraction-smoke.js)
+- [execution-backends-smoke.js](../test/execution-backends-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
 - [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
 - [multi-agent-eval-replay-harness-smoke.js](../test/multi-agent-eval-replay-harness-smoke.js)
@@ -148,23 +198,39 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [multi-agent-runtime-core-smoke.js](../test/multi-agent-runtime-core-smoke.js)
 - [multi-agent-topologies-smoke.js](../test/multi-agent-topologies-smoke.js)
 - [multi-agent-trust-policy-audit-smoke.js](../test/multi-agent-trust-policy-audit-smoke.js)
+- [no-false-green-smoke.js](../test/no-false-green-smoke.js)
+- [node-snapshot-diff-replay-smoke.js](../test/node-snapshot-diff-replay-smoke.js)
+- [observability-cost-accounting-smoke.js](../test/observability-cost-accounting-smoke.js)
 - [operator-ux-smoke.js](../test/operator-ux-smoke.js)
+- [pipeline-auto-advance-smoke.js](../test/pipeline-auto-advance-smoke.js)
 - [pipeline-runner-smoke.js](../test/pipeline-runner-smoke.js)
+- [quickstart-smoke.js](../test/quickstart-smoke.js)
+- [real-execution-backends-smoke.js](../test/real-execution-backends-smoke.js)
+- [release-gate-smoke.js](../test/release-gate-smoke.js)
+- [release-tooling-smoke.js](../test/release-tooling-smoke.js)
+- [result-normalize-smoke.js](../test/result-normalize-smoke.js)
 - [robustness-hardening-smoke.js](../test/robustness-hardening-smoke.js)
+- [run-export-import-smoke.js](../test/run-export-import-smoke.js)
 - [run-fixture-compat-smoke.js](../test/run-fixture-compat-smoke.js)
+- [run-registry-control-plane-smoke.js](../test/run-registry-control-plane-smoke.js)
+- [run-retention-reclamation-smoke.js](../test/run-retention-reclamation-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)
 - [security-trust-hardening-smoke.js](../test/security-trust-hardening-smoke.js)
+- [self-audit-hardening-smoke.js](../test/self-audit-hardening-smoke.js)
 - [state-explosion-management-smoke.js](../test/state-explosion-management-smoke.js)
 - [state-node-smoke.js](../test/state-node-smoke.js)
+- [team-collaboration-smoke.js](../test/team-collaboration-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)
+- [web-desktop-workbench-smoke.js](../test/web-desktop-workbench-smoke.js)
 - [worker-isolation-smoke.js](../test/worker-isolation-smoke.js)
+- [worker-retry-count-smoke.js](../test/worker-retry-count-smoke.js)
 - [workflow-app-framework-smoke.js](../test/workflow-app-framework-smoke.js)
 
 ## Sync Targets
 
 - Repository docs: [docs/project-index.md](project-index.md)
-- Obsidian: `/Users/lukebai/Documents/Nick/Cool Workflow/CW Project Index.md`
-- GitHub Wiki: `/Users/lukebai/Documents/cool-workflow.wiki/Project-Index.md`
+- Obsidian vault (optional): set `CW_OBSIDIAN_VAULT` to your local vault path.
+- GitHub Wiki: the `cool-workflow.wiki` working tree (override with `CW_GITHUB_WIKI_DIR`).
 
 ## Maintenance
 
