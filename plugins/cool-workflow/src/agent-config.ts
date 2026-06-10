@@ -71,6 +71,7 @@ export function loadAgentConfigFile(env: NodeJS.ProcessEnv = process.env): Agent
       endpoint: trimmed(parsed.endpoint),
       model: trimmed(parsed.model),
       timeoutMs: typeof parsed.timeoutMs === "number" ? parsed.timeoutMs : undefined,
+      attestPublicKey: trimmed(parsed.attestPublicKey),
       source: "file"
     };
   } catch {
@@ -87,6 +88,7 @@ function agentConfigFromEnv(env: NodeJS.ProcessEnv): AgentDelegationConfig {
     endpoint: trimmed(env.CW_AGENT_ENDPOINT),
     model: trimmed(env.CW_AGENT_MODEL),
     timeoutMs: trimmed(env.CW_AGENT_TIMEOUT_MS) ? Number(env.CW_AGENT_TIMEOUT_MS) : undefined,
+    attestPublicKey: trimmed(env.CW_AGENT_ATTEST_PUBKEY),
     source: "env"
   };
 }
@@ -103,6 +105,7 @@ function agentConfigFromArgs(args: Record<string, unknown>): AgentDelegationConf
     endpoint: trimmed(args.agentEndpoint ?? args["agent-endpoint"]),
     model: trimmed(args.agentModel ?? args["agent-model"]),
     timeoutMs: rawTimeout !== undefined ? Number(rawTimeout) : undefined,
+    attestPublicKey: trimmed(args.agentAttestPublicKey ?? args["agent-attest-public-key"]),
     source: "flag"
   };
 }
@@ -118,6 +121,7 @@ export function resolveAgentConfig(args: Record<string, unknown> = {}, env: Node
   const endpoint = firstDefined(flagCfg.endpoint, envCfg.endpoint, fileCfg?.endpoint);
   const model = firstDefined(flagCfg.model, envCfg.model, fileCfg?.model);
   const timeoutMs = firstDefined(flagCfg.timeoutMs, envCfg.timeoutMs, fileCfg?.timeoutMs);
+  const attestPublicKey = firstDefined(flagCfg.attestPublicKey, envCfg.attestPublicKey, fileCfg?.attestPublicKey);
   const source: AgentDelegationConfig["source"] =
     flagCfg.command || flagCfg.endpoint
       ? "flag"
@@ -126,7 +130,7 @@ export function resolveAgentConfig(args: Record<string, unknown> = {}, env: Node
         : fileCfg && (fileCfg.command || fileCfg.endpoint)
           ? "file"
           : "none";
-  return { schemaVersion: 1, command, args: cfgArgs, endpoint, model, timeoutMs, source };
+  return { schemaVersion: 1, command, args: cfgArgs, endpoint, model, timeoutMs, attestPublicKey, source };
 }
 
 /** True iff a command-template OR endpoint is configured (after resolution). */

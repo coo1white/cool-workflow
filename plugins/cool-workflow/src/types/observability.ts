@@ -23,6 +23,15 @@ import type { TrustAuditSource } from "./trust";
  *  the model, so "cw-validated"/"runtime-derived" are deliberately excluded. */
 export type UsageAttestationSource = Extract<TrustAuditSource, "host-attested" | "operator-recorded">;
 
+/** Cryptographic verification status of reported telemetry (Track 1).
+ *  - `attested`   — the agent's signature over the usage verified against the
+ *                   operator's trust key (non-repudiable attribution).
+ *  - `unattested` — usage was reported but the signature is missing, malformed,
+ *                   wrong-key, or does not match (tampered/replayed). Surfaced
+ *                   LOUDLY; never silently treated as trusted.
+ *  - `absent`     — the agent reported no usage at all. */
+export type TelemetryAttestationStatus = "attested" | "unattested" | "absent";
+
 /** Host-attested token usage for ONE unit of work (a task result or a worker
  *  output). Additive + optional; recorded verbatim as provenance. Absent means
  *  `unreported`, NEVER zero. CW never synthesizes this. */
@@ -41,6 +50,11 @@ export interface UsageRecord {
   totalTokens?: number;
   /** When the host attested this (RECORDED, not "now"). */
   attestedAt: string;
+  /** Cryptographic verification status of this usage (Track 1). Absent on
+   *  records that predate attestation; `unattested` when reported-but-unverified. */
+  attestation?: TelemetryAttestationStatus;
+  /** Why the usage is `unattested`/`absent` — for the loud audit surface. */
+  attestationReason?: string;
   /** Free-text note / attesting tool id. */
   note?: string;
   metadata?: Record<string, unknown>;

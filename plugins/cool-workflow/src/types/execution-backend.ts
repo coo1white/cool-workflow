@@ -1,6 +1,7 @@
 import type { ResultEnvelope } from "./result";
 import type { ResolvedSandboxPolicy } from "./sandbox";
 import type { WorkerManifest } from "./worker";
+import type { TelemetryAttestationStatus } from "./observability";
 
 // ---------------------------------------------------------------------------
 // Execution Backends (v0.1.29) — the driver layer.
@@ -229,6 +230,11 @@ export interface AgentDelegationConfig {
   model?: string;
   /** Spawn/POST timeout in ms. */
   timeoutMs?: number;
+  /** PUBLIC key (inline PEM or a path to a .pem) CW verifies the agent's signed
+   *  telemetry against. Track 1: CW holds ONLY the public half — it can verify
+   *  attribution but never forge a signature, and never measures usage itself.
+   *  Absent ⇒ reported usage is recorded `unattested`. NOT a secret. */
+  attestPublicKey?: string;
   /** Where this config was resolved from (provenance for the show verb). */
   source?: "flag" | "env" | "file" | "none";
 }
@@ -254,6 +260,16 @@ export interface AgentDelegationProvenance {
   args: string[];
   /** The agent child's exit code (null = no exit reported). */
   exitCode: number | null;
+  /** The agent's OWN self-reported token usage (parsed from stdout). Recorded
+   *  verbatim as provenance — CW never measures it. Absent ⇒ none reported. */
+  reportedUsage?: Record<string, unknown>;
+  /** base64 ed25519 signature the executor produced over the canonical
+   *  {usage, runId, taskId, promptDigest} payload. Absent ⇒ unattested. */
+  usageSignature?: string;
+  /** Verdict of verifying `usageSignature` against the operator trust key. */
+  usageAttestation?: TelemetryAttestationStatus;
+  /** Why the usage is `unattested`/`absent` (surfaced in the audit report). */
+  usageAttestationReason?: string;
 }
 
 /** The narrow driver contract. One interface; many interchangeable drivers. */
