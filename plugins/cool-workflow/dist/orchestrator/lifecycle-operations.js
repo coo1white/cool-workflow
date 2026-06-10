@@ -331,7 +331,7 @@ function recordWorkerFailure(run, workerId, message, options = {}) {
         at: new Date().toISOString(),
         path: options.path ? node_path_1.default.resolve(String(options.path)) : undefined,
         retryable: Boolean(options.retryable)
-    }, { persist: false });
+    }, { persist: false, retryCount: typeof options.retryCount === "number" ? Number(options.retryCount) : undefined });
     run.loopStage = "adjust";
     (0, dispatch_1.updatePhaseStatuses)(run);
     (0, report_1.writeReport)(run);

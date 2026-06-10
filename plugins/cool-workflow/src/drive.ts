@@ -25,6 +25,7 @@ import fs from "node:fs";
 import { CoolWorkflowRunner } from "./orchestrator";
 import { firstRunnablePhase } from "./dispatch";
 import { runBackend, sha256 } from "./execution-backend";
+import { recordWorkerRetryAttempt } from "./worker-isolation";
 import { resolveAgentConfig } from "./agent-config";
 import { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy, retryOrPark } from "./scheduling";
 import {
@@ -221,7 +222,8 @@ export function driveStep(ctx: DriveContext): DriveStep {
 /** A failed agent hop: charge one attempt and (reuse v0.1.37 retryOrPark) either
  *  retry on the SAME worker scope next step, or PARK past the retry budget. */
 function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: string, dispatched: boolean): DriveStep {
-  const prior = ctx.attempts.get(task.id) || 0;
+  const persisted = ctx.runner.showWorker(ctx.runId, workerId).retryCount || 0;
+  const prior = Math.max(ctx.attempts.get(task.id) || 0, persisted);
   const entry: RunQueueEntry = {
     schemaVersion: 1,
     id: task.id,
@@ -235,23 +237,26 @@ function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: s
   ctx.attempts.set(task.id, decided.attempts || prior + 1);
 
   if (decided.status === "parked") {
+    const attempts = decided.attempts || prior + 1;
     // Terminal: record the failure so the worker/task carries the park reason and
     // the phase gate stops advancing it. Never silently re-driven.
     ctx.runner.recordWorkerFailure(ctx.runId, workerId, decided.parkedReason || reason, {
       code: "agent-delegation-parked",
-      retryable: false
+      retryable: false,
+      retryCount: attempts
     });
     return step("park", "parked", {
       runId: ctx.runId,
       taskId: task.id,
       phase: task.phase,
       backendId: "agent",
-      attempts: decided.attempts,
+      attempts,
       reason: decided.parkedReason || reason
     });
   }
   // Retryable: leave the task running (scope reused) for the next step.
   void dispatched;
+  recordWorkerRetryAttempt(ctx.runner.loadRun(ctx.runId), workerId, decided.attempts || prior + 1, reason);
   return step("fulfill", "failed", {
     runId: ctx.runId,
     taskId: task.id,

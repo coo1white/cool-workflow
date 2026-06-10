@@ -214,10 +214,12 @@ function verifyVerdict(resultPath) {
   say("[3/3] verify verdict");
   if (!fs.existsSync(resultPath)) die(`no verdict written to ${path.relative(repoRoot, resultPath)} — fail closed.`);
   const text = fs.readFileSync(resultPath, "utf8");
-  if (!/^APPROVED\b/m.test(text)) {
-    die("verdict is not APPROVED — release blocked.", text.trim());
+  const lines = text.split(/\r?\n/);
+  const firstLine = lines[0] || "";
+  if (firstLine !== `APPROVED ${HEAD}`) {
+    die(`verdict first line must be exactly "APPROVED ${HEAD}" — release blocked.`, text.trim());
   }
-  const cap = (text.split("\n")[1] || "").trim();
+  const cap = (lines[1] || "").trim();
   return cap;
 }
 

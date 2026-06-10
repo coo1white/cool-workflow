@@ -11,6 +11,7 @@ exports.listWorkerScopes = listWorkerScopes;
 exports.getWorkerScope = getWorkerScope;
 exports.recordWorkerOutput = recordWorkerOutput;
 exports.recordWorkerFailure = recordWorkerFailure;
+exports.recordWorkerRetryAttempt = recordWorkerRetryAttempt;
 exports.validateWorkerBoundary = validateWorkerBoundary;
 exports.summarizeWorkers = summarizeWorkers;
 exports.reclaimOrphans = reclaimOrphans;
@@ -202,6 +203,7 @@ function writeWorkerManifest(run, scope) {
         backendId: scope.backendId,
         backendSelection: scope.backendSelection,
         backendAttestation: scope.backendAttestation,
+        retryCount: scope.retryCount,
         backend: scope.backendId && scope.backendAttestation
             ? {
                 id: scope.backendId,
@@ -555,12 +557,29 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
         ...scope,
         updatedAt: new Date().toISOString(),
         status: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "rejected" : "failed",
+        retryCount: typeof options.retryCount === "number" ? options.retryCount : scope.retryCount,
         feedbackIds: unique([...(scope.feedbackIds || []), feedback.id]),
         errors: [...(scope.errors || []), structured]
     });
     if (options.persist !== false)
         (0, state_1.saveCheckpoint)(run);
     return requireWorkerScope(run, workerId);
+}
+function recordWorkerRetryAttempt(run, workerId, attempts, reason, options = {}) {
+    const scope = requireWorkerScope(run, workerId);
+    const updated = updateWorkerScope(run, {
+        ...scope,
+        updatedAt: new Date().toISOString(),
+        retryCount: attempts,
+        metadata: compactMetadata({
+            ...scope.metadata,
+            agentDelegationAttempts: attempts,
+            agentDelegationLastFailure: reason
+        })
+    });
+    if (options.persist !== false)
+        (0, state_1.saveCheckpoint)(run);
+    return updated;
 }
 function validateWorkerBoundary(run, workerId, options = {}) {
     const scope = requireWorkerScope(run, workerId);
