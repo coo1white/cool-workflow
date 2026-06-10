@@ -31,6 +31,7 @@ const execution_backend_1 = require("./execution-backend");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
 const telemetry_attestation_1 = require("./telemetry-attestation");
+const telemetry_ledger_1 = require("./telemetry-ledger");
 const coordinator_1 = require("./coordinator");
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
 const WORKER_SCOPE_FILE = "worker.json";
@@ -445,6 +446,21 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // The agent-hop attestation event — hung off worker.output, alongside
     // worker.backend. Recorded in trust-audit/provenance, NEVER in node evidence.
     if (agentDelegation) {
+        // Track 1 (tamper-evidence): bind this verdict into the append-only,
+        // hash-chained telemetry ledger BEFORE the audit event, so the event can
+        // cross-link the record hash. Editing the recorded verdict/usage later breaks
+        // the chain (verifyTelemetryLedger). Only when a verdict was computed.
+        const ledgerRecord = agentDelegation.usageAttestation
+            ? (0, telemetry_ledger_1.appendTelemetryAttestation)(run, {
+                workerId,
+                taskId: task.id,
+                promptDigest: agentDelegation.promptDigest,
+                reportedUsage: agentDelegation.reportedUsage,
+                usageSignature: agentDelegation.usageSignature,
+                attestation: agentDelegation.usageAttestation,
+                attestationReason: agentDelegation.usageAttestationReason
+            })
+            : undefined;
         (0, trust_audit_1.recordTrustAuditEvent)(run, {
             kind: "worker.agent-delegation",
             decision: "recorded",
@@ -471,7 +487,9 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
                     ? {
                         telemetryAttestation: agentDelegation.usageAttestation,
                         ...(agentDelegation.usageAttestationReason ? { telemetryAttestationReason: agentDelegation.usageAttestationReason } : {}),
-                        ...(agentDelegation.reportedUsage ? { reportedUsage: agentDelegation.reportedUsage } : {})
+                        ...(agentDelegation.reportedUsage ? { reportedUsage: agentDelegation.reportedUsage } : {}),
+                        // Cross-link to the hash-chained ledger entry (tamper-evidence).
+                        ...(ledgerRecord ? { telemetryRecordId: ledgerRecord.recordId, telemetryRecordHash: ledgerRecord.recordHash, telemetryPrevHash: ledgerRecord.prevHash } : {})
                     }
                     : {})
             }
