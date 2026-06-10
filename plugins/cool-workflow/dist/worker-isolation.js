@@ -45,8 +45,18 @@ function createWorkerIsolation(options = {}) {
 function allocateWorkerScope(run, task, options = {}) {
     ensureWorkerState(run);
     const existing = task.workerId ? getWorkerScope(run, task.workerId) : undefined;
-    if (existing)
+    if (existing) {
+        // Retry detection: re-allocating a worker for the same task
+        if (existing.status === "failed" || existing.status === "orphaned") {
+            existing.retryCount = (existing.retryCount || 0) + 1;
+            existing.updatedAt = new Date().toISOString();
+            existing.status = options.status || "allocated";
+            existing.errors = [];
+            upsertWorkerScope(run, existing);
+            writeWorkerIndex(run);
+        }
         return existing;
+    }
     const now = new Date().toISOString();
     const workerId = options.workerId || createWorkerId(run, task.id);
     const workerDir = node_path_1.default.join(workerRoot(run), (0, state_1.safeFileName)(workerId));

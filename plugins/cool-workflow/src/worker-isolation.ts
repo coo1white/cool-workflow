@@ -64,7 +64,18 @@ export function allocateWorkerScope(
 ): WorkerScope {
   ensureWorkerState(run);
   const existing = task.workerId ? getWorkerScope(run, task.workerId) : undefined;
-  if (existing) return existing;
+  if (existing) {
+    // Retry detection: re-allocating a worker for the same task
+    if (existing.status === "failed" || existing.status === "orphaned") {
+      existing.retryCount = (existing.retryCount || 0) + 1;
+      existing.updatedAt = new Date().toISOString();
+      existing.status = options.status || "allocated";
+      existing.errors = [];
+      upsertWorkerScope(run, existing);
+      writeWorkerIndex(run);
+    }
+    return existing;
+  }
 
   const now = new Date().toISOString();
   const workerId = options.workerId || createWorkerId(run, task.id);
