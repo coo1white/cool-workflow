@@ -10,6 +10,9 @@ pnpm-debug.log*
 bun.lockb
 
 .cw/
+# Ephemeral release-gate pass markers; the reviewer verdict (review-*.verdict)
+# stays tracked so the tag-push CI can confirm an APPROVED review was committed.
+.cw-release/gate-*.ok
 coverage/
 .nyc_output/
 .turbo/
