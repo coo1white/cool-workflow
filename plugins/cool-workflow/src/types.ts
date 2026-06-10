@@ -11,6 +11,7 @@ export * from "./types/pipeline";
 export * from "./types/error-feedback";
 export * from "./types/sandbox";
 export * from "./types/execution-backend";
+export * from "./types/boundary";
 export * from "./types/drive";
 export * from "./types/multi-agent";
 export * from "./types/topology";
