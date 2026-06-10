@@ -25,6 +25,10 @@ export interface PipelineStageContract {
   requiredEvidence?: string[];
   verifierGate?: PipelineVerifierGate;
   failure?: PipelineStageFailurePolicy;
+  /** Maximum wall-clock ms for this stage before auto-fail (v0.1.59).
+   *  0 or undefined = no timeout. When exceeded, the stage is failed
+   *  with code "stage-timeout". */
+  timeoutMs?: number;
 }
 
 export interface PipelineArtifactPolicy {
