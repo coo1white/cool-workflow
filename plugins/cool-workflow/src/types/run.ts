@@ -26,6 +26,8 @@ export interface RunTask {
   loopStage: LoopStage;
   dispatchId?: string;
   dispatchedAt?: string;
+  /** When the task transitioned from pending to running (v0.1.67). */
+  startedAt?: string;
   completedAt?: string;
   result?: ResultEnvelope;
   stateNodeId?: string;
