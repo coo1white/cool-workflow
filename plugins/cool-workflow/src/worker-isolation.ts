@@ -40,6 +40,7 @@ export interface RecordWorkerFailureOptions extends WorkerIsolationOptions {
   code?: string;
   path?: string;
   retryable?: boolean;
+  retryCount?: number;
 }
 
 export function createWorkerIsolation(options: WorkerIsolationOptions = {}) {
@@ -227,6 +228,7 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Worke
     backendId: scope.backendId,
     backendSelection: scope.backendSelection,
     backendAttestation: scope.backendAttestation,
+    retryCount: scope.retryCount,
     backend:
       scope.backendId && scope.backendAttestation
         ? {
@@ -620,11 +622,34 @@ export function recordWorkerFailure(
     ...scope,
     updatedAt: new Date().toISOString(),
     status: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "rejected" : "failed",
+    retryCount: typeof options.retryCount === "number" ? options.retryCount : scope.retryCount,
     feedbackIds: unique([...(scope.feedbackIds || []), feedback.id]),
     errors: [...(scope.errors || []), structured]
   });
   if (options.persist !== false) saveCheckpoint(run);
   return requireWorkerScope(run, workerId);
+}
+
+export function recordWorkerRetryAttempt(
+  run: WorkflowRun,
+  workerId: string,
+  attempts: number,
+  reason: string,
+  options: WorkerIsolationOptions = {}
+): WorkerScope {
+  const scope = requireWorkerScope(run, workerId);
+  const updated = updateWorkerScope(run, {
+    ...scope,
+    updatedAt: new Date().toISOString(),
+    retryCount: attempts,
+    metadata: compactMetadata({
+      ...scope.metadata,
+      agentDelegationAttempts: attempts,
+      agentDelegationLastFailure: reason
+    })
+  });
+  if (options.persist !== false) saveCheckpoint(run);
+  return updated;
 }
 
 export function validateWorkerBoundary(

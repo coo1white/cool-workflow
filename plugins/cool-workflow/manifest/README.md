@@ -37,5 +37,7 @@ never collides.
 
 1. Add a `targets.<vendor>` entry in `plugin.manifest.json` (its manifest path,
    mcp path, and `pluginRootVar`).
-2. Add a matching adapter branch in `gen-manifests.js`.
-3. Run `npm run gen:manifests`. Shared assets stay untouched.
+2. Add a matching `vendors.<vendor>.outputs` template in
+   `plugin.manifest.json`.
+3. Run `npm run gen:manifests`. Shared assets stay untouched, and the generator
+   needs no code change for a template-only vendor.

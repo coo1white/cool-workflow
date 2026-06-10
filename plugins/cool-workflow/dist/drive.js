@@ -32,6 +32,7 @@ exports.drivePreview = drivePreview;
 const node_fs_1 = __importDefault(require("node:fs"));
 const dispatch_1 = require("./dispatch");
 const execution_backend_1 = require("./execution-backend");
+const worker_isolation_1 = require("./worker-isolation");
 const agent_config_1 = require("./agent-config");
 const scheduling_1 = require("./scheduling");
 exports.DRIVE_SCHEMA_VERSION = 1;
@@ -183,7 +184,8 @@ function driveStep(ctx) {
 /** A failed agent hop: charge one attempt and (reuse v0.1.37 retryOrPark) either
  *  retry on the SAME worker scope next step, or PARK past the retry budget. */
 function handleHop(ctx, task, workerId, reason, dispatched) {
-    const prior = ctx.attempts.get(task.id) || 0;
+    const persisted = ctx.runner.showWorker(ctx.runId, workerId).retryCount || 0;
+    const prior = Math.max(ctx.attempts.get(task.id) || 0, persisted);
     const entry = {
         schemaVersion: 1,
         id: task.id,
@@ -196,23 +198,26 @@ function handleHop(ctx, task, workerId, reason, dispatched) {
     const decided = (0, scheduling_1.retryOrPark)(entry, ctx.policy, ctx.now, reason);
     ctx.attempts.set(task.id, decided.attempts || prior + 1);
     if (decided.status === "parked") {
+        const attempts = decided.attempts || prior + 1;
         // Terminal: record the failure so the worker/task carries the park reason and
         // the phase gate stops advancing it. Never silently re-driven.
         ctx.runner.recordWorkerFailure(ctx.runId, workerId, decided.parkedReason || reason, {
             code: "agent-delegation-parked",
-            retryable: false
+            retryable: false,
+            retryCount: attempts
         });
         return step("park", "parked", {
             runId: ctx.runId,
             taskId: task.id,
             phase: task.phase,
             backendId: "agent",
-            attempts: decided.attempts,
+            attempts,
             reason: decided.parkedReason || reason
         });
     }
     // Retryable: leave the task running (scope reused) for the next step.
     void dispatched;
+    (0, worker_isolation_1.recordWorkerRetryAttempt)(ctx.runner.loadRun(ctx.runId), workerId, decided.attempts || prior + 1, reason);
     return step("fulfill", "failed", {
         runId: ctx.runId,
         taskId: task.id,

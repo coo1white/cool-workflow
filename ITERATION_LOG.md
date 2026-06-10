@@ -31,3 +31,11 @@
 | 1 | portable zero-dep release orchestrator; reviewer delegated via agent backend (vendor-agnostic) | scripts/release-flow.js + test/release-flow-smoke.js | 1 test added (5 cases: APPROVED/REJECTED/missing/unconfigured/red-gate + red-line guard) | BUILD OK, suite green | no |
 | 2 | per-vendor entry points (one orchestrator, preset-only difference) | commands/release-flow.md + .gemini/commands/release.toml + .opencode/command/release.md + skills references + AGENTS.md | covered by flow smoke | BUILD OK, suite green | no |
 | 3 | Gemini + OpenCode as MCP vendors (cw_* tools); preset docs | manifest gemini/opencode targets+vendors (generated .gemini-plugin/.opencode-plugin) + version-sync needles + release-tooling.7.md | gen:manifests --check, version:sync | BUILD OK, suite green | no (no tag this batch) |
+
+## Batch — high-priority post-merge hardening (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | release-flow verdict must fail closed unless first line exactly approves current HEAD | scripts/release-flow.js + test/release-flow-smoke.js | mixed REJECTED/APPROVED verdict regression | BUILD OK, CHECK OK, DIST OK, 56/56 passed, manifests/version/index OK | no (PR only; no tag requested) |
+| 2 | drive --once failed agent attempts persist across invocations and park at retry budget | src/drive.ts + src/worker-isolation.ts + src/types/worker.ts + lifecycle ops + dist | repeated --once no-result regression in agent-delegation-drive-smoke.js | BUILD OK, CHECK OK, DIST OK, 56/56 passed, manifests/version/index OK | no (PR only; no tag requested) |
+| 3 | docs no longer drift from generated project index/vendor template registry | README.md + manifest/README.md | project-index sync + manifest check | BUILD OK, CHECK OK, DIST OK, 56/56 passed, manifests/version/index OK | no (PR only; no tag requested) |

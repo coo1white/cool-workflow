@@ -127,6 +127,8 @@ export interface WorkerManifest {
   backendSelection?: BackendSelection;
   /** Sandbox attestation recorded by the selected backend. */
   backendAttestation?: SandboxAttestation;
+  /** Retry attempts recorded on the worker scope and mirrored into worker.json. */
+  retryCount?: number;
   /** Backend descriptor snapshot, mirroring the `sandbox` enforcement split. */
   backend?: {
     id: string;

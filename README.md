@@ -58,8 +58,8 @@ Small kernel. Explicit state. Composable pipes.
 Isolated workers. Verifier-gated commits. Docs as man pages.
 ```
 
-~22k lines across 36 modules · 45 smoke tests · 6 bundled workflow apps ·
-evidence-gated commits · deterministic replay · agent-driven self-evolution.
+54 source modules · 56 smoke tests · 6 bundled workflow apps ·
+evidence-gated commits · deterministic replay · generated vendor manifests.
 
 ## Why CW Exists
 

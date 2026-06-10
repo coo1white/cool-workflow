@@ -301,6 +301,33 @@ function main() {
     assert.equal(a.completedWorkers, 1, "one worker advanced");
   }
 
+  // ---- 9b. repeated `--once` failures persist attempts and park -------------
+  {
+    const workO = tmpWorkspace();
+    const stubO = writeStub(path.join(workO, "stub.js"), { noResult: true });
+    process.chdir(workO);
+    try {
+      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const run = runner.plan("architecture-review", { repo: workO, question: "q" });
+      const common = { once: true, now: FIXED_NOW, policy: { maxAttempts: 2 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubO, "{{result}}"], source: "flag" } };
+      const first = drive(runner, run.id, common);
+      assert.equal(first.status, "in-progress", "first once failure leaves the worker retryable");
+      assert.equal(first.steps[0].attempts, 1, "first once failure consumes attempt 1");
+      const workerId = runner.loadRun(run.id).tasks[0].workerId;
+      assert.equal(runner.showWorker(run.id, workerId).retryCount, 1, "attempt 1 persisted on the worker scope");
+
+      const second = drive(runner, run.id, common);
+      assert.equal(second.status, "parked", "second once failure reaches maxAttempts and parks");
+      assert.equal(second.steps[0].action, "park");
+      assert.equal(second.steps[0].attempts, 2, "second once failure resumes from persisted attempt 1");
+      const finalO = runner.loadRun(run.id);
+      assert.equal(finalO.tasks[0].status, "failed", "parked worker blocks the phase gate");
+      assert.equal(runner.showWorker(run.id, workerId).retryCount, 2, "park attempt count persisted");
+    } finally {
+      process.chdir(cwd0);
+    }
+  }
+
   // ---- read-only preview payloads are deterministic (parity-safe) ----------
   {
     const w = tmpWorkspace();

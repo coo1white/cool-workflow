@@ -52,7 +52,7 @@ function run(bin, args, cwd, env) {
 }
 
 // A stub "agent": node script that writes a chosen verdict to {{result}}.
-// verdict arg: APPROVED | REJECTED | NONE (writes nothing).
+// verdict arg: APPROVED | REJECTED | MIXED | NONE (writes nothing).
 function writeStub(dir) {
   const stub = path.join(dir, "stub-agent.js");
   fs.writeFileSync(stub, `
@@ -61,6 +61,7 @@ const resultPath = process.argv[2];
 const kind = process.argv[3];
 if (kind === "APPROVED") fs.writeFileSync(resultPath, "APPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. stub gate failure.\\n");
+else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\n1. hard failure\\nAPPROVED wrongsha\\nshould not pass\\n");
 // NONE: write nothing (simulate an agent that produced no verdict)
 process.exit(0);
 `);
@@ -68,7 +69,7 @@ process.exit(0);
 }
 
 function runFlow(dir, { agentCmd } = {}) {
-  const env = { ...process.env, CW_RELEASE_FLOW_GATE_CMD: "true" };
+  const env = { ...process.env, CW_RELEASE_FLOW_GATE_CMD: "true", STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim() };
   if (agentCmd === undefined) {
     delete env.CW_AGENT_COMMAND;
     delete env.CW_AGENT_ENDPOINT;
@@ -98,6 +99,15 @@ function runFlow(dir, { agentCmd } = {}) {
   const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} REJECTED` });
   assert.equal(r.code, 1, "REJECTED verdict must fail the flow");
   assert.match(r.err, /not APPROVED|blocked/i, "should explain the block");
+}
+
+// ---- Case 2b: APPROVED later in a rejected verdict does NOT pass ------------
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} MIXED` });
+  assert.equal(r.code, 1, "APPROVED must be the first line for THIS HEAD, not a later line");
+  assert.match(r.err, /first line|APPROVED|blocked/i, "should explain strict verdict parsing");
 }
 
 // ---- Case 3: stub writes nothing → fail closed (missing verdict) ----

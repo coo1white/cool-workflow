@@ -362,7 +362,7 @@ export function recordWorkerFailure(
       path: options.path ? path.resolve(String(options.path)) : undefined,
       retryable: Boolean(options.retryable)
     },
-    { persist: false }
+    { persist: false, retryCount: typeof options.retryCount === "number" ? Number(options.retryCount) : undefined }
   );
   run.loopStage = "adjust";
   updatePhaseStatuses(run);
