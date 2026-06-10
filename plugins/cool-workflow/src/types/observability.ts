@@ -23,6 +23,40 @@ import type { TrustAuditSource } from "./trust";
  *  the model, so "cw-validated"/"runtime-derived" are deliberately excluded. */
 export type UsageAttestationSource = Extract<TrustAuditSource, "host-attested" | "operator-recorded">;
 
+/** One hash-chained entry in the per-run telemetry attestation ledger (Track 1).
+ *  Each record binds the verdict CW recorded for one agent hop and chains to the
+ *  prior via `prevHash`, so editing a recorded verdict/usage AFTER THE FACT breaks
+ *  the chain. `recordHash` = sha256(canonical record sans recordHash). */
+export interface TelemetryAttestationRecord {
+  schemaVersion: 1;
+  runId: string;
+  recordId: string;
+  /** ISO; recorded, not "now" at read time. */
+  recordedAt: string;
+  workerId: string;
+  taskId: string;
+  /** sha256 of the worker prompt — binds the record to the hop. */
+  promptDigest: string;
+  /** sha256 of the canonical reported usage (compact; the audit event holds the
+   *  raw usage). Tampering the recorded usage changes this and breaks the chain. */
+  reportedUsageDigest: string;
+  /** The executor's base64 signature over the usage (the evidence verified). */
+  usageSignature?: string;
+  attestation: TelemetryAttestationStatus;
+  attestationReason?: string;
+  /** Prior record's recordHash; genesis = sha256("cw-telemetry-ledger:"+runId). */
+  prevHash: string;
+  recordHash: string;
+}
+
+/** The append-only, hash-chained telemetry ledger overlay (`telemetry.json`), a
+ *  runDir PEER of reclaimed.json — never rewritten in place, never freed. */
+export interface TelemetryLedger {
+  schemaVersion: 1;
+  runId: string;
+  records: TelemetryAttestationRecord[];
+}
+
 /** Cryptographic verification status of reported telemetry (Track 1).
  *  - `attested`   — the agent's signature over the usage verified against the
  *                   operator's trust key (non-repudiable attribution).

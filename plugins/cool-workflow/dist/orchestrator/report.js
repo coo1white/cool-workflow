@@ -19,6 +19,7 @@ const error_feedback_1 = require("../error-feedback");
 const multi_agent_1 = require("../multi-agent");
 const coordinator_1 = require("../coordinator");
 const trust_audit_1 = require("../trust-audit");
+const telemetry_ledger_1 = require("../telemetry-ledger");
 const state_explosion_1 = require("../state-explosion");
 function writeReport(run) {
     (0, dispatch_1.updatePhaseStatuses)(run);
@@ -318,6 +319,14 @@ function renderTelemetryAttestation(run) {
     for (const event of unattested) {
         const reason = event.metadata.telemetryAttestationReason;
         lines.push(`  - ⚠️  UNATTESTED usage — worker=${event.workerId || "?"} task=${event.taskId || "?"}: ${reason || "signature unverified"}`);
+    }
+    // Tamper-evidence: re-prove the hash-chained ledger. A broken chain means a
+    // recorded verdict/usage was edited after the fact — surfaced LOUDLY.
+    const ledger = (0, telemetry_ledger_1.verifyTelemetryLedger)(run);
+    if (ledger.present) {
+        lines.push(ledger.verified
+            ? `- Attestation ledger: ${ledger.records.length} records, chain verified (tamper-evident)`
+            : `  - ⚠️  ATTESTATION LEDGER CHAIN BROKEN — a recorded verdict/usage was edited after the fact (${ledger.checks.filter((c) => !c.pass).map((c) => c.name).join(", ")})`);
     }
     return lines;
 }

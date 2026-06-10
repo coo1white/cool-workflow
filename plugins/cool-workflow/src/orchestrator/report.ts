@@ -13,6 +13,7 @@ import { summarizeFeedback } from "../error-feedback";
 import { summarizeMultiAgent } from "../multi-agent";
 import { summarizeBlackboard } from "../coordinator";
 import { summarizeTrustAudit, listTrustAuditEvents } from "../trust-audit";
+import { verifyTelemetryLedger } from "../telemetry-ledger";
 import {
   buildStateExplosionReport,
   loadStateExplosionSummaryIndex,
@@ -319,6 +320,16 @@ function renderTelemetryAttestation(run: WorkflowRun): string[] {
   for (const event of unattested) {
     const reason = (event.metadata as Record<string, unknown>).telemetryAttestationReason;
     lines.push(`  - ⚠️  UNATTESTED usage — worker=${event.workerId || "?"} task=${event.taskId || "?"}: ${reason || "signature unverified"}`);
+  }
+  // Tamper-evidence: re-prove the hash-chained ledger. A broken chain means a
+  // recorded verdict/usage was edited after the fact — surfaced LOUDLY.
+  const ledger = verifyTelemetryLedger(run);
+  if (ledger.present) {
+    lines.push(
+      ledger.verified
+        ? `- Attestation ledger: ${ledger.records.length} records, chain verified (tamper-evident)`
+        : `  - ⚠️  ATTESTATION LEDGER CHAIN BROKEN — a recorded verdict/usage was edited after the fact (${ledger.checks.filter((c) => !c.pass).map((c) => c.name).join(", ")})`
+    );
   }
   return lines;
 }
