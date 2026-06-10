@@ -58,6 +58,17 @@ try {
     assert.ok(/stale/.test(r.stderr), `drift failure must explain itself, got: ${r.stderr}`);
   }
 
+  // 2b. teeth on a Snapshot COUNT specifically. The counts are the gate's core
+  //     signal (they prove the index matches the tree), so a wrong count must
+  //     fail closed. This pins the count fields as IN-SCOPE for the comparison
+  //     and would fail if normalizeForCompare ever over-reached and masked them.
+  {
+    const badCount = path.join(tmp, "bad-count.md");
+    fs.writeFileSync(badCount, base.replace(/- Smoke tests: `\d+`/, "- Smoke tests: `999`"));
+    const r = runCheck({ CW_PROJECT_INDEX_PATH: badCount });
+    assert.equal(r.status, 1, `--check must FAIL when a Snapshot count is wrong (counts must not be normalized away). exit=${r.status}`);
+  }
+
   // 3. date-safe: identical content but a different generated date must STILL
   //    pass — the date is now-derived; if it weren't normalized the gate would
   //    go red the day after every regeneration.

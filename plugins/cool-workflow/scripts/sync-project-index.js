@@ -73,6 +73,24 @@ function main() {
   const smokeTests = listFiles(path.join(pluginRoot, "test"), ".js").filter((file) => file.endsWith("-smoke.js"));
   const context = { apps, docs, sourceFiles, smokeTests };
 
+  // Fail closed if the hand-maintained moduleCatalog references a src module that
+  // no longer exists. Without this the generator emits a dead `../src/<file>` link
+  // and --check would bless it: the catalog region renders identically from the
+  // (stale) constant on both sides, so it is invisible to the diff. This closes
+  // the STRUCTURAL half of the catalog blind spot. Responsibility-PROSE staleness
+  // (a cataloged file whose contents changed) is not auto-derivable from source
+  // and remains out of scope by design — see the PR notes.
+  const catalogedFiles = Object.values(moduleCatalog).flat().map(([file]) => file);
+  const missingCataloged = catalogedFiles.filter((file) => !sourceFiles.includes(file));
+  if (missingCataloged.length > 0) {
+    process.stderr.write(
+      `project-index FAILED: moduleCatalog references src module(s) that no longer exist: ${missingCataloged.join(", ")}.\n` +
+      `A rename/delete must be reflected in moduleCatalog (scripts/sync-project-index.js).\n`
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const repoDoc = indexPathOverride
     ? path.resolve(indexPathOverride)
     : path.join(pluginRoot, "docs", "project-index.md");
@@ -80,6 +98,10 @@ function main() {
 
   // Gate mode: compare the committed doc against a fresh render and exit
   // non-zero on drift. Writes nothing and never touches the personal targets.
+  // Deliberately reads the WORKING TREE (not git HEAD like version-sync-check.js):
+  // this gate is meant to catch "you changed source but forgot to regenerate the
+  // index" BEFORE you commit. CI checks out a clean HEAD, so working tree == HEAD
+  // there; there is no concurrent-mutation race here (unlike the release-cut flow).
   if (CHECK) {
     checkInSync(repoDoc, rendered);
     return;
@@ -316,14 +338,23 @@ function normalizeGitRemote(remote) {
 }
 
 function normalizeForCompare(text) {
-  // The generated date is the ONLY now-derived value in the rendered index, so
-  // strip it before an identity comparison — exactly the parity payload-identity
-  // rule (a now-derived value must be normalized or the gate flaps every day).
-  // Everything else is deterministically derived from the committed source tree.
-  return text.replace(
-    /(Generated from the current repository code on )\d{4}-\d{2}-\d{2}( by)/,
-    "$1<DATE>$2"
-  );
+  // Strip ONLY the values derived from the runtime ENVIRONMENT (not the source
+  // tree), so the gate compares purely source-derived content — it can neither
+  // false-RED across machines/forks nor false-GREEN by over-normalizing. Mirrors
+  // the parity payload-identity rule: normalize now/env-derived fields, nothing
+  // else. Exactly two such fields exist in the rendered index:
+  //   1. the generated date ("Generated on <date>") — changes every day;
+  //   2. the Repository URL — derived from `git remote get-url origin`, so it
+  //      differs on every fork/mirror clone of an otherwise in-sync tree.
+  // The Snapshot COUNTS are source-derived and MUST NOT be normalized — a wrong
+  // count is exactly the drift this gate exists to catch.
+  return text
+    .replace(/\r\n/g, "\n")
+    .replace(
+      /(Generated from the current repository code on )\d{4}-\d{2}-\d{2}( by)/,
+      "$1<DATE>$2"
+    )
+    .replace(/^(- Repository: ).*$/m, "$1<REPO>");
 }
 
 function checkInSync(repoDoc, rendered) {
