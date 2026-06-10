@@ -277,6 +277,8 @@ export interface MetricsSummaryReport {
   };
   usage: UsageTotals;
   cost: CostMetric;
+  /** Total bytes of worker output across all runs (v0.1.62). */
+  totalOutputBytes: number;
   byApp: MetricsGroupRollup[];
   byBackend: MetricsGroupRollup[];
   runs: MetricsRunRef[];

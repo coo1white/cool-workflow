@@ -730,6 +730,10 @@ export function deriveMetricsSummary(
   };
 
   const allReports = perRun.map((p) => p.report);
+  const totalOutputBytes = inputs.reduce(
+    (sum, input) => sum + (input.run.workers || []).reduce((ws, w) => ws + (w.outputSizeBytes || 0), 0),
+    0
+  );
   return {
     schemaVersion: METRICS_SCHEMA_VERSION,
     surface: "metrics",
@@ -744,6 +748,7 @@ export function deriveMetricsSummary(
     },
     usage: poolUsage(allReports.map((r) => r.usage)),
     cost: poolCost(allReports.map((r) => r.cost)),
+    totalOutputBytes,
     byApp: groupBy((r) => [r.scope.app || "unknown"]),
     byBackend: groupBy((r) => (r.scope.backendIds.length ? r.scope.backendIds : ["unreported"])),
     runs: perRun.map((p) => p.ref),
