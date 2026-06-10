@@ -123,6 +123,7 @@ function summarizeRun(run) {
         },
         loopStage: run.loopStage,
         durationMs,
+        progressPercent: run.tasks.length ? Math.round((run.tasks.filter((t) => t.status === "completed").length / run.tasks.length) * 100) : 0,
         next: (0, dispatch_1.firstRunnablePhase)(run)?.name || null,
         reportPath: run.paths.report,
         commits: run.commits,

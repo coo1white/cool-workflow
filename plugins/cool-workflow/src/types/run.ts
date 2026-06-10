@@ -194,6 +194,8 @@ export interface RunSummary {
   loopStage: LoopStage;
   /** Elapsed ms from createdAt to updatedAt (v0.1.64). */
   durationMs?: number;
+  /** Task completion percentage 0-100 (v0.1.69). Derived from tasks completed/total. */
+  progressPercent?: number;
   phases: RunPhase[];
   tasks: {
     total: number;

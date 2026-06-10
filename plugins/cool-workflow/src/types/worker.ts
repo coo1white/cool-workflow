@@ -93,6 +93,9 @@ export interface WorkerScope {
   outputDigest?: string;
   /** Number of times this worker has been retried (v0.1.67). */
   retryCount?: number;
+  /** Lifecycle event log for this worker (v0.1.69).
+   *  Each entry records a status transition with timestamp. */
+  lifecycleEvents?: Array<{ from: string; to: string; at: string }>;
   metadata?: Record<string, unknown>;
 }
 
