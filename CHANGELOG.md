@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.77
 
 Trustworthy telemetry (Track 1), concurrent failure semantics (Track 2), boundary contracts (Track 3), and a multi-platform portable release flow.
 

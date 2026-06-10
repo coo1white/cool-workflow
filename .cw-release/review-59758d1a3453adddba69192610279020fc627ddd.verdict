@@ -1,0 +1,16 @@
+APPROVED 59758d1a3453adddba69192610279020fc627ddd
+A user can now author a parallel() phase that fulfills its agents concurrently with declared failure semantics (collect-all + kill-on-timeout) and enforce executor contracts fail-closed — per-task output schemas, a run-wide limits.tokenBudget, ed25519-attested token telemetry (opt-in require-attested mode), and a compile-time one-way boundary — while running the gated release flow under Claude/Codex/Gemini/OpenCode.
+
+Evidence (re-derived in this context, prior runs not trusted):
+1. Deterministic gate PASSED — ran `bash plugins/cool-workflow/scripts/release-gate.sh` myself: build clean, full `npm test` green, substance/test-evidence/cadence/branch-naming all pass; wrote gate-<sha>.ok.
+2. No spec accretion — every new/modified type field in v0.1.76..HEAD is read by a runtime module in the same range:
+   - WorkflowTaskDefinition.{label,model,agentType,schema} + WorkflowPhaseDefinition.mode carried into RunTask/RunPhase at orchestrator/lifecycle-operations.ts:90,461-466.
+   - phase.mode read in drive.ts:470 (autoWidth → concurrent round); task.model drive.ts:203; task.agentType drive.ts:193,226,366; task.schema verifier.ts:52-53; task.label drive.ts:246.
+   - limits.tokenBudget enforced drive.ts:152; requireAttestedTelemetry worker-isolation.ts:392 + agent-config.ts; AgentDelegationInput.{reportedUsage,usageSignature,usageTrustPublicKey} worker-isolation.ts:381-383; preparedAgentOutcome/AgentChildOutcome execution-backend.ts:1133-1134; WorkerManifest.{scopePath,manifestPath,retryCount} worker-isolation.ts:208,220,76.
+3. Tests are revert-sensitive, not trivial:
+   - token-budget-enforcement-smoke.js drives a real run, sets budget=1, asserts status "blocked" with reason "6 recorded tokens >= budget 1" and that the accepted hop stays recorded.
+   - one-way-boundary-smoke.js invokes the repo's tsc on a negative callable fixture AND the real envelope+smuggled-client fixture (must NOT compile, matching "does not satisfy the constraint"), with a positive control that must compile.
+   - concurrent-failure-semantics-smoke.js runs 16 agents with hang+crash+dirty, asserting wall-clock far below the ~36s serial floor and deterministic record order.
+   - parallel-onramp-smoke.js proves parallel() concurrency through the real runDrive surface with no flag and that task.model reaches the spawned argv.
+4. Direction — Track B (failure recovery proven by integration tests: collect-all/kill-on-timeout, schema park-fail-closed, budget block, require-attested-telemetry refusal) and Track C (Gemini + OpenCode added as MCP vendors so cw_* tools load on >=2 clients). Red line intact and now welded into the type layer (OneWayData<T>).
+5. Anti-gaming — the prior v0.1.77 review rejected a false-green where parallel() set phase.mode but no surface drove concurrency; cc0d03e fixes it with genuine drive.ts wiring plus the independent parallel-onramp test. Real substance, not cosmetic.

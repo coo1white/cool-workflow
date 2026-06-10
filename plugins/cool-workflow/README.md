@@ -632,3 +632,5 @@ CHANGELOG.md and RELEASE.md are content surfaces checked by the dogfood-release 
 Auto-compaction hook moved from `saveCheckpoint()` to explicit `maybeCompactRun()` calls after major lifecycle mutations. Fixes test fixture fingerprint instability. Also fixes the dogfood-release version-sync pipeline: always use `npm run bump:version`, never hand-edit version.ts alone.
 
 v0.1.76
+
+v0.1.77
