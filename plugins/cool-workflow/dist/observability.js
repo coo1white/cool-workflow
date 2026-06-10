@@ -37,6 +37,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.METRICS_SCHEMA_VERSION = void 0;
 exports.fingerprintMetricsSource = fingerprintMetricsSource;
 exports.deriveUsageTotals = deriveUsageTotals;
+exports.deriveAttestationCoverage = deriveAttestationCoverage;
 exports.deriveCost = deriveCost;
 exports.deriveFailureRate = deriveFailureRate;
 exports.deriveVerifierPassRate = deriveVerifierPassRate;
@@ -56,6 +57,7 @@ const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
+const telemetry_ledger_1 = require("./telemetry-ledger");
 exports.METRICS_SCHEMA_VERSION = 1;
 // Verifier-gate decision classes (derived, never invented).
 const VERIFIER_PASS_STATUSES = new Set(["verified", "completed", "committed"]);
@@ -210,6 +212,48 @@ function deriveUsageTotals(run) {
         models: [...models].sort()
     };
     return { totals, rows };
+}
+/** Track 1 cryptographic attestation coverage over a run's work units, plus the
+ *  tamper-evident ledger state. DIFFERENT axis from UsageTotals.coverage: that
+ *  counts units that merely carry a usage record; here `attested` counts units
+ *  whose reported usage VERIFIED against the operator trust key. Deterministic —
+ *  reads recorded `usage.attestation` and recomputes the ledger chain; no
+ *  now-derived field, so it stays byte-stable for CLI<->MCP parity. */
+function deriveAttestationCoverage(run) {
+    const units = usageUnits(run);
+    let attested = 0;
+    let unattested = 0;
+    let absent = 0;
+    let unverified = 0;
+    for (const u of units) {
+        if (!u.usage)
+            continue;
+        switch (u.usage.attestation) {
+            case "attested":
+                attested++;
+                break;
+            case "unattested":
+                unattested++;
+                break;
+            case "absent":
+                absent++;
+                break;
+            default:
+                // A usage record with no verdict (operator-recorded / legacy intake).
+                unverified++;
+        }
+    }
+    const unitCount = units.length;
+    const ledger = (0, telemetry_ledger_1.verifyTelemetryLedger)(run);
+    return {
+        units: unitCount,
+        attested,
+        unattested,
+        absent,
+        unverified,
+        verifiedCoverage: unitCount > 0 ? round(attested / unitCount, 6) : null,
+        ledger: { present: ledger.present, verified: ledger.verified, records: ledger.records.length }
+    };
 }
 /** Compute cost from attested usage × an optional pricing policy. The contract:
  *  attested = exact-match priced; estimated = default/fallback priced; unpriced =
@@ -444,6 +488,7 @@ function deriveMetricsReport(run, options) {
         usage: totals,
         cost,
         attestedUsage: rows,
+        attestation: deriveAttestationCoverage(run),
         collaboration: deriveCollaborationMetrics(run),
         nextAction: totals.unreportedUnits > 0 && totals.attestedUnits === 0
             ? "No attested usage yet — record host usage on result/worker intake (cw result ... --usage-input-tokens N --usage-output-tokens M --usage-model ID)."

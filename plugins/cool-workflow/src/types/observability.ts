@@ -57,6 +57,27 @@ export interface TelemetryLedger {
   records: TelemetryAttestationRecord[];
 }
 
+/** Track 1 attestation coverage over a run's work units. Distinct from
+ *  UsageTotals.coverage: that counts units WITH a usage record; this counts units
+ *  whose usage cryptographically VERIFIED. Deterministic (no now-derived field). */
+export interface MetricsAttestationCoverage {
+  /** Same denominator as UsageTotals.units. */
+  units: number;
+  /** Units whose reported usage verified (attestation === "attested"). */
+  attested: number;
+  /** Units with reported usage that did NOT verify (missing/invalid/wrong-key). */
+  unattested: number;
+  /** Units whose agent reported no usage (attestation === "absent"). */
+  absent: number;
+  /** Units carrying a usage record with no attestation verdict (operator-recorded
+   *  or legacy, never run through the verify gate). */
+  unverified: number;
+  /** attested / units in [0,1]; null when units === 0. */
+  verifiedCoverage: number | null;
+  /** Tamper-evident telemetry ledger state. present:false ⇒ no agent hops yet. */
+  ledger: { present: boolean; verified: boolean; records: number };
+}
+
 /** Cryptographic verification status of reported telemetry (Track 1).
  *  - `attested`   — the agent's signature over the usage verified against the
  *                   operator's trust key (non-repudiable attribution).
@@ -249,6 +270,11 @@ export interface MetricsReport {
   cost: CostMetric;
   /** Attested per-unit usage rows (attested only); empty when all unreported. */
   attestedUsage: MetricsUsageRow[];
+  /** Track 1 cryptographic attestation coverage — a DIFFERENT axis from
+   *  `usage.coverage` (which counts units that merely carry a usage record).
+   *  Here `verifiedCoverage` counts units whose reported usage cryptographically
+   *  verified against the operator trust key, plus the tamper-evident ledger state. */
+  attestation: MetricsAttestationCoverage;
   /** Team-collaboration (v0.1.32) metrics, derived from append-only records and
    *  recorded timestamps only (no now-derived numbers). */
   collaboration: MetricsCollaboration;
