@@ -84,6 +84,9 @@ export interface WorkerScope {
    *  Defaults to 0 (no timeout). When > 0 and elapsed, `reclaimOrphans()` marks
    *  the worker as `orphaned`. FreeBSD jails philosophy: stuck processes get killed. */
   timeoutMs?: number;
+  /** File size of the worker's result.md in bytes (v0.1.61).
+   *  Recorded on output intake for cost estimation and compaction decisions. */
+  outputSizeBytes?: number;
   metadata?: Record<string, unknown>;
 }
 
