@@ -12,7 +12,7 @@
 ![MCP](https://img.shields.io/badge/MCP-native-8A2BE2?style=flat-square)
 ![runtime](https://img.shields.io/badge/runtime-TypeScript%20%C2%B7%20Node-3178C6?style=flat-square)
 
-**Cool Workflow (CW)** is an Agent Workflow SDK for turning broad agent tasks
+**Cool Workflow (CW)** is an Agent Workflow for turning broad agent tasks
 into durable, inspectable workflow runs. It records what happens; the agent
 host still runs the models. CW makes the work durable, inspectable, verifiable,
 and replayable — without ever becoming the executor.
@@ -114,7 +114,7 @@ cat /path/to/your/repo/.cw/runs/<runId>/report.md
 control plane: the one command sequences the recorded `plan -> run --drive ->
 report` pipeline and **delegates** every worker to the agent backend *you*
 configure (`--agent-command "claude -p"`, `--agent-command "codex exec"`, or
-`--agent-endpoint https://…`). CW never embeds a model SDK, never holds an API
+`--agent-endpoint https://…`). CW never embeds a model, never holds an API
 key, and never executes a model itself. With **no** agent configured it **fails
 closed** — it reports `status: blocked` and refuses rather than fabricating a
 completion:
