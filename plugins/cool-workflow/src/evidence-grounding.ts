@@ -50,9 +50,16 @@ export function hasGroundedEvidence(evidence: unknown): boolean {
   return Array.isArray(evidence) && evidence.some((entry) => isGroundedEvidence(entry));
 }
 
-/** Whether opt-in strict resolution is requested via the environment. */
+/** Whether opt-in strict resolution is requested via the environment.
+ *  Set CW_REQUIRE_RESOLVABLE_EVIDENCE=1 for file resolution, =url for
+ *  URL reachability checks too (v0.1.63). */
 export function requireResolvableEvidence(): boolean {
   return /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE || "");
+}
+
+/** Whether URL reachability checks are enabled in strict mode (v0.1.63). */
+export function requireUrlReachability(): boolean {
+  return requireResolvableEvidence() || /url/i.test(process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE || "");
 }
 
 interface LocatorShape {
