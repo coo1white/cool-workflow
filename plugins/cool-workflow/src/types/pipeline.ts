@@ -44,6 +44,9 @@ export interface PipelineEvidencePolicy {
 export interface PipelineFailurePolicy {
   preserveFailureNodes?: boolean;
   retryableByDefault?: boolean;
+  /** When true, the drive loop auto-advances past failed stages instead of
+   *  halting. False by default — fail-closed (v0.1.72). */
+  autoAdvance?: boolean;
 }
 
 export interface PipelineCommitPolicy {
