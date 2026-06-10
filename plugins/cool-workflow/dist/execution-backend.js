@@ -47,6 +47,7 @@ exports.backendShowPayload = backendShowPayload;
 exports.backendProbePayload = backendProbePayload;
 exports.buildChildEnv = buildChildEnv;
 exports.sha256 = sha256;
+exports.clearProbeCache = clearProbeCache;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -1077,8 +1078,8 @@ function backendShowPayload(id) {
 }
 function backendProbePayload(id, context = {}) {
     if (id && id.trim())
-        return probeBackend(id.trim(), context);
-    return { schemaVersion: 1, default: exports.DEFAULT_BACKEND_ID, probes: backendIds().map((backendId) => probeBackend(backendId, context)) };
+        return cachedProbeBackend(id.trim(), context);
+    return { schemaVersion: 1, default: exports.DEFAULT_BACKEND_ID, probes: backendIds().map((backendId) => cachedProbeBackend(backendId, context)) };
 }
 // ---------------------------------------------------------------------------
 // Helpers.
@@ -1144,3 +1145,16 @@ function firstString(...values) {
 function messageOf(error) {
     return error instanceof Error ? error.message : String(error);
 }
+// ---- Probe cache (v0.1.60) — mechanism, not policy -----------------------
+const _probeCache = new Map();
+const PROBE_CACHE_TTL_MS = 60_000; // 60s
+function cachedProbeBackend(id, context) {
+    const key = `${id}:${context.cwd || ''}`;
+    const cached = _probeCache.get(key);
+    if (cached && Date.now() - cached.at < PROBE_CACHE_TTL_MS)
+        return cached.result;
+    const result = probeBackend(id, context);
+    _probeCache.set(key, { result, at: Date.now() });
+    return result;
+}
+function clearProbeCache() { _probeCache.clear(); }

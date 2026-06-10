@@ -1350,8 +1350,8 @@ export function backendProbePayload(
   id: string | undefined,
   context: { cwd?: string } = {}
 ): BackendProbeResult | { schemaVersion: 1; default: string; probes: BackendProbeResult[] } {
-  if (id && id.trim()) return probeBackend(id.trim(), context);
-  return { schemaVersion: 1, default: DEFAULT_BACKEND_ID, probes: backendIds().map((backendId) => probeBackend(backendId, context)) };
+  if (id && id.trim()) return cachedProbeBackend(id.trim(), context);
+  return { schemaVersion: 1, default: DEFAULT_BACKEND_ID, probes: backendIds().map((backendId) => cachedProbeBackend(backendId, context)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -1417,3 +1417,18 @@ function firstString(...values: unknown[]): string | undefined {
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
+
+// ---- Probe cache (v0.1.60) — mechanism, not policy -----------------------
+const _probeCache = new Map<string, { result: ReturnType<typeof probeBackend>; at: number }>();
+const PROBE_CACHE_TTL_MS = 60_000; // 60s
+
+function cachedProbeBackend(id: string, context: { cwd?: string }): ReturnType<typeof probeBackend> {
+  const key = `${id}:${context.cwd || ''}`;
+  const cached = _probeCache.get(key);
+  if (cached && Date.now() - cached.at < PROBE_CACHE_TTL_MS) return cached.result;
+  const result = probeBackend(id, context);
+  _probeCache.set(key, { result, at: Date.now() });
+  return result;
+}
+
+export function clearProbeCache(): void { _probeCache.clear(); }

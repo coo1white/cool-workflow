@@ -137,6 +137,10 @@ export interface StateCommit {
   /** Who approved the artifact this commit shipped, when a review gate applied
    *  (provenance link, recorded only on a gate-satisfied commit). */
   review?: CommitReviewProvenance;
+  /** Parent commit id forming an append-only provenance chain (v0.1.60).
+   *  When set, this commit is a child of parentCommitId — enabling
+   *  traceable commit lineage for multi-step workflow completions. */
+  parentCommitId?: string;
   metadata?: Record<string, unknown>;
 }
 
