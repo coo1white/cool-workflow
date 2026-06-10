@@ -232,7 +232,9 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask): DriveStep {
         reportedUsage,
         usageSignature,
         usageTrustPublicKey: ctx.config.attestPublicKey
-      }
+      },
+      // Track 1 fail-closed (opt-in): park a hop whose telemetry isn't attested.
+      requireAttestedTelemetry: ctx.config.requireAttestedTelemetry
     });
   } catch (error) {
     return handleHop(ctx, selected, workerId, `result.md rejected: ${error instanceof Error ? error.message : String(error)}`, dispatched);

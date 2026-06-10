@@ -235,6 +235,10 @@ export interface AgentDelegationConfig {
    *  attribution but never forge a signature, and never measures usage itself.
    *  Absent ⇒ reported usage is recorded `unattested`. NOT a secret. */
   attestPublicKey?: string;
+  /** Track 1 fail-closed (opt-in, off by default). When true, a delegated hop
+   *  whose telemetry is not `attested` (unattested OR absent) is parked rather
+   *  than accepted. Resolves flags > env (CW_REQUIRE_ATTESTED_TELEMETRY) > file. */
+  requireAttestedTelemetry?: boolean;
   /** Where this config was resolved from (provenance for the show verb). */
   source?: "flag" | "env" | "file" | "none";
 }

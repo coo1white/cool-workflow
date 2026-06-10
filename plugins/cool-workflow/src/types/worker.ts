@@ -183,6 +183,11 @@ export interface WorkerIsolationOptions {
    *  `worker.agent-delegation` trust-audit event, and stamps the worker's usage
    *  model. The result digest is computed from the accepted result.md. */
   agentDelegation?: AgentDelegationInput;
+  /** Track 1 fail-closed (opt-in, off by default). When true, a delegated hop
+   *  whose telemetry verdict is not `attested` (i.e. `unattested` or `absent`) is
+   *  REJECTED before any accept-side state mutation — the drive parks it via the
+   *  existing hop path. Default (false/undefined) keeps flag-and-surface. */
+  requireAttestedTelemetry?: boolean;
 }
 
 /** The agent-hop attestation the drive loop hands to recordWorkerOutput. The
