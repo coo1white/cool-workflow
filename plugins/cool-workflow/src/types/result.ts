@@ -47,6 +47,10 @@ export interface StateArtifact {
   kind: string;
   path: string;
   description?: string;
+  /** SHA256 digest of the artifact content (v0.1.68). */
+  sha256?: string;
+  /** File size in bytes (v0.1.68). */
+  sizeBytes?: number;
 }
 
 export interface StateEvidence {

@@ -68,6 +68,9 @@ export interface PipelineContract {
   evidencePolicy?: PipelineEvidencePolicy;
   failurePolicy?: PipelineFailurePolicy;
   commitPolicy?: PipelineCommitPolicy;
+  /** Optional template for auto-generated commit messages (v0.1.68).
+   *  Supports {{runId}}, {{completedTasks}}, {{totalTasks}} placeholders. */
+  commitMessageTemplate?: string;
   compatibility: PipelineCompatibility;
 }
 
