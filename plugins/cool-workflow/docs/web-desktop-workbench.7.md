@@ -126,7 +126,7 @@ GET /api/run/:runId         # the five-panel WorkbenchRunView
 
 This is CW v0.1.30. The Workbench changes no run-state schema and requires no
 migration: it is a pure read-only projection over existing durable state and
-existing capability payloads. Removing it leaves the SDK fully functional.
+existing capability payloads. Removing it leaves the framework fully functional.
 
 See also [Operator UX](operator-ux.7.md), [CLI ↔ MCP Parity](cli-mcp-parity.7.md),
 and [Run Registry / Control Plane](run-registry-control-plane.7.md).
@@ -208,4 +208,4 @@ Release-readiness checks now validate the committed blob (`git show HEAD:<path>`
 Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.46), vendor-adapter registry (v0.1.47), state auto-compaction and P2 fixes (v0.1.48), plus CI content-surface determinism hardening (v0.1.49).
 0.1.51
 
-0.1.52
+0.1.76

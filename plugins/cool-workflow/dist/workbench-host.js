@@ -116,7 +116,7 @@ class WorkbenchHost {
     }
     /** Serve a static UI asset from disk, re-read on every request (no caching of
      *  authoritative state). Path-traversal is refused; a missing asset is an
-     *  honest 404 — the SDK ships fine without the UI installed. */
+     *  honest 404 — the framework ships fine without the UI installed. */
     sendAsset(res, relative) {
         const uiRoot = (0, workbench_1.workbenchUiRoot)(this.runner);
         const resolved = node_path_1.default.resolve(uiRoot, relative);

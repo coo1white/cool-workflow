@@ -65,7 +65,7 @@ The version synchronization check covers:
 - `plugins/cool-workflow/package.json`
 - `plugins/cool-workflow/.codex-plugin/plugin.json`
 - `plugins/cool-workflow/src/version.ts`
-- SDK and MCP server version use
+- framework and MCP server version use
 - canonical workflow app manifests
 - golden path and MCP smoke expectations
 - dogfood release smoke expectations
@@ -105,4 +105,4 @@ publish, and marketplace update remain separate visible steps. Dry-run dogfood
 mode never performs them; execute-style flags must include an explicit
 target-version confirmation such as `--confirm-release-actions=0.1.24`.
 
-0.1.52
+0.1.76

@@ -49,7 +49,7 @@
 | 听到的说法 | 事实 |
 |---|---|
 | "CW 只能编排、执行依赖外部是个差距，应该内嵌 API" | 这是**定位红线**，不是差距。`execution-backend.ts` 明确写着 "CW DELEGATES, IT DOES NOT BECOME THE EXECUTOR"。 |
-| "CW 是个 SDK / 应该做成 SDK" | **先分清两种 SDK，否则会自我误导。** ① **模型执行 SDK**（内嵌 Claude/OpenAI API、自己跑模型）= 红线，永远不做（同上一行）。② **Workflow App SDK / 编排运行时**（给开发者写 workflow app、给别的 agent 框架当可审计编排层）= **现在就已经是了**，属于"做什么"里要深化的方向。坑在于：「SDK」一词默认会被听成 ①（一个开发者执行套件），所以对内对外**一律先说"可审计编排 / 控制平面 (control-plane)"**，只有明确指 ② 时才用 "Workflow App SDK"。`package.json` / `plugin.json` / `manifest` 里残留的 "Agent Workflow SDK" 描述就是这个误导源，迟早要统一口径。 |
+| "CW 是个 SDK / 应该做成 SDK" | **先分清两种 SDK，否则会自我误导。** ① **模型执行 SDK**（内嵌 Claude/OpenAI API、自己跑模型）= 红线，永远不做（同上一行）。② **Workflow App framework / 编排运行时**（给开发者写 workflow app、给别的 agent 框架当可审计编排层）= **现在就已经是了**，属于"做什么"里要深化的方向。坑在于：「SDK」一词默认会被听成 ①（一个开发者执行套件），所以对内对外**一律先说"可审计编排 / 控制平面 (control-plane)"**，只有明确指 ② 时才用 "Workflow App framework"。（v0.1.76 起 `package.json` / `plugin.json` / `manifest` / 文档的描述已统一为"可审计工作流控制平面 / Workflow App framework"，不再用 "SDK" 自我描述；"no model SDK" 红线措辞保留，因为它正是在声明 CW **不是** 模型执行 SDK。） |
 | "blackboard 存在但没用起来" | **已深度接入**（coordinator.ts 1400+ 行，进了 dispatch / operator-ux / audit，落盘 `.cw/runs/<id>/blackboard/`）。要做的是用更狠，不是从零搭。 |
 | "phases 应该动态化" | 现状静态是**为了可复放**。要动态先解决 replay 确定性，否则削弱核心卖点。 |
 

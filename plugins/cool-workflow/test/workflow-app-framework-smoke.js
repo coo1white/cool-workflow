@@ -7,7 +7,7 @@ const { execFileSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist/cli.js");
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-workflow-app-sdk-"));
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-workflow-app-framework-"));
 
 function run(args, cwd = pluginRoot) {
   return JSON.parse(execFileSync("node", [cli, ...args], { cwd, encoding: "utf8" }));
@@ -32,7 +32,7 @@ function runInvalid(args, cwd = pluginRoot) {
 const workflowList = run(["list"]);
 assert.ok(workflowList.some((entry) => entry.id === "architecture-review"));
 assert.ok(workflowList.some((entry) => entry.id === "legacy-architecture-review"));
-assert.ok(workflowList.some((entry) => entry.id === "workflow-app-sdk-demo"));
+assert.ok(workflowList.some((entry) => entry.id === "workflow-app-framework-demo"));
 
 const canonicalResearchPlan = run([
   "plan",
@@ -48,7 +48,7 @@ assert.equal(canonicalResearchPlan.workflowId, "research-synthesis");
 assert.equal(canonicalResearchPlan.pendingTasks, 6);
 const canonicalResearchState = JSON.parse(fs.readFileSync(canonicalResearchPlan.statePath, "utf8"));
 assert.equal(canonicalResearchState.workflow.app.id, "research-synthesis");
-assert.equal(canonicalResearchState.workflow.app.version, "0.1.52");
+assert.equal(canonicalResearchState.workflow.app.version, "0.1.76");
 
 const legacyPlan = run([
   "plan",
@@ -62,20 +62,20 @@ assert.equal(legacyPlan.workflowId, "legacy-research-synthesis");
 assert.equal(legacyPlan.pendingTasks, 5);
 
 const appList = run(["app", "list"]);
-const demoSummary = appList.find((entry) => entry.id === "workflow-app-sdk-demo");
+const demoSummary = appList.find((entry) => entry.id === "workflow-app-framework-demo");
 assert.ok(demoSummary);
 assert.equal(demoSummary.version, "0.1.0");
 assert.equal(demoSummary.legacy, false);
 assert.deepEqual(demoSummary.sandboxProfiles, ["readonly", "workspace-write"]);
 
-const demoShow = run(["app", "show", "workflow-app-sdk-demo"]);
+const demoShow = run(["app", "show", "workflow-app-framework-demo"]);
 assert.equal(demoShow.app.version, "0.1.0");
 assert.equal(demoShow.workflow.phases[2].tasks[0].requiresEvidence, true);
 assert.equal(demoShow.workflow.phases[1].tasks[0].sandboxProfileId, "workspace-write");
 
-const demoValidate = run(["app", "validate", path.join(pluginRoot, "apps/workflow-app-sdk-demo/app.json")]);
+const demoValidate = run(["app", "validate", path.join(pluginRoot, "apps/workflow-app-framework-demo/app.json")]);
 assert.equal(demoValidate.valid, true);
-assert.equal(demoValidate.summary.id, "workflow-app-sdk-demo");
+assert.equal(demoValidate.summary.id, "workflow-app-framework-demo");
 
 const generatedDir = path.join(tmp, "generated-app");
 const generated = run([
@@ -83,7 +83,7 @@ const generated = run([
   "init",
   "smoke-sdk-app",
   "--title",
-  "Smoke SDK App",
+  "Smoke Framework App",
   "--directory",
   generatedDir
 ]);
@@ -92,9 +92,9 @@ assert.ok(fs.existsSync(generated.manifestPath));
 assert.ok(fs.existsSync(generated.entrypointPath));
 assert.equal(run(["app", "validate", generated.manifestPath]).valid, true);
 
-const packagePath = path.join(tmp, "workflow-app-sdk-demo.cwapp.json");
-const packaged = run(["app", "package", "workflow-app-sdk-demo", "--output", packagePath]);
-assert.equal(packaged.id, "workflow-app-sdk-demo");
+const packagePath = path.join(tmp, "workflow-app-framework-demo.cwapp.json");
+const packaged = run(["app", "package", "workflow-app-framework-demo", "--output", packagePath]);
+assert.equal(packaged.id, "workflow-app-framework-demo");
 assert.ok(fs.existsSync(packagePath));
 
 const duplicateDir = path.join(tmp, "duplicate-task-app");
@@ -156,16 +156,16 @@ assert.ok(missingValidation.issues.some((entry) => entry.code === "workflow-app-
 
 const appPlan = run([
   "plan",
-  "workflow-app-sdk-demo",
+  "workflow-app-framework-demo",
   "--repo",
   tmp,
   "--question",
   "Record app metadata"
 ]);
 const appState = JSON.parse(fs.readFileSync(appPlan.statePath, "utf8"));
-assert.equal(appState.workflow.app.id, "workflow-app-sdk-demo");
+assert.equal(appState.workflow.app.id, "workflow-app-framework-demo");
 assert.equal(appState.workflow.app.version, "0.1.0");
-assert.match(fs.readFileSync(appPlan.reportPath, "utf8"), /Workflow App: workflow-app-sdk-demo@0\.1\.0/);
+assert.match(fs.readFileSync(appPlan.reportPath, "utf8"), /Workflow App: workflow-app-framework-demo@0\.1\.0/);
 
 const dispatch = run(["dispatch", appPlan.runId, "--limit", "1"], tmp);
 assert.equal(dispatch.tasks.length, 1);
@@ -174,4 +174,4 @@ assert.equal(dispatch.tasks[0].sandboxProfileId, "readonly");
 const reportPath = runText(["report", appPlan.runId], tmp).trim();
 assert.equal(reportPath, appPlan.reportPath);
 
-process.stdout.write("workflow-app-sdk-smoke: ok\n");
+process.stdout.write("workflow-app-framework-smoke: ok\n");

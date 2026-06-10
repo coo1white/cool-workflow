@@ -1,12 +1,12 @@
-# Agent Workflow SDK
+# Workflow App framework
 
-CW is designed as an independent Agent Workflow SDK.
+CW is designed as an independent agent workflow control-plane.
 
 The goal is to make agent development feel like building inside a platform
 ecosystem. CW provides the runtime, contracts, storage, CLI, MCP bridge, and
 package structure. Developers write workflow apps against those contracts.
 
-The SDK is guided by five practical systems principles: small kernel, explicit
+The framework is guided by five practical systems principles: small kernel, explicit
 state, composable pipes, isolated workers, and verifier-gated commits. See
 [unix-principles.md](unix-principles.md).
 
@@ -18,9 +18,9 @@ Every CW workflow follows this loop:
 interpret -> act -> observe -> adjust -> checkpoint
 ```
 
-The loop maps to concrete SDK operations:
+The loop maps to concrete framework operations:
 
-| Loop stage | SDK operation | Responsibility |
+| Loop stage | framework operation | Responsibility |
 | --- | --- | --- |
 | Interpret | `plan()` | Load workflow, validate inputs, generate tasks |
 | Act | `dispatch()` | Move runnable tasks from pending to running |
@@ -62,7 +62,7 @@ A workflow app defines:
 
 - `id`, `title`, and `summary`
 - `schemaVersion`, app `version`, compatibility, and metadata when using the
-  first-class Workflow App SDK contract
+  first-class Workflow App framework contract
 - required and repeated inputs
 - phase order
 - agent tasks
@@ -81,7 +81,7 @@ const {
   agent,
   artifact,
   input
-} = require("../dist/workflow-app-sdk");
+} = require("../dist/workflow-app-framework");
 
 const inputs = [input("repo", { type: "path", required: true })];
 
@@ -142,7 +142,7 @@ apps/<app-id>/workflow.js
 This is intentional. The runtime is strongly typed for maintainability, while
 workflow scripts can run without `ts-node`.
 
-See [workflow-app-sdk.7.md](workflow-app-sdk.7.md) for the full app contract,
+See [workflow-app-framework.7.md](workflow-app-framework.7.md) for the full app contract,
 validation rules, CLI commands, MCP tools, and state/report fields.
 See [mcp-app-surface.7.md](mcp-app-surface.7.md) for the agent-host runtime
 surface over MCP.
@@ -171,6 +171,6 @@ to inspectable engineering output than unconstrained conversation.
 
 ## Boundary
 
-CW is an independent SDK by COOLWHITE LLC. It implements dynamic workflows,
+CW is an independent workflow control-plane by COOLWHITE LLC. It implements dynamic workflows,
 scheduled tasks, local scheduling, routine triggers, state checkpoints, and
 multi-agent verification.

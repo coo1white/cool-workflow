@@ -23,7 +23,7 @@ const state_1 = require("../state");
 const report_1 = require("./report");
 const cli_options_1 = require("./cli-options");
 const harness_1 = require("../harness");
-const workflow_app_sdk_1 = require("../workflow-app-sdk");
+const workflow_app_framework_1 = require("../workflow-app-framework");
 const workflow_api_1 = require("../workflow-api");
 const observability_1 = require("../observability");
 const dispatch_1 = require("../dispatch");
@@ -61,7 +61,7 @@ function plan(appRecord, options) {
             title: workflow.title,
             summary: workflow.summary || "",
             limits: workflow.limits,
-            app: (0, workflow_app_sdk_1.workflowAppRunMetadata)(appRecord)
+            app: (0, workflow_app_framework_1.workflowAppRunMetadata)(appRecord)
         },
         inputs,
         loopStage: "interpret",
@@ -130,7 +130,7 @@ function plan(appRecord, options) {
         outputs: run.inputs,
         artifacts: [{ id: "state", kind: "json", path: run.paths.state }],
         contractId: contract.id,
-        metadata: { workflowId: workflow.id, app: (0, workflow_app_sdk_1.workflowAppRunMetadata)(appRecord) }
+        metadata: { workflowId: workflow.id, app: (0, workflow_app_framework_1.workflowAppRunMetadata)(appRecord) }
     }));
     (0, state_1.saveCheckpoint)(run);
     const pipeline = (0, pipeline_runner_1.createPipelineRunner)({ contractId: contract.id, persist: false });

@@ -239,7 +239,7 @@ enforces OS/process/network/environment controls.
 
 | Area | What it gives you |
 | --- | --- |
-| Workflow App SDK | Versioned app manifests, inputs, phases, tasks, artifacts, and validation |
+| Workflow App framework | Versioned app manifests, inputs, phases, tasks, artifacts, and validation |
 | CLI runtime | Human-friendly commands for planning, dispatching, inspecting, and reporting |
 | MCP surface | JSON-first tool parity for agent hosts |
 | Sandbox Profiles | Named read/write/command/network/env policy contracts |
@@ -265,7 +265,7 @@ enforces OS/process/network/environment controls.
 | `release-cut` | Prepare a release with checklist discipline and dry-run evidence |
 | `research-synthesis` | Split a research question, verify claims, produce a concise synthesis |
 | `end-to-end-golden-path` | Prove the public app -> worker -> score -> commit -> report chain |
-| `workflow-app-sdk-demo` | Learn the app manifest and workflow entrypoint contract |
+| `workflow-app-framework-demo` | Learn the app manifest and workflow entrypoint contract |
 
 Useful commands:
 
@@ -452,7 +452,7 @@ Start here:
 
 - [Getting Started](plugins/cool-workflow/docs/getting-started.md)
 - [Project Index](plugins/cool-workflow/docs/project-index.md)
-- [Workflow App SDK](plugins/cool-workflow/docs/workflow-app-sdk.7.md)
+- [Workflow App framework](plugins/cool-workflow/docs/workflow-app-framework.7.md)
 - [Operator UX](plugins/cool-workflow/docs/operator-ux.7.md)
 - [MCP App Surface](plugins/cool-workflow/docs/mcp-app-surface.7.md)
 - [Multi-Agent CLI + MCP Surface](plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md)
@@ -465,7 +465,7 @@ Full docs map: [plugins/cool-workflow/docs/index.md](plugins/cool-workflow/docs/
 
 ## Work With Me
 
-CW is maintained by COOLWHITE LLC. Beyond the open-source SDK, the following
+CW is maintained by COOLWHITE LLC. Beyond the open-source framework, the following
 engagements are available:
 
 - **Architecture-risk audits** — review your agent workflows for evidence-chain

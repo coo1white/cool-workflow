@@ -67,7 +67,7 @@ function main() {
   checkIncludes("plugins/cool-workflow/src/version.ts", `CURRENT_COOL_WORKFLOW_VERSION = "${VERSION}"`, checks);
   checkIncludes("plugins/cool-workflow/src/version.ts", "CURRENT_RUN_STATE_SCHEMA_VERSION = 1", checks);
   checkIncludes("plugins/cool-workflow/src/mcp-server.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);
-  checkIncludes("plugins/cool-workflow/src/workflow-app-sdk.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);
+  checkIncludes("plugins/cool-workflow/src/workflow-app-framework.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);
 
   for (const appId of canonicalApps) {
     checkJson(`plugins/cool-workflow/apps/${appId}/app.json`, "version", VERSION, checks);
@@ -85,10 +85,10 @@ function main() {
   checkIncludes("plugins/cool-workflow/test/evidence-adoption-reasoning-smoke.js", "evidence-adoption-reasoning-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/mcp-app-surface-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/canonical-workflow-apps-smoke.js", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/test/workflow-app-sdk-smoke.js", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/test/workflow-app-framework-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/dist/version.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/dist/mcp-server.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
-  checkIncludes("plugins/cool-workflow/dist/workflow-app-sdk.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
+  checkIncludes("plugins/cool-workflow/dist/workflow-app-framework.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
 
   checkIncludes("plugins/cool-workflow/README.md", `v${VERSION}`, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "release and migration", checks);

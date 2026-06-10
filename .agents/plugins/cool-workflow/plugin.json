@@ -1,7 +1,7 @@
 {
   "name": "cool-workflow",
-  "description": "Agent Workflow SDK with TypeScript orchestration, dispatch, evidence-gated verification, state commits, scheduling, routines, multi-agent coordination, and MCP.",
-  "version": "0.1.52",
+  "description": "Auditable workflow control-plane and orchestration runtime: TypeScript dispatch, evidence-gated verification, state commits, scheduling, routines, multi-agent coordination, and MCP. Delegates execution to external agents — never runs models.",
+  "version": "0.1.76",
   "author": {
     "name": "COOLWHITE LLC"
   },
@@ -9,7 +9,7 @@
   "license": "BSD-2-Clause",
   "keywords": [
     "workflow",
-    "agent-sdk",
+    "control-plane",
     "dynamic-workflows",
     "subagents",
     "orchestration",
@@ -21,8 +21,8 @@
   "mcpServers": "./.codex-plugin/mcp.json",
   "interface": {
     "displayName": "Cool Workflow",
-    "shortDescription": "Agent Workflow SDK.",
-    "longDescription": "Cool Workflow is an independent Agent Workflow SDK. It provides a TypeScript COL runtime, Workflow App SDK contracts, Router/Orchestrator, Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State Commit, Sandbox Profiles, scheduled tasks, routine triggers, a high-level Multi-Agent CLI/MCP host surface, and an MCP JSON-RPC 2.0 bridge. Developers write reusable workflow apps while an agent host executes tasks and records verified state.",
+    "shortDescription": "Auditable workflow control-plane.",
+    "longDescription": "Cool Workflow (CW) is an auditable workflow control-plane and orchestration runtime. It provides a TypeScript COL runtime, Workflow App framework contracts, Router/Orchestrator, Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State Commit, Sandbox Profiles, scheduled tasks, routine triggers, a high-level Multi-Agent CLI/MCP host surface, and an MCP JSON-RPC 2.0 bridge. Developers write reusable workflow apps; CW delegates execution to an external agent host and records verified, replayable state — it never embeds a model API.",
     "developerName": "COOLWHITE LLC",
     "category": "Productivity",
     "capabilities": [

@@ -89,9 +89,9 @@ discovery.
 `npm test` includes `test/canonical-workflow-apps-smoke.js`, which repeats the
 same core assertions against generated `dist/`.
 
-## SDK Pressure
+## Framework Pressure
 
-The apps intentionally stress different parts of the Workflow App SDK:
+The apps intentionally stress different parts of the Workflow App framework:
 
 - declared required, optional, and repeated inputs
 - app-directory discovery and app metadata

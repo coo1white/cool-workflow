@@ -76,7 +76,7 @@ over the existing transform. Pre-0.1.36 runs and apps load unchanged.
 
 ## See Also
 
-release-and-migration(7), state-explosion-management(7), workflow-app-sdk(7),
+release-and-migration(7), state-explosion-management(7), workflow-app-framework(7),
 cli-mcp-parity(7)
 
 ## Control-Plane Scheduling (v0.1.37)
@@ -116,4 +116,4 @@ Release-readiness checks now validate the committed blob (`git show HEAD:<path>`
 Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.46), vendor-adapter registry (v0.1.47), state auto-compaction and P2 fixes (v0.1.48), plus CI content-surface determinism hardening (v0.1.49).
 0.1.51
 
-0.1.52
+0.1.76

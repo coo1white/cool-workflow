@@ -21,7 +21,7 @@
 //      fabricated.
 //   5. NO HIDDEN STATE — the host serving a run writes nothing under .cw/runs/.
 //   6. OPTIONAL SURFACE — the kernel imports the Workbench never (so removing it
-//      leaves the SDK fully functional); the SDK's core CLI still runs.
+//      leaves the framework fully functional); the framework's core CLI still runs.
 //
 // Included in `npm test` and `npm run release:check`.
 
@@ -225,14 +225,14 @@ async function main() {
   assert.equal(cliGhost.resolved, false, "CLI also reports the absent run unresolved");
 
   // ---- 6. OPTIONAL SURFACE: the kernel imports the Workbench never ----------
-  // If a core kernel module required dist/workbench*, deleting it would break the
-  // SDK. Assert the dependency direction: kernel -> (nothing), front doors ->
+  // If a core kernel module required dist/workbench*, deleting it would break
+  // the framework. Assert the dependency direction: kernel -> (nothing), front doors ->
   // workbench. We check the compiled kernel modules carry no workbench require.
   for (const kernelModule of ["orchestrator.js", "state.js", "run-registry.js", "capability-core.js", "dispatch.js", "pipeline-runner.js"]) {
     const source = fs.readFileSync(path.join(pluginRoot, "dist", kernelModule), "utf8");
     assert.ok(!/require\(["']\.\/workbench/.test(source), `${kernelModule} must not import the Workbench (optional surface)`);
   }
-  // And the SDK's core CLI still works (Workbench is additive, not required).
+  // And the framework's core CLI still works (Workbench is additive, not required).
   const listed = cwJson(["list"], pluginRoot);
   assert.ok(Array.isArray(listed) || (listed && typeof listed === "object"), "core `cw list` still works");
 

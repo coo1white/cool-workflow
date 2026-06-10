@@ -41,7 +41,7 @@ import fs from "node:fs";
 export const WORKBENCH_DEFAULT_PORT = 7717;
 
 /** Relative location of the optional, dependency-light static UI assets. Kept
- *  OUT of the kernel: the host reads them lazily at request time, so the SDK
+ *  OUT of the kernel: the host reads them lazily at request time, so the framework
  *  builds and runs with the Workbench (and these files) absent. */
 export const WORKBENCH_UI_RELATIVE = path.join("ui", "workbench");
 

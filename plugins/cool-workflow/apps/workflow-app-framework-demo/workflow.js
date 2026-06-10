@@ -8,9 +8,9 @@ module.exports = ({ workflow, phase, agent, artifact, input }) => {
   ];
 
   return workflow({
-    id: "workflow-app-sdk-demo",
-    title: "Workflow App SDK Demo",
-    summary: "Small SDK app showing inputs, phases, evidence gates, and sandbox profile hints.",
+    id: "workflow-app-framework-demo",
+    title: "Workflow App framework Demo",
+    summary: "Small framework app showing inputs, phases, evidence gates, and sandbox profile hints.",
     limits: {
       maxAgents: 6,
       maxConcurrentAgents: 2

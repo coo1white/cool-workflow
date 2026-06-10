@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.76
+
+Positioning consistency: stop calling CW an "SDK" anywhere it describes itself.
+
+- **Capability**: Every self-describing surface a user or LLM client reads — npm `package.json`, all vendor plugin manifests (Claude / Codex / agents / marketplace), the keyword list, both READMEs, the docs, and the developer-contract doc — now names CW an **auditable workflow control-plane / Workflow App framework** instead of an "SDK". "SDK" survives only where it is the red-line disclaimer ("CW embeds no **model SDK**") and in third-party package names, so the moat-guard tests still mean what they say.
+- **Implementation**: Renamed the term-of-art identifier `workflow-app-sdk` → `workflow-app-framework` across source, docs, the example app id (`workflow-app-framework-demo`), the replay fixture, and the `version-sync` needles; renamed `src/workflow-app-sdk.ts`, `docs/workflow-app-sdk.7.md`, `test/workflow-app-sdk-smoke.js`, and `docs/agent-sdk.md` → `agent-framework.md`. Rewrote the `manifest/plugin.manifest.json` descriptions (single source) and regenerated all vendor manifests; changed the `agent-sdk` keyword → `control-plane`; rebuilt `dist/`.
+- **Tests**: No behavior change; existing smokes carry over under the new names (`workflow-app-framework-smoke.js`), and `run-fixture-compat-smoke.js` replays the renamed fixture. Full suite + `release:check` green. The `no-model-SDK` red-line guard (`agent-delegation-drive-smoke.js`, `quickstart-smoke.js`) is intentionally untouched.
+- **Risk**: Pure rename / copy change — no runtime, public-API, or dependency change (zero-dependency invariant held). The example app's id changed (`workflow-app-sdk-demo` → `workflow-app-framework-demo`); anyone scripting against the old id must update it. Historical CHANGELOG entries and past release/tag notes are left as-is (factual record).
+
 ## 0.1.75
 
 Gated, self-auditing release flow for the cool-workflow plugin.
