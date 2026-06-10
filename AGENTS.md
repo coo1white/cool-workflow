@@ -74,3 +74,13 @@ Pause and ask the human if:
 - A change would break the public API (anything exported from index.ts)
 - You're tempted to tag without test evidence
 - The reviewer agent rejects the same PR twice
+
+# Portable release flow
+The gated release (gate → independent review → verdict → tag) is one
+zero-dependency orchestrator that runs the same under any harness:
+`node plugins/cool-workflow/scripts/release-flow.js --check`. The review is
+DELEGATED to the model you configure (`CW_AGENT_COMMAND="claude -p {{input}}"`
+/ `codex exec` / `gemini -p` / `opencode run -m <model>`, or `CW_AGENT_ENDPOINT`
+for DeepSeek/HTTP) — CW spawns it argv-style (shell:false), holds no key, and
+imports no model SDK. Never write the verdict file yourself. Presets:
+`plugins/cool-workflow/docs/release-tooling.7.md`.

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+Multi-platform portable release flow.
+
+- **Capability**: The gated release ritual (deterministic gate → independent reviewer → verdict → optional tag) is now one zero-dependency Node orchestrator, `scripts/release-flow.js`, that runs identically under Claude, Codex, Gemini, OpenCode, or a plain shell — no dependency on any host's agent-orchestration primitive. The independent review is **delegated** to whatever model you configure (`CW_AGENT_COMMAND`/`CW_AGENT_ENDPOINT`); CW spawns it argv-style (`shell:false`), holds no key, imports no model SDK (the red line).
+- **Implementation**: `scripts/release-flow.js` (`--check` default; `--cut --version x.y.z [--push]`) reuses `release-gate.sh`, `resolveAgentConfig` (dist/agent-config), `bump-version`, and the existing `.cw-release/<sha>.verdict` convention + tag-push CI backstop. Per-vendor entry points all call the one script: `commands/release-flow.md` (Claude), `.gemini/commands/release.toml`, `.opencode/command/release.md`, and a Codex skill reference. Gemini and OpenCode added as MCP vendors (`.gemini-plugin/`, `.opencode-plugin/` generated from the manifest source) so the `cw_*` tools are available there; DeepSeek is reached as an agent-backend model (OpenCode `-m deepseek/...` or `CW_AGENT_ENDPOINT`), not a plugin.
+- **Tests**: `test/release-flow-smoke.js` (auto-discovered) drives the real orchestrator against throwaway git fixtures with a stub agent: APPROVED passes; REJECTED / missing-verdict / unconfigured-agent / red-gate all fail closed; static red-line guard asserts `shell:false` and no model-SDK import. No real model spawned in CI.
+- **Risk**: No `src/` runtime or public-API change; zero new dependencies. The reviewer command-template presets are best-effort per each tool's current CLI flags (config, easily edited) — the orchestrator itself is vendor-neutral.
+
 ## 0.1.76
 
 Positioning consistency: stop calling CW an "SDK" anywhere it describes itself.

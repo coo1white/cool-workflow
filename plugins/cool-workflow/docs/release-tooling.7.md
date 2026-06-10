@@ -120,6 +120,38 @@ Release-readiness checks now validate the committed blob (`git show HEAD:<path>`
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
 Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.46), vendor-adapter registry (v0.1.47), state auto-compaction and P2 fixes (v0.1.48), plus CI content-surface determinism hardening (v0.1.49).
+
+## Multi-platform release flow (`scripts/release-flow.js`)
+
+The gated release ritual — deterministic gate → independent reviewer → verdict →
+(tag) — is now ONE zero-dependency Node orchestrator that runs the same under any
+harness. It does not depend on a host's agent-orchestration primitive; the only
+LLM step (the reviewer) is **delegated** through CW's agent backend, so whichever
+model you configure does the review. CW spawns the agent argv-style (`shell:false`),
+inherits the agent's own credentials, and imports no model SDK — the red line.
+
+```bash
+# check only (gate + independent review, no mutation):
+node plugins/cool-workflow/scripts/release-flow.js --check
+# cut a tag once review is green:
+node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 [--push]
+```
+
+The per-platform difference is config, not code — set the reviewer agent:
+
+| Platform | Reviewer config |
+|---|---|
+| Claude    | `CW_AGENT_COMMAND="claude -p {{input}}"` |
+| Codex     | `CW_AGENT_COMMAND="codex exec {{input}}"` |
+| Gemini    | `CW_AGENT_COMMAND="gemini -p {{input}}"` |
+| OpenCode  | `CW_AGENT_COMMAND="opencode run -m <provider/model> {{input}}"` |
+| DeepSeek  | via OpenCode (`-m deepseek/deepseek-chat`) or `CW_AGENT_ENDPOINT=<deepseek-compatible HTTP agent>` |
+
+`{{input}}` is substituted with the reviewer prompt file path. Gemini and OpenCode
+also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the
+`cw_*` tools are available as MCP tools in those hosts. The verdict path
+(`.cw-release/review-<sha>.verdict`) and the tag-push CI backstop are unchanged.
+
 0.1.51
 
 0.1.76

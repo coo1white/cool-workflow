@@ -46,6 +46,19 @@ The canonical app ids are `architecture-review`, `pr-review-fix-ci`,
 `apps/<app-id>/app.json`; legacy `workflows/*.workflow.js` factories remain valid
 and are wrapped as compatibility apps with explicit `legacy-*` ids.
 
+## Portable release flow (any platform)
+
+```bash
+# Delegate the independent review to the model of this host (Codex shown):
+export CW_AGENT_COMMAND="codex exec {{input}}"
+node plugins/cool-workflow/scripts/release-flow.js --check
+node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 [--push]
+```
+
+One zero-dependency orchestrator runs the gate + independent reviewer under any
+harness; the reviewer is delegated via `CW_AGENT_COMMAND`/`CW_AGENT_ENDPOINT`
+(presets for Claude/Codex/Gemini/OpenCode/DeepSeek in `docs/release-tooling.7.md`).
+
 ## Plan / dispatch / result / report
 
 ```bash
