@@ -20,6 +20,8 @@ export interface RunPaths {
   multiAgentDir?: string;
   blackboardDir?: string;
   topologiesDir?: string;
+  /** Persisted operator graph snapshot path (v0.1.71). */
+  graphSnapshotPath?: string;
 }
 
 export interface RunPhase {
