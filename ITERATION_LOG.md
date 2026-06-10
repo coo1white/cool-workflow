@@ -23,3 +23,11 @@
 | 2 | scrub CW-as-SDK self-description (manifest descriptions, package.json, READMEs, AGENTS, docs); keep "no model SDK" red-line | manifest/plugin.manifest.json + package.json + README ×2 + docs/agent-framework.md | red-line guard smokes unchanged | BUILD OK, suite green | no (cycle 2/4) |
 | 3 | regenerate vendor manifests + keyword control-plane; rebuild dist | .claude-plugin/.codex-plugin/.agents/.mcp.json (generated) + dist | gen:manifests --check, dist drift clean | BUILD OK, suite green | no (cycle 3/4) |
 | 4 | fix version drift: bump internal 0.1.52 → 0.1.76 so package == release tag | bump:version across all surfaces + content docs + DIRECTION.md row | version:sync, release:check | BUILD OK, suite green | yes (v0.1.76: SDK→control-plane naming + version coherence) |
+
+## Batch — multi-platform portable release flow (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | portable zero-dep release orchestrator; reviewer delegated via agent backend (vendor-agnostic) | scripts/release-flow.js + test/release-flow-smoke.js | 1 test added (5 cases: APPROVED/REJECTED/missing/unconfigured/red-gate + red-line guard) | BUILD OK, suite green | no |
+| 2 | per-vendor entry points (one orchestrator, preset-only difference) | commands/release-flow.md + .gemini/commands/release.toml + .opencode/command/release.md + skills references + AGENTS.md | covered by flow smoke | BUILD OK, suite green | no |
+| 3 | Gemini + OpenCode as MCP vendors (cw_* tools); preset docs | manifest gemini/opencode targets+vendors (generated .gemini-plugin/.opencode-plugin) + version-sync needles + release-tooling.7.md | gen:manifests --check, version:sync | BUILD OK, suite green | no (no tag this batch) |

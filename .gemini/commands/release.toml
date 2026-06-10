@@ -1,0 +1,27 @@
+# Gemini CLI custom command — cool-workflow portable release flow.
+# Place under <repo>/.gemini/commands/ ; invoke with `/release` in gemini-cli.
+# The flow is one zero-dependency node script; the independent review is
+# delegated to the configured agent (here, Gemini itself).
+description = "Gated cool-workflow release flow (deterministic gate + independent Gemini review)."
+
+prompt = """
+Run the cool-workflow portable release flow for the current repository.
+
+1. Configure the reviewer to delegate to Gemini (this host):
+   export CW_AGENT_COMMAND="gemini -p {{input}}"
+
+2. Run check mode (gate + independent review, no mutation):
+   node plugins/cool-workflow/scripts/release-flow.js --check
+
+The script runs scripts/release-gate.sh, then spawns the configured agent
+(argv-style, shell:false — cool-workflow holds no key) to review the candidate
+and write .cw-release/review-<HEAD>.verdict. It fails closed unless the verdict
+begins with APPROVED. Report the JSON summary and stop at the first failure.
+
+To cut a tag once review is green:
+   node plugins/cool-workflow/scripts/release-flow.js --cut --version <x.y.z> [--push]
+
+Note: `{{input}}` is a cool-workflow placeholder the script substitutes with the
+reviewer prompt file path — leave it literal in CW_AGENT_COMMAND. (It is NOT a
+Gemini command argument.)
+"""

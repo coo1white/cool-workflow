@@ -64,6 +64,8 @@ function main() {
   checkJson("plugins/cool-workflow/.codex-plugin/plugin.json", "version", VERSION, checks);
   checkNestedJson("plugins/cool-workflow/manifest/plugin.manifest.json", ["identity", "version"], VERSION, checks);
   checkJson("plugins/cool-workflow/.claude-plugin/plugin.json", "version", VERSION, checks);
+  checkJson("plugins/cool-workflow/.gemini-plugin/plugin.json", "version", VERSION, checks);
+  checkJson("plugins/cool-workflow/.opencode-plugin/plugin.json", "version", VERSION, checks);
   checkIncludes("plugins/cool-workflow/src/version.ts", `CURRENT_COOL_WORKFLOW_VERSION = "${VERSION}"`, checks);
   checkIncludes("plugins/cool-workflow/src/version.ts", "CURRENT_RUN_STATE_SCHEMA_VERSION = 1", checks);
   checkIncludes("plugins/cool-workflow/src/mcp-server.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);

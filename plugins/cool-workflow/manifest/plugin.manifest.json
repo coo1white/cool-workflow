@@ -65,6 +65,16 @@
       "plugin": ".agents/plugins/cool-workflow/plugin.json",
       "mcp": ".agents/plugins/cool-workflow/mcp.json",
       "pluginRootVar": "./"
+    },
+    "gemini": {
+      "plugin": "plugins/cool-workflow/.gemini-plugin/plugin.json",
+      "mcp": "plugins/cool-workflow/.gemini-plugin/mcp.json",
+      "pluginRootVar": "./"
+    },
+    "opencode": {
+      "plugin": "plugins/cool-workflow/.opencode-plugin/plugin.json",
+      "mcp": "plugins/cool-workflow/.opencode-plugin/mcp.json",
+      "pluginRootVar": "./"
     }
   },
   "_comment_vendors": "VENDOR ADAPTER REGISTRY (v0.1.47). Each vendor declares its outputs as templates over the source fields above. Adding a new AI platform: add ONE entry here — no gen-manifests.js changes needed. Templates use {{path.to.field}} interpolation; {{pluginRootVar}} resolves to the vendor's pluginRootVar.",
@@ -207,6 +217,88 @@
         },
         {
           "path": "{{targets.agents.mcp}}",
+          "json": {
+            "mcpServers": {
+              "{{mcp.serverName}}": {
+                "command": "{{mcp.command}}",
+                "args": [
+                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "gemini": {
+      "outputs": [
+        {
+          "path": "{{targets.gemini.plugin}}",
+          "json": {
+            "name": "{{identity.name}}",
+            "description": "{{descriptions.standard}}",
+            "version": "{{identity.version}}",
+            "author": "{{identity.author}}",
+            "homepage": "{{identity.homepage}}",
+            "license": "{{identity.license}}",
+            "keywords": "{{identity.keywords}}",
+            "skills": "{{layout.skillsDir}}",
+            "mcpServers": "./.gemini-plugin/mcp.json",
+            "interface": {
+              "displayName": "{{interface.displayName}}",
+              "shortDescription": "{{descriptions.short}}",
+              "longDescription": "{{descriptions.long}}",
+              "developerName": "{{identity.author.name}}",
+              "category": "{{interface.category}}",
+              "capabilities": "{{interface.capabilities}}",
+              "brandColor": "{{interface.brandColor}}",
+              "defaultPrompt": "{{interface.defaultPrompt}}"
+            }
+          }
+        },
+        {
+          "path": "{{targets.gemini.mcp}}",
+          "json": {
+            "mcpServers": {
+              "{{mcp.serverName}}": {
+                "command": "{{mcp.command}}",
+                "args": [
+                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "opencode": {
+      "outputs": [
+        {
+          "path": "{{targets.opencode.plugin}}",
+          "json": {
+            "name": "{{identity.name}}",
+            "description": "{{descriptions.standard}}",
+            "version": "{{identity.version}}",
+            "author": "{{identity.author}}",
+            "homepage": "{{identity.homepage}}",
+            "license": "{{identity.license}}",
+            "keywords": "{{identity.keywords}}",
+            "skills": "{{layout.skillsDir}}",
+            "mcpServers": "./.opencode-plugin/mcp.json",
+            "interface": {
+              "displayName": "{{interface.displayName}}",
+              "shortDescription": "{{descriptions.short}}",
+              "longDescription": "{{descriptions.long}}",
+              "developerName": "{{identity.author.name}}",
+              "category": "{{interface.category}}",
+              "capabilities": "{{interface.capabilities}}",
+              "brandColor": "{{interface.brandColor}}",
+              "defaultPrompt": "{{interface.defaultPrompt}}"
+            }
+          }
+        },
+        {
+          "path": "{{targets.opencode.mcp}}",
           "json": {
             "mcpServers": {
               "{{mcp.serverName}}": {
