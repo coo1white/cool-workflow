@@ -69,6 +69,8 @@ export interface RoutineTriggerEvent {
   matched: boolean;
   prompt?: string;
   payloadPath: string;
+  /** Deduplication key for idempotent event processing (v0.1.70). */
+  dedupKey?: string;
 }
 
 export interface RoutineTriggerStore {
