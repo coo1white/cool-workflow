@@ -77,13 +77,23 @@ function advancePipeline(run, options = {}) {
             runnable
         };
     }
-    const next = runnable[0];
-    const result = runPipelineStage(run, next.stageId, next.inputNodeId, { ...options, contractId: contract.id });
+    const stages = [];
+    const autoAdvance = contract.failurePolicy?.autoAdvance ?? false;
+    for (const next of runnable) {
+        const result = runPipelineStage(run, next.stageId, next.inputNodeId, { ...options, contractId: contract.id });
+        stages.push(result);
+        if (result.status === "advanced") {
+            return { runId: run.id, contractId: contract.id, status: "advanced", stages, runnable };
+        }
+        if (!autoAdvance) {
+            return { runId: run.id, contractId: contract.id, status: "failed", stages, runnable };
+        }
+    }
     return {
         runId: run.id,
         contractId: contract.id,
-        status: result.status,
-        stages: [result],
+        status: "failed",
+        stages,
         runnable
     };
 }
