@@ -384,6 +384,20 @@ export function recordWorkerOutput(
         { runId: run.id, taskId: task.id, promptDigest: options.agentDelegation.promptDigest }
       )
     : undefined;
+  // Track 1 fail-closed (Decision 2 — OPT-IN, off by default). When the operator
+  // requires attested telemetry, a delegated hop whose verdict is not `attested`
+  // is REJECTED here — BEFORE any accept-side state mutation — so the drive parks
+  // it instead of recording unverifiable usage. Default behavior is unchanged
+  // (flag-and-surface). Non-agent hops carry no verdict and are never blocked.
+  if (options.requireAttestedTelemetry && telemetry && telemetry.status !== "attested") {
+    const error = structuredError(
+      "telemetry-unattested-blocked",
+      `Worker ${workerId} telemetry is ${telemetry.status} (${telemetry.reason || "unverified"}) and require-attested-telemetry is enabled — refusing to accept a hop whose usage cannot be cryptographically verified`,
+      { path: absoluteResultPath, retryable: false }
+    );
+    recordWorkerFailure(run, workerId, error, { ...options, persist: options.persist });
+    throw new Error(error.message);
+  }
   const agentDelegation: AgentDelegationProvenance | undefined = options.agentDelegation
     ? {
         schemaVersion: 1,

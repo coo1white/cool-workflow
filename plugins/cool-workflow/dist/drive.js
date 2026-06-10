@@ -192,7 +192,9 @@ function processSelectedTask(ctx, selected) {
                 reportedUsage,
                 usageSignature,
                 usageTrustPublicKey: ctx.config.attestPublicKey
-            }
+            },
+            // Track 1 fail-closed (opt-in): park a hop whose telemetry isn't attested.
+            requireAttestedTelemetry: ctx.config.requireAttestedTelemetry
         });
     }
     catch (error) {

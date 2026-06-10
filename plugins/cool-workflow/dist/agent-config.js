@@ -41,6 +41,20 @@ function trimmed(value) {
     const out = value.trim();
     return out ? out : undefined;
 }
+/** Parse a boolean from a flag (boolean) or an env/file string. Returns undefined
+ *  for unset/unrecognized so `firstDefined` falls through to the next layer. */
+function boolish(value) {
+    if (typeof value === "boolean")
+        return value;
+    if (typeof value === "string") {
+        const v = value.trim().toLowerCase();
+        if (["1", "true", "yes", "on"].includes(v))
+            return true;
+        if (["0", "false", "no", "off"].includes(v))
+            return false;
+    }
+    return undefined;
+}
 function asStringArray(value) {
     if (!Array.isArray(value))
         return undefined;
@@ -82,6 +96,7 @@ function loadAgentConfigFile(env = process.env) {
             model: trimmed(parsed.model),
             timeoutMs: typeof parsed.timeoutMs === "number" ? parsed.timeoutMs : undefined,
             attestPublicKey: trimmed(parsed.attestPublicKey),
+            requireAttestedTelemetry: boolish(parsed.requireAttestedTelemetry),
             source: "file"
         };
     }
@@ -99,6 +114,7 @@ function agentConfigFromEnv(env) {
         model: trimmed(env.CW_AGENT_MODEL),
         timeoutMs: trimmed(env.CW_AGENT_TIMEOUT_MS) ? Number(env.CW_AGENT_TIMEOUT_MS) : undefined,
         attestPublicKey: trimmed(env.CW_AGENT_ATTEST_PUBKEY),
+        requireAttestedTelemetry: boolish(env.CW_REQUIRE_ATTESTED_TELEMETRY),
         source: "env"
     };
 }
@@ -115,6 +131,7 @@ function agentConfigFromArgs(args) {
         model: trimmed(args.agentModel ?? args["agent-model"]),
         timeoutMs: rawTimeout !== undefined ? Number(rawTimeout) : undefined,
         attestPublicKey: trimmed(args.agentAttestPublicKey ?? args["agent-attest-public-key"]),
+        requireAttestedTelemetry: boolish(args.requireAttestedTelemetry ?? args["require-attested-telemetry"]),
         source: "flag"
     };
 }
@@ -130,6 +147,7 @@ function resolveAgentConfig(args = {}, env = process.env) {
     const model = firstDefined(flagCfg.model, envCfg.model, fileCfg?.model);
     const timeoutMs = firstDefined(flagCfg.timeoutMs, envCfg.timeoutMs, fileCfg?.timeoutMs);
     const attestPublicKey = firstDefined(flagCfg.attestPublicKey, envCfg.attestPublicKey, fileCfg?.attestPublicKey);
+    const requireAttestedTelemetry = firstDefined(flagCfg.requireAttestedTelemetry, envCfg.requireAttestedTelemetry, fileCfg?.requireAttestedTelemetry);
     const source = flagCfg.command || flagCfg.endpoint
         ? "flag"
         : envCfg.command || envCfg.endpoint
@@ -137,7 +155,7 @@ function resolveAgentConfig(args = {}, env = process.env) {
             : fileCfg && (fileCfg.command || fileCfg.endpoint)
                 ? "file"
                 : "none";
-    return { schemaVersion: 1, command, args: cfgArgs, endpoint, model, timeoutMs, attestPublicKey, source };
+    return { schemaVersion: 1, command, args: cfgArgs, endpoint, model, timeoutMs, attestPublicKey, requireAttestedTelemetry, source };
 }
 /** True iff a command-template OR endpoint is configured (after resolution). */
 function agentConfigured(args = {}, env = process.env) {

@@ -323,8 +323,11 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
   // attestation through verbatim so recordWorkerOutput can fold the digests +
   // model into provenance/trust-audit. Absent for a hand-fulfilled worker.
   const agentDelegation = (options.agentDelegation as AgentDelegationInput | undefined) || undefined;
+  // Track 1 fail-closed (opt-in): forward the policy so recordWorkerOutput can
+  // park a hop whose telemetry isn't attested. Default (absent) ⇒ flag-and-surface.
+  const requireAttestedTelemetry = options.requireAttestedTelemetry === true;
   try {
-    recordWorkerOutputImpl(run, workerId, resultPath, { persist: false, agentDelegation });
+    recordWorkerOutputImpl(run, workerId, resultPath, { persist: false, agentDelegation, requireAttestedTelemetry });
     if (usage) {
       const worker = getWorkerScope(run, workerId);
       // Host-attested token usage rides on the worker record as provenance.
