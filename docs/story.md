@@ -21,7 +21,7 @@ dependencies, or rationale are visible states, not silent passes.
 ## 2. Résumé bullets
 
 ```
-Cool Workflow — Agent Workflow SDK (TypeScript/Node, BSD-2)        Solo author
+Cool Workflow — agent workflow control-plane (TypeScript/Node, BSD-2)        Solo author
 github.com/coo1white/cool-workflow
 
 Designed and built a durable, inspectable runtime that turns open-ended agent

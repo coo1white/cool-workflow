@@ -88,7 +88,7 @@ function main() {
   note("manifest/plugin.manifest.json");
 
   // 5. canonical apps app.json (top-level version only; never minVersion).
-  //    ONLY the canonical apps track the runtime version — workflow-app-sdk-demo
+  //    ONLY the canonical apps track the runtime version — workflow-app-framework-demo
   //    is pinned (e.g. 0.1.0) and must NOT be bumped. This list mirrors the one
   //    version-sync-check.js asserts.
   const CANONICAL_APPS = [
@@ -118,7 +118,7 @@ function main() {
     "test/dogfood-release-smoke.js",
     "test/mcp-app-surface-smoke.js",
     "test/canonical-workflow-apps-smoke.js",
-    "test/workflow-app-sdk-smoke.js",
+    "test/workflow-app-framework-smoke.js",
     "test/operator-ux-smoke.js"
   ];
   // The version appears in THREE forms across scripts/tests: plain (`0.1.32`),

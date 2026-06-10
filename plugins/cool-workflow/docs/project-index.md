@@ -71,7 +71,7 @@ multi-agent host -> topology -> blackboard/coordinator
 | [cli.ts](../src/cli.ts) | Routes human CLI commands to runtime, app, topology, multi-agent, and operator flows. |
 | [mcp-server.ts](../src/mcp-server.ts) | Exposes JSON-RPC/MCP tool parity for agent hosts. |
 | [operator-ux.ts](../src/operator-ux.ts) | Formats status, reports, graph, worker, candidate, feedback, commit, and trust summaries. |
-| [workflow-app-sdk.ts](../src/workflow-app-sdk.ts) | Validates app manifests and loads app entrypoints. |
+| [workflow-app-framework.ts](../src/workflow-app-framework.ts) | Validates app manifests and loads app entrypoints. |
 | [workflow-api.ts](../src/workflow-api.ts) | Provides the fluent workflow, phase, task, artifact, and input API. |
 | [daemon.ts](../src/daemon.ts) | Runs scheduled tasks through the desktop scheduler daemon. |
 | [scheduler.ts](../src/scheduler.ts) | Creates, stores, computes, and runs schedules. |
@@ -95,11 +95,11 @@ multi-agent host -> topology -> blackboard/coordinator
 | `pr-review-fix-ci` - Review a pull request or branch, inspect CI failures, diagnose actionable issues, optionally patch, verify, and summarize with evidence. | canonical | `repo`, `pr`, `branch`, `base`, `ci`, `mode` | `readonly`, `workspace-write` | [manifest](../apps/pr-review-fix-ci/app.json) / [workflow](../apps/pr-review-fix-ci/workflow.js) |
 | `release-cut` - Prepare a release with checklist discipline: version checks, changelog, tests, packaging, release notes, and final verification. | canonical | `repo`, `version`, `previousVersion`, `releaseBranch`, `dryRun` | `readonly`, `workspace-write` | [manifest](../apps/release-cut/app.json) / [workflow](../apps/release-cut/workflow.js) |
 | `research-synthesis` - Split a research question into claims, investigate sources, cross-check evidence, verify claims, and synthesize a concise answer. | canonical | `question`, `source`, `scope`, `freshness` | `readonly`, `locked-down` | [manifest](../apps/research-synthesis/app.json) / [workflow](../apps/research-synthesis/workflow.js) |
-| `workflow-app-sdk-demo` - Small SDK app showing inputs, phases, evidence gates, and sandbox profile hints. | example | `question` | `readonly`, `workspace-write` | [manifest](../apps/workflow-app-sdk-demo/app.json) / [workflow](../apps/workflow-app-sdk-demo/workflow.js) |
+| `workflow-app-framework-demo` - Small framework app showing inputs, phases, evidence gates, and sandbox profile hints. | example | `question` | `readonly`, `workspace-write` | [manifest](../apps/workflow-app-framework-demo/app.json) / [workflow](../apps/workflow-app-framework-demo/workflow.js) |
 
 ## Documentation Map
 
-- [Agent Workflow SDK](agent-sdk.md)
+- [agent workflow control-plane](agent-framework.md)
 - [CANDIDATE-SCORING(7)](candidate-scoring.7.md)
 - [Canonical Workflow Apps](canonical-workflow-apps.7.md)
 - [Coordinator / Blackboard](coordinator-blackboard.7.md)
@@ -128,7 +128,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Unix-Inspired Workflow Principles](unix-principles.md)
 - [VERIFIER-GATED-COMMIT(7)](verifier-gated-commit.7.md)
 - [WORKER-ISOLATION(7)](worker-isolation.7.md)
-- [Workflow App SDK](workflow-app-sdk.7.md)
+- [Workflow App framework](workflow-app-framework.7.md)
 
 ## Test Surface
 
@@ -158,7 +158,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [state-node-smoke.js](../test/state-node-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)
 - [worker-isolation-smoke.js](../test/worker-isolation-smoke.js)
-- [workflow-app-sdk-smoke.js](../test/workflow-app-sdk-smoke.js)
+- [workflow-app-framework-smoke.js](../test/workflow-app-framework-smoke.js)
 
 ## Sync Targets
 

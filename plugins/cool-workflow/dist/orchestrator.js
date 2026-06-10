@@ -42,7 +42,7 @@ exports.formatHelp = formatHelp;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const workflow_api_1 = require("./workflow-api");
-const workflow_app_sdk_1 = require("./workflow-app-sdk");
+const workflow_app_framework_1 = require("./workflow-app-framework");
 const dispatch_1 = require("./dispatch");
 const state_1 = require("./state");
 const observability_1 = require("./observability");
@@ -80,7 +80,7 @@ class CoolWorkflowRunner {
     }
     listWorkflows() {
         return this.loadWorkflowApps().map((record) => {
-            const summary = (0, workflow_app_sdk_1.summarizeWorkflowApp)(record);
+            const summary = (0, workflow_app_framework_1.summarizeWorkflowApp)(record);
             return {
                 id: summary.id,
                 title: summary.title,
@@ -90,11 +90,11 @@ class CoolWorkflowRunner {
         });
     }
     listApps() {
-        return this.loadWorkflowApps().map((record) => (0, workflow_app_sdk_1.summarizeWorkflowApp)(record));
+        return this.loadWorkflowApps().map((record) => (0, workflow_app_framework_1.summarizeWorkflowApp)(record));
     }
     showApp(appId) {
         const record = this.loadWorkflowAppById(appId);
-        const summary = (0, workflow_app_sdk_1.summarizeWorkflowApp)(record);
+        const summary = (0, workflow_app_framework_1.summarizeWorkflowApp)(record);
         return {
             ...summary,
             source: record.source,
@@ -134,12 +134,12 @@ class CoolWorkflowRunner {
     validateApp(target) {
         try {
             const record = this.loadWorkflowAppTarget(target);
-            const result = (0, workflow_app_sdk_1.validateWorkflowApp)(record.app, {
+            const result = (0, workflow_app_framework_1.validateWorkflowApp)(record.app, {
                 appPath: record.source.manifestPath || record.source.entrypointPath || record.source.path
             });
             return {
                 ...result,
-                summary: (0, workflow_app_sdk_1.summarizeWorkflowApp)(record)
+                summary: (0, workflow_app_framework_1.summarizeWorkflowApp)(record)
             };
         }
         catch (error) {
@@ -164,11 +164,11 @@ class CoolWorkflowRunner {
             throw new Error(`Refusing to overwrite existing workflow app: ${destinationDir}`);
         }
         node_fs_1.default.mkdirSync(destinationDir, { recursive: true });
-        node_fs_1.default.writeFileSync(manifestPath, (0, workflow_app_sdk_1.renderWorkflowAppManifestTemplate)(id, title), "utf8");
-        node_fs_1.default.writeFileSync(entrypointPath, (0, workflow_app_sdk_1.renderWorkflowAppEntrypointTemplate)(id, title), "utf8");
+        node_fs_1.default.writeFileSync(manifestPath, (0, workflow_app_framework_1.renderWorkflowAppManifestTemplate)(id, title), "utf8");
+        node_fs_1.default.writeFileSync(entrypointPath, (0, workflow_app_framework_1.renderWorkflowAppEntrypointTemplate)(id, title), "utf8");
         const validation = this.validateApp(manifestPath);
         if (!validation.valid) {
-            throw new workflow_app_sdk_1.WorkflowAppValidationError("Generated workflow app is invalid", validation.issues);
+            throw new workflow_app_framework_1.WorkflowAppValidationError("Generated workflow app is invalid", validation.issues);
         }
         return { id, manifestPath, entrypointPath };
     }
@@ -179,7 +179,7 @@ class CoolWorkflowRunner {
         node_fs_1.default.mkdirSync(node_path_1.default.dirname(destination), { recursive: true });
         (0, state_1.writeJson)(destination, {
             schemaVersion: 1,
-            app: (0, workflow_app_sdk_1.workflowAppRunMetadata)(record),
+            app: (0, workflow_app_framework_1.workflowAppRunMetadata)(record),
             workflow: record.app.workflow,
             packagedAt: new Date().toISOString()
         });
@@ -195,7 +195,7 @@ class CoolWorkflowRunner {
             throw new Error(`Refusing to overwrite existing workflow: ${destination}`);
         }
         node_fs_1.default.mkdirSync(node_path_1.default.dirname(destination), { recursive: true });
-        node_fs_1.default.writeFileSync(destination, (0, workflow_app_sdk_1.renderWorkflowAppTemplate)(id, title), "utf8");
+        node_fs_1.default.writeFileSync(destination, (0, workflow_app_framework_1.renderWorkflowAppTemplate)(id, title), "utf8");
         return { id, path: destination };
     }
     // Core run lifecycle — delegated to ./orchestrator/lifecycle-operations. The
@@ -704,17 +704,17 @@ class CoolWorkflowRunner {
         if (node_fs_1.default.existsSync(resolved)) {
             const stat = node_fs_1.default.statSync(resolved);
             if (stat.isDirectory())
-                return (0, workflow_app_sdk_1.loadWorkflowAppFromManifest)(node_path_1.default.join(resolved, "app.json"));
+                return (0, workflow_app_framework_1.loadWorkflowAppFromManifest)(node_path_1.default.join(resolved, "app.json"));
             if (node_path_1.default.basename(resolved) === "app.json" || resolved.endsWith(".json"))
-                return (0, workflow_app_sdk_1.loadWorkflowAppFromManifest)(resolved);
-            return (0, workflow_app_sdk_1.loadWorkflowAppFromEntrypoint)(resolved);
+                return (0, workflow_app_framework_1.loadWorkflowAppFromManifest)(resolved);
+            return (0, workflow_app_framework_1.loadWorkflowAppFromEntrypoint)(resolved);
         }
         return this.loadWorkflowAppById(target);
     }
     loadWorkflowApps() {
         const records = [
-            ...this.loadWorkflowFiles().map((file) => (0, workflow_app_sdk_1.loadWorkflowAppFromEntrypoint)(file)),
-            ...this.loadAppManifestFiles().map((file) => (0, workflow_app_sdk_1.loadWorkflowAppFromManifest)(file))
+            ...this.loadWorkflowFiles().map((file) => (0, workflow_app_framework_1.loadWorkflowAppFromEntrypoint)(file)),
+            ...this.loadAppManifestFiles().map((file) => (0, workflow_app_framework_1.loadWorkflowAppFromManifest)(file))
         ].sort((left, right) => {
             const byId = left.app.id.localeCompare(right.app.id);
             if (byId)

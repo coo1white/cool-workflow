@@ -27,7 +27,7 @@ import {
 import { summarizeRun, writeReport } from "./report";
 import { isMissing, isSandboxProfileError, numberOption, stringOption } from "./cli-options";
 import { writeTaskFiles } from "../harness";
-import { workflowAppRunMetadata } from "../workflow-app-sdk";
+import { workflowAppRunMetadata } from "../workflow-app-framework";
 import { slugify } from "../workflow-api";
 import { parseUsageFromArgs } from "../observability";
 import { createDispatchManifest, updatePhaseStatuses } from "../dispatch";

@@ -22,7 +22,7 @@ function main() {
     "operator-ux",
     "pre-app-simple-run",
     "sandbox-profiles",
-    "workflow-app-sdk"
+    "workflow-app-framework"
   ]);
 
   const results = fixtures.map((fixtureId) => verifyFixture(fixtureId));

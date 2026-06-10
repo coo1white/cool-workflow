@@ -1,6 +1,6 @@
-# Workflow App SDK
+# Workflow App framework
 
-Workflow App SDK - stable userland contract for reusable CW workflow apps
+Workflow App framework - stable userland contract for reusable CW workflow apps
 
 ## Synopsis
 
@@ -12,13 +12,13 @@ const {
   agent,
   artifact,
   input
-} = require("../dist/workflow-app-sdk");
+} = require("../dist/workflow-app-framework");
 ```
 
 ```bash
 node scripts/cw.js app list
-node scripts/cw.js app show workflow-app-sdk-demo
-node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
+node scripts/cw.js app show workflow-app-framework-demo
+node scripts/cw.js app validate apps/workflow-app-framework-demo/app.json
 node scripts/cw.js app show architecture-review
 npm run canonical-apps
 node scripts/cw.js app init my-app --title "My App"
@@ -32,7 +32,7 @@ runner owns state transitions, dispatch, result recording, verifier gates,
 commits, and reports. A workflow app owns domain-specific inputs, phases, task
 prompts, evidence requirements, and sandbox profile hints.
 
-The SDK is intentionally small. The public app helpers are:
+The framework is intentionally small. The public app helpers are:
 
 - `defineWorkflowApp(definition)`
 - `workflow(definition)`
@@ -210,7 +210,7 @@ CW v0.1.13 includes four maintained canonical app directories:
 - `release-cut`
 - `research-synthesis`
 
-These apps are official userland pressure tests for the SDK. They use declared
+These apps are official userland pressure tests for the framework. They use declared
 inputs, compatibility metadata, sandbox profile hints, and evidence-required
 verification or synthesis/verdict tasks. Validate and plan the full matrix with:
 
@@ -260,15 +260,15 @@ references, and metadata. It does not copy workflow source into run state.
 ## Files
 
 ```text
-src/workflow-app-sdk.ts
-dist/workflow-app-sdk.js
-apps/workflow-app-sdk-demo/app.json
-apps/workflow-app-sdk-demo/workflow.js
+src/workflow-app-framework.ts
+dist/workflow-app-framework.js
+apps/workflow-app-framework-demo/app.json
+apps/workflow-app-framework-demo/workflow.js
 apps/architecture-review/app.json
 apps/pr-review-fix-ci/app.json
 apps/release-cut/app.json
 apps/research-synthesis/app.json
-test/workflow-app-sdk-smoke.js
+test/workflow-app-framework-smoke.js
 test/canonical-workflow-apps-smoke.js
 ```
 0.1.51

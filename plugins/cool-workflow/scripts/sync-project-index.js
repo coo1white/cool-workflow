@@ -47,7 +47,7 @@ const moduleCatalog = {
     ["cli.ts", "Routes human CLI commands to runtime, app, topology, multi-agent, and operator flows."],
     ["mcp-server.ts", "Exposes JSON-RPC/MCP tool parity for agent hosts."],
     ["operator-ux.ts", "Formats status, reports, graph, worker, candidate, feedback, commit, and trust summaries."],
-    ["workflow-app-sdk.ts", "Validates app manifests and loads app entrypoints."],
+    ["workflow-app-framework.ts", "Validates app manifests and loads app entrypoints."],
     ["workflow-api.ts", "Provides the fluent workflow, phase, task, artifact, and input API."],
     ["daemon.ts", "Runs scheduled tasks through the desktop scheduler daemon."],
     ["scheduler.ts", "Creates, stores, computes, and runs schedules."],

@@ -35,7 +35,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
  *  interface. Overridable with `--port`. */
 exports.WORKBENCH_DEFAULT_PORT = 7717;
 /** Relative location of the optional, dependency-light static UI assets. Kept
- *  OUT of the kernel: the host reads them lazily at request time, so the SDK
+ *  OUT of the kernel: the host reads them lazily at request time, so the framework
  *  builds and runs with the Workbench (and these files) absent. */
 exports.WORKBENCH_UI_RELATIVE = node_path_1.default.join("ui", "workbench");
 // ---------------------------------------------------------------------------

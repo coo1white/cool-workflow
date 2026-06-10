@@ -1,11 +1,11 @@
 ---
 name: cool-workflow
-description: Use when the user asks for Cool Workflow, CW, Agent Workflow SDK, TypeScript workflow orchestration, phased multi-agent work, background workflow tasks, or reusable workflow apps.
+description: Use when the user asks for Cool Workflow, CW, agent workflow control-plane, TypeScript workflow orchestration, phased multi-agent work, background workflow tasks, or reusable workflow apps.
 ---
 
 # Cool Workflow
 
-Cool Workflow (CW) is an Agent Workflow SDK. Use it to turn broad tasks into a
+Cool Workflow (CW) is an agent workflow control-plane. Use it to turn broad tasks into a
 TypeScript/Node workflow run with phases, agent task manifests, durable run
 state, verifier-gated commits, and a final report.
 
@@ -19,7 +19,7 @@ environment controls — CW records, validates, and gates.
 Use this skill when the user asks for:
 
 - `Cool Workflow` or `CW`
-- Agent Workflow SDK
+- agent workflow control-plane
 - TypeScript workflow runner/orchestration
 - multi-agent phased work
 - background task style planning
@@ -37,7 +37,7 @@ CW has three layers:
 - **TypeScript Node/Bun runtime**: workflow definitions, state files, task
   queue, deterministic harness, verifier, commits, and reports.
 
-Treat CW like a platform SDK. The runtime owns the contract; developers write
+Treat CW like a platform framework. The runtime owns the contract; developers write
 workflow apps against it using `defineWorkflowApp`, `workflow`, `phase`,
 `agent`, `artifact`, and `input`. First-class apps live under
 `apps/<app-id>/app.json` with a plain JavaScript entrypoint; legacy

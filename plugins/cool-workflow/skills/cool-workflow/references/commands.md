@@ -33,10 +33,10 @@ node scripts/cw.js app show pr-review-fix-ci
 node scripts/cw.js app show release-cut
 node scripts/cw.js app show research-synthesis
 node scripts/cw.js app validate apps/architecture-review/app.json
-node scripts/cw.js app show workflow-app-sdk-demo
-node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
+node scripts/cw.js app show workflow-app-framework-demo
+node scripts/cw.js app validate apps/workflow-app-framework-demo/app.json
 node scripts/cw.js app validate end-to-end-golden-path
-node scripts/cw.js app package workflow-app-sdk-demo
+node scripts/cw.js app package workflow-app-framework-demo
 node scripts/cw.js app init my-app --title "My App"
 node scripts/cw.js init my-workflow --title "My Workflow"
 ```

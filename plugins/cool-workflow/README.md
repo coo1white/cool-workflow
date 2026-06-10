@@ -15,7 +15,7 @@
 
 **[Structure](#structure)** · [Commands](#commands) · [Result Envelope](#result-envelope) · [Scheduled Tasks](#scheduled-tasks) · [License](#license)
 
-Cool Workflow, or CW, is an independent Agent Workflow SDK packaged as a
+Cool Workflow, or CW, is an independent agent workflow control-plane packaged as a
 TypeScript runtime. It provides a COL-Architecture: Router / Orchestrator,
 Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State
 Commit, and MCP JSON-RPC 2.0 bridge.
@@ -241,7 +241,7 @@ next-step recommendations. JSON remains available with `--json` or
 CW v0.1.11 added Canonical Workflow Apps: official app-directory userland for
 `architecture-review`, `pr-review-fix-ci`, `release-cut`, and
 `research-synthesis`. They validate and plan through `npm run canonical-apps`
-and are the app matrix used to judge whether the SDK is pleasant, stable, and
+and are the app matrix used to judge whether the framework is pleasant, stable, and
 expressive. See
 [docs/canonical-workflow-apps.7.md](docs/canonical-workflow-apps.7.md).
 
@@ -251,10 +251,10 @@ worker, records a simulated worker result, scores/selects a candidate, creates a
 verifier-gated commit, and renders a report. See
 [docs/end-to-end-golden-path.7.md](docs/end-to-end-golden-path.7.md).
 
-CW v0.1.9 added the Workflow App SDK: first-class app metadata, validation,
+CW v0.1.9 added the Workflow App framework: first-class app metadata, validation,
 deterministic app discovery, app CLI/MCP tools, app templates, and run
 state/report metadata. See
-[docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md).
+[docs/workflow-app-framework.7.md](docs/workflow-app-framework.7.md).
 
 CW v0.1.8 added Sandbox Profiles: named worker policy contracts for read paths,
 write paths, command execution, network access, and environment exposure. CW
@@ -276,7 +276,7 @@ cool-workflow
   apps/pr-review-fix-ci/app.json
   apps/release-cut/app.json
   apps/research-synthesis/app.json
-  apps/workflow-app-sdk-demo/app.json
+  apps/workflow-app-framework-demo/app.json
   docs/index.md
   docs/getting-started.md
   docs/coordinator-blackboard.7.md
@@ -284,11 +284,11 @@ cool-workflow
   docs/multi-agent-eval-replay-harness.7.md
   docs/dogfood-one-real-repo.7.md
   docs/release-and-migration.7.md
-  docs/agent-sdk.md
+  docs/agent-framework.md
   docs/unix-principles.md
   docs/mcp-app-surface.7.md
   docs/operator-ux.7.md
-  docs/workflow-app-sdk.7.md
+  docs/workflow-app-framework.7.md
   docs/sandbox-profiles.7.md
   docs/candidate-scoring.7.md
   docs/verifier-gated-commit.7.md
@@ -313,8 +313,8 @@ node scripts/cw.js app validate apps/architecture-review/app.json
 node scripts/cw.js app show pr-review-fix-ci
 node scripts/cw.js app show release-cut
 node scripts/cw.js app show research-synthesis
-node scripts/cw.js app show workflow-app-sdk-demo
-node scripts/cw.js app validate apps/workflow-app-sdk-demo/app.json
+node scripts/cw.js app show workflow-app-framework-demo
+node scripts/cw.js app validate apps/workflow-app-framework-demo/app.json
 node scripts/cw.js app validate end-to-end-golden-path
 node scripts/cw.js app package architecture-review
 node scripts/cw.js app init my-app --title "My App"
@@ -486,7 +486,7 @@ npm install --no-package-lock
 npm run build
 ```
 
-See [docs/agent-sdk.md](docs/agent-sdk.md) for the developer contract.
+See [docs/agent-framework.md](docs/agent-framework.md) for the developer contract.
 See [docs/index.md](docs/index.md) for a docs map.
 See [docs/getting-started.md](docs/getting-started.md) for a clone-to-run path.
 See [docs/release-and-migration.7.md](docs/release-and-migration.7.md) for
@@ -495,7 +495,7 @@ See [docs/dogfood-one-real-repo.7.md](docs/dogfood-one-real-repo.7.md) for the
 real-repository dogfood release proof.
 See [docs/operator-ux.7.md](docs/operator-ux.7.md) for the operator command
 surface.
-See [docs/workflow-app-sdk.7.md](docs/workflow-app-sdk.7.md) for the app
+See [docs/workflow-app-framework.7.md](docs/workflow-app-framework.7.md) for the app
 contract.
 See [docs/canonical-workflow-apps.7.md](docs/canonical-workflow-apps.7.md) for
 the canonical app matrix.
@@ -631,4 +631,4 @@ CHANGELOG.md and RELEASE.md are content surfaces checked by the dogfood-release 
 
 Auto-compaction hook moved from `saveCheckpoint()` to explicit `maybeCompactRun()` calls after major lifecycle mutations. Fixes test fixture fingerprint instability. Also fixes the dogfood-release version-sync pipeline: always use `npm run bump:version`, never hand-edit version.ts alone.
 
-v0.1.52
+v0.1.76

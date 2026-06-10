@@ -4,7 +4,7 @@ Read these in order when you are new to CW:
 
 1. [Getting Started](getting-started.md) - clone, install, run a workflow, inspect it, and run the release check.
 2. [Project Index](project-index.md) - code-derived map of source modules, workflow apps, docs, tests, and sync targets.
-3. [Workflow App SDK](workflow-app-sdk.7.md) - userland app manifests, entrypoints, compatibility, and validation.
+3. [Workflow App framework](workflow-app-framework.7.md) - userland app manifests, entrypoints, compatibility, and validation.
 4. [Sandbox Profiles](sandbox-profiles.7.md) - named worker policy contracts for read/write/execute/network/env handling.
 5. [Security / Trust Hardening](security-trust-hardening.7.md) - audit records, provenance, sandbox attestations, and acceptance rationale.
 6. [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md) - first-class MultiAgentRun, roles, groups, memberships, fanout, fanin, and lifecycle state.

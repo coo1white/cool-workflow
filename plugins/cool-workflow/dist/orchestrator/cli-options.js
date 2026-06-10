@@ -33,7 +33,7 @@ exports.isSandboxProfileError = isSandboxProfileError;
 exports.validationIssuesFromError = validationIssuesFromError;
 const sandbox_profile_1 = require("../sandbox-profile");
 const state_explosion_1 = require("../state-explosion");
-const workflow_app_sdk_1 = require("../workflow-app-sdk");
+const workflow_app_framework_1 = require("../workflow-app-framework");
 function isMissing(value) {
     return value === undefined || value === null || value === "";
 }
@@ -277,7 +277,7 @@ function isSandboxProfileError(error) {
     return error instanceof sandbox_profile_1.SandboxProfileError || Boolean(error && typeof error === "object" && "code" in error && String(error.code).startsWith("sandbox-"));
 }
 function validationIssuesFromError(error) {
-    if (error instanceof workflow_app_sdk_1.WorkflowAppValidationError)
+    if (error instanceof workflow_app_framework_1.WorkflowAppValidationError)
         return error.issues;
     return [
         {

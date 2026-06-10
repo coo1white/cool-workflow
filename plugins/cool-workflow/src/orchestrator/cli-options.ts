@@ -6,7 +6,7 @@
 
 import { SandboxProfileError } from "../sandbox-profile";
 import { GRAPH_VIEWS, GraphView } from "../state-explosion";
-import { WorkflowAppValidationError } from "../workflow-app-sdk";
+import { WorkflowAppValidationError } from "../workflow-app-framework";
 import {
   ActorAttestation,
   CollaborationTarget,

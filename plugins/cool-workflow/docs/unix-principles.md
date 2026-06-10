@@ -63,7 +63,7 @@ enter as:
 - a routine trigger
 - an external worker
 
-Workflow App SDK v0.1.9 makes this split concrete. The runner is the base
+Workflow App framework v0.1.9 makes this split concrete. The runner is the base
 system. Apps are userland: versioned, validated, inspectable definitions that
 can be listed, shown, validated, initialized, packaged, planned, and reported
 without depending on hidden runner internals.

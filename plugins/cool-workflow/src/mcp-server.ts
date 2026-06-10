@@ -656,7 +656,7 @@ function toolDefinitions(): unknown[] {
       repo: stringSchema("Repository path"),
       question: stringSchema("User question")
     }),
-    tool("cw_app_run", "Create a CW run from a Workflow App SDK app id and structured inputs.", {
+    tool("cw_app_run", "Create a CW run from a Workflow App framework app id and structured inputs.", {
       cwd: stringSchema("Workspace"),
       appId: stringSchema("Workflow app id"),
       inputs: objectSchema("Workflow app inputs such as repo, question, version, source, or dryRun"),

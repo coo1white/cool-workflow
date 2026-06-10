@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "id": "workflow-app-sdk",
+  "id": "workflow-app-framework",
   "createdAt": "2025-02-01T00:00:00.000Z",
   "updatedAt": "2025-02-01T00:00:00.000Z",
   "cwd": "/tmp/cw-fixture-app-sdk",

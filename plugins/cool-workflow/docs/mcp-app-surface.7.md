@@ -19,7 +19,7 @@ The bridge follows CW's base-system discipline:
 
 Use `cw_app_list`, `cw_app_show`, and `cw_app_validate` to inspect app
 contracts. `cw_app_package` writes a package artifact. `cw_app_run` creates a
-run from a Workflow App SDK app id and structured inputs:
+run from a Workflow App framework app id and structured inputs:
 
 ```json
 {
