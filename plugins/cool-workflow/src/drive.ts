@@ -174,6 +174,38 @@ function terminalOrConfigStep(ctx: DriveContext, run: WorkflowRun, selected: Run
   return undefined;
 }
 
+/** The ONE place a drive execution request is built — serial and concurrent
+ *  paths share it so the delegation surface cannot drift. task.model overrides
+ *  the agent-config model for THIS task ({{model}} substitution + stripped-args
+ *  provenance; never the attested model). task.agentType names the delegating
+ *  backend driver (default "agent"). */
+function buildAgentRequest(
+  ctx: DriveContext,
+  run: WorkflowRun,
+  task: RunTask,
+  manifest: ReturnType<CoolWorkflowRunner["showWorkerManifest"]>,
+  preparedOutcome?: import("./types").AgentChildOutcome
+): Parameters<typeof runBackend>[0] {
+  return {
+    schemaVersion: 1,
+    runId: ctx.runId,
+    taskId: task.id,
+    backendId: task.agentType || "agent",
+    cwd: run.cwd,
+    sandboxPolicy: manifest.sandboxPolicy || manifest.sandbox?.policy,
+    manifest,
+    label: task.id,
+    timeoutMs: ctx.config.timeoutMs,
+    delegation: {
+      command: ctx.config.command,
+      args: ctx.config.args,
+      endpoint: ctx.config.endpoint,
+      model: task.model || ctx.config.model
+    },
+    ...(preparedOutcome ? { preparedAgentOutcome: preparedOutcome } : {})
+  } as Parameters<typeof runBackend>[0];
+}
+
 /** Process ONE ready task end-to-end: dispatch (if pending) -> delegate to the
  *  agent backend -> accept its result.md. Factored out of driveStep so the
  *  concurrent loop can reuse the IDENTICAL per-worker delegation (red line and
@@ -187,10 +219,11 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
   let run = runner.loadRun(runId);
 
   // 1. DISPATCH (only a fresh pending task; a running task is a retry on its scope).
+  //    task.agentType names the delegating backend driver (default "agent").
   let workerId = selected.workerId;
   let dispatched = false;
   if (selected.status === "pending") {
-    const manifest = runner.dispatch(runId, { limit: 1, backend: "agent" });
+    const manifest = runner.dispatch(runId, { limit: 1, backend: selected.agentType || "agent" });
     const task = manifest.tasks.find((entry) => entry.id === selected.id) || manifest.tasks[0];
     if (!task || !task.workerId) {
       return step("dispatch", "failed", { runId, taskId: selected.id, phase: selected.phase, reason: "dispatch produced no worker scope" });
@@ -208,27 +241,11 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
   //    command/exit/stdout digest (the evidence triple) + the reported model.
   const manifest = runner.showWorkerManifest(runId, workerId);
   // Progress BEFORE the (possibly multi-minute) agent spawn, so a live drive shows
-  // immediate activity instead of a long silence on the first worker.
-  emitProgress(`→ ${selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
+  // immediate activity instead of a long silence on the first worker. task.label
+  // is the human-facing display name; the id stays the stable reference.
+  emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
   const promptDigest = fs.existsSync(manifest.inputPath) ? sha256(fs.readFileSync(manifest.inputPath, "utf8")) : sha256(manifest.prompt || "");
-  const envelope = runBackend({
-    schemaVersion: 1,
-    runId,
-    taskId: selected.id,
-    backendId: "agent",
-    cwd: run.cwd,
-    sandboxPolicy: manifest.sandboxPolicy || manifest.sandbox?.policy,
-    manifest,
-    label: selected.id,
-    timeoutMs: ctx.config.timeoutMs,
-    delegation: {
-      command: ctx.config.command,
-      args: ctx.config.args,
-      endpoint: ctx.config.endpoint,
-      model: ctx.config.model
-    },
-    ...(preparedOutcome ? { preparedAgentOutcome: preparedOutcome } : {})
-  } as Parameters<typeof runBackend>[0]);
+  const envelope = runBackend(buildAgentRequest(ctx, run, selected, manifest, preparedOutcome));
 
   const handle = envelope.provenance.handle;
   const reportedModel = (handle?.metadata?.reportedModel as string) || "unreported";
@@ -346,7 +363,7 @@ function prepareConcurrentOutcomes(
     if (!task || (task.status !== "pending" && task.status !== "running")) continue;
     let workerId = task.workerId;
     if (task.status === "pending") {
-      const manifest = runner.dispatch(runId, { limit: 1, backend: "agent" });
+      const manifest = runner.dispatch(runId, { limit: 1, backend: task.agentType || "agent" });
       const dispatchedTask = manifest.tasks.find((entry) => entry.id === task.id) || manifest.tasks[0];
       if (!dispatchedTask || !dispatchedTask.workerId) {
         failSteps.set(taskId, step("dispatch", "failed", { runId, taskId, phase: task.phase, reason: "dispatch produced no worker scope" }));
@@ -359,23 +376,7 @@ function prepareConcurrentOutcomes(
       continue;
     }
     const manifest = runner.showWorkerManifest(runId, workerId);
-    const job = prepareAgentSpawn({
-      schemaVersion: 1,
-      runId,
-      taskId,
-      backendId: "agent",
-      cwd: run.cwd,
-      sandboxPolicy: manifest.sandboxPolicy || manifest.sandbox?.policy,
-      manifest,
-      label: taskId,
-      timeoutMs: ctx.config.timeoutMs,
-      delegation: {
-        command: ctx.config.command,
-        args: ctx.config.args,
-        endpoint: ctx.config.endpoint,
-        model: ctx.config.model
-      }
-    } as Parameters<typeof prepareAgentSpawn>[0]);
+    const job = prepareAgentSpawn(buildAgentRequest(ctx, run, task, manifest));
     if (job) {
       jobs.push(job);
       jobTaskIds.push(taskId);
@@ -459,8 +460,21 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
   const maxIterations = plannedWorkers * (policy.maxAttempts + 1) + 5;
   const concurrency = Math.max(1, Math.floor(options.concurrency || 1));
 
+  // The parallel() on-ramp: a phase authored with mode "parallel" is fulfilled
+  // concurrently through EVERY shipping surface (run --drive, quickstart) — no
+  // hidden option required. Width = the phase's task count bounded by
+  // limits.maxConcurrentAgents; an explicit options.concurrency still overrides
+  // (tests, operator tuning). Re-derived per round: phases differ.
+  const autoWidth = (run: WorkflowRun): number => {
+    const phase = firstRunnablePhase(run);
+    if (!phase || phase.mode !== "parallel") return 1;
+    const cap = Math.max(1, Math.floor(run.workflow.limits?.maxConcurrentAgents || 1));
+    return Math.max(1, Math.min(cap, phase.taskIds.length));
+  };
+
   for (let i = 0; i < maxIterations; i++) {
-    const roundSteps = concurrency > 1 ? driveConcurrentRound(ctx, concurrency) : [driveStep(ctx)];
+    const width = concurrency > 1 ? concurrency : autoWidth(runner.loadRun(runId));
+    const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
     for (const stepResult of roundSteps) {
       steps.push(stepResult);
       emitProgress(

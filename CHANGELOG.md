@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+Trustworthy telemetry (Track 1), concurrent failure semantics (Track 2), boundary contracts (Track 3), and a multi-platform portable release flow.
+
+### Track 1 — telemetry attestation (#92–#96)
+
+- **Capability**: An operator can now know the token usage CW reports is REAL: each agent's self-reported usage is verified against an operator ed25519 trust key (`attested` / `unattested` / `absent`, surfaced loudly, never silently averaged), every verdict lands in a tamper-evident hash-chained ledger, MetricsReport shows attestation coverage, an executor-side signing wrapper + keygen make real runs attestable, and a strict operator can opt into fail-closed mode (`require-attested-telemetry`) that refuses any hop whose usage cannot be cryptographically verified.
+- **Implementation**: `telemetry-attestation.ts`, `telemetry-ledger.ts`, signing wrapper + keygen scripts, `deriveAttestationCoverage` (observability), fail-closed check at worker-output accept (`worker-isolation.ts`). CW still never measures usage — it verifies and records what the executor attests (red line intact).
+- **Tests**: `telemetry-attestation`, `telemetry-ledger`, `telemetry-attest-wrap`, `telemetry-metrics-coverage`, `telemetry-fail-closed` smokes.
+
+### Track 2 — concurrent failure semantics (#101)
+
+- **Capability**: A `parallel()` phase's agents now run CONCURRENTLY in wall-clock with declared collapse semantics: **collect-all** (a failing hop never aborts its siblings; every hop settles and is recorded) and **kill-on-timeout** (a hung agent is SIGTERM'd at its deadline, SIGKILL'd after a grace, and counted as one failure through the same retry/park path as a crash). 16 agents with a forced hang + crash + dirty-return complete with no deadlock, no disk corruption, and a recorded state that replays who passed / who failed completely.
+- **Implementation**: batch delegate child in `execution-backend.ts` (parent stays synchronous — zero public-API change); outcomes settle through the serial path's exact envelope branches via the internal `preparedAgentOutcome` seam; deterministic record order regardless of completion order.
+- **Tests**: `concurrent-failure-semantics` acceptance smoke (the build-map criteria verbatim).
+
+### Track 3 — boundary contract (#98–#100)
+
+- **Capability**: The executor boundary is now a CONTRACT, not a convention: a task may declare an output `schema` (dependency-free structural validator — no ajv, portability red line intact) and a violating result parks the hop fail-closed; `limits.tokenBudget` is enforced by the drive loop against recorded usage (exhaustion blocks the next spawn, composes with Track 1 fail-closed for strict accounting); and the one-way red line (CW receives only plain data from the executor, never a callable that could reach a model API) is welded into the type layer — adding a callable to a boundary type fails `npm run build`, proven by a negative-fixture compile test.
+- **Implementation**: `schema-validate.ts` + `RunTask.schema` enforcement in `verifier.ts`; budget gate in `drive.ts` (`deriveUsageTotals`, the same aggregation MetricsReport shows); `types/boundary.ts` welds (`OneWayData<T>`).
+- **Tests**: `schema-validation`, `token-budget-enforcement`, `one-way-boundary` smokes.
+
+### Release flow
+
 Multi-platform portable release flow.
 
 - **Capability**: The gated release ritual (deterministic gate → independent reviewer → verdict → optional tag) is now one zero-dependency Node orchestrator, `scripts/release-flow.js`, that runs identically under Claude, Codex, Gemini, OpenCode, or a plain shell — no dependency on any host's agent-orchestration primitive. The independent review is **delegated** to whatever model you configure (`CW_AGENT_COMMAND`/`CW_AGENT_ENDPOINT`); CW spawns it argv-style (`shell:false`), holds no key, imports no model SDK (the red line).

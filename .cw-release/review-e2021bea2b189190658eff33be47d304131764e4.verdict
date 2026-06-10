@@ -1,0 +1,105 @@
+REJECTED
+
+Release candidate: e2021bea2b189190658eff33be47d304131764e4 (proposed tag v0.1.77)
+Range reviewed: v0.1.76..HEAD (25 commits, +5233/-201). Tag v0.1.76 confirmed a
+true ancestor (merge-base == v0.1.76), so the range is genuine, not inflated.
+
+Most of this range is real, read, and well-tested — Track 1 telemetry attestation
+(verifyTelemetryLedger consumed at observability.ts:261, report.ts:326,
+worker-isolation.ts:521; deriveAttestationCoverage at observability.ts:521),
+Track 3 tokenBudget enforcement (drive.ts:152-163) and schema validation
+(verifier.ts:52-59 via validateAgainstSchema), and the one-way boundary type weld.
+The rejection is NOT about those. It is about a layer of declared-but-never-read
+authoring surface that advertises capability the runtime does not deliver, plus
+an inability to certify the deterministic gate in this environment.
+
+------------------------------------------------------------------------------
+1. SPEC ACCRETION — new public DSL fields with NO runtime reader (hard-rule REJECT).
+   For each field below the only writer is the workflow-api.ts DSL constructor and
+   the only "consumer" is an assertion that the constructor populated it
+   (test/concurrent-workflow-dsl-smoke.js:89-91). No runtime module reads them to
+   change behavior; grep across src/ + dist/ confirms zero functional readers.
+
+   a. plugins/cool-workflow/src/types/workflow-app.ts:29-30  WorkflowTaskDefinition.label
+      Comment claims "display label for the agent in progress/operator views,"
+      but progress output uses task.id, not task.label (drive.ts:222 `label: selected.id`,
+      drive.ts:370 `label: taskId`). No reader of `.label` on a task anywhere.
+
+   b. plugins/cool-workflow/src/types/workflow-app.ts:31-33  WorkflowTaskDefinition.model
+      Comment claims it is "passed to the delegated agent ({{model}})." It is not:
+      the {{model}} substitution uses resolveAgentConfig's model
+      (execution-backend.ts:1121/1210 `agentSubstitutions(request, resolved.model)`),
+      and flattenTasks (orchestrator/lifecycle-operations.ts:453-461) copies ONLY
+      task.schema onto the run task — never task.model. The field never reaches a spawn.
+
+   c. plugins/cool-workflow/src/types/workflow-app.ts:34-35  WorkflowTaskDefinition.agentType
+      Comment says it "names which delegating backend driver fulfills this task
+      (default: agent)." Dispatch hardcodes the backend (drive.ts:193
+      `runner.dispatch(runId, { limit: 1, backend: "agent" })`); task.agentType is
+      never read to select a driver.
+
+   d. plugins/cool-workflow/src/types/workflow-app.ts:46-49  WorkflowPhaseDefinition.mode
+      Set by parallel() (workflow-api.ts:36-41) and asserted at
+      concurrent-workflow-dsl-smoke.js:81/85, but no runtime module reads phase.mode.
+      See finding 2 — the concurrent path is gated on a drive option that no shipping
+      surface ever sets, so mode changes nothing for a real user.
+
+2. UNREACHABLE SUBSYSTEM — the Track 2 concurrent engine has no production on-ramp.
+   driveConcurrentRound (drive.ts:290) is selected only when options.concurrency > 1
+   (drive.ts:460-463; `concurrency = options.concurrency || 1`). The ONLY callers
+   that pass concurrency are the two test files (concurrent-failure-semantics-smoke.js:124,
+   concurrent-workflow-dsl-smoke.js:142). Every shipping drive path omits it:
+     - run --drive: capability-core.ts:426  drive(runner, runId, { once, now, args }) — no concurrency
+     - quickstart / audit-run: capability-core.ts:471 -> runDrive -> the same line 426
+     - no CLI flag maps to options.concurrency (orchestrator/cli-options.ts has none)
+     - nothing derives concurrency from phase.mode or limits.maxConcurrentAgents
+   Net effect: an app author who writes parallel(...) gets fully SEQUENTIAL execution
+   through `cw run --drive`/`quickstart`. The mode comment ("'parallel' lets the
+   concurrent driver fulfill the phase's pending tasks as one deterministic batch")
+   is a present-tense functional claim that is false at every user surface. This is a
+   latent public false-green: a DSL veneer with no backing path.
+
+3. RELEASE NOTES MISREPRESENT THE RELEASE.
+   CHANGELOG.md "## Unreleased" (CHANGELOG.md:3-12) documents ONLY the multi-platform
+   release flow (PR #88). It is silent on Tracks 1, 2, and 3 (#92-#101) — the bulk of
+   the diff. A v0.1.77 cut from this HEAD would ship telemetry attestation, concurrent
+   fulfillment, token budget, schema validation, and the boundary weld with no changelog
+   entry. The one concrete user-facing capability the notes actually claim (portable
+   release flow) is real and tested (scripts/release-flow.js + test/release-flow-smoke.js),
+   but it does not account for what this tag bundles.
+
+4. DETERMINISTIC GATE NOT EXECUTED (could not certify build/tests).
+   Every npm/node/bash invocation in this environment was blocked by an approval wall
+   (release-gate.sh, `npm run build`, `npm test`, `node dist/cli.js list` all denied,
+   including with the sandbox disabled). Per the procedure ("Run the deterministic gate
+   yourself; do not trust prior runs"), I cannot certify the build compiles or the suite
+   passes. This alone bars an APPROVED. (Findings 1-3 are independent of it — they rest
+   on the source/diff, which I read directly.)
+
+------------------------------------------------------------------------------
+REQUIRED TO PASS RE-REVIEW (more substance, not more tags):
+
+A. Make each field in finding 1 load-bearing, or delete it AND its misleading comment:
+   - task.label  -> emit it in the drive progress line (drive.ts:222/370) and operator views.
+   - task.model  -> propagate through flattenTasks into the request so it reaches
+                    agentSubstitutions, or drop the "{{model}}" claim.
+   - task.agentType -> honor it when selecting the dispatch backend, or drop it.
+   - phase.mode  -> see B.
+
+B. Give the concurrent engine a real on-ramp so parallel() actually parallelizes:
+   derive options.concurrency from phase.mode === "parallel" (bounded by
+   limits.maxConcurrentAgents) inside the run --drive / quickstart path
+   (capability-core.ts:426 + runDrive), or add a documented --concurrency flag wired
+   through cli-options. Then add a test that drives a parallel phase through the REAL
+   command surface (runDrive/quickstart, NOT a direct drive(..., {concurrency}) call)
+   and observes wall-clock parallelism. Until a shipping command can trigger it, the
+   mode field and its comment must not claim it works.
+
+C. Complete CHANGELOG.md "## Unreleased" to describe Tracks 1/2/3 actually shipping
+   in this range, with one concrete user-visible capability sentence per track.
+
+D. Run `bash plugins/cool-workflow/scripts/release-gate.sh` to green in an environment
+   where build/tests can execute, and attach its output to the resubmission.
+
+These are real wiring + documentation gaps, each fixable in this same PR. Address them
+here and resubmit the same HEAD lineage; do not split into additional tags.
