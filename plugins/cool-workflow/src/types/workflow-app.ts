@@ -4,6 +4,10 @@ import type { PipelineContract } from "./pipeline";
 export interface WorkflowLimits {
   maxAgents: number;
   maxConcurrentAgents: number;
+  /** Optional ceiling on total delegated agent tokens for the run. Enforced by the
+   *  drive loop against ATTESTED usage, not measured by CW. Declared in v0.1.x;
+   *  enforcement lands with the metrics-join slice. */
+  tokenBudget?: number;
 }
 
 export interface WorkflowInputDefinition {
@@ -22,6 +26,16 @@ export interface WorkflowTaskDefinition {
   status: TaskStatus;
   requiresEvidence?: boolean;
   sandboxProfileId?: string;
+  /** Human-facing display label for the agent in progress/operator views. */
+  label?: string;
+  /** Operator model-policy hint passed to the delegated agent ({{model}}); NEVER
+   *  the attested model — that comes only from the agent's own report. */
+  model?: string;
+  /** Names which delegating backend driver fulfills this task (default: "agent"). */
+  agentType?: string;
+  /** Optional declared output schema for the agent's result. Carried through the
+   *  plan; validation enforcement lands with the schema-validation slice. */
+  schema?: Record<string, unknown>;
 }
 
 export interface WorkflowPhaseDefinition {
@@ -29,6 +43,10 @@ export interface WorkflowPhaseDefinition {
   name: string;
   status: PhaseStatus;
   tasks: WorkflowTaskDefinition[];
+  /** How the drive loop fulfills this phase's tasks. "sequential" (default) keeps
+   *  the existing one-agent-at-a-time behavior; "parallel" lets the concurrent
+   *  driver fulfill the phase's pending tasks as one deterministic batch. */
+  mode?: "sequential" | "parallel";
 }
 
 export interface WorkflowDefinition {
