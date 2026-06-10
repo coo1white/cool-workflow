@@ -212,3 +212,14 @@ export interface RunSummary {
     byStatus: Record<string, number>;
   };
 }
+
+/** Portable run export format (v0.1.70). Self-contained archive with
+ *  state, evidence, artifacts, and audit trail. */
+export interface RunExport {
+  schemaVersion: 1;
+  exportedAt: string;
+  sourceVersion: string;
+  run: WorkflowRun;
+  artifacts: Array<{ path: string; content: string }>;
+  audit: string[];
+}
