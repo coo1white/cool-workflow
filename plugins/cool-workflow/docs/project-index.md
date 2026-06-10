@@ -6,7 +6,7 @@ Generated from the current repository code on 2026-06-10 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.76`
-- Source modules: `56`
+- Source modules: `57`
 - Workflow apps: `6`
 - Docs: `46`
 - Smoke tests: `62`
@@ -101,6 +101,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [run-registry.ts](../src/run-registry.ts)
 - [run-state-schema.ts](../src/run-state-schema.ts)
 - [scheduling.ts](../src/scheduling.ts)
+- [schema-validate.ts](../src/schema-validate.ts)
 - [state-explosion.ts](../src/state-explosion.ts)
 - [state-migrations.ts](../src/state-migrations.ts)
 - [telemetry-attestation.ts](../src/telemetry-attestation.ts)
@@ -220,6 +221,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-registry-control-plane-smoke.js](../test/run-registry-control-plane-smoke.js)
 - [run-retention-reclamation-smoke.js](../test/run-retention-reclamation-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)
+- [schema-validation-smoke.js](../test/schema-validation-smoke.js)
 - [security-trust-hardening-smoke.js](../test/security-trust-hardening-smoke.js)
 - [self-audit-hardening-smoke.js](../test/self-audit-hardening-smoke.js)
 - [state-explosion-management-smoke.js](../test/state-explosion-management-smoke.js)

@@ -8,6 +8,7 @@ exports.validateRunGates = validateRunGates;
 const dispatch_1 = require("./dispatch");
 const evidence_grounding_1 = require("./evidence-grounding");
 const result_normalize_1 = require("./result-normalize");
+const schema_validate_1 = require("./schema-validate");
 function assertTaskCanComplete(run, task) {
     const runnablePhase = (0, dispatch_1.firstRunnablePhase)(run);
     if (!runnablePhase || runnablePhase.name !== task.phase) {
@@ -40,6 +41,15 @@ function validateResultEnvelope(task, result) {
     }
     for (const finding of result.findings || []) {
         validateFinding(task, finding);
+    }
+    // Track 3: if the task declared an output schema, the accepted result envelope
+    // must conform. Fail-closed (throw ⇒ the drive parks the hop), consistent with
+    // the checks above. No schema declared ⇒ no check (opt-in by declaration).
+    if (task.schema) {
+        const violations = (0, schema_validate_1.validateAgainstSchema)(result, task.schema);
+        if (violations.length) {
+            throw new Error(`Task ${task.id} result violates declared schema: ${violations.slice(0, 5).join("; ")}${violations.length > 5 ? ` (+${violations.length - 5} more)` : ""}`);
+        }
     }
 }
 function validateRunGates(run) {

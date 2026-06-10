@@ -43,6 +43,12 @@ export interface RunTask {
   /** Sandbox attestation recorded by the selected backend. */
   backendAttestation?: SandboxAttestation;
   multiAgent?: WorkerMultiAgentMetadata;
+  /** Declared output schema (structured-output subset) for the agent's result,
+   *  carried verbatim from the task definition. When present, the agent's
+   *  cw:result payload is validated against it on intake and a mismatch throws
+   *  → the drive parks the hop (fail-closed, symmetric with the other
+   *  validateResultEnvelope checks). Absent ⇒ no schema enforcement. */
+  schema?: Record<string, unknown>;
   /** Host-attested token usage for this task's result (v0.1.31). Additive +
    *  optional: absent means `unreported`, NEVER zero. CW records it verbatim as
    *  provenance on result intake and never synthesizes it. */

@@ -453,7 +453,10 @@ function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unkno
         sandboxProfileId: task.sandboxProfileId,
         prompt: renderPrompt(task.prompt, inputs),
         taskPath: "",
-        resultPath: ""
+        resultPath: "",
+        // Track 3: carry the declared output schema onto the run task so
+        // validateResultEnvelope can enforce it at intake. Absent ⇒ no schema check.
+        ...(task.schema ? { schema: task.schema } : {})
       });
     }
   }
