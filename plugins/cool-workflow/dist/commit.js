@@ -78,6 +78,11 @@ function commitState(run, input) {
         candidateId: gate.candidateId,
         selectionId: gate.selectionId,
         evidence,
+        // Partial commit (v0.1.59): operator commits only specified tasks.
+        // Failed/pending tasks remain active for later retry. The verifier gate
+        // still applies per-task; partial is about scope, not about skipping gates.
+        partial: Array.isArray(options.partialTaskIds) && options.partialTaskIds.length > 0 || undefined,
+        partialTaskIds: options.partialTaskIds?.length ? options.partialTaskIds : undefined,
         acceptanceRationale: gate.rationale
             ? {
                 ...gate.rationale,
