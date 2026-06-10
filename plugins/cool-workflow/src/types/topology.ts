@@ -101,6 +101,9 @@ export interface MultiAgentTopologyRun {
   };
   policy?: MultiAgentPolicy;
   metadata?: Record<string, unknown>;
+  /** Per-phase progress tracking (v0.1.65): phase id -> { status, completedAt }.
+   *  Updated as the topology advances through phases. */
+  phaseProgress?: Record<string, { status: "pending" | "running" | "completed" | "blocked"; completedAt?: string }>;
 }
 
 export interface TopologyState {
