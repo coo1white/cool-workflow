@@ -2,6 +2,7 @@ import { Finding, ResultEnvelope, RunTask, WorkflowRun } from "./types";
 import { firstRunnablePhase } from "./dispatch";
 import { hasGroundedEvidence } from "./evidence-grounding";
 import { normalizeResultEnvelope } from "./result-normalize";
+import { validateAgainstSchema } from "./schema-validate";
 
 export function assertTaskCanComplete(run: WorkflowRun, task: RunTask): void {
   const runnablePhase = firstRunnablePhase(run);
@@ -44,6 +45,17 @@ export function validateResultEnvelope(task: RunTask, result: ResultEnvelope): v
   }
   for (const finding of result.findings || []) {
     validateFinding(task, finding);
+  }
+  // Track 3: if the task declared an output schema, the accepted result envelope
+  // must conform. Fail-closed (throw ⇒ the drive parks the hop), consistent with
+  // the checks above. No schema declared ⇒ no check (opt-in by declaration).
+  if (task.schema) {
+    const violations = validateAgainstSchema(result, task.schema);
+    if (violations.length) {
+      throw new Error(
+        `Task ${task.id} result violates declared schema: ${violations.slice(0, 5).join("; ")}${violations.length > 5 ? ` (+${violations.length - 5} more)` : ""}`
+      );
+    }
   }
 }
 
