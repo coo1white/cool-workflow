@@ -50,6 +50,10 @@ export interface DriveOptions {
   policy?: Partial<SchedulingPolicy>;
   /** Raw flags forwarded to resolveAgentConfig when agentConfig is not supplied. */
   args?: Record<string, unknown>;
+  /** Max ready tasks to fulfill per round within the runnable phase. >1 selects the
+   *  concurrent batch driver (deterministic recording order). Default 1 = the
+   *  original serial driver. Capped by the caller against limits.maxConcurrentAgents. */
+  concurrency?: number;
 }
 
 /** The task the next drive step would advance: a RUNNING (already-dispatched,
@@ -105,11 +109,19 @@ function emitProgress(message: string): void {
 /** Advance exactly ONE deterministic step. Pure-ish: all mutation is through the
  *  existing runner verbs + runBackend. */
 export function driveStep(ctx: DriveContext): DriveStep {
-  const { runner, runId, now } = ctx;
-  let run = runner.loadRun(runId);
-
-  // Terminal: no pending/running work remains -> commit (once) then complete.
+  const run = ctx.runner.loadRun(ctx.runId);
   const selected = selectDriveTask(run);
+  const gate = terminalOrConfigStep(ctx, run, selected);
+  if (gate) return gate;
+  return processSelectedTask(ctx, selected as RunTask);
+}
+
+/** The non-advancing outcomes shared by the serial and concurrent loops: a
+ *  terminal commit/complete, a blocked phase, or a fail-closed unconfigured
+ *  agent. Returns undefined when there is a task ready to actually process. */
+function terminalOrConfigStep(ctx: DriveContext, run: WorkflowRun, selected: RunTask | undefined): DriveStep | undefined {
+  const { runner, runId } = ctx;
+  // Terminal: no pending/running work remains -> commit (once) then complete.
   if (!selected) {
     const allComplete = run.tasks.every((task) => task.status === "completed");
     if (allComplete) {
@@ -137,6 +149,16 @@ export function driveStep(ctx: DriveContext): DriveStep {
       reason: "agent backend not configured (set CW_AGENT_COMMAND/CW_AGENT_ENDPOINT or pass --agent-command/--agent-endpoint) — refusing rather than fabricating a completion"
     });
   }
+  return undefined;
+}
+
+/** Process ONE ready task end-to-end: dispatch (if pending) -> delegate to the
+ *  agent backend -> accept its result.md. Factored out of driveStep so the
+ *  concurrent loop can reuse the IDENTICAL per-worker delegation (red line and
+ *  fail-closed semantics included), differing only in HOW MANY tasks per round. */
+function processSelectedTask(ctx: DriveContext, selected: RunTask): DriveStep {
+  const { runner, runId } = ctx;
+  let run = runner.loadRun(runId);
 
   // 1. DISPATCH (only a fresh pending task; a running task is a retry on its scope).
   let workerId = selected.workerId;
@@ -219,6 +241,37 @@ export function driveStep(ctx: DriveContext): DriveStep {
   });
 }
 
+/** Advance ONE concurrent ROUND: fulfill up to `limit` ready tasks in the first
+ *  runnable phase as a single batch, recording results in DETERMINISTIC task
+ *  order (the existing phase/dispatch order) regardless of completion order — so
+ *  replay stays byte-stable. Reuses processSelectedTask per worker, so the red
+ *  line holds: each task is still an out-of-process agent delegation, never an
+ *  in-CW model call. With the synchronous agent backend the batch executes in a
+ *  deterministic sequence; processSelectedTask is the seam an async backend would
+ *  parallelize in wall-clock without changing the recorded order. */
+export function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
+  const run = ctx.runner.loadRun(ctx.runId);
+  const selected = selectDriveTask(run);
+  const gate = terminalOrConfigStep(ctx, run, selected);
+  if (gate) return [gate];
+
+  const phase = firstRunnablePhase(run);
+  const width = Math.max(1, Math.floor(limit) || 1);
+  const batch = run.tasks
+    .filter((task) => phase!.taskIds.includes(task.id) && (task.status === "pending" || task.status === "running"))
+    .slice(0, width)
+    .map((task) => task.id);
+
+  const steps: DriveStep[] = [];
+  for (const taskId of batch) {
+    // Re-read per task: a prior task in this round mutated state (dispatch/accept).
+    const fresh = ctx.runner.loadRun(ctx.runId).tasks.find((task) => task.id === taskId);
+    if (!fresh || (fresh.status !== "pending" && fresh.status !== "running")) continue;
+    steps.push(processSelectedTask(ctx, fresh));
+  }
+  return steps.length > 0 ? steps : [driveStep(ctx)];
+}
+
 /** A failed agent hop: charge one attempt and (reuse v0.1.37 retryOrPark) either
  *  retry on the SAME worker scope next step, or PARK past the retry budget. */
 function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: string, dispatched: boolean): DriveStep {
@@ -283,25 +336,30 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
   const run0 = runner.loadRun(runId);
   const plannedWorkers = run0.tasks.length;
   // Safety bound: every worker, every retry, plus the terminal commit + slack.
+  // Each concurrent round retires >=1 worker, so this bounds rounds too.
   const maxIterations = plannedWorkers * (policy.maxAttempts + 1) + 5;
+  const concurrency = Math.max(1, Math.floor(options.concurrency || 1));
 
   for (let i = 0; i < maxIterations; i++) {
-    const stepResult = driveStep(ctx);
-    steps.push(stepResult);
-    emitProgress(
-      [
-        `${steps.length}.`,
-        stepResult.action,
-        stepResult.status,
-        stepResult.taskId || "",
-        stepResult.reportedModel ? `model=${stepResult.reportedModel}` : "",
-        stepResult.reason ? `— ${stepResult.reason}` : ""
-      ]
-        .filter(Boolean)
-        .join(" ")
-    );
+    const roundSteps = concurrency > 1 ? driveConcurrentRound(ctx, concurrency) : [driveStep(ctx)];
+    for (const stepResult of roundSteps) {
+      steps.push(stepResult);
+      emitProgress(
+        [
+          `${steps.length}.`,
+          stepResult.action,
+          stepResult.status,
+          stepResult.taskId || "",
+          stepResult.reportedModel ? `model=${stepResult.reportedModel}` : "",
+          stepResult.reason ? `— ${stepResult.reason}` : ""
+        ]
+          .filter(Boolean)
+          .join(" ")
+      );
+    }
+    const last = roundSteps[roundSteps.length - 1];
     if (options.once) break;
-    if (stepResult.status === "complete" || stepResult.status === "parked" || stepResult.status === "blocked") break;
+    if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) break;
   }
 
   const run = runner.loadRun(runId);

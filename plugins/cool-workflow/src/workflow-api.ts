@@ -5,16 +5,6 @@ import {
   WorkflowTaskDefinition
 } from "./types";
 
-export function createWorkflowApi() {
-  return {
-    workflow,
-    phase,
-    agent,
-    artifact,
-    input
-  };
-}
-
 export function workflow(definition: Partial<WorkflowDefinition> & Pick<WorkflowDefinition, "id" | "title" | "phases">): WorkflowDefinition {
   if (!definition.id) throw new Error("workflow.id is required");
   if (!definition.title) throw new Error("workflow.title is required");
@@ -40,6 +30,25 @@ export function phase(name: string, tasks: WorkflowTaskDefinition[], options: Pa
     status: "pending",
     tasks,
     ...options
+  };
+}
+
+/** A phase whose tasks the concurrent driver fulfills as one deterministic batch
+ *  (up to limits.maxConcurrentAgents at a time) — the authoring analog of the
+ *  Workflow tool's parallel() barrier. Sugar over phase() with mode:"parallel";
+ *  plain phase() stays sequential, so existing apps are unaffected. */
+export function parallel(name: string, tasks: WorkflowTaskDefinition[], options: Partial<WorkflowPhaseDefinition> = {}): WorkflowPhaseDefinition {
+  return phase(name, tasks, { mode: "parallel", ...options });
+}
+
+export function createWorkflowApi() {
+  return {
+    workflow,
+    phase,
+    parallel,
+    agent,
+    artifact,
+    input
   };
 }
 
