@@ -1,0 +1,2 @@
+APPROVED abeff9ee361144924d78631a6455868a9da1bea7
+A maintainer can run /release to cut a tag only after a deterministic gate (build, tests, substance, test-evidence, cadence, branch-naming) and an independent release-reviewer verdict both pass, with a PreToolUse hook and a tag-push CI workflow blocking any unreviewed/unapproved tag.
