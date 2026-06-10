@@ -91,6 +91,8 @@ export interface WorkerScope {
    *  Proves output integrity — the digest is stored, the content can be
    *  independently verified. Computed at output intake. */
   outputDigest?: string;
+  /** Number of times this worker has been retried (v0.1.67). */
+  retryCount?: number;
   metadata?: Record<string, unknown>;
 }
 
