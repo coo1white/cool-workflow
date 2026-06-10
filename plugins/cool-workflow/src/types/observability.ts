@@ -279,6 +279,8 @@ export interface MetricsSummaryReport {
   cost: CostMetric;
   /** Total bytes of worker output across all runs (v0.1.62). */
   totalOutputBytes: number;
+  /** Per-backend cost breakdown with run counts (v0.1.66). */
+  byBackendCost: Array<{ backendId: string; runCount: number; outputBytes: number }>;
   byApp: MetricsGroupRollup[];
   byBackend: MetricsGroupRollup[];
   runs: MetricsRunRef[];
