@@ -1,0 +1,2 @@
+APPROVED e13fb2aef8212515b9adc491e5c6548b8b309113
+An operator can now run a parallel() phase whose agents execute concurrently with collect-all/kill-on-timeout failure semantics, enforce per-run token budgets and declared output schemas as fail-closed boundary contracts, and cryptographically verify each agent's reported token usage against an ed25519 trust key (attested/unattested/absent) recorded in a tamper-evident ledger — all driven by one zero-dependency, vendor-neutral release flow.
