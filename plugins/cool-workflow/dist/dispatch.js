@@ -87,7 +87,7 @@ function createDispatchManifest(run, limit, options = {}) {
         concurrencyLimit: limit
     });
     for (const task of selectedRunTasks) {
-        const worker = task.workerId ? run.workers?.find((scope) => scope.id === task.workerId) : undefined;
+        const worker = task.workerId ? (0, worker_isolation_1.syncWorkerScopeFromTask)(run, task.workerId) : undefined;
         if (worker)
             (0, worker_isolation_1.writeWorkerManifest)(run, worker);
     }

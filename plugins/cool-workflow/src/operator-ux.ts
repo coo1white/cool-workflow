@@ -1044,7 +1044,7 @@ function sortedWorkers(workers: WorkerScope[]): WorkerScope[] {
 }
 
 function workerManifestPath(worker: WorkerScope): string {
-  return path.join(worker.workerDir, "worker.json");
+  return path.join(worker.workerDir, "manifest.json");
 }
 
 function shortNodeLabel(node: { kind: StateNodeKind; metadata?: Record<string, unknown>; id: string }): string {

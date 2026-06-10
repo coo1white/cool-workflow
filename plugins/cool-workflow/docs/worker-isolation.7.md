@@ -54,7 +54,7 @@ dispatched task. Each worker receives a plain input file and a result path.
 The normal flow is:
 
 ```text
-dispatch task -> worker scope -> worker.json/input.md -> result.md
+dispatch task -> worker scope -> worker.json + manifest.json/input.md -> result.md
 -> result node -> verifier node -> commit/report
 ```
 
@@ -90,6 +90,7 @@ Out-of-scope output is rejected and preserved as:
 ```text
 .cw/runs/<run-id>/workers/index.json
 .cw/runs/<run-id>/workers/<worker-id>/worker.json
+.cw/runs/<run-id>/workers/<worker-id>/manifest.json
 .cw/runs/<run-id>/workers/<worker-id>/input.md
 .cw/runs/<run-id>/workers/<worker-id>/result.md
 .cw/runs/<run-id>/workers/<worker-id>/artifacts/
@@ -99,10 +100,13 @@ Out-of-scope output is rejected and preserved as:
 .cw/runs/<run-id>/report.md
 ```
 
-`worker.json` is both the durable scope record and the worker manifest. New
-fields should be optional where possible. New v0.1.8 worker records include
-`sandboxProfileId`, `sandboxPolicy`, and a `sandbox` host contract with
-`enforcedByCW` and `hostRequired`.
+`worker.json` is the durable worker-scope state record. `manifest.json` is the
+worker-facing projection that hosts and agents read before writing `result.md`.
+Keeping them separate prevents a regenerated manifest from overwriting
+scope-only runtime state such as retry counters, lifecycle metadata, or future
+operator annotations. New v0.1.8 worker records include `sandboxProfileId`,
+`sandboxPolicy`, and a `sandbox` host contract with `enforcedByCW` and
+`hostRequired`.
 
 ## FAILURE MODES
 

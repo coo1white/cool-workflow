@@ -109,6 +109,10 @@ export interface WorkerManifest {
   updatedAt: string;
   status: WorkerIsolationStatus;
   workerDir: string;
+  /** Durable worker-scope state path (`worker.json`). */
+  scopePath?: string;
+  /** Worker-facing manifest projection path (`manifest.json`). */
+  manifestPath?: string;
   inputPath: string;
   resultPath: string;
   artifactsDir: string;
@@ -127,7 +131,7 @@ export interface WorkerManifest {
   backendSelection?: BackendSelection;
   /** Sandbox attestation recorded by the selected backend. */
   backendAttestation?: SandboxAttestation;
-  /** Retry attempts recorded on the worker scope and mirrored into worker.json. */
+  /** Retry attempts recorded on the worker scope and projected into manifest.json. */
   retryCount?: number;
   /** Backend descriptor snapshot, mirroring the `sandbox` enforcement split. */
   backend?: {

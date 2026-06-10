@@ -39,3 +39,9 @@
 | 1 | release-flow verdict must fail closed unless first line exactly approves current HEAD | scripts/release-flow.js + test/release-flow-smoke.js | mixed REJECTED/APPROVED verdict regression | BUILD OK, CHECK OK, DIST OK, 56/56 passed, manifests/version/index OK | no (PR only; no tag requested) |
 | 2 | drive --once failed agent attempts persist across invocations and park at retry budget | src/drive.ts + src/worker-isolation.ts + src/types/worker.ts + lifecycle ops + dist | repeated --once no-result regression in agent-delegation-drive-smoke.js | BUILD OK, CHECK OK, DIST OK, 56/56 passed, manifests/version/index OK | no (PR only; no tag requested) |
 | 3 | docs no longer drift from generated project index/vendor template registry | README.md + manifest/README.md | project-index sync + manifest check | BUILD OK, CHECK OK, DIST OK, 56/56 passed, manifests/version/index OK | no (PR only; no tag requested) |
+
+## Batch — worker scope / manifest split (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | split durable worker scope (`worker.json`) from worker-facing manifest projection (`manifest.json`) so scope-only fields cannot be overwritten | src/worker-isolation.ts + src/types/worker.ts + dispatch/operator/execution-backend path projections + docs + dist | worker-isolation smoke asserts scope sentinel/retryCount survive manifest rewrites; trust-policy smoke asserts multi-agent membership persists in scope+manifest | BUILD OK, CHECK OK, DIST OK, 56/56 passed, manifests/version/index OK | no (PR only; no tag requested) |

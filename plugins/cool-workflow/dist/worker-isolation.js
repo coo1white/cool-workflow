@@ -7,6 +7,7 @@ exports.WORKER_ISOLATION_SCHEMA_VERSION = void 0;
 exports.createWorkerIsolation = createWorkerIsolation;
 exports.allocateWorkerScope = allocateWorkerScope;
 exports.writeWorkerManifest = writeWorkerManifest;
+exports.syncWorkerScopeFromTask = syncWorkerScopeFromTask;
 exports.listWorkerScopes = listWorkerScopes;
 exports.getWorkerScope = getWorkerScope;
 exports.recordWorkerOutput = recordWorkerOutput;
@@ -31,6 +32,8 @@ const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
 const coordinator_1 = require("./coordinator");
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
+const WORKER_SCOPE_FILE = "worker.json";
+const WORKER_MANIFEST_FILE = "manifest.json";
 function createWorkerIsolation(options = {}) {
     return {
         allocateWorkerScope: (run, task, allocateOptions) => allocateWorkerScope(run, task, { ...options, ...allocateOptions }),
@@ -175,6 +178,8 @@ function writeWorkerManifest(run, scope) {
     const task = run.tasks.find((candidate) => candidate.id === scope.taskId);
     const sandboxPolicy = scope.sandboxPolicy || sandboxPolicyForBoundary(run, scope);
     const sandboxProfileId = scope.sandboxProfileId || sandboxPolicy.id;
+    const scopePath = workerScopePath(scope);
+    const workerManifestPath = manifestPath(scope);
     const manifest = {
         schemaVersion: exports.WORKER_ISOLATION_SCHEMA_VERSION,
         id: scope.id,
@@ -185,6 +190,8 @@ function writeWorkerManifest(run, scope) {
         updatedAt: scope.updatedAt,
         status: scope.status,
         workerDir: scope.workerDir,
+        scopePath,
+        manifestPath: workerManifestPath,
         inputPath: scope.inputPath,
         resultPath: scope.resultPath,
         artifactsDir: scope.artifactsDir,
@@ -234,8 +241,26 @@ function writeWorkerManifest(run, scope) {
         blackboard: blackboardManifest(run, scope),
         metadata: scope.metadata
     };
-    (0, state_1.writeJson)(manifestPath(scope), manifest);
+    (0, state_1.writeJson)(workerManifestPath, manifest);
     return manifest;
+}
+function syncWorkerScopeFromTask(run, workerId) {
+    const scope = getWorkerScope(run, workerId);
+    if (!scope)
+        return undefined;
+    const task = run.tasks.find((candidate) => candidate.id === scope.taskId);
+    if (!task?.multiAgent)
+        return scope;
+    const updated = {
+        ...scope,
+        updatedAt: new Date().toISOString(),
+        multiAgent: task.multiAgent,
+        metadata: compactMetadata({
+            ...(scope.metadata || {}),
+            multiAgent: task.multiAgent
+        })
+    };
+    return updateWorkerScope(run, updated);
 }
 function listWorkerScopes(run, options = {}) {
     ensureWorkerState(run);
@@ -249,7 +274,7 @@ function getWorkerScope(run, workerId) {
     const existing = (run.workers || []).find((scope) => scope.id === workerId);
     if (existing)
         return existing;
-    const file = node_path_1.default.join(workerRoot(run), (0, state_1.safeFileName)(workerId), "worker.json");
+    const file = node_path_1.default.join(workerRoot(run), (0, state_1.safeFileName)(workerId), WORKER_SCOPE_FILE);
     if (!node_fs_1.default.existsSync(file))
         return undefined;
     const scope = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
@@ -693,7 +718,7 @@ function updateWorkerScope(run, scope) {
     return updated;
 }
 function writeWorkerScope(scope) {
-    (0, state_1.writeJson)(node_path_1.default.join(scope.workerDir, "worker.json"), scope);
+    (0, state_1.writeJson)(workerScopePath(scope), scope);
 }
 function writeWorkerIndex(run) {
     ensureWorkerState(run);
@@ -722,7 +747,7 @@ function loadWorkerScopesFromDisk(run) {
     return node_fs_1.default
         .readdirSync(workerRoot(run), { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
-        .map((entry) => node_path_1.default.join(workerRoot(run), entry.name, "worker.json"))
+        .map((entry) => node_path_1.default.join(workerRoot(run), entry.name, WORKER_SCOPE_FILE))
         .filter((file) => node_fs_1.default.existsSync(file))
         .map((file) => JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
 }
@@ -858,7 +883,10 @@ function blackboardLinkage(run, scope) {
     return { blackboardId, topicIds };
 }
 function manifestPath(scope) {
-    return node_path_1.default.join(scope.workerDir, "worker.json");
+    return node_path_1.default.join(scope.workerDir, WORKER_MANIFEST_FILE);
+}
+function workerScopePath(scope) {
+    return node_path_1.default.join(scope.workerDir, WORKER_SCOPE_FILE);
 }
 // Deterministic worker id (v0.1.40 self-audit P2): a wall-clock stamp + Math.random()
 // made every dispatch mint a different id, so audit references were not reproducible
@@ -874,7 +902,8 @@ function createWorkerId(run, taskId) {
 }
 function workerArtifacts(scope) {
     return [
-        { id: "worker", kind: "json", path: manifestPath(scope) },
+        { id: "worker", kind: "json", path: workerScopePath(scope) },
+        { id: "worker-manifest", kind: "json", path: manifestPath(scope) },
         { id: "worker-input", kind: "markdown", path: scope.inputPath }
     ];
 }

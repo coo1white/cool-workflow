@@ -35,6 +35,8 @@ import { recordMultiAgentWorkerOutput } from "./multi-agent";
 import { addBlackboardArtifact, postBlackboardMessage } from "./coordinator";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
+const WORKER_SCOPE_FILE = "worker.json";
+const WORKER_MANIFEST_FILE = "manifest.json";
 
 export interface RecordWorkerFailureOptions extends WorkerIsolationOptions {
   code?: string;
@@ -200,6 +202,8 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Worke
   const task = run.tasks.find((candidate) => candidate.id === scope.taskId);
   const sandboxPolicy = scope.sandboxPolicy || sandboxPolicyForBoundary(run, scope);
   const sandboxProfileId = scope.sandboxProfileId || sandboxPolicy.id;
+  const scopePath = workerScopePath(scope);
+  const workerManifestPath = manifestPath(scope);
   const manifest: WorkerManifest = {
     schemaVersion: WORKER_ISOLATION_SCHEMA_VERSION,
     id: scope.id,
@@ -210,6 +214,8 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Worke
     updatedAt: scope.updatedAt,
     status: scope.status,
     workerDir: scope.workerDir,
+    scopePath,
+    manifestPath: workerManifestPath,
     inputPath: scope.inputPath,
     resultPath: scope.resultPath,
     artifactsDir: scope.artifactsDir,
@@ -260,8 +266,25 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Worke
     blackboard: blackboardManifest(run, scope),
     metadata: scope.metadata
   };
-  writeJson(manifestPath(scope), manifest);
+  writeJson(workerManifestPath, manifest);
   return manifest;
+}
+
+export function syncWorkerScopeFromTask(run: WorkflowRun, workerId: string): WorkerScope | undefined {
+  const scope = getWorkerScope(run, workerId);
+  if (!scope) return undefined;
+  const task = run.tasks.find((candidate) => candidate.id === scope.taskId);
+  if (!task?.multiAgent) return scope;
+  const updated: WorkerScope = {
+    ...scope,
+    updatedAt: new Date().toISOString(),
+    multiAgent: task.multiAgent,
+    metadata: compactMetadata({
+      ...(scope.metadata || {}),
+      multiAgent: task.multiAgent
+    })
+  };
+  return updateWorkerScope(run, updated);
 }
 
 export function listWorkerScopes(run: WorkflowRun, options: { status?: WorkerScope["status"] } = {}): WorkerScope[] {
@@ -276,7 +299,7 @@ export function getWorkerScope(run: WorkflowRun, workerId: string): WorkerScope 
   ensureWorkerState(run);
   const existing = (run.workers || []).find((scope) => scope.id === workerId);
   if (existing) return existing;
-  const file = path.join(workerRoot(run), safeFileName(workerId), "worker.json");
+  const file = path.join(workerRoot(run), safeFileName(workerId), WORKER_SCOPE_FILE);
   if (!fs.existsSync(file)) return undefined;
   const scope = JSON.parse(fs.readFileSync(file, "utf8")) as WorkerScope;
   upsertWorkerScope(run, scope);
@@ -788,7 +811,7 @@ function updateWorkerScope(run: WorkflowRun, scope: WorkerScope): WorkerScope {
 }
 
 function writeWorkerScope(scope: WorkerScope): void {
-  writeJson(path.join(scope.workerDir, "worker.json"), scope);
+  writeJson(workerScopePath(scope), scope);
 }
 
 function writeWorkerIndex(run: WorkflowRun): void {
@@ -818,7 +841,7 @@ function loadWorkerScopesFromDisk(run: WorkflowRun): WorkerScope[] {
   return fs
     .readdirSync(workerRoot(run), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => path.join(workerRoot(run), entry.name, "worker.json"))
+    .map((entry) => path.join(workerRoot(run), entry.name, WORKER_SCOPE_FILE))
     .filter((file) => fs.existsSync(file))
     .map((file) => JSON.parse(fs.readFileSync(file, "utf8")) as WorkerScope);
 }
@@ -970,7 +993,11 @@ function blackboardLinkage(run: WorkflowRun, scope: WorkerScope): { blackboardId
 }
 
 function manifestPath(scope: WorkerScope): string {
-  return path.join(scope.workerDir, "worker.json");
+  return path.join(scope.workerDir, WORKER_MANIFEST_FILE);
+}
+
+function workerScopePath(scope: WorkerScope): string {
+  return path.join(scope.workerDir, WORKER_SCOPE_FILE);
 }
 
 // Deterministic worker id (v0.1.40 self-audit P2): a wall-clock stamp + Math.random()
@@ -988,7 +1015,8 @@ function createWorkerId(run: WorkflowRun, taskId: string): string {
 
 function workerArtifacts(scope: WorkerScope): StateArtifact[] {
   return [
-    { id: "worker", kind: "json", path: manifestPath(scope) },
+    { id: "worker", kind: "json", path: workerScopePath(scope) },
+    { id: "worker-manifest", kind: "json", path: manifestPath(scope) },
     { id: "worker-input", kind: "markdown", path: scope.inputPath }
   ];
 }
