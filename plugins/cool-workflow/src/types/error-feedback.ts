@@ -55,6 +55,10 @@ export interface ErrorFeedbackRecord {
   artifacts: StateArtifact[];
   correctionTaskId?: string;
   resolvedByNodeId?: string;
+  /** When the feedback was resolved (v0.1.64). */
+  resolvedAt?: string;
+  /** Operator note on resolution (v0.1.64). */
+  resolutionNote?: string;
   metadata?: Record<string, unknown>;
 }
 

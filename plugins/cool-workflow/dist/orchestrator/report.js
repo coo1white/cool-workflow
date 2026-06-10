@@ -106,6 +106,9 @@ function writeReport(run) {
 function summarizeRun(run) {
     (0, dispatch_1.updatePhaseStatuses)(run);
     const workerSummary = (0, worker_isolation_1.summarizeWorkers)(run);
+    const createdAtMs = Date.parse(run.createdAt);
+    const updatedAtMs = Date.parse(run.updatedAt);
+    const durationMs = Number.isFinite(createdAtMs) && Number.isFinite(updatedAtMs) ? Math.max(0, updatedAtMs - createdAtMs) : undefined;
     return {
         runId: run.id,
         workflowId: run.workflow.id,
@@ -119,6 +122,7 @@ function summarizeRun(run) {
             completed: run.tasks.filter((task) => task.status === "completed").length
         },
         loopStage: run.loopStage,
+        durationMs,
         next: (0, dispatch_1.firstRunnablePhase)(run)?.name || null,
         reportPath: run.paths.report,
         commits: run.commits,

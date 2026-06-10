@@ -190,6 +190,8 @@ export interface RunSummary {
   workflowId: string;
   app?: WorkflowAppRunMetadata;
   loopStage: LoopStage;
+  /** Elapsed ms from createdAt to updatedAt (v0.1.64). */
+  durationMs?: number;
   phases: RunPhase[];
   tasks: {
     total: number;
