@@ -447,6 +447,9 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         status: verifierResult.status === "advanced" ? "verified" : "completed",
         resultNodeId: resultNode.id,
         output,
+        // Output integrity (v0.1.63): SHA256 digest + file size
+        outputDigest: (0, execution_backend_1.sha256)(rawResult),
+        outputSizeBytes: Buffer.byteLength(rawResult, "utf8"),
         // Host-attested usage model rides on the worker record. Only when the agent
         // REPORTED a model — `unreported` is recorded as ABSENT (never backfilled from
         // the operator-chosen CW_AGENT_MODEL).

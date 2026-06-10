@@ -87,6 +87,10 @@ export interface WorkerScope {
   /** File size of the worker's result.md in bytes (v0.1.61).
    *  Recorded on output intake for cost estimation and compaction decisions. */
   outputSizeBytes?: number;
+  /** SHA256 digest of the worker's result.md content (v0.1.63).
+   *  Proves output integrity — the digest is stored, the content can be
+   *  independently verified. Computed at output intake. */
+  outputDigest?: string;
   metadata?: Record<string, unknown>;
 }
 

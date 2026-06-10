@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.isGroundedEvidence = isGroundedEvidence;
 exports.hasGroundedEvidence = hasGroundedEvidence;
 exports.requireResolvableEvidence = requireResolvableEvidence;
+exports.requireUrlReachability = requireUrlReachability;
 exports.resolveEvidenceLocator = resolveEvidenceLocator;
 exports.unresolvedFileEvidence = unresolvedFileEvidence;
 exports.computeEvidenceConfidence = computeEvidenceConfidence;
@@ -60,9 +61,15 @@ function isGroundedEvidence(raw) {
 function hasGroundedEvidence(evidence) {
     return Array.isArray(evidence) && evidence.some((entry) => isGroundedEvidence(entry));
 }
-/** Whether opt-in strict resolution is requested via the environment. */
+/** Whether opt-in strict resolution is requested via the environment.
+ *  Set CW_REQUIRE_RESOLVABLE_EVIDENCE=1 for file resolution, =url for
+ *  URL reachability checks too (v0.1.63). */
 function requireResolvableEvidence() {
     return /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE || "");
+}
+/** Whether URL reachability checks are enabled in strict mode (v0.1.63). */
+function requireUrlReachability() {
+    return requireResolvableEvidence() || /url/i.test(process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE || "");
 }
 function classify(raw) {
     const value = raw.trim();
