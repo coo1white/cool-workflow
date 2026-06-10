@@ -28,6 +28,7 @@ import { runBackend, sha256 } from "./execution-backend";
 import { recordWorkerRetryAttempt } from "./worker-isolation";
 import { resolveAgentConfig } from "./agent-config";
 import { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy, retryOrPark } from "./scheduling";
+import { deriveUsageTotals } from "./observability";
 import {
   AgentDelegationConfig,
   DrivePreview,
@@ -138,6 +139,27 @@ function terminalOrConfigStep(ctx: DriveContext, run: WorkflowRun, selected: Run
     }
     // Nothing eligible but not all complete: a parked/failed worker blocks the phase.
     return step("blocked", "blocked", { runId, reason: "no eligible worker (a parked/failed worker blocks the phase gate)" });
+  }
+
+  // Token budget (Track 3): enforce limits.tokenBudget against RECORDED usage
+  // before spawning the next agent. CW does not measure usage — it counts the
+  // host-attested records exactly as recorded (deriveUsageTotals, the same
+  // aggregation MetricsReport shows), so an unreported hop costs 0 here; an
+  // operator who needs every hop counted combines this with the fail-closed
+  // telemetry policy (Track 1), which refuses unattested usage at accept time.
+  // Exhaustion BLOCKS (refuses to spawn) rather than parks: the task is not
+  // bad, the run is out of budget.
+  const budget = run.workflow.limits?.tokenBudget;
+  if (typeof budget === "number" && budget > 0) {
+    const spent = deriveUsageTotals(run).totals.totalTokens;
+    if (spent >= budget) {
+      return step("blocked", "blocked", {
+        runId,
+        taskId: selected.id,
+        phase: selected.phase,
+        reason: `token budget exhausted: ${spent} recorded tokens >= budget ${budget} — refusing to spawn further agents`
+      });
+    }
   }
 
   // Fail closed: an unconfigured agent cannot fulfill anything.
@@ -274,8 +296,16 @@ export function driveConcurrentRound(ctx: DriveContext, limit: number): DriveSte
   const steps: DriveStep[] = [];
   for (const taskId of batch) {
     // Re-read per task: a prior task in this round mutated state (dispatch/accept).
-    const fresh = ctx.runner.loadRun(ctx.runId).tasks.find((task) => task.id === taskId);
+    const freshRun = ctx.runner.loadRun(ctx.runId);
+    const fresh = freshRun.tasks.find((task) => task.id === taskId);
     if (!fresh || (fresh.status !== "pending" && fresh.status !== "running")) continue;
+    // Re-evaluate the gate per task: a prior hop in THIS round may have spent the
+    // remaining token budget; stop the round rather than overshoot by a batch.
+    const midGate = terminalOrConfigStep(ctx, freshRun, fresh);
+    if (midGate) {
+      steps.push(midGate);
+      break;
+    }
     steps.push(processSelectedTask(ctx, fresh));
   }
   return steps.length > 0 ? steps : [driveStep(ctx)];
