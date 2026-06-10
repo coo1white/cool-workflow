@@ -29,6 +29,11 @@ export interface RunPhase {
   name: string;
   status: PhaseStatus;
   taskIds: string[];
+  /** Carried from WorkflowPhaseDefinition.mode (parallel() DSL). The drive loop
+   *  derives its round width from this: a "parallel" phase is fulfilled
+   *  concurrently up to limits.maxConcurrentAgents through EVERY shipping
+   *  surface (run --drive, quickstart). Absent ⇒ sequential. */
+  mode?: "sequential" | "parallel";
 }
 
 export interface Finding {

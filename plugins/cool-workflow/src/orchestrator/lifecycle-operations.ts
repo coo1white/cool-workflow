@@ -85,7 +85,9 @@ export function plan(appRecord: LoadedWorkflowApp, options: Record<string, unkno
       id: phase.id || slugify(phase.name),
       name: phase.name,
       status: "pending",
-      taskIds: phase.tasks.map((task) => task.id)
+      taskIds: phase.tasks.map((task) => task.id),
+      // parallel() DSL: the drive loop reads this to size its concurrent round.
+      ...(phase.mode ? { mode: phase.mode } : {})
     })),
     tasks,
     dispatches: [],
@@ -456,7 +458,12 @@ function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unkno
         resultPath: "",
         // Track 3: carry the declared output schema onto the run task so
         // validateResultEnvelope can enforce it at intake. Absent ⇒ no schema check.
-        ...(task.schema ? { schema: task.schema } : {})
+        ...(task.schema ? { schema: task.schema } : {}),
+        // Authoring metadata the drive READS: label (progress/operator views),
+        // model (per-task delegation override), agentType (dispatch backend).
+        ...(task.label ? { label: task.label } : {}),
+        ...(task.model ? { model: task.model } : {}),
+        ...(task.agentType ? { agentType: task.agentType } : {})
       });
     }
   }

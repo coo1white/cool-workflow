@@ -43,6 +43,17 @@ export interface RunTask {
   /** Sandbox attestation recorded by the selected backend. */
   backendAttestation?: SandboxAttestation;
   multiAgent?: WorkerMultiAgentMetadata;
+  /** Human-facing display label (from the task definition): used in drive
+   *  progress lines and operator views; never in deterministic evidence. */
+  label?: string;
+  /** Operator model-policy hint (from the task definition): overrides the
+   *  agent-config model for THIS task's delegation ({{model}} substitution +
+   *  secret-stripped args provenance). NEVER the attested model — that comes
+   *  only from the agent's own report. */
+  model?: string;
+  /** Which delegating backend driver fulfills this task (default "agent");
+   *  passed to dispatch and the execution request. */
+  agentType?: string;
   /** Declared output schema (structured-output subset) for the agent's result,
    *  carried verbatim from the task definition. When present, the agent's
    *  cw:result payload is validated against it on intake and a mismatch throws
