@@ -1,0 +1,2 @@
+APPROVED 6f6cd07bcf9da0affc78712d757f5896517d94d7
+An LLM client or user reading any CW manifest/package now sees it correctly self-describe as an auditable workflow control-plane that delegates execution (never an SDK that runs models), and the installed package version (0.1.76) finally matches the release tag.
