@@ -141,8 +141,12 @@ function terminalOrConfigStep(ctx, run, selected) {
 /** Process ONE ready task end-to-end: dispatch (if pending) -> delegate to the
  *  agent backend -> accept its result.md. Factored out of driveStep so the
  *  concurrent loop can reuse the IDENTICAL per-worker delegation (red line and
- *  fail-closed semantics included), differing only in HOW MANY tasks per round. */
-function processSelectedTask(ctx, selected) {
+ *  fail-closed semantics included), differing only in HOW MANY tasks per round.
+ *  Track 2: `preparedOutcome` carries a batch-collected child outcome — the
+ *  fulfill step then settles it through runBackend instead of spawning again,
+ *  so the concurrent round and the serial step share EVERY envelope/accept
+ *  branch by construction. */
+function processSelectedTask(ctx, selected, preparedOutcome) {
     const { runner, runId } = ctx;
     let run = runner.loadRun(runId);
     // 1. DISPATCH (only a fresh pending task; a running task is a retry on its scope).
@@ -184,7 +188,8 @@ function processSelectedTask(ctx, selected) {
             args: ctx.config.args,
             endpoint: ctx.config.endpoint,
             model: ctx.config.model
-        }
+        },
+        ...(preparedOutcome ? { preparedAgentOutcome: preparedOutcome } : {})
     });
     const handle = envelope.provenance.handle;
     const reportedModel = handle?.metadata?.reportedModel || "unreported";
@@ -235,9 +240,11 @@ function processSelectedTask(ctx, selected) {
  *  order (the existing phase/dispatch order) regardless of completion order — so
  *  replay stays byte-stable. Reuses processSelectedTask per worker, so the red
  *  line holds: each task is still an out-of-process agent delegation, never an
- *  in-CW model call. With the synchronous agent backend the batch executes in a
- *  deterministic sequence; processSelectedTask is the seam an async backend would
- *  parallelize in wall-clock without changing the recorded order. */
+ *  in-CW model call. Track 2: the batch's agent children run CONCURRENTLY in
+ *  wall-clock (one batch delegate child; per-job timeout kill), then results are
+ *  recorded in DETERMINISTIC task order through the same processSelectedTask —
+ *  collect-all: a failed/hung/dirty hop never aborts its siblings, every hop
+ *  settles and is recorded (failures park via the same retryOrPark). */
 function driveConcurrentRound(ctx, limit) {
     const run = ctx.runner.loadRun(ctx.runId);
     const selected = selectDriveTask(run);
@@ -250,23 +257,90 @@ function driveConcurrentRound(ctx, limit) {
         .filter((task) => phase.taskIds.includes(task.id) && (task.status === "pending" || task.status === "running"))
         .slice(0, width)
         .map((task) => task.id);
+    // Phase A+B: dispatch every batch task (sequential — dispatch mutates state),
+    // then collect ALL spawn-style child outcomes in one concurrent window. The
+    // token-budget gate ran at round entry; it is NOT re-checked between accepts —
+    // the spawns already happened, and refusing to RECORD finished work would
+    // discard real results (collect-all + never-claw-back). Overshoot is bounded
+    // by the round width; the next round blocks.
+    const prepared = prepareConcurrentOutcomes(ctx, batch);
+    // Phase C: settle + accept in deterministic batch order, regardless of the
+    // wall-clock order the children finished in.
     const steps = [];
     for (const taskId of batch) {
-        // Re-read per task: a prior task in this round mutated state (dispatch/accept).
+        const failStep = prepared.failSteps.get(taskId);
+        if (failStep) {
+            steps.push(failStep);
+            continue;
+        }
+        // Re-read per task: a prior accept in this round mutated state.
         const freshRun = ctx.runner.loadRun(ctx.runId);
         const fresh = freshRun.tasks.find((task) => task.id === taskId);
         if (!fresh || (fresh.status !== "pending" && fresh.status !== "running"))
             continue;
-        // Re-evaluate the gate per task: a prior hop in THIS round may have spent the
-        // remaining token budget; stop the round rather than overshoot by a batch.
-        const midGate = terminalOrConfigStep(ctx, freshRun, fresh);
-        if (midGate) {
-            steps.push(midGate);
-            break;
-        }
-        steps.push(processSelectedTask(ctx, fresh));
+        steps.push(processSelectedTask(ctx, fresh, prepared.outcomes.get(taskId)));
     }
     return steps.length > 0 ? steps : [driveStep(ctx)];
+}
+/** Dispatch each batch task and run every spawn-style agent child concurrently
+ *  (one batch delegate child, per-job timeout kill). Returns outcomes keyed by
+ *  task id; endpoint-configured agents get no outcome and settle through the
+ *  serial (sequential) path inside the accept loop. Dispatch failures become
+ *  recorded fail steps, exactly what the serial path would emit. */
+function prepareConcurrentOutcomes(ctx, batch) {
+    const { runner, runId } = ctx;
+    const failSteps = new Map();
+    const jobs = [];
+    const jobTaskIds = [];
+    for (const taskId of batch) {
+        const run = runner.loadRun(runId);
+        const task = run.tasks.find((candidate) => candidate.id === taskId);
+        if (!task || (task.status !== "pending" && task.status !== "running"))
+            continue;
+        let workerId = task.workerId;
+        if (task.status === "pending") {
+            const manifest = runner.dispatch(runId, { limit: 1, backend: "agent" });
+            const dispatchedTask = manifest.tasks.find((entry) => entry.id === task.id) || manifest.tasks[0];
+            if (!dispatchedTask || !dispatchedTask.workerId) {
+                failSteps.set(taskId, step("dispatch", "failed", { runId, taskId, phase: task.phase, reason: "dispatch produced no worker scope" }));
+                continue;
+            }
+            workerId = dispatchedTask.workerId;
+        }
+        if (!workerId) {
+            failSteps.set(taskId, step("dispatch", "failed", { runId, taskId, phase: task.phase, reason: "no worker scope for task" }));
+            continue;
+        }
+        const manifest = runner.showWorkerManifest(runId, workerId);
+        const job = (0, execution_backend_1.prepareAgentSpawn)({
+            schemaVersion: 1,
+            runId,
+            taskId,
+            backendId: "agent",
+            cwd: run.cwd,
+            sandboxPolicy: manifest.sandboxPolicy || manifest.sandbox?.policy,
+            manifest,
+            label: taskId,
+            timeoutMs: ctx.config.timeoutMs,
+            delegation: {
+                command: ctx.config.command,
+                args: ctx.config.args,
+                endpoint: ctx.config.endpoint,
+                model: ctx.config.model
+            }
+        });
+        if (job) {
+            jobs.push(job);
+            jobTaskIds.push(taskId);
+        }
+    }
+    if (jobs.length) {
+        emitProgress(`⇉ concurrent round: ${jobs.length} agent${jobs.length > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
+    }
+    const settled = (0, execution_backend_1.runAgentBatchOutcomes)(jobs);
+    const outcomes = new Map();
+    jobTaskIds.forEach((taskId, index) => outcomes.set(taskId, settled[index]));
+    return { outcomes, failSteps };
 }
 /** A failed agent hop: charge one attempt and (reuse v0.1.37 retryOrPark) either
  *  retry on the SAME worker scope next step, or PARK past the retry budget. */

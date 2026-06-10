@@ -177,6 +177,24 @@ export interface ExecutionRequest {
   };
   timeoutMs?: number;
   metadata?: Record<string, unknown>;
+  /** INTERNAL — the concurrent drive round only (Track 2). A pre-collected agent
+   *  child outcome from the batch delegate child: when present, the agent driver
+   *  SETTLES it through the exact same envelope branches (spawn-error refusal /
+   *  no-exit-code refusal / delegated evidence triple) instead of spawning again.
+   *  Produced solely by runAgentBatchOutcomes; never an external API surface —
+   *  a fabricated outcome still faces every accept-time gate (result.md on disk,
+   *  schema, evidence grounding, telemetry policy). */
+  preparedAgentOutcome?: AgentChildOutcome;
+}
+
+/** One agent child's raw outcome (Track 2): what the spawn layer observed, before
+ *  any envelope mapping. `exitCode: null` means no exit code — timed out (the
+ *  batch child SIGTERMs at the deadline, SIGKILLs after a grace) or killed. */
+export interface AgentChildOutcome {
+  /** Spawn-layer failure (ENOENT, batch-delegate failure), if any. */
+  spawnError?: string;
+  exitCode: number | null;
+  stdout: string;
 }
 
 /** Backend identity + sandbox attestation. The part of an execution envelope that

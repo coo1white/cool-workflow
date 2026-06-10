@@ -27,6 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import {
+  AgentChildOutcome,
   BackendCapability,
   BackendDescriptor,
   BackendExecutionHandle,
@@ -1125,22 +1126,35 @@ function runAgentProcess(
     // Spawn the agent argv-style — shell:false, never a shell-interpreted string.
     // The agent inherits the host env so ITS OWN credentials resolve; CW neither
     // reads nor records them. CW enforces only the exact argv it spawns.
-    const child = spawnSync(resolved.binary, realArgs, {
-      cwd: request.cwd,
-      env: { ...process.env },
-      encoding: "utf8",
-      timeout: resolved.timeoutMs || 600000,
-      maxBuffer: 32 * 1024 * 1024,
-      shell: false
-    });
-    if (child.error) {
+    // Track 2: a concurrent round pre-collects the child outcome via the batch
+    // delegate child; when present it settles through these SAME branches —
+    // identical envelopes by construction, no second mapping to drift.
+    let outcome: AgentChildOutcome;
+    if (request.preparedAgentOutcome) {
+      outcome = request.preparedAgentOutcome;
+    } else {
+      const child = spawnSync(resolved.binary, realArgs, {
+        cwd: request.cwd,
+        env: { ...process.env },
+        encoding: "utf8",
+        timeout: resolved.timeoutMs || 600000,
+        maxBuffer: 32 * 1024 * 1024,
+        shell: false
+      });
+      outcome = {
+        ...(child.error ? { spawnError: messageOf(child.error) } : {}),
+        exitCode: typeof child.status === "number" ? child.status : null,
+        stdout: String(child.stdout || "")
+      };
+    }
+    if (outcome.spawnError) {
       const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported");
-      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${messageOf(child.error)}`, {
+      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${outcome.spawnError}`, {
         attestation: { ...attestation, handle: handleOut }
       });
     }
-    const exitCode = typeof child.status === "number" ? child.status : null;
-    const stdout = String(child.stdout || "");
+    const exitCode = outcome.exitCode;
+    const stdout = outcome.stdout;
     const report = parseAgentReport(stdout);
     const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
     const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature);
@@ -1162,6 +1176,117 @@ function runAgentProcess(
   return refusedEnvelope(descriptor, policy, label, "delegation-target-missing", `Backend ${descriptor.id} has no command-template or endpoint configured`, {
     attestation
   });
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent batch fulfillment (Track 2). The drive's concurrent round collects
+// agent child outcomes for a whole batch in ONE wall-clock window, then settles
+// each through runBackend with `preparedAgentOutcome` — so envelopes, refusals
+// and accept-time gates are the exact serial code path. The parallelism lives in
+// a single spawnSync'd Node delegate child (same pattern as HTTP_DELEGATE_CHILD):
+// the parent stays fully synchronous (no public-API async contagion), the child
+// spawns all agents concurrently and enforces the per-job timeout itself
+// (SIGTERM at the deadline, SIGKILL after a 5s grace) — a hung agent is KILLED
+// and counted as one failure (no exit code → the existing fail-closed refusal),
+// never a deadlock. Collect-all: a failing job NEVER aborts its siblings; every
+// job settles and is recorded.
+// ---------------------------------------------------------------------------
+
+/** One prepared agent spawn: the resolved argv for a batch job. Secrets stay in
+ *  the in-memory job (the child needs the real argv); recorded provenance is
+ *  secret-stripped by the settle path exactly as the serial path does. */
+export interface AgentSpawnJob {
+  binary: string;
+  args: string[];
+  cwd: string;
+  timeoutMs: number;
+}
+
+/** Resolve a request to a spawn-style batch job, or undefined when the agent is
+ *  endpoint-configured/unconfigured (those settle through the serial path). */
+export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | undefined {
+  const resolved = resolveAgentInvocation(request);
+  if (!resolved.binary) return undefined;
+  const subst = agentSubstitutions(request, resolved.model);
+  return {
+    binary: resolved.binary,
+    args: resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst)),
+    cwd: request.cwd,
+    timeoutMs: resolved.timeoutMs || 600000
+  };
+}
+
+// Reads jobs JSON on stdin, spawns ALL concurrently (shell:false, inherited env —
+// the agent's own credentials resolve; CW never reads them), per-job SIGTERM at
+// timeoutMs + SIGKILL at +5s, caps each captured stdout at 32MB, and prints the
+// outcome array when every job has settled. stderr is drained (a full pipe must
+// never wedge a child). A kill yields exitCode null — the no-exit-code refusal.
+const BATCH_DELEGATE_CHILD = `
+const { spawn } = require("node:child_process");
+let raw = "";
+process.stdin.setEncoding("utf8");
+process.stdin.on("data", (d) => (raw += d));
+process.stdin.on("end", () => {
+  const jobs = JSON.parse(raw);
+  if (!jobs.length) { process.stdout.write("[]"); return; }
+  const out = new Array(jobs.length);
+  let pending = jobs.length;
+  const CAP = 32 * 1024 * 1024;
+  jobs.forEach((job, i) => {
+    let stdout = "";
+    let settled = false;
+    const settle = (o) => {
+      if (settled) return;
+      settled = true;
+      out[i] = o;
+      if (--pending === 0) process.stdout.write(JSON.stringify(out));
+    };
+    let child;
+    try {
+      child = spawn(job.binary, job.args, { cwd: job.cwd, env: process.env, shell: false });
+    } catch (error) {
+      settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
+      return;
+    }
+    const term = setTimeout(() => { try { child.kill("SIGTERM"); } catch {} }, job.timeoutMs);
+    const kill = setTimeout(() => { try { child.kill("SIGKILL"); } catch {} }, job.timeoutMs + 5000);
+    child.stdout.on("data", (d) => { if (stdout.length < CAP) stdout += d; });
+    child.stderr.on("data", () => {});
+    child.on("error", (error) => {
+      clearTimeout(term); clearTimeout(kill);
+      settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout });
+    });
+    child.on("close", (code) => {
+      clearTimeout(term); clearTimeout(kill);
+      settle({ exitCode: typeof code === "number" ? code : null, stdout });
+    });
+  });
+});
+`;
+
+/** Run a batch of agent spawns concurrently; outcomes index-align with jobs. The
+ *  parent backstop timeout (max job timeout + 30s) means even a wedged delegate
+ *  child cannot deadlock the drive: on any batch-level failure EVERY job settles
+ *  as a fail-closed spawn refusal — never a fabricated completion, never a hang. */
+export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[] {
+  if (!jobs.length) return [];
+  const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
+  const child = spawnSync(process.execPath, ["-e", BATCH_DELEGATE_CHILD], {
+    input: JSON.stringify(jobs),
+    encoding: "utf8",
+    maxBuffer: 33 * 1024 * 1024 * jobs.length,
+    timeout: maxTimeout + 30000
+  });
+  if (!child.error && typeof child.status === "number" && child.status === 0) {
+    try {
+      const parsed = JSON.parse(String(child.stdout || "")) as AgentChildOutcome[];
+      if (Array.isArray(parsed) && parsed.length === jobs.length) return parsed;
+    } catch {
+      // fall through to the fail-closed mapping below
+    }
+  }
+  const reason = child.error ? messageOf(child.error) : `batch delegate exited ${child.status === null ? "without an exit code (timed out or killed)" : `with ${child.status}`}`;
+  return jobs.map(() => ({ spawnError: `batch delegate failed: ${reason}`, exitCode: null, stdout: "" }));
 }
 
 /** Agent HTTP endpoint variant — POSTs the worker manifest/prompt to a configured
