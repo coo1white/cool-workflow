@@ -195,6 +195,20 @@ export function listTrustAuditEvents(run: WorkflowRun): TrustAuditEvent[] {
     .sort(compareEvents);
 }
 
+/** Search audit events by kind, worker, or candidate (v0.1.65).
+ *  Filters are AND-ed; empty filters match all. */
+export function searchAuditEvents(
+  run: WorkflowRun,
+  filters: { kind?: string; workerId?: string; candidateId?: string; limit?: number }
+): TrustAuditEvent[] {
+  let events = listTrustAuditEvents(run);
+  if (filters.kind) events = events.filter((e) => e.kind === filters.kind);
+  if (filters.workerId) events = events.filter((e) => e.workerId === filters.workerId);
+  if (filters.candidateId) events = events.filter((e) => e.candidateId === filters.candidateId);
+  if (filters.limit && filters.limit > 0) events = events.slice(0, filters.limit);
+  return events;
+}
+
 export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
   const audit = ensureTrustAudit(run);
   const events = readEvents(audit.eventLogPath);

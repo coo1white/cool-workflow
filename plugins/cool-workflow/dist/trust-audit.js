@@ -10,6 +10,7 @@ exports.recordSandboxPathDecision = recordSandboxPathDecision;
 exports.recordSandboxPolicyDecision = recordSandboxPolicyDecision;
 exports.recordHostAttestation = recordHostAttestation;
 exports.listTrustAuditEvents = listTrustAuditEvents;
+exports.searchAuditEvents = searchAuditEvents;
 exports.summarizeTrustAudit = summarizeTrustAudit;
 exports.refreshTrustAudit = refreshTrustAudit;
 exports.workerTrustAudit = workerTrustAudit;
@@ -135,6 +136,20 @@ function listTrustAuditEvents(run) {
         .filter(Boolean)
         .map((line) => JSON.parse(line))
         .sort(compareEvents);
+}
+/** Search audit events by kind, worker, or candidate (v0.1.65).
+ *  Filters are AND-ed; empty filters match all. */
+function searchAuditEvents(run, filters) {
+    let events = listTrustAuditEvents(run);
+    if (filters.kind)
+        events = events.filter((e) => e.kind === filters.kind);
+    if (filters.workerId)
+        events = events.filter((e) => e.workerId === filters.workerId);
+    if (filters.candidateId)
+        events = events.filter((e) => e.candidateId === filters.candidateId);
+    if (filters.limit && filters.limit > 0)
+        events = events.slice(0, filters.limit);
+    return events;
 }
 function summarizeTrustAudit(run) {
     const audit = ensureTrustAudit(run);
