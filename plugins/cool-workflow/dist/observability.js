@@ -693,6 +693,20 @@ function deriveMetricsSummary(inputs, options) {
     };
     const allReports = perRun.map((p) => p.report);
     const totalOutputBytes = inputs.reduce((sum, input) => sum + (input.run.workers || []).reduce((ws, w) => ws + (w.outputSizeBytes || 0), 0), 0);
+    const computePerBackendCost = (inputList) => {
+        const map = new Map();
+        for (const input of inputList) {
+            const backends = new Set((input.run.workers || []).map((w) => w.backendId || "node"));
+            const bytes = (input.run.workers || []).reduce((s, w) => s + (w.outputSizeBytes || 0), 0);
+            for (const bid of backends) {
+                const entry = map.get(bid) || { runCount: 0, outputBytes: 0 };
+                entry.runCount++;
+                entry.outputBytes += bytes;
+                map.set(bid, entry);
+            }
+        }
+        return [...map.entries()].map(([backendId, data]) => ({ backendId, ...data }));
+    };
     return {
         schemaVersion: exports.METRICS_SCHEMA_VERSION,
         surface: "metrics",
@@ -708,6 +722,7 @@ function deriveMetricsSummary(inputs, options) {
         usage: poolUsage(allReports.map((r) => r.usage)),
         cost: poolCost(allReports.map((r) => r.cost)),
         totalOutputBytes,
+        byBackendCost: computePerBackendCost(inputs),
         byApp: groupBy((r) => [r.scope.app || "unknown"]),
         byBackend: groupBy((r) => (r.scope.backendIds.length ? r.scope.backendIds : ["unreported"])),
         runs: perRun.map((p) => p.ref),
