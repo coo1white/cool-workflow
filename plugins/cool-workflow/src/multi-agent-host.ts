@@ -252,6 +252,29 @@ export function hostStep(run: WorkflowRun, options: Record<string, unknown> = {}
   });
 }
 
+/** Auto-step: loop hostStep until blocked, complete, or max iterations reached
+ *  (v0.1.74). Each iteration performs one deterministic step. Returns the final
+ *  response and the number of steps taken. */
+export function hostAutoStep(run: WorkflowRun, options: Record<string, unknown> = {}): {
+  finalResponse: MultiAgentHostResponse;
+  stepsTaken: number;
+  steps: Array<{ step: number; performed: string }>;
+} {
+  const maxSteps = Number(options.maxSteps || options["max-steps"] || 20);
+  const steps: Array<{ step: number; performed: string }> = [];
+  let response: MultiAgentHostResponse = envelope(run, "step", { performed: "none" });
+
+  for (let i = 0; i < maxSteps; i++) {
+    response = hostStep(run, options);
+    const performed = (response.data as Record<string, unknown> | undefined)?.performed;
+    steps.push({ step: i + 1, performed: String(performed || "none") });
+    if (performed === "none" || performed === undefined) break;
+    if ((response.data as Record<string, unknown> | undefined)?.requiredHostAction) break;
+  }
+
+  return { finalResponse: response, stepsTaken: steps.length, steps };
+}
+
 export function hostBlackboard(run: WorkflowRun, action: string | undefined, options: Record<string, unknown> = {}): MultiAgentHostResponse {
   const topology = optionalSingleActiveTopology(run);
   const blackboardId = resolveHostBlackboardId(run, topology, options);

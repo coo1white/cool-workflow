@@ -68,5 +68,10 @@ export interface StateEvidence {
   /** Optional reference to a recorded state record this evidence supports (v0.1.60).
    *  E.g. `{ kind: "candidate", id: "cand-1" }`, `{ kind: "commit", id: "c-abc" }`. */
   recordRef?: { kind: string; id: string };
+  /** Extracted content from the evidence source file (v0.1.74).
+   *  When a locator references `file.ts:42`, this holds the actual line content
+   *  extracted from the file at resolution time. Never fabricated — absent when
+   *  the file doesn't exist or the locator is not file-style. */
+  contentPreview?: string;
   provenance?: EvidenceProvenance;
 }

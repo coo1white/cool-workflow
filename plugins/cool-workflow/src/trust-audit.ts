@@ -12,7 +12,7 @@ import {
   WorkflowRun
 } from "./types";
 import { durableAppendFileSync, safeFileName, writeJson } from "./state";
-import { computeEvidenceConfidence } from "./evidence-grounding";
+import { computeEvidenceConfidence, extractEvidenceContent } from "./evidence-grounding";
 
 
 export const TRUST_AUDIT_SCHEMA_VERSION = 1;
@@ -350,6 +350,10 @@ export function normalizeEvidence(
     // Auto-compute confidence tier from locator shape + (in strict mode) filesystem.
     // "verified" is never auto-assigned — requires explicit host attestation (v0.1.55).
     confidence: entry.confidence || computeEvidenceConfidence(entry.locator || entry.path || entry.summary, baseDirs),
+    // Extract actual file content for file-style evidence locators (v0.1.74).
+    contentPreview: entry.contentPreview || (
+      (entry.locator || entry.path) ? extractEvidenceContent(entry.locator || entry.path || "", baseDirs) : undefined
+    ),
     provenance: {
       schemaVersion: TRUST_AUDIT_SCHEMA_VERSION,
       runId: run.id,
