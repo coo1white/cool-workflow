@@ -26,6 +26,7 @@ __exportStar(require("./types/pipeline"), exports);
 __exportStar(require("./types/error-feedback"), exports);
 __exportStar(require("./types/sandbox"), exports);
 __exportStar(require("./types/execution-backend"), exports);
+__exportStar(require("./types/boundary"), exports);
 __exportStar(require("./types/drive"), exports);
 __exportStar(require("./types/multi-agent"), exports);
 __exportStar(require("./types/topology"), exports);
