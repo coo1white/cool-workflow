@@ -141,6 +141,8 @@ export interface StateCommit {
   partial?: boolean;
   /** The task ids that were committed in this partial commit. */
   partialTaskIds?: string[];
+  /** Parent commit id forming an append-only provenance chain (v0.1.60). */
+  parentCommitId?: string;
   metadata?: Record<string, unknown>;
 }
 

@@ -85,6 +85,27 @@ export function saveCheckpoint(run: WorkflowRun): void {
   writeJson(run.paths.state, run, { durable: true });
 }
 
+/** Compact a run checkpoint by stripping empty optional arrays and null values
+ *  that don't carry semantic meaning (v0.1.60). The normalization layer
+ *  (normalizeRunState) backfills these on load, so stripping them saves disk
+ *  without losing information. Returns the number of keys stripped. */
+export function compactCheckpoint(run: WorkflowRun): number {
+  const optionalArrays = [
+    "nodes", "contracts", "feedback", "workers", "sandboxProfiles",
+    "candidates", "candidateSelections"
+  ];
+  let stripped = 0;
+  const state = run as unknown as Record<string, unknown>;
+  for (const key of optionalArrays) {
+    if (Array.isArray(state[key]) && (state[key] as unknown[]).length === 0) {
+      delete state[key];
+      stripped++;
+    }
+  }
+  if (stripped > 0) saveCheckpoint(run);
+  return stripped;
+}
+
 export function readJson(file: string): unknown {
   if (!fs.existsSync(file)) throw new Error(`File not found: ${file}`);
   try {

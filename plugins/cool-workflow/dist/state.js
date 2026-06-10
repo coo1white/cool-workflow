@@ -11,6 +11,7 @@ exports.loadRunStateFile = loadRunStateFile;
 exports.checkRunStateFile = checkRunStateFile;
 exports.migrateRunStateFile = migrateRunStateFile;
 exports.saveCheckpoint = saveCheckpoint;
+exports.compactCheckpoint = compactCheckpoint;
 exports.readJson = readJson;
 exports.writeJson = writeJson;
 exports.durableAppendFileSync = durableAppendFileSync;
@@ -96,6 +97,27 @@ function saveCheckpoint(run) {
     run.updatedAt = new Date().toISOString();
     // state.json is the single source of truth — write it DURABLY (v0.1.40).
     writeJson(run.paths.state, run, { durable: true });
+}
+/** Compact a run checkpoint by stripping empty optional arrays and null values
+ *  that don't carry semantic meaning (v0.1.60). The normalization layer
+ *  (normalizeRunState) backfills these on load, so stripping them saves disk
+ *  without losing information. Returns the number of keys stripped. */
+function compactCheckpoint(run) {
+    const optionalArrays = [
+        "nodes", "contracts", "feedback", "workers", "sandboxProfiles",
+        "candidates", "candidateSelections"
+    ];
+    let stripped = 0;
+    const state = run;
+    for (const key of optionalArrays) {
+        if (Array.isArray(state[key]) && state[key].length === 0) {
+            delete state[key];
+            stripped++;
+        }
+    }
+    if (stripped > 0)
+        saveCheckpoint(run);
+    return stripped;
 }
 function readJson(file) {
     if (!node_fs_1.default.existsSync(file))

@@ -59,5 +59,8 @@ export interface StateEvidence {
    *  Computed deterministically from the locator shape and (in strict mode) filesystem.
    *  "verified" is never auto-assigned — requires explicit host attestation. */
   confidence?: EvidenceConfidence;
+  /** Optional reference to a recorded state record this evidence supports (v0.1.60).
+   *  E.g. `{ kind: "candidate", id: "cand-1" }`, `{ kind: "commit", id: "c-abc" }`. */
+  recordRef?: { kind: string; id: string };
   provenance?: EvidenceProvenance;
 }
