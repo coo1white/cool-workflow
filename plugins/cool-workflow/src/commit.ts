@@ -22,6 +22,9 @@ export interface CommitStateOptions {
   source?: "runtime" | "cli" | "manual";
   /** Registered verifier ids to run before the commit gate (v0.1.58). */
   verifierIds?: string[];
+  /** When set, only these taskIds are committed; other tasks remain active
+   *  for later retry (v0.1.59). The commit carries `partial: true`. */
+  partialTaskIds?: string[];
   metadata?: Record<string, unknown>;
 }
 
@@ -101,6 +104,11 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
     candidateId: gate.candidateId,
     selectionId: gate.selectionId,
     evidence,
+    // Partial commit (v0.1.59): operator commits only specified tasks.
+    // Failed/pending tasks remain active for later retry. The verifier gate
+    // still applies per-task; partial is about scope, not about skipping gates.
+    partial: Array.isArray(options.partialTaskIds) && options.partialTaskIds.length > 0 || undefined,
+    partialTaskIds: options.partialTaskIds?.length ? options.partialTaskIds : undefined,
     acceptanceRationale: gate.rationale
       ? {
           ...gate.rationale,
