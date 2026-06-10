@@ -204,6 +204,8 @@ function resolveFeedback(run, feedbackId, result) {
         updatedAt: new Date().toISOString(),
         status: nextStatus,
         resolvedByNodeId: result.nodeId,
+        resolvedAt: nextStatus === "resolved" ? new Date().toISOString() : record.resolvedAt,
+        resolutionNote: result.message || record.resolutionNote,
         evidence: mergeById(record.evidence, result.evidence || []),
         artifacts: mergeById(record.artifacts, result.artifacts || []),
         metadata: compactMetadata({
