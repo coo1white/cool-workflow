@@ -205,6 +205,8 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask): DriveStep {
 
   const handle = envelope.provenance.handle;
   const reportedModel = (handle?.metadata?.reportedModel as string) || "unreported";
+  const reportedUsage = handle?.metadata?.reportedUsage as Record<string, unknown> | undefined;
+  const usageSignature = handle?.metadata?.usageSignature as string | undefined;
 
   if (envelope.status !== "completed") {
     return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, dispatched);
@@ -224,7 +226,12 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask): DriveStep {
         promptDigest,
         command: handle?.metadata?.command as string | undefined,
         args: (handle?.metadata?.args as string[]) || [],
-        exitCode: exitCodeFromEvidence(envelope.evidence)
+        exitCode: exitCodeFromEvidence(envelope.evidence),
+        // Track 1: thread the agent's self-reported usage + its signature through
+        // to the accept layer, with the operator trust key to verify against.
+        reportedUsage,
+        usageSignature,
+        usageTrustPublicKey: ctx.config.attestPublicKey
       }
     });
   } catch (error) {

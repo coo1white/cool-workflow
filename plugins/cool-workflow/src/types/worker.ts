@@ -195,4 +195,11 @@ export interface AgentDelegationInput {
   command?: string;
   args: string[];
   exitCode: number | null;
+  /** The agent's self-reported token usage (parsed from stdout). */
+  reportedUsage?: Record<string, unknown>;
+  /** base64 ed25519 signature over the canonical usage payload (Track 1). */
+  usageSignature?: string;
+  /** PUBLIC key (inline PEM or .pem path) CW verifies `usageSignature` against.
+   *  Absent ⇒ reported usage is recorded `unattested`. */
+  usageTrustPublicKey?: string;
 }

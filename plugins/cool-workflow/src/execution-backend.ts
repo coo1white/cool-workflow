@@ -1002,7 +1002,7 @@ export function stripSecretArgs(args: string[]): string[] {
 
 /** Best-effort parse of the AGENT-reported model id from its stdout. SOLELY the
  *  agent's own report — `unreported` when absent. Never CW_AGENT_MODEL. */
-function parseAgentReport(stdout: string): { model?: string; usage?: Record<string, unknown> } {
+function parseAgentReport(stdout: string): { model?: string; usage?: Record<string, unknown>; usageSignature?: string } {
   const text = String(stdout || "").trim();
   if (!text) return {};
   const tryObj = (value: string): Record<string, unknown> | undefined => {
@@ -1046,7 +1046,15 @@ function parseAgentReport(stdout: string): { model?: string; usage?: Record<stri
       model = entries[0][0];
     }
   }
-  return { model, usage };
+  // Track 1: the executor's detached signature over its usage report, if it signs.
+  // SOLELY the agent's own field — CW verifies it later against the trust key.
+  const usageSignature =
+    typeof obj.usageSignature === "string"
+      ? obj.usageSignature
+      : typeof obj.usage_signature === "string"
+        ? (obj.usage_signature as string)
+        : undefined;
+  return { model, usage, usageSignature };
 }
 
 function agentSubstitutions(request: ExecutionRequest, model?: string): Record<string, string> {
@@ -1074,7 +1082,8 @@ function recordedAgentHandle(
   recordedArgs: string[],
   model: string | undefined,
   reportedModel: string,
-  reportedUsage?: Record<string, unknown>
+  reportedUsage?: Record<string, unknown>,
+  usageSignature?: string
 ): BackendExecutionHandle {
   const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
   return {
@@ -1091,7 +1100,10 @@ function recordedAgentHandle(
       // from its stdout by parseAgentReport). ATTESTED, never measured by CW —
       // same red-line posture as reportedModel. Lands in provenance, never in the
       // byte-stable evidence triple. Absent when the agent reported no usage.
-      ...(reportedUsage ? { reportedUsage } : {})
+      ...(reportedUsage ? { reportedUsage } : {}),
+      // Track 1: the executor's detached signature over its usage report. CW
+      // verifies it against the operator trust key at output intake.
+      ...(usageSignature ? { usageSignature } : {})
     }
   };
 }
@@ -1131,7 +1143,7 @@ function runAgentProcess(
     const stdout = String(child.stdout || "");
     const report = parseAgentReport(stdout);
     const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-    const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage);
+    const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature);
     if (exitCode === null) {
       // No exit code (timeout/killed) ⇒ fail closed, never a fabricated completion.
       return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process returned no exit code (timed out or killed)`, {
@@ -1215,7 +1227,7 @@ function runAgentEndpoint(
     }
   }
   const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-  const handleOut = recordedAgentHandle(undefined, endpoint, [], resolved.model, reportedModel, report.usage);
+  const handleOut = recordedAgentHandle(undefined, endpoint, [], resolved.model, reportedModel, report.usage, report.usageSignature);
   return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], parsed.exitCode, stdout);
 }
 

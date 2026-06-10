@@ -295,8 +295,31 @@ function renderTrustAudit(run) {
         `- Sandbox profiles: ${formatCounts(summary.bySandboxProfile)}`,
         `- Event log: ${summary.eventLogPath}`,
         `- Summary: ${summary.summaryPath}`,
-        `- Index: ${summary.indexPath}`
+        `- Index: ${summary.indexPath}`,
+        ...renderTelemetryAttestation(run)
     ];
+}
+/** Track 1: telemetry attestation coverage + a LOUD list of any `unattested`
+ *  usage. An auditable control-plane never lets unverified telemetry pass
+ *  silently — every reported-but-unverified usage is named here with its reason. */
+function renderTelemetryAttestation(run) {
+    const delegations = (0, trust_audit_1.listTrustAuditEvents)(run).filter((event) => event.kind === "worker.agent-delegation" && event.metadata && event.metadata.telemetryAttestation);
+    if (!delegations.length)
+        return [];
+    const statusOf = (event) => String(event.metadata.telemetryAttestation);
+    const attested = delegations.filter((event) => statusOf(event) === "attested").length;
+    const unattested = delegations.filter((event) => statusOf(event) === "unattested");
+    const absent = delegations.filter((event) => statusOf(event) === "absent").length;
+    const lines = [
+        `- Telemetry attestation: ${attested}/${delegations.length} attested` +
+            (unattested.length ? `, ${unattested.length} UNATTESTED` : "") +
+            (absent ? `, ${absent} absent` : "")
+    ];
+    for (const event of unattested) {
+        const reason = event.metadata.telemetryAttestationReason;
+        lines.push(`  - ⚠️  UNATTESTED usage — worker=${event.workerId || "?"} task=${event.taskId || "?"}: ${reason || "signature unverified"}`);
+    }
+    return lines;
 }
 function renderAcceptanceRationale(run) {
     const lines = [];

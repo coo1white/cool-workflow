@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-06-10 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.76`
-- Source modules: `54`
+- Source modules: `55`
 - Workflow apps: `6`
 - Docs: `46`
-- Smoke tests: `57`
+- Smoke tests: `58`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -103,6 +103,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [scheduling.ts](../src/scheduling.ts)
 - [state-explosion.ts](../src/state-explosion.ts)
 - [state-migrations.ts](../src/state-migrations.ts)
+- [telemetry-attestation.ts](../src/telemetry-attestation.ts)
 - [verifier-registry.ts](../src/verifier-registry.ts)
 - [workbench-host.ts](../src/workbench-host.ts)
 - [workbench.ts](../src/workbench.ts)
@@ -223,6 +224,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [state-explosion-management-smoke.js](../test/state-explosion-management-smoke.js)
 - [state-node-smoke.js](../test/state-node-smoke.js)
 - [team-collaboration-smoke.js](../test/team-collaboration-smoke.js)
+- [telemetry-attestation-smoke.js](../test/telemetry-attestation-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)
 - [web-desktop-workbench-smoke.js](../test/web-desktop-workbench-smoke.js)
 - [worker-isolation-smoke.js](../test/worker-isolation-smoke.js)

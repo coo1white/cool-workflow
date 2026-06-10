@@ -167,6 +167,8 @@ function processSelectedTask(ctx, selected) {
     });
     const handle = envelope.provenance.handle;
     const reportedModel = handle?.metadata?.reportedModel || "unreported";
+    const reportedUsage = handle?.metadata?.reportedUsage;
+    const usageSignature = handle?.metadata?.usageSignature;
     if (envelope.status !== "completed") {
         return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, dispatched);
     }
@@ -184,7 +186,12 @@ function processSelectedTask(ctx, selected) {
                 promptDigest,
                 command: handle?.metadata?.command,
                 args: handle?.metadata?.args || [],
-                exitCode: exitCodeFromEvidence(envelope.evidence)
+                exitCode: exitCodeFromEvidence(envelope.evidence),
+                // Track 1: thread the agent's self-reported usage + its signature through
+                // to the accept layer, with the operator trust key to verify against.
+                reportedUsage,
+                usageSignature,
+                usageTrustPublicKey: ctx.config.attestPublicKey
             }
         });
     }

@@ -5,6 +5,7 @@ import {
   StateArtifact,
   StateEvidence,
   StateNodeError,
+  UsageRecord,
   WorkerBoundaryViolation,
   WorkerIsolationOptions,
   WorkerIsolationStatus,
@@ -32,6 +33,7 @@ import { attestSandbox, getBackendDescriptor, resolveBackendSelection, sha256 } 
 import type { AgentDelegationProvenance } from "./types";
 import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit";
 import { recordMultiAgentWorkerOutput } from "./multi-agent";
+import { verifyTelemetryAttestation, resolveTrustPublicKey, normalizeReportedUsage } from "./telemetry-attestation";
 import { addBlackboardArtifact, postBlackboardMessage } from "./coordinator";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
@@ -369,6 +371,18 @@ export function recordWorkerOutput(
   // prompt digest, the secret-stripped args, and the result digest computed HERE
   // from the accepted result.md. These live in the result node's metadata (covered
   // by the v0.1.35 snapshot body) + a trust-audit event, NEVER in `evidence`.
+  // Track 1: verify the agent's signed telemetry BEFORE recording it. CW holds
+  // only the operator's PUBLIC key — it verifies attribution, never measures
+  // usage. Absent/invalid signature ⇒ `unattested`/`absent`, surfaced loudly,
+  // NEVER silently recorded as trusted.
+  const telemetry = options.agentDelegation
+    ? verifyTelemetryAttestation(
+        options.agentDelegation.reportedUsage,
+        options.agentDelegation.usageSignature,
+        resolveTrustPublicKey(options.agentDelegation.usageTrustPublicKey),
+        { runId: run.id, taskId: task.id, promptDigest: options.agentDelegation.promptDigest }
+      )
+    : undefined;
   const agentDelegation: AgentDelegationProvenance | undefined = options.agentDelegation
     ? {
         schemaVersion: 1,
@@ -379,7 +393,10 @@ export function recordWorkerOutput(
         resultDigest: sha256(rawResult),
         command: options.agentDelegation.command,
         args: options.agentDelegation.args,
-        exitCode: options.agentDelegation.exitCode
+        exitCode: options.agentDelegation.exitCode,
+        ...(options.agentDelegation.reportedUsage ? { reportedUsage: options.agentDelegation.reportedUsage } : {}),
+        ...(options.agentDelegation.usageSignature ? { usageSignature: options.agentDelegation.usageSignature } : {}),
+        ...(telemetry ? { usageAttestation: telemetry.status, usageAttestationReason: telemetry.reason } : {})
       }
     : undefined;
   const pathAudit = recordSandboxPathDecision(run, {
@@ -502,7 +519,16 @@ export function recordWorkerOutput(
         resultDigest: agentDelegation.resultDigest,
         command: agentDelegation.command,
         args: agentDelegation.args,
-        exitCode: agentDelegation.exitCode
+        exitCode: agentDelegation.exitCode,
+        // Track 1: the telemetry verdict travels with the agent-hop event so the
+        // audit report can surface `unattested` usage loudly. Absent ⇒ no usage.
+        ...(agentDelegation.usageAttestation
+          ? {
+              telemetryAttestation: agentDelegation.usageAttestation,
+              ...(agentDelegation.usageAttestationReason ? { telemetryAttestationReason: agentDelegation.usageAttestationReason } : {}),
+              ...(agentDelegation.reportedUsage ? { reportedUsage: agentDelegation.reportedUsage } : {})
+            }
+          : {})
       }
     });
   }
@@ -529,6 +555,25 @@ export function recordWorkerOutput(
     verifierNodeId: verifierResult.outputNodeId,
     auditEventIds: [pathAudit.id, acceptedAudit.id]
   };
+  // Host-attested usage rides on the worker record. Recorded when the agent
+  // REPORTED a model OR token usage — `unreported`/absent stays ABSENT (never
+  // backfilled from the operator-chosen CW_AGENT_MODEL, never synthesized).
+  // Track 1: the attestation verdict (`attested`/`unattested`/`absent`) and its
+  // reason ride along, and the token buckets come from the (verified-or-not)
+  // reported usage — CW still never measures them, it records + labels them.
+  const reportedModel = agentDelegation && agentDelegation.model && agentDelegation.model !== "unreported" ? agentDelegation.model : undefined;
+  const usageRecord: UsageRecord | undefined =
+    agentDelegation && (reportedModel || agentDelegation.reportedUsage)
+      ? {
+          schemaVersion: 1 as const,
+          source: "host-attested" as const,
+          ...(reportedModel ? { model: reportedModel } : {}),
+          ...normalizeReportedUsage(agentDelegation.reportedUsage),
+          attestedAt: new Date().toISOString(),
+          ...(telemetry ? { attestation: telemetry.status, ...(telemetry.reason ? { attestationReason: telemetry.reason } : {}) } : {}),
+          note: "agent-delegation host-attested usage"
+        }
+      : undefined;
   updateWorkerScope(run, {
     ...scope,
     updatedAt: new Date().toISOString(),
@@ -538,20 +583,7 @@ export function recordWorkerOutput(
     // Output integrity (v0.1.63): SHA256 digest + file size
     outputDigest: sha256(rawResult),
     outputSizeBytes: Buffer.byteLength(rawResult, "utf8"),
-    // Host-attested usage model rides on the worker record. Only when the agent
-    // REPORTED a model — `unreported` is recorded as ABSENT (never backfilled from
-    // the operator-chosen CW_AGENT_MODEL).
-    ...(agentDelegation && agentDelegation.model && agentDelegation.model !== "unreported"
-      ? {
-          usage: {
-            schemaVersion: 1 as const,
-            source: "host-attested" as const,
-            model: agentDelegation.model,
-            attestedAt: new Date().toISOString(),
-            note: "agent-delegation host-attested model"
-          }
-        }
-      : {})
+    ...(usageRecord ? { usage: usageRecord } : {})
   });
   const blackboardLinks = publishWorkerOutputToBlackboard(run, scope, task, parsedResult.summary, destination, absoluteResultPath, resultNode.evidence, acceptedAudit.id);
   recordMultiAgentWorkerOutput(run, {
