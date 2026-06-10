@@ -41,6 +41,7 @@ import {
   DurationMetric,
   MetricsCollaboration,
   MetricsDurationRow,
+  MetricsAttestationCoverage,
   MetricsFreshnessStatus,
   MetricsGroupRollup,
   MetricsReport,
@@ -57,6 +58,7 @@ import {
   WorkflowRun
 } from "./types";
 import { readJson, writeJson } from "./state";
+import { verifyTelemetryLedger } from "./telemetry-ledger";
 
 export const METRICS_SCHEMA_VERSION = 1 as const;
 
@@ -224,6 +226,48 @@ export function deriveUsageTotals(run: WorkflowRun): { totals: UsageTotals; rows
     models: [...models].sort()
   };
   return { totals, rows };
+}
+
+/** Track 1 cryptographic attestation coverage over a run's work units, plus the
+ *  tamper-evident ledger state. DIFFERENT axis from UsageTotals.coverage: that
+ *  counts units that merely carry a usage record; here `attested` counts units
+ *  whose reported usage VERIFIED against the operator trust key. Deterministic —
+ *  reads recorded `usage.attestation` and recomputes the ledger chain; no
+ *  now-derived field, so it stays byte-stable for CLI<->MCP parity. */
+export function deriveAttestationCoverage(run: WorkflowRun): MetricsAttestationCoverage {
+  const units = usageUnits(run);
+  let attested = 0;
+  let unattested = 0;
+  let absent = 0;
+  let unverified = 0;
+  for (const u of units) {
+    if (!u.usage) continue;
+    switch (u.usage.attestation) {
+      case "attested":
+        attested++;
+        break;
+      case "unattested":
+        unattested++;
+        break;
+      case "absent":
+        absent++;
+        break;
+      default:
+        // A usage record with no verdict (operator-recorded / legacy intake).
+        unverified++;
+    }
+  }
+  const unitCount = units.length;
+  const ledger = verifyTelemetryLedger(run);
+  return {
+    units: unitCount,
+    attested,
+    unattested,
+    absent,
+    unverified,
+    verifiedCoverage: unitCount > 0 ? round(attested / unitCount, 6) : null,
+    ledger: { present: ledger.present, verified: ledger.verified, records: ledger.records.length }
+  };
 }
 
 /** Compute cost from attested usage × an optional pricing policy. The contract:
@@ -474,6 +518,7 @@ export function deriveMetricsReport(run: WorkflowRun, options: DeriveMetricsOpti
     usage: totals,
     cost,
     attestedUsage: rows,
+    attestation: deriveAttestationCoverage(run),
     collaboration: deriveCollaborationMetrics(run),
     nextAction:
       totals.unreportedUnits > 0 && totals.attestedUnits === 0
