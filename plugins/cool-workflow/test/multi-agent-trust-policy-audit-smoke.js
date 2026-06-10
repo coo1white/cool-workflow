@@ -108,6 +108,9 @@ const evidenceLocator = `${evidencePath}:1`;
   const firstDispatch = runJson(["multi-agent", "step", plan.runId, "--sandbox", "readonly"]);
   const firstWorkerId = firstDispatch.data.tasks[0].workerId;
   const firstManifest = runJson(["worker", "manifest", plan.runId, firstWorkerId]);
+  assert.ok(firstManifest.multiAgent?.membershipId, "worker manifest keeps the dispatch membership attachment");
+  const firstScope = JSON.parse(fs.readFileSync(firstManifest.scopePath, "utf8"));
+  assert.equal(firstScope.multiAgent.membershipId, firstManifest.multiAgent.membershipId, "durable worker scope keeps the same membership attachment");
   writeWorkerResult(firstManifest.resultPath, "judge one");
   runJson(["worker", "output", plan.runId, firstWorkerId, firstManifest.resultPath]);
 

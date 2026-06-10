@@ -109,6 +109,7 @@ sandboxing unless the agent host actually applies OS policy.
 .cw/runs/<run-id>/state.json
 .cw/runs/<run-id>/dispatches/<dispatch-id>.json
 .cw/runs/<run-id>/workers/<worker-id>/worker.json
+.cw/runs/<run-id>/workers/<worker-id>/manifest.json
 .cw/runs/<run-id>/feedback/
 .cw/runs/<run-id>/report.md
 ```

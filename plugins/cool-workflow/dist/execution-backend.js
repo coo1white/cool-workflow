@@ -825,7 +825,7 @@ function agentSubstitutions(request, model) {
     const manifest = request.manifest;
     const workerDir = manifest?.workerDir || request.cwd || "";
     return {
-        manifest: workerDir ? node_path_1.default.join(workerDir, "worker.json") : "",
+        manifest: manifest?.manifestPath || (workerDir ? node_path_1.default.join(workerDir, "manifest.json") : ""),
         input: manifest?.inputPath || "",
         result: manifest?.resultPath || "",
         workerDir,
@@ -838,7 +838,7 @@ function substituteAgentArg(arg, subst) {
 }
 /** Build the recorded process handle for the envelope — secret-stripped + the
  *  agent-reported model. Same SHAPE that lands in provenance, never in evidence. */
-function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedModel) {
+function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedModel, reportedUsage) {
     const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
     return {
         kind: "process",
@@ -849,7 +849,12 @@ function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedMode
             command: binary,
             args: recordedArgs,
             model,
-            reportedModel
+            reportedModel,
+            // Telemetry thread-back: the agent's OWN self-reported token usage (parsed
+            // from its stdout by parseAgentReport). ATTESTED, never measured by CW —
+            // same red-line posture as reportedModel. Lands in provenance, never in the
+            // byte-stable evidence triple. Absent when the agent reported no usage.
+            ...(reportedUsage ? { reportedUsage } : {})
         }
     };
 }
@@ -880,7 +885,7 @@ function runAgentProcess(descriptor, policy, request, label, handle, attestation
         const stdout = String(child.stdout || "");
         const report = parseAgentReport(stdout);
         const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel);
+        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage);
         if (exitCode === null) {
             // No exit code (timeout/killed) ⇒ fail closed, never a fabricated completion.
             return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process returned no exit code (timed out or killed)`, {
@@ -956,7 +961,7 @@ function runAgentEndpoint(descriptor, policy, request, label, resolved, attestat
         }
     }
     const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-    const handleOut = recordedAgentHandle(undefined, endpoint, [], resolved.model, reportedModel);
+    const handleOut = recordedAgentHandle(undefined, endpoint, [], resolved.model, reportedModel, report.usage);
     return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], parsed.exitCode, stdout);
 }
 function extractEndpointResult(stdout) {

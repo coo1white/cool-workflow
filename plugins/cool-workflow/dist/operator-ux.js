@@ -890,7 +890,7 @@ function sortedWorkers(workers) {
     return [...workers].sort((left, right) => left.id.localeCompare(right.id));
 }
 function workerManifestPath(worker) {
-    return node_path_1.default.join(worker.workerDir, "worker.json");
+    return node_path_1.default.join(worker.workerDir, "manifest.json");
 }
 function shortNodeLabel(node) {
     const taskId = typeof node.metadata?.taskId === "string" ? node.metadata.taskId : undefined;

@@ -173,6 +173,7 @@ A delegating driver additionally records `handle` (e.g.
 .cw/runs/<run-id>/state.json
 .cw/runs/<run-id>/dispatches/<dispatch-id>.json
 .cw/runs/<run-id>/workers/<worker-id>/worker.json
+.cw/runs/<run-id>/workers/<worker-id>/manifest.json
 .cw/registry/index.json
 ```
 

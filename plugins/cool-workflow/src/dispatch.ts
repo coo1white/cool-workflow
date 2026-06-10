@@ -4,7 +4,7 @@ import { DispatchManifest, DispatchTask, ResolvedSandboxPolicy, RunPhase, RunTas
 import { writeJson } from "./state";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import { appendRunNode, createStateNode, transitionStateNode } from "./state-node";
-import { allocateWorkerScope, writeWorkerManifest } from "./worker-isolation";
+import { allocateWorkerScope, syncWorkerScopeFromTask, writeWorkerManifest } from "./worker-isolation";
 import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation } from "./sandbox-profile";
 import { resolveBackendSelection } from "./execution-backend";
 import { attachDispatchToMultiAgent } from "./multi-agent";
@@ -92,7 +92,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
     concurrencyLimit: limit
   });
   for (const task of selectedRunTasks) {
-    const worker = task.workerId ? run.workers?.find((scope) => scope.id === task.workerId) : undefined;
+    const worker = task.workerId ? syncWorkerScopeFromTask(run, task.workerId) : undefined;
     if (worker) writeWorkerManifest(run, worker);
   }
 

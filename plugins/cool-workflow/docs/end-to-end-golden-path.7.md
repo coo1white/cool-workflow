@@ -77,6 +77,7 @@ The runner creates a temporary workspace under the OS temp directory:
     workers/<worker-id>/
       input.md
       worker.json
+      manifest.json
       result.md
     results/
     nodes/
