@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.75
+
+Gated, self-auditing release flow for the cool-workflow plugin.
+
+- **Capability**: A maintainer (or autonomous agent) can run `/release` to cut a release that is provably gated — a deterministic check (`release-gate.sh`) plus an independent `release-reviewer` subagent must both pass before a tag is allowed; a `PreToolUse` hook blocks `git tag`/tag-push without both markers, and a tag-push CI workflow (`release-gate.yml`) re-runs the gate out-of-band so the local hook cannot be the only line of defense.
+- **Implementation**: New plugin components — `commands/release.md`, `agents/release-reviewer.md`, `hooks/hooks.json`, `scripts/release-gate.sh`, `scripts/block-unapproved-tag.sh` — plus repo-root `AGENTS.md`, `docs/prompts/reviewer-agent.md`, and `.github/workflows/release-gate.yml`. Three correctness fixes were required for the gate to function in this repo: `PREV_TAG` now excludes tags pointing at HEAD (the tag-push CI runs *on* the new tag, so a naive `git describe` collapsed the diff range to empty and false-failed every release); the substance check now matches its documented spec ("any changed file outside `src/types/` and `dist/`", not only `src/`); and the hook parses its stdin with `node` instead of `jq` so it can't silently fail open where `jq` is absent. CI install uses `npm install --no-package-lock` to match the repo's gitignored lockfile.
+- **Tests**: `test/release-gate-smoke.js` (8 fixture cases: no-prev-tag, valid release, tooling-only substance, spec-accretion reject, zero-test reject, cadence reject, version-branch reject, and the HEAD-already-tagged PREV_TAG regression) and `test/block-unapproved-tag-smoke.js` (block without markers, block with gate-only, block on REJECTED, allow on gate+APPROVED, allow non-tag commands, tag-push gating). Both are auto-discovered by `test/run-all.js`.
+- **Risk**: No `src/` runtime or public API change; zero new dependencies (zero-dependency invariant held). The substance check is intentionally a permissive deterministic floor — deeper "is this real capability vs. spec accretion / docs fluff" judgment is delegated to the independent reviewer agent, by design.
+
 ## 0.1.51
 
 - Auto-compaction trigger point fix. v0.1.48's compaction hook fired on every `saveCheckpoint()`, causing test fixture fingerprint instability. Fix: `maybeCompactRun()` is now called only after major lifecycle mutations (commit) via `lifecycle-operations.ts`. Also fixes dogfood-release smoke test by correcting the content-surface version-sync pipeline (use `npm run bump:version`, never hand-edit version.ts alone).

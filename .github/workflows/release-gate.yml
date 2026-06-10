@@ -1,0 +1,43 @@
+name: release-gate
+# Out-of-band backstop: re-runs the deterministic gate on every tag push.
+# Local hooks can in principle be bypassed by an agent with shell access;
+# this workflow cannot. Pair with a GitHub ruleset that protects refs/tags/v*
+# so a red run blocks the release from being treated as published.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need full history + previous tags
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install
+        # package-lock.json is gitignored in this repo (see .gitignore); the
+        # documented install path is `npm install --no-package-lock`, same as
+        # .github/workflows/ci.yml. `npm ci` would fail with no committed lock.
+        run: npm install --no-package-lock --prefix plugins/cool-workflow
+
+      - name: Run deterministic release gate
+        run: bash plugins/cool-workflow/scripts/release-gate.sh
+
+      - name: Verify reviewer verdict was committed
+        run: |
+          SHA=$(git rev-parse HEAD^{commit})
+          # The tag commit itself bumps version/changelog; the reviewed sha is its parent
+          # Accept a verdict for HEAD or HEAD~1 to tolerate the release commit.
+          for C in "$SHA" "$(git rev-parse HEAD~1 2>/dev/null || echo none)"; do
+            if [ -f ".cw-release/review-$C.verdict" ] && grep -q '^APPROVED' ".cw-release/review-$C.verdict"; then
+              echo "verdict found for $C"; exit 0
+            fi
+          done
+          echo "::error::No committed APPROVED verdict for this tag. The release flow was bypassed."
+          exit 1
