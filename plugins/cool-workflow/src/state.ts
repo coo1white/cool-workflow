@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
-import { RunPaths, WorkflowRun } from "./types";
+import { RunPaths, StateArtifact, WorkflowRun } from "./types";
 import { migrateRunState, StateMigrationResult } from "./state-migrations";
 import { CURRENT_RUN_STATE_SCHEMA_VERSION } from "./version";
+import { sha256 } from "./execution-backend";
 
 export { CURRENT_RUN_STATE_SCHEMA_VERSION };
 
@@ -273,4 +274,17 @@ export function withFileLock<T>(targetPath: string, fn: () => T): T {
 
 export function safeFileName(value: string): string {
   return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
+}
+
+/** Compute and set SHA256 + sizeBytes on a StateArtifact from its file path
+ *  (v0.1.73). Fails silently when the file doesn't exist — does not throw. */
+export function hashArtifactFile(artifact: StateArtifact): StateArtifact {
+  try {
+    const content = fs.readFileSync(artifact.path, "utf8");
+    artifact.sha256 = sha256(content);
+    artifact.sizeBytes = Buffer.byteLength(content, "utf8");
+  } catch {
+    /* file missing — silently skip */
+  }
+  return artifact;
 }

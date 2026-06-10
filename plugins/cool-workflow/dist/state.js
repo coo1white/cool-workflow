@@ -19,11 +19,13 @@ exports.realResolve = realResolve;
 exports.isContainedPath = isContainedPath;
 exports.withFileLock = withFileLock;
 exports.safeFileName = safeFileName;
+exports.hashArtifactFile = hashArtifactFile;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_migrations_1 = require("./state-migrations");
 const version_1 = require("./version");
 Object.defineProperty(exports, "CURRENT_RUN_STATE_SCHEMA_VERSION", { enumerable: true, get: function () { return version_1.CURRENT_RUN_STATE_SCHEMA_VERSION; } });
+const execution_backend_1 = require("./execution-backend");
 function createRunPaths(runDir) {
     return {
         runDir,
@@ -290,4 +292,17 @@ function withFileLock(targetPath, fn) {
 }
 function safeFileName(value) {
     return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
+}
+/** Compute and set SHA256 + sizeBytes on a StateArtifact from its file path
+ *  (v0.1.73). Fails silently when the file doesn't exist — does not throw. */
+function hashArtifactFile(artifact) {
+    try {
+        const content = node_fs_1.default.readFileSync(artifact.path, "utf8");
+        artifact.sha256 = (0, execution_backend_1.sha256)(content);
+        artifact.sizeBytes = Buffer.byteLength(content, "utf8");
+    }
+    catch {
+        /* file missing — silently skip */
+    }
+    return artifact;
 }
