@@ -14,7 +14,7 @@ export type DriveStepAction =
   | "accept" // recorded + verified the worker's result.md
   | "commit" // committed the driven run (verifier-gated)
   | "park" // the worker exhausted its retry budget and parked (fail closed)
-  | "blocked" // nothing eligible to advance (e.g. phase gate, missing config)
+  | "blocked" // nothing eligible to advance (e.g. phase gate, missing config, token budget exhausted)
   | "complete"; // no pending work remains
 
 export type DriveStepStatus = "ok" | "parked" | "blocked" | "failed" | "complete";
