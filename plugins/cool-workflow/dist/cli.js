@@ -10,6 +10,7 @@ const orchestrator_1 = require("./orchestrator");
 const capability_registry_1 = require("./capability-registry");
 const capability_core_1 = require("./capability-core");
 const observability_1 = require("./observability");
+const telemetry_demo_1 = require("./telemetry-demo");
 const run_registry_1 = require("./run-registry");
 const daemon_1 = require("./daemon");
 const scheduler_1 = require("./scheduler");
@@ -1178,6 +1179,44 @@ async function main() {
             else
                 process.stdout.write(`${(0, run_registry_1.formatHistory)(result)}\n`);
             return;
+        }
+        case "telemetry": {
+            const [subcommand, id] = args.positionals;
+            switch (subcommand) {
+                case "verify": {
+                    const result = (0, capability_core_1.telemetryVerify)(runner, { ...args.options, runId: id || args.options.runId || args.options.run });
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, telemetry_demo_1.formatTelemetryVerify)(result)}\n`);
+                    return;
+                }
+                default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
+                    throw new Error("Usage: cw.js telemetry verify <run-id> [--json]");
+            }
+        }
+        case "demo": {
+            const [subcommand] = args.positionals;
+            switch (subcommand) {
+                case "tamper": {
+                    const result = (0, capability_core_1.demoTamper)(runner, args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, telemetry_demo_1.formatTamperDemo)(result)}\n`);
+                    // Fail closed: if the proof did not hold (a tamper went undetected),
+                    // exit nonzero so the demo can never green a broken guarantee.
+                    if (!result.proven)
+                        process.exitCode = 1;
+                    return;
+                }
+                default:
+                    if (await tryDispatchCli(args, runner))
+                        return;
+                    throw new Error("Usage: cw.js demo tamper [--json]");
+            }
         }
         case "workbench": {
             const [subcommand, runId] = args.positionals;

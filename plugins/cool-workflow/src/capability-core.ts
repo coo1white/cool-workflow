@@ -24,6 +24,8 @@ import { DrivePreview, DriveResult, QuickstartResult } from "./types";
 import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
 import { RunRegistry, isRunLifecycleState } from "./run-registry";
 import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
+import { verifyTelemetryLedger } from "./telemetry-ledger";
+import { runTamperDemo, TelemetryVerifyResult } from "./telemetry-demo";
 import { loadRunStateFile, readJson, writeJson } from "./state";
 import fs from "node:fs";
 import path from "node:path";
@@ -645,4 +647,34 @@ export function optionalString(value: unknown): string | undefined {
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+// ---- telemetry attestation: read-only ledger verification (Track 1) --------
+// Re-prove a run's telemetry chain offline: prevHash linkage + independent per-
+// record hash recompute (never trusts the stored hash). The auditable claim made
+// inspectable on demand — anyone can run this; a forged/edited record fails it.
+export function telemetryVerify(runner: CoolWorkflowRunner, args: Record<string, unknown>): TelemetryVerifyResult {
+  const runId = optionalString(args.runId || args.run);
+  if (!runId) throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");
+  const run = runner.loadRun(runId);
+  const v = verifyTelemetryLedger(run);
+  return {
+    schemaVersion: 1,
+    runId: run.id,
+    present: v.present,
+    verified: v.verified,
+    records: v.records.length,
+    attested: v.attested,
+    unattested: v.unattested,
+    absent: v.absent,
+    failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code }))
+  };
+}
+
+// ---- demo: tamper-evidence (the one-command proof) -------------------------
+// Hermetic, deterministic-shape: builds a real ed25519-signed telemetry ledger,
+// then forges it two ways and shows both tamper-evidence layers catch it. CLI-only
+// (a human-facing demonstration; the underlying verify is the telemetry.verify verb).
+export function demoTamper(_runner: CoolWorkflowRunner, _args: Record<string, unknown> = {}): ReturnType<typeof runTamperDemo> {
+  return runTamperDemo();
 }

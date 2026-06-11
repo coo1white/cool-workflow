@@ -39,6 +39,7 @@ import {
   gcPlan,
   gcRun,
   gcVerify,
+  telemetryVerify,
   runDrive,
   runDrivePreview,
   backendAgentConfigShow,
@@ -475,6 +476,8 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return gcRun(runRegistryFor(args, runner), optionalString(args.runId), args);
       case "cw_gc_verify":
         return gcVerify(runRegistryFor(args, runner), String(args.runId || ""), args);
+      case "cw_telemetry_verify":
+        return telemetryVerify(runner, args);
       case "cw_history":
         return runHistory(runRegistryFor(args, runner), args);
       case "cw_workbench_view":
@@ -545,6 +548,7 @@ function requiredArgsForTool(name: string): string[] {
   if (name === "cw_run_show" || name === "cw_run_resume" || name === "cw_run_rerun") return ["runId"];
   if (name === "cw_run_archive") return ["runId|olderThanDays"];
   if (name === "cw_gc_verify") return ["runId"];
+  if (name === "cw_telemetry_verify") return ["runId"];
   if (name === "cw_queue_show") return ["id"];
   if (name.endsWith("_show")) {
     if (name.includes("_role_")) return ["runId", "roleId"];
@@ -1549,6 +1553,10 @@ function toolDefinitions(): unknown[] {
     tool("cw_gc_verify", "Re-prove a reclaimed run: skeleton schema-complete, tombstone chain untampered, reconstructable artifacts re-derived from retained inputs. Peer of `cw gc verify`.", {
       cwd: stringSchema("Repo workspace"),
       scope: stringSchema("home (default, cross-repo) or repo"),
+      runId: stringSchema("Run id to verify")
+    }),
+    tool("cw_telemetry_verify", "Re-prove a run's telemetry attestation ledger offline: prevHash chain linkage + independent per-record hash recompute (never trusts the stored hash). A forged or edited record fails it. Peer of `cw telemetry verify`.", {
+      cwd: stringSchema("Repo workspace"),
       runId: stringSchema("Run id to verify")
     }),
     tool("cw_history", "Read a cross-repo unified run timeline (newest first), deterministic and paginated, with provenance links.", {

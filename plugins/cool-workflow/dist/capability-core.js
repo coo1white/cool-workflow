@@ -61,11 +61,15 @@ exports.sandboxProfileIdFrom = sandboxProfileIdFrom;
 exports.withoutRuntimeKeys = withoutRuntimeKeys;
 exports.optionalString = optionalString;
 exports.isRecord = isRecord;
+exports.telemetryVerify = telemetryVerify;
+exports.demoTamper = demoTamper;
 const capability_registry_1 = require("./capability-registry");
 const drive_1 = require("./drive");
 const agent_config_1 = require("./agent-config");
 const run_registry_1 = require("./run-registry");
 const observability_1 = require("./observability");
+const telemetry_ledger_1 = require("./telemetry-ledger");
+const telemetry_demo_1 = require("./telemetry-demo");
 const state_1 = require("./state");
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -627,4 +631,33 @@ function optionalString(value) {
 }
 function isRecord(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+// ---- telemetry attestation: read-only ledger verification (Track 1) --------
+// Re-prove a run's telemetry chain offline: prevHash linkage + independent per-
+// record hash recompute (never trusts the stored hash). The auditable claim made
+// inspectable on demand — anyone can run this; a forged/edited record fails it.
+function telemetryVerify(runner, args) {
+    const runId = optionalString(args.runId || args.run);
+    if (!runId)
+        throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");
+    const run = runner.loadRun(runId);
+    const v = (0, telemetry_ledger_1.verifyTelemetryLedger)(run);
+    return {
+        schemaVersion: 1,
+        runId: run.id,
+        present: v.present,
+        verified: v.verified,
+        records: v.records.length,
+        attested: v.attested,
+        unattested: v.unattested,
+        absent: v.absent,
+        failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code }))
+    };
+}
+// ---- demo: tamper-evidence (the one-command proof) -------------------------
+// Hermetic, deterministic-shape: builds a real ed25519-signed telemetry ledger,
+// then forges it two ways and shows both tamper-evidence layers catch it. CLI-only
+// (a human-facing demonstration; the underlying verify is the telemetry.verify verb).
+function demoTamper(_runner, _args = {}) {
+    return (0, telemetry_demo_1.runTamperDemo)();
 }
