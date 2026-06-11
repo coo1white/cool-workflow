@@ -887,13 +887,22 @@ function runAgentProcess(descriptor, policy, request, label, handle, attestation
             outcome = request.preparedAgentOutcome;
         }
         else {
+            // Live output (Unix discipline): the agent's STDOUT is the data CW records
+            // + digests, so it is always captured (piped). The agent's STDERR is
+            // diagnostics — forward it straight to the operator's terminal so a drive
+            // shows live activity, but ONLY when our stderr is a TTY (silent when piped
+            // / in CI — the Rule of Silence; a non-interactive run's behavior and the
+            // stdout payload are unchanged). CW only FORWARDS the stream; it never
+            // parses it — any human-readable rendering is the agent wrapper's concern.
+            const streamStderr = Boolean(process.stderr.isTTY) && process.env.CW_NO_STREAM !== "1";
             const child = (0, node_child_process_1.spawnSync)(resolved.binary, realArgs, {
                 cwd: request.cwd,
                 env: { ...process.env },
                 encoding: "utf8",
                 timeout: resolved.timeoutMs || 600000,
                 maxBuffer: 32 * 1024 * 1024,
-                shell: false
+                shell: false,
+                stdio: ["ignore", "pipe", streamStderr ? "inherit" : "pipe"]
             });
             outcome = {
                 ...(child.error ? { spawnError: messageOf(child.error) } : {}),
