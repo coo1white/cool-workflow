@@ -1,17 +1,16 @@
-# Dogfood: architecture-review --drive on cool-workflow (v0.1.38)
+# Dogfood: architecture-review --drive on cool-workflow (CW v0.1.77)
 
-Maintainer-run live proof of Agent Delegation Drive (OUT of CI). A real external
-agent (claude -p via scripts/agents/claude-p-agent.sh) drove the whole
-architecture-review workflow end-to-end with zero hand-written result.md.
+Maintainer-run live proof (OUT of CI): a real external agent drove the whole
+architecture-review workflow end-to-end with zero hand-written result.md. The
+model ran in the agent's process; CW spawned it and recorded the attested
+output. CW holds no API key and imports no model SDK.
 
-- Repository audited: cool-workflow (this repo)
-- Run: architecture-review-20260609T023238Z-k3yfhl
-- Status: complete (verifier-gated commit state-20260609T031922Z-1xnhjc, verifierGated=true)
-- Workers driven: 14/14 via the agent backend (handle kind: process), zero hand-written result.md
-- Agent-reported (attested) model: claude-opus-4-8[1m] -- sourced solely from the agent's own report, never CW_AGENT_MODEL
-- worker.agent-delegation audit events: 14
-- Verdict: no P0 confirmed; ranked P1/P2 risks with grounded file:line evidence (see the run report).
-
-The model ran in the external agent's process; CW only spawned it and recorded
-the attested output. package.json dependencies remain {} -- no model SDK, no API
-key held by CW. The CI/release gate is the hermetic stub --smoke path.
+- Date: 2026-06-11
+- Run: architecture-review-20260611T014521Z-gfdd5v
+- Status: complete
+- Workers driven: 14/14 (zero hand-written result.md)
+- Agent-reported model(s): claude-opus-4-8[1m] — sourced solely from the agent's own report, never CW_AGENT_MODEL
+- Agent-reported usage: 14/14 workers reported tokens (38069 in / 168789 out)
+- agent-delegation audit events: 14
+- Commit: state-20260611T022527Z-c0mj4v
+- Agent template: scripts/agents/claude-p-agent.js (read-only claude; the wrapper persists result.md and forwards model+usage)

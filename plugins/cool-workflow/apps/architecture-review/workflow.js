@@ -17,7 +17,8 @@ module.exports = ({ workflow, phase, agent, artifact, input }) => {
     }),
     input("focus", {
       type: "string",
-      description: "Optional subsystem, risk area, or file path to emphasize."
+      description: "Optional subsystem, risk area, or file path to emphasize.",
+      default: "the overall architecture"
     })
   ];
 

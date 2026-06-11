@@ -174,18 +174,39 @@ function runLive() {
   const provenanceDir = path.join(pluginRoot, "docs", "dogfood");
   fs.mkdirSync(provenanceDir, { recursive: true });
   const provenancePath = path.join(provenanceDir, `architecture-review-${repoName}.md`);
+  // The committed proof artifact: self-contained (CW version, date, agent-reported
+  // usage totals), so the note evidences WHICH pipeline completed with a REAL
+  // agent without needing the local run directory.
+  const cwVersion = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8")).version;
+  const usageTotals = (final.workers || [])
+    .filter((worker) => worker.usage)
+    .reduce(
+      (acc, worker) => ({
+        workers: acc.workers + 1,
+        inputTokens: acc.inputTokens + (worker.usage.inputTokens || 0),
+        outputTokens: acc.outputTokens + (worker.usage.outputTokens || 0)
+      }),
+      { workers: 0, inputTokens: 0, outputTokens: 0 }
+    );
   fs.writeFileSync(
     provenancePath,
     [
-      `# Dogfood: architecture-review --drive on ${repoName}`,
+      `# Dogfood: architecture-review --drive on ${repoName} (CW v${cwVersion})`,
       "",
+      "Maintainer-run live proof (OUT of CI): a real external agent drove the whole",
+      "architecture-review workflow end-to-end with zero hand-written result.md. The",
+      "model ran in the agent's process; CW spawned it and recorded the attested",
+      "output. CW holds no API key and imports no model SDK.",
+      "",
+      `- Date: ${new Date().toISOString().slice(0, 10)}`,
       `- Run: ${run.id}`,
       `- Status: ${result.status}`,
       `- Workers driven: ${result.completedWorkers}/${result.plannedWorkers} (zero hand-written result.md)`,
-      `- Agent-reported model(s): ${reportedModels.join(", ") || "unreported"}`,
+      `- Agent-reported model(s): ${reportedModels.join(", ") || "unreported"} — sourced solely from the agent's own report, never CW_AGENT_MODEL`,
+      `- Agent-reported usage: ${usageTotals.workers}/${result.plannedWorkers} workers reported tokens (${usageTotals.inputTokens} in / ${usageTotals.outputTokens} out)`,
       `- agent-delegation audit events: ${byKind["worker.agent-delegation"] || 0}`,
-      `- Report: ${final.paths.report}`,
       `- Commit: ${result.commitId || "none"}`,
+      `- Agent template: scripts/agents/claude-p-agent.js (read-only claude; the wrapper persists result.md and forwards model+usage)`,
       ""
     ].join("\n"),
     "utf8"

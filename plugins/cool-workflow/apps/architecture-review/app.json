@@ -27,7 +27,8 @@
     {
       "name": "focus",
       "type": "string",
-      "description": "Optional subsystem, risk area, or file path to emphasize."
+      "description": "Optional subsystem, risk area, or file path to emphasize.",
+      "default": "the overall architecture"
     }
   ],
   "sandboxProfiles": [
