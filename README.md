@@ -1,3 +1,5 @@
+<div align="center">
+
 ```text
 ══════════════════════════════════════════════════════════════════════
   C O O L   W O R K F L O W   ·   CW
@@ -6,20 +8,58 @@
 ══════════════════════════════════════════════════════════════════════
 ```
 
+**Prove your agent telemetry is real — offline, with only a public key.**
+CW delegates model execution (never embeds it) and makes every recorded
+verdict tamper-evident.
+
 [![CI](https://img.shields.io/github/actions/workflow/status/coo1white/cool-workflow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/coo1white/cool-workflow/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/cool-workflow?style=flat-square&label=npm&color=cb3837)](https://www.npmjs.com/package/cool-workflow)
 [![downloads](https://img.shields.io/npm/dm/cool-workflow?style=flat-square&label=downloads)](https://www.npmjs.com/package/cool-workflow)
+[![provenance](https://img.shields.io/badge/npm-provenance-3178C6?style=flat-square)](https://www.npmjs.com/package/cool-workflow)
 [![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
 [![license](https://img.shields.io/badge/license-BSD--2--Clause-blue?style=flat-square)](LICENSE)
 ![MCP](https://img.shields.io/badge/MCP-native-8A2BE2?style=flat-square)
-![runtime](https://img.shields.io/badge/runtime-TypeScript%20%C2%B7%20Node-3178C6?style=flat-square)
 
-**Cool Workflow (CW)** is an Agent Workflow for turning broad agent tasks
-into durable, inspectable workflow runs. It records what happens; the agent
-host still runs the models. CW makes the work durable, inspectable, verifiable,
-and replayable — without ever becoming the executor.
+</div>
 
-**[Quick Start](#quick-start)** · [Install](#install-as-a-plugin) · [Concepts](#the-mental-model) · [What's Included](#what-is-included) · [Apps](#bundled-workflow-apps) · [Multi-Agent](#multi-agent-work) · [Eval / Replay](#eval-and-replay) · [Docs](#docs)
+## ⚡ See it in 30 seconds
+
+No install, no model, no API key — it builds a real signed telemetry ledger,
+forges it, and catches every forgery offline:
+
+```bash
+npx cool-workflow demo tamper
+```
+
+<!-- Demo GIF: record with `vhs docs/launch/demo.tape` (see docs/launch/launch-kit.md),
+     then replace the code block below with:  ![demo](docs/launch/demo-tamper.gif) -->
+
+```text
+▶ Built an attested telemetry ledger: 3 hops, 3 records
+  ✓ ledger verifies   2 signed hop(s) verify against the public key
+
+▶ LEDGER tamper
+  edit:   forged record[1] verdict "unattested" → "attested" AND recomputed its recordHash to cover the edit
+  after:  ✗ DETECTED — the hash chain caught it: chain-link[2]: telemetry-chain-broken
+
+▶ SIGNATURE tamper
+  edit:   inflated record[0] reported output_tokens 1911 → 19110, reused the original ed25519 signature
+  after:  ✗ DETECTED — signature does not match reported usage
+
+VERDICT: tamper-evidence holds ✓ — every forgery caught offline, with only the public key.
+```
+
+> **Why it matters:** a control-plane that delegates model execution but still
+> *proves* the executor's reported usage is real and unedited. The thing that
+> spends the tokens is not the thing that keeps the books — separation of duties,
+> for agents. On a real run, `cw telemetry verify <run>` re-proves the ledger on
+> demand (`cw_telemetry_verify` on MCP).
+
+**[Quick Start](#quick-start)** · [Install](#install) · [Concepts](#the-mental-model) · [What's Included](#what-is-included) · [Apps](#bundled-workflow-apps) · [Multi-Agent](#multi-agent-work) · [Eval / Replay](#eval-and-replay) · [Docs](#docs)
+
+**Cool Workflow (CW)** turns broad agent tasks into durable, inspectable,
+replayable workflow runs. It records what happens and verifies it; the agent
+host still runs the models — CW never becomes the executor.
 
 It is a small TypeScript/Node runtime with a CLI, MCP tools, reusable workflow
 apps, multi-agent coordination records, and release-grade replay checks.

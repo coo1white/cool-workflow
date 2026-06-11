@@ -6,6 +6,60 @@ Everything leads with the 30-second `npx cool-workflow demo tamper` proof.
 
 ---
 
+## ✅ FINAL — Show HN (copy-paste ready)
+
+**Pre-flight (do these first):**
+1. Record the demo GIF: `vhs plugins/cool-workflow/docs/launch/demo.tape` → swap it into the README hero (replace the fenced output block with the GIF).
+2. Confirm on a clean machine: `npx cool-workflow demo tamper` runs and prints `VERDICT: tamper-evidence holds ✓`.
+3. Post during US morning (HN traffic peak); reply to the first comment with the npm + provenance link.
+
+**Title** (exactly — HN strips most formatting):
+
+```
+Show HN: Cool Workflow – tamper-evident telemetry for agent pipelines (npx demo)
+```
+
+**URL field:** `https://github.com/coo1white/cool-workflow`
+
+**First comment (paste right after posting):**
+
+```
+I kept seeing agent-orchestration tools treat the model's self-reported token
+usage and results as ground truth. For anything auditable that's backwards — a
+control-plane that trusts unverified self-reports audits claims, not facts, and a
+forged "green" run looks identical to a real one.
+
+Cool Workflow takes the opposite stance. It DELEGATES model execution to whatever
+agent you configure (claude -p, codex exec, an HTTP endpoint) and never embeds a
+model SDK or holds an API key. What it owns is the audit trail: each agent hop's
+reported usage is signed (ed25519) and appended to a hash-chained ledger, so
+editing any record — or even recomputing its local hash to cover the edit — breaks
+the chain downstream. You re-verify a finished run offline, with only the public
+key. No telemetry service to trust or breach.
+
+30-second proof, no install:
+
+  npx cool-workflow demo tamper
+
+It builds a real signed ledger, forges it two ways (flip a verdict + re-seal its
+hash; inflate reported tokens + reuse the signature), and shows both caught. On a
+real run, `cw telemetry verify <run>` does the same against what's on disk.
+
+Also: concurrent parallel() phases with declared collapse semantics (collect-all +
+kill-on-timeout — 16 agents with a forced hang/crash/dirty-return finish without
+deadlock and replay who-passed-who-failed), per-task output-schema gates, token
+budgets enforced against attested usage, and a one-way executor boundary welded
+into the type system (a callable that could reach a model API fails `npm run
+build`). Zero runtime deps, BSD-2, published to npm with provenance.
+
+It's early (v0.1.79) — I'd genuinely like to hear where the "delegate, prove,
+replay" model breaks down for your workflows.
+
+npm: https://www.npmjs.com/package/cool-workflow
+```
+
+---
+
 ## One-liner
 
 > Cool Workflow is an auditable control-plane for multi-agent workflows. It
@@ -103,10 +157,12 @@ API) enforced at compile time. Zero deps, BSD-2.
 
 ## Assets to capture before posting
 
-- [ ] A terminal GIF of `npx cool-workflow demo tamper` (the ✗ DETECTED lines are
-      the hook) for the README top and the HN/tweet.
+- [ ] **Demo GIF** — reproducible, no manual screen-recording: `vhs
+      plugins/cool-workflow/docs/launch/demo.tape` → `docs/launch/demo-tamper.gif`,
+      then swap it into the README hero (replace the fenced output block). The
+      ✗ DETECTED lines are the hook.
 - [ ] Confirm `npx cool-workflow demo tamper` works from a clean machine (no clone).
-- [ ] Pin the npm version badge / release in the first comment.
+- [ ] Pin the npm version badge / release + provenance link in the first comment.
 
 ## Channels
 
