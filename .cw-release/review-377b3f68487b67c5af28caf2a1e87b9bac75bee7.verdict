@@ -1,0 +1,2 @@
+APPROVED 377b3f68487b67c5af28caf2a1e87b9bac75bee7
+A user can now run one hermetic command, `cw demo tamper` (no model, network, or API key), to prove offline with only the public key that a recorded telemetry verdict cannot be forged undetected, and re-verify any real run's attestation ledger on demand via `cw telemetry verify <run>` (CLI and `cw_telemetry_verify` on MCP).

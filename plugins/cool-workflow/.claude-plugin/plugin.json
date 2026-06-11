@@ -1,7 +1,7 @@
 {
   "name": "cool-workflow",
   "description": "Auditable workflow control-plane and orchestration runtime: TypeScript dispatch, evidence-gated verification, state commits, scheduling, routines, multi-agent coordination, and MCP. Delegates execution to external agents — never runs models.",
-  "version": "0.1.78",
+  "version": "0.1.79",
   "author": {
     "name": "COOLWHITE LLC"
   },
