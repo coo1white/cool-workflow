@@ -1,16 +1,8 @@
 <div align="center">
 
-```text
-══════════════════════════════════════════════════════════════════════
-  C O O L   W O R K F L O W   ·   CW
-  auditable agent-workflow control-plane — delegate, don't execute
-  plan → dispatch → record → verify → commit → report
-══════════════════════════════════════════════════════════════════════
-```
+# Cool Workflow
 
-**Prove your agent telemetry is real — offline, with only a public key.**
-CW delegates model execution (never embeds it) and makes every recorded
-verdict tamper-evident.
+**Point an AI coding agent at a repo, get a saved report with real citations — not a chat message you lose.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/coo1white/cool-workflow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/coo1white/cool-workflow/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/cool-workflow?style=flat-square&label=npm&color=cb3837)](https://www.npmjs.com/package/cool-workflow)
@@ -18,564 +10,173 @@ verdict tamper-evident.
 [![provenance](https://img.shields.io/badge/npm-provenance-3178C6?style=flat-square)](https://www.npmjs.com/package/cool-workflow)
 [![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
 [![license](https://img.shields.io/badge/license-BSD--2--Clause-blue?style=flat-square)](LICENSE)
-![MCP](https://img.shields.io/badge/MCP-native-8A2BE2?style=flat-square)
 
 </div>
 
-## ⚡ See it in 30 seconds
+## What is this, really?
 
-No install, no model, no API key — it builds a real signed telemetry ledger,
-forges it, and catches every forgery offline:
+You ask an AI coding agent a question, it answers in the chat, and then it's
+gone. Next week you ask again and start from scratch.
+
+**Cool Workflow (CW) turns that throwaway question into a saved job.** You point
+it at a code repository with a question like *"what are the security risks here?"*
+It runs your AI agent over the whole repo in organized steps and writes a
+**report file** to disk — every finding backed by an exact `file.js:42` citation.
+You can re-run it, share it, and even prove the report wasn't tampered with.
+
+```
+        you ask once                          CW gives you
+   "what are the risks in my repo?"     →   a saved report.md with
+                                              cited findings, repeatable
+```
+
+It does **not** run the AI model itself. You bring your own agent (e.g. the
+`claude` command line) and CW drives it, records what happened, and checks the
+result. Think of CW as the *project manager*, and your agent as the *worker*.
+
+> New to this? You're in the right place — this README is a step-by-step start.
+> Deeper/advanced docs live in the [wiki](https://github.com/coo1white/cool-workflow/wiki).
+
+---
+
+## What you need
+
+1. **Node.js** (v18+). Check with `node --version`.
+2. **An AI agent on the command line.** The easiest is **Claude Code** — after
+   installing it you'll have a `claude` command. Check with `claude --version`.
+   (CW also works with `codex`, or any command/HTTP agent — but start with
+   `claude`.)
+
+> No agent yet? You can still **see CW work** (next section, step 1) without one.
+> The full report needs an agent, because CW never calls a model itself.
+
+---
+
+## Quick start (3 steps)
+
+### 1. See it run — no install, no agent, no API key
 
 ```bash
 npx cool-workflow demo tamper
 ```
 
-<!-- Demo GIF: record with `vhs docs/launch/demo.tape` (see docs/launch/launch-kit.md),
-     then replace the code block below with:  ![demo](docs/launch/demo-tamper.gif) -->
+This proves CW's headline trick in 30 seconds (more on that
+[below](#can-i-trust-the-report)). If you see `VERDICT: tamper-evidence holds ✓`,
+everything works.
 
-```text
-▶ Built an attested telemetry ledger: 3 hops, 3 records
-  ✓ ledger verifies   2 signed hop(s) verify against the public key
-
-▶ LEDGER tamper
-  edit:   forged record[1] verdict "unattested" → "attested" AND recomputed its recordHash to cover the edit
-  after:  ✗ DETECTED — the hash chain caught it: chain-link[2]: telemetry-chain-broken
-
-▶ SIGNATURE tamper
-  edit:   inflated record[0] reported output_tokens 1911 → 19110, reused the original ed25519 signature
-  after:  ✗ DETECTED — signature does not match reported usage
-
-VERDICT: tamper-evidence holds ✓ — every forgery caught offline, with only the public key.
-```
-
-> **Why it matters:** a control-plane that delegates model execution but still
-> *proves* the executor's reported usage is real and unedited. The thing that
-> spends the tokens is not the thing that keeps the books — separation of duties,
-> for agents. On a real run, `cw telemetry verify <run>` re-proves the ledger on
-> demand (`cw_telemetry_verify` on MCP).
-
-**[Quick Start](#quick-start)** · [Install](#install) · [Concepts](#the-mental-model) · [What's Included](#what-is-included) · [Apps](#bundled-workflow-apps) · [Multi-Agent](#multi-agent-work) · [Eval / Replay](#eval-and-replay) · [Docs](#docs)
-
-**Cool Workflow (CW)** turns broad agent tasks into durable, inspectable,
-replayable workflow runs. It records what happens and verifies it; the agent
-host still runs the models — CW never becomes the executor.
-
-It is a small TypeScript/Node runtime with a CLI, MCP tools, reusable workflow
-apps, multi-agent coordination records, and release-grade replay checks.
-
-## What I actually built
-
-Most "agent frameworks" treat a task as one long prompt and hope for the best.
-Cool Workflow treats it as a **runtime problem**: make the work durable,
-inspectable, and verifiable, the same way an OS makes processes durable and
-inspectable.
-
-The whole system is one idea repeated at every layer:
-
-```text
-plan → dispatch → record evidence → verify → verifier-gated commit → report
-```
-
-- **Explicit state, no magic.** Every run is plain JSON under `.cw/runs/<id>/`.
-  You can read it, diff it, resume it, replay it. There is no hidden dashboard
-  database and the runtime never *infers* success — ambiguity is a visible state.
-- **Evidence over vibes.** Results carry provenance. The Evidence Adoption
-  reasoning chain records *why* something was adopted or rejected — basis,
-  authority, rationale, and the counterfactual it beat — and fails closed to
-  `unexplained` rather than fabricating a reason.
-- **Multi-agent as a process table.** Roles, memberships, a shared blackboard,
-  and reusable topologies (map-reduce, debate, judge-panel) with policy + audit.
-- **Verified, not hand-checked.** A deterministic eval/replay harness and a
-  verifier-gated commit model gate every release; `release:check` is a dry-run
-  that builds, type-checks, tests, replays, and self-dogfoods on this repo.
-- **One kernel, many front doors.** A shared CLI + MCP (JSON-RPC 2.0) runtime;
-  vendor plugin manifests (Claude, Codex, …) are *generated* from a single
-  source of truth, with a fail-closed drift check so no adapter forks the logic.
-
-Design philosophy is deliberately Unix/BSD:
-
-```text
-Small kernel. Explicit state. Composable pipes.
-Isolated workers. Verifier-gated commits. Docs as man pages.
-```
-
-54 source modules · 56 smoke tests · 6 bundled workflow apps ·
-evidence-gated commits · deterministic replay · generated vendor manifests.
-
-## Why CW Exists
-
-Agent work gets hard to trust when the task is long, parallel, or high-stakes.
-CW gives agent hosts a shared runtime contract:
-
-| Problem | CW answer |
-| --- | --- |
-| Work disappears into chat history | Durable run state in `.cw/runs/<run-id>/` |
-| Subtasks are hard to track | Task files, dispatch manifests, worker outputs |
-| Results lack evidence | Result envelopes, provenance, audit records |
-| Many candidates compete | Candidate scoring and explicit selection |
-| Unsafe changes slip through | Verifier-gated commits or named checkpoints |
-| Multi-agent work gets messy | Topologies, blackboards, fanout/fanin, operator views |
-| Releases need confidence | Golden path, fixture compatibility, eval/replay gates |
-
-## Philosophy
-
-The agent ecosystem today looks like the Linux distro wars of the late 1990s: dozens of frameworks, each a single opinionated blob with its own incompatible state format, fighting over the same ground. What is missing is not another framework. It is a *base system* — small, complete, coherent, ruthlessly documented — on top of which everything else is userland.
-
-CW takes FreeBSD as its blueprint, not Linux. Not the market share — the engineering philosophy. **One artifact:** kernel, userland, and docs are versioned and released together, so the run-state format, scheduler semantics, isolation contract, and documentation evolve in lockstep. **Jails:** sandbox profiles are isolation contracts the runtime is moving to *enforce*, not merely record — policy that is not enforced is decoration. **ABI discipline:** on-disk run state is treated like a syscall ABI, with versioned schemas and replay compatibility across releases, so last year's audit history still parses, still replays, still audits. **Release engineering as a feature:** every release is gated by a deterministic harness that builds, type-checks, tests, replays, and dogfoods on this repo.
-
-And, like FreeBSD's base contains no X11, CW commits to a **Never list**: no model calls in base, no prompt management or routing, no hosted dashboard as the source of truth, and no inferred success — the runtime reports `unexplained` rather than guessing.
-
-Read the full argument: [**Manifesto: Agents Need FreeBSD**](https://github.com/coo1white/cool-workflow/wiki/Manifesto:-Agents-Need-FreeBSD).
-
-## Install
-
-```bash
-npm install -g cool-workflow      # then: cw …   /   cool-workflow …
-# or run without installing:
-npx cool-workflow list
-```
-
-Published to npm as [`cool-workflow`](https://www.npmjs.com/package/cool-workflow)
-with **zero runtime dependencies** and `dist/` committed, so it runs immediately.
-The package exposes two bins — `cw` and `cool-workflow` — and the MCP server at
-`dist/mcp-server.js`. Prefer a clone? Every command below also works from
-`plugins/cool-workflow/` via `node scripts/cw.js …`.
-
-## Quick Start
-
-
-Get a cited architecture-risk report on any repo in **one command**:
+### 2. Run a real review on your own repo
 
 ```bash
 npx cool-workflow quickstart architecture-review \
-  --repo /path/to/your/repo \
-  --question "What are the main architecture risks?" \
+  --repo /path/to/your/project \
+  --question "What are the main risks in this codebase?" \
   --agent-command builtin:claude
 ```
 
-> From a clone instead: `cd cool-workflow/plugins/cool-workflow` and replace
-> `npx cool-workflow` with `node scripts/cw.js`.
+- `--repo` — the folder you want reviewed.
+- `--question` — what you want to know.
+- `--agent-command builtin:claude` — use the bundled Claude wrapper (read-only;
+  it never edits your code).
 
-`builtin:claude` resolves to the bundled **claude wrapper** (`scripts/agents/claude-p-agent.js` — equivalently: `--agent-command "node /path/to/scripts/agents/claude-p-agent.js {{input}} {{result}}"`): it feeds each worker's
-`input.md` to headless `claude` **read-only** (`--allowedTools Read,Grep,Glob,Bash`
-— no Write tool, honoring the app's `readonly` sandbox profile), persists
-claude's final markdown to the worker's `result.md` itself, and forwards claude's
-JSON so CW records the agent-REPORTED model + token usage as provenance. A bare
-`claude -p` does NOT work as the agent command — claude receives no prompt and no
-write path; use the wrapper (or adapt it: `codex exec`, an HTTP endpoint, any CLI
-that reads `{{input}}` and writes `{{result}}`).
+CW plans the work, drives `claude` over your repo in steps, and prints where it
+saved the report.
 
-That single command plans the run, drives every worker to completion, and writes
-the report — no copied run id, no 10-step ritual. The JSON it prints back carries
-the `runId`, `status`, `completedWorkers`, and the `reportPath`:
+> **No agent configured?** CW stops safely and tells you so (`status: blocked`) —
+> it never makes up an answer. Install `claude` and re-run.
+
+### 3. Read the report
 
 ```bash
-# read the generated report
-cat /path/to/your/repo/.cw/runs/<runId>/report.md
+cat /path/to/your/project/.cw/runs/<run-id>/report.md
 ```
 
-**`quickstart` drives YOUR agent, it does not run a model.** CW is an auditable
-control plane: the one command sequences the recorded `plan -> run --drive ->
-report` pipeline and **delegates** every worker to the agent backend *you*
-configure (the bundled claude wrapper above, a `codex exec` adaptation of it, or
-`--agent-endpoint https://…`). CW never embeds a model, never holds an API
-key, and never executes a model itself. With **no** agent configured it **fails
-closed** — it reports `status: blocked` and refuses rather than fabricating a
-completion:
+You'll get a summary, ranked findings, and **clickable citations** like
+`src/server.js:18` for every claim — so you can check each one yourself.
+
+---
+
+## Install it (optional)
+
+`npx` always works without installing. To get the short `cw` command everywhere:
 
 ```bash
-# no --agent-command and no CW_AGENT_COMMAND ⇒ status: blocked, never fabricated
-node scripts/cw.js quickstart architecture-review --repo ../.. --question "risks?"
+npm install -g cool-workflow      # then use:  cw …   instead of  npx cool-workflow …
 ```
 
-Set the backend once via the environment instead of a flag:
+---
 
-```bash
-export CW_AGENT_COMMAND=builtin:claude
-node scripts/cw.js quickstart architecture-review --repo ../.. --question "risks?"
-```
+## What else can it do?
 
-Add `--preview` for a read-only, deterministic dry run (it plans and projects the
-next step but spawns nothing and commits nothing). `audit-run` is an alias of
-`quickstart`.
+CW ships several ready-made "jobs" (run `cw list` to see them all):
 
-### See the difference in 30 seconds — `cw demo tamper`
+| Command | What it does |
+|---|---|
+| `architecture-review` | Map a repo's structure and rank its real risks, with evidence. |
+| `pr-review-fix-ci` | Review a pull request, propose fixes, check CI. |
+| `research-synthesis` | Gather and synthesize an evidence-backed answer to a question. |
+| `release-cut` | Drive a gated, reviewed release. |
 
-CW's claim is *auditable*: every recorded agent telemetry verdict proves its own
-integrity, and **anyone can re-verify it offline with only a public key** — no
-server to trust. One hermetic command demonstrates it (no model, no network, no
-API key — it builds a real ed25519-signed ledger, forges it two ways, and shows
-both forgeries caught):
+It also exposes the same actions over **MCP**, so editors like Claude Desktop /
+Cursor / VS Code can call CW as a tool. See the
+[wiki](https://github.com/coo1white/cool-workflow/wiki) for that and for
+multi-agent runs.
 
-```bash
-node scripts/cw.js demo tamper      # or: npx cool-workflow demo tamper
-```
+---
 
-```
-▶ Built an attested telemetry ledger: 3 hops, 3 records
-  ✓ ledger verifies   2 signed hop(s) verify against the public key
+## Can I trust the report?
+
+This is what makes CW different. Because CW only *delegates* to your agent, it
+keeps a tamper-evident record of every step: each agent's reported token usage is
+cryptographically signed and hash-chained, so **editing the record after the fact
+breaks the chain** — and anyone can re-verify it offline with only a public key.
+
+See it for yourself — the `demo tamper` from step 1 forges a record two ways and
+catches both:
+
+```text
 ▶ LEDGER tamper
-  edit:   forged record[1] verdict "unattested" -> "attested" AND recomputed its recordHash to cover the edit
   after:  ✗ DETECTED — the hash chain caught it: chain-link[2]: telemetry-chain-broken
 ▶ SIGNATURE tamper
-  edit:   inflated record[0] reported output_tokens 1911 -> 19110, reused the original ed25519 signature
   after:  ✗ DETECTED — signature does not match reported usage
-VERDICT: tamper-evidence holds ✓ — every forgery was caught offline, with only the public key.
+VERDICT: tamper-evidence holds ✓ — every forgery caught offline, with only the public key.
 ```
 
-On a real run, the operator-facing half is `cw telemetry verify <run-id>`: it
-re-proves that run's telemetry ledger (chain linkage + an independent hash
-recompute that never trusts the stored value). This is the separation-of-duties
-wedge — CW delegates model execution and never holds a key, yet can prove whether
-the executor's reported usage is real and unedited.
-
-### Under the hood
-
-`quickstart` is a thin convenience wrapper, not a new engine — it composes the
-existing verbs you can also run by hand. First, inspect the bundled runtime
-(`dist/` is committed, so it works immediately):
+On a real run, verify any run's record yourself:
 
 ```bash
-node scripts/cw.js list
-node scripts/cw.js app list
-node scripts/cw.js app show architecture-review
+cw telemetry verify <run-id>
 ```
 
-Create a local architecture-review run:
+The plain-English point: *the thing that spends the tokens is not the thing that
+keeps the books.* That separation is normal in accounting — CW brings it to AI
+agents.
 
-```bash
-node scripts/cw.js plan architecture-review \
-  --repo ../.. \
-  --question "What are the main architecture risks?"
-```
+---
 
-Copy the returned `runId`, then drive it (delegating to your agent) and inspect:
+## Troubleshooting
 
-```bash
-node scripts/cw.js run <run-id> --drive --agent-command builtin:claude
-node scripts/cw.js status <run-id>
-node scripts/cw.js graph <run-id>
-node scripts/cw.js worker summary <run-id>
-node scripts/cw.js report <run-id> --show
-```
+| Problem | Fix |
+|---|---|
+| `status: blocked`, `agentConfigured: false` | No agent is set up. Install `claude` (or pass `--agent-command`). |
+| `claude: command not found` | Install Claude Code so the `claude` command exists, then re-run. |
+| Want to see the plan without running the AI | Add `--preview` — it shows the steps and spawns nothing. |
+| Where did my report go? | The command prints `reportPath`; it's under `<your-repo>/.cw/runs/<id>/report.md`. |
 
-Or step the pipeline manually, dispatching one worker at a time:
+---
 
-```bash
-node scripts/cw.js dispatch <run-id> --limit 1 --sandbox readonly
-node scripts/cw.js worker summary <run-id>
-```
+## How it works (one paragraph)
 
-Run data is written to `.cw/runs/<run-id>/` in the target repo/cwd.
-`dispatch` creates task manifests for an agent host or operator to execute; CW
-records the state and evidence, while the host still runs the workers.
+CW is a small, zero-dependency TypeScript/Node runtime. It records the agent loop
+explicitly — *plan → dispatch → record → verify → commit → report* — as durable
+files on disk, so a run is inspectable and replayable instead of a disposable
+chat. It never embeds a model SDK and holds no API key; your configured agent does
+the thinking, CW does the bookkeeping and the checking. For the architecture,
+multi-agent coordination, execution backends, and the full CLI/MCP surface, see
+the **[wiki](https://github.com/coo1white/cool-workflow/wiki)** and
+[`plugins/cool-workflow/docs/`](plugins/cool-workflow/docs/).
 
-## Install as a Plugin
+---
 
-CW ships vendor manifests for multiple agent hosts. All of them are generated
-from one source of truth (`plugins/cool-workflow/manifest/plugin.manifest.json`)
-and point at the same shared runtime — no forked logic per vendor. See
-[plugins/cool-workflow/manifest/README.md](plugins/cool-workflow/manifest/README.md).
+## License
 
-### Claude Code
-
-Add this repository as a local marketplace, then install the plugin:
-
-```text
-/plugin marketplace add /absolute/path/to/cool-workflow
-/plugin install cool-workflow@cool-workflow
-```
-
-Or load it for a single session without installing:
-
-```bash
-claude --plugin-dir /absolute/path/to/cool-workflow/plugins/cool-workflow
-```
-
-To persist for a project/team, add to `.claude/settings.json`:
-
-```json
-{
-  "enabledPlugins": { "cool-workflow@cool-workflow": true }
-}
-```
-
-The Claude MCP server is auto-discovered from `plugins/cool-workflow/.mcp.json`
-(it resolves `${CLAUDE_PLUGIN_ROOT}/dist/mcp-server.js`). After installing,
-`/plugin list` confirms the plugin and `/reload-plugins` reloads after changes.
-
-### Codex / other hosts
-
-Codex reads `plugins/cool-workflow/.codex-plugin/plugin.json`, which references
-its own `.codex-plugin/mcp.json`. The bundled `skills/` and `dist/` runtime are
-shared across every vendor. Even where plugins are unavailable, the CLI
-(`node scripts/cw.js ...`) is the lowest-common-denominator interface.
-
-## The Mental Model
-
-CW is a base system. Workflow apps are userland.
-
-```text
-workflow app
-  -> validated inputs
-  -> phases and tasks
-  -> dispatch manifests
-  -> worker outputs
-  -> feedback, candidates, scores
-  -> verifier-gated commit or checkpoint
-  -> final report
-```
-
-The runtime records what happened. The agent host still executes workers and
-enforces OS/process/network/environment controls.
-
-## What Is Included
-
-| Area | What it gives you |
-| --- | --- |
-| Workflow App framework | Versioned app manifests, inputs, phases, tasks, artifacts, and validation |
-| CLI runtime | Human-friendly commands for planning, dispatching, inspecting, and reporting |
-| MCP surface | JSON-first tool parity for agent hosts |
-| Sandbox Profiles | Named read/write/command/network/env policy contracts |
-| Worker isolation | Worker manifests, result files, failure records, and scoped outputs |
-| Candidate scoring | Register, score, rank, select, and reject competing outputs |
-| Verifier-gated commits | Only verified state becomes committed state |
-| Operator UX | `status`, `graph`, summaries, reports, and deterministic next actions |
-| Coordinator / Blackboard | Shared topics, messages, artifacts, context, snapshots, and decisions |
-| Multi-agent runtime | Runs, roles, groups, memberships, fanout/fanin, and lifecycle state |
-| Multi-agent topologies | Official `map-reduce`, `debate`, `judge-panel` recipes + open `registerTopology()` |
-| Trust / policy / audit | Provenance, role authority, policy violations, judge rationale |
-| Eval / replay harness | Deterministic snapshots, replay, comparison, scoring, gates, reports |
-| **NEW v0.1.53** | |
-| Capability registry | `registerCapabilityHandler({ descriptor, run })` — new tools auto-register across CLI + MCP + Workbench |
-| Topology registry | `registerTopology(definition)` — custom topologies with data-driven role expansion |
-
-## Bundled Workflow Apps
-
-| App | Use it for |
-| --- | --- |
-| `architecture-review` | Map a repo, assess risks, verify findings, synthesize a verdict |
-| `pr-review-fix-ci` | Review a PR/branch, inspect CI, propose and verify fixes |
-| `release-cut` | Prepare a release with checklist discipline and dry-run evidence |
-| `research-synthesis` | Split a research question, verify claims, produce a concise synthesis |
-| `end-to-end-golden-path` | Prove the public app -> worker -> score -> commit -> report chain |
-| `workflow-app-framework-demo` | Learn the app manifest and workflow entrypoint contract |
-
-Useful commands:
-
-```bash
-node scripts/cw.js app list
-node scripts/cw.js app show release-cut
-node scripts/cw.js app validate apps/release-cut/app.json
-node scripts/cw.js app init my-app --title "My App"
-```
-
-## Multi-Agent Work
-
-CW records multi-agent coordination as ordinary state. The preferred high-level
-host loop is:
-
-```text
-multi-agent run -> status -> step -> blackboard -> score -> select
-```
-
-Example:
-
-```bash
-node scripts/cw.js multi-agent run <run-id> --topology judge-panel --task <task-id>
-node scripts/cw.js multi-agent status <run-id>
-node scripts/cw.js multi-agent step <run-id> --sandbox readonly
-node scripts/cw.js multi-agent graph <run-id>
-node scripts/cw.js multi-agent dependencies <run-id>
-node scripts/cw.js multi-agent failures <run-id>
-node scripts/cw.js multi-agent evidence <run-id>
-```
-
-Official topology recipes:
-
-| Topology | Shape |
-| --- | --- |
-| `map-reduce` | Fan out mapper roles, collect evidence, then reduce |
-| `debate` | Record opposing claims, rebuttals, conflicts, and synthesis |
-| `judge-panel` | Gather independent judge outputs and select with provenance |
-| *custom* | `registerTopology({...})` — open `string` id, data-driven role expansion |
-
-```bash
-node scripts/cw.js topology list
-node scripts/cw.js topology show map-reduce
-node scripts/cw.js topology apply <run-id> map-reduce --task <task-id>
-node scripts/cw.js topology summary <run-id>
-node scripts/cw.js topology graph <run-id>
-```
-
-## Eval And Replay
-
-For topology-backed multi-agent runs, CW can snapshot and replay run evidence
-without live agents.
-
-```bash
-node scripts/cw.js eval snapshot <run-id> --id <suite-id>
-node scripts/cw.js eval replay .cw/evals/<suite-id>/snapshot.json
-node scripts/cw.js eval compare \
-  .cw/evals/<suite-id>/snapshot.json \
-  .cw/evals/<suite-id>/replay-run.json
-node scripts/cw.js eval score .cw/evals/<suite-id>/replay-run.json
-node scripts/cw.js eval gate .cw/evals/<suite-id>
-node scripts/cw.js eval report .cw/evals/<suite-id>/replay-run.json
-```
-
-Artifacts live under `.cw/evals/<suite-id>/`.
-
-## Agent-Driven Self-Evolution (v0.1.53)
-
-CW can now extend itself. Agents can register new capabilities and topologies
-at runtime — no manual wiring in 4+ files. The CLI, MCP, and Workbench surfaces
-auto-discover them through the same thin pipe.
-
-**New capability (auto-works on CLI + MCP):**
-
-```ts
-import { registerCapabilityHandler } from "./capability-registry";
-
-registerCapabilityHandler({
-  descriptor: {
-    capability: "my.new.tool",
-    summary: "Does something useful.",
-    entry: "myNewTool",
-    surface: "both",
-    cli: { path: ["my", "new-tool"], jsonMode: "default" },
-    mcp: { tool: "cw_my_new_tool" }
-  },
-  run: async (args, ctx) => {
-    // ctx.runner exposes all orchestrator methods
-    return ctx.runner.listWorkflows();
-  }
-});
-```
-
-**New topology (auto-available in list/validate/apply):**
-
-```ts
-import { registerTopology } from "./topology";
-
-registerTopology({
-  schemaVersion: 1,
-  id: "swarm",
-  title: "Swarm",
-  summary: "Parallel swarm agents with consensus voting.",
-  roles: [
-    { id: "swarm-agent", title: "Swarm Agent",
-      responsibilities: ["Produce shard result with evidence."],
-      requiredEvidence: ["swarm output artifact"],
-      expectedArtifacts: ["swarm result"],
-      faninObligations: ["indexed swarm artifact"],
-      count: 5 }
-  ],
-  groups: [{ id: "swarm", title: "Swarm Group", roleIds: ["swarm-agent"] }],
-  blackboardTopics: [
-    { id: "swarm-outputs", title: "Swarm Outputs", description: "Agent results." }
-  ],
-  phases: [
-    { id: "execute", title: "Execute", roleIds: ["swarm-agent"],
-      fanout: true, fanin: false,
-      requiredEvidence: ["swarm output artifact"],
-      coordinatorDecisionKinds: ["artifact-index"] },
-    { id: "consensus", title: "Consensus", roleIds: ["synthesizer"],
-      fanout: false, fanin: true,
-      requiredEvidence: ["all swarm evidence"],
-      coordinatorDecisionKinds: ["candidate-synthesis"] }
-  ],
-  fanoutStrategy: "one membership per swarm agent role",
-  faninStrategy: "consensus requires all swarm agent evidence",
-  requiredEvidence: ["swarm output artifact", "consensus synthesis"],
-  coordinatorDecisions: ["artifact-index", "candidate-synthesis"],
-  candidateExpectations: ["Synthesis cites swarm agent provenance."],
-  verifierGates: ["Swarm fanin must be ready before commit."]
-});
-```
-
-Design philosophy: **mechanism (Map / pipe) separate from policy (entries).**
-Fail-closed on unknown ids. All 45/45 tests pass.
-
-## Development
-
-Install dependencies only when you are changing TypeScript source or running
-the full test suite.
-
-```bash
-cd plugins/cool-workflow
-npm install
-npm run build
-npm run check
-npm test
-```
-
-High-signal regression commands:
-
-```bash
-npm run canonical-apps
-npm run golden-path
-npm run eval:replay
-npm run fixture-compat
-npm run release:check
-npm run dogfood:release
-```
-
-`release:check` is a dry-run gate. It builds, type-checks, runs tests,
-validates canonical apps and golden path behavior, checks fixture
-compatibility, verifies docs/version sync, and does not tag, push, publish, or
-rewrite fixtures.
-
-## Repository Layout
-
-```text
-plugins/cool-workflow/                CW package
-plugins/cool-workflow/src/            TypeScript runtime source
-plugins/cool-workflow/dist/           Committed JavaScript runtime output
-plugins/cool-workflow/apps/           Canonical workflow apps and examples
-plugins/cool-workflow/docs/           Feature and contract documentation
-plugins/cool-workflow/scripts/cw.js   CLI entrypoint
-plugins/cool-workflow/skills/         Agent host skill instructions
-plugins/cool-workflow/test/           Smoke tests for public contracts
-examples/                             Example workflow outputs
-```
-
-## Docs
-
-Start here:
-
-- [Getting Started](plugins/cool-workflow/docs/getting-started.md)
-- [Project Index](plugins/cool-workflow/docs/project-index.md)
-- [Workflow App framework](plugins/cool-workflow/docs/workflow-app-framework.7.md)
-- [Operator UX](plugins/cool-workflow/docs/operator-ux.7.md)
-- [MCP App Surface](plugins/cool-workflow/docs/mcp-app-surface.7.md)
-- [Multi-Agent CLI + MCP Surface](plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md)
-- [Multi-Agent Eval & Replay Harness](plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md)
-- [Agent Delegation Drive](plugins/cool-workflow/docs/agent-delegation-drive.7.md)
-- [Release And Migration](plugins/cool-workflow/docs/release-and-migration.7.md)
-- [Capability & Topology Registry](plugins/cool-workflow/docs/capability-topology-registry.7.md)
-
-Full docs map: [plugins/cool-workflow/docs/index.md](plugins/cool-workflow/docs/index.md)
-
-## Work With Me
-
-CW is maintained by COOLWHITE LLC. Beyond the open-source framework, the following
-engagements are available:
-
-- **Architecture-risk audits** — review your agent workflows for evidence-chain
-  gaps, trust boundaries, and verifier coverage.
-- **CW integration** — wire CW into your pipeline: plugin customization,
-  multi-agent topology, and verifier/commit-gate policy.
-- **Custom audit/compliance layers** — domain-specific evidence models,
-  approval and handoff governance, attestation workflows.
-
-For inquiries, open a
-[GitHub Issue](https://github.com/coo1white/cool-workflow/issues) or start a
-[GitHub Discussion](https://github.com/coo1white/cool-workflow/discussions). For
-direct contact: `[contact — fill in]`.
-
-## Status
-
-CW is an independent Agent Workflow by COOLWHITE LLC. It is released under
-the BSD-2-Clause License.
+BSD-2-Clause. See [LICENSE](LICENSE). Built by COOLWHITE LLC.
