@@ -1,0 +1,2 @@
+APPROVED 46c9e27148f48ecfbe4de79e5c6e073a680a232b
+A stranger can follow the README to a working run: --agent-command builtin:claude resolves to the bundled read-only claude wrapper, the cross-directory quickstart no longer crashes, missing optional inputs no longer leak {{name}} into prompts, and npx cool-workflow / cw are real installable bins.
