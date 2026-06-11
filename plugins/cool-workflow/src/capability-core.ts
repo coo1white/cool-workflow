@@ -26,6 +26,7 @@ import { RunRegistry, isRunLifecycleState } from "./run-registry";
 import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
 import { loadRunStateFile, readJson, writeJson } from "./state";
 import fs from "node:fs";
+import path from "node:path";
 import {
   DEFAULT_SCHEDULING_POLICY,
   normalizeSchedulingPolicy,
@@ -475,8 +476,13 @@ export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unkn
   const cwd0 = process.cwd();
   let reportPath = result.reportPath;
   try {
-    const run = runner.loadRun(result.runId);
-    if (run.cwd && run.cwd !== process.cwd() && fs.existsSync(run.cwd)) process.chdir(run.cwd);
+    // runDrive restored cwd, so the runs root would resolve against the CALLER's
+    // cwd here — orphaning the run when quickstart is invoked cross-directory
+    // (cwd = plugin dir, --repo elsewhere: the README's headline command). The
+    // run's statePath (<repo>/.cw/runs/<id>/state.json) is authoritative however
+    // the run was planned or continued; chdir to ITS repo BEFORE any run read.
+    const runRepoCwd = path.resolve(path.dirname(result.statePath), "..", "..", "..");
+    if (runRepoCwd !== process.cwd() && fs.existsSync(runRepoCwd)) process.chdir(runRepoCwd);
     reportPath = runner.report(result.runId).path;
   } finally {
     if (process.cwd() !== cwd0) process.chdir(cwd0);
