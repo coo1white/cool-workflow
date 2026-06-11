@@ -112,11 +112,12 @@ function main() {
   // ---- 4: doc-drift guard ----------------------------------------------------
   {
     const readme = fs.readFileSync(path.join(repoRoot, "README.md"), "utf8");
-    assert.ok(readme.includes("builtin:claude"), "README quickstart uses the builtin agent template alias");
-    assert.ok(readme.includes("claude-p-agent.js"), "README explains what the alias resolves to");
-    assert.ok(!/--agent-command "claude -p"\s*$/m.test(readme), "README no longer advertises the broken bare claude -p agent command");
+    assert.ok(readme.includes("builtin:claude"), "root README uses the working builtin agent template alias");
+    assert.ok(!/--agent-command "claude -p"\s*$/m.test(readme), "root README does not advertise the broken bare claude -p agent command");
+    // The explicit wrapper path is documented on the authoritative technical doc
+    // (the beginner root README intentionally hides it behind builtin:claude).
     const doc = fs.readFileSync(path.join(pluginRoot, "docs", "agent-delegation-drive.7.md"), "utf8");
-    assert.ok(doc.includes("claude-p-agent.js"), "agent-delegation-drive doc points at the wrapper");
+    assert.ok(doc.includes("claude-p-agent.js"), "agent-delegation-drive doc points at the wrapper the alias resolves to");
     console.log("wrapper: doc-drift guard ok");
   }
 
