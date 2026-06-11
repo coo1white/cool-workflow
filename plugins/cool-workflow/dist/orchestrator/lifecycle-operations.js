@@ -44,6 +44,13 @@ function plan(appRecord, options) {
     const workflow = appRecord.app.workflow;
     const inputs = normalizeInputs(options);
     validateInputs(workflow, inputs);
+    // Fold declared defaults: a missing OPTIONAL input renders as its declared
+    // default (or empty), so a task prompt referencing it never leaks a literal
+    // "{{name}}" placeholder into the agent's worker input.
+    for (const declared of workflow.inputs || []) {
+        if ((0, cli_options_1.isMissing)(inputs[declared.name]))
+            inputs[declared.name] = declared.default ?? "";
+    }
     const cwd = node_path_1.default.resolve(String(inputs.cwd || inputs.repo || process.cwd()));
     const runId = createRunId(workflow.id);
     const runDir = node_path_1.default.join(cwd, ".cw", "runs", runId);

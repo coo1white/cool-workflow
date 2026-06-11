@@ -119,7 +119,11 @@ are secret-stripped.
 
 ```text
 # configure the agent (policy as data; no API key is ever written)
-node dist/cli.js backend agent config set --agent-command "claude -p --output-format json {{input}}" --agent-model claude-opus-4-8
+# the bundled wrapper feeds input.md to headless claude READ-ONLY, persists
+# result.md itself, and forwards claude's JSON (model+usage) for provenance.
+# A bare "claude -p" or "claude -p {{input}}" does NOT complete a worker:
+# headless claude gets no prompt content / cannot write result.md without it.
+node dist/cli.js backend agent config set --agent-command "node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}" --agent-model claude-opus-4-8
 node dist/cli.js backend agent config            # show the effective config (secret-stripped)
 node dist/cli.js backend probe agent --json      # ready iff configured, else unverified
 

@@ -98,8 +98,17 @@ cd cool-workflow/plugins/cool-workflow
 node scripts/cw.js quickstart architecture-review \
   --repo /path/to/your/repo \
   --question "What are the main architecture risks?" \
-  --agent-command "claude -p"
+  --agent-command "node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
 ```
+
+The agent command is the bundled **claude wrapper**: it feeds each worker's
+`input.md` to headless `claude` **read-only** (`--allowedTools Read,Grep,Glob,Bash`
+— no Write tool, honoring the app's `readonly` sandbox profile), persists
+claude's final markdown to the worker's `result.md` itself, and forwards claude's
+JSON so CW records the agent-REPORTED model + token usage as provenance. A bare
+`claude -p` does NOT work as the agent command — claude receives no prompt and no
+write path; use the wrapper (or adapt it: `codex exec`, an HTTP endpoint, any CLI
+that reads `{{input}}` and writes `{{result}}`).
 
 That single command plans the run, drives every worker to completion, and writes
 the report — no copied run id, no 10-step ritual. The JSON it prints back carries
@@ -113,7 +122,7 @@ cat /path/to/your/repo/.cw/runs/<runId>/report.md
 **`quickstart` drives YOUR agent, it does not run a model.** CW is an auditable
 control plane: the one command sequences the recorded `plan -> run --drive ->
 report` pipeline and **delegates** every worker to the agent backend *you*
-configure (`--agent-command "claude -p"`, `--agent-command "codex exec"`, or
+configure (the bundled claude wrapper above, a `codex exec` adaptation of it, or
 `--agent-endpoint https://…`). CW never embeds a model, never holds an API
 key, and never executes a model itself. With **no** agent configured it **fails
 closed** — it reports `status: blocked` and refuses rather than fabricating a
@@ -127,7 +136,7 @@ node scripts/cw.js quickstart architecture-review --repo ../.. --question "risks
 Set the backend once via the environment instead of a flag:
 
 ```bash
-export CW_AGENT_COMMAND="claude -p"
+export CW_AGENT_COMMAND="node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
 node scripts/cw.js quickstart architecture-review --repo ../.. --question "risks?"
 ```
 
@@ -158,7 +167,7 @@ node scripts/cw.js plan architecture-review \
 Copy the returned `runId`, then drive it (delegating to your agent) and inspect:
 
 ```bash
-node scripts/cw.js run <run-id> --drive --agent-command "claude -p"
+node scripts/cw.js run <run-id> --drive --agent-command "node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
 node scripts/cw.js status <run-id>
 node scripts/cw.js graph <run-id>
 node scripts/cw.js worker summary <run-id>
