@@ -8,6 +8,8 @@
 ```
 
 [![CI](https://img.shields.io/github/actions/workflow/status/coo1white/cool-workflow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/coo1white/cool-workflow/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/cool-workflow?style=flat-square&label=npm&color=cb3837)](https://www.npmjs.com/package/cool-workflow)
+[![downloads](https://img.shields.io/npm/dm/cool-workflow?style=flat-square&label=downloads)](https://www.npmjs.com/package/cool-workflow)
 [![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
 [![license](https://img.shields.io/badge/license-BSD--2--Clause-blue?style=flat-square)](../../LICENSE)
 ![MCP](https://img.shields.io/badge/MCP-native-8A2BE2?style=flat-square)
@@ -631,8 +633,22 @@ CHANGELOG.md and RELEASE.md are content surfaces checked by the dogfood-release 
 
 Auto-compaction hook moved from `saveCheckpoint()` to explicit `maybeCompactRun()` calls after major lifecycle mutations. Fixes test fixture fingerprint instability. Also fixes the dogfood-release version-sync pipeline: always use `npm run bump:version`, never hand-edit version.ts alone.
 
-v0.1.76
+## Control-plane naming (v0.1.76)
 
-v0.1.77
+Positioning consistency: every self-describing surface names CW an auditable workflow control-plane / Workflow App framework, not an "SDK" (which survives only in the red-line disclaimer "embeds no model SDK").
 
-v0.1.78
+## Workflow orchestration: Tracks 1–3 (v0.1.77)
+
+The orchestration vision landed in one release, all reviewer-gated:
+
+- **Track 1 — telemetry attestation**: each agent's reported token usage is verified against an operator ed25519 trust key (`attested`/`unattested`/`absent`, surfaced loudly), recorded in a tamper-evident hash-chained ledger; opt-in `require-attested-telemetry` fails closed on unverifiable usage.
+- **Track 2 — concurrent failure semantics**: a `parallel()` phase runs its agents concurrently with declared collapse rules — **collect-all** (a failing hop never aborts siblings) and **kill-on-timeout** (a hung agent is killed at its deadline and counted as one failure). 16 agents with a forced hang + crash + dirty-return complete with no deadlock and a replay-complete record.
+- **Track 3 — boundary contract**: per-task output `schema` validation (dependency-free, parks on mismatch), `limits.tokenBudget` enforced against recorded usage, and the one-way executor boundary welded into the type layer (a callable crossing it fails `npm run build`).
+
+## Working onboarding + npm distribution (v0.1.78)
+
+`--agent-command builtin:claude` resolves to a bundled read-only claude wrapper that completes workers with a real agent; the cross-directory quickstart crash is fixed; missing optional inputs no longer leak `{{name}}` into prompts. Published to npm (`cool-workflow`, bins `cw`/`cool-workflow`) with LICENSE and metadata. Live dogfood proof committed under `docs/dogfood/`.
+
+## Tamper-evidence demo (on main, ships next)
+
+`cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be forged undetected: it builds a real ed25519-signed ledger, forges it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` is the operator-facing half (`cw_telemetry_verify` on MCP).
