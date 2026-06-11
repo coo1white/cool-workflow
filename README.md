@@ -147,6 +147,9 @@ On a real run, verify any run's record yourself:
 cw telemetry verify <run-id>
 ```
 
+CW dogfoods this on its own codebase — see the committed live-run proof in
+[`plugins/cool-workflow/docs/dogfood/`](plugins/cool-workflow/docs/dogfood/).
+
 The plain-English point: *the thing that spends the tokens is not the thing that
 keeps the books.* That separation is normal in accounting — CW brings it to AI
 agents.
