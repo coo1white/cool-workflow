@@ -7,6 +7,8 @@
 ```
 
 [![CI](https://img.shields.io/github/actions/workflow/status/coo1white/cool-workflow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/coo1white/cool-workflow/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/cool-workflow?style=flat-square&label=npm&color=cb3837)](https://www.npmjs.com/package/cool-workflow)
+[![downloads](https://img.shields.io/npm/dm/cool-workflow?style=flat-square&label=downloads)](https://www.npmjs.com/package/cool-workflow)
 [![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
 [![license](https://img.shields.io/badge/license-BSD--2--Clause-blue?style=flat-square)](LICENSE)
 ![MCP](https://img.shields.io/badge/MCP-native-8A2BE2?style=flat-square)
@@ -86,20 +88,34 @@ And, like FreeBSD's base contains no X11, CW commits to a **Never list**: no mod
 
 Read the full argument: [**Manifesto: Agents Need FreeBSD**](https://github.com/coo1white/cool-workflow/wiki/Manifesto:-Agents-Need-FreeBSD).
 
+## Install
+
+```bash
+npm install -g cool-workflow      # then: cw …   /   cool-workflow …
+# or run without installing:
+npx cool-workflow list
+```
+
+Published to npm as [`cool-workflow`](https://www.npmjs.com/package/cool-workflow)
+with **zero runtime dependencies** and `dist/` committed, so it runs immediately.
+The package exposes two bins — `cw` and `cool-workflow` — and the MCP server at
+`dist/mcp-server.js`. Prefer a clone? Every command below also works from
+`plugins/cool-workflow/` via `node scripts/cw.js …`.
+
 ## Quick Start
 
 
 Get a cited architecture-risk report on any repo in **one command**:
 
 ```bash
-git clone https://github.com/coo1white/cool-workflow.git
-cd cool-workflow/plugins/cool-workflow
-
-node scripts/cw.js quickstart architecture-review \
+npx cool-workflow quickstart architecture-review \
   --repo /path/to/your/repo \
   --question "What are the main architecture risks?" \
   --agent-command builtin:claude
 ```
+
+> From a clone instead: `cd cool-workflow/plugins/cool-workflow` and replace
+> `npx cool-workflow` with `node scripts/cw.js`.
 
 `builtin:claude` resolves to the bundled **claude wrapper** (`scripts/agents/claude-p-agent.js` — equivalently: `--agent-command "node /path/to/scripts/agents/claude-p-agent.js {{input}} {{result}}"`): it feeds each worker's
 `input.md` to headless `claude` **read-only** (`--allowedTools Read,Grep,Glob,Bash`
