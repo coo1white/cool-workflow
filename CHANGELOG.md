@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.78
+
+Working onboarding: the documented quickstart completes with a real agent, and the package is npm-installable.
+
+- **Capability**: A stranger can now follow the README and get a real cited architecture-risk report: `--agent-command builtin:claude` resolves to the bundled claude wrapper (read-only headless claude; the wrapper persists result.md and forwards the agent-reported model + usage), the cross-directory quickstart no longer crashes, and a missing optional input no longer leaks a literal `{{name}}` into agent prompts. `npx cool-workflow` / `cw` become real invocations (bin entries), with repository/keywords/LICENSE shipped in the package.
+- **Implementation**: `scripts/agents/claude-p-agent.js` (node port; bash shim delegates), `builtin:` template expansion in `agent-config.ts`, statePath-derived cwd in `capability-core.ts` quickstart, declared-input default folding in `plan()`, package.json bin/metadata.
+- **Live proof (committed)**: `docs/dogfood/architecture-review-cool-workflow.md` refreshed from a real run through the documented wrapper — 14/14 workers driven by `claude-opus-4-8[1m]`, 14/14 reported usage (38,069 in / 168,789 out), verifier-gated commit, zero hand-written result.md.
+- **Tests**: `claude-p-agent-wrapper-smoke` (hermetic PATH-shimmed claude: prompt delivery, read-only flags, result persistence, provenance forwarding, fail-closed, doc-drift guard, builtin alias); quickstart smoke gains the README cross-directory CLI regression. Suite 68/68.
+- **Risk**: zero new dependencies (the wrapper is config, not code CW imports); `builtin:` is an additive config token — explicit commands resolve exactly as before.
+
 ## 0.1.77
 
 Trustworthy telemetry (Track 1), concurrent failure semantics (Track 2), boundary contracts (Track 3), and a multi-platform portable release flow.

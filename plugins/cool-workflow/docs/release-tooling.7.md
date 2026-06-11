@@ -155,3 +155,5 @@ also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the
 0.1.51
 
 0.1.76
+
+0.1.78

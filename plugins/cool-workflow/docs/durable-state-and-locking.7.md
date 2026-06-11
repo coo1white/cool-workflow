@@ -103,3 +103,5 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 0.1.76
 
 0.1.77
+
+0.1.78

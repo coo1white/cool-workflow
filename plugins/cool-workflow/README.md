@@ -634,3 +634,5 @@ Auto-compaction hook moved from `saveCheckpoint()` to explicit `maybeCompactRun(
 v0.1.76
 
 v0.1.77
+
+v0.1.78
