@@ -1,0 +1,54 @@
+name: npm-publish
+
+# Publish cool-workflow to npm when a release tag is pushed (or on manual
+# dispatch for an existing tag). A v* tag can only land after the gated release
+# flow (deterministic gate -> independent reviewer -> verdict -> the
+# block-unapproved-tag hook), so reaching this workflow already implies an
+# approved release; the only extra guard here is that the tag matches the
+# committed package version, so a stray tag can never publish a mismatched
+# artifact. Publishes with npm provenance — a cryptographic attestation that
+# this exact version was built from this public repo in CI, on-brand for an
+# auditable control-plane and impossible to forge for a hand-published tarball.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Release tag to publish (e.g. v0.1.79)"
+        required: true
+
+permissions:
+  contents: read
+  id-token: write # required for npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plugins/cool-workflow
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: Verify the tag matches the committed package version
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          REF="${{ github.event.inputs.ref || github.ref_name }}"
+          TAG="${REF#v}"
+          echo "tag=$TAG package=$PKG"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag v$TAG does not match package version $PKG — refusing to publish a mismatched artifact"
+            exit 1
+          fi
+      - name: Publish to npm (with provenance)
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
