@@ -125,13 +125,33 @@ function agentConfigFromArgs(args: Record<string, unknown>): AgentDelegationConf
   };
 }
 
+// Bundled agent templates, addressable by a stable name so an operator (or an
+// npx/global install, where $(pwd)-relative paths don't exist) can configure a
+// WORKING agent without knowing where the package landed on disk:
+//   --agent-command builtin:claude   (or CW_AGENT_COMMAND=builtin:claude)
+// resolves to the packaged claude wrapper invocation. Still pure config — the
+// template is an out-of-process delegation script; CW never calls a model API.
+const BUILTIN_AGENT_TEMPLATES: Record<string, string> = {
+  claude: `node ${path.join(__dirname, "..", "scripts", "agents", "claude-p-agent.js")} {{input}} {{result}}`
+};
+
+function expandBuiltinAgentCommand(command: string | undefined): string | undefined {
+  if (!command || !command.startsWith("builtin:")) return command;
+  const name = command.slice("builtin:".length).trim();
+  const template = BUILTIN_AGENT_TEMPLATES[name];
+  if (!template) {
+    throw new Error(`Unknown builtin agent template "${name}" — available: ${Object.keys(BUILTIN_AGENT_TEMPLATES).join(", ")}`);
+  }
+  return template;
+}
+
 /** Resolve the EFFECTIVE agent config: flags > env > file > none. The returned
  *  `source` names the layer the command/endpoint came from. */
 export function resolveAgentConfig(args: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = process.env): AgentDelegationConfig {
   const flagCfg = agentConfigFromArgs(args);
   const envCfg = agentConfigFromEnv(env);
   const fileCfg = loadAgentConfigFile(env);
-  const command = firstDefined(flagCfg.command, envCfg.command, fileCfg?.command);
+  const command = expandBuiltinAgentCommand(firstDefined(flagCfg.command, envCfg.command, fileCfg?.command));
   const cfgArgs = firstDefined(flagCfg.args, envCfg.args, fileCfg?.args);
   const endpoint = firstDefined(flagCfg.endpoint, envCfg.endpoint, fileCfg?.endpoint);
   const model = firstDefined(flagCfg.model, envCfg.model, fileCfg?.model);

@@ -112,11 +112,22 @@ function main() {
   // ---- 4: doc-drift guard ----------------------------------------------------
   {
     const readme = fs.readFileSync(path.join(repoRoot, "README.md"), "utf8");
-    assert.ok(readme.includes("claude-p-agent.js"), "README quickstart references the working wrapper template");
+    assert.ok(readme.includes("builtin:claude"), "README quickstart uses the builtin agent template alias");
+    assert.ok(readme.includes("claude-p-agent.js"), "README explains what the alias resolves to");
     assert.ok(!/--agent-command "claude -p"\s*$/m.test(readme), "README no longer advertises the broken bare claude -p agent command");
     const doc = fs.readFileSync(path.join(pluginRoot, "docs", "agent-delegation-drive.7.md"), "utf8");
     assert.ok(doc.includes("claude-p-agent.js"), "agent-delegation-drive doc points at the wrapper");
     console.log("wrapper: doc-drift guard ok");
+  }
+
+  // ---- 5: builtin:claude alias resolves to THIS wrapper (npx-safe config) ----
+  {
+    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "agent-config.js"));
+    const cfg = resolveAgentConfig({ "agent-command": "builtin:claude" }, {});
+    assert.ok(cfg.command && cfg.command.includes("claude-p-agent.js"), "builtin:claude expands to the packaged wrapper (absolute path — npx/global installs work)");
+    assert.ok(cfg.command.includes("{{input}}") && cfg.command.includes("{{result}}"), "expanded template carries the worker substitutions");
+    assert.throws(() => resolveAgentConfig({ "agent-command": "builtin:nope" }, {}), /Unknown builtin agent template/, "unknown builtin fails closed with the available list");
+    console.log("wrapper: builtin:claude alias resolution ok");
   }
 
   fs.rmSync(work, { recursive: true, force: true });

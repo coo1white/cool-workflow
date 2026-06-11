@@ -98,10 +98,10 @@ cd cool-workflow/plugins/cool-workflow
 node scripts/cw.js quickstart architecture-review \
   --repo /path/to/your/repo \
   --question "What are the main architecture risks?" \
-  --agent-command "node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
+  --agent-command builtin:claude
 ```
 
-The agent command is the bundled **claude wrapper**: it feeds each worker's
+`builtin:claude` resolves to the bundled **claude wrapper** (`scripts/agents/claude-p-agent.js` — equivalently: `--agent-command "node /path/to/scripts/agents/claude-p-agent.js {{input}} {{result}}"`): it feeds each worker's
 `input.md` to headless `claude` **read-only** (`--allowedTools Read,Grep,Glob,Bash`
 — no Write tool, honoring the app's `readonly` sandbox profile), persists
 claude's final markdown to the worker's `result.md` itself, and forwards claude's
@@ -136,7 +136,7 @@ node scripts/cw.js quickstart architecture-review --repo ../.. --question "risks
 Set the backend once via the environment instead of a flag:
 
 ```bash
-export CW_AGENT_COMMAND="node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
+export CW_AGENT_COMMAND=builtin:claude
 node scripts/cw.js quickstart architecture-review --repo ../.. --question "risks?"
 ```
 
@@ -167,7 +167,7 @@ node scripts/cw.js plan architecture-review \
 Copy the returned `runId`, then drive it (delegating to your agent) and inspect:
 
 ```bash
-node scripts/cw.js run <run-id> --drive --agent-command "node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
+node scripts/cw.js run <run-id> --drive --agent-command builtin:claude
 node scripts/cw.js status <run-id>
 node scripts/cw.js graph <run-id>
 node scripts/cw.js worker summary <run-id>
