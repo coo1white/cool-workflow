@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.79
+
+Ship the tamper-evidence demo + telemetry verification, and surface the project for distribution.
+
+- **Capability**: `cw demo tamper` proves, in one hermetic command (no model, no network, no API key), that a recorded telemetry verdict cannot be forged undetected — it builds a real ed25519-signed ledger and catches a ledger-layer forgery (verdict flip + recomputed local hash → the hash chain breaks downstream) and a signature-layer forgery (inflated tokens + reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` (and `cw_telemetry_verify` on MCP) is the operator-facing half: re-prove a real run's ledger on demand. Both exit/return fail-closed.
+- **Implementation**: `src/telemetry-demo.ts` (demo + human formatters), `telemetryVerify` / `demoTamper` in capability-core, static registry descriptors (parity gate), CLI + MCP wiring. No new dependency.
+- **Distribution**: README/wiki synced to the shipped state with npm version + downloads badges (all prior badges intact); a launch kit under `docs/launch/` (Show HN, post copy, the separation-of-duties wedge). The headline differentiator is now one `npx cool-workflow demo tamper` away.
+- **Tests**: self-guarding `tamper-evidence-demo-smoke` proves both forgery layers are caught and that `telemetry verify` detects a one-byte on-disk edit with a named failing check, so the integrity guarantee cannot silently regress. Suite 69/69.
+- **Risk**: additive — new verbs + a cli-only demo; no change to existing acceptance or the delegate-not-execute red line.
+
 ## 0.1.78
 
 Working onboarding: the documented quickstart completes with a real agent, and the package is npm-installable.

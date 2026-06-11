@@ -652,3 +652,5 @@ The orchestration vision landed in one release, all reviewer-gated:
 ## Tamper-evidence demo (on main, ships next)
 
 `cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be forged undetected: it builds a real ed25519-signed ledger, forges it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` is the operator-facing half (`cw_telemetry_verify` on MCP).
+
+v0.1.79
