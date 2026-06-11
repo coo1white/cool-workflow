@@ -25,6 +25,7 @@
 //      routes through runDrive, not a private executor).
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -194,9 +195,39 @@ function main() {
     assert.ok(!/child_process|spawn\(|execFile/.test(coreSrc), "quickstart does not spawn its own executor (delegation goes through the agent backend)");
   }
 
+  // ---- 7. README headline shape: REAL CLI, cross-directory (regression) -----
+  // v0.1.77 shipped with the README's one command broken when invoked from the
+  // plugin dir with --repo elsewhere: runDrive planned the run into the TARGET
+  // repo's .cw, restored cwd, and quickstart's post-drive loadRun then resolved
+  // the runs root against the PLUGIN dir → "File not found", orphaned run. The
+  // in-process sections above never caught it because they chdir into the
+  // workspace first. This section invokes the actual CLI binary the README
+  // documents, from the plugin dir, with a clean env (no agent configured), and
+  // requires the DOCUMENTED fail-closed payload.
+  {
+    clearAgentEnv();
+    const work = tmpWorkspace();
+    const env = { ...process.env };
+    for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete env[v];
+    const child = spawnSync(
+      process.execPath,
+      [path.join(pluginRoot, "scripts", "cw.js"), "quickstart", "architecture-review", "--repo", work, "--question", "risks?"],
+      { cwd: pluginRoot, env, encoding: "utf8", timeout: 60000 }
+    );
+    assert.equal(child.status, 0, `README quickstart shape exits 0 (stderr: ${String(child.stderr || "").slice(0, 200)})`);
+    const payload = JSON.parse(String(child.stdout || ""));
+    assert.equal(payload.status, "blocked", "unconfigured agent fails closed through the real CLI");
+    assert.equal(payload.agentConfigured, false, "payload says agent not configured");
+    assert.ok(String(payload.reportPath || "").startsWith(work), "report written under the TARGET repo, not the plugin dir");
+    assert.ok(fs.existsSync(payload.reportPath), "triage report exists on disk");
+    assert.ok(String(payload.statePath || "").startsWith(work), "run state lives under the target repo");
+    assert.ok(!fs.existsSync(path.join(pluginRoot, ".cw", "runs")), "no orphaned run under the plugin dir");
+    console.log("quickstart: README cross-directory CLI shape fails closed with the documented payload ok");
+  }
+
   for (const dir of cleanups) fs.rmSync(dir, { recursive: true, force: true });
   process.stdout.write(
-    "quickstart-smoke: ok (one command plans+drives+reports; fail-closed on unconfigured agent; deterministic --preview; default app + audit-run alias; delegates, no private executor)\n"
+    "quickstart-smoke: ok (one command plans+drives+reports; fail-closed on unconfigured agent; deterministic --preview; default app + audit-run alias; delegates, no private executor; README cross-directory CLI shape)\n"
   );
 }
 

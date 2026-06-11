@@ -68,6 +68,7 @@ const run_registry_1 = require("./run-registry");
 const observability_1 = require("./observability");
 const state_1 = require("./state");
 const node_fs_1 = __importDefault(require("node:fs"));
+const node_path_1 = __importDefault(require("node:path"));
 const scheduling_1 = require("./scheduling");
 // ---- canonical plan payload -----------------------------------------------
 // Both `cw plan` (default + --json) and `cw_plan` resolve to this exact object.
@@ -461,9 +462,14 @@ function quickstart(runner, args) {
     const cwd0 = process.cwd();
     let reportPath = result.reportPath;
     try {
-        const run = runner.loadRun(result.runId);
-        if (run.cwd && run.cwd !== process.cwd() && node_fs_1.default.existsSync(run.cwd))
-            process.chdir(run.cwd);
+        // runDrive restored cwd, so the runs root would resolve against the CALLER's
+        // cwd here — orphaning the run when quickstart is invoked cross-directory
+        // (cwd = plugin dir, --repo elsewhere: the README's headline command). The
+        // run's statePath (<repo>/.cw/runs/<id>/state.json) is authoritative however
+        // the run was planned or continued; chdir to ITS repo BEFORE any run read.
+        const runRepoCwd = node_path_1.default.resolve(node_path_1.default.dirname(result.statePath), "..", "..", "..");
+        if (runRepoCwd !== process.cwd() && node_fs_1.default.existsSync(runRepoCwd))
+            process.chdir(runRepoCwd);
         reportPath = runner.report(result.runId).path;
     }
     finally {
