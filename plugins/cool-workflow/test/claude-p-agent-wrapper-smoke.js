@@ -41,16 +41,23 @@ function shimDir(behavior) {
   if (behavior === "crash") {
     lines.push('process.stderr.write("shim boom"); process.exit(3);');
   } else if (behavior === "garbage") {
-    lines.push('process.stdout.write("not json at all");');
+    // Exits 0 but emits no `result` event ⇒ wrapper must fail closed.
+    lines.push('process.stdout.write("not json at all\\n");');
   } else {
-    // Echo enough of the invocation back for the assertions: capture the -p
-    // prompt + flags into a side file, output a claude-shaped JSON result.
+    // A stream-json `claude`: capture the invocation for assertions, then emit
+    // NDJSON events (assistant text + tool_use, then the final result) exactly as
+    // `claude -p --output-format stream-json` does, so the wrapper renders a live
+    // trace and reconstructs {model, usage, result}.
     lines.push(
       "const fs = require('node:fs');",
       "const path = require('node:path');",
       "const args = process.argv.slice(2);",
       "fs.writeFileSync(path.join(__dirname, 'invocation.json'), JSON.stringify(args));",
-      'process.stdout.write(JSON.stringify({ result: "# Analysis\\n\\nstub markdown answer", model: "claude-shim-model", usage: { input_tokens: 11, output_tokens: 7 } }));'
+      "const emit = (o) => process.stdout.write(JSON.stringify(o) + '\\n');",
+      "emit({ type: 'system', subtype: 'init', tools: ['Read'] });",
+      "emit({ type: 'assistant', message: { model: 'claude-shim-model', content: [ { type: 'tool_use', name: 'Read', input: { file_path: 'app.js' } }, { type: 'text', text: '# Analysis\\n\\nstub markdown answer' } ] } });",
+      "emit({ type: 'system', subtype: 'post_turn_summary', status_detail: 'analyzed app.js' });",
+      "emit({ type: 'result', subtype: 'success', is_error: false, result: '# Analysis\\n\\nstub markdown answer', usage: { input_tokens: 11, output_tokens: 7 } });"
     );
   }
   fs.writeFileSync(shim, lines.join("\n"), "utf8");
@@ -87,13 +94,18 @@ function main() {
     assert.ok(prompt.includes("cw:result"), "the cw:result contract is appended to the prompt");
     const allowed = argv[argv.indexOf("--allowedTools") + 1];
     assert.ok(allowed && !/write/i.test(allowed), `claude stays READ-ONLY (no Write tool): ${allowed}`);
-    assert.ok(argv.includes("--output-format") && argv.includes("json"), "claude asked for JSON output (model+usage provenance)");
+    assert.equal(argv[argv.indexOf("--output-format") + 1], "stream-json", "claude runs in stream-json mode (live trace)");
 
-    assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "claude's result markdown persisted to result.md by the wrapper");
+    assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "claude's result text persisted to result.md by the wrapper");
+    // STDOUT is the data channel: a single {model, usage, result} object CW consumes.
     const forwarded = JSON.parse(child.stdout);
-    assert.equal(forwarded.model, "claude-shim-model", "claude's JSON forwarded verbatim (CW reads the attested model from it)");
-    assert.equal(forwarded.usage.input_tokens, 11, "usage tokens forwarded for provenance");
-    console.log("wrapper: prompt delivery + read-only flags + result persistence + provenance forwarding ok");
+    assert.equal(forwarded.model, "claude-shim-model", "model reconstructed from the assistant event (the attested model)");
+    assert.equal(forwarded.usage.input_tokens, 11, "usage reconstructed from the result event (provenance)");
+    assert.equal(forwarded.result, "# Analysis\n\nstub markdown answer", "result text reconstructed for CW");
+    // STDERR is the diagnostics channel: a human-readable LIVE trace, never data.
+    assert.ok(/claude:|→ Read|stub markdown|done/.test(child.stderr || ""), `wrapper streams a live trace to stderr: ${JSON.stringify((child.stderr || "").slice(0, 120))}`);
+    assert.ok(!/\{.*"result".*\}/.test(child.stderr || ""), "the {model,usage,result} data object is NOT on stderr (data/diagnostics kept separate)");
+    console.log("wrapper: prompt delivery + read-only stream-json + live stderr trace + result/provenance on stdout ok");
   }
 
   // ---- 3: fail closed --------------------------------------------------------
