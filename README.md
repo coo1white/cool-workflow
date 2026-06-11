@@ -144,6 +144,36 @@ Add `--preview` for a read-only, deterministic dry run (it plans and projects th
 next step but spawns nothing and commits nothing). `audit-run` is an alias of
 `quickstart`.
 
+### See the difference in 30 seconds — `cw demo tamper`
+
+CW's claim is *auditable*: every recorded agent telemetry verdict proves its own
+integrity, and **anyone can re-verify it offline with only a public key** — no
+server to trust. One hermetic command demonstrates it (no model, no network, no
+API key — it builds a real ed25519-signed ledger, forges it two ways, and shows
+both forgeries caught):
+
+```bash
+node scripts/cw.js demo tamper      # or: npx cool-workflow demo tamper
+```
+
+```
+▶ Built an attested telemetry ledger: 3 hops, 3 records
+  ✓ ledger verifies   2 signed hop(s) verify against the public key
+▶ LEDGER tamper
+  edit:   forged record[1] verdict "unattested" -> "attested" AND recomputed its recordHash to cover the edit
+  after:  ✗ DETECTED — the hash chain caught it: chain-link[2]: telemetry-chain-broken
+▶ SIGNATURE tamper
+  edit:   inflated record[0] reported output_tokens 1911 -> 19110, reused the original ed25519 signature
+  after:  ✗ DETECTED — signature does not match reported usage
+VERDICT: tamper-evidence holds ✓ — every forgery was caught offline, with only the public key.
+```
+
+On a real run, the operator-facing half is `cw telemetry verify <run-id>`: it
+re-proves that run's telemetry ledger (chain linkage + an independent hash
+recompute that never trusts the stored value). This is the separation-of-duties
+wedge — CW delegates model execution and never holds a key, yet can prove whether
+the executor's reported usage is real and unedited.
+
 ### Under the hood
 
 `quickstart` is a thin convenience wrapper, not a new engine — it composes the

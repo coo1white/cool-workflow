@@ -425,6 +425,8 @@ function callTool(name, args) {
                 return (0, capability_core_1.gcRun)((0, capability_core_1.runRegistryFor)(args, runner), (0, capability_core_1.optionalString)(args.runId), args);
             case "cw_gc_verify":
                 return (0, capability_core_1.gcVerify)((0, capability_core_1.runRegistryFor)(args, runner), String(args.runId || ""), args);
+            case "cw_telemetry_verify":
+                return (0, capability_core_1.telemetryVerify)(runner, args);
             case "cw_history":
                 return (0, capability_core_1.runHistory)((0, capability_core_1.runRegistryFor)(args, runner), args);
             case "cw_workbench_view":
@@ -515,6 +517,8 @@ function requiredArgsForTool(name) {
     if (name === "cw_run_archive")
         return ["runId|olderThanDays"];
     if (name === "cw_gc_verify")
+        return ["runId"];
+    if (name === "cw_telemetry_verify")
         return ["runId"];
     if (name === "cw_queue_show")
         return ["id"];
@@ -1529,6 +1533,10 @@ function toolDefinitions() {
         tool("cw_gc_verify", "Re-prove a reclaimed run: skeleton schema-complete, tombstone chain untampered, reconstructable artifacts re-derived from retained inputs. Peer of `cw gc verify`.", {
             cwd: stringSchema("Repo workspace"),
             scope: stringSchema("home (default, cross-repo) or repo"),
+            runId: stringSchema("Run id to verify")
+        }),
+        tool("cw_telemetry_verify", "Re-prove a run's telemetry attestation ledger offline: prevHash chain linkage + independent per-record hash recompute (never trusts the stored hash). A forged or edited record fails it. Peer of `cw telemetry verify`.", {
+            cwd: stringSchema("Repo workspace"),
             runId: stringSchema("Run id to verify")
         }),
         tool("cw_history", "Read a cross-repo unified run timeline (newest first), deterministic and paginated, with provenance links.", {

@@ -37,9 +37,12 @@ import {
   runDrivePreview,
   quickstart,
   backendAgentConfigShow,
-  backendAgentConfigSet
+  backendAgentConfigSet,
+  telemetryVerify,
+  demoTamper
 } from "./capability-core";
 import { formatMetricsReport, formatMetricsSummary } from "./observability";
+import { formatTelemetryVerify, formatTamperDemo } from "./telemetry-demo";
 import {
   formatGcPlan,
   formatGcRun,
@@ -1160,6 +1163,37 @@ async function main(): Promise<void> {
       if (wantsJson(args.options)) printJson(result);
       else process.stdout.write(`${formatHistory(result)}\n`);
       return;
+    }
+    case "telemetry": {
+      const [subcommand, id] = args.positionals;
+      switch (subcommand) {
+        case "verify": {
+          const result = telemetryVerify(runner, { ...args.options, runId: id || args.options.runId || args.options.run });
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatTelemetryVerify(result)}\n`);
+          return;
+        }
+        default:
+          if (await tryDispatchCli(args, runner)) return;
+          throw new Error("Usage: cw.js telemetry verify <run-id> [--json]");
+      }
+    }
+    case "demo": {
+      const [subcommand] = args.positionals;
+      switch (subcommand) {
+        case "tamper": {
+          const result = demoTamper(runner, args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatTamperDemo(result)}\n`);
+          // Fail closed: if the proof did not hold (a tamper went undetected),
+          // exit nonzero so the demo can never green a broken guarantee.
+          if (!result.proven) process.exitCode = 1;
+          return;
+        }
+        default:
+          if (await tryDispatchCli(args, runner)) return;
+          throw new Error("Usage: cw.js demo tamper [--json]");
+      }
     }
     case "workbench": {
       const [subcommand, runId] = args.positionals;

@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-06-11 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.78`
-- Source modules: `57`
+- Source modules: `58`
 - Workflow apps: `6`
 - Docs: `46`
-- Smoke tests: `68`
+- Smoke tests: `69`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -105,6 +105,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [state-explosion.ts](../src/state-explosion.ts)
 - [state-migrations.ts](../src/state-migrations.ts)
 - [telemetry-attestation.ts](../src/telemetry-attestation.ts)
+- [telemetry-demo.ts](../src/telemetry-demo.ts)
 - [telemetry-ledger.ts](../src/telemetry-ledger.ts)
 - [verifier-registry.ts](../src/verifier-registry.ts)
 - [workbench-host.ts](../src/workbench-host.ts)
@@ -230,6 +231,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [self-audit-hardening-smoke.js](../test/self-audit-hardening-smoke.js)
 - [state-explosion-management-smoke.js](../test/state-explosion-management-smoke.js)
 - [state-node-smoke.js](../test/state-node-smoke.js)
+- [tamper-evidence-demo-smoke.js](../test/tamper-evidence-demo-smoke.js)
 - [team-collaboration-smoke.js](../test/team-collaboration-smoke.js)
 - [telemetry-attest-wrap-smoke.js](../test/telemetry-attest-wrap-smoke.js)
 - [telemetry-attestation-smoke.js](../test/telemetry-attestation-smoke.js)
