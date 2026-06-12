@@ -1,0 +1,1 @@
+{"workflow":"pr-review","id":"pr-behavioral-regression","input":{"event":"pr_opened","diff":"runtime change plus tests","repo":"cool-workflow"},"expected":["findings first","cite file and line","prioritize correctness and regression risk","avoid style-only noise","recommend tests or note test gap"]}

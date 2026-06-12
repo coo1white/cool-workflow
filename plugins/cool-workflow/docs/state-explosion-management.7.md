@@ -45,6 +45,13 @@ Summaries are written under `.cw/runs/<run-id>/summaries/` as plain JSON. Raw
 blackboard messages, graph nodes, graph edges, audit events, evidence refs, and
 eval artifacts are never deleted or overwritten.
 
+Within a single summary build, CW shares the derived full operator graph,
+operator status, blackboard digest, state-size record, and graph view records
+through a short-lived in-memory context. This avoids rebuilding the same graph
+for `summary refresh`, `summary show`, and the top-level state-explosion report.
+It is not a daemon or persistent cache: the next command re-reads run state from
+disk, recomputes source fingerprints, and still fails closed on stale summaries.
+
 ## Blackboard summarization
 
 `blackboard summarize <run-id>` (MCP: `cw_blackboard_summarize`) returns a

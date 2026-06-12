@@ -1,0 +1,1 @@
+{"workflow":"deploy-check","id":"release-readiness-basic","input":{"event":"pre_release","repo":"cool-workflow","version":"0.1.x"},"expected":["run build and tests","check generated manifests","check project index","inspect dist/source drift decision","summarize risk before tag"]}

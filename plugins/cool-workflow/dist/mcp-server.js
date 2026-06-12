@@ -712,24 +712,23 @@ function toolDefinitions() {
             contract: stringSchema("run-state | workflow-app (default run-state)"),
             cwd: stringSchema("Run workspace")
         }),
-        tool("cw_operator_status", "Read the structured Operator UX run status.", runIdSchema()),
-        tool("cw_operator_graph", "Read the structured Operator UX run graph.", runIdSchema()),
-        tool("cw_operator_report", "Refresh and read the structured Operator UX report summary.", runIdSchema()),
-        tool("cw_worker_summary", "Read the structured worker summary for a run.", runIdSchema()),
+        ...runIdCapabilityTools(["operator.status", "graph", "operator.report", "worker.summary"]),
         tool("cw_workbench_view", "Read the read-only five-panel Workbench view (graph, blackboard, worker, candidate, audit) for one run. Each panel embeds the verbatim `cw <cmd> --json` payload of one existing capability; absent panels are surfaced honestly. Peer of `cw workbench view`.", runIdSchema()),
         tool("cw_workbench_serve", "Describe the optional localhost-only, read-only Workbench host (bind, scope, routes). Returns the serve descriptor identical to `cw workbench serve --json`; MCP never starts the blocking server.", {
             cwd: stringSchema("Run workspace"),
             port: numberSchema("Optional loopback port, defaults to 7717"),
             scope: stringSchema("Registry scope: repo|home")
         }),
-        tool("cw_candidate_summary", "Read the structured candidate summary for a run.", runIdSchema()),
-        tool("cw_feedback_summary", "Read the structured feedback summary for a run.", runIdSchema()),
-        tool("cw_commit_summary", "Read the structured commit summary for a run.", runIdSchema()),
-        tool("cw_multi_agent_summary", "Read the structured multi-agent runtime summary for a run.", runIdSchema()),
-        tool("cw_multi_agent_graph", "Read the structured multi-agent operator graph for a run.", runIdSchema()),
-        tool("cw_multi_agent_dependencies", "Read derived multi-agent dependency edges for operator inspection.", runIdSchema()),
-        tool("cw_multi_agent_failures", "Read failed, blocked, rejected, and ambiguous multi-agent records.", runIdSchema()),
-        tool("cw_multi_agent_evidence", "Read evidence adoption status from worker output through selection and commit. Each row carries a derived rationaleStatus (explained|unexplained|not-applicable).", runIdSchema()),
+        ...runIdCapabilityTools([
+            "candidate.summary",
+            "feedback.summary",
+            "commit.summary",
+            "multi-agent.summary",
+            "multi-agent.graph",
+            "multi-agent.dependencies",
+            "multi-agent.failures",
+            "multi-agent.evidence"
+        ]),
         tool("cw_evidence_reasoning", "Explain WHY each evidence item was adopted/rejected/superseded/conflicting: a derived, fingerprinted reasoning chain with decision, basis, authority, rationale, and counterfactual per gate (fanin, candidate-score, selection, verifier, commit). Fails closed to `unexplained` when a rationale cannot be traced. Reads valid|stale|absent freshness against current source state.", {
             ...runIdSchema(),
             evidence: stringSchema("Optional evidence id/ref to explain a single adoption"),
@@ -1586,6 +1585,15 @@ function tool(name, description, properties) {
             additionalProperties: true
         }
     };
+}
+function runIdCapabilityTools(capabilityIds) {
+    return capabilityIds.map((capabilityId) => capabilityTool(capabilityId, runIdSchema()));
+}
+function capabilityTool(capabilityId, properties) {
+    const descriptor = capability_registry_1.CAPABILITY_REGISTRY.find((capability) => capability.capability === capabilityId);
+    if (!descriptor?.mcp)
+        throw new Error(`MCP capability not declared: ${capabilityId}`);
+    return tool(descriptor.mcp.tool, descriptor.summary, properties);
 }
 function stringSchema(description) {
     return { type: "string", description };

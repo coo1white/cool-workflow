@@ -49,6 +49,13 @@ own `sourceFingerprint`, the covered `repos`, the `queue`, and lifecycle
 a `nextAction`. Every read re-derives records from source; the persisted index is
 only compared against, never trusted as the live status.
 
+During one index build, repo-level overlays (`archive.json` and
+`provenance.json`) are read once per repo and passed as an in-memory scan
+snapshot to each run record. This is a short-lived mechanism, not a persistent
+cache: the next registry command re-reads source state and overlays from disk, so
+freshness, fail-closed behavior, and output shape stay unchanged while large
+repos avoid repeated identical overlay reads.
+
 ## Lifecycle state machine
 
 Lifecycle is CLASSIFIED from existing state, never invented. `deriveLifecycle`

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy Check"
+  short_description: "Verify release and deploy readiness."
+  default_prompt: "Use $deploy-check to verify deploy readiness."

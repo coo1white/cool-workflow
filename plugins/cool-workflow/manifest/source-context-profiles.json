@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "core": {
+      "description": "Default AI source context: runtime source, apps, package metadata, and agent wrappers; generated artifacts, tests, docs, release records, and long logs are manifest-only.",
+      "maxLines": 50000,
+      "include": [
+        "plugins/cool-workflow/src/**",
+        "plugins/cool-workflow/apps/**",
+        "plugins/cool-workflow/package.json",
+        "plugins/cool-workflow/tsconfig.json",
+        "plugins/cool-workflow/scripts/cw.js",
+        "plugins/cool-workflow/scripts/mcp-server.js",
+        "plugins/cool-workflow/scripts/agents/**"
+      ],
+      "exclude": [
+        "plugins/cool-workflow/dist/**",
+        "plugins/cool-workflow/test/**",
+        "plugins/cool-workflow/docs/**",
+        "docs/assets/**",
+        ".cw-release/**",
+        "CHANGELOG.md",
+        "ITERATION_LOG.md"
+      ]
+    }
+  }
+}
