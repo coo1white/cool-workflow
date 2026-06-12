@@ -139,7 +139,7 @@ review contract:
 ```text
 CW_ARCHITECTURE_REVIEW_FAST_MODEL=gpt-5.5-high \
 CW_ARCHITECTURE_REVIEW_STRONG_MODEL=gpt-5.5-extra-high \
-node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --schedule-full
+node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --metrics --schedule-full
 ```
 
 `architecture-review-fast` has six workers: two Map and two Assess workers in
@@ -153,6 +153,10 @@ The two Map workers opt in to result caching keyed by source-context digest plus
 prompt digest. A cache hit still passes through `recordWorkerOutput` validation;
 a corrupt cached result parks/fails closed rather than spawning a silent
 fallback.
+
+`--metrics` is diagnostic and opt-in. It adds elapsed milliseconds, step counts,
+agent-spawn counts, and `result-cache` hit counts to the wrapper JSON payload;
+without it, the wrapper's default output shape stays unchanged.
 
 `{{manifest}}`, `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`, and
 `{{prompt}}` are substituted into DISCRETE argv elements (never a shell-interpreted

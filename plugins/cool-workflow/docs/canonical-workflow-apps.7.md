@@ -43,12 +43,16 @@ CW_ARCHITECTURE_REVIEW_STRONG_MODEL=gpt-5.5-extra-high \
 node scripts/architecture-review-fast.js \
   --repo /path/to/repo \
   --question "Is this architecture sound?" \
+  --metrics \
   --schedule-full
 ```
 
 The wrapper prepares one cached JSONL source context, passes its sha256 digest to
 the fast app, runs `quickstart architecture-review-fast`, and optionally creates
 a one-shot background schedule for the full `architecture-review` app.
+`--metrics` is opt-in; when present the wrapper adds elapsed-time, worker-step,
+agent-spawn, and result-cache-hit counts to the JSON payload so operators can
+measure foreground wait reductions without changing the default output shape.
 
 For long full reviews, use the existing routine or schedule surfaces to run
 `architecture-review` in the background after the fast report has returned.

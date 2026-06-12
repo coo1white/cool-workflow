@@ -20,6 +20,7 @@ const cw = path.join(pluginRoot, "scripts", "cw.js");
 const sourceContext = path.join(pluginRoot, "scripts", "source-context.js");
 
 function main() {
+  const started = nowNs();
   const args = parseArgs(process.argv.slice(2));
   if (args.help) return usage(0);
 
@@ -30,14 +31,16 @@ function main() {
   const profileFile = stringArg(args.profileFile || args["profile-file"]);
   const cacheDir = path.resolve(stringArg(args.cacheDir || args["cache-dir"]) || path.join(repo, ".cw", "cache", "source-context"));
   const contextOut = path.resolve(stringArg(args.contextOut || args["context-out"]) || path.join(repo, ".cw", "context", `${profile}-source.jsonl`));
+  const includeMetrics = truthy(args.metrics);
 
-  const contextText = exportSourceContext({
+  const contextExport = timed(() => exportSourceContext({
     repo,
     profile,
     ref,
     profileFile,
     cacheDir
-  });
+  }));
+  const contextText = contextExport.value;
   fs.mkdirSync(path.dirname(contextOut), { recursive: true });
   fs.writeFileSync(contextOut, contextText, "utf8");
   const digest = `sha256:${crypto.createHash("sha256").update(contextText, "utf8").digest("hex")}`;
@@ -70,10 +73,12 @@ function main() {
     "now"
   ]);
 
-  const fastReview = runCwJson(reviewArgs, repo);
-  const fullReviewSchedule = truthy(args.scheduleFull || args["schedule-full"])
-    ? scheduleFullReview(repo, question, args)
+  const fastReviewRun = timed(() => runCwJson(reviewArgs, repo));
+  const fastReview = fastReviewRun.value;
+  const fullReviewScheduleRun = truthy(args.scheduleFull || args["schedule-full"])
+    ? timed(() => scheduleFullReview(repo, question, args))
     : undefined;
+  const fullReviewSchedule = fullReviewScheduleRun?.value;
 
   writeJson({
     schemaVersion: 1,
@@ -86,7 +91,8 @@ function main() {
       cacheDir
     },
     fastReview,
-    ...(fullReviewSchedule ? { fullReviewSchedule } : {})
+    ...(fullReviewSchedule ? { fullReviewSchedule } : {}),
+    ...(includeMetrics ? { metrics: buildMetrics(started, contextText, contextExport.elapsedMs, fastReview, fastReviewRun.elapsedMs, fullReviewScheduleRun?.elapsedMs) } : {})
   });
 }
 
@@ -207,6 +213,51 @@ function truthy(value) {
   return value === true || value === "true" || value === "1" || value === "yes";
 }
 
+function nowNs() {
+  return process.hrtime.bigint();
+}
+
+function elapsedMs(started) {
+  return Number((process.hrtime.bigint() - started) / 1000000n);
+}
+
+function timed(fn) {
+  const started = nowNs();
+  const value = fn();
+  return { value, elapsedMs: elapsedMs(started) };
+}
+
+function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, fastReviewElapsedMs, fullReviewScheduleElapsedMs) {
+  const steps = Array.isArray(fastReview?.steps) ? fastReview.steps : [];
+  const handleKinds = countBy(steps.map((step) => step && step.handleKind).filter(Boolean));
+  const actions = countBy(steps.map((step) => step && step.action).filter(Boolean));
+  return {
+    totalElapsedMs: elapsedMs(started),
+    sourceContext: {
+      elapsedMs: sourceContextElapsedMs,
+      bytes: Buffer.byteLength(contextText, "utf8")
+    },
+    fastReview: {
+      elapsedMs: fastReviewElapsedMs,
+      status: fastReview?.status,
+      plannedWorkers: fastReview?.plannedWorkers,
+      completedWorkers: fastReview?.completedWorkers,
+      steps: steps.length,
+      actions,
+      handleKinds,
+      resultCacheHits: Number(handleKinds["result-cache"] || 0),
+      agentSpawns: steps.filter((step) => step && step.backendId === "agent" && step.handleKind && step.handleKind !== "result-cache").length
+    },
+    ...(fullReviewScheduleElapsedMs === undefined ? {} : { fullReviewSchedule: { elapsedMs: fullReviewScheduleElapsedMs } })
+  };
+}
+
+function countBy(values) {
+  const counts = {};
+  for (const value of values) counts[String(value)] = (counts[String(value)] || 0) + 1;
+  return counts;
+}
+
 function writeJson(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
@@ -219,7 +270,8 @@ function usage(code) {
     "options:",
     "  --profile core --ref HEAD --profile-file PATH --cache-dir DIR --context-out PATH",
     "  --invariant TEXT --focus TEXT --preview --once",
-    "  --schedule-full [--full-delay-minutes N]"
+    "  --schedule-full [--full-delay-minutes N]",
+    "  --metrics"
   ].join("\n") + "\n");
   process.exitCode = code;
 }

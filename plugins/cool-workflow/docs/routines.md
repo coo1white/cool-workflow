@@ -51,12 +51,15 @@ block an interactive session:
 node scripts/architecture-review-fast.js \
   --repo /path/to/repo \
   --question "Is this architecture sound?" \
+  --metrics \
   --schedule-full
 ```
 
 The wrapper creates a one-shot reminder schedule whose `workflowId` is
 `architecture-review`. The schedule prompt is policy. CW stores the schedule and
 records due events; the external agent host decides how to run the long review.
+The `--metrics` flag is optional and reports foreground elapsed time plus
+agent-spawn and result-cache-hit counts for the fast run.
 
 ## Boundary
 
