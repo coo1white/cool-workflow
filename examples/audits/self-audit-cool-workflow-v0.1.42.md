@@ -6,8 +6,8 @@
 # Self-Audit — Cool Workflow Architecture (v0.1.42)
 
 > **What this is.** A real, line-cited architecture-risk report of *this* repository,
-> curated from CW's prior architecture-review verdicts (`architecture-review-verdict.md`
-> @ v0.1.38, `architecture-review-verdict-v0.1.39.md`) and **re-verified, finding by
+> curated from CW's prior architecture-review verdicts (`docs/audits/architecture-review-verdict.md`
+> @ v0.1.38, `docs/audits/architecture-review-verdict-v0.1.39.md`) and **re-verified, finding by
 > finding, against the v0.1.42 source tree** at commit `46fdd55`. Findings the prior
 > verdicts raised that are now FIXED were removed (or moved to "Resolved since prior
 > verdicts"), and every remaining cite was re-opened and confirmed to resolve to a real
@@ -126,7 +126,7 @@ smoke-only, not zero.)*
 
 ## Resolved since prior verdicts (do NOT cite these as live risks)
 
-These were P1/P2 in `architecture-review-verdict.md` / `-v0.1.39.md` and are **fixed** in
+These were P1/P2 in `docs/audits/architecture-review-verdict.md` / `-v0.1.39.md` and are **fixed** in
 `46fdd55`. Listed so a reader cross-referencing the old verdicts does not re-flag them:
 
 - **Non-atomic, un-fsync'd `writeJson`** → now atomic temp→rename, optional fsync of file
