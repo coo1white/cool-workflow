@@ -1064,10 +1064,19 @@ async function main() {
                 case "rerun":
                     printJson((0, capability_core_1.runRerun)(registry, required(id, "run id"), args.options));
                     return;
+                case "export":
+                    printJson((0, capability_core_1.runExportArchive)(runner, required(id || optionalArg(args.options.runId || args.options.run), "run id"), args.options));
+                    return;
+                case "import":
+                    printJson((0, capability_core_1.runImportArchive)(runner, { ...args.options, archive: id || args.options.archive || args.options.path }));
+                    return;
+                case "verify-import":
+                    printJson((0, capability_core_1.runVerifyImport)(runner, required(id || optionalArg(args.options.runId || args.options.run), "run id"), args.options));
+                    return;
                 default:
                     if (await tryDispatchCli(args, runner))
                         return;
-                    throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive [run-id] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
+                    throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
             }
         }
         case "queue": {

@@ -27,6 +27,7 @@ import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, 
 import { verifyTelemetryLedger } from "./telemetry-ledger";
 import { runTamperDemo, TelemetryVerifyResult } from "./telemetry-demo";
 import { loadRunStateFile, readJson, writeJson } from "./state";
+import { exportRun, importRun, verifyImportedRun } from "./run-export";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -193,6 +194,18 @@ function flag(value: unknown): boolean | undefined {
   return Boolean(value);
 }
 
+function withInvocationCwd<T>(args: Record<string, unknown>, fn: () => T): T {
+  const cwd = optionalString(args.cwd);
+  if (!cwd) return fn();
+  const previous = process.cwd();
+  process.chdir(cwd);
+  try {
+    return fn();
+  } finally {
+    process.chdir(previous);
+  }
+}
+
 export function runRegistryRefresh(reg: RunRegistry, args: Record<string, unknown>): RunRegistryReport {
   return reg.refresh({ scope: scopeOf(args, "repo") });
 }
@@ -259,6 +272,29 @@ export function runArchive(reg: RunRegistry, runId: string | undefined, args: Re
 
 export function runRerun(reg: RunRegistry, runId: string, args: Record<string, unknown>): RunRerunResult {
   return reg.rerun(runId, { scope: scopeOf(args, "home"), reason: optionalString(args.reason) });
+}
+
+export function runExportArchive(runner: CoolWorkflowRunner, runId: string, args: Record<string, unknown>): unknown {
+  return withInvocationCwd(args, () => {
+    const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
+    return exportRun(runner.loadRun(runId), path.resolve(output));
+  });
+}
+
+export function runImportArchive(runner: CoolWorkflowRunner, args: Record<string, unknown>): unknown {
+  return withInvocationCwd(args, () => {
+    const archive = optionalString(args.archive || args.path || args.file);
+    if (!archive) throw new Error("run import requires an archive path (positional, --archive, --path, or --file)");
+    const target = optionalString(args.target || args.repo || args.cwd) || process.cwd();
+    const imported = importRun(path.resolve(archive), path.resolve(target));
+    const registry = new RunRegistry(path.resolve(target), runner);
+    const registryReport = registry.refresh({ scope: "repo" });
+    return { ...imported, registry: registryReport };
+  });
+}
+
+export function runVerifyImport(runner: CoolWorkflowRunner, runId: string, args: Record<string, unknown>): unknown {
+  return withInvocationCwd(args, () => verifyImportedRun(runner.loadRun(runId)));
 }
 
 export function queueAdd(reg: RunRegistry, args: Record<string, unknown>): unknown {
