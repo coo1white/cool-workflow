@@ -37,6 +37,16 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
      LLM clients). "Infrastructure for future work" is not a track.
    - Tag message answers "what can a user do now that they couldn't
      before?" in one concrete sentence.
+   - FreeBSD discipline (binding — AGENTS.md hard constraints;
+     docs/unix-principles.md §7): POLA (no default-behavior or byte change
+     to existing outputs/layouts/flags), mechanism-not-policy (no
+     vendor-specific logic in src/ core; wrappers only — core forwards
+     streams, never parses them), Rule of Silence (stdout data-only,
+     diagnostics on stderr, human niceties TTY-gated with opt-out),
+     fail-closed (no fabricated success, no silent fallback), man-page sync
+     (shipped behavior changes update docs/*.7.md in the same diff), and
+     style(9) spirit (no reformatting of untouched code). Any violation →
+     REJECT regardless of capability.
 
 4. Record the verdict (this is the ONLY file you may write):
    - APPROVED:
