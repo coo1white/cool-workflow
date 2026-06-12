@@ -129,6 +129,11 @@ interface QueueFile {
   entries: RunQueueEntry[];
 }
 
+interface RepoOverlays {
+  archive: ArchiveOverlay;
+  provenance: ProvenanceOverlay;
+}
+
 /** Minimal contract the registry needs to CREATE a new run for rerun. The
  *  CoolWorkflowRunner satisfies this structurally; we never fork run creation. */
 export interface RunPlanner {
@@ -267,6 +272,12 @@ export class RunRegistry {
       return { schemaVersion: 1, links: {} };
     }
   }
+  private loadRepoOverlays(repo: string): RepoOverlays {
+    return {
+      archive: this.loadArchiveOverlay(repo),
+      provenance: this.loadProvenanceOverlay(repo)
+    };
+  }
 
   // ---- home registry files ------------------------------------------------
   private reposFilePath(): string {
@@ -341,7 +352,7 @@ export class RunRegistry {
   /** Derive a RunRecord from a run directory's source state.json. Returns the
    *  record, or null when source is unreadable/unsupported (caller decides how to
    *  surface `missing` — we never fabricate a status). */
-  private deriveRecord(repo: string, runDir: string): RunRecord | null {
+  private deriveRecord(repo: string, runDir: string, overlays: RepoOverlays = this.loadRepoOverlays(repo)): RunRecord | null {
     const statePath = path.join(runDir, "state.json");
     if (!fs.existsSync(statePath)) return null;
     let run: WorkflowRun;
@@ -354,8 +365,8 @@ export class RunRegistry {
     }
     const li = lifecycleInputs(run);
     const derived = deriveLifecycle(li);
-    const archive = this.loadArchiveOverlay(repo).archived[run.id];
-    const provenance = this.loadProvenanceOverlay(repo).links[run.id];
+    const archive = overlays.archive.archived[run.id];
+    const provenance = overlays.provenance.links[run.id];
     // Run Retention & Provable Reclamation (v0.1.39): the per-run reclaimed.json
     // overlay (if any) raises the disk-tier above `archived` and downgrades the
     // capability. Derived from source, never invented.
@@ -416,10 +427,11 @@ export class RunRegistry {
   private scanRepo(repo: string): RunRecord[] {
     const runsDir = this.repoRunsDir(repo);
     if (!fs.existsSync(runsDir)) return [];
+    const overlays = this.loadRepoOverlays(repo);
     const records: RunRecord[] = [];
     for (const entry of fs.readdirSync(runsDir, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
-      const record = this.deriveRecord(repo, path.join(runsDir, entry.name));
+      const record = this.deriveRecord(repo, path.join(runsDir, entry.name), overlays);
       if (record) records.push(record);
     }
     return records.sort(compareRecords);

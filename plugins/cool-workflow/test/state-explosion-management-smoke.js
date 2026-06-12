@@ -323,6 +323,9 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
   assert.ok(mcp.graphCompact.compactNodeCount < mcp.graphCompact.fullNodeCount);
   assert.ok(mcp.graphCompact.syntheticNodes.every((syn) => syn.sourceIds.length >= 1), "MCP compact graph must keep source refs");
 
+  // --- Slim summary builders: one full graph/operator pass per summary path ---
+  assertSlimSummaryBuilders(runId);
+
   process.stdout.write("state-explosion-management-smoke: ok\n");
 })().catch((error) => {
   console.error(error);
@@ -411,4 +414,41 @@ function readMcp(runId, snapshotPath) {
       }))
     )
     .finally(() => server.kill());
+}
+
+function assertSlimSummaryBuilders(runId) {
+  const operatorPath = path.join(pluginRoot, "dist", "multi-agent-operator-ux.js");
+  const stateExplosionPath = path.join(pluginRoot, "dist", "state-explosion.js");
+  delete require.cache[require.resolve(stateExplosionPath)];
+  const operatorUx = require(operatorPath);
+  const originalGraph = operatorUx.buildMultiAgentOperatorGraph;
+  const originalOperator = operatorUx.summarizeMultiAgentOperator;
+  const calls = { graph: 0, operator: 0 };
+  operatorUx.buildMultiAgentOperatorGraph = function countedGraph(...args) {
+    calls.graph += 1;
+    return originalGraph.apply(this, args);
+  };
+  operatorUx.summarizeMultiAgentOperator = function countedOperator(...args) {
+    calls.operator += 1;
+    return originalOperator.apply(this, args);
+  };
+  try {
+    const { loadRunFromCwd } = require(path.join(pluginRoot, "dist", "state.js"));
+    const stateExplosion = require(stateExplosionPath);
+    const run = loadRunFromCwd(runId, tmp);
+
+    stateExplosion.buildStateExplosionReport(run);
+    assert.equal(calls.graph, 1, "buildStateExplosionReport should build the full graph once");
+    assert.equal(calls.operator, 1, "buildStateExplosionReport should summarize operator state once");
+
+    calls.graph = 0;
+    calls.operator = 0;
+    stateExplosion.refreshStateExplosionSummaries(run);
+    assert.equal(calls.graph, 1, "summary refresh should build the full graph once across all views and report");
+    assert.equal(calls.operator, 1, "summary refresh should summarize operator state once across all views and report");
+  } finally {
+    operatorUx.buildMultiAgentOperatorGraph = originalGraph;
+    operatorUx.summarizeMultiAgentOperator = originalOperator;
+    delete require.cache[require.resolve(stateExplosionPath)];
+  }
 }

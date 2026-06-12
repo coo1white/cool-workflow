@@ -1,0 +1,1 @@
+{"workflow":"design-qa","id":"design-new-context-surface","input":{"proposal":"add source context JSONL export","constraints":["POLA","mechanism-not-policy","stdout-data"]},"expected":["confirm opt-in surface","keep policy in manifest data","require manifest for omissions","reject vendor parsing in core","define verifier checks"]}

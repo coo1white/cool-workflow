@@ -1,0 +1,1 @@
+{"workflow":"ci-triage","id":"ci-failing-build-log","input":{"event":"ci_failed","artifacts":["build.log","test-summary.txt"],"repo":"cool-workflow"},"expected":["identify first failing command","quote failing log lines","separate infrastructure failure from code failure","propose one verifier command","write lesson back if fixed"]}

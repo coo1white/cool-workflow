@@ -39,6 +39,14 @@ A new runtime capability is added once, in the registry, against one core entry.
 The CLI command and the MCP tool are then two policies over that one mechanism —
 which is exactly what the parity gate checks.
 
+The MCP tool list is also being collapsed toward that single source. The first
+read-only inspection group (`operator.status`, `graph`, `operator.report`,
+worker/candidate/feedback/commit summaries, and the basic multi-agent inspection
+views) derives its MCP tool name and description directly from the capability
+registry; `mcp-server.ts` still owns the MCP input schema for those tools. This
+keeps the public `tools/list` output unchanged while removing one duplicate
+description table at a time.
+
 ## Human vs Machine Contract
 
 The two surfaces have different contracts and must not interfere:

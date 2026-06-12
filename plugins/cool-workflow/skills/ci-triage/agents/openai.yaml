@@ -1,0 +1,4 @@
+interface:
+  display_name: "CI Triage"
+  short_description: "Diagnose failing CI with evidence."
+  default_prompt: "Use $ci-triage to diagnose the failing CI run."

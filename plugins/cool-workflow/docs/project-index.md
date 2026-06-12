@@ -8,8 +8,8 @@ Generated from the current repository code on 2026-06-12 by `npm run sync:projec
 - Version: `0.1.79`
 - Source modules: `58`
 - Workflow apps: `6`
-- Docs: `46`
-- Smoke tests: `72`
+- Docs: `47`
+- Smoke tests: `73`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -162,6 +162,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [SANDBOX-PROFILES(7)](sandbox-profiles.7.md)
 - [Scheduled Tasks](scheduled-tasks.md)
 - [Security / Trust Hardening](security-trust-hardening.7.md)
+- [Source Context Profiles](source-context-profiles.7.md)
 - [State Explosion Management](state-explosion-management.7.md)
 - [STATE-NODE(7)](state-node.7.md)
 - [Team Collaboration](team-collaboration.7.md)
@@ -232,6 +233,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [schema-validation-smoke.js](../test/schema-validation-smoke.js)
 - [security-trust-hardening-smoke.js](../test/security-trust-hardening-smoke.js)
 - [self-audit-hardening-smoke.js](../test/self-audit-hardening-smoke.js)
+- [source-context-profile-smoke.js](../test/source-context-profile-smoke.js)
 - [state-explosion-management-smoke.js](../test/state-explosion-management-smoke.js)
 - [state-node-smoke.js](../test/state-node-smoke.js)
 - [tamper-evidence-demo-smoke.js](../test/tamper-evidence-demo-smoke.js)

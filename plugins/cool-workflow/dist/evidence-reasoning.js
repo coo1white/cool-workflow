@@ -389,11 +389,11 @@ function deriveCounterfactuals(run, scores) {
 // node. This returns the operator-graph node ids backing every decision-bearing
 // reasoning step of an adopted chain, so state-explosion can protect them.
 // ---------------------------------------------------------------------------
-function reasoningCriticalNodeIds(run) {
+function reasoningCriticalNodeIds(run, operator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run)) {
     const ids = new Set();
     const faninIds = new Set((run.multiAgent?.fanins || []).map((entry) => entry.id));
     const commitById = new Map((run.commits || []).map((commit) => [commit.id, commit]));
-    for (const evidence of (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run).evidence) {
+    for (const evidence of operator.evidence) {
         if (evidence.status !== "adopted")
             continue;
         for (const id of evidence.candidateIds)

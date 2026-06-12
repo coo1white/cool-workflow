@@ -48,13 +48,55 @@ exports.GRAPH_VIEWS = [
     "candidate",
     "commit-gate"
 ];
+function createStateExplosionBuildContext() {
+    return {
+        stateSizes: new Map(),
+        blackboardDigests: new Map(),
+        graphRecords: new Map()
+    };
+}
+function fullGraphFor(run, context) {
+    if (!context.fullGraph)
+        context.fullGraph = (0, multi_agent_operator_ux_1.buildMultiAgentOperatorGraph)(run);
+    return context.fullGraph;
+}
+function operatorFor(run, context) {
+    if (!context.operator)
+        context.operator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
+    return context.operator;
+}
+function reasoningCriticalIdsFor(run, context) {
+    if (!context.reasoningCriticalIds)
+        context.reasoningCriticalIds = (0, evidence_reasoning_1.reasoningCriticalNodeIds)(run, operatorFor(run, context));
+    return context.reasoningCriticalIds;
+}
+function thresholdsKey(thresholds) {
+    return [
+        thresholds.graphNodes,
+        thresholds.graphEdges,
+        thresholds.blackboardMessages,
+        thresholds.blackboardRecords,
+        thresholds.collapseBucket,
+        thresholds.totalRecords
+    ].join(":");
+}
+function graphKey(view, options) {
+    return [
+        view,
+        options.focus || "",
+        options.depth === undefined ? "" : String(options.depth),
+        thresholdsKey(options.thresholds || exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS)
+    ].join("\0");
+}
 // ---------------------------------------------------------------------------
 // State size
 // ---------------------------------------------------------------------------
 function computeStateSize(run, thresholds = exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS) {
+    return computeStateSizeWithGraph(run, thresholds, (0, multi_agent_operator_ux_1.buildMultiAgentOperatorGraph)(run));
+}
+function computeStateSizeWithGraph(run, thresholds, graph) {
     const ma = run.multiAgent || { runs: [], roles: [], groups: [], memberships: [], fanouts: [], fanins: [] };
     const bb = run.blackboard || { topics: [], messages: [], contexts: [], artifacts: [], snapshots: [], decisions: [] };
-    const graph = (0, multi_agent_operator_ux_1.buildMultiAgentOperatorGraph)(run);
     const counts = {
         multiAgentRuns: (ma.runs || []).length,
         roles: (ma.roles || []).length,
@@ -96,6 +138,15 @@ function computeStateSize(run, thresholds = exports.DEFAULT_STATE_EXPLOSION_THRE
     if (total > thresholds.totalRecords)
         reasons.push(`run has ${total} multi-agent records (> ${thresholds.totalRecords})`);
     return { ...counts, total, compactionRecommended: reasons.length > 0, reasons: reasons.sort() };
+}
+function stateSizeFor(run, thresholds, context) {
+    const key = thresholdsKey(thresholds);
+    let size = context.stateSizes.get(key);
+    if (!size) {
+        size = computeStateSizeWithGraph(run, thresholds, fullGraphFor(run, context));
+        context.stateSizes.set(key, size);
+    }
+    return size;
 }
 // ---------------------------------------------------------------------------
 // Blackboard digest (deterministic structural summary)
@@ -310,10 +361,26 @@ function summarizeBlackboardDigest(run, blackboardId) {
         highSignal
     };
 }
+function blackboardDigestFor(run, context, blackboardId) {
+    const key = blackboardId || "";
+    let digest = context.blackboardDigests.get(key);
+    if (!digest) {
+        digest = summarizeBlackboardDigest(run, blackboardId);
+        context.blackboardDigests.set(key, digest);
+    }
+    return digest;
+}
 function buildCompactGraph(run, view = "compact", options = {}) {
+    return buildCompactGraphWithContext(run, view, options, createStateExplosionBuildContext());
+}
+function buildCompactGraphWithContext(run, view, options, context) {
     const thresholds = options.thresholds || exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
-    const full = (0, multi_agent_operator_ux_1.buildMultiAgentOperatorGraph)(run);
-    const operator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
+    const key = graphKey(view, { ...options, thresholds });
+    const cached = context.graphRecords.get(key);
+    if (cached)
+        return cached;
+    const full = fullGraphFor(run, context);
+    const operator = operatorFor(run, context);
     const critical = criticalPathNodeIds(run, operator);
     const protectedIds = new Set(critical);
     // Failures, blocked, rejected, conflicting nodes are always preserved.
@@ -324,7 +391,7 @@ function buildCompactGraph(run, view = "compact", options = {}) {
     // v0.1.26: reasoning steps are on the critical path and must never be collapsed
     // into a synthetic summary node — protect every decision-gate node backing an
     // adopted reasoning chain (notably score nodes, which are otherwise collapsed).
-    for (const id of (0, evidence_reasoning_1.reasoningCriticalNodeIds)(run))
+    for (const id of reasoningCriticalIdsFor(run, context))
         protectedIds.add(id);
     for (const failure of operator.failures) {
         if (failure.linked)
@@ -349,13 +416,15 @@ function buildCompactGraph(run, view = "compact", options = {}) {
     const collapseEnabled = view === "compact" || view === "critical-path" || Boolean(options.focus);
     if (view === "full" || !collapseEnabled) {
         // No collapse: emit scoped graph verbatim (still records provenance + critical path).
-        return finalizeGraphRecord(run, view, options, full, {
+        const record = finalizeGraphRecord(run, view, options, full, {
             nodes: scopeNodes.map((node) => ({ ...node })),
             edges: scopeEdges.map((edge) => ({ ...edge })),
             syntheticNodes: [],
             critical,
             operator
         });
+        context.graphRecords.set(key, record);
+        return record;
     }
     // Determine collapse buckets per node.
     const rule = collapseRuleFor(view);
@@ -436,13 +505,15 @@ function buildCompactGraph(run, view = "compact", options = {}) {
         edgeSeen.add(key);
         edges.push({ from, to, label: edge.label });
     }
-    return finalizeGraphRecord(run, view, options, full, {
+    const record = finalizeGraphRecord(run, view, options, full, {
         nodes: nodes.sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id)),
         edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || (a.label || "").localeCompare(b.label || "")),
         syntheticNodes: synthetic.sort((a, b) => a.id.localeCompare(b.id)),
         critical,
         operator
     });
+    context.graphRecords.set(key, record);
+    return record;
 }
 function finalizeGraphRecord(run, view, options, full, built) {
     const collapsedNodeCount = built.syntheticNodes.reduce((acc, syn) => acc + syn.collapsedNodeCount, 0);
@@ -671,10 +742,13 @@ function expansionCommandFor(run, view, key) {
 // Operator digest
 // ---------------------------------------------------------------------------
 function buildOperatorDigest(run, thresholds = exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS) {
-    const stateSize = computeStateSize(run, thresholds);
-    const operator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
-    const compact = buildCompactGraph(run, "compact", { thresholds });
-    const blackboard = summarizeBlackboardDigest(run);
+    return buildOperatorDigestWithContext(run, thresholds, createStateExplosionBuildContext());
+}
+function buildOperatorDigestWithContext(run, thresholds, context) {
+    const stateSize = stateSizeFor(run, thresholds, context);
+    const operator = operatorFor(run, context);
+    const compact = buildCompactGraphWithContext(run, "compact", { thresholds }, context);
+    const blackboard = blackboardDigestFor(run, context);
     const evidence = operator.evidence;
     const adopted = evidence.filter((e) => e.status === "adopted");
     const missing = evidence.filter((e) => e.status === "missing" || e.status === "pending" || e.status === "conflicting");
@@ -753,12 +827,15 @@ function buildOperatorDigest(run, thresholds = exports.DEFAULT_STATE_EXPLOSION_T
 // State explosion report (combines all derived indexes)
 // ---------------------------------------------------------------------------
 function buildStateExplosionReport(run, options = {}) {
+    return buildStateExplosionReportWithContext(run, options, createStateExplosionBuildContext());
+}
+function buildStateExplosionReportWithContext(run, options, context) {
     const thresholds = options.thresholds || exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
-    const stateSize = computeStateSize(run, thresholds);
-    const compactGraph = buildCompactGraph(run, "compact", { thresholds });
-    const criticalPathGraph = buildCompactGraph(run, "critical-path", { thresholds });
-    const blackboardDigest = summarizeBlackboardDigest(run);
-    const operatorDigest = buildOperatorDigest(run, thresholds);
+    const stateSize = stateSizeFor(run, thresholds, context);
+    const compactGraph = buildCompactGraphWithContext(run, "compact", { thresholds }, context);
+    const criticalPathGraph = buildCompactGraphWithContext(run, "critical-path", { thresholds }, context);
+    const blackboardDigest = blackboardDigestFor(run, context);
+    const operatorDigest = buildOperatorDigestWithContext(run, thresholds, context);
     const currentFingerprint = fingerprintStrings([
         compactGraph.sourceFingerprint,
         blackboardDigest.sourceFingerprint,
@@ -837,12 +914,13 @@ function summariesDir(run) {
 }
 function refreshStateExplosionSummaries(run, options = {}) {
     const thresholds = options.thresholds || exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
+    const context = createStateExplosionBuildContext();
     const dir = summariesDir(run);
     node_fs_1.default.mkdirSync(dir, { recursive: true });
     const views = options.views || ["full", "compact", "critical-path", "failures", "evidence", "trust", "topology", "blackboard", "candidate", "commit-gate"];
-    const blackboardDigest = summarizeBlackboardDigest(run);
-    const operatorDigest = buildOperatorDigest(run, thresholds);
-    const graphRecords = views.map((view) => buildCompactGraph(run, view, { thresholds }));
+    const blackboardDigest = blackboardDigestFor(run, context);
+    const operatorDigest = buildOperatorDigestWithContext(run, thresholds, context);
+    const graphRecords = views.map((view) => buildCompactGraphWithContext(run, view, { thresholds }, context));
     const entries = [];
     const writeRecord = (id, record, scope, fingerprint, included, omitted) => {
         const file = node_path_1.default.join(dir, `${(0, state_1.safeFileName)(id)}.json`);
@@ -854,13 +932,14 @@ function refreshStateExplosionSummaries(run, options = {}) {
     for (const record of graphRecords) {
         writeRecord(record.id, record, "run", record.sourceFingerprint, record.compactNodeCount, record.collapsedNodeCount);
     }
-    const stateSize = computeStateSize(run, thresholds);
+    const stateSize = stateSizeFor(run, thresholds, context);
     const indexFingerprint = fingerprintStrings([
         operatorDigest.sourceFingerprint,
         blackboardDigest.sourceFingerprint,
         ...graphRecords.map((r) => r.sourceFingerprint),
         String(stateSize.total)
     ]);
+    const compactGraph = buildCompactGraphWithContext(run, "compact", { thresholds }, context);
     const reportPath = node_path_1.default.join(dir, "state-explosion-report.json");
     const index = {
         schemaVersion: exports.STATE_EXPLOSION_SCHEMA_VERSION,
@@ -869,7 +948,7 @@ function refreshStateExplosionSummaries(run, options = {}) {
         scope: "run",
         sourceRecordIds: unique([...blackboardDigest.sourceRecordIds, ...operatorDigest.sourceRecordIds]),
         sourceFingerprint: fingerprintStrings([
-            buildCompactGraph(run, "compact", { thresholds }).sourceFingerprint,
+            compactGraph.sourceFingerprint,
             blackboardDigest.sourceFingerprint,
             operatorDigest.sourceFingerprint,
             String(stateSize.total)
@@ -893,7 +972,7 @@ function refreshStateExplosionSummaries(run, options = {}) {
     };
     void indexFingerprint;
     (0, state_1.writeJson)(index.paths.indexPath, index);
-    const report = buildStateExplosionReport(run, { thresholds, index });
+    const report = buildStateExplosionReportWithContext(run, { thresholds, index }, context);
     (0, state_1.writeJson)(reportPath, report);
     (0, trust_audit_1.recordTrustAuditEvent)(run, {
         kind: "summary.refresh",

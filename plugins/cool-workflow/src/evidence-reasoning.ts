@@ -498,11 +498,14 @@ function deriveCounterfactuals(run: WorkflowRun, scores: Map<string, CandidateSc
 // reasoning step of an adopted chain, so state-explosion can protect them.
 // ---------------------------------------------------------------------------
 
-export function reasoningCriticalNodeIds(run: WorkflowRun): string[] {
+export function reasoningCriticalNodeIds(
+  run: WorkflowRun,
+  operator: Pick<ReturnType<typeof summarizeMultiAgentOperator>, "evidence"> = summarizeMultiAgentOperator(run)
+): string[] {
   const ids = new Set<string>();
   const faninIds = new Set((run.multiAgent?.fanins || []).map((entry) => entry.id));
   const commitById = new Map((run.commits || []).map((commit) => [commit.id, commit]));
-  for (const evidence of summarizeMultiAgentOperator(run).evidence) {
+  for (const evidence of operator.evidence) {
     if (evidence.status !== "adopted") continue;
     for (const id of evidence.candidateIds) ids.add(`${run.id}:candidate:${id}`);
     for (const id of evidence.scoreIds) ids.add(`${run.id}:score:${id}`);

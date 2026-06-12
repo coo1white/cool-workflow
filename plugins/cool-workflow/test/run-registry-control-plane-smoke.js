@@ -16,7 +16,8 @@
 //      generation/origin chain is correct.
 //   8. Fail closed — tampered source => stale, absent source => missing; never a
 //      fabricated status.
-//   9. BOTH surfaces — `cw <cmd> --json` is payload-identical to `cw_<tool>`, and
+//   9. Scan slimness — repo overlays are read once per repo per index build.
+//  10. BOTH surfaces — `cw <cmd> --json` is payload-identical to `cw_<tool>`, and
 //      the control plane resolves/reruns runs through the MCP tools too.
 //
 // Included in `npm test` and `npm run release:check`.
@@ -192,7 +193,34 @@ function openMcp() {
   assert.equal(rerun2.provenance.generation, 2, "rerun of a rerun is generation 2");
   assert.equal(rerun2.provenance.originRunId, b1.id, "origin stays the chain root");
 
-  // ---- 8. fail closed on tampered / absent source ------------------------
+  // ---- 8. scan slimness: read repo overlays once per repo ----------------
+  // This guards the hot path without using wall-clock timing. The registry still
+  // re-derives every run from source state; it just must not re-read identical
+  // repo-level overlays for every run in the same scan.
+  const overlayReads = new Map();
+  const watchedOverlays = new Set([
+    path.join(repoA, ".cw", "registry", "archive.json"),
+    path.join(repoB, ".cw", "registry", "provenance.json")
+  ].map((file) => path.resolve(file)));
+  const originalReadFileSync = fs.readFileSync;
+  fs.readFileSync = function countedReadFileSync(file, ...rest) {
+    if (typeof file === "string" || file instanceof Buffer || file instanceof URL) {
+      const key = path.resolve(String(file));
+      if (watchedOverlays.has(key)) overlayReads.set(key, (overlayReads.get(key) || 0) + 1);
+    }
+    return originalReadFileSync.call(this, file, ...rest);
+  };
+  try {
+    const slimIndex = regA.buildIndex("home");
+    assert.ok(slimIndex.records.some((r) => r.runId === a2.id && r.archived), "slim scan preserves archive overlay semantics");
+    assert.ok(slimIndex.records.some((r) => r.runId === rerun1.newRunId && r.provenance?.rerunOf === b1.id), "slim scan preserves provenance overlay semantics");
+  } finally {
+    fs.readFileSync = originalReadFileSync;
+  }
+  assert.equal(overlayReads.get(path.resolve(path.join(repoA, ".cw", "registry", "archive.json"))), 1, "archive overlay read once per repo scan");
+  assert.equal(overlayReads.get(path.resolve(path.join(repoB, ".cw", "registry", "provenance.json"))), 1, "provenance overlay read once per repo scan");
+
+  // ---- 9. fail closed on tampered / absent source ------------------------
   regA.refresh({ scope: "home" }); // persist a fresh baseline
   // tamper: flip a task status on a1 directly in source.
   editState(a1.paths.state, (s) => (s.tasks[0].status = "completed"));
@@ -210,7 +238,7 @@ function openMcp() {
   assert.equal(goneShow.found, false, "run show of a deleted run => not found");
   assert.equal(goneShow.freshness, "missing", "run show of a deleted run => missing (never a live status)");
 
-  // ---- 9. BOTH surfaces: CLI --json == cw_<tool>, MCP can drive lifecycle --
+  // ---- 10. BOTH surfaces: CLI --json == cw_<tool>, MCP can drive lifecycle --
   execFileSync(node, [cli, "registry", "refresh", "--cwd", repoA, "--scope", "home"], { cwd: repoA, encoding: "utf8", env: process.env });
   const mcp = openMcp();
   try {
@@ -246,7 +274,7 @@ function openMcp() {
   // cleanup
   for (const dir of [cwHome, repoA, repoB]) fs.rmSync(dir, { recursive: true, force: true });
 
-  process.stdout.write("run-registry-control-plane-smoke: ok (cross-repo index, search determinism, resume-by-id, queue order, archive without loss, rerun provenance, fail-closed stale/missing, CLI<->MCP parity)\n");
+  process.stdout.write("run-registry-control-plane-smoke: ok (cross-repo index, search determinism, resume-by-id, queue order, archive without loss, rerun provenance, slim overlay scan, fail-closed stale/missing, CLI<->MCP parity)\n");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

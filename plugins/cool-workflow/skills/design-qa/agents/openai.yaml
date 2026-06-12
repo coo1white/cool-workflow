@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design QA"
+  short_description: "Check architecture and UX design quality."
+  default_prompt: "Use $design-qa to evaluate this design."
