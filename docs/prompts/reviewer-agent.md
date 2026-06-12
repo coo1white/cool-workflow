@@ -57,6 +57,27 @@ Execute every check. Do not stop at the first failure — report all findings.
 - [ ] No new runtime dependency (CW is zero-dependency by design)
 - [ ] No secrets, tokens, or absolute local paths in the diff
 
+## Gate 6 — FreeBSD Discipline
+This project strictly follows the FreeBSD programming philosophy
+(`AGENTS.md` hard-constraints section; long form in
+`plugins/cool-workflow/docs/unix-principles.md` §7). Reject on any violation,
+even if every other gate passes:
+- [ ] POLA: no existing output, file layout, exit code, or flag changes
+      meaning or bytes by default — new behavior is behind a new verb/flag
+      or an env toggle.
+- [ ] Mechanism, not policy: no vendor-specific logic (claude/codex/gemini
+      formats, prompt rendering) added to src/ core — wrappers under
+      scripts/agents/ only. Core may forward an agent's stream, never parse it.
+- [ ] Rule of Silence: stdout stays data-only; diagnostics go to stderr;
+      anything human-friendly is TTY-gated with an opt-out; piped/CI runs
+      stay silent on success.
+- [ ] Fail closed: no fabricated success, no silent fallback on
+      unconfigured/invalid/unverifiable input.
+- [ ] Man pages: shipped behavior changes update the matching docs/*.7.md
+      in this same diff.
+- [ ] style(9) spirit: the diff matches surrounding style and contains no
+      reformatting of untouched code.
+
 # Verdict Format
 Output exactly one of:
 

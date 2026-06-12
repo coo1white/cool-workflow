@@ -55,12 +55,49 @@ Every cycle must trace to one of these validated-use-case tracks:
 If a proposed change serves none of these tracks, log it to BACKLOG.md
 instead of implementing it.
 
+# FreeBSD Engineering Discipline (hard constraints — every cycle)
+This project STRICTLY follows the FreeBSD programming philosophy. These rules
+are binding, not aspirational; a diff that violates one is rejected in review
+regardless of the capability it ships. The long form lives in
+`plugins/cool-workflow/docs/unix-principles.md` (§7).
+
+1. POLA — Principle of Least Astonishment. Never change the meaning, shape, or
+   byte content of an existing output, file layout, exit code, or flag. New
+   behavior arrives behind a new flag/verb or an env opt-in/opt-out, with the
+   old behavior byte-identical by default.
+2. Mechanism, not policy. The kernel (src/) provides mechanisms; policy lives
+   in userland — apps, configs, wrappers, env. Vendor-specific logic
+   (claude/codex/gemini rendering, prompt formats) belongs in wrappers under
+   scripts/agents/, never in core. Core may FORWARD vendor streams; it never
+   parses them.
+3. Rule of Silence. stdout is data, stderr is diagnostics. Non-interactive
+   (piped / CI) invocations are silent on success; human niceties are
+   TTY-gated and opt-out-able. A `--json` surface is stable, scriptable, and
+   free of decoration.
+4. Fail closed, conservatively. Unconfigured, unverifiable, or invalid input
+   produces an explicit refusal/park — never a fabricated success, never a
+   silent fallback. Prefer boring correctness over clever features.
+5. Tools, not frameworks. Zero runtime dependencies is a red line. Each verb
+   does one thing; composition happens through files and pipes (.cw/ state),
+   not through hidden in-process coupling.
+6. Man pages are the contract. Every shipped capability has a docs/*.7.md
+   section kept in sync the same cycle (doc-drift guards enforce this where
+   they exist). Undocumented behavior is unfinished behavior.
+7. style(9) spirit. One consistent code style per layer; match the
+   surrounding file exactly. No gratuitous reformatting in a feature diff.
+8. Release engineering. A release is gated, independently reviewed, and
+   reproducible (the existing release-flow) — cadence never overrides the
+   gate, exactly like -RELEASE vs -CURRENT.
+
 # Anti-Patterns (auto-reject your own work if detected)
 - Adding optional fields to interfaces with only a doc comment ("spec accretion")
 - Releasing to maintain cadence rather than to ship capability
 - Touching dist/ without corresponding src/ changes
 - Version-number-driven branch names or commit messages
 - Any tag where `git diff <prev-tag> --stat` shows zero test changes
+- Any violation of the FreeBSD discipline above (POLA break, policy in the
+  kernel, chatter on stdout, silent fallback, new runtime dependency,
+  undocumented shipped behavior)
 
 # Reporting
 At the end of each cycle, append to ITERATION_LOG.md:

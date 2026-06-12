@@ -1,7 +1,10 @@
 # Unix-Inspired Workflow Principles
 
 CW borrows a small set of durable systems ideas and applies them to agent
-workflow engineering. These are design principles, not platform claims.
+workflow engineering. These are design principles, not platform claims — but
+they are not optional: this project strictly follows the FreeBSD programming
+philosophy, and §7 below states the binding rules every change is reviewed
+against (mirrored as hard constraints in the repository's `AGENTS.md`).
 
 ## 1. Everything Is State
 
@@ -190,3 +193,48 @@ Hosts enforce runtime sandbox policy.
 ```
 
 This keeps CW small, inspectable, and extensible.
+
+## 7. FreeBSD Discipline (Binding Rules)
+
+The principles above descend from one tradition — the FreeBSD school of
+systems engineering — and CW adheres to it strictly. Concretely:
+
+**POLA — Principle of Least Astonishment.** An existing output, file layout,
+exit code, or flag never changes meaning or bytes underneath an operator. New
+behavior ships behind a new verb/flag or an env toggle, with the prior
+behavior byte-identical by default. (Example: live drive output is additive —
+stderr only, TTY-gated, `CW_NO_STREAM=1` opt-out; the stdout payload and
+evidence digest are unchanged.)
+
+**Mechanism, not policy.** The kernel provides mechanisms; policy is data in
+userland. WHICH agent runs is config (`CW_AGENT_COMMAND` / agent-config), not
+code; vendor-specific rendering lives in wrappers under `scripts/agents/`,
+never in core. Core may forward a vendor's stream; it never parses one.
+
+**Rule of Silence.** stdout is data, stderr is diagnostics, and a
+non-interactive run is silent on success. Anything human-friendly is TTY-gated
+and can be disabled; `--json` output is stable and undecorated so it composes
+in pipes.
+
+**Fail closed, conservative defaults.** Unconfigured backends probe as
+`unverified`, unverifiable telemetry is surfaced loudly (or refused in strict
+mode), invalid results park the hop. CW never fabricates a success and never
+falls back silently. Boring correctness beats clever features.
+
+**Tools, not frameworks.** Zero runtime dependencies is a red line. Verbs do
+one thing; composition happens through durable files (`.cw/`) and pipes, not
+hidden in-process coupling.
+
+**Man pages are the contract.** Every shipped capability has a `docs/*.7.md`
+page updated in the same change, and doc-drift guards in the test suite keep
+the documented commands honest. Undocumented behavior is unfinished behavior.
+
+**style(9) spirit.** One consistent style per layer; a diff matches the file
+it touches and never reformats code it does not change.
+
+**Release engineering.** Main is -CURRENT; a tag is -RELEASE: it exists only
+after the deterministic gate and an independent review pass, and cadence never
+overrides the gate.
+
+A change that violates any rule in this section is rejected in review even if
+the capability it ships is otherwise desirable.
