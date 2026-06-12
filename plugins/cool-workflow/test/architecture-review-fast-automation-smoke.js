@@ -55,6 +55,16 @@ function main() {
   );
 
   const agentCommand = `${node} ${stub} {{result}} ${countFile}`;
+  const baseline = runJson([
+    "--repo", repo,
+    "--question", "Is this architecture fast enough?",
+    "--profile", "smoke",
+    "--profile-file", profileFile,
+    "--ref", "HEAD",
+    "--preview"
+  ]);
+  assert.equal(baseline.metrics, undefined, "metrics are opt-in and absent by default");
+
   const first = runJson([
     "--repo", repo,
     "--question", "Is this architecture fast enough?",
@@ -64,7 +74,8 @@ function main() {
     "--agent-command", agentCommand,
     "--once",
     "--schedule-full",
-    "--full-delay-minutes", "10"
+    "--full-delay-minutes", "10",
+    "--metrics"
   ]);
 
   assert.equal(first.appId, "architecture-review-fast");
@@ -76,6 +87,13 @@ function main() {
   assert.equal(first.fullReviewSchedule.workflowId, "architecture-review");
   assert.equal(first.fullReviewSchedule.kind, "reminder");
   assert.equal(first.fullReviewSchedule.maxRuns, 1);
+  assert.ok(first.metrics.totalElapsedMs >= 0, "metrics include total elapsed time");
+  assert.ok(first.metrics.sourceContext.bytes > 0, "metrics include context byte size");
+  assert.equal(first.metrics.fastReview.steps, 2);
+  assert.equal(first.metrics.fastReview.agentSpawns, 2);
+  assert.equal(first.metrics.fastReview.resultCacheHits, 0);
+  assert.equal(first.metrics.fastReview.handleKinds.process, 2);
+  assert.ok(first.metrics.fullReviewSchedule.elapsedMs >= 0, "metrics include schedule elapsed time");
   assert.equal(spawnLines(countFile), 2, "first run spawns two Map workers");
 
   const second = runJson([
@@ -85,11 +103,16 @@ function main() {
     "--profile-file", profileFile,
     "--ref", "HEAD",
     "--agent-command", agentCommand,
-    "--once"
+    "--once",
+    "--metrics"
   ]);
 
   assert.equal(second.fastReview.completedWorkers, 2, "second run also completes the Map round");
   assert.ok(second.fastReview.steps.every((step) => step.handleKind === "result-cache"), "second run reuses cached Map results");
+  assert.equal(second.metrics.fastReview.steps, 2);
+  assert.equal(second.metrics.fastReview.agentSpawns, 0);
+  assert.equal(second.metrics.fastReview.resultCacheHits, 2);
+  assert.equal(second.metrics.fastReview.handleKinds["result-cache"], 2);
   assert.equal(spawnLines(countFile), 2, "result cache avoids spawning Map workers again");
 
   fs.rmSync(tmp, { recursive: true, force: true });

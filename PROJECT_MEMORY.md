@@ -54,6 +54,10 @@ short, and append-friendly. Do not use it for speculation.
   exports cached source context for a target repo, computes the JSONL digest,
   starts `architecture-review-fast`, and can schedule a one-shot background
   `architecture-review` run with `--schedule-full`.
+- `scripts/architecture-review-fast.js --metrics` is opt-in. Default JSON output
+  remains unchanged; the metrics payload reports elapsed milliseconds, source
+  context bytes, fast-review step counts, agent-spawn counts, and result-cache
+  hit counts.
 - Task `resultCache` is explicit opt-in. `architecture-review-fast` Map workers
   cache accepted results by `sourceContextDigest` plus rendered prompt digest;
   cache hits copy the cached result into the worker-local result path and still
@@ -81,14 +85,19 @@ short, and append-friendly. Do not use it for speculation.
   `npm run build`, targeted fast/source-context/workflow smokes, canonical apps,
   version sync, manifests/index checks, `npm test` 75/75, `git diff --check`,
   and no new task markers.
+- Merged PR #120, then added opt-in fast-review metrics for live duration and
+  cache-hit measurement. Verification: targeted architecture-review-fast smokes,
+  `npm run build`, manifest/index/version checks, `git diff --check`, no new
+  task markers, and `npm test` 75/75.
 
 ## Next Run
 
-- Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo-root <repo> --profile core --once --schedule-full`
+- Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`
   for the automated 1→6 path on a CW-shaped repo. Use `--profile-file` for
   non-CW repositories.
-- Next acceleration target: measure live fast-review duration with a real agent,
-  then consider opt-in caching for Assess summaries only if the validation trace
-  proves Map caching is not enough.
+- Next acceleration target: measure live fast-review duration and
+  `metrics.fastReview.resultCacheHits` with a real agent, then consider opt-in
+  caching for Assess summaries only if the validation trace proves Map caching
+  is not enough.
 - When a repeated workflow improves, update the matching skill and add or revise
   `eval/<workflow>.jsonl`.
