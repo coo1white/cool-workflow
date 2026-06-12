@@ -11,6 +11,8 @@
 [![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
 [![license](https://img.shields.io/badge/license-BSD--2--Clause-blue?style=flat-square)](LICENSE)
 
+<img src="docs/assets/cool-workflow-readme-promo.png" alt="Cool Workflow turns AI agent repo questions into saved, cited, tamper-evident reports." width="100%">
+
 </div>
 
 ## What is this, really?
