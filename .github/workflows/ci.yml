@@ -34,8 +34,10 @@ jobs:
       - run: node scripts/cw.js list
       - run: node scripts/cw.js schedule list
       # Enforce the full suite and release gates on every push/PR — not just the
-      # lightweight build/check/list above. `npm test` runs all smokes (including
-      # the CLI <-> MCP parity smoke); `release:check` adds the parity, vendor
+      # lightweight build/check/list above. `test:coverage` runs all smokes
+      # (including the CLI <-> MCP parity smoke) once under V8 coverage and
+      # fails closed if dist/ line coverage drops below the floor (see
+      # scripts/coverage-gate.js); `release:check` adds the parity, vendor
       # manifest, version-sync, golden-path, canonical-apps, and eval gates.
-      - run: npm test
+      - run: npm run test:coverage
       - run: npm run release:check
