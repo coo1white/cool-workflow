@@ -237,6 +237,20 @@ export interface RunExport {
   exportedAt: string;
   sourceVersion: string;
   run: WorkflowRun;
-  artifacts: Array<{ path: string; content: string }>;
+  files?: Array<{
+    relativePath: string;
+    role: "run-file" | "artifact" | "audit" | "telemetry";
+    contentBase64: string;
+    sha256: string;
+    sizeBytes: number;
+    /** Original referenced artifact path when the file lived outside runDir. */
+    sourcePath?: string;
+  }>;
+  integrity?: {
+    fileCount: number;
+    manifestSha256: string;
+  };
+  /** Legacy v0.1.74 field, retained for old archives. */
+  artifacts: Array<{ path: string; content?: string; contentBase64?: string; sha256?: string; sizeBytes?: number }>;
   audit: string[];
 }

@@ -21,6 +21,9 @@ import {
   runResume,
   runSearch,
   runShow,
+  runExportArchive,
+  runImportArchive,
+  runVerifyImport,
   sandboxChoose,
   schedPlan,
   schedLease,
@@ -1062,9 +1065,18 @@ async function main(): Promise<void> {
         case "rerun":
           printJson(runRerun(registry, required(id, "run id"), args.options));
           return;
+        case "export":
+          printJson(runExportArchive(runner, required(id || optionalArg(args.options.runId || args.options.run), "run id"), args.options));
+          return;
+        case "import":
+          printJson(runImportArchive(runner, { ...args.options, archive: id || args.options.archive || args.options.path }));
+          return;
+        case "verify-import":
+          printJson(runVerifyImport(runner, required(id || optionalArg(args.options.runId || args.options.run), "run id"), args.options));
+          return;
         default:
           if (await tryDispatchCli(args, runner)) return;
-          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive [run-id] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
+          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
       }
     }
     case "queue": {

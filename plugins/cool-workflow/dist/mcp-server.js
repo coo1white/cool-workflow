@@ -391,6 +391,12 @@ function callTool(name, args) {
                 return (0, capability_core_1.runArchive)((0, capability_core_1.runRegistryFor)(args, runner), (0, capability_core_1.optionalString)(args.runId), args);
             case "cw_run_rerun":
                 return (0, capability_core_1.runRerun)((0, capability_core_1.runRegistryFor)(args, runner), String(args.runId || ""), args);
+            case "cw_run_export":
+                return (0, capability_core_1.runExportArchive)(runner, String(args.runId || ""), args);
+            case "cw_run_import":
+                return (0, capability_core_1.runImportArchive)(runner, args);
+            case "cw_run_verify_import":
+                return (0, capability_core_1.runVerifyImport)(runner, String(args.runId || ""), args);
             case "cw_run_drive":
                 return (0, capability_core_1.runDrivePreview)(runner, args);
             case "cw_run_drive_step":
@@ -512,8 +518,10 @@ function requiredArgsForTool(name) {
         return ["runId", "targetKind|kind", "targetId|target", "body|message|text"];
     if (name === "cw_handoff")
         return ["runId", "targetKind|kind", "targetId|target", "to|toActor"];
-    if (name === "cw_run_show" || name === "cw_run_resume" || name === "cw_run_rerun")
+    if (name === "cw_run_show" || name === "cw_run_resume" || name === "cw_run_rerun" || name === "cw_run_export" || name === "cw_run_verify_import")
         return ["runId"];
+    if (name === "cw_run_import")
+        return ["archive|path|file"];
     if (name === "cw_run_archive")
         return ["runId|olderThanDays"];
     if (name === "cw_gc_verify")
@@ -1439,6 +1447,25 @@ function toolDefinitions() {
             cwd: stringSchema("Repo workspace"),
             scope: stringSchema("home (default, cross-repo) or repo"),
             reason: stringSchema("Rerun reason")
+        }),
+        tool("cw_run_export", "Export a run to a portable, digest-checked archive containing run-local artifacts, audit overlays, telemetry, reports, workers, and commit snapshots.", {
+            runId: stringSchema("Run id to export"),
+            cwd: stringSchema("Repo workspace containing .cw/runs/<run-id>"),
+            output: stringSchema("Archive output path"),
+            path: stringSchema("Alias for output"),
+            archive: stringSchema("Alias for output")
+        }),
+        tool("cw_run_import", "Restore a portable run archive into a target repo and immediately verify restored file digests.", {
+            archive: stringSchema("Archive path"),
+            path: stringSchema("Alias for archive"),
+            file: stringSchema("Alias for archive"),
+            target: stringSchema("Restore target repo directory"),
+            repo: stringSchema("Alias for target"),
+            cwd: stringSchema("Invocation workspace")
+        }),
+        tool("cw_run_verify_import", "Verify an imported run against its restore manifest and telemetry chain; detects missing or tampered restored files.", {
+            runId: stringSchema("Imported run id to verify"),
+            cwd: stringSchema("Restored repo workspace")
         }),
         tool("cw_run_drive", "Preview the next agent-delegation drive step for a run (read-only, deterministic). Counts come from state; no spawn, no mutation.", {
             runId: stringSchema("Run id to preview"),

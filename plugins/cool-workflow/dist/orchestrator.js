@@ -838,7 +838,7 @@ function formatHelp() {
         "  schedule create|list|due|complete|pause|resume|run-now|history|daemon|delete",
         "  routine create|fire|list|events|delete",
         "  registry refresh|show [--scope repo|home] [--json]",
-        "  run search|list|show|resume|archive|rerun [run-id] [--scope repo|home] [--json]",
+        "  run search|list|show|resume|archive|rerun|export|import|verify-import [run-id|archive] [--scope repo|home] [--json]",
         "  queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]",
         "  history [--scope repo|home] [--app ID] [--status STATE] [--json]",
         "  workbench view <run-id> [--json]",

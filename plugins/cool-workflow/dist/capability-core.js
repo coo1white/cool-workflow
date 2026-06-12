@@ -35,6 +35,9 @@ exports.runShow = runShow;
 exports.runResume = runResume;
 exports.runArchive = runArchive;
 exports.runRerun = runRerun;
+exports.runExportArchive = runExportArchive;
+exports.runImportArchive = runImportArchive;
+exports.runVerifyImport = runVerifyImport;
 exports.queueAdd = queueAdd;
 exports.queueList = queueList;
 exports.queueDrain = queueDrain;
@@ -71,6 +74,7 @@ const observability_1 = require("./observability");
 const telemetry_ledger_1 = require("./telemetry-ledger");
 const telemetry_demo_1 = require("./telemetry-demo");
 const state_1 = require("./state");
+const run_export_1 = require("./run-export");
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const scheduling_1 = require("./scheduling");
@@ -194,6 +198,19 @@ function flag(value) {
         return false;
     return Boolean(value);
 }
+function withInvocationCwd(args, fn) {
+    const cwd = optionalString(args.cwd);
+    if (!cwd)
+        return fn();
+    const previous = process.cwd();
+    process.chdir(cwd);
+    try {
+        return fn();
+    }
+    finally {
+        process.chdir(previous);
+    }
+}
 function runRegistryRefresh(reg, args) {
     return reg.refresh({ scope: scopeOf(args, "repo") });
 }
@@ -250,6 +267,27 @@ function runArchive(reg, runId, args) {
 }
 function runRerun(reg, runId, args) {
     return reg.rerun(runId, { scope: scopeOf(args, "home"), reason: optionalString(args.reason) });
+}
+function runExportArchive(runner, runId, args) {
+    return withInvocationCwd(args, () => {
+        const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
+        return (0, run_export_1.exportRun)(runner.loadRun(runId), node_path_1.default.resolve(output));
+    });
+}
+function runImportArchive(runner, args) {
+    return withInvocationCwd(args, () => {
+        const archive = optionalString(args.archive || args.path || args.file);
+        if (!archive)
+            throw new Error("run import requires an archive path (positional, --archive, --path, or --file)");
+        const target = optionalString(args.target || args.repo || args.cwd) || process.cwd();
+        const imported = (0, run_export_1.importRun)(node_path_1.default.resolve(archive), node_path_1.default.resolve(target));
+        const registry = new run_registry_1.RunRegistry(node_path_1.default.resolve(target), runner);
+        const registryReport = registry.refresh({ scope: "repo" });
+        return { ...imported, registry: registryReport };
+    });
+}
+function runVerifyImport(runner, runId, args) {
+    return withInvocationCwd(args, () => (0, run_export_1.verifyImportedRun)(runner.loadRun(runId)));
 }
 function queueAdd(reg, args) {
     return reg.queueAdd({
