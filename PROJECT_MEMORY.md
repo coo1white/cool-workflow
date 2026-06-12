@@ -25,6 +25,40 @@ short, and append-friendly. Do not use it for speculation.
 - Excluding `dist/` from the context pack is allowed; deleting committed `dist/`
   is a separate release-contract decision.
 - Context slimming is opt-in and must not change existing CW command output.
+- Skill trigger metadata must live in standard YAML frontmatter. Every
+  `SKILL.md` needs `name` and a trigger-rich `description`; the body is loaded
+  only after a skill triggers and must not be the sole source of trigger text.
+- Runtime acceleration plan:
+  1. Add an opt-in fast architecture-review path that runs Map and Assess work
+     as parallel phases instead of serial agent calls.
+  2. Keep separate `fast` and `full` review modes so users can get a useful
+     first result quickly while the existing deep review remains available.
+  3. Generate one JSONL source context per run and pass that stable context to
+     agent wrappers instead of making every worker rediscover the repository.
+  4. Route cheap, fast models to mapping and summarization work, and reserve
+     stronger models for verification and final verdict tasks.
+  5. Cache source context and intermediate maps by git SHA plus profile digest,
+     and fail closed when the digest does not match.
+  6. Move long full reviews to routines/background runs so foreground user
+     flows return progress and a fast report instead of blocking for 40 minutes.
+- `architecture-review-fast` is the opt-in fast/full split implementation. It
+  keeps `architecture-review` unchanged, plans 6 workers instead of 14, runs Map
+  and Assess as parallel phases, accepts optional `sourceContext` and
+  `sourceContextDigest` inputs, and reads model hints from
+  `CW_ARCHITECTURE_REVIEW_FAST_MODEL` and
+  `CW_ARCHITECTURE_REVIEW_STRONG_MODEL`.
+- `source-context export --cache-dir DIR` caches JSONL by resolved git commit SHA
+  plus source-profile digest; cache hits must be byte-identical JSONL and corrupt
+  cache records fail closed.
+- `scripts/architecture-review-fast.js` is the automated fast-review wrapper. It
+  exports cached source context for a target repo, computes the JSONL digest,
+  starts `architecture-review-fast`, and can schedule a one-shot background
+  `architecture-review` run with `--schedule-full`.
+- Task `resultCache` is explicit opt-in. `architecture-review-fast` Map workers
+  cache accepted results by `sourceContextDigest` plus rendered prompt digest;
+  cache hits copy the cached result into the worker-local result path and still
+  pass through normal worker-output validation. Missing or invalid cache entries
+  never fabricate success.
 
 ## Failed Attempts
 
@@ -35,17 +69,26 @@ short, and append-friendly. Do not use it for speculation.
 
 ## Last Session
 
-- Decision: use a repo-local `core` JSONL source profile to cut default AI
-  context roughly in half without deleting files or changing release behavior.
-- Decision: use project memory, workflow skills, eval JSONL, maker/verifier
-  separation, worktrees, screenshots for UI, routines for long jobs, and
-  lesson-writeback as the standard operating method.
+- Added the opt-in `architecture-review-fast` app, source-context cache support,
+  docs, project index updates, and smoke coverage. The full
+  `architecture-review` app remains unchanged.
+- Verification for the fast-review cycle: `npm run build`, `npm test` 74/74,
+  `npm run gen:manifests -- --check`, `npm run index:check`,
+  `node scripts/version-sync-check.js`, `git diff --check`, no new task markers,
+  and a local 5-skill frontmatter check.
+- Continued the runtime-acceleration cycle by adding opt-in worker result
+  caching plus the automated `architecture-review-fast.js` launcher. Verification:
+  `npm run build`, targeted fast/source-context/workflow smokes, canonical apps,
+  version sync, manifests/index checks, `npm test` 75/75, `git diff --check`,
+  and no new task markers.
 
 ## Next Run
 
-- Use `node plugins/cool-workflow/scripts/source-context.js export --profile core`
-  to build the default source context.
-- Use `node plugins/cool-workflow/scripts/source-context.js manifest --profile core`
-  to prove what was included and omitted.
+- Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo-root <repo> --profile core --once --schedule-full`
+  for the automated 1→6 path on a CW-shaped repo. Use `--profile-file` for
+  non-CW repositories.
+- Next acceleration target: measure live fast-review duration with a real agent,
+  then consider opt-in caching for Assess summaries only if the validation trace
+  proves Map caching is not enough.
 - When a repeated workflow improves, update the matching skill and add or revise
   `eval/<workflow>.jsonl`.

@@ -5,6 +5,7 @@
 const assert = require("node:assert/strict");
 const cp = require("node:child_process");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
@@ -48,6 +49,15 @@ function run(args) {
   return result.stdout.trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
 }
 
+function runRaw(args, options = {}) {
+  return cp.spawnSync(process.execPath, [script, ...args], {
+    cwd: pluginRoot,
+    encoding: "utf8",
+    maxBuffer: 1024 * 1024 * 64,
+    ...options
+  });
+}
+
 const manifest = run(["manifest", "--profile", "core", "--ref", "HEAD"]);
 assert.ok(manifest.length > 100, "manifest must cover the tracked repository");
 
@@ -77,6 +87,24 @@ assert.ok(!exported.some((record) => record.path.startsWith("plugins/cool-workfl
 const totalLines = exported.reduce((sum, record) => sum + record.lines, 0);
 assert.ok(totalLines > 30000, `core export should be substantial, got ${totalLines}`);
 assert.ok(totalLines <= core.maxLines, `core export must stay under ${core.maxLines}, got ${totalLines}`);
+
+const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-cache-"));
+const cachedFirst = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--cache-dir", cacheDir]);
+assert.equal(cachedFirst.status, 0, `cached export failed\nSTDERR:\n${cachedFirst.stderr}`);
+assert.equal(cachedFirst.stderr, "", "cached export must keep diagnostics off stderr on success");
+assert.equal(cachedFirst.stdout, exported.map((record) => `${JSON.stringify(record)}\n`).join(""), "cached export preserves JSONL bytes");
+const cacheFiles = fs.readdirSync(cacheDir).filter((file) => file.endsWith(".jsonl"));
+assert.equal(cacheFiles.length, 1, "cache-dir stores one profile/ref/digest JSONL file");
+
+const cachedSecond = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--cache-dir", cacheDir]);
+assert.equal(cachedSecond.status, 0, `cached second export failed\nSTDERR:\n${cachedSecond.stderr}`);
+assert.equal(cachedSecond.stderr, "", "cache hit is silent on stderr");
+assert.equal(cachedSecond.stdout, cachedFirst.stdout, "cache hit returns the same JSONL bytes");
+
+fs.writeFileSync(path.join(cacheDir, cacheFiles[0]), "{\"not\":\"valid\"}\n", "utf8");
+const corruptHit = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--cache-dir", cacheDir]);
+assert.notEqual(corruptHit.status, 0, "corrupt cache must fail closed");
+assert.match(corruptHit.stderr, /invalid source context cache/, "corrupt cache names the refusal");
 
 for (const file of ["Codex.md", "PROJECT_MEMORY.md"]) {
   const text = fs.readFileSync(path.join(repoRoot, file), "utf8");

@@ -28,6 +28,31 @@ node scripts/cw.js plan architecture-review \
   --focus "runtime"
 ```
 
+`architecture-review-fast`
+
+Run a shorter architecture review for a fast first result. The app keeps the
+full `architecture-review` contract available under its original id, but uses two
+parallel Map workers, two parallel Assess workers, one verifier, and one verdict
+worker. Operators can optionally provide a pinned JSONL source context and route
+mapping/assessment work to a faster model while reserving stronger models for
+verification and synthesis.
+
+```bash
+CW_ARCHITECTURE_REVIEW_FAST_MODEL=gpt-5.5-high \
+CW_ARCHITECTURE_REVIEW_STRONG_MODEL=gpt-5.5-extra-high \
+node scripts/architecture-review-fast.js \
+  --repo /path/to/repo \
+  --question "Is this architecture sound?" \
+  --schedule-full
+```
+
+The wrapper prepares one cached JSONL source context, passes its sha256 digest to
+the fast app, runs `quickstart architecture-review-fast`, and optionally creates
+a one-shot background schedule for the full `architecture-review` app.
+
+For long full reviews, use the existing routine or schedule surfaces to run
+`architecture-review` in the background after the fast report has returned.
+
 `pr-review-fix-ci`
 
 Review a pull request or branch, inspect CI failures, diagnose actionable

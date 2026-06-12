@@ -41,6 +41,23 @@ Inspect events:
 node scripts/cw.js routine events
 ```
 
+## Long Architecture Reviews
+
+Use `architecture-review-fast` for the foreground user path, then schedule the
+full `architecture-review` app as background work when a deep audit should not
+block an interactive session:
+
+```bash
+node scripts/architecture-review-fast.js \
+  --repo /path/to/repo \
+  --question "Is this architecture sound?" \
+  --schedule-full
+```
+
+The wrapper creates a one-shot reminder schedule whose `workflowId` is
+`architecture-review`. The schedule prompt is policy. CW stores the schedule and
+records due events; the external agent host decides how to run the long review.
+
 ## Boundary
 
 CW v0.1.1 does not provide managed cloud infrastructure. It provides a local

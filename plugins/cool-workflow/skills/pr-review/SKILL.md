@@ -1,6 +1,10 @@
 ---
 name: pr-review
-description: Review Cool Workflow pull requests or branch diffs. Use when Codex must inspect code changes for bugs, regressions, FreeBSD/POLA violations, missing tests, generated artifact drift, release-contract risk, or CI implications, and return findings first with file/line citations.
+description: >-
+  Review Cool Workflow pull requests or branch diffs. Use when Codex must
+  inspect code changes for bugs, regressions, FreeBSD/POLA violations, missing
+  tests, generated artifact drift, release-contract risk, or CI implications,
+  and return findings first with file/line citations.
 ---
 
 # PR Review

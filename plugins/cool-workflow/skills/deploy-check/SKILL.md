@@ -1,6 +1,10 @@
 ---
 name: deploy-check
-description: Verify Cool Workflow release, publish, deploy, or package readiness. Use when Codex must check build/test gates, generated manifests, project index sync, dist/source contract, changelog/release notes, npm package contents, or pre-tag risk before shipping.
+description: >-
+  Verify Cool Workflow release, publish, deploy, or package readiness. Use when
+  Codex must check build/test gates, generated manifests, project index sync,
+  dist/source contract, changelog/release notes, npm package contents, or
+  pre-tag risk before shipping.
 ---
 
 # Deploy Check

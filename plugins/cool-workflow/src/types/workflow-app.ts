@@ -36,6 +36,16 @@ export interface WorkflowTaskDefinition {
   /** Optional declared output schema for the agent's result. Carried through the
    *  plan; validation enforcement lands with the schema-validation slice. */
   schema?: Record<string, unknown>;
+  /** Optional result-cache mechanism. A task may opt in to reusing a previously
+   *  accepted result when the named input (for example `sourceContextDigest`) and
+   *  rendered prompt digest match. Policy stays in the app; the drive loop only
+   *  provides the mechanism. */
+  resultCache?: WorkflowTaskResultCache;
+}
+
+export interface WorkflowTaskResultCache {
+  mode?: "read-write";
+  keyInput: string;
 }
 
 export interface WorkflowPhaseDefinition {

@@ -31,12 +31,14 @@ exports.driveConcurrentRound = driveConcurrentRound;
 exports.drive = drive;
 exports.drivePreview = drivePreview;
 const node_fs_1 = __importDefault(require("node:fs"));
+const node_path_1 = __importDefault(require("node:path"));
 const dispatch_1 = require("./dispatch");
 const execution_backend_1 = require("./execution-backend");
 const worker_isolation_1 = require("./worker-isolation");
 const agent_config_1 = require("./agent-config");
 const scheduling_1 = require("./scheduling");
 const observability_1 = require("./observability");
+const state_1 = require("./state");
 exports.DRIVE_SCHEMA_VERSION = 1;
 /** The task the next drive step would advance: a RUNNING (already-dispatched,
  *  awaiting fulfillment / retry) task first, else the next PENDING task in the
@@ -198,8 +200,26 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
     // Progress BEFORE the (possibly multi-minute) agent spawn, so a live drive shows
     // immediate activity instead of a long silence on the first worker. task.label
     // is the human-facing display name; the id stays the stable reference.
-    emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
     const promptDigest = node_fs_1.default.existsSync(manifest.inputPath) ? (0, execution_backend_1.sha256)(node_fs_1.default.readFileSync(manifest.inputPath, "utf8")) : (0, execution_backend_1.sha256)(manifest.prompt || "");
+    const cachePath = resultCachePath(run, selected, (0, execution_backend_1.sha256)(selected.prompt));
+    if (cachePath && node_fs_1.default.existsSync(cachePath)) {
+        emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
+        try {
+            node_fs_1.default.writeFileSync(manifest.resultPath, node_fs_1.default.readFileSync(cachePath, "utf8"), "utf8");
+            runner.recordWorkerOutput(runId, workerId, manifest.resultPath, {});
+        }
+        catch (error) {
+            return handleHop(ctx, selected, workerId, `result cache rejected: ${error instanceof Error ? error.message : String(error)}`, dispatched);
+        }
+        return step("accept", "ok", {
+            runId,
+            taskId: selected.id,
+            phase: selected.phase,
+            handleKind: "result-cache",
+            reason: "result cache hit"
+        });
+    }
+    emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
     const envelope = (0, execution_backend_1.runBackend)(buildAgentRequest(ctx, run, selected, manifest, preparedOutcome));
     const handle = envelope.provenance.handle;
     const reportedModel = handle?.metadata?.reportedModel || "unreported";
@@ -236,6 +256,9 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
     catch (error) {
         return handleHop(ctx, selected, workerId, `result.md rejected: ${error instanceof Error ? error.message : String(error)}`, dispatched);
     }
+    if (cachePath && manifest.resultPath && node_fs_1.default.existsSync(manifest.resultPath)) {
+        writeResultCache(cachePath, node_fs_1.default.readFileSync(manifest.resultPath, "utf8"));
+    }
     return step("accept", "ok", {
         runId,
         taskId: selected.id,
@@ -244,6 +267,30 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
         handleKind: handle?.kind,
         reportedModel
     });
+}
+function resultCachePath(run, task, promptDigest) {
+    const policy = task.resultCache;
+    if (!policy || policy.mode !== "read-write")
+        return undefined;
+    const keyInput = policy.keyInput;
+    const keyValue = keyInput ? String(run.inputs[keyInput] || "").trim() : "";
+    if (!keyInput || !keyValue)
+        return undefined;
+    const digest = (0, execution_backend_1.sha256)(JSON.stringify({
+        schemaVersion: 1,
+        workflowId: run.workflow.id,
+        taskId: task.id,
+        keyInput,
+        keyValue,
+        promptDigest
+    })).replace(/^sha256:/, "");
+    return node_path_1.default.join(run.cwd, ".cw", "cache", "worker-results", (0, state_1.safeFileName)(run.workflow.id), `${(0, state_1.safeFileName)(task.id)}-${digest.slice(0, 32)}.md`);
+}
+function writeResultCache(file, content) {
+    node_fs_1.default.mkdirSync(node_path_1.default.dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.tmp`;
+    node_fs_1.default.writeFileSync(tmp, content, "utf8");
+    node_fs_1.default.renameSync(tmp, file);
 }
 /** Advance ONE concurrent ROUND: fulfill up to `limit` ready tasks in the first
  *  runnable phase as a single batch, recording results in DETERMINISTIC task
@@ -322,6 +369,9 @@ function prepareConcurrentOutcomes(ctx, batch) {
             continue;
         }
         const manifest = runner.showWorkerManifest(runId, workerId);
+        const cachePath = resultCachePath(run, task, (0, execution_backend_1.sha256)(task.prompt));
+        if (cachePath && node_fs_1.default.existsSync(cachePath))
+            continue;
         const job = (0, execution_backend_1.prepareAgentSpawn)(buildAgentRequest(ctx, run, task, manifest));
         if (job) {
             jobs.push(job);

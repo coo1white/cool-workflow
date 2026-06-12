@@ -49,6 +49,7 @@ function readReleaseSource(relativePath) {
 const VERSION = JSON.parse(readReleaseSource("plugins/cool-workflow/package.json").text).version;
 const canonicalApps = [
   "architecture-review",
+  "architecture-review-fast",
   "end-to-end-golden-path",
   "pr-review-fix-ci",
   "release-cut",

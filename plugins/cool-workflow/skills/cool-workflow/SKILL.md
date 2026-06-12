@@ -1,6 +1,9 @@
 ---
 name: cool-workflow
-description: Use when the user asks for Cool Workflow, CW, agent workflow control-plane, TypeScript workflow orchestration, phased multi-agent work, background workflow tasks, or reusable workflow apps.
+description: >-
+  Use when the user asks for Cool Workflow, CW, agent workflow control-plane,
+  TypeScript workflow orchestration, phased multi-agent work, background
+  workflow tasks, reusable workflow apps, or auditable agent run state.
 ---
 
 # Cool Workflow

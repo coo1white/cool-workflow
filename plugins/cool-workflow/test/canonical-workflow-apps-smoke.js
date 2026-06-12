@@ -14,6 +14,7 @@ const node = process.execPath;
 const canonicalApps = [
   {
     id: "architecture-review",
+    minVersion: "0.1.30",
     args: (workspace) => [
       "--repo",
       workspace,
@@ -26,7 +27,26 @@ const canonicalApps = [
     ]
   },
   {
+    id: "architecture-review-fast",
+    minVersion: "0.1.79",
+    args: (workspace) => [
+      "--repo",
+      workspace,
+      "--question",
+      "Can a user get a fast architecture answer?",
+      "--invariant",
+      "Full architecture-review remains available",
+      "--focus",
+      "Runtime speed",
+      "--sourceContext",
+      "",
+      "--sourceContextDigest",
+      ""
+    ]
+  },
+  {
     id: "pr-review-fix-ci",
+    minVersion: "0.1.30",
     args: (workspace) => [
       "--repo",
       workspace,
@@ -44,6 +64,7 @@ const canonicalApps = [
   },
   {
     id: "release-cut",
+    minVersion: "0.1.30",
     args: (workspace) => [
       "--repo",
       workspace,
@@ -59,6 +80,7 @@ const canonicalApps = [
   },
   {
     id: "research-synthesis",
+    minVersion: "0.1.30",
     args: (workspace) => [
       "--cwd",
       workspace,
@@ -88,7 +110,7 @@ for (const app of canonicalApps) {
   assert.ok(summary, `${app.id} must appear in cw.js app list`);
   assert.equal(summary.sourceKind, "app-directory");
   assert.equal(summary.legacy, false);
-    assert.equal(summary.version, "0.1.79");
+  assert.equal(summary.version, "0.1.79");
   assert.ok(summary.sandboxProfiles.length > 0);
 
   const validation = run(["app", "validate", path.join(pluginRoot, "apps", app.id, "app.json")]);
@@ -97,8 +119,8 @@ for (const app of canonicalApps) {
 
   const shown = run(["app", "show", app.id]);
   assert.equal(shown.app.id, app.id);
-    assert.equal(shown.app.version, "0.1.79");
-    assert.equal(shown.app.compatibility.minVersion, "0.1.30");
+  assert.equal(shown.app.version, "0.1.79");
+  assert.equal(shown.app.compatibility.minVersion, app.minVersion);
   assert.equal(shown.app.metadata.canonical, true);
   assertTaskIdsUnique(shown);
   assertUsesSandboxHints(shown);
