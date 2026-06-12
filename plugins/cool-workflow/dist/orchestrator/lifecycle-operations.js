@@ -435,7 +435,8 @@ function flattenTasks(workflow, inputs) {
                 // model (per-task delegation override), agentType (dispatch backend).
                 ...(task.label ? { label: task.label } : {}),
                 ...(task.model ? { model: task.model } : {}),
-                ...(task.agentType ? { agentType: task.agentType } : {})
+                ...(task.agentType ? { agentType: task.agentType } : {}),
+                ...(task.resultCache ? { resultCache: task.resultCache } : {})
             });
         }
     }

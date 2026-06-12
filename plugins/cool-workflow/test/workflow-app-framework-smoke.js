@@ -31,6 +31,7 @@ function runInvalid(args, cwd = pluginRoot) {
 
 const workflowList = run(["list"]);
 assert.ok(workflowList.some((entry) => entry.id === "architecture-review"));
+assert.ok(workflowList.some((entry) => entry.id === "architecture-review-fast"));
 assert.ok(workflowList.some((entry) => entry.id === "legacy-architecture-review"));
 assert.ok(workflowList.some((entry) => entry.id === "workflow-app-framework-demo"));
 

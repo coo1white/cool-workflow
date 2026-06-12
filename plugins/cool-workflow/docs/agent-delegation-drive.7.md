@@ -133,6 +133,27 @@ node dist/cli.js run architecture-review --drive --once --repo /path/to/repo --q
 node dist/cli.js run drive <run-id> --json       # read-only preview of the next step
 ```
 
+For faster first results, use the opt-in fast app instead of changing the full
+review contract:
+
+```text
+CW_ARCHITECTURE_REVIEW_FAST_MODEL=gpt-5.5-high \
+CW_ARCHITECTURE_REVIEW_STRONG_MODEL=gpt-5.5-extra-high \
+node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --schedule-full
+```
+
+`architecture-review-fast` has six workers: two Map and two Assess workers in
+parallel, then sequential Verify and Verdict workers. The original
+`architecture-review` app remains the full 14-worker review and is the right
+target for background routines when a deep audit can finish outside the user's
+foreground wait.
+
+The wrapper computes the source-context digest and supplies it to the fast app.
+The two Map workers opt in to result caching keyed by source-context digest plus
+prompt digest. A cache hit still passes through `recordWorkerOutput` validation;
+a corrupt cached result parks/fails closed rather than spawning a silent
+fallback.
+
 `{{manifest}}`, `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`, and
 `{{prompt}}` are substituted into DISCRETE argv elements (never a shell-interpreted
 string). Each verb is declared once in `capability-registry.ts`, so `cw <cmd>

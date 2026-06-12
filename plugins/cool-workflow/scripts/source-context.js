@@ -13,7 +13,8 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const repoRoot = path.resolve(pluginRoot, "..", "..");
+const defaultRepoRoot = path.resolve(pluginRoot, "..", "..");
+let repoRoot = defaultRepoRoot;
 const DEFAULT_PROFILE_FILE = path.join(pluginRoot, "manifest", "source-context-profiles.json");
 
 const command = process.argv[2];
@@ -26,6 +27,7 @@ function main() {
   }
 
   const profileFile = valueArg("--profile-file") || DEFAULT_PROFILE_FILE;
+  repoRoot = path.resolve(valueArg("--repo-root") || defaultRepoRoot);
   const profiles = readProfiles(profileFile);
 
   if (command === "profiles") {
@@ -47,8 +49,20 @@ function main() {
   if (!profile) die(`unknown profile: ${profileId}`);
 
   const ref = resolveRef(valueArg("--ref") || "HEAD");
+  const cacheDir = command === "export" ? valueArg("--cache-dir") : "";
+  const cachePath = cacheDir ? sourceContextCachePath(cacheDir, profileId, ref, profile) : "";
+  if (cachePath && fs.existsSync(cachePath)) {
+    process.stdout.write(readValidCache(cachePath, profileId, ref));
+    return;
+  }
+
   const files = gitLines(["ls-tree", "-r", "--name-only", ref]);
   let exportedLines = 0;
+  const buffered = cachePath ? [] : null;
+  const emit = (value) => {
+    if (buffered) buffered.push(JSON.stringify(value));
+    else writeJsonl(value);
+  };
 
   for (const file of files) {
     const classification = classify(file, profile);
@@ -67,19 +81,24 @@ function main() {
     };
 
     if (command === "manifest") {
-      writeJsonl(record);
+      emit(record);
       continue;
     }
 
     if (!classification.included) continue;
     if (binary) die(`included file is binary: ${file}`);
     exportedLines += record.lines || 0;
-    writeJsonl({ ...record, content: blob.toString("utf8") });
+    emit({ ...record, content: blob.toString("utf8") });
   }
 
   const maxLines = Number(profile.maxLines) || 0;
   if (command === "export" && maxLines > 0 && exportedLines > maxLines) {
     die(`profile ${profileId} exported ${exportedLines} lines, above maxLines ${maxLines}`);
+  }
+  if (cachePath && buffered) {
+    const text = buffered.map((line) => `${line}\n`).join("");
+    writeCache(cachePath, text);
+    process.stdout.write(text);
   }
 }
 
@@ -89,8 +108,8 @@ function usage(code, message) {
     [
       "usage:",
       "  node scripts/source-context.js profiles",
-      "  node scripts/source-context.js manifest [--profile core] [--ref HEAD]",
-      "  node scripts/source-context.js export [--profile core] [--ref HEAD]"
+      "  node scripts/source-context.js manifest [--profile core] [--ref HEAD] [--repo-root DIR]",
+      "  node scripts/source-context.js export [--profile core] [--ref HEAD] [--repo-root DIR] [--cache-dir DIR]"
     ].join("\n") + "\n"
   );
   process.exitCode = code;
@@ -175,6 +194,68 @@ function isBinary(buffer) {
 
 function sha256(buffer) {
   return crypto.createHash("sha256").update(buffer).digest("hex");
+}
+
+function profileDigest(profileId, profile) {
+  return sha256(Buffer.from(stableStringify({ profileId, profile }), "utf8"));
+}
+
+function sourceContextCachePath(cacheDir, profileId, ref, profile) {
+  const safeProfile = String(profileId).replace(/[^A-Za-z0-9_.-]/g, "_");
+  const digest = profileDigest(profileId, profile).slice(0, 16);
+  return path.join(path.resolve(cacheDir), `${safeProfile}-${ref.slice(0, 12)}-${digest}.jsonl`);
+}
+
+function readValidCache(file, profileId, ref) {
+  let text;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch (error) {
+    die(`cannot read source context cache ${rel(file)}: ${error.message}`);
+  }
+  if (text.length > 0 && !text.endsWith("\n")) {
+    die(`invalid source context cache ${rel(file)}: missing trailing newline`);
+  }
+  for (const line of text.split(/\n/)) {
+    if (!line) continue;
+    let record;
+    try {
+      record = JSON.parse(line);
+    } catch {
+      die(`invalid source context cache ${rel(file)}: non-JSONL record`);
+    }
+    if (
+      !record ||
+      record.profile !== profileId ||
+      record.ref !== ref ||
+      record.included !== true ||
+      typeof record.path !== "string" ||
+      typeof record.content !== "string" ||
+      !/^[0-9a-f]{64}$/.test(String(record.sha256 || ""))
+    ) {
+      die(`invalid source context cache ${rel(file)}: record does not match profile/ref`);
+    }
+  }
+  return text;
+}
+
+function writeCache(file, text) {
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, text, "utf8");
+    fs.renameSync(tmp, file);
+  } catch (error) {
+    die(`cannot write source context cache ${rel(file)}: ${error.message}`);
+  }
+}
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function writeJsonl(value) {

@@ -26,6 +26,23 @@ const canonicalApps = [
     ]
   },
   {
+    id: "architecture-review-fast",
+    args: (workspace) => [
+      "--repo",
+      workspace,
+      "--question",
+      "Can a user get a fast architecture answer?",
+      "--invariant",
+      "Full architecture-review remains available",
+      "--focus",
+      "Runtime speed",
+      "--sourceContext",
+      "",
+      "--sourceContextDigest",
+      ""
+    ]
+  },
+  {
     id: "pr-review-fix-ci",
     args: (workspace) => [
       "--repo",

@@ -13,6 +13,7 @@ import type { StateNode } from "./state-node";
 import type { TopologyState, WorkerMultiAgentMetadata } from "./topology";
 import type { WorkerScope } from "./worker";
 import type { WorkflowAppRunMetadata, WorkflowLimits } from "./workflow-app";
+import type { WorkflowTaskResultCache } from "./workflow-app";
 
 export interface RunTask {
   id: string;
@@ -60,6 +61,10 @@ export interface RunTask {
    *  → the drive parks the hop (fail-closed, symmetric with the other
    *  validateResultEnvelope checks). Absent ⇒ no schema enforcement. */
   schema?: Record<string, unknown>;
+  /** Opt-in result-cache policy carried from the task definition. When present,
+   *  drive may accept a previously validated result for the same cache input +
+   *  prompt digest instead of spawning the external agent again. */
+  resultCache?: WorkflowTaskResultCache;
   /** Host-attested token usage for this task's result (v0.1.31). Additive +
    *  optional: absent means `unreported`, NEVER zero. CW records it verbatim as
    *  provenance on result intake and never synthesizes it. */

@@ -93,6 +93,7 @@ function main() {
   //    version-sync-check.js asserts.
   const CANONICAL_APPS = [
     "architecture-review",
+    "architecture-review-fast",
     "end-to-end-golden-path",
     "pr-review-fix-ci",
     "release-cut",

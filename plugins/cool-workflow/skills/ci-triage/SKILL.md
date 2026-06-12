@@ -1,6 +1,10 @@
 ---
 name: ci-triage
-description: Diagnose failing CI, build, release-gate, or test runs for Cool Workflow. Use when a GitHub Actions check, local `npm test`, `npm run build`, release gate, smoke test, or generated-manifest check fails and Codex must identify the first actionable failure with logs and verifier commands.
+description: >-
+  Diagnose failing CI, build, release-gate, or test runs for Cool Workflow. Use
+  when a GitHub Actions check, local npm test, npm run build, release gate,
+  smoke test, or generated-manifest check fails and Codex must identify the
+  first actionable failure with logs and verifier commands.
 ---
 
 # CI Triage

@@ -7,9 +7,9 @@ Generated from the current repository code on 2026-06-12 by `npm run sync:projec
 - Package: `cool-workflow`
 - Version: `0.1.79`
 - Source modules: `58`
-- Workflow apps: `6`
+- Workflow apps: `7`
 - Docs: `47`
-- Smoke tests: `73`
+- Smoke tests: `75`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -116,6 +116,7 @@ multi-agent host -> topology -> blackboard/coordinator
 | App | Type | Inputs | Sandbox | Source |
 | --- | --- | --- | --- | --- |
 | `architecture-review` - Map a repository architecture, assess risks, verify important findings, and synthesize an evidence-backed verdict. | canonical | `repo`, `question`, `invariant`, `focus` | `readonly` | [manifest](../apps/architecture-review/app.json) / [workflow](../apps/architecture-review/workflow.js) |
+| `architecture-review-fast` - Run a shorter architecture review with parallel map and assess phases for faster first results. | canonical | `repo`, `question`, `invariant`, `focus`, `sourceContext`, `sourceContextDigest` | `readonly` | [manifest](../apps/architecture-review-fast/app.json) / [workflow](../apps/architecture-review-fast/workflow.js) |
 | `end-to-end-golden-path` - Deterministic one-worker workflow app for proving the CW integration chain. | userland | `question` | `readonly` | [manifest](../apps/end-to-end-golden-path/app.json) / [workflow](../apps/end-to-end-golden-path/workflow.js) |
 | `pr-review-fix-ci` - Review a pull request or branch, inspect CI failures, diagnose actionable issues, optionally patch, verify, and summarize with evidence. | canonical | `repo`, `pr`, `branch`, `base`, `ci`, `mode` | `readonly`, `workspace-write` | [manifest](../apps/pr-review-fix-ci/app.json) / [workflow](../apps/pr-review-fix-ci/workflow.js) |
 | `release-cut` - Prepare a release with checklist discipline: version checks, changelog, tests, packaging, release notes, and final verification. | canonical | `repo`, `version`, `previousVersion`, `releaseBranch`, `dryRun` | `readonly`, `workspace-write` | [manifest](../apps/release-cut/app.json) / [workflow](../apps/release-cut/workflow.js) |
@@ -177,6 +178,8 @@ multi-agent host -> topology -> blackboard/coordinator
 Smoke tests mirror the public contracts. The high-signal suites are:
 
 - [agent-delegation-drive-smoke.js](../test/agent-delegation-drive-smoke.js)
+- [architecture-review-fast-automation-smoke.js](../test/architecture-review-fast-automation-smoke.js)
+- [architecture-review-fast-smoke.js](../test/architecture-review-fast-smoke.js)
 - [artifact-integrity-smoke.js](../test/artifact-integrity-smoke.js)
 - [backend-registry-smoke.js](../test/backend-registry-smoke.js)
 - [block-unapproved-tag-smoke.js](../test/block-unapproved-tag-smoke.js)

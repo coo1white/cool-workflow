@@ -38,8 +38,9 @@ changed.
 
 ```bash
 node scripts/source-context.js profiles
-node scripts/source-context.js manifest --profile core --ref HEAD > manifest.jsonl
-node scripts/source-context.js export --profile core --ref HEAD > core-source.jsonl
+node scripts/source-context.js manifest --profile core --ref HEAD --repo-root /path/to/repo > manifest.jsonl
+node scripts/source-context.js export --profile core --ref HEAD --repo-root /path/to/repo > core-source.jsonl
+node scripts/source-context.js export --profile core --ref HEAD --repo-root /path/to/repo --cache-dir .cw/cache/source-context > core-source.jsonl
 ```
 
 `manifest` emits one JSON object per tracked file at the selected ref:
@@ -51,6 +52,15 @@ node scripts/source-context.js export --profile core --ref HEAD > core-source.js
 `export` emits only included text files and adds `content`. Both commands use
 stdout for JSONL data only. Diagnostics and refusal messages go to stderr.
 
+`export --cache-dir DIR` is opt-in. The cache key is the resolved git commit SHA
+plus a digest of the selected source profile, so changing either the ref or the
+include/exclude policy produces a different JSONL cache file. Cache hits write the
+same JSONL bytes to stdout and stay silent on stderr. Corrupt or mismatched cache
+records fail closed instead of falling back silently.
+
+`--repo-root DIR` is also opt-in; when omitted, the script keeps its historical
+default and reads the Cool Workflow repository root.
+
 ## Verification
 
 The smoke test checks that:
@@ -58,6 +68,8 @@ The smoke test checks that:
 - the profile includes and excludes exactly the remembered paths;
 - `dist/`, tests, docs, release records, and long logs are manifest-only;
 - exported records are parseable JSONL with content and sha256;
+- cached exports are byte-identical to uncached exports and corrupt cache hits
+  fail closed;
 - the `core` profile stays under its `maxLines` guard.
 
 Run:

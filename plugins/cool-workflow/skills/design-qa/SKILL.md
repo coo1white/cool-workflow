@@ -1,6 +1,11 @@
 ---
 name: design-qa
-description: Evaluate Cool Workflow architecture, product design, operator UX, context-pack, workflow-app, MCP/CLI, or release-process proposals. Use when Codex must decide whether a design respects FreeBSD/POLA, mechanism-not-policy, stable JSON surfaces, evidence, and verifier boundaries before implementation.
+description: >-
+  Evaluate Cool Workflow architecture, product design, operator UX,
+  context-pack, workflow-app, MCP/CLI, or release-process proposals. Use when
+  Codex must decide whether a design respects FreeBSD/POLA,
+  mechanism-not-policy, stable JSON surfaces, evidence, and verifier boundaries
+  before implementation.
 ---
 
 # Design QA
