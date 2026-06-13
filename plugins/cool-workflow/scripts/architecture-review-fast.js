@@ -32,6 +32,9 @@ function main() {
   const cacheDir = path.resolve(stringArg(args.cacheDir || args["cache-dir"]) || path.join(repo, ".cw", "cache", "source-context"));
   const contextOut = path.resolve(stringArg(args.contextOut || args["context-out"]) || path.join(repo, ".cw", "context", `${profile}-source.jsonl`));
   const includeMetrics = truthy(args.metrics);
+  const fastModel = stringArg(args.fastModel || args["fast-model"]);
+  const strongModel = stringArg(args.strongModel || args["strong-model"]);
+  const modelEnv = modelPolicyEnv(fastModel, strongModel);
 
   const contextExport = timed(() => exportSourceContext({
     repo,
@@ -73,7 +76,7 @@ function main() {
     "now"
   ]);
 
-  const fastReviewRun = timed(() => runCwJson(reviewArgs, repo));
+  const fastReviewRun = timed(() => runCwJson(reviewArgs, repo, modelEnv));
   const fastReview = fastReviewRun.value;
   const sourceContextMeta = {
     path: contextOut,
@@ -92,6 +95,7 @@ function main() {
     appId: "architecture-review-fast",
     sourceContext: sourceContextMeta,
     fastReview,
+    ...(fastModel || strongModel ? { modelPolicy: { ...(fastModel ? { fastModel } : {}), ...(strongModel ? { strongModel } : {}) } } : {}),
     ...(fullReviewSchedule ? { fullReviewSchedule } : {}),
     ...(includeMetrics ? { metrics: buildMetrics(started, contextText, contextExport.elapsedMs, fastReview, fastReviewRun.elapsedMs, fullReviewScheduleRun?.elapsedMs) } : {})
   });
@@ -150,10 +154,11 @@ function scheduleFullReview(repo, question, args, fastReview, sourceContextMeta)
   ], repo);
 }
 
-function runCwJson(args, cwd) {
+function runCwJson(args, cwd, extraEnv = {}) {
   const result = spawnSync(node, [cw, ...args], {
     cwd,
     encoding: "utf8",
+    env: { ...process.env, ...extraEnv },
     maxBuffer: 1024 * 1024 * 64
   });
   if (result.status !== 0) die(result.stderr || result.stdout || `cw ${args.join(" ")} failed`);
@@ -218,6 +223,13 @@ function truthy(value) {
   return value === true || value === "true" || value === "1" || value === "yes";
 }
 
+function modelPolicyEnv(fastModel, strongModel) {
+  return {
+    ...(fastModel ? { CW_ARCHITECTURE_REVIEW_FAST_MODEL: fastModel } : {}),
+    ...(strongModel ? { CW_ARCHITECTURE_REVIEW_STRONG_MODEL: strongModel } : {})
+  };
+}
+
 function nowNs() {
   return process.hrtime.bigint();
 }
@@ -274,6 +286,7 @@ function usage(code) {
     "",
     "options:",
     "  --profile core --ref HEAD --profile-file PATH --cache-dir DIR --context-out PATH",
+    "  --fast-model MODEL --strong-model MODEL",
     "  --invariant TEXT --focus TEXT --preview --once",
     "  --schedule-full [--full-delay-minutes N]",
     "  --metrics"

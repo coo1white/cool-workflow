@@ -54,6 +54,10 @@ short, and append-friendly. Do not use it for speculation.
   `sourceContextDigest` inputs, and reads model hints from
   `CW_ARCHITECTURE_REVIEW_FAST_MODEL` and
   `CW_ARCHITECTURE_REVIEW_STRONG_MODEL`.
+- Prefer wrapper flags for model routing in user workflows:
+  `architecture-review-fast --fast-model <fast> --strong-model <strong>`. The
+  flags set the same task-level hints as the env vars; recorded model attestation
+  still comes only from the external agent output.
 - `source-context export --cache-dir DIR` caches JSONL by resolved git commit SHA
   plus source-profile digest; cache hits must be byte-identical JSONL and corrupt
   cache records fail closed.

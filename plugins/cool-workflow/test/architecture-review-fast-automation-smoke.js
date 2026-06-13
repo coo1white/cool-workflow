@@ -40,6 +40,7 @@ function main() {
 
   const stub = path.join(tmp, "stub.js");
   const countFile = path.join(tmp, "spawn-count.txt");
+  const modelFile = path.join(tmp, "models.txt");
   fs.writeFileSync(
     stub,
     [
@@ -47,14 +48,17 @@ function main() {
       "const fence = String.fromCharCode(96).repeat(3);",
       "const result = process.argv[2];",
       "const count = process.argv[3];",
+      "const models = process.argv[4];",
+      "const model = process.argv[5] || '';",
       "fs.appendFileSync(count, 'spawn\\n');",
+      "fs.appendFileSync(models, model + '\\n');",
       'fs.writeFileSync(result, "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n");',
       'process.stdout.write(JSON.stringify({ model: "stub-agent/automation", usage: { input_tokens: 1, output_tokens: 1 } }));'
     ].join("\n"),
     "utf8"
   );
 
-  const agentCommand = `${node} ${stub} {{result}} ${countFile}`;
+  const agentCommand = `${node} ${stub} {{result}} ${countFile} ${modelFile} {{model}}`;
   const baseline = runJson([
     "--repo", repo,
     "--question", "Is this architecture fast enough?",
@@ -64,6 +68,7 @@ function main() {
     "--preview"
   ]);
   assert.equal(baseline.metrics, undefined, "metrics are opt-in and absent by default");
+  assert.equal(baseline.modelPolicy, undefined, "model policy is opt-in and absent by default");
 
   const first = runJson([
     "--repo", repo,
@@ -75,6 +80,8 @@ function main() {
     "--once",
     "--schedule-full",
     "--full-delay-minutes", "10",
+    "--fast-model", "smoke-fast-model",
+    "--strong-model", "smoke-strong-model",
     "--metrics"
   ]);
 
@@ -84,6 +91,7 @@ function main() {
   assert.equal(first.fastReview.appId, "architecture-review-fast");
   assert.equal(first.fastReview.status, "in-progress");
   assert.equal(first.fastReview.completedWorkers, 2, "launcher advances the parallel Map round");
+  assert.deepEqual(first.modelPolicy, { fastModel: "smoke-fast-model", strongModel: "smoke-strong-model" });
   assert.equal(first.fullReviewSchedule.workflowId, "architecture-review");
   assert.equal(first.fullReviewSchedule.kind, "reminder");
   assert.equal(first.fullReviewSchedule.maxRuns, 1);
@@ -99,6 +107,11 @@ function main() {
   assert.equal(first.metrics.fastReview.handleKinds.process, 2);
   assert.ok(first.metrics.fullReviewSchedule.elapsedMs >= 0, "metrics include schedule elapsed time");
   assert.equal(spawnLines(countFile), 2, "first run spawns two Map workers");
+  assert.deepEqual(
+    fs.readFileSync(modelFile, "utf8").trim().split(/\n/),
+    ["smoke-fast-model", "smoke-fast-model"],
+    "fast-model flag is passed to Map workers through {{model}}"
+  );
 
   const second = runJson([
     "--repo", repo,
