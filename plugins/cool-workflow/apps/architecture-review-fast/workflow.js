@@ -79,7 +79,7 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
             "Separate confirmed risks, conditional risks, non-issues, and unknowns.",
             "Tie every important claim to inspected evidence and the invariants {{invariant}}."
           ].join(" "),
-          fastOptions("Risk assessor")
+          fastOptions("Risk assessor", { resultCache: sourceContextResultCache({ includeCompletedResults: "previous-phases" }) })
         ),
         agent(
           "assess:runtime-speed",
@@ -88,7 +88,7 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
             "Look for serial agent work, repeated repository scanning, missing cache keys, oversized prompts, and long foreground jobs.",
             "Recommend mechanisms that preserve POLA, stdout/stderr discipline, and zero runtime dependencies."
           ].join(" "),
-          fastOptions("Runtime speed assessor")
+          fastOptions("Runtime speed assessor", { resultCache: sourceContextResultCache({ includeCompletedResults: "previous-phases" }) })
         )
       ]),
       phase("Verify", [
@@ -148,6 +148,6 @@ function contextInstruction() {
   ].join(" ");
 }
 
-function sourceContextResultCache() {
-  return { mode: "read-write", keyInput: "sourceContextDigest" };
+function sourceContextResultCache(extra) {
+  return { mode: "read-write", keyInput: "sourceContextDigest", ...(extra || {}) };
 }

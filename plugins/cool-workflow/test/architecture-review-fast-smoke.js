@@ -90,6 +90,16 @@ function main() {
     assert.deepEqual(byTask.get("map:runtime-surface").resultCache, { mode: "read-write", keyInput: "sourceContextDigest" });
     assert.deepEqual(byTask.get("map:operator-surface").resultCache, { mode: "read-write", keyInput: "sourceContextDigest" });
     assert.equal(byTask.get("assess:runtime-speed").model, "fast-map-model");
+    assert.deepEqual(byTask.get("assess:risks").resultCache, {
+      mode: "read-write",
+      keyInput: "sourceContextDigest",
+      includeCompletedResults: "previous-phases"
+    });
+    assert.deepEqual(byTask.get("assess:runtime-speed").resultCache, {
+      mode: "read-write",
+      keyInput: "sourceContextDigest",
+      includeCompletedResults: "previous-phases"
+    });
     assert.equal(byTask.get("verify:p0-p2-risks").model, "strong-verify-model");
     assert.equal(byTask.get("verdict:fast-synthesis").model, "strong-verify-model");
     assert.match(byTask.get("map:runtime-surface").prompt, new RegExp(escapeRegExp(sourceContext)), "map prompt carries sourceContext");
@@ -120,6 +130,13 @@ function main() {
     assert.equal(cachedOnce.completedWorkers, 2, "cached run accepts the two Map workers in one round");
     assert.ok(cachedOnce.steps.every((step) => step.handleKind === "result-cache"), "cached Map workers come from the result cache");
     assert.equal(spawnLines(spawnCount), 6, "cache hit does not spawn map agents again");
+
+    const cachedAssess = drive(runner, cached.id, { once: true, now: FIXED_NOW, agentConfig: agentConfig(stub, spawnCount) });
+    assert.equal(cachedAssess.status, "in-progress");
+    assert.equal(cachedAssess.completedWorkers, 4, "cached run accepts the two Assess workers in the next round");
+    assert.deepEqual(cachedAssess.steps.map((step) => step.taskId), ["assess:risks", "assess:runtime-speed"]);
+    assert.ok(cachedAssess.steps.every((step) => step.handleKind === "result-cache"), "cached Assess workers include previous result digests in their cache key");
+    assert.equal(spawnLines(spawnCount), 6, "cache hit does not spawn assess agents again");
   } finally {
     process.chdir(cwd0);
     if (priorFast === undefined) delete process.env.CW_ARCHITECTURE_REVIEW_FAST_MODEL;

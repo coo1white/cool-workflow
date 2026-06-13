@@ -46,6 +46,10 @@ export interface WorkflowTaskDefinition {
 export interface WorkflowTaskResultCache {
   mode?: "read-write";
   keyInput: string;
+  /** Optional stable dependency scope folded into the cache key. Use
+   *  `previous-phases` for tasks whose result summarizes earlier completed
+   *  workers; cache hits then require those result bytes to match too. */
+  includeCompletedResults?: "previous-phases";
 }
 
 export interface WorkflowPhaseDefinition {
