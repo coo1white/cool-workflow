@@ -93,6 +93,10 @@ short, and append-friendly. Do not use it for speculation.
   line-count reduction as the same task. They have different risk profiles.
 - Do not silently omit files from an AI context pack. Omitted files need a
   manifest entry with reason, size, line count, and digest.
+- Do not make live agent output default behavior on an existing wrapper or drive
+  path. Default stdout/stderr bytes are a POLA contract; stream-json rendering
+  must be explicit opt-in (`CW_AGENT_STREAM=1`), TTY-gated, and still silent when
+  piped.
 
 ## Last Session
 

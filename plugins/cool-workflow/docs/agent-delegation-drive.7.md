@@ -172,22 +172,24 @@ string). Each verb is declared once in `capability-registry.ts`, so `cw <cmd>
 --json` is byte-identical to the matching `cw_<tool>` MCP tool for the read-only
 preview/config-show verbs.
 
-## Live output — stderr passthrough (Unix-clean)
+## Live output — opt-in stderr passthrough (Unix-clean)
 
-A drive shows the agent's activity live, without touching the evidence contract:
+A drive can show the agent's activity live, without touching the evidence
+contract, when the operator opts in with `CW_AGENT_STREAM=1`:
 
-- **The wrapper renders; stderr only.** The bundled wrapper runs claude in
-  `--output-format stream-json` and renders a concise human trace (tool uses,
-  assistant text, per-turn summaries) to its **stderr** — diagnostics, never
-  data. It reconstructs the single `{model, usage, result}` object and still
-  emits THAT on **stdout** unchanged, so what CW captures and digests is
-  byte-identical to the buffered mode.
+- **Default stays buffered.** Without `CW_AGENT_STREAM=1`, the bundled wrapper
+  preserves the legacy `--output-format json` path and forwards claude's JSON
+  stdout verbatim after writing `result.md`.
+- **The opt-in wrapper renders; stderr only.** With `CW_AGENT_STREAM=1`, the
+  bundled wrapper runs claude in `--output-format stream-json` and renders a
+  concise human trace (tool uses, assistant text, per-turn summaries) to its
+  **stderr** — diagnostics, never data. It reconstructs the single
+  `{model, usage, result}` object for stdout only on that opt-in path.
 - **Core forwards, never parses.** `runAgentProcess` passes the agent child's
-  stderr straight through to the operator's terminal (`stdio` inherit) — but
-  ONLY when CW's own stderr is a TTY; `CW_NO_STREAM=1` opts out. Piped / CI
-  runs stay silent (the Rule of Silence) and their stdout payload is
-  byte-unchanged. Vendor-specific rendering lives in the wrapper (policy), not
-  the kernel (mechanism).
+  stderr straight through to the operator's terminal (`stdio` inherit) only when
+  `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set.
+  Piped / CI runs stay silent (the Rule of Silence). Vendor-specific rendering
+  lives in the wrapper (policy), not the kernel (mechanism).
 - **Determinism intact.** The backend evidence triple hashes stdout only, so
   the live stderr stream never affects recorded evidence or replay.
 

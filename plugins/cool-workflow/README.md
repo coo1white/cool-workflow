@@ -653,9 +653,9 @@ The orchestration vision landed in one release, all reviewer-gated:
 
 `cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be forged undetected: it builds a real ed25519-signed ledger, forges it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` is the operator-facing half (`cw_telemetry_verify` on MCP).
 
-## Live agent output during a drive (on main, ships next)
+## Opt-in live agent output during a drive (on main, ships next)
 
-A drive is no longer silent while each worker runs. The bundled claude wrapper (`builtin:claude` / `scripts/agents/claude-p-agent.js`) runs claude in `--output-format stream-json` and renders a concise human trace (tool uses, assistant text, per-turn summaries) to its **stderr** — diagnostics, never data; the single `{model, usage, result}` object still lands on stdout unchanged, so the captured payload and evidence digest are byte-identical. CW core forwards the agent's stderr to the operator's terminal **only when CW's own stderr is a TTY** (`CW_NO_STREAM=1` opts out); piped/CI runs stay silent (Rule of Silence). Core only forwards the stream, never parses it — vendor-specific rendering is the wrapper's concern (policy), not the kernel's (mechanism).
+Set `CW_AGENT_STREAM=1` to see each worker's live agent trace. The bundled claude wrapper (`builtin:claude` / `scripts/agents/claude-p-agent.js`) keeps the legacy `--output-format json` path by default; only the opt-in path runs claude in `--output-format stream-json` and renders a concise human trace (tool uses, assistant text, per-turn summaries) to **stderr**. CW core forwards that stderr to the operator's terminal only when `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set; piped/CI runs stay silent (Rule of Silence). Core only forwards the stream, never parses it — vendor-specific rendering is the wrapper's concern (policy), not the kernel's (mechanism).
 
 v0.1.79
 
