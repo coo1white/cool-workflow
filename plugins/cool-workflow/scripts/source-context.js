@@ -49,14 +49,16 @@ function main() {
   if (!profile) die(`unknown profile: ${profileId}`);
 
   const ref = resolveRef(valueArg("--ref") || "HEAD");
+  const changedFrom = valueArg("--changed-from") ? resolveRef(valueArg("--changed-from")) : "";
+  const changedPaths = changedFrom ? changedPathSet(changedFrom, ref) : null;
   const cacheDir = command === "export" ? valueArg("--cache-dir") : "";
-  const cachePath = cacheDir ? sourceContextCachePath(cacheDir, profileId, ref, profile) : "";
+  const cachePath = cacheDir ? sourceContextCachePath(cacheDir, profileId, ref, profile, changedFrom) : "";
   if (cachePath && fs.existsSync(cachePath)) {
-    process.stdout.write(readValidCache(cachePath, profileId, ref));
+    process.stdout.write(readValidCache(cachePath, profileId, ref, changedFrom));
     return;
   }
 
-  const files = gitLines(["ls-tree", "-r", "--name-only", ref]);
+  const files = gitLines(["ls-tree", "-r", "--name-only", ref]).filter((file) => !changedPaths || changedPaths.has(file));
   let exportedLines = 0;
   const buffered = cachePath ? [] : null;
   const emit = (value) => {
@@ -77,7 +79,8 @@ function main() {
       lines: binary ? null : countLines(blob),
       sha256: sha256(blob),
       included: classification.included,
-      reason: classification.reason
+      reason: classification.reason,
+      ...(changedFrom ? { changedFrom } : {})
     };
 
     if (command === "manifest") {
@@ -108,8 +111,8 @@ function usage(code, message) {
     [
       "usage:",
       "  node scripts/source-context.js profiles",
-      "  node scripts/source-context.js manifest [--profile core] [--ref HEAD] [--repo-root DIR]",
-      "  node scripts/source-context.js export [--profile core] [--ref HEAD] [--repo-root DIR] [--cache-dir DIR]"
+      "  node scripts/source-context.js manifest [--profile core] [--ref HEAD] [--changed-from REF] [--repo-root DIR]",
+      "  node scripts/source-context.js export [--profile core] [--ref HEAD] [--changed-from REF] [--repo-root DIR] [--cache-dir DIR]"
     ].join("\n") + "\n"
   );
   process.exitCode = code;
@@ -146,6 +149,10 @@ function resolveRef(ref) {
 
 function gitLines(argv) {
   return git(argv).split(/\r?\n/).filter(Boolean);
+}
+
+function changedPathSet(base, ref) {
+  return new Set(gitLines(["diff", "--name-only", "--diff-filter=ACMRT", `${base}..${ref}`]));
 }
 
 function git(argv) {
@@ -200,13 +207,14 @@ function profileDigest(profileId, profile) {
   return sha256(Buffer.from(stableStringify({ profileId, profile }), "utf8"));
 }
 
-function sourceContextCachePath(cacheDir, profileId, ref, profile) {
+function sourceContextCachePath(cacheDir, profileId, ref, profile, changedFrom) {
   const safeProfile = String(profileId).replace(/[^A-Za-z0-9_.-]/g, "_");
-  const digest = profileDigest(profileId, profile).slice(0, 16);
-  return path.join(path.resolve(cacheDir), `${safeProfile}-${ref.slice(0, 12)}-${digest}.jsonl`);
+  const diffPart = changedFrom ? `-changed-${changedFrom.slice(0, 12)}` : "";
+  const digest = sha256(Buffer.from(stableStringify({ profileId, profile, changedFrom: changedFrom || "" }), "utf8")).slice(0, 16);
+  return path.join(path.resolve(cacheDir), `${safeProfile}-${ref.slice(0, 12)}${diffPart}-${digest}.jsonl`);
 }
 
-function readValidCache(file, profileId, ref) {
+function readValidCache(file, profileId, ref, changedFrom) {
   let text;
   try {
     text = fs.readFileSync(file, "utf8");
@@ -228,6 +236,7 @@ function readValidCache(file, profileId, ref) {
       !record ||
       record.profile !== profileId ||
       record.ref !== ref ||
+      String(record.changedFrom || "") !== String(changedFrom || "") ||
       record.included !== true ||
       typeof record.path !== "string" ||
       typeof record.content !== "string" ||
