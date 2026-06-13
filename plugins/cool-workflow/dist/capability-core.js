@@ -9,11 +9,12 @@
 // expressed here and called identically by both surfaces. A composite that lives
 // in only one surface is exactly the cross-surface drift v0.1.27 forbids.
 //
-// From v0.1.46: each exported entry function SHOULD self-register its capability
-// metadata via registerCapability() from capability-registry.ts. This replaces
-// the manual "add an entry to the giant array in capability-registry.ts" workflow
-// with automatic discovery. New capabilities just add a registerCapability() call
-// next to their implementation — no need to touch capability-registry.ts.
+// Capability metadata (which entry is on which surface, tool names, jsonMode) is
+// declared in ONE place — the BUILTIN_CAPABILITIES table in capability-registry.ts,
+// the single source of truth both surfaces and the parity gate read. New
+// capabilities add a row there. (A v0.1.46 "self-register at load time" mechanism
+// was removed: the registry snapshot was taken before those registrations ran, so
+// they were silently dead duplicates of the table — see capability-registry.ts.)
 //
 // See docs/cli-mcp-parity.7.md and src/capability-registry.ts.
 var __importDefault = (this && this.__importDefault) || function (mod) {
@@ -66,7 +67,6 @@ exports.optionalString = optionalString;
 exports.isRecord = isRecord;
 exports.telemetryVerify = telemetryVerify;
 exports.demoTamper = demoTamper;
-const capability_registry_1 = require("./capability-registry");
 const drive_1 = require("./drive");
 const agent_config_1 = require("./agent-config");
 const run_registry_1 = require("./run-registry");
@@ -91,7 +91,6 @@ function planSummary(runner, workflowId, options) {
     };
 }
 // Auto-register with the capability registry (v0.1.46 — no need to edit capability-registry.ts)
-(0, capability_registry_1.registerCapability)({ capability: "plan", summary: "Plan a workflow run on a repo + app.", entry: "planSummary", surface: "both", cli: { path: ["plan"], jsonMode: "default" }, mcp: { tool: "cw_plan" } });
 // ---- canonical app-run payload --------------------------------------------
 // Both `cw app run` and `cw_app_run` resolve to this exact object. Structured
 // app inputs + optional sandbox resolution, then a compact operator status.
@@ -117,7 +116,6 @@ function appRun(runner, args) {
         sandboxProfile: resolvedSandbox
     };
 }
-(0, capability_registry_1.registerCapability)({ capability: "app.run", summary: "Plan a run on a named app with structured inputs.", entry: "appRun", surface: "both", cli: { path: ["app", "run"], caseTokens: ["app"], jsonMode: "default" }, mcp: { tool: "cw_app_run" } });
 // ---- canonical sandbox choice payload -------------------------------------
 // Both `cw sandbox choose|resolve` and `cw_sandbox_choose|cw_sandbox_resolve`
 // resolve to this exact object.
@@ -154,7 +152,6 @@ function commitEnvelope(runner, runId, args) {
         commit
     };
 }
-(0, capability_registry_1.registerCapability)({ capability: "commit", summary: "Create a verifier-gated state commit with evidence.", entry: "commitEnvelope", surface: "both", cli: { path: ["commit"], jsonMode: "default" }, mcp: { tool: "cw_commit" }, payloadIdentical: false, reason: "CLI renders a human summary with path hints; MCP returns the structured commit payload alone." });
 function compactOperatorStatus(status) {
     return {
         runId: status.runId,

@@ -77,6 +77,28 @@ export interface TrustAuditEvent {
   evidenceRefs?: string[];
   parentEventIds?: string[];
   metadata?: Record<string, unknown>;
+  /** Tamper-evidence chain (v0.1.81). prevEventHash links to the prior event's
+   *  eventHash in APPEND order (or the run genesis); eventHash = sha256 of the
+   *  canonical event sans eventHash. Optional for backward-compat with logs
+   *  written before the chain existed (those verify as `unchained`, not broken). */
+  prevEventHash?: string;
+  eventHash?: string;
+}
+
+/** Result of re-proving a run's trust-audit event chain. The central decision log
+ *  (sandbox/policy/commit-gate) is the artifact an external auditor checks, so its
+ *  integrity must be verifiable — not just durably appended. */
+export interface TrustAuditIntegrity {
+  present: boolean;
+  verified: boolean;
+  eventCount: number;
+  /** events carrying a hash chain (verifiable). */
+  chained: number;
+  /** legacy events written before the chain existed (skipped, not failed). */
+  unchained: number;
+  /** lines that could not be parsed (a corrupt log fails closed). */
+  corruptLines: number;
+  checks: Array<{ name: string; pass: boolean; code?: string }>;
 }
 
 export interface TrustAuditSummary {
@@ -84,6 +106,8 @@ export interface TrustAuditSummary {
   runId: string;
   generatedAt?: string;
   eventCount: number;
+  /** Tamper-evidence verdict for the event chain (v0.1.81). */
+  integrity?: TrustAuditIntegrity;
   eventLogPath: string;
   indexPath: string;
   summaryPath: string;

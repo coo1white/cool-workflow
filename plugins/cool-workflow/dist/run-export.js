@@ -345,7 +345,10 @@ function digestManifest(files) {
         sizeBytes: file.sizeBytes,
         sourcePath: file.sourcePath
     }))
-        .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+        // Codepoint order, NOT localeCompare: this manifest feeds a sha256 integrity
+        // digest. Locale-sensitive collation would order identical bytes differently
+        // across hosts/locales, making the digest non-reproducible cross-host.
+        .sort((left, right) => (left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0));
     return sha256Bytes(Buffer.from(JSON.stringify(manifest), "utf8"));
 }
 function rebaseRun(source, context) {

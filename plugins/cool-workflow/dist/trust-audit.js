@@ -4,6 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TRUST_AUDIT_SCHEMA_VERSION = void 0;
+exports.trustAuditGenesis = trustAuditGenesis;
+exports.verifyTrustAudit = verifyTrustAudit;
 exports.ensureTrustAudit = ensureTrustAudit;
 exports.recordTrustAuditEvent = recordTrustAuditEvent;
 exports.recordSandboxPathDecision = recordSandboxPathDecision;
@@ -22,7 +24,86 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
 const evidence_grounding_1 = require("./evidence-grounding");
+const execution_backend_1 = require("./execution-backend");
+const telemetry_attestation_1 = require("./telemetry-attestation");
 exports.TRUST_AUDIT_SCHEMA_VERSION = 1;
+// ---- Tamper-evidence chain (v0.1.81) --------------------------------------
+// Same discipline as telemetry-ledger.ts / reclamation.ts: the event log is
+// hash-chained in APPEND order, and verifyTrustAudit recomputes every hash
+// independently (never trusts a stored value), so an edited or removed event is
+// detected. Durability (fsync) only guards against power loss; this guards
+// against post-hoc edits — the threat an external auditor actually cares about.
+/** Genesis prevHash for a run's chain (no prior event). */
+function trustAuditGenesis(runId) {
+    return (0, execution_backend_1.sha256)(`cw-trust-audit:${runId}`);
+}
+/** Canonical bytes the eventHash binds: every field EXCEPT eventHash itself
+ *  (prevEventHash included, so the chain link is bound). */
+function computeEventHash(event) {
+    const { eventHash, ...rest } = event;
+    return (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)(rest));
+}
+/** The hash to chain the NEXT event to: the stored eventHash, or a recompute for
+ *  a legacy event written before the chain existed. */
+function chainHashOf(event) {
+    return event.eventHash || computeEventHash(event);
+}
+/** Read events in FILE (append) order, tolerating corrupt lines — one bad line
+ *  must not brick the whole audit read surface (it is counted, not thrown). The
+ *  chain links append order, so this is the order verification walks. */
+function readEventsRaw(eventLogPath) {
+    if (!node_fs_1.default.existsSync(eventLogPath))
+        return { events: [], corruptLines: 0 };
+    let corruptLines = 0;
+    const events = [];
+    for (const line of node_fs_1.default.readFileSync(eventLogPath, "utf8").split(/\n/g)) {
+        const trimmed = line.trim();
+        if (!trimmed)
+            continue;
+        try {
+            events.push(JSON.parse(trimmed));
+        }
+        catch {
+            corruptLines += 1;
+        }
+    }
+    return { events, corruptLines };
+}
+/** Re-prove the run's trust-audit chain: prevEventHash linkage (append order) +
+ *  per-event hash recompute. A corrupt line, an edited event, or a removed event
+ *  flips verified=false. Legacy events without a hash are reported as `unchained`
+ *  (skipped), NOT treated as a forgery — they predate the chain. */
+function verifyTrustAudit(run) {
+    const audit = ensureTrustAudit(run);
+    const { events, corruptLines } = readEventsRaw(audit.eventLogPath);
+    const checks = [];
+    let verified = corruptLines === 0;
+    if (corruptLines > 0)
+        checks.push({ name: "parse", pass: false, code: "trust-audit-corrupt-line" });
+    let chained = 0;
+    let unchained = 0;
+    let expectedPrev = trustAuditGenesis(run.id);
+    for (let i = 0; i < events.length; i++) {
+        const event = events[i];
+        const recomputed = computeEventHash(event);
+        if (event.eventHash === undefined) {
+            unchained += 1;
+            expectedPrev = recomputed; // advance the chain over legacy events
+            continue;
+        }
+        chained += 1;
+        if (event.eventHash !== recomputed) {
+            verified = false;
+            checks.push({ name: `event-hash[${i}]`, pass: false, code: "trust-audit-digest-mismatch" });
+        }
+        if (event.prevEventHash !== undefined && event.prevEventHash !== expectedPrev) {
+            verified = false;
+            checks.push({ name: `chain-link[${i}]`, pass: false, code: "trust-audit-chain-broken" });
+        }
+        expectedPrev = event.eventHash;
+    }
+    return { present: events.length > 0, verified, eventCount: events.length, chained, unchained, corruptLines, checks };
+}
 function ensureTrustAudit(run) {
     const auditDir = auditRoot(run);
     node_fs_1.default.mkdirSync(auditDir, { recursive: true });
@@ -90,6 +171,12 @@ function recordTrustAuditEvent(run, input) {
         parentEventIds: unique(input.parentEventIds || []).sort(),
         metadata: scrubMetadata(input.metadata || {})
     });
+    // Tamper-evidence chain: link this event to the prior one (append order) and
+    // bind its content with eventHash BEFORE persisting. verifyTrustAudit recomputes
+    // both independently, so a later edit or removal is detectable.
+    const prior = readEventsRaw(audit.eventLogPath).events;
+    event.prevEventHash = prior.length ? chainHashOf(prior[prior.length - 1]) : trustAuditGenesis(run.id);
+    event.eventHash = computeEventHash(event);
     // DURABLE append (v0.1.40 self-audit P1): the audit log is the one artifact
     // whose loss breaks audit-completeness, so fsync it before returning — never a
     // bare appendFileSync, which can drop the last event on power loss.
@@ -127,15 +214,7 @@ function recordHostAttestation(run, input) {
 }
 function listTrustAuditEvents(run) {
     const audit = ensureTrustAudit(run);
-    if (!node_fs_1.default.existsSync(audit.eventLogPath))
-        return [];
-    return node_fs_1.default
-        .readFileSync(audit.eventLogPath, "utf8")
-        .split(/\n/g)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => JSON.parse(line))
-        .sort(compareEvents);
+    return readEventsRaw(audit.eventLogPath).events.sort(compareEvents);
 }
 /** Search audit events by kind, worker, or candidate (v0.1.65).
  *  Filters are AND-ed; empty filters match all. */
@@ -159,6 +238,7 @@ function summarizeTrustAudit(run) {
         runId: run.id,
         generatedAt: new Date().toISOString(),
         eventCount: events.length,
+        integrity: verifyTrustAudit(run),
         eventLogPath: audit.eventLogPath,
         indexPath: audit.indexPath,
         summaryPath: audit.summaryPath,
@@ -365,15 +445,7 @@ function auditRoot(run) {
     return run.paths.auditDir || node_path_1.default.join(run.paths.runDir, "audit");
 }
 function readEvents(eventLogPath) {
-    if (!node_fs_1.default.existsSync(eventLogPath))
-        return [];
-    return node_fs_1.default
-        .readFileSync(eventLogPath, "utf8")
-        .split(/\n/g)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line) => JSON.parse(line))
-        .sort(compareEvents);
+    return readEventsRaw(eventLogPath).events.sort(compareEvents);
 }
 function workerRows(events, run) {
     const workerIds = unique([...(run.workers || []).map((worker) => worker.id), ...events.map((event) => event.workerId || "")]).sort();

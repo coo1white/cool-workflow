@@ -853,7 +853,11 @@ function collectCandidateScores(run: WorkflowRun): unknown[] {
   const scores: unknown[] = [];
   for (const candidate of run.candidates || []) {
     for (const scoreId of candidate.scores || []) {
-      const scorePath = path.join(run.paths.candidatesDir || path.join(run.paths.runDir, "candidates"), `${safeFileName(candidate.id)}.${safeFileName(scoreId)}.score.json`);
+      // Canonical nested score path — MUST match the writers (candidate-scoring.ts
+      // persistScore, commit.ts): candidates/<candidateId>/scores/<scoreId>.json.
+      // The old flat `<id>.<scoreId>.score.json` path was written by nobody, so the
+      // candidate_score_parity eval metric silently scored empty placeholders.
+      const scorePath = path.join(run.paths.candidatesDir || path.join(run.paths.runDir, "candidates"), safeFileName(candidate.id), "scores", `${safeFileName(scoreId)}.json`);
       if (fs.existsSync(scorePath)) {
         const score = readJson(scorePath) as Record<string, unknown>;
         scores.push({

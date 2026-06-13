@@ -631,7 +631,11 @@ function collectCandidateScores(run) {
     const scores = [];
     for (const candidate of run.candidates || []) {
         for (const scoreId of candidate.scores || []) {
-            const scorePath = node_path_1.default.join(run.paths.candidatesDir || node_path_1.default.join(run.paths.runDir, "candidates"), `${(0, state_1.safeFileName)(candidate.id)}.${(0, state_1.safeFileName)(scoreId)}.score.json`);
+            // Canonical nested score path — MUST match the writers (candidate-scoring.ts
+            // persistScore, commit.ts): candidates/<candidateId>/scores/<scoreId>.json.
+            // The old flat `<id>.<scoreId>.score.json` path was written by nobody, so the
+            // candidate_score_parity eval metric silently scored empty placeholders.
+            const scorePath = node_path_1.default.join(run.paths.candidatesDir || node_path_1.default.join(run.paths.runDir, "candidates"), (0, state_1.safeFileName)(candidate.id), "scores", `${(0, state_1.safeFileName)(scoreId)}.json`);
             if (node_fs_1.default.existsSync(scorePath)) {
                 const score = (0, state_1.readJson)(scorePath);
                 scores.push({

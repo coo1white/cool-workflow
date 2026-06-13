@@ -124,7 +124,25 @@ function showBundledSandboxProfile(id, context = defaultSandboxContext()) {
     return resolveSandboxProfile(profile, context);
 }
 function resolveSandboxProfileById(id, context = defaultSandboxContext()) {
-    return showBundledSandboxProfile(id || exports.DEFAULT_SANDBOX_PROFILE_ID, context);
+    const requested = id || exports.DEFAULT_SANDBOX_PROFILE_ID;
+    if (isBundledSandboxProfileId(requested))
+        return showBundledSandboxProfile(requested, context);
+    // A non-bundled id that resolves to a readable profile FILE is a CUSTOM profile:
+    // validate and ENFORCE it (the resolved policy snapshots onto the worker scope).
+    // This closes the gap where `sandbox validate` accepted a custom profile that
+    // dispatch/worker-isolation then refused — validated but never enforceable.
+    // A non-bundled, non-file id still fails closed via showBundledSandboxProfile.
+    const absolute = node_path_1.default.resolve(requested);
+    if (node_fs_1.default.existsSync(absolute) && node_fs_1.default.statSync(absolute).isFile()) {
+        const result = validateSandboxProfileFile(requested, context);
+        if (!result.valid || !result.profile) {
+            throw new SandboxProfileError("sandbox-profile-invalid", `Custom sandbox profile is invalid: ${requested}`, {
+                details: { issues: result.issues }
+            });
+        }
+        return result.profile;
+    }
+    return showBundledSandboxProfile(requested, context);
 }
 function resolveSandboxProfile(profile, context = defaultSandboxContext()) {
     const issues = validateSandboxProfileDefinition(profile, context);
