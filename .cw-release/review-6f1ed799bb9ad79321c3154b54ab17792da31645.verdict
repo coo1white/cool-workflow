@@ -1,0 +1,2 @@
+APPROVED 6f1ed799bb9ad79321c3154b54ab17792da31645
+Users can run a six-worker cached architecture review with scoped source context, metrics, model hints, and full-review handoff, and can move runs between repos with digest-verified export/import/restore.
