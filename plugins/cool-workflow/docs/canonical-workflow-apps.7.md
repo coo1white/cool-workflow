@@ -38,11 +38,11 @@ mapping/assessment work to a faster model while reserving stronger models for
 verification and synthesis.
 
 ```bash
-CW_ARCHITECTURE_REVIEW_FAST_MODEL=gpt-5.5-high \
-CW_ARCHITECTURE_REVIEW_STRONG_MODEL=gpt-5.5-extra-high \
 node scripts/architecture-review-fast.js \
   --repo /path/to/repo \
   --question "Is this architecture sound?" \
+  --fast-model gpt-5.5-high \
+  --strong-model gpt-5.5-extra-high \
   --metrics \
   --schedule-full
 ```
@@ -50,6 +50,9 @@ node scripts/architecture-review-fast.js \
 The wrapper prepares one cached JSONL source context, passes its sha256 digest to
 the fast app, runs `quickstart architecture-review-fast`, and optionally creates
 a one-shot background schedule for the full `architecture-review` app.
+`--fast-model` and `--strong-model` are userland policy flags; internally they
+set the same task-level hints as `CW_ARCHITECTURE_REVIEW_FAST_MODEL` and
+`CW_ARCHITECTURE_REVIEW_STRONG_MODEL`.
 `--metrics` is opt-in; when present the wrapper adds elapsed-time, worker-step,
 agent-spawn, and result-cache-hit counts to the JSON payload so operators can
 measure foreground wait reductions without changing the default output shape.

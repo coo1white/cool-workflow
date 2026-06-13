@@ -137,9 +137,7 @@ For faster first results, use the opt-in fast app instead of changing the full
 review contract:
 
 ```text
-CW_ARCHITECTURE_REVIEW_FAST_MODEL=gpt-5.5-high \
-CW_ARCHITECTURE_REVIEW_STRONG_MODEL=gpt-5.5-extra-high \
-node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --metrics --schedule-full
+node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --fast-model gpt-5.5-high --strong-model gpt-5.5-extra-high --metrics --schedule-full
 ```
 
 `architecture-review-fast` has six workers: two Map and two Assess workers in
@@ -147,6 +145,10 @@ parallel, then sequential Verify and Verdict workers. The original
 `architecture-review` app remains the full 14-worker review and is the right
 target for background routines when a deep audit can finish outside the user's
 foreground wait.
+
+The model flags are policy, not attestation: they set task-level `{{model}}`
+hints for the delegated agent process. The recorded model still comes only from
+the agent-reported output.
 
 The wrapper computes the source-context digest and supplies it to the fast app.
 The two Map workers opt in to result caching keyed by source-context digest plus
