@@ -37,6 +37,10 @@ const core = profileFile.profiles.core;
 assert.deepEqual(core.include, expectedInclude, "core include policy must match project memory");
 assert.deepEqual(core.exclude, expectedExclude, "core exclude policy must match project memory");
 assert.equal(core.maxLines, 50000, "core profile keeps a 50k-line guard");
+for (const name of ["runtime", "mcp", "workflow-apps", "release", "agent-wrappers"]) {
+  assert.ok(profileFile.profiles[name], `${name} subprofile is declared`);
+  assert.ok(profileFile.profiles[name].maxLines < core.maxLines, `${name} subprofile has a tighter line guard than core`);
+}
 
 function run(args) {
   const result = cp.spawnSync(process.execPath, [script, ...args], {
@@ -87,6 +91,40 @@ assert.ok(!exported.some((record) => record.path.startsWith("plugins/cool-workfl
 const totalLines = exported.reduce((sum, record) => sum + record.lines, 0);
 assert.ok(totalLines > 30000, `core export should be substantial, got ${totalLines}`);
 assert.ok(totalLines <= core.maxLines, `core export must stay under ${core.maxLines}, got ${totalLines}`);
+
+const subprofileExpectations = {
+  runtime: {
+    includes: ["plugins/cool-workflow/src/drive.ts"],
+    excludes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js", "plugins/cool-workflow/scripts/cw.js"]
+  },
+  mcp: {
+    includes: ["plugins/cool-workflow/src/mcp-server.ts", "plugins/cool-workflow/scripts/mcp-server.js"],
+    excludes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js"]
+  },
+  "workflow-apps": {
+    includes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js", "plugins/cool-workflow/src/workflow-app-framework.ts"],
+    excludes: ["plugins/cool-workflow/src/mcp-server.ts"]
+  },
+  release: {
+    includes: ["plugins/cool-workflow/scripts/release-flow.js", "plugins/cool-workflow/scripts/version-sync-check.js"],
+    excludes: ["plugins/cool-workflow/src/drive.ts"]
+  },
+  "agent-wrappers": {
+    includes: ["plugins/cool-workflow/scripts/agents/claude-p-agent.js", "plugins/cool-workflow/src/agent-config.ts"],
+    excludes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js"]
+  }
+};
+
+for (const [profile, expectation] of Object.entries(subprofileExpectations)) {
+  const records = run(["export", "--profile", profile, "--ref", "HEAD"]);
+  const paths = new Set(records.map((record) => record.path));
+  const lines = records.reduce((sum, record) => sum + record.lines, 0);
+  assert.ok(records.length > 0, `${profile} exports records`);
+  assert.ok(lines <= profileFile.profiles[profile].maxLines, `${profile} export stays under guard`);
+  assert.ok(lines < totalLines, `${profile} is slimmer than core`);
+  for (const included of expectation.includes) assert.ok(paths.has(included), `${profile} includes ${included}`);
+  for (const excluded of expectation.excludes) assert.ok(!paths.has(excluded), `${profile} excludes ${excluded}`);
+}
 
 const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-cache-"));
 const cachedFirst = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--cache-dir", cacheDir]);

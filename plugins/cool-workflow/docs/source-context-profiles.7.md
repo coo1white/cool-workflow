@@ -34,12 +34,32 @@ Exclusion does not delete files and does not change release behavior. `dist/`
 remains a committed release artifact until the release contract is explicitly
 changed.
 
+## Narrow Profiles
+
+Use a narrower opt-in profile when the question is already scoped:
+
+- `runtime`: the full `src/**` runtime kernel plus package and TypeScript
+  metadata.
+- `mcp`: capability core/registry, CLI routing, MCP server, MCP launcher scripts,
+  and shared types.
+- `workflow-apps`: canonical apps plus the Workflow App framework and app
+  planning/orchestration surface.
+- `release`: release flow, gates, manifest/version tooling, package metadata, and
+  release-tooling docs.
+- `agent-wrappers`: external agent wrappers, agent config, execution backend,
+  drive loop, and agent-delegation docs.
+
+The narrow profiles are policy data only. Selecting one changes only the JSONL
+context pack; it does not change runtime behavior, release contents, or the
+default `core` profile.
+
 ## Commands
 
 ```bash
 node scripts/source-context.js profiles
 node scripts/source-context.js manifest --profile core --ref HEAD --repo-root /path/to/repo > manifest.jsonl
 node scripts/source-context.js export --profile core --ref HEAD --repo-root /path/to/repo > core-source.jsonl
+node scripts/source-context.js export --profile mcp --ref HEAD --repo-root /path/to/repo > mcp-source.jsonl
 node scripts/source-context.js export --profile core --ref HEAD --repo-root /path/to/repo --cache-dir .cw/cache/source-context > core-source.jsonl
 ```
 
@@ -68,6 +88,8 @@ The smoke test checks that:
 - the profile includes and excludes exactly the remembered paths;
 - `dist/`, tests, docs, release records, and long logs are manifest-only;
 - exported records are parseable JSONL with content and sha256;
+- narrow profiles are slimmer than `core` and include/exclude their intended
+  surfaces;
 - cached exports are byte-identical to uncached exports and corrupt cache hits
   fail closed;
 - the `core` profile stays under its `maxLines` guard.
