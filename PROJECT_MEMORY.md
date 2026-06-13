@@ -61,6 +61,9 @@ short, and append-friendly. Do not use it for speculation.
   exports cached source context for a target repo, computes the JSONL digest,
   starts `architecture-review-fast`, and can schedule a one-shot background
   `architecture-review` run with `--schedule-full`.
+- `architecture-review-fast --schedule-full` stores foreground handoff context in
+  the schedule prompt: fast run id, fast report path, source-context digest and
+  profile, plus an instruction to return the full review report path and digest.
 - `scripts/architecture-review-fast.js --metrics` is opt-in. Default JSON output
   remains unchanged; the metrics payload reports elapsed milliseconds, source
   context bytes, fast-review step counts, agent-spawn counts, and result-cache
