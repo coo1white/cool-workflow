@@ -1,0 +1,2 @@
+APPROVED d32463cb0dea716c030b321152ae4efc24f219e9
+Users can run a six-worker fast architecture review that exports scoped source context, reuses cached Map/Assess results, measures cache/spawn savings, and schedules the full review for background follow-up.
