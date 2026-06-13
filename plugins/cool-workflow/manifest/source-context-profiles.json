@@ -22,6 +22,121 @@
         "CHANGELOG.md",
         "ITERATION_LOG.md"
       ]
+    },
+    "runtime": {
+      "description": "Runtime-kernel source context for state, orchestration, scheduling, execution, and shared types.",
+      "maxLines": 40000,
+      "include": [
+        "plugins/cool-workflow/src/**",
+        "plugins/cool-workflow/package.json",
+        "plugins/cool-workflow/tsconfig.json"
+      ],
+      "exclude": [
+        "plugins/cool-workflow/dist/**",
+        "plugins/cool-workflow/test/**",
+        "plugins/cool-workflow/docs/**",
+        "plugins/cool-workflow/apps/**",
+        "plugins/cool-workflow/scripts/**",
+        "docs/assets/**",
+        ".cw-release/**",
+        "CHANGELOG.md",
+        "ITERATION_LOG.md"
+      ]
+    },
+    "mcp": {
+      "description": "MCP and CLI surface context for capability registry, MCP server, CLI routing, and MCP launcher wrappers.",
+      "maxLines": 18000,
+      "include": [
+        "plugins/cool-workflow/src/capability-core.ts",
+        "plugins/cool-workflow/src/capability-registry.ts",
+        "plugins/cool-workflow/src/cli.ts",
+        "plugins/cool-workflow/src/mcp-server.ts",
+        "plugins/cool-workflow/src/types/**",
+        "plugins/cool-workflow/scripts/cw.js",
+        "plugins/cool-workflow/scripts/mcp-server.js",
+        "plugins/cool-workflow/package.json",
+        "plugins/cool-workflow/tsconfig.json"
+      ],
+      "exclude": [
+        "plugins/cool-workflow/dist/**",
+        "plugins/cool-workflow/test/**",
+        "plugins/cool-workflow/docs/**",
+        "docs/assets/**",
+        ".cw-release/**",
+        "CHANGELOG.md",
+        "ITERATION_LOG.md"
+      ]
+    },
+    "workflow-apps": {
+      "description": "Workflow App framework and canonical app context without the full runtime kernel.",
+      "maxLines": 18000,
+      "include": [
+        "plugins/cool-workflow/apps/**",
+        "plugins/cool-workflow/src/workflow-app-framework.ts",
+        "plugins/cool-workflow/src/orchestrator.ts",
+        "plugins/cool-workflow/src/orchestrator/**",
+        "plugins/cool-workflow/src/types/workflow-app.ts",
+        "plugins/cool-workflow/src/types/run.ts",
+        "plugins/cool-workflow/scripts/canonical-apps.js",
+        "plugins/cool-workflow/package.json",
+        "plugins/cool-workflow/tsconfig.json"
+      ],
+      "exclude": [
+        "plugins/cool-workflow/dist/**",
+        "plugins/cool-workflow/test/**",
+        "plugins/cool-workflow/docs/**",
+        "docs/assets/**",
+        ".cw-release/**",
+        "CHANGELOG.md",
+        "ITERATION_LOG.md"
+      ]
+    },
+    "release": {
+      "description": "Release-engineering context for gates, release flow, version sync, manifests, and package metadata.",
+      "maxLines": 12000,
+      "include": [
+        "AGENTS.md",
+        "plugins/cool-workflow/scripts/release-flow.js",
+        "plugins/cool-workflow/scripts/release-gate.sh",
+        "plugins/cool-workflow/scripts/dogfood-release.js",
+        "plugins/cool-workflow/scripts/gen-manifests.js",
+        "plugins/cool-workflow/scripts/version-sync-check.js",
+        "plugins/cool-workflow/scripts/bump-version.js",
+        "plugins/cool-workflow/package.json",
+        "plugins/cool-workflow/manifest/**",
+        "plugins/cool-workflow/docs/release-tooling.7.md"
+      ],
+      "exclude": [
+        "plugins/cool-workflow/dist/**",
+        "plugins/cool-workflow/test/**",
+        "docs/assets/**",
+        ".cw-release/**",
+        "CHANGELOG.md",
+        "ITERATION_LOG.md"
+      ]
+    },
+    "agent-wrappers": {
+      "description": "External agent delegation wrappers and neutral backend configuration context.",
+      "maxLines": 14000,
+      "include": [
+        "plugins/cool-workflow/scripts/agents/**",
+        "plugins/cool-workflow/scripts/architecture-review-fast.js",
+        "plugins/cool-workflow/src/agent-config.ts",
+        "plugins/cool-workflow/src/execution-backend.ts",
+        "plugins/cool-workflow/src/drive.ts",
+        "plugins/cool-workflow/src/types/execution-backend.ts",
+        "plugins/cool-workflow/src/types/drive.ts",
+        "plugins/cool-workflow/package.json",
+        "plugins/cool-workflow/docs/agent-delegation-drive.7.md"
+      ],
+      "exclude": [
+        "plugins/cool-workflow/dist/**",
+        "plugins/cool-workflow/test/**",
+        "docs/assets/**",
+        ".cw-release/**",
+        "CHANGELOG.md",
+        "ITERATION_LOG.md"
+      ]
     }
   }
 }

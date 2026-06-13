@@ -25,6 +25,9 @@ short, and append-friendly. Do not use it for speculation.
 - Excluding `dist/` from the context pack is allowed; deleting committed `dist/`
   is a separate release-contract decision.
 - Context slimming is opt-in and must not change existing CW command output.
+- `core` remains the default source context profile. Narrow opt-in profiles exist
+  for scoped runs: `runtime`, `mcp`, `workflow-apps`, `release`, and
+  `agent-wrappers`.
 - Skill trigger metadata must live in standard YAML frontmatter. Every
   `SKILL.md` needs `name` and a trigger-rich `description`; the body is loaded
   only after a skill triggers and must not be the sole source of trigger text.
@@ -111,5 +114,9 @@ short, and append-friendly. Do not use it for speculation.
 - Since Map caching is proven live, next acceleration target is to run or
   instrument the remaining Assess/Verify/Verdict phases, then add opt-in Assess
   caching only if those summaries dominate the foreground wait.
+- After Assess caching, use narrow source profiles before inventing a more
+  complex context mechanism: `mcp`, `workflow-apps`, `release`, and
+  `agent-wrappers` are much smaller than `core`; `runtime` is still large because
+  it intentionally carries the full `src/**` kernel.
 - When a repeated workflow improves, update the matching skill and add or revise
   `eval/<workflow>.jsonl`.
