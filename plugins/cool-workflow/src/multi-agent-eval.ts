@@ -362,7 +362,7 @@ export function compareMultiAgentReplay(baselineTarget: string, replayTarget: st
   const findings: MultiAgentRegressionFinding[] = [];
   for (const spec of ALL_METRIC_SECTIONS) {
     const { baselineValue, replayValue } = comparisonValues(spec.metric, spec.section, baseline.normalized, replay);
-    const equal = stableStringify(baselineValue) === stableStringify(replayValue);
+    const equal = replayStableStringify(baselineValue) === replayStableStringify(replayValue);
     const id = String(spec.section);
     sections[id] = {
       id,
@@ -1034,11 +1034,11 @@ function normalizeString(value: string): string {
 
 export function lines(value: unknown): string[] {
   const normalized = normalizeValue(value);
-  if (Array.isArray(normalized)) return normalized.map((entry) => stableStringify(entry)).sort();
-  return [stableStringify(normalized)].sort();
+  if (Array.isArray(normalized)) return normalized.map((entry) => replayStableStringify(entry)).sort();
+  return [replayStableStringify(normalized)].sort();
 }
 
-export function stableStringify(value: unknown): string {
+export function replayStableStringify(value: unknown): string {
   return JSON.stringify(normalizeValue(value));
 }
 

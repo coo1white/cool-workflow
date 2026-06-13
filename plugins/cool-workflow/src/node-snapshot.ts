@@ -12,7 +12,7 @@
 //    divergence (`stale`) or a missing node/artifact (`absent`) diff/replay REFUSE
 //    with a structured error — never a silent stale replay.
 //  - REUSE, don't fork: operates on the real StateNode (getRunNode) and reuses the
-//    eval harness's normalizeValue/stableStringify and state-explosion's
+//    eval harness's normalizeValue/replayStableStringify and state-explosion's
 //    fingerprintStrings. No parallel node type, normalizer, or replay engine.
 //  - DETERMINISTIC: `now` is injected; the deterministic payload (normalized body
 //    + outputFingerprint) carries zero wall-clock, so two replays are byte-identical.
@@ -24,7 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { getRunNode } from "./pipeline-runner";
 import { writeJson, safeFileName } from "./state";
-import { normalizeValue, stableStringify } from "./multi-agent-eval";
+import { normalizeValue, replayStableStringify } from "./multi-agent-eval";
 import { fingerprintStrings } from "./state-explosion";
 import {
   NodeReplayRun,
@@ -192,7 +192,7 @@ export function diffNodeSnapshots(baseline: NodeSnapshot, candidate: NodeSnapsho
   const sections: NodeSnapshotSection[] = SNAPSHOT_SECTIONS.map((section) => {
     const baselineValue = sectionValue(baseline.body, section);
     const candidateValue = sectionValue(candidate.body, section);
-    const sameBytes = stableStringify(baselineValue) === stableStringify(candidateValue);
+    const sameBytes = replayStableStringify(baselineValue) === replayStableStringify(candidateValue);
     let change: NodeSnapshotSection["change"];
     if (sameBytes) change = "same";
     else if (baselineValue === undefined) change = "added";
@@ -235,7 +235,7 @@ export function replayNodeSnapshot(run: WorkflowRun, snapshot: NodeSnapshot, opt
     );
   }
   const body = normalizeValue(snapshot.body) as NodeSnapshotBody;
-  const outputFingerprint = fingerprintStrings([stableStringify(body)]);
+  const outputFingerprint = fingerprintStrings([replayStableStringify(body)]);
   const replay: NodeReplayRun = {
     schemaVersion: 1,
     replayId: `replay-${snapshot.snapshotId}-${outputFingerprint.replace("sha256:", "").slice(0, 8)}`,

@@ -30,7 +30,7 @@ exports.OFFICIAL_TOPOLOGIES = [
         title: "Map-Reduce",
         summary: "Fan out mapper roles, index mapper evidence on the blackboard, then reduce only after required evidence is present.",
         roles: [
-            roleSpec("mapper", "Mapper", ["Produce an independent shard result and cite evidence."], ["mapper output artifact"], ["indexed mapper artifact"]),
+            roleSpec("mapper", "Mapper", ["Produce an independent shard result and cite evidence."], ["mapper output artifact"], ["indexed mapper artifact"], 2),
             roleSpec("reducer", "Reducer", ["Synthesize mapper outputs only after fanin is verifier-ready."], ["reducer synthesis"], ["all mapper evidence"])
         ],
         groups: [{ id: "map-reduce", title: "Map-Reduce Group", roleIds: ["mapper", "reducer"] }],
@@ -83,7 +83,7 @@ exports.OFFICIAL_TOPOLOGIES = [
         title: "Judge Panel",
         summary: "Collect independent judge outputs, aggregate scores, and select a panel decision with linked evidence.",
         roles: [
-            roleSpec("judge", "Judge", ["Score candidates independently and cite evidence."], ["judge score artifact"], ["judge verdict"]),
+            roleSpec("judge", "Judge", ["Score candidates independently and cite evidence."], ["judge score artifact"], ["judge verdict"], 3),
             roleSpec("panel-chair", "Panel Chair", ["Aggregate scores and write a panel decision."], ["panel decision"], ["judge evidence"])
         ],
         groups: [{ id: "judge-panel", title: "Judge Panel Group", roleIds: ["judge", "panel-chair"] }],
@@ -211,7 +211,7 @@ function applyTopology(run, topologyId, input = {}) {
         metadata: { topologyId: definition.id, topologyRunId: id }
     });
     const roleIds = [];
-    for (const role of materializedRoles(definition, input)) {
+    for (const role of materializedRoles(definition, withLegacyRoleCounts(input))) {
         const record = (0, multi_agent_1.createAgentRole)(run, {
             id: `${id}-${role.id}`,
             multiAgentRunId: multiAgentRun.id,
@@ -422,11 +422,28 @@ function showTopologyRun(run, topologyRunId) {
         throw new Error(`Unknown topology run id: ${topologyRunId}`);
     return record;
 }
+/** Boundary adapter: fold the legacy id-keyed mapperCount/judgeCount flags into
+ *  the uniform roleCounts map so materializedRoles can stay purely data-driven.
+ *  An explicit roleCounts entry always wins; the judge floor (>= 2) preserves the
+ *  prior clamp so a panel never collapses to a single judge. */
+function withLegacyRoleCounts(input) {
+    const legacy = {
+        mapper: input.mapperCount === undefined ? undefined : Math.max(1, input.mapperCount),
+        judge: input.judgeCount === undefined ? undefined : Math.max(2, input.judgeCount)
+    };
+    const roleCounts = { ...input.roleCounts };
+    for (const [roleId, value] of Object.entries(legacy)) {
+        if (value !== undefined && roleCounts[roleId] === undefined)
+            roleCounts[roleId] = value;
+    }
+    return Object.keys(roleCounts).length ? { ...input, roleCounts } : input;
+}
 function materializedRoles(definition, input) {
-    const count = definition.id === "map-reduce" ? Math.max(1, input.mapperCount || 2) : definition.id === "judge-panel" ? Math.max(2, input.judgeCount || 3) : 1;
     const roles = [];
     for (const role of definition.roles) {
-        const roleCount = role.count ?? (role.id === "mapper" || role.id === "judge" ? count : 1);
+        // Width is data-driven: a uniform per-role override, else the role's
+        // declared count, else a single instance. No topology-id/role-id branching.
+        const roleCount = Math.max(1, input.roleCounts?.[role.id] ?? role.count ?? 1);
         if (roleCount > 1) {
             for (let index = 1; index <= roleCount; index += 1)
                 roles.push(expandRole(role, `${role.id}-${index}`, `${role.title} ${index}`));
@@ -458,8 +475,8 @@ function appendTopologyNode(run, record, status) {
         metadata: { topologyId: record.topologyId, topologyRunId: record.id }
     }));
 }
-function roleSpec(id, title, responsibilities, expectedArtifacts, faninObligations) {
-    return { id, title, responsibilities, requiredEvidence: expectedArtifacts, expectedArtifacts, faninObligations };
+function roleSpec(id, title, responsibilities, expectedArtifacts, faninObligations, count) {
+    return { id, title, responsibilities, requiredEvidence: expectedArtifacts, expectedArtifacts, faninObligations, ...(count !== undefined ? { count } : {}) };
 }
 function topicSpec(id, title, description) {
     return { id, title, description };

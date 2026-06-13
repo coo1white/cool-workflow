@@ -13,7 +13,7 @@
 //    divergence (`stale`) or a missing node/artifact (`absent`) diff/replay REFUSE
 //    with a structured error — never a silent stale replay.
 //  - REUSE, don't fork: operates on the real StateNode (getRunNode) and reuses the
-//    eval harness's normalizeValue/stableStringify and state-explosion's
+//    eval harness's normalizeValue/replayStableStringify and state-explosion's
 //    fingerprintStrings. No parallel node type, normalizer, or replay engine.
 //  - DETERMINISTIC: `now` is injected; the deterministic payload (normalized body
 //    + outputFingerprint) carries zero wall-clock, so two replays are byte-identical.
@@ -176,7 +176,7 @@ function diffNodeSnapshots(baseline, candidate) {
     const sections = SNAPSHOT_SECTIONS.map((section) => {
         const baselineValue = sectionValue(baseline.body, section);
         const candidateValue = sectionValue(candidate.body, section);
-        const sameBytes = (0, multi_agent_eval_1.stableStringify)(baselineValue) === (0, multi_agent_eval_1.stableStringify)(candidateValue);
+        const sameBytes = (0, multi_agent_eval_1.replayStableStringify)(baselineValue) === (0, multi_agent_eval_1.replayStableStringify)(candidateValue);
         let change;
         if (sameBytes)
             change = "same";
@@ -213,7 +213,7 @@ function replayNodeSnapshot(run, snapshot, options = {}) {
         throw new NodeSnapshotError(freshness === "stale" ? "snapshot-stale" : "snapshot-absent", reason || `cannot replay a ${freshness} snapshot of node ${snapshot.nodeId}`, { freshness, details: { runId: run.id, nodeId: snapshot.nodeId } });
     }
     const body = (0, multi_agent_eval_1.normalizeValue)(snapshot.body);
-    const outputFingerprint = (0, state_explosion_1.fingerprintStrings)([(0, multi_agent_eval_1.stableStringify)(body)]);
+    const outputFingerprint = (0, state_explosion_1.fingerprintStrings)([(0, multi_agent_eval_1.replayStableStringify)(body)]);
     const replay = {
         schemaVersion: 1,
         replayId: `replay-${snapshot.snapshotId}-${outputFingerprint.replace("sha256:", "").slice(0, 8)}`,

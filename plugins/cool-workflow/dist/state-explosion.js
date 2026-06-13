@@ -781,7 +781,7 @@ function buildOperatorDigestWithContext(run, thresholds, context) {
         omittedCount: compact.collapsedNodeCount,
         importantRefs: compact.criticalPath,
         evidenceRefs: unique(adopted.map((e) => e.ref || e.id)),
-        trustAuditEventRefs: [],
+        trustAuditEventRefs: unique(blackboard.trustAuditEventRefs),
         generatedAt: new Date().toISOString(),
         status: "valid",
         deterministic: true,
@@ -933,12 +933,6 @@ function refreshStateExplosionSummaries(run, options = {}) {
         writeRecord(record.id, record, "run", record.sourceFingerprint, record.compactNodeCount, record.collapsedNodeCount);
     }
     const stateSize = stateSizeFor(run, thresholds, context);
-    const indexFingerprint = fingerprintStrings([
-        operatorDigest.sourceFingerprint,
-        blackboardDigest.sourceFingerprint,
-        ...graphRecords.map((r) => r.sourceFingerprint),
-        String(stateSize.total)
-    ]);
     const compactGraph = buildCompactGraphWithContext(run, "compact", { thresholds }, context);
     const reportPath = node_path_1.default.join(dir, "state-explosion-report.json");
     const index = {
@@ -970,7 +964,6 @@ function refreshStateExplosionSummaries(run, options = {}) {
             reportPath
         }
     };
-    void indexFingerprint;
     (0, state_1.writeJson)(index.paths.indexPath, index);
     const report = buildStateExplosionReportWithContext(run, { thresholds, index }, context);
     (0, state_1.writeJson)(reportPath, report);

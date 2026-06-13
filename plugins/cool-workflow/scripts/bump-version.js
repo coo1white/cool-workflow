@@ -22,6 +22,7 @@
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { CANONICAL_APP_IDS } = require("./canonical-apps-list.js");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
@@ -89,17 +90,10 @@ function main() {
 
   // 5. canonical apps app.json (top-level version only; never minVersion).
   //    ONLY the canonical apps track the runtime version — workflow-app-framework-demo
-  //    is pinned (e.g. 0.1.0) and must NOT be bumped. This list mirrors the one
-  //    version-sync-check.js asserts.
-  const CANONICAL_APPS = [
-    "architecture-review",
-    "architecture-review-fast",
-    "end-to-end-golden-path",
-    "pr-review-fix-ci",
-    "release-cut",
-    "research-synthesis"
-  ];
-  for (const appId of CANONICAL_APPS) {
+  //    is pinned (e.g. 0.1.0) and must NOT be bumped. The list is DERIVED from
+  //    apps/ (excluding metadata.example demos) by scripts/canonical-apps-list.js,
+  //    the single source version-sync-check.js asserts against — no hand-copy.
+  for (const appId of CANONICAL_APP_IDS) {
     const appJson = path.join(pluginRoot, "apps", appId, "app.json");
     if (fs.existsSync(appJson) && replaceFirstVersionField(appJson, next)) {
       note(`apps/${appId}/app.json`);

@@ -12,7 +12,7 @@ exports.reportMultiAgentEval = reportMultiAgentEval;
 exports.formatMultiAgentEval = formatMultiAgentEval;
 exports.normalizeValue = normalizeValue;
 exports.lines = lines;
-exports.stableStringify = stableStringify;
+exports.replayStableStringify = replayStableStringify;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const multi_agent_1 = require("./multi-agent");
@@ -152,7 +152,7 @@ function compareMultiAgentReplay(baselineTarget, replayTarget) {
     const findings = [];
     for (const spec of ALL_METRIC_SECTIONS) {
         const { baselineValue, replayValue } = comparisonValues(spec.metric, spec.section, baseline.normalized, replay);
-        const equal = stableStringify(baselineValue) === stableStringify(replayValue);
+        const equal = replayStableStringify(baselineValue) === replayStableStringify(replayValue);
         const id = String(spec.section);
         sections[id] = {
             id,
@@ -821,10 +821,10 @@ function normalizeString(value) {
 function lines(value) {
     const normalized = normalizeValue(value);
     if (Array.isArray(normalized))
-        return normalized.map((entry) => stableStringify(entry)).sort();
-    return [stableStringify(normalized)].sort();
+        return normalized.map((entry) => replayStableStringify(entry)).sort();
+    return [replayStableStringify(normalized)].sort();
 }
-function stableStringify(value) {
+function replayStableStringify(value) {
     return JSON.stringify(normalizeValue(value));
 }
 function now() {

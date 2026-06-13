@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { CANONICAL_APP_IDS } = require("./canonical-apps-list.js");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
@@ -47,14 +48,10 @@ function readReleaseSource(relativePath) {
 // Read it from the released commit so the asserted-against version is itself
 // taken from HEAD, not a half-written working copy.
 const VERSION = JSON.parse(readReleaseSource("plugins/cool-workflow/package.json").text).version;
-const canonicalApps = [
-  "architecture-review",
-  "architecture-review-fast",
-  "end-to-end-golden-path",
-  "pr-review-fix-ci",
-  "release-cut",
-  "research-synthesis"
-];
+// Canonical app ids are DERIVED from apps/ (excluding metadata.example demos) by
+// scripts/canonical-apps-list.js — the single source bump-version.js bumps and
+// canonical-apps.js smoke-tests. No hand-copied list to drift (audit M5).
+const canonicalApps = CANONICAL_APP_IDS;
 
 function main() {
   const checks = [];

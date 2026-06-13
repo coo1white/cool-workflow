@@ -28,7 +28,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { normalizeValue, stableStringify } from "./multi-agent-eval";
+import { normalizeValue, replayStableStringify } from "./multi-agent-eval";
 import { loadNodeSnapshot, snapshotNode } from "./node-snapshot";
 import { realResolve, writeJson, withFileLock } from "./state";
 import { recordTrustAuditEvent } from "./trust-audit";
@@ -269,7 +269,7 @@ export function extractSkeleton(run: WorkflowRun): ReclamationSkeleton {
 
   const collaboration = run.collaboration;
   const collaborationLog = {
-    digest: sha256OfString(stableStringify(collaboration || {})),
+    digest: sha256OfString(replayStableStringify(collaboration || {})),
     approvals: collaboration?.approvals?.length || 0,
     comments: collaboration?.comments?.length || 0,
     handoffs: collaboration?.handoffs?.length || 0
@@ -414,13 +414,13 @@ function snapshotProjectionDigest(node: StateNode): string {
     contractId: node.contractId,
     metadata: node.metadata
   });
-  return sha256OfString(stableStringify(body));
+  return sha256OfString(replayStableStringify(body));
 }
 
 /** Body digest of the RETAINED node (lives in state.json). The reconstruction
  *  verifier re-derives the projection from this retained input. */
 function nodeBodyDigest(node: StateNode): string {
-  return sha256OfString(stableStringify(rawNodeBody(node)));
+  return sha256OfString(replayStableStringify(rawNodeBody(node)));
 }
 
 function rawNodeBody(node: StateNode): Record<string, unknown> {
@@ -512,7 +512,7 @@ export function planReclamation(run: WorkflowRun, policy: ReclamationPolicyInput
           const recipe: ReconstructionRecipe = {
             recipeKind: "node-snapshot-projection",
             inputDigests: [inputDigest],
-            inputsDigest: sha256OfString(stableStringify([inputDigest])),
+            inputsDigest: sha256OfString(replayStableStringify([inputDigest])),
             expectDigest: snapshotProjectionDigest(node),
             sourceRef: node.id
           };
@@ -566,18 +566,18 @@ export interface ReclamationPolicyInput {
 }
 
 function policyDigestOf(policy: Record<string, unknown>): string {
-  return sha256OfString(stableStringify(policy));
+  return sha256OfString(replayStableStringify(policy));
 }
 
 /** genesis prevTombstoneHash = sha256 of the sealed skeleton. */
 export function genesisPrevHash(skeleton: ReclamationSkeleton): string {
-  return sha256OfString(stableStringify(skeleton));
+  return sha256OfString(replayStableStringify(skeleton));
 }
 
 /** The canonical bytes a tombstoneHash binds: freed-manifest + sealed skeleton +
  *  prevTombstoneHash + capability. Recomputed independently by `gc verify`. */
 function tombstoneHashInput(t: Omit<ReclamationTombstone, "tombstoneHash">): string {
-  return stableStringify({
+  return replayStableStringify({
     runId: t.runId,
     tombstoneId: t.tombstoneId,
     reclaimedAt: t.reclaimedAt,
@@ -585,7 +585,7 @@ function tombstoneHashInput(t: Omit<ReclamationTombstone, "tombstoneHash">): str
     policyDigest: t.policyDigest,
     freed: t.freed.map((f) => ({ path: f.path, kind: f.kind, bytes: f.bytes, sha256: f.sha256, recipe: f.recipe || null })),
     bytesFreed: t.bytesFreed,
-    skeletonDigest: sha256OfString(stableStringify(t.skeleton)),
+    skeletonDigest: sha256OfString(replayStableStringify(t.skeleton)),
     capability: t.capability,
     capabilityReason: t.capabilityReason,
     prevTombstoneHash: t.prevTombstoneHash
@@ -847,7 +847,7 @@ export function reconstructArtifact(run: WorkflowRun, recipe: ReconstructionReci
       return { inputsDigest: sha256OfString("absent"), expectDigest: sha256OfString("absent") };
     }
     const inputDigest = nodeBodyDigest(node);
-    const inputsDigest = sha256OfString(stableStringify([inputDigest]));
+    const inputsDigest = sha256OfString(replayStableStringify([inputDigest]));
     const expectDigest = snapshotProjectionDigest(node);
     return { inputsDigest, expectDigest };
   }

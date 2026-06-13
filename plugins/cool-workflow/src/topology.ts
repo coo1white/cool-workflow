@@ -39,6 +39,10 @@ export interface ApplyTopologyInput {
   taskIds?: string[];
   mapperCount?: number;
   judgeCount?: number;
+  /** Uniform per-role fan-out width override, keyed by topology role id.
+   *  Data-driven replacement for the legacy id-keyed mapperCount/judgeCount
+   *  flags, which are folded into this map at the applyTopology boundary. */
+  roleCounts?: Record<string, number>;
   debateRounds?: number;
   collectInitialFanin?: boolean;
   metadata?: Record<string, unknown>;
@@ -56,7 +60,7 @@ export const OFFICIAL_TOPOLOGIES: MultiAgentTopologyDefinition[] = [
     title: "Map-Reduce",
     summary: "Fan out mapper roles, index mapper evidence on the blackboard, then reduce only after required evidence is present.",
     roles: [
-      roleSpec("mapper", "Mapper", ["Produce an independent shard result and cite evidence."], ["mapper output artifact"], ["indexed mapper artifact"]),
+      roleSpec("mapper", "Mapper", ["Produce an independent shard result and cite evidence."], ["mapper output artifact"], ["indexed mapper artifact"], 2),
       roleSpec("reducer", "Reducer", ["Synthesize mapper outputs only after fanin is verifier-ready."], ["reducer synthesis"], ["all mapper evidence"])
     ],
     groups: [{ id: "map-reduce", title: "Map-Reduce Group", roleIds: ["mapper", "reducer"] }],
@@ -109,7 +113,7 @@ export const OFFICIAL_TOPOLOGIES: MultiAgentTopologyDefinition[] = [
     title: "Judge Panel",
     summary: "Collect independent judge outputs, aggregate scores, and select a panel decision with linked evidence.",
     roles: [
-      roleSpec("judge", "Judge", ["Score candidates independently and cite evidence."], ["judge score artifact"], ["judge verdict"]),
+      roleSpec("judge", "Judge", ["Score candidates independently and cite evidence."], ["judge score artifact"], ["judge verdict"], 3),
       roleSpec("panel-chair", "Panel Chair", ["Aggregate scores and write a panel decision."], ["panel decision"], ["judge evidence"])
     ],
     groups: [{ id: "judge-panel", title: "Judge Panel Group", roleIds: ["judge", "panel-chair"] }],
@@ -233,7 +237,7 @@ export function applyTopology(run: WorkflowRun, topologyId: string, input: Apply
     metadata: { topologyId: definition.id, topologyRunId: id }
   });
   const roleIds: string[] = [];
-  for (const role of materializedRoles(definition, input)) {
+  for (const role of materializedRoles(definition, withLegacyRoleCounts(input))) {
     const record = createAgentRole(run, {
       id: `${id}-${role.id}`,
       multiAgentRunId: multiAgentRun.id,
@@ -441,11 +445,28 @@ export function showTopologyRun(run: WorkflowRun, topologyRunId: string): MultiA
   return record;
 }
 
+/** Boundary adapter: fold the legacy id-keyed mapperCount/judgeCount flags into
+ *  the uniform roleCounts map so materializedRoles can stay purely data-driven.
+ *  An explicit roleCounts entry always wins; the judge floor (>= 2) preserves the
+ *  prior clamp so a panel never collapses to a single judge. */
+function withLegacyRoleCounts(input: ApplyTopologyInput): ApplyTopologyInput {
+  const legacy: Record<string, number | undefined> = {
+    mapper: input.mapperCount === undefined ? undefined : Math.max(1, input.mapperCount),
+    judge: input.judgeCount === undefined ? undefined : Math.max(2, input.judgeCount)
+  };
+  const roleCounts = { ...input.roleCounts };
+  for (const [roleId, value] of Object.entries(legacy)) {
+    if (value !== undefined && roleCounts[roleId] === undefined) roleCounts[roleId] = value;
+  }
+  return Object.keys(roleCounts).length ? { ...input, roleCounts } : input;
+}
+
 function materializedRoles(definition: MultiAgentTopologyDefinition, input: ApplyTopologyInput) {
-  const count = definition.id === "map-reduce" ? Math.max(1, input.mapperCount || 2) : definition.id === "judge-panel" ? Math.max(2, input.judgeCount || 3) : 1;
   const roles: Array<{ id: string; title: string; responsibilities: string[]; requiredEvidence: string[]; expectedArtifacts: string[]; faninObligations: string[] }> = [];
   for (const role of definition.roles) {
-    const roleCount = role.count ?? (role.id === "mapper" || role.id === "judge" ? count : 1);
+    // Width is data-driven: a uniform per-role override, else the role's
+    // declared count, else a single instance. No topology-id/role-id branching.
+    const roleCount = Math.max(1, input.roleCounts?.[role.id] ?? role.count ?? 1);
     if (roleCount > 1) {
       for (let index = 1; index <= roleCount; index += 1) roles.push(expandRole(role, `${role.id}-${index}`, `${role.title} ${index}`));
     } else {
@@ -477,8 +498,8 @@ function appendTopologyNode(run: WorkflowRun, record: MultiAgentTopologyRun, sta
   }));
 }
 
-function roleSpec(id: string, title: string, responsibilities: string[], expectedArtifacts: string[], faninObligations: string[]) {
-  return { id, title, responsibilities, requiredEvidence: expectedArtifacts, expectedArtifacts, faninObligations };
+function roleSpec(id: string, title: string, responsibilities: string[], expectedArtifacts: string[], faninObligations: string[], count?: number) {
+  return { id, title, responsibilities, requiredEvidence: expectedArtifacts, expectedArtifacts, faninObligations, ...(count !== undefined ? { count } : {}) };
 }
 
 function topicSpec(id: string, title: string, description: string) {

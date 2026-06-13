@@ -195,6 +195,8 @@ export function setAgentConfigFile(patch: Record<string, unknown>, env: NodeJS.P
     endpoint: firstDefined(incoming.endpoint, current.endpoint),
     model: firstDefined(incoming.model, current.model),
     timeoutMs: firstDefined(incoming.timeoutMs, current.timeoutMs),
+    attestPublicKey: firstDefined(incoming.attestPublicKey, current.attestPublicKey),
+    requireAttestedTelemetry: firstDefined(incoming.requireAttestedTelemetry, current.requireAttestedTelemetry),
     source: "file"
   };
   const stored = redacted(merged);
