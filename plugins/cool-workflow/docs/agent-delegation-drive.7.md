@@ -151,6 +151,10 @@ hints for the delegated agent process. The recorded model still comes only from
 the agent-reported output.
 
 The wrapper computes the source-context digest and supplies it to the fast app.
+For external repositories, the documented no-profile command creates a repo-local
+default `repo` profile over common tracked text surfaces. If the selected profile
+exports zero records, the wrapper refuses rather than handing the app an empty
+context digest.
 The two Map workers opt in to result caching keyed by source-context digest plus
 prompt digest. The two Assess workers also opt in, but their cache key includes
 the completed previous-phase result digests so stale Map outputs do not satisfy
@@ -238,3 +242,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 0.1.78
 
 0.1.79
+
+## Fast Architecture Review (v0.1.80)
+
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.

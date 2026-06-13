@@ -244,6 +244,14 @@ function readValidCache(file, profileId, ref, changedFrom) {
     ) {
       die(`invalid source context cache ${rel(file)}: record does not match profile/ref`);
     }
+    const contentBytes = Buffer.from(record.content, "utf8");
+    if (
+      record.sha256 !== sha256(contentBytes) ||
+      record.bytes !== contentBytes.length ||
+      record.lines !== countLines(contentBytes)
+    ) {
+      die(`invalid source context cache ${rel(file)}: content digest mismatch`);
+    }
   }
   return text;
 }

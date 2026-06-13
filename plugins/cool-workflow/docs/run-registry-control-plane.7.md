@@ -143,6 +143,32 @@ in the repo's `registry/provenance.json`. The original failed run is PRESERVED
 for audit — the past is never overwritten. Rerunning a rerun increments
 `generation` and keeps `originRunId` pinned to the chain root.
 
+## Portable export, import, and restore verification
+
+`run export <run-id> --output PATH` writes a portable JSON archive for a run. The
+archive includes the run state plus run-local files, committed artifacts, audit
+overlays, telemetry ledger files, per-file sha256 digests, file sizes, and a
+manifest digest. External repo-local artifact paths referenced by the run are
+copied into the archive under `external-artifacts/` and recorded with their
+original `sourcePath`; the source run is never mutated.
+
+`run import PATH --target DIR` restores the archive under
+`DIR/.cw/runs/<run-id>/`, rebases paths to the target repo, writes an
+`import-manifest.json`, refreshes the target repo registry, and immediately runs
+the same verification used by `run verify-import`. Restored partial runs can be
+resumed from the target repo; restored failed runs remain discoverable from the
+home registry and can be rerun as new linked runs. The import does not alter the
+source repository or the source run.
+
+`run verify-import <run-id> [--cwd DIR]` re-reads the restore manifest, recomputes
+every restored file digest, checks the manifest digest, and verifies the
+telemetry ledger when one was restored. Missing manifests, digest mismatches,
+path escapes, unsupported archive schemas, unreadable files, or telemetry-chain
+failures return explicit failed checks instead of a fabricated success.
+
+MCP exposes the same mechanisms as `cw_run_export`, `cw_run_import`, and
+`cw_run_verify_import`; the CLI and MCP paths share the same runtime functions.
+
 ## Cross-repo history
 
 `history` reads a unified timeline of runs across all registered repos
@@ -162,6 +188,9 @@ node scripts/cw.js run resume <run-id> [--limit N] [--json]
 node scripts/cw.js run archive <run-id> [--reason TEXT] [--unarchive]
 node scripts/cw.js run archive --older-than-days N [--state completed --state failed]
 node scripts/cw.js run rerun <run-id> [--reason TEXT]
+node scripts/cw.js run export <run-id> --output PATH
+node scripts/cw.js run import PATH --target DIR
+node scripts/cw.js run verify-import <run-id> [--cwd DIR]
 node scripts/cw.js queue add [--app ID|--workflow ID|--runId ID] [--repo PATH] [--priority N] [--note TEXT]
 node scripts/cw.js queue list [--status STATE] [--repo PATH] [--json]
 node scripts/cw.js queue show <queue-id>
@@ -181,7 +210,8 @@ passes `npm run parity:check`:
 
 - `cw_registry_refresh`, `cw_registry_show`
 - `cw_run_search`, `cw_run_list`, `cw_run_show`, `cw_run_resume`,
-  `cw_run_archive`, `cw_run_rerun`
+  `cw_run_archive`, `cw_run_rerun`, `cw_run_export`, `cw_run_import`,
+  `cw_run_verify_import`
 - `cw_queue_add`, `cw_queue_list`, `cw_queue_drain`, `cw_queue_show`
 - `cw_history`
 
@@ -319,3 +349,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 0.1.78
 
 0.1.79
+
+## Fast Architecture Review (v0.1.80)
+
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.

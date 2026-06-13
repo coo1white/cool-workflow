@@ -139,6 +139,13 @@ assert.equal(cachedSecond.status, 0, `cached second export failed\nSTDERR:\n${ca
 assert.equal(cachedSecond.stderr, "", "cache hit is silent on stderr");
 assert.equal(cachedSecond.stdout, cachedFirst.stdout, "cache hit returns the same JSONL bytes");
 
+const tamperedRecord = JSON.parse(cachedFirst.stdout.trim().split(/\n/)[0]);
+tamperedRecord.content = `${tamperedRecord.content}\ncache tamper\n`;
+fs.writeFileSync(path.join(cacheDir, cacheFiles[0]), `${JSON.stringify(tamperedRecord)}\n`, "utf8");
+const tamperedHit = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--cache-dir", cacheDir]);
+assert.notEqual(tamperedHit.status, 0, "syntactically valid cache with mismatched content digest must fail closed");
+assert.match(tamperedHit.stderr, /content digest mismatch/, "tampered cache names the digest refusal");
+
 fs.writeFileSync(path.join(cacheDir, cacheFiles[0]), "{\"not\":\"valid\"}\n", "utf8");
 const corruptHit = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--cache-dir", cacheDir]);
 assert.notEqual(corruptHit.status, 0, "corrupt cache must fail closed");
