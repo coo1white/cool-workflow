@@ -60,6 +60,7 @@ node scripts/source-context.js profiles
 node scripts/source-context.js manifest --profile core --ref HEAD --repo-root /path/to/repo > manifest.jsonl
 node scripts/source-context.js export --profile core --ref HEAD --repo-root /path/to/repo > core-source.jsonl
 node scripts/source-context.js export --profile mcp --ref HEAD --repo-root /path/to/repo > mcp-source.jsonl
+node scripts/source-context.js export --profile mcp --changed-from origin/main --ref HEAD --repo-root /path/to/repo > mcp-changed.jsonl
 node scripts/source-context.js export --profile core --ref HEAD --repo-root /path/to/repo --cache-dir .cw/cache/source-context > core-source.jsonl
 ```
 
@@ -72,11 +73,19 @@ node scripts/source-context.js export --profile core --ref HEAD --repo-root /pat
 `export` emits only included text files and adds `content`. Both commands use
 stdout for JSONL data only. Diagnostics and refusal messages go to stderr.
 
+`--changed-from REF` is opt-in diff-aware mode. It filters `manifest` and
+`export` to paths changed between the resolved base commit and `--ref`, then
+applies the selected profile include/exclude rules. Deleted files are omitted
+because there is no blob at the target ref. Records include `changedFrom` with
+the resolved base commit. Empty diffs are valid and emit empty JSONL.
+
 `export --cache-dir DIR` is opt-in. The cache key is the resolved git commit SHA
 plus a digest of the selected source profile, so changing either the ref or the
 include/exclude policy produces a different JSONL cache file. Cache hits write the
 same JSONL bytes to stdout and stay silent on stderr. Corrupt or mismatched cache
-records fail closed instead of falling back silently.
+records fail closed instead of falling back silently. Diff-aware exports include
+the resolved `--changed-from` commit in the cache key, so full and changed exports
+do not share cache files.
 
 `--repo-root DIR` is also opt-in; when omitted, the script keeps its historical
 default and reads the Cool Workflow repository root.
@@ -90,6 +99,8 @@ The smoke test checks that:
 - exported records are parseable JSONL with content and sha256;
 - narrow profiles are slimmer than `core` and include/exclude their intended
   surfaces;
+- `--changed-from` emits only changed current-ref files, still honors excludes,
+  and caches separately from full exports;
 - cached exports are byte-identical to uncached exports and corrupt cache hits
   fail closed;
 - the `core` profile stays under its `maxLines` guard.

@@ -144,6 +144,84 @@ const corruptHit = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--ca
 assert.notEqual(corruptHit.status, 0, "corrupt cache must fail closed");
 assert.match(corruptHit.stderr, /invalid source context cache/, "corrupt cache names the refusal");
 
+const diffRepo = fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-diff-"));
+fs.writeFileSync(path.join(diffRepo, "a.txt"), "one\n", "utf8");
+fs.writeFileSync(path.join(diffRepo, "b.txt"), "remove me\n", "utf8");
+fs.mkdirSync(path.join(diffRepo, "docs"), { recursive: true });
+fs.writeFileSync(path.join(diffRepo, "docs", "c.txt"), "doc\n", "utf8");
+git(diffRepo, ["init"]);
+git(diffRepo, ["add", "."]);
+git(diffRepo, ["-c", "user.name=CW", "-c", "user.email=cw@example.invalid", "commit", "-m", "base"]);
+const baseRef = git(diffRepo, ["rev-parse", "HEAD"]).trim();
+fs.writeFileSync(path.join(diffRepo, "a.txt"), "one\ntwo\n", "utf8");
+fs.writeFileSync(path.join(diffRepo, "d.txt"), "new\n", "utf8");
+fs.writeFileSync(path.join(diffRepo, "docs", "c.txt"), "doc\nchanged\n", "utf8");
+fs.rmSync(path.join(diffRepo, "b.txt"));
+git(diffRepo, ["add", "-A"]);
+git(diffRepo, ["-c", "user.name=CW", "-c", "user.email=cw@example.invalid", "commit", "-m", "change"]);
+
+const diffProfileFile = path.join(diffRepo, "profiles.json");
+fs.writeFileSync(
+  diffProfileFile,
+  JSON.stringify({
+    schemaVersion: 1,
+    profiles: {
+      smoke: {
+        description: "Diff-aware smoke profile.",
+        maxLines: 20,
+        include: ["a.txt", "d.txt", "docs/c.txt"],
+        exclude: ["docs/**"]
+      }
+    }
+  }, null, 2),
+  "utf8"
+);
+const diffManifest = run([
+  "manifest",
+  "--profile", "smoke",
+  "--profile-file", diffProfileFile,
+  "--repo-root", diffRepo,
+  "--changed-from", baseRef,
+  "--ref", "HEAD"
+]);
+assert.deepEqual(diffManifest.map((record) => record.path).sort(), ["a.txt", "d.txt", "docs/c.txt"], "changed manifest includes only current changed paths");
+assert.ok(diffManifest.every((record) => record.changedFrom === baseRef), "changed manifest records the resolved base ref");
+assert.equal(diffManifest.find((record) => record.path === "docs/c.txt").included, false, "changed manifest still applies excludes");
+
+const diffExport = run([
+  "export",
+  "--profile", "smoke",
+  "--profile-file", diffProfileFile,
+  "--repo-root", diffRepo,
+  "--changed-from", baseRef,
+  "--ref", "HEAD"
+]);
+assert.deepEqual(diffExport.map((record) => record.path).sort(), ["a.txt", "d.txt"], "changed export includes only changed included files");
+assert.ok(diffExport.every((record) => record.changedFrom === baseRef), "changed export records the resolved base ref");
+
+const diffCache = fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-diff-cache-"));
+const fullCached = runRaw([
+  "export",
+  "--profile", "smoke",
+  "--profile-file", diffProfileFile,
+  "--repo-root", diffRepo,
+  "--ref", "HEAD",
+  "--cache-dir", diffCache
+]);
+assert.equal(fullCached.status, 0, `full diff repo export failed\nSTDERR:\n${fullCached.stderr}`);
+const changedCached = runRaw([
+  "export",
+  "--profile", "smoke",
+  "--profile-file", diffProfileFile,
+  "--repo-root", diffRepo,
+  "--changed-from", baseRef,
+  "--ref", "HEAD",
+  "--cache-dir", diffCache
+]);
+assert.equal(changedCached.status, 0, `changed diff repo export failed\nSTDERR:\n${changedCached.stderr}`);
+assert.notEqual(changedCached.stdout, fullCached.stdout, "changed export cache is distinct from full export cache");
+assert.equal(fs.readdirSync(diffCache).filter((file) => file.endsWith(".jsonl")).length, 2, "cache-dir stores separate full and changed exports");
+
 for (const file of ["Codex.md", "PROJECT_MEMORY.md"]) {
   const text = fs.readFileSync(path.join(repoRoot, file), "utf8");
   assert.ok(text.includes("source-context") || text.includes("core"), `${file} records the context policy`);
@@ -167,4 +245,10 @@ for (const workflow of ["ci-triage", "pr-review", "design-qa", "deploy-check"]) 
   }
 }
 
+fs.rmSync(diffRepo, { recursive: true, force: true });
+
 process.stdout.write(`source-context-profile-smoke: ok (${exported.length} records, ${totalLines} exported lines)\n`);
+
+function git(cwd, argv) {
+  return cp.execFileSync("git", argv, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+}

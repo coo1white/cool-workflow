@@ -28,6 +28,10 @@ short, and append-friendly. Do not use it for speculation.
 - `core` remains the default source context profile. Narrow opt-in profiles exist
   for scoped runs: `runtime`, `mcp`, `workflow-apps`, `release`, and
   `agent-wrappers`.
+- `source-context --changed-from REF` is opt-in diff-aware mode. It filters
+  manifest/export to changed current-ref files before profile inclusion, omits
+  deleted files, records the resolved `changedFrom` base, and uses a separate
+  cache key from full exports.
 - Skill trigger metadata must live in standard YAML frontmatter. Every
   `SKILL.md` needs `name` and a trigger-rich `description`; the body is loaded
   only after a skill triggers and must not be the sole source of trigger text.
@@ -118,5 +122,8 @@ short, and append-friendly. Do not use it for speculation.
   complex context mechanism: `mcp`, `workflow-apps`, `release`, and
   `agent-wrappers` are much smaller than `core`; `runtime` is still large because
   it intentionally carries the full `src/**` kernel.
+- For incremental review, prefer `--changed-from origin/main` plus a narrow
+  profile. Treat the changed JSONL as an overlay, not a replacement for a full
+  audit when broad architectural context is required.
 - When a repeated workflow improves, update the matching skill and add or revise
   `eval/<workflow>.jsonl`.
