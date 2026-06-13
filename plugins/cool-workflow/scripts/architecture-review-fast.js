@@ -75,21 +75,22 @@ function main() {
 
   const fastReviewRun = timed(() => runCwJson(reviewArgs, repo));
   const fastReview = fastReviewRun.value;
+  const sourceContextMeta = {
+    path: contextOut,
+    digest,
+    profile,
+    ref,
+    cacheDir
+  };
   const fullReviewScheduleRun = truthy(args.scheduleFull || args["schedule-full"])
-    ? timed(() => scheduleFullReview(repo, question, args))
+    ? timed(() => scheduleFullReview(repo, question, args, fastReview, sourceContextMeta))
     : undefined;
   const fullReviewSchedule = fullReviewScheduleRun?.value;
 
   writeJson({
     schemaVersion: 1,
     appId: "architecture-review-fast",
-    sourceContext: {
-      path: contextOut,
-      digest,
-      profile,
-      ref,
-      cacheDir
-    },
+    sourceContext: sourceContextMeta,
     fastReview,
     ...(fullReviewSchedule ? { fullReviewSchedule } : {}),
     ...(includeMetrics ? { metrics: buildMetrics(started, contextText, contextExport.elapsedMs, fastReview, fastReviewRun.elapsedMs, fullReviewScheduleRun?.elapsedMs) } : {})
@@ -119,13 +120,17 @@ function exportSourceContext(options) {
   return result.stdout;
 }
 
-function scheduleFullReview(repo, question, args) {
+function scheduleFullReview(repo, question, args, fastReview, sourceContextMeta) {
   const delayMinutes = stringArg(args.fullDelayMinutes || args["full-delay-minutes"]) || "1";
   const prompt = [
     `Run full architecture-review for ${repo}.`,
     `Question: ${question}`,
     args.focus ? `Focus: ${args.focus}` : "",
-    "Use the completed architecture-review-fast report as the foreground triage result; write a digest when the full review finishes."
+    `Fast review run: ${fastReview?.runId || "unknown"}.`,
+    fastReview?.reportPath ? `Fast review report: ${fastReview.reportPath}.` : "",
+    `Fast review status: ${fastReview?.status || "unknown"} (${fastReview?.completedWorkers || 0}/${fastReview?.plannedWorkers || 0} workers completed).`,
+    `Source context: ${sourceContextMeta.path} (${sourceContextMeta.digest}, profile ${sourceContextMeta.profile}, ref ${sourceContextMeta.ref}).`,
+    "Use the completed architecture-review-fast report as the foreground triage result; write the full review report path and digest when the background review finishes."
   ].filter(Boolean).join(" ");
   return runCwJson([
     "schedule",

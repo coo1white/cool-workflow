@@ -87,6 +87,10 @@ function main() {
   assert.equal(first.fullReviewSchedule.workflowId, "architecture-review");
   assert.equal(first.fullReviewSchedule.kind, "reminder");
   assert.equal(first.fullReviewSchedule.maxRuns, 1);
+  assert.match(first.fullReviewSchedule.prompt, new RegExp(first.fastReview.runId), "full schedule prompt carries the fast run id");
+  assert.match(first.fullReviewSchedule.prompt, new RegExp(escapeRegExp(first.fastReview.reportPath)), "full schedule prompt carries the fast report path");
+  assert.match(first.fullReviewSchedule.prompt, new RegExp(escapeRegExp(first.sourceContext.digest)), "full schedule prompt carries the source context digest");
+  assert.match(first.fullReviewSchedule.prompt, /write the full review report path and digest/, "full schedule prompt asks for durable completion output");
   assert.ok(first.metrics.totalElapsedMs >= 0, "metrics include total elapsed time");
   assert.ok(first.metrics.sourceContext.bytes > 0, "metrics include context byte size");
   assert.equal(first.metrics.fastReview.steps, 2);
@@ -129,6 +133,10 @@ function git(cwd, args) {
 
 function spawnLines(file) {
   return fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim().split(/\n/).filter(Boolean).length : 0;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 main();
