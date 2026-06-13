@@ -325,13 +325,16 @@ function resultCachePath(run: WorkflowRun, task: RunTask, promptDigest: string):
   const keyInput = policy.keyInput;
   const keyValue = keyInput ? String(run.inputs[keyInput] || "").trim() : "";
   if (!keyInput || !keyValue) return undefined;
+  const completedResultsDigest = completedResultsCacheDigest(run, task);
+  if (completedResultsDigest === undefined) return undefined;
   const digest = sha256(JSON.stringify({
     schemaVersion: 1,
     workflowId: run.workflow.id,
     taskId: task.id,
     keyInput,
     keyValue,
-    promptDigest
+    promptDigest,
+    completedResultsDigest
   })).replace(/^sha256:/, "");
   return path.join(
     run.cwd,
@@ -341,6 +344,22 @@ function resultCachePath(run: WorkflowRun, task: RunTask, promptDigest: string):
     safeFileName(run.workflow.id),
     `${safeFileName(task.id)}-${digest.slice(0, 32)}.md`
   );
+}
+
+function completedResultsCacheDigest(run: WorkflowRun, task: RunTask): string | undefined {
+  if (task.resultCache?.includeCompletedResults !== "previous-phases") return "";
+  const phaseIndex = run.phases.findIndex((phase) => phase.name === task.phase || phase.id === task.phase);
+  if (phaseIndex < 0) return undefined;
+  const previousTaskIds = new Set(run.phases.slice(0, phaseIndex).flatMap((phase) => phase.taskIds));
+  const records = run.tasks
+    .filter((candidate) => previousTaskIds.has(candidate.id))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((candidate) => {
+      if (candidate.status !== "completed" || !candidate.resultPath || !fs.existsSync(candidate.resultPath)) return undefined;
+      return [candidate.id, sha256(fs.readFileSync(candidate.resultPath, "utf8"))];
+    });
+  if (records.some((record) => record === undefined)) return undefined;
+  return sha256(JSON.stringify(records));
 }
 
 function writeResultCache(file: string, content: string): void {

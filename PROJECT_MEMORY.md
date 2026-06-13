@@ -58,11 +58,20 @@ short, and append-friendly. Do not use it for speculation.
   remains unchanged; the metrics payload reports elapsed milliseconds, source
   context bytes, fast-review step counts, agent-spawn counts, and result-cache
   hit counts.
+- Live baseline on 2026-06-13 using the bundled Claude wrapper against this repo
+  with the `core` profile: first `architecture-review-fast --once --metrics`
+  completed the two Map workers in 190118ms with `agentSpawns=2` and
+  `resultCacheHits=0`; the immediate second identical run completed in 703ms
+  with `agentSpawns=0` and `resultCacheHits=2`.
+- Continuing that same live run showed Assess at 209149ms, Verify at 133709ms,
+  Verdict at 127522ms, and the final commit at 323ms. Assess is the largest
+  remaining measured foreground phase.
 - Task `resultCache` is explicit opt-in. `architecture-review-fast` Map workers
   cache accepted results by `sourceContextDigest` plus rendered prompt digest;
-  cache hits copy the cached result into the worker-local result path and still
-  pass through normal worker-output validation. Missing or invalid cache entries
-  never fabricate success.
+  Assess workers additionally include completed previous-phase result digests in
+  the cache key. Cache hits copy the cached result into the worker-local result
+  path and still pass through normal worker-output validation. Missing or
+  invalid cache entries never fabricate success.
 
 ## Failed Attempts
 
@@ -99,5 +108,8 @@ short, and append-friendly. Do not use it for speculation.
   `metrics.fastReview.resultCacheHits` with a real agent, then consider opt-in
   caching for Assess summaries only if the validation trace proves Map caching
   is not enough.
+- Since Map caching is proven live, next acceleration target is to run or
+  instrument the remaining Assess/Verify/Verdict phases, then add opt-in Assess
+  caching only if those summaries dominate the foreground wait.
 - When a repeated workflow improves, update the matching skill and add or revise
   `eval/<workflow>.jsonl`.

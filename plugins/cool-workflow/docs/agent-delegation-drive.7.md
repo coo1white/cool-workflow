@@ -150,9 +150,11 @@ foreground wait.
 
 The wrapper computes the source-context digest and supplies it to the fast app.
 The two Map workers opt in to result caching keyed by source-context digest plus
-prompt digest. A cache hit still passes through `recordWorkerOutput` validation;
-a corrupt cached result parks/fails closed rather than spawning a silent
-fallback.
+prompt digest. The two Assess workers also opt in, but their cache key includes
+the completed previous-phase result digests so stale Map outputs do not satisfy
+an Assess cache hit. A cache hit still passes through `recordWorkerOutput`
+validation; a corrupt cached result parks/fails closed rather than spawning a
+silent fallback.
 
 `--metrics` is diagnostic and opt-in. It adds elapsed milliseconds, step counts,
 agent-spawn counts, and `result-cache` hit counts to the wrapper JSON payload;
