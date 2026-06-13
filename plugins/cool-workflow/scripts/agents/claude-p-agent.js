@@ -9,16 +9,15 @@
 //
 // It fulfills ONE worker: read the worker's input.md ({{input}}), delegate the
 // analysis to headless claude READ-ONLY, persist claude's final markdown to the
-// worker's result.md ({{result}}), and forward claude's model + usage on STDOUT
-// so CW records the agent-reported provenance.
+// worker's result.md ({{result}}), and forward claude's JSON on STDOUT so CW
+// records the agent-reported provenance.
 //
-// LIVE OUTPUT (Unix discipline): claude runs in `stream-json` mode and this
-// wrapper renders a human-readable trace of its activity to **stderr** —
-// diagnostics, never data. The single JSON result CW consumes goes to **stdout**
-// unchanged. CW forwards this stderr to the operator's terminal only when that
-// terminal is a TTY (it stays silent when piped / in CI), so the stream never
-// pollutes a pipeline. The vendor-specific stream parsing lives HERE in the
-// wrapper (policy), not in CW's core (which only forwards, never parses).
+// LIVE OUTPUT (Unix discipline): default output is the legacy `--output-format
+// json` contract, forwarded verbatim on stdout. Set CW_AGENT_STREAM=1 to opt in
+// to claude `stream-json`; only then does this wrapper render a human-readable
+// trace to stderr, and only when stderr is a TTY. Diagnostics stay off stdout,
+// and vendor-specific stream parsing lives HERE in the wrapper (policy), not in
+// CW's core (which only forwards, never parses).
 //
 // READ-ONLY by design: claude gets NO Write tool; the architecture-review app
 // declares the `readonly` sandbox profile. This wrapper (the transport) writes
@@ -29,7 +28,7 @@
 //   CW_AGENT_COMMAND="node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
 
 const fs = require("node:fs");
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -70,9 +69,43 @@ HARD RULES (the result is REJECTED otherwise):
 - If you have no structured findings, use "findings": [] (empty) — never omit a finding's id.`;
 
 const prompt = `${fs.readFileSync(inputPath, "utf8")}\n${CONTRACT}`;
+const streamEnabled = process.env.CW_AGENT_STREAM === "1" && process.env.CW_NO_STREAM !== "1";
+const traceEnabled = streamEnabled && Boolean(process.stderr.isTTY);
+
+if (!streamEnabled) {
+  // Legacy default: --output-format json and verbatim stdout forwarding. This is
+  // the public wrapper contract existing users already scripted against.
+  const child = spawnSync("claude", ["-p", prompt, "--output-format", "json", "--allowedTools", "Read,Grep,Glob,Bash"], {
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+    shell: false
+  });
+  if (child.error) {
+    process.stderr.write(`claude spawn failed: ${child.error.message}\n`);
+    process.exit(1);
+  }
+  if (child.status !== 0) {
+    process.stderr.write(String(child.stderr || `claude exited ${child.status}`));
+    process.exit(child.status === null ? 1 : child.status);
+  }
+
+  const out = String(child.stdout || "");
+  let parsed;
+  try {
+    parsed = JSON.parse(out);
+  } catch (error) {
+    process.stderr.write(`claude output was not JSON: ${error.message}\n`);
+    process.exit(1);
+  }
+
+  fs.writeFileSync(resultPath, String(parsed.result || ""), "utf8");
+  process.stdout.write(out);
+  process.exit(0);
+}
 
 // Live trace → stderr only. Concise; one line per meaningful event.
 function trace(line) {
+  if (!traceEnabled) return;
   process.stderr.write(`${line}\n`);
 }
 function shortInput(tool, input) {

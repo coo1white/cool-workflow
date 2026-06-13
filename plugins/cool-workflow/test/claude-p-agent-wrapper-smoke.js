@@ -15,13 +15,15 @@
 //   1. the wrapper delivers the WORKER'S FULL input.md content as the -p prompt
 //      (plus the cw:result contract), runs claude with READ-ONLY allowedTools
 //      (no Write — the readonly sandbox profile stays honest), and requests
-//      --output-format json;
+//      --output-format json by default;
 //   2. claude's `result` markdown is persisted to the worker's result.md and
 //      claude's JSON (model + usage) is forwarded verbatim on stdout — so CW
 //      records the agent-reported model/usage as provenance;
-//   3. FAIL CLOSED: a crashing claude ⇒ nonzero exit + NO result.md (CW counts a
+//   3. CW_AGENT_STREAM=1 is an opt-in stream-json path; default piped success is
+//      silent on stderr (Rule of Silence);
+//   4. FAIL CLOSED: a crashing claude ⇒ nonzero exit + NO result.md (CW counts a
 //      failed hop); non-JSON claude output ⇒ the same;
-//   4. doc-drift guard: the README quickstart references the wrapper and no doc
+//   5. doc-drift guard: the README quickstart references the wrapper and no doc
 //      re-advertises the broken bare `--agent-command "claude -p"`.
 
 const assert = require("node:assert/strict");
@@ -44,15 +46,15 @@ function shimDir(behavior) {
     // Exits 0 but emits no `result` event ⇒ wrapper must fail closed.
     lines.push('process.stdout.write("not json at all\\n");');
   } else {
-    // A stream-json `claude`: capture the invocation for assertions, then emit
-    // NDJSON events (assistant text + tool_use, then the final result) exactly as
-    // `claude -p --output-format stream-json` does, so the wrapper renders a live
-    // trace and reconstructs {model, usage, result}.
+    // Capture invocation for assertions, then emit either the legacy JSON object
+    // or stream-json NDJSON depending on the requested output format.
     lines.push(
       "const fs = require('node:fs');",
       "const path = require('node:path');",
       "const args = process.argv.slice(2);",
       "fs.writeFileSync(path.join(__dirname, 'invocation.json'), JSON.stringify(args));",
+      "const format = args[args.indexOf('--output-format') + 1];",
+      "if (format !== 'stream-json') { process.stdout.write(JSON.stringify({ result: '# Analysis\\n\\nstub markdown answer', model: 'claude-shim-model', usage: { input_tokens: 11, output_tokens: 7 }, extra: 'legacy-verbatim' })); process.exit(0); }",
       "const emit = (o) => process.stdout.write(JSON.stringify(o) + '\\n');",
       "emit({ type: 'system', subtype: 'init', tools: ['Read'] });",
       "emit({ type: 'assistant', message: { model: 'claude-shim-model', content: [ { type: 'tool_use', name: 'Read', input: { file_path: 'app.js' } }, { type: 'text', text: '# Analysis\\n\\nstub markdown answer' } ] } });",
@@ -65,10 +67,10 @@ function shimDir(behavior) {
   return dir;
 }
 
-function runWrapper(dir, inputPath, resultPath) {
+function runWrapper(dir, inputPath, resultPath, extraEnv = {}) {
   return spawnSync(process.execPath, [wrapper, inputPath, resultPath], {
     encoding: "utf8",
-    env: { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
+    env: { ...process.env, ...extraEnv, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
     timeout: 30000
   });
 }
@@ -80,7 +82,7 @@ function main() {
   const INPUT_MARKER = "Map the server boundaries of demo-repo (marker-7c1).";
   fs.writeFileSync(inputPath, `# Worker w-1\n\n- Result: ${resultPath}\n\n## Task\n\n${INPUT_MARKER}\n`, "utf8");
 
-  // ---- 1+2: happy path ------------------------------------------------------
+  // ---- 1+2: default happy path (legacy stdout/stderr contract) ---------------
   {
     const dir = shimDir("ok");
     const child = runWrapper(dir, inputPath, resultPath);
@@ -94,21 +96,35 @@ function main() {
     assert.ok(prompt.includes("cw:result"), "the cw:result contract is appended to the prompt");
     const allowed = argv[argv.indexOf("--allowedTools") + 1];
     assert.ok(allowed && !/write/i.test(allowed), `claude stays READ-ONLY (no Write tool): ${allowed}`);
-    assert.equal(argv[argv.indexOf("--output-format") + 1], "stream-json", "claude runs in stream-json mode (live trace)");
+    assert.equal(argv[argv.indexOf("--output-format") + 1], "json", "default wrapper preserves legacy JSON mode");
 
-    assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "claude's result text persisted to result.md by the wrapper");
-    // STDOUT is the data channel: a single {model, usage, result} object CW consumes.
+    assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "claude's result markdown persisted to result.md by the wrapper");
+    assert.equal(child.stderr, "", "default piped success is silent on stderr");
     const forwarded = JSON.parse(child.stdout);
-    assert.equal(forwarded.model, "claude-shim-model", "model reconstructed from the assistant event (the attested model)");
-    assert.equal(forwarded.usage.input_tokens, 11, "usage reconstructed from the result event (provenance)");
-    assert.equal(forwarded.result, "# Analysis\n\nstub markdown answer", "result text reconstructed for CW");
-    // STDERR is the diagnostics channel: a human-readable LIVE trace, never data.
-    assert.ok(/claude:|→ Read|stub markdown|done/.test(child.stderr || ""), `wrapper streams a live trace to stderr: ${JSON.stringify((child.stderr || "").slice(0, 120))}`);
-    assert.ok(!/\{.*"result".*\}/.test(child.stderr || ""), "the {model,usage,result} data object is NOT on stderr (data/diagnostics kept separate)");
-    console.log("wrapper: prompt delivery + read-only stream-json + live stderr trace + result/provenance on stdout ok");
+    assert.equal(forwarded.extra, "legacy-verbatim", "default stdout forwards the agent JSON verbatim");
+    assert.equal(forwarded.model, "claude-shim-model", "claude's JSON carries the attested model");
+    assert.equal(forwarded.usage.input_tokens, 11, "usage tokens forwarded for provenance");
+    console.log("wrapper: default prompt delivery + read-only JSON + result persistence + verbatim provenance ok");
   }
 
-  // ---- 3: fail closed --------------------------------------------------------
+  // ---- 3: opt-in stream-json path ------------------------------------------
+  {
+    fs.rmSync(resultPath, { force: true });
+    const dir = shimDir("ok");
+    const child = runWrapper(dir, inputPath, resultPath, { CW_AGENT_STREAM: "1" });
+    assert.equal(child.status, 0, `stream wrapper exits 0 (stderr: ${child.stderr})`);
+    const argv = JSON.parse(fs.readFileSync(path.join(dir, "invocation.json"), "utf8"));
+    assert.equal(argv[argv.indexOf("--output-format") + 1], "stream-json", "CW_AGENT_STREAM=1 opts into stream-json mode");
+    assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "stream result text persisted to result.md");
+    assert.equal(child.stderr, "", "piped stream success remains silent on stderr by default");
+    const forwarded = JSON.parse(child.stdout);
+    assert.equal(forwarded.model, "claude-shim-model", "stream model reconstructed from assistant event");
+    assert.equal(forwarded.usage.input_tokens, 11, "stream usage reconstructed from result event");
+    assert.equal(forwarded.result, "# Analysis\n\nstub markdown answer", "stream result reconstructed for CW");
+    console.log("wrapper: opt-in stream-json reconstruction ok");
+  }
+
+  // ---- 4: fail closed --------------------------------------------------------
   {
     fs.rmSync(resultPath, { force: true });
     const crash = runWrapper(shimDir("crash"), inputPath, resultPath);
@@ -121,7 +137,7 @@ function main() {
     console.log("wrapper: fail-closed on crash + garbage output ok");
   }
 
-  // ---- 4: doc-drift guard ----------------------------------------------------
+  // ---- 5: doc-drift guard ----------------------------------------------------
   {
     const readme = fs.readFileSync(path.join(repoRoot, "README.md"), "utf8");
     assert.ok(readme.includes("builtin:claude"), "root README uses the working builtin agent template alias");

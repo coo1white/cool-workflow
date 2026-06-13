@@ -81,9 +81,9 @@ npx cool-workflow quickstart architecture-review \
   it never edits your code).
 
 CW plans the work, drives `claude` over your repo in steps, and prints where it
-saved the report. While each step runs you'll **see the agent working live** in
-your terminal — which files it reads, what it's writing — so a long step never
-looks frozen. (That trace goes to stderr only; the recorded result is unchanged.)
+saved the report. For a live terminal trace while each worker runs, opt in with
+`CW_AGENT_STREAM=1`; the trace goes to stderr only and the recorded result is
+unchanged.
 
 > **No agent configured?** CW stops safely and tells you so (`status: blocked`) —
 > it never makes up an answer. Install `claude` and re-run.
@@ -167,7 +167,7 @@ agents.
 | `status: blocked`, `agentConfigured: false` | No agent is set up. Install `claude` (or pass `--agent-command`). |
 | `claude: command not found` | Install Claude Code so the `claude` command exists, then re-run. |
 | Want to see the plan without running the AI | Add `--preview` — it shows the steps and spawns nothing. |
-| Live agent trace is too noisy | Set `CW_NO_STREAM=1`. (Piped output and CI runs are silent automatically.) |
+| Want a live agent trace | Set `CW_AGENT_STREAM=1`. It is stderr-only, TTY-gated, and `CW_NO_STREAM=1` disables it. |
 | Where did my report go? | The command prints `reportPath`; it's under `<your-repo>/.cw/runs/<id>/report.md`. |
 
 ---
