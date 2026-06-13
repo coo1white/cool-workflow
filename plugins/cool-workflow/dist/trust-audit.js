@@ -33,6 +33,15 @@ exports.TRUST_AUDIT_SCHEMA_VERSION = 1;
 // independently (never trusts a stored value), so an edited or removed event is
 // detected. Durability (fsync) only guards against power loss; this guards
 // against post-hoc edits — the threat an external auditor actually cares about.
+//
+// THREAT MODEL (be honest about the limit): the genesis is sha256(runId), so this
+// detects casual/partial tampering, accidental corruption, truncation, removal,
+// and forged-unchained lines — but NOT a determined local writer who re-chains the
+// WHOLE log with this module's own sha256 after an edit. That is the same limit
+// reclamation.ts's tombstone chain has; closing it requires signing the chain head
+// with the operator ed25519 key the telemetry ledger already uses (a follow-up,
+// the only true external anchor). The chain is a strict upgrade over a bare
+// append-only log, not a substitute for a signature.
 /** Genesis prevHash for a run's chain (no prior event). */
 function trustAuditGenesis(runId) {
     return (0, execution_backend_1.sha256)(`cw-trust-audit:${runId}`);
@@ -101,6 +110,14 @@ function verifyTrustAudit(run) {
             checks.push({ name: `chain-link[${i}]`, pass: false, code: "trust-audit-chain-broken" });
         }
         expectedPrev = event.eventHash;
+    }
+    // A log with ANY chained event must have EVERY event chained: a single run is
+    // written by one code version, so it is all-chained (chain era) or all-legacy
+    // (pre-chain). An unchained (eventHash-less) line mixed into a chained log is a
+    // forgery attempt — drop the hash to be waved through as "legacy" — so it fails.
+    if (chained > 0 && unchained > 0) {
+        verified = false;
+        checks.push({ name: "unchained-events", pass: false, code: "trust-audit-unchained-event" });
     }
     return { present: events.length > 0, verified, eventCount: events.length, chained, unchained, corruptLines, checks };
 }

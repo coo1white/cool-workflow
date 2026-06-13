@@ -1197,6 +1197,10 @@ async function main() {
                     // Fail closed ONLY on a real integrity failure: a run that WAS reclaimed
                     // but no longer re-proves. A not-reclaimed run has nothing to verify
                     // (reclaimed:false/verified:false) and must not be treated as a failure.
+                    // LIMIT (honest): a DELETED reclaimed.json reads as reclaimed:false, so
+                    // proof-deletion is indistinguishable from never-reclaimed here without
+                    // an independent witness (e.g. a trust-audit reclamation event) — a
+                    // follow-up. This guard is still strictly better than the prior exit-0.
                     if (result.reclaimed && !result.verified)
                         process.exitCode = 1;
                     return;

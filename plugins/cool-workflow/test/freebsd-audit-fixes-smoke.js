@@ -114,6 +114,19 @@ function tmpRun(prefix) {
   v = verifyTrustAudit(run);
   assert.equal(v.verified, false, "H4/M3: a corrupt line fails closed");
   assert.ok(v.corruptLines >= 1, "H4/M3: corrupt line counted, not thrown");
+
+  // (d) FORGE an unchained event (drop eventHash) onto a chained log — it must NOT
+  // be waved through as "legacy" (BYPASS-1 found by the adversarial verify pass).
+  const forged = JSON.parse(lines[0]);
+  delete forged.eventHash;
+  delete forged.prevEventHash;
+  forged.decision = "allowed";
+  forged.normalizedPath = "/etc/passwd";
+  fs.writeFileSync(logPath, `${lines.join("\n")}\n${JSON.stringify(forged)}\n`);
+  v = verifyTrustAudit(run);
+  assert.equal(v.verified, false, "H4: an unchained (hash-dropped) forged event is rejected, not treated as legacy");
+  assert.ok(v.chained >= 1 && v.unchained >= 1, "H4: forged event counted unchained amid chained events");
+  assert.ok(v.checks.some((c) => c.code === "trust-audit-unchained-event"), "H4: unchained-event check reported");
 })();
 
 // ---- H7: a custom sandbox profile FILE must be enforceable, not just validated -

@@ -389,12 +389,15 @@ function verifyArchiveFileDigests(files: ArchiveFileEntry[], integrity?: RunExpo
 
 function digestManifest(files: Array<Omit<ArchiveFileEntry, "contentBase64"> | ArchiveFileEntry>): string {
   const manifest = files
+    // sourcePath is deliberately EXCLUDED: it is a host-absolute bookkeeping path
+    // (for externalPathMap), not integrity-bearing content — the file's bytes are
+    // already bound by sha256 + sizeBytes. Including it would make the digest
+    // differ across hosts for byte-identical content, defeating cross-host repro.
     .map((file) => ({
       relativePath: file.relativePath,
       role: file.role,
       sha256: file.sha256,
-      sizeBytes: file.sizeBytes,
-      sourcePath: file.sourcePath
+      sizeBytes: file.sizeBytes
     }))
     // Codepoint order, NOT localeCompare: this manifest feeds a sha256 integrity
     // digest. Locale-sensitive collation would order identical bytes differently
