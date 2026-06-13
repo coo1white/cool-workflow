@@ -287,7 +287,7 @@ function extractSkeleton(run) {
     };
     const collaboration = run.collaboration;
     const collaborationLog = {
-        digest: sha256OfString((0, multi_agent_eval_1.stableStringify)(collaboration || {})),
+        digest: sha256OfString((0, multi_agent_eval_1.replayStableStringify)(collaboration || {})),
         approvals: collaboration?.approvals?.length || 0,
         comments: collaboration?.comments?.length || 0,
         handoffs: collaboration?.handoffs?.length || 0
@@ -414,12 +414,12 @@ function snapshotProjectionDigest(node) {
         contractId: node.contractId,
         metadata: node.metadata
     });
-    return sha256OfString((0, multi_agent_eval_1.stableStringify)(body));
+    return sha256OfString((0, multi_agent_eval_1.replayStableStringify)(body));
 }
 /** Body digest of the RETAINED node (lives in state.json). The reconstruction
  *  verifier re-derives the projection from this retained input. */
 function nodeBodyDigest(node) {
-    return sha256OfString((0, multi_agent_eval_1.stableStringify)(rawNodeBody(node)));
+    return sha256OfString((0, multi_agent_eval_1.replayStableStringify)(rawNodeBody(node)));
 }
 function rawNodeBody(node) {
     return {
@@ -515,7 +515,7 @@ function planReclamation(run, policy = {}) {
                     const recipe = {
                         recipeKind: "node-snapshot-projection",
                         inputDigests: [inputDigest],
-                        inputsDigest: sha256OfString((0, multi_agent_eval_1.stableStringify)([inputDigest])),
+                        inputsDigest: sha256OfString((0, multi_agent_eval_1.replayStableStringify)([inputDigest])),
                         expectDigest: snapshotProjectionDigest(node),
                         sourceRef: node.id
                     };
@@ -557,16 +557,16 @@ function planReclamation(run, policy = {}) {
     return { freeable, bytesToFree, byKind, capability, capabilityReason };
 }
 function policyDigestOf(policy) {
-    return sha256OfString((0, multi_agent_eval_1.stableStringify)(policy));
+    return sha256OfString((0, multi_agent_eval_1.replayStableStringify)(policy));
 }
 /** genesis prevTombstoneHash = sha256 of the sealed skeleton. */
 function genesisPrevHash(skeleton) {
-    return sha256OfString((0, multi_agent_eval_1.stableStringify)(skeleton));
+    return sha256OfString((0, multi_agent_eval_1.replayStableStringify)(skeleton));
 }
 /** The canonical bytes a tombstoneHash binds: freed-manifest + sealed skeleton +
  *  prevTombstoneHash + capability. Recomputed independently by `gc verify`. */
 function tombstoneHashInput(t) {
-    return (0, multi_agent_eval_1.stableStringify)({
+    return (0, multi_agent_eval_1.replayStableStringify)({
         runId: t.runId,
         tombstoneId: t.tombstoneId,
         reclaimedAt: t.reclaimedAt,
@@ -574,7 +574,7 @@ function tombstoneHashInput(t) {
         policyDigest: t.policyDigest,
         freed: t.freed.map((f) => ({ path: f.path, kind: f.kind, bytes: f.bytes, sha256: f.sha256, recipe: f.recipe || null })),
         bytesFreed: t.bytesFreed,
-        skeletonDigest: sha256OfString((0, multi_agent_eval_1.stableStringify)(t.skeleton)),
+        skeletonDigest: sha256OfString((0, multi_agent_eval_1.replayStableStringify)(t.skeleton)),
         capability: t.capability,
         capabilityReason: t.capabilityReason,
         prevTombstoneHash: t.prevTombstoneHash
@@ -800,7 +800,7 @@ function reconstructArtifact(run, recipe) {
             return { inputsDigest: sha256OfString("absent"), expectDigest: sha256OfString("absent") };
         }
         const inputDigest = nodeBodyDigest(node);
-        const inputsDigest = sha256OfString((0, multi_agent_eval_1.stableStringify)([inputDigest]));
+        const inputsDigest = sha256OfString((0, multi_agent_eval_1.replayStableStringify)([inputDigest]));
         const expectDigest = snapshotProjectionDigest(node);
         return { inputsDigest, expectDigest };
     }

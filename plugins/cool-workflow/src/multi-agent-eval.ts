@@ -362,7 +362,7 @@ export function compareMultiAgentReplay(baselineTarget: string, replayTarget: st
   const findings: MultiAgentRegressionFinding[] = [];
   for (const spec of ALL_METRIC_SECTIONS) {
     const { baselineValue, replayValue } = comparisonValues(spec.metric, spec.section, baseline.normalized, replay);
-    const equal = stableStringify(baselineValue) === stableStringify(replayValue);
+    const equal = replayStableStringify(baselineValue) === replayStableStringify(replayValue);
     const id = String(spec.section);
     sections[id] = {
       id,
@@ -853,7 +853,11 @@ function collectCandidateScores(run: WorkflowRun): unknown[] {
   const scores: unknown[] = [];
   for (const candidate of run.candidates || []) {
     for (const scoreId of candidate.scores || []) {
-      const scorePath = path.join(run.paths.candidatesDir || path.join(run.paths.runDir, "candidates"), `${safeFileName(candidate.id)}.${safeFileName(scoreId)}.score.json`);
+      // Canonical nested score path — MUST match the writers (candidate-scoring.ts
+      // persistScore, commit.ts): candidates/<candidateId>/scores/<scoreId>.json.
+      // The old flat `<id>.<scoreId>.score.json` path was written by nobody, so the
+      // candidate_score_parity eval metric silently scored empty placeholders.
+      const scorePath = path.join(run.paths.candidatesDir || path.join(run.paths.runDir, "candidates"), safeFileName(candidate.id), "scores", `${safeFileName(scoreId)}.json`);
       if (fs.existsSync(scorePath)) {
         const score = readJson(scorePath) as Record<string, unknown>;
         scores.push({
@@ -1030,11 +1034,11 @@ function normalizeString(value: string): string {
 
 export function lines(value: unknown): string[] {
   const normalized = normalizeValue(value);
-  if (Array.isArray(normalized)) return normalized.map((entry) => stableStringify(entry)).sort();
-  return [stableStringify(normalized)].sort();
+  if (Array.isArray(normalized)) return normalized.map((entry) => replayStableStringify(entry)).sort();
+  return [replayStableStringify(normalized)].sort();
 }
 
-export function stableStringify(value: unknown): string {
+export function replayStableStringify(value: unknown): string {
   return JSON.stringify(normalizeValue(value));
 }
 

@@ -23,6 +23,13 @@ import { reviewGateErrors, selfActorIdsForCandidate } from "./collaboration";
 
 export const CANDIDATE_SCHEMA_VERSION = 1;
 
+/** Verdict thresholds on a score's normalized value [0,1], declared once so the
+ *  numbers carry intent instead of being buried as literals in verdictFor(). A
+ *  normalized score at-or-above PASS is "pass"; at-or-above WARN (but below
+ *  PASS) is "warn"; anything lower is "fail". Same numbers as before. */
+const VERDICT_PASS_THRESHOLD = 0.7;
+const VERDICT_WARN_THRESHOLD = 0.4;
+
 export interface RegisterCandidateInput {
   id?: string;
   kind?: CandidateKind;
@@ -684,10 +691,15 @@ function detectTies(candidates: CandidateRanking["candidates"]): string[][] {
 }
 
 function mergePolicy(policy: CandidateScoringPolicy = {}) {
+  // NOTE: `policy.criteria` (string[]) is intentionally NOT carried here. A
+  // whole-repo grep shows it has no read points — scoring reads each score's
+  // own `input.criteria` (Record<string, number>), not this list. Emitting a
+  // default `criteria: []` advertised a guarantee the code never honored and
+  // could silently drift, so it is dropped. The field stays OPTIONAL on
+  // CandidateScoringPolicy / CandidateRanking.policy for forward-compat input.
   return {
     id: policy.id || "cw.candidate.default",
     title: policy.title || "Default Candidate Scoring",
-    criteria: policy.criteria || [],
     requireEvidence: policy.requireEvidence ?? true,
     requireVerifierGate: policy.requireVerifierGate ?? true,
     minNormalized: policy.minNormalized,
@@ -697,8 +709,8 @@ function mergePolicy(policy: CandidateScoringPolicy = {}) {
 
 function verdictFor(normalized: number, policy: ReturnType<typeof mergePolicy>): CandidateScore["verdict"] {
   if (policy.minNormalized !== undefined && normalized < policy.minNormalized) return "fail";
-  if (normalized >= 0.7) return "pass";
-  if (normalized >= 0.4) return "warn";
+  if (normalized >= VERDICT_PASS_THRESHOLD) return "pass";
+  if (normalized >= VERDICT_WARN_THRESHOLD) return "warn";
   return "fail";
 }
 

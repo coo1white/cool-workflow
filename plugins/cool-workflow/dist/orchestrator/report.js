@@ -289,8 +289,16 @@ function renderCandidates(summary) {
 }
 function renderTrustAudit(run) {
     const summary = (0, trust_audit_1.summarizeTrustAudit)(run);
+    const integrity = summary.integrity;
     return [
         `- Events: ${summary.eventCount}`,
+        `- Chain integrity: ${integrity ? (integrity.verified ? "verified" : "FAILED") : "n/a"}` +
+            `${integrity ? ` (${integrity.chained} chained, ${integrity.unchained} legacy${integrity.corruptLines ? `, ${integrity.corruptLines} corrupt` : ""})` : ""}`,
+        // An auditable control-plane never lets a broken decision-log chain pass
+        // silently — name the failing checks loudly, same as the telemetry chain.
+        ...(integrity && !integrity.verified
+            ? [`  !! TRUST-AUDIT CHAIN TAMPER DETECTED: ${integrity.checks.filter((c) => !c.pass).map((c) => c.code).join(", ")}`]
+            : []),
         `- Decisions: ${formatCounts(summary.byDecision)}`,
         `- Sources: ${formatCounts(summary.bySource)}`,
         `- Sandbox profiles: ${formatCounts(summary.bySandboxProfile)}`,

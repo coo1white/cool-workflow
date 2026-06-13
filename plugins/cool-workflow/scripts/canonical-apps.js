@@ -6,6 +6,7 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { CANONICAL_APP_IDS, GOLDEN_PATH_APP_ID } = require("./canonical-apps-list.js");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "scripts/cw.js");
@@ -90,6 +91,20 @@ const canonicalApps = [
 ];
 
 function main() {
+  // Fail-closed drift gate (audit M5): the per-app CLI smoke below must cover
+  // exactly the DERIVED canonical set (apps/ minus metadata.example demos) less
+  // the golden-path app, which scripts/golden-path.js owns. If a new canonical
+  // app appears (or the demo marker flips) without smoke args here, this fails
+  // instead of silently skipping it — there is no second hand-copied list.
+  const expectedSmokeIds = CANONICAL_APP_IDS.filter((id) => id !== GOLDEN_PATH_APP_ID).sort();
+  const actualSmokeIds = canonicalApps.map((app) => app.id).sort();
+  assert.deepEqual(
+    actualSmokeIds,
+    expectedSmokeIds,
+    `canonical-apps smoke set drifted from derived canonical list (apps/ minus example demos, minus ${GOLDEN_PATH_APP_ID}): ` +
+      `expected ${JSON.stringify(expectedSmokeIds)}, got ${JSON.stringify(actualSmokeIds)}`
+  );
+
   const appList = runJson(["app", "list"]);
   const workflowList = runJson(["list"]);
   assertUniqueIds(appList, "app list");

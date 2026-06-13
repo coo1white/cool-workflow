@@ -21,6 +21,12 @@ const state_node_1 = require("./state-node");
 const trust_audit_1 = require("./trust-audit");
 const collaboration_1 = require("./collaboration");
 exports.CANDIDATE_SCHEMA_VERSION = 1;
+/** Verdict thresholds on a score's normalized value [0,1], declared once so the
+ *  numbers carry intent instead of being buried as literals in verdictFor(). A
+ *  normalized score at-or-above PASS is "pass"; at-or-above WARN (but below
+ *  PASS) is "warn"; anything lower is "fail". Same numbers as before. */
+const VERDICT_PASS_THRESHOLD = 0.7;
+const VERDICT_WARN_THRESHOLD = 0.4;
 function createCandidateScoring(options = {}) {
     return {
         registerCandidate: (run, input) => registerCandidate(run, input, options),
@@ -578,10 +584,15 @@ function detectTies(candidates) {
     return Array.from(groups.values()).filter((group) => group.length > 1);
 }
 function mergePolicy(policy = {}) {
+    // NOTE: `policy.criteria` (string[]) is intentionally NOT carried here. A
+    // whole-repo grep shows it has no read points — scoring reads each score's
+    // own `input.criteria` (Record<string, number>), not this list. Emitting a
+    // default `criteria: []` advertised a guarantee the code never honored and
+    // could silently drift, so it is dropped. The field stays OPTIONAL on
+    // CandidateScoringPolicy / CandidateRanking.policy for forward-compat input.
     return {
         id: policy.id || "cw.candidate.default",
         title: policy.title || "Default Candidate Scoring",
-        criteria: policy.criteria || [],
         requireEvidence: policy.requireEvidence ?? true,
         requireVerifierGate: policy.requireVerifierGate ?? true,
         minNormalized: policy.minNormalized,
@@ -591,9 +602,9 @@ function mergePolicy(policy = {}) {
 function verdictFor(normalized, policy) {
     if (policy.minNormalized !== undefined && normalized < policy.minNormalized)
         return "fail";
-    if (normalized >= 0.7)
+    if (normalized >= VERDICT_PASS_THRESHOLD)
         return "pass";
-    if (normalized >= 0.4)
+    if (normalized >= VERDICT_WARN_THRESHOLD)
         return "warn";
     return "fail";
 }

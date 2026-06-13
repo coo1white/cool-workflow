@@ -338,14 +338,20 @@ function verifyArchiveFileDigests(files, integrity) {
 }
 function digestManifest(files) {
     const manifest = files
+        // sourcePath is deliberately EXCLUDED: it is a host-absolute bookkeeping path
+        // (for externalPathMap), not integrity-bearing content — the file's bytes are
+        // already bound by sha256 + sizeBytes. Including it would make the digest
+        // differ across hosts for byte-identical content, defeating cross-host repro.
         .map((file) => ({
         relativePath: file.relativePath,
         role: file.role,
         sha256: file.sha256,
-        sizeBytes: file.sizeBytes,
-        sourcePath: file.sourcePath
+        sizeBytes: file.sizeBytes
     }))
-        .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+        // Codepoint order, NOT localeCompare: this manifest feeds a sha256 integrity
+        // digest. Locale-sensitive collation would order identical bytes differently
+        // across hosts/locales, making the digest non-reproducible cross-host.
+        .sort((left, right) => (left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0));
     return sha256Bytes(Buffer.from(JSON.stringify(manifest), "utf8"));
 }
 function rebaseRun(source, context) {

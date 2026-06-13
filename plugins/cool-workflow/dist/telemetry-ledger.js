@@ -17,7 +17,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TELEMETRY_LEDGER_SCHEMA_VERSION = void 0;
+exports.TelemetryLedgerCorruptError = exports.TELEMETRY_LEDGER_SCHEMA_VERSION = void 0;
 exports.telemetryLedgerPath = telemetryLedgerPath;
 exports.loadTelemetryLedger = loadTelemetryLedger;
 exports.genesisPrevHash = genesisPrevHash;
@@ -34,19 +34,47 @@ exports.TELEMETRY_LEDGER_SCHEMA_VERSION = 1;
 function telemetryLedgerPath(run) {
     return node_path_1.default.join(run.paths.runDir, "telemetry.json");
 }
-/** Load the ledger; fail closed to an empty chain on a malformed overlay (a
- *  corrupt file must never brick the run — and an empty chain verifies as such). */
-function loadTelemetryLedger(run) {
+/** A telemetry ledger that EXISTS on disk but cannot be parsed (or whose shape is
+ *  not a record array). This is exactly the corruption/truncation case the hash
+ *  chain exists to catch — it must fail closed, never be silently treated as the
+ *  "empty/absent" chain (which verifies as clean). */
+class TelemetryLedgerCorruptError extends Error {
+    file;
+    constructor(file) {
+        super(`Telemetry ledger exists but is corrupt (unparseable): ${file}`);
+        this.name = "TelemetryLedgerCorruptError";
+        this.file = file;
+    }
+}
+exports.TelemetryLedgerCorruptError = TelemetryLedgerCorruptError;
+/** Read the ledger, DISTINGUISHING absent (never written -> empty chain, fine)
+ *  from corrupt (exists but unparseable/wrong shape -> fail closed). Conflating
+ *  the two was the bug that let a corrupt overlay verify green and let an append
+ *  silently re-genesis on top of it, discarding history. */
+function readTelemetryLedgerState(run) {
     const file = telemetryLedgerPath(run);
     if (!node_fs_1.default.existsSync(file))
-        return { schemaVersion: 1, runId: run.id, records: [] };
+        return { status: "absent", ledger: { schemaVersion: 1, runId: run.id, records: [] } };
+    let parsed;
     try {
-        const parsed = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
-        return { schemaVersion: 1, runId: run.id, records: Array.isArray(parsed.records) ? parsed.records : [] };
+        parsed = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
     }
     catch {
-        return { schemaVersion: 1, runId: run.id, records: [] };
+        return { status: "corrupt", file };
     }
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.records)) {
+        return { status: "corrupt", file };
+    }
+    return { status: "ok", ledger: { schemaVersion: 1, runId: run.id, records: parsed.records } };
+}
+/** Load the ledger for read/append. Absent -> empty chain. Corrupt -> THROWS, so
+ *  an append can never silently re-genesis on a poisoned/edited file, and a read
+ *  surfaces the corruption rather than swallowing it. */
+function loadTelemetryLedger(run) {
+    const state = readTelemetryLedgerState(run);
+    if (state.status === "corrupt")
+        throw new TelemetryLedgerCorruptError(state.file);
+    return state.ledger;
 }
 /** genesis prevHash for a run's chain (no prior record). */
 function genesisPrevHash(runId) {
@@ -114,7 +142,21 @@ function appendTelemetryAttestation(run, input) {
  *  value — so an edited record/verdict is detected. An empty ledger verifies as
  *  present:false (nothing to prove), NOT a failure. */
 function verifyTelemetryLedger(run) {
-    const records = loadTelemetryLedger(run).records;
+    const state = readTelemetryLedgerState(run);
+    if (state.status === "corrupt") {
+        // Fail closed: a ledger that exists but cannot be parsed is indistinguishable
+        // from a truncated/forged one — report it, never green it.
+        return {
+            present: true,
+            verified: false,
+            records: [],
+            checks: [{ name: "ledger-load", pass: false, code: "telemetry-ledger-corrupt" }],
+            attested: 0,
+            unattested: 0,
+            absent: 0
+        };
+    }
+    const records = state.ledger.records;
     const checks = [];
     const tally = { attested: 0, unattested: 0, absent: 0 };
     for (const record of records)

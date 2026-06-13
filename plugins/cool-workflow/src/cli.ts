@@ -540,9 +540,12 @@ async function main(): Promise<void> {
         case "show":
           printJson(runner.showSandboxProfile(required(profileIdOrFile, "profile id"), args.options));
           return;
-        case "validate":
-          printJson(runner.validateSandboxProfile(required(profileIdOrFile, "profile file"), args.options));
+        case "validate": {
+          const result = runner.validateSandboxProfile(required(profileIdOrFile, "profile file"), args.options);
+          printJson(result);
+          if (!result.valid) process.exitCode = 1;
           return;
+        }
         case "choose":
         case "resolve":
           printJson(sandboxChoose(runner, { ...args.options, profileId: profileIdOrFile || args.options.profileId }));
@@ -618,9 +621,12 @@ async function main(): Promise<void> {
         case "replay":
           printJson(runner.nodeReplay(required(runId, "run id"), required(nodeId, "snapshot id")));
           return;
-        case "verify":
-          printJson(runner.nodeReplayVerify(required(runId, "run id"), required(nodeId, "replay id")));
+        case "verify": {
+          const verdict = runner.nodeReplayVerify(required(runId, "run id"), required(nodeId, "replay id"));
+          printJson(verdict);
+          if (!verdict.pass) process.exitCode = 1;
           return;
+        }
           default:
             if (await tryDispatchCli(args, runner)) return;
             throw new Error("Usage: cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
@@ -632,12 +638,18 @@ async function main(): Promise<void> {
         case "list":
           printJson(runner.migrationList());
           return;
-        case "check":
-          printJson(runner.migrationCheck(required(target, "target (run-id or state/app file)"), args.options));
+        case "check": {
+          const report = runner.migrationCheck(required(target, "target (run-id or state/app file)"), args.options);
+          printJson(report);
+          if (report.status === "unsupported") process.exitCode = 1;
           return;
-        case "prove":
-          printJson(runner.migrationProve(required(target, "target (run-id or state/app file)"), args.options));
+        }
+        case "prove": {
+          const proof = runner.migrationProve(required(target, "target (run-id or state/app file)"), args.options);
+          printJson(proof);
+          if (!proof.pass) process.exitCode = 1;
           return;
+        }
         default:
           if (await tryDispatchCli(args, runner)) return;
           throw new Error("Usage: cw.js migration list|check|prove [target] [--contract run-state|workflow-app]");
@@ -710,9 +722,14 @@ async function main(): Promise<void> {
             )
           );
           return;
-        case "validate":
-          printJson(runner.validateWorker(required(runId, "run id"), required(workerId, "worker id"), resultPath));
+        case "validate": {
+          // Non-null = a boundary violation: a validate verb must report an invalid
+          // verdict through its exit code, not just print it and exit 0.
+          const violation = runner.validateWorker(required(runId, "run id"), required(workerId, "worker id"), resultPath);
+          printJson(violation);
+          if (violation) process.exitCode = 1;
           return;
+        }
         default:
           if (await tryDispatchCli(args, runner)) return;
           throw new Error("Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
@@ -1162,6 +1179,14 @@ async function main(): Promise<void> {
           const result = gcVerify(registry, required(id, "run id"), args.options);
           if (wantsJson(args.options)) printJson(result);
           else process.stdout.write(`${formatGcVerify(result)}\n`);
+          // Fail closed ONLY on a real integrity failure: a run that WAS reclaimed
+          // but no longer re-proves. A not-reclaimed run has nothing to verify
+          // (reclaimed:false/verified:false) and must not be treated as a failure.
+          // LIMIT (honest): a DELETED reclaimed.json reads as reclaimed:false, so
+          // proof-deletion is indistinguishable from never-reclaimed here without
+          // an independent witness (e.g. a trust-audit reclamation event) — a
+          // follow-up. This guard is still strictly better than the prior exit-0.
+          if (result.reclaimed && !result.verified) process.exitCode = 1;
           return;
         }
         default:
@@ -1183,6 +1208,10 @@ async function main(): Promise<void> {
           const result = telemetryVerify(runner, { ...args.options, runId: id || args.options.runId || args.options.run });
           if (wantsJson(args.options)) printJson(result);
           else process.stdout.write(`${formatTelemetryVerify(result)}\n`);
+          // Fail closed: a forged/edited/corrupt ledger verifies false — report it
+          // through the exit code so `cw telemetry verify <run> && deploy` cannot
+          // pass on a lie. (Absent ledger = present:false/verified:true -> exit 0.)
+          if (!result.verified) process.exitCode = 1;
           return;
         }
         default:

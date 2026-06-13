@@ -26,17 +26,49 @@ export function telemetryLedgerPath(run: WorkflowRun): string {
   return path.join(run.paths.runDir, "telemetry.json");
 }
 
-/** Load the ledger; fail closed to an empty chain on a malformed overlay (a
- *  corrupt file must never brick the run — and an empty chain verifies as such). */
-export function loadTelemetryLedger(run: WorkflowRun): TelemetryLedger {
-  const file = telemetryLedgerPath(run);
-  if (!fs.existsSync(file)) return { schemaVersion: 1, runId: run.id, records: [] };
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as TelemetryLedger;
-    return { schemaVersion: 1, runId: run.id, records: Array.isArray(parsed.records) ? parsed.records : [] };
-  } catch {
-    return { schemaVersion: 1, runId: run.id, records: [] };
+/** A telemetry ledger that EXISTS on disk but cannot be parsed (or whose shape is
+ *  not a record array). This is exactly the corruption/truncation case the hash
+ *  chain exists to catch — it must fail closed, never be silently treated as the
+ *  "empty/absent" chain (which verifies as clean). */
+export class TelemetryLedgerCorruptError extends Error {
+  readonly file: string;
+  constructor(file: string) {
+    super(`Telemetry ledger exists but is corrupt (unparseable): ${file}`);
+    this.name = "TelemetryLedgerCorruptError";
+    this.file = file;
   }
+}
+
+type TelemetryLedgerLoad =
+  | { status: "absent" | "ok"; ledger: TelemetryLedger }
+  | { status: "corrupt"; file: string };
+
+/** Read the ledger, DISTINGUISHING absent (never written -> empty chain, fine)
+ *  from corrupt (exists but unparseable/wrong shape -> fail closed). Conflating
+ *  the two was the bug that let a corrupt overlay verify green and let an append
+ *  silently re-genesis on top of it, discarding history. */
+function readTelemetryLedgerState(run: WorkflowRun): TelemetryLedgerLoad {
+  const file = telemetryLedgerPath(run);
+  if (!fs.existsSync(file)) return { status: "absent", ledger: { schemaVersion: 1, runId: run.id, records: [] } };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch {
+    return { status: "corrupt", file };
+  }
+  if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as TelemetryLedger).records)) {
+    return { status: "corrupt", file };
+  }
+  return { status: "ok", ledger: { schemaVersion: 1, runId: run.id, records: (parsed as TelemetryLedger).records } };
+}
+
+/** Load the ledger for read/append. Absent -> empty chain. Corrupt -> THROWS, so
+ *  an append can never silently re-genesis on a poisoned/edited file, and a read
+ *  surfaces the corruption rather than swallowing it. */
+export function loadTelemetryLedger(run: WorkflowRun): TelemetryLedger {
+  const state = readTelemetryLedgerState(run);
+  if (state.status === "corrupt") throw new TelemetryLedgerCorruptError(state.file);
+  return state.ledger;
 }
 
 /** genesis prevHash for a run's chain (no prior record). */
@@ -139,7 +171,21 @@ export interface TelemetryLedgerVerification {
  *  value — so an edited record/verdict is detected. An empty ledger verifies as
  *  present:false (nothing to prove), NOT a failure. */
 export function verifyTelemetryLedger(run: WorkflowRun): TelemetryLedgerVerification {
-  const records = loadTelemetryLedger(run).records;
+  const state = readTelemetryLedgerState(run);
+  if (state.status === "corrupt") {
+    // Fail closed: a ledger that exists but cannot be parsed is indistinguishable
+    // from a truncated/forged one — report it, never green it.
+    return {
+      present: true,
+      verified: false,
+      records: [],
+      checks: [{ name: "ledger-load", pass: false, code: "telemetry-ledger-corrupt" }],
+      attested: 0,
+      unattested: 0,
+      absent: 0
+    };
+  }
+  const records = state.ledger.records;
   const checks: TelemetryLedgerCheck[] = [];
   const tally = { attested: 0, unattested: 0, absent: 0 };
   for (const record of records) tally[record.attestation] += 1;
