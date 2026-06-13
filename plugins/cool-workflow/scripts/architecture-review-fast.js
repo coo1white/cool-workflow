@@ -26,11 +26,14 @@ function main() {
 
   const repo = path.resolve(required(args.repo, "repo"));
   const question = required(args.question, "question");
-  const profile = stringArg(args.profile) || "core";
+  const requestedProfile = stringArg(args.profile);
   const ref = stringArg(args.ref) || "HEAD";
-  const profileFile = stringArg(args.profileFile || args["profile-file"]);
+  const requestedProfileFile = stringArg(args.profileFile || args["profile-file"]);
+  const defaultExternalProfile = !requestedProfile && !requestedProfileFile && repo !== repoRoot;
+  const profile = defaultExternalProfile ? "repo" : requestedProfile || "core";
   const cacheDir = path.resolve(stringArg(args.cacheDir || args["cache-dir"]) || path.join(repo, ".cw", "cache", "source-context"));
   const contextOut = path.resolve(stringArg(args.contextOut || args["context-out"]) || path.join(repo, ".cw", "context", `${profile}-source.jsonl`));
+  const profileFile = defaultExternalProfile ? writeDefaultRepoProfile(repo, contextOut) : requestedProfileFile;
   const includeMetrics = truthy(args.metrics);
   const fastModel = stringArg(args.fastModel || args["fast-model"]);
   const strongModel = stringArg(args.strongModel || args["strong-model"]);
@@ -44,6 +47,7 @@ function main() {
     cacheDir
   }));
   const contextText = contextExport.value;
+  assertNonEmptySourceContext(contextText, profile, repo);
   fs.mkdirSync(path.dirname(contextOut), { recursive: true });
   fs.writeFileSync(contextOut, contextText, "utf8");
   const digest = `sha256:${crypto.createHash("sha256").update(contextText, "utf8").digest("hex")}`;
@@ -122,6 +126,62 @@ function exportSourceContext(options) {
   });
   if (result.status !== 0) die(result.stderr || result.stdout || "source context export failed");
   return result.stdout;
+}
+
+function writeDefaultRepoProfile(repo, contextOut) {
+  const file = path.join(path.dirname(contextOut), "repo-source-profile.json");
+  const profile = {
+    schemaVersion: 1,
+    profiles: {
+      repo: {
+        description: "Default external repository profile for architecture-review-fast.",
+        maxLines: 50000,
+        include: [
+          "README.md",
+          "README.*",
+          "package.json",
+          "tsconfig.json",
+          "pyproject.toml",
+          "Cargo.toml",
+          "go.mod",
+          ".github/**",
+          "src/**",
+          "lib/**",
+          "app/**",
+          "apps/**",
+          "bin/**",
+          "scripts/**",
+          "docs/**",
+          "test/**",
+          "tests/**"
+        ],
+        exclude: [
+          ".cw/**",
+          "dist/**",
+          "build/**",
+          "coverage/**",
+          "node_modules/**",
+          "vendor/**",
+          "target/**",
+          "docs/assets/**",
+          "assets/**",
+          "public/**"
+        ]
+      }
+    }
+  };
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+  return file;
+}
+
+function assertNonEmptySourceContext(text, profile, repo) {
+  const records = text.trim() ? text.trim().split(/\n/).filter(Boolean).length : 0;
+  if (records > 0) return;
+  die([
+    `source context profile "${profile}" exported zero records for ${repo}`,
+    "pass --profile-file with include rules for this repository, or choose a profile that matches tracked text files"
+  ].join("; "));
 }
 
 function scheduleFullReview(repo, question, args, fastReview, sourceContextMeta) {

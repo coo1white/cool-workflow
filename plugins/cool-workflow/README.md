@@ -658,3 +658,7 @@ The orchestration vision landed in one release, all reviewer-gated:
 A drive is no longer silent while each worker runs. The bundled claude wrapper (`builtin:claude` / `scripts/agents/claude-p-agent.js`) runs claude in `--output-format stream-json` and renders a concise human trace (tool uses, assistant text, per-turn summaries) to its **stderr** — diagnostics, never data; the single `{model, usage, result}` object still lands on stdout unchanged, so the captured payload and evidence digest are byte-identical. CW core forwards the agent's stderr to the operator's terminal **only when CW's own stderr is a TTY** (`CW_NO_STREAM=1` opts out); piped/CI runs stay silent (Rule of Silence). Core only forwards the stream, never parses it — vendor-specific rendering is the wrapper's concern (policy), not the kernel's (mechanism).
 
 v0.1.79
+
+## Fast Architecture Review (v0.1.80)
+
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.

@@ -59,6 +59,19 @@ function main() {
   );
 
   const agentCommand = `${node} ${stub} {{result}} ${countFile} ${modelFile} {{model}}`;
+  const documentedDefault = runJson([
+    "--repo", repo,
+    "--question", "Is this architecture fast enough?",
+    "--ref", "HEAD",
+    "--preview"
+  ]);
+  assert.equal(documentedDefault.sourceContext.profile, "repo", "external repos get a default repo profile");
+  assert.ok(fs.existsSync(documentedDefault.sourceContext.path), "documented default writes a context file");
+  const documentedRecords = readJsonl(documentedDefault.sourceContext.path);
+  assert.ok(documentedRecords.length > 0, "documented default exports non-empty source context");
+  assert.ok(documentedRecords.some((record) => record.path === "README.md"), "documented default includes README");
+  assert.ok(documentedRecords.some((record) => record.path === "src/app.js"), "documented default includes src files");
+
   const baseline = runJson([
     "--repo", repo,
     "--question", "Is this architecture fast enough?",
@@ -146,6 +159,10 @@ function git(cwd, args) {
 
 function spawnLines(file) {
   return fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim().split(/\n/).filter(Boolean).length : 0;
+}
+
+function readJsonl(file) {
+  return fs.readFileSync(file, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
 }
 
 function escapeRegExp(value) {

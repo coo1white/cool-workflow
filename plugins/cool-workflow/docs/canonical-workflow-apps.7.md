@@ -49,7 +49,12 @@ node scripts/architecture-review-fast.js \
 
 The wrapper prepares one cached JSONL source context, passes its sha256 digest to
 the fast app, runs `quickstart architecture-review-fast`, and optionally creates
-a one-shot background schedule for the full `architecture-review` app.
+a one-shot background schedule for the full `architecture-review` app. When run
+against an external repo without `--profile` or `--profile-file`, it writes a
+small repo-local `repo` profile covering common tracked text surfaces such as
+README/package metadata, `src/`, `lib/`, `apps/`, `scripts/`, docs, and tests.
+If the selected profile exports zero records, the wrapper fails closed instead of
+passing an empty context digest to the app.
 `--fast-model` and `--strong-model` are userland policy flags; internally they
 set the same task-level hints as `CW_ARCHITECTURE_REVIEW_FAST_MODEL` and
 `CW_ARCHITECTURE_REVIEW_STRONG_MODEL`.

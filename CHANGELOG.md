@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.80
+
+Ship the fast architecture-review lane for shorter foreground waits while keeping the full review contract intact.
+
+- **Capability**: Operators can now run `scripts/architecture-review-fast.js` for an opt-in 6-worker architecture review that prepares a reusable JSONL source context, runs parallel Map/Assess phases, reports optional timing/cache metrics, schedules the full 14-worker review as a background handoff, narrows context by profile or git diff, and routes fast/strong model hints from wrapper flags. Repeated runs can reuse stable Map and Assess work, so unchanged scoped reviews can return from cache instead of respawning agents.
+- **Implementation**: Added the canonical `architecture-review-fast` app, the automation wrapper, source-context cache/profile/diff support, opt-in `resultCache` with previous-phase digests for Assess safety, schedule handoff metadata, metrics collection, and userland `--fast-model` / `--strong-model` policy flags. External repos get a repo-local default source profile for common tracked text surfaces, and zero-record contexts fail closed. Core remains mechanism-only: model routing stays in wrappers/env, vendor-specific stream parsing stays out of `src/`, and existing default outputs remain unchanged unless an opt-in flag is used.
+- **Tests**: Added and extended `architecture-review-fast-smoke`, `architecture-review-fast-automation-smoke`, and `source-context-profile-smoke` to prove phase topology, source-context pinning, cache hits, corrupt-cache fail-closed behavior, scoped profiles, default external-repo context export, diff-aware exports, metrics opt-in, full-review schedule context, default output stability, and model hint propagation through `{{model}}`. Full suite: 75/75 passed locally for the release candidate.
+- **Risk**: Additive and opt-in. The full `architecture-review` workflow is unchanged; committed `dist/` remains synced; release risk is mainly operator choice of narrower profiles or model policy flags, both explicit and visible in the wrapper output.
+
 ## 0.1.79
 
 Ship the tamper-evidence demo + telemetry verification, and surface the project for distribution.
