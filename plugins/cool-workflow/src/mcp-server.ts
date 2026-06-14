@@ -30,6 +30,7 @@ import {
   runExportArchive,
   runImportArchive,
   runVerifyImport,
+  runInspectArchive,
   sandboxChoose,
   schedPlan,
   schedLease,
@@ -467,6 +468,8 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runImportArchive(runner, args);
       case "cw_run_verify_import":
         return runVerifyImport(runner, String(args.runId || ""), args);
+      case "cw_run_inspect_archive":
+        return runInspectArchive(runner, args);
       case "cw_run_drive":
         return runDrivePreview(runner, args);
       case "cw_run_drive_step":
@@ -1372,6 +1375,12 @@ function toolDefinitions(): unknown[] {
     tool("cw_run_verify_import", "Verify an imported run against its restore manifest and telemetry chain; detects missing or tampered restored files.", {
       runId: stringSchema("Imported run id to verify"),
       cwd: stringSchema("Restored repo workspace")
+    }),
+    tool("cw_run_inspect_archive", "Read-only integrity inspection of a portable run archive without importing it: re-proves every file digest/size, the manifest digest + file count, and the whole-archive sha256, naming any offending file. Writes nothing.", {
+      archive: stringSchema("Archive path"),
+      path: stringSchema("Alias for archive"),
+      file: stringSchema("Alias for archive"),
+      cwd: stringSchema("Invocation workspace")
     }),
     tool("cw_run_drive", "Preview the next agent-delegation drive step for a run (read-only, deterministic). Counts come from state; no spawn, no mutation.", {
       runId: stringSchema("Run id to preview"),

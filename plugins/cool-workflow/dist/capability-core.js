@@ -38,6 +38,7 @@ exports.runArchive = runArchive;
 exports.runRerun = runRerun;
 exports.runExportArchive = runExportArchive;
 exports.runImportArchive = runImportArchive;
+exports.runInspectArchive = runInspectArchive;
 exports.runVerifyImport = runVerifyImport;
 exports.queueAdd = queueAdd;
 exports.queueList = queueList;
@@ -290,6 +291,17 @@ function runImportArchive(runner, args) {
         const registry = new run_registry_1.RunRegistry(node_path_1.default.resolve(target), runner);
         const registryReport = registry.refresh({ scope: "repo" });
         return { ...imported, registry: registryReport };
+    });
+}
+// Read-only: inspect a portable archive's integrity WITHOUT importing it. Routes
+// both surfaces through one shared core entry. The runner is unused (no registry
+// touch — inspection writes nothing) but kept for dispatch-signature symmetry.
+function runInspectArchive(_runner, args) {
+    return withInvocationCwd(args, () => {
+        const archive = optionalString(args.archive || args.path || args.file);
+        if (!archive)
+            throw new Error("run inspect-archive requires an archive path (positional, --archive, --path, or --file)");
+        return (0, run_export_1.inspectArchive)(node_path_1.default.resolve(archive));
     });
 }
 function runVerifyImport(runner, runId, args) {

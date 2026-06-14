@@ -14,6 +14,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.exportRun = exportRun;
 exports.importRun = importRun;
 exports.verifyImportedRun = verifyImportedRun;
+exports.inspectArchive = inspectArchive;
 exports.importManifestPath = importManifestPath;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -208,6 +209,62 @@ function verifyImportedRun(run) {
         checks
     };
 }
+/** Read-only integrity inspection of a portable archive WITHOUT importing it. Never
+ *  throws — a read error, bad JSON, unsupported schema, or any digest/size/count/
+ *  manifest mismatch is reported as a structured check with ok:false. Writes nothing. */
+function inspectArchive(archivePath) {
+    const base = {
+        schemaVersion: 1,
+        archivePath,
+        ok: false,
+        schemaSupported: false,
+        runId: null,
+        fileCount: 0,
+        manifestSha256: null,
+        archiveSha256: null,
+        checks: []
+    };
+    let bytes;
+    try {
+        bytes = node_fs_1.default.readFileSync(archivePath);
+    }
+    catch (error) {
+        return { ...base, checks: [{ name: "archive", pass: false, code: "archive-unreadable", path: archivePath, actual: messageOf(error) }] };
+    }
+    base.archiveSha256 = sha256Bytes(bytes);
+    let raw;
+    try {
+        raw = JSON.parse(bytes.toString("utf8"));
+    }
+    catch (error) {
+        return { ...base, checks: [{ name: "archive", pass: false, code: "archive-invalid-json", path: archivePath, actual: messageOf(error) }] };
+    }
+    if (raw.schemaVersion !== 1) {
+        return {
+            ...base,
+            schemaVersion: typeof raw.schemaVersion === "number" ? raw.schemaVersion : base.schemaVersion,
+            checks: [{ name: "schema", pass: false, code: "unsupported-schema", expected: "1", actual: String(raw.schemaVersion) }]
+        };
+    }
+    try {
+        const files = normalizeArchiveFiles(raw);
+        const { checks, ok } = collectArchiveDigestChecks(files, raw.integrity);
+        return {
+            schemaVersion: 1,
+            archivePath,
+            ok,
+            schemaSupported: true,
+            runId: raw.run && raw.run.id ? raw.run.id : null,
+            fileCount: files.length,
+            manifestSha256: raw.integrity ? digestManifest(files) : null,
+            archiveSha256: base.archiveSha256,
+            checks
+        };
+    }
+    catch (error) {
+        return { ...base, schemaSupported: true, checks: [{ name: "archive", pass: false, code: "archive-malformed", path: archivePath, actual: messageOf(error) }] };
+    }
+}
 function importManifestPath(run) {
     return node_path_1.default.join(run.paths.runDir, "import-manifest.json");
 }
@@ -331,6 +388,48 @@ function normalizeArchiveFiles(raw) {
         };
     });
 }
+/** NON-throwing digest/size/count/manifest verification: one structured check per
+ *  file (in import order), then the integrity file-count + manifest checks. Shared
+ *  by the throwing import path (verifyArchiveFileDigests) and the read-only
+ *  inspectArchive, so a single offender list has one source of truth. */
+function collectArchiveDigestChecks(files, integrity) {
+    const checks = [];
+    for (const file of files) {
+        const bytes = Buffer.from(file.contentBase64, "base64");
+        const actual = sha256Bytes(bytes);
+        const digestOk = actual === file.sha256;
+        checks.push(digestOk
+            ? { name: "archive-file", pass: true, path: file.relativePath }
+            : { name: "archive-file", pass: false, code: "digest-mismatch", path: file.relativePath, expected: file.sha256, actual });
+        const sizeOk = bytes.length === file.sizeBytes;
+        checks.push(sizeOk
+            ? { name: "archive-file", pass: true, path: file.relativePath }
+            : { name: "archive-file", pass: false, code: "size-mismatch", path: file.relativePath, expected: String(file.sizeBytes), actual: String(bytes.length) });
+    }
+    if (integrity) {
+        const countOk = integrity.fileCount === files.length;
+        checks.push(countOk
+            ? { name: "archive-file-count", pass: true }
+            : { name: "archive-file-count", pass: false, code: "file-count-mismatch", expected: String(integrity.fileCount), actual: String(files.length) });
+        const actualManifest = digestManifest(files);
+        const manifestOk = integrity.manifestSha256 === actualManifest;
+        checks.push(manifestOk
+            ? { name: "archive-manifest", pass: true }
+            : { name: "archive-manifest", pass: false, code: "manifest-digest-mismatch", expected: integrity.manifestSha256, actual: actualManifest });
+    }
+    return { checks, ok: checks.every((c) => c.pass) };
+}
+/** Reconstruct the legacy throw message for a failing check, so the throwing import
+ *  path stays BYTE-IDENTICAL after the collector refactor. */
+function archiveCheckMessage(check) {
+    switch (check.code) {
+        case "digest-mismatch": return `Archive digest mismatch for ${check.path}: expected ${check.expected}, got ${check.actual}`;
+        case "size-mismatch": return `Archive size mismatch for ${check.path}: expected ${check.expected}, got ${check.actual}`;
+        case "file-count-mismatch": return `Archive file count mismatch: expected ${check.expected}, got ${check.actual}`;
+        case "manifest-digest-mismatch": return `Archive manifest digest mismatch: expected ${check.expected}, got ${check.actual}`;
+        default: return `Archive verification failed: ${check.name}`;
+    }
+}
 function verifyArchiveFileDigests(files, integrity) {
     // Opt-in hardening (CW_REQUIRE_ARCHIVE_INTEGRITY=1): refuse an archive whose
     // top-level integrity block (manifest digest + file count) is absent, closing the
@@ -340,22 +439,12 @@ function verifyArchiveFileDigests(files, integrity) {
     if (!integrity && /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_ARCHIVE_INTEGRITY || "")) {
         throw new Error("Archive integrity block required but absent (CW_REQUIRE_ARCHIVE_INTEGRITY=1)");
     }
-    for (const file of files) {
-        const bytes = Buffer.from(file.contentBase64, "base64");
-        const actual = sha256Bytes(bytes);
-        if (actual !== file.sha256)
-            throw new Error(`Archive digest mismatch for ${file.relativePath}: expected ${file.sha256}, got ${actual}`);
-        if (bytes.length !== file.sizeBytes)
-            throw new Error(`Archive size mismatch for ${file.relativePath}: expected ${file.sizeBytes}, got ${bytes.length}`);
-    }
-    if (integrity) {
-        const actualManifest = digestManifest(files);
-        if (integrity.fileCount !== files.length)
-            throw new Error(`Archive file count mismatch: expected ${integrity.fileCount}, got ${files.length}`);
-        if (integrity.manifestSha256 !== actualManifest) {
-            throw new Error(`Archive manifest digest mismatch: expected ${integrity.manifestSha256}, got ${actualManifest}`);
-        }
-    }
+    // Throw-before-write preserved: throw on the FIRST failing check, in the same
+    // order (per-file digest then size, then file-count, then manifest) and with the
+    // same message the inline checks produced.
+    const failed = collectArchiveDigestChecks(files, integrity).checks.find((c) => !c.pass);
+    if (failed)
+        throw new Error(archiveCheckMessage(failed));
 }
 function digestManifest(files) {
     const manifest = files

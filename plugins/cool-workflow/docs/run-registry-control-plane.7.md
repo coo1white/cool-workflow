@@ -190,8 +190,22 @@ By default `verify-import` prints the result and exits 0 even when a check fails
 (it is a report). Pass `--strict` to make any failed restore check exit non-zero,
 so `cw run verify-import <run> --strict && restore` stops on a tampered archive.
 
-MCP exposes the same mechanisms as `cw_run_export`, `cw_run_import`, and
-`cw_run_verify_import`; the CLI and MCP paths share the same runtime functions.
+**Inspect an archive before restoring.** `run inspect-archive PATH [--json]`
+re-proves a portable archive's integrity *without writing anything* — contrast
+with `run import`, which validates as a side-effect of restoring a full
+`.cw/runs/<id>/` tree. It re-computes every embedded file's sha256 and size, the
+`integrity.fileCount` and manifest digest, and the whole-archive sha256, returning
+a structured `checks[]` — each failure names the offending `relativePath` with a
+`digest-mismatch` / `size-mismatch` / `manifest-digest-mismatch` /
+`file-count-mismatch` code. It never throws: an unreadable path, invalid JSON, or an
+unknown `schemaVersion` (`schemaSupported:false`) is reported as a check, not a
+stacktrace — stdout is always valid JSON, diagnostics go to stderr. It exits `1`
+when `ok:false`, so `cw run inspect-archive <path> && cw run import <path>` stops
+before importing a bad archive.
+
+MCP exposes the same mechanisms as `cw_run_export`, `cw_run_import`,
+`cw_run_verify_import`, and `cw_run_inspect_archive`; the CLI and MCP paths share
+the same runtime functions.
 
 ## Cross-repo history
 
@@ -215,6 +229,7 @@ node scripts/cw.js run rerun <run-id> [--reason TEXT]
 node scripts/cw.js run export <run-id> --output PATH
 node scripts/cw.js run import PATH --target DIR
 node scripts/cw.js run verify-import <run-id> [--cwd DIR]
+node scripts/cw.js run inspect-archive PATH [--json]
 node scripts/cw.js queue add [--app ID|--workflow ID|--runId ID] [--repo PATH] [--priority N] [--note TEXT]
 node scripts/cw.js queue list [--status STATE] [--repo PATH] [--json]
 node scripts/cw.js queue show <queue-id>

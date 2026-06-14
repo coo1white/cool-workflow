@@ -1067,8 +1067,17 @@ async function main() {
                         process.exitCode = 1;
                     return;
                 }
+                case "inspect-archive": {
+                    const result = (0, capability_core_1.runInspectArchive)(runner, { ...args.options, archive: id || args.options.archive || args.options.path });
+                    printJson(result);
+                    // Read-only diagnostic: exit 1 when the archive fails any integrity check,
+                    // so `cw run inspect-archive <path> && restore` stops on a bad archive.
+                    if (!result.ok)
+                        process.exitCode = 1;
+                    return;
+                }
                 default:
-                    throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
+                    throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
             }
         }
         case "queue": {

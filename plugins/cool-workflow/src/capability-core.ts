@@ -28,7 +28,7 @@ import { verifyTelemetryLedger } from "./telemetry-ledger";
 import { verifyTrustAudit } from "./trust-audit";
 import { runTamperDemo, TelemetryVerifyResult } from "./telemetry-demo";
 import { loadRunStateFile, readJson, writeJson } from "./state";
-import { exportRun, importRun, verifyImportedRun } from "./run-export";
+import { ArchiveInspectResult, exportRun, importRun, inspectArchive, verifyImportedRun } from "./run-export";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -293,6 +293,17 @@ export function runImportArchive(runner: CoolWorkflowRunner, args: Record<string
     const registry = new RunRegistry(path.resolve(target), runner);
     const registryReport = registry.refresh({ scope: "repo" });
     return { ...imported, registry: registryReport };
+  });
+}
+
+// Read-only: inspect a portable archive's integrity WITHOUT importing it. Routes
+// both surfaces through one shared core entry. The runner is unused (no registry
+// touch — inspection writes nothing) but kept for dispatch-signature symmetry.
+export function runInspectArchive(_runner: CoolWorkflowRunner, args: Record<string, unknown>): ArchiveInspectResult {
+  return withInvocationCwd(args, () => {
+    const archive = optionalString(args.archive || args.path || args.file);
+    if (!archive) throw new Error("run inspect-archive requires an archive path (positional, --archive, --path, or --file)");
+    return inspectArchive(path.resolve(archive));
   });
 }
 
