@@ -21,14 +21,9 @@ export interface CommitStateOptions {
   verifierGated?: boolean;
   allowUnverifiedCheckpoint?: boolean;
   source?: "runtime" | "cli" | "manual";
-  /** Registered verifier ids to run before the commit gate (v0.1.58). */
-  verifierIds?: string[];
   /** When set, only these taskIds are committed; other tasks remain active
    *  for later retry (v0.1.59). The commit carries `partial: true`. */
   partialTaskIds?: string[];
-  /** When true and partial commit succeeds, auto-resume remaining pending
-   *  tasks without operator intervention (v0.1.61). */
-  autoResume?: boolean;
   metadata?: Record<string, unknown>;
 }
 

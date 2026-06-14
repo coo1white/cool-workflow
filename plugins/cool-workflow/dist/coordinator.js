@@ -17,8 +17,6 @@ exports.listBlackboardMessages = listBlackboardMessages;
 exports.listBlackboardArtifacts = listBlackboardArtifacts;
 exports.buildBlackboardGraph = buildBlackboardGraph;
 exports.persistBlackboardState = persistBlackboardState;
-exports.bridgeStateArtifactToBlackboard = bridgeStateArtifactToBlackboard;
-exports.evidenceFromArtifactRef = evidenceFromArtifactRef;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -794,34 +792,6 @@ function persistBlackboardState(run) {
         (0, state_1.writeJson)(recordPath(run, "snapshots", snapshot.id), snapshot);
     for (const decision of state.decisions)
         (0, state_1.writeJson)(recordPath(run, "decisions", decision.id), decision);
-}
-function bridgeStateArtifactToBlackboard(run, artifact, input = {}) {
-    return addBlackboardArtifact(run, {
-        kind: artifact.kind,
-        path: artifact.path,
-        locator: artifact.path,
-        metadata: { description: artifact.description, stateArtifactId: artifact.id },
-        ...input
-    });
-}
-function evidenceFromArtifactRef(artifact) {
-    return {
-        id: artifact.id,
-        source: "blackboard-artifact",
-        path: artifact.path,
-        locator: artifact.locator || artifact.path,
-        summary: `${artifact.kind} ${artifact.path || artifact.locator || artifact.id}`,
-        provenance: {
-            schemaVersion: 1,
-            runId: artifact.runId,
-            source: "cw-validated",
-            workerId: artifact.provenance.workerId,
-            taskId: artifact.provenance.taskId,
-            candidateId: artifact.provenance.candidateId,
-            commitId: artifact.provenance.commitId,
-            auditEventIds: artifact.trustAuditEventIds
-        }
-    };
 }
 function emptyState() {
     return {

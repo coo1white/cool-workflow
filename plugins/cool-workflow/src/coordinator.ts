@@ -18,8 +18,6 @@ import {
   CoordinatorDecision,
   CoordinatorDecisionKind,
   CoordinatorDecisionOutcome,
-  StateArtifact,
-  StateEvidence,
   StateNodeStatus,
   WorkflowRun
 } from "./types";
@@ -907,40 +905,6 @@ export function persistBlackboardState(run: WorkflowRun): void {
   for (const artifact of state.artifacts) writeJson(recordPath(run, "artifacts", artifact.id), artifact);
   for (const snapshot of state.snapshots) writeJson(recordPath(run, "snapshots", snapshot.id), snapshot);
   for (const decision of state.decisions) writeJson(recordPath(run, "decisions", decision.id), decision);
-}
-
-export function bridgeStateArtifactToBlackboard(
-  run: WorkflowRun,
-  artifact: StateArtifact,
-  input: Partial<AddArtifactInput> = {}
-): BlackboardArtifactRef {
-  return addBlackboardArtifact(run, {
-    kind: artifact.kind,
-    path: artifact.path,
-    locator: artifact.path,
-    metadata: { description: artifact.description, stateArtifactId: artifact.id },
-    ...input
-  });
-}
-
-export function evidenceFromArtifactRef(artifact: BlackboardArtifactRef): StateEvidence {
-  return {
-    id: artifact.id,
-    source: "blackboard-artifact",
-    path: artifact.path,
-    locator: artifact.locator || artifact.path,
-    summary: `${artifact.kind} ${artifact.path || artifact.locator || artifact.id}`,
-    provenance: {
-      schemaVersion: 1,
-      runId: artifact.runId,
-      source: "cw-validated",
-      workerId: artifact.provenance.workerId,
-      taskId: artifact.provenance.taskId,
-      candidateId: artifact.provenance.candidateId,
-      commitId: artifact.provenance.commitId,
-      auditEventIds: artifact.trustAuditEventIds
-    }
-  };
 }
 
 function emptyState(): BlackboardState {

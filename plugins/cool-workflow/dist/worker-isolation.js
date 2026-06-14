@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WORKER_ISOLATION_SCHEMA_VERSION = void 0;
-exports.createWorkerIsolation = createWorkerIsolation;
 exports.allocateWorkerScope = allocateWorkerScope;
 exports.writeWorkerManifest = writeWorkerManifest;
 exports.syncWorkerScopeFromTask = syncWorkerScopeFromTask;
@@ -36,18 +35,6 @@ const coordinator_1 = require("./coordinator");
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
 const WORKER_SCOPE_FILE = "worker.json";
 const WORKER_MANIFEST_FILE = "manifest.json";
-function createWorkerIsolation(options = {}) {
-    return {
-        allocateWorkerScope: (run, task, allocateOptions) => allocateWorkerScope(run, task, { ...options, ...allocateOptions }),
-        writeWorkerManifest,
-        listWorkerScopes: (run, listOptions) => listWorkerScopes(run, listOptions),
-        getWorkerScope,
-        recordWorkerOutput,
-        recordWorkerFailure,
-        validateWorkerBoundary,
-        summarizeWorkers
-    };
-}
 function allocateWorkerScope(run, task, options = {}) {
     ensureWorkerState(run);
     const existing = task.workerId ? getWorkerScope(run, task.workerId) : undefined;
@@ -705,14 +692,8 @@ function reclaimOrphans(run, now) {
     }
     if (orphans.length) {
         writeWorkerIndex(run);
-        saveWorkerCheckpoint(run);
     }
     return { runId: run.id, reclaimed: orphans.length, orphans };
-}
-function saveWorkerCheckpoint(run) {
-    // Durable write via atomic temp+rename (same contract as saveCheckpoint)
-    // For worker index, the atomic write in writeWorkerIndex already handles it.
-    // This is a no-op wrapper that signals the checkpoint boundary.
 }
 function ensureWorkerState(run) {
     run.paths.workersDir = run.paths.workersDir || node_path_1.default.join(run.paths.runDir, "workers");

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { CommentRecord, DispatchManifest, LoadedWorkflowApp, MetricsReport, ReviewStatusReport, RunSummary, WorkflowAppSummary, WorkflowAppValidationResult, WorkflowDefinition, WorkflowRun } from "./types";
+import { CommentRecord, DispatchManifest, LoadedWorkflowApp, MetricsReport, ReviewStatusReport, RunSummary, WorkflowAppSummary, WorkflowAppValidationResult, WorkflowRun } from "./types";
 import { slugify } from "./workflow-api";
 import { WorkflowAppValidationError, loadWorkflowAppFromEntrypoint, loadWorkflowAppFromManifest, renderWorkflowAppEntrypointTemplate, renderWorkflowAppManifestTemplate, renderWorkflowAppTemplate, summarizeWorkflowApp, validateWorkflowApp, workflowAppRunMetadata } from "./workflow-app-framework";
 import { nextDispatchTasks } from "./dispatch";
@@ -11,7 +11,6 @@ import { loadCostPolicy, showMetricsReport } from "./observability";
 
 import { createPipelineRunner } from "./pipeline-runner";
 import { getWorkerScope, listWorkerScopes, reclaimOrphans, validateWorkerBoundary, writeWorkerManifest } from "./worker-isolation";
-import { summarizeCandidates } from "./candidate-scoring";
 import { listBundledSandboxProfiles, sandboxContextForValidation, showBundledSandboxProfile, validateSandboxProfileFile } from "./sandbox-profile";
 import { backendListPayload, backendProbePayload, backendShowPayload } from "./execution-backend";
 import { buildOperatorGraph, summarizeOperatorCandidates, summarizeOperatorCommits, summarizeOperatorFeedback, summarizeOperatorRun, summarizeOperatorWorkers } from "./operator-ux";
@@ -399,10 +398,6 @@ export class CoolWorkflowRunner {
 
   formatCommentList(comments: CommentRecord[]): string {
     return collaborationOps.formatCommentList(comments);
-  }
-
-  summarizeCandidateRecords(runId: string): ReturnType<typeof summarizeCandidates> {
-    return summarizeCandidates(this.loadRun(runId));
   }
 
   summarizeWorkerRecords(runId: string): ReturnType<typeof summarizeOperatorWorkers> {
@@ -818,10 +813,6 @@ export class CoolWorkflowRunner {
 
   loadRun(runId: string): WorkflowRun {
     return loadRunFromCwd(runId);
-  }
-
-  loadWorkflowById(workflowId: string): WorkflowDefinition {
-    return this.loadWorkflowAppById(workflowId).app.workflow;
   }
 
   private loadWorkflowAppById(appId: string): LoadedWorkflowApp {
