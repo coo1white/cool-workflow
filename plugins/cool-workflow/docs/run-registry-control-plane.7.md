@@ -160,6 +160,15 @@ resumed from the target repo; restored failed runs remain discoverable from the
 home registry and can be rerun as new linked runs. The import does not alter the
 source repository or the source run.
 
+**Import-time refusal (fail-closed before any write).** Import verifies every
+file digest, every file size, the file count, and the manifest digest *before*
+creating the target run directory — so a tampered archive is refused with a
+non-zero exit and a single `cw:` stderr line, leaving nothing on disk (no partial
+restore). Set `CW_REQUIRE_ARCHIVE_INTEGRITY=1` to additionally refuse an archive
+whose top-level integrity block is *absent* — closing the legacy fail-open seam
+where a stripped-integrity archive imported unverified. Unset (the default) keeps
+legacy integrity-less archives byte-identical; the flag is mechanism, not policy.
+
 `run verify-import <run-id> [--cwd DIR]` re-reads the restore manifest, recomputes
 every restored file digest, checks the manifest digest, verifies the telemetry
 ledger when one was restored, and re-proves the **trust-audit hash chain** (the

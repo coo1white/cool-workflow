@@ -332,6 +332,14 @@ function normalizeArchiveFiles(raw) {
     });
 }
 function verifyArchiveFileDigests(files, integrity) {
+    // Opt-in hardening (CW_REQUIRE_ARCHIVE_INTEGRITY=1): refuse an archive whose
+    // top-level integrity block (manifest digest + file count) is absent, closing the
+    // legacy fail-open seam where a stripped-integrity archive imported unverified.
+    // Same env-boolish convention as CW_REQUIRE_RESOLVABLE_EVIDENCE (evidence-grounding.ts:57).
+    // Default (unset) keeps legacy integrity-less archives byte-identical.
+    if (!integrity && /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_ARCHIVE_INTEGRITY || "")) {
+        throw new Error("Archive integrity block required but absent (CW_REQUIRE_ARCHIVE_INTEGRITY=1)");
+    }
     for (const file of files) {
         const bytes = Buffer.from(file.contentBase64, "base64");
         const actual = sha256Bytes(bytes);
