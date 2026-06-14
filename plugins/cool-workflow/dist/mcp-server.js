@@ -442,22 +442,8 @@ function callTool(name, args) {
                 // (identical to `cw workbench serve --json`). The CLI default additionally
                 // starts the localhost host — declared divergence (see capability-registry).
                 return (0, workbench_1.buildWorkbenchServeDescriptor)(runner, { ...args, once: true });
-            default: {
-                // ---- Dynamic capability dispatch fallback (v0.1.53) ---------------
-                // Mechanism: try the capability registry before failing. Policy: which
-                // tools exist is declared via registerCapabilityHandler at load time.
-                const capabilityId = (0, capability_registry_1.resolveMcpTool)(name);
-                if (capabilityId) {
-                    const handler = (0, capability_registry_1.getCapabilityHandler)(capabilityId);
-                    if (handler) {
-                        return (0, capability_registry_1.dispatchCapability)(capabilityId, args, {
-                            runner,
-                            cwd: process.cwd()
-                        });
-                    }
-                }
+            default:
                 throw new Error(`Unknown tool: ${name}`);
-            }
         }
     }
     finally {
