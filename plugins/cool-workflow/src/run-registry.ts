@@ -66,18 +66,25 @@ import {
 } from "./types";
 import { createRunPaths, loadRunStateFile, readJson, withFileLock, writeJson } from "./state";
 import { planReclamation, runReclamation, verifyReclamation, ReclamationError } from "./reclamation";
+import {
+  clampInt,
+  compareHistory,
+  compareQueue,
+  compareRecords,
+  countRecords,
+  digestInputs,
+  distinctBackends,
+  isRunLifecycleState,
+  loadReclaimedFromDir,
+  matchesQuery,
+  optionalLower,
+  queueId
+} from "./run-registry/derive";
+// Re-export the pure helpers carved into ./run-registry/derive (FreeBSD-audit R2)
+// so importers of "./run-registry" keep the unchanged surface.
+export { compareQueue, isRunLifecycleState };
 
 export const RUN_REGISTRY_SCHEMA_VERSION = 1 as const;
-
-const LIFECYCLE_STATES: RunLifecycleState[] = [
-  "queued",
-  "running",
-  "blocked",
-  "completed",
-  "failed",
-  "archived",
-  "reclaimed"
-];
 
 // POLICY defaults. Configurable; never baked into the index. archiveOlderThanDays
 // = 0 disables retention archiving (explicit selection still works). The v0.1.39
@@ -1168,246 +1175,17 @@ export class RunRegistry {
   }
 }
 
-// ---------------------------------------------------------------------------
-// pure helpers
-// ---------------------------------------------------------------------------
-
-function compareRecords(a: RunRecord, b: RunRecord): number {
-  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
-  return a.runId.localeCompare(b.runId);
-}
-
-function compareHistory(a: RunRecord, b: RunRecord): number {
-  // Newest first.
-  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
-  return a.runId.localeCompare(b.runId);
-}
-
-export function compareQueue(a: RunQueueEntry, b: RunQueueEntry): number {
-  if (a.priority !== b.priority) return a.priority - b.priority;
-  if (a.enqueuedAt !== b.enqueuedAt) return a.enqueuedAt < b.enqueuedAt ? -1 : 1;
-  return a.id.localeCompare(b.id);
-}
-
-function matchesQuery(record: RunRecord, query: RunSearchQuery): boolean {
-  if (query.app && !(record.appId || record.workflowId || "").toLowerCase().includes(query.app)) return false;
-  if (query.status && record.lifecycle !== query.status && record.derivedLifecycle !== query.status) return false;
-  if (query.repo && path.resolve(record.repo) !== query.repo) return false;
-  if (query.since && record.createdAt < query.since) return false;
-  if (query.until && record.createdAt > query.until) return false;
-  if (query.text) {
-    const haystack = [
-      record.runId,
-      record.appId,
-      record.workflowId,
-      record.title,
-      record.repo,
-      record.lifecycle,
-      record.loopStage,
-      record.inputsDigest
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    if (!haystack.includes(query.text)) return false;
-  }
-  return true;
-}
-
-/** Bounded, deterministic stringification of run inputs for free-text search.
- *  Descriptive intent keys (question, prompt, ...) come first so they survive
- *  truncation; the rest follow alphabetically. Deterministic and compact. */
-const DIGEST_PRIORITY_KEYS = ["question", "prompt", "task", "summary", "title", "objective", "focus", "topic"];
-/** Distinct execution backends used by a run's dispatches/tasks, recomputed from
- *  source state. Sorted; empty for pre-v0.1.29 / default-only runs that never
- *  recorded a backend. The registry stays backend-agnostic — this is metadata. */
-function distinctBackends(run: WorkflowRun): string[] {
-  const backends = new Set<string>();
-  for (const dispatch of run.dispatches || []) {
-    if (dispatch.backendId) backends.add(dispatch.backendId);
-  }
-  for (const task of run.tasks || []) {
-    if (task.backendId) backends.add(task.backendId);
-  }
-  return [...backends].sort();
-}
-
-function digestInputs(inputs: Record<string, unknown> | undefined): string | undefined {
-  if (!inputs || typeof inputs !== "object") return undefined;
-  const keys = Object.keys(inputs);
-  const ordered = [
-    ...DIGEST_PRIORITY_KEYS.filter((k) => keys.includes(k)),
-    ...keys.filter((k) => !DIGEST_PRIORITY_KEYS.includes(k)).sort()
-  ];
-  const parts: string[] = [];
-  for (const key of ordered) {
-    const value = inputs[key];
-    if (value === undefined || value === null) continue;
-    const rendered = Array.isArray(value) ? value.join(",") : typeof value === "object" ? JSON.stringify(value) : String(value);
-    parts.push(`${key}=${rendered}`);
-  }
-  const joined = parts.join(" ").replace(/\s+/g, " ").trim();
-  return joined.length > 360 ? `${joined.slice(0, 357)}...` : joined;
-}
-
-function countRecords(records: RunRecord[]): RunRegistryCounts {
-  const counts: RunRegistryCounts = {
-    total: records.length,
-    queued: 0,
-    running: 0,
-    blocked: 0,
-    completed: 0,
-    failed: 0,
-    archived: 0,
-    reclaimed: 0
-  };
-  for (const record of records) {
-    counts[record.lifecycle] = (counts[record.lifecycle] || 0) + 1;
-  }
-  return counts;
-}
-
-function optionalLower(value: unknown): string | undefined {
-  if (value === undefined || value === null || value === "") return undefined;
-  return String(value).toLowerCase();
-}
-
-function clampInt(value: unknown, fallback: number, min: number): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.floor(n));
-}
-
-let queueCounter = 0;
-function queueId(): string {
-  queueCounter += 1;
-  const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
-  return `q-${stamp}-${String(queueCounter).padStart(3, "0")}`;
-}
-
-export function isRunLifecycleState(value: unknown): value is RunLifecycleState {
-  return typeof value === "string" && (LIFECYCLE_STATES as string[]).includes(value);
-}
-
-/** Read a run dir's `reclaimed.json` overlay (v0.1.39). Fail-closed to an empty
- *  chain on absence/corruption — a malformed overlay must never brick the run. */
-function loadReclaimedFromDir(runDir: string): ReclaimedOverlay {
-  const file = path.join(runDir, "reclaimed.json");
-  if (!fs.existsSync(file)) return { schemaVersion: 1, runId: "", tombstones: [] };
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as ReclaimedOverlay;
-    return { schemaVersion: 1, runId: parsed.runId || "", tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [] };
-  } catch {
-    return { schemaVersion: 1, runId: "", tombstones: [] };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Human formatting (CLI-only; never affects --json / MCP payloads)
-// ---------------------------------------------------------------------------
-
-function countsLine(counts: RunRegistryCounts): string {
-  return `total=${counts.total} queued=${counts.queued} running=${counts.running} blocked=${counts.blocked} completed=${counts.completed} failed=${counts.failed} archived=${counts.archived} reclaimed=${counts.reclaimed}`;
-}
-
-function recordLine(record: RunRecord): string {
-  const flags = [record.archived ? "archived" : "", record.provenance?.rerunOf ? `rerunOf=${record.provenance.rerunOf}` : ""].filter(Boolean).join(" ");
-  return `  [${record.lifecycle}] ${record.runId} (${record.appId || record.workflowId}) ${record.loopStage}${flags ? ` {${flags}}` : ""}`;
-}
-
-export function formatRegistryReport(report: RunRegistryReport): string {
-  const lines: string[] = [];
-  lines.push(`Run Registry (${report.scope}): ${report.root}`);
-  lines.push(`Freshness: ${report.freshness.status}${report.freshness.staleRuns.length ? ` (stale: ${report.freshness.staleRuns.join(", ")})` : ""}${report.freshness.missingRuns.length ? ` (missing: ${report.freshness.missingRuns.join(", ")})` : ""}`);
-  lines.push(`Repos: ${report.index.repos.length}`);
-  lines.push(countsLine(report.counts));
-  if (report.freshness.status !== "valid") lines.push(`Next Action: ${report.nextAction}`);
-  return lines.join("\n");
-}
-
-export function formatRunSearch(result: RunSearchResult): string {
-  const lines: string[] = [];
-  lines.push(`Run Search (${result.scope}): ${result.total} match(es), showing ${result.records.length} [offset ${result.offset}] freshness=${result.freshness}`);
-  for (const record of result.records) lines.push(recordLine(record));
-  if (!result.records.length) lines.push("  (no matching runs)");
-  return lines.join("\n");
-}
-
-export function formatRunShow(result: RunShowResult): string {
-  if (!result.found) {
-    return `Run ${result.runId}: MISSING (source state.json absent — fail closed). Next: ${result.nextAction}`;
-  }
-  const r = result.record!;
-  const lines = [
-    `Run ${r.runId} [${r.lifecycle}] (derived: ${r.derivedLifecycle})`,
-    `  app=${r.appId || r.workflowId} loopStage=${r.loopStage} repo=${r.repo}`,
-    `  tasks: total=${r.tasks.total} pending=${r.tasks.pending} running=${r.tasks.running} failed=${r.tasks.failed} completed=${r.tasks.completed}`,
-    `  commits=${r.commitCount} (verifier-gated=${r.verifierGatedCommitCount}) openFeedback=${r.openFeedbackCount}`
-  ];
-  if (r.provenance?.rerunOf) lines.push(`  provenance: rerunOf=${r.provenance.rerunOf} gen=${r.provenance.generation} origin=${r.provenance.originRunId}`);
-  if (r.tier && r.tier !== "live") {
-    lines.push(`  tier=${r.tier} capability=${r.capability} reason=${r.capabilityReason}${r.reclaimedBytes ? ` bytesFreed=${r.reclaimedBytes}` : ""}${r.tombstoneHash ? ` tombstone=${r.tombstoneHash.slice(0, 19)}` : ""}`);
-  }
-  return lines.join("\n");
-}
-
-export function formatGcPlan(result: GcPlanResult): string {
-  const lines = [
-    `GC Plan (${result.scope}): ${result.eligibleCount}/${result.total} eligible, ${result.bytesToFree} byte(s) would be freed [DRY-RUN, frees nothing]`,
-    `  policy: reclaimAfterArchiveDays=${result.policy.reclaimAfterArchiveDays} keepScratch=${result.policy.keepScratch} keepSnapshots=${result.policy.keepSnapshots}`
-  ];
-  for (const entry of result.entries) {
-    if (entry.eligible) {
-      const kinds = Object.entries(entry.byKind).map(([k, v]) => `${k}=${v}`).join(" ");
-      lines.push(`  [eligible] ${entry.runId} -> ${entry.capability} (${entry.capabilityReason}) ${entry.bytesToFree}B {${kinds}}`);
-    } else {
-      lines.push(`  [skip:${entry.reason}] ${entry.runId} (tier=${entry.tier})`);
-    }
-  }
-  if (!result.entries.length) lines.push("  (no runs in scope)");
-  return lines.join("\n");
-}
-
-export function formatGcRun(result: GcRunResult): string {
-  const lines = [`GC Run (${result.scope}): reclaimed ${result.reclaimed.length} run(s), freed ${result.totalBytesFreed} byte(s)`];
-  for (const r of result.reclaimed) lines.push(`  [reclaimed] ${r.runId} -> ${r.capability} (${r.capabilityReason}) ${r.bytesFreed}B tombstone=${r.tombstoneHash.slice(0, 19)}`);
-  for (const r of result.refused) lines.push(`  [refused:${r.code}] ${r.runId}`);
-  if (!result.reclaimed.length && !result.refused.length) lines.push("  (nothing eligible)");
-  return lines.join("\n");
-}
-
-export function formatGcVerify(result: GcVerifyResult): string {
-  const lines = [
-    `GC Verify ${result.runId}: reclaimed=${result.reclaimed} verified=${result.verified} tier=${result.tier} capability=${result.capability}${result.tombstoneHash ? ` tombstone=${result.tombstoneHash.slice(0, 19)}` : ""}`
-  ];
-  for (const check of result.checks) lines.push(`  ${check.pass ? "PASS" : "FAIL"} ${check.name}${check.code ? ` [${check.code}]` : ""}${check.detail ? ` (${check.detail})` : ""}`);
-  return lines.join("\n");
-}
-
-export function formatResume(result: RunResumeResult): string {
-  const lines = [
-    `Resume ${result.runId} [${result.lifecycle}] loopStage=${result.loopStage} (resolved from ${result.resolvedFrom}, ${result.freshness})`,
-    `  resumable=${result.resumable} nextTasks=${result.nextTasks.length}`
-  ];
-  for (const action of result.nextActions) lines.push(`  -> ${action.command}\n     ${action.reason}`);
-  return lines.join("\n");
-}
-
-export function formatHistory(result: RunHistoryResult): string {
-  const lines: string[] = [];
-  lines.push(`Run History (${result.scope}): ${result.total} run(s) across ${result.repos.length} repo(s), freshness=${result.freshness}`);
-  for (const entry of result.entries) {
-    lines.push(`  ${entry.createdAt} [${entry.lifecycle}] ${entry.runId} (${entry.appId || entry.workflowId})${entry.provenance?.rerunOf ? ` rerunOf=${entry.provenance.rerunOf}` : ""}`);
-  }
-  if (!result.entries.length) lines.push("  (no runs)");
-  return lines.join("\n");
-}
-
-export function formatQueueList(result: { total: number; entries: RunQueueEntry[] }): string {
-  const lines = [`Run Queue: ${result.total} entry(ies) [priority asc]`];
-  for (const entry of result.entries) {
-    lines.push(`  #${entry.priority} ${entry.id} [${entry.status}] ${entry.appId || entry.workflowId || entry.runId || "?"} repo=${entry.repo}${entry.note ? ` note=${entry.note}` : ""}`);
-  }
-  if (!result.entries.length) lines.push("  (queue empty)");
-  return lines.join("\n");
-}
+// Human formatting (CLI-only) now lives in ./run-registry/format.ts (FreeBSD-
+// audit R2: rendering carved out of the registry class). Re-exported so that
+// importers of "./run-registry" see an unchanged surface.
+export {
+  formatRegistryReport,
+  formatRunSearch,
+  formatRunShow,
+  formatGcPlan,
+  formatGcRun,
+  formatGcVerify,
+  formatResume,
+  formatHistory,
+  formatQueueList
+} from "./run-registry/format";
