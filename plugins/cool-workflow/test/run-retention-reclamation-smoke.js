@@ -18,6 +18,7 @@ const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state
 const { allocateWorkerScope, recordWorkerOutput } = require("../dist/worker-isolation");
 const { snapshotNode, loadNodeSnapshot } = require("../dist/node-snapshot");
 const { RunRegistry } = require("../dist/run-registry");
+const { listTrustAuditEvents } = require("../dist/trust-audit");
 const {
   runReclamation,
   planReclamation,
@@ -301,10 +302,28 @@ function fileManifest(root) {
   assert.equal(show.record.capability, "re-runnable-by-reconstruction");
   assert.equal(show.record.capabilityReason, "inputs-and-expectdigest-retained");
 
+  // gc-witness: reclaim records an independent trust-audit "run.reclaimed" event.
+  assert.ok(
+    listTrustAuditEvents(run).some((event) => event.kind === "run.reclaimed"),
+    "gc run records a trust-audit reclamation witness"
+  );
+
   // gc verify passes: reconstruction re-derives from the retained node body.
   let verify = reg.gcVerify("reconstruct", { scope: "repo" });
   assert.ok(verify.verified, "reconstructable reclaim verifies");
   assert.ok(verify.checks.some((c) => c.name.startsWith("reconstruct[")), "a reconstruction check ran");
+
+  // gc-witness: a DELETED reclaimed.json while the trust-audit witness remains must
+  // be flagged as proof-deletion (reclaimed=true, verified=false), NOT silently read
+  // as "never reclaimed". Restore the proof afterward for the tampering check below.
+  const proofPath = reclaimedLogPath(run);
+  const proofBackup = fs.readFileSync(proofPath, "utf8");
+  fs.rmSync(proofPath);
+  const wiped = reg.gcVerify("reconstruct", { scope: "repo" });
+  assert.equal(wiped.reclaimed, true, "deleted reclaimed.json + witness => still reclaimed (witness attests)");
+  assert.ok(!wiped.verified, "deleted reclaim proof fails verify");
+  assert.ok(wiped.checks.some((c) => c.code === "reclaim-proof-deleted"), "proof-deletion is reported, not 'never reclaimed'");
+  fs.writeFileSync(proofPath, proofBackup, "utf8");
 
   // Flip ONE retained input byte (mutate the source node body) -> mismatch.
   const fresh = require("../dist/state").loadRunFromCwd("reconstruct", repo);
