@@ -17,6 +17,8 @@ exports.artifactExists = artifactExists;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
+const execution_backend_1 = require("./execution-backend");
+const telemetry_attestation_1 = require("./telemetry-attestation");
 exports.STATE_NODE_SCHEMA_VERSION = 1;
 exports.PIPELINE_CONTRACT_SCHEMA_VERSION = 1;
 class PipelineContractError extends Error {
@@ -35,7 +37,7 @@ function createStateNode(input) {
     const now = new Date().toISOString();
     return {
         schemaVersion: exports.STATE_NODE_SCHEMA_VERSION,
-        id: input.id || createNodeId(input.kind),
+        id: input.id || createNodeId(input),
         kind: input.kind,
         status: input.status || "pending",
         loopStage: input.loopStage,
@@ -281,9 +283,22 @@ function contractError(code, message, options = {}) {
         ...options
     });
 }
-function createNodeId(kind) {
-    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `${kind}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic id (FreeBSD-audit L12/L13): no wall-clock stamp, no PRNG suffix.
+// Almost every node is created WITH an explicit, already-deterministic id
+// (e.g. `${run.id}:result:${task.id}`); this fallback only fires for ad-hoc nodes
+// minted without an id. We bind the id to a short sha256 of the node's stable
+// content (kind + loopStage + canonical inputs/outputs/contract), so the same
+// logical node yields a byte-identical id across runs and replay reaches the same
+// fingerprint. Two nodes with identical content collapse to the same id by design.
+function createNodeId(input) {
+    const digest = (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)({
+        kind: input.kind,
+        loopStage: input.loopStage,
+        contractId: input.contractId ?? null,
+        inputs: input.inputs ?? null,
+        outputs: input.outputs ?? null
+    }));
+    return `${input.kind}-${digest.replace("sha256:", "").slice(0, 16)}`;
 }
 function mergeById(existing, next) {
     const values = [...existing];

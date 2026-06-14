@@ -21,8 +21,9 @@ export class RoutineTriggerBridge {
 
   create(options: Record<string, unknown>): RoutineTrigger {
     const now = new Date().toISOString();
+    const store = this.load();
     const trigger: RoutineTrigger = {
-      id: createTriggerId(normalizeKind(options.kind)),
+      id: createTriggerId(normalizeKind(options.kind), store.triggers.length + 1),
       kind: normalizeKind(options.kind),
       createdAt: now,
       updatedAt: now,
@@ -33,7 +34,6 @@ export class RoutineTriggerBridge {
       match: parseJsonObject(options.match),
       metadata: parseJsonObject(options.metadata)
     };
-    const store = this.load();
     store.triggers.push(trigger);
     this.save(store);
     return trigger;
@@ -56,9 +56,10 @@ export class RoutineTriggerBridge {
     const normalizedKind = normalizeKind(kind);
     const store = this.load();
     const now = new Date().toISOString();
+    const base = store.events.length;
     const events = store.triggers
       .filter((trigger) => trigger.kind === normalizedKind)
-      .map((trigger) => this.createEvent(trigger, payload, now));
+      .map((trigger, index) => this.createEvent(trigger, payload, now, base + index + 1));
     store.events.push(...events);
     this.save(store);
     return events;
@@ -69,9 +70,9 @@ export class RoutineTriggerBridge {
     return triggerId ? store.events.filter((event) => event.triggerId === triggerId) : store.events;
   }
 
-  private createEvent(trigger: RoutineTrigger, payload: unknown, receivedAt: string): RoutineTriggerEvent {
+  private createEvent(trigger: RoutineTrigger, payload: unknown, receivedAt: string, seq: number): RoutineTriggerEvent {
     const matched = matches(trigger.match, payload);
-    const eventId = createEventId(trigger.kind);
+    const eventId = createEventId(trigger.kind, seq);
     const payloadPath = path.join(this.payloadsDir, `${safeFileName(eventId)}.json`);
     writeJson(payloadPath, {
       schemaVersion: 1,
@@ -157,12 +158,16 @@ function stringOption(value: unknown): string | undefined {
   return String(value);
 }
 
-function createTriggerId(kind: RoutineTriggerKind): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `${kind}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic trigger id (FreeBSD-audit L12/L13): the trigger's POSITION in the
+// append-only trigger store, qualified by kind. No wall-clock stamp, no PRNG suffix
+// — registering the same triggers in the same order mints byte-identical ids.
+function createTriggerId(kind: RoutineTriggerKind, seq: number): string {
+  return `${kind}-${String(seq).padStart(4, "0")}`;
 }
 
-function createEventId(kind: RoutineTriggerKind): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `event-${kind}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic event id (FreeBSD-audit L12/L13): the event's POSITION in the
+// append-only event log (firing many triggers at once still yields a distinct,
+// stable id per trigger). No clock, no PRNG.
+function createEventId(kind: RoutineTriggerKind, seq: number): string {
+  return `event-${kind}-${String(seq).padStart(4, "0")}`;
 }
