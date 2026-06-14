@@ -65,6 +65,19 @@ function handleLine(line) {
         sendError(message.id, -32000, messageOf(error));
     }
 }
+// This is an EXPLICIT switch by design, NOT a descriptor-driven generic dispatcher
+// (FreeBSD-audit R1, assessed & closed as won't-do). A data-routing rewrite is
+// ACTIVELY DANGEROUS here, not just risky: (1) `descriptor.entry` does NOT reliably
+// name the function an arm calls (e.g. cw_app_run entry="validateApp" actually calls
+// appRun; cw_commit entry="commit" calls commitEnvelope), so `runner[entry](args)`
+// would silently call the WRONG method; (2) the parity gate is token-set-only +
+// payload-probes ~30 read-only runId caps, so ~150 multi-positional/write arms are
+// UNPROBED — a mis-marshalling generic dispatcher would pass BOTH gates green = the
+// existential public false-green (a CW red line — see DIRECTION.md). The arms
+// work and parity guards the surface; the real defect the audit flagged (a DEAD
+// dispatcher) was already removed (#131). Cheap safe hardening, if ever wanted:
+// broaden parity-check payload probes to cover multi-positional/write arms, and
+// correct the wrong `entry` metadata — NOT a dispatch rewrite.
 function callTool(name, args) {
     const previousCwd = process.cwd();
     if (args.cwd)
