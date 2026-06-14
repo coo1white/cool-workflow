@@ -34,7 +34,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.METRICS_SCHEMA_VERSION = void 0;
+exports.formatMetricsSummary = exports.formatMetricsReport = exports.parseUsageFromArgs = exports.loadCostPolicy = exports.METRICS_SCHEMA_VERSION = void 0;
 exports.fingerprintMetricsSource = fingerprintMetricsSource;
 exports.deriveUsageTotals = deriveUsageTotals;
 exports.deriveAttestationCoverage = deriveAttestationCoverage;
@@ -49,10 +49,6 @@ exports.loadPersistedMetricsFingerprint = loadPersistedMetricsFingerprint;
 exports.loadPersistedMetricsReport = loadPersistedMetricsReport;
 exports.showMetricsReport = showMetricsReport;
 exports.deriveMetricsSummary = deriveMetricsSummary;
-exports.loadCostPolicy = loadCostPolicy;
-exports.parseUsageFromArgs = parseUsageFromArgs;
-exports.formatMetricsReport = formatMetricsReport;
-exports.formatMetricsSummary = formatMetricsSummary;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -775,148 +771,19 @@ function deriveMetricsSummary(inputs, options) {
     };
 }
 // ---------------------------------------------------------------------------
-// Pricing policy loader (POLICY as DATA — kept out of the kernel).
+// Intake (POLICY as DATA + host-attested usage parsing) now lives in
+// ./observability/intake.ts (god-module carve). Re-exported so importers of
+// "./observability" keep the unchanged surface.
 // ---------------------------------------------------------------------------
-/** Resolve a CostPolicy from CLI/MCP args. `--pricing <path>` loads a policy
- *  file; `--pricing default|bundled` loads the bundled example under
- *  manifest/pricing.policy.json. Absent ⇒ undefined ⇒ cost is `unpriced`/
- *  `unreported`, never guessed. */
-function loadCostPolicy(args, pluginRoot) {
-    const raw = args.pricing ?? args.pricingPolicy ?? args.policy;
-    if (raw === undefined || raw === null || raw === "")
-        return undefined;
-    const value = String(raw);
-    const file = value === "default" || value === "bundled"
-        ? node_path_1.default.join(pluginRoot, "manifest", "pricing.policy.json")
-        : node_path_1.default.resolve(value);
-    if (!node_fs_1.default.existsSync(file))
-        throw new Error(`Pricing policy file not found: ${file}`);
-    const parsed = (0, state_1.readJson)(file);
-    if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.models)) {
-        throw new Error(`Invalid pricing policy (expected schemaVersion 1 + models[]): ${file}`);
-    }
-    return parsed;
-}
-/** Parse a host-attested UsageRecord from CLI/MCP intake args. Returns undefined
- *  when NO usage was provided (⇒ `unreported`). CW never fabricates usage, so a
- *  caller that passes nothing gets nothing. */
-function parseUsageFromArgs(args, now) {
-    const inline = args.usage;
-    if (inline && typeof inline === "object" && !Array.isArray(inline)) {
-        return normalizeUsage(inline, now);
-    }
-    const input = numeric(args.usageInputTokens ?? args["usage-input-tokens"]);
-    const output = numeric(args.usageOutputTokens ?? args["usage-output-tokens"]);
-    const model = args.usageModel ?? args["usage-model"];
-    const total = numeric(args.usageTotalTokens ?? args["usage-total-tokens"]);
-    const cacheRead = numeric(args.usageCacheReadTokens ?? args["usage-cache-read-tokens"]);
-    const cacheWrite = numeric(args.usageCacheWriteTokens ?? args["usage-cache-write-tokens"]);
-    if (input === undefined && output === undefined && total === undefined && model === undefined) {
-        return undefined;
-    }
-    return normalizeUsage({
-        source: args.usageSource ?? args["usage-source"],
-        model,
-        inputTokens: input,
-        outputTokens: output,
-        totalTokens: total,
-        cacheReadTokens: cacheRead,
-        cacheWriteTokens: cacheWrite,
-        attestedAt: args.usageAttestedAt ?? args["usage-attested-at"],
-        note: args.usageNote ?? args["usage-note"]
-    }, now);
-}
-function normalizeUsage(raw, now) {
-    const source = raw.source === "operator-recorded" ? "operator-recorded" : "host-attested";
-    const usage = {
-        schemaVersion: 1,
-        source,
-        attestedAt: typeof raw.attestedAt === "string" && raw.attestedAt ? raw.attestedAt : now
-    };
-    if (raw.model !== undefined && raw.model !== null && raw.model !== "")
-        usage.model = String(raw.model);
-    const input = numeric(raw.inputTokens);
-    const output = numeric(raw.outputTokens);
-    const total = numeric(raw.totalTokens);
-    const cacheRead = numeric(raw.cacheReadTokens);
-    const cacheWrite = numeric(raw.cacheWriteTokens);
-    if (input !== undefined)
-        usage.inputTokens = input;
-    if (output !== undefined)
-        usage.outputTokens = output;
-    if (total !== undefined)
-        usage.totalTokens = total;
-    if (cacheRead !== undefined)
-        usage.cacheReadTokens = cacheRead;
-    if (cacheWrite !== undefined)
-        usage.cacheWriteTokens = cacheWrite;
-    if (raw.note !== undefined && raw.note !== null && raw.note !== "")
-        usage.note = String(raw.note);
-    return usage;
-}
-function numeric(value) {
-    if (value === undefined || value === null || value === "")
-        return undefined;
-    const n = Number(value);
-    return Number.isFinite(n) ? n : undefined;
-}
+var intake_1 = require("./observability/intake");
+Object.defineProperty(exports, "loadCostPolicy", { enumerable: true, get: function () { return intake_1.loadCostPolicy; } });
+Object.defineProperty(exports, "parseUsageFromArgs", { enumerable: true, get: function () { return intake_1.parseUsageFromArgs; } });
 // ---------------------------------------------------------------------------
-// Human formatters (CLI default text; --json emits the canonical payload).
+// Human formatters (CLI default text; --json emits the canonical payload) now
+// live in ./observability/format.ts (god-module carve, mirrors
+// run-registry/format.ts). Re-exported so importers of "./observability" keep
+// the unchanged surface.
 // ---------------------------------------------------------------------------
-function formatRate(r) {
-    if (r.state === "n/a")
-        return `n/a (0 samples)`;
-    return `${((r.rate * 100)).toFixed(1)}% (${r.count}/${r.total})`;
-}
-function formatMs(ms) {
-    if (ms === null)
-        return "—";
-    if (ms < 1000)
-        return `${ms}ms`;
-    return `${(ms / 1000).toFixed(1)}s`;
-}
-function formatCost(c) {
-    const parts = [`state=${c.state}`];
-    if (c.attestedUsd !== null)
-        parts.push(`attested=${c.currency} ${c.attestedUsd}`);
-    if (c.estimatedUsd !== null)
-        parts.push(`estimated=${c.currency} ${c.estimatedUsd}`);
-    if (c.unpricedModels.length)
-        parts.push(`unpriced-models=${c.unpricedModels.join(",")}`);
-    return parts.join("  ");
-}
-function formatMetricsReport(report) {
-    const lines = [];
-    lines.push(`metrics ${report.runId}  [${report.freshness.status}]  app=${report.scope.app || "-"}`);
-    lines.push(`  time: run=${formatMs(report.time.run.wallClockMs)}${report.time.run.inFlight ? " (in-flight)" : ""}  active-task=${formatMs(report.time.activeTaskMs)}  in-flight-items=${report.time.inFlight}`);
-    lines.push(`  failure-rate:    ${formatRate(report.rates.failure)}`);
-    lines.push(`  verifier-pass:   ${formatRate(report.rates.verifierPass)}`);
-    lines.push(`  cand-acceptance: ${formatRate(report.rates.candidateAcceptance)}`);
-    const collab = report.collaboration;
-    lines.push(`  collaboration:   approvals=${collab.approvals} rejections=${collab.rejections} comments=${collab.comments} handoffs=${collab.handoffs} reviewers=${collab.reviewers}  approval-rate=${formatRate(collab.approvalRate)}  time-to-approval=${collab.timeToApproval.meanMs === null ? "n/a" : `${Math.round(collab.timeToApproval.meanMs / 1000)}s`} (${collab.timeToApproval.samples} samples)`);
-    const cov = report.usage.coverage === null ? "n/a" : `${(report.usage.coverage * 100).toFixed(0)}%`;
-    lines.push(`  usage: attested=${report.usage.attestedUnits}/${report.usage.units} units (coverage ${cov}), unreported=${report.usage.unreportedUnits}; tokens in=${report.usage.inputTokens} out=${report.usage.outputTokens} total=${report.usage.totalTokens}`);
-    lines.push(`  cost:  ${formatCost(report.cost)}`);
-    if (report.usage.models.length)
-        lines.push(`  models: ${report.usage.models.join(", ")}`);
-    lines.push(`  next: ${report.nextAction}`);
-    return lines.join("\n");
-}
-function formatMetricsSummary(summary) {
-    const lines = [];
-    lines.push(`metrics summary  scope=${summary.scope}  runs=${summary.runCount}${summary.unreadableRuns ? ` (+${summary.unreadableRuns} unreadable)` : ""}`);
-    lines.push(`  failure-rate:    ${formatRate(summary.rates.failure)}`);
-    lines.push(`  verifier-pass:   ${formatRate(summary.rates.verifierPass)}`);
-    lines.push(`  cand-acceptance: ${formatRate(summary.rates.candidateAcceptance)}`);
-    const cov = summary.usage.coverage === null ? "n/a" : `${(summary.usage.coverage * 100).toFixed(0)}%`;
-    lines.push(`  usage: attested=${summary.usage.attestedUnits}/${summary.usage.units} units (coverage ${cov}); tokens total=${summary.usage.totalTokens}`);
-    lines.push(`  cost:  ${formatCost(summary.cost)}`);
-    for (const app of summary.byApp) {
-        lines.push(`  app ${app.key}: runs=${app.runCount} verifier=${formatRate(app.rates.verifierPass)} cost=${formatCost(app.cost)}`);
-    }
-    for (const backend of summary.byBackend) {
-        lines.push(`  backend ${backend.key}: runs=${backend.runCount} failure=${formatRate(backend.rates.failure)}`);
-    }
-    lines.push(`  next: ${summary.nextAction}`);
-    return lines.join("\n");
-}
+var format_1 = require("./observability/format");
+Object.defineProperty(exports, "formatMetricsReport", { enumerable: true, get: function () { return format_1.formatMetricsReport; } });
+Object.defineProperty(exports, "formatMetricsSummary", { enumerable: true, get: function () { return format_1.formatMetricsSummary; } });
