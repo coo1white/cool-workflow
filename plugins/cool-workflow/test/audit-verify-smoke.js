@@ -15,7 +15,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const { recordTrustAuditEvent } = require("../dist/trust-audit");
+const { recordTrustAuditEvent, verifyTrustAudit } = require("../dist/trust-audit");
 const cli = path.join(__dirname, "..", "dist", "cli.js");
 
 function runCli(cwd, args) {
@@ -74,4 +74,20 @@ assert.ok(
 r = runCli(cwd, ["audit", "summary", runId, "--json"]);
 assert.equal(r.status, 0, "audit summary still exits 0 on a tampered run (unchanged)");
 
-process.stdout.write("audit-verify-smoke: ok (absent=0, intact=0, forged=1, summary unchanged=0)\n");
+// Regression: an event carrying an undefined field (real-world: worker-dispatch
+// audit metadata with an absent dispatchId) must still RE-VERIFY. computeEventHash
+// binds the PERSISTED form (JSON.stringify drops undefined keys); before the fix it
+// hashed the in-memory form (stableStringify keeps them as null), so every worker
+// event false-failed as trust-audit-digest-mismatch — breaking `audit verify` on
+// honest runs.
+{
+  const undefDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-undef-"));
+  const r2 = { id: "undef-run", paths: { runDir: undefDir } };
+  recordTrustAuditEvent(r2, { kind: "sandbox.path", decision: "allowed", source: "cw-validated", workerId: "w1", metadata: { absent: undefined, present: "x" } });
+  recordTrustAuditEvent(r2, { kind: "commit.gate", decision: "recorded", source: "cw-validated", metadata: { also: undefined } });
+  const integ = verifyTrustAudit(r2);
+  assert.equal(integ.eventCount, 2, "both undefined-bearing events present");
+  assert.equal(integ.verified, true, "events with undefined fields re-verify (persisted-form hash)");
+}
+
+process.stdout.write("audit-verify-smoke: ok (absent=0, intact=0, forged=1, summary unchanged=0, undefined-field re-verifies)\n");
