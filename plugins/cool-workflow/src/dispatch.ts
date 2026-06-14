@@ -1,11 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
-import { DispatchManifest, DispatchTask, ResolvedSandboxPolicy, RunPhase, RunTask, WorkflowRun } from "./types";
+import { DispatchManifest, DispatchTask, ResolvedSandboxPolicy, RunPhase, RunTask, SandboxProfileDefinition, WorkflowRun } from "./types";
 import { writeJson } from "./state";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import { appendRunNode, createStateNode, transitionStateNode } from "./state-node";
 import { allocateWorkerScope, syncWorkerScopeFromTask, writeWorkerManifest } from "./worker-isolation";
-import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation } from "./sandbox-profile";
+import {
+  DEFAULT_SANDBOX_PROFILE_ID,
+  isBundledSandboxProfileId,
+  resolveSandboxProfileById,
+  sandboxContextForValidation,
+  validateSandboxProfileFile
+} from "./sandbox-profile";
 import { resolveBackendSelection } from "./execution-backend";
 import { attachDispatchToMultiAgent } from "./multi-agent";
 
@@ -34,6 +40,12 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
   const requestedSandboxProfileId = options.sandboxProfileId || options.sandbox;
   const sandboxProfileId = String(requestedSandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID);
   resolveSandboxProfileById(sandboxProfileId, sandboxContextForValidation(run.cwd));
+  // H7: if the requested profile is a CUSTOM profile loaded from a FILE (non-bundled,
+  // existing file), persist its DEFINITION on run.customSandboxProfiles keyed by the
+  // definition's logical id. This makes the custom profile durable with run state so a
+  // worker boundary can re-resolve it by logical id after a scope snapshot is lost
+  // (re-resolving against the worker context, not the dispatch-time file path).
+  persistCustomSandboxProfile(run, sandboxProfileId);
   // Resolve the execution backend once (mechanism vs policy): the kernel records
   // WHICH backend was selected; it never branches on which one. Defaults to node
   // (behavior-preserving) when no `--backend` flag / CW_BACKEND env is set.
@@ -208,4 +220,29 @@ export function formatDispatchTask(task: RunTask): DispatchTask {
 function createDispatchId(): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
   return `dispatch-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// H7: persist a CUSTOM sandbox profile DEFINITION (loaded from a FILE at dispatch)
+// onto run.customSandboxProfiles, keyed by the definition's logical id. Only fires
+// for a non-bundled id that resolves to a readable, valid profile file. The
+// resolveSandboxProfileById call above has already validated the file (it throws on
+// invalid), so this re-parses only to recover the raw DEFINITION — we store the
+// definition (not a resolved policy) so worker-specific path tokens re-bind to the
+// correct worker context on every later re-resolve. Bundled ids and unknown ids are
+// left untouched, so this never shadows a bundled profile or masks a fail-closed.
+function persistCustomSandboxProfile(run: WorkflowRun, requested: string): void {
+  if (!requested || isBundledSandboxProfileId(requested)) return;
+  const absolute = path.resolve(requested);
+  if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) return;
+  const validation = validateSandboxProfileFile(requested, sandboxContextForValidation(run.cwd));
+  if (!validation.valid || !validation.profile) return;
+  let definition: SandboxProfileDefinition;
+  try {
+    definition = JSON.parse(fs.readFileSync(absolute, "utf8")) as SandboxProfileDefinition;
+  } catch {
+    return;
+  }
+  if (!definition || typeof definition !== "object" || typeof definition.id !== "string" || !definition.id) return;
+  run.customSandboxProfiles = run.customSandboxProfiles || {};
+  run.customSandboxProfiles[definition.id] = definition;
 }

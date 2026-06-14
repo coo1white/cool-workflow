@@ -31,10 +31,19 @@ export const TRUST_AUDIT_SCHEMA_VERSION = 1;
 // detects casual/partial tampering, accidental corruption, truncation, removal,
 // and forged-unchained lines — but NOT a determined local writer who re-chains the
 // WHOLE log with this module's own sha256 after an edit. That is the same limit
-// reclamation.ts's tombstone chain has; closing it requires signing the chain head
-// with the operator ed25519 key the telemetry ledger already uses (a follow-up,
-// the only true external anchor). The chain is a strict upgrade over a bare
-// append-only log, not a substitute for a signature.
+// reclamation.ts's tombstone chain has, and it is INHERENT to a local, self-
+// recomputable chain: closing it needs an anchor the writer cannot reproduce.
+// CW cannot self-sign that anchor — by design CW holds NO private key (see
+// telemetry-attestation.ts: "CW never holds the private key"; the AGENT signs its
+// usage, CW only VERIFIES with the operator-provisioned public half). The single
+// cryptographic anchor that exists is therefore the agent's telemetry signature,
+// which binds agent-reported USAGE (worker-isolation cross-links the chain into it)
+// — it does NOT cover CW-only sandbox/policy/commit-gate decisions, which have no
+// external signer. For those, the only stronger guarantee is operational: commit
+// events.jsonl to an external append-only medium (git history / a remote log) the
+// local writer cannot rewrite. The chain is a strict upgrade over a bare append-
+// only log, not a substitute for an external anchor — and that anchor is not
+// something CW can mint for itself.
 
 /** Single source of truth for a run's audit-paths object: the schemaVersion plus
  *  the three derived file paths under auditRoot(run). ensureTrustAudit /

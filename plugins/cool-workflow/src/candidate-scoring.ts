@@ -100,7 +100,7 @@ export function registerCandidate(
   const existing = input.id ? getCandidate(run, input.id) : undefined;
   if (existing) return existing;
   const now = new Date().toISOString();
-  const id = input.id || createCandidateId(input.kind || "manual", input.workerId || input.taskId || input.resultNodeId);
+  const id = input.id || createCandidateId(run, input.kind || "manual", input.workerId || input.taskId || input.resultNodeId);
   const candidate: CandidateRecord = {
     schemaVersion: CANDIDATE_SCHEMA_VERSION,
     id,
@@ -173,7 +173,7 @@ export function scoreCandidate(
   options: CandidateScoringOptions = {}
 ): CandidateScore {
   const candidate = requireCandidate(run, candidateId);
-  const scoreId = input.id || createScoreId(candidateId);
+  const scoreId = input.id || createScoreId(candidate);
   const evidence = normalizeEvidence(run, input.evidence || [], {
     source: "operator-recorded",
     candidateId,
@@ -350,7 +350,7 @@ export function selectCandidate(
   const now = new Date().toISOString();
   const selection: CandidateSelection = {
     schemaVersion: CANDIDATE_SCHEMA_VERSION,
-    id: createSelectionId(candidateId),
+    id: createSelectionId(run, candidateId),
     runId: run.id,
     candidateId,
     selectedAt: now,
@@ -740,20 +740,28 @@ function rankingPath(run: WorkflowRun): string {
   return path.join(candidateRoot(run), "ranking.json");
 }
 
-function createCandidateId(kind: CandidateKind, seed?: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  const suffix = Math.random().toString(36).slice(2, 8);
-  return `candidate-${safeFileName(kind)}-${seed ? `${safeFileName(seed)}-` : ""}${stamp}-${suffix}`;
+// Deterministic candidate id (FreeBSD-audit L12/L13): the candidate's POSITION in
+// the run's candidate set, qualified by kind + seed (a stable worker/task/result
+// id) for readability. No wall-clock stamp, no PRNG suffix — re-running the same
+// workflow mints byte-identical candidate ids, keeping fingerprints replay-stable.
+function createCandidateId(run: WorkflowRun, kind: CandidateKind, seed?: string): string {
+  const seq = (run.candidates || []).length + 1;
+  return `candidate-${safeFileName(kind)}-${seed ? `${safeFileName(seed)}-` : ""}${String(seq).padStart(4, "0")}`;
 }
 
-function createScoreId(candidateId: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `score-${safeFileName(candidateId)}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic score id (FreeBSD-audit L12/L13): the score's POSITION within its
+// candidate's score list. Scores only ever append, so the sequence is unique per
+// candidate and stable across replays.
+function createScoreId(candidate: CandidateRecord): string {
+  const seq = (candidate.scores || []).length + 1;
+  return `score-${safeFileName(candidate.id)}-${String(seq).padStart(4, "0")}`;
 }
 
-function createSelectionId(candidateId: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `selection-${safeFileName(candidateId)}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic selection id (FreeBSD-audit L12/L13): the selection's POSITION in
+// the run's append-only selection log. No clock, no PRNG.
+function createSelectionId(run: WorkflowRun, candidateId: string): string {
+  const seq = (run.candidateSelections || []).length + 1;
+  return `selection-${safeFileName(candidateId)}-${String(seq).padStart(4, "0")}`;
 }
 
 function shouldPersist(options: CandidateScoringOptions): boolean {

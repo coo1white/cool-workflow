@@ -217,7 +217,7 @@ export function persistMultiAgentState(run: WorkflowRun): void {
 
 export function createMultiAgentRun(run: WorkflowRun, input: CreateMultiAgentRunInput = {}): MultiAgentRun {
   const state = ensureMultiAgentState(run);
-  const id = input.id || createId("mar");
+  const id = input.id || createId("mar", state.runs.length + 1);
   if (state.runs.some((record) => record.id === id)) throw new Error(`Duplicate MultiAgentRun id: ${id}`);
   const now = new Date().toISOString();
   const status = input.status || "planned";
@@ -370,7 +370,7 @@ function completeOwnedMultiAgentRecords(run: WorkflowRun, multiAgentRun: MultiAg
 export function createAgentRole(run: WorkflowRun, input: CreateAgentRoleInput): AgentRole {
   const state = ensureMultiAgentState(run);
   const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId);
-  const id = input.id || createId("role");
+  const id = input.id || createId("role", state.roles.length + 1);
   if (state.roles.some((record) => record.id === id)) throw new Error(`Duplicate AgentRole id: ${id}`);
   if (input.parentRoleId) requireAgentRole(run, input.parentRoleId);
   const now = new Date().toISOString();
@@ -432,7 +432,7 @@ export function createAgentRole(run: WorkflowRun, input: CreateAgentRoleInput): 
 export function createAgentGroup(run: WorkflowRun, input: CreateAgentGroupInput): AgentGroup {
   const state = ensureMultiAgentState(run);
   const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId);
-  const id = input.id || createId("group");
+  const id = input.id || createId("group", state.groups.length + 1);
   if (state.groups.some((record) => record.id === id)) throw new Error(`Duplicate AgentGroup id: ${id}`);
   if (input.parentGroupId) requireAgentGroup(run, input.parentGroupId);
   for (const taskId of input.taskIds || []) requireRunTask(run, taskId);
@@ -511,7 +511,7 @@ export function assignAgentMembership(run: WorkflowRun, input: AssignAgentMember
   if (duplicate) {
     throw new Error(`Duplicate AgentMembership for group=${group.id}, role=${role.id}, task=${task.id}, worker=${input.workerId || "none"}`);
   }
-  const id = input.id || createId("membership");
+  const id = input.id || createId("membership", state.memberships.length + 1);
   if (state.memberships.some((record) => record.id === id)) throw new Error(`Duplicate AgentMembership id: ${id}`);
   const now = new Date().toISOString();
   const status = input.status || (input.workerId ? "running" : "assigned");
@@ -582,7 +582,7 @@ export function createAgentFanout(run: WorkflowRun, input: CreateAgentFanoutInpu
   const group = requireAgentGroup(run, input.groupId);
   const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId || group.multiAgentRunId);
   if (group.multiAgentRunId !== multiAgentRun.id) throw new Error(`AgentGroup ${group.id} does not belong to ${multiAgentRun.id}`);
-  const id = input.id || createId("fanout");
+  const id = input.id || createId("fanout", state.fanouts.length + 1);
   if (state.fanouts.some((record) => record.id === id)) throw new Error(`Duplicate AgentFanout id: ${id}`);
   for (const roleId of input.roleIds || []) requireAgentRole(run, roleId);
   for (const taskId of input.taskIds || []) requireRunTask(run, taskId);
@@ -764,7 +764,7 @@ export function collectAgentFanin(run: WorkflowRun, input: CollectAgentFaninInpu
   const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId || group.multiAgentRunId);
   if (group.multiAgentRunId !== multiAgentRun.id) throw new Error(`Group ${group.id} does not belong to MultiAgentRun ${multiAgentRun.id}`);
   if (fanout && fanout.groupId !== group.id) throw new Error(`Fanout ${fanout.id} does not belong to group ${group.id}`);
-  const id = input.id || createId("fanin");
+  const id = input.id || createId("fanin", state.fanins.length + 1);
   if (state.fanins.some((record) => record.id === id)) throw new Error(`Duplicate AgentFanin id: ${id}`);
   const requiredRoleIds = unique(input.requiredRoleIds?.length ? input.requiredRoleIds : group.roleIds);
   for (const roleId of requiredRoleIds) requireAgentRole(run, roleId);
@@ -1272,9 +1272,13 @@ function touch<T extends { updatedAt: string }>(record: T): T {
   return record;
 }
 
-function createId(prefix: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `${prefix}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
+// per-run collection, threaded from the call site. No wall-clock stamp, no PRNG
+// suffix — re-running the same multi-agent topology mints byte-identical ids, so
+// snapshot/replay digests match. Each call site already asserts the minted id is
+// unique within its collection, and these collections only ever append.
+function createId(prefix: string, seq: number): string {
+  return `${prefix}-${String(seq).padStart(4, "0")}`;
 }
 
 function compact(value: Record<string, unknown> | undefined): Record<string, unknown> | undefined {

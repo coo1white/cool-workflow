@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-14 by `npm run sync:projec
 - Source modules: `58`
 - Workflow apps: `7`
 - Docs: `47`
-- Smoke tests: `78`
+- Smoke tests: `79`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -193,6 +193,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [contract-migration-tooling-smoke.js](../test/contract-migration-tooling-smoke.js)
 - [control-plane-scheduling-smoke.js](../test/control-plane-scheduling-smoke.js)
 - [coordinator-blackboard-smoke.js](../test/coordinator-blackboard-smoke.js)
+- [det-ids-b-smoke.js](../test/det-ids-b-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
 - [durable-atomic-write-smoke.js](../test/durable-atomic-write-smoke.js)
 - [end-to-end-demo-smoke.js](../test/end-to-end-demo-smoke.js)
@@ -203,8 +204,8 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [evidence-content-extraction-smoke.js](../test/evidence-content-extraction-smoke.js)
 - [execution-backends-smoke.js](../test/execution-backends-smoke.js)
 - [freebsd-audit-fixes-smoke.js](../test/freebsd-audit-fixes-smoke.js)
+- [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
-- [mcp-required-args-equivalence-smoke.js](../test/mcp-required-args-equivalence-smoke.js)
 - [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
 - [multi-agent-eval-replay-harness-smoke.js](../test/multi-agent-eval-replay-harness-smoke.js)
 - [multi-agent-eval-replay-smoke.js](../test/multi-agent-eval-replay-smoke.js)

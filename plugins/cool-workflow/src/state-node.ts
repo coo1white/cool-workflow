@@ -12,6 +12,8 @@ import {
   WorkflowRun
 } from "./types";
 import { safeFileName, writeJson } from "./state";
+import { sha256 } from "./execution-backend";
+import { stableStringify } from "./telemetry-attestation";
 
 export const STATE_NODE_SCHEMA_VERSION = 1;
 export const PIPELINE_CONTRACT_SCHEMA_VERSION = 1;
@@ -43,10 +45,6 @@ export interface CreateStateNodeInput {
   children?: string[];
   contractId?: string;
   metadata?: Record<string, unknown>;
-  // Same-kind sibling nodes already minted in this run, used to derive a
-  // deterministic per-run sequence id when no explicit `id` is supplied
-  // (mirrors worker-isolation.ts createWorkerId). Ignored when `id` is set.
-  existingNodes?: StateNode[];
 }
 
 export interface TransitionStateNodeInput {
@@ -62,7 +60,7 @@ export function createStateNode(input: CreateStateNodeInput): StateNode {
   const now = new Date().toISOString();
   return {
     schemaVersion: STATE_NODE_SCHEMA_VERSION,
-    id: input.id || createNodeId(input.kind, input.existingNodes),
+    id: input.id || createNodeId(input),
     kind: input.kind,
     status: input.status || "pending",
     loopStage: input.loopStage,
@@ -328,17 +326,24 @@ function contractError(
   });
 }
 
-// Deterministic node id (mirrors worker-isolation.ts createWorkerId): a wall-clock
-// stamp + Math.random() made every mint a different id, so audit references were not
-// reproducible across re-runs of the same inputs. The id is now derived from the
-// kind plus a per-run sequence (count of same-kind nodes already minted + 1,
-// zero-padded), so re-running the same workflow yields byte-identical node ids. The
-// minted id is excluded from the snapshot source fingerprint, so this does not change
-// replay digests. Explicit `id` callers still short-circuit and pass through unchanged.
-function createNodeId(kind: StateNodeKind, existingNodes: StateNode[] = []): string {
-  const prefix = `${kind}-`;
-  const seq = existingNodes.filter((node) => node.id.startsWith(prefix)).length + 1;
-  return `${prefix}${String(seq).padStart(4, "0")}`;
+// Deterministic id (FreeBSD-audit L12/L13): no wall-clock stamp, no PRNG suffix.
+// Almost every node is created WITH an explicit, already-deterministic id
+// (e.g. `${run.id}:result:${task.id}`); this fallback only fires for ad-hoc nodes
+// minted without an id. We bind the id to a short sha256 of the node's stable
+// content (kind + loopStage + canonical inputs/outputs/contract), so the same
+// logical node yields a byte-identical id across runs and replay reaches the same
+// fingerprint. Two nodes with identical content collapse to the same id by design.
+function createNodeId(input: CreateStateNodeInput): string {
+  const digest = sha256(
+    stableStringify({
+      kind: input.kind,
+      loopStage: input.loopStage,
+      contractId: input.contractId ?? null,
+      inputs: input.inputs ?? null,
+      outputs: input.outputs ?? null
+    })
+  );
+  return `${input.kind}-${digest.replace("sha256:", "").slice(0, 16)}`;
 }
 
 function mergeById<T extends { id: string }>(existing: T[], next: T[]): T[] {

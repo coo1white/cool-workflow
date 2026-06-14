@@ -112,6 +112,19 @@ function handleLine(line: string): void {
   }
 }
 
+// This is an EXPLICIT switch by design, NOT a descriptor-driven generic dispatcher
+// (FreeBSD-audit R1, assessed & closed as won't-do). A data-routing rewrite is
+// ACTIVELY DANGEROUS here, not just risky: (1) `descriptor.entry` does NOT reliably
+// name the function an arm calls (e.g. cw_app_run entry="validateApp" actually calls
+// appRun; cw_commit entry="commit" calls commitEnvelope), so `runner[entry](args)`
+// would silently call the WRONG method; (2) the parity gate is token-set-only +
+// payload-probes ~30 read-only runId caps, so ~150 multi-positional/write arms are
+// UNPROBED — a mis-marshalling generic dispatcher would pass BOTH gates green = the
+// existential public false-green (a CW red line — see DIRECTION.md). The arms
+// work and parity guards the surface; the real defect the audit flagged (a DEAD
+// dispatcher) was already removed (#131). Cheap safe hardening, if ever wanted:
+// broaden parity-check payload probes to cover multi-positional/write arms, and
+// correct the wrong `entry` metadata — NOT a dispatch rewrite.
 function callTool(name: string, args: Record<string, unknown>): unknown {
   const previousCwd = process.cwd();
   if (args.cwd) process.chdir(String(args.cwd));
@@ -523,13 +536,11 @@ function requiredToolArguments(name: string, value: unknown): Record<string, unk
 }
 
 function requiredArgsForTool(name: string): string[] {
-  // SINGLE SOURCE OF TRUTH: the required-argument groups live on each capability
-  // descriptor (capability-registry.ts MCP_REQUIRED_ARGS, applied to its
-  // `requiredArgs`). Look up the descriptor whose mcp tool matches and return its
-  // groups, or an empty array. This replaced the former substring-heuristic
-  // if-ladder + 88-name runId array so registry and validator never drift.
-  const descriptor = CAPABILITY_REGISTRY.find((cap) => cap.mcp?.tool === name);
-  return descriptor?.requiredArgs ? [...descriptor.requiredArgs] : [];
+  // Required args are declared once per capability as data on the mcp binding
+  // (McpBinding.requiredArgs). This is a pure data read of the parity-gated
+  // registry — no string-pattern ladder.
+  const descriptor = CAPABILITY_REGISTRY.find((capability) => capability.mcp?.tool === name);
+  return descriptor?.mcp?.requiredArgs ?? [];
 }
 
 function toolDefinitions(): unknown[] {

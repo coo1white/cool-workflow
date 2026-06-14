@@ -34,7 +34,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatQueueList = exports.formatHistory = exports.formatResume = exports.formatGcVerify = exports.formatGcRun = exports.formatGcPlan = exports.formatRunShow = exports.formatRunSearch = exports.formatRegistryReport = exports.RunRegistry = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.RUN_REGISTRY_SCHEMA_VERSION = exports.isRunLifecycleState = exports.compareQueue = void 0;
+exports.formatQueueList = exports.formatHistory = exports.formatResume = exports.formatGcVerify = exports.formatGcRun = exports.formatGcPlan = exports.formatRunShow = exports.formatRunSearch = exports.formatRegistryReport = exports.RunRegistry = exports.RUN_REGISTRY_SCHEMA_VERSION = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.isRunLifecycleState = exports.compareQueue = void 0;
 exports.resolveCwHome = resolveCwHome;
 exports.deriveLifecycle = deriveLifecycle;
 const node_crypto_1 = __importDefault(require("node:crypto"));
@@ -42,27 +42,17 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_os_1 = __importDefault(require("node:os"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
-const reclamation_1 = require("./reclamation");
+// planReclamation/runReclamation/verifyReclamation/ReclamationError moved with the
+// GC cluster into ./run-registry/gc (FreeBSD-audit R2 deep).
 const compare_1 = require("./compare");
 const derive_1 = require("./run-registry/derive");
 Object.defineProperty(exports, "compareQueue", { enumerable: true, get: function () { return derive_1.compareQueue; } });
 Object.defineProperty(exports, "isRunLifecycleState", { enumerable: true, get: function () { return derive_1.isRunLifecycleState; } });
-exports.RUN_REGISTRY_SCHEMA_VERSION = 1;
-// POLICY defaults. Configurable; never baked into the index. archiveOlderThanDays
-// = 0 disables retention archiving (explicit selection still works). The v0.1.39
-// reclamation knobs all default to RECLAIM NOTHING (back-compatible, opt-in).
-exports.DEFAULT_RUN_REGISTRY_POLICY = {
-    schemaVersion: 1,
-    archiveOlderThanDays: 0,
-    archiveStates: ["completed", "failed"],
-    defaultQueuePriority: 100,
-    reclaimAfterArchiveDays: 0,
-    reclaimStates: ["completed", "failed"],
-    keepSnapshots: false,
-    keepScratch: false,
-    maxReclaimRuns: 0,
-    maxReclaimBytes: 0
-};
+const gc_1 = require("./run-registry/gc");
+const queue_1 = require("./run-registry/queue");
+const policy_1 = require("./run-registry/policy");
+Object.defineProperty(exports, "DEFAULT_RUN_REGISTRY_POLICY", { enumerable: true, get: function () { return policy_1.DEFAULT_RUN_REGISTRY_POLICY; } });
+Object.defineProperty(exports, "RUN_REGISTRY_SCHEMA_VERSION", { enumerable: true, get: function () { return policy_1.RUN_REGISTRY_SCHEMA_VERSION; } });
 // ---------------------------------------------------------------------------
 // Home registry location (EXPLICIT, INSPECTABLE STATE)
 // ---------------------------------------------------------------------------
@@ -166,6 +156,8 @@ class RunRegistry {
     repoRegistryDir(repo) {
         return node_path_1.default.join(repo, ".cw", "registry");
     }
+    // Public so the carved queue cluster (run-registry/queue.ts) can resolve the
+    // home-registry dir without reaching into private state (QueueHost).
     homeRegistryDir() {
         return node_path_1.default.join(this.homeRoot, "registry");
     }
@@ -199,6 +191,11 @@ class RunRegistry {
             archive: this.loadArchiveOverlay(repo),
             provenance: this.loadProvenanceOverlay(repo)
         };
+    }
+    /** Default queue priority from POLICY (QueueHost). Exposed so the carved queue
+     *  cluster never re-derives policy. */
+    get defaultQueuePriority() {
+        return policy_1.DEFAULT_RUN_REGISTRY_POLICY.defaultQueuePriority;
     }
     // ---- home registry files ------------------------------------------------
     reposFilePath() {
@@ -241,23 +238,12 @@ class RunRegistry {
             return { registered: !already, repos: current.repos.map((entry) => entry.root) };
         });
     }
-    queueFilePath() {
-        return node_path_1.default.join(this.homeRegistryDir(), "queue.json");
-    }
+    // Queue file helpers + queueAdd/List/Show/Drain now live in ./run-registry/queue
+    // (FreeBSD-audit R2 deep). These remain as thin delegators; `this` satisfies the
+    // QueueHost contract structurally (repoRoot, defaultQueuePriority,
+    // homeRegistryDir, registerRepo).
     loadQueue() {
-        const file = this.queueFilePath();
-        if (!node_fs_1.default.existsSync(file))
-            return [];
-        try {
-            const parsed = (0, state_1.readJson)(file);
-            return Array.isArray(parsed.entries) ? parsed.entries : [];
-        }
-        catch {
-            return [];
-        }
-    }
-    saveQueue(entries) {
-        (0, state_1.writeJson)(this.queueFilePath(), { schemaVersion: 1, entries }, { durable: true });
+        return (0, queue_1.loadQueue)(this);
     }
     // Public queue accessors for the v0.1.37 control-plane scheduler (it operates ON
     // this queue store via pure functions in scheduling.ts; the queue file is never
@@ -267,7 +253,7 @@ class RunRegistry {
         return this.loadQueue();
     }
     saveQueueEntries(entries) {
-        this.saveQueue(entries);
+        (0, queue_1.saveQueue)(this, entries);
     }
     schedulingPolicyPath() {
         return node_path_1.default.join(this.homeRegistryDir(), "scheduling-policy.json");
@@ -552,6 +538,8 @@ class RunRegistry {
             nextAction: "node scripts/cw.js registry refresh" + (scope === "home" ? " --scope home" : "")
         };
     }
+    // Public so the carved gc cluster (run-registry/gc.ts) can resolve a run
+    // repo-first without reaching into private state (GcHost).
     locate(runId, scope) {
         // Current repo first (least astonishment: cwd wins).
         const here = this.deriveRecordForRun(this.repoRoot, runId);
@@ -583,6 +571,8 @@ class RunRegistry {
         }
         return undefined;
     }
+    // Public so the carved gc cluster (run-registry/gc.ts) can load source state
+    // for a resolved run without reaching into private state (GcHost).
     loadRun(repo, runId) {
         const statePath = node_path_1.default.join(this.repoRunsDir(repo), runId, "state.json");
         if (!node_fs_1.default.existsSync(statePath))
@@ -683,7 +673,7 @@ class RunRegistry {
     /** Apply a retention POLICY: archive eligible runs older than the window. The
      *  window/states are policy inputs, never baked into the index. Returns the set
      *  archived; archives are overlay marks, so nothing is destroyed. */
-    archiveByPolicy(policy = exports.DEFAULT_RUN_REGISTRY_POLICY, options = {}) {
+    archiveByPolicy(policy = policy_1.DEFAULT_RUN_REGISTRY_POLICY, options = {}) {
         const scope = options.scope || "home";
         if (!policy.archiveOlderThanDays || policy.archiveOlderThanDays <= 0) {
             return { policy, archived: [], eligible: 0 };
@@ -704,227 +694,29 @@ class RunRegistry {
     // dry-run (frees nothing); `gc run` executes the write-ahead reclamation
     // transaction (skeleton → tombstone → fsync → free); `gc verify` re-proves a
     // reclaimed run independently. Eligibility is explicit and fail-closed.
+    // Implementations live in ./run-registry/gc (FreeBSD-audit R2 deep); these are
+    // thin delegators preserving the public surface. `this` satisfies GcHost
+    // (buildIndex, locate, loadRun).
     /** Resolve the effective reclamation policy (defaults reclaim NOTHING). */
     reclamationPolicy(overrides = {}) {
-        return { ...exports.DEFAULT_RUN_REGISTRY_POLICY, ...overrides };
-    }
-    /** Fail-closed eligibility: terminal AND archived AND no open feedback AND past
-     *  retention. Returns the matching refusal code, or null when eligible. Reads
-     *  the live-source-derived record; order yields distinct, stable codes. */
-    reclaimEligibility(record, policy, nowMs) {
-        if (record.tier === "reclaimed")
-            return "already-reclaimed";
-        const terminalStates = policy.reclaimStates && policy.reclaimStates.length ? policy.reclaimStates : ["completed", "failed"];
-        if (record.derivedLifecycle !== "completed" && record.derivedLifecycle !== "failed")
-            return "non-terminal";
-        if (!terminalStates.includes(record.derivedLifecycle))
-            return "non-terminal";
-        if (record.openFeedbackCount > 0)
-            return "open-feedback";
-        if (!record.archived)
-            return "not-archived";
-        const days = policy.reclaimAfterArchiveDays ?? 0;
-        if (days > 0) {
-            const archivedAtMs = record.archivedAt ? Date.parse(record.archivedAt) : NaN;
-            if (!Number.isFinite(archivedAtMs))
-                return "within-retention";
-            if (archivedAtMs > nowMs - days * 24 * 60 * 60 * 1000)
-                return "within-retention";
-        }
-        return null;
-    }
-    /** Resolve a single run to a one-element record list via locate() (repo-first),
-     *  avoiding a full-registry scan for single-run gc plan/run. */
-    recordsForRunId(runId, scope) {
-        const located = this.locate(runId, scope);
-        return located ? [located.record] : [];
+        return (0, gc_1.reclamationPolicy)(overrides);
     }
     /** Dry-run: compute eligible runs, per-kind bytes that WOULD be freed, and the
      *  capability downgrade. Frees NOTHING. */
     gcPlan(options = {}) {
-        const scope = options.scope || "home";
-        const policy = this.reclamationPolicy(options.policy);
-        const nowIso = options.now || new Date().toISOString();
-        const nowMs = Date.parse(nowIso);
-        // Fast, deterministic single-run path: resolve just that run via locate()
-        // (repo-first) so a home-scope plan never re-scans the whole registry.
-        const records = options.runId ? this.recordsForRunId(options.runId, scope) : this.buildIndex(scope).records;
-        const entries = [];
-        let bytesToFree = 0;
-        let eligibleCount = 0;
-        for (const record of records) {
-            const refusal = this.reclaimEligibility(record, policy, nowMs);
-            let plan;
-            try {
-                const run = this.loadRun(record.repo, record.runId);
-                plan = (0, reclamation_1.planReclamation)(run, { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots });
-            }
-            catch {
-                entries.push({
-                    runId: record.runId,
-                    repo: record.repo,
-                    eligible: false,
-                    reason: "unreadable",
-                    tier: record.tier || "live",
-                    capability: record.capability || "re-runnable",
-                    capabilityReason: record.capabilityReason || "live-full",
-                    bytesToFree: 0,
-                    byKind: {},
-                    freeable: []
-                });
-                continue;
-            }
-            const eligible = refusal === null;
-            const entry = {
-                runId: record.runId,
-                repo: record.repo,
-                eligible,
-                reason: eligible ? "eligible" : refusal,
-                tier: record.tier || "live",
-                capability: plan.capability,
-                capabilityReason: plan.capabilityReason,
-                bytesToFree: eligible ? plan.bytesToFree : 0,
-                byKind: eligible ? plan.byKind : {},
-                freeable: eligible ? plan.freeable.map((f) => ({ path: f.path, kind: f.kind, bytes: f.bytes })) : []
-            };
-            entries.push(entry);
-            if (eligible) {
-                eligibleCount += 1;
-                bytesToFree += plan.bytesToFree;
-            }
-        }
-        return {
-            schemaVersion: 1,
-            scope,
-            generatedAt: nowIso,
-            policy: {
-                reclaimAfterArchiveDays: policy.reclaimAfterArchiveDays ?? 0,
-                keepSnapshots: Boolean(policy.keepSnapshots),
-                keepScratch: Boolean(policy.keepScratch),
-                reclaimStates: policy.reclaimStates && policy.reclaimStates.length ? policy.reclaimStates : ["completed", "failed"]
-            },
-            total: entries.length,
-            eligibleCount,
-            bytesToFree,
-            entries,
-            nextAction: eligibleCount ? "node scripts/cw.js gc run" : "node scripts/cw.js run search"
-        };
+        return (0, gc_1.gcPlan)(this, options);
     }
     /** Execute the write-ahead reclamation transaction for eligible runs. Bounded
      *  (`maxReclaimRuns` / `maxReclaimBytes`), fail-closed on any incomplete
      *  skeleton. Produces a tombstone and frees the bulk. */
     gcRun(options = {}) {
-        const scope = options.scope || "home";
-        const policy = this.reclamationPolicy(options.policy);
-        const nowIso = options.now || new Date().toISOString();
-        const nowMs = Date.parse(nowIso);
-        const records = options.runId ? this.recordsForRunId(options.runId, scope) : this.buildIndex(scope).records;
-        const maxRuns = options.limit ?? (policy.maxReclaimRuns || 0);
-        const maxBytes = policy.maxReclaimBytes || 0;
-        const reclaimed = [];
-        const refused = [];
-        let totalBytesFreed = 0;
-        for (const record of records) {
-            const refusal = this.reclaimEligibility(record, policy, nowMs);
-            if (refusal) {
-                refused.push({ runId: record.runId, code: refusal });
-                continue;
-            }
-            if (maxRuns > 0 && reclaimed.length >= maxRuns)
-                break;
-            let run;
-            try {
-                run = this.loadRun(record.repo, record.runId);
-            }
-            catch {
-                refused.push({ runId: record.runId, code: "unreadable" });
-                continue;
-            }
-            try {
-                const result = (0, reclamation_1.runReclamation)(run, {
-                    now: nowIso,
-                    actor: options.actor,
-                    policy: { reclaimAfterArchiveDays: policy.reclaimAfterArchiveDays, keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots },
-                    reclaimPolicy: { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots }
-                });
-                // No post-free saveCheckpoint: runReclamation now DURABLY persists the
-                // result-node re-point inside the transaction (before any byte is freed),
-                // so state.json can never reference a freed path even on a crash here.
-                reclaimed.push({
-                    runId: record.runId,
-                    bytesFreed: result.bytesFreed,
-                    tombstoneHash: result.tombstone.tombstoneHash,
-                    capability: result.tombstone.capability,
-                    capabilityReason: result.tombstone.capabilityReason
-                });
-                totalBytesFreed += result.bytesFreed;
-                if (maxBytes > 0 && totalBytesFreed >= maxBytes)
-                    break;
-            }
-            catch (error) {
-                if (error instanceof reclamation_1.ReclamationError)
-                    refused.push({ runId: record.runId, code: error.code });
-                else
-                    throw error;
-            }
-        }
-        return {
-            schemaVersion: 1,
-            scope,
-            generatedAt: nowIso,
-            dryRun: false,
-            reclaimed,
-            refused,
-            totalBytesFreed,
-            nextAction: reclaimed.length ? "node scripts/cw.js gc verify <run-id>" : "node scripts/cw.js gc plan"
-        };
+        return (0, gc_1.gcRun)(this, options);
     }
     /** Re-prove a reclaimed run: skeleton schema-complete, tombstone chain
      *  recomputed-and-untampered, each reconstructable artifact re-derived from its
      *  RETAINED inputs to its expectDigest, and eligible-when-reclaimed. */
     gcVerify(runId, options = {}) {
-        const scope = options.scope || "home";
-        const located = this.locate(runId, scope);
-        if (!located) {
-            return {
-                schemaVersion: 1,
-                runId,
-                reclaimed: false,
-                verified: false,
-                tier: "live",
-                capability: "re-runnable",
-                chainLength: 0,
-                checks: [{ name: "located", pass: false, code: "not-reclaimed", detail: "run source not found" }],
-                nextAction: "node scripts/cw.js registry refresh" + (scope === "home" ? " --scope home" : "")
-            };
-        }
-        const run = this.loadRun(located.record.repo, runId);
-        const result = (0, reclamation_1.verifyReclamation)(run);
-        const checks = result.checks.map((c) => ({ name: c.name, pass: c.pass, code: c.code, detail: c.detail }));
-        // Eligible-when-reclaimed: each tombstone must have sealed a terminal verdict.
-        let eligibleWhenReclaimed = result.reclaimed;
-        for (const tombstone of result.tombstones) {
-            const terminal = tombstone.skeleton.finalVerdict?.terminal === true;
-            if (!terminal) {
-                eligibleWhenReclaimed = false;
-                checks.push({ name: `eligible-when-reclaimed:${tombstone.tombstoneId}`, pass: false, code: "ineligible-when-reclaimed", detail: "non-terminal verdict sealed" });
-            }
-        }
-        const last = result.tombstones[result.tombstones.length - 1];
-        const verified = result.verified && eligibleWhenReclaimed;
-        return {
-            schemaVersion: 1,
-            runId,
-            reclaimed: result.reclaimed,
-            verified,
-            tier: located.record.tier || (result.reclaimed ? "reclaimed" : "live"),
-            capability: located.record.capability || "re-runnable",
-            capabilityReason: located.record.capabilityReason,
-            tombstoneHash: last?.tombstoneHash,
-            chainLength: result.tombstones.length,
-            checks,
-            nextAction: verified ? "node scripts/cw.js run show " + runId : "node scripts/cw.js gc plan"
-        };
+        return (0, gc_1.gcVerify)(this, runId, options);
     }
     // ---- rerun (NEW run linked to the original; original preserved) ---------
     rerun(runId, options = {}) {
@@ -976,73 +768,19 @@ class RunRegistry {
         };
     }
     // ---- queue (durable, ordered; drained by the host) ----------------------
+    // Implementations live in ./run-registry/queue (FreeBSD-audit R2 deep); these
+    // are thin delegators preserving the public surface. `this` satisfies QueueHost.
     queueAdd(options = {}) {
-        const repo = options.repo ? node_path_1.default.resolve(options.repo) : this.repoRoot;
-        // Cross-process read-modify-write on the home queue: lock so a concurrently
-        // added task can never vanish (v0.1.40, P1-D).
-        return (0, state_1.withFileLock)(this.queueFilePath(), () => {
-            const entries = this.loadQueue();
-            const entry = {
-                schemaVersion: 1,
-                id: options.id || (0, derive_1.queueId)(),
-                runId: options.runId,
-                appId: options.appId,
-                workflowId: options.workflowId,
-                repo,
-                priority: Number.isFinite(options.priority) ? Number(options.priority) : exports.DEFAULT_RUN_REGISTRY_POLICY.defaultQueuePriority,
-                enqueuedAt: new Date().toISOString(),
-                status: "pending",
-                inputs: options.inputs,
-                note: options.note
-            };
-            entries.push(entry);
-            this.registerRepo(repo);
-            this.saveQueue(entries);
-            return entry;
-        });
+        return (0, queue_1.queueAdd)(this, options);
     }
     queueList(options = {}) {
-        let entries = this.loadQueue();
-        if (options.status)
-            entries = entries.filter((e) => e.status === options.status);
-        if (options.repo) {
-            const repo = node_path_1.default.resolve(options.repo);
-            entries = entries.filter((e) => node_path_1.default.resolve(e.repo) === repo);
-        }
-        entries = [...entries].sort(derive_1.compareQueue);
-        return { schemaVersion: 1, total: entries.length, entries };
+        return (0, queue_1.queueList)(this, options);
     }
     queueShow(id) {
-        const entry = this.loadQueue().find((e) => e.id === id);
-        if (!entry)
-            throw new Error(`Queue entry not found: ${id}`);
-        return entry;
+        return (0, queue_1.queueShow)(this, id);
     }
-    /** Drain the next N ready/pending entries in policy order, marking them drained.
-     *  CW records readiness/order; the HOST still executes the workers. */
     queueDrain(options = {}) {
-        const limit = (0, derive_1.clampInt)(options.limit, 1, 1);
-        const repoFilter = options.repo ? node_path_1.default.resolve(options.repo) : undefined;
-        // Lock the drain RMW so two hosts can never double-drain the same entry
-        // (v0.1.40, P1-D — the scheduling kernel's concurrency ceiling now holds
-        // across processes, not just within one).
-        return (0, state_1.withFileLock)(this.queueFilePath(), () => {
-            const entries = this.loadQueue();
-            const drainable = entries
-                .filter((e) => e.status === "pending" || e.status === "ready")
-                .filter((e) => !repoFilter || node_path_1.default.resolve(e.repo) === repoFilter)
-                .sort(derive_1.compareQueue);
-            const drained = [];
-            const drainedAt = new Date().toISOString();
-            for (const entry of drainable.slice(0, limit)) {
-                entry.status = "drained";
-                entry.drainedAt = drainedAt;
-                drained.push(entry);
-            }
-            this.saveQueue(entries);
-            const remaining = entries.filter((e) => e.status === "pending" || e.status === "ready").length;
-            return { schemaVersion: 1, drained, remaining };
-        });
+        return (0, queue_1.queueDrain)(this, options);
     }
     // ---- cross-repo history (unified timeline) ------------------------------
     history(options = {}) {

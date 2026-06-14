@@ -142,7 +142,8 @@ export type ReclaimVerifyCode =
   | "tombstone-digest-mismatch"
   | "tombstone-chain-broken"
   | "reconstruction-digest-mismatch"
-  | "ineligible-when-reclaimed";
+  | "ineligible-when-reclaimed"
+  | "reclaim-proof-deleted";
 
 /** One freeable path as seen by `gc plan` (dry-run — frees nothing). */
 export interface GcPlanFreeable {
