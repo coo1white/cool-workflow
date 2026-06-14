@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -24,11 +23,10 @@ import {
   WorkflowRun
 } from "./types";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
-import { safeFileName, writeJson } from "./state";
+import { writeJson } from "./state";
 import { appendRunNode, createStateNode } from "./state-node";
 import { getAgentGroup, getAgentMembership, getAgentRole, getMultiAgentRun } from "./multi-agent";
 import { recordTrustAuditEvent } from "./trust-audit";
-import { compareBytes } from "./compare";
 import {
   assertMultiAgentActionAllowed,
   hashText,
@@ -37,6 +35,32 @@ import {
   recordMessageProvenanceAudit,
   sourceForActor
 } from "./multi-agent-trust";
+import {
+  assertNoRecordPathCollisions,
+  assertUnique,
+  checksumFile,
+  compact,
+  compareRecords,
+  createId,
+  indexRow,
+  scrub,
+  sortTags,
+  timestamp,
+  touch,
+  truncate,
+  unique,
+  uniqueEdges
+} from "./coordinator/util";
+import { auditDecision, decisionStatus, sourceForAuthor, statusToNodeStatus } from "./coordinator/classify";
+import { blackboardRoot, boardPaths, messagesPath, recordPath } from "./coordinator/paths";
+
+// NOTE: the symbols imported above from ./coordinator/{util,classify,paths} were
+// PRIVATE helpers inside this module before the carve (no importer reaches them,
+// including the `import * as cb` consumer in orchestrator/multi-agent-operations).
+// They are relocated as pure code movement — zero signature/behavior change — and
+// imported back for internal use only, so this module's PUBLIC surface stays
+// byte-identical (no new exports). The public exported functions below are
+// unchanged.
 
 export const BLACKBOARD_SCHEMA_VERSION = 1;
 
@@ -1130,68 +1154,6 @@ function appendBlackboardNode(
   );
 }
 
-function statusToNodeStatus(status: string): StateNodeStatus {
-  switch (status) {
-    case "active":
-    case "open":
-      return "running";
-    case "resolved":
-    case "superseded":
-      return "completed";
-    case "conflicting":
-      return "blocked";
-    case "rejected":
-      return "rejected";
-    default:
-      return "completed";
-  }
-}
-
-function decisionStatus(outcome: CoordinatorDecisionOutcome): BlackboardRecordStatus {
-  if (outcome === "conflicting" || outcome === "blocked") return "conflicting";
-  if (outcome === "rejected") return "rejected";
-  if (outcome === "superseded") return "superseded";
-  return "active";
-}
-
-function auditDecision(outcome: CoordinatorDecisionOutcome) {
-  if (outcome === "rejected") return "rejected" as const;
-  if (outcome === "blocked" || outcome === "conflicting") return "failed" as const;
-  return "accepted" as const;
-}
-
-function sourceForAuthor(author: BlackboardAuthor) {
-  if (author.kind === "runtime" || author.kind === "coordinator") return "runtime-derived" as const;
-  if (author.kind === "worker" || author.kind === "verifier") return "cw-validated" as const;
-  return "operator-recorded" as const;
-}
-
-function boardPaths(run: WorkflowRun): Blackboard["paths"] {
-  const root = blackboardRoot(run);
-  return {
-    root,
-    index: path.join(root, "index.json"),
-    messages: messagesPath(run),
-    topicsDir: path.join(root, "topics"),
-    contextsDir: path.join(root, "contexts"),
-    artifactsDir: path.join(root, "artifacts"),
-    snapshotsDir: path.join(root, "snapshots"),
-    decisionsDir: path.join(root, "decisions")
-  };
-}
-
-function blackboardRoot(run: WorkflowRun): string {
-  return run.paths.blackboardDir || path.join(run.paths.runDir, "blackboard");
-}
-
-function messagesPath(run: WorkflowRun): string {
-  return path.join(blackboardRoot(run), "messages.jsonl");
-}
-
-function recordPath(run: WorkflowRun, kind: string, id: string): string {
-  return path.join(blackboardRoot(run), kind, `${safeFileName(id)}.json`);
-}
-
 function graphSubject(run: WorkflowRun, id: string): string {
   const state = ensureBlackboardState(run);
   if (state.contexts.some((entry) => entry.id === id)) return `${run.id}:blackboard:context:${id}`;
@@ -1208,105 +1170,3 @@ function nextAction(run: WorkflowRun, board: Blackboard | undefined, openQuestio
   return `node scripts/cw.js blackboard snapshot ${run.id}`;
 }
 
-function checksumFile(file: string): string {
-  return `sha256:${crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex")}`;
-}
-
-function assertUnique(items: Array<{ id: string }>, id: string, label: string): void {
-  if (items.some((item) => item.id === id)) throw new Error(`Duplicate ${label} id: ${id}`);
-}
-
-function assertNoRecordPathCollisions(label: string, records: Array<{ id: string }>): void {
-  const seen = new Map<string, string>();
-  for (const record of records) {
-    const safe = safeFileName(record.id);
-    const existing = seen.get(safe);
-    if (existing && existing !== record.id) {
-      throw new Error(`${label} ids ${existing} and ${record.id} collide on safe file name ${safe}`);
-    }
-    seen.set(safe, record.id);
-  }
-}
-
-function indexRow(record: { id: string; status?: string; updatedAt?: string; blackboardId?: string; topicId?: string }): Record<string, unknown> {
-  return { id: record.id, blackboardId: record.blackboardId, topicId: record.topicId, status: record.status, updatedAt: record.updatedAt };
-}
-
-function compareRecords(left: { createdAt: string; id: string }, right: { createdAt: string; id: string }): number {
-  return compareBytes(left.createdAt, right.createdAt) || compareBytes(left.id, right.id);
-}
-
-function uniqueEdges(edges: BlackboardGraph["edges"]): BlackboardGraph["edges"] {
-  const seen = new Set<string>();
-  const result: BlackboardGraph["edges"] = [];
-  for (const edge of edges) {
-    const key = `${edge.from}\0${edge.to}\0${edge.label || ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(edge);
-  }
-  return result;
-}
-
-// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
-// per-run blackboard collection, threaded from the call site. No wall-clock stamp,
-// no PRNG suffix — replaying the same coordination mints byte-identical ids, so
-// snapshot/replay digests match. Each call site already asserts the minted id is
-// unique within its collection, and these collections only ever append.
-function createId(prefix: string, seq: number): string {
-  return `${prefix}-${String(seq).padStart(4, "0")}`;
-}
-
-function touch<T extends { updatedAt: string }>(record: T): T {
-  record.updatedAt = timestamp();
-  return record;
-}
-
-function timestamp(): string {
-  return new Date().toISOString();
-}
-
-function unique(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean))).sort();
-}
-
-function sortTags(values: string[] | undefined): string[] {
-  return unique(values || []);
-}
-
-function truncate(value: string): string {
-  return value.length > 64 ? `${value.slice(0, 61)}...` : value;
-}
-
-function compact(value: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined && (!Array.isArray(entry) || entry.length > 0)));
-}
-
-// Recursive secret redaction (v0.1.40 self-audit P3): the previous scrub only
-// inspected TOP-LEVEL keys, so a secret nested under an allowed key
-// (e.g. `metadata.config.token`) leaked into the recorded coordinator decision.
-// Now we recurse into nested objects and arrays so a secret-named key at any depth
-// is dropped and an obvious credential value is redacted.
-const SECRET_KEY_RE = /secret|token|password|credential|authorization|api[_-]?key|env/i;
-const SECRET_VALUE_RE = /secret|token|password|credential/i;
-
-function scrubValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(scrubValue);
-  if (value && typeof value === "object") return scrub(value as Record<string, unknown>);
-  if (typeof value === "string" && SECRET_VALUE_RE.test(value)) return "[redacted]";
-  return value;
-}
-
-function scrub(value: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
-  if (!value) return undefined;
-  const result: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(value)) {
-    if (entry === undefined) continue;
-    if (SECRET_KEY_RE.test(key)) {
-      result[key] = "[redacted]";
-    } else {
-      result[key] = scrubValue(entry);
-    }
-  }
-  return Object.keys(result).length ? result : undefined;
-}
