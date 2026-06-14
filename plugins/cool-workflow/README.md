@@ -688,7 +688,7 @@ The orchestration vision landed in one release, all reviewer-gated:
 
 ## Tamper-evidence demo (v0.1.79)
 
-`cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be forged undetected: it builds a real ed25519-signed ledger, forges it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` is the operator-facing half (`cw_telemetry_verify` on MCP).
+`cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be forged undetected: it builds a real ed25519-signed ledger, forges it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` (`cw_telemetry_verify` on MCP) is the operator-facing re-proof: it recomputes the hash chain on disk so any later edit to a recorded verdict or usage is caught — each hop's ed25519 signature is checked when it is recorded, and the chain then keeps that verdict tamper-evident. What this does and does **not** prove — including the single-keyholder ceiling — is documented honestly in [Trust Model & Limitations](docs/trust-model.md); read it before relying on a green verdict.
 
 ## Opt-in live agent output during a drive (on main, ships next)
 
