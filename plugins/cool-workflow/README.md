@@ -700,3 +700,5 @@ v0.1.79
 ## Fast Architecture Review (v0.1.80)
 
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+
+_This documentation tracks Cool Workflow v0.1.81. See [CHANGELOG](../../CHANGELOG.md) for the release notes._

@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.1.81
+
+Harden the auditability story end to end (verify, restore, inspect) and make the
+resumable-pipeline + multi-vendor promises executable, on a god-module-decomposed,
+faster-tested core.
+
+- **Capability**: New fail-closed verification + recovery surface. `cw audit verify <run>`
+  / `cw_audit_verify` re-proves the trust-audit hash chain offline and exits non-zero on
+  ANY unverified chain (forged, edited, truncated, or fully-corrupt) — the verdict the
+  deploy gate keys on. `run verify-import` now re-proves the trust-audit chain on restore
+  too (not just telemetry) and gains `--strict` for a fail-closed exit; `run inspect-archive
+  <archive>` integrity-checks a portable run archive WITHOUT importing it, naming any
+  offending file; opt-in `CW_REQUIRE_ARCHIVE_INTEGRITY=1` refuses a stripped-integrity
+  archive at import and inspect. The Track-A resumable-pipeline demo is now first-class:
+  `cw quickstart --resume` advances one step then stops with a copy-pasteable continue line,
+  and `cw run resume <id> --drive/--once` continues an interrupted run through the existing
+  agent-drive loop. Cross-vendor is proven by boot: `npm run manifest:load-check` loads all
+  five generated vendor manifests (claude, codex, agents, gemini, opencode) and asserts each
+  boots the full tool surface. Telemetry verification gains `cw telemetry verify <run> --pubkey` to re-run ed25519 signature checks per attested record offline (not just the hash chain), and a new `docs/trust-model.md` states the integrity guarantee and its single-keyholder ceiling honestly.
+- **Implementation**: New verbs/fields are additive and POLA-safe (new flag/verb/env;
+  existing default output byte-identical). Two real integrity bugs fixed: the trust-audit
+  `computeEventHash` now binds the PERSISTED form, so worker-dispatch events (with undefined
+  metadata fields) re-verify instead of false-failing as digest-mismatch; and reclamation's
+  freed manifest is path-sorted before it feeds `tombstoneHash`, making the tombstone chain
+  reproducible across filesystems. The kernel was decomposed: the remaining FreeBSD
+  self-audit findings were closed, dead code/no-op branches removed, and several god-modules
+  (coordinator, execution-backend, observability, operator-ux, state-explosion, multi-agent,
+  multi-agent-eval, worker-isolation, run-registry) carved into behavior-preserving siblings.
+  The smoke runner is parallel-safe (suite ~333s -> ~119s; CI on `--concurrency auto`).
+- **Tests**: New smokes — `audit-verify`, `verify-import-audit-chain`, `run-inspect-archive`,
+  `run-import-tamper-failclosed`, `run-resume-drive`, `vendor-manifest-load`,
+  `cli-jsonmode-parity`, `mcp-required-args-equivalence` — each proving the fail-closed exit,
+  POLA default, and the bug regressions (all-corrupt audit log exits 1; undefined-field
+  events re-verify; reclamation manifest path-sorted; CLI `run resume --drive` routes to the
+  verb, not an app). A real `builtin:claude` dogfood drove a worker end-to-end and surfaced
+  the resume-drive CLI-routing bug now fixed.
+- **Risk**: Additive and opt-in; existing outputs, files, and exit codes are byte-identical
+  by default, and the carves are behavior-preserving (parity + determinism gates green).
+  README/launch materials refreshed for onboarding. No new runtime dependency; the
+  delegate-not-execute red line is unchanged.
+
 ## 0.1.80
 
 Ship the fast architecture-review lane for shorter foreground waits while keeping the full review contract intact.

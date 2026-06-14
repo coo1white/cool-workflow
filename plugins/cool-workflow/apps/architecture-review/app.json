@@ -3,7 +3,7 @@
   "id": "architecture-review",
   "title": "Architecture Review",
   "summary": "Map a repository architecture, assess risks, verify important findings, and synthesize an evidence-backed verdict.",
-  "version": "0.1.80",
+  "version": "0.1.81",
   "author": "COOLWHITE LLC",
   "inputs": [
     {

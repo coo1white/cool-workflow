@@ -257,3 +257,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 ## Fast Architecture Review (v0.1.80)
 
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+
+## Resumable Drive & Resume Routing (v0.1.81)
+
+Adds `run resume <id> --drive/--once` alongside `quickstart --resume`: a stopped pipeline resumes in-place, advancing to completion (`--drive`) or one deterministic step (`--once`) over the same plan->dispatch->agent-fulfill->accept->commit lifecycle, echoing `resumedFrom: <id>`. Fixes the `run resume --drive` CLI routing so the drive flag reaches the resumed run instead of being read as an app name. Replay determinism and the agent evidence triple are unchanged.

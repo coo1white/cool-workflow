@@ -385,3 +385,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 ## Fast Architecture Review (v0.1.80)
 
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+
+## Re-Prove Verbs on Both Surfaces (v0.1.81)
+
+v0.1.81 grows the parity surface with two new both-surface, fail-closed verbs declared once in the capability registry: `cw audit verify` / `cw_audit_verify` re-proves the trust-audit chain and exits non-zero on any unverified or corrupt chain, and `cw run inspect-archive` / `cw_run_inspect_archive` is a read-only archive integrity check. Each `cw <cmd> --json` is schema-identical to its `cw_<tool>` and validated by the same parity gate.

@@ -60,7 +60,7 @@ build`). Zero runtime deps, BSD-2, published to npm with provenance. Ships gener
 plugin manifests for 5 agent platforms (claude, codex, agents, gemini, opencode);
 `npm run manifest:load-check` boots all five from one source of truth.
 
-It's early (v0.1.80) — I'd genuinely like to hear where the "delegate, prove,
+It's early (v0.1.81) — I'd genuinely like to hear where the "delegate, prove,
 replay" model breaks down for your workflows.
 
 npm: https://www.npmjs.com/package/cool-workflow
@@ -128,7 +128,7 @@ npm: https://www.npmjs.com/package/cool-workflow
 > executor boundary welded into the type system (a callable that could reach a model
 > API fails `npm run build`).
 >
-> Runs anywhere Node runs; `dist/` is committed; BSD-2. It's early (v0.1.80) and I'd
+> Runs anywhere Node runs; `dist/` is committed; BSD-2. It's early (v0.1.81) and I'd
 > genuinely like to hear where the "delegate, prove, replay" model breaks down for
 > your workflows.
 >
