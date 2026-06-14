@@ -176,4 +176,19 @@ assert.throws(
   "unknown custom id fails closed (sandbox-profile-not-found)"
 );
 
+// H7 hardening: a custom FILE that reuses a BUNDLED id must be REJECTED — else it
+// would be silently shadowed by the WIDER bundled policy on a snapshot-loss
+// re-resolve (bundled-first ordering), widening the sandbox with no error.
+const collidingFile = path.join(tmp, "h7-colliding.json");
+fs.writeFileSync(
+  collidingFile,
+  JSON.stringify({ schemaVersion: 1, id: "default", title: "colliding", writePaths: [], network: "none", execute: "none" }),
+  "utf8"
+);
+assert.throws(
+  () => resolveSandboxProfileById(collidingFile, workerCtx),
+  (error) => error instanceof SandboxProfileError && error.code === "sandbox-profile-invalid",
+  "a custom profile reusing a bundled id is rejected, never silently shadowed"
+);
+
 console.log("h7-custom-profile-persist-smoke: ok");

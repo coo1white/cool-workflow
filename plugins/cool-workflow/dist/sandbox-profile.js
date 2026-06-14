@@ -219,6 +219,14 @@ function validateSandboxProfileFile(profileFile, context = defaultSandboxContext
         issues.push(issue("sandbox-profile-invalid", `Profile file is not valid JSON: ${messageOf(error)}`, absolutePath));
         return { valid: false, profileFile: absolutePath, issues };
     }
+    // Fail closed if a CUSTOM file reuses a BUNDLED id (H7 hardening): resolution is
+    // bundled-first, so a custom "default"/"workspace-write"/... would be silently
+    // shadowed by the WIDER bundled policy on a snapshot-loss re-resolve — widening
+    // the sandbox with no error. Reserve the bundled names for bundled profiles.
+    if (profile && typeof profile.id === "string" && isBundledSandboxProfileId(profile.id)) {
+        issues.push(issue("sandbox-profile-invalid", `Custom sandbox profile id "${profile.id}" is reserved (collides with a bundled profile); choose a different id`, absolutePath));
+        return { valid: false, profileFile: absolutePath, issues };
+    }
     issues.push(...validateSandboxProfileDefinition(profile, context));
     if (issues.length)
         return { valid: false, profileFile: absolutePath, issues };
