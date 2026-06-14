@@ -387,7 +387,7 @@ function summarizeTopologies(run) {
         runId: run.id,
         totalRuns: state.runs.length,
         runsByStatus: countBy(active, (record) => record.status),
-        officialTopologies: exports.OFFICIAL_TOPOLOGIES.map((definition) => definition.id),
+        officialTopologies: listTopologyDefinitions().map((definition) => definition.id),
         active,
         nextAction: active.find((record) => record.nextActions.length)?.nextActions[0] || `node scripts/cw.js topology apply ${run.id} map-reduce --task <task-id>`
     };

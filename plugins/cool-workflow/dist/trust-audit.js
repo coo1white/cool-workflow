@@ -42,6 +42,19 @@ exports.TRUST_AUDIT_SCHEMA_VERSION = 1;
 // with the operator ed25519 key the telemetry ledger already uses (a follow-up,
 // the only true external anchor). The chain is a strict upgrade over a bare
 // append-only log, not a substitute for a signature.
+/** Single source of truth for a run's audit-paths object: the schemaVersion plus
+ *  the three derived file paths under auditRoot(run). ensureTrustAudit /
+ *  refreshTrustAudit spread this, and createEventId reads .eventLogPath from it, so
+ *  the path-derivation rule lives in exactly one place. */
+function trustAuditPaths(run) {
+    const dir = auditRoot(run);
+    return {
+        schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
+        eventLogPath: node_path_1.default.join(dir, "events.jsonl"),
+        summaryPath: node_path_1.default.join(dir, "summary.json"),
+        indexPath: node_path_1.default.join(dir, "index.json")
+    };
+}
 /** Genesis prevHash for a run's chain (no prior event). */
 function trustAuditGenesis(runId) {
     return (0, execution_backend_1.sha256)(`cw-trust-audit:${runId}`);
@@ -125,12 +138,7 @@ function ensureTrustAudit(run) {
     const auditDir = auditRoot(run);
     node_fs_1.default.mkdirSync(auditDir, { recursive: true });
     run.paths.auditDir = auditDir;
-    const audit = {
-        schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
-        eventLogPath: node_path_1.default.join(auditDir, "events.jsonl"),
-        summaryPath: node_path_1.default.join(auditDir, "summary.json"),
-        indexPath: node_path_1.default.join(auditDir, "index.json")
-    };
+    const audit = { ...trustAuditPaths(run) };
     run.audit = audit;
     if (!node_fs_1.default.existsSync(audit.eventLogPath))
         node_fs_1.default.writeFileSync(audit.eventLogPath, "", "utf8");
@@ -352,12 +360,7 @@ function summarizeTrustAudit(run) {
     return summary;
 }
 function refreshTrustAudit(run) {
-    const audit = {
-        schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
-        eventLogPath: node_path_1.default.join(auditRoot(run), "events.jsonl"),
-        summaryPath: node_path_1.default.join(auditRoot(run), "summary.json"),
-        indexPath: node_path_1.default.join(auditRoot(run), "index.json")
-    };
+    const audit = { ...trustAuditPaths(run) };
     node_fs_1.default.mkdirSync(node_path_1.default.dirname(audit.eventLogPath), { recursive: true });
     if (!node_fs_1.default.existsSync(audit.eventLogPath))
         node_fs_1.default.writeFileSync(audit.eventLogPath, "", "utf8");
@@ -511,7 +514,7 @@ function createEventId(run, kind) {
     // Deterministic (FreeBSD-audit L12/L13): chain-local sequence (event-log length),
     // no wall-clock stamp — event.id is bound into the eventHash chain (computeEventHash),
     // so a stable id keeps the chain reproducible on replay.
-    const count = readEvents(node_path_1.default.join(auditRoot(run), "events.jsonl")).length + 1;
+    const count = readEvents(trustAuditPaths(run).eventLogPath).length + 1;
     return `audit-${(0, state_1.safeFileName)(kind)}-${String(count).padStart(4, "0")}`;
 }
 function redactPolicy(policy) {

@@ -701,7 +701,7 @@ async function main(): Promise<void> {
             runner.recordWorkerFailure(
               required(runId, "run id"),
               required(workerId, "worker id"),
-              String(args.options.message || args.options.m || required(resultPath, "failure message")),
+              String(args.options.message || required(resultPath, "failure message")),
               args.options
             )
           );

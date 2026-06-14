@@ -35,7 +35,7 @@ function createStateNode(input) {
     const now = new Date().toISOString();
     return {
         schemaVersion: exports.STATE_NODE_SCHEMA_VERSION,
-        id: input.id || createNodeId(input.kind),
+        id: input.id || createNodeId(input.kind, input.existingNodes),
         kind: input.kind,
         status: input.status || "pending",
         loopStage: input.loopStage,
@@ -281,9 +281,17 @@ function contractError(code, message, options = {}) {
         ...options
     });
 }
-function createNodeId(kind) {
-    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `${kind}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic node id (mirrors worker-isolation.ts createWorkerId): a wall-clock
+// stamp + Math.random() made every mint a different id, so audit references were not
+// reproducible across re-runs of the same inputs. The id is now derived from the
+// kind plus a per-run sequence (count of same-kind nodes already minted + 1,
+// zero-padded), so re-running the same workflow yields byte-identical node ids. The
+// minted id is excluded from the snapshot source fingerprint, so this does not change
+// replay digests. Explicit `id` callers still short-circuit and pass through unchanged.
+function createNodeId(kind, existingNodes = []) {
+    const prefix = `${kind}-`;
+    const seq = existingNodes.filter((node) => node.id.startsWith(prefix)).length + 1;
+    return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 function mergeById(existing, next) {
     const values = [...existing];

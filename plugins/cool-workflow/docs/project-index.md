@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-14 by `npm run sync:projec
 - Source modules: `58`
 - Workflow apps: `7`
 - Docs: `47`
-- Smoke tests: `76`
+- Smoke tests: `78`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -186,6 +186,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [candidate-scoring-smoke.js](../test/candidate-scoring-smoke.js)
 - [canonical-workflow-apps-smoke.js](../test/canonical-workflow-apps-smoke.js)
 - [claude-p-agent-wrapper-smoke.js](../test/claude-p-agent-wrapper-smoke.js)
+- [cli-jsonmode-parity-smoke.js](../test/cli-jsonmode-parity-smoke.js)
 - [cli-mcp-parity-smoke.js](../test/cli-mcp-parity-smoke.js)
 - [concurrent-failure-semantics-smoke.js](../test/concurrent-failure-semantics-smoke.js)
 - [concurrent-workflow-dsl-smoke.js](../test/concurrent-workflow-dsl-smoke.js)
@@ -203,6 +204,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [execution-backends-smoke.js](../test/execution-backends-smoke.js)
 - [freebsd-audit-fixes-smoke.js](../test/freebsd-audit-fixes-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
+- [mcp-required-args-equivalence-smoke.js](../test/mcp-required-args-equivalence-smoke.js)
 - [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
 - [multi-agent-eval-replay-harness-smoke.js](../test/multi-agent-eval-replay-harness-smoke.js)
 - [multi-agent-eval-replay-smoke.js](../test/multi-agent-eval-replay-smoke.js)

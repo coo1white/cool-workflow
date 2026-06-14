@@ -57,6 +57,12 @@ export interface CapabilityDescriptor {
   payloadIdentical?: boolean;
   /** Required when surface !== "both" OR payloadIdentical === false. */
   reason?: string;
+  /** MCP-surface required-argument groups for this tool. Each entry is a
+   *  pipe-delimited set of accepted alternative keys (e.g. "topologyId|id");
+   *  the MCP server rejects a call missing any group. Empty/absent means the
+   *  tool requires no arguments. The single source of truth requiredToolArguments
+   *  (src/mcp-server.ts) reads against. */
+  requiredArgs?: string[];
 }
 
 export interface ParityReport {
@@ -468,12 +474,160 @@ const BUILTIN_CAPABILITIES: CapabilityDescriptor[] = [
   { capability: "review.policy", summary: "Set the run's review-gate policy (required approvals, authorized roles, self-approval rule).", entry: "reviewPolicy", surface: "both", cli: { path: ["review", "policy"], caseTokens: ["review"], jsonMode: "default" }, mcp: { tool: "cw_review_policy" } }
 ];
 
+/** MCP-surface required-argument groups, keyed by mcp tool name. The SINGLE
+ *  source of truth for argument validation on the MCP front door — folded here
+ *  from the former requiredArgsForTool substring-heuristic if-ladder in
+ *  src/mcp-server.ts so both the descriptor and the validator read one table.
+ *  Each value is a list of groups; each group is a pipe-delimited set of
+ *  accepted alternative keys (e.g. "topologyId|id"). A tool absent from this map
+ *  requires no arguments. Applied onto each descriptor's `requiredArgs` below. */
+const MCP_REQUIRED_ARGS: Readonly<Record<string, readonly string[]>> = {
+  cw_init: ["workflowId"],
+  cw_plan: ["workflowId"],
+  cw_status: ["runId"],
+  cw_next: ["runId"],
+  cw_dispatch: ["runId"],
+  cw_result: ["runId"],
+  cw_commit: ["runId"],
+  cw_commit_summary: ["runId"],
+  cw_report: ["runId"],
+  cw_operator_graph: ["runId"],
+  cw_operator_status: ["runId"],
+  cw_operator_report: ["runId"],
+  cw_app_run: ["appId"],
+  cw_state_check: ["runId"],
+  cw_contract_show: ["runId"],
+  cw_node_list: ["runId"],
+  cw_node_show: ["runId", "nodeId"],
+  cw_node_graph: ["runId"],
+  cw_topology_show: ["topologyId|id"],
+  cw_topology_validate: ["topologyId|id"],
+  cw_topology_apply: ["runId", "topologyId|id"],
+  cw_topology_summary: ["runId"],
+  cw_topology_graph: ["runId"],
+  cw_summary_refresh: ["runId"],
+  cw_summary_show: ["runId"],
+  cw_multi_agent_status: ["runId"],
+  cw_multi_agent_step: ["runId"],
+  cw_multi_agent_blackboard: ["runId"],
+  cw_multi_agent_score: ["runId"],
+  cw_multi_agent_select: ["runId"],
+  cw_multi_agent_summary: ["runId"],
+  cw_multi_agent_summarize: ["runId"],
+  cw_multi_agent_graph: ["runId"],
+  cw_multi_agent_graph_compact: ["runId"],
+  cw_multi_agent_dependencies: ["runId"],
+  cw_multi_agent_failures: ["runId"],
+  cw_multi_agent_evidence: ["runId"],
+  cw_evidence_reasoning: ["runId"],
+  cw_evidence_reasoning_refresh: ["runId"],
+  cw_multi_agent_run_create: ["runId"],
+  cw_multi_agent_run_transition: ["runId"],
+  cw_multi_agent_run_show: ["runId"],
+  cw_multi_agent_role_create: ["runId"],
+  cw_multi_agent_role_show: ["runId", "roleId"],
+  cw_multi_agent_group_create: ["runId"],
+  cw_multi_agent_group_show: ["runId", "groupId"],
+  cw_multi_agent_membership_create: ["runId"],
+  cw_multi_agent_membership_show: ["runId", "membershipId"],
+  cw_multi_agent_fanout_create: ["runId"],
+  cw_multi_agent_fanout_show: ["runId", "fanoutId"],
+  cw_multi_agent_fanin_collect: ["runId"],
+  cw_multi_agent_fanin_show: ["runId", "faninId"],
+  cw_eval_snapshot: ["runId"],
+  cw_eval_replay: ["snapshot|snapshotId|path"],
+  cw_eval_compare: ["baseline|baselinePath", "replay|replayPath"],
+  cw_eval_score: ["replay|replayPath|path"],
+  cw_eval_gate: ["suite|suiteId|path"],
+  cw_eval_report: ["replay|replayPath|path"],
+  cw_blackboard_summary: ["runId"],
+  cw_blackboard_summarize: ["runId"],
+  cw_blackboard_graph: ["runId"],
+  cw_blackboard_resolve: ["runId"],
+  cw_blackboard_topic_create: ["runId"],
+  cw_blackboard_message_post: ["runId"],
+  cw_blackboard_message_list: ["runId"],
+  cw_blackboard_context_put: ["runId"],
+  cw_blackboard_artifact_add: ["runId"],
+  cw_blackboard_artifact_list: ["runId"],
+  cw_blackboard_snapshot: ["runId"],
+  cw_coordinator_summary: ["runId"],
+  cw_coordinator_decision: ["runId"],
+  cw_audit_summary: ["runId"],
+  cw_audit_worker: ["runId"],
+  cw_audit_provenance: ["runId"],
+  cw_audit_multi_agent: ["runId"],
+  cw_audit_policy: ["runId"],
+  cw_audit_role: ["runId"],
+  cw_audit_blackboard: ["runId"],
+  cw_audit_judge: ["runId"],
+  cw_audit_attest: ["runId"],
+  cw_audit_decision: ["runId"],
+  cw_sandbox_show: ["profileId"],
+  cw_sandbox_validate: ["profileFile"],
+  cw_worker_list: ["runId"],
+  cw_worker_summary: ["runId"],
+  cw_worker_show: ["runId", "workerId"],
+  cw_worker_manifest: ["runId"],
+  cw_worker_output: ["runId"],
+  cw_worker_fail: ["runId"],
+  cw_worker_validate: ["runId"],
+  cw_candidate_list: ["runId"],
+  cw_candidate_show: ["runId", "candidateId"],
+  cw_candidate_register: ["runId"],
+  cw_candidate_score: ["runId"],
+  cw_candidate_rank: ["runId"],
+  cw_candidate_select: ["runId"],
+  cw_candidate_reject: ["runId"],
+  cw_candidate_summary: ["runId"],
+  cw_feedback_list: ["runId"],
+  cw_feedback_show: ["runId", "feedbackId"],
+  cw_feedback_collect: ["runId"],
+  cw_feedback_summary: ["runId"],
+  cw_feedback_task: ["runId"],
+  cw_feedback_resolve: ["runId"],
+  cw_schedule_delete: ["id"],
+  cw_schedule_complete: ["id"],
+  cw_schedule_pause: ["id"],
+  cw_schedule_resume: ["id"],
+  cw_schedule_run_now: ["id"],
+  cw_routine_delete: ["id"],
+  cw_routine_fire: ["kind"],
+  cw_run_show: ["runId"],
+  cw_run_resume: ["runId"],
+  cw_run_archive: ["runId|olderThanDays"],
+  cw_run_rerun: ["runId"],
+  cw_run_export: ["runId"],
+  cw_run_import: ["archive|path|file"],
+  cw_run_verify_import: ["runId"],
+  cw_queue_show: ["id"],
+  cw_gc_verify: ["runId"],
+  cw_telemetry_verify: ["runId"],
+  cw_workbench_view: ["runId"],
+  cw_metrics_show: ["runId"],
+  cw_approve: ["runId", "targetKind|kind", "targetId|target"],
+  cw_reject: ["runId", "targetKind|kind", "targetId|target"],
+  cw_comment_add: ["runId", "targetKind|kind", "targetId|target", "body|message|text"],
+  cw_comment_list: ["runId"],
+  cw_handoff: ["runId", "targetKind|kind", "targetId|target", "to|toActor"],
+  cw_review_status: ["runId"],
+  cw_review_policy: ["runId"]
+};
+
 /** The capability registry — the single source of truth, deduplicated by
  *  capability id (last declaration wins). Derived directly from the table above:
  *  there is no load-order-sensitive registration step, so nothing can be a
- *  silently-dead duplicate the way the old snapshot-then-register design allowed. */
+ *  silently-dead duplicate the way the old snapshot-then-register design allowed.
+ *  Each descriptor whose mcp tool appears in MCP_REQUIRED_ARGS carries the
+ *  corresponding `requiredArgs` so both surfaces read one table. */
 export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Array.from(
-  new Map(BUILTIN_CAPABILITIES.map((cap) => [cap.capability, cap])).values()
+  new Map(
+    BUILTIN_CAPABILITIES.map((cap) => {
+      const required = cap.mcp ? MCP_REQUIRED_ARGS[cap.mcp.tool] : undefined;
+      const descriptor = required ? { ...cap, requiredArgs: [...required] } : cap;
+      return [cap.capability, descriptor];
+    })
+  ).values()
 );
 
 // ---------------------------------------------------------------------------
