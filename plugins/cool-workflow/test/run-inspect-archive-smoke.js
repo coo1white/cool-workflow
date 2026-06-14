@@ -110,4 +110,22 @@ function writeCopy(tag, mutate) {
   assert.ok(fs.existsSync(path.join(dir, ".cw", "runs", runId)), "clean import restored the run");
 }
 
-process.stdout.write("run-inspect-archive-smoke: ok (clean / digest / schema / unreadable, read-only, import regression intact)\n");
+// (f) CW_REQUIRE_ARCHIVE_INTEGRITY: a stripped-integrity archive that `run import`
+// would refuse under the env must also inspect as ok:false (faithful import preview);
+// default (env unset) reports ok:true — the integrity block is merely absent, not invalid.
+{
+  const strippedP = writeCopy("stripped", (a) => { delete a.integrity; });
+  assert.equal(inspectArchive(strippedP).ok, true, "stripped archive inspects ok by default (no env)");
+  const prev = process.env.CW_REQUIRE_ARCHIVE_INTEGRITY;
+  process.env.CW_REQUIRE_ARCHIVE_INTEGRITY = "1";
+  try {
+    const r = inspectArchive(strippedP);
+    assert.equal(r.ok, false, "under CW_REQUIRE_ARCHIVE_INTEGRITY=1 a stripped archive inspects ok:false");
+    assert.ok(r.checks.some((c) => c.code === "archive-integrity-required"), "archive-integrity-required check present");
+  } finally {
+    if (prev === undefined) delete process.env.CW_REQUIRE_ARCHIVE_INTEGRITY;
+    else process.env.CW_REQUIRE_ARCHIVE_INTEGRITY = prev;
+  }
+}
+
+process.stdout.write("run-inspect-archive-smoke: ok (clean / digest / schema / unreadable / integrity-env, read-only, import regression intact)\n");

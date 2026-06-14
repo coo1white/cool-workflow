@@ -201,7 +201,10 @@ a structured `checks[]` — each failure names the offending `relativePath` with
 unknown `schemaVersion` (`schemaSupported:false`) is reported as a check, not a
 stacktrace — stdout is always valid JSON, diagnostics go to stderr. It exits `1`
 when `ok:false`, so `cw run inspect-archive <path> && cw run import <path>` stops
-before importing a bad archive.
+before importing a bad archive. It is a faithful preview of import: under
+`CW_REQUIRE_ARCHIVE_INTEGRITY=1` a stripped-integrity archive (which import would
+refuse) also inspects as `ok:false`; with the env unset (default) an absent integrity
+block is merely reported, not failed.
 
 MCP exposes the same mechanisms as `cw_run_export`, `cw_run_import`,
 `cw_run_verify_import`, and `cw_run_inspect_archive`; the CLI and MCP paths share

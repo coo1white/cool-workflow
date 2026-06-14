@@ -179,6 +179,11 @@ function fileManifest(root) {
   for (const f of entry.freeable) {
     assert.equal(f.bytes, dirBytes(path.join(run.paths.runDir, f.path)), `freeable size matches disk for ${f.path}`);
   }
+  // Determinism: the freed manifest must be path-sorted, NOT in fs.readdirSync order
+  // — it is bound into tombstoneHash + the prevTombstoneHash chain, which must be
+  // reproducible across hosts/filesystems.
+  const freedPaths = entry.freeable.map((f) => f.path);
+  assert.deepEqual(freedPaths, [...freedPaths].sort(), "freed manifest is path-sorted (deterministic tombstone hash)");
 }
 
 // ===========================================================================
