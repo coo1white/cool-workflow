@@ -401,7 +401,7 @@ function callTool(name, args) {
             case "cw_run_show":
                 return (0, capability_core_1.runShow)((0, capability_core_1.runRegistryFor)(args, runner), String(args.runId || ""), args);
             case "cw_run_resume":
-                return (0, capability_core_1.runResume)((0, capability_core_1.runRegistryFor)(args, runner), String(args.runId || ""), args);
+                return (0, capability_core_1.runResume)((0, capability_core_1.runRegistryFor)(args, runner), runner, String(args.runId || ""), args);
             case "cw_run_archive":
                 return (0, capability_core_1.runArchive)((0, capability_core_1.runRegistryFor)(args, runner), (0, capability_core_1.optionalString)(args.runId), args);
             case "cw_run_rerun":
@@ -412,6 +412,8 @@ function callTool(name, args) {
                 return (0, capability_core_1.runImportArchive)(runner, args);
             case "cw_run_verify_import":
                 return (0, capability_core_1.runVerifyImport)(runner, String(args.runId || ""), args);
+            case "cw_run_inspect_archive":
+                return (0, capability_core_1.runInspectArchive)(runner, args);
             case "cw_run_drive":
                 return (0, capability_core_1.runDrivePreview)(runner, args);
             case "cw_run_drive_step":
@@ -1317,6 +1319,12 @@ function toolDefinitions() {
         tool("cw_run_verify_import", "Verify an imported run against its restore manifest and telemetry chain; detects missing or tampered restored files.", {
             runId: stringSchema("Imported run id to verify"),
             cwd: stringSchema("Restored repo workspace")
+        }),
+        tool("cw_run_inspect_archive", "Read-only integrity inspection of a portable run archive without importing it: re-proves every file digest/size, the manifest digest + file count, and the whole-archive sha256, naming any offending file. Writes nothing.", {
+            archive: stringSchema("Archive path"),
+            path: stringSchema("Alias for archive"),
+            file: stringSchema("Alias for archive"),
+            cwd: stringSchema("Invocation workspace")
         }),
         tool("cw_run_drive", "Preview the next agent-delegation drive step for a run (read-only, deterministic). Counts come from state; no spawn, no mutation.", {
             runId: stringSchema("Run id to preview"),

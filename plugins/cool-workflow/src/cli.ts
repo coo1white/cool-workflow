@@ -23,6 +23,7 @@ import {
   runExportArchive,
   runImportArchive,
   runVerifyImport,
+  runInspectArchive,
   sandboxChoose,
   schedPlan,
   schedLease,
@@ -728,10 +729,13 @@ async function main(): Promise<void> {
         case "verify": {
           const result = auditVerify(runner, { ...args.options, runId: required(runId, "run id") });
           printJson(result);
-          // Fail-closed: a PRESENT-but-unverified (forged/edited/truncated) chain
-          // exits non-zero so `cw audit verify <run> && deploy` stops. An absent
-          // chain (present:false / verified:true) stays exit 0 — nothing to prove.
-          if (result.present && !result.verified) process.exitCode = 1;
+          // Fail-closed: any unverified chain exits non-zero so `cw audit verify
+          // <run> && deploy` stops — mirrors the telemetry-verify guard. verifyTrustAudit
+          // returns verified:true for a truly absent/empty chain (nothing to prove),
+          // so this stays exit 0 there; a FULLY-corrupt log reports present:false but
+          // verified:false (corruptLines>0) and must NOT be conflated with absent — the
+          // earlier `present && ...` guard let that severe tamper escape (exit 0).
+          if (!result.verified) process.exitCode = 1;
           return;
         }
         case "worker":
@@ -1012,7 +1016,15 @@ async function main(): Promise<void> {
       // run end-to-end by delegating each worker to the agent backend. Distinct from
       // the run-REGISTRY verbs below. `--preview` (or the `run drive <run-id>` form)
       // is the read-only, deterministic next-step preview.
-      if (args.options.drive) {
+      //
+      // A run-REGISTRY subcommand keyword (resume/show/...) must NOT be intercepted
+      // here just because it carries a --drive flag of its own — e.g.
+      // `run resume <id> --drive` is the resume verb's opt-in continuation, not
+      // `run <app=resume> --drive`. Fall through to the switch for those keywords.
+      const runRegistrySubcommand = new Set([
+        "drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive"
+      ]);
+      if (args.options.drive && !runRegistrySubcommand.has(String(args.positionals[0] || ""))) {
         const target = args.positionals[0];
         const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
         if (args.options.preview) {
@@ -1058,7 +1070,7 @@ async function main(): Promise<void> {
           return;
         }
         case "resume": {
-          const result = runResume(registry, required(id, "run id"), args.options);
+          const result = runResume(registry, runner, required(id, "run id"), args.options);
           if (wantsJson(args.options)) printJson(result);
           else process.stdout.write(`${formatResume(result)}\n`);
           return;
@@ -1084,8 +1096,16 @@ async function main(): Promise<void> {
           if (Boolean(args.options.strict) && !(result as { ok?: boolean }).ok) process.exitCode = 1;
           return;
         }
+        case "inspect-archive": {
+          const result = runInspectArchive(runner, { ...args.options, archive: id || args.options.archive || args.options.path });
+          printJson(result);
+          // Read-only diagnostic: exit 1 when the archive fails any integrity check,
+          // so `cw run inspect-archive <path> && restore` stops on a bad archive.
+          if (!(result as { ok?: boolean }).ok) process.exitCode = 1;
+          return;
+        }
         default:
-          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
+          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
       }
     }
     case "queue": {

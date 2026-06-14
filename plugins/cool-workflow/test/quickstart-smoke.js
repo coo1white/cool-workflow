@@ -102,6 +102,64 @@ function main() {
     }
   }
 
+  // ---- 1b. --resume: guided stop-then-resume a newcomer can WITNESS (Track A) -
+  {
+    const work = tmpWorkspace();
+    const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
+    process.chdir(work);
+    try {
+      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const agentCommand = `${process.execPath} ${stub} {{result}}`;
+      // (a) --resume, no --run: advance exactly ONE step and print a continue line.
+      const step1 = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", agentCommand, resume: true });
+      assert.equal(step1.status, "in-progress", "--resume advances one step, not the whole drive");
+      assert.ok(step1.completedWorkers < step1.plannedWorkers, "one resume step leaves work pending");
+      assert.ok(!step1.commitId, "an in-progress resume step has not committed");
+      assert.equal(Object.prototype.hasOwnProperty.call(step1, "resumedFrom"), false, "a fresh resume step carries no resumedFrom");
+      assert.ok(step1.hint && /--run .* --resume/.test(step1.hint), "hint is a copy-pasteable --resume continue line");
+      assert.ok(!/--once/.test(step1.hint), "the resume hint uses --resume, not --once");
+      // (b) --resume --run <id>: continue THAT run to completion.
+      const done = quickstart(runner, { repo: work, question: "risks?", agentCommand, resume: true, run: step1.runId });
+      assert.equal(done.runId, step1.runId, "resume --run continues the SAME run");
+      assert.equal(done.status, "complete", "resume --run drives to completion");
+      assert.equal(done.completedWorkers, done.plannedWorkers, "all workers completed after resume");
+      assert.ok(done.commitId, "the resumed run is committed");
+      assert.equal(done.resumedFrom, step1.runId, "resumedFrom echoes the continued run id");
+    } finally {
+      process.chdir(cwd0);
+    }
+  }
+
+  // ---- 1c. POLA: default quickstart output is byte-identical (no resumedFrom) --
+  {
+    const work = tmpWorkspace();
+    const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
+    process.chdir(work);
+    try {
+      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const result = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", agentCommand: `${process.execPath} ${stub} {{result}}` });
+      assert.equal(Object.prototype.hasOwnProperty.call(result, "resumedFrom"), false, "default (no --resume) output has no resumedFrom key");
+      assert.ok(result.hint === undefined, "clean default completion still has no hint (unchanged wording)");
+    } finally {
+      process.chdir(cwd0);
+    }
+  }
+
+  // ---- 1d. FAIL CLOSED under --resume: unconfigured agent never fabricates ----
+  {
+    const work = tmpWorkspace();
+    process.chdir(work);
+    try {
+      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const blocked = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", resume: true });
+      assert.notEqual(blocked.status, "complete", "--resume with no agent never reports complete");
+      assert.equal(blocked.completedWorkers, 0, "no fabricated completion under --resume");
+      assert.equal(Object.prototype.hasOwnProperty.call(blocked, "resumedFrom"), false, "blocked fresh resume carries no resumedFrom");
+    } finally {
+      process.chdir(cwd0);
+    }
+  }
+
   // ---- 2. FAIL CLOSED: unconfigured agent blocks, never fabricates -----------
   {
     const work = tmpWorkspace();

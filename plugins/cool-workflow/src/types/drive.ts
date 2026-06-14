@@ -82,6 +82,10 @@ export interface QuickstartResult {
   /** Operator-facing next action when the drive did not complete (e.g. how to
    *  configure the agent backend, or where the parked worker is). */
   hint?: string;
+  /** When this invocation CONTINUED an existing run (`--resume --run <id>`), the
+   *  run id it resumed from (=== runId). Absent on a fresh plan and on the default
+   *  (no `--resume`) path, so default output stays byte-identical. */
+  resumedFrom?: string;
 }
 
 /** Read-only, deterministic preview of the drive loop's NEXT step for a run —

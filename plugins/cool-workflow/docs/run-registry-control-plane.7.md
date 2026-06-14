@@ -115,6 +115,14 @@ cwd — loads its durable state, and returns the next runnable tasks and next
 actions for the host to execute. Resume is read-only over source: it never
 mutates `state.json` and never un-archives a run.
 
+`run resume <run-id> --drive` (or `--once` for a single step) hands the resolved
+run straight to the existing agent-delegation drive loop — it re-plans nothing and
+picks up the pending/running tasks deterministically from durable state — and
+augments the result with the drive outcome under a `drive` field. The default (no
+`--drive`) payload and `nextActions` stay byte-identical. An unconfigured agent
+yields `drive.status="blocked"` (fail-closed, never a fabricated completion); CW
+delegates worker execution to your agent and never runs a model itself.
+
 ## Queue
 
 `queue add` appends a durable entry to `$CW_HOME/registry/queue.json` with an
@@ -160,6 +168,15 @@ resumed from the target repo; restored failed runs remain discoverable from the
 home registry and can be rerun as new linked runs. The import does not alter the
 source repository or the source run.
 
+**Import-time refusal (fail-closed before any write).** Import verifies every
+file digest, every file size, the file count, and the manifest digest *before*
+creating the target run directory — so a tampered archive is refused with a
+non-zero exit and a single `cw:` stderr line, leaving nothing on disk (no partial
+restore). Set `CW_REQUIRE_ARCHIVE_INTEGRITY=1` to additionally refuse an archive
+whose top-level integrity block is *absent* — closing the legacy fail-open seam
+where a stripped-integrity archive imported unverified. Unset (the default) keeps
+legacy integrity-less archives byte-identical; the flag is mechanism, not policy.
+
 `run verify-import <run-id> [--cwd DIR]` re-reads the restore manifest, recomputes
 every restored file digest, checks the manifest digest, verifies the telemetry
 ledger when one was restored, and re-proves the **trust-audit hash chain** (the
@@ -173,8 +190,25 @@ By default `verify-import` prints the result and exits 0 even when a check fails
 (it is a report). Pass `--strict` to make any failed restore check exit non-zero,
 so `cw run verify-import <run> --strict && restore` stops on a tampered archive.
 
-MCP exposes the same mechanisms as `cw_run_export`, `cw_run_import`, and
-`cw_run_verify_import`; the CLI and MCP paths share the same runtime functions.
+**Inspect an archive before restoring.** `run inspect-archive PATH [--json]`
+re-proves a portable archive's integrity *without writing anything* — contrast
+with `run import`, which validates as a side-effect of restoring a full
+`.cw/runs/<id>/` tree. It re-computes every embedded file's sha256 and size, the
+`integrity.fileCount` and manifest digest, and the whole-archive sha256, returning
+a structured `checks[]` — each failure names the offending `relativePath` with a
+`digest-mismatch` / `size-mismatch` / `manifest-digest-mismatch` /
+`file-count-mismatch` code. It never throws: an unreadable path, invalid JSON, or an
+unknown `schemaVersion` (`schemaSupported:false`) is reported as a check, not a
+stacktrace — stdout is always valid JSON, diagnostics go to stderr. It exits `1`
+when `ok:false`, so `cw run inspect-archive <path> && cw run import <path>` stops
+before importing a bad archive. It is a faithful preview of import: under
+`CW_REQUIRE_ARCHIVE_INTEGRITY=1` a stripped-integrity archive (which import would
+refuse) also inspects as `ok:false`; with the env unset (default) an absent integrity
+block is merely reported, not failed.
+
+MCP exposes the same mechanisms as `cw_run_export`, `cw_run_import`,
+`cw_run_verify_import`, and `cw_run_inspect_archive`; the CLI and MCP paths share
+the same runtime functions.
 
 ## Cross-repo history
 
@@ -191,13 +225,14 @@ node scripts/cw.js registry show [--scope repo|home] [--json]
 node scripts/cw.js run search [--app ID] [--status STATE] [--text Q] [--repo PATH] [--since ISO] [--until ISO] [--limit N] [--offset N] [--scope repo|home] [--json]
 node scripts/cw.js run list [--scope repo|home] [--json]
 node scripts/cw.js run show <run-id> [--scope repo|home] [--json]
-node scripts/cw.js run resume <run-id> [--limit N] [--json]
+node scripts/cw.js run resume <run-id> [--limit N] [--drive [--once]] [--json]
 node scripts/cw.js run archive <run-id> [--reason TEXT] [--unarchive]
 node scripts/cw.js run archive --older-than-days N [--state completed --state failed]
 node scripts/cw.js run rerun <run-id> [--reason TEXT]
 node scripts/cw.js run export <run-id> --output PATH
 node scripts/cw.js run import PATH --target DIR
 node scripts/cw.js run verify-import <run-id> [--cwd DIR]
+node scripts/cw.js run inspect-archive PATH [--json]
 node scripts/cw.js queue add [--app ID|--workflow ID|--runId ID] [--repo PATH] [--priority N] [--note TEXT]
 node scripts/cw.js queue list [--status STATE] [--repo PATH] [--json]
 node scripts/cw.js queue show <queue-id>

@@ -9,7 +9,7 @@ Everything leads with the 30-second `npx cool-workflow demo tamper` proof.
 ## ✅ FINAL — Show HN (copy-paste ready)
 
 **Pre-flight (do these first):**
-1. Record the demo GIF: `vhs plugins/cool-workflow/docs/launch/demo.tape` → swap it into the README hero (replace the fenced output block with the GIF).
+1. Record the demo GIF: `vhs plugins/cool-workflow/docs/launch/demo.tape` → add it to the README hero (insert the GIF near the badges/intro).
 2. Confirm on a clean machine: `npx cool-workflow demo tamper` runs and prints `VERDICT: tamper-evidence holds ✓`.
 3. Post during US morning (HN traffic peak); reply to the first comment with the npm + provenance link.
 
@@ -55,7 +55,9 @@ deadlock and replay who-passed-who-failed), per-task output-schema gates, token
 budgets enforced against the host's recorded usage (opt-in gate fails closed on
 unattested telemetry), and a one-way executor boundary welded
 into the type system (a callable that could reach a model API fails `npm run
-build`). Zero runtime deps, BSD-2, published to npm with provenance.
+build`). Zero runtime deps, BSD-2, published to npm with provenance. Ships generated
+plugin manifests for 5 agent platforms (claude, codex, agents, gemini, opencode);
+`npm run manifest:load-check` boots all five from one source of truth.
 
 It's early (v0.1.80) — I'd genuinely like to hear where the "delegate, prove,
 replay" model breaks down for your workflows.
@@ -69,8 +71,8 @@ npm: https://www.npmjs.com/package/cool-workflow
 
 > Cool Workflow is an auditable control-plane for multi-agent workflows. It
 > *delegates* model execution — never embeds it — and makes every recorded agent
-> telemetry verdict tamper-evident: anyone can re-verify a run offline with only a
-> public key.
+> telemetry verdict tamper-evident: anyone can re-verify a run's integrity offline,
+> and check the ed25519 attribution with the public key alone.
 
 ## Elevator (2 sentences)
 
@@ -143,8 +145,9 @@ catches both offline with only the public key. A control-plane that delegates
 model execution but can still prove the bill is real.
 
 3/ Also: concurrent batches that don't deadlock when an agent hangs, schema-gated
-outputs, token budgets vs *attested* usage, and a red line (never call a model
-API) enforced at compile time. Zero deps, BSD-2.
+outputs, token budgets vs the host's recorded usage (attested-telemetry gate is
+opt-in), and a red line (never call a model API) enforced at compile time. Zero
+deps, BSD-2.
 → https://github.com/coo1white/cool-workflow
 
 ---
@@ -155,20 +158,29 @@ API) enforced at compile time. Zero deps, BSD-2.
   reported usage. The thing that *spends the money* is not the thing that *keeps
   the books* — the property auditors require everywhere except, so far, agent
   infra.
-- **Offline, public-key verification.** No telemetry service to trust or breach.
-  The record proves its own integrity; the verifier needs only the public key.
+- **Offline verification.** No telemetry service to trust or breach. The record
+  proves its own integrity offline — re-proving the chain needs no key at all — and
+  the ed25519 attribution checks against the public key alone.
 - **Replayable, not just logged.** CW breaks at dispatch and writes to disk, so a
   run replays deterministically — "who passed / who failed" is reconstructable, not
-  a scrollback of a fused process.
+  a scrollback of a fused process. A finished run is portable and self-proving:
+  `cw run inspect-archive <archive>` re-proves every file digest, the manifest, and
+  the whole-archive hash without importing it; `cw run import` then
+  `cw run verify-import <run-id>` restores it and re-proves the restored digests +
+  telemetry chain — a tampered archive is caught before it is trusted.
 - **Fail-closed by default where it counts.** Schema mismatch parks the hop;
   unverifiable usage can be refused (opt-in); an empty-capture result can't be
   presented as a clean commit.
+- **Cross-vendor, and it actually boots.** One source manifest
+  (`manifest/plugin.manifest.json`) generates Claude / Codex / Gemini / OpenCode /
+  agents adapters, and `npm run manifest:load-check` boots all five (184 tools each)
+  — the neutrality moat is executable, not aspirational.
 
 ## Assets to capture before posting
 
 - [ ] **Demo GIF** — reproducible, no manual screen-recording: `vhs
       plugins/cool-workflow/docs/launch/demo.tape` → `docs/launch/demo-tamper.gif`,
-      then swap it into the README hero (replace the fenced output block). The
+      then add it to the README hero (insert it near the badges/intro). The
       ✗ DETECTED lines are the hook.
 - [ ] Confirm `npx cool-workflow demo tamper` works from a clean machine (no clone).
 - [ ] Pin the npm version badge / release + provenance link in the first comment.

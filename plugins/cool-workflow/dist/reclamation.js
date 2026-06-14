@@ -529,6 +529,13 @@ function planReclamation(run, policy = {}) {
     // retention, and we do not yet auto-capture reconstruction recipes for them.
     // The reference graph is consulted so the door is closed, not merely unbuilt.
     void buildReferenceGraph;
+    // Determinism (HARD constraint): the snapshot candidates above are gathered in
+    // fs.readdirSync order, which is filesystem-dependent. freeable feeds the freed
+    // manifest that buildTombstone binds into tombstoneHash (and the prevTombstoneHash
+    // chain), so an unsorted order makes the tombstone hash irreproducible across
+    // hosts. Sort by path — the same compareBytes discipline the directory reads at
+    // :128 and the reference list at :243 already use — before anything hashes it.
+    freeable.sort((a, b) => (0, compare_1.compareBytes)(a.path, b.path));
     const byKind = {};
     let bytesToFree = 0;
     for (const entry of freeable) {

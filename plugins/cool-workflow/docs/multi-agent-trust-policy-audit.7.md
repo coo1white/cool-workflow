@@ -133,10 +133,13 @@ forgery (an `eventHash`-less line slipped into a chained log to be waved through
 
 Exit-code contract (the peer of `telemetry verify`):
 
-- A **present-but-unverified** chain (forged / edited / truncated / unchained-injected)
-  exits **1** — so `cw audit verify <run> && deploy` stops on tampering.
-- An **absent** chain is `present:false` / `verified:true` / exit **0** — a run with
-  no audit log has nothing to prove (no false-red).
+- ANY **unverified** chain exits **1** — forged / edited / truncated / unchained-injected,
+  *and* a fully-corrupt log (every line unparseable, which reports `present:false` but
+  `verified:false`). The gate keys on `verified`, not `present`, so the most severe
+  tamper — garbling the whole log — cannot escape by looking "absent". So
+  `cw audit verify <run> && deploy` stops on tampering.
+- Only a truly **absent / empty** chain is `verified:true` / exit **0** — a run with
+  no audit log (or a blank one) has nothing to prove (no false-red).
 
 ## MCP
 

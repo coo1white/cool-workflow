@@ -263,6 +263,39 @@ write paths, command execution, network access, and environment exposure. CW
 stores and validates the policy, while the agent host enforces OS/process
 runtime controls. See [docs/sandbox-profiles.7.md](docs/sandbox-profiles.7.md).
 
+## Quickstart
+
+**30-second proof, no install** — see that a recorded telemetry verdict can't be forged:
+
+```bash
+npx cool-workflow demo tamper
+# builds a signed ed25519 ledger, forges it 2 ways, both caught offline
+# -> VERDICT: tamper-evidence holds ✓
+```
+
+**Try a real run** — no clone needed; drive an architecture review with your own agent:
+
+```bash
+npx cool-workflow quickstart architecture-review --repo /path/to/repo \
+  --question "Is this architecture sound?" --agent-command builtin:claude
+```
+
+CW DELEGATES worker execution to your own agent. With no `--agent-command` (or
+`CW_AGENT_COMMAND`) the drive fails closed (status `blocked`) — it never fabricates a
+result. `--agent-command builtin:claude` resolves to a bundled read-only `claude -p`
+wrapper (needs `claude` on your PATH).
+
+**Re-prove a finished run, offline** (`cw` is the installed bin; or `npx cool-workflow <cmd>`):
+
+```bash
+cw telemetry verify <run-id>   # re-checks the hash-chained attestation ledger
+cw audit verify <run-id>       # re-proves the trust-audit hash chain (fail-closed exit)
+```
+
+More: `cw quickstart <app> --preview` (read-only dry run), `cw run resume <run-id> --drive`
+(continue an interrupted run), `cw run inspect-archive <archive>` (integrity-check a
+portable run archive without importing it).
+
 ## Structure
 
 ```text
@@ -299,6 +332,10 @@ cool-workflow
 ```
 
 ## Commands
+
+Installed via npm, the bin is `cw` (alias `cool-workflow`): e.g. `cw list`,
+`cw quickstart …`. From a cloned source checkout, before `npm run build`, use the
+equivalent `node scripts/cw.js <cmd>` form shown in the examples below.
 
 List bundled workflows:
 
@@ -619,7 +656,7 @@ Replaces the linear migration chain with a BFS graph path resolver (`findMigrati
 
 ## Vendor-Adapter Registry (v0.1.47)
 
-Data-driven manifest generation: vendor JSON shapes extracted from `gen-manifests.js` into declarative templates in `plugin.manifest.json`. A `_resolveTemplate()` engine resolves `{{path.to.field}}` markers. Adding a new AI platform is pure data.
+Data-driven manifest generation: vendor JSON shapes extracted from `gen-manifests.js` into declarative templates in `plugin.manifest.json`. A `_resolveTemplate()` engine resolves `{{path.to.field}}` markers. Adding a new AI platform is pure data. Cross-vendor is proven by boot, not just by generation: `npm run manifest:load-check` (`node test/vendor-manifest-load-smoke.js`) loads every generated manifest (claude, codex, agents, gemini, opencode) and asserts each exposes the full tool surface (184 tools).
 
 ## P2 Fixes (v0.1.48)
 
