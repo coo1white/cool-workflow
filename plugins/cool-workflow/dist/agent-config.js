@@ -139,18 +139,30 @@ function agentConfigFromArgs(args) {
 // npx/global install, where $(pwd)-relative paths don't exist) can configure a
 // WORKING agent without knowing where the package landed on disk:
 //   --agent-command builtin:claude   (or CW_AGENT_COMMAND=builtin:claude)
-// resolves to the packaged claude wrapper invocation. Still pure config — the
-// template is an out-of-process delegation script; CW never calls a model API.
-const BUILTIN_AGENT_TEMPLATES = {
-    claude: `node ${node_path_1.default.join(__dirname, "..", "scripts", "agents", "claude-p-agent.js")} {{input}} {{result}}`
-};
+// resolves to the packaged wrapper invocation. Still pure config — the template
+// is an out-of-process delegation script; CW never calls a model API.
+//
+// The builtin set is DATA, not a kernel TS literal (FreeBSD-audit L15): it lives
+// in scripts/agents/builtin-templates.json (vendor name -> wrapper script name).
+// Adding a vendor is a content/distribution step (drop a wrapper + a JSON line),
+// not a kernel edit — keeping CW vendor-agnostic at the source level.
+function builtinAgentTemplates() {
+    const agentsDir = node_path_1.default.join(__dirname, "..", "scripts", "agents");
+    const manifest = JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(agentsDir, "builtin-templates.json"), "utf8"));
+    const out = {};
+    for (const [name, script] of Object.entries(manifest.templates || {})) {
+        out[name] = `node ${node_path_1.default.join(agentsDir, script)} {{input}} {{result}}`;
+    }
+    return out;
+}
 function expandBuiltinAgentCommand(command) {
     if (!command || !command.startsWith("builtin:"))
         return command;
     const name = command.slice("builtin:".length).trim();
-    const template = BUILTIN_AGENT_TEMPLATES[name];
+    const templates = builtinAgentTemplates();
+    const template = templates[name];
     if (!template) {
-        throw new Error(`Unknown builtin agent template "${name}" — available: ${Object.keys(BUILTIN_AGENT_TEMPLATES).join(", ")}`);
+        throw new Error(`Unknown builtin agent template "${name}" — available: ${Object.keys(templates).join(", ")}`);
     }
     return template;
 }
