@@ -43,6 +43,7 @@ import {
   gcRun,
   gcVerify,
   telemetryVerify,
+  auditVerify,
   runDrive,
   runDrivePreview,
   backendAgentConfigShow,
@@ -299,6 +300,8 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         return runner.recordCoordinatorDecision(String(args.runId || ""), args);
       case "cw_audit_summary":
         return runner.auditSummary(String(args.runId || ""));
+      case "cw_audit_verify":
+        return auditVerify(runner, args);
       case "cw_audit_worker":
         return runner.workerAudit(String(args.runId || ""), String(args.workerId || ""));
       case "cw_audit_provenance":
@@ -939,6 +942,7 @@ function toolDefinitions(): unknown[] {
       message: arraySchema("Blackboard message ids")
     }),
     tool("cw_audit_summary", "Read durable trust/audit summary for a run.", runIdSchema()),
+    tool("cw_audit_verify", "Re-prove a run's trust-audit hash chain offline: recompute every event hash from genesis + check chain linkage; a forged, edited, truncated, or unchained-injected event fails it. Peer of `cw audit verify`; fail-closed.", runIdSchema()),
     tool("cw_audit_worker", "Read trust/audit events for one worker.", workerIdSchema()),
     tool("cw_audit_provenance", "Inspect evidence provenance for a run, worker, candidate, or commit.", {
       ...runIdSchema(),

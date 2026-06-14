@@ -302,6 +302,7 @@ const BUILTIN_CAPABILITIES: CapabilityDescriptor[] = [
 
   // ---- audit & trust ------------------------------------------------------
   { capability: "audit.summary", summary: "Read the trust/audit summary.", entry: "auditSummary", surface: "both", cli: { path: ["audit", "summary"], jsonMode: "default" }, mcp: { tool: "cw_audit_summary", requiredArgs: ["runId"] } },
+  { capability: "audit.verify", summary: "Re-prove a run's trust-audit hash chain (fail-closed exit).", entry: "auditVerify", surface: "both", cli: { path: ["audit", "verify"], jsonMode: "default" }, mcp: { tool: "cw_audit_verify", requiredArgs: ["runId"] } },
   { capability: "audit.worker", summary: "Read trust/audit for one worker.", entry: "workerAudit", surface: "both", cli: { path: ["audit", "worker"], jsonMode: "default" }, mcp: { tool: "cw_audit_worker", requiredArgs: ["runId"] } },
   { capability: "audit.provenance", summary: "Inspect evidence provenance.", entry: "evidenceProvenance", surface: "both", cli: { path: ["audit", "provenance"], jsonMode: "default" }, mcp: { tool: "cw_audit_provenance", requiredArgs: ["runId"] } },
   { capability: "audit.multi-agent", summary: "Read the multi-agent trust/policy/provenance audit.", entry: "auditMultiAgent", surface: "both", cli: { path: ["audit", "multi-agent"], jsonMode: "flag" }, mcp: { tool: "cw_audit_multi_agent", requiredArgs: ["runId"] } },

@@ -21,6 +21,7 @@ const node_crypto_1 = __importDefault(require("node:crypto"));
 const state_1 = require("./state");
 const version_1 = require("./version");
 const telemetry_ledger_1 = require("./telemetry-ledger");
+const trust_audit_1 = require("./trust-audit");
 const compare_1 = require("./compare");
 /** Export a run to a portable JSON archive with run-local bytes and digests. */
 function exportRun(run, outputPath) {
@@ -187,6 +188,17 @@ function verifyImportedRun(run) {
         name: "telemetry-ledger",
         pass: telemetry.verified,
         code: telemetry.verified ? undefined : "telemetry-ledger-invalid"
+    });
+    // Re-prove the trust-audit hash chain on restore too. Telemetry was already
+    // re-proven above, but the decisions/sandbox/commit-gate audit chain — also
+    // exported under audit/ — was not, an asymmetry a tampered restore could slip
+    // through. An absent chain is verified:true (nothing to prove), so archives
+    // predating audit export append a PASSING check — no false-red.
+    const audit = (0, trust_audit_1.verifyTrustAudit)(run);
+    checks.push({
+        name: "trust-audit",
+        pass: audit.verified,
+        code: audit.verified ? undefined : "trust-audit-invalid"
     });
     return {
         runId: run.id,

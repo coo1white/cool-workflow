@@ -70,10 +70,19 @@ export function trustAuditGenesis(runId: string): string {
 }
 
 /** Canonical bytes the eventHash binds: every field EXCEPT eventHash itself
- *  (prevEventHash included, so the chain link is bound). */
+ *  (prevEventHash included, so the chain link is bound).
+ *
+ *  The hash binds the PERSISTED form. `stableStringify` keeps an undefined-valued
+ *  key as `"k":null`, but the `JSON.stringify` that writes events.jsonl DROPS such
+ *  keys — so without this round-trip the record-time hash (over the in-memory event,
+ *  which can carry nested undefined like an absent dispatchId in worker-sandbox
+ *  metadata) would never match the verify-time hash (over the parsed-from-disk
+ *  event), false-failing legitimate worker events as `trust-audit-digest-mismatch`.
+ *  Round-tripping makes record-time == verify-time. It is identity for events with
+ *  no undefined fields, so existing intact chains hash unchanged. */
 function computeEventHash(event: TrustAuditEvent): string {
   const { eventHash, ...rest } = event;
-  return sha256(stableStringify(rest));
+  return sha256(stableStringify(JSON.parse(JSON.stringify(rest))));
 }
 
 /** The hash to chain the NEXT event to: the stored eventHash, or a recompute for

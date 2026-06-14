@@ -704,6 +704,16 @@ async function main() {
                 case "summary":
                     printJson(runner.auditSummary(required(runId, "run id")));
                     return;
+                case "verify": {
+                    const result = (0, capability_core_1.auditVerify)(runner, { ...args.options, runId: required(runId, "run id") });
+                    printJson(result);
+                    // Fail-closed: a PRESENT-but-unverified (forged/edited/truncated) chain
+                    // exits non-zero so `cw audit verify <run> && deploy` stops. An absent
+                    // chain (present:false / verified:true) stays exit 0 — nothing to prove.
+                    if (result.present && !result.verified)
+                        process.exitCode = 1;
+                    return;
+                }
                 case "worker":
                     printJson(runner.workerAudit(required(runId, "run id"), required(id, "worker id")));
                     return;
@@ -1047,9 +1057,16 @@ async function main() {
                 case "import":
                     printJson((0, capability_core_1.runImportArchive)(runner, { ...args.options, archive: id || args.options.archive || args.options.path }));
                     return;
-                case "verify-import":
-                    printJson((0, capability_core_1.runVerifyImport)(runner, required(id || optionalArg(args.options.runId || args.options.run), "run id"), args.options));
+                case "verify-import": {
+                    const result = (0, capability_core_1.runVerifyImport)(runner, required(id || optionalArg(args.options.runId || args.options.run), "run id"), args.options);
+                    printJson(result);
+                    // Fail-closed ONLY behind --strict, so the default exit stays 0
+                    // (byte-identical). With --strict, any failed restore check — including
+                    // the new trust-audit row — exits 1 for `verify-import && restore`.
+                    if (Boolean(args.options.strict) && !result.ok)
+                        process.exitCode = 1;
                     return;
+                }
                 default:
                     throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
             }
