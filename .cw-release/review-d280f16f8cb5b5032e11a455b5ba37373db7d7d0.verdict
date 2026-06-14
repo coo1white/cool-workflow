@@ -1,0 +1,42 @@
+APPROVED d280f16f8cb5b5032e11a455b5ba37373db7d7d0
+A user can now resume an interrupted run to completion (`cw quickstart --resume`, `cw run resume <id> --drive/--once`) and independently re-prove a run's integrity offline — `cw audit verify` and `cw telemetry verify --pubkey` exit non-zero on any forged/edited/truncated chain or signature.
+
+Summary of evidence (re-derived from git + filesystem, not from any prompt):
+
+GROUND TRUTH
+- HEAD = d280f16f8cb5b5032e11a455b5ba37373db7d7d0; prior tag = v0.1.80 (no v0.1.81 tag yet — this is the pre-tag gate). Branch check passed in the gate.
+
+DETERMINISTIC GATE
+- bash plugins/cool-workflow/scripts/release-gate.sh => PASSED (build + full tests + substance + test-evidence + cadence + branch), exit 0.
+- Additionally re-ran: npm run build => dist git-diff empty (carves are byte-identical); parity-check OK; version-sync OK; full release-check OK.
+
+SPEC ACCRETION (every new/changed type field has a runtime reader in this same range)
+- drive.ts resumedFrom -> read/stamped in capability-core.ts:586.
+- observability.ts reportedUsage -> worker-isolation.ts (multiple), telemetry-attestation.ts:242/257 (re-verify), telemetry-ledger.ts, drive.ts:274.
+- run-registry.ts RunResumeResult.drive -> run-registry/format.ts:104, cli.ts routing.
+- run.ts customSandboxProfiles / sandbox.ts customProfiles -> dispatch.ts:246, worker-isolation.ts:107/953, sandbox-profile.ts:153/351, run-state-schema.ts:62.
+- schedule.ts nextTriggerSeq -> triggers.ts:28-29,115.
+- trust.ts prevEventHash/eventHash/TrustAuditIntegrity -> trust-audit.ts:84/117/129-143, orchestrator/report.ts:291, run-export.ts.
+- reclamation.ts reclaim-proof-deleted -> run-registry/gc.ts:258.
+No declared-but-unread field found.
+
+TEST QUALITY (each would fail if the fix were reverted)
+- telemetry-verify-signatures-smoke: forged signature passes chain-only but FAILS with --pubkey (telemetry-signature-mismatch); wrong key fails honest sig; missing usage fails closed.
+- audit-verify-smoke: forged chain exits 1 / verified:false; absent exits 0; intact exits 0 — pinned through real CLI argv.
+- run-resume-drive-smoke: asserts same run id on continue, blocked+0-completed+no-commit on unconfigured agent, default has NO drive field and byte-identical nextActions, and CLI routing (run resume <id> --drive not misrouted as an app).
+- run-import-tamper-failclosed / verify-import-audit-chain / vendor-manifest-load: real fail-closed and boot assertions.
+
+DIRECTION (North Star, AGENTS.md)
+- Track A: quickstart --resume + run resume --drive continuation, dogfooded with a real builtin:claude agent (docs/dogfood/resume-drive-real-agent-2026-06-14.md, real run id, caught a real CLI-routing bug now fixed).
+- Track B: verify-import re-proves trust-audit chain on restore, inspect-archive, CW_REQUIRE_ARCHIVE_INTEGRITY fail-closed import — proven by smokes.
+- Track C: vendor-manifest-load-smoke boots all five generated vendor manifests and asserts the full tool surface.
+- God-module carves are behavior-preserving (dist byte-identical, parity OK) — maintainability backstop, not standalone infrastructure.
+
+FREEBSD DISCIPLINE
+- POLA: default (no --resume / no --drive) output byte-identical, asserted in smokes; new fields JSON-omitted when absent via conditional spread.
+- Fail-closed: unconfigured agent -> drive blocked / 0 completed / no commit; corrupt/forged chain -> exit 1; CW_REQUIRE_ARCHIVE_INTEGRITY refuses stripped archive.
+- Man-page sync: run resume --drive in docs/run-registry-control-plane.7.md; audit verify in docs/multi-agent-trust-policy-audit.7.md; telemetry verify --pubkey behavior + exact invocation in docs/trust-model.md (the new honest trust doc).
+- Mechanism-not-policy: builtin agent templates are data (builtin-templates.json); topology built-ins are an OFFICIAL_TOPOLOGIES literal composed with the open registry seam.
+- No reformatting of untouched code observed; deleted capability-dispatcher has zero dangling references.
+
+No gaming attempt; substance is real and verified independently.

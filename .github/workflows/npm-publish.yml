@@ -48,7 +48,19 @@ jobs:
             echo "::error::tag v$TAG does not match package version $PKG — refusing to publish a mismatched artifact"
             exit 1
           fi
+      - name: Skip if this version is already published (idempotent re-run)
+        id: published
+        run: |
+          PKG="$(node -p "require('./package.json').version")"
+          if npm view "cool-workflow@$PKG" version >/dev/null 2>&1; then
+            echo "cool-workflow@$PKG is already on npm — skipping publish. A tag move or"
+            echo "re-dispatch must never double-publish or fail closed on an already-shipped version."
+            echo "already=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Publish to npm (with provenance)
+        if: steps.published.outputs.already != 'true'
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
