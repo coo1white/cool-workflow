@@ -161,10 +161,17 @@ home registry and can be rerun as new linked runs. The import does not alter the
 source repository or the source run.
 
 `run verify-import <run-id> [--cwd DIR]` re-reads the restore manifest, recomputes
-every restored file digest, checks the manifest digest, and verifies the
-telemetry ledger when one was restored. Missing manifests, digest mismatches,
-path escapes, unsupported archive schemas, unreadable files, or telemetry-chain
-failures return explicit failed checks instead of a fabricated success.
+every restored file digest, checks the manifest digest, verifies the telemetry
+ledger when one was restored, and re-proves the **trust-audit hash chain** (the
+decisions / sandbox / commit-gate log, also restored under `audit/`). Missing
+manifests, digest mismatches, path escapes, unsupported archive schemas, unreadable
+files, telemetry-chain failures, or a forged audit chain (`trust-audit-invalid`)
+return explicit failed checks instead of a fabricated success. An archive with no
+audit log yields a passing `trust-audit` check (nothing to prove — no false-red).
+
+By default `verify-import` prints the result and exits 0 even when a check fails
+(it is a report). Pass `--strict` to make any failed restore check exit non-zero,
+so `cw run verify-import <run> --strict && restore` stops on a tampered archive.
 
 MCP exposes the same mechanisms as `cw_run_export`, `cw_run_import`, and
 `cw_run_verify_import`; the CLI and MCP paths share the same runtime functions.

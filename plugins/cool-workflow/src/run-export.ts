@@ -14,6 +14,7 @@ import { RunExport, WorkflowRun } from "./types";
 import { createRunPaths, ensureRunDirs, isContainedPath, readJson, saveCheckpoint, writeJson } from "./state";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "./version";
 import { verifyTelemetryLedger } from "./telemetry-ledger";
+import { verifyTrustAudit } from "./trust-audit";
 import { compareBytes } from "./compare";
 
 type ArchiveFileRole = NonNullable<RunExport["files"]>[number]["role"];
@@ -246,6 +247,18 @@ export function verifyImportedRun(run: WorkflowRun): RestoreVerificationResult {
     name: "telemetry-ledger",
     pass: telemetry.verified,
     code: telemetry.verified ? undefined : "telemetry-ledger-invalid"
+  });
+
+  // Re-prove the trust-audit hash chain on restore too. Telemetry was already
+  // re-proven above, but the decisions/sandbox/commit-gate audit chain — also
+  // exported under audit/ — was not, an asymmetry a tampered restore could slip
+  // through. An absent chain is verified:true (nothing to prove), so archives
+  // predating audit export append a PASSING check — no false-red.
+  const audit = verifyTrustAudit(run);
+  checks.push({
+    name: "trust-audit",
+    pass: audit.verified,
+    code: audit.verified ? undefined : "trust-audit-invalid"
   });
 
   return {
