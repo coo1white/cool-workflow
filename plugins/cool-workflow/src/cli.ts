@@ -23,6 +23,7 @@ import {
   runExportArchive,
   runImportArchive,
   runVerifyImport,
+  runInspectArchive,
   sandboxChoose,
   schedPlan,
   schedLease,
@@ -1058,7 +1059,7 @@ async function main(): Promise<void> {
           return;
         }
         case "resume": {
-          const result = runResume(registry, required(id, "run id"), args.options);
+          const result = runResume(registry, runner, required(id, "run id"), args.options);
           if (wantsJson(args.options)) printJson(result);
           else process.stdout.write(`${formatResume(result)}\n`);
           return;
@@ -1084,8 +1085,16 @@ async function main(): Promise<void> {
           if (Boolean(args.options.strict) && !(result as { ok?: boolean }).ok) process.exitCode = 1;
           return;
         }
+        case "inspect-archive": {
+          const result = runInspectArchive(runner, { ...args.options, archive: id || args.options.archive || args.options.path });
+          printJson(result);
+          // Read-only diagnostic: exit 1 when the archive fails any integrity check,
+          // so `cw run inspect-archive <path> && restore` stops on a bad archive.
+          if (!(result as { ok?: boolean }).ok) process.exitCode = 1;
+          return;
+        }
         default:
-          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
+          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--repo R --question Q]");
       }
     }
     case "queue": {

@@ -100,6 +100,11 @@ export function formatResume(result: RunResumeResult): string {
     `  resumable=${result.resumable} nextTasks=${result.nextTasks.length}`
   ];
   for (const action of result.nextActions) lines.push(`  -> ${action.command}\n     ${action.reason}`);
+  // Only when --drive/--once continued the run; the default read-only resume text is unchanged.
+  if (result.drive) {
+    const d = result.drive;
+    lines.push(`  drive: ${d.status} (${d.completedWorkers}/${d.plannedWorkers} workers${d.commitId ? `, committed ${d.commitId}` : ""})`);
+  }
   return lines.join("\n");
 }
 

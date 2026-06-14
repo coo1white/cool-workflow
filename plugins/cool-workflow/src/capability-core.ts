@@ -28,7 +28,7 @@ import { verifyTelemetryLedger } from "./telemetry-ledger";
 import { verifyTrustAudit } from "./trust-audit";
 import { runTamperDemo, TelemetryVerifyResult } from "./telemetry-demo";
 import { loadRunStateFile, readJson, writeJson } from "./state";
-import { exportRun, importRun, verifyImportedRun } from "./run-export";
+import { ArchiveInspectResult, exportRun, importRun, inspectArchive, verifyImportedRun } from "./run-export";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -238,11 +238,18 @@ export function runShow(reg: RunRegistry, runId: string, args: Record<string, un
   return reg.showRun(runId, { scope: scopeOf(args, "home") });
 }
 
-export function runResume(reg: RunRegistry, runId: string, args: Record<string, unknown>): RunResumeResult {
-  return reg.resume(runId, {
+export function runResume(reg: RunRegistry, runner: CoolWorkflowRunner, runId: string, args: Record<string, unknown>): RunResumeResult {
+  const base = reg.resume(runId, {
     scope: scopeOf(args, "home"),
     limit: args.limit === undefined ? undefined : Number(args.limit)
   });
+  // Default (no --drive/--once): read-only, byte-identical to before.
+  if (!isTrue(args.drive) && !isTrue(args.once)) return base;
+  // Opt-in continuation: hand the resolved run to the EXISTING agent-delegation
+  // drive loop (re-plans nothing; picks up pending/running tasks from durable
+  // state). An unconfigured agent surfaces drive.status="blocked" (fail-closed).
+  const drive = runDrive(runner, { ...args, runId: base.runId, repo: base.repo, once: isTrue(args.once) });
+  return { ...base, drive };
 }
 
 export function runArchive(reg: RunRegistry, runId: string | undefined, args: Record<string, unknown>): unknown {
@@ -286,6 +293,17 @@ export function runImportArchive(runner: CoolWorkflowRunner, args: Record<string
     const registry = new RunRegistry(path.resolve(target), runner);
     const registryReport = registry.refresh({ scope: "repo" });
     return { ...imported, registry: registryReport };
+  });
+}
+
+// Read-only: inspect a portable archive's integrity WITHOUT importing it. Routes
+// both surfaces through one shared core entry. The runner is unused (no registry
+// touch — inspection writes nothing) but kept for dispatch-signature symmetry.
+export function runInspectArchive(_runner: CoolWorkflowRunner, args: Record<string, unknown>): ArchiveInspectResult {
+  return withInvocationCwd(args, () => {
+    const archive = optionalString(args.archive || args.path || args.file);
+    if (!archive) throw new Error("run inspect-archive requires an archive path (positional, --archive, --path, or --file)");
+    return inspectArchive(path.resolve(archive));
   });
 }
 
@@ -429,7 +447,8 @@ const DRIVE_RUNTIME_KEYS = [
   "agentModel",
   "agent-model",
   "agentTimeoutMs",
-  "agent-timeout-ms"
+  "agent-timeout-ms",
+  "resume"
 ];
 
 function planInputsFor(args: Record<string, unknown>): Record<string, unknown> {
@@ -480,6 +499,12 @@ export const QUICKSTART_DEFAULT_APP = "architecture-review";
 export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unknown>): QuickstartResult | DrivePreview {
   const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
   const agentConfigured = Boolean(resolveAgentConfig(args).command || resolveAgentConfig(args).endpoint);
+  // `--resume`: a discoverability flag over the existing continuation. With no
+  // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
+  // copy-pasteable continue line; with `--run <id>`, continue that run to
+  // completion (the default drive). It adds no new execution path.
+  const resume = isTrue(args.resume);
+  const resumeRunId = resume ? optionalString(args.runId || args.run) : undefined;
 
   // `--preview`: read-only, deterministic next-step projection (no spawn, no commit).
   // Plan a fresh run (the read-only first verb) then project the next drive step.
@@ -503,7 +528,10 @@ export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unkn
   // Drive end-to-end (or one `--once` step). runDrive plans the run, delegates each
   // worker to the agent backend, and commits — we add only the report write + a
   // single assembled payload. No orchestration is duplicated here.
-  const result = runDrive(runner, { ...args, appId });
+  // `--resume` with no run id advances a single step so a newcomer WITNESSES the
+  // stop-then-resume; with a run id it continues to completion. Non-resume paths
+  // are untouched (byte-identical default).
+  const result = runDrive(runner, { ...args, appId, ...(resume && !resumeRunId ? { once: true } : {}) });
 
   // Always (re)write the report so the one command yields a report.md on disk, even
   // when the drive blocked/parked (a partial report is still useful triage).
@@ -531,7 +559,9 @@ export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unkn
   } else if (result.status === "blocked") {
     hint = `the drive is blocked — inspect: cw run drive ${result.runId}`;
   } else if (result.status === "in-progress") {
-    hint = `one step advanced (--once) — continue: cw quickstart ${appId} --run ${result.runId} --once`;
+    hint = resume
+      ? `one step advanced — continue: cw quickstart ${appId} --run ${result.runId} --resume`
+      : `one step advanced (--once) — continue: cw quickstart ${appId} --run ${result.runId} --once`;
   }
 
   return {
@@ -548,7 +578,11 @@ export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unkn
     statePath: result.statePath,
     agentConfigured,
     steps: result.steps,
-    hint
+    hint,
+    // Stamp resumedFrom ONLY when we continued an explicit run. Conditional spread
+    // keeps the key absent on the default/fresh path (own-property absent + omitted
+    // by JSON.stringify), so default output is byte-identical.
+    ...(resumeRunId ? { resumedFrom: resumeRunId } : {})
   };
 }
 
