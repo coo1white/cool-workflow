@@ -30,16 +30,19 @@ const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_trust_1 = require("./multi-agent-trust");
-exports.MULTI_AGENT_SCHEMA_VERSION = 1;
+const paths_1 = require("./multi-agent/paths");
+const graph_1 = require("./multi-agent/graph");
+const helpers_1 = require("./multi-agent/helpers");
+Object.defineProperty(exports, "MULTI_AGENT_SCHEMA_VERSION", { enumerable: true, get: function () { return helpers_1.MULTI_AGENT_SCHEMA_VERSION; } });
 function ensureMultiAgentState(run) {
-    run.paths.multiAgentDir = multiAgentRoot(run);
+    run.paths.multiAgentDir = (0, paths_1.multiAgentRoot)(run);
     node_fs_1.default.mkdirSync(run.paths.multiAgentDir, { recursive: true });
     for (const dir of ["runs", "roles", "groups", "memberships", "fanouts", "fanins"]) {
         node_fs_1.default.mkdirSync(node_path_1.default.join(run.paths.multiAgentDir, dir), { recursive: true });
     }
     if (!run.multiAgent) {
         run.multiAgent = {
-            schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
+            schemaVersion: helpers_1.MULTI_AGENT_SCHEMA_VERSION,
             runs: [],
             roles: [],
             groups: [],
@@ -48,7 +51,7 @@ function ensureMultiAgentState(run) {
             fanins: []
         };
     }
-    run.multiAgent.schemaVersion = exports.MULTI_AGENT_SCHEMA_VERSION;
+    run.multiAgent.schemaVersion = helpers_1.MULTI_AGENT_SCHEMA_VERSION;
     run.multiAgent.runs = run.multiAgent.runs || [];
     run.multiAgent.roles = run.multiAgent.roles || [];
     run.multiAgent.groups = run.multiAgent.groups || [];
@@ -59,15 +62,15 @@ function ensureMultiAgentState(run) {
 }
 function persistMultiAgentState(run) {
     const state = ensureMultiAgentState(run);
-    const root = multiAgentRoot(run);
-    assertNoRecordPathCollisions("MultiAgentRun", state.runs);
-    assertNoRecordPathCollisions("AgentRole", state.roles);
-    assertNoRecordPathCollisions("AgentGroup", state.groups);
-    assertNoRecordPathCollisions("AgentMembership", state.memberships);
-    assertNoRecordPathCollisions("AgentFanout", state.fanouts);
-    assertNoRecordPathCollisions("AgentFanin", state.fanins);
+    const root = (0, paths_1.multiAgentRoot)(run);
+    (0, helpers_1.assertNoRecordPathCollisions)("MultiAgentRun", state.runs);
+    (0, helpers_1.assertNoRecordPathCollisions)("AgentRole", state.roles);
+    (0, helpers_1.assertNoRecordPathCollisions)("AgentGroup", state.groups);
+    (0, helpers_1.assertNoRecordPathCollisions)("AgentMembership", state.memberships);
+    (0, helpers_1.assertNoRecordPathCollisions)("AgentFanout", state.fanouts);
+    (0, helpers_1.assertNoRecordPathCollisions)("AgentFanin", state.fanins);
     (0, state_1.writeJson)(node_path_1.default.join(root, "index.json"), {
-        schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
+        schemaVersion: helpers_1.MULTI_AGENT_SCHEMA_VERSION,
         runId: run.id,
         counts: {
             runs: state.runs.length,
@@ -77,12 +80,12 @@ function persistMultiAgentState(run) {
             fanouts: state.fanouts.length,
             fanins: state.fanins.length
         },
-        runs: state.runs.map(indexRow),
-        roles: state.roles.map(indexRow),
-        groups: state.groups.map(indexRow),
-        memberships: state.memberships.map(indexRow),
-        fanouts: state.fanouts.map(indexRow),
-        fanins: state.fanins.map(indexRow)
+        runs: state.runs.map(helpers_1.indexRow),
+        roles: state.roles.map(helpers_1.indexRow),
+        groups: state.groups.map(helpers_1.indexRow),
+        memberships: state.memberships.map(helpers_1.indexRow),
+        fanouts: state.fanouts.map(helpers_1.indexRow),
+        fanins: state.fanins.map(helpers_1.indexRow)
     });
     for (const record of state.runs)
         writeRecord(run, "runs", record);
@@ -99,13 +102,13 @@ function persistMultiAgentState(run) {
 }
 function createMultiAgentRun(run, input = {}) {
     const state = ensureMultiAgentState(run);
-    const id = input.id || createId("mar", state.runs.length + 1);
+    const id = input.id || (0, helpers_1.createId)("mar", state.runs.length + 1);
     if (state.runs.some((record) => record.id === id))
         throw new Error(`Duplicate MultiAgentRun id: ${id}`);
     const now = new Date().toISOString();
     const status = input.status || "planned";
     const record = {
-        schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
+        schemaVersion: helpers_1.MULTI_AGENT_SCHEMA_VERSION,
         id,
         runId: run.id,
         createdAt: now,
@@ -120,14 +123,14 @@ function createMultiAgentRun(run, input = {}) {
         fanoutIds: [],
         faninIds: [],
         blackboardId: input.blackboardId,
-        topicIds: unique(input.topicIds || []),
-        lifecycle: [lifecycleEvent(undefined, status, "created")],
+        topicIds: (0, helpers_1.unique)(input.topicIds || []),
+        lifecycle: [(0, helpers_1.lifecycleEvent)(undefined, status, "created")],
         links: {
             workflowRunId: run.id,
             phase: input.phase,
             phaseId: input.phaseId,
             blackboardId: input.blackboardId,
-            blackboardTopicIds: unique(input.topicIds || [])
+            blackboardTopicIds: (0, helpers_1.unique)(input.topicIds || [])
         },
         policy: {
             schemaVersion: 1,
@@ -135,7 +138,7 @@ function createMultiAgentRun(run, input = {}) {
             policyRef: `multiAgent.runs.${id}.policy`,
             subjectKind: "multi-agent-run",
             subjectId: id,
-            allowedBlackboardTopicIds: unique(input.topicIds || ["*"]),
+            allowedBlackboardTopicIds: (0, helpers_1.unique)(input.topicIds || ["*"]),
             allowedWriteOperations: ["message", "context", "artifact", "snapshot", "topic", "coordinator-decision"],
             allowedCandidateOperations: ["register", "score", "select"],
             allowedJudgeOperations: ["verdict", "rationale", "panel-decision"],
@@ -144,15 +147,15 @@ function createMultiAgentRun(run, input = {}) {
             deniedOperations: [],
             metadata: { title: input.title }
         },
-        metadata: compact(input.metadata)
+        metadata: (0, helpers_1.compact)(input.metadata)
     };
     if (record.parentMultiAgentRunId) {
         const parent = requireMultiAgentRun(run, record.parentMultiAgentRunId);
-        parent.childMultiAgentRunIds = unique([...parent.childMultiAgentRunIds, record.id]);
-        touch(parent);
+        parent.childMultiAgentRunIds = (0, helpers_1.unique)([...parent.childMultiAgentRunIds, record.id]);
+        (0, helpers_1.touch)(parent);
     }
     state.runs.push(record);
-    appendMultiAgentNode(run, "multi-agent-run", record.id, statusToNodeStatus(status), {
+    appendMultiAgentNode(run, "multi-agent-run", record.id, (0, helpers_1.statusToNodeStatus)(status), {
         title: record.title,
         objective: record.objective,
         phase: record.links.phase
@@ -170,16 +173,16 @@ function createMultiAgentRun(run, input = {}) {
 function transitionMultiAgentRun(run, multiAgentRunId, status, options = {}) {
     ensureMultiAgentState(run);
     const record = requireMultiAgentRun(run, multiAgentRunId);
-    assertLifecycleTransition(record.status, status);
+    (0, helpers_1.assertLifecycleTransition)(record.status, status);
     if (status === "completed")
         assertMultiAgentRunCompletionReady(run, record);
     const before = record.status;
     record.status = status;
     record.updatedAt = new Date().toISOString();
-    record.lifecycle.push(lifecycleEvent(before, status, options.reason, options.actor, options.metadata));
+    record.lifecycle.push((0, helpers_1.lifecycleEvent)(before, status, options.reason, options.actor, options.metadata));
     if (status === "completed")
         completeOwnedMultiAgentRecords(run, record, options.reason);
-    appendMultiAgentNode(run, "multi-agent-run", record.id, statusToNodeStatus(status), {
+    appendMultiAgentNode(run, "multi-agent-run", record.id, (0, helpers_1.statusToNodeStatus)(status), {
         status,
         reason: options.reason
     });
@@ -222,7 +225,7 @@ function completeOwnedMultiAgentRecords(run, multiAgentRun, reason) {
         const before = role.status;
         role.status = "completed";
         role.updatedAt = multiAgentRun.updatedAt;
-        role.lifecycle.push(lifecycleEvent(before, "completed", reason || "multi-agent run completed"));
+        role.lifecycle.push((0, helpers_1.lifecycleEvent)(before, "completed", reason || "multi-agent run completed"));
     }
     for (const group of state.groups.filter((record) => record.multiAgentRunId === multiAgentRun.id)) {
         if (group.status === "completed" || group.status === "failed" || group.status === "cancelled")
@@ -230,7 +233,7 @@ function completeOwnedMultiAgentRecords(run, multiAgentRun, reason) {
         const before = group.status;
         group.status = "completed";
         group.updatedAt = multiAgentRun.updatedAt;
-        group.lifecycle.push(lifecycleEvent(before, "completed", reason || "multi-agent run completed"));
+        group.lifecycle.push((0, helpers_1.lifecycleEvent)(before, "completed", reason || "multi-agent run completed"));
     }
     for (const fanout of state.fanouts.filter((record) => record.multiAgentRunId === multiAgentRun.id)) {
         if (fanout.status === "completed" || fanout.status === "failed" || fanout.status === "cancelled")
@@ -238,7 +241,7 @@ function completeOwnedMultiAgentRecords(run, multiAgentRun, reason) {
         const before = fanout.status;
         fanout.status = "completed";
         fanout.updatedAt = multiAgentRun.updatedAt;
-        fanout.lifecycle.push(lifecycleEvent(before, "completed", reason || "multi-agent run completed"));
+        fanout.lifecycle.push((0, helpers_1.lifecycleEvent)(before, "completed", reason || "multi-agent run completed"));
     }
     for (const fanin of state.fanins.filter((record) => record.multiAgentRunId === multiAgentRun.id)) {
         if (fanin.status === "completed" || fanin.status === "failed")
@@ -246,20 +249,20 @@ function completeOwnedMultiAgentRecords(run, multiAgentRun, reason) {
         const before = fanin.status;
         fanin.status = "completed";
         fanin.updatedAt = multiAgentRun.updatedAt;
-        fanin.lifecycle.push(lifecycleEvent(before, "completed", reason || "multi-agent run completed"));
+        fanin.lifecycle.push((0, helpers_1.lifecycleEvent)(before, "completed", reason || "multi-agent run completed"));
     }
 }
 function createAgentRole(run, input) {
     const state = ensureMultiAgentState(run);
     const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId);
-    const id = input.id || createId("role", state.roles.length + 1);
+    const id = input.id || (0, helpers_1.createId)("role", state.roles.length + 1);
     if (state.roles.some((record) => record.id === id))
         throw new Error(`Duplicate AgentRole id: ${id}`);
     if (input.parentRoleId)
         requireAgentRole(run, input.parentRoleId);
     const now = new Date().toISOString();
     const role = {
-        schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
+        schemaVersion: helpers_1.MULTI_AGENT_SCHEMA_VERSION,
         id,
         runId: run.id,
         multiAgentRunId: multiAgentRun.id,
@@ -273,22 +276,22 @@ function createAgentRole(run, input) {
         expectedArtifacts: input.expectedArtifacts || [],
         faninObligations: input.faninObligations || [],
         blackboardId: input.blackboardId || multiAgentRun.blackboardId,
-        topicIds: unique([...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
-        lifecycle: [lifecycleEvent(undefined, "planned", "created")],
+        topicIds: (0, helpers_1.unique)([...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
+        lifecycle: [(0, helpers_1.lifecycleEvent)(undefined, "planned", "created")],
         parentRoleId: input.parentRoleId,
         childRoleIds: [],
         policy: undefined,
-        metadata: compact(input.metadata)
+        metadata: (0, helpers_1.compact)(input.metadata)
     };
     role.policy = (0, multi_agent_trust_1.policyForRole)(role);
     if (role.parentRoleId) {
         const parent = requireAgentRole(run, role.parentRoleId);
-        parent.childRoleIds = unique([...parent.childRoleIds, role.id]);
-        touch(parent);
+        parent.childRoleIds = (0, helpers_1.unique)([...parent.childRoleIds, role.id]);
+        (0, helpers_1.touch)(parent);
     }
     state.roles.push(role);
-    multiAgentRun.roleIds = unique([...multiAgentRun.roleIds, role.id]);
-    touch(multiAgentRun);
+    multiAgentRun.roleIds = (0, helpers_1.unique)([...multiAgentRun.roleIds, role.id]);
+    (0, helpers_1.touch)(multiAgentRun);
     appendMultiAgentNode(run, "agent-role", role.id, "pending", {
         multiAgentRunId: role.multiAgentRunId,
         title: role.title,
@@ -315,7 +318,7 @@ function createAgentRole(run, input) {
 function createAgentGroup(run, input) {
     const state = ensureMultiAgentState(run);
     const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId);
-    const id = input.id || createId("group", state.groups.length + 1);
+    const id = input.id || (0, helpers_1.createId)("group", state.groups.length + 1);
     if (state.groups.some((record) => record.id === id))
         throw new Error(`Duplicate AgentGroup id: ${id}`);
     if (input.parentGroupId)
@@ -324,7 +327,7 @@ function createAgentGroup(run, input) {
         requireRunTask(run, taskId);
     const now = new Date().toISOString();
     const group = {
-        schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
+        schemaVersion: helpers_1.MULTI_AGENT_SCHEMA_VERSION,
         id,
         runId: run.id,
         multiAgentRunId: multiAgentRun.id,
@@ -334,29 +337,29 @@ function createAgentGroup(run, input) {
         title: input.title || id,
         phase: input.phase,
         phaseId: input.phaseId,
-        taskIds: unique(input.taskIds || []),
+        taskIds: (0, helpers_1.unique)(input.taskIds || []),
         roleIds: [],
         membershipIds: [],
         workerIds: [],
         fanoutIds: [],
         faninIds: [],
         blackboardId: input.blackboardId || multiAgentRun.blackboardId,
-        topicIds: unique([...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
-        lifecycle: [lifecycleEvent(undefined, "forming", "created")],
+        topicIds: (0, helpers_1.unique)([...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
+        lifecycle: [(0, helpers_1.lifecycleEvent)(undefined, "forming", "created")],
         parentGroupId: input.parentGroupId,
         childGroupIds: [],
         policy: undefined,
-        metadata: compact(input.metadata)
+        metadata: (0, helpers_1.compact)(input.metadata)
     };
     group.policy = (0, multi_agent_trust_1.policyForGroup)(group);
     if (group.parentGroupId) {
         const parent = requireAgentGroup(run, group.parentGroupId);
-        parent.childGroupIds = unique([...parent.childGroupIds, group.id]);
-        touch(parent);
+        parent.childGroupIds = (0, helpers_1.unique)([...parent.childGroupIds, group.id]);
+        (0, helpers_1.touch)(parent);
     }
     state.groups.push(group);
-    multiAgentRun.groupIds = unique([...multiAgentRun.groupIds, group.id]);
-    touch(multiAgentRun);
+    multiAgentRun.groupIds = (0, helpers_1.unique)([...multiAgentRun.groupIds, group.id]);
+    (0, helpers_1.touch)(multiAgentRun);
     appendMultiAgentNode(run, "agent-group", group.id, "running", {
         multiAgentRunId: group.multiAgentRunId,
         phase: group.phase,
@@ -394,13 +397,13 @@ function assignAgentMembership(run, input) {
     if (duplicate) {
         throw new Error(`Duplicate AgentMembership for group=${group.id}, role=${role.id}, task=${task.id}, worker=${input.workerId || "none"}`);
     }
-    const id = input.id || createId("membership", state.memberships.length + 1);
+    const id = input.id || (0, helpers_1.createId)("membership", state.memberships.length + 1);
     if (state.memberships.some((record) => record.id === id))
         throw new Error(`Duplicate AgentMembership id: ${id}`);
     const now = new Date().toISOString();
     const status = input.status || (input.workerId ? "running" : "assigned");
     const membership = {
-        schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
+        schemaVersion: helpers_1.MULTI_AGENT_SCHEMA_VERSION,
         id,
         runId: run.id,
         multiAgentRunId: group.multiAgentRunId,
@@ -413,31 +416,31 @@ function assignAgentMembership(run, input) {
         createdAt: now,
         updatedAt: now,
         status,
-        lifecycle: [lifecycleEvent(undefined, status, "assigned")],
+        lifecycle: [(0, helpers_1.lifecycleEvent)(undefined, status, "assigned")],
         evidenceRefs: [],
         artifactPaths: [],
         blackboardId: input.blackboardId || group.blackboardId || role.blackboardId,
-        topicIds: unique([...(group.topicIds || []), ...(role.topicIds || []), ...(input.topicIds || [])]),
+        topicIds: (0, helpers_1.unique)([...(group.topicIds || []), ...(role.topicIds || []), ...(input.topicIds || [])]),
         blackboardMessageIds: [],
         blackboardArtifactRefIds: [],
         policy: undefined,
-        metadata: compact(input.metadata)
+        metadata: (0, helpers_1.compact)(input.metadata)
     };
     membership.policy = (0, multi_agent_trust_1.policyForMembership)(membership, role);
     state.memberships.push(membership);
-    group.membershipIds = unique([...group.membershipIds, membership.id]);
-    group.roleIds = unique([...group.roleIds, role.id]);
-    group.taskIds = unique([...group.taskIds, task.id]);
+    group.membershipIds = (0, helpers_1.unique)([...group.membershipIds, membership.id]);
+    group.roleIds = (0, helpers_1.unique)([...group.roleIds, role.id]);
+    group.taskIds = (0, helpers_1.unique)([...group.taskIds, task.id]);
     if (membership.workerId)
-        group.workerIds = unique([...group.workerIds, membership.workerId]);
-    touch(group);
+        group.workerIds = (0, helpers_1.unique)([...group.workerIds, membership.workerId]);
+    (0, helpers_1.touch)(group);
     const roleStatusBefore = role.status;
     role.status = "active";
     role.updatedAt = now;
-    role.lifecycle.push(lifecycleEvent(roleStatusBefore, "active", "membership assigned"));
+    role.lifecycle.push((0, helpers_1.lifecycleEvent)(roleStatusBefore, "active", "membership assigned"));
     if (membership.workerId)
         attachWorkerMetadata(run, membership);
-    appendMultiAgentNode(run, "agent-membership", membership.id, statusToNodeStatus(membership.status), {
+    appendMultiAgentNode(run, "agent-membership", membership.id, (0, helpers_1.statusToNodeStatus)(membership.status), {
         multiAgentRunId: membership.multiAgentRunId,
         groupId: membership.groupId,
         roleId: membership.roleId,
@@ -468,7 +471,7 @@ function createAgentFanout(run, input) {
     const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId || group.multiAgentRunId);
     if (group.multiAgentRunId !== multiAgentRun.id)
         throw new Error(`AgentGroup ${group.id} does not belong to ${multiAgentRun.id}`);
-    const id = input.id || createId("fanout", state.fanouts.length + 1);
+    const id = input.id || (0, helpers_1.createId)("fanout", state.fanouts.length + 1);
     if (state.fanouts.some((record) => record.id === id))
         throw new Error(`Duplicate AgentFanout id: ${id}`);
     for (const roleId of input.roleIds || [])
@@ -477,7 +480,7 @@ function createAgentFanout(run, input) {
         requireRunTask(run, taskId);
     const now = new Date().toISOString();
     const fanout = {
-        schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
+        schemaVersion: helpers_1.MULTI_AGENT_SCHEMA_VERSION,
         id,
         runId: run.id,
         multiAgentRunId: multiAgentRun.id,
@@ -486,41 +489,41 @@ function createAgentFanout(run, input) {
         updatedAt: now,
         status: "planned",
         reason: input.reason,
-        roleIds: unique(input.roleIds || group.roleIds),
-        taskIds: unique(input.taskIds || group.taskIds),
-        workerIds: unique(input.workerIds || []),
-        membershipIds: unique(input.membershipIds || []),
-        dispatchIds: unique(input.dispatchIds || []),
+        roleIds: (0, helpers_1.unique)(input.roleIds || group.roleIds),
+        taskIds: (0, helpers_1.unique)(input.taskIds || group.taskIds),
+        workerIds: (0, helpers_1.unique)(input.workerIds || []),
+        membershipIds: (0, helpers_1.unique)(input.membershipIds || []),
+        dispatchIds: (0, helpers_1.unique)(input.dispatchIds || []),
         concurrencyLimit: input.concurrencyLimit,
         sandboxProfileChoices: input.sandboxProfileChoices || {},
         expectedReturnShape: input.expectedReturnShape || "Each member writes a Markdown result with a cw:result JSON fence containing summary, findings, and evidence.",
         blackboardId: input.blackboardId || group.blackboardId || multiAgentRun.blackboardId,
-        topicIds: unique([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
-        lifecycle: [lifecycleEvent(undefined, "planned", "created")],
+        topicIds: (0, helpers_1.unique)([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
+        lifecycle: [(0, helpers_1.lifecycleEvent)(undefined, "planned", "created")],
         policy: {
             schemaVersion: 1,
             id: `${id}-policy`,
             policyRef: `multiAgent.fanouts.${id}.policy`,
             subjectKind: "fanout",
             subjectId: id,
-            allowedBlackboardTopicIds: unique(fanoutTopicIds(group, multiAgentRun, input)),
+            allowedBlackboardTopicIds: (0, helpers_1.unique)(fanoutTopicIds(group, multiAgentRun, input)),
             allowedWriteOperations: ["message", "context", "artifact"],
             allowedCandidateOperations: ["register"],
             allowedJudgeOperations: [],
-            sandboxProfileHints: unique(Object.values(input.sandboxProfileChoices || {}).map(String)),
+            sandboxProfileHints: (0, helpers_1.unique)(Object.values(input.sandboxProfileChoices || {}).map(String)),
             requiredEvidenceRefs: [],
             deniedOperations: [],
             metadata: { reason: input.reason }
         },
-        metadata: compact(input.metadata)
+        metadata: (0, helpers_1.compact)(input.metadata)
     };
     state.fanouts.push(fanout);
-    group.fanoutIds = unique([...group.fanoutIds, fanout.id]);
-    group.roleIds = unique([...group.roleIds, ...fanout.roleIds]);
-    group.taskIds = unique([...group.taskIds, ...fanout.taskIds]);
-    touch(group);
-    multiAgentRun.fanoutIds = unique([...multiAgentRun.fanoutIds, fanout.id]);
-    touch(multiAgentRun);
+    group.fanoutIds = (0, helpers_1.unique)([...group.fanoutIds, fanout.id]);
+    group.roleIds = (0, helpers_1.unique)([...group.roleIds, ...fanout.roleIds]);
+    group.taskIds = (0, helpers_1.unique)([...group.taskIds, ...fanout.taskIds]);
+    (0, helpers_1.touch)(group);
+    multiAgentRun.fanoutIds = (0, helpers_1.unique)([...multiAgentRun.fanoutIds, fanout.id]);
+    (0, helpers_1.touch)(multiAgentRun);
     appendMultiAgentNode(run, "agent-fanout", fanout.id, "pending", {
         multiAgentRunId: fanout.multiAgentRunId,
         groupId: fanout.groupId,
@@ -561,7 +564,7 @@ function attachDispatchToMultiAgent(run, input) {
         throw new Error("Dispatch multi-agent attach requires --multi-agent-group or --multiAgentGroup");
     if (group.multiAgentRunId !== multiAgentRun.id)
         throw new Error(`Group ${group.id} does not belong to MultiAgentRun ${multiAgentRun.id}`);
-    const roleIds = input.roleId ? [input.roleId] : unique([...(fanout ? fanout.roleIds : [])]);
+    const roleIds = input.roleId ? [input.roleId] : (0, helpers_1.unique)([...(fanout ? fanout.roleIds : [])]);
     if (roleIds.length !== 1) {
         throw new Error(`Dispatch multi-agent attach requires exactly one role for deterministic membership; found ${roleIds.length || 0}`);
     }
@@ -608,19 +611,19 @@ function attachDispatchToMultiAgent(run, input) {
     }
     fanout.status = "dispatched";
     fanout.updatedAt = new Date().toISOString();
-    fanout.lifecycle.push(lifecycleEvent("planned", "dispatched", "dispatch created"));
-    fanout.dispatchIds = unique([...fanout.dispatchIds, input.dispatchId]);
-    fanout.taskIds = unique([...fanout.taskIds, ...input.tasks.map((task) => task.id)]);
-    fanout.workerIds = unique([...fanout.workerIds, ...input.tasks.map((task) => task.workerId || "").filter(Boolean)]);
-    fanout.membershipIds = unique([...fanout.membershipIds, ...membershipIds]);
+    fanout.lifecycle.push((0, helpers_1.lifecycleEvent)("planned", "dispatched", "dispatch created"));
+    fanout.dispatchIds = (0, helpers_1.unique)([...fanout.dispatchIds, input.dispatchId]);
+    fanout.taskIds = (0, helpers_1.unique)([...fanout.taskIds, ...input.tasks.map((task) => task.id)]);
+    fanout.workerIds = (0, helpers_1.unique)([...fanout.workerIds, ...input.tasks.map((task) => task.workerId || "").filter(Boolean)]);
+    fanout.membershipIds = (0, helpers_1.unique)([...fanout.membershipIds, ...membershipIds]);
     if (input.sandboxProfileId)
         fanout.sandboxProfileChoices.dispatch = input.sandboxProfileId;
     const groupStatusBefore = group.status;
     group.status = "running";
     group.updatedAt = fanout.updatedAt;
-    group.lifecycle.push(lifecycleEvent(groupStatusBefore, "running", "dispatch created"));
+    group.lifecycle.push((0, helpers_1.lifecycleEvent)(groupStatusBefore, "running", "dispatch created"));
     multiAgentRun.status = multiAgentRun.status === "planned" || multiAgentRun.status === "forming" ? "running" : multiAgentRun.status;
-    touch(multiAgentRun);
+    (0, helpers_1.touch)(multiAgentRun);
     appendMultiAgentNode(run, "agent-fanout", fanout.id, "running", {
         status: fanout.status,
         dispatchIds: fanout.dispatchIds,
@@ -657,10 +660,10 @@ function collectAgentFanin(run, input) {
         throw new Error(`Group ${group.id} does not belong to MultiAgentRun ${multiAgentRun.id}`);
     if (fanout && fanout.groupId !== group.id)
         throw new Error(`Fanout ${fanout.id} does not belong to group ${group.id}`);
-    const id = input.id || createId("fanin", state.fanins.length + 1);
+    const id = input.id || (0, helpers_1.createId)("fanin", state.fanins.length + 1);
     if (state.fanins.some((record) => record.id === id))
         throw new Error(`Duplicate AgentFanin id: ${id}`);
-    const requiredRoleIds = unique(input.requiredRoleIds?.length ? input.requiredRoleIds : group.roleIds);
+    const requiredRoleIds = (0, helpers_1.unique)(input.requiredRoleIds?.length ? input.requiredRoleIds : group.roleIds);
     for (const roleId of requiredRoleIds)
         requireAgentRole(run, roleId);
     const scopedMemberships = state.memberships.filter((membership) => membership.groupId === group.id && (!fanout || membership.fanoutId === fanout.id));
@@ -674,11 +677,11 @@ function collectAgentFanin(run, input) {
         blackboardArtifactRefIds: membership.blackboardArtifactRefIds || [],
         resultNodeId: membership.resultNodeId,
         verifierNodeId: membership.verifierNodeId,
-        complete: isMembershipReported(membership)
+        complete: (0, helpers_1.isMembershipReported)(membership)
     }));
     const missingRoleIds = requiredRoleIds.filter((roleId) => !scopedMemberships.some((membership) => membership.roleId === roleId));
     const missingMembershipIds = scopedMemberships
-        .filter((membership) => requiredRoleIds.includes(membership.roleId) && !isMembershipReported(membership))
+        .filter((membership) => requiredRoleIds.includes(membership.roleId) && !(0, helpers_1.isMembershipReported)(membership))
         .map((membership) => membership.id);
     const blockedReasons = [
         ...missingRoleIds.map((roleId) => `required role ${roleId} has no membership`),
@@ -701,7 +704,7 @@ function collectAgentFanin(run, input) {
     const status = verifierReady ? "ready" : "blocked";
     const now = new Date().toISOString();
     const fanin = {
-        schemaVersion: exports.MULTI_AGENT_SCHEMA_VERSION,
+        schemaVersion: helpers_1.MULTI_AGENT_SCHEMA_VERSION,
         id,
         runId: run.id,
         multiAgentRunId: multiAgentRun.id,
@@ -719,34 +722,34 @@ function collectAgentFanin(run, input) {
         verifierReady,
         blockedReasons,
         blackboardId,
-        topicIds: unique([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
-        blackboardArtifactRefIds: unique(coverage.flatMap((entry) => entry.blackboardArtifactRefIds || [])),
-        blackboardMessageIds: unique(coverage.flatMap((entry) => entry.blackboardMessageIds || [])),
-        lifecycle: [lifecycleEvent(undefined, status, "collected")],
+        topicIds: (0, helpers_1.unique)([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
+        blackboardArtifactRefIds: (0, helpers_1.unique)(coverage.flatMap((entry) => entry.blackboardArtifactRefIds || [])),
+        blackboardMessageIds: (0, helpers_1.unique)(coverage.flatMap((entry) => entry.blackboardMessageIds || [])),
+        lifecycle: [(0, helpers_1.lifecycleEvent)(undefined, status, "collected")],
         policy: {
             schemaVersion: 1,
             id: `${id}-policy`,
             policyRef: `multiAgent.fanins.${id}.policy`,
             subjectKind: "fanin",
             subjectId: id,
-            allowedBlackboardTopicIds: unique([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
+            allowedBlackboardTopicIds: (0, helpers_1.unique)([...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])]),
             allowedWriteOperations: ["message", "context", "artifact", "snapshot", "coordinator-decision"],
             allowedCandidateOperations: verifierReady ? ["register", "score", "select"] : [],
             allowedJudgeOperations: verifierReady ? ["panel-decision", "rationale"] : [],
             sandboxProfileHints: [],
-            requiredEvidenceRefs: unique(coverage.flatMap((entry) => entry.evidenceRefs)),
+            requiredEvidenceRefs: (0, helpers_1.unique)(coverage.flatMap((entry) => entry.evidenceRefs)),
             deniedOperations: verifierReady ? [] : blockedReasons.map((reason) => ({ operation: "candidate.select", reason })),
             metadata: { verifierReady, strategy: input.strategy || "required-role-evidence" }
         },
-        metadata: compact(input.metadata)
+        metadata: (0, helpers_1.compact)(input.metadata)
     };
     state.fanins.push(fanin);
-    group.faninIds = unique([...group.faninIds, fanin.id]);
+    group.faninIds = (0, helpers_1.unique)([...group.faninIds, fanin.id]);
     group.status = verifierReady ? "verifying" : "collecting";
-    touch(group);
-    multiAgentRun.faninIds = unique([...multiAgentRun.faninIds, fanin.id]);
+    (0, helpers_1.touch)(group);
+    multiAgentRun.faninIds = (0, helpers_1.unique)([...multiAgentRun.faninIds, fanin.id]);
     multiAgentRun.status = verifierReady ? "verifying" : "collecting";
-    touch(multiAgentRun);
+    (0, helpers_1.touch)(multiAgentRun);
     appendMultiAgentNode(run, "agent-fanin", fanin.id, verifierReady ? "verified" : "blocked", {
         multiAgentRunId: fanin.multiAgentRunId,
         groupId: fanin.groupId,
@@ -792,11 +795,11 @@ function recordMultiAgentWorkerOutput(run, input) {
         membership.updatedAt = new Date().toISOString();
         membership.resultNodeId = input.resultNodeId || membership.resultNodeId;
         membership.verifierNodeId = input.verifierNodeId || membership.verifierNodeId;
-        membership.evidenceRefs = unique([...membership.evidenceRefs, ...evidenceRefs]);
-        membership.artifactPaths = unique([...(membership.artifactPaths || []), ...(input.artifactPaths || [])]);
-        membership.blackboardMessageIds = unique([...(membership.blackboardMessageIds || []), ...(input.blackboardMessageIds || [])]);
-        membership.blackboardArtifactRefIds = unique([...(membership.blackboardArtifactRefIds || []), ...(input.blackboardArtifactRefIds || [])]);
-        membership.lifecycle.push(lifecycleEvent(before, "reported", "worker output accepted"));
+        membership.evidenceRefs = (0, helpers_1.unique)([...membership.evidenceRefs, ...evidenceRefs]);
+        membership.artifactPaths = (0, helpers_1.unique)([...(membership.artifactPaths || []), ...(input.artifactPaths || [])]);
+        membership.blackboardMessageIds = (0, helpers_1.unique)([...(membership.blackboardMessageIds || []), ...(input.blackboardMessageIds || [])]);
+        membership.blackboardArtifactRefIds = (0, helpers_1.unique)([...(membership.blackboardArtifactRefIds || []), ...(input.blackboardArtifactRefIds || [])]);
+        membership.lifecycle.push((0, helpers_1.lifecycleEvent)(before, "reported", "worker output accepted"));
         appendMultiAgentNode(run, "agent-membership", membership.id, "completed", {
             resultNodeId: membership.resultNodeId,
             verifierNodeId: membership.verifierNodeId,
@@ -831,7 +834,7 @@ function summarizeMultiAgent(run) {
             blockedReasons.push(`${membership.id}: failed membership`);
     }
     const groupsDetail = state.groups.map((group) => {
-        const roleIds = unique([...group.roleIds, ...state.memberships.filter((membership) => membership.groupId === group.id).map((membership) => membership.roleId)]);
+        const roleIds = (0, helpers_1.unique)([...group.roleIds, ...state.memberships.filter((membership) => membership.groupId === group.id).map((membership) => membership.roleId)]);
         return {
             id: group.id,
             multiAgentRunId: group.multiAgentRunId,
@@ -840,7 +843,7 @@ function summarizeMultiAgent(run) {
             roles: roleIds.map((roleId) => {
                 const role = state.roles.find((entry) => entry.id === roleId);
                 const memberships = state.memberships.filter((membership) => membership.groupId === group.id && membership.roleId === roleId);
-                const reported = memberships.filter(isMembershipReported).length;
+                const reported = memberships.filter(helpers_1.isMembershipReported).length;
                 return {
                     roleId,
                     requiredEvidence: role?.requiredEvidence.length || 0,
@@ -855,15 +858,15 @@ function summarizeMultiAgent(run) {
     });
     return {
         totalRuns: state.runs.length,
-        runsByStatus: countBy(state.runs, (record) => record.status),
+        runsByStatus: (0, helpers_1.countBy)(state.runs, (record) => record.status),
         roles: state.roles.length,
         groups: state.groups.length,
         memberships: state.memberships.length,
         fanouts: state.fanouts.length,
         fanins: state.fanins.length,
-        groupsByStatus: countBy(state.groups, (record) => record.status),
-        membershipsByStatus: countBy(state.memberships, (record) => record.status),
-        faninsByStatus: countBy(state.fanins, (record) => record.status),
+        groupsByStatus: (0, helpers_1.countBy)(state.groups, (record) => record.status),
+        membershipsByStatus: (0, helpers_1.countBy)(state.memberships, (record) => record.status),
+        faninsByStatus: (0, helpers_1.countBy)(state.fanins, (record) => record.status),
         blockedReasons,
         groupsDetail,
         nextAction: nextMultiAgentAction(run, blockedReasons)
@@ -871,70 +874,7 @@ function summarizeMultiAgent(run) {
 }
 function buildMultiAgentGraph(run) {
     const state = ensureMultiAgentState(run);
-    const root = multiAgentRoot(run);
-    const nodes = [];
-    const edges = [];
-    for (const record of state.runs) {
-        nodes.push({ id: `${run.id}:multi-agent:${record.id}`, kind: "multi-agent-run", status: record.status, label: record.title || record.id, path: recordPath(run, "runs", record.id) });
-        edges.push({ from: `${run.id}:run`, to: `${run.id}:multi-agent:${record.id}` });
-        if (record.blackboardId)
-            edges.push({ from: `${run.id}:multi-agent:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-        if (record.parentMultiAgentRunId)
-            edges.push({ from: `${run.id}:multi-agent:${record.parentMultiAgentRunId}`, to: `${run.id}:multi-agent:${record.id}`, label: "child" });
-    }
-    for (const record of state.roles) {
-        nodes.push({ id: `${run.id}:multi-agent:role:${record.id}`, kind: "agent-role", status: record.status, label: record.title, path: recordPath(run, "roles", record.id) });
-        edges.push({ from: `${run.id}:multi-agent:${record.multiAgentRunId}`, to: `${run.id}:multi-agent:role:${record.id}` });
-        if (record.blackboardId)
-            edges.push({ from: `${run.id}:multi-agent:role:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-    }
-    for (const record of state.groups) {
-        nodes.push({ id: `${run.id}:multi-agent:group:${record.id}`, kind: "agent-group", status: record.status, label: record.title || record.id, path: recordPath(run, "groups", record.id) });
-        edges.push({ from: `${run.id}:multi-agent:${record.multiAgentRunId}`, to: `${run.id}:multi-agent:group:${record.id}` });
-        if (record.blackboardId)
-            edges.push({ from: `${run.id}:multi-agent:group:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-        for (const taskId of record.taskIds)
-            edges.push({ from: `${run.id}:multi-agent:group:${record.id}`, to: `${run.id}:task:${taskId}`, label: "task" });
-    }
-    for (const record of state.fanouts) {
-        nodes.push({ id: `${run.id}:multi-agent:fanout:${record.id}`, kind: "agent-fanout", status: record.status, label: record.reason, path: recordPath(run, "fanouts", record.id) });
-        edges.push({ from: `${run.id}:multi-agent:group:${record.groupId}`, to: `${run.id}:multi-agent:fanout:${record.id}` });
-        for (const dispatchId of record.dispatchIds)
-            edges.push({ from: `${run.id}:multi-agent:fanout:${record.id}`, to: `${run.id}:dispatch:${dispatchId}`, label: "dispatch" });
-    }
-    for (const record of state.memberships) {
-        nodes.push({ id: `${run.id}:multi-agent:membership:${record.id}`, kind: "agent-membership", status: record.status, label: `${record.roleId}/${record.taskId}`, path: recordPath(run, "memberships", record.id) });
-        edges.push({ from: `${run.id}:multi-agent:group:${record.groupId}`, to: `${run.id}:multi-agent:membership:${record.id}` });
-        edges.push({ from: `${run.id}:multi-agent:role:${record.roleId}`, to: `${run.id}:multi-agent:membership:${record.id}` });
-        edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:task:${record.taskId}`, label: "task" });
-        if (record.workerId)
-            edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:worker:${record.workerId}`, label: "worker" });
-        if (record.resultNodeId)
-            edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: record.resultNodeId, label: "result" });
-        if (record.verifierNodeId)
-            edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: record.verifierNodeId, label: "verifier" });
-        if (record.blackboardId)
-            edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-        for (const artifactId of record.blackboardArtifactRefIds || [])
-            edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:artifact:${artifactId}`, label: "evidence" });
-        for (const messageId of record.blackboardMessageIds || [])
-            edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:message:${messageId}`, label: "message" });
-    }
-    for (const record of state.fanins) {
-        nodes.push({ id: `${run.id}:multi-agent:fanin:${record.id}`, kind: "agent-fanin", status: record.status, label: record.strategy, path: recordPath(run, "fanins", record.id) });
-        edges.push({ from: `${run.id}:multi-agent:group:${record.groupId}`, to: `${run.id}:multi-agent:fanin:${record.id}` });
-        if (record.fanoutId)
-            edges.push({ from: `${run.id}:multi-agent:fanout:${record.fanoutId}`, to: `${run.id}:multi-agent:fanin:${record.id}` });
-        for (const membershipId of record.reportedMembershipIds)
-            edges.push({ from: `${run.id}:multi-agent:membership:${membershipId}`, to: `${run.id}:multi-agent:fanin:${record.id}`, label: "reported" });
-        for (const membershipId of record.missingMembershipIds)
-            edges.push({ from: `${run.id}:multi-agent:membership:${membershipId}`, to: `${run.id}:multi-agent:fanin:${record.id}`, label: "missing" });
-        if (record.blackboardId)
-            edges.push({ from: `${run.id}:multi-agent:fanin:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-    }
-    if (!node_fs_1.default.existsSync(root))
-        node_fs_1.default.mkdirSync(root, { recursive: true });
-    return { nodes, edges: uniqueEdges(edges) };
+    return (0, graph_1.buildMultiAgentGraphFromState)(run, state);
 }
 function getMultiAgentRun(run, id) {
     return ensureMultiAgentState(run).runs.find((record) => record.id === id);
@@ -984,31 +924,11 @@ function requireRunTask(run, id) {
         throw new Error(`Unknown task id for multi-agent record: ${id}`);
     return task;
 }
-function multiAgentRoot(run) {
-    return run.paths.multiAgentDir || node_path_1.default.join(run.paths.runDir, "multi-agent");
-}
-function recordPath(run, kind, id) {
-    return node_path_1.default.join(multiAgentRoot(run), kind, `${(0, state_1.safeFileName)(id)}.json`);
-}
 function fanoutTopicIds(group, multiAgentRun, input) {
     return [...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])];
 }
 function writeRecord(run, kind, record) {
-    (0, state_1.writeJson)(recordPath(run, kind, record.id), record);
-}
-function assertNoRecordPathCollisions(label, records) {
-    const seen = new Map();
-    for (const record of records) {
-        const safe = (0, state_1.safeFileName)(record.id);
-        const existing = seen.get(safe);
-        if (existing && existing !== record.id) {
-            throw new Error(`${label} ids ${existing} and ${record.id} collide on safe file name ${safe}`);
-        }
-        seen.set(safe, record.id);
-    }
-}
-function indexRow(record) {
-    return { id: record.id, status: record.status, updatedAt: record.updatedAt };
+    (0, state_1.writeJson)((0, paths_1.recordPath)(run, kind, record.id), record);
 }
 function appendMultiAgentNode(run, kind, id, status, metadata, parents = []) {
     const nodeId = kind === "multi-agent-run" ? `${run.id}:multi-agent:${id}` : `${run.id}:multi-agent:${kind.replace("agent-", "")}:${id}`;
@@ -1018,80 +938,11 @@ function appendMultiAgentNode(run, kind, id, status, metadata, parents = []) {
         status,
         loopStage: run.loopStage,
         outputs: metadata,
-        artifacts: [{ id: kind, kind: "json", path: recordPath(run, pluralKind(kind), id) }],
+        artifacts: [{ id: kind, kind: "json", path: (0, paths_1.recordPath)(run, (0, helpers_1.pluralKind)(kind), id) }],
         parents,
         contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
         metadata
     }));
-}
-function pluralKind(kind) {
-    switch (kind) {
-        case "multi-agent-run":
-            return "runs";
-        case "agent-role":
-            return "roles";
-        case "agent-group":
-            return "groups";
-        case "agent-membership":
-            return "memberships";
-        case "agent-fanout":
-            return "fanouts";
-        case "agent-fanin":
-            return "fanins";
-        default:
-            return `${kind}s`;
-    }
-}
-function statusToNodeStatus(status) {
-    switch (status) {
-        case "completed":
-        case "reported":
-        case "ready":
-            return "completed";
-        case "running":
-        case "forming":
-        case "collecting":
-        case "verifying":
-        case "assigned":
-        case "active":
-        case "dispatched":
-            return "running";
-        case "blocked":
-            return "blocked";
-        case "failed":
-            return "failed";
-        case "cancelled":
-        case "rejected":
-            return "rejected";
-        default:
-            return "pending";
-    }
-}
-function assertLifecycleTransition(from, to) {
-    const allowed = {
-        planned: ["forming", "running", "failed", "cancelled"],
-        forming: ["running", "failed", "cancelled"],
-        running: ["collecting", "completed", "failed", "cancelled"],
-        collecting: ["verifying", "completed", "failed", "cancelled"],
-        verifying: ["completed", "failed", "cancelled"],
-        completed: [],
-        failed: [],
-        cancelled: []
-    };
-    if (from === to)
-        return;
-    if (!allowed[from].includes(to))
-        throw new Error(`Invalid MultiAgentRun lifecycle transition: ${from} -> ${to}`);
-}
-function lifecycleEvent(from, to, reason, actor = "cw", metadata) {
-    return {
-        at: new Date().toISOString(),
-        from,
-        to,
-        actor,
-        reason,
-        metadata: compact(metadata)
-    };
 }
 function attachWorkerMetadata(run, membership) {
     const workers = run.workers || [];
@@ -1117,9 +968,6 @@ function attachWorkerMetadata(run, membership) {
     };
     run.workers = workers.map((candidate) => (candidate.id === worker.id ? updated : candidate));
 }
-function isMembershipReported(membership) {
-    return (membership.status === "reported" || membership.status === "verified") && membership.evidenceRefs.length > 0;
-}
 function nextMultiAgentAction(run, blockedReasons) {
     const state = ensureMultiAgentState(run);
     if (!state.runs.length)
@@ -1133,45 +981,4 @@ function nextMultiAgentAction(run, blockedReasons) {
     if (groupWithoutFanin)
         return `node scripts/cw.js multi-agent fanin ${run.id} --group ${groupWithoutFanin.id}`;
     return undefined;
-}
-function touch(record) {
-    record.updatedAt = new Date().toISOString();
-    return record;
-}
-// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
-// per-run collection, threaded from the call site. No wall-clock stamp, no PRNG
-// suffix — re-running the same multi-agent topology mints byte-identical ids, so
-// snapshot/replay digests match. Each call site already asserts the minted id is
-// unique within its collection, and these collections only ever append.
-function createId(prefix, seq) {
-    return `${prefix}-${String(seq).padStart(4, "0")}`;
-}
-function compact(value) {
-    if (!value)
-        return undefined;
-    const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
-    return entries.length ? Object.fromEntries(entries) : undefined;
-}
-function unique(values) {
-    return Array.from(new Set(values.filter(Boolean))).sort();
-}
-function countBy(items, key) {
-    const counts = {};
-    for (const item of items) {
-        const value = key(item);
-        counts[value] = (counts[value] || 0) + 1;
-    }
-    return counts;
-}
-function uniqueEdges(edges) {
-    const seen = new Set();
-    const result = [];
-    for (const edge of edges) {
-        const key = `${edge.from}\0${edge.to}\0${edge.label || ""}`;
-        if (seen.has(key))
-            continue;
-        seen.add(key);
-        result.push(edge);
-    }
-    return result;
 }

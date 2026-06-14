@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GRAPH_VIEWS = exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS = exports.STATE_EXPLOSION_SCHEMA_VERSION = void 0;
+exports.stateExplosionReportLines = exports.formatBlackboardDigest = exports.formatCompactGraph = exports.formatStateExplosionReport = exports.fingerprintStrings = exports.GRAPH_VIEWS = exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS = exports.STATE_EXPLOSION_SCHEMA_VERSION = void 0;
 exports.computeStateSize = computeStateSize;
 exports.summarizeBlackboardDigest = summarizeBlackboardDigest;
 exports.buildCompactGraph = buildCompactGraph;
@@ -13,13 +13,7 @@ exports.maybeCompactRun = maybeCompactRun;
 exports.refreshStateExplosionSummaries = refreshStateExplosionSummaries;
 exports.loadStateExplosionSummaryIndex = loadStateExplosionSummaryIndex;
 exports.showStateExplosionSummary = showStateExplosionSummary;
-exports.formatStateExplosionReport = formatStateExplosionReport;
-exports.formatCompactGraph = formatCompactGraph;
-exports.formatBlackboardDigest = formatBlackboardDigest;
-exports.stateExplosionReportLines = stateExplosionReportLines;
 exports.normalizeStateExplosionForEval = normalizeStateExplosionForEval;
-exports.fingerprintStrings = fingerprintStrings;
-const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
@@ -27,6 +21,7 @@ const coordinator_1 = require("./coordinator");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const trust_audit_1 = require("./trust-audit");
 const evidence_reasoning_1 = require("./evidence-reasoning");
+const helpers_1 = require("./state-explosion/helpers");
 exports.STATE_EXPLOSION_SCHEMA_VERSION = 1;
 exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS = {
     graphNodes: 40,
@@ -178,11 +173,11 @@ function summarizeBlackboardDigest(run, blackboardId) {
             label: `${topic.title} (${topicMessages.length} messages, ${topic.contextIds.length} contexts, ${topic.artifactRefIds.length} artifacts)`,
             status: topic.status,
             sourceIds: [topic.id, ...topicMessages.map((m) => m.id)],
-            evidenceRefs: unique(topicMessages.flatMap((m) => m.linkedEvidenceRefs || [])),
+            evidenceRefs: (0, helpers_1.unique)(topicMessages.flatMap((m) => m.linkedEvidenceRefs || [])),
             expansionCommand: `node scripts/cw.js blackboard message list ${run.id} --topic ${topic.id}`
         };
     })
-        .sort(byId);
+        .sort(helpers_1.byId);
     const threadSummaries = topics
         .map((topic) => {
         const topicMessages = messages
@@ -194,23 +189,23 @@ function summarizeBlackboardDigest(run, blackboardId) {
             label: `${topic.title}: ${topicMessages.length} messages${last ? `; latest by ${last.author.kind}:${last.author.id}` : ""}`,
             status: topic.status,
             sourceIds: topicMessages.map((m) => m.id),
-            evidenceRefs: unique(topicMessages.flatMap((m) => m.linkedEvidenceRefs || [])),
+            evidenceRefs: (0, helpers_1.unique)(topicMessages.flatMap((m) => m.linkedEvidenceRefs || [])),
             expansionCommand: `node scripts/cw.js blackboard message list ${run.id} --topic ${topic.id}`
         };
     })
         .filter((entry) => entry.sourceIds.length)
-        .sort(byId);
+        .sort(helpers_1.byId);
     const unresolvedQuestions = contexts
         .filter((c) => c.kind === "question" && c.status === "open")
         .map((c) => ({
         id: c.id,
-        label: `${c.key}: ${truncate(c.value)}`,
+        label: `${c.key}: ${(0, helpers_1.truncate)(c.value)}`,
         status: c.status,
         sourceIds: [c.id],
-        evidenceRefs: unique([...(c.evidenceRefs || []), ...(c.artifactRefIds || [])]),
+        evidenceRefs: (0, helpers_1.unique)([...(c.evidenceRefs || []), ...(c.artifactRefIds || [])]),
         expansionCommand: `node scripts/cw.js blackboard message post ${run.id} --topic ${c.topicId} --body "<answer with evidence>"`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const conflicts = contexts
         .filter((c) => c.status === "conflicting" || (c.conflictingContextIds || []).length)
         .map((c) => ({
@@ -218,30 +213,30 @@ function summarizeBlackboardDigest(run, blackboardId) {
         label: `${c.key} conflicts with ${(c.conflictingContextIds || []).join(", ") || "another value"}`,
         status: c.status,
         sourceIds: [c.id, ...(c.conflictingContextIds || [])],
-        evidenceRefs: unique([...(c.evidenceRefs || []), ...(c.artifactRefIds || [])]),
+        evidenceRefs: (0, helpers_1.unique)([...(c.evidenceRefs || []), ...(c.artifactRefIds || [])]),
         expansionCommand: `node scripts/cw.js coordinator decision ${run.id} --kind conflict-resolution --outcome accepted --subject ${c.id} --reason "<reason>"`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const decisionEntries = decisions
         .map((d) => ({
         id: d.id,
-        label: `${d.kind}:${d.outcome} ${truncate(d.reason)}`,
+        label: `${d.kind}:${d.outcome} ${(0, helpers_1.truncate)(d.reason)}`,
         status: d.status,
         sourceIds: [d.id, ...(d.subjectIds || [])],
-        evidenceRefs: unique([...(d.evidenceRefs || []), ...(d.artifactRefIds || [])]),
+        evidenceRefs: (0, helpers_1.unique)([...(d.evidenceRefs || []), ...(d.artifactRefIds || [])]),
         expansionCommand: `node scripts/cw.js node show ${run.id} ${run.id}:coordinator:decision:${d.id}`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const artifactEntries = artifacts
         .map((a) => ({
         id: a.id,
         label: `${a.kind} ${a.locator || a.path || a.id}`,
         status: a.status,
         sourceIds: [a.id],
-        evidenceRefs: unique(a.evidenceRefs || []),
+        evidenceRefs: (0, helpers_1.unique)(a.evidenceRefs || []),
         expansionCommand: `node scripts/cw.js blackboard artifact list ${run.id}`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const adoptedEvidence = artifacts
         .filter((a) => a.status === "active")
         .map((a) => ({
@@ -249,42 +244,42 @@ function summarizeBlackboardDigest(run, blackboardId) {
         label: `${a.kind} ${a.locator || a.path || a.id}`,
         status: a.status,
         sourceIds: [a.id],
-        evidenceRefs: unique([a.locator || a.path || a.id, ...(a.evidenceRefs || [])]),
+        evidenceRefs: (0, helpers_1.unique)([a.locator || a.path || a.id, ...(a.evidenceRefs || [])]),
         expansionCommand: `node scripts/cw.js audit blackboard ${run.id} --json`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const missingEvidence = (summary.missingEvidence || [])
         .map((reason, index) => ({
-        id: `missing:${index}:${slug(reason)}`,
+        id: `missing:${index}:${(0, helpers_1.slug)(reason)}`,
         label: reason,
         status: "missing",
         sourceIds: [],
         evidenceRefs: [],
         expansionCommand: `node scripts/cw.js multi-agent failures ${run.id}`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const policyViolations = decisions
         .filter((d) => d.outcome === "rejected" || d.outcome === "blocked" || d.outcome === "conflicting")
         .map((d) => ({
         id: `policy:${d.id}`,
-        label: `${d.kind}:${d.outcome} ${truncate(d.reason)}`,
+        label: `${d.kind}:${d.outcome} ${(0, helpers_1.truncate)(d.reason)}`,
         status: d.status,
         sourceIds: [d.id],
-        evidenceRefs: unique(d.evidenceRefs || []),
+        evidenceRefs: (0, helpers_1.unique)(d.evidenceRefs || []),
         expansionCommand: `node scripts/cw.js audit policy ${run.id} --json`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const judgeRationale = messages
         .filter((m) => (m.tags || []).includes("judge-rationale") || Boolean(m.metadata?.judgeRationale))
         .map((m) => ({
         id: `judge:${m.id}`,
-        label: `${m.author.kind}:${m.author.id} ${truncate(m.body)}`,
+        label: `${m.author.kind}:${m.author.id} ${(0, helpers_1.truncate)(m.body)}`,
         status: m.status,
         sourceIds: [m.id],
-        evidenceRefs: unique(m.linkedEvidenceRefs || []),
+        evidenceRefs: (0, helpers_1.unique)(m.linkedEvidenceRefs || []),
         expansionCommand: `node scripts/cw.js audit judge ${run.id} --json`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const recentChanges = [...messages, ...contexts, ...artifacts, ...decisions]
         .map((record) => ({
         id: record.id,
@@ -302,30 +297,30 @@ function summarizeBlackboardDigest(run, blackboardId) {
         evidenceRefs: [],
         expansionCommand: `node scripts/cw.js node show ${run.id} ${record.id}`
     }))
-        .sort(byId);
+        .sort(helpers_1.byId);
     const highSignal = [
         ...conflicts,
         ...unresolvedQuestions,
         ...policyViolations,
         ...missingEvidence
-    ].sort(byId);
-    const sourceRecordIds = unique([
+    ].sort(helpers_1.byId);
+    const sourceRecordIds = (0, helpers_1.unique)([
         ...topics.map((t) => t.id),
         ...messages.map((m) => m.id),
         ...contexts.map((c) => c.id),
         ...artifacts.map((a) => a.id),
         ...decisions.map((d) => d.id)
     ]);
-    const evidenceRefs = unique([
+    const evidenceRefs = (0, helpers_1.unique)([
         ...messages.flatMap((m) => m.linkedEvidenceRefs || []),
         ...artifacts.flatMap((a) => [a.locator || a.path || a.id, ...(a.evidenceRefs || [])]),
         ...contexts.flatMap((c) => c.evidenceRefs || [])
     ]);
-    const trustAuditEventRefs = unique([
+    const trustAuditEventRefs = (0, helpers_1.unique)([
         ...messages.flatMap((m) => m.linkedAuditEventIds || []),
         ...artifacts.flatMap((a) => a.trustAuditEventIds || [])
     ]);
-    const fingerprint = fingerprintRecords([...topics, ...messages, ...contexts, ...artifacts, ...decisions]);
+    const fingerprint = (0, helpers_1.fingerprintRecords)([...topics, ...messages, ...contexts, ...artifacts, ...decisions]);
     return {
         schemaVersion: exports.STATE_EXPLOSION_SCHEMA_VERSION,
         runId: run.id,
@@ -336,7 +331,7 @@ function summarizeBlackboardDigest(run, blackboardId) {
         sourceFingerprint: fingerprint,
         includedCount: topicRollups.length + conflicts.length + unresolvedQuestions.length + decisionEntries.length + artifactEntries.length,
         omittedCount: Math.max(0, messages.length - threadSummaries.length),
-        importantRefs: unique([
+        importantRefs: (0, helpers_1.unique)([
             ...conflicts.map((c) => c.id),
             ...unresolvedQuestions.map((q) => q.id),
             ...policyViolations.map((p) => p.id)
@@ -385,7 +380,7 @@ function buildCompactGraphWithContext(run, view, options, context) {
     const protectedIds = new Set(critical);
     // Failures, blocked, rejected, conflicting nodes are always preserved.
     for (const node of full.nodes) {
-        if (isProtectedStatus(node.status))
+        if ((0, helpers_1.isProtectedStatus)(node.status))
             protectedIds.add(node.id);
     }
     // v0.1.26: reasoning steps are on the critical path and must never be collapsed
@@ -397,7 +392,7 @@ function buildCompactGraphWithContext(run, view, options, context) {
         if (failure.linked)
             protectedIds.add(failure.linked);
     }
-    const parents = parentMap(full.edges);
+    const parents = (0, helpers_1.parentMap)(full.edges);
     const parentOf = (id) => parents.get(id);
     let scopeNodes = full.nodes;
     let scopeEdges = full.edges;
@@ -459,9 +454,9 @@ function buildCompactGraphWithContext(run, view, options, context) {
         }
         const members = scopeNodes.filter((node) => ids.includes(node.id));
         const internalEdges = scopeEdges.filter((edge) => ids.includes(edge.from) && ids.includes(edge.to));
-        const syntheticId = `${run.id}:summary:${slug(key)}`;
-        const dominant = dominantStatus(members.map((m) => m.status));
-        const blocked = members.find((m) => isProtectedStatus(m.status));
+        const syntheticId = `${run.id}:summary:${(0, helpers_1.slug)(key)}`;
+        const dominant = (0, helpers_1.dominantStatus)(members.map((m) => m.status));
+        const blocked = members.find((m) => (0, helpers_1.isProtectedStatus)(m.status));
         synthetic.push({
             id: syntheticId,
             kind: "summary",
@@ -518,14 +513,14 @@ function buildCompactGraphWithContext(run, view, options, context) {
 function finalizeGraphRecord(run, view, options, full, built) {
     const collapsedNodeCount = built.syntheticNodes.reduce((acc, syn) => acc + syn.collapsedNodeCount, 0);
     const collapsedEdgeCount = built.syntheticNodes.reduce((acc, syn) => acc + syn.collapsedEdgeCount, 0);
-    const blockedReasons = unique([
+    const blockedReasons = (0, helpers_1.unique)([
         ...built.operator.failures.map((f) => `${f.kind} ${f.id}: ${f.reason}`),
         ...built.syntheticNodes.filter((s) => s.blockedReason).map((s) => s.blockedReason)
     ]);
     return {
         schemaVersion: exports.STATE_EXPLOSION_SCHEMA_VERSION,
         runId: run.id,
-        id: `graph-${view}${options.focus ? `:focus:${slug(options.focus)}` : ""}`,
+        id: `graph-${view}${options.focus ? `:focus:${(0, helpers_1.slug)(options.focus)}` : ""}`,
         scope: "run",
         view,
         focus: options.focus,
@@ -542,7 +537,7 @@ function finalizeGraphRecord(run, view, options, full, built) {
         nodes: built.nodes,
         edges: built.edges,
         sourceRecordIds: full.nodes.map((n) => n.id).sort(),
-        sourceFingerprint: fingerprintStrings(full.nodes.map((n) => `${n.id}:${n.status}`)),
+        sourceFingerprint: (0, helpers_1.fingerprintStrings)(full.nodes.map((n) => `${n.id}:${n.status}`)),
         includedCount: built.nodes.length,
         omittedCount: collapsedNodeCount,
         importantRefs: built.critical,
@@ -612,7 +607,7 @@ function filterByView(run, view, full, operator, protectedIds) {
                     ids.add(failure.linked);
             }
             for (const node of full.nodes)
-                if (isProtectedStatus(node.status))
+                if ((0, helpers_1.isProtectedStatus)(node.status))
                     ids.add(node.id);
             ids.add(`${run.id}:run`);
             break;
@@ -702,7 +697,7 @@ function criticalPathNodeIds(run, operator) {
         if (failure.linked)
             ids.push(failure.linked);
     }
-    return unique(ids);
+    return (0, helpers_1.unique)(ids);
 }
 function bfsNeighborhood(focus, nodes, edges, depth) {
     const adjacency = new Map();
@@ -758,7 +753,7 @@ function buildOperatorDigestWithContext(run, thresholds, context) {
         count: syn.collapsedNodeCount,
         expansionCommand: syn.expansionCommand
     }));
-    const expansionCommands = unique([
+    const expansionCommands = (0, helpers_1.unique)([
         `node scripts/cw.js multi-agent graph ${run.id} --view full --json`,
         `node scripts/cw.js blackboard message list ${run.id} --topic <topic-id>`,
         `node scripts/cw.js multi-agent graph ${run.id} --view critical-path`,
@@ -771,7 +766,7 @@ function buildOperatorDigestWithContext(run, thresholds, context) {
         id: "operator-digest",
         scope: "run",
         sourceRecordIds: compact.sourceRecordIds,
-        sourceFingerprint: fingerprintStrings([
+        sourceFingerprint: (0, helpers_1.fingerprintStrings)([
             compact.sourceFingerprint,
             blackboard.sourceFingerprint,
             String(stateSize.total)
@@ -779,8 +774,8 @@ function buildOperatorDigestWithContext(run, thresholds, context) {
         includedCount: compact.compactNodeCount,
         omittedCount: compact.collapsedNodeCount,
         importantRefs: compact.criticalPath,
-        evidenceRefs: unique(adopted.map((e) => e.ref || e.id)),
-        trustAuditEventRefs: unique(blackboard.trustAuditEventRefs),
+        evidenceRefs: (0, helpers_1.unique)(adopted.map((e) => e.ref || e.id)),
+        trustAuditEventRefs: (0, helpers_1.unique)(blackboard.trustAuditEventRefs),
         generatedAt: new Date().toISOString(),
         status: "valid",
         deterministic: true,
@@ -813,7 +808,7 @@ function buildOperatorDigestWithContext(run, thresholds, context) {
             events: trust?.totalEvents || 0,
             policyViolations: blackboard.policyViolations.length,
             judgeRationales: blackboard.judgeRationale.length,
-            entries: unique([
+            entries: (0, helpers_1.unique)([
                 ...blackboard.policyViolations.map((p) => p.id),
                 ...blackboard.judgeRationale.map((j) => j.id)
             ])
@@ -835,7 +830,7 @@ function buildStateExplosionReportWithContext(run, options, context) {
     const criticalPathGraph = buildCompactGraphWithContext(run, "critical-path", { thresholds }, context);
     const blackboardDigest = blackboardDigestFor(run, context);
     const operatorDigest = buildOperatorDigestWithContext(run, thresholds, context);
-    const currentFingerprint = fingerprintStrings([
+    const currentFingerprint = (0, helpers_1.fingerprintStrings)([
         compactGraph.sourceFingerprint,
         blackboardDigest.sourceFingerprint,
         operatorDigest.sourceFingerprint,
@@ -939,8 +934,8 @@ function refreshStateExplosionSummaries(run, options = {}) {
         runId: run.id,
         id: "multi-agent-summary-index",
         scope: "run",
-        sourceRecordIds: unique([...blackboardDigest.sourceRecordIds, ...operatorDigest.sourceRecordIds]),
-        sourceFingerprint: fingerprintStrings([
+        sourceRecordIds: (0, helpers_1.unique)([...blackboardDigest.sourceRecordIds, ...operatorDigest.sourceRecordIds]),
+        sourceFingerprint: (0, helpers_1.fingerprintStrings)([
             compactGraph.sourceFingerprint,
             blackboardDigest.sourceFingerprint,
             operatorDigest.sourceFingerprint,
@@ -1015,175 +1010,19 @@ function showStateExplosionSummary(run, options = {}) {
     }
     return report;
 }
-// ---------------------------------------------------------------------------
-// Human formatting
-// ---------------------------------------------------------------------------
-function formatStateExplosionReport(report) {
-    const lines = [];
-    const size = report.stateSize;
-    lines.push(`State Explosion Report: ${report.runId}`);
-    lines.push(`Freshness: ${report.freshness.status}${report.freshness.staleScopes.length ? ` (stale: ${report.freshness.staleScopes.join(", ")})` : ""}`);
-    lines.push("");
-    lines.push("State Size");
-    lines.push(`  records=${size.total}; graph nodes=${size.graphNodes}; graph edges=${size.graphEdges}; messages=${size.messages}; compaction=${size.compactionRecommended ? "recommended" : "not needed"}`);
-    for (const reason of size.reasons)
-        lines.push(`  - ${reason}`);
-    lines.push("");
-    lines.push("Compact Graph");
-    lines.push(`  full=${report.compactGraph.fullNodeCount} nodes/${report.compactGraph.fullEdgeCount} edges -> compact=${report.compactGraph.compactNodeCount} nodes/${report.compactGraph.compactEdgeCount} edges`);
-    if (report.compactGraph.collapsedNodeCount > 0) {
-        lines.push(`  Graph compacted: ${report.compactGraph.collapsedNodeCount} nodes collapsed into ${report.compactGraph.syntheticNodes.length} summary nodes`);
-    }
-    for (const syn of report.compactGraph.syntheticNodes) {
-        lines.push(`  [${syn.dominantStatus}] ${syn.id} collapses ${syn.collapsedNodeCount} nodes/${syn.collapsedEdgeCount} edges${syn.blockedReason ? ` blocked=${syn.blockedReason}` : ""}; expand: ${syn.expansionCommand}`);
-    }
-    lines.push("");
-    lines.push("Blackboard Digest");
-    lines.push(`  topics=${report.blackboardDigest.topicRollups.length}; threads=${report.blackboardDigest.threadSummaries.length}; unresolved=${report.blackboardDigest.unresolvedQuestions.length}; conflicts=${report.blackboardDigest.conflicts.length}; decisions=${report.blackboardDigest.decisions.length}; artifacts=${report.blackboardDigest.artifacts.length}`);
-    for (const topic of report.blackboardDigest.topicRollups.slice(0, 20))
-        lines.push(`  - ${topic.label}; expand: ${topic.expansionCommand}`);
-    lines.push("");
-    lines.push("Critical Path");
-    if (!report.criticalPathGraph.criticalPath.length)
-        lines.push("  none");
-    for (const id of report.criticalPathGraph.criticalPath.slice(0, 40))
-        lines.push(`  -> ${id}`);
-    lines.push("");
-    lines.push("Failures / Blockers");
-    if (!report.operatorDigest.failures.length)
-        lines.push("  none");
-    for (const failure of report.operatorDigest.failures.slice(0, 30))
-        lines.push(`  [${failure.status}] ${failure.kind} ${failure.id}: ${failure.reason}; next=${failure.nextCommand}`);
-    lines.push("");
-    lines.push("Evidence Digest");
-    lines.push(`  adopted=${report.operatorDigest.evidenceDigest.adopted}; missing=${report.operatorDigest.evidenceDigest.missing}; rejected=${report.operatorDigest.evidenceDigest.rejected}`);
-    lines.push("");
-    lines.push("Trust / Policy Digest");
-    lines.push(`  events=${report.operatorDigest.trustDigest.events}; policyViolations=${report.operatorDigest.trustDigest.policyViolations}; judgeRationales=${report.operatorDigest.trustDigest.judgeRationales}`);
-    for (const violation of report.blackboardDigest.policyViolations.slice(0, 20))
-        lines.push(`  [policy] ${violation.label}; expand: ${violation.expansionCommand}`);
-    lines.push("");
-    lines.push("Hidden Source Records");
-    if (!report.hiddenSourceRecords.length)
-        lines.push("  none (all records shown)");
-    for (const hidden of report.hiddenSourceRecords)
-        lines.push(`  ${hidden.kind}: ${hidden.count} records hidden; expand: ${hidden.expansionCommand}`);
-    lines.push("");
-    lines.push("Expansion Commands");
-    for (const command of report.expansionCommands)
-        lines.push(`  ${command}`);
-    lines.push("");
-    lines.push("Next Action");
-    lines.push(`  ${report.nextAction}`);
-    return lines.join("\n");
-}
-function formatCompactGraph(graph) {
-    const lines = [];
-    lines.push(`Compact Graph (${graph.view}): ${graph.runId}`);
-    lines.push(`  full=${graph.fullNodeCount} nodes/${graph.fullEdgeCount} edges -> view=${graph.compactNodeCount} nodes/${graph.compactEdgeCount} edges`);
-    if (graph.collapsedNodeCount > 0) {
-        lines.push(`  Graph compacted: ${graph.collapsedNodeCount} nodes collapsed into ${graph.syntheticNodes.length} summary nodes`);
-    }
-    lines.push("");
-    lines.push("Critical Path");
-    if (!graph.criticalPath.length)
-        lines.push("  none");
-    for (const id of graph.criticalPath.slice(0, 40))
-        lines.push(`  -> ${id}`);
-    lines.push("");
-    lines.push("Summary Nodes");
-    if (!graph.syntheticNodes.length)
-        lines.push("  none");
-    for (const syn of graph.syntheticNodes) {
-        lines.push(`  [${syn.dominantStatus}] ${syn.id}: ${syn.collapsedNodeCount} nodes / ${syn.collapsedEdgeCount} edges${syn.blockedReason ? ` blocked=${syn.blockedReason}` : ""}`);
-        lines.push(`    expand: ${syn.expansionCommand}`);
-    }
-    lines.push("");
-    lines.push("Blockers");
-    if (!graph.blockedReasons.length)
-        lines.push("  none");
-    for (const reason of graph.blockedReasons.slice(0, 20))
-        lines.push(`  ${reason}`);
-    lines.push("");
-    lines.push("Nodes");
-    for (const node of graph.nodes.slice(0, 80)) {
-        lines.push(`  [${node.status}] ${node.kind} ${node.id}${node.synthetic ? ` (summary of ${node.synthetic.collapsedNodeCount})` : ""}`);
-    }
-    if (graph.nodes.length > 80)
-        lines.push(`  ... ${graph.nodes.length - 80} more`);
-    lines.push("");
-    lines.push("Next Action");
-    lines.push(`  ${graph.nextAction}`);
-    return lines.join("\n");
-}
-function formatBlackboardDigest(record) {
-    const lines = [];
-    lines.push(`Blackboard Digest: ${record.runId}${record.blackboardId ? ` (${record.blackboardId})` : ""}`);
-    lines.push(`  freshness=${record.status}; included=${record.includedCount}; omitted=${record.omittedCount}`);
-    const section = (title, entries) => {
-        lines.push("");
-        lines.push(title);
-        if (!entries.length) {
-            lines.push("  none");
-            return;
-        }
-        for (const entry of entries.slice(0, 25))
-            lines.push(`  [${entry.status}] ${entry.label}; expand: ${entry.expansionCommand}`);
-        if (entries.length > 25)
-            lines.push(`  ... ${entries.length - 25} more`);
-    };
-    section("Topic Rollups", record.topicRollups);
-    section("Thread Summaries", record.threadSummaries);
-    section("Unresolved Questions", record.unresolvedQuestions);
-    section("Conflicts", record.conflicts);
-    section("Decisions", record.decisions);
-    section("Artifacts", record.artifacts);
-    section("Adopted Evidence", record.adoptedEvidence);
-    section("Missing Evidence", record.missingEvidence);
-    section("Policy Violations", record.policyViolations);
-    section("Judge Rationale", record.judgeRationale);
-    section("Recent Changes", record.recentChanges);
-    section("High-Signal Records", record.highSignal);
-    lines.push("");
-    lines.push("Next Action");
-    lines.push(`  ${record.nextAction}`);
-    return lines.join("\n");
-}
-function stateExplosionReportLines(report) {
-    // Markdown lines for inclusion in the run report.md State Size section.
-    const size = report.stateSize;
-    const lines = [
-        `- Records: ${size.total}; graph nodes: ${size.graphNodes}; graph edges: ${size.graphEdges}; messages: ${size.messages}`,
-        `- Compaction: ${size.compactionRecommended ? "recommended" : "not needed"}`,
-        `- Summary freshness: ${report.freshness.status}`
-    ];
-    for (const reason of size.reasons)
-        lines.push(`  - ${reason}`);
-    if (report.compactGraph.collapsedNodeCount > 0) {
-        lines.push(`- Graph compacted: ${report.compactGraph.collapsedNodeCount} nodes collapsed into ${report.compactGraph.syntheticNodes.length} summary nodes`);
-        lines.push(`  - Use: \`node scripts/cw.js multi-agent graph ${report.runId} --view full --json\``);
-    }
-    if (report.hiddenSourceRecords.length) {
-        for (const hidden of report.hiddenSourceRecords) {
-            lines.push(`- Hidden ${hidden.kind}: ${hidden.count} records; expand: \`${hidden.expansionCommand}\``);
-        }
-    }
-    lines.push(`- Next: \`${report.nextAction}\``);
-    return lines;
-}
 function normalizeStateExplosionForEval(run) {
     const report = buildStateExplosionReport(run);
     const graph = report.compactGraph;
     return {
         summaryFreshness: [
-            stableLine({
+            (0, helpers_1.stableLine)({
                 compactionRecommended: report.stateSize.compactionRecommended,
                 total: report.stateSize.total,
                 deterministic: graph.deterministic
             })
         ],
         compactGraphShape: [
-            stableLine({
+            (0, helpers_1.stableLine)({
                 view: graph.view,
                 fullNodeCount: graph.fullNodeCount,
                 fullEdgeCount: graph.fullEdgeCount,
@@ -1199,7 +1038,7 @@ function normalizeStateExplosionForEval(run) {
             })
         ],
         blackboardDigest: [
-            stableLine({
+            (0, helpers_1.stableLine)({
                 topics: report.blackboardDigest.topicRollups.length,
                 threads: report.blackboardDigest.threadSummaries.length,
                 unresolved: report.blackboardDigest.unresolvedQuestions.map((q) => q.id),
@@ -1211,9 +1050,9 @@ function normalizeStateExplosionForEval(run) {
                 missingEvidence: report.blackboardDigest.missingEvidence.map((m) => m.label)
             })
         ],
-        criticalPath: graph.criticalPath.map((id) => stripRunId(run, id)).sort(),
+        criticalPath: graph.criticalPath.map((id) => (0, helpers_1.stripRunId)(run, id)).sort(),
         evidenceDigest: [
-            stableLine({
+            (0, helpers_1.stableLine)({
                 adopted: report.operatorDigest.evidenceDigest.adopted,
                 missing: report.operatorDigest.evidenceDigest.missing,
                 rejected: report.operatorDigest.evidenceDigest.rejected
@@ -1223,62 +1062,13 @@ function normalizeStateExplosionForEval(run) {
     };
 }
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers + human formatting now live in sibling modules (FreeBSD-audit carve).
+// Re-exported below so every importer of this module stays byte-unchanged.
 // ---------------------------------------------------------------------------
-function isProtectedStatus(status) {
-    return ["failed", "blocked", "rejected", "conflicting"].includes(status);
-}
-function dominantStatus(statuses) {
-    for (const priority of ["failed", "blocked", "rejected", "conflicting", "running", "pending"]) {
-        if (statuses.includes(priority))
-            return priority;
-    }
-    return statuses[0] || "completed";
-}
-function parentMap(edges) {
-    const parents = new Map();
-    for (const edge of edges) {
-        if (!parents.has(edge.to))
-            parents.set(edge.to, edge.from);
-    }
-    return parents;
-}
-function fingerprintRecords(records) {
-    return fingerprintStrings(records.map((r) => `${r.id}:${r.status || ""}`).sort());
-}
-function fingerprintStrings(values) {
-    const hash = node_crypto_1.default.createHash("sha256");
-    hash.update(JSON.stringify([...values].sort()));
-    return `sha256:${hash.digest("hex").slice(0, 32)}`;
-}
-function stableLine(value) {
-    return JSON.stringify(sortKeys(value));
-}
-function sortKeys(value) {
-    if (Array.isArray(value))
-        return value.map(sortKeys);
-    if (value && typeof value === "object") {
-        const record = value;
-        const result = {};
-        for (const key of Object.keys(record).sort())
-            result[key] = sortKeys(record[key]);
-        return result;
-    }
-    return value;
-}
-function stripRunId(run, id) {
-    return id.startsWith(`${run.id}:`) ? id.slice(run.id.length + 1) : id;
-}
-function unique(values) {
-    return Array.from(new Set(values.filter(Boolean))).sort();
-}
-function byId(a, b) {
-    return a.id.localeCompare(b.id);
-}
-function truncate(value) {
-    const single = value.replace(/\s+/g, " ").trim();
-    return single.length > 80 ? `${single.slice(0, 77)}...` : single;
-}
-function slug(value) {
-    return value.replace(/[^a-zA-Z0-9._:-]/g, "-");
-}
+var helpers_2 = require("./state-explosion/helpers");
+Object.defineProperty(exports, "fingerprintStrings", { enumerable: true, get: function () { return helpers_2.fingerprintStrings; } });
+var format_1 = require("./state-explosion/format");
+Object.defineProperty(exports, "formatStateExplosionReport", { enumerable: true, get: function () { return format_1.formatStateExplosionReport; } });
+Object.defineProperty(exports, "formatCompactGraph", { enumerable: true, get: function () { return format_1.formatCompactGraph; } });
+Object.defineProperty(exports, "formatBlackboardDigest", { enumerable: true, get: function () { return format_1.formatBlackboardDigest; } });
+Object.defineProperty(exports, "stateExplosionReportLines", { enumerable: true, get: function () { return format_1.stateExplosionReportLines; } });
