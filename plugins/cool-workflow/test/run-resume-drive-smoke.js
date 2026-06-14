@@ -101,4 +101,35 @@ const cwd0 = process.cwd();
   } finally { process.chdir(cwd0); }
 }
 
-process.stdout.write("run-resume-drive-smoke: ok (resume --drive continues same run to completion; fail-closed blocked; default read-only byte-identical)\n");
+// (5) CLI ROUTING (the gap a real dogfood exposed): `cw run resume <id> --drive` must
+// REACH the resume verb. The early `--drive` app-route must not misread the "resume"
+// subcommand keyword as an app named "resume" ("Workflow app not found: resume").
+// No agent needed — a blocked drive still proves the routing. Plus a regression guard
+// that `run <app> --drive` still routes to the app drive.
+{
+  const { spawnSync } = require("node:child_process");
+  const cli = path.join(pluginRoot, "dist", "cli.js");
+  clearAgentEnv();
+  const repo = tmpRepo();
+  process.chdir(repo);
+  try {
+    const runner = new CoolWorkflowRunner({ pluginRoot });
+    const runId = runDrive(runner, { appId: "architecture-review", repo, question: "risks?" }).runId; // planned/blocked, no agent
+    new RunRegistry(repo, runner).refresh({ scope: "repo" });
+
+    const r = spawnSync(process.execPath, [cli, "run", "resume", runId, "--drive", "--scope", "repo", "--json"], { cwd: repo, encoding: "utf8" });
+    assert.doesNotMatch(r.stderr || "", /Workflow app not found/, "resume --drive is NOT misrouted as an app named 'resume'");
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.runId, runId, "`run resume <id> --drive` reaches the resume verb (same run id)");
+    assert.ok(Object.prototype.hasOwnProperty.call(out, "drive"), "CLI resume --drive carries the drive outcome");
+    assert.equal(out.drive.status, "blocked", "no agent -> drive blocked (fail-closed), routing confirmed");
+
+    // Regression: `run <app> --drive --once` still routes to the app drive.
+    const a = spawnSync(process.execPath, [cli, "run", "architecture-review", "--drive", "--once", "--repo", repo, "--question", "q", "--json"], { cwd: repo, encoding: "utf8" });
+    assert.doesNotMatch(a.stderr || "", /not found/i, "`run <app> --drive` still routes to the app drive");
+    const aout = JSON.parse(a.stdout);
+    assert.ok(aout.runId && aout.status, "`run <app> --drive` returns a drive result");
+  } finally { process.chdir(cwd0); }
+}
+
+process.stdout.write("run-resume-drive-smoke: ok (resume --drive continues to completion; fail-closed blocked; default byte-identical; CLI routing not misread as app)\n");

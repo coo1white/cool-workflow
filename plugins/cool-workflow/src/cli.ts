@@ -1016,7 +1016,15 @@ async function main(): Promise<void> {
       // run end-to-end by delegating each worker to the agent backend. Distinct from
       // the run-REGISTRY verbs below. `--preview` (or the `run drive <run-id>` form)
       // is the read-only, deterministic next-step preview.
-      if (args.options.drive) {
+      //
+      // A run-REGISTRY subcommand keyword (resume/show/...) must NOT be intercepted
+      // here just because it carries a --drive flag of its own — e.g.
+      // `run resume <id> --drive` is the resume verb's opt-in continuation, not
+      // `run <app=resume> --drive`. Fall through to the switch for those keywords.
+      const runRegistrySubcommand = new Set([
+        "drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive"
+      ]);
+      if (args.options.drive && !runRegistrySubcommand.has(String(args.positionals[0] || ""))) {
         const target = args.positionals[0];
         const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
         if (args.options.preview) {
