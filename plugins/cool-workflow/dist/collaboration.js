@@ -674,8 +674,10 @@ function targetKey(target) {
     return `${target.kind}:${target.id}`;
 }
 function createCollabId(run, kind, count) {
-    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `collab-${(0, state_1.safeFileName)(kind)}-${stamp}-${String(count + 1).padStart(4, "0")}`;
+    // Deterministic (FreeBSD-audit L12/L13): caller-supplied count (approvals/comments/
+    // handoffs length), no wall-clock stamp. The collab id is bound into the trust-audit
+    // chain via linkedAuditEventIds, so a stable id keeps that reproducible.
+    return `collab-${(0, state_1.safeFileName)(kind)}-${String(count + 1).padStart(4, "0")}`;
 }
 function persist(run, options) {
     if (options.persist === false)

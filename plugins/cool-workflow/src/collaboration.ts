@@ -781,8 +781,10 @@ function targetKey(target: CollaborationTarget): string {
 }
 
 function createCollabId(run: WorkflowRun, kind: string, count: number): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `collab-${safeFileName(kind)}-${stamp}-${String(count + 1).padStart(4, "0")}`;
+  // Deterministic (FreeBSD-audit L12/L13): caller-supplied count (approvals/comments/
+  // handoffs length), no wall-clock stamp. The collab id is bound into the trust-audit
+  // chain via linkedAuditEventIds, so a stable id keeps that reproducible.
+  return `collab-${safeFileName(kind)}-${String(count + 1).padStart(4, "0")}`;
 }
 
 function persist(run: WorkflowRun, options: CollaborationOptions): void {

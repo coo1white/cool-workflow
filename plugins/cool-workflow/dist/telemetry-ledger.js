@@ -106,11 +106,10 @@ function computeRecordHash(record) {
 function reportedUsageDigest(usage) {
     return (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)(usage ?? null));
 }
-let recordCounter = 0;
-function recordId(now) {
-    recordCounter += 1;
-    const stamp = now.replace(/[-:.TZ]/g, "").slice(0, 14);
-    return `tel-${stamp}-${String(recordCounter).padStart(3, "0")}`;
+function recordId(seq) {
+    // Deterministic (FreeBSD-audit L13): the chain POSITION, not a process-global
+    // counter or wall-clock stamp — recordId is bound into the recordHash chain.
+    return `tel-${String(seq).padStart(3, "0")}`;
 }
 /** Append one attestation record DURABLY to the append-only chain, linking it to
  *  the prior record (or genesis). Returns the committed record. */
@@ -121,7 +120,7 @@ function appendTelemetryAttestation(run, input) {
     const base = {
         schemaVersion: 1,
         runId: run.id,
-        recordId: recordId(now),
+        recordId: recordId(ledger.records.length + 1),
         recordedAt: now,
         workerId: input.workerId,
         taskId: input.taskId,
