@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { CoolWorkflowRunner } from "./orchestrator";
-import { CAPABILITY_REGISTRY, resolveMcpTool, dispatchCapability, getCapabilityHandler } from "./capability-registry";
+import { CAPABILITY_REGISTRY } from "./capability-registry";
 import { Scheduler } from "./scheduler";
 import { RoutineTriggerBridge } from "./triggers";
 import { buildWorkbenchRunView, buildWorkbenchServeDescriptor } from "./workbench";
@@ -496,22 +496,8 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
         // (identical to `cw workbench serve --json`). The CLI default additionally
         // starts the localhost host — declared divergence (see capability-registry).
         return buildWorkbenchServeDescriptor(runner, { ...args, once: true });
-      default: {
-        // ---- Dynamic capability dispatch fallback (v0.1.53) ---------------
-        // Mechanism: try the capability registry before failing. Policy: which
-        // tools exist is declared via registerCapabilityHandler at load time.
-        const capabilityId = resolveMcpTool(name);
-        if (capabilityId) {
-          const handler = getCapabilityHandler(capabilityId);
-          if (handler) {
-            return dispatchCapability(capabilityId, args, {
-              runner,
-              cwd: process.cwd()
-            });
-          }
-        }
+      default:
         throw new Error(`Unknown tool: ${name}`);
-      }
     }
   } finally {
     process.chdir(previousCwd);

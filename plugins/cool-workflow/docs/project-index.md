@@ -1,12 +1,12 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-13 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-14 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
 - Version: `0.1.80`
-- Source modules: `58`
+- Source modules: `57`
 - Workflow apps: `7`
 - Docs: `47`
 - Smoke tests: `76`
@@ -82,7 +82,6 @@ multi-agent host -> topology -> blackboard/coordinator
 
 - [agent-config.ts](../src/agent-config.ts)
 - [capability-core.ts](../src/capability-core.ts)
-- [capability-dispatcher.ts](../src/capability-dispatcher.ts)
 - [capability-registry.ts](../src/capability-registry.ts)
 - [collaboration.ts](../src/collaboration.ts)
 - [contract-migration.ts](../src/contract-migration.ts)

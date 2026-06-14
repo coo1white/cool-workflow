@@ -577,17 +577,3 @@ export function buildParityReport(input: { mcpTools: string[]; cliTokens: string
     registryLint
   };
 }
-
-// ---- Capability Dispatcher bridge (v0.1.53) -------------------------------
-// Re-export the dispatcher primitives so consumers import from one place.
-// Mechanism: the dispatcher routes capability ids to handlers. Policy: which
-// handlers exist is declared via registerCapabilityHandler() at load time.
-export {
-  registerCapabilityHandler,
-  dispatchCapability,
-  resolveCliPath,
-  resolveMcpTool,
-  listCapabilityIds,
-  getCapabilityHandler
-} from "./capability-dispatcher";
-export type { CapabilityHandler, CapabilityContext } from "./capability-dispatcher";
