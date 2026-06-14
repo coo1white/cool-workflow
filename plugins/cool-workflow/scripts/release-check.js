@@ -58,7 +58,11 @@ const checks = [
   { name: "dist freshness", command: ["npm", "run", "dist:check"] },
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.js"] },
-  { name: "tests", command: ["npm", "test"] },
+  // Parallel suite (test:ci = run-all.js --concurrency auto). Each smoke runs in
+  // a private cwd + state roots (CW_HOME/HOME/TMPDIR), so concurrency is race-free.
+  // The bare `npm test` and the tag-gate (release-gate.sh) stay sequential as the
+  // deterministic backstop.
+  { name: "tests", command: ["npm", "run", "test:ci"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },
   { name: "golden path", command: ["npm", "run", "golden-path"] },
   { name: "CLI MCP parity", command: ["npm", "run", "parity:check"] },
