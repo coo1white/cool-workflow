@@ -142,6 +142,18 @@ export function resolveSandboxProfileById(
     }
     return result.profile;
   }
+  // H7: a custom profile loaded from a FILE at dispatch persists as a DEFINITION
+  // in run.customSandboxProfiles (threaded here as context.customProfiles). After a
+  // worker scope snapshot is lost, the boundary re-resolves by the profile's
+  // LOGICAL id (e.g. "my-custom"), and the dispatch-time file path is gone. Resolve
+  // the persisted definition against the CURRENT (worker) context so worker-specific
+  // path tokens ($workerDir etc.) bind to THIS worker — re-enforcing the same
+  // policy instead of throwing not-found. This runs only after the bundled +
+  // file-path branches, so a custom id never shadows a bundled or on-disk profile.
+  const customDefinition = context.customProfiles?.[requested];
+  if (customDefinition) {
+    return resolveSandboxProfile(customDefinition, context);
+  }
   return showBundledSandboxProfile(requested, context);
 }
 
@@ -212,6 +224,14 @@ export function validateSandboxProfileFile(
     profile = JSON.parse(fs.readFileSync(absolutePath, "utf8")) as SandboxProfileDefinition;
   } catch (error) {
     issues.push(issue("sandbox-profile-invalid", `Profile file is not valid JSON: ${messageOf(error)}`, absolutePath));
+    return { valid: false, profileFile: absolutePath, issues };
+  }
+  // Fail closed if a CUSTOM file reuses a BUNDLED id (H7 hardening): resolution is
+  // bundled-first, so a custom "default"/"workspace-write"/... would be silently
+  // shadowed by the WIDER bundled policy on a snapshot-loss re-resolve — widening
+  // the sandbox with no error. Reserve the bundled names for bundled profiles.
+  if (profile && typeof profile.id === "string" && isBundledSandboxProfileId(profile.id)) {
+    issues.push(issue("sandbox-profile-invalid", `Custom sandbox profile id "${profile.id}" is reserved (collides with a bundled profile); choose a different id`, absolutePath));
     return { valid: false, profileFile: absolutePath, issues };
   }
   issues.push(...validateSandboxProfileDefinition(profile, context));
@@ -325,7 +345,10 @@ export function upsertRunSandboxPolicy(run: WorkflowRun, policy: ResolvedSandbox
 export function sandboxContextForRun(run: WorkflowRun): SandboxResolutionContext {
   return {
     cwd: run.cwd,
-    runDir: run.paths.runDir
+    runDir: run.paths.runDir,
+    // H7: thread persisted custom profile DEFINITIONS so a boundary re-resolve by
+    // logical id can find + re-resolve a custom profile after snapshot loss.
+    customProfiles: run.customSandboxProfiles
   };
 }
 

@@ -32,6 +32,12 @@ function createDispatchManifest(run, limit, options = {}) {
     const requestedSandboxProfileId = options.sandboxProfileId || options.sandbox;
     const sandboxProfileId = String(requestedSandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
     (0, sandbox_profile_1.resolveSandboxProfileById)(sandboxProfileId, (0, sandbox_profile_1.sandboxContextForValidation)(run.cwd));
+    // H7: if the requested profile is a CUSTOM profile loaded from a FILE (non-bundled,
+    // existing file), persist its DEFINITION on run.customSandboxProfiles keyed by the
+    // definition's logical id. This makes the custom profile durable with run state so a
+    // worker boundary can re-resolve it by logical id after a scope snapshot is lost
+    // (re-resolving against the worker context, not the dispatch-time file path).
+    persistCustomSandboxProfile(run, sandboxProfileId);
     // Resolve the execution backend once (mechanism vs policy): the kernel records
     // WHICH backend was selected; it never branches on which one. Defaults to node
     // (behavior-preserving) when no `--backend` flag / CW_BACKEND env is set.
@@ -198,4 +204,33 @@ function formatDispatchTask(task) {
 function createDispatchId() {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
     return `dispatch-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+}
+// H7: persist a CUSTOM sandbox profile DEFINITION (loaded from a FILE at dispatch)
+// onto run.customSandboxProfiles, keyed by the definition's logical id. Only fires
+// for a non-bundled id that resolves to a readable, valid profile file. The
+// resolveSandboxProfileById call above has already validated the file (it throws on
+// invalid), so this re-parses only to recover the raw DEFINITION — we store the
+// definition (not a resolved policy) so worker-specific path tokens re-bind to the
+// correct worker context on every later re-resolve. Bundled ids and unknown ids are
+// left untouched, so this never shadows a bundled profile or masks a fail-closed.
+function persistCustomSandboxProfile(run, requested) {
+    if (!requested || (0, sandbox_profile_1.isBundledSandboxProfileId)(requested))
+        return;
+    const absolute = node_path_1.default.resolve(requested);
+    if (!node_fs_1.default.existsSync(absolute) || !node_fs_1.default.statSync(absolute).isFile())
+        return;
+    const validation = (0, sandbox_profile_1.validateSandboxProfileFile)(requested, (0, sandbox_profile_1.sandboxContextForValidation)(run.cwd));
+    if (!validation.valid || !validation.profile)
+        return;
+    let definition;
+    try {
+        definition = JSON.parse(node_fs_1.default.readFileSync(absolute, "utf8"));
+    }
+    catch {
+        return;
+    }
+    if (!definition || typeof definition !== "object" || typeof definition.id !== "string" || !definition.id)
+        return;
+    run.customSandboxProfiles = run.customSandboxProfiles || {};
+    run.customSandboxProfiles[definition.id] = definition;
 }

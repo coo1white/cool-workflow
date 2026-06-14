@@ -102,7 +102,10 @@ export function allocateWorkerScope(
     extraReadPaths: options.policy?.readPaths || [],
     extraWritePaths: [...(options.policy?.writePaths || []), ...(options.policy?.allowedPaths || [])],
     allowArtifacts: options.policy?.allowArtifacts,
-    allowLogs: options.policy?.allowLogs
+    allowLogs: options.policy?.allowLogs,
+    // H7: persisted custom profile definitions so a custom logical id resolves
+    // against THIS worker's context (worker-specific path tokens bind correctly).
+    customProfiles: run.customSandboxProfiles
   });
   const allowedPaths = effectiveSandboxWritePaths(sandboxPolicy);
   upsertRunSandboxPolicy(run, sandboxPolicy);
@@ -933,6 +936,12 @@ function sandboxPolicyForBoundary(
 ) {
   if (scope.sandboxPolicy && !options.policy && !options.sandboxProfileId) return scope.sandboxPolicy;
   const profileId = options.sandboxProfileId || options.policy?.sandboxProfileId || scope.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID;
+  // H7: when the scope.sandboxPolicy snapshot is LOST, this re-resolves the policy
+  // by its logical profileId against the WORKER's paths (scope.workerDir etc.). For
+  // a CUSTOM profile the bundled lookup would throw not-found; threading
+  // run.customSandboxProfiles lets resolveSandboxProfileById re-resolve the persisted
+  // DEFINITION here — re-enforcing the same policy with worker-correct path tokens
+  // (NOT the dispatch-time paths), so a legitimate worker write is not falsely denied.
   return sandboxPolicyForWorker(profileId, {
     cwd: run.cwd,
     runDir: run.paths.runDir,
@@ -948,7 +957,8 @@ function sandboxPolicyForBoundary(
       ...(!scope.sandboxPolicy ? scope.allowedPaths || [] : [])
     ],
     allowArtifacts: options.policy?.allowArtifacts,
-    allowLogs: options.policy?.allowLogs
+    allowLogs: options.policy?.allowLogs,
+    customProfiles: run.customSandboxProfiles
   });
 }
 

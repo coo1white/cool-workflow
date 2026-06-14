@@ -72,6 +72,12 @@ export interface SandboxResolutionContext {
   extraWritePaths?: string[];
   allowArtifacts?: boolean;
   allowLogs?: boolean;
+  // H7: durable CUSTOM profile definitions (keyed by logical profile id) threaded
+  // from run.customSandboxProfiles. When a boundary re-resolves a custom profile
+  // by its logical id after scope-snapshot loss, resolveSandboxProfileById finds
+  // the DEFINITION here and re-resolves it against THIS (worker) context — so
+  // worker-specific path tokens bind correctly instead of failing closed.
+  customProfiles?: Record<string, SandboxProfileDefinition>;
 }
 
 export interface SandboxProfileValidationIssue {
