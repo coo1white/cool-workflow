@@ -74,6 +74,7 @@ const agent_config_1 = require("./agent-config");
 const run_registry_1 = require("./run-registry");
 const observability_1 = require("./observability");
 const telemetry_ledger_1 = require("./telemetry-ledger");
+const telemetry_attestation_1 = require("./telemetry-attestation");
 const trust_audit_1 = require("./trust-audit");
 const telemetry_demo_1 = require("./telemetry-demo");
 const state_1 = require("./state");
@@ -714,16 +715,34 @@ function telemetryVerify(runner, args) {
         throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");
     const run = runner.loadRun(runId);
     const v = (0, telemetry_ledger_1.verifyTelemetryLedger)(run);
+    // Opt-in independent signature re-verification. verifyTelemetryLedger re-proves
+    // the chain (so the stored attestation verdicts were not edited); supplying the
+    // trust public key (--pubkey / CW_AGENT_ATTEST_PUBKEY) additionally RE-RUNS the
+    // ed25519 check over each `attested` record's stored raw usage rather than
+    // trusting that verdict, so a forged signature can no longer ride a green chain.
+    const trustPublicKeyInput = optionalString(args.pubkey || args.pubKey || args.publicKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    const trustPublicKey = (0, telemetry_attestation_1.resolveTrustPublicKey)(trustPublicKeyInput);
+    const keyChecks = trustPublicKeyInput && !trustPublicKey
+        ? [{ name: "signature-key", pass: false, code: "telemetry-pubkey-unreadable" }]
+        : [];
+    const sig = (0, telemetry_attestation_1.verifyTelemetrySignatures)(v.records, trustPublicKey);
+    const failedChecks = [...v.checks.filter((c) => !c.pass), ...keyChecks, ...sig.checks.filter((c) => !c.pass)];
     return {
         schemaVersion: 1,
         runId: run.id,
         present: v.present,
-        verified: v.verified,
+        // Chain integrity AND (when a key was supplied) every attested signature must
+        // re-verify. With no key, sig.failed is 0 → unchanged chain-only behavior.
+        verified: v.verified && keyChecks.length === 0 && sig.failed === 0,
         records: v.records.length,
         attested: v.attested,
         unattested: v.unattested,
         absent: v.absent,
-        failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code }))
+        signatureKeyProvided: sig.keyProvided,
+        signaturesChecked: sig.checked,
+        signaturesReverified: sig.reverified,
+        signaturesFailed: sig.failed,
+        failedChecks: failedChecks.map((c) => ({ name: c.name, code: c.code }))
     };
 }
 // audit.verify — fail-closed re-prove of a run's trust-audit hash chain. The peer

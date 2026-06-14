@@ -55,16 +55,39 @@ export interface TelemetryVerifyResult {
   attested: number;
   unattested: number;
   absent: number;
+  /** Whether a usable trust public key was supplied to re-verify ed25519
+   *  signatures (opt-in via --pubkey / CW_AGENT_ATTEST_PUBKEY). When false and no
+   *  key-resolution failure is reported, `verify` is the chain-integrity re-proof
+   *  only — signatures were checked at record time. */
+  signatureKeyProvided: boolean;
+  /** Records the ledger marks `attested` that were examined for signature re-check. */
+  signaturesChecked: number;
+  /** Of those, how many re-verified against the supplied public key. */
+  signaturesReverified: number;
+  /** Of those, how many FAILED to re-verify (signature mismatch or un-joinable usage). */
+  signaturesFailed: number;
   failedChecks: Array<{ name: string; code?: string }>;
 }
 
 /** Human-facing render of `telemetry verify <run>`. */
 export function formatTelemetryVerify(r: TelemetryVerifyResult): string {
-  if (!r.present) return `telemetry: run ${r.runId} has no attestation ledger (nothing to verify)`;
-  const head = r.verified ? `✓ VERIFIED — ${r.records} record(s), chain intact, every hash recomputed independently` : `✗ TAMPERING DETECTED — ${r.failedChecks.length} check(s) failed`;
+  const keyUnreadable = r.failedChecks.some((c) => c.code === "telemetry-pubkey-unreadable");
+  if (!r.present && !keyUnreadable) return `telemetry: run ${r.runId} has no attestation ledger (nothing to verify)`;
+  const head = r.verified
+    ? `✓ VERIFIED — ${r.records} record(s), chain intact, every hash recomputed independently`
+    : keyUnreadable
+      ? `✗ VERIFICATION REFUSED — supplied public key was unreadable`
+      : `✗ TAMPERING DETECTED — ${r.failedChecks.length} check(s) failed`;
   const tally = `   attested ${r.attested} · unattested ${r.unattested} · absent ${r.absent}`;
+  const sig = keyUnreadable
+    ? `\n   signatures: public key unreadable; ed25519 re-check refused`
+    : r.signatureKeyProvided
+    ? `\n   signatures: ${r.signaturesReverified}/${r.signaturesChecked} re-verified against the supplied public key${r.signaturesFailed ? ` · ${r.signaturesFailed} FAILED` : ""}`
+    : r.signaturesChecked
+      ? `\n   signatures: ${r.signaturesChecked} attested record(s) — chain-proven only; pass --pubkey to re-verify ed25519 offline`
+      : "";
   const fails = r.failedChecks.length ? "\n" + r.failedChecks.map((c) => `   ✗ ${c.name}  ${c.code || ""}`).join("\n") : "";
-  return `telemetry verify ${r.runId}\n${head}\n${tally}${fails}`;
+  return `telemetry verify ${r.runId}\n${head}\n${tally}${sig}${fails}`;
 }
 
 /** Human-facing render of `demo tamper` — the visible tamper-evidence proof. */
