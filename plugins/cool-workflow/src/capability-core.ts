@@ -25,6 +25,7 @@ import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
 import { RunRegistry, isRunLifecycleState } from "./run-registry";
 import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
 import { verifyTelemetryLedger } from "./telemetry-ledger";
+import { resolveTrustPublicKey, verifyTelemetrySignatures } from "./telemetry-attestation";
 import { verifyTrustAudit } from "./trust-audit";
 import { runTamperDemo, TelemetryVerifyResult } from "./telemetry-demo";
 import { loadRunStateFile, readJson, writeJson } from "./state";
@@ -724,16 +725,34 @@ export function telemetryVerify(runner: CoolWorkflowRunner, args: Record<string,
   if (!runId) throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");
   const run = runner.loadRun(runId);
   const v = verifyTelemetryLedger(run);
+  // Opt-in independent signature re-verification. verifyTelemetryLedger re-proves
+  // the chain (so the stored attestation verdicts were not edited); supplying the
+  // trust public key (--pubkey / CW_AGENT_ATTEST_PUBKEY) additionally RE-RUNS the
+  // ed25519 check over each `attested` record's stored raw usage rather than
+  // trusting that verdict, so a forged signature can no longer ride a green chain.
+  const trustPublicKeyInput = optionalString(args.pubkey || args.pubKey || args.publicKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+  const trustPublicKey = resolveTrustPublicKey(trustPublicKeyInput);
+  const keyChecks = trustPublicKeyInput && !trustPublicKey
+    ? [{ name: "signature-key", pass: false, code: "telemetry-pubkey-unreadable" }]
+    : [];
+  const sig = verifyTelemetrySignatures(v.records, trustPublicKey);
+  const failedChecks = [...v.checks.filter((c) => !c.pass), ...keyChecks, ...sig.checks.filter((c) => !c.pass)];
   return {
     schemaVersion: 1,
     runId: run.id,
     present: v.present,
-    verified: v.verified,
+    // Chain integrity AND (when a key was supplied) every attested signature must
+    // re-verify. With no key, sig.failed is 0 → unchanged chain-only behavior.
+    verified: v.verified && keyChecks.length === 0 && sig.failed === 0,
     records: v.records.length,
     attested: v.attested,
     unattested: v.unattested,
     absent: v.absent,
-    failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code }))
+    signatureKeyProvided: sig.keyProvided,
+    signaturesChecked: sig.checked,
+    signaturesReverified: sig.reverified,
+    signaturesFailed: sig.failed,
+    failedChecks: failedChecks.map((c) => ({ name: c.name, code: c.code }))
   };
 }
 

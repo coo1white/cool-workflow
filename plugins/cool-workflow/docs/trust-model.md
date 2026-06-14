@@ -18,8 +18,9 @@ honest ceiling.
 - CW's ed25519 signature + hash-chained ledger prove **integrity and
   attribution**: a recorded usage figure was signed by the keyholder and has not
   been edited since it was recorded. Both re-verify **offline** — the recorded
-  ledger's integrity with **no key at all** (`cw telemetry verify`), the signature
-  attribution with the **public key alone** (reproduced by `cw demo tamper`).
+  ledger's integrity with **no key at all** (`cw telemetry verify`), and each
+  `attested` signature with the **public key alone** (`cw telemetry verify
+  --pubkey <public.pem>`; also reproduced by `cw demo tamper`).
 - They do **not** prove the original number was **true**. A dishonest signer can
   sign a lie; the lie is then cryptographically bound to its signer, but it is
   still a lie.
@@ -92,16 +93,17 @@ value**, so an edited, reordered, removed, or truncated entry flips
 `verified = false`. A ledger that exists but cannot be parsed **fails closed** —
 it is treated as corrupt, never silently as the clean empty chain.
 
-This is all **offline**. The chain re-proof needs **no key at all**; the signature
-**attribution** re-verifies with the **public key**. There is no telemetry service
-to trust or breach — the record proves its own integrity, and a third-party auditor
+This is all **offline**. The chain re-proof needs **no key at all**; add
+`--pubkey <public.pem>` to re-run the signature **attribution** check against the
+stored raw usage for every `attested` record. There is no telemetry service to
+trust or breach — the record proves its own integrity, and a third-party auditor
 can re-run both checks on their own machine.
 
 ---
 
 ## What this DOES prove
 
-If `cw telemetry verify <run>` (or the trust-audit verification) reports green,
+For telemetry, if `cw telemetry verify <run> --pubkey <public.pem>` reports green,
 you can rely on **all** of the following, and only these:
 
 1. **Attribution.** Each `attested` usage figure was signed by the holder of the
@@ -115,10 +117,10 @@ you can rely on **all** of the following, and only these:
    accidental corruption, truncation, and forged unchained lines are all caught.
 3. **Offline, independent re-verification.** Re-proving the recorded ledger needs
    no network, no CW service, and no trust in our infrastructure — `cw telemetry
-   verify` recomputes the chain on your machine (and needs no key to do it). The
-   ed25519 **attribution** is independently checkable with the **public key alone**;
-   `cw demo tamper` reproduces that sign-and-catch end-to-end, offline. The integrity
-   claim does not depend on trusting us.
+   verify` recomputes the chain on your machine (and needs no key to do it). With
+   `--pubkey`, the ed25519 **attribution** is independently re-checked with the
+   **public key alone**; `cw demo tamper` reproduces that sign-and-catch
+   end-to-end, offline. The integrity claim does not depend on trusting us.
 4. **CW never forged or measured anything.** CW holds no private key and never
    calls a model. It cannot mint a signature, and it cannot fabricate a usage
    number to sign. What it records, it received and verified.
@@ -241,11 +243,11 @@ than the math supports.
 - `cw telemetry verify <run>` — re-proves the telemetry ledger's **integrity**:
   chain linkage + an independent per-record hash recompute, so any edit to a
   recorded verdict or usage digest since record time flips it red. It needs **no
-  key** (it re-proves the *recording*, not the signatures). The ed25519 **signature**
-  check runs once at record time — CW verifies the agent's signature against the
-  configured public key before it ever writes the `attested` verdict — and is
-  reproduced end-to-end, offline, by `cw demo tamper`. Mirrored as
-  `cw_telemetry_verify` on the MCP surface.
+  key** (it re-proves the *recording*). Add `--pubkey <pem-or-path>` to re-run the
+  ed25519 **signature** check for every `attested` record against the stored raw
+  usage; unreadable keys, missing raw usage, digest mismatches, wrong keys, and
+  signature mismatches fail closed. Mirrored as `cw_telemetry_verify` on the MCP
+  surface.
 - `cw demo tamper` — a hermetic, offline, one-command proof: it builds a real
   ed25519-signed ledger and then forges it two ways — flips a recorded verdict and
   re-computes the *local* record hash (the chain still breaks), and reuses a

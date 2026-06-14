@@ -288,8 +288,9 @@ wrapper (needs `claude` on your PATH).
 **Re-prove a finished run, offline** (`cw` is the installed bin; or `npx cool-workflow <cmd>`):
 
 ```bash
-cw telemetry verify <run-id>   # re-checks the hash-chained attestation ledger
-cw audit verify <run-id>       # re-proves the trust-audit hash chain (fail-closed exit)
+cw telemetry verify <run-id>                  # re-checks the hash-chained ledger
+cw telemetry verify <run-id> --pubkey pub.pem # also re-runs ed25519 signature checks
+cw audit verify <run-id>                      # re-proves the trust-audit hash chain
 ```
 
 More: `cw quickstart <app> --preview` (read-only dry run), `cw run resume <run-id> --drive`
@@ -688,7 +689,7 @@ The orchestration vision landed in one release, all reviewer-gated:
 
 ## Tamper-evidence demo (v0.1.79)
 
-`cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be forged undetected: it builds a real ed25519-signed ledger, forges it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` (`cw_telemetry_verify` on MCP) is the operator-facing re-proof: it recomputes the hash chain on disk so any later edit to a recorded verdict or usage is caught — each hop's ed25519 signature is checked when it is recorded, and the chain then keeps that verdict tamper-evident. What this does and does **not** prove — including the single-keyholder ceiling — is documented honestly in [Trust Model & Limitations](docs/trust-model.md); read it before relying on a green verdict.
+`cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be forged undetected: it builds a real ed25519-signed ledger, forges it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` (`cw_telemetry_verify` on MCP) is the operator-facing re-proof: by default it recomputes the hash chain on disk so any later edit to a recorded verdict or usage digest is caught; add `--pubkey <pem-or-path>` to re-run each `attested` hop's ed25519 signature check against the stored raw usage too. What this does and does **not** prove — including the single-keyholder ceiling — is documented honestly in [Trust Model & Limitations](docs/trust-model.md); read it before relying on a green verdict.
 
 ## Opt-in live agent output during a drive (on main, ships next)
 

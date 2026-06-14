@@ -45,7 +45,8 @@ It builds a real signed ledger, forges it two ways (flip a verdict + re-seal its
 hash; inflate reported tokens + reuse the signature), and catches both offline with
 only the public key. On a real run, `cw telemetry verify <run>` re-proves the
 recorded ledger on disk — recomputing the chain so any later edit to a verdict or
-usage is caught (each hop's signature is checked when it's recorded). I keep an
+usage digest is caught; add `--pubkey <public.pem>` to re-run each attested hop's
+signature check offline too. I keep an
 honest trust-model doc (what it does and does NOT prove, incl. the single-keyholder
 ceiling): https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/trust-model.md
 
@@ -114,7 +115,8 @@ npm: https://www.npmjs.com/package/cool-workflow
 > hash; inflate reported tokens + reuse the signature), and catches both offline with
 > only the public key. On a real run, `cw telemetry verify <run>` re-proves the
 > recorded ledger on disk — recomputing the chain so any later edit to a verdict or
-> usage is caught (each hop's signature is checked when it's recorded). I keep an
+> usage digest is caught; add `--pubkey <public.pem>` to re-run each attested hop's
+> signature check offline too. I keep an
 > honest [trust model & limitations](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/trust-model.md)
 > doc, including the single-keyholder ceiling.
 >
