@@ -1,26 +1,20 @@
 # Pre-Launch Checklist — Cool Workflow Show HN
 
-Tick top to bottom; when it's done, post. The one non-negotiable gate is ③.
+Tick top to bottom; when it's done, post. The one non-negotiable gate is ②.
 Copy for the post itself lives in [launch-kit.md](launch-kit.md) (the **✅ FINAL**
 block).
 
-## ① Fix the machine (prerequisite)
-
-- [ ] **Reboot the Mac** — clears the leaked ptys (`kern.tty.ptmx_max` was 511 with
-      527 allocated), so Terminal / VS Code can spawn shells again. Required before
-      the verification below.
-
-## ② Prepare assets (optional, recommended)
+## ① Prepare assets (optional, recommended)
 
 - [ ] Install [vhs](https://github.com/charmbracelet/vhs) (`brew install vhs`).
 - [ ] Record the GIF: `vhs plugins/cool-workflow/docs/launch/demo.tape` →
       `docs/launch/demo-tamper.gif`.
-- [ ] Swap it into the README hero (replace the fenced demo output block with
-      `![demo](plugins/cool-workflow/docs/launch/demo-tamper.gif)`), commit + push.
+- [ ] Add it to the README hero (insert
+      `![demo](plugins/cool-workflow/docs/launch/demo-tamper.gif)` near the badges/intro), commit + push.
   > Shippable without the GIF — the README's text `✗ DETECTED` hook already stands;
   > the GIF is upside, not a blocker.
 
-## ③ Verify — the make-or-break gate (do not skip)
+## ② Verify — the make-or-break gate (do not skip)
 
 - [ ] On a **clean machine / fresh terminal**: `npx cool-workflow demo tamper`
       prints `VERDICT: tamper-evidence holds ✓`.
@@ -28,15 +22,18 @@ block).
   > non-negotiable check.
 - [ ] Sanity: `npx cool-workflow quickstart architecture-review --repo . --question "risks?"`
       → `status: blocked` with no agent configured (fails closed, no crash).
+- [ ] Resumable sanity: `cw quickstart architecture-review --resume` advances one step
+      then stops; `cw run resume <run-id> --drive` continues a stopped run — proving
+      runs break at dispatch and replay from disk.
 
-## ④ Post (US morning, ~9–11am ET is peak)
+## ③ Post (US morning, ~9–11am ET is peak)
 
 - [ ] Open the **✅ FINAL** block in [launch-kit.md](launch-kit.md).
 - [ ] HN title: `Show HN: Cool Workflow – tamper-evident telemetry for agent pipelines (npx demo)`
 - [ ] URL field: `https://github.com/coo1white/cool-workflow`
 - [ ] Immediately after posting, paste the FINAL "first comment" as the first reply.
 
-## ⑤ First hour (decides the outcome)
+## ④ First hour (decides the outcome)
 
 - [ ] Watch and reply fast — early engagement weighs most on HN.
 - [ ] On the "single key holder / no second party" critique (the audit flagged it
@@ -49,5 +46,5 @@ block).
 
 ### Go / no-go
 
-> If **③ — `npx cool-workflow demo tamper` prints `✓` on a clean machine** — passes,
+> If **② — `npx cool-workflow demo tamper` prints `✓` on a clean machine** — passes,
 > you can post. Everything else is upside.
