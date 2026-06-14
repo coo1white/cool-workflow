@@ -14,6 +14,7 @@ import { RunExport, WorkflowRun } from "./types";
 import { createRunPaths, ensureRunDirs, isContainedPath, readJson, saveCheckpoint, writeJson } from "./state";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "./version";
 import { verifyTelemetryLedger } from "./telemetry-ledger";
+import { compareBytes } from "./compare";
 
 type ArchiveFileRole = NonNullable<RunExport["files"]>[number]["role"];
 
@@ -275,7 +276,7 @@ function collectArchiveFiles(run: WorkflowRun): ArchiveFileEntry[] {
     }
     if (isContainedPath(artifactPath, run.cwd)) addExternalArtifactFile(entries, run, artifactPath);
   }
-  return [...entries.values()].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  return [...entries.values()].sort((left, right) => compareBytes(left.relativePath, right.relativePath));
 }
 
 function addFile(entries: Map<string, ArchiveFileEntry>, run: WorkflowRun, file: string, role: ArchiveFileRole): void {

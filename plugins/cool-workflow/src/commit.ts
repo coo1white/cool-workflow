@@ -11,6 +11,7 @@ import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent, val
 import { commitReviewProvenance, reviewGateErrors, selfActorIdsForCandidate } from "./collaboration";
 import { hasGroundedEvidence, requireResolvableEvidence, unresolvedFileEvidence } from "./evidence-grounding";
 import { taskRequiresEvidence } from "./verifier";
+import { compareBytes } from "./compare";
 
 export interface CommitStateOptions {
   reason: string;
@@ -572,7 +573,7 @@ function resolveLinkedVerifier(
 function latestSelectionForCandidate(run: WorkflowRun, candidateId: string) {
   return [...(run.candidateSelections || [])]
     .filter((selection) => selection.candidateId === candidateId)
-    .sort((left, right) => right.selectedAt.localeCompare(left.selectedAt))[0];
+    .sort((left, right) => compareBytes(right.selectedAt, left.selectedAt))[0];
 }
 
 function findSelection(run: WorkflowRun, selectionId: string) {

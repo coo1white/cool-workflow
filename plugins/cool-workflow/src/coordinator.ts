@@ -28,6 +28,7 @@ import { safeFileName, writeJson } from "./state";
 import { appendRunNode, createStateNode } from "./state-node";
 import { getAgentGroup, getAgentMembership, getAgentRole, getMultiAgentRun } from "./multi-agent";
 import { recordTrustAuditEvent } from "./trust-audit";
+import { compareBytes } from "./compare";
 import {
   assertMultiAgentActionAllowed,
   hashText,
@@ -1232,7 +1233,7 @@ function indexRow(record: { id: string; status?: string; updatedAt?: string; bla
 }
 
 function compareRecords(left: { createdAt: string; id: string }, right: { createdAt: string; id: string }): number {
-  return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+  return compareBytes(left.createdAt, right.createdAt) || compareBytes(left.id, right.id);
 }
 
 function uniqueEdges(edges: BlackboardGraph["edges"]): BlackboardGraph["edges"] {

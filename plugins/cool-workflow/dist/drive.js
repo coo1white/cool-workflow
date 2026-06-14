@@ -39,6 +39,7 @@ const agent_config_1 = require("./agent-config");
 const scheduling_1 = require("./scheduling");
 const observability_1 = require("./observability");
 const state_1 = require("./state");
+const compare_1 = require("./compare");
 exports.DRIVE_SCHEMA_VERSION = 1;
 /** The task the next drive step would advance: a RUNNING (already-dispatched,
  *  awaiting fulfillment / retry) task first, else the next PENDING task in the
@@ -299,7 +300,7 @@ function completedResultsCacheDigest(run, task) {
     const previousTaskIds = new Set(run.phases.slice(0, phaseIndex).flatMap((phase) => phase.taskIds));
     const records = run.tasks
         .filter((candidate) => previousTaskIds.has(candidate.id))
-        .sort((a, b) => a.id.localeCompare(b.id))
+        .sort((a, b) => (0, compare_1.compareBytes)(a.id, b.id))
         .map((candidate) => {
         if (candidate.status !== "completed" || !candidate.resultPath || !node_fs_1.default.existsSync(candidate.resultPath))
             return undefined;

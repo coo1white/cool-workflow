@@ -6,6 +6,7 @@
 // it was; making ID minting deterministic is a separate tracked item).
 import fs from "node:fs";
 import path from "node:path";
+import { compareBytes } from "../compare";
 import {
   ReclaimedOverlay,
   RunLifecycleState,
@@ -28,19 +29,19 @@ export const LIFECYCLE_STATES: RunLifecycleState[] = [
 
 export function compareRecords(a: RunRecord, b: RunRecord): number {
   if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
-  return a.runId.localeCompare(b.runId);
+  return compareBytes(a.runId, b.runId);
 }
 
 export function compareHistory(a: RunRecord, b: RunRecord): number {
   // Newest first.
   if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
-  return a.runId.localeCompare(b.runId);
+  return compareBytes(a.runId, b.runId);
 }
 
 export function compareQueue(a: RunQueueEntry, b: RunQueueEntry): number {
   if (a.priority !== b.priority) return a.priority - b.priority;
   if (a.enqueuedAt !== b.enqueuedAt) return a.enqueuedAt < b.enqueuedAt ? -1 : 1;
-  return a.id.localeCompare(b.id);
+  return compareBytes(a.id, b.id);
 }
 
 export function matchesQuery(record: RunRecord, query: RunSearchQuery): boolean {

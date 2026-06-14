@@ -17,6 +17,7 @@ const trust_audit_1 = require("./trust-audit");
 const collaboration_1 = require("./collaboration");
 const evidence_grounding_1 = require("./evidence-grounding");
 const verifier_1 = require("./verifier");
+const compare_1 = require("./compare");
 class CommitGateError extends Error {
     structured;
     feedbackId;
@@ -511,7 +512,7 @@ function resolveLinkedVerifier(requested, linked, errors, ownerKind, ownerId) {
 function latestSelectionForCandidate(run, candidateId) {
     return [...(run.candidateSelections || [])]
         .filter((selection) => selection.candidateId === candidateId)
-        .sort((left, right) => right.selectedAt.localeCompare(left.selectedAt))[0];
+        .sort((left, right) => (0, compare_1.compareBytes)(right.selectedAt, left.selectedAt))[0];
 }
 function findSelection(run, selectionId) {
     return (run.candidateSelections || []).find((selection) => selection.id === selectionId);

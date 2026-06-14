@@ -21,6 +21,7 @@ const node_crypto_1 = __importDefault(require("node:crypto"));
 const state_1 = require("./state");
 const version_1 = require("./version");
 const telemetry_ledger_1 = require("./telemetry-ledger");
+const compare_1 = require("./compare");
 /** Export a run to a portable JSON archive with run-local bytes and digests. */
 function exportRun(run, outputPath) {
     const exportedAt = new Date().toISOString();
@@ -216,7 +217,7 @@ function collectArchiveFiles(run) {
         if ((0, state_1.isContainedPath)(artifactPath, run.cwd))
             addExternalArtifactFile(entries, run, artifactPath);
     }
-    return [...entries.values()].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+    return [...entries.values()].sort((left, right) => (0, compare_1.compareBytes)(left.relativePath, right.relativePath));
 }
 function addFile(entries, run, file, role) {
     const relativePath = toArchivePath(node_path_1.default.relative(run.paths.runDir, file));

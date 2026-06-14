@@ -24,6 +24,7 @@ exports.loadReclaimedFromDir = loadReclaimedFromDir;
 // it was; making ID minting deterministic is a separate tracked item).
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const compare_1 = require("../compare");
 exports.LIFECYCLE_STATES = [
     "queued",
     "running",
@@ -36,20 +37,20 @@ exports.LIFECYCLE_STATES = [
 function compareRecords(a, b) {
     if (a.createdAt !== b.createdAt)
         return a.createdAt < b.createdAt ? -1 : 1;
-    return a.runId.localeCompare(b.runId);
+    return (0, compare_1.compareBytes)(a.runId, b.runId);
 }
 function compareHistory(a, b) {
     // Newest first.
     if (a.createdAt !== b.createdAt)
         return a.createdAt < b.createdAt ? 1 : -1;
-    return a.runId.localeCompare(b.runId);
+    return (0, compare_1.compareBytes)(a.runId, b.runId);
 }
 function compareQueue(a, b) {
     if (a.priority !== b.priority)
         return a.priority - b.priority;
     if (a.enqueuedAt !== b.enqueuedAt)
         return a.enqueuedAt < b.enqueuedAt ? -1 : 1;
-    return a.id.localeCompare(b.id);
+    return (0, compare_1.compareBytes)(a.id, b.id);
 }
 function matchesQuery(record, query) {
     if (query.app && !(record.appId || record.workflowId || "").toLowerCase().includes(query.app))

@@ -20,6 +20,7 @@ const state_1 = require("./state");
 const state_node_1 = require("./state-node");
 const trust_audit_1 = require("./trust-audit");
 const collaboration_1 = require("./collaboration");
+const compare_1 = require("./compare");
 exports.CANDIDATE_SCHEMA_VERSION = 1;
 /** Verdict thresholds on a score's normalized value [0,1], declared once so the
  *  numbers carry intent instead of being buried as literals in verdictFor(). A
@@ -564,16 +565,16 @@ function inferCandidateKind(input) {
     return "manual";
 }
 function bestScore(scores) {
-    return [...scores].sort((left, right) => right.normalized - left.normalized || left.createdAt.localeCompare(right.createdAt))[0];
+    return [...scores].sort((left, right) => right.normalized - left.normalized || (0, compare_1.compareBytes)(left.createdAt, right.createdAt))[0];
 }
 function compareRows(left, right, policy) {
     const byScore = right.normalized - left.normalized;
     if (byScore !== 0)
         return byScore;
     if (policy.tieBreaker === "candidateId")
-        return left.candidate.id.localeCompare(right.candidate.id);
-    const byCreated = left.candidate.createdAt.localeCompare(right.candidate.createdAt);
-    return byCreated || left.candidate.id.localeCompare(right.candidate.id);
+        return (0, compare_1.compareBytes)(left.candidate.id, right.candidate.id);
+    const byCreated = (0, compare_1.compareBytes)(left.candidate.createdAt, right.candidate.createdAt);
+    return byCreated || (0, compare_1.compareBytes)(left.candidate.id, right.candidate.id);
 }
 function detectTies(candidates) {
     const groups = new Map();
