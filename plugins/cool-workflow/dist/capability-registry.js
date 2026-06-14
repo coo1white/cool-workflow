@@ -57,7 +57,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "init",
         surface: "both",
         cli: { path: ["init"], jsonMode: "default" },
-        mcp: { tool: "cw_init" }
+        mcp: { tool: "cw_init", requiredArgs: ["workflowId"] }
     },
     {
         capability: "plan",
@@ -65,7 +65,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "planSummary",
         surface: "both",
         cli: { path: ["plan"], jsonMode: "default" },
-        mcp: { tool: "cw_plan" }
+        mcp: { tool: "cw_plan", requiredArgs: ["workflowId"] }
     },
     {
         capability: "status",
@@ -73,7 +73,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "status",
         surface: "both",
         cli: { path: ["status"], jsonMode: "flag" },
-        mcp: { tool: "cw_status" }
+        mcp: { tool: "cw_status", requiredArgs: ["runId"] }
     },
     {
         capability: "next",
@@ -81,7 +81,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "next",
         surface: "both",
         cli: { path: ["next"], jsonMode: "default" },
-        mcp: { tool: "cw_next" }
+        mcp: { tool: "cw_next", requiredArgs: ["runId"] }
     },
     {
         capability: "dispatch",
@@ -89,7 +89,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "dispatch",
         surface: "both",
         cli: { path: ["dispatch"], jsonMode: "default" },
-        mcp: { tool: "cw_dispatch" }
+        mcp: { tool: "cw_dispatch", requiredArgs: ["runId"] }
     },
     {
         capability: "result",
@@ -97,7 +97,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "recordResult",
         surface: "both",
         cli: { path: ["result"], jsonMode: "default" },
-        mcp: { tool: "cw_result" }
+        mcp: { tool: "cw_result", requiredArgs: ["runId"] }
     },
     {
         capability: "commit",
@@ -105,7 +105,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "commit",
         surface: "both",
         cli: { path: ["commit"], jsonMode: "default" },
-        mcp: { tool: "cw_commit" },
+        mcp: { tool: "cw_commit", requiredArgs: ["runId"] },
         payloadIdentical: false,
         reason: "Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate, commit.acceptanceRationale); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection via capability-core.commitEnvelope, not drift."
     },
@@ -115,7 +115,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "summarizeCommitRecords",
         surface: "both",
         cli: { path: ["commit", "summary"], jsonMode: "flag" },
-        mcp: { tool: "cw_commit_summary" }
+        mcp: { tool: "cw_commit_summary", requiredArgs: ["runId"] }
     },
     {
         capability: "report",
@@ -123,7 +123,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "report",
         surface: "both",
         cli: { path: ["report"], jsonMode: "flag" },
-        mcp: { tool: "cw_report" }
+        mcp: { tool: "cw_report", requiredArgs: ["runId"] }
     },
     {
         capability: "graph",
@@ -131,7 +131,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "operatorGraph",
         surface: "both",
         cli: { path: ["graph"], jsonMode: "flag" },
-        mcp: { tool: "cw_operator_graph" }
+        mcp: { tool: "cw_operator_graph", requiredArgs: ["runId"] }
     },
     {
         capability: "loop",
@@ -148,7 +148,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "operatorStatus",
         surface: "both",
         cli: { path: ["operator", "status"], jsonMode: "flag" },
-        mcp: { tool: "cw_operator_status" }
+        mcp: { tool: "cw_operator_status", requiredArgs: ["runId"] }
     },
     {
         capability: "operator.report",
@@ -156,7 +156,7 @@ const BUILTIN_CAPABILITIES = [
         entry: "operatorReport",
         surface: "both",
         cli: { path: ["operator", "report"], jsonMode: "flag" },
-        mcp: { tool: "cw_operator_report" }
+        mcp: { tool: "cw_operator_report", requiredArgs: ["runId"] }
     },
     // ---- app management -----------------------------------------------------
     { capability: "app.list", summary: "List CW workflow apps.", entry: "listApps", surface: "both", cli: { path: ["app", "list"], jsonMode: "default" }, mcp: { tool: "cw_app_list" } },
@@ -164,13 +164,13 @@ const BUILTIN_CAPABILITIES = [
     { capability: "app.validate", summary: "Validate an app by path or id.", entry: "validateApp", surface: "both", cli: { path: ["app", "validate"], jsonMode: "default" }, mcp: { tool: "cw_app_validate" } },
     { capability: "app.init", summary: "Create a CW workflow app directory.", entry: "initApp", surface: "both", cli: { path: ["app", "init"], jsonMode: "default" }, mcp: { tool: "cw_app_init" } },
     { capability: "app.package", summary: "Package an app as a JSON artifact.", entry: "packageApp", surface: "both", cli: { path: ["app", "package"], jsonMode: "default" }, mcp: { tool: "cw_app_package" } },
-    { capability: "app.run", summary: "Create a run from an app id + structured inputs.", entry: "appRun", surface: "both", cli: { path: ["app", "run"], jsonMode: "default" }, mcp: { tool: "cw_app_run" } },
+    { capability: "app.run", summary: "Create a run from an app id + structured inputs.", entry: "appRun", surface: "both", cli: { path: ["app", "run"], jsonMode: "default" }, mcp: { tool: "cw_app_run", requiredArgs: ["appId"] } },
     // ---- state / contract / node --------------------------------------------
-    { capability: "state.check", summary: "Check run-state schema compatibility.", entry: "checkState", surface: "both", cli: { path: ["state", "check"], jsonMode: "default" }, mcp: { tool: "cw_state_check" } },
-    { capability: "contract.show", summary: "Show a run's pipeline contract.", entry: "showContract", surface: "both", cli: { path: ["contract", "show"], jsonMode: "default" }, mcp: { tool: "cw_contract_show" } },
-    { capability: "node.list", summary: "List state nodes for a run.", entry: "listNodes", surface: "both", cli: { path: ["node", "list"], jsonMode: "default" }, mcp: { tool: "cw_node_list" } },
-    { capability: "node.show", summary: "Show one state node for a run.", entry: "showNode", surface: "both", cli: { path: ["node", "show"], jsonMode: "default" }, mcp: { tool: "cw_node_show" } },
-    { capability: "node.graph", summary: "Read the state-node graph for a run.", entry: "graphNodes", surface: "both", cli: { path: ["node", "graph"], jsonMode: "flag" }, mcp: { tool: "cw_node_graph" } },
+    { capability: "state.check", summary: "Check run-state schema compatibility.", entry: "checkState", surface: "both", cli: { path: ["state", "check"], jsonMode: "default" }, mcp: { tool: "cw_state_check", requiredArgs: ["runId"] } },
+    { capability: "contract.show", summary: "Show a run's pipeline contract.", entry: "showContract", surface: "both", cli: { path: ["contract", "show"], jsonMode: "default" }, mcp: { tool: "cw_contract_show", requiredArgs: ["runId"] } },
+    { capability: "node.list", summary: "List state nodes for a run.", entry: "listNodes", surface: "both", cli: { path: ["node", "list"], jsonMode: "default" }, mcp: { tool: "cw_node_list", requiredArgs: ["runId"] } },
+    { capability: "node.show", summary: "Show one state node for a run.", entry: "showNode", surface: "both", cli: { path: ["node", "show"], jsonMode: "default" }, mcp: { tool: "cw_node_show", requiredArgs: ["runId", "nodeId"] } },
+    { capability: "node.graph", summary: "Read the state-node graph for a run.", entry: "graphNodes", surface: "both", cli: { path: ["node", "graph"], jsonMode: "flag" }, mcp: { tool: "cw_node_graph", requiredArgs: ["runId"] } },
     { capability: "node.snapshot", summary: "Snapshot one state node (derived + fingerprinted).", entry: "nodeSnapshot", surface: "both", cli: { path: ["node", "snapshot"], caseTokens: ["node", "snapshot"], jsonMode: "default" }, mcp: { tool: "cw_node_snapshot" } },
     { capability: "node.diff", summary: "Structurally diff two node snapshots.", entry: "nodeDiff", surface: "both", cli: { path: ["node", "diff"], caseTokens: ["node", "diff"], jsonMode: "default" }, mcp: { tool: "cw_node_diff" } },
     { capability: "node.replay", summary: "Deterministically replay one node from a snapshot.", entry: "nodeReplay", surface: "both", cli: { path: ["node", "replay"], caseTokens: ["node", "replay"], jsonMode: "default" }, mcp: { tool: "cw_node_replay" } },
@@ -180,80 +180,80 @@ const BUILTIN_CAPABILITIES = [
     { capability: "migration.prove", summary: "Round-trip / non-destruction migration proof for a target.", entry: "migrationProve", surface: "both", cli: { path: ["migration", "prove"], caseTokens: ["migration", "prove"], jsonMode: "default" }, mcp: { tool: "cw_migration_prove" } },
     // ---- topology -----------------------------------------------------------
     { capability: "topology.list", summary: "List official topology definitions.", entry: "listTopologies", surface: "both", cli: { path: ["topology", "list"], jsonMode: "default" }, mcp: { tool: "cw_topology_list" } },
-    { capability: "topology.show", summary: "Show a topology definition or run.", entry: "showTopology", surface: "both", cli: { path: ["topology", "show"], jsonMode: "default" }, mcp: { tool: "cw_topology_show" } },
-    { capability: "topology.validate", summary: "Validate a topology definition.", entry: "validateTopology", surface: "both", cli: { path: ["topology", "validate"], jsonMode: "default" }, mcp: { tool: "cw_topology_validate" } },
-    { capability: "topology.apply", summary: "Apply a topology to a run.", entry: "applyTopology", surface: "both", cli: { path: ["topology", "apply"], jsonMode: "default" }, mcp: { tool: "cw_topology_apply" } },
-    { capability: "topology.summary", summary: "Read topology progress and next actions.", entry: "topologySummary", surface: "both", cli: { path: ["topology", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_topology_summary" } },
-    { capability: "topology.graph", summary: "Read topology graph nodes and edges.", entry: "topologyGraph", surface: "both", cli: { path: ["topology", "graph"], jsonMode: "flag" }, mcp: { tool: "cw_topology_graph" } },
+    { capability: "topology.show", summary: "Show a topology definition or run.", entry: "showTopology", surface: "both", cli: { path: ["topology", "show"], jsonMode: "default" }, mcp: { tool: "cw_topology_show", requiredArgs: ["topologyId|id"] } },
+    { capability: "topology.validate", summary: "Validate a topology definition.", entry: "validateTopology", surface: "both", cli: { path: ["topology", "validate"], jsonMode: "default" }, mcp: { tool: "cw_topology_validate", requiredArgs: ["topologyId|id"] } },
+    { capability: "topology.apply", summary: "Apply a topology to a run.", entry: "applyTopology", surface: "both", cli: { path: ["topology", "apply"], jsonMode: "default" }, mcp: { tool: "cw_topology_apply", requiredArgs: ["runId", "topologyId|id"] } },
+    { capability: "topology.summary", summary: "Read topology progress and next actions.", entry: "topologySummary", surface: "both", cli: { path: ["topology", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_topology_summary", requiredArgs: ["runId"] } },
+    { capability: "topology.graph", summary: "Read topology graph nodes and edges.", entry: "topologyGraph", surface: "both", cli: { path: ["topology", "graph"], jsonMode: "flag" }, mcp: { tool: "cw_topology_graph", requiredArgs: ["runId"] } },
     // ---- state-explosion summaries ------------------------------------------
-    { capability: "summary.refresh", summary: "Refresh state-explosion summaries.", entry: "summaryRefresh", surface: "both", cli: { path: ["summary", "refresh"], jsonMode: "flag" }, mcp: { tool: "cw_summary_refresh" } },
-    { capability: "summary.show", summary: "Read the persisted state-explosion report.", entry: "summaryShow", surface: "both", cli: { path: ["summary", "show"], jsonMode: "flag" }, mcp: { tool: "cw_summary_show" } },
+    { capability: "summary.refresh", summary: "Refresh state-explosion summaries.", entry: "summaryRefresh", surface: "both", cli: { path: ["summary", "refresh"], jsonMode: "flag" }, mcp: { tool: "cw_summary_refresh", requiredArgs: ["runId"] } },
+    { capability: "summary.show", summary: "Read the persisted state-explosion report.", entry: "summaryShow", surface: "both", cli: { path: ["summary", "show"], jsonMode: "flag" }, mcp: { tool: "cw_summary_show", requiredArgs: ["runId"] } },
     // ---- multi-agent host loop ----------------------------------------------
     { capability: "multi-agent.run", summary: "Create or attach a topology-backed multi-agent run.", entry: "hostMultiAgentRun", surface: "both", cli: { path: ["multi-agent", "run"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_run" } },
-    { capability: "multi-agent.status", summary: "Read combined topology/blackboard/worker status.", entry: "hostMultiAgentStatus", surface: "both", cli: { path: ["multi-agent", "status"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_status" } },
-    { capability: "multi-agent.step", summary: "Perform one safe deterministic host step.", entry: "hostMultiAgentStep", surface: "both", cli: { path: ["multi-agent", "step"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_step" } },
-    { capability: "multi-agent.blackboard", summary: "Operate on the active multi-agent blackboard.", entry: "hostMultiAgentBlackboard", surface: "both", cli: { path: ["multi-agent", "blackboard"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_blackboard" } },
-    { capability: "multi-agent.score", summary: "Score a candidate with evidence.", entry: "hostMultiAgentScore", surface: "both", cli: { path: ["multi-agent", "score"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_score" } },
-    { capability: "multi-agent.select", summary: "Select a candidate with the verifier gate.", entry: "hostMultiAgentSelect", surface: "both", cli: { path: ["multi-agent", "select"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_select" } },
-    { capability: "multi-agent.summary", summary: "Read the structured multi-agent runtime summary for a run.", entry: "multiAgentSummary", surface: "both", cli: { path: ["multi-agent", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_summary" } },
-    { capability: "multi-agent.summarize", summary: "Read the combined state-explosion report.", entry: "multiAgentSummarize", surface: "both", cli: { path: ["multi-agent", "summarize"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_summarize" } },
-    { capability: "multi-agent.graph", summary: "Read the structured multi-agent operator graph for a run.", entry: "multiAgentOperatorGraph", surface: "both", cli: { path: ["multi-agent", "graph"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_graph" } },
-    { capability: "multi-agent.graph.compact", summary: "Read a compact/focused multi-agent graph view.", entry: "multiAgentGraphView", surface: "both", cli: { path: ["multi-agent", "graph"], caseTokens: ["multi-agent", "graph"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_graph_compact" } },
-    { capability: "multi-agent.dependencies", summary: "Read derived multi-agent dependency edges for operator inspection.", entry: "multiAgentDependencies", surface: "both", cli: { path: ["multi-agent", "dependencies"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_dependencies" } },
-    { capability: "multi-agent.failures", summary: "Read failed, blocked, rejected, and ambiguous multi-agent records.", entry: "multiAgentFailures", surface: "both", cli: { path: ["multi-agent", "failures"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_failures" } },
-    { capability: "multi-agent.evidence", summary: "Read evidence adoption status from worker output through selection and commit. Each row carries a derived rationaleStatus (explained|unexplained|not-applicable).", entry: "multiAgentEvidence", surface: "both", cli: { path: ["multi-agent", "evidence"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_evidence" } },
-    { capability: "multi-agent.reasoning", summary: "Explain why each evidence item was adopted/rejected.", entry: "multiAgentReasoning", surface: "both", cli: { path: ["multi-agent", "reasoning"], jsonMode: "flag" }, mcp: { tool: "cw_evidence_reasoning" } },
-    { capability: "multi-agent.reasoning.refresh", summary: "Refresh the durable evidence-reasoning index.", entry: "multiAgentReasoningRefresh", surface: "both", cli: { path: ["multi-agent", "reasoning"], caseTokens: ["multi-agent", "reasoning"], jsonMode: "default" }, mcp: { tool: "cw_evidence_reasoning_refresh" } },
+    { capability: "multi-agent.status", summary: "Read combined topology/blackboard/worker status.", entry: "hostMultiAgentStatus", surface: "both", cli: { path: ["multi-agent", "status"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_status", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.step", summary: "Perform one safe deterministic host step.", entry: "hostMultiAgentStep", surface: "both", cli: { path: ["multi-agent", "step"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_step", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.blackboard", summary: "Operate on the active multi-agent blackboard.", entry: "hostMultiAgentBlackboard", surface: "both", cli: { path: ["multi-agent", "blackboard"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_blackboard", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.score", summary: "Score a candidate with evidence.", entry: "hostMultiAgentScore", surface: "both", cli: { path: ["multi-agent", "score"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_score", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.select", summary: "Select a candidate with the verifier gate.", entry: "hostMultiAgentSelect", surface: "both", cli: { path: ["multi-agent", "select"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_select", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.summary", summary: "Read the structured multi-agent runtime summary for a run.", entry: "multiAgentSummary", surface: "both", cli: { path: ["multi-agent", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_summary", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.summarize", summary: "Read the combined state-explosion report.", entry: "multiAgentSummarize", surface: "both", cli: { path: ["multi-agent", "summarize"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_summarize", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.graph", summary: "Read the structured multi-agent operator graph for a run.", entry: "multiAgentOperatorGraph", surface: "both", cli: { path: ["multi-agent", "graph"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_graph", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.graph.compact", summary: "Read a compact/focused multi-agent graph view.", entry: "multiAgentGraphView", surface: "both", cli: { path: ["multi-agent", "graph"], caseTokens: ["multi-agent", "graph"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_graph_compact", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.dependencies", summary: "Read derived multi-agent dependency edges for operator inspection.", entry: "multiAgentDependencies", surface: "both", cli: { path: ["multi-agent", "dependencies"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_dependencies", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.failures", summary: "Read failed, blocked, rejected, and ambiguous multi-agent records.", entry: "multiAgentFailures", surface: "both", cli: { path: ["multi-agent", "failures"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_failures", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.evidence", summary: "Read evidence adoption status from worker output through selection and commit. Each row carries a derived rationaleStatus (explained|unexplained|not-applicable).", entry: "multiAgentEvidence", surface: "both", cli: { path: ["multi-agent", "evidence"], jsonMode: "flag" }, mcp: { tool: "cw_multi_agent_evidence", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.reasoning", summary: "Explain why each evidence item was adopted/rejected.", entry: "multiAgentReasoning", surface: "both", cli: { path: ["multi-agent", "reasoning"], jsonMode: "flag" }, mcp: { tool: "cw_evidence_reasoning", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.reasoning.refresh", summary: "Refresh the durable evidence-reasoning index.", entry: "multiAgentReasoningRefresh", surface: "both", cli: { path: ["multi-agent", "reasoning"], caseTokens: ["multi-agent", "reasoning"], jsonMode: "default" }, mcp: { tool: "cw_evidence_reasoning_refresh", requiredArgs: ["runId"] } },
     // ---- multi-agent lifecycle records --------------------------------------
-    { capability: "multi-agent.run.create", summary: "Create a MultiAgentRun state record.", entry: "createMultiAgentRun", surface: "both", cli: { path: ["multi-agent", "run"], caseTokens: ["multi-agent", "run"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_run_create" } },
-    { capability: "multi-agent.run.transition", summary: "Transition a MultiAgentRun lifecycle.", entry: "transitionMultiAgentRun", surface: "both", cli: { path: ["multi-agent", "run"], caseTokens: ["multi-agent", "run"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_run_transition" } },
-    { capability: "multi-agent.run.show", summary: "Show one MultiAgentRun record.", entry: "showMultiAgentRun", surface: "both", cli: { path: ["multi-agent", "show"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_run_show" } },
-    { capability: "multi-agent.role.create", summary: "Create an AgentRole record.", entry: "createAgentRole", surface: "both", cli: { path: ["multi-agent", "role"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_role_create" } },
-    { capability: "multi-agent.role.show", summary: "Show one AgentRole record.", entry: "showAgentRole", surface: "both", cli: { path: ["multi-agent", "role"], caseTokens: ["multi-agent", "role"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_role_show" } },
-    { capability: "multi-agent.group.create", summary: "Create an AgentGroup record.", entry: "createAgentGroup", surface: "both", cli: { path: ["multi-agent", "group"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_group_create" } },
-    { capability: "multi-agent.group.show", summary: "Show one AgentGroup record.", entry: "showAgentGroup", surface: "both", cli: { path: ["multi-agent", "group"], caseTokens: ["multi-agent", "group"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_group_show" } },
-    { capability: "multi-agent.membership.create", summary: "Create an AgentMembership record.", entry: "assignAgentMembership", surface: "both", cli: { path: ["multi-agent", "membership"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_membership_create" } },
-    { capability: "multi-agent.membership.show", summary: "Show one AgentMembership record.", entry: "showAgentMembership", surface: "both", cli: { path: ["multi-agent", "membership"], caseTokens: ["multi-agent", "membership"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_membership_show" } },
-    { capability: "multi-agent.fanout.create", summary: "Create an AgentFanout record.", entry: "createAgentFanout", surface: "both", cli: { path: ["multi-agent", "fanout"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_fanout_create" } },
-    { capability: "multi-agent.fanout.show", summary: "Show one AgentFanout record.", entry: "showAgentFanout", surface: "both", cli: { path: ["multi-agent", "fanout"], caseTokens: ["multi-agent", "fanout"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_fanout_show" } },
-    { capability: "multi-agent.fanin.collect", summary: "Collect an AgentFanin with evidence coverage.", entry: "collectAgentFanin", surface: "both", cli: { path: ["multi-agent", "fanin"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_fanin_collect" } },
-    { capability: "multi-agent.fanin.show", summary: "Show one AgentFanin record.", entry: "showAgentFanin", surface: "both", cli: { path: ["multi-agent", "fanin"], caseTokens: ["multi-agent", "fanin"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_fanin_show" } },
+    { capability: "multi-agent.run.create", summary: "Create a MultiAgentRun state record.", entry: "createMultiAgentRun", surface: "both", cli: { path: ["multi-agent", "run"], caseTokens: ["multi-agent", "run"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_run_create", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.run.transition", summary: "Transition a MultiAgentRun lifecycle.", entry: "transitionMultiAgentRun", surface: "both", cli: { path: ["multi-agent", "run"], caseTokens: ["multi-agent", "run"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_run_transition", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.run.show", summary: "Show one MultiAgentRun record.", entry: "showMultiAgentRun", surface: "both", cli: { path: ["multi-agent", "show"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_run_show", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.role.create", summary: "Create an AgentRole record.", entry: "createAgentRole", surface: "both", cli: { path: ["multi-agent", "role"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_role_create", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.role.show", summary: "Show one AgentRole record.", entry: "showAgentRole", surface: "both", cli: { path: ["multi-agent", "role"], caseTokens: ["multi-agent", "role"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_role_show", requiredArgs: ["runId", "roleId"] } },
+    { capability: "multi-agent.group.create", summary: "Create an AgentGroup record.", entry: "createAgentGroup", surface: "both", cli: { path: ["multi-agent", "group"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_group_create", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.group.show", summary: "Show one AgentGroup record.", entry: "showAgentGroup", surface: "both", cli: { path: ["multi-agent", "group"], caseTokens: ["multi-agent", "group"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_group_show", requiredArgs: ["runId", "groupId"] } },
+    { capability: "multi-agent.membership.create", summary: "Create an AgentMembership record.", entry: "assignAgentMembership", surface: "both", cli: { path: ["multi-agent", "membership"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_membership_create", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.membership.show", summary: "Show one AgentMembership record.", entry: "showAgentMembership", surface: "both", cli: { path: ["multi-agent", "membership"], caseTokens: ["multi-agent", "membership"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_membership_show", requiredArgs: ["runId", "membershipId"] } },
+    { capability: "multi-agent.fanout.create", summary: "Create an AgentFanout record.", entry: "createAgentFanout", surface: "both", cli: { path: ["multi-agent", "fanout"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_fanout_create", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.fanout.show", summary: "Show one AgentFanout record.", entry: "showAgentFanout", surface: "both", cli: { path: ["multi-agent", "fanout"], caseTokens: ["multi-agent", "fanout"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_fanout_show", requiredArgs: ["runId", "fanoutId"] } },
+    { capability: "multi-agent.fanin.collect", summary: "Collect an AgentFanin with evidence coverage.", entry: "collectAgentFanin", surface: "both", cli: { path: ["multi-agent", "fanin"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_fanin_collect", requiredArgs: ["runId"] } },
+    { capability: "multi-agent.fanin.show", summary: "Show one AgentFanin record.", entry: "showAgentFanin", surface: "both", cli: { path: ["multi-agent", "fanin"], caseTokens: ["multi-agent", "fanin"], jsonMode: "default" }, mcp: { tool: "cw_multi_agent_fanin_show", requiredArgs: ["runId", "faninId"] } },
     // ---- eval & replay ------------------------------------------------------
-    { capability: "eval.snapshot", summary: "Create a deterministic replay snapshot.", entry: "evalSnapshot", surface: "both", cli: { path: ["eval", "snapshot"], jsonMode: "flag" }, mcp: { tool: "cw_eval_snapshot" } },
-    { capability: "eval.replay", summary: "Replay a snapshot without live agents.", entry: "evalReplay", surface: "both", cli: { path: ["eval", "replay"], jsonMode: "flag" }, mcp: { tool: "cw_eval_replay" } },
-    { capability: "eval.compare", summary: "Compare baseline and replay deterministically.", entry: "evalCompare", surface: "both", cli: { path: ["eval", "compare"], jsonMode: "flag" }, mcp: { tool: "cw_eval_compare" } },
-    { capability: "eval.score", summary: "Score replay quality.", entry: "evalScore", surface: "both", cli: { path: ["eval", "score"], jsonMode: "flag" }, mcp: { tool: "cw_eval_score" } },
-    { capability: "eval.gate", summary: "Run the eval/replay regression gate.", entry: "evalGate", surface: "both", cli: { path: ["eval", "gate"], jsonMode: "flag" }, mcp: { tool: "cw_eval_gate" } },
-    { capability: "eval.report", summary: "Render an eval/replay report.", entry: "evalReport", surface: "both", cli: { path: ["eval", "report"], jsonMode: "flag" }, mcp: { tool: "cw_eval_report" } },
+    { capability: "eval.snapshot", summary: "Create a deterministic replay snapshot.", entry: "evalSnapshot", surface: "both", cli: { path: ["eval", "snapshot"], jsonMode: "flag" }, mcp: { tool: "cw_eval_snapshot", requiredArgs: ["runId"] } },
+    { capability: "eval.replay", summary: "Replay a snapshot without live agents.", entry: "evalReplay", surface: "both", cli: { path: ["eval", "replay"], jsonMode: "flag" }, mcp: { tool: "cw_eval_replay", requiredArgs: ["snapshot|snapshotId|path"] } },
+    { capability: "eval.compare", summary: "Compare baseline and replay deterministically.", entry: "evalCompare", surface: "both", cli: { path: ["eval", "compare"], jsonMode: "flag" }, mcp: { tool: "cw_eval_compare", requiredArgs: ["baseline|baselinePath", "replay|replayPath"] } },
+    { capability: "eval.score", summary: "Score replay quality.", entry: "evalScore", surface: "both", cli: { path: ["eval", "score"], jsonMode: "flag" }, mcp: { tool: "cw_eval_score", requiredArgs: ["replay|replayPath|path"] } },
+    { capability: "eval.gate", summary: "Run the eval/replay regression gate.", entry: "evalGate", surface: "both", cli: { path: ["eval", "gate"], jsonMode: "flag" }, mcp: { tool: "cw_eval_gate", requiredArgs: ["suite|suiteId|path"] } },
+    { capability: "eval.report", summary: "Render an eval/replay report.", entry: "evalReport", surface: "both", cli: { path: ["eval", "report"], jsonMode: "flag" }, mcp: { tool: "cw_eval_report", requiredArgs: ["replay|replayPath|path"] } },
     // ---- blackboard & coordinator -------------------------------------------
-    { capability: "blackboard.summary", summary: "Read the blackboard/coordinator summary.", entry: "blackboardSummary", surface: "both", cli: { path: ["blackboard", "summary"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_summary" } },
-    { capability: "blackboard.summarize", summary: "Read a blackboard digest with conflicts/evidence.", entry: "blackboardSummarize", surface: "both", cli: { path: ["blackboard", "summarize"], jsonMode: "flag" }, mcp: { tool: "cw_blackboard_summarize" } },
-    { capability: "blackboard.graph", summary: "Read blackboard graph nodes and edges.", entry: "blackboardGraph", surface: "both", cli: { path: ["blackboard", "graph"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_graph" } },
-    { capability: "blackboard.resolve", summary: "Create or resolve a run blackboard.", entry: "resolveRunBlackboard", surface: "both", cli: { path: ["blackboard", "resolve"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_resolve" } },
-    { capability: "blackboard.topic.create", summary: "Create a blackboard topic.", entry: "createBlackboardTopic", surface: "both", cli: { path: ["blackboard", "topic", "create"], caseTokens: ["blackboard", "topic"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_topic_create" } },
-    { capability: "blackboard.message.post", summary: "Post a blackboard message.", entry: "postBlackboardMessage", surface: "both", cli: { path: ["blackboard", "message", "post"], caseTokens: ["blackboard", "message"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_message_post" } },
-    { capability: "blackboard.message.list", summary: "List blackboard messages.", entry: "listBlackboardMessages", surface: "both", cli: { path: ["blackboard", "message", "list"], caseTokens: ["blackboard", "message"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_message_list" } },
-    { capability: "blackboard.context.put", summary: "Publish a shared context frame.", entry: "putBlackboardContext", surface: "both", cli: { path: ["blackboard", "context", "put"], caseTokens: ["blackboard", "context"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_context_put" } },
-    { capability: "blackboard.artifact.add", summary: "Index an artifact in the blackboard.", entry: "addBlackboardArtifact", surface: "both", cli: { path: ["blackboard", "artifact", "add"], caseTokens: ["blackboard", "artifact"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_artifact_add" } },
-    { capability: "blackboard.artifact.list", summary: "List blackboard artifact refs.", entry: "listBlackboardArtifacts", surface: "both", cli: { path: ["blackboard", "artifact", "list"], caseTokens: ["blackboard", "artifact"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_artifact_list" } },
-    { capability: "blackboard.snapshot", summary: "Create a durable blackboard snapshot.", entry: "snapshotBlackboard", surface: "both", cli: { path: ["blackboard", "snapshot"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_snapshot" } },
-    { capability: "coordinator.summary", summary: "Read the coordinator summary.", entry: "coordinatorSummary", surface: "both", cli: { path: ["coordinator", "summary"], jsonMode: "default" }, mcp: { tool: "cw_coordinator_summary" } },
-    { capability: "coordinator.decision", summary: "Record a coordinator decision.", entry: "recordCoordinatorDecision", surface: "both", cli: { path: ["coordinator", "decision"], jsonMode: "default" }, mcp: { tool: "cw_coordinator_decision" } },
+    { capability: "blackboard.summary", summary: "Read the blackboard/coordinator summary.", entry: "blackboardSummary", surface: "both", cli: { path: ["blackboard", "summary"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_summary", requiredArgs: ["runId"] } },
+    { capability: "blackboard.summarize", summary: "Read a blackboard digest with conflicts/evidence.", entry: "blackboardSummarize", surface: "both", cli: { path: ["blackboard", "summarize"], jsonMode: "flag" }, mcp: { tool: "cw_blackboard_summarize", requiredArgs: ["runId"] } },
+    { capability: "blackboard.graph", summary: "Read blackboard graph nodes and edges.", entry: "blackboardGraph", surface: "both", cli: { path: ["blackboard", "graph"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_graph", requiredArgs: ["runId"] } },
+    { capability: "blackboard.resolve", summary: "Create or resolve a run blackboard.", entry: "resolveRunBlackboard", surface: "both", cli: { path: ["blackboard", "resolve"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_resolve", requiredArgs: ["runId"] } },
+    { capability: "blackboard.topic.create", summary: "Create a blackboard topic.", entry: "createBlackboardTopic", surface: "both", cli: { path: ["blackboard", "topic", "create"], caseTokens: ["blackboard", "topic"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_topic_create", requiredArgs: ["runId"] } },
+    { capability: "blackboard.message.post", summary: "Post a blackboard message.", entry: "postBlackboardMessage", surface: "both", cli: { path: ["blackboard", "message", "post"], caseTokens: ["blackboard", "message"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_message_post", requiredArgs: ["runId"] } },
+    { capability: "blackboard.message.list", summary: "List blackboard messages.", entry: "listBlackboardMessages", surface: "both", cli: { path: ["blackboard", "message", "list"], caseTokens: ["blackboard", "message"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_message_list", requiredArgs: ["runId"] } },
+    { capability: "blackboard.context.put", summary: "Publish a shared context frame.", entry: "putBlackboardContext", surface: "both", cli: { path: ["blackboard", "context", "put"], caseTokens: ["blackboard", "context"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_context_put", requiredArgs: ["runId"] } },
+    { capability: "blackboard.artifact.add", summary: "Index an artifact in the blackboard.", entry: "addBlackboardArtifact", surface: "both", cli: { path: ["blackboard", "artifact", "add"], caseTokens: ["blackboard", "artifact"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_artifact_add", requiredArgs: ["runId"] } },
+    { capability: "blackboard.artifact.list", summary: "List blackboard artifact refs.", entry: "listBlackboardArtifacts", surface: "both", cli: { path: ["blackboard", "artifact", "list"], caseTokens: ["blackboard", "artifact"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_artifact_list", requiredArgs: ["runId"] } },
+    { capability: "blackboard.snapshot", summary: "Create a durable blackboard snapshot.", entry: "snapshotBlackboard", surface: "both", cli: { path: ["blackboard", "snapshot"], jsonMode: "default" }, mcp: { tool: "cw_blackboard_snapshot", requiredArgs: ["runId"] } },
+    { capability: "coordinator.summary", summary: "Read the coordinator summary.", entry: "coordinatorSummary", surface: "both", cli: { path: ["coordinator", "summary"], jsonMode: "default" }, mcp: { tool: "cw_coordinator_summary", requiredArgs: ["runId"] } },
+    { capability: "coordinator.decision", summary: "Record a coordinator decision.", entry: "recordCoordinatorDecision", surface: "both", cli: { path: ["coordinator", "decision"], jsonMode: "default" }, mcp: { tool: "cw_coordinator_decision", requiredArgs: ["runId"] } },
     // ---- audit & trust ------------------------------------------------------
-    { capability: "audit.summary", summary: "Read the trust/audit summary.", entry: "auditSummary", surface: "both", cli: { path: ["audit", "summary"], jsonMode: "default" }, mcp: { tool: "cw_audit_summary" } },
-    { capability: "audit.worker", summary: "Read trust/audit for one worker.", entry: "workerAudit", surface: "both", cli: { path: ["audit", "worker"], jsonMode: "default" }, mcp: { tool: "cw_audit_worker" } },
-    { capability: "audit.provenance", summary: "Inspect evidence provenance.", entry: "evidenceProvenance", surface: "both", cli: { path: ["audit", "provenance"], jsonMode: "default" }, mcp: { tool: "cw_audit_provenance" } },
-    { capability: "audit.multi-agent", summary: "Read the multi-agent trust/policy/provenance audit.", entry: "auditMultiAgent", surface: "both", cli: { path: ["audit", "multi-agent"], jsonMode: "flag" }, mcp: { tool: "cw_audit_multi_agent" } },
-    { capability: "audit.policy", summary: "Read role policies and permission decisions.", entry: "auditPolicy", surface: "both", cli: { path: ["audit", "policy"], jsonMode: "flag" }, mcp: { tool: "cw_audit_policy" } },
-    { capability: "audit.role", summary: "Read policy/audit for one role.", entry: "auditRole", surface: "both", cli: { path: ["audit", "role"], jsonMode: "flag" }, mcp: { tool: "cw_audit_role" } },
-    { capability: "audit.blackboard", summary: "Read the blackboard write audit.", entry: "auditBlackboard", surface: "both", cli: { path: ["audit", "blackboard"], jsonMode: "flag" }, mcp: { tool: "cw_audit_blackboard" } },
-    { capability: "audit.judge", summary: "Read judge rationale/panel decision audit.", entry: "auditJudge", surface: "both", cli: { path: ["audit", "judge"], jsonMode: "flag" }, mcp: { tool: "cw_audit_judge" } },
-    { capability: "audit.attest", summary: "Record a host/operator sandbox attestation.", entry: "recordAuditAttestation", surface: "both", cli: { path: ["audit", "attest"], jsonMode: "default" }, mcp: { tool: "cw_audit_attest" } },
-    { capability: "audit.decision", summary: "Validate and record a sandbox decision.", entry: "recordAuditDecision", surface: "both", cli: { path: ["audit", "decision"], jsonMode: "default" }, mcp: { tool: "cw_audit_decision" } },
+    { capability: "audit.summary", summary: "Read the trust/audit summary.", entry: "auditSummary", surface: "both", cli: { path: ["audit", "summary"], jsonMode: "default" }, mcp: { tool: "cw_audit_summary", requiredArgs: ["runId"] } },
+    { capability: "audit.worker", summary: "Read trust/audit for one worker.", entry: "workerAudit", surface: "both", cli: { path: ["audit", "worker"], jsonMode: "default" }, mcp: { tool: "cw_audit_worker", requiredArgs: ["runId"] } },
+    { capability: "audit.provenance", summary: "Inspect evidence provenance.", entry: "evidenceProvenance", surface: "both", cli: { path: ["audit", "provenance"], jsonMode: "default" }, mcp: { tool: "cw_audit_provenance", requiredArgs: ["runId"] } },
+    { capability: "audit.multi-agent", summary: "Read the multi-agent trust/policy/provenance audit.", entry: "auditMultiAgent", surface: "both", cli: { path: ["audit", "multi-agent"], jsonMode: "flag" }, mcp: { tool: "cw_audit_multi_agent", requiredArgs: ["runId"] } },
+    { capability: "audit.policy", summary: "Read role policies and permission decisions.", entry: "auditPolicy", surface: "both", cli: { path: ["audit", "policy"], jsonMode: "flag" }, mcp: { tool: "cw_audit_policy", requiredArgs: ["runId"] } },
+    { capability: "audit.role", summary: "Read policy/audit for one role.", entry: "auditRole", surface: "both", cli: { path: ["audit", "role"], jsonMode: "flag" }, mcp: { tool: "cw_audit_role", requiredArgs: ["runId"] } },
+    { capability: "audit.blackboard", summary: "Read the blackboard write audit.", entry: "auditBlackboard", surface: "both", cli: { path: ["audit", "blackboard"], jsonMode: "flag" }, mcp: { tool: "cw_audit_blackboard", requiredArgs: ["runId"] } },
+    { capability: "audit.judge", summary: "Read judge rationale/panel decision audit.", entry: "auditJudge", surface: "both", cli: { path: ["audit", "judge"], jsonMode: "flag" }, mcp: { tool: "cw_audit_judge", requiredArgs: ["runId"] } },
+    { capability: "audit.attest", summary: "Record a host/operator sandbox attestation.", entry: "recordAuditAttestation", surface: "both", cli: { path: ["audit", "attest"], jsonMode: "default" }, mcp: { tool: "cw_audit_attest", requiredArgs: ["runId"] } },
+    { capability: "audit.decision", summary: "Validate and record a sandbox decision.", entry: "recordAuditDecision", surface: "both", cli: { path: ["audit", "decision"], jsonMode: "default" }, mcp: { tool: "cw_audit_decision", requiredArgs: ["runId"] } },
     // ---- sandbox profiles ---------------------------------------------------
     { capability: "sandbox.list", summary: "List bundled sandbox profiles.", entry: "listSandboxProfiles", surface: "both", cli: { path: ["sandbox", "list"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_list" } },
-    { capability: "sandbox.show", summary: "Show a resolved sandbox profile.", entry: "showSandboxProfile", surface: "both", cli: { path: ["sandbox", "show"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_show" } },
-    { capability: "sandbox.validate", summary: "Validate a sandbox profile JSON file.", entry: "validateSandboxProfile", surface: "both", cli: { path: ["sandbox", "validate"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_validate" } },
+    { capability: "sandbox.show", summary: "Show a resolved sandbox profile.", entry: "showSandboxProfile", surface: "both", cli: { path: ["sandbox", "show"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_show", requiredArgs: ["profileId"] } },
+    { capability: "sandbox.validate", summary: "Validate a sandbox profile JSON file.", entry: "validateSandboxProfile", surface: "both", cli: { path: ["sandbox", "validate"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_validate", requiredArgs: ["profileFile"] } },
     { capability: "sandbox.choose", summary: "Resolve and validate a sandbox profile choice.", entry: "sandboxChoose", surface: "both", cli: { path: ["sandbox", "choose"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_choose" } },
     { capability: "sandbox.resolve", summary: "Alias of sandbox.choose.", entry: "sandboxChoose", surface: "both", cli: { path: ["sandbox", "resolve"], jsonMode: "default" }, mcp: { tool: "cw_sandbox_resolve" } },
     // ---- execution backends (v0.1.29) ---------------------------------------
@@ -264,38 +264,38 @@ const BUILTIN_CAPABILITIES = [
     { capability: "backend.agent.config.show", summary: "Show the effective agent delegation config (flags>env>file, secret-stripped, host-stable).", entry: "backendAgentConfigShow", surface: "both", cli: { path: ["backend", "agent", "config"], caseTokens: ["backend", "agent"], jsonMode: "default" }, mcp: { tool: "cw_backend_agent_config_show" } },
     { capability: "backend.agent.config.set", summary: "Set the durable agent delegation config (command-template/endpoint/model; API keys never written).", entry: "backendAgentConfigSet", surface: "both", cli: { path: ["backend", "agent", "config"], caseTokens: ["backend", "agent"], jsonMode: "default" }, mcp: { tool: "cw_backend_agent_config_set" }, payloadIdentical: false, reason: "Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe." },
     // ---- worker isolation ---------------------------------------------------
-    { capability: "worker.list", summary: "List worker isolation scopes.", entry: "listWorkers", surface: "both", cli: { path: ["worker", "list"], jsonMode: "default" }, mcp: { tool: "cw_worker_list" } },
-    { capability: "worker.summary", summary: "Read the structured worker summary for a run.", entry: "summarizeWorkerRecords", surface: "both", cli: { path: ["worker", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_worker_summary" } },
-    { capability: "worker.show", summary: "Show one worker isolation scope.", entry: "showWorker", surface: "both", cli: { path: ["worker", "show"], jsonMode: "default" }, mcp: { tool: "cw_worker_show" } },
-    { capability: "worker.manifest", summary: "Write and return a worker manifest.", entry: "showWorkerManifest", surface: "both", cli: { path: ["worker", "manifest"], jsonMode: "default" }, mcp: { tool: "cw_worker_manifest" } },
-    { capability: "worker.output", summary: "Record worker output.", entry: "recordWorkerOutput", surface: "both", cli: { path: ["worker", "output"], jsonMode: "default" }, mcp: { tool: "cw_worker_output" } },
-    { capability: "worker.fail", summary: "Record a structured worker failure.", entry: "recordWorkerFailure", surface: "both", cli: { path: ["worker", "fail"], jsonMode: "default" }, mcp: { tool: "cw_worker_fail" } },
-    { capability: "worker.validate", summary: "Validate a worker output boundary.", entry: "validateWorker", surface: "both", cli: { path: ["worker", "validate"], jsonMode: "default" }, mcp: { tool: "cw_worker_validate" } },
+    { capability: "worker.list", summary: "List worker isolation scopes.", entry: "listWorkers", surface: "both", cli: { path: ["worker", "list"], jsonMode: "default" }, mcp: { tool: "cw_worker_list", requiredArgs: ["runId"] } },
+    { capability: "worker.summary", summary: "Read the structured worker summary for a run.", entry: "summarizeWorkerRecords", surface: "both", cli: { path: ["worker", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_worker_summary", requiredArgs: ["runId"] } },
+    { capability: "worker.show", summary: "Show one worker isolation scope.", entry: "showWorker", surface: "both", cli: { path: ["worker", "show"], jsonMode: "default" }, mcp: { tool: "cw_worker_show", requiredArgs: ["runId", "workerId"] } },
+    { capability: "worker.manifest", summary: "Write and return a worker manifest.", entry: "showWorkerManifest", surface: "both", cli: { path: ["worker", "manifest"], jsonMode: "default" }, mcp: { tool: "cw_worker_manifest", requiredArgs: ["runId"] } },
+    { capability: "worker.output", summary: "Record worker output.", entry: "recordWorkerOutput", surface: "both", cli: { path: ["worker", "output"], jsonMode: "default" }, mcp: { tool: "cw_worker_output", requiredArgs: ["runId"] } },
+    { capability: "worker.fail", summary: "Record a structured worker failure.", entry: "recordWorkerFailure", surface: "both", cli: { path: ["worker", "fail"], jsonMode: "default" }, mcp: { tool: "cw_worker_fail", requiredArgs: ["runId"] } },
+    { capability: "worker.validate", summary: "Validate a worker output boundary.", entry: "validateWorker", surface: "both", cli: { path: ["worker", "validate"], jsonMode: "default" }, mcp: { tool: "cw_worker_validate", requiredArgs: ["runId"] } },
     // ---- candidate scoring & selection --------------------------------------
-    { capability: "candidate.list", summary: "List candidates for a run.", entry: "listCandidates", surface: "both", cli: { path: ["candidate", "list"], jsonMode: "default" }, mcp: { tool: "cw_candidate_list" } },
-    { capability: "candidate.show", summary: "Show one candidate.", entry: "showCandidate", surface: "both", cli: { path: ["candidate", "show"], jsonMode: "default" }, mcp: { tool: "cw_candidate_show" } },
-    { capability: "candidate.register", summary: "Register a candidate from evidence.", entry: "registerCandidate", surface: "both", cli: { path: ["candidate", "register"], jsonMode: "default" }, mcp: { tool: "cw_candidate_register" } },
-    { capability: "candidate.score", summary: "Score a candidate with criteria/evidence.", entry: "scoreCandidate", surface: "both", cli: { path: ["candidate", "score"], jsonMode: "default" }, mcp: { tool: "cw_candidate_score" } },
-    { capability: "candidate.rank", summary: "Rank candidates with gates.", entry: "rankCandidates", surface: "both", cli: { path: ["candidate", "rank"], jsonMode: "default" }, mcp: { tool: "cw_candidate_rank" } },
-    { capability: "candidate.select", summary: "Select a candidate with the verifier gate.", entry: "selectCandidate", surface: "both", cli: { path: ["candidate", "select"], jsonMode: "default" }, mcp: { tool: "cw_candidate_select" } },
-    { capability: "candidate.reject", summary: "Reject a candidate with a reason.", entry: "rejectCandidate", surface: "both", cli: { path: ["candidate", "reject"], jsonMode: "default" }, mcp: { tool: "cw_candidate_reject" } },
-    { capability: "candidate.summary", summary: "Read the structured candidate summary for a run.", entry: "summarizeCandidateOperatorRecords", surface: "both", cli: { path: ["candidate", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_candidate_summary" } },
+    { capability: "candidate.list", summary: "List candidates for a run.", entry: "listCandidates", surface: "both", cli: { path: ["candidate", "list"], jsonMode: "default" }, mcp: { tool: "cw_candidate_list", requiredArgs: ["runId"] } },
+    { capability: "candidate.show", summary: "Show one candidate.", entry: "showCandidate", surface: "both", cli: { path: ["candidate", "show"], jsonMode: "default" }, mcp: { tool: "cw_candidate_show", requiredArgs: ["runId", "candidateId"] } },
+    { capability: "candidate.register", summary: "Register a candidate from evidence.", entry: "registerCandidate", surface: "both", cli: { path: ["candidate", "register"], jsonMode: "default" }, mcp: { tool: "cw_candidate_register", requiredArgs: ["runId"] } },
+    { capability: "candidate.score", summary: "Score a candidate with criteria/evidence.", entry: "scoreCandidate", surface: "both", cli: { path: ["candidate", "score"], jsonMode: "default" }, mcp: { tool: "cw_candidate_score", requiredArgs: ["runId"] } },
+    { capability: "candidate.rank", summary: "Rank candidates with gates.", entry: "rankCandidates", surface: "both", cli: { path: ["candidate", "rank"], jsonMode: "default" }, mcp: { tool: "cw_candidate_rank", requiredArgs: ["runId"] } },
+    { capability: "candidate.select", summary: "Select a candidate with the verifier gate.", entry: "selectCandidate", surface: "both", cli: { path: ["candidate", "select"], jsonMode: "default" }, mcp: { tool: "cw_candidate_select", requiredArgs: ["runId"] } },
+    { capability: "candidate.reject", summary: "Reject a candidate with a reason.", entry: "rejectCandidate", surface: "both", cli: { path: ["candidate", "reject"], jsonMode: "default" }, mcp: { tool: "cw_candidate_reject", requiredArgs: ["runId"] } },
+    { capability: "candidate.summary", summary: "Read the structured candidate summary for a run.", entry: "summarizeCandidateOperatorRecords", surface: "both", cli: { path: ["candidate", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_candidate_summary", requiredArgs: ["runId"] } },
     // ---- feedback -----------------------------------------------------------
-    { capability: "feedback.list", summary: "List run feedback records.", entry: "listFeedback", surface: "both", cli: { path: ["feedback", "list"], jsonMode: "default" }, mcp: { tool: "cw_feedback_list" } },
-    { capability: "feedback.show", summary: "Show a run feedback record.", entry: "showFeedback", surface: "both", cli: { path: ["feedback", "show"], jsonMode: "default" }, mcp: { tool: "cw_feedback_show" } },
-    { capability: "feedback.collect", summary: "Collect feedback from failed nodes.", entry: "collectFeedback", surface: "both", cli: { path: ["feedback", "collect"], jsonMode: "default" }, mcp: { tool: "cw_feedback_collect" } },
-    { capability: "feedback.summary", summary: "Read the structured feedback summary for a run.", entry: "summarizeFeedbackRecords", surface: "both", cli: { path: ["feedback", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_feedback_summary" } },
-    { capability: "feedback.task", summary: "Create a correction task for feedback.", entry: "createFeedbackTask", surface: "both", cli: { path: ["feedback", "task"], jsonMode: "default" }, mcp: { tool: "cw_feedback_task" } },
-    { capability: "feedback.resolve", summary: "Resolve or reject feedback.", entry: "resolveFeedback", surface: "both", cli: { path: ["feedback", "resolve"], jsonMode: "default" }, mcp: { tool: "cw_feedback_resolve" } },
+    { capability: "feedback.list", summary: "List run feedback records.", entry: "listFeedback", surface: "both", cli: { path: ["feedback", "list"], jsonMode: "default" }, mcp: { tool: "cw_feedback_list", requiredArgs: ["runId"] } },
+    { capability: "feedback.show", summary: "Show a run feedback record.", entry: "showFeedback", surface: "both", cli: { path: ["feedback", "show"], jsonMode: "default" }, mcp: { tool: "cw_feedback_show", requiredArgs: ["runId", "feedbackId"] } },
+    { capability: "feedback.collect", summary: "Collect feedback from failed nodes.", entry: "collectFeedback", surface: "both", cli: { path: ["feedback", "collect"], jsonMode: "default" }, mcp: { tool: "cw_feedback_collect", requiredArgs: ["runId"] } },
+    { capability: "feedback.summary", summary: "Read the structured feedback summary for a run.", entry: "summarizeFeedbackRecords", surface: "both", cli: { path: ["feedback", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_feedback_summary", requiredArgs: ["runId"] } },
+    { capability: "feedback.task", summary: "Create a correction task for feedback.", entry: "createFeedbackTask", surface: "both", cli: { path: ["feedback", "task"], jsonMode: "default" }, mcp: { tool: "cw_feedback_task", requiredArgs: ["runId"] } },
+    { capability: "feedback.resolve", summary: "Resolve or reject feedback.", entry: "resolveFeedback", surface: "both", cli: { path: ["feedback", "resolve"], jsonMode: "default" }, mcp: { tool: "cw_feedback_resolve", requiredArgs: ["runId"] } },
     // ---- scheduling ---------------------------------------------------------
     { capability: "schedule.create", summary: "Create a scheduled CW task.", entry: "scheduler.create", surface: "both", cli: { path: ["schedule", "create"], jsonMode: "default" }, mcp: { tool: "cw_schedule_create" } },
     { capability: "schedule.list", summary: "List scheduled CW tasks.", entry: "scheduler.list", surface: "both", cli: { path: ["schedule", "list"], jsonMode: "default" }, mcp: { tool: "cw_schedule_list" } },
-    { capability: "schedule.delete", summary: "Delete a scheduled CW task.", entry: "scheduler.delete", surface: "both", cli: { path: ["schedule", "delete"], jsonMode: "default" }, mcp: { tool: "cw_schedule_delete" } },
+    { capability: "schedule.delete", summary: "Delete a scheduled CW task.", entry: "scheduler.delete", surface: "both", cli: { path: ["schedule", "delete"], jsonMode: "default" }, mcp: { tool: "cw_schedule_delete", requiredArgs: ["id"] } },
     { capability: "schedule.due", summary: "List due scheduled CW tasks.", entry: "scheduler.due", surface: "both", cli: { path: ["schedule", "due"], jsonMode: "default" }, mcp: { tool: "cw_schedule_due" } },
-    { capability: "schedule.complete", summary: "Mark a scheduled task complete.", entry: "scheduler.complete", surface: "both", cli: { path: ["schedule", "complete"], jsonMode: "default" }, mcp: { tool: "cw_schedule_complete" } },
-    { capability: "schedule.pause", summary: "Pause a scheduled CW task.", entry: "scheduler.pause", surface: "both", cli: { path: ["schedule", "pause"], jsonMode: "default" }, mcp: { tool: "cw_schedule_pause" } },
-    { capability: "schedule.resume", summary: "Resume a scheduled CW task.", entry: "scheduler.resume", surface: "both", cli: { path: ["schedule", "resume"], jsonMode: "default" }, mcp: { tool: "cw_schedule_resume" } },
-    { capability: "schedule.run-now", summary: "Create an immediate scheduled-task run record.", entry: "scheduler.runNow", surface: "both", cli: { path: ["schedule", "run-now"], jsonMode: "default" }, mcp: { tool: "cw_schedule_run_now" } },
+    { capability: "schedule.complete", summary: "Mark a scheduled task complete.", entry: "scheduler.complete", surface: "both", cli: { path: ["schedule", "complete"], jsonMode: "default" }, mcp: { tool: "cw_schedule_complete", requiredArgs: ["id"] } },
+    { capability: "schedule.pause", summary: "Pause a scheduled CW task.", entry: "scheduler.pause", surface: "both", cli: { path: ["schedule", "pause"], jsonMode: "default" }, mcp: { tool: "cw_schedule_pause", requiredArgs: ["id"] } },
+    { capability: "schedule.resume", summary: "Resume a scheduled CW task.", entry: "scheduler.resume", surface: "both", cli: { path: ["schedule", "resume"], jsonMode: "default" }, mcp: { tool: "cw_schedule_resume", requiredArgs: ["id"] } },
+    { capability: "schedule.run-now", summary: "Create an immediate scheduled-task run record.", entry: "scheduler.runNow", surface: "both", cli: { path: ["schedule", "run-now"], jsonMode: "default" }, mcp: { tool: "cw_schedule_run_now", requiredArgs: ["id"] } },
     { capability: "schedule.history", summary: "List scheduled-task run history.", entry: "scheduler.history", surface: "both", cli: { path: ["schedule", "history"], jsonMode: "default" }, mcp: { tool: "cw_schedule_history" } },
     {
         capability: "schedule.daemon",
@@ -308,8 +308,8 @@ const BUILTIN_CAPABILITIES = [
     // ---- routines / triggers ------------------------------------------------
     { capability: "routine.create", summary: "Create a routine-style API/GitHub trigger.", entry: "triggers.create", surface: "both", cli: { path: ["routine", "create"], jsonMode: "default" }, mcp: { tool: "cw_routine_create" } },
     { capability: "routine.list", summary: "List routine-style triggers.", entry: "triggers.list", surface: "both", cli: { path: ["routine", "list"], jsonMode: "default" }, mcp: { tool: "cw_routine_list" } },
-    { capability: "routine.delete", summary: "Delete a routine-style trigger.", entry: "triggers.delete", surface: "both", cli: { path: ["routine", "delete"], jsonMode: "default" }, mcp: { tool: "cw_routine_delete" } },
-    { capability: "routine.fire", summary: "Record an API/GitHub trigger event.", entry: "triggers.fire", surface: "both", cli: { path: ["routine", "fire"], jsonMode: "default" }, mcp: { tool: "cw_routine_fire" } },
+    { capability: "routine.delete", summary: "Delete a routine-style trigger.", entry: "triggers.delete", surface: "both", cli: { path: ["routine", "delete"], jsonMode: "default" }, mcp: { tool: "cw_routine_delete", requiredArgs: ["id"] } },
+    { capability: "routine.fire", summary: "Record an API/GitHub trigger event.", entry: "triggers.fire", surface: "both", cli: { path: ["routine", "fire"], jsonMode: "default" }, mcp: { tool: "cw_routine_fire", requiredArgs: ["kind"] } },
     { capability: "routine.events", summary: "List routine trigger events.", entry: "triggers.events", surface: "both", cli: { path: ["routine", "events"], jsonMode: "default" }, mcp: { tool: "cw_routine_events" } },
     // ---- run registry / control plane (v0.1.28) -----------------------------
     // A derived, fingerprinted, fail-closed index over `.cw/runs/<id>/state.json`
@@ -320,13 +320,13 @@ const BUILTIN_CAPABILITIES = [
     { capability: "registry.show", summary: "Read the run registry index with valid|stale|absent freshness.", entry: "runRegistry.show", surface: "both", cli: { path: ["registry", "show"], jsonMode: "flag" }, mcp: { tool: "cw_registry_show" } },
     { capability: "run.search", summary: "Search runs by app/status/time/repo/free-text, deterministic + paginated.", entry: "runRegistry.search", surface: "both", cli: { path: ["run", "search"], jsonMode: "flag" }, mcp: { tool: "cw_run_search" } },
     { capability: "run.list", summary: "List indexed runs across repos (search with no filters).", entry: "runRegistry.list", surface: "both", cli: { path: ["run", "list"], jsonMode: "flag" }, mcp: { tool: "cw_run_list" } },
-    { capability: "run.show", summary: "Resolve one run by id across the registry; fail closed on missing source.", entry: "runRegistry.showRun", surface: "both", cli: { path: ["run", "show"], jsonMode: "flag" }, mcp: { tool: "cw_run_show" } },
-    { capability: "run.resume", summary: "Resolve a run by id and continue it from durable state.", entry: "runRegistry.resume", surface: "both", cli: { path: ["run", "resume"], jsonMode: "flag" }, mcp: { tool: "cw_run_resume" } },
-    { capability: "run.archive", summary: "Archive/unarchive a run (overlay mark; never deletes source).", entry: "runRegistry.archive", surface: "both", cli: { path: ["run", "archive"], jsonMode: "default" }, mcp: { tool: "cw_run_archive" } },
-    { capability: "run.rerun", summary: "Re-run a failed run as a NEW run linked to the original by provenance.", entry: "runRegistry.rerun", surface: "both", cli: { path: ["run", "rerun"], jsonMode: "default" }, mcp: { tool: "cw_run_rerun" } },
-    { capability: "run.export", summary: "Export a run to a portable archive with run-local files and digest integrity.", entry: "runExportArchive", surface: "both", cli: { path: ["run", "export"], jsonMode: "default" }, mcp: { tool: "cw_run_export" } },
-    { capability: "run.import", summary: "Restore a portable run archive into a target repo and verify restored file digests.", entry: "runImportArchive", surface: "both", cli: { path: ["run", "import"], jsonMode: "default" }, mcp: { tool: "cw_run_import" } },
-    { capability: "run.verify-import", summary: "Verify an imported run against its restore manifest and telemetry chain.", entry: "runVerifyImport", surface: "both", cli: { path: ["run", "verify-import"], jsonMode: "default" }, mcp: { tool: "cw_run_verify_import" } },
+    { capability: "run.show", summary: "Resolve one run by id across the registry; fail closed on missing source.", entry: "runRegistry.showRun", surface: "both", cli: { path: ["run", "show"], jsonMode: "flag" }, mcp: { tool: "cw_run_show", requiredArgs: ["runId"] } },
+    { capability: "run.resume", summary: "Resolve a run by id and continue it from durable state.", entry: "runRegistry.resume", surface: "both", cli: { path: ["run", "resume"], jsonMode: "flag" }, mcp: { tool: "cw_run_resume", requiredArgs: ["runId"] } },
+    { capability: "run.archive", summary: "Archive/unarchive a run (overlay mark; never deletes source).", entry: "runRegistry.archive", surface: "both", cli: { path: ["run", "archive"], jsonMode: "default" }, mcp: { tool: "cw_run_archive", requiredArgs: ["runId|olderThanDays"] } },
+    { capability: "run.rerun", summary: "Re-run a failed run as a NEW run linked to the original by provenance.", entry: "runRegistry.rerun", surface: "both", cli: { path: ["run", "rerun"], jsonMode: "default" }, mcp: { tool: "cw_run_rerun", requiredArgs: ["runId"] } },
+    { capability: "run.export", summary: "Export a run to a portable archive with run-local files and digest integrity.", entry: "runExportArchive", surface: "both", cli: { path: ["run", "export"], jsonMode: "default" }, mcp: { tool: "cw_run_export", requiredArgs: ["runId"] } },
+    { capability: "run.import", summary: "Restore a portable run archive into a target repo and verify restored file digests.", entry: "runImportArchive", surface: "both", cli: { path: ["run", "import"], jsonMode: "default" }, mcp: { tool: "cw_run_import", requiredArgs: ["archive|path|file"] } },
+    { capability: "run.verify-import", summary: "Verify an imported run against its restore manifest and telemetry chain.", entry: "runVerifyImport", surface: "both", cli: { path: ["run", "verify-import"], jsonMode: "default" }, mcp: { tool: "cw_run_verify_import", requiredArgs: ["runId"] } },
     { capability: "run.drive", summary: "Preview the next agent-delegation drive step for a run (read-only, deterministic).", entry: "runDrivePreview", surface: "both", cli: { path: ["run", "drive"], caseTokens: ["run", "drive"], jsonMode: "default" }, mcp: { tool: "cw_run_drive" } },
     { capability: "run.drive.step", summary: "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step).", entry: "runDrive", surface: "both", cli: { path: ["run", "drive"], caseTokens: ["run", "drive"], jsonMode: "default" }, mcp: { tool: "cw_run_drive_step" }, payloadIdentical: false, reason: "Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core." },
     {
@@ -340,7 +340,7 @@ const BUILTIN_CAPABILITIES = [
     { capability: "queue.add", summary: "Enqueue a pending/planned run with explicit ordering policy.", entry: "runRegistry.queueAdd", surface: "both", cli: { path: ["queue", "add"], jsonMode: "default" }, mcp: { tool: "cw_queue_add" } },
     { capability: "queue.list", summary: "List the durable run queue in policy order.", entry: "runRegistry.queueList", surface: "both", cli: { path: ["queue", "list"], jsonMode: "flag" }, mcp: { tool: "cw_queue_list" } },
     { capability: "queue.drain", summary: "Mark the next ready queue entries drained (the host still executes).", entry: "runRegistry.queueDrain", surface: "both", cli: { path: ["queue", "drain"], jsonMode: "default" }, mcp: { tool: "cw_queue_drain" } },
-    { capability: "queue.show", summary: "Show one durable queue entry.", entry: "runRegistry.queueShow", surface: "both", cli: { path: ["queue", "show"], jsonMode: "default" }, mcp: { tool: "cw_queue_show" } },
+    { capability: "queue.show", summary: "Show one durable queue entry.", entry: "runRegistry.queueShow", surface: "both", cli: { path: ["queue", "show"], jsonMode: "default" }, mcp: { tool: "cw_queue_show", requiredArgs: ["id"] } },
     // ---- control-plane scheduling (v0.1.37) ---------------------------------
     { capability: "sched.plan", summary: "Read-only control-plane lease plan for the queue+policy+now.", entry: "schedPlan", surface: "both", cli: { path: ["sched", "plan"], caseTokens: ["sched", "plan"], jsonMode: "default" }, mcp: { tool: "cw_sched_plan" } },
     { capability: "sched.lease", summary: "Claim eligible queue entries as leases (concurrency-bounded).", entry: "schedLease", surface: "both", cli: { path: ["sched", "lease"], caseTokens: ["sched", "lease"], jsonMode: "default" }, mcp: { tool: "cw_sched_lease" } },
@@ -356,8 +356,8 @@ const BUILTIN_CAPABILITIES = [
     // `run` is the disk-freeing tier. All three route through the single core.
     { capability: "gc.plan", summary: "Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing.", entry: "gcPlan", surface: "both", cli: { path: ["gc", "plan"], caseTokens: ["gc", "plan"], jsonMode: "flag" }, mcp: { tool: "cw_gc_plan" } },
     { capability: "gc.run", summary: "Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free).", entry: "gcRun", surface: "both", cli: { path: ["gc", "run"], caseTokens: ["gc", "run"], jsonMode: "flag" }, mcp: { tool: "cw_gc_run" }, payloadIdentical: false, reason: "Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone." },
-    { capability: "gc.verify", summary: "Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable.", entry: "gcVerify", surface: "both", cli: { path: ["gc", "verify"], caseTokens: ["gc", "verify"], jsonMode: "flag" }, mcp: { tool: "cw_gc_verify" } },
-    { capability: "telemetry.verify", summary: "Re-prove a run's telemetry attestation ledger offline (chain linkage + independent hash recompute).", entry: "telemetryVerify", surface: "both", cli: { path: ["telemetry", "verify"], caseTokens: ["telemetry"], jsonMode: "flag" }, mcp: { tool: "cw_telemetry_verify" } },
+    { capability: "gc.verify", summary: "Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable.", entry: "gcVerify", surface: "both", cli: { path: ["gc", "verify"], caseTokens: ["gc", "verify"], jsonMode: "flag" }, mcp: { tool: "cw_gc_verify", requiredArgs: ["runId"] } },
+    { capability: "telemetry.verify", summary: "Re-prove a run's telemetry attestation ledger offline (chain linkage + independent hash recompute).", entry: "telemetryVerify", surface: "both", cli: { path: ["telemetry", "verify"], caseTokens: ["telemetry"], jsonMode: "flag" }, mcp: { tool: "cw_telemetry_verify", requiredArgs: ["runId"] } },
     { capability: "demo.tamper", summary: "Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.", entry: "demoTamper", surface: "cli-only", cli: { path: ["demo", "tamper"], caseTokens: ["demo", "tamper"], jsonMode: "flag" }, reason: "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo." },
     { capability: "history", summary: "Read a cross-repo unified run timeline (newest first).", entry: "runRegistry.history", surface: "both", cli: { path: ["history"], jsonMode: "flag" }, mcp: { tool: "cw_history" } },
     // ---- web / desktop workbench (v0.1.30) ----------------------------------
@@ -366,7 +366,7 @@ const BUILTIN_CAPABILITIES = [
     // embeds, verbatim, the canonical `--json` payload of an already-declared
     // capability (graph/blackboard/worker/candidate/audit), so the Workbench can
     // show nothing the CLI/MCP cannot. It holds zero authoritative state.
-    { capability: "workbench.view", summary: "Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit).", entry: "buildWorkbenchRunView", surface: "both", cli: { path: ["workbench", "view"], jsonMode: "flag" }, mcp: { tool: "cw_workbench_view" } },
+    { capability: "workbench.view", summary: "Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit).", entry: "buildWorkbenchRunView", surface: "both", cli: { path: ["workbench", "view"], jsonMode: "flag" }, mcp: { tool: "cw_workbench_view", requiredArgs: ["runId"] } },
     { capability: "workbench.serve", summary: "Describe/serve the optional localhost-only, read-only Workbench host.", entry: "buildWorkbenchServeDescriptor", surface: "both", cli: { path: ["workbench", "serve"], jsonMode: "flag" }, mcp: { tool: "cw_workbench_serve" },
         payloadIdentical: false,
         reason: "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host (like `schedule daemon`), which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift." },
@@ -377,7 +377,7 @@ const BUILTIN_CAPABILITIES = [
     // `cw <cmd> --json` is byte-identical to the MCP tool (durations come from
     // recorded timestamps, only the ISO `generatedAt` is now-derived), and the
     // v0.1.30 Workbench metrics panel embeds the same payload read-only.
-    { capability: "metrics.show", summary: "Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage).", entry: "metricsShow", surface: "both", cli: { path: ["metrics", "show"], jsonMode: "flag" }, mcp: { tool: "cw_metrics_show" } },
+    { capability: "metrics.show", summary: "Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage).", entry: "metricsShow", surface: "both", cli: { path: ["metrics", "show"], jsonMode: "flag" }, mcp: { tool: "cw_metrics_show", requiredArgs: ["runId"] } },
     { capability: "metrics.summary", summary: "Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns.", entry: "metricsSummary", surface: "both", cli: { path: ["metrics", "summary"], jsonMode: "flag" }, mcp: { tool: "cw_metrics_summary" } },
     // ---- team collaboration (v0.1.32) ---------------------------------------
     // The human-decision layer: append-only, host-ATTESTED (never authenticated)
@@ -387,13 +387,13 @@ const BUILTIN_CAPABILITIES = [
     // Mutating verbs (approve/reject/comment add/handoff/review policy) are
     // both-surface and payload-identical but excluded from the read-only payload
     // probe; the read-only review status / comment list ARE probed.
-    { capability: "approve", summary: "Append a host-attested approval of a candidate/commit/selection.", entry: "collaborationApprove", surface: "both", cli: { path: ["approve"], jsonMode: "default" }, mcp: { tool: "cw_approve" } },
-    { capability: "reject", summary: "Append a host-attested rejection (blocking veto) of a candidate/commit/selection.", entry: "collaborationReject", surface: "both", cli: { path: ["reject"], jsonMode: "default" }, mcp: { tool: "cw_reject" } },
-    { capability: "comment.add", summary: "Append a comment to a durable target.", entry: "collaborationComment", surface: "both", cli: { path: ["comment", "add"], caseTokens: ["comment"], jsonMode: "default" }, mcp: { tool: "cw_comment_add" } },
-    { capability: "comment.list", summary: "List append-only comments for a run (optionally one target).", entry: "collaborationCommentList", surface: "both", cli: { path: ["comment", "list"], caseTokens: ["comment"], jsonMode: "flag" }, mcp: { tool: "cw_comment_list" } },
-    { capability: "handoff", summary: "Record an ownership transfer (from-actor → to-actor) of a run/task.", entry: "collaborationHandoff", surface: "both", cli: { path: ["handoff"], jsonMode: "default" }, mcp: { tool: "cw_handoff" } },
-    { capability: "review.status", summary: "Read the derived per-target review state + collaboration timeline for a run.", entry: "reviewStatus", surface: "both", cli: { path: ["review", "status"], caseTokens: ["review"], jsonMode: "flag" }, mcp: { tool: "cw_review_status" } },
-    { capability: "review.policy", summary: "Set the run's review-gate policy (required approvals, authorized roles, self-approval rule).", entry: "reviewPolicy", surface: "both", cli: { path: ["review", "policy"], caseTokens: ["review"], jsonMode: "default" }, mcp: { tool: "cw_review_policy" } }
+    { capability: "approve", summary: "Append a host-attested approval of a candidate/commit/selection.", entry: "collaborationApprove", surface: "both", cli: { path: ["approve"], jsonMode: "default" }, mcp: { tool: "cw_approve", requiredArgs: ["runId", "targetKind|kind", "targetId|target"] } },
+    { capability: "reject", summary: "Append a host-attested rejection (blocking veto) of a candidate/commit/selection.", entry: "collaborationReject", surface: "both", cli: { path: ["reject"], jsonMode: "default" }, mcp: { tool: "cw_reject", requiredArgs: ["runId", "targetKind|kind", "targetId|target"] } },
+    { capability: "comment.add", summary: "Append a comment to a durable target.", entry: "collaborationComment", surface: "both", cli: { path: ["comment", "add"], caseTokens: ["comment"], jsonMode: "default" }, mcp: { tool: "cw_comment_add", requiredArgs: ["runId", "targetKind|kind", "targetId|target", "body|message|text"] } },
+    { capability: "comment.list", summary: "List append-only comments for a run (optionally one target).", entry: "collaborationCommentList", surface: "both", cli: { path: ["comment", "list"], caseTokens: ["comment"], jsonMode: "flag" }, mcp: { tool: "cw_comment_list", requiredArgs: ["runId"] } },
+    { capability: "handoff", summary: "Record an ownership transfer (from-actor → to-actor) of a run/task.", entry: "collaborationHandoff", surface: "both", cli: { path: ["handoff"], jsonMode: "default" }, mcp: { tool: "cw_handoff", requiredArgs: ["runId", "targetKind|kind", "targetId|target", "to|toActor"] } },
+    { capability: "review.status", summary: "Read the derived per-target review state + collaboration timeline for a run.", entry: "reviewStatus", surface: "both", cli: { path: ["review", "status"], caseTokens: ["review"], jsonMode: "flag" }, mcp: { tool: "cw_review_status", requiredArgs: ["runId"] } },
+    { capability: "review.policy", summary: "Set the run's review-gate policy (required approvals, authorized roles, self-approval rule).", entry: "reviewPolicy", surface: "both", cli: { path: ["review", "policy"], caseTokens: ["review"], jsonMode: "default" }, mcp: { tool: "cw_review_policy", requiredArgs: ["runId"] } }
 ];
 /** The capability registry — the single source of truth, deduplicated by
  *  capability id (last declaration wins). Derived directly from the table above:
