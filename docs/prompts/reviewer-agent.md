@@ -49,7 +49,7 @@ Execute every check. Do not stop at the first failure — report all findings.
 - [ ] The PR description names which North Star track (A/B/C, see AGENTS.md)
       this change serves, and the claim is plausible from the diff.
       "Infrastructure for future work" is not a track → REJECT and instruct
-      the developer agent to log it to BACKLOG.md instead.
+      the developer agent to log it to docs/BACKLOG.md instead.
 
 ## Gate 5 — Safety
 - [ ] No breaking change to anything exported from index.ts without an

@@ -52,7 +52,7 @@ Every cycle must trace to one of these validated-use-case tracks:
 - Track B: failure-recovery story (partial commit, stage timeout, run export
   → restore on another machine) proven by an integration test
 - Track C: multi-vendor manifest actually loaded by ≥2 real LLM clients
-If a proposed change serves none of these tracks, log it to BACKLOG.md
+If a proposed change serves none of these tracks, log it to docs/BACKLOG.md
 instead of implementing it.
 
 # FreeBSD Engineering Discipline (hard constraints — every cycle)
