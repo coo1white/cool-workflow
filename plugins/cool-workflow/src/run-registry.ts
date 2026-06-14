@@ -160,16 +160,16 @@ function fingerprintRun(run: WorkflowRun): string {
     `loopStage:${run.loopStage}`,
     `schema:${run.schemaVersion}`
   ];
-  for (const task of [...run.tasks].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const task of [...run.tasks].sort((a, b) => compareBytes(a.id, b.id))) {
     parts.push(`task:${task.id}:${task.status}`);
   }
-  for (const commit of [...run.commits].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const commit of [...run.commits].sort((a, b) => compareBytes(a.id, b.id))) {
     parts.push(`commit:${commit.id}:${commit.verifierGated ? "gated" : "checkpoint"}`);
   }
-  for (const phase of [...run.phases].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const phase of [...run.phases].sort((a, b) => compareBytes(a.id, b.id))) {
     parts.push(`phase:${phase.id}:${phase.status}`);
   }
-  for (const fb of [...(run.feedback || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const fb of [...(run.feedback || [])].sort((a, b) => compareBytes(a.id, b.id))) {
     parts.push(`feedback:${fb.id}:${fb.status}`);
   }
   return fingerprintStrings(parts);

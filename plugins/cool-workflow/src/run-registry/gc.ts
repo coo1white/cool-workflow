@@ -24,6 +24,7 @@ import {
   WorkflowRun
 } from "../types";
 import { planReclamation, runReclamation, verifyReclamation, ReclamationError } from "../reclamation";
+import { recordTrustAuditEvent, listTrustAuditEvents } from "../trust-audit";
 import { DEFAULT_RUN_REGISTRY_POLICY } from "./policy";
 
 /** The narrow slice of RunRegistry the GC cluster needs. The class satisfies
@@ -187,6 +188,15 @@ export function gcRun(
         capability: result.tombstone.capability,
         capabilityReason: result.tombstone.capabilityReason
       });
+      // Independent reclamation WITNESS in the tamper-evident trust-audit chain:
+      // proves this run WAS reclaimed even if reclaimed.json is later deleted — so
+      // `gc verify` can tell proof-deletion apart from never-reclaimed.
+      recordTrustAuditEvent(run, {
+        kind: "run.reclaimed",
+        decision: "recorded",
+        source: "cw-validated",
+        metadata: { tombstoneHash: result.tombstone.tombstoneHash, bytesFreed: result.bytesFreed, capability: result.tombstone.capability }
+      });
       totalBytesFreed += result.bytesFreed;
       if (maxBytes > 0 && totalBytesFreed >= maxBytes) break;
     } catch (error) {
@@ -238,13 +248,23 @@ export function gcVerify(host: GcHost, runId: string, options: { scope?: "repo" 
     }
   }
   const last = result.tombstones[result.tombstones.length - 1];
-  const verified = result.verified && eligibleWhenReclaimed;
+  // Independent witness: a trust-audit "run.reclaimed" event proves this run was
+  // reclaimed even if reclaimed.json was deleted. A present witness + missing proof
+  // = the proof was deleted/tampered (NOT "never reclaimed") — fail closed so
+  // `gc verify <run> && deploy` cannot pass on a wiped reclamation record.
+  const witnessed = listTrustAuditEvents(run).some((event) => event.kind === "run.reclaimed");
+  const proofDeleted = witnessed && !result.reclaimed;
+  if (proofDeleted) {
+    checks.push({ name: "reclaim-witness", pass: false, code: "reclaim-proof-deleted", detail: "trust-audit attests reclamation but reclaimed.json is missing/empty" });
+  }
+  const reclaimed = result.reclaimed || proofDeleted;
+  const verified = result.verified && eligibleWhenReclaimed && !proofDeleted;
   return {
     schemaVersion: 1,
     runId,
-    reclaimed: result.reclaimed,
+    reclaimed,
     verified,
-    tier: located.record.tier || (result.reclaimed ? "reclaimed" : "live"),
+    tier: located.record.tier || (reclaimed ? "reclaimed" : "live"),
     capability: located.record.capability || "re-runnable",
     capabilityReason: located.record.capabilityReason,
     tombstoneHash: last?.tombstoneHash,

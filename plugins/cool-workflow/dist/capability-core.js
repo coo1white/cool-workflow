@@ -90,7 +90,6 @@ function planSummary(runner, workflowId, options) {
         pendingTasks: run.tasks.filter((task) => task.status === "pending").length
     };
 }
-// Auto-register with the capability registry (v0.1.46 — no need to edit capability-registry.ts)
 // ---- canonical app-run payload --------------------------------------------
 // Both `cw app run` and `cw_app_run` resolve to this exact object. Structured
 // app inputs + optional sandbox resolution, then a compact operator status.

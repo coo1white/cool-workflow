@@ -255,7 +255,7 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
       fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
       runner.recordWorkerOutput(runId, workerId, manifest.resultPath, {});
     } catch (error) {
-      return handleHop(ctx, selected, workerId, `result cache rejected: ${error instanceof Error ? error.message : String(error)}`, dispatched);
+      return handleHop(ctx, selected, workerId, `result cache rejected: ${error instanceof Error ? error.message : String(error)}`);
     }
     return step("accept", "ok", {
       runId,
@@ -275,14 +275,14 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
   const usageSignature = handle?.metadata?.usageSignature as string | undefined;
 
   if (envelope.status !== "completed") {
-    return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, dispatched);
+    return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`);
   }
 
   // 3. ACCEPT — the SEPARATE recordWorkerOutput layer validates + records result.md.
   //    A missing result.md is a failed hop (pre-checked so no terminal side effect);
   //    an invalid result.md throws at validation BEFORE any state mutation.
   if (!manifest.resultPath || !fs.existsSync(manifest.resultPath)) {
-    return handleHop(ctx, selected, workerId, "agent produced no result.md", dispatched);
+    return handleHop(ctx, selected, workerId, "agent produced no result.md");
   }
   try {
     runner.recordWorkerOutput(runId, workerId, manifest.resultPath, {
@@ -303,7 +303,7 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
       requireAttestedTelemetry: ctx.config.requireAttestedTelemetry
     });
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `result.md rejected: ${error instanceof Error ? error.message : String(error)}`, dispatched);
+    return handleHop(ctx, selected, workerId, `result.md rejected: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   if (cachePath && manifest.resultPath && fs.existsSync(manifest.resultPath)) {
@@ -472,7 +472,7 @@ function prepareConcurrentOutcomes(
 
 /** A failed agent hop: charge one attempt and (reuse v0.1.37 retryOrPark) either
  *  retry on the SAME worker scope next step, or PARK past the retry budget. */
-function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: string, dispatched: boolean): DriveStep {
+function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: string): DriveStep {
   const persisted = ctx.runner.showWorker(ctx.runId, workerId).retryCount || 0;
   const prior = Math.max(ctx.attempts.get(task.id) || 0, persisted);
   const entry: RunQueueEntry = {
@@ -506,7 +506,6 @@ function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: s
     });
   }
   // Retryable: leave the task running (scope reused) for the next step.
-  void dispatched;
   recordWorkerRetryAttempt(ctx.runner.loadRun(ctx.runId), workerId, decided.attempts || prior + 1, reason);
   return step("fulfill", "failed", {
     runId: ctx.runId,

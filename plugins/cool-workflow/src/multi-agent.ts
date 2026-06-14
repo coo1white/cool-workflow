@@ -7,11 +7,8 @@ import {
   AgentMembership,
   AgentMembershipStatus,
   AgentRole,
-  AgentRoleStatus,
   AgentGroupStatus,
-  AgentFanoutStatus,
   AgentFaninStatus,
-  MultiAgentLifecycleEvent,
   MultiAgentLifecycleStatus,
   MultiAgentRun,
   MultiAgentState,
@@ -21,13 +18,33 @@ import {
   WorkflowRun,
   WorkerMultiAgentMetadata
 } from "./types";
-import { safeFileName, writeJson } from "./state";
+import { writeJson } from "./state";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import { appendRunNode, createStateNode } from "./state-node";
 import { recordTrustAuditEvent } from "./trust-audit";
 import { policyForGroup, policyForMembership, policyForRole, recordRolePolicyAudit } from "./multi-agent-trust";
+import { multiAgentRoot, recordPath } from "./multi-agent/paths";
+import { buildMultiAgentGraphFromState, MultiAgentGraph } from "./multi-agent/graph";
+import {
+  assertLifecycleTransition,
+  assertNoRecordPathCollisions,
+  compact,
+  countBy,
+  createId,
+  indexRow,
+  isMembershipReported,
+  lifecycleEvent,
+  MULTI_AGENT_SCHEMA_VERSION,
+  pluralKind,
+  statusToNodeStatus,
+  touch,
+  unique
+} from "./multi-agent/helpers";
 
-export const MULTI_AGENT_SCHEMA_VERSION = 1;
+// Re-export the carved public surface so every importer of ./multi-agent stays
+// byte-unchanged (FreeBSD router pattern — pure code movement, zero logic change).
+export { MULTI_AGENT_SCHEMA_VERSION };
+export type { MultiAgentGraph };
 
 export interface CreateMultiAgentRunInput {
   id?: string;
@@ -148,11 +165,6 @@ export interface MultiAgentSummary {
     fanins: string[];
   }>;
   nextAction?: string;
-}
-
-export interface MultiAgentGraph {
-  nodes: Array<{ id: string; kind: string; status: string; label: string; path?: string }>;
-  edges: Array<{ from: string; to: string; label?: string }>;
 }
 
 export function ensureMultiAgentState(run: WorkflowRun): MultiAgentState {
@@ -993,53 +1005,7 @@ export function summarizeMultiAgent(run: WorkflowRun): MultiAgentSummary {
 
 export function buildMultiAgentGraph(run: WorkflowRun): MultiAgentGraph {
   const state = ensureMultiAgentState(run);
-  const root = multiAgentRoot(run);
-  const nodes: MultiAgentGraph["nodes"] = [];
-  const edges: MultiAgentGraph["edges"] = [];
-  for (const record of state.runs) {
-    nodes.push({ id: `${run.id}:multi-agent:${record.id}`, kind: "multi-agent-run", status: record.status, label: record.title || record.id, path: recordPath(run, "runs", record.id) });
-    edges.push({ from: `${run.id}:run`, to: `${run.id}:multi-agent:${record.id}` });
-    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-    if (record.parentMultiAgentRunId) edges.push({ from: `${run.id}:multi-agent:${record.parentMultiAgentRunId}`, to: `${run.id}:multi-agent:${record.id}`, label: "child" });
-  }
-  for (const record of state.roles) {
-    nodes.push({ id: `${run.id}:multi-agent:role:${record.id}`, kind: "agent-role", status: record.status, label: record.title, path: recordPath(run, "roles", record.id) });
-    edges.push({ from: `${run.id}:multi-agent:${record.multiAgentRunId}`, to: `${run.id}:multi-agent:role:${record.id}` });
-    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:role:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-  }
-  for (const record of state.groups) {
-    nodes.push({ id: `${run.id}:multi-agent:group:${record.id}`, kind: "agent-group", status: record.status, label: record.title || record.id, path: recordPath(run, "groups", record.id) });
-    edges.push({ from: `${run.id}:multi-agent:${record.multiAgentRunId}`, to: `${run.id}:multi-agent:group:${record.id}` });
-    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:group:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-    for (const taskId of record.taskIds) edges.push({ from: `${run.id}:multi-agent:group:${record.id}`, to: `${run.id}:task:${taskId}`, label: "task" });
-  }
-  for (const record of state.fanouts) {
-    nodes.push({ id: `${run.id}:multi-agent:fanout:${record.id}`, kind: "agent-fanout", status: record.status, label: record.reason, path: recordPath(run, "fanouts", record.id) });
-    edges.push({ from: `${run.id}:multi-agent:group:${record.groupId}`, to: `${run.id}:multi-agent:fanout:${record.id}` });
-    for (const dispatchId of record.dispatchIds) edges.push({ from: `${run.id}:multi-agent:fanout:${record.id}`, to: `${run.id}:dispatch:${dispatchId}`, label: "dispatch" });
-  }
-  for (const record of state.memberships) {
-    nodes.push({ id: `${run.id}:multi-agent:membership:${record.id}`, kind: "agent-membership", status: record.status, label: `${record.roleId}/${record.taskId}`, path: recordPath(run, "memberships", record.id) });
-    edges.push({ from: `${run.id}:multi-agent:group:${record.groupId}`, to: `${run.id}:multi-agent:membership:${record.id}` });
-    edges.push({ from: `${run.id}:multi-agent:role:${record.roleId}`, to: `${run.id}:multi-agent:membership:${record.id}` });
-    edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:task:${record.taskId}`, label: "task" });
-    if (record.workerId) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:worker:${record.workerId}`, label: "worker" });
-    if (record.resultNodeId) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: record.resultNodeId, label: "result" });
-    if (record.verifierNodeId) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: record.verifierNodeId, label: "verifier" });
-    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-    for (const artifactId of record.blackboardArtifactRefIds || []) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:artifact:${artifactId}`, label: "evidence" });
-    for (const messageId of record.blackboardMessageIds || []) edges.push({ from: `${run.id}:multi-agent:membership:${record.id}`, to: `${run.id}:blackboard:message:${messageId}`, label: "message" });
-  }
-  for (const record of state.fanins) {
-    nodes.push({ id: `${run.id}:multi-agent:fanin:${record.id}`, kind: "agent-fanin", status: record.status, label: record.strategy, path: recordPath(run, "fanins", record.id) });
-    edges.push({ from: `${run.id}:multi-agent:group:${record.groupId}`, to: `${run.id}:multi-agent:fanin:${record.id}` });
-    if (record.fanoutId) edges.push({ from: `${run.id}:multi-agent:fanout:${record.fanoutId}`, to: `${run.id}:multi-agent:fanin:${record.id}` });
-    for (const membershipId of record.reportedMembershipIds) edges.push({ from: `${run.id}:multi-agent:membership:${membershipId}`, to: `${run.id}:multi-agent:fanin:${record.id}`, label: "reported" });
-    for (const membershipId of record.missingMembershipIds) edges.push({ from: `${run.id}:multi-agent:membership:${membershipId}`, to: `${run.id}:multi-agent:fanin:${record.id}`, label: "missing" });
-    if (record.blackboardId) edges.push({ from: `${run.id}:multi-agent:fanin:${record.id}`, to: `${run.id}:blackboard:${record.blackboardId}`, label: "blackboard" });
-  }
-  if (!fs.existsSync(root)) fs.mkdirSync(root, { recursive: true });
-  return { nodes, edges: uniqueEdges(edges) };
+  return buildMultiAgentGraphFromState(run, state);
 }
 
 export function getMultiAgentRun(run: WorkflowRun, id: string): MultiAgentRun | undefined {
@@ -1096,36 +1062,12 @@ function requireRunTask(run: WorkflowRun, id: string): RunTask {
   return task;
 }
 
-function multiAgentRoot(run: WorkflowRun): string {
-  return run.paths.multiAgentDir || path.join(run.paths.runDir, "multi-agent");
-}
-
-function recordPath(run: WorkflowRun, kind: string, id: string): string {
-  return path.join(multiAgentRoot(run), kind, `${safeFileName(id)}.json`);
-}
-
 function fanoutTopicIds(group: AgentGroup, multiAgentRun: MultiAgentRun, input: CreateAgentFanoutInput): string[] {
   return [...(group.topicIds || []), ...(multiAgentRun.topicIds || []), ...(input.topicIds || [])];
 }
 
 function writeRecord(run: WorkflowRun, kind: string, record: { id: string }): void {
   writeJson(recordPath(run, kind, record.id), record);
-}
-
-function assertNoRecordPathCollisions(label: string, records: Array<{ id: string }>): void {
-  const seen = new Map<string, string>();
-  for (const record of records) {
-    const safe = safeFileName(record.id);
-    const existing = seen.get(safe);
-    if (existing && existing !== record.id) {
-      throw new Error(`${label} ids ${existing} and ${record.id} collide on safe file name ${safe}`);
-    }
-    seen.set(safe, record.id);
-  }
-}
-
-function indexRow(record: { id: string; status?: string; updatedAt?: string }): Record<string, unknown> {
-  return { id: record.id, status: record.status, updatedAt: record.updatedAt };
 }
 
 function appendMultiAgentNode(
@@ -1153,83 +1095,6 @@ function appendMultiAgentNode(
   );
 }
 
-function pluralKind(kind: string): string {
-  switch (kind) {
-    case "multi-agent-run":
-      return "runs";
-    case "agent-role":
-      return "roles";
-    case "agent-group":
-      return "groups";
-    case "agent-membership":
-      return "memberships";
-    case "agent-fanout":
-      return "fanouts";
-    case "agent-fanin":
-      return "fanins";
-    default:
-      return `${kind}s`;
-  }
-}
-
-function statusToNodeStatus(status: string): StateNodeStatus {
-  switch (status) {
-    case "completed":
-    case "reported":
-    case "ready":
-      return "completed";
-    case "running":
-    case "forming":
-    case "collecting":
-    case "verifying":
-    case "assigned":
-    case "active":
-    case "dispatched":
-      return "running";
-    case "blocked":
-      return "blocked";
-    case "failed":
-      return "failed";
-    case "cancelled":
-    case "rejected":
-      return "rejected";
-    default:
-      return "pending";
-  }
-}
-
-function assertLifecycleTransition(from: MultiAgentLifecycleStatus, to: MultiAgentLifecycleStatus): void {
-  const allowed: Record<MultiAgentLifecycleStatus, MultiAgentLifecycleStatus[]> = {
-    planned: ["forming", "running", "failed", "cancelled"],
-    forming: ["running", "failed", "cancelled"],
-    running: ["collecting", "completed", "failed", "cancelled"],
-    collecting: ["verifying", "completed", "failed", "cancelled"],
-    verifying: ["completed", "failed", "cancelled"],
-    completed: [],
-    failed: [],
-    cancelled: []
-  };
-  if (from === to) return;
-  if (!allowed[from].includes(to)) throw new Error(`Invalid MultiAgentRun lifecycle transition: ${from} -> ${to}`);
-}
-
-function lifecycleEvent(
-  from: string | undefined,
-  to: string,
-  reason?: string,
-  actor = "cw",
-  metadata?: Record<string, unknown>
-): MultiAgentLifecycleEvent {
-  return {
-    at: new Date().toISOString(),
-    from,
-    to,
-    actor,
-    reason,
-    metadata: compact(metadata)
-  };
-}
-
 function attachWorkerMetadata(run: WorkflowRun, membership: AgentMembership): void {
   const workers = run.workers || [];
   const index = workers.findIndex((worker) => worker.id === membership.workerId);
@@ -1254,10 +1119,6 @@ function attachWorkerMetadata(run: WorkflowRun, membership: AgentMembership): vo
   run.workers = workers.map((candidate) => (candidate.id === worker.id ? updated : candidate));
 }
 
-function isMembershipReported(membership: AgentMembership): boolean {
-  return (membership.status === "reported" || membership.status === "verified") && membership.evidenceRefs.length > 0;
-}
-
 function nextMultiAgentAction(run: WorkflowRun, blockedReasons: string[]): string | undefined {
   const state = ensureMultiAgentState(run);
   if (!state.runs.length) return `node scripts/cw.js multi-agent run ${run.id} --id <multi-agent-run-id>`;
@@ -1267,49 +1128,4 @@ function nextMultiAgentAction(run: WorkflowRun, blockedReasons: string[]): strin
   const groupWithoutFanin = state.groups.find((group) => group.membershipIds.length && !group.faninIds.length);
   if (groupWithoutFanin) return `node scripts/cw.js multi-agent fanin ${run.id} --group ${groupWithoutFanin.id}`;
   return undefined;
-}
-
-function touch<T extends { updatedAt: string }>(record: T): T {
-  record.updatedAt = new Date().toISOString();
-  return record;
-}
-
-// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
-// per-run collection, threaded from the call site. No wall-clock stamp, no PRNG
-// suffix — re-running the same multi-agent topology mints byte-identical ids, so
-// snapshot/replay digests match. Each call site already asserts the minted id is
-// unique within its collection, and these collections only ever append.
-function createId(prefix: string, seq: number): string {
-  return `${prefix}-${String(seq).padStart(4, "0")}`;
-}
-
-function compact(value: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
-  if (!value) return undefined;
-  const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
-  return entries.length ? Object.fromEntries(entries) : undefined;
-}
-
-function unique(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean))).sort();
-}
-
-function countBy<T>(items: T[], key: (item: T) => string): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const item of items) {
-    const value = key(item);
-    counts[value] = (counts[value] || 0) + 1;
-  }
-  return counts;
-}
-
-function uniqueEdges(edges: MultiAgentGraph["edges"]): MultiAgentGraph["edges"] {
-  const seen = new Set<string>();
-  const result: MultiAgentGraph["edges"] = [];
-  for (const edge of edges) {
-    const key = `${edge.from}\0${edge.to}\0${edge.label || ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(edge);
-  }
-  return result;
 }

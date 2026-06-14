@@ -17,9 +17,6 @@ exports.listBlackboardMessages = listBlackboardMessages;
 exports.listBlackboardArtifacts = listBlackboardArtifacts;
 exports.buildBlackboardGraph = buildBlackboardGraph;
 exports.persistBlackboardState = persistBlackboardState;
-exports.bridgeStateArtifactToBlackboard = bridgeStateArtifactToBlackboard;
-exports.evidenceFromArtifactRef = evidenceFromArtifactRef;
-const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const pipeline_contract_1 = require("./pipeline-contract");
@@ -27,11 +24,20 @@ const state_1 = require("./state");
 const state_node_1 = require("./state-node");
 const multi_agent_1 = require("./multi-agent");
 const trust_audit_1 = require("./trust-audit");
-const compare_1 = require("./compare");
 const multi_agent_trust_1 = require("./multi-agent-trust");
+const util_1 = require("./coordinator/util");
+const classify_1 = require("./coordinator/classify");
+const paths_1 = require("./coordinator/paths");
+// NOTE: the symbols imported above from ./coordinator/{util,classify,paths} were
+// PRIVATE helpers inside this module before the carve (no importer reaches them,
+// including the `import * as cb` consumer in orchestrator/multi-agent-operations).
+// They are relocated as pure code movement — zero signature/behavior change — and
+// imported back for internal use only, so this module's PUBLIC surface stays
+// byte-identical (no new exports). The public exported functions below are
+// unchanged.
 exports.BLACKBOARD_SCHEMA_VERSION = 1;
 function ensureBlackboardState(run) {
-    run.paths.blackboardDir = blackboardRoot(run);
+    run.paths.blackboardDir = (0, paths_1.blackboardRoot)(run);
     node_fs_1.default.mkdirSync(run.paths.blackboardDir, { recursive: true });
     for (const dir of ["topics", "contexts", "artifacts", "snapshots", "decisions"]) {
         node_fs_1.default.mkdirSync(node_path_1.default.join(run.paths.blackboardDir, dir), { recursive: true });
@@ -58,13 +64,13 @@ function resolveBlackboard(run, input = {}) {
             : state.boards[0];
     if (existing) {
         linkMultiAgent(run, existing.id, existing.topicIds, input);
-        touch(existing);
+        (0, util_1.touch)(existing);
         persistBlackboardState(run);
         return existing;
     }
-    const id = input.id || createId("bb", state.boards.length + 1);
-    assertUnique(state.boards, id, "Blackboard");
-    const now = timestamp();
+    const id = input.id || (0, util_1.createId)("bb", state.boards.length + 1);
+    (0, util_1.assertUnique)(state.boards, id, "Blackboard");
+    const now = (0, util_1.timestamp)();
     const author = normalizeAuthor(input.author, "runtime");
     const scope = normalizeScope(input.scope, input.multiAgentRunId ? { kind: "multi-agent-run", id: input.multiAgentRunId } : { kind: "run", id: run.id });
     const board = {
@@ -77,7 +83,7 @@ function resolveBlackboard(run, input = {}) {
         scope,
         status: "active",
         parentIds: [],
-        tags: sortTags(input.tags),
+        tags: (0, util_1.sortTags)(input.tags),
         title: input.title || id,
         topicIds: [],
         messageCount: 0,
@@ -91,8 +97,8 @@ function resolveBlackboard(run, input = {}) {
             agentRoleId: input.roleId,
             agentMembershipId: input.membershipId
         }),
-        paths: boardPaths(run),
-        metadata: scrub(input.metadata)
+        paths: (0, paths_1.boardPaths)(run),
+        metadata: (0, util_1.scrub)(input.metadata)
     };
     linkMultiAgent(run, board.id, [], input);
     state.boards.push(board);
@@ -116,10 +122,10 @@ function resolveBlackboard(run, input = {}) {
 function createBlackboardTopic(run, input) {
     const board = resolveBlackboard(run, { id: input.blackboardId });
     const state = ensureBlackboardState(run);
-    const id = input.id || createId("topic", state.topics.length + 1);
-    assertUnique(state.topics, id, "BlackboardTopic");
+    const id = input.id || (0, util_1.createId)("topic", state.topics.length + 1);
+    (0, util_1.assertUnique)(state.topics, id, "BlackboardTopic");
     const topicLinks = compactLinks(run, { ...board.links, ...roleLinkFromAuthor(input.author), ...input.scope });
-    const now = timestamp();
+    const now = (0, util_1.timestamp)();
     const topic = {
         ...base(run, board.id, id, input.author, input.scope, "open", input.tags, input.metadata),
         createdAt: now,
@@ -132,10 +138,10 @@ function createBlackboardTopic(run, input) {
         links: topicLinks
     };
     state.topics.push(topic);
-    board.topicIds = unique([...board.topicIds, topic.id]);
-    touch(board);
+    board.topicIds = (0, util_1.unique)([...board.topicIds, topic.id]);
+    (0, util_1.touch)(board);
     linkMultiAgent(run, board.id, [topic.id], board.links);
-    appendBlackboardNode(run, "blackboard-topic", topic.id, "running", topic.title, recordPath(run, "topics", topic.id), [`${run.id}:blackboard:${board.id}`]);
+    appendBlackboardNode(run, "blackboard-topic", topic.id, "running", topic.title, (0, paths_1.recordPath)(run, "topics", topic.id), [`${run.id}:blackboard:${board.id}`]);
     const audit = (0, trust_audit_1.recordTrustAuditEvent)(run, {
         kind: "blackboard.topic",
         decision: "recorded",
@@ -149,7 +155,7 @@ function createBlackboardTopic(run, input) {
         agentMembershipId: topic.links.agentMembershipId,
         metadata: { title: topic.title, tags: topic.tags }
     });
-    topic.links.auditEventIds = unique([...(topic.links.auditEventIds || []), audit.id]);
+    topic.links.auditEventIds = (0, util_1.unique)([...(topic.links.auditEventIds || []), audit.id]);
     (0, multi_agent_trust_1.recordBlackboardWriteAudit)(run, {
         operation: "topic",
         status: topic.status,
@@ -175,8 +181,8 @@ function postBlackboardMessage(run, input) {
     }
     if (!input.body.trim())
         throw new Error("Blackboard message body is required");
-    const id = input.id || createId("msg", state.messages.length + 1);
-    assertUnique(state.messages, id, "BlackboardMessage");
+    const id = input.id || (0, util_1.createId)("msg", state.messages.length + 1);
+    (0, util_1.assertUnique)(state.messages, id, "BlackboardMessage");
     const author = normalizeAuthor(input.author, "operator");
     const links = compactLinks(run, { ...topic.links, ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs, auditEventIds: input.auditEventIds });
     const enforcePolicy = shouldEnforcePolicy(author, links);
@@ -202,10 +208,10 @@ function postBlackboardMessage(run, input) {
         body: input.body,
         visibility: input.visibility || "public",
         replyToId: input.replyToId,
-        parentIds: unique([...(input.parentIds || []), ...(input.replyToId ? [input.replyToId] : [])]),
-        linkedEvidenceRefs: unique(input.evidenceRefs || []),
+        parentIds: (0, util_1.unique)([...(input.parentIds || []), ...(input.replyToId ? [input.replyToId] : [])]),
+        linkedEvidenceRefs: (0, util_1.unique)(input.evidenceRefs || []),
         linkedArtifactRefIds: requireArtifactRefs(run, input.artifactRefIds || []),
-        linkedAuditEventIds: unique(input.auditEventIds || []),
+        linkedAuditEventIds: (0, util_1.unique)(input.auditEventIds || []),
         links,
         provenance: {
             schemaVersion: 1,
@@ -219,24 +225,24 @@ function postBlackboardMessage(run, input) {
             agentFaninId: links.agentFaninId,
             workerId: links.workerId || (author.kind === "worker" ? author.id : undefined),
             source: (0, multi_agent_trust_1.sourceForActor)(author),
-            linkedEvidenceRefs: unique(input.evidenceRefs || []),
-            linkedAuditEventIds: unique(input.auditEventIds || []),
-            parentMessageIds: unique([...(input.parentIds || []), ...(input.replyToId ? [input.replyToId] : [])]),
+            linkedEvidenceRefs: (0, util_1.unique)(input.evidenceRefs || []),
+            linkedAuditEventIds: (0, util_1.unique)(input.auditEventIds || []),
+            parentMessageIds: (0, util_1.unique)([...(input.parentIds || []), ...(input.replyToId ? [input.replyToId] : [])]),
             topicScope: topic.id,
             bodyHash: (0, multi_agent_trust_1.hashText)(input.body),
             locator: `${board.id}/messages/${id}`
         }
     };
     state.messages.push(message);
-    topic.messageIds = unique([...topic.messageIds, message.id]);
+    topic.messageIds = (0, util_1.unique)([...topic.messageIds, message.id]);
     board.messageCount = state.messages.filter((entry) => entry.blackboardId === board.id).length;
-    touch(topic);
-    touch(board);
-    appendBlackboardNode(run, "blackboard-message", message.id, "completed", truncate(message.body), messagesPath(run), [`${run.id}:blackboard:topic:${topic.id}`]);
+    (0, util_1.touch)(topic);
+    (0, util_1.touch)(board);
+    appendBlackboardNode(run, "blackboard-message", message.id, "completed", (0, util_1.truncate)(message.body), (0, paths_1.messagesPath)(run), [`${run.id}:blackboard:topic:${topic.id}`]);
     const audit = (0, trust_audit_1.recordTrustAuditEvent)(run, {
         kind: "blackboard.message",
         decision: "recorded",
-        source: sourceForAuthor(message.author),
+        source: (0, classify_1.sourceForAuthor)(message.author),
         actor: message.author.id,
         blackboardId: board.id,
         blackboardTopicId: topic.id,
@@ -265,7 +271,7 @@ function postBlackboardMessage(run, input) {
         blackboardTopicId: topic.id,
         blackboardMessageId: message.id,
         evidenceRefs: message.linkedEvidenceRefs,
-        parentEventIds: unique([...(permission ? [permission.event.id] : []), audit.id]),
+        parentEventIds: (0, util_1.unique)([...(permission ? [permission.event.id] : []), audit.id]),
         policyRef: permission?.policyRef,
         metadata: { visibility: message.visibility }
     });
@@ -301,12 +307,12 @@ function postBlackboardMessage(run, input) {
             policyRef: permission?.policyRef,
             parentEventIds: [audit.id, writeAudit.id, provenanceAudit.id]
         });
-        message.linkedAuditEventIds = unique([...message.linkedAuditEventIds, rationaleAudit.id]);
+        message.linkedAuditEventIds = (0, util_1.unique)([...message.linkedAuditEventIds, rationaleAudit.id]);
     }
-    message.linkedAuditEventIds = unique([...message.linkedAuditEventIds, audit.id, writeAudit.id, provenanceAudit.id]);
-    message.links.auditEventIds = unique([...(message.links.auditEventIds || []), audit.id, writeAudit.id, provenanceAudit.id]);
+    message.linkedAuditEventIds = (0, util_1.unique)([...message.linkedAuditEventIds, audit.id, writeAudit.id, provenanceAudit.id]);
+    message.links.auditEventIds = (0, util_1.unique)([...(message.links.auditEventIds || []), audit.id, writeAudit.id, provenanceAudit.id]);
     if (message.provenance) {
-        message.provenance.linkedAuditEventIds = unique([...message.provenance.linkedAuditEventIds, audit.id, writeAudit.id, provenanceAudit.id]);
+        message.provenance.linkedAuditEventIds = (0, util_1.unique)([...message.provenance.linkedAuditEventIds, audit.id, writeAudit.id, provenanceAudit.id]);
     }
     persistBlackboardState(run);
     return message;
@@ -316,8 +322,8 @@ function putBlackboardContext(run, input) {
     const topic = requireTopic(run, input.topicId);
     const board = requireBoard(run, input.blackboardId || topic.blackboardId);
     const key = input.key || input.kind;
-    const id = input.id || createId("ctx", state.contexts.length + 1);
-    assertUnique(state.contexts, id, "BlackboardContext");
+    const id = input.id || (0, util_1.createId)("ctx", state.contexts.length + 1);
+    (0, util_1.assertUnique)(state.contexts, id, "BlackboardContext");
     const author = normalizeAuthor(input.author, "operator");
     const links = compactLinks(run, { ...topic.links, ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs });
     const permission = shouldEnforcePolicy(author, links)
@@ -345,7 +351,7 @@ function putBlackboardContext(run, input) {
         const superseded = requireContext(run, supersededId);
         superseded.status = "superseded";
         superseded.supersededByContextId = id;
-        touch(superseded);
+        (0, util_1.touch)(superseded);
     }
     const status = conflicts.length ? "conflicting" : input.kind === "question" ? "open" : "active";
     const context = {
@@ -354,22 +360,22 @@ function putBlackboardContext(run, input) {
         kind: input.kind,
         key,
         value: input.value,
-        supersedesContextIds: unique(input.supersedesContextIds || []),
+        supersedesContextIds: (0, util_1.unique)(input.supersedesContextIds || []),
         conflictingContextIds: conflicts.map((entry) => entry.id),
-        evidenceRefs: unique(input.evidenceRefs || []),
+        evidenceRefs: (0, util_1.unique)(input.evidenceRefs || []),
         artifactRefIds: requireArtifactRefs(run, input.artifactRefIds || []),
         links
     };
     for (const conflict of conflicts) {
         conflict.status = "conflicting";
-        conflict.conflictingContextIds = unique([...conflict.conflictingContextIds, context.id]);
-        touch(conflict);
+        conflict.conflictingContextIds = (0, util_1.unique)([...conflict.conflictingContextIds, context.id]);
+        (0, util_1.touch)(conflict);
     }
     state.contexts.push(context);
-    topic.contextIds = unique([...topic.contextIds, context.id]);
-    board.contextIds = unique([...board.contextIds, context.id]);
-    touch(topic);
-    touch(board);
+    topic.contextIds = (0, util_1.unique)([...topic.contextIds, context.id]);
+    board.contextIds = (0, util_1.unique)([...board.contextIds, context.id]);
+    (0, util_1.touch)(topic);
+    (0, util_1.touch)(board);
     const decision = recordCoordinatorDecision(run, {
         blackboardId: board.id,
         topicId: topic.id,
@@ -387,11 +393,11 @@ function putBlackboardContext(run, input) {
         tags: ["context", input.kind]
     });
     context.decisionId = decision.id;
-    appendBlackboardNode(run, "blackboard-context", context.id, statusToNodeStatus(context.status), `${context.kind}:${context.key}`, recordPath(run, "contexts", context.id), [`${run.id}:blackboard:topic:${topic.id}`]);
+    appendBlackboardNode(run, "blackboard-context", context.id, (0, classify_1.statusToNodeStatus)(context.status), `${context.kind}:${context.key}`, (0, paths_1.recordPath)(run, "contexts", context.id), [`${run.id}:blackboard:topic:${topic.id}`]);
     const audit = (0, trust_audit_1.recordTrustAuditEvent)(run, {
         kind: "blackboard.context",
         decision: conflicts.length ? "failed" : "accepted",
-        source: sourceForAuthor(context.author),
+        source: (0, classify_1.sourceForAuthor)(context.author),
         actor: context.author.id,
         blackboardId: board.id,
         blackboardTopicId: topic.id,
@@ -417,12 +423,12 @@ function putBlackboardContext(run, input) {
         blackboardContextId: context.id,
         coordinatorDecisionId: decision.id,
         evidenceRefs: context.evidenceRefs,
-        parentEventIds: unique([...(permission ? [permission.event.id] : []), audit.id]),
+        parentEventIds: (0, util_1.unique)([...(permission ? [permission.event.id] : []), audit.id]),
         policyRef: permission?.policyRef,
         metadata: { kind: context.kind, key: context.key, conflicts: context.conflictingContextIds }
     });
-    context.links.auditEventIds = unique([...(context.links.auditEventIds || []), audit.id]);
-    context.links.auditEventIds = unique([...(context.links.auditEventIds || []), writeAudit.id]);
+    context.links.auditEventIds = (0, util_1.unique)([...(context.links.auditEventIds || []), audit.id]);
+    context.links.auditEventIds = (0, util_1.unique)([...(context.links.auditEventIds || []), writeAudit.id]);
     persistBlackboardState(run);
     return context;
 }
@@ -434,8 +440,8 @@ function addBlackboardArtifact(run, input) {
     const topic = input.topicId ? requireTopic(run, input.topicId) : undefined;
     if (topic && topic.blackboardId !== board.id)
         throw new Error(`Topic ${topic.id} does not belong to blackboard ${board.id}`);
-    const id = input.id || createId("artifact", state.artifacts.length + 1);
-    assertUnique(state.artifacts, id, "BlackboardArtifactRef");
+    const id = input.id || (0, util_1.createId)("artifact", state.artifacts.length + 1);
+    (0, util_1.assertUnique)(state.artifacts, id, "BlackboardArtifactRef");
     const author = normalizeAuthor(input.author, "operator");
     const links = compactLinks(run, { ...board.links, ...(topic?.links || {}), ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs, auditEventIds: input.auditEventIds });
     const permission = shouldEnforcePolicy(author, links)
@@ -462,17 +468,17 @@ function addBlackboardArtifact(run, input) {
         owner: normalizeAuthor(input.owner || input.author, "operator"),
         source: input.source || "operator-recorded",
         provenance: compactLinks(run, { ...(input.provenance || {}), ...links }),
-        evidenceRefs: unique(input.evidenceRefs || []),
-        checksum: absolutePath && node_fs_1.default.existsSync(absolutePath) && node_fs_1.default.statSync(absolutePath).isFile() ? checksumFile(absolutePath) : undefined,
-        trustAuditEventIds: unique(input.auditEventIds || [])
+        evidenceRefs: (0, util_1.unique)(input.evidenceRefs || []),
+        checksum: absolutePath && node_fs_1.default.existsSync(absolutePath) && node_fs_1.default.statSync(absolutePath).isFile() ? (0, util_1.checksumFile)(absolutePath) : undefined,
+        trustAuditEventIds: (0, util_1.unique)(input.auditEventIds || [])
     };
     state.artifacts.push(artifact);
-    board.artifactRefIds = unique([...board.artifactRefIds, artifact.id]);
+    board.artifactRefIds = (0, util_1.unique)([...board.artifactRefIds, artifact.id]);
     if (topic)
-        topic.artifactRefIds = unique([...topic.artifactRefIds, artifact.id]);
-    touch(board);
+        topic.artifactRefIds = (0, util_1.unique)([...topic.artifactRefIds, artifact.id]);
+    (0, util_1.touch)(board);
     if (topic)
-        touch(topic);
+        (0, util_1.touch)(topic);
     const decision = recordCoordinatorDecision(run, {
         blackboardId: board.id,
         topicId: topic?.id,
@@ -486,13 +492,13 @@ function addBlackboardArtifact(run, input) {
         scope: artifact.scope,
         tags: ["artifact", artifact.kind]
     });
-    appendBlackboardNode(run, "blackboard-artifact", artifact.id, "completed", artifact.kind, recordPath(run, "artifacts", artifact.id), [
+    appendBlackboardNode(run, "blackboard-artifact", artifact.id, "completed", artifact.kind, (0, paths_1.recordPath)(run, "artifacts", artifact.id), [
         topic ? `${run.id}:blackboard:topic:${topic.id}` : `${run.id}:blackboard:${board.id}`
     ]);
     const audit = (0, trust_audit_1.recordTrustAuditEvent)(run, {
         kind: "blackboard.artifact",
         decision: "accepted",
-        source: sourceForAuthor(artifact.author),
+        source: (0, classify_1.sourceForAuthor)(artifact.author),
         actor: artifact.author.id,
         blackboardId: board.id,
         blackboardTopicId: topic?.id,
@@ -520,19 +526,19 @@ function addBlackboardArtifact(run, input) {
         blackboardArtifactRefId: artifact.id,
         coordinatorDecisionId: decision.id,
         evidenceRefs: artifact.evidenceRefs,
-        parentEventIds: unique([...(permission ? [permission.event.id] : []), audit.id]),
+        parentEventIds: (0, util_1.unique)([...(permission ? [permission.event.id] : []), audit.id]),
         policyRef: permission?.policyRef,
         metadata: { kind: artifact.kind, locator: artifact.locator, checksum: artifact.checksum }
     });
-    artifact.trustAuditEventIds = unique([...artifact.trustAuditEventIds, audit.id, writeAudit.id]);
+    artifact.trustAuditEventIds = (0, util_1.unique)([...artifact.trustAuditEventIds, audit.id, writeAudit.id]);
     persistBlackboardState(run);
     return artifact;
 }
 function createBlackboardSnapshot(run, blackboardId) {
     const state = ensureBlackboardState(run);
     const board = resolveBlackboard(run, { id: blackboardId });
-    const id = createId("snapshot", state.snapshots.length + 1);
-    const snapshotPath = recordPath(run, "snapshots", id);
+    const id = (0, util_1.createId)("snapshot", state.snapshots.length + 1);
+    const snapshotPath = (0, paths_1.recordPath)(run, "snapshots", id);
     const summary = summarizeBlackboard(run, board.id);
     const snapshot = {
         ...base(run, board.id, id, { kind: "runtime", id: "cw" }, { kind: "run", id: run.id }, "active", ["snapshot"], undefined),
@@ -547,8 +553,8 @@ function createBlackboardSnapshot(run, blackboardId) {
         links: compactLinks(run, board.links)
     };
     state.snapshots.push(snapshot);
-    board.snapshotIds = unique([...board.snapshotIds, snapshot.id]);
-    touch(board);
+    board.snapshotIds = (0, util_1.unique)([...board.snapshotIds, snapshot.id]);
+    (0, util_1.touch)(board);
     appendBlackboardNode(run, "blackboard-snapshot", snapshot.id, "completed", snapshot.id, snapshotPath, [`${run.id}:blackboard:${board.id}`]);
     const audit = (0, trust_audit_1.recordTrustAuditEvent)(run, {
         kind: "blackboard.snapshot",
@@ -573,36 +579,36 @@ function createBlackboardSnapshot(run, blackboardId) {
         metadata: { snapshotPath }
     });
     snapshot.links.auditEventIds = [audit.id];
-    snapshot.links.auditEventIds = unique([...snapshot.links.auditEventIds, writeAudit.id]);
+    snapshot.links.auditEventIds = (0, util_1.unique)([...snapshot.links.auditEventIds, writeAudit.id]);
     persistBlackboardState(run);
     return snapshot;
 }
 function recordCoordinatorDecision(run, input) {
     const state = ensureBlackboardState(run);
     const board = resolveBlackboard(run, { id: input.blackboardId });
-    const id = input.id || createId("decision", state.decisions.length + 1);
-    assertUnique(state.decisions, id, "CoordinatorDecision");
+    const id = input.id || (0, util_1.createId)("decision", state.decisions.length + 1);
+    (0, util_1.assertUnique)(state.decisions, id, "CoordinatorDecision");
     const decision = {
-        ...base(run, board.id, id, input.author || { kind: "coordinator", id: "cw" }, input.scope, decisionStatus(input.outcome), input.tags, input.metadata),
+        ...base(run, board.id, id, input.author || { kind: "coordinator", id: "cw" }, input.scope, (0, classify_1.decisionStatus)(input.outcome), input.tags, input.metadata),
         kind: input.kind,
         outcome: input.outcome,
-        subjectIds: unique(input.subjectIds || []),
+        subjectIds: (0, util_1.unique)(input.subjectIds || []),
         reason: input.reason,
-        evidenceRefs: unique(input.evidenceRefs || []),
+        evidenceRefs: (0, util_1.unique)(input.evidenceRefs || []),
         artifactRefIds: requireArtifactRefs(run, input.artifactRefIds || []),
         messageIds: requireMessages(run, input.messageIds || []),
         links: compactLinks(run, { ...board.links, ...roleLinkFromAuthor(input.author), ...(input.links || {}), evidenceRefs: input.evidenceRefs })
     };
     state.decisions.push(decision);
-    board.decisionIds = unique([...board.decisionIds, decision.id]);
-    touch(board);
-    appendBlackboardNode(run, "coordinator-decision", decision.id, statusToNodeStatus(decision.status), `${decision.kind}:${decision.outcome}`, recordPath(run, "decisions", decision.id), [
+    board.decisionIds = (0, util_1.unique)([...board.decisionIds, decision.id]);
+    (0, util_1.touch)(board);
+    appendBlackboardNode(run, "coordinator-decision", decision.id, (0, classify_1.statusToNodeStatus)(decision.status), `${decision.kind}:${decision.outcome}`, (0, paths_1.recordPath)(run, "decisions", decision.id), [
         `${run.id}:blackboard:${board.id}`,
         ...(input.topicId ? [`${run.id}:blackboard:topic:${input.topicId}`] : [])
     ]);
     const audit = (0, trust_audit_1.recordTrustAuditEvent)(run, {
         kind: "coordinator.decision",
-        decision: auditDecision(input.outcome),
+        decision: (0, classify_1.auditDecision)(input.outcome),
         source: "cw-validated",
         actor: decision.author.id,
         blackboardId: board.id,
@@ -650,9 +656,9 @@ function recordCoordinatorDecision(run, input) {
             rationale: decision.reason,
             parentEventIds: [audit.id, writeAudit.id]
         });
-        decision.links.auditEventIds = unique([...(decision.links.auditEventIds || []), panelAudit.id]);
+        decision.links.auditEventIds = (0, util_1.unique)([...(decision.links.auditEventIds || []), panelAudit.id]);
     }
-    decision.links.auditEventIds = unique([...(decision.links.auditEventIds || []), audit.id, writeAudit.id]);
+    decision.links.auditEventIds = (0, util_1.unique)([...(decision.links.auditEventIds || []), audit.id, writeAudit.id]);
     persistBlackboardState(run);
     return decision;
 }
@@ -684,7 +690,7 @@ function summarizeBlackboard(run, blackboardId) {
         missingEvidence,
         readyForFanin,
         latestSnapshotPath: latestSnapshot?.snapshotPath,
-        indexPath: board?.paths.index || node_path_1.default.join(blackboardRoot(run), "index.json"),
+        indexPath: board?.paths.index || node_path_1.default.join((0, paths_1.blackboardRoot)(run), "index.json"),
         nextAction: nextAction(run, board, openQuestions, conflicts, artifacts)
     };
 }
@@ -711,21 +717,21 @@ function buildBlackboardGraph(run) {
             edges.push({ from: `${run.id}:multi-agent:${board.links.multiAgentRunId}`, to: `${run.id}:blackboard:${board.id}`, label: "coordinates" });
     }
     for (const topic of state.topics) {
-        nodes.push({ id: `${run.id}:blackboard:topic:${topic.id}`, kind: "blackboard-topic", status: topic.status, label: topic.title, path: recordPath(run, "topics", topic.id) });
+        nodes.push({ id: `${run.id}:blackboard:topic:${topic.id}`, kind: "blackboard-topic", status: topic.status, label: topic.title, path: (0, paths_1.recordPath)(run, "topics", topic.id) });
         edges.push({ from: `${run.id}:blackboard:${topic.blackboardId}`, to: `${run.id}:blackboard:topic:${topic.id}` });
     }
     for (const context of state.contexts) {
-        nodes.push({ id: `${run.id}:blackboard:context:${context.id}`, kind: "blackboard-context", status: context.status, label: `${context.kind}:${context.key}`, path: recordPath(run, "contexts", context.id) });
+        nodes.push({ id: `${run.id}:blackboard:context:${context.id}`, kind: "blackboard-context", status: context.status, label: `${context.kind}:${context.key}`, path: (0, paths_1.recordPath)(run, "contexts", context.id) });
         edges.push({ from: `${run.id}:blackboard:topic:${context.topicId}`, to: `${run.id}:blackboard:context:${context.id}` });
         for (const conflicting of context.conflictingContextIds)
             edges.push({ from: `${run.id}:blackboard:context:${context.id}`, to: `${run.id}:blackboard:context:${conflicting}`, label: "conflicts" });
     }
     for (const artifact of state.artifacts) {
-        nodes.push({ id: `${run.id}:blackboard:artifact:${artifact.id}`, kind: "blackboard-artifact", status: artifact.status, label: artifact.kind, path: recordPath(run, "artifacts", artifact.id) });
+        nodes.push({ id: `${run.id}:blackboard:artifact:${artifact.id}`, kind: "blackboard-artifact", status: artifact.status, label: artifact.kind, path: (0, paths_1.recordPath)(run, "artifacts", artifact.id) });
         edges.push({ from: artifact.topicId ? `${run.id}:blackboard:topic:${artifact.topicId}` : `${run.id}:blackboard:${artifact.blackboardId}`, to: `${run.id}:blackboard:artifact:${artifact.id}` });
     }
     for (const message of state.messages) {
-        nodes.push({ id: `${run.id}:blackboard:message:${message.id}`, kind: "blackboard-message", status: message.status, label: truncate(message.body), path: messagesPath(run) });
+        nodes.push({ id: `${run.id}:blackboard:message:${message.id}`, kind: "blackboard-message", status: message.status, label: (0, util_1.truncate)(message.body), path: (0, paths_1.messagesPath)(run) });
         edges.push({ from: `${run.id}:blackboard:topic:${message.topicId}`, to: `${run.id}:blackboard:message:${message.id}` });
         if (message.replyToId)
             edges.push({ from: `${run.id}:blackboard:message:${message.replyToId}`, to: `${run.id}:blackboard:message:${message.id}`, label: "reply" });
@@ -733,7 +739,7 @@ function buildBlackboardGraph(run) {
             edges.push({ from: `${run.id}:blackboard:message:${message.id}`, to: `${run.id}:blackboard:artifact:${artifactId}`, label: "cites" });
     }
     for (const decision of state.decisions) {
-        nodes.push({ id: `${run.id}:coordinator:decision:${decision.id}`, kind: "coordinator-decision", status: decision.status, label: `${decision.kind}:${decision.outcome}`, path: recordPath(run, "decisions", decision.id) });
+        nodes.push({ id: `${run.id}:coordinator:decision:${decision.id}`, kind: "coordinator-decision", status: decision.status, label: `${decision.kind}:${decision.outcome}`, path: (0, paths_1.recordPath)(run, "decisions", decision.id) });
         edges.push({ from: `${run.id}:blackboard:${decision.blackboardId}`, to: `${run.id}:coordinator:decision:${decision.id}` });
         for (const subjectId of decision.subjectIds)
             edges.push({ from: `${run.id}:coordinator:decision:${decision.id}`, to: graphSubject(run, subjectId), label: "subject" });
@@ -742,20 +748,20 @@ function buildBlackboardGraph(run) {
         nodes.push({ id: `${run.id}:blackboard:snapshot:${snapshot.id}`, kind: "blackboard-snapshot", status: snapshot.status, label: snapshot.id, path: snapshot.snapshotPath });
         edges.push({ from: `${run.id}:blackboard:${snapshot.blackboardId}`, to: `${run.id}:blackboard:snapshot:${snapshot.id}` });
     }
-    return { nodes, edges: uniqueEdges(edges) };
+    return { nodes, edges: (0, util_1.uniqueEdges)(edges) };
 }
 function persistBlackboardState(run) {
     const state = ensureBlackboardState(run);
-    const root = blackboardRoot(run);
-    assertNoRecordPathCollisions("BlackboardTopic", state.topics);
-    assertNoRecordPathCollisions("BlackboardContext", state.contexts);
-    assertNoRecordPathCollisions("BlackboardArtifactRef", state.artifacts);
-    assertNoRecordPathCollisions("BlackboardSnapshot", state.snapshots);
-    assertNoRecordPathCollisions("CoordinatorDecision", state.decisions);
+    const root = (0, paths_1.blackboardRoot)(run);
+    (0, util_1.assertNoRecordPathCollisions)("BlackboardTopic", state.topics);
+    (0, util_1.assertNoRecordPathCollisions)("BlackboardContext", state.contexts);
+    (0, util_1.assertNoRecordPathCollisions)("BlackboardArtifactRef", state.artifacts);
+    (0, util_1.assertNoRecordPathCollisions)("BlackboardSnapshot", state.snapshots);
+    (0, util_1.assertNoRecordPathCollisions)("CoordinatorDecision", state.decisions);
     const index = {
         schemaVersion: exports.BLACKBOARD_SCHEMA_VERSION,
         runId: run.id,
-        generatedAt: timestamp(),
+        generatedAt: (0, util_1.timestamp)(),
         counts: {
             boards: state.boards.length,
             topics: state.topics.length,
@@ -765,12 +771,12 @@ function persistBlackboardState(run) {
             snapshots: state.snapshots.length,
             decisions: state.decisions.length
         },
-        boards: state.boards.map(indexRow),
-        topics: state.topics.map(indexRow),
-        contexts: state.contexts.map(indexRow),
-        artifacts: state.artifacts.map(indexRow),
-        snapshots: state.snapshots.map(indexRow),
-        decisions: state.decisions.map(indexRow),
+        boards: state.boards.map(util_1.indexRow),
+        topics: state.topics.map(util_1.indexRow),
+        contexts: state.contexts.map(util_1.indexRow),
+        artifacts: state.artifacts.map(util_1.indexRow),
+        snapshots: state.snapshots.map(util_1.indexRow),
+        decisions: state.decisions.map(util_1.indexRow),
         messages: state.messages.map((message) => ({
             id: message.id,
             blackboardId: message.blackboardId,
@@ -783,45 +789,17 @@ function persistBlackboardState(run) {
         }))
     };
     (0, state_1.writeJson)(node_path_1.default.join(root, "index.json"), index);
-    node_fs_1.default.writeFileSync(messagesPath(run), state.messages.sort(compareRecords).map((message) => JSON.stringify(message)).join("\n") + (state.messages.length ? "\n" : ""), "utf8");
+    node_fs_1.default.writeFileSync((0, paths_1.messagesPath)(run), state.messages.sort(util_1.compareRecords).map((message) => JSON.stringify(message)).join("\n") + (state.messages.length ? "\n" : ""), "utf8");
     for (const topic of state.topics)
-        (0, state_1.writeJson)(recordPath(run, "topics", topic.id), topic);
+        (0, state_1.writeJson)((0, paths_1.recordPath)(run, "topics", topic.id), topic);
     for (const context of state.contexts)
-        (0, state_1.writeJson)(recordPath(run, "contexts", context.id), context);
+        (0, state_1.writeJson)((0, paths_1.recordPath)(run, "contexts", context.id), context);
     for (const artifact of state.artifacts)
-        (0, state_1.writeJson)(recordPath(run, "artifacts", artifact.id), artifact);
+        (0, state_1.writeJson)((0, paths_1.recordPath)(run, "artifacts", artifact.id), artifact);
     for (const snapshot of state.snapshots)
-        (0, state_1.writeJson)(recordPath(run, "snapshots", snapshot.id), snapshot);
+        (0, state_1.writeJson)((0, paths_1.recordPath)(run, "snapshots", snapshot.id), snapshot);
     for (const decision of state.decisions)
-        (0, state_1.writeJson)(recordPath(run, "decisions", decision.id), decision);
-}
-function bridgeStateArtifactToBlackboard(run, artifact, input = {}) {
-    return addBlackboardArtifact(run, {
-        kind: artifact.kind,
-        path: artifact.path,
-        locator: artifact.path,
-        metadata: { description: artifact.description, stateArtifactId: artifact.id },
-        ...input
-    });
-}
-function evidenceFromArtifactRef(artifact) {
-    return {
-        id: artifact.id,
-        source: "blackboard-artifact",
-        path: artifact.path,
-        locator: artifact.locator || artifact.path,
-        summary: `${artifact.kind} ${artifact.path || artifact.locator || artifact.id}`,
-        provenance: {
-            schemaVersion: 1,
-            runId: artifact.runId,
-            source: "cw-validated",
-            workerId: artifact.provenance.workerId,
-            taskId: artifact.provenance.taskId,
-            candidateId: artifact.provenance.candidateId,
-            commitId: artifact.provenance.commitId,
-            auditEventIds: artifact.trustAuditEventIds
-        }
-    };
+        (0, state_1.writeJson)((0, paths_1.recordPath)(run, "decisions", decision.id), decision);
 }
 function emptyState() {
     return {
@@ -854,7 +832,7 @@ function shouldEnforcePolicy(author, links) {
     return Boolean(links.agentRoleId || links.agentGroupId || links.agentMembershipId);
 }
 function base(run, blackboardId, id, author, scope, status = "active", tags, metadata) {
-    const now = timestamp();
+    const now = (0, util_1.timestamp)();
     return {
         schemaVersion: exports.BLACKBOARD_SCHEMA_VERSION,
         id,
@@ -866,8 +844,8 @@ function base(run, blackboardId, id, author, scope, status = "active", tags, met
         scope: normalizeScope(scope, { kind: "run", id: run.id }),
         status,
         parentIds: [],
-        tags: sortTags(tags),
-        metadata: scrub(metadata)
+        tags: (0, util_1.sortTags)(tags),
+        metadata: (0, util_1.scrub)(metadata)
     };
 }
 function normalizeAuthor(input, fallbackKind) {
@@ -885,7 +863,7 @@ function normalizeScope(input, fallback) {
     return { kind, id };
 }
 function compactLinks(run, input) {
-    return compact({
+    return (0, util_1.compact)({
         workflowRunId: run.id,
         multiAgentRunId: input.multiAgentRunId,
         agentGroupId: input.agentGroupId,
@@ -898,8 +876,8 @@ function compactLinks(run, input) {
         candidateId: input.candidateId,
         verifierNodeId: input.verifierNodeId,
         commitId: input.commitId,
-        auditEventIds: unique(input.auditEventIds || []),
-        evidenceRefs: unique(input.evidenceRefs || [])
+        auditEventIds: (0, util_1.unique)(input.auditEventIds || []),
+        evidenceRefs: (0, util_1.unique)(input.evidenceRefs || [])
     });
 }
 function linkMultiAgent(run, blackboardId, topicIds, input) {
@@ -910,30 +888,30 @@ function linkMultiAgent(run, blackboardId, topicIds, input) {
         const record = (0, multi_agent_1.getMultiAgentRun)(run, input.multiAgentRunId);
         if (record) {
             record.blackboardId = blackboardId;
-            record.topicIds = unique([...(record.topicIds || []), ...topicIds]);
+            record.topicIds = (0, util_1.unique)([...(record.topicIds || []), ...topicIds]);
             record.links.blackboardId = blackboardId;
-            record.links.blackboardTopicIds = unique([...(record.links.blackboardTopicIds || []), ...topicIds]);
+            record.links.blackboardTopicIds = (0, util_1.unique)([...(record.links.blackboardTopicIds || []), ...topicIds]);
         }
     }
     if (groupId) {
         const record = (0, multi_agent_1.getAgentGroup)(run, groupId);
         if (record) {
             record.blackboardId = blackboardId;
-            record.topicIds = unique([...(record.topicIds || []), ...topicIds]);
+            record.topicIds = (0, util_1.unique)([...(record.topicIds || []), ...topicIds]);
         }
     }
     if (roleId) {
         const record = (0, multi_agent_1.getAgentRole)(run, roleId);
         if (record) {
             record.blackboardId = blackboardId;
-            record.topicIds = unique([...(record.topicIds || []), ...topicIds]);
+            record.topicIds = (0, util_1.unique)([...(record.topicIds || []), ...topicIds]);
         }
     }
     if (membershipId) {
         const record = (0, multi_agent_1.getAgentMembership)(run, membershipId);
         if (record) {
             record.blackboardId = blackboardId;
-            record.topicIds = unique([...(record.topicIds || []), ...topicIds]);
+            record.topicIds = (0, util_1.unique)([...(record.topicIds || []), ...topicIds]);
         }
     }
 }
@@ -961,7 +939,7 @@ function requireArtifactRefs(run, ids) {
         if (!state.artifacts.some((artifact) => artifact.id === id))
             throw new Error(`Unknown BlackboardArtifactRef id: ${id}`);
     }
-    return unique(ids);
+    return (0, util_1.unique)(ids);
 }
 function requireMessages(run, ids) {
     const state = ensureBlackboardState(run);
@@ -969,7 +947,7 @@ function requireMessages(run, ids) {
         if (!state.messages.some((message) => message.id === id))
             throw new Error(`Unknown BlackboardMessage id: ${id}`);
     }
-    return unique(ids);
+    return (0, util_1.unique)(ids);
 }
 function appendBlackboardNode(run, kind, id, status, label, artifactPath, parents = []) {
     const nodeId = kind === "blackboard"
@@ -988,67 +966,6 @@ function appendBlackboardNode(run, kind, id, status, label, artifactPath, parent
         contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
         metadata: { id, label }
     }));
-}
-function statusToNodeStatus(status) {
-    switch (status) {
-        case "active":
-        case "open":
-            return "running";
-        case "resolved":
-        case "superseded":
-            return "completed";
-        case "conflicting":
-            return "blocked";
-        case "rejected":
-            return "rejected";
-        default:
-            return "completed";
-    }
-}
-function decisionStatus(outcome) {
-    if (outcome === "conflicting" || outcome === "blocked")
-        return "conflicting";
-    if (outcome === "rejected")
-        return "rejected";
-    if (outcome === "superseded")
-        return "superseded";
-    return "active";
-}
-function auditDecision(outcome) {
-    if (outcome === "rejected")
-        return "rejected";
-    if (outcome === "blocked" || outcome === "conflicting")
-        return "failed";
-    return "accepted";
-}
-function sourceForAuthor(author) {
-    if (author.kind === "runtime" || author.kind === "coordinator")
-        return "runtime-derived";
-    if (author.kind === "worker" || author.kind === "verifier")
-        return "cw-validated";
-    return "operator-recorded";
-}
-function boardPaths(run) {
-    const root = blackboardRoot(run);
-    return {
-        root,
-        index: node_path_1.default.join(root, "index.json"),
-        messages: messagesPath(run),
-        topicsDir: node_path_1.default.join(root, "topics"),
-        contextsDir: node_path_1.default.join(root, "contexts"),
-        artifactsDir: node_path_1.default.join(root, "artifacts"),
-        snapshotsDir: node_path_1.default.join(root, "snapshots"),
-        decisionsDir: node_path_1.default.join(root, "decisions")
-    };
-}
-function blackboardRoot(run) {
-    return run.paths.blackboardDir || node_path_1.default.join(run.paths.runDir, "blackboard");
-}
-function messagesPath(run) {
-    return node_path_1.default.join(blackboardRoot(run), "messages.jsonl");
-}
-function recordPath(run, kind, id) {
-    return node_path_1.default.join(blackboardRoot(run), kind, `${(0, state_1.safeFileName)(id)}.json`);
 }
 function graphSubject(run, id) {
     const state = ensureBlackboardState(run);
@@ -1070,99 +987,4 @@ function nextAction(run, board, openQuestions, conflicts, artifacts) {
     if (!artifacts.length)
         return `node scripts/cw.js blackboard artifact add ${run.id} --path <path> --kind <kind>`;
     return `node scripts/cw.js blackboard snapshot ${run.id}`;
-}
-function checksumFile(file) {
-    return `sha256:${node_crypto_1.default.createHash("sha256").update(node_fs_1.default.readFileSync(file)).digest("hex")}`;
-}
-function assertUnique(items, id, label) {
-    if (items.some((item) => item.id === id))
-        throw new Error(`Duplicate ${label} id: ${id}`);
-}
-function assertNoRecordPathCollisions(label, records) {
-    const seen = new Map();
-    for (const record of records) {
-        const safe = (0, state_1.safeFileName)(record.id);
-        const existing = seen.get(safe);
-        if (existing && existing !== record.id) {
-            throw new Error(`${label} ids ${existing} and ${record.id} collide on safe file name ${safe}`);
-        }
-        seen.set(safe, record.id);
-    }
-}
-function indexRow(record) {
-    return { id: record.id, blackboardId: record.blackboardId, topicId: record.topicId, status: record.status, updatedAt: record.updatedAt };
-}
-function compareRecords(left, right) {
-    return (0, compare_1.compareBytes)(left.createdAt, right.createdAt) || (0, compare_1.compareBytes)(left.id, right.id);
-}
-function uniqueEdges(edges) {
-    const seen = new Set();
-    const result = [];
-    for (const edge of edges) {
-        const key = `${edge.from}\0${edge.to}\0${edge.label || ""}`;
-        if (seen.has(key))
-            continue;
-        seen.add(key);
-        result.push(edge);
-    }
-    return result;
-}
-// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
-// per-run blackboard collection, threaded from the call site. No wall-clock stamp,
-// no PRNG suffix — replaying the same coordination mints byte-identical ids, so
-// snapshot/replay digests match. Each call site already asserts the minted id is
-// unique within its collection, and these collections only ever append.
-function createId(prefix, seq) {
-    return `${prefix}-${String(seq).padStart(4, "0")}`;
-}
-function touch(record) {
-    record.updatedAt = timestamp();
-    return record;
-}
-function timestamp() {
-    return new Date().toISOString();
-}
-function unique(values) {
-    return Array.from(new Set(values.filter(Boolean))).sort();
-}
-function sortTags(values) {
-    return unique(values || []);
-}
-function truncate(value) {
-    return value.length > 64 ? `${value.slice(0, 61)}...` : value;
-}
-function compact(value) {
-    return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined && (!Array.isArray(entry) || entry.length > 0)));
-}
-// Recursive secret redaction (v0.1.40 self-audit P3): the previous scrub only
-// inspected TOP-LEVEL keys, so a secret nested under an allowed key
-// (e.g. `metadata.config.token`) leaked into the recorded coordinator decision.
-// Now we recurse into nested objects and arrays so a secret-named key at any depth
-// is dropped and an obvious credential value is redacted.
-const SECRET_KEY_RE = /secret|token|password|credential|authorization|api[_-]?key|env/i;
-const SECRET_VALUE_RE = /secret|token|password|credential/i;
-function scrubValue(value) {
-    if (Array.isArray(value))
-        return value.map(scrubValue);
-    if (value && typeof value === "object")
-        return scrub(value);
-    if (typeof value === "string" && SECRET_VALUE_RE.test(value))
-        return "[redacted]";
-    return value;
-}
-function scrub(value) {
-    if (!value)
-        return undefined;
-    const result = {};
-    for (const [key, entry] of Object.entries(value)) {
-        if (entry === undefined)
-            continue;
-        if (SECRET_KEY_RE.test(key)) {
-            result[key] = "[redacted]";
-        }
-        else {
-            result[key] = scrubValue(entry);
-        }
-    }
-    return Object.keys(result).length ? result : undefined;
 }

@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { WorkflowRun } from "./types";
@@ -13,6 +12,19 @@ import {
 } from "./multi-agent-operator-ux";
 import { recordTrustAuditEvent } from "./trust-audit";
 import { reasoningCriticalNodeIds } from "./evidence-reasoning";
+import {
+  isProtectedStatus,
+  dominantStatus,
+  parentMap,
+  fingerprintRecords,
+  fingerprintStrings,
+  stableLine,
+  stripRunId,
+  unique,
+  byId,
+  truncate,
+  slug
+} from "./state-explosion/helpers";
 
 export const STATE_EXPLOSION_SCHEMA_VERSION = 1;
 
@@ -609,8 +621,6 @@ function blackboardDigestFor(
 // ---------------------------------------------------------------------------
 
 interface CollapseRule {
-  // Collapse nodes of these kinds into synthetic summary nodes.
-  collapse: boolean;
   // A node is kept (never collapsed) when it matches the protected predicate
   // (failures, blocked, conflicts, critical path) — provenance is never hidden.
   bucketBy: (node: { id: string; kind: string }, parentOf: (id: string) => string | undefined) => string;
@@ -832,7 +842,6 @@ function finalizeGraphRecord(
 
 function collapseRuleFor(view: GraphView): CollapseRule {
   return {
-    collapse: true,
     bucketBy: (node, parentOf) => {
       switch (node.kind) {
         case "blackboard-message":
@@ -1331,148 +1340,6 @@ export function showStateExplosionSummary(
 }
 
 // ---------------------------------------------------------------------------
-// Human formatting
-// ---------------------------------------------------------------------------
-
-export function formatStateExplosionReport(report: StateExplosionReport): string {
-  const lines: string[] = [];
-  const size = report.stateSize;
-  lines.push(`State Explosion Report: ${report.runId}`);
-  lines.push(`Freshness: ${report.freshness.status}${report.freshness.staleScopes.length ? ` (stale: ${report.freshness.staleScopes.join(", ")})` : ""}`);
-  lines.push("");
-  lines.push("State Size");
-  lines.push(`  records=${size.total}; graph nodes=${size.graphNodes}; graph edges=${size.graphEdges}; messages=${size.messages}; compaction=${size.compactionRecommended ? "recommended" : "not needed"}`);
-  for (const reason of size.reasons) lines.push(`  - ${reason}`);
-  lines.push("");
-  lines.push("Compact Graph");
-  lines.push(`  full=${report.compactGraph.fullNodeCount} nodes/${report.compactGraph.fullEdgeCount} edges -> compact=${report.compactGraph.compactNodeCount} nodes/${report.compactGraph.compactEdgeCount} edges`);
-  if (report.compactGraph.collapsedNodeCount > 0) {
-    lines.push(`  Graph compacted: ${report.compactGraph.collapsedNodeCount} nodes collapsed into ${report.compactGraph.syntheticNodes.length} summary nodes`);
-  }
-  for (const syn of report.compactGraph.syntheticNodes) {
-    lines.push(`  [${syn.dominantStatus}] ${syn.id} collapses ${syn.collapsedNodeCount} nodes/${syn.collapsedEdgeCount} edges${syn.blockedReason ? ` blocked=${syn.blockedReason}` : ""}; expand: ${syn.expansionCommand}`);
-  }
-  lines.push("");
-  lines.push("Blackboard Digest");
-  lines.push(`  topics=${report.blackboardDigest.topicRollups.length}; threads=${report.blackboardDigest.threadSummaries.length}; unresolved=${report.blackboardDigest.unresolvedQuestions.length}; conflicts=${report.blackboardDigest.conflicts.length}; decisions=${report.blackboardDigest.decisions.length}; artifacts=${report.blackboardDigest.artifacts.length}`);
-  for (const topic of report.blackboardDigest.topicRollups.slice(0, 20)) lines.push(`  - ${topic.label}; expand: ${topic.expansionCommand}`);
-  lines.push("");
-  lines.push("Critical Path");
-  if (!report.criticalPathGraph.criticalPath.length) lines.push("  none");
-  for (const id of report.criticalPathGraph.criticalPath.slice(0, 40)) lines.push(`  -> ${id}`);
-  lines.push("");
-  lines.push("Failures / Blockers");
-  if (!report.operatorDigest.failures.length) lines.push("  none");
-  for (const failure of report.operatorDigest.failures.slice(0, 30)) lines.push(`  [${failure.status}] ${failure.kind} ${failure.id}: ${failure.reason}; next=${failure.nextCommand}`);
-  lines.push("");
-  lines.push("Evidence Digest");
-  lines.push(`  adopted=${report.operatorDigest.evidenceDigest.adopted}; missing=${report.operatorDigest.evidenceDigest.missing}; rejected=${report.operatorDigest.evidenceDigest.rejected}`);
-  lines.push("");
-  lines.push("Trust / Policy Digest");
-  lines.push(`  events=${report.operatorDigest.trustDigest.events}; policyViolations=${report.operatorDigest.trustDigest.policyViolations}; judgeRationales=${report.operatorDigest.trustDigest.judgeRationales}`);
-  for (const violation of report.blackboardDigest.policyViolations.slice(0, 20)) lines.push(`  [policy] ${violation.label}; expand: ${violation.expansionCommand}`);
-  lines.push("");
-  lines.push("Hidden Source Records");
-  if (!report.hiddenSourceRecords.length) lines.push("  none (all records shown)");
-  for (const hidden of report.hiddenSourceRecords) lines.push(`  ${hidden.kind}: ${hidden.count} records hidden; expand: ${hidden.expansionCommand}`);
-  lines.push("");
-  lines.push("Expansion Commands");
-  for (const command of report.expansionCommands) lines.push(`  ${command}`);
-  lines.push("");
-  lines.push("Next Action");
-  lines.push(`  ${report.nextAction}`);
-  return lines.join("\n");
-}
-
-export function formatCompactGraph(graph: GraphSummaryRecord): string {
-  const lines: string[] = [];
-  lines.push(`Compact Graph (${graph.view}): ${graph.runId}`);
-  lines.push(`  full=${graph.fullNodeCount} nodes/${graph.fullEdgeCount} edges -> view=${graph.compactNodeCount} nodes/${graph.compactEdgeCount} edges`);
-  if (graph.collapsedNodeCount > 0) {
-    lines.push(`  Graph compacted: ${graph.collapsedNodeCount} nodes collapsed into ${graph.syntheticNodes.length} summary nodes`);
-  }
-  lines.push("");
-  lines.push("Critical Path");
-  if (!graph.criticalPath.length) lines.push("  none");
-  for (const id of graph.criticalPath.slice(0, 40)) lines.push(`  -> ${id}`);
-  lines.push("");
-  lines.push("Summary Nodes");
-  if (!graph.syntheticNodes.length) lines.push("  none");
-  for (const syn of graph.syntheticNodes) {
-    lines.push(`  [${syn.dominantStatus}] ${syn.id}: ${syn.collapsedNodeCount} nodes / ${syn.collapsedEdgeCount} edges${syn.blockedReason ? ` blocked=${syn.blockedReason}` : ""}`);
-    lines.push(`    expand: ${syn.expansionCommand}`);
-  }
-  lines.push("");
-  lines.push("Blockers");
-  if (!graph.blockedReasons.length) lines.push("  none");
-  for (const reason of graph.blockedReasons.slice(0, 20)) lines.push(`  ${reason}`);
-  lines.push("");
-  lines.push("Nodes");
-  for (const node of graph.nodes.slice(0, 80)) {
-    lines.push(`  [${node.status}] ${node.kind} ${node.id}${node.synthetic ? ` (summary of ${node.synthetic.collapsedNodeCount})` : ""}`);
-  }
-  if (graph.nodes.length > 80) lines.push(`  ... ${graph.nodes.length - 80} more`);
-  lines.push("");
-  lines.push("Next Action");
-  lines.push(`  ${graph.nextAction}`);
-  return lines.join("\n");
-}
-
-export function formatBlackboardDigest(record: BlackboardSummaryRecord): string {
-  const lines: string[] = [];
-  lines.push(`Blackboard Digest: ${record.runId}${record.blackboardId ? ` (${record.blackboardId})` : ""}`);
-  lines.push(`  freshness=${record.status}; included=${record.includedCount}; omitted=${record.omittedCount}`);
-  const section = (title: string, entries: BlackboardDigestEntry[]) => {
-    lines.push("");
-    lines.push(title);
-    if (!entries.length) {
-      lines.push("  none");
-      return;
-    }
-    for (const entry of entries.slice(0, 25)) lines.push(`  [${entry.status}] ${entry.label}; expand: ${entry.expansionCommand}`);
-    if (entries.length > 25) lines.push(`  ... ${entries.length - 25} more`);
-  };
-  section("Topic Rollups", record.topicRollups);
-  section("Thread Summaries", record.threadSummaries);
-  section("Unresolved Questions", record.unresolvedQuestions);
-  section("Conflicts", record.conflicts);
-  section("Decisions", record.decisions);
-  section("Artifacts", record.artifacts);
-  section("Adopted Evidence", record.adoptedEvidence);
-  section("Missing Evidence", record.missingEvidence);
-  section("Policy Violations", record.policyViolations);
-  section("Judge Rationale", record.judgeRationale);
-  section("Recent Changes", record.recentChanges);
-  section("High-Signal Records", record.highSignal);
-  lines.push("");
-  lines.push("Next Action");
-  lines.push(`  ${record.nextAction}`);
-  return lines.join("\n");
-}
-
-export function stateExplosionReportLines(report: StateExplosionReport): string[] {
-  // Markdown lines for inclusion in the run report.md State Size section.
-  const size = report.stateSize;
-  const lines = [
-    `- Records: ${size.total}; graph nodes: ${size.graphNodes}; graph edges: ${size.graphEdges}; messages: ${size.messages}`,
-    `- Compaction: ${size.compactionRecommended ? "recommended" : "not needed"}`,
-    `- Summary freshness: ${report.freshness.status}`
-  ];
-  for (const reason of size.reasons) lines.push(`  - ${reason}`);
-  if (report.compactGraph.collapsedNodeCount > 0) {
-    lines.push(`- Graph compacted: ${report.compactGraph.collapsedNodeCount} nodes collapsed into ${report.compactGraph.syntheticNodes.length} summary nodes`);
-    lines.push(`  - Use: \`node scripts/cw.js multi-agent graph ${report.runId} --view full --json\``);
-  }
-  if (report.hiddenSourceRecords.length) {
-    for (const hidden of report.hiddenSourceRecords) {
-      lines.push(`- Hidden ${hidden.kind}: ${hidden.count} records; expand: \`${hidden.expansionCommand}\``);
-    }
-  }
-  lines.push(`- Next: \`${report.nextAction}\``);
-  return lines;
-}
-
-// ---------------------------------------------------------------------------
 // Eval normalization (deterministic, timestamp/path-free)
 // ---------------------------------------------------------------------------
 
@@ -1538,70 +1405,15 @@ export function normalizeStateExplosionForEval(run: WorkflowRun): StateExplosion
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Helpers + human formatting now live in sibling modules (FreeBSD-audit carve).
+// Re-exported below so every importer of this module stays byte-unchanged.
 // ---------------------------------------------------------------------------
 
-function isProtectedStatus(status: string): boolean {
-  return ["failed", "blocked", "rejected", "conflicting"].includes(status);
-}
+export { fingerprintStrings } from "./state-explosion/helpers";
 
-function dominantStatus(statuses: string[]): string {
-  for (const priority of ["failed", "blocked", "rejected", "conflicting", "running", "pending"]) {
-    if (statuses.includes(priority)) return priority;
-  }
-  return statuses[0] || "completed";
-}
-
-function parentMap(edges: Array<{ from: string; to: string }>): Map<string, string> {
-  const parents = new Map<string, string>();
-  for (const edge of edges) {
-    if (!parents.has(edge.to)) parents.set(edge.to, edge.from);
-  }
-  return parents;
-}
-
-function fingerprintRecords(records: Array<{ id: string; status?: string; updatedAt?: string }>): string {
-  return fingerprintStrings(records.map((r) => `${r.id}:${r.status || ""}`).sort());
-}
-
-export function fingerprintStrings(values: string[]): string {
-  const hash = crypto.createHash("sha256");
-  hash.update(JSON.stringify([...values].sort()));
-  return `sha256:${hash.digest("hex").slice(0, 32)}`;
-}
-
-function stableLine(value: unknown): string {
-  return JSON.stringify(sortKeys(value));
-}
-
-function sortKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortKeys);
-  if (value && typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const result: Record<string, unknown> = {};
-    for (const key of Object.keys(record).sort()) result[key] = sortKeys(record[key]);
-    return result;
-  }
-  return value;
-}
-
-function stripRunId(run: WorkflowRun, id: string): string {
-  return id.startsWith(`${run.id}:`) ? id.slice(run.id.length + 1) : id;
-}
-
-function unique(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean))).sort();
-}
-
-function byId(a: { id: string }, b: { id: string }): number {
-  return a.id.localeCompare(b.id);
-}
-
-function truncate(value: string): string {
-  const single = value.replace(/\s+/g, " ").trim();
-  return single.length > 80 ? `${single.slice(0, 77)}...` : single;
-}
-
-function slug(value: string): string {
-  return value.replace(/[^a-zA-Z0-9._:-]/g, "-");
-}
+export {
+  formatStateExplosionReport,
+  formatCompactGraph,
+  formatBlackboardDigest,
+  stateExplosionReportLines
+} from "./state-explosion/format";

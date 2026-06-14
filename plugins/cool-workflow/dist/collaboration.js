@@ -553,7 +553,7 @@ function buildTimeline(run) {
             summary: `review policy: ${policy.requiredApprovals} approval(s) from [${policy.authorizedRoles.join(", ")}] for [${policy.appliesTo.join(", ")}]`
         });
     }
-    return entries.sort(compareTimeline);
+    return entries.sort(compareByCreated);
 }
 function buildNextActions(run, states, policy) {
     const actions = [];
@@ -685,9 +685,6 @@ function persist(run, options) {
     (0, state_1.saveCheckpoint)(run);
 }
 function compareByCreated(left, right) {
-    return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
-}
-function compareTimeline(left, right) {
     return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
 }
 function compact(value) {

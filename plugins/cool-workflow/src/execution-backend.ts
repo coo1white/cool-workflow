@@ -22,9 +22,7 @@
 //
 // See docs/execution-backends.7.md.
 
-import crypto from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import { spawnSync } from "node:child_process";
 import {
   AgentChildOutcome,
@@ -46,6 +44,39 @@ import {
   SandboxDimension,
   SandboxDimensionSupport
 } from "./types";
+// Pure leaf helpers — carved into ./execution-backend/util.ts (god-module carve).
+// `sha256` is re-exported below to keep the public surface byte-identical.
+import { sha256, hasExecutable, firstString, messageOf } from "./execution-backend/util";
+// Per-backend readiness probe bodies — carved into ./execution-backend/probes.ts.
+import {
+  probeNodeBackend,
+  probeShellBackend,
+  probeBunBackend,
+  probeContainerBackend,
+  probeRemoteBackend,
+  probeCiBackend,
+  probeAgentBackend
+} from "./execution-backend/probes";
+// Agent-delegation pure helpers + concurrent batch — carved into
+// ./execution-backend/agent.ts. The public symbols (stripSecretArgs,
+// AgentSpawnJob, prepareAgentSpawn, runAgentBatchOutcomes) are re-exported below.
+import {
+  AgentInvocation,
+  resolveAgentInvocation,
+  stripSecretArgs,
+  parseAgentReport,
+  agentSubstitutions,
+  substituteAgentArg,
+  recordedAgentHandle,
+  extractEndpointResult,
+  agentHandle
+} from "./execution-backend/agent";
+
+// Re-export the carved public surface so every importer of "./execution-backend"
+// is byte-unchanged (no public signature changed; pure code movement).
+export { sha256 } from "./execution-backend/util";
+export { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes } from "./execution-backend/agent";
+export type { AgentSpawnJob } from "./execution-backend/agent";
 
 export const EXECUTION_BACKEND_SCHEMA_VERSION = 1;
 export const DEFAULT_BACKEND_ID = "node";
@@ -461,84 +492,6 @@ export function probeBackend(id: string, context: { cwd?: string } = {}): Backen
   };
 }
 
-function probeNodeBackend(): BackendProbeBody {
-  const ok = hasExecutable("node");
-  return {
-    checks: [{ name: "node-runtime", ok, detail: ok ? "node on PATH" : "node not found on PATH" }],
-    readiness: ok ? "ready" : "unavailable",
-    reason: ok ? undefined : "node runtime not found on PATH"
-  };
-}
-
-function probeShellBackend(): BackendProbeBody {
-  const ok = hasExecutable("sh") || fs.existsSync("/bin/sh");
-  return {
-    checks: [{ name: "posix-shell", ok, detail: ok ? "sh available" : "no POSIX shell found" }],
-    readiness: ok ? "ready" : "unavailable",
-    reason: ok ? undefined : "POSIX shell not found"
-  };
-}
-
-function probeBunBackend(): BackendProbeBody {
-  const bun = hasExecutable("bun");
-  const node = hasExecutable("node");
-  return {
-    checks: [
-      { name: "bun-runtime", ok: bun, detail: bun ? "bun on PATH" : "bun not found; node-compatible fallback" },
-      { name: "node-compatible-fallback", ok: node, detail: node ? "node on PATH" : "node not found on PATH" }
-    ],
-    readiness: bun || node ? "ready" : "unavailable",
-    reason: !bun && node ? "bun not installed; executing via node-compatible runtime" : !bun && !node ? "neither bun nor node found on PATH" : undefined
-  };
-}
-
-function probeContainerBackend(): BackendProbeBody {
-  const docker = hasExecutable("docker");
-  const podman = hasExecutable("podman");
-  return {
-    checks: [
-      { name: "docker", ok: docker, detail: docker ? "docker on PATH" : "docker not found" },
-      { name: "podman", ok: podman, detail: podman ? "podman on PATH" : "podman not found" }
-    ],
-    readiness: docker || podman ? "ready" : "unavailable",
-    reason: docker || podman ? undefined : "no container runtime (docker/podman) found; supply --image to delegate explicitly"
-  };
-}
-
-function probeRemoteBackend(): BackendProbeBody {
-  const endpoint = (process.env.CW_REMOTE_ENDPOINT || "").trim();
-  return {
-    checks: [{ name: "endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_REMOTE_ENDPOINT configured" : "CW_REMOTE_ENDPOINT not set" }],
-    readiness: endpoint ? "ready" : "unverified",
-    reason: endpoint ? undefined : "no remote endpoint configured (set CW_REMOTE_ENDPOINT or pass --endpoint)"
-  };
-}
-
-function probeCiBackend(): BackendProbeBody {
-  const endpoint = (process.env.CW_CI_ENDPOINT || "").trim();
-  return {
-    checks: [{ name: "ci-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_CI_ENDPOINT configured" : "CW_CI_ENDPOINT not set" }],
-    readiness: endpoint ? "ready" : "unverified",
-    reason: endpoint ? undefined : "no CI job target configured (set CW_CI_ENDPOINT or pass --job)"
-  };
-}
-
-function probeAgentBackend(): BackendProbeBody {
-  // Mirrors remote/ci EXACTLY: unconfigured ⇒ `unverified` (NOT a hard refusal),
-  // configured ⇒ `ready`. "Configured" = a command-template or endpoint is set.
-  const command = (process.env.CW_AGENT_COMMAND || "").trim();
-  const endpoint = (process.env.CW_AGENT_ENDPOINT || "").trim();
-  const configured = Boolean(command || endpoint);
-  return {
-    checks: [
-      { name: "agent-command", ok: Boolean(command), detail: command ? "CW_AGENT_COMMAND configured" : "CW_AGENT_COMMAND not set" },
-      { name: "agent-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_AGENT_ENDPOINT configured" : "CW_AGENT_ENDPOINT not set" }
-    ],
-    readiness: configured ? "ready" : "unverified",
-    reason: configured ? undefined : "no agent configured (set CW_AGENT_COMMAND or CW_AGENT_ENDPOINT, or pass --agent-command/--agent-endpoint)"
-  };
-}
-
 // ---------------------------------------------------------------------------
 // The run entry. Refuses (fail closed) when the sandbox cannot be honored, the
 // command is denied by policy, or the backend is not ready. Local drivers spawn a
@@ -656,7 +609,7 @@ function executeLocal(
       backendId: descriptor.id,
       locality: descriptor.locality,
       kind: descriptor.kind,
-      attestation: { ...attestation, status: status === "completed" ? attestation.status : attestation.status, notes }
+      attestation: { ...attestation, status: attestation.status, notes }
     }
   };
 }
@@ -933,181 +886,11 @@ function runHttpDelegation(
 // API key flows from the agent's OWN inherited env; CW never reads or records it.
 // The operator-chosen CW_AGENT_MODEL is interpolated into `{{model}}` as policy
 // and recorded ONLY in secret-stripped args — it is NEVER the attested model id.
-
-interface AgentInvocation {
-  binary?: string;
-  rawArgs: string[];
-  endpoint?: string;
-  model?: string;
-  timeoutMs?: number;
-}
-
-/** Resolve the agent invocation from the request delegation > env. Vendor-neutral;
- *  the durable file config is folded in by the drive layer before this point. */
-function resolveAgentInvocation(request: ExecutionRequest): AgentInvocation {
-  const delegation = request.delegation || {};
-  const envCommand = (process.env.CW_AGENT_COMMAND || "").trim();
-  const endpoint = delegation.endpoint || (process.env.CW_AGENT_ENDPOINT || "").trim() || undefined;
-  const model = delegation.model || (process.env.CW_AGENT_MODEL || "").trim() || undefined;
-  // Accept the invocation via delegation (preferred) OR the top-level command/args.
-  let binary = delegation.command || request.command || undefined;
-  let rawArgs = delegation.args ? [...delegation.args] : request.args ? [...request.args] : [];
-  // An env-string command ("claude -p --output-format json {{manifest}}") is split
-  // into a binary + discrete argv template — NEVER shell-interpreted.
-  if (!binary && envCommand) {
-    const parts = envCommand.split(/\s+/).filter(Boolean);
-    binary = parts[0];
-    if (!delegation.args) rawArgs = parts.slice(1);
-  } else if (binary && !delegation.args && /\s/.test(binary)) {
-    const parts = binary.split(/\s+/).filter(Boolean);
-    binary = parts[0];
-    rawArgs = parts.slice(1);
-  }
-  return { binary, rawArgs, endpoint, model, timeoutMs: request.timeoutMs };
-}
-
-const AGENT_SECRET_FLAGS = new Set(["--api-key", "--apikey", "--token", "--key", "--secret", "--password", "--auth", "--bearer"]);
-
-/** Redact secrets from recorded agent args: a value FOLLOWING a known secret flag,
- *  an `--x-key=...` inline value, or a token that LOOKS like a credential. Never
- *  record a raw secret in provenance/evidence. Exported so the durable config
- *  surface strips the SAME way before persisting/showing a command template. */
-export function stripSecretArgs(args: string[]): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const arg = String(args[i]);
-    if (AGENT_SECRET_FLAGS.has(arg.toLowerCase())) {
-      out.push(arg);
-      if (i + 1 < args.length) {
-        out.push("<redacted>");
-        i++;
-      }
-      continue;
-    }
-    const inline = arg.match(/^(--?[A-Za-z][\w-]*(?:key|token|secret|password|auth|bearer)[\w-]*)=.*/i);
-    if (inline) {
-      out.push(`${inline[1]}=<redacted>`);
-      continue;
-    }
-    // Bare credential-looking token: a known provider prefix, or a long high-entropy
-    // run with NO path separators (so file paths / {{...}} substitutions survive as
-    // useful provenance). Over-redaction is safe; leaking a key is not.
-    if (/^(sk-|ghp_|gho_|github_pat_|xox[abpr]-|Bearer\s)/.test(arg) || (arg.length >= 32 && /^[A-Za-z0-9_\-]{32,}$/.test(arg))) {
-      out.push("<redacted>");
-      continue;
-    }
-    out.push(arg);
-  }
-  return out;
-}
-
-/** Best-effort parse of the AGENT-reported model id from its stdout. SOLELY the
- *  agent's own report — `unreported` when absent. Never CW_AGENT_MODEL. */
-function parseAgentReport(stdout: string): { model?: string; usage?: Record<string, unknown>; usageSignature?: string } {
-  const text = String(stdout || "").trim();
-  if (!text) return {};
-  const tryObj = (value: string): Record<string, unknown> | undefined => {
-    try {
-      const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
-    } catch {
-      return undefined;
-    }
-  };
-  let obj = tryObj(text);
-  if (!obj) {
-    const line = text
-      .split(/\r?\n/)
-      .reverse()
-      .find((entry) => entry.trim().startsWith("{") && entry.trim().endsWith("}"));
-    if (line) obj = tryObj(line.trim());
-  }
-  if (!obj) return {};
-  const usage = obj.usage && typeof obj.usage === "object" ? (obj.usage as Record<string, unknown>) : undefined;
-  let model =
-    typeof obj.model === "string"
-      ? obj.model
-      : usage && typeof usage.model === "string"
-        ? (usage.model as string)
-        : typeof obj.modelId === "string"
-          ? obj.modelId
-          : undefined;
-  // Some agents (e.g. `claude -p --output-format json`) report no top-level model;
-  // the model id(s) appear as KEYS of a `modelUsage` object. Pick the primary model
-  // (the one with the most input tokens). Still SOLELY the agent's own report.
-  if (!model && obj.modelUsage && typeof obj.modelUsage === "object" && !Array.isArray(obj.modelUsage)) {
-    const entries = Object.entries(obj.modelUsage as Record<string, unknown>);
-    if (entries.length) {
-      const tokensOf = (value: unknown): number => {
-        const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-        const input = Number(record.inputTokens ?? record.input_tokens ?? 0);
-        return Number.isFinite(input) ? input : 0;
-      };
-      entries.sort((left, right) => tokensOf(right[1]) - tokensOf(left[1]));
-      model = entries[0][0];
-    }
-  }
-  // Track 1: the executor's detached signature over its usage report, if it signs.
-  // SOLELY the agent's own field — CW verifies it later against the trust key.
-  const usageSignature =
-    typeof obj.usageSignature === "string"
-      ? obj.usageSignature
-      : typeof obj.usage_signature === "string"
-        ? (obj.usage_signature as string)
-        : undefined;
-  return { model, usage, usageSignature };
-}
-
-function agentSubstitutions(request: ExecutionRequest, model?: string): Record<string, string> {
-  const manifest = request.manifest;
-  const workerDir = manifest?.workerDir || request.cwd || "";
-  return {
-    manifest: manifest?.manifestPath || (workerDir ? path.join(workerDir, "manifest.json") : ""),
-    input: manifest?.inputPath || "",
-    result: manifest?.resultPath || "",
-    workerDir,
-    model: model || "",
-    prompt: manifest?.prompt || ""
-  };
-}
-
-function substituteAgentArg(arg: string, subst: Record<string, string>): string {
-  return arg.replace(/\{\{(\w+)\}\}/g, (_, key: string) => (key in subst ? subst[key] : `{{${key}}}`));
-}
-
-/** Build the recorded process handle for the envelope — secret-stripped + the
- *  agent-reported model. Same SHAPE that lands in provenance, never in evidence. */
-function recordedAgentHandle(
-  binary: string | undefined,
-  endpoint: string | undefined,
-  recordedArgs: string[],
-  model: string | undefined,
-  reportedModel: string,
-  reportedUsage?: Record<string, unknown>,
-  usageSignature?: string
-): BackendExecutionHandle {
-  const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
-  return {
-    kind: "process",
-    ref,
-    endpoint,
-    metadata: {
-      mode: binary ? "command" : "endpoint",
-      command: binary,
-      args: recordedArgs,
-      model,
-      reportedModel,
-      // Telemetry thread-back: the agent's OWN self-reported token usage (parsed
-      // from its stdout by parseAgentReport). ATTESTED, never measured by CW —
-      // same red-line posture as reportedModel. Lands in provenance, never in the
-      // byte-stable evidence triple. Absent when the agent reported no usage.
-      ...(reportedUsage ? { reportedUsage } : {}),
-      // Track 1: the executor's detached signature over its usage report. CW
-      // verifies it against the operator trust key at output intake.
-      ...(usageSignature ? { usageSignature } : {})
-    }
-  };
-}
+//
+// The pure agent helpers (resolveAgentInvocation, stripSecretArgs, parseAgentReport,
+// agentSubstitutions, substituteAgentArg, recordedAgentHandle, extractEndpointResult,
+// agentHandle) and the concurrent batch live in ./execution-backend/agent.ts; the
+// stateful runners below build the refusal/delegated envelopes and stay here.
 
 function runAgentProcess(
   descriptor: BackendDescriptor,
@@ -1183,117 +966,6 @@ function runAgentProcess(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Concurrent batch fulfillment (Track 2). The drive's concurrent round collects
-// agent child outcomes for a whole batch in ONE wall-clock window, then settles
-// each through runBackend with `preparedAgentOutcome` — so envelopes, refusals
-// and accept-time gates are the exact serial code path. The parallelism lives in
-// a single spawnSync'd Node delegate child (same pattern as HTTP_DELEGATE_CHILD):
-// the parent stays fully synchronous (no public-API async contagion), the child
-// spawns all agents concurrently and enforces the per-job timeout itself
-// (SIGTERM at the deadline, SIGKILL after a 5s grace) — a hung agent is KILLED
-// and counted as one failure (no exit code → the existing fail-closed refusal),
-// never a deadlock. Collect-all: a failing job NEVER aborts its siblings; every
-// job settles and is recorded.
-// ---------------------------------------------------------------------------
-
-/** One prepared agent spawn: the resolved argv for a batch job. Secrets stay in
- *  the in-memory job (the child needs the real argv); recorded provenance is
- *  secret-stripped by the settle path exactly as the serial path does. */
-export interface AgentSpawnJob {
-  binary: string;
-  args: string[];
-  cwd: string;
-  timeoutMs: number;
-}
-
-/** Resolve a request to a spawn-style batch job, or undefined when the agent is
- *  endpoint-configured/unconfigured (those settle through the serial path). */
-export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | undefined {
-  const resolved = resolveAgentInvocation(request);
-  if (!resolved.binary) return undefined;
-  const subst = agentSubstitutions(request, resolved.model);
-  return {
-    binary: resolved.binary,
-    args: resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst)),
-    cwd: request.cwd,
-    timeoutMs: resolved.timeoutMs || 600000
-  };
-}
-
-// Reads jobs JSON on stdin, spawns ALL concurrently (shell:false, inherited env —
-// the agent's own credentials resolve; CW never reads them), per-job SIGTERM at
-// timeoutMs + SIGKILL at +5s, caps each captured stdout at 32MB, and prints the
-// outcome array when every job has settled. stderr is drained (a full pipe must
-// never wedge a child). A kill yields exitCode null — the no-exit-code refusal.
-const BATCH_DELEGATE_CHILD = `
-const { spawn } = require("node:child_process");
-let raw = "";
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (d) => (raw += d));
-process.stdin.on("end", () => {
-  const jobs = JSON.parse(raw);
-  if (!jobs.length) { process.stdout.write("[]"); return; }
-  const out = new Array(jobs.length);
-  let pending = jobs.length;
-  const CAP = 32 * 1024 * 1024;
-  jobs.forEach((job, i) => {
-    let stdout = "";
-    let settled = false;
-    const settle = (o) => {
-      if (settled) return;
-      settled = true;
-      out[i] = o;
-      if (--pending === 0) process.stdout.write(JSON.stringify(out));
-    };
-    let child;
-    try {
-      child = spawn(job.binary, job.args, { cwd: job.cwd, env: process.env, shell: false });
-    } catch (error) {
-      settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
-      return;
-    }
-    const term = setTimeout(() => { try { child.kill("SIGTERM"); } catch {} }, job.timeoutMs);
-    const kill = setTimeout(() => { try { child.kill("SIGKILL"); } catch {} }, job.timeoutMs + 5000);
-    child.stdout.on("data", (d) => { if (stdout.length < CAP) stdout += d; });
-    child.stderr.on("data", () => {});
-    child.on("error", (error) => {
-      clearTimeout(term); clearTimeout(kill);
-      settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout });
-    });
-    child.on("close", (code) => {
-      clearTimeout(term); clearTimeout(kill);
-      settle({ exitCode: typeof code === "number" ? code : null, stdout });
-    });
-  });
-});
-`;
-
-/** Run a batch of agent spawns concurrently; outcomes index-align with jobs. The
- *  parent backstop timeout (max job timeout + 30s) means even a wedged delegate
- *  child cannot deadlock the drive: on any batch-level failure EVERY job settles
- *  as a fail-closed spawn refusal — never a fabricated completion, never a hang. */
-export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[] {
-  if (!jobs.length) return [];
-  const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
-  const child = spawnSync(process.execPath, ["-e", BATCH_DELEGATE_CHILD], {
-    input: JSON.stringify(jobs),
-    encoding: "utf8",
-    maxBuffer: 33 * 1024 * 1024 * jobs.length,
-    timeout: maxTimeout + 30000
-  });
-  if (!child.error && typeof child.status === "number" && child.status === 0) {
-    try {
-      const parsed = JSON.parse(String(child.stdout || "")) as AgentChildOutcome[];
-      if (Array.isArray(parsed) && parsed.length === jobs.length) return parsed;
-    } catch {
-      // fall through to the fail-closed mapping below
-    }
-  }
-  const reason = child.error ? messageOf(child.error) : `batch delegate exited ${child.status === null ? "without an exit code (timed out or killed)" : `with ${child.status}`}`;
-  return jobs.map(() => ({ spawnError: `batch delegate failed: ${reason}`, exitCode: null, stdout: "" }));
-}
-
 /** Agent HTTP endpoint variant — POSTs the worker manifest/prompt to a configured
  *  agent endpoint via the shared Node delegate child; if the endpoint returns a
  *  `result` body, CW writes it to the worker's result.md (the endpoint agent is the
@@ -1361,22 +1033,6 @@ function runAgentEndpoint(
   return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], parsed.exitCode, stdout);
 }
 
-function extractEndpointResult(stdout: string): string | undefined {
-  const text = String(stdout || "").trim();
-  if (!text) return undefined;
-  try {
-    const parsed = JSON.parse(text);
-    if (parsed && typeof parsed === "object") {
-      if (typeof (parsed as Record<string, unknown>).result === "string") return (parsed as Record<string, unknown>).result as string;
-      if (typeof (parsed as Record<string, unknown>).resultMarkdown === "string") return (parsed as Record<string, unknown>).resultMarkdown as string;
-    }
-  } catch {
-    /* not JSON — treat the raw text as the result body */
-    return text;
-  }
-  return undefined;
-}
-
 function delegationHandle(descriptor: BackendDescriptor, request: ExecutionRequest): BackendExecutionHandle | undefined {
   return getBackendDriver(descriptor.id)?.buildHandle?.(request);
 }
@@ -1406,28 +1062,6 @@ function ciHandle(request: ExecutionRequest): BackendExecutionHandle | undefined
   if (!endpoint && !jobId) return undefined;
   const ref = endpoint && jobId ? `${endpoint}#${jobId}` : jobId || endpoint || "";
   return { kind: "ci", ref, endpoint, jobId };
-}
-
-function agentHandle(request: ExecutionRequest): BackendExecutionHandle | undefined {
-  // The agent invocation is POLICY-as-DATA, resolved flags(delegation) > env. The
-  // handle records ONLY secret-stripped provenance; the raw template is re-resolved
-  // inside runAgentProcess for substitution + spawning so no secret ever lands in
-  // a recorded handle/evidence entry.
-  const resolved = resolveAgentInvocation(request);
-  if (!resolved.binary && !resolved.endpoint) return undefined;
-  const strippedArgs = stripSecretArgs(resolved.rawArgs);
-  const ref = resolved.binary ? [resolved.binary, ...strippedArgs].join(" ") : resolved.endpoint || "";
-  return {
-    kind: "process",
-    ref,
-    endpoint: resolved.endpoint,
-    metadata: {
-      mode: resolved.binary ? "command" : "endpoint",
-      command: resolved.binary,
-      args: strippedArgs,
-      model: resolved.model
-    }
-  };
 }
 
 function refusedEnvelope(
@@ -1536,34 +1170,6 @@ function commandDenied(policy: ResolvedSandboxPolicy, command: string): string |
 
 function runtimeNote(descriptor: BackendDescriptor): string {
   return getBackendDriver(descriptor.id)?.runtimeNote?.() ?? "node";
-}
-
-function hasExecutable(name: string): boolean {
-  const dirs = (process.env.PATH || "").split(path.delimiter).filter(Boolean);
-  for (const dir of dirs) {
-    const candidate = path.join(dir, name);
-    try {
-      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return true;
-    } catch {
-      // ignore unreadable PATH entries
-    }
-  }
-  return false;
-}
-
-export function sha256(value: string): string {
-  return `sha256:${crypto.createHash("sha256").update(value, "utf8").digest("hex")}`;
-}
-
-function firstString(...values: unknown[]): string | undefined {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return undefined;
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 // ---- Probe cache (v0.1.60) — mechanism, not policy -----------------------

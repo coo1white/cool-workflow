@@ -3,7 +3,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.hostRun = hostRun;
 exports.hostStatus = hostStatus;
 exports.hostStep = hostStep;
-exports.hostAutoStep = hostAutoStep;
 exports.hostBlackboard = hostBlackboard;
 exports.hostScore = hostScore;
 exports.hostSelect = hostSelect;
@@ -178,24 +177,6 @@ function hostStep(run, options = {}) {
         performed: "none",
         requiredHostAction: "No safe deterministic step is available. Use multi-agent status for the next explicit command."
     });
-}
-/** Auto-step: loop hostStep until blocked, complete, or max iterations reached
- *  (v0.1.74). Each iteration performs one deterministic step. Returns the final
- *  response and the number of steps taken. */
-function hostAutoStep(run, options = {}) {
-    const maxSteps = Number(options.maxSteps || options["max-steps"] || 20);
-    const steps = [];
-    let response = envelope(run, "step", { performed: "none" });
-    for (let i = 0; i < maxSteps; i++) {
-        response = hostStep(run, options);
-        const performed = response.data?.performed;
-        steps.push({ step: i + 1, performed: String(performed || "none") });
-        if (performed === "none" || performed === undefined)
-            break;
-        if (response.data?.requiredHostAction)
-            break;
-    }
-    return { finalResponse: response, stepsTaken: steps.length, steps };
 }
 function hostBlackboard(run, action, options = {}) {
     const topology = optionalSingleActiveTopology(run);

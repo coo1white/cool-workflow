@@ -210,7 +210,7 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
             runner.recordWorkerOutput(runId, workerId, manifest.resultPath, {});
         }
         catch (error) {
-            return handleHop(ctx, selected, workerId, `result cache rejected: ${error instanceof Error ? error.message : String(error)}`, dispatched);
+            return handleHop(ctx, selected, workerId, `result cache rejected: ${error instanceof Error ? error.message : String(error)}`);
         }
         return step("accept", "ok", {
             runId,
@@ -227,13 +227,13 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
     const reportedUsage = handle?.metadata?.reportedUsage;
     const usageSignature = handle?.metadata?.usageSignature;
     if (envelope.status !== "completed") {
-        return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, dispatched);
+        return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`);
     }
     // 3. ACCEPT — the SEPARATE recordWorkerOutput layer validates + records result.md.
     //    A missing result.md is a failed hop (pre-checked so no terminal side effect);
     //    an invalid result.md throws at validation BEFORE any state mutation.
     if (!manifest.resultPath || !node_fs_1.default.existsSync(manifest.resultPath)) {
-        return handleHop(ctx, selected, workerId, "agent produced no result.md", dispatched);
+        return handleHop(ctx, selected, workerId, "agent produced no result.md");
     }
     try {
         runner.recordWorkerOutput(runId, workerId, manifest.resultPath, {
@@ -255,7 +255,7 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
         });
     }
     catch (error) {
-        return handleHop(ctx, selected, workerId, `result.md rejected: ${error instanceof Error ? error.message : String(error)}`, dispatched);
+        return handleHop(ctx, selected, workerId, `result.md rejected: ${error instanceof Error ? error.message : String(error)}`);
     }
     if (cachePath && manifest.resultPath && node_fs_1.default.existsSync(manifest.resultPath)) {
         writeResultCache(cachePath, node_fs_1.default.readFileSync(manifest.resultPath, "utf8"));
@@ -412,7 +412,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
 }
 /** A failed agent hop: charge one attempt and (reuse v0.1.37 retryOrPark) either
  *  retry on the SAME worker scope next step, or PARK past the retry budget. */
-function handleHop(ctx, task, workerId, reason, dispatched) {
+function handleHop(ctx, task, workerId, reason) {
     const persisted = ctx.runner.showWorker(ctx.runId, workerId).retryCount || 0;
     const prior = Math.max(ctx.attempts.get(task.id) || 0, persisted);
     const entry = {
@@ -445,7 +445,6 @@ function handleHop(ctx, task, workerId, reason, dispatched) {
         });
     }
     // Retryable: leave the task running (scope reused) for the next step.
-    void dispatched;
     (0, worker_isolation_1.recordWorkerRetryAttempt)(ctx.runner.loadRun(ctx.runId), workerId, decided.attempts || prior + 1, reason);
     return step("fulfill", "failed", {
         runId: ctx.runId,
