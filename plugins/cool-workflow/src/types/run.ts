@@ -8,7 +8,7 @@ import type { MultiAgentState } from "./multi-agent";
 import type { UsageRecord } from "./observability";
 import type { PipelineContract } from "./pipeline";
 import type { ResultEnvelope, RunPaths, RunPhase, StateEvidence } from "./result";
-import type { ResolvedSandboxPolicy } from "./sandbox";
+import type { ResolvedSandboxPolicy, SandboxProfileDefinition } from "./sandbox";
 import type { StateNode } from "./state-node";
 import type { TopologyState, WorkerMultiAgentMetadata } from "./topology";
 import type { WorkerScope } from "./worker";
@@ -201,6 +201,15 @@ export interface WorkflowRun {
   };
   workers?: WorkerScope[];
   sandboxProfiles?: ResolvedSandboxPolicy[];
+  // H7: durable map of CUSTOM sandbox profile DEFINITIONS (keyed by profile id),
+  // captured at dispatch from a profile FILE. Persists with run state so a worker
+  // boundary can RE-RESOLVE a custom profile by its logical id (e.g. "my-custom")
+  // after a scope snapshot is lost — re-resolving against the CURRENT worker
+  // context, never re-reading the dispatch-time file path. Without this the
+  // re-resolve falls back to bundled-only lookup and throws not-found (fail-closed
+  // but unable to re-enforce). Definitions are stored, not resolved policies, so
+  // worker-specific path tokens ($workerDir etc.) bind to the right worker.
+  customSandboxProfiles?: Record<string, SandboxProfileDefinition>;
   candidates?: CandidateRecord[];
   candidateSelections?: CandidateSelection[];
   multiAgent?: MultiAgentState;

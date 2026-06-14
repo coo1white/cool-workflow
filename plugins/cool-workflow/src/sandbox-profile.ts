@@ -142,6 +142,18 @@ export function resolveSandboxProfileById(
     }
     return result.profile;
   }
+  // H7: a custom profile loaded from a FILE at dispatch persists as a DEFINITION
+  // in run.customSandboxProfiles (threaded here as context.customProfiles). After a
+  // worker scope snapshot is lost, the boundary re-resolves by the profile's
+  // LOGICAL id (e.g. "my-custom"), and the dispatch-time file path is gone. Resolve
+  // the persisted definition against the CURRENT (worker) context so worker-specific
+  // path tokens ($workerDir etc.) bind to THIS worker — re-enforcing the same
+  // policy instead of throwing not-found. This runs only after the bundled +
+  // file-path branches, so a custom id never shadows a bundled or on-disk profile.
+  const customDefinition = context.customProfiles?.[requested];
+  if (customDefinition) {
+    return resolveSandboxProfile(customDefinition, context);
+  }
   return showBundledSandboxProfile(requested, context);
 }
 
@@ -325,7 +337,10 @@ export function upsertRunSandboxPolicy(run: WorkflowRun, policy: ResolvedSandbox
 export function sandboxContextForRun(run: WorkflowRun): SandboxResolutionContext {
   return {
     cwd: run.cwd,
-    runDir: run.paths.runDir
+    runDir: run.paths.runDir,
+    // H7: thread persisted custom profile DEFINITIONS so a boundary re-resolve by
+    // logical id can find + re-resolve a custom profile after snapshot loss.
+    customProfiles: run.customSandboxProfiles
   };
 }
 
