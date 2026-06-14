@@ -33,6 +33,7 @@ exports.normalizeReportedUsage = normalizeReportedUsage;
 exports.verifyTelemetryAttestation = verifyTelemetryAttestation;
 exports.resolveTrustPublicKey = resolveTrustPublicKey;
 exports.signTelemetry = signTelemetry;
+exports.verifyTelemetrySignatures = verifyTelemetrySignatures;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 /** Deterministic, key-sorted JSON so signer and verifier hash byte-identical
  *  input regardless of object key order. */
@@ -153,4 +154,58 @@ function signTelemetry(usage, privateKeyPem, ctx) {
     const payload = Buffer.from(canonicalTelemetryPayload(usage, ctx), "utf8");
     const key = node_crypto_1.default.createPrivateKey(privateKeyPem);
     return node_crypto_1.default.sign(null, payload, key).toString("base64");
+}
+function stableDigest(value) {
+    return `sha256:${node_crypto_1.default.createHash("sha256").update(stableStringify(value), "utf8").digest("hex")}`;
+}
+function verifyTelemetrySignatures(records, trustPublicKeyPem) {
+    const checks = [];
+    let checked = 0;
+    let reverified = 0;
+    let failed = 0;
+    for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        if (record.attestation !== "attested")
+            continue;
+        checked += 1;
+        if (!trustPublicKeyPem) {
+            checks.push({ name: `signature[${i}]`, pass: true, code: "signature-unchecked-no-key" });
+            continue;
+        }
+        if (!record.reportedUsage) {
+            // A claimed-`attested` record with no re-verifiable raw usage cannot be
+            // independently checked — fail closed rather than trust the stored verdict.
+            failed += 1;
+            checks.push({ name: `signature[${i}]`, pass: false, code: "telemetry-usage-unavailable" });
+            continue;
+        }
+        if (record.reportedUsageDigest !== stableDigest(record.reportedUsage)) {
+            // The raw usage is stored so a public-key verifier can re-run ed25519.
+            // The hash-chained record binds its digest; verify the two still match
+            // before trusting the raw payload for signature re-verification.
+            failed += 1;
+            checks.push({ name: `signature[${i}]`, pass: false, code: "telemetry-usage-digest-mismatch" });
+            continue;
+        }
+        const result = verifyTelemetryAttestation(record.reportedUsage, record.usageSignature, trustPublicKeyPem, {
+            runId: record.runId,
+            taskId: record.taskId,
+            promptDigest: record.promptDigest
+        });
+        if (result.status === "attested") {
+            reverified += 1;
+            checks.push({ name: `signature[${i}]`, pass: true });
+        }
+        else {
+            failed += 1;
+            checks.push({
+                name: `signature[${i}]`,
+                pass: false,
+                code: result.reason && result.reason.startsWith("trust key unreadable")
+                    ? "telemetry-pubkey-unreadable"
+                    : "telemetry-signature-mismatch"
+            });
+        }
+    }
+    return { keyProvided: Boolean(trustPublicKeyPem), checked, reverified, failed, checks };
 }

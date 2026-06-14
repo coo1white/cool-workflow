@@ -88,6 +88,7 @@ function recordHashInput(record: Omit<TelemetryAttestationRecord, "recordHash">)
     taskId: record.taskId,
     promptDigest: record.promptDigest,
     reportedUsageDigest: record.reportedUsageDigest,
+    ...(record.reportedUsage !== undefined ? { reportedUsage: record.reportedUsage } : {}),
     usageSignature: record.usageSignature || null,
     attestation: record.attestation,
     attestationReason: record.attestationReason || null,
@@ -137,6 +138,9 @@ export function appendTelemetryAttestation(run: WorkflowRun, input: AppendTeleme
     taskId: input.taskId,
     promptDigest: input.promptDigest,
     reportedUsageDigest: reportedUsageDigest(input.reportedUsage),
+    // Store the raw usage verbatim, digest-bound, and hash-chained so the
+    // signature can be independently re-verified offline at `telemetry verify`.
+    ...(input.reportedUsage ? { reportedUsage: input.reportedUsage } : {}),
     usageSignature: input.usageSignature,
     attestation: input.attestation,
     attestationReason: input.attestationReason,

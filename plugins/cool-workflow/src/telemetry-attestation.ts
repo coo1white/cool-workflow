@@ -169,3 +169,109 @@ export function signTelemetry(
   const key = crypto.createPrivateKey(privateKeyPem);
   return crypto.sign(null, payload, key).toString("base64");
 }
+
+// ---------------------------------------------------------------------------
+// INDEPENDENT SIGNATURE RE-VERIFICATION (operator-side, opt-in)
+// ---------------------------------------------------------------------------
+// `verifyTelemetryLedger` re-proves the ledger's INTEGRITY (chain linkage + hash
+// recompute), which confirms the record-time attestation verdicts were not edited.
+// It does NOT re-run the ed25519 check — it trusts the stored `attestation` string
+// (protected by the chain). This helper closes that gap when an operator supplies
+// the trust public key: it RE-RUNS the crypto over each `attested` record, using the
+// raw reported usage stored verbatim on the record (the signature signs the raw
+// usage; it lives in the hash-chained ledger, so it is itself tamper-evident).
+//
+// Opt-in + fail-closed: with NO key every attested record is reported
+// `signature-unchecked-no-key` (informational, never failed → default behavior is
+// the unchanged chain-only re-proof). WITH a key, a record the ledger calls
+// `attested` whose signature does not re-verify — OR which carries no raw usage to
+// re-verify against (a pre-v0.1.80 / forged record) — FAILS, so a forged signature
+// can no longer ride a green chain.
+
+export interface TelemetrySignatureCheck {
+  name: string;
+  pass: boolean;
+  code?: string;
+}
+
+export interface TelemetrySignatureVerification {
+  /** Whether a trust public key was supplied (else every check is informational). */
+  keyProvided: boolean;
+  /** Records the ledger marks `attested` that we examined. */
+  checked: number;
+  /** Of those, how many re-verified against the key. */
+  reverified: number;
+  /** Of those, how many FAILED (signature mismatch or no re-verifiable usage). */
+  failed: number;
+  checks: TelemetrySignatureCheck[];
+}
+
+/** The minimal record shape this re-verifier needs (satisfied by
+ *  TelemetryAttestationRecord). */
+export interface ReverifiableRecord {
+  recordId: string;
+  runId: string;
+  taskId: string;
+  promptDigest: string;
+  reportedUsageDigest?: string;
+  usageSignature?: string;
+  attestation: string;
+  reportedUsage?: Record<string, unknown>;
+}
+
+function stableDigest(value: unknown): string {
+  return `sha256:${crypto.createHash("sha256").update(stableStringify(value), "utf8").digest("hex")}`;
+}
+
+export function verifyTelemetrySignatures(
+  records: ReverifiableRecord[],
+  trustPublicKeyPem: string | undefined
+): TelemetrySignatureVerification {
+  const checks: TelemetrySignatureCheck[] = [];
+  let checked = 0;
+  let reverified = 0;
+  let failed = 0;
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i];
+    if (record.attestation !== "attested") continue;
+    checked += 1;
+    if (!trustPublicKeyPem) {
+      checks.push({ name: `signature[${i}]`, pass: true, code: "signature-unchecked-no-key" });
+      continue;
+    }
+    if (!record.reportedUsage) {
+      // A claimed-`attested` record with no re-verifiable raw usage cannot be
+      // independently checked — fail closed rather than trust the stored verdict.
+      failed += 1;
+      checks.push({ name: `signature[${i}]`, pass: false, code: "telemetry-usage-unavailable" });
+      continue;
+    }
+    if (record.reportedUsageDigest !== stableDigest(record.reportedUsage)) {
+      // The raw usage is stored so a public-key verifier can re-run ed25519.
+      // The hash-chained record binds its digest; verify the two still match
+      // before trusting the raw payload for signature re-verification.
+      failed += 1;
+      checks.push({ name: `signature[${i}]`, pass: false, code: "telemetry-usage-digest-mismatch" });
+      continue;
+    }
+    const result = verifyTelemetryAttestation(record.reportedUsage, record.usageSignature, trustPublicKeyPem, {
+      runId: record.runId,
+      taskId: record.taskId,
+      promptDigest: record.promptDigest
+    });
+    if (result.status === "attested") {
+      reverified += 1;
+      checks.push({ name: `signature[${i}]`, pass: true });
+    } else {
+      failed += 1;
+      checks.push({
+        name: `signature[${i}]`,
+        pass: false,
+        code: result.reason && result.reason.startsWith("trust key unreadable")
+          ? "telemetry-pubkey-unreadable"
+          : "telemetry-signature-mismatch"
+      });
+    }
+  }
+  return { keyProvided: Boolean(trustPublicKeyPem), checked, reverified, failed, checks };
+}

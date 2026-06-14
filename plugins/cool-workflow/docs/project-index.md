@@ -8,8 +8,8 @@ Generated from the current repository code on 2026-06-14 by `npm run sync:projec
 - Version: `0.1.81`
 - Source modules: `58`
 - Workflow apps: `7`
-- Docs: `48`
-- Smoke tests: `85`
+- Docs: `49`
+- Smoke tests: `86`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -167,6 +167,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [State Explosion Management](state-explosion-management.7.md)
 - [STATE-NODE(7)](state-node.7.md)
 - [Team Collaboration](team-collaboration.7.md)
+- [Trust Model & Limitations](trust-model.md)
 - [Unix-Inspired Workflow Principles](unix-principles.md)
 - [Vendor Manifest Loadability](vendor-manifest-loadability.7.md)
 - [VERIFIER-GATED-COMMIT(7)](verifier-gated-commit.7.md)
@@ -255,6 +256,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [telemetry-fail-closed-smoke.js](../test/telemetry-fail-closed-smoke.js)
 - [telemetry-ledger-smoke.js](../test/telemetry-ledger-smoke.js)
 - [telemetry-metrics-coverage-smoke.js](../test/telemetry-metrics-coverage-smoke.js)
+- [telemetry-verify-signatures-smoke.js](../test/telemetry-verify-signatures-smoke.js)
 - [token-budget-enforcement-smoke.js](../test/token-budget-enforcement-smoke.js)
 - [vendor-manifest-load-smoke.js](../test/vendor-manifest-load-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)

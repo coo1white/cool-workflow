@@ -1421,9 +1421,10 @@ function toolDefinitions() {
             scope: stringSchema("home (default, cross-repo) or repo"),
             runId: stringSchema("Run id to verify")
         }),
-        tool("cw_telemetry_verify", "Re-prove a run's telemetry attestation ledger offline: prevHash chain linkage + independent per-record hash recompute (never trusts the stored hash). A forged or edited record fails it. Peer of `cw telemetry verify`.", {
+        tool("cw_telemetry_verify", "Re-prove a run's telemetry attestation ledger offline: prevHash chain linkage + independent per-record hash recompute (never trusts the stored hash), and optionally re-run ed25519 checks with a public key. A forged or edited record fails it. Peer of `cw telemetry verify`.", {
             cwd: stringSchema("Repo workspace"),
-            runId: stringSchema("Run id to verify")
+            runId: stringSchema("Run id to verify"),
+            pubkey: stringSchema("Optional inline PEM or path to a public key for re-checking attested signatures")
         }),
         tool("cw_history", "Read a cross-repo unified run timeline (newest first), deterministic and paginated, with provenance links.", {
             cwd: stringSchema("Repo workspace"),

@@ -37,9 +37,14 @@ export interface TelemetryAttestationRecord {
   taskId: string;
   /** sha256 of the worker prompt — binds the record to the hop. */
   promptDigest: string;
-  /** sha256 of the canonical reported usage (compact; the audit event holds the
-   *  raw usage). Tampering the recorded usage changes this and breaks the chain. */
+  /** sha256 of the canonical reported usage (compact). Tampering the recorded usage
+   *  changes this and breaks the chain. */
   reportedUsageDigest: string;
+  /** The raw reported usage the signature was computed over. Stored verbatim,
+   *  digest-bound, and hash-chained so `telemetry verify --pubkey` can re-run the
+   *  ed25519 check offline; the digest above is the compact tamper-check, this is
+   *  the re-verifiable payload. Absent on non-agent hops / pre-v0.1.80 records. */
+  reportedUsage?: Record<string, unknown>;
   /** The executor's base64 signature over the usage (the evidence verified). */
   usageSignature?: string;
   attestation: TelemetryAttestationStatus;

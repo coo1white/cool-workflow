@@ -1224,7 +1224,7 @@ async function main(): Promise<void> {
           return;
         }
         default:
-          throw new Error("Usage: cw.js telemetry verify <run-id> [--json]");
+          throw new Error("Usage: cw.js telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]");
       }
     }
     case "demo": {

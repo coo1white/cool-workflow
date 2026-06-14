@@ -18,7 +18,7 @@ faster-tested core.
   and `cw run resume <id> --drive/--once` continues an interrupted run through the existing
   agent-drive loop. Cross-vendor is proven by boot: `npm run manifest:load-check` loads all
   five generated vendor manifests (claude, codex, agents, gemini, opencode) and asserts each
-  boots the full tool surface.
+  boots the full tool surface. Telemetry verification gains `cw telemetry verify <run> --pubkey` to re-run ed25519 signature checks per attested record offline (not just the hash chain), and a new `docs/trust-model.md` states the integrity guarantee and its single-keyholder ceiling honestly.
 - **Implementation**: New verbs/fields are additive and POLA-safe (new flag/verb/env;
   existing default output byte-identical). Two real integrity bugs fixed: the trust-audit
   `computeEventHash` now binds the PERSISTED form, so worker-dispatch events (with undefined
