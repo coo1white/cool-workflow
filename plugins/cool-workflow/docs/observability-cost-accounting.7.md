@@ -198,3 +198,5 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 ## Fast Architecture Review (v0.1.80)
 
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+
+_No changes to the observability + cost-accounting surface in v0.1.81 (the observability module was carved into behavior-preserving siblings; output is byte-identical)._

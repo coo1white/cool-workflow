@@ -195,3 +195,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 ## Fast Architecture Review (v0.1.80)
 
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+
+## Deterministic Freed Manifest (v0.1.81)
+
+The freed manifest is path-sorted before it feeds `tombstoneHash`, so reclamation's write-ahead tombstone hash-chain is reproducible across hosts regardless of filesystem enumeration order. Reclaimed tiers, the re-point seam, and the default (reclaim-nothing) policy are unchanged.

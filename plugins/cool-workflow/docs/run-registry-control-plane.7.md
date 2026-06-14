@@ -395,3 +395,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 ## Fast Architecture Review (v0.1.80)
 
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+
+## Resume Drive, Inspect-Archive & Restore Re-Prove (v0.1.81)
+
+v0.1.81 adds `run resume <id> --drive/--once` (continue an interrupted run via the agent-drive loop; default resume stays read-only and byte-identical), `run inspect-archive PATH` (read-only archive integrity check that names any offending file without importing), and restore-time hardening: `verify-import` now re-proves the trust-audit chain on restore and gains `--strict`, and `CW_REQUIRE_ARCHIVE_INTEGRITY=1` refuses a stripped-integrity archive before any write.
