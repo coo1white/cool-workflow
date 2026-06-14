@@ -42,6 +42,9 @@ block).
 - [ ] On the "single key holder / no second party" critique (the audit flagged it
       too): concede it honestly and frame it as exactly why you're looking for early
       integration partners. **Turn the critique into an invitation; don't argue.**
+  > The canned, linkable answer is already written: [docs/trust-model.md](../trust-model.md)
+  > states the ceiling plainly (integrity ≠ source honesty; one party holding both
+  > roles; full local re-chain) and frames the partner ask. Link it; don't re-argue it.
 - [ ] No vote-rigging, no asking friends to upvote, no deleting critical comments —
       HN's anti-abuse will sink the post.
 
