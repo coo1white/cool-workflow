@@ -34,36 +34,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RunRegistry = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.RUN_REGISTRY_SCHEMA_VERSION = void 0;
+exports.formatQueueList = exports.formatHistory = exports.formatResume = exports.formatGcVerify = exports.formatGcRun = exports.formatGcPlan = exports.formatRunShow = exports.formatRunSearch = exports.formatRegistryReport = exports.RunRegistry = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.RUN_REGISTRY_SCHEMA_VERSION = exports.isRunLifecycleState = exports.compareQueue = void 0;
 exports.resolveCwHome = resolveCwHome;
 exports.deriveLifecycle = deriveLifecycle;
-exports.compareQueue = compareQueue;
-exports.isRunLifecycleState = isRunLifecycleState;
-exports.formatRegistryReport = formatRegistryReport;
-exports.formatRunSearch = formatRunSearch;
-exports.formatRunShow = formatRunShow;
-exports.formatGcPlan = formatGcPlan;
-exports.formatGcRun = formatGcRun;
-exports.formatGcVerify = formatGcVerify;
-exports.formatResume = formatResume;
-exports.formatHistory = formatHistory;
-exports.formatQueueList = formatQueueList;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_os_1 = __importDefault(require("node:os"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
 const reclamation_1 = require("./reclamation");
+const derive_1 = require("./run-registry/derive");
+Object.defineProperty(exports, "compareQueue", { enumerable: true, get: function () { return derive_1.compareQueue; } });
+Object.defineProperty(exports, "isRunLifecycleState", { enumerable: true, get: function () { return derive_1.isRunLifecycleState; } });
 exports.RUN_REGISTRY_SCHEMA_VERSION = 1;
-const LIFECYCLE_STATES = [
-    "queued",
-    "running",
-    "blocked",
-    "completed",
-    "failed",
-    "archived",
-    "reclaimed"
-];
 // POLICY defaults. Configurable; never baked into the index. archiveOlderThanDays
 // = 0 disables retention archiving (explicit selection still works). The v0.1.39
 // reclamation knobs all default to RECLAIM NOTHING (back-compatible, opt-in).
@@ -313,7 +296,7 @@ class RunRegistry {
         // Run Retention & Provable Reclamation (v0.1.39): the per-run reclaimed.json
         // overlay (if any) raises the disk-tier above `archived` and downgrades the
         // capability. Derived from source, never invented.
-        const reclaim = loadReclaimedFromDir(runDir);
+        const reclaim = (0, derive_1.loadReclaimedFromDir)(runDir);
         const lastTombstone = reclaim.tombstones[reclaim.tombstones.length - 1];
         const tier = lastTombstone ? "reclaimed" : archive ? "archived" : "live";
         const capability = lastTombstone ? lastTombstone.capability : "re-runnable";
@@ -356,8 +339,8 @@ class RunRegistry {
             commitCount: (run.commits || []).length,
             verifierGatedCommitCount: li.verifierGatedCommits,
             openFeedbackCount: li.openFeedback,
-            backends: distinctBackends(run),
-            inputsDigest: digestInputs(run.inputs),
+            backends: (0, derive_1.distinctBackends)(run),
+            inputsDigest: (0, derive_1.digestInputs)(run.inputs),
             sourceFingerprint: fingerprintRun(run),
             freshness: "valid",
             provenance
@@ -379,7 +362,7 @@ class RunRegistry {
             if (record)
                 records.push(record);
         }
-        return records.sort(compareRecords);
+        return records.sort(derive_1.compareRecords);
     }
     // ---- index construction (current truth) ---------------------------------
     /** Build the CURRENT index fresh from source for the requested scope. This is
@@ -389,7 +372,7 @@ class RunRegistry {
         const records = [];
         for (const repo of repos)
             records.push(...this.scanRepo(repo));
-        records.sort(compareRecords);
+        records.sort(derive_1.compareRecords);
         const queue = scope === "home" ? this.loadQueue() : this.loadQueue().filter((q) => node_path_1.default.resolve(q.repo) === this.repoRoot);
         const sourceFingerprint = fingerprintStrings([
             ...repos.map((r) => `repo:${r}`),
@@ -404,7 +387,7 @@ class RunRegistry {
             repos,
             records,
             queue,
-            counts: countRecords(records)
+            counts: (0, derive_1.countRecords)(records)
         };
     }
     persistedIndexPath(scope) {
@@ -496,20 +479,20 @@ class RunRegistry {
         const index = this.buildIndex(scope);
         const report = this.report(scope, index);
         const query = {
-            text: optionalLower(raw.text),
-            app: optionalLower(raw.app),
+            text: (0, derive_1.optionalLower)(raw.text),
+            app: (0, derive_1.optionalLower)(raw.app),
             status: raw.status,
             repo: raw.repo ? node_path_1.default.resolve(raw.repo) : undefined,
             since: raw.since,
             until: raw.until,
             includeArchived: raw.includeArchived ?? true,
-            offset: clampInt(raw.offset, 0, 0),
-            limit: clampInt(raw.limit, 50, 1)
+            offset: (0, derive_1.clampInt)(raw.offset, 0, 0),
+            limit: (0, derive_1.clampInt)(raw.limit, 50, 1)
         };
-        let records = index.records.filter((record) => matchesQuery(record, query));
+        let records = index.records.filter((record) => (0, derive_1.matchesQuery)(record, query));
         if (!query.includeArchived)
             records = records.filter((record) => !record.archived);
-        records.sort(compareRecords);
+        records.sort(derive_1.compareRecords);
         const total = records.length;
         const page = records.slice(query.offset, query.offset + query.limit);
         return {
@@ -618,7 +601,7 @@ class RunRegistry {
         }
         const record = located.record;
         const run = this.loadRun(record.repo, runId);
-        const limit = clampInt(options.limit, 5, 1);
+        const limit = (0, derive_1.clampInt)(options.limit, 5, 1);
         const nextTasks = (run.tasks || [])
             .filter((t) => t.status === "pending" || t.status === "running")
             .slice(0, limit)
@@ -1000,7 +983,7 @@ class RunRegistry {
             const entries = this.loadQueue();
             const entry = {
                 schemaVersion: 1,
-                id: options.id || queueId(),
+                id: options.id || (0, derive_1.queueId)(),
                 runId: options.runId,
                 appId: options.appId,
                 workflowId: options.workflowId,
@@ -1025,7 +1008,7 @@ class RunRegistry {
             const repo = node_path_1.default.resolve(options.repo);
             entries = entries.filter((e) => node_path_1.default.resolve(e.repo) === repo);
         }
-        entries = [...entries].sort(compareQueue);
+        entries = [...entries].sort(derive_1.compareQueue);
         return { schemaVersion: 1, total: entries.length, entries };
     }
     queueShow(id) {
@@ -1037,7 +1020,7 @@ class RunRegistry {
     /** Drain the next N ready/pending entries in policy order, marking them drained.
      *  CW records readiness/order; the HOST still executes the workers. */
     queueDrain(options = {}) {
-        const limit = clampInt(options.limit, 1, 1);
+        const limit = (0, derive_1.clampInt)(options.limit, 1, 1);
         const repoFilter = options.repo ? node_path_1.default.resolve(options.repo) : undefined;
         // Lock the drain RMW so two hosts can never double-drain the same entry
         // (v0.1.40, P1-D — the scheduling kernel's concurrency ceiling now holds
@@ -1047,7 +1030,7 @@ class RunRegistry {
             const drainable = entries
                 .filter((e) => e.status === "pending" || e.status === "ready")
                 .filter((e) => !repoFilter || node_path_1.default.resolve(e.repo) === repoFilter)
-                .sort(compareQueue);
+                .sort(derive_1.compareQueue);
             const drained = [];
             const drainedAt = new Date().toISOString();
             for (const entry of drainable.slice(0, limit)) {
@@ -1065,15 +1048,15 @@ class RunRegistry {
         const scope = options.scope || "home";
         const index = this.buildIndex(scope);
         const report = this.report(scope, index);
-        const app = optionalLower(options.app);
-        const limit = clampInt(options.limit, 50, 1);
-        const offset = clampInt(options.offset, 0, 0);
+        const app = (0, derive_1.optionalLower)(options.app);
+        const limit = (0, derive_1.clampInt)(options.limit, 50, 1);
+        const offset = (0, derive_1.clampInt)(options.offset, 0, 0);
         let records = index.records;
         if (app)
             records = records.filter((r) => (r.appId || r.workflowId || "").toLowerCase().includes(app));
         if (options.status)
             records = records.filter((r) => r.lifecycle === options.status || r.derivedLifecycle === options.status);
-        const ordered = [...records].sort(compareHistory);
+        const ordered = [...records].sort(derive_1.compareHistory);
         const total = ordered.length;
         const page = ordered.slice(offset, offset + limit);
         const entries = page.map((r) => ({
@@ -1102,253 +1085,16 @@ class RunRegistry {
     }
 }
 exports.RunRegistry = RunRegistry;
-// ---------------------------------------------------------------------------
-// pure helpers
-// ---------------------------------------------------------------------------
-function compareRecords(a, b) {
-    if (a.createdAt !== b.createdAt)
-        return a.createdAt < b.createdAt ? -1 : 1;
-    return a.runId.localeCompare(b.runId);
-}
-function compareHistory(a, b) {
-    // Newest first.
-    if (a.createdAt !== b.createdAt)
-        return a.createdAt < b.createdAt ? 1 : -1;
-    return a.runId.localeCompare(b.runId);
-}
-function compareQueue(a, b) {
-    if (a.priority !== b.priority)
-        return a.priority - b.priority;
-    if (a.enqueuedAt !== b.enqueuedAt)
-        return a.enqueuedAt < b.enqueuedAt ? -1 : 1;
-    return a.id.localeCompare(b.id);
-}
-function matchesQuery(record, query) {
-    if (query.app && !(record.appId || record.workflowId || "").toLowerCase().includes(query.app))
-        return false;
-    if (query.status && record.lifecycle !== query.status && record.derivedLifecycle !== query.status)
-        return false;
-    if (query.repo && node_path_1.default.resolve(record.repo) !== query.repo)
-        return false;
-    if (query.since && record.createdAt < query.since)
-        return false;
-    if (query.until && record.createdAt > query.until)
-        return false;
-    if (query.text) {
-        const haystack = [
-            record.runId,
-            record.appId,
-            record.workflowId,
-            record.title,
-            record.repo,
-            record.lifecycle,
-            record.loopStage,
-            record.inputsDigest
-        ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-        if (!haystack.includes(query.text))
-            return false;
-    }
-    return true;
-}
-/** Bounded, deterministic stringification of run inputs for free-text search.
- *  Descriptive intent keys (question, prompt, ...) come first so they survive
- *  truncation; the rest follow alphabetically. Deterministic and compact. */
-const DIGEST_PRIORITY_KEYS = ["question", "prompt", "task", "summary", "title", "objective", "focus", "topic"];
-/** Distinct execution backends used by a run's dispatches/tasks, recomputed from
- *  source state. Sorted; empty for pre-v0.1.29 / default-only runs that never
- *  recorded a backend. The registry stays backend-agnostic — this is metadata. */
-function distinctBackends(run) {
-    const backends = new Set();
-    for (const dispatch of run.dispatches || []) {
-        if (dispatch.backendId)
-            backends.add(dispatch.backendId);
-    }
-    for (const task of run.tasks || []) {
-        if (task.backendId)
-            backends.add(task.backendId);
-    }
-    return [...backends].sort();
-}
-function digestInputs(inputs) {
-    if (!inputs || typeof inputs !== "object")
-        return undefined;
-    const keys = Object.keys(inputs);
-    const ordered = [
-        ...DIGEST_PRIORITY_KEYS.filter((k) => keys.includes(k)),
-        ...keys.filter((k) => !DIGEST_PRIORITY_KEYS.includes(k)).sort()
-    ];
-    const parts = [];
-    for (const key of ordered) {
-        const value = inputs[key];
-        if (value === undefined || value === null)
-            continue;
-        const rendered = Array.isArray(value) ? value.join(",") : typeof value === "object" ? JSON.stringify(value) : String(value);
-        parts.push(`${key}=${rendered}`);
-    }
-    const joined = parts.join(" ").replace(/\s+/g, " ").trim();
-    return joined.length > 360 ? `${joined.slice(0, 357)}...` : joined;
-}
-function countRecords(records) {
-    const counts = {
-        total: records.length,
-        queued: 0,
-        running: 0,
-        blocked: 0,
-        completed: 0,
-        failed: 0,
-        archived: 0,
-        reclaimed: 0
-    };
-    for (const record of records) {
-        counts[record.lifecycle] = (counts[record.lifecycle] || 0) + 1;
-    }
-    return counts;
-}
-function optionalLower(value) {
-    if (value === undefined || value === null || value === "")
-        return undefined;
-    return String(value).toLowerCase();
-}
-function clampInt(value, fallback, min) {
-    const n = Number(value);
-    if (!Number.isFinite(n))
-        return fallback;
-    return Math.max(min, Math.floor(n));
-}
-let queueCounter = 0;
-function queueId() {
-    queueCounter += 1;
-    const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
-    return `q-${stamp}-${String(queueCounter).padStart(3, "0")}`;
-}
-function isRunLifecycleState(value) {
-    return typeof value === "string" && LIFECYCLE_STATES.includes(value);
-}
-/** Read a run dir's `reclaimed.json` overlay (v0.1.39). Fail-closed to an empty
- *  chain on absence/corruption — a malformed overlay must never brick the run. */
-function loadReclaimedFromDir(runDir) {
-    const file = node_path_1.default.join(runDir, "reclaimed.json");
-    if (!node_fs_1.default.existsSync(file))
-        return { schemaVersion: 1, runId: "", tombstones: [] };
-    try {
-        const parsed = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
-        return { schemaVersion: 1, runId: parsed.runId || "", tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [] };
-    }
-    catch {
-        return { schemaVersion: 1, runId: "", tombstones: [] };
-    }
-}
-// ---------------------------------------------------------------------------
-// Human formatting (CLI-only; never affects --json / MCP payloads)
-// ---------------------------------------------------------------------------
-function countsLine(counts) {
-    return `total=${counts.total} queued=${counts.queued} running=${counts.running} blocked=${counts.blocked} completed=${counts.completed} failed=${counts.failed} archived=${counts.archived} reclaimed=${counts.reclaimed}`;
-}
-function recordLine(record) {
-    const flags = [record.archived ? "archived" : "", record.provenance?.rerunOf ? `rerunOf=${record.provenance.rerunOf}` : ""].filter(Boolean).join(" ");
-    return `  [${record.lifecycle}] ${record.runId} (${record.appId || record.workflowId}) ${record.loopStage}${flags ? ` {${flags}}` : ""}`;
-}
-function formatRegistryReport(report) {
-    const lines = [];
-    lines.push(`Run Registry (${report.scope}): ${report.root}`);
-    lines.push(`Freshness: ${report.freshness.status}${report.freshness.staleRuns.length ? ` (stale: ${report.freshness.staleRuns.join(", ")})` : ""}${report.freshness.missingRuns.length ? ` (missing: ${report.freshness.missingRuns.join(", ")})` : ""}`);
-    lines.push(`Repos: ${report.index.repos.length}`);
-    lines.push(countsLine(report.counts));
-    if (report.freshness.status !== "valid")
-        lines.push(`Next Action: ${report.nextAction}`);
-    return lines.join("\n");
-}
-function formatRunSearch(result) {
-    const lines = [];
-    lines.push(`Run Search (${result.scope}): ${result.total} match(es), showing ${result.records.length} [offset ${result.offset}] freshness=${result.freshness}`);
-    for (const record of result.records)
-        lines.push(recordLine(record));
-    if (!result.records.length)
-        lines.push("  (no matching runs)");
-    return lines.join("\n");
-}
-function formatRunShow(result) {
-    if (!result.found) {
-        return `Run ${result.runId}: MISSING (source state.json absent — fail closed). Next: ${result.nextAction}`;
-    }
-    const r = result.record;
-    const lines = [
-        `Run ${r.runId} [${r.lifecycle}] (derived: ${r.derivedLifecycle})`,
-        `  app=${r.appId || r.workflowId} loopStage=${r.loopStage} repo=${r.repo}`,
-        `  tasks: total=${r.tasks.total} pending=${r.tasks.pending} running=${r.tasks.running} failed=${r.tasks.failed} completed=${r.tasks.completed}`,
-        `  commits=${r.commitCount} (verifier-gated=${r.verifierGatedCommitCount}) openFeedback=${r.openFeedbackCount}`
-    ];
-    if (r.provenance?.rerunOf)
-        lines.push(`  provenance: rerunOf=${r.provenance.rerunOf} gen=${r.provenance.generation} origin=${r.provenance.originRunId}`);
-    if (r.tier && r.tier !== "live") {
-        lines.push(`  tier=${r.tier} capability=${r.capability} reason=${r.capabilityReason}${r.reclaimedBytes ? ` bytesFreed=${r.reclaimedBytes}` : ""}${r.tombstoneHash ? ` tombstone=${r.tombstoneHash.slice(0, 19)}` : ""}`);
-    }
-    return lines.join("\n");
-}
-function formatGcPlan(result) {
-    const lines = [
-        `GC Plan (${result.scope}): ${result.eligibleCount}/${result.total} eligible, ${result.bytesToFree} byte(s) would be freed [DRY-RUN, frees nothing]`,
-        `  policy: reclaimAfterArchiveDays=${result.policy.reclaimAfterArchiveDays} keepScratch=${result.policy.keepScratch} keepSnapshots=${result.policy.keepSnapshots}`
-    ];
-    for (const entry of result.entries) {
-        if (entry.eligible) {
-            const kinds = Object.entries(entry.byKind).map(([k, v]) => `${k}=${v}`).join(" ");
-            lines.push(`  [eligible] ${entry.runId} -> ${entry.capability} (${entry.capabilityReason}) ${entry.bytesToFree}B {${kinds}}`);
-        }
-        else {
-            lines.push(`  [skip:${entry.reason}] ${entry.runId} (tier=${entry.tier})`);
-        }
-    }
-    if (!result.entries.length)
-        lines.push("  (no runs in scope)");
-    return lines.join("\n");
-}
-function formatGcRun(result) {
-    const lines = [`GC Run (${result.scope}): reclaimed ${result.reclaimed.length} run(s), freed ${result.totalBytesFreed} byte(s)`];
-    for (const r of result.reclaimed)
-        lines.push(`  [reclaimed] ${r.runId} -> ${r.capability} (${r.capabilityReason}) ${r.bytesFreed}B tombstone=${r.tombstoneHash.slice(0, 19)}`);
-    for (const r of result.refused)
-        lines.push(`  [refused:${r.code}] ${r.runId}`);
-    if (!result.reclaimed.length && !result.refused.length)
-        lines.push("  (nothing eligible)");
-    return lines.join("\n");
-}
-function formatGcVerify(result) {
-    const lines = [
-        `GC Verify ${result.runId}: reclaimed=${result.reclaimed} verified=${result.verified} tier=${result.tier} capability=${result.capability}${result.tombstoneHash ? ` tombstone=${result.tombstoneHash.slice(0, 19)}` : ""}`
-    ];
-    for (const check of result.checks)
-        lines.push(`  ${check.pass ? "PASS" : "FAIL"} ${check.name}${check.code ? ` [${check.code}]` : ""}${check.detail ? ` (${check.detail})` : ""}`);
-    return lines.join("\n");
-}
-function formatResume(result) {
-    const lines = [
-        `Resume ${result.runId} [${result.lifecycle}] loopStage=${result.loopStage} (resolved from ${result.resolvedFrom}, ${result.freshness})`,
-        `  resumable=${result.resumable} nextTasks=${result.nextTasks.length}`
-    ];
-    for (const action of result.nextActions)
-        lines.push(`  -> ${action.command}\n     ${action.reason}`);
-    return lines.join("\n");
-}
-function formatHistory(result) {
-    const lines = [];
-    lines.push(`Run History (${result.scope}): ${result.total} run(s) across ${result.repos.length} repo(s), freshness=${result.freshness}`);
-    for (const entry of result.entries) {
-        lines.push(`  ${entry.createdAt} [${entry.lifecycle}] ${entry.runId} (${entry.appId || entry.workflowId})${entry.provenance?.rerunOf ? ` rerunOf=${entry.provenance.rerunOf}` : ""}`);
-    }
-    if (!result.entries.length)
-        lines.push("  (no runs)");
-    return lines.join("\n");
-}
-function formatQueueList(result) {
-    const lines = [`Run Queue: ${result.total} entry(ies) [priority asc]`];
-    for (const entry of result.entries) {
-        lines.push(`  #${entry.priority} ${entry.id} [${entry.status}] ${entry.appId || entry.workflowId || entry.runId || "?"} repo=${entry.repo}${entry.note ? ` note=${entry.note}` : ""}`);
-    }
-    if (!result.entries.length)
-        lines.push("  (queue empty)");
-    return lines.join("\n");
-}
+// Human formatting (CLI-only) now lives in ./run-registry/format.ts (FreeBSD-
+// audit R2: rendering carved out of the registry class). Re-exported so that
+// importers of "./run-registry" see an unchanged surface.
+var format_1 = require("./run-registry/format");
+Object.defineProperty(exports, "formatRegistryReport", { enumerable: true, get: function () { return format_1.formatRegistryReport; } });
+Object.defineProperty(exports, "formatRunSearch", { enumerable: true, get: function () { return format_1.formatRunSearch; } });
+Object.defineProperty(exports, "formatRunShow", { enumerable: true, get: function () { return format_1.formatRunShow; } });
+Object.defineProperty(exports, "formatGcPlan", { enumerable: true, get: function () { return format_1.formatGcPlan; } });
+Object.defineProperty(exports, "formatGcRun", { enumerable: true, get: function () { return format_1.formatGcRun; } });
+Object.defineProperty(exports, "formatGcVerify", { enumerable: true, get: function () { return format_1.formatGcVerify; } });
+Object.defineProperty(exports, "formatResume", { enumerable: true, get: function () { return format_1.formatResume; } });
+Object.defineProperty(exports, "formatHistory", { enumerable: true, get: function () { return format_1.formatHistory; } });
+Object.defineProperty(exports, "formatQueueList", { enumerable: true, get: function () { return format_1.formatQueueList; } });
