@@ -704,6 +704,16 @@ async function main() {
                 case "summary":
                     printJson(runner.auditSummary(required(runId, "run id")));
                     return;
+                case "verify": {
+                    const result = (0, capability_core_1.auditVerify)(runner, { ...args.options, runId: required(runId, "run id") });
+                    printJson(result);
+                    // Fail-closed: a PRESENT-but-unverified (forged/edited/truncated) chain
+                    // exits non-zero so `cw audit verify <run> && deploy` stops. An absent
+                    // chain (present:false / verified:true) stays exit 0 — nothing to prove.
+                    if (result.present && !result.verified)
+                        process.exitCode = 1;
+                    return;
+                }
                 case "worker":
                     printJson(runner.workerAudit(required(runId, "run id"), required(id, "worker id")));
                     return;

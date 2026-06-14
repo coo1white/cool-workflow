@@ -66,12 +66,14 @@ exports.withoutRuntimeKeys = withoutRuntimeKeys;
 exports.optionalString = optionalString;
 exports.isRecord = isRecord;
 exports.telemetryVerify = telemetryVerify;
+exports.auditVerify = auditVerify;
 exports.demoTamper = demoTamper;
 const drive_1 = require("./drive");
 const agent_config_1 = require("./agent-config");
 const run_registry_1 = require("./run-registry");
 const observability_1 = require("./observability");
 const telemetry_ledger_1 = require("./telemetry-ledger");
+const trust_audit_1 = require("./trust-audit");
 const telemetry_demo_1 = require("./telemetry-demo");
 const state_1 = require("./state");
 const run_export_1 = require("./run-export");
@@ -685,6 +687,30 @@ function telemetryVerify(runner, args) {
         attested: v.attested,
         unattested: v.unattested,
         absent: v.absent,
+        failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code }))
+    };
+}
+// audit.verify — fail-closed re-prove of a run's trust-audit hash chain. The peer
+// of telemetry.verify for the sandbox/policy/commit-gate decision log: recomputes
+// every event hash from genesis, checks chain linkage, and catches the
+// unchained-event forgery. Exposed as a verb (not just embedded in `audit summary`,
+// which always exits 0) so `cw audit verify <run> && deploy` can gate on the exit
+// code. POLA: a run with no audit log is present:false / verified:true / exit 0.
+function auditVerify(runner, args) {
+    const runId = optionalString(args.runId || args.run);
+    if (!runId)
+        throw new Error("audit verify requires a run id (cw audit verify <run-id>)");
+    const run = runner.loadRun(runId);
+    const v = (0, trust_audit_1.verifyTrustAudit)(run);
+    return {
+        schemaVersion: 1,
+        runId: run.id,
+        present: v.present,
+        verified: v.verified,
+        eventCount: v.eventCount,
+        chained: v.chained,
+        unchained: v.unchained,
+        corruptLines: v.corruptLines,
         failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code }))
     };
 }

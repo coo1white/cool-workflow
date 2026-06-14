@@ -115,6 +115,29 @@ Human output includes stable panels:
 - Policy Violations
 - Next Action
 
+## Verify (fail-closed)
+
+`audit summary` embeds an `integrity` field but is a *reader* — it always exits 0,
+so it cannot gate a script. `audit verify` is the gate:
+
+```bash
+node scripts/cw.js audit verify <run-id>        # exit 1 if the chain is forged
+node scripts/cw.js audit verify <run-id> --json
+```
+
+It re-proves the run's trust-audit hash chain offline: it recomputes every event
+hash from genesis, checks `prevEventHash` linkage, and catches the unchained-event
+forgery (an `eventHash`-less line slipped into a chained log to be waved through as
+"legacy"). The JSON reports `present`, `verified`, `eventCount`, `chained`,
+`unchained`, `corruptLines`, and `failedChecks[]`.
+
+Exit-code contract (the peer of `telemetry verify`):
+
+- A **present-but-unverified** chain (forged / edited / truncated / unchained-injected)
+  exits **1** — so `cw audit verify <run> && deploy` stops on tampering.
+- An **absent** chain is `present:false` / `verified:true` / exit **0** — a run with
+  no audit log has nothing to prove (no false-red).
+
 ## MCP
 
 MCP parity tools:
@@ -128,6 +151,7 @@ MCP parity tools:
 The older audit tools remain available:
 
 - `cw_audit_summary`
+- `cw_audit_verify` — fail-closed re-prove of the trust-audit hash chain (peer of `cw_telemetry_verify`)
 - `cw_audit_worker`
 - `cw_audit_provenance`
 - `cw_audit_attest`

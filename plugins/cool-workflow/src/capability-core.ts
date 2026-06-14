@@ -25,6 +25,7 @@ import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
 import { RunRegistry, isRunLifecycleState } from "./run-registry";
 import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
 import { verifyTelemetryLedger } from "./telemetry-ledger";
+import { verifyTrustAudit } from "./trust-audit";
 import { runTamperDemo, TelemetryVerifyResult } from "./telemetry-demo";
 import { loadRunStateFile, readJson, writeJson } from "./state";
 import { exportRun, importRun, verifyImportedRun } from "./run-export";
@@ -698,6 +699,40 @@ export function telemetryVerify(runner: CoolWorkflowRunner, args: Record<string,
     attested: v.attested,
     unattested: v.unattested,
     absent: v.absent,
+    failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code }))
+  };
+}
+
+// audit.verify — fail-closed re-prove of a run's trust-audit hash chain. The peer
+// of telemetry.verify for the sandbox/policy/commit-gate decision log: recomputes
+// every event hash from genesis, checks chain linkage, and catches the
+// unchained-event forgery. Exposed as a verb (not just embedded in `audit summary`,
+// which always exits 0) so `cw audit verify <run> && deploy` can gate on the exit
+// code. POLA: a run with no audit log is present:false / verified:true / exit 0.
+export function auditVerify(runner: CoolWorkflowRunner, args: Record<string, unknown>): {
+  schemaVersion: 1;
+  runId: string;
+  present: boolean;
+  verified: boolean;
+  eventCount: number;
+  chained: number;
+  unchained: number;
+  corruptLines: number;
+  failedChecks: Array<{ name: string; code?: string }>;
+} {
+  const runId = optionalString(args.runId || args.run);
+  if (!runId) throw new Error("audit verify requires a run id (cw audit verify <run-id>)");
+  const run = runner.loadRun(runId);
+  const v = verifyTrustAudit(run);
+  return {
+    schemaVersion: 1,
+    runId: run.id,
+    present: v.present,
+    verified: v.verified,
+    eventCount: v.eventCount,
+    chained: v.chained,
+    unchained: v.unchained,
+    corruptLines: v.corruptLines,
     failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code }))
   };
 }
