@@ -17,9 +17,17 @@
 // Portable by design: node only, no test framework, no new dependency — same
 // constraint the rest of the repo's tooling holds to (node/npm/git only).
 //
-// Sequential by default (CW_TEST_CONCURRENCY=1) because some smokes operate in
-// the package cwd's .cw/ rather than a private tmpdir, so parallel runs could
-// race. Opt into parallelism explicitly: CW_TEST_CONCURRENCY=4 npm test.
+// Parallel-safe by construction: every smoke runs in its OWN private cwd with
+// its OWN state roots (CW_HOME/XDG_STATE_HOME/HOME/TMPDIR all point at a
+// per-child tmpdir, torn down after). That isolates the two roots CW writes —
+// the repo `.cw/` (resolved from cwd) and the home registry (resolved from
+// CW_HOME) — so concurrent smokes never share `.cw/`, the home registry, or a
+// file lock. This replaces the previous "some smokes race on the shared
+// package .cw/" hazard that forced sequential execution.
+//
+// The DEFAULT stays sequential (concurrency 1) as a deterministic backstop for
+// the bare `npm test` / tag-gate path; the high-frequency CI surfaces opt into
+// `--concurrency auto`. Override anytime: CW_TEST_CONCURRENCY=4 or --concurrency.
 
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -66,23 +74,60 @@ if (smokes.length === 0) {
   process.exit(1);
 }
 
+// Timing-benchmark smokes that ASSERT wall-clock thresholds to prove CW's own
+// concurrency beats serial. Their measurement is only valid on a QUIET cpu —
+// co-tenant load from the parallel pool inflates their wall-clock past the bound
+// and red-flakes them (surfaced by a stress sweep at --concurrency 16/8). They
+// are fully state-isolated like every other smoke (private sandbox); they are
+// only contention-SENSITIVE, so the runner runs them ALONE, after the pool
+// drains, where the cpu is quiet. Keep this list MINIMAL and justified — it is
+// not an escape hatch for races (those must be fixed), only for timing assays.
+const SERIAL_ONLY = new Set(["concurrent-failure-semantics-smoke.js", "parallel-onramp-smoke.js"]);
+const pooledSmokes = smokes.filter((file) => !SERIAL_ONLY.has(file));
+const serialSmokes = smokes.filter((file) => SERIAL_ONLY.has(file));
+
+// Build a private, fully-isolated sandbox for one smoke child: a unique cwd plus
+// state-root env so the smoke's repo `.cw/` (cwd-derived) and home registry
+// (CW_HOME-derived, default ~/.local/state — shared otherwise) land in throwaway
+// dirs. No smoke reads anything relative to cwd (requires resolve against the
+// test file, spawns use absolute __dirname paths), so the private cwd is safe.
+function makeSandbox() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+  const cwd = path.join(root, "cwd");
+  const home = path.join(root, "home");
+  const tmp = path.join(root, "tmp");
+  for (const dir of [cwd, home, tmp]) fs.mkdirSync(dir, { recursive: true });
+  const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home, TMPDIR: tmp };
+  return { root, cwd, env };
+}
+
 function runSmoke(file) {
   return new Promise((resolve) => {
     const startedAt = process.hrtime.bigint();
+    const sandbox = makeSandbox();
     const child = spawn(process.execPath, [path.join(testDir, file)], {
-      cwd: packageDir,
+      cwd: sandbox.cwd,
+      env: sandbox.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
     let output = "";
     child.stdout.on("data", (chunk) => (output += chunk));
     child.stderr.on("data", (chunk) => (output += chunk));
+    const finish = (result) => {
+      try {
+        fs.rmSync(sandbox.root, { recursive: true, force: true });
+      } catch {
+        // best-effort teardown; a leaked tmpdir must never fail a smoke
+      }
+      resolve(result);
+    };
     child.on("close", (code) => {
       const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
-      resolve({ file, ok: code === 0, code, elapsedMs, output });
+      finish({ file, ok: code === 0, code, elapsedMs, output });
     });
     child.on("error", (error) => {
       const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
-      resolve({ file, ok: false, code: null, elapsedMs, output: `${output}${error.message}\n` });
+      finish({ file, ok: false, code: null, elapsedMs, output: `${output}${error.message}\n` });
     });
   });
 }
@@ -90,22 +135,37 @@ function runSmoke(file) {
 async function main() {
   process.stdout.write(
     `Running ${smokes.length} smoke(s) — concurrency ${concurrency}` +
-      (concurrency === 1 ? " (sequential; set CW_TEST_CONCURRENCY to parallelize)" : "") +
+      (concurrency === 1
+        ? " (sequential; set CW_TEST_CONCURRENCY to parallelize)"
+        : serialSmokes.length
+          ? ` (${pooledSmokes.length} pooled + ${serialSmokes.length} serial-only)`
+          : "") +
       "\n\n",
   );
 
   const results = [];
+
+  // Phase 1 — the parallel pool: every state-isolated smoke, up to `concurrency`.
   let next = 0;
   async function worker() {
-    while (next < smokes.length) {
-      const file = smokes[next++];
+    while (next < pooledSmokes.length) {
+      const file = pooledSmokes[next++];
       const result = await runSmoke(file);
       results.push(result);
       const tag = result.ok ? "PASS" : "FAIL";
       process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms)\n`);
     }
   }
-  await Promise.all(Array.from({ length: Math.min(concurrency, smokes.length) }, worker));
+  await Promise.all(Array.from({ length: Math.min(concurrency, pooledSmokes.length) }, worker));
+
+  // Phase 2 — contention-sensitive timing benchmarks, run ALONE on the now-quiet
+  // cpu so their wall-clock assertions measure CW, not co-tenant pool load.
+  for (const file of serialSmokes) {
+    const result = await runSmoke(file);
+    results.push(result);
+    const tag = result.ok ? "PASS" : "FAIL";
+    process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms) [serial-only]\n`);
+  }
 
   results.sort((a, b) => a.file.localeCompare(b.file));
   const failures = results.filter((r) => !r.ok);
