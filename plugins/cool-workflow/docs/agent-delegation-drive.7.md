@@ -131,7 +131,16 @@ node dist/cli.js backend probe agent --json      # ready iff configured, else un
 node dist/cli.js run architecture-review --drive --repo /path/to/repo --question "Is the design sound?"
 node dist/cli.js run architecture-review --drive --once --repo /path/to/repo --question "..."   # one step
 node dist/cli.js run drive <run-id> --json       # read-only preview of the next step
+
+# quickstart --resume: a guided stop-then-resume a newcomer can WITNESS in <5 min
+node dist/cli.js quickstart --resume --repo /path/to/repo --question "..."   # advances ONE step, prints a continue line
+node dist/cli.js quickstart --run <run-id> --resume                          # continues that run to completion
 ```
+
+`quickstart --resume` with no `--run` drives a single step and prints a
+copy-pasteable `cw quickstart --run <id> --resume` continue line; rerun it with the
+`--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`. Bare
+`quickstart` (no `--resume`) is unchanged — it drives straight to completion.
 
 For faster first results, use the opt-in fast app instead of changing the full
 review contract:
