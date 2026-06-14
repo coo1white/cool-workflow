@@ -133,8 +133,10 @@ inherits the agent's own credentials, and imports no model SDK — the red line.
 ```bash
 # check only (gate + independent review, no mutation):
 node plugins/cool-workflow/scripts/release-flow.js --check
-# cut a tag once review is green:
-node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 [--push]
+# cut a tag once review is green (when --push, also creates the GitHub Release):
+node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 [--push] [--no-release]
+# backfill / re-create the GitHub Release for an already-pushed tag (no gate/cut):
+node plugins/cool-workflow/scripts/release-flow.js --release --version 0.1.77 [--soft]
 ```
 
 The per-platform difference is config, not code — set the reviewer agent:
@@ -151,6 +153,34 @@ The per-platform difference is config, not code — set the reviewer agent:
 also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the
 `cw_*` tools are available as MCP tools in those hosts. The verdict path
 (`.cw-release/review-<sha>.verdict`) and the tag-push CI backstop are unchanged.
+
+### GitHub Release finishing step
+
+A `--cut --push` finishes by creating the **GitHub Release** for the tag, and
+`--release --version x.y.z` creates-or-skips one for an already-pushed tag
+(backfill). The notes body is assembled from the `## x.y.z` CHANGELOG section as
+shipped at the tag, the independent reviewer's one-line capability, and a
+"Provenance & audit" footer linking the reviewed commit, the **committed** reviewer
+verdict, the full diff, and the provenance-attested npm version.
+
+This step is **distribution upside, not a correctness gate**: the load-bearing
+artifacts (the tag and the provenance-attested npm publish) already exist when it
+runs. Therefore `gh` is **not** part of the node/git portability floor — it runs
+ONLY in the human `--cut --push` / `--release` paths (never a gate or CI path) and
+is **idempotent** (skips if the Release already exists).
+
+Failure semantics differ by mode: in the **`--cut --push` finishing step** an
+absent/unauthenticated/erroring `gh` **skips with a stderr note and never fails the
+cut** (the tag and npm publish stand) — opt out entirely with `--no-release`. In the
+explicit **`--release` backfill** it **fails closed** (exit 1) with guidance, since
+the operator asked for it directly; add `--soft` to downgrade `--release` to the same
+best-effort skip-not-fail behavior.
+
+Honesty: the notes claim the gated flow ("independent release-reviewer, verdict
+above") **only when a committed `APPROVED` verdict is found at the tag**; backfilling
+an ungated tag emits a neutral caveat instead and warns on stderr — the notes never
+assert a review that isn't there. Test seam: `CW_RELEASE_FLOW_GH_CMD` swaps the `gh`
+binary for a stub (spawned `shell:false`) so the smoke exercises it offline.
 
 0.1.51
 

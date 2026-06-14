@@ -13,6 +13,8 @@ bun.lockb
 # Ephemeral release-gate pass markers; the reviewer verdict (review-*.verdict)
 # stays tracked so the tag-push CI can confirm an APPROVED review was committed.
 .cw-release/gate-*.ok
+# Transient GitHub-Release notes bodies (regenerated from CHANGELOG + verdict).
+.cw-release/release-notes-*.md
 coverage/
 .nyc_output/
 .turbo/
