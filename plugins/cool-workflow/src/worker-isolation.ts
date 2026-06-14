@@ -53,24 +53,6 @@ import {
   workerScopePath
 } from "./worker-isolation/paths";
 
-export {
-  compactMetadata,
-  countBy,
-  isBoundaryViolation,
-  isStateNodeError,
-  mergeScopes,
-  structuredError,
-  unique
-} from "./worker-isolation/helpers";
-export {
-  WORKER_MANIFEST_FILE,
-  WORKER_SCOPE_FILE,
-  createWorkerId,
-  manifestPath,
-  workerArtifacts,
-  workerScopePath
-} from "./worker-isolation/paths";
-
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 
 export interface RecordWorkerFailureOptions extends WorkerIsolationOptions {

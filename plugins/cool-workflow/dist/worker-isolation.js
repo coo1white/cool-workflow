@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WORKER_ISOLATION_SCHEMA_VERSION = exports.workerScopePath = exports.workerArtifacts = exports.manifestPath = exports.createWorkerId = exports.WORKER_SCOPE_FILE = exports.WORKER_MANIFEST_FILE = exports.unique = exports.structuredError = exports.mergeScopes = exports.isStateNodeError = exports.isBoundaryViolation = exports.countBy = exports.compactMetadata = void 0;
+exports.WORKER_ISOLATION_SCHEMA_VERSION = void 0;
 exports.createWorkerIsolation = createWorkerIsolation;
 exports.allocateWorkerScope = allocateWorkerScope;
 exports.writeWorkerManifest = writeWorkerManifest;
@@ -35,21 +35,6 @@ const telemetry_ledger_1 = require("./telemetry-ledger");
 const coordinator_1 = require("./coordinator");
 const helpers_1 = require("./worker-isolation/helpers");
 const paths_1 = require("./worker-isolation/paths");
-var helpers_2 = require("./worker-isolation/helpers");
-Object.defineProperty(exports, "compactMetadata", { enumerable: true, get: function () { return helpers_2.compactMetadata; } });
-Object.defineProperty(exports, "countBy", { enumerable: true, get: function () { return helpers_2.countBy; } });
-Object.defineProperty(exports, "isBoundaryViolation", { enumerable: true, get: function () { return helpers_2.isBoundaryViolation; } });
-Object.defineProperty(exports, "isStateNodeError", { enumerable: true, get: function () { return helpers_2.isStateNodeError; } });
-Object.defineProperty(exports, "mergeScopes", { enumerable: true, get: function () { return helpers_2.mergeScopes; } });
-Object.defineProperty(exports, "structuredError", { enumerable: true, get: function () { return helpers_2.structuredError; } });
-Object.defineProperty(exports, "unique", { enumerable: true, get: function () { return helpers_2.unique; } });
-var paths_2 = require("./worker-isolation/paths");
-Object.defineProperty(exports, "WORKER_MANIFEST_FILE", { enumerable: true, get: function () { return paths_2.WORKER_MANIFEST_FILE; } });
-Object.defineProperty(exports, "WORKER_SCOPE_FILE", { enumerable: true, get: function () { return paths_2.WORKER_SCOPE_FILE; } });
-Object.defineProperty(exports, "createWorkerId", { enumerable: true, get: function () { return paths_2.createWorkerId; } });
-Object.defineProperty(exports, "manifestPath", { enumerable: true, get: function () { return paths_2.manifestPath; } });
-Object.defineProperty(exports, "workerArtifacts", { enumerable: true, get: function () { return paths_2.workerArtifacts; } });
-Object.defineProperty(exports, "workerScopePath", { enumerable: true, get: function () { return paths_2.workerScopePath; } });
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
 function createWorkerIsolation(options = {}) {
     return {
