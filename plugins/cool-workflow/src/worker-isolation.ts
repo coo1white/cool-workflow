@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   RunTask,
-  StateArtifact,
   StateEvidence,
   StateNodeError,
   UsageRecord,
@@ -36,10 +35,43 @@ import { recordMultiAgentWorkerOutput } from "./multi-agent";
 import { verifyTelemetryAttestation, resolveTrustPublicKey, normalizeReportedUsage } from "./telemetry-attestation";
 import { appendTelemetryAttestation } from "./telemetry-ledger";
 import { addBlackboardArtifact, postBlackboardMessage } from "./coordinator";
+import {
+  compactMetadata,
+  countBy,
+  isBoundaryViolation,
+  isStateNodeError,
+  mergeScopes,
+  structuredError,
+  unique
+} from "./worker-isolation/helpers";
+import {
+  WORKER_MANIFEST_FILE,
+  WORKER_SCOPE_FILE,
+  createWorkerId,
+  manifestPath,
+  workerArtifacts,
+  workerScopePath
+} from "./worker-isolation/paths";
+
+export {
+  compactMetadata,
+  countBy,
+  isBoundaryViolation,
+  isStateNodeError,
+  mergeScopes,
+  structuredError,
+  unique
+} from "./worker-isolation/helpers";
+export {
+  WORKER_MANIFEST_FILE,
+  WORKER_SCOPE_FILE,
+  createWorkerId,
+  manifestPath,
+  workerArtifacts,
+  workerScopePath
+} from "./worker-isolation/paths";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
-const WORKER_SCOPE_FILE = "worker.json";
-const WORKER_MANIFEST_FILE = "manifest.json";
 
 export interface RecordWorkerFailureOptions extends WorkerIsolationOptions {
   code?: string;
@@ -1066,35 +1098,6 @@ function blackboardLinkage(run: WorkflowRun, scope: WorkerScope): { blackboardId
   return { blackboardId, topicIds };
 }
 
-function manifestPath(scope: WorkerScope): string {
-  return path.join(scope.workerDir, WORKER_MANIFEST_FILE);
-}
-
-function workerScopePath(scope: WorkerScope): string {
-  return path.join(scope.workerDir, WORKER_SCOPE_FILE);
-}
-
-// Deterministic worker id (v0.1.40 self-audit P2): a wall-clock stamp + Math.random()
-// made every dispatch mint a different id, so audit references were not reproducible
-// across re-runs of the same inputs. The id is now derived from the task plus a
-// per-task sequence (count of worker scopes already allocated for that task + 1),
-// so re-running the same workflow yields byte-identical worker ids while retries of
-// the SAME task still get a fresh, unique id. (workerId is excluded from the
-// snapshot source fingerprint, so this does not change replay digests.)
-function createWorkerId(run: WorkflowRun, taskId: string): string {
-  const prefix = `worker-${safeFileName(taskId)}-`;
-  const seq = (run.workers || []).filter((scope) => scope.id.startsWith(prefix)).length + 1;
-  return `${prefix}${String(seq).padStart(4, "0")}`;
-}
-
-function workerArtifacts(scope: WorkerScope): StateArtifact[] {
-  return [
-    { id: "worker", kind: "json", path: workerScopePath(scope) },
-    { id: "worker-manifest", kind: "json", path: manifestPath(scope) },
-    { id: "worker-input", kind: "markdown", path: scope.inputPath }
-  ];
-}
-
 function normalizeWorkerError(error: unknown, scope: WorkerScope, options: RecordWorkerFailureOptions): StateNodeError {
   if (isBoundaryViolation(error)) {
     return structuredError(error.code, error.message, {
@@ -1118,55 +1121,4 @@ function normalizeWorkerError(error: unknown, scope: WorkerScope, options: Recor
     retryable: options.retryable ?? false,
     details: { workerId: scope.id, taskId: scope.taskId }
   });
-}
-
-function structuredError(
-  code: string,
-  message: string,
-  options: { path?: string; retryable?: boolean; details?: Record<string, unknown> } = {}
-): StateNodeError {
-  return {
-    code,
-    message,
-    at: new Date().toISOString(),
-    path: options.path,
-    retryable: options.retryable,
-    details: options.details
-  };
-}
-
-function isBoundaryViolation(value: unknown): value is WorkerBoundaryViolation {
-  return Boolean(value && typeof value === "object" && "allowedPaths" in value && "message" in value);
-}
-
-function isStateNodeError(value: unknown): value is StateNodeError {
-  return Boolean(value && typeof value === "object" && "code" in value && "message" in value);
-}
-
-function mergeScopes(left: WorkerScope[], right: WorkerScope[]): WorkerScope[] {
-  const merged = [...left];
-  for (const scope of right) {
-    const index = merged.findIndex((candidate) => candidate.id === scope.id);
-    if (index >= 0) merged[index] = scope;
-    else merged.push(scope);
-  }
-  return merged;
-}
-
-function unique(values: string[]): string[] {
-  return Array.from(new Set(values.filter(Boolean)));
-}
-
-function compactMetadata(value: Record<string, unknown>): Record<string, unknown> | undefined {
-  const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
-  return entries.length ? Object.fromEntries(entries) : undefined;
-}
-
-function countBy<T>(items: T[], key: (item: T) => string): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const item of items) {
-    const value = key(item);
-    counts[value] = (counts[value] || 0) + 1;
-  }
-  return counts;
 }

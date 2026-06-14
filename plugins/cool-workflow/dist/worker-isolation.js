@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WORKER_ISOLATION_SCHEMA_VERSION = void 0;
+exports.WORKER_ISOLATION_SCHEMA_VERSION = exports.workerScopePath = exports.workerArtifacts = exports.manifestPath = exports.createWorkerId = exports.WORKER_SCOPE_FILE = exports.WORKER_MANIFEST_FILE = exports.unique = exports.structuredError = exports.mergeScopes = exports.isStateNodeError = exports.isBoundaryViolation = exports.countBy = exports.compactMetadata = void 0;
 exports.createWorkerIsolation = createWorkerIsolation;
 exports.allocateWorkerScope = allocateWorkerScope;
 exports.writeWorkerManifest = writeWorkerManifest;
@@ -33,9 +33,24 @@ const multi_agent_1 = require("./multi-agent");
 const telemetry_attestation_1 = require("./telemetry-attestation");
 const telemetry_ledger_1 = require("./telemetry-ledger");
 const coordinator_1 = require("./coordinator");
+const helpers_1 = require("./worker-isolation/helpers");
+const paths_1 = require("./worker-isolation/paths");
+var helpers_2 = require("./worker-isolation/helpers");
+Object.defineProperty(exports, "compactMetadata", { enumerable: true, get: function () { return helpers_2.compactMetadata; } });
+Object.defineProperty(exports, "countBy", { enumerable: true, get: function () { return helpers_2.countBy; } });
+Object.defineProperty(exports, "isBoundaryViolation", { enumerable: true, get: function () { return helpers_2.isBoundaryViolation; } });
+Object.defineProperty(exports, "isStateNodeError", { enumerable: true, get: function () { return helpers_2.isStateNodeError; } });
+Object.defineProperty(exports, "mergeScopes", { enumerable: true, get: function () { return helpers_2.mergeScopes; } });
+Object.defineProperty(exports, "structuredError", { enumerable: true, get: function () { return helpers_2.structuredError; } });
+Object.defineProperty(exports, "unique", { enumerable: true, get: function () { return helpers_2.unique; } });
+var paths_2 = require("./worker-isolation/paths");
+Object.defineProperty(exports, "WORKER_MANIFEST_FILE", { enumerable: true, get: function () { return paths_2.WORKER_MANIFEST_FILE; } });
+Object.defineProperty(exports, "WORKER_SCOPE_FILE", { enumerable: true, get: function () { return paths_2.WORKER_SCOPE_FILE; } });
+Object.defineProperty(exports, "createWorkerId", { enumerable: true, get: function () { return paths_2.createWorkerId; } });
+Object.defineProperty(exports, "manifestPath", { enumerable: true, get: function () { return paths_2.manifestPath; } });
+Object.defineProperty(exports, "workerArtifacts", { enumerable: true, get: function () { return paths_2.workerArtifacts; } });
+Object.defineProperty(exports, "workerScopePath", { enumerable: true, get: function () { return paths_2.workerScopePath; } });
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
-const WORKER_SCOPE_FILE = "worker.json";
-const WORKER_MANIFEST_FILE = "manifest.json";
 function createWorkerIsolation(options = {}) {
     return {
         allocateWorkerScope: (run, task, allocateOptions) => allocateWorkerScope(run, task, { ...options, ...allocateOptions }),
@@ -64,7 +79,7 @@ function allocateWorkerScope(run, task, options = {}) {
         return existing;
     }
     const now = new Date().toISOString();
-    const workerId = options.workerId || createWorkerId(run, task.id);
+    const workerId = options.workerId || (0, paths_1.createWorkerId)(run, task.id);
     const workerDir = node_path_1.default.join(workerRoot(run), (0, state_1.safeFileName)(workerId));
     const inputPath = node_path_1.default.join(workerDir, "input.md");
     const resultPath = node_path_1.default.join(workerDir, "result.md");
@@ -126,7 +141,7 @@ function allocateWorkerScope(run, task, options = {}) {
         feedbackIds: [],
         errors: [],
         multiAgent: options.multiAgent,
-        metadata: compactMetadata({
+        metadata: (0, helpers_1.compactMetadata)({
             ...options.metadata,
             multiAgent: options.multiAgent,
             phase: task.phase,
@@ -168,7 +183,7 @@ function allocateWorkerScope(run, task, options = {}) {
         });
     }
     task.workerId = scope.id;
-    task.workerManifestPath = manifestPath(scope);
+    task.workerManifestPath = (0, paths_1.manifestPath)(scope);
     task.sandboxProfileId = sandboxPolicy.id;
     task.sandboxPolicy = sandboxPolicy;
     task.backendId = backendId;
@@ -183,8 +198,8 @@ function writeWorkerManifest(run, scope) {
     const task = run.tasks.find((candidate) => candidate.id === scope.taskId);
     const sandboxPolicy = scope.sandboxPolicy || sandboxPolicyForBoundary(run, scope);
     const sandboxProfileId = scope.sandboxProfileId || sandboxPolicy.id;
-    const scopePath = workerScopePath(scope);
-    const workerManifestPath = manifestPath(scope);
+    const scopePath = (0, paths_1.workerScopePath)(scope);
+    const workerManifestPath = (0, paths_1.manifestPath)(scope);
     const manifest = {
         schemaVersion: exports.WORKER_ISOLATION_SCHEMA_VERSION,
         id: scope.id,
@@ -260,7 +275,7 @@ function syncWorkerScopeFromTask(run, workerId) {
         ...scope,
         updatedAt: new Date().toISOString(),
         multiAgent: task.multiAgent,
-        metadata: compactMetadata({
+        metadata: (0, helpers_1.compactMetadata)({
             ...(scope.metadata || {}),
             multiAgent: task.multiAgent
         })
@@ -270,7 +285,7 @@ function syncWorkerScopeFromTask(run, workerId) {
 function listWorkerScopes(run, options = {}) {
     ensureWorkerState(run);
     const scopes = loadWorkerScopesFromDisk(run);
-    run.workers = mergeScopes(run.workers || [], scopes);
+    run.workers = (0, helpers_1.mergeScopes)(run.workers || [], scopes);
     const listed = run.workers || [];
     return options.status ? listed.filter((scope) => scope.status === options.status) : listed;
 }
@@ -279,7 +294,7 @@ function getWorkerScope(run, workerId) {
     const existing = (run.workers || []).find((scope) => scope.id === workerId);
     if (existing)
         return existing;
-    const file = node_path_1.default.join(workerRoot(run), (0, state_1.safeFileName)(workerId), WORKER_SCOPE_FILE);
+    const file = node_path_1.default.join(workerRoot(run), (0, state_1.safeFileName)(workerId), paths_1.WORKER_SCOPE_FILE);
     if (!node_fs_1.default.existsSync(file))
         return undefined;
     const scope = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
@@ -305,7 +320,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         throw new Error(violation.message);
     }
     if (!node_fs_1.default.existsSync(absoluteResultPath)) {
-        const error = structuredError("worker-result-missing", `Worker result file does not exist: ${absoluteResultPath}`, {
+        const error = (0, helpers_1.structuredError)("worker-result-missing", `Worker result file does not exist: ${absoluteResultPath}`, {
             path: absoluteResultPath,
             retryable: true
         });
@@ -324,7 +339,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         const baseDirs = Array.from(new Set([run.cwd, process.cwd(), scope.workerDir, run.paths.runDir].filter(Boolean)));
         const unresolved = (0, evidence_grounding_1.unresolvedFileEvidence)(parsedResult.evidence, baseDirs);
         if (unresolved.length) {
-            const error = structuredError("worker-evidence-unresolvable", `Worker ${workerId} result cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`, { path: absoluteResultPath, retryable: false });
+            const error = (0, helpers_1.structuredError)("worker-evidence-unresolvable", `Worker ${workerId} result cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`, { path: absoluteResultPath, retryable: false });
             recordWorkerFailure(run, workerId, error, { ...options, persist: options.persist });
             throw new Error(error.message);
         }
@@ -348,7 +363,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // it instead of recording unverifiable usage. Default behavior is unchanged
     // (flag-and-surface). Non-agent hops carry no verdict and are never blocked.
     if (options.requireAttestedTelemetry && telemetry && telemetry.status !== "attested") {
-        const error = structuredError("telemetry-unattested-blocked", `Worker ${workerId} telemetry is ${telemetry.status} (${telemetry.reason || "unverified"}) and require-attested-telemetry is enabled — refusing to accept a hop whose usage cannot be cryptographically verified`, { path: absoluteResultPath, retryable: false });
+        const error = (0, helpers_1.structuredError)("telemetry-unattested-blocked", `Worker ${workerId} telemetry is ${telemetry.status} (${telemetry.reason || "unverified"}) and require-attested-telemetry is enabled — refusing to accept a hop whose usage cannot be cryptographically verified`, { path: absoluteResultPath, retryable: false });
         recordWorkerFailure(run, workerId, error, { ...options, persist: options.persist });
         throw new Error(error.message);
     }
@@ -584,7 +599,7 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
         status: "pending",
         loopStage: "adjust",
         inputs: { workerId, taskId: task.id, dispatchId: scope.dispatchId },
-        artifacts: workerArtifacts(scope),
+        artifacts: (0, paths_1.workerArtifacts)(scope),
         parents: task.stateNodeId ? [task.stateNodeId] : [],
         contractId: pipeline_contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
         metadata: { workerId, taskId: task.id, dispatchId: scope.dispatchId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId }
@@ -639,7 +654,7 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
         updatedAt: new Date().toISOString(),
         status: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "rejected" : "failed",
         retryCount: typeof options.retryCount === "number" ? options.retryCount : scope.retryCount,
-        feedbackIds: unique([...(scope.feedbackIds || []), feedback.id]),
+        feedbackIds: (0, helpers_1.unique)([...(scope.feedbackIds || []), feedback.id]),
         errors: [...(scope.errors || []), structured]
     });
     if (options.persist !== false)
@@ -652,7 +667,7 @@ function recordWorkerRetryAttempt(run, workerId, attempts, reason, options = {})
         ...scope,
         updatedAt: new Date().toISOString(),
         retryCount: attempts,
-        metadata: compactMetadata({
+        metadata: (0, helpers_1.compactMetadata)({
             ...scope.metadata,
             agentDelegationAttempts: attempts,
             agentDelegationLastFailure: reason
@@ -671,8 +686,8 @@ function summarizeWorkers(run) {
     const workers = listWorkerScopes(run);
     return {
         total: workers.length,
-        byStatus: countBy(workers, (scope) => scope.status),
-        manifestPaths: workers.map(manifestPath),
+        byStatus: (0, helpers_1.countBy)(workers, (scope) => scope.status),
+        manifestPaths: workers.map(paths_1.manifestPath),
         failed: workers
             .filter((scope) => scope.status === "failed" || scope.status === "rejected")
             .map((scope) => ({ id: scope.id, status: scope.status, feedbackIds: scope.feedbackIds || [] }))
@@ -774,7 +789,7 @@ function updateWorkerScope(run, scope) {
     return updated;
 }
 function writeWorkerScope(scope) {
-    (0, state_1.writeJson)(workerScopePath(scope), scope);
+    (0, state_1.writeJson)((0, paths_1.workerScopePath)(scope), scope);
 }
 function writeWorkerIndex(run) {
     ensureWorkerState(run);
@@ -787,7 +802,7 @@ function writeWorkerIndex(run) {
             dispatchId: scope.dispatchId,
             status: scope.status,
             workerDir: scope.workerDir,
-            manifestPath: manifestPath(scope),
+            manifestPath: (0, paths_1.manifestPath)(scope),
             resultPath: scope.resultPath,
             sandboxProfileId: scope.sandboxProfileId,
             backendId: scope.backendId,
@@ -803,7 +818,7 @@ function loadWorkerScopesFromDisk(run) {
     return node_fs_1.default
         .readdirSync(workerRoot(run), { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
-        .map((entry) => node_path_1.default.join(workerRoot(run), entry.name, WORKER_SCOPE_FILE))
+        .map((entry) => node_path_1.default.join(workerRoot(run), entry.name, paths_1.WORKER_SCOPE_FILE))
         .filter((file) => node_fs_1.default.existsSync(file))
         .map((file) => JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
 }
@@ -937,7 +952,7 @@ function blackboardLinkage(run, scope) {
     const role = scope.multiAgent?.roleId ? run.multiAgent?.roles.find((entry) => entry.id === scope.multiAgent?.roleId) : undefined;
     const multiAgentRun = scope.multiAgent?.runId ? run.multiAgent?.runs.find((entry) => entry.id === scope.multiAgent?.runId) : undefined;
     const blackboardId = membership?.blackboardId || group?.blackboardId || role?.blackboardId || multiAgentRun?.blackboardId;
-    const topicIds = unique([
+    const topicIds = (0, helpers_1.unique)([
         ...(membership?.topicIds || []),
         ...(group?.topicIds || []),
         ...(role?.topicIds || []),
@@ -945,94 +960,27 @@ function blackboardLinkage(run, scope) {
     ]);
     return { blackboardId, topicIds };
 }
-function manifestPath(scope) {
-    return node_path_1.default.join(scope.workerDir, WORKER_MANIFEST_FILE);
-}
-function workerScopePath(scope) {
-    return node_path_1.default.join(scope.workerDir, WORKER_SCOPE_FILE);
-}
-// Deterministic worker id (v0.1.40 self-audit P2): a wall-clock stamp + Math.random()
-// made every dispatch mint a different id, so audit references were not reproducible
-// across re-runs of the same inputs. The id is now derived from the task plus a
-// per-task sequence (count of worker scopes already allocated for that task + 1),
-// so re-running the same workflow yields byte-identical worker ids while retries of
-// the SAME task still get a fresh, unique id. (workerId is excluded from the
-// snapshot source fingerprint, so this does not change replay digests.)
-function createWorkerId(run, taskId) {
-    const prefix = `worker-${(0, state_1.safeFileName)(taskId)}-`;
-    const seq = (run.workers || []).filter((scope) => scope.id.startsWith(prefix)).length + 1;
-    return `${prefix}${String(seq).padStart(4, "0")}`;
-}
-function workerArtifacts(scope) {
-    return [
-        { id: "worker", kind: "json", path: workerScopePath(scope) },
-        { id: "worker-manifest", kind: "json", path: manifestPath(scope) },
-        { id: "worker-input", kind: "markdown", path: scope.inputPath }
-    ];
-}
 function normalizeWorkerError(error, scope, options) {
-    if (isBoundaryViolation(error)) {
-        return structuredError(error.code, error.message, {
+    if ((0, helpers_1.isBoundaryViolation)(error)) {
+        return (0, helpers_1.structuredError)(error.code, error.message, {
             path: error.path,
             retryable: false,
             details: { allowedPaths: error.allowedPaths, workerId: scope.id, taskId: scope.taskId, sandboxProfileId: scope.sandboxProfileId }
         });
     }
-    if (isStateNodeError(error)) {
+    if ((0, helpers_1.isStateNodeError)(error)) {
         return {
             ...error,
             at: error.at || new Date().toISOString(),
             path: options.path || error.path,
             retryable: options.retryable ?? error.retryable ?? false,
-            details: compactMetadata({ ...(error.details || {}), workerId: scope.id, taskId: scope.taskId })
+            details: (0, helpers_1.compactMetadata)({ ...(error.details || {}), workerId: scope.id, taskId: scope.taskId })
         };
     }
     const message = error instanceof Error ? error.message : String(error);
-    return structuredError(options.code || "worker-runtime-error", message, {
+    return (0, helpers_1.structuredError)(options.code || "worker-runtime-error", message, {
         path: options.path,
         retryable: options.retryable ?? false,
         details: { workerId: scope.id, taskId: scope.taskId }
     });
-}
-function structuredError(code, message, options = {}) {
-    return {
-        code,
-        message,
-        at: new Date().toISOString(),
-        path: options.path,
-        retryable: options.retryable,
-        details: options.details
-    };
-}
-function isBoundaryViolation(value) {
-    return Boolean(value && typeof value === "object" && "allowedPaths" in value && "message" in value);
-}
-function isStateNodeError(value) {
-    return Boolean(value && typeof value === "object" && "code" in value && "message" in value);
-}
-function mergeScopes(left, right) {
-    const merged = [...left];
-    for (const scope of right) {
-        const index = merged.findIndex((candidate) => candidate.id === scope.id);
-        if (index >= 0)
-            merged[index] = scope;
-        else
-            merged.push(scope);
-    }
-    return merged;
-}
-function unique(values) {
-    return Array.from(new Set(values.filter(Boolean)));
-}
-function compactMetadata(value) {
-    const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
-    return entries.length ? Object.fromEntries(entries) : undefined;
-}
-function countBy(items, key) {
-    const counts = {};
-    for (const item of items) {
-        const value = key(item);
-        counts[value] = (counts[value] || 0) + 1;
-    }
-    return counts;
 }
