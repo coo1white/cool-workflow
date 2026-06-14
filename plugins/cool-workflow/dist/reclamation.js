@@ -584,11 +584,11 @@ function tombstoneHashInput(t) {
 function computeTombstoneHash(t) {
     return sha256OfString(tombstoneHashInput(t));
 }
-let tombstoneCounter = 0;
-function tombstoneId(run, now) {
-    tombstoneCounter += 1;
-    const stamp = now.replace(/[-:.TZ]/g, "").slice(0, 14);
-    return `tomb-${stamp}-${String(tombstoneCounter).padStart(3, "0")}`;
+function tombstoneId(seq) {
+    // Deterministic (FreeBSD-audit L13): the chain POSITION, not a process-global
+    // counter or wall-clock stamp — tombstoneId is bound into the tombstoneHash
+    // chain that `gc verify` recomputes, so it must be reproducible.
+    return `tomb-${String(seq).padStart(3, "0")}`;
 }
 /** STEP 2: build the FULL tombstone (pre-deletion sha256 per freed path + the
  *  hash chain). Reads the freed files (still present); mutates nothing on disk. */
@@ -606,7 +606,7 @@ function buildTombstone(run, skeleton, plan, options = {}) {
     const base = {
         schemaVersion: 1,
         runId: run.id,
-        tombstoneId: tombstoneId(run, now),
+        tombstoneId: tombstoneId(prior.length + 1),
         reclaimedAt: now,
         actor: options.actor,
         policyDigest: policyDigestOf(options.policy || {}),

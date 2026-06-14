@@ -597,11 +597,11 @@ export function computeTombstoneHash(t: Omit<ReclamationTombstone, "tombstoneHas
   return sha256OfString(tombstoneHashInput(t));
 }
 
-let tombstoneCounter = 0;
-function tombstoneId(run: WorkflowRun, now: string): string {
-  tombstoneCounter += 1;
-  const stamp = now.replace(/[-:.TZ]/g, "").slice(0, 14);
-  return `tomb-${stamp}-${String(tombstoneCounter).padStart(3, "0")}`;
+function tombstoneId(seq: number): string {
+  // Deterministic (FreeBSD-audit L13): the chain POSITION, not a process-global
+  // counter or wall-clock stamp — tombstoneId is bound into the tombstoneHash
+  // chain that `gc verify` recomputes, so it must be reproducible.
+  return `tomb-${String(seq).padStart(3, "0")}`;
 }
 
 export interface BuildTombstoneOptions {
@@ -631,7 +631,7 @@ export function buildTombstone(
   const base: Omit<ReclamationTombstone, "tombstoneHash"> = {
     schemaVersion: 1,
     runId: run.id,
-    tombstoneId: tombstoneId(run, now),
+    tombstoneId: tombstoneId(prior.length + 1),
     reclaimedAt: now,
     actor: options.actor,
     policyDigest: policyDigestOf(options.policy || {}),

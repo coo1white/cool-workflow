@@ -105,11 +105,10 @@ export function reportedUsageDigest(usage: Record<string, unknown> | undefined):
   return sha256(stableStringify(usage ?? null));
 }
 
-let recordCounter = 0;
-function recordId(now: string): string {
-  recordCounter += 1;
-  const stamp = now.replace(/[-:.TZ]/g, "").slice(0, 14);
-  return `tel-${stamp}-${String(recordCounter).padStart(3, "0")}`;
+function recordId(seq: number): string {
+  // Deterministic (FreeBSD-audit L13): the chain POSITION, not a process-global
+  // counter or wall-clock stamp — recordId is bound into the recordHash chain.
+  return `tel-${String(seq).padStart(3, "0")}`;
 }
 
 export interface AppendTelemetryAttestationInput {
@@ -132,7 +131,7 @@ export function appendTelemetryAttestation(run: WorkflowRun, input: AppendTeleme
   const base: Omit<TelemetryAttestationRecord, "recordHash"> = {
     schemaVersion: 1,
     runId: run.id,
-    recordId: recordId(now),
+    recordId: recordId(ledger.records.length + 1),
     recordedAt: now,
     workerId: input.workerId,
     taskId: input.taskId,

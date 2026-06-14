@@ -580,9 +580,11 @@ function commitRows(events: TrustAuditEvent[], run: WorkflowRun): TrustAuditSumm
 }
 
 function createEventId(run: WorkflowRun, kind: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
+  // Deterministic (FreeBSD-audit L12/L13): chain-local sequence (event-log length),
+  // no wall-clock stamp — event.id is bound into the eventHash chain (computeEventHash),
+  // so a stable id keeps the chain reproducible on replay.
   const count = readEvents(path.join(auditRoot(run), "events.jsonl")).length + 1;
-  return `audit-${safeFileName(kind)}-${stamp}-${String(count).padStart(4, "0")}`;
+  return `audit-${safeFileName(kind)}-${String(count).padStart(4, "0")}`;
 }
 
 function redactPolicy(policy: ResolvedSandboxPolicy | undefined): ResolvedSandboxPolicy | undefined {
