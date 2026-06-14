@@ -16,6 +16,7 @@ exports.summarizeMultiAgentTrust = summarizeMultiAgentTrust;
 exports.hasAcceptedJudgeRationale = hasAcceptedJudgeRationale;
 exports.sourceForActor = sourceForActor;
 exports.hashText = hashText;
+exports.missingEvidence = missingEvidence;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const trust_audit_1 = require("./trust-audit");
 function policyForRole(role) {
@@ -109,7 +110,7 @@ function authorizeMultiAgentAction(run, input) {
     const membershipId = input.agentMembershipId || (input.actor?.kind === "membership" ? input.actor.id : undefined);
     const groupId = input.agentGroupId || (input.actor?.kind === "group" ? input.actor.id : undefined);
     const policy = resolvePolicy(run, { roleId, membershipId, groupId });
-    const reason = evaluatePolicy(policy, input.operation, input.blackboardTopicId, input.evidenceRefs || []);
+    const reason = evaluatePolicy(policy, input.operation, input.blackboardTopicId, input.evidenceRefs || [], input.evidence);
     const allowed = !reason;
     const metadata = {
         operation: input.operation,
@@ -171,7 +172,7 @@ function authorizeMultiAgentAction(run, input) {
         reason: reason || "allowed by explicit multi-agent policy",
         policyRef: policy?.policyRef,
         policy,
-        missingEvidenceRefs: missingEvidence(policy, input.operation, input.evidenceRefs || []),
+        missingEvidenceRefs: missingEvidence(policy, input.operation, input.evidenceRefs || [], input.evidence),
         event
     };
 }
@@ -314,7 +315,7 @@ function resolvePolicy(run, input) {
         return policyForGroup(group);
     return undefined;
 }
-function evaluatePolicy(policy, operation, topicId, evidenceRefs) {
+function evaluatePolicy(policy, operation, topicId, evidenceRefs, evidence) {
     if (!policy)
         return "missing role authority or policy";
     const denied = policy.deniedOperations.find((entry) => entry.operation === operation);
@@ -336,20 +337,108 @@ function evaluatePolicy(policy, operation, topicId, evidenceRefs) {
     else if (!policy.allowedWriteOperations.includes(operation)) {
         return `blackboard write operation ${operation} is outside policy ${policy.policyRef}`;
     }
-    const missing = missingEvidence(policy, operation, evidenceRefs);
+    const missing = missingEvidence(policy, operation, evidenceRefs, evidence);
     if (missing.length)
         return `operation ${operation} requires evidence refs: ${missing.join(", ")}`;
     return undefined;
 }
-function missingEvidence(policy, operation, evidenceRefs) {
+/**
+ * Required-evidence gate (L7 fix).
+ *
+ * Each required item in `requiredEvidenceFor[operation]` is a human-readable KIND
+ * label (e.g. "judge messages"). Callers pass content LOCATORS (e.g. "/tmp/x.md:1")
+ * which live in a different namespace, so a naive set-match would false-REJECT the
+ * legitimate happy path. We therefore match per-required-kind against the present
+ * evidence, modelled on `state-node.ts` assertRequiredEvidence:
+ *
+ *  - A required kind is COVERED by a ref that carries a matching kind tag
+ *    (recordRef.kind, a "kind:<label>" locator prefix) or whose label/locator/id/
+ *    summary mentions the required label. Each ref can cover at most one required
+ *    kind (consumed greedily), so one ref can no longer satisfy several distinct
+ *    requirements.
+ *  - When the present refs carry NO kind signal at all (pure legacy bare locators),
+ *    we fall back to the prior "any ref is accepted" behaviour to avoid a happy-path
+ *    false-reject — this is the documented residual: untagged callers are not yet
+ *    enforced per-kind. Tagged callers (and the kind-tagging scheme below) get true
+ *    per-kind enforcement.
+ *
+ * Returns the specific required kinds that remain uncovered.
+ */
+function missingEvidence(policy, operation, evidenceRefs, evidence) {
     if (!policy)
         return [];
     const required = unique([...(policy.requiredEvidenceFor?.[operation] || [])]);
     if (!required.length)
         return [];
-    if (evidenceRefs.length)
+    if (!evidenceRefs.length)
+        return required;
+    const refs = buildEvidenceRefIndex(evidenceRefs, evidence);
+    const anyKindSignal = refs.some((ref) => ref.kinds.length > 0);
+    if (!anyKindSignal) {
+        // Residual: legacy bare locators carry no kind to match against. Preserve the
+        // historical contract (presence satisfies) rather than false-reject the caller.
         return [];
-    return required;
+    }
+    const consumed = new Set();
+    const uncovered = [];
+    for (const need of required) {
+        const needle = need.toLowerCase();
+        const matchIndex = refs.findIndex((ref, index) => !consumed.has(index) &&
+            (ref.kinds.includes(needle) || ref.haystacks.some((hay) => hay.includes(needle) || needle.includes(hay))));
+        if (matchIndex === -1) {
+            uncovered.push(need);
+        }
+        else {
+            consumed.add(matchIndex);
+        }
+    }
+    return uncovered;
+}
+/**
+ * Project the parallel `evidenceRefs` (locators) and optional `evidence` records
+ * into a per-ref view that exposes any kind tag plus searchable text. Indexes are
+ * aligned with `evidenceRefs`; extra `evidence` entries (if any) are appended so a
+ * caller that supplies richer `evidence` than bare refs is not penalised.
+ */
+function buildEvidenceRefIndex(evidenceRefs, evidence) {
+    const views = evidenceRefs.map((ref, index) => {
+        const record = evidence?.[index];
+        return mergeEvidenceView(ref, record);
+    });
+    if (evidence) {
+        for (let i = evidenceRefs.length; i < evidence.length; i++) {
+            views.push(mergeEvidenceView(undefined, evidence[i]));
+        }
+    }
+    return views;
+}
+function mergeEvidenceView(ref, record) {
+    const kinds = [];
+    const haystacks = [];
+    const pushText = (value) => {
+        if (value)
+            haystacks.push(value.toLowerCase());
+    };
+    // A "kind:<label>" locator prefix is an explicit, replay-stable kind tag.
+    const taggedKind = (value) => {
+        if (!value)
+            return undefined;
+        const match = /^kind:([^:]+):?/i.exec(value.trim());
+        return match ? match[1].trim().toLowerCase() : undefined;
+    };
+    for (const value of [ref, record?.locator, record?.id, record?.source]) {
+        const kind = taggedKind(value);
+        if (kind)
+            kinds.push(kind);
+    }
+    if (record?.recordRef?.kind)
+        kinds.push(record.recordRef.kind.toLowerCase());
+    pushText(ref);
+    pushText(record?.locator);
+    pushText(record?.id);
+    pushText(record?.source);
+    pushText(record?.summary);
+    return { kinds: unique(kinds), haystacks };
 }
 function policyRunId(run, roleId, groupId, membershipId) {
     const membership = membershipId ? run.multiAgent?.memberships.find((entry) => entry.id === membershipId) : undefined;
