@@ -56,6 +56,7 @@ const multi_agent_eval_1 = require("./multi-agent-eval");
 const node_snapshot_1 = require("./node-snapshot");
 const state_1 = require("./state");
 const trust_audit_1 = require("./trust-audit");
+const compare_1 = require("./compare");
 exports.RECLAMATION_SCHEMA_VERSION = 1;
 /** The skeleton schema is the contract for what MUST survive every reclamation.
  *  Machine-checkable via validateSkeleton(). If extraction can't produce all of
@@ -135,7 +136,7 @@ function contentDigest(p) {
         return sha256OfFile(p);
     const parts = [];
     const walk = (dir, rel) => {
-        for (const entry of node_fs_1.default.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+        for (const entry of node_fs_1.default.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (0, compare_1.compareBytes)(a.name, b.name))) {
             const abs = node_path_1.default.join(dir, entry.name);
             const r = node_path_1.default.join(rel, entry.name);
             if (entry.isDirectory())
@@ -261,7 +262,7 @@ function extractSkeleton(run) {
     }
     const evidenceDigests = [...evidenceMap.entries()]
         .map(([ref, digest]) => ({ ref, digest }))
-        .sort((a, b) => a.ref.localeCompare(b.ref));
+        .sort((a, b) => (0, compare_1.compareBytes)(a.ref, b.ref));
     const eventLog = auditEventLogPath(run);
     const auditLogDigest = node_fs_1.default.existsSync(eventLog) ? sha256OfFile(eventLog) : sha256OfString("");
     const events = node_fs_1.default.existsSync(eventLog)

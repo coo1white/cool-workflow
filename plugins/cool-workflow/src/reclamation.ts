@@ -32,6 +32,7 @@ import { normalizeValue, replayStableStringify } from "./multi-agent-eval";
 import { loadNodeSnapshot, snapshotNode } from "./node-snapshot";
 import { realResolve, writeJson, withFileLock } from "./state";
 import { recordTrustAuditEvent } from "./trust-audit";
+import { compareBytes } from "./compare";
 import {
   FreedManifestEntry,
   ReclaimKind,
@@ -126,7 +127,7 @@ function contentDigest(p: string): string {
   if (stat.isFile()) return sha256OfFile(p);
   const parts: string[] = [];
   const walk = (dir: string, rel: string) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => compareBytes(a.name, b.name))) {
       const abs = path.join(dir, entry.name);
       const r = path.join(rel, entry.name);
       if (entry.isDirectory()) walk(abs, r);
@@ -241,7 +242,7 @@ export function extractSkeleton(run: WorkflowRun): ReclamationSkeleton {
   }
   const evidenceDigests = [...evidenceMap.entries()]
     .map(([ref, digest]) => ({ ref, digest }))
-    .sort((a, b) => a.ref.localeCompare(b.ref));
+    .sort((a, b) => compareBytes(a.ref, b.ref));
 
   const eventLog = auditEventLogPath(run);
   const auditLogDigest = fs.existsSync(eventLog) ? sha256OfFile(eventLog) : sha256OfString("");

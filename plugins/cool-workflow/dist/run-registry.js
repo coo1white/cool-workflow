@@ -43,6 +43,7 @@ const node_os_1 = __importDefault(require("node:os"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
 const reclamation_1 = require("./reclamation");
+const compare_1 = require("./compare");
 const derive_1 = require("./run-registry/derive");
 Object.defineProperty(exports, "compareQueue", { enumerable: true, get: function () { return derive_1.compareQueue; } });
 Object.defineProperty(exports, "isRunLifecycleState", { enumerable: true, get: function () { return derive_1.isRunLifecycleState; } });
@@ -235,7 +236,7 @@ class RunRegistry {
             const already = current.repos.some((entry) => node_path_1.default.resolve(entry.root) === resolved);
             if (!already)
                 current.repos.push({ root: resolved, addedAt: new Date().toISOString() });
-            current.repos.sort((a, b) => a.root.localeCompare(b.root));
+            current.repos.sort((a, b) => (0, compare_1.compareBytes)(a.root, b.root));
             (0, state_1.writeJson)(file, current, { durable: true });
             return { registered: !already, repos: current.repos.map((entry) => entry.root) };
         });

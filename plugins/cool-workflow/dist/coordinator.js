@@ -27,6 +27,7 @@ const state_1 = require("./state");
 const state_node_1 = require("./state-node");
 const multi_agent_1 = require("./multi-agent");
 const trust_audit_1 = require("./trust-audit");
+const compare_1 = require("./compare");
 const multi_agent_trust_1 = require("./multi-agent-trust");
 exports.BLACKBOARD_SCHEMA_VERSION = 1;
 function ensureBlackboardState(run) {
@@ -1092,7 +1093,7 @@ function indexRow(record) {
     return { id: record.id, blackboardId: record.blackboardId, topicId: record.topicId, status: record.status, updatedAt: record.updatedAt };
 }
 function compareRecords(left, right) {
-    return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+    return (0, compare_1.compareBytes)(left.createdAt, right.createdAt) || (0, compare_1.compareBytes)(left.id, right.id);
 }
 function uniqueEdges(edges) {
     const seen = new Set();

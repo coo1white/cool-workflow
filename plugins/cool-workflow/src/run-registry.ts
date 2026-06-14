@@ -66,6 +66,7 @@ import {
 } from "./types";
 import { createRunPaths, loadRunStateFile, readJson, withFileLock, writeJson } from "./state";
 import { planReclamation, runReclamation, verifyReclamation, ReclamationError } from "./reclamation";
+import { compareBytes } from "./compare";
 import {
   clampInt,
   compareHistory,
@@ -318,7 +319,7 @@ export class RunRegistry {
       const current = this.loadRepos();
       const already = current.repos.some((entry) => path.resolve(entry.root) === resolved);
       if (!already) current.repos.push({ root: resolved, addedAt: new Date().toISOString() });
-      current.repos.sort((a, b) => a.root.localeCompare(b.root));
+      current.repos.sort((a, b) => compareBytes(a.root, b.root));
       writeJson(file, current, { durable: true });
       return { registered: !already, repos: current.repos.map((entry) => entry.root) };
     });

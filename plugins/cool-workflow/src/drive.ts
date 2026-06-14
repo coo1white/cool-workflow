@@ -31,6 +31,7 @@ import { resolveAgentConfig } from "./agent-config";
 import { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy, retryOrPark } from "./scheduling";
 import { deriveUsageTotals } from "./observability";
 import { safeFileName } from "./state";
+import { compareBytes } from "./compare";
 import {
   AgentDelegationConfig,
   DrivePreview,
@@ -353,7 +354,7 @@ function completedResultsCacheDigest(run: WorkflowRun, task: RunTask): string | 
   const previousTaskIds = new Set(run.phases.slice(0, phaseIndex).flatMap((phase) => phase.taskIds));
   const records = run.tasks
     .filter((candidate) => previousTaskIds.has(candidate.id))
-    .sort((a, b) => a.id.localeCompare(b.id))
+    .sort((a, b) => compareBytes(a.id, b.id))
     .map((candidate) => {
       if (candidate.status !== "completed" || !candidate.resultPath || !fs.existsSync(candidate.resultPath)) return undefined;
       return [candidate.id, sha256(fs.readFileSync(candidate.resultPath, "utf8"))];

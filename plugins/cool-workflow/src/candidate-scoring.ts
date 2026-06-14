@@ -20,6 +20,7 @@ import { safeFileName, saveCheckpoint, writeJson } from "./state";
 import { appendRunNode, createStateNode, linkStateNodes } from "./state-node";
 import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent } from "./trust-audit";
 import { reviewGateErrors, selfActorIdsForCandidate } from "./collaboration";
+import { compareBytes } from "./compare";
 
 export const CANDIDATE_SCHEMA_VERSION = 1;
 
@@ -666,7 +667,7 @@ function inferCandidateKind(input: RegisterCandidateInput): CandidateKind {
 }
 
 function bestScore(scores: CandidateScore[]): CandidateScore | undefined {
-  return [...scores].sort((left, right) => right.normalized - left.normalized || left.createdAt.localeCompare(right.createdAt))[0];
+  return [...scores].sort((left, right) => right.normalized - left.normalized || compareBytes(left.createdAt, right.createdAt))[0];
 }
 
 function compareRows(
@@ -676,9 +677,9 @@ function compareRows(
 ): number {
   const byScore = right.normalized - left.normalized;
   if (byScore !== 0) return byScore;
-  if (policy.tieBreaker === "candidateId") return left.candidate.id.localeCompare(right.candidate.id);
-  const byCreated = left.candidate.createdAt.localeCompare(right.candidate.createdAt);
-  return byCreated || left.candidate.id.localeCompare(right.candidate.id);
+  if (policy.tieBreaker === "candidateId") return compareBytes(left.candidate.id, right.candidate.id);
+  const byCreated = compareBytes(left.candidate.createdAt, right.candidate.createdAt);
+  return byCreated || compareBytes(left.candidate.id, right.candidate.id);
 }
 
 function detectTies(candidates: CandidateRanking["candidates"]): string[][] {
