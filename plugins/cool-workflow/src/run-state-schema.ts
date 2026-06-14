@@ -59,6 +59,7 @@ export const OPTIONAL_TOP_LEVEL_KEYS: readonly string[] = [
   "audit",
   "workers",
   "sandboxProfiles",
+  "customSandboxProfiles",
   "candidates",
   "candidateSelections",
   "multiAgent",
