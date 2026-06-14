@@ -74,6 +74,18 @@ assert.ok(
 r = runCli(cwd, ["audit", "summary", runId, "--json"]);
 assert.equal(r.status, 0, "audit summary still exits 0 on a tampered run (unchanged)");
 
+// (5) FULLY-CORRUPT log: every line unparseable -> events.length 0 so present:false,
+// but verified:false (corruptLines>0). This must STILL exit 1 — it is the most severe
+// tamper (zeroing/garbling the whole log), not an absent chain. The earlier
+// `present && !verified` guard conflated all-corrupt with absent and let it exit 0.
+fs.writeFileSync(logPath, "not json\nstill not json\n");
+r = runCli(cwd, ["audit", "verify", runId, "--json"]);
+out = JSON.parse(r.stdout);
+assert.equal(out.present, false, "all-corrupt log has no parseable events (present:false)");
+assert.equal(out.verified, false, "all-corrupt log is unverified");
+assert.ok(out.corruptLines > 0, "all-corrupt log reports corruptLines");
+assert.equal(r.status, 1, "all-corrupt log STILL exits 1 (not conflated with absent)");
+
 // Regression: an event carrying an undefined field (real-world: worker-dispatch
 // audit metadata with an absent dispatchId) must still RE-VERIFY. computeEventHash
 // binds the PERSISTED form (JSON.stringify drops undefined keys); before the fix it

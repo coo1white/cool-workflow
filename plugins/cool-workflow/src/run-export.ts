@@ -322,11 +322,19 @@ export function inspectArchive(archivePath: string): ArchiveInspectResult {
   }
   try {
     const files = normalizeArchiveFiles(raw);
-    const { checks, ok } = collectArchiveDigestChecks(files, raw.integrity);
+    const { checks } = collectArchiveDigestChecks(files, raw.integrity);
+    // Faithful preview of what `run import` would do under the same env: with
+    // CW_REQUIRE_ARCHIVE_INTEGRITY=1 a stripped-integrity archive is refused by
+    // import, so inspect must also report it as failing (ok:false / exit 1) rather
+    // than green — otherwise inspect-before-import is misleading in that policy.
+    // Default (env unset) is unchanged: inspection only reports the digest checks.
+    if (!raw.integrity && /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_ARCHIVE_INTEGRITY || "")) {
+      checks.push({ name: "archive-integrity", pass: false, code: "archive-integrity-required" });
+    }
     return {
       schemaVersion: 1,
       archivePath,
-      ok,
+      ok: checks.every((c) => c.pass),
       schemaSupported: true,
       runId: raw.run && raw.run.id ? raw.run.id : null,
       fileCount: files.length,

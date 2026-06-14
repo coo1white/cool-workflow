@@ -707,10 +707,13 @@ async function main() {
                 case "verify": {
                     const result = (0, capability_core_1.auditVerify)(runner, { ...args.options, runId: required(runId, "run id") });
                     printJson(result);
-                    // Fail-closed: a PRESENT-but-unverified (forged/edited/truncated) chain
-                    // exits non-zero so `cw audit verify <run> && deploy` stops. An absent
-                    // chain (present:false / verified:true) stays exit 0 — nothing to prove.
-                    if (result.present && !result.verified)
+                    // Fail-closed: any unverified chain exits non-zero so `cw audit verify
+                    // <run> && deploy` stops — mirrors the telemetry-verify guard. verifyTrustAudit
+                    // returns verified:true for a truly absent/empty chain (nothing to prove),
+                    // so this stays exit 0 there; a FULLY-corrupt log reports present:false but
+                    // verified:false (corruptLines>0) and must NOT be conflated with absent — the
+                    // earlier `present && ...` guard let that severe tamper escape (exit 0).
+                    if (!result.verified)
                         process.exitCode = 1;
                     return;
                 }
