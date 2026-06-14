@@ -77,4 +77,8 @@ export interface RoutineTriggerStore {
   schemaVersion: 1;
   triggers: RoutineTrigger[];
   events: RoutineTriggerEvent[];
+  /** Monotonic, delete-proof trigger-id sequence. Unlike triggers.length it never
+   *  decrements when a trigger is deleted, so a later create cannot reuse a live
+   *  id (which would corrupt the append-only event/audit log). */
+  nextTriggerSeq?: number;
 }

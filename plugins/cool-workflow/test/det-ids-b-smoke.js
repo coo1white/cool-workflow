@@ -287,4 +287,25 @@ assert.match(idsA.boardId, /^bb-\d{4}$/, "blackboard id is a zero-padded sequenc
 assert.match(trigA.triggerId, /^api-\d{4}$/, "trigger id is a zero-padded sequence");
 assert.match(trigA.eventId, /^event-api-\d{4}$/, "event id is a zero-padded sequence");
 
+// Trigger ids must survive delete: the routine store supports delete(), so a
+// length-based seq would reuse a LIVE id after delete+create (corrupting the
+// append-only event/audit log). nextTriggerSeq is monotonic.
+{
+  const { RoutineTriggerBridge } = require("../dist/triggers");
+  const make = () => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-det-trig-"));
+    const b = new RoutineTriggerBridge(cwd);
+    const t1 = b.create({ kind: "api", prompt: "p" }).id;
+    const t2 = b.create({ kind: "api", prompt: "p" }).id;
+    b.delete(t1);
+    const t3 = b.create({ kind: "api", prompt: "p" }).id;
+    return [t1, t2, t3];
+  };
+  const run1 = make();
+  const run2 = make();
+  assert.notEqual(run1[2], run1[1], "trigger create after delete must NOT reuse the live id");
+  assert.equal(new Set([run1[1], run1[2]]).size, 2, "no live trigger-id collision after delete+create");
+  assert.deepEqual(run1, run2, "trigger ids are deterministic across fresh runs");
+}
+
 process.stdout.write("det-ids-b-smoke: ok\n");

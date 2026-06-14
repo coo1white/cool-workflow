@@ -22,8 +22,13 @@ export class RoutineTriggerBridge {
   create(options: Record<string, unknown>): RoutineTrigger {
     const now = new Date().toISOString();
     const store = this.load();
+    // Monotonic id, NOT triggers.length: delete shrinks the collection, so a
+    // length-based seq would reuse a live id after delete+create (corrupting the
+    // append-only event/audit log). nextTriggerSeq only ever increments.
+    const seq = (store.nextTriggerSeq || 0) + 1;
+    store.nextTriggerSeq = seq;
     const trigger: RoutineTrigger = {
-      id: createTriggerId(normalizeKind(options.kind), store.triggers.length + 1),
+      id: createTriggerId(normalizeKind(options.kind), seq),
       kind: normalizeKind(options.kind),
       createdAt: now,
       updatedAt: now,
@@ -93,12 +98,21 @@ export class RoutineTriggerBridge {
   }
 
   private load(): RoutineTriggerStore {
-    if (!fs.existsSync(this.storePath)) return { schemaVersion: 1, triggers: [], events: [] };
+    if (!fs.existsSync(this.storePath)) return { schemaVersion: 1, triggers: [], events: [], nextTriggerSeq: 0 };
     const value = readJson(this.storePath) as RoutineTriggerStore;
+    const triggers = Array.isArray(value.triggers) ? value.triggers : [];
+    // Recover the monotonic sequence: max(persisted, highest existing id seq). The
+    // second term protects legacy stores (no nextTriggerSeq) and any store written
+    // before this field existed — a post-delete create can never reuse a live id.
+    const maxExisting = triggers.reduce((max, trigger) => {
+      const n = Number((String(trigger.id).match(/(\d+)$/) || [])[1] || 0);
+      return Number.isFinite(n) && n > max ? n : max;
+    }, 0);
     return {
       schemaVersion: 1,
-      triggers: Array.isArray(value.triggers) ? value.triggers : [],
-      events: Array.isArray(value.events) ? value.events : []
+      triggers,
+      events: Array.isArray(value.events) ? value.events : [],
+      nextTriggerSeq: Math.max(typeof value.nextTriggerSeq === "number" ? value.nextTriggerSeq : 0, maxExisting)
     };
   }
 
