@@ -45,6 +45,25 @@ export const TRUST_AUDIT_SCHEMA_VERSION = 1;
 // only log, not a substitute for an external anchor — and that anchor is not
 // something CW can mint for itself.
 
+/** Single source of truth for a run's audit-paths object: the schemaVersion plus
+ *  the three derived file paths under auditRoot(run). ensureTrustAudit /
+ *  refreshTrustAudit spread this, and createEventId reads .eventLogPath from it, so
+ *  the path-derivation rule lives in exactly one place. */
+function trustAuditPaths(run: WorkflowRun): {
+  schemaVersion: 1;
+  eventLogPath: string;
+  summaryPath: string;
+  indexPath: string;
+} {
+  const dir = auditRoot(run);
+  return {
+    schemaVersion: TRUST_AUDIT_SCHEMA_VERSION as 1,
+    eventLogPath: path.join(dir, "events.jsonl"),
+    summaryPath: path.join(dir, "summary.json"),
+    indexPath: path.join(dir, "index.json")
+  };
+}
+
 /** Genesis prevHash for a run's chain (no prior event). */
 export function trustAuditGenesis(runId: string): string {
   return sha256(`cw-trust-audit:${runId}`);
@@ -183,12 +202,7 @@ export function ensureTrustAudit(run: WorkflowRun): Required<NonNullable<Workflo
   const auditDir = auditRoot(run);
   fs.mkdirSync(auditDir, { recursive: true });
   run.paths.auditDir = auditDir;
-  const audit = {
-    schemaVersion: TRUST_AUDIT_SCHEMA_VERSION as 1,
-    eventLogPath: path.join(auditDir, "events.jsonl"),
-    summaryPath: path.join(auditDir, "summary.json"),
-    indexPath: path.join(auditDir, "index.json")
-  };
+  const audit = { ...trustAuditPaths(run) };
   run.audit = audit;
   if (!fs.existsSync(audit.eventLogPath)) fs.writeFileSync(audit.eventLogPath, "", "utf8");
   return audit;
@@ -431,12 +445,7 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
 }
 
 export function refreshTrustAudit(run: WorkflowRun): TrustAuditSummary {
-  const audit = {
-    schemaVersion: TRUST_AUDIT_SCHEMA_VERSION as 1,
-    eventLogPath: path.join(auditRoot(run), "events.jsonl"),
-    summaryPath: path.join(auditRoot(run), "summary.json"),
-    indexPath: path.join(auditRoot(run), "index.json")
-  };
+  const audit = { ...trustAuditPaths(run) };
   fs.mkdirSync(path.dirname(audit.eventLogPath), { recursive: true });
   if (!fs.existsSync(audit.eventLogPath)) fs.writeFileSync(audit.eventLogPath, "", "utf8");
   run.audit = audit;
@@ -592,7 +601,7 @@ function createEventId(run: WorkflowRun, kind: string): string {
   // Deterministic (FreeBSD-audit L12/L13): chain-local sequence (event-log length),
   // no wall-clock stamp — event.id is bound into the eventHash chain (computeEventHash),
   // so a stable id keeps the chain reproducible on replay.
-  const count = readEvents(path.join(auditRoot(run), "events.jsonl")).length + 1;
+  const count = readEvents(trustAuditPaths(run).eventLogPath).length + 1;
   return `audit-${safeFileName(kind)}-${String(count).padStart(4, "0")}`;
 }
 

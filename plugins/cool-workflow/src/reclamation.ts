@@ -47,8 +47,6 @@ import {
   WorkflowRun
 } from "./types";
 
-export const RECLAMATION_SCHEMA_VERSION = 1;
-
 /** The skeleton schema is the contract for what MUST survive every reclamation.
  *  Machine-checkable via validateSkeleton(). If extraction can't produce all of
  *  these, reclamation fails closed and frees nothing. */
@@ -454,7 +452,6 @@ export function planReclamation(run: WorkflowRun, policy: ReclamationPolicyInput
   // freeable once the result node's worker-result artifact is re-pointed.
   let reclaimedScratch = false;
   if (!policy.keepScratch) {
-    const workersDir = run.paths.workersDir || path.join(runDir, "workers");
     for (const scope of run.workers || []) {
       const workerDir = scope.workerDir;
       if (!workerDir || !fs.existsSync(workerDir)) continue;
@@ -474,7 +471,6 @@ export function planReclamation(run: WorkflowRun, policy: ReclamationPolicyInput
       });
       reclaimedScratch = true;
     }
-    void workersDir;
   }
 
   // A node whose scratch is being re-pointed THIS pass must NOT also have its

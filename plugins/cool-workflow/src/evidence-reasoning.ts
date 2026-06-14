@@ -447,7 +447,7 @@ function deriveCounterfactuals(run: WorkflowRun, scores: Map<string, CandidateSc
       forSelectionGate.push({
         ref: candidate.id,
         kind: "candidate",
-        status: candidate.status === "failed" ? "rejected" : "rejected",
+        status: "rejected",
         reason: candidate.feedbackIds[0] ? `see feedback ${candidate.feedbackIds[0]}` : `candidate ${candidate.id} ${candidate.status}`
       });
       for (const scoreId of candidate.scores || []) {

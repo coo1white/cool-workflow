@@ -11,7 +11,6 @@ exports.summarizeOperatorCandidates = summarizeOperatorCandidates;
 exports.summarizeOperatorFeedback = summarizeOperatorFeedback;
 exports.summarizeOperatorCommits = summarizeOperatorCommits;
 exports.buildOperatorGraph = buildOperatorGraph;
-const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_trust_1 = require("./multi-agent-trust");
@@ -123,7 +122,7 @@ function summarizeOperatorCandidates(run) {
         total: candidates.length,
         byStatus: countBy(candidates, (candidate) => candidate.status),
         byKind: countBy(candidates, (candidate) => candidate.kind),
-        latestRankingPath: latestRankingPath && node_fs_1.default.existsSync(latestRankingPath) ? latestRankingPath : latestRankingPath,
+        latestRankingPath,
         selected: selections.map((selection) => ({
             selectionId: selection.id,
             candidateId: selection.candidateId,

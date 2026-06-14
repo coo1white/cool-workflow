@@ -592,17 +592,6 @@ export function loadPersistedMetricsFingerprint(run: WorkflowRun): string | unde
   }
 }
 
-/** Read the full persisted per-run report, if any (never throws). */
-export function loadPersistedMetricsReport(run: WorkflowRun): MetricsReport | undefined {
-  const file = metricsReportPath(run);
-  if (!fs.existsSync(file)) return undefined;
-  try {
-    return readJson(file) as MetricsReport;
-  } catch {
-    return undefined;
-  }
-}
-
 /** Derive + persist the per-run report. The RETURNED payload is order- and
  *  cache-independent (freshness === "valid", persistedFingerprint === itself),
  *  so `cw metrics show --json` and `cw_metrics_show` are byte-identical. The

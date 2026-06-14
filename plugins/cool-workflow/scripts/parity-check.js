@@ -150,6 +150,11 @@ async function payloadParity() {
     for (const [capability, mcpTool] of GLOBAL_PROBES) {
       const cap = capById(capability);
       assert.equal(cap.mcp.tool, mcpTool, `probe/registry MCP tool mismatch for ${capability}`);
+      // jsonMode is the single source for the CLI's --json policy; this probe only
+      // appends --json for "flag" verbs and JSON.parse-es the result. The human
+      // rendering and "default"-verb no-flag JSON are pinned to cap.cli.jsonMode by
+      // the companion test/cli-jsonmode-parity-smoke.js, so cli.ts can't silently
+      // re-encode that policy by hand and drift from this registry data.
       const cliArgv = [...cap.cli.path, ...(cap.cli.jsonMode === "flag" ? ["--json"] : [])];
       const cliOut = JSON.parse(execFileSync(node, [cli, ...cliArgv], { cwd: workspace, encoding: "utf8" }));
       const mcpOut = await mcp.tool(mcpTool, { cwd: workspace });

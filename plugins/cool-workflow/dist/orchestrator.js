@@ -48,7 +48,6 @@ const state_1 = require("./state");
 const observability_1 = require("./observability");
 const pipeline_runner_1 = require("./pipeline-runner");
 const worker_isolation_1 = require("./worker-isolation");
-const candidate_scoring_1 = require("./candidate-scoring");
 const sandbox_profile_1 = require("./sandbox-profile");
 const execution_backend_1 = require("./execution-backend");
 const operator_ux_1 = require("./operator-ux");
@@ -372,9 +371,6 @@ class CoolWorkflowRunner {
     }
     formatCommentList(comments) {
         return collaborationOps.formatCommentList(comments);
-    }
-    summarizeCandidateRecords(runId) {
-        return (0, candidate_scoring_1.summarizeCandidates)(this.loadRun(runId));
     }
     summarizeWorkerRecords(runId) {
         return (0, operator_ux_1.summarizeOperatorWorkers)(this.loadRun(runId));
@@ -705,9 +701,6 @@ class CoolWorkflowRunner {
     }
     loadRun(runId) {
         return (0, state_1.loadRunFromCwd)(runId);
-    }
-    loadWorkflowById(workflowId) {
-        return this.loadWorkflowAppById(workflowId).app.workflow;
     }
     loadWorkflowAppById(appId) {
         const record = this.loadWorkflowApps().find((candidate) => candidate.app.id === appId);

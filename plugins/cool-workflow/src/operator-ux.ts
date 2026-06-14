@@ -1,4 +1,3 @@
-import fs from "node:fs";
 import path from "node:path";
 import {
   CandidateRecord,
@@ -283,7 +282,7 @@ export function summarizeOperatorCandidates(run: WorkflowRun): OperatorCandidate
     total: candidates.length,
     byStatus: countBy(candidates, (candidate) => candidate.status),
     byKind: countBy(candidates, (candidate) => candidate.kind),
-    latestRankingPath: latestRankingPath && fs.existsSync(latestRankingPath) ? latestRankingPath : latestRankingPath,
+    latestRankingPath,
     selected: selections.map((selection) => ({
       selectionId: selection.id,
       candidateId: selection.candidateId,

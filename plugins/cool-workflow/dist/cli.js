@@ -683,7 +683,7 @@ async function main() {
                     printJson(runner.recordWorkerOutput(required(runId, "run id"), required(workerId, "worker id"), required(resultPath, "result file"), args.options));
                     return;
                 case "fail":
-                    printJson(runner.recordWorkerFailure(required(runId, "run id"), required(workerId, "worker id"), String(args.options.message || args.options.m || required(resultPath, "failure message")), args.options));
+                    printJson(runner.recordWorkerFailure(required(runId, "run id"), required(workerId, "worker id"), String(args.options.message || required(resultPath, "failure message")), args.options));
                     return;
                 case "validate": {
                     // Non-null = a boundary violation: a validate verb must report an invalid

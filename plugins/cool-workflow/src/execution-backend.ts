@@ -609,7 +609,7 @@ function executeLocal(
       backendId: descriptor.id,
       locality: descriptor.locality,
       kind: descriptor.kind,
-      attestation: { ...attestation, status: status === "completed" ? attestation.status : attestation.status, notes }
+      attestation: { ...attestation, status: attestation.status, notes }
     }
   };
 }

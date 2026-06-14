@@ -2,9 +2,11 @@ import type { CoordinatorDecisionKind } from "./blackboard";
 import type { MultiAgentPolicy } from "./multi-agent";
 
 /** Topology id — an open string namespace. The three official topologies
- *  ("map-reduce", "debate", "judge-panel") are the built-in POLICY registered
- *  at module load via registerTopology(). Any module can register additional
- *  topologies — the registry is MECHANISM, the entries are POLICY. */
+ *  ("map-reduce", "debate", "judge-panel") are the built-in POLICY: the
+ *  OFFICIAL_TOPOLOGIES literal array, composed with any registerTopology()
+ *  entries. registerTopology() is the open seam for ADDITIONAL topologies,
+ *  not the source of the built-ins — the registry is MECHANISM, the entries
+ *  are POLICY. */
 export type MultiAgentTopologyId = string;
 export type TopologyRunStatus = "planned" | "running" | "blocked" | "ready" | "completed" | "failed";
 

@@ -653,7 +653,7 @@ function buildTimeline(run: WorkflowRun): CollaborationTimelineEntry[] {
       summary: `review policy: ${policy.requiredApprovals} approval(s) from [${policy.authorizedRoles.join(", ")}] for [${policy.appliesTo.join(", ")}]`
     });
   }
-  return entries.sort(compareTimeline);
+  return entries.sort(compareByCreated);
 }
 
 function buildNextActions(run: WorkflowRun, states: ReviewState[], policy: ReviewGatePolicy | undefined): string[] {
@@ -793,10 +793,6 @@ function persist(run: WorkflowRun, options: CollaborationOptions): void {
 }
 
 function compareByCreated<T extends { createdAt: string; id: string }>(left: T, right: T): number {
-  return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
-}
-
-function compareTimeline(left: CollaborationTimelineEntry, right: CollaborationTimelineEntry): number {
   return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
 }
 

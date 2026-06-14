@@ -621,8 +621,6 @@ function blackboardDigestFor(
 // ---------------------------------------------------------------------------
 
 interface CollapseRule {
-  // Collapse nodes of these kinds into synthetic summary nodes.
-  collapse: boolean;
   // A node is kept (never collapsed) when it matches the protected predicate
   // (failures, blocked, conflicts, critical path) — provenance is never hidden.
   bucketBy: (node: { id: string; kind: string }, parentOf: (id: string) => string | undefined) => string;
@@ -844,7 +842,6 @@ function finalizeGraphRecord(
 
 function collapseRuleFor(view: GraphView): CollapseRule {
   return {
-    collapse: true,
     bucketBy: (node, parentOf) => {
       switch (node.kind) {
         case "blackboard-message":

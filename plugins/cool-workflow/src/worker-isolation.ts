@@ -48,21 +48,6 @@ export interface RecordWorkerFailureOptions extends WorkerIsolationOptions {
   retryCount?: number;
 }
 
-export function createWorkerIsolation(options: WorkerIsolationOptions = {}) {
-  return {
-    allocateWorkerScope: (run: WorkflowRun, task: RunTask, allocateOptions?: WorkerIsolationOptions) =>
-      allocateWorkerScope(run, task, { ...options, ...allocateOptions }),
-    writeWorkerManifest,
-    listWorkerScopes: (run: WorkflowRun, listOptions?: { status?: WorkerScope["status"] }) =>
-      listWorkerScopes(run, listOptions),
-    getWorkerScope,
-    recordWorkerOutput,
-    recordWorkerFailure,
-    validateWorkerBoundary,
-    summarizeWorkers
-  };
-}
-
 export function allocateWorkerScope(
   run: WorkflowRun,
   task: RunTask,
@@ -806,15 +791,8 @@ export function reclaimOrphans(run: WorkflowRun, now?: string): ReclaimOrphansRe
   }
   if (orphans.length) {
     writeWorkerIndex(run);
-    saveWorkerCheckpoint(run);
   }
   return { runId: run.id, reclaimed: orphans.length, orphans };
-}
-
-function saveWorkerCheckpoint(run: WorkflowRun): void {
-  // Durable write via atomic temp+rename (same contract as saveCheckpoint)
-  // For worker index, the atomic write in writeWorkerIndex already handles it.
-  // This is a no-op wrapper that signals the checkpoint boundary.
 }
 
 function ensureWorkerState(run: WorkflowRun): void {

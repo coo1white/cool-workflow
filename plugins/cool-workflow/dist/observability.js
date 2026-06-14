@@ -46,7 +46,6 @@ exports.deriveMetricsReport = deriveMetricsReport;
 exports.deriveCollaborationMetrics = deriveCollaborationMetrics;
 exports.metricsDir = metricsDir;
 exports.loadPersistedMetricsFingerprint = loadPersistedMetricsFingerprint;
-exports.loadPersistedMetricsReport = loadPersistedMetricsReport;
 exports.showMetricsReport = showMetricsReport;
 exports.deriveMetricsSummary = deriveMetricsSummary;
 const node_crypto_1 = __importDefault(require("node:crypto"));
@@ -549,18 +548,6 @@ function loadPersistedMetricsFingerprint(run) {
     try {
         const parsed = (0, state_1.readJson)(file);
         return parsed.sourceFingerprint;
-    }
-    catch {
-        return undefined;
-    }
-}
-/** Read the full persisted per-run report, if any (never throws). */
-function loadPersistedMetricsReport(run) {
-    const file = metricsReportPath(run);
-    if (!node_fs_1.default.existsSync(file))
-        return undefined;
-    try {
-        return (0, state_1.readJson)(file);
     }
     catch {
         return undefined;

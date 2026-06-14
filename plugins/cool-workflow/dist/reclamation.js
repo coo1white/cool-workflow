@@ -29,7 +29,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ReclamationError = exports.ReclamationAbort = exports.SKELETON_REQUIRED_KEYS = exports.RECLAMATION_SCHEMA_VERSION = void 0;
+exports.ReclamationError = exports.ReclamationAbort = exports.SKELETON_REQUIRED_KEYS = void 0;
 exports.sha256OfString = sha256OfString;
 exports.sha256OfFile = sha256OfFile;
 exports.dirBytes = dirBytes;
@@ -57,7 +57,6 @@ const node_snapshot_1 = require("./node-snapshot");
 const state_1 = require("./state");
 const trust_audit_1 = require("./trust-audit");
 const compare_1 = require("./compare");
-exports.RECLAMATION_SCHEMA_VERSION = 1;
 /** The skeleton schema is the contract for what MUST survive every reclamation.
  *  Machine-checkable via validateSkeleton(). If extraction can't produce all of
  *  these, reclamation fails closed and frees nothing. */
@@ -450,7 +449,6 @@ function planReclamation(run, policy = {}) {
     // freeable once the result node's worker-result artifact is re-pointed.
     let reclaimedScratch = false;
     if (!policy.keepScratch) {
-        const workersDir = run.paths.workersDir || node_path_1.default.join(runDir, "workers");
         for (const scope of run.workers || []) {
             const workerDir = scope.workerDir;
             if (!workerDir || !node_fs_1.default.existsSync(workerDir))
@@ -473,7 +471,6 @@ function planReclamation(run, policy = {}) {
             });
             reclaimedScratch = true;
         }
-        void workersDir;
     }
     // A node whose scratch is being re-pointed THIS pass must NOT also have its
     // snapshot freed in the same pass — re-pointing mutates the node body, which

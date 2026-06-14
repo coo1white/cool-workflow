@@ -553,7 +553,6 @@ function finalizeGraphRecord(run, view, options, full, built) {
 }
 function collapseRuleFor(view) {
     return {
-        collapse: true,
         bucketBy: (node, parentOf) => {
             switch (node.kind) {
                 case "blackboard-message":
