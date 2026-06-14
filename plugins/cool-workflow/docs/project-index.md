@@ -8,8 +8,8 @@ Generated from the current repository code on 2026-06-14 by `npm run sync:projec
 - Version: `0.1.80`
 - Source modules: `58`
 - Workflow apps: `7`
-- Docs: `47`
-- Smoke tests: `81`
+- Docs: `48`
+- Smoke tests: `82`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -168,6 +168,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [STATE-NODE(7)](state-node.7.md)
 - [Team Collaboration](team-collaboration.7.md)
 - [Unix-Inspired Workflow Principles](unix-principles.md)
+- [Vendor Manifest Loadability](vendor-manifest-loadability.7.md)
 - [VERIFIER-GATED-COMMIT(7)](verifier-gated-commit.7.md)
 - [Web / Desktop Workbench](web-desktop-workbench.7.md)
 - [WORKER-ISOLATION(7)](worker-isolation.7.md)
@@ -252,6 +253,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [telemetry-ledger-smoke.js](../test/telemetry-ledger-smoke.js)
 - [telemetry-metrics-coverage-smoke.js](../test/telemetry-metrics-coverage-smoke.js)
 - [token-budget-enforcement-smoke.js](../test/token-budget-enforcement-smoke.js)
+- [vendor-manifest-load-smoke.js](../test/vendor-manifest-load-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)
 - [verify-import-audit-chain-smoke.js](../test/verify-import-audit-chain-smoke.js)
 - [web-desktop-workbench-smoke.js](../test/web-desktop-workbench-smoke.js)

@@ -51,6 +51,7 @@
     "forward-ref": "node scripts/forward-ref-docs.js",
     "verify:container": "node scripts/verify-container-selfref.js",
     "gen:manifests": "node scripts/gen-manifests.js",
+    "manifest:load-check": "node test/vendor-manifest-load-smoke.js",
     "parity:check": "node scripts/parity-check.js --check",
     "version:sync": "node scripts/version-sync-check.js",
     "release:check": "node scripts/release-check.js",
