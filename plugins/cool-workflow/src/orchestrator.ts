@@ -37,6 +37,24 @@ import * as topologyOps from "./orchestrator/topology-operations";
 import * as lifecycleOps from "./orchestrator/lifecycle-operations";
 import * as migrationOps from "./orchestrator/migration-operations";
 
+// CoolWorkflowRunner — the single FACADE both surfaces (cli.ts and the MCP server)
+// call through. It is deliberately WIDE but THIN: each method either
+//   (a) loads the run's durable state and delegates to a domain function in
+//       ./orchestrator/*-operations.ts — the v0.1.40 self-audit "router pattern":
+//       one thin delegator per capability, NOT a god-object to dismantle; or
+//   (b) holds a small amount of surface-shared logic (app/worker loaders, report
+//       composition, read-snapshot-then-op).
+// The high method count is INTENTIONAL — it is the union of every both-surface
+// capability — and the fail-closed CLI<->MCP parity gate keeps each one honest (a
+// method present on one surface but not the other is exactly the drift it forbids).
+//
+// FreeBSD-audit R3 ("142-method god-facade with no-op passthroughs") was assessed
+// and CLOSED as won't-fix: of 141 public methods exactly ONE is a true
+// runner->runner forward (collaborationReject -> collaborationApprove(...,"reject")),
+// and it is kept on purpose — it is a registered capability `entry` bound to the
+// parity gate AND an intent-revealing veto verb, so collapsing it would be a
+// behavior-neutral readability LOSS touching both surfaces. Dismantling the facade
+// is an explicit anti-goal (small kernel, explicit delegation — see DIRECTION.md).
 export class CoolWorkflowRunner {
   pluginRoot: string;
   workflowsDir: string;
