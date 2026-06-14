@@ -115,6 +115,14 @@ cwd — loads its durable state, and returns the next runnable tasks and next
 actions for the host to execute. Resume is read-only over source: it never
 mutates `state.json` and never un-archives a run.
 
+`run resume <run-id> --drive` (or `--once` for a single step) hands the resolved
+run straight to the existing agent-delegation drive loop — it re-plans nothing and
+picks up the pending/running tasks deterministically from durable state — and
+augments the result with the drive outcome under a `drive` field. The default (no
+`--drive`) payload and `nextActions` stay byte-identical. An unconfigured agent
+yields `drive.status="blocked"` (fail-closed, never a fabricated completion); CW
+delegates worker execution to your agent and never runs a model itself.
+
 ## Queue
 
 `queue add` appends a durable entry to `$CW_HOME/registry/queue.json` with an
@@ -200,7 +208,7 @@ node scripts/cw.js registry show [--scope repo|home] [--json]
 node scripts/cw.js run search [--app ID] [--status STATE] [--text Q] [--repo PATH] [--since ISO] [--until ISO] [--limit N] [--offset N] [--scope repo|home] [--json]
 node scripts/cw.js run list [--scope repo|home] [--json]
 node scripts/cw.js run show <run-id> [--scope repo|home] [--json]
-node scripts/cw.js run resume <run-id> [--limit N] [--json]
+node scripts/cw.js run resume <run-id> [--limit N] [--drive [--once]] [--json]
 node scripts/cw.js run archive <run-id> [--reason TEXT] [--unarchive]
 node scripts/cw.js run archive --older-than-days N [--state completed --state failed]
 node scripts/cw.js run rerun <run-id> [--reason TEXT]

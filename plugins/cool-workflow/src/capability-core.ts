@@ -238,11 +238,18 @@ export function runShow(reg: RunRegistry, runId: string, args: Record<string, un
   return reg.showRun(runId, { scope: scopeOf(args, "home") });
 }
 
-export function runResume(reg: RunRegistry, runId: string, args: Record<string, unknown>): RunResumeResult {
-  return reg.resume(runId, {
+export function runResume(reg: RunRegistry, runner: CoolWorkflowRunner, runId: string, args: Record<string, unknown>): RunResumeResult {
+  const base = reg.resume(runId, {
     scope: scopeOf(args, "home"),
     limit: args.limit === undefined ? undefined : Number(args.limit)
   });
+  // Default (no --drive/--once): read-only, byte-identical to before.
+  if (!isTrue(args.drive) && !isTrue(args.once)) return base;
+  // Opt-in continuation: hand the resolved run to the EXISTING agent-delegation
+  // drive loop (re-plans nothing; picks up pending/running tasks from durable
+  // state). An unconfigured agent surfaces drive.status="blocked" (fail-closed).
+  const drive = runDrive(runner, { ...args, runId: base.runId, repo: base.repo, once: isTrue(args.once) });
+  return { ...base, drive };
 }
 
 export function runArchive(reg: RunRegistry, runId: string | undefined, args: Record<string, unknown>): unknown {

@@ -1058,7 +1058,7 @@ async function main(): Promise<void> {
           return;
         }
         case "resume": {
-          const result = runResume(registry, required(id, "run id"), args.options);
+          const result = runResume(registry, runner, required(id, "run id"), args.options);
           if (wantsJson(args.options)) printJson(result);
           else process.stdout.write(`${formatResume(result)}\n`);
           return;

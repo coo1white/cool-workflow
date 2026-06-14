@@ -1,4 +1,5 @@
 import type { LoopStage } from "./core";
+import type { DriveResult } from "./drive";
 
 // ---------------------------------------------------------------------------
 // Run Registry / Control Plane (v0.1.28)
@@ -332,6 +333,10 @@ export interface RunResumeResult {
   record: RunRecord;
   nextTasks: Array<{ id: string; phase?: string; status: string; taskPath?: string }>;
   nextActions: Array<{ command: string; reason: string }>;
+  /** Present ONLY when `run resume --drive/--once` continued the run through the
+   *  agent-delegation drive loop; absent (and JSON-omitted) on the default
+   *  read-only resume, so the default payload/shape stays byte-identical. */
+  drive?: DriveResult;
 }
 
 /** Rerun a failed run as a NEW run that links to the original via provenance. */

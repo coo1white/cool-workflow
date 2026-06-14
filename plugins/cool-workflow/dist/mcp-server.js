@@ -401,7 +401,7 @@ function callTool(name, args) {
             case "cw_run_show":
                 return (0, capability_core_1.runShow)((0, capability_core_1.runRegistryFor)(args, runner), String(args.runId || ""), args);
             case "cw_run_resume":
-                return (0, capability_core_1.runResume)((0, capability_core_1.runRegistryFor)(args, runner), String(args.runId || ""), args);
+                return (0, capability_core_1.runResume)((0, capability_core_1.runRegistryFor)(args, runner), runner, String(args.runId || ""), args);
             case "cw_run_archive":
                 return (0, capability_core_1.runArchive)((0, capability_core_1.runRegistryFor)(args, runner), (0, capability_core_1.optionalString)(args.runId), args);
             case "cw_run_rerun":

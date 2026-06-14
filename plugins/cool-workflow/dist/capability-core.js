@@ -240,11 +240,19 @@ function runList(reg, args) {
 function runShow(reg, runId, args) {
     return reg.showRun(runId, { scope: scopeOf(args, "home") });
 }
-function runResume(reg, runId, args) {
-    return reg.resume(runId, {
+function runResume(reg, runner, runId, args) {
+    const base = reg.resume(runId, {
         scope: scopeOf(args, "home"),
         limit: args.limit === undefined ? undefined : Number(args.limit)
     });
+    // Default (no --drive/--once): read-only, byte-identical to before.
+    if (!isTrue(args.drive) && !isTrue(args.once))
+        return base;
+    // Opt-in continuation: hand the resolved run to the EXISTING agent-delegation
+    // drive loop (re-plans nothing; picks up pending/running tasks from durable
+    // state). An unconfigured agent surfaces drive.status="blocked" (fail-closed).
+    const drive = runDrive(runner, { ...args, runId: base.runId, repo: base.repo, once: isTrue(args.once) });
+    return { ...base, drive };
 }
 function runArchive(reg, runId, args) {
     if (runId) {

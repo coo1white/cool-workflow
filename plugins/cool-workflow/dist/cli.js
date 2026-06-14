@@ -1038,7 +1038,7 @@ async function main() {
                     return;
                 }
                 case "resume": {
-                    const result = (0, capability_core_1.runResume)(registry, required(id, "run id"), args.options);
+                    const result = (0, capability_core_1.runResume)(registry, runner, required(id, "run id"), args.options);
                     if (wantsJson(args.options))
                         printJson(result);
                     else

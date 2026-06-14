@@ -456,7 +456,7 @@ function callTool(name: string, args: Record<string, unknown>): unknown {
       case "cw_run_show":
         return runShow(runRegistryFor(args, runner), String(args.runId || ""), args);
       case "cw_run_resume":
-        return runResume(runRegistryFor(args, runner), String(args.runId || ""), args);
+        return runResume(runRegistryFor(args, runner), runner, String(args.runId || ""), args);
       case "cw_run_archive":
         return runArchive(runRegistryFor(args, runner), optionalString(args.runId), args);
       case "cw_run_rerun":
