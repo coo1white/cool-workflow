@@ -99,7 +99,7 @@ function persistMultiAgentState(run) {
 }
 function createMultiAgentRun(run, input = {}) {
     const state = ensureMultiAgentState(run);
-    const id = input.id || createId("mar");
+    const id = input.id || createId("mar", state.runs.length + 1);
     if (state.runs.some((record) => record.id === id))
         throw new Error(`Duplicate MultiAgentRun id: ${id}`);
     const now = new Date().toISOString();
@@ -252,7 +252,7 @@ function completeOwnedMultiAgentRecords(run, multiAgentRun, reason) {
 function createAgentRole(run, input) {
     const state = ensureMultiAgentState(run);
     const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId);
-    const id = input.id || createId("role");
+    const id = input.id || createId("role", state.roles.length + 1);
     if (state.roles.some((record) => record.id === id))
         throw new Error(`Duplicate AgentRole id: ${id}`);
     if (input.parentRoleId)
@@ -315,7 +315,7 @@ function createAgentRole(run, input) {
 function createAgentGroup(run, input) {
     const state = ensureMultiAgentState(run);
     const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId);
-    const id = input.id || createId("group");
+    const id = input.id || createId("group", state.groups.length + 1);
     if (state.groups.some((record) => record.id === id))
         throw new Error(`Duplicate AgentGroup id: ${id}`);
     if (input.parentGroupId)
@@ -394,7 +394,7 @@ function assignAgentMembership(run, input) {
     if (duplicate) {
         throw new Error(`Duplicate AgentMembership for group=${group.id}, role=${role.id}, task=${task.id}, worker=${input.workerId || "none"}`);
     }
-    const id = input.id || createId("membership");
+    const id = input.id || createId("membership", state.memberships.length + 1);
     if (state.memberships.some((record) => record.id === id))
         throw new Error(`Duplicate AgentMembership id: ${id}`);
     const now = new Date().toISOString();
@@ -468,7 +468,7 @@ function createAgentFanout(run, input) {
     const multiAgentRun = requireMultiAgentRun(run, input.multiAgentRunId || group.multiAgentRunId);
     if (group.multiAgentRunId !== multiAgentRun.id)
         throw new Error(`AgentGroup ${group.id} does not belong to ${multiAgentRun.id}`);
-    const id = input.id || createId("fanout");
+    const id = input.id || createId("fanout", state.fanouts.length + 1);
     if (state.fanouts.some((record) => record.id === id))
         throw new Error(`Duplicate AgentFanout id: ${id}`);
     for (const roleId of input.roleIds || [])
@@ -657,7 +657,7 @@ function collectAgentFanin(run, input) {
         throw new Error(`Group ${group.id} does not belong to MultiAgentRun ${multiAgentRun.id}`);
     if (fanout && fanout.groupId !== group.id)
         throw new Error(`Fanout ${fanout.id} does not belong to group ${group.id}`);
-    const id = input.id || createId("fanin");
+    const id = input.id || createId("fanin", state.fanins.length + 1);
     if (state.fanins.some((record) => record.id === id))
         throw new Error(`Duplicate AgentFanin id: ${id}`);
     const requiredRoleIds = unique(input.requiredRoleIds?.length ? input.requiredRoleIds : group.roleIds);
@@ -1138,9 +1138,13 @@ function touch(record) {
     record.updatedAt = new Date().toISOString();
     return record;
 }
-function createId(prefix) {
-    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `${prefix}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
+// per-run collection, threaded from the call site. No wall-clock stamp, no PRNG
+// suffix — re-running the same multi-agent topology mints byte-identical ids, so
+// snapshot/replay digests match. Each call site already asserts the minted id is
+// unique within its collection, and these collections only ever append.
+function createId(prefix, seq) {
+    return `${prefix}-${String(seq).padStart(4, "0")}`;
 }
 function compact(value) {
     if (!value)

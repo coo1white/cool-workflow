@@ -177,7 +177,7 @@ export function resolveBlackboard(run: WorkflowRun, input: ResolveBlackboardInpu
     persistBlackboardState(run);
     return existing;
   }
-  const id = input.id || createId("bb");
+  const id = input.id || createId("bb", state.boards.length + 1);
   assertUnique(state.boards, id, "Blackboard");
   const now = timestamp();
   const author = normalizeAuthor(input.author, "runtime");
@@ -232,7 +232,7 @@ export function resolveBlackboard(run: WorkflowRun, input: ResolveBlackboardInpu
 export function createBlackboardTopic(run: WorkflowRun, input: CreateTopicInput): BlackboardTopic {
   const board = resolveBlackboard(run, { id: input.blackboardId });
   const state = ensureBlackboardState(run);
-  const id = input.id || createId("topic");
+  const id = input.id || createId("topic", state.topics.length + 1);
   assertUnique(state.topics, id, "BlackboardTopic");
   const topicLinks = compactLinks(run, { ...board.links, ...roleLinkFromAuthor(input.author), ...input.scope });
   const now = timestamp();
@@ -291,7 +291,7 @@ export function postBlackboardMessage(run: WorkflowRun, input: PostMessageInput)
     throw new Error(`Unknown parent BlackboardMessage id: ${input.replyToId}`);
   }
   if (!input.body.trim()) throw new Error("Blackboard message body is required");
-  const id = input.id || createId("msg");
+  const id = input.id || createId("msg", state.messages.length + 1);
   assertUnique(state.messages, id, "BlackboardMessage");
   const author = normalizeAuthor(input.author, "operator");
   const links = compactLinks(run, { ...topic.links, ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs, auditEventIds: input.auditEventIds });
@@ -433,7 +433,7 @@ export function putBlackboardContext(run: WorkflowRun, input: PutContextInput): 
   const topic = requireTopic(run, input.topicId);
   const board = requireBoard(run, input.blackboardId || topic.blackboardId);
   const key = input.key || input.kind;
-  const id = input.id || createId("ctx");
+  const id = input.id || createId("ctx", state.contexts.length + 1);
   assertUnique(state.contexts, id, "BlackboardContext");
   const author = normalizeAuthor(input.author, "operator");
   const links = compactLinks(run, { ...topic.links, ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs });
@@ -552,7 +552,7 @@ export function addBlackboardArtifact(run: WorkflowRun, input: AddArtifactInput)
   const board = resolveBlackboard(run, { id: input.blackboardId });
   const topic = input.topicId ? requireTopic(run, input.topicId) : undefined;
   if (topic && topic.blackboardId !== board.id) throw new Error(`Topic ${topic.id} does not belong to blackboard ${board.id}`);
-  const id = input.id || createId("artifact");
+  const id = input.id || createId("artifact", state.artifacts.length + 1);
   assertUnique(state.artifacts, id, "BlackboardArtifactRef");
   const author = normalizeAuthor(input.author, "operator");
   const links = compactLinks(run, { ...board.links, ...(topic?.links || {}), ...roleLinkFromAuthor(author), ...(input.links || {}), evidenceRefs: input.evidenceRefs, auditEventIds: input.auditEventIds });
@@ -648,7 +648,7 @@ export function addBlackboardArtifact(run: WorkflowRun, input: AddArtifactInput)
 export function createBlackboardSnapshot(run: WorkflowRun, blackboardId?: string): BlackboardSnapshot {
   const state = ensureBlackboardState(run);
   const board = resolveBlackboard(run, { id: blackboardId });
-  const id = createId("snapshot");
+  const id = createId("snapshot", state.snapshots.length + 1);
   const snapshotPath = recordPath(run, "snapshots", id);
   const summary = summarizeBlackboard(run, board.id) as unknown as Record<string, unknown>;
   const snapshot: BlackboardSnapshot = {
@@ -698,7 +698,7 @@ export function createBlackboardSnapshot(run: WorkflowRun, blackboardId?: string
 export function recordCoordinatorDecision(run: WorkflowRun, input: RecordDecisionInput): CoordinatorDecision {
   const state = ensureBlackboardState(run);
   const board = resolveBlackboard(run, { id: input.blackboardId });
-  const id = input.id || createId("decision");
+  const id = input.id || createId("decision", state.decisions.length + 1);
   assertUnique(state.decisions, id, "CoordinatorDecision");
   const decision: CoordinatorDecision = {
     ...base(run, board.id, id, input.author || { kind: "coordinator", id: "cw" }, input.scope, decisionStatus(input.outcome), input.tags, input.metadata),
@@ -1248,9 +1248,13 @@ function uniqueEdges(edges: BlackboardGraph["edges"]): BlackboardGraph["edges"] 
   return result;
 }
 
-function createId(prefix: string): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `${prefix}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
+// per-run blackboard collection, threaded from the call site. No wall-clock stamp,
+// no PRNG suffix — replaying the same coordination mints byte-identical ids, so
+// snapshot/replay digests match. Each call site already asserts the minted id is
+// unique within its collection, and these collections only ever append.
+function createId(prefix: string, seq: number): string {
+  return `${prefix}-${String(seq).padStart(4, "0")}`;
 }
 
 function touch<T extends { updatedAt: string }>(record: T): T {

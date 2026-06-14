@@ -137,7 +137,7 @@ export function recordFeedback(
   const now = new Date().toISOString();
   const record: ErrorFeedbackRecord = {
     schemaVersion: ERROR_FEEDBACK_SCHEMA_VERSION,
-    id: createFeedbackId(classification),
+    id: createFeedbackId(run, classification),
     runId: run.id,
     createdAt: now,
     updatedAt: now,
@@ -410,9 +410,13 @@ function formatEvidence(evidence: StateEvidence[]): string[] {
   return evidence.map((entry) => `- ${entry.id}: ${entry.locator || entry.path || entry.summary || entry.source || ""}`);
 }
 
-function createFeedbackId(classification: ErrorFeedbackClassification): string {
-  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `feedback-${classification}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+// Deterministic feedback id (FreeBSD-audit L12/L13): the feedback record's
+// POSITION in the run's append-only feedback log, qualified by classification for
+// readability. recordFeedback dedups identical errors before minting, so the
+// sequence is stable and collision-free across replays — no clock, no PRNG.
+function createFeedbackId(run: WorkflowRun, classification: ErrorFeedbackClassification): string {
+  const seq = (run.feedback || []).length + 1;
+  return `feedback-${classification}-${String(seq).padStart(4, "0")}`;
 }
 
 function feedbackKey(value: Partial<ErrorFeedbackRecord> & { runId?: string; code?: string; message?: string }): string {

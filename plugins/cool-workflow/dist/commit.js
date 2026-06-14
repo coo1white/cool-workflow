@@ -38,7 +38,7 @@ function commitState(run, input) {
         throw recordCommitGateFailure(run, options, gate);
     }
     node_fs_1.default.mkdirSync(run.paths.commitsDir, { recursive: true });
-    const id = createCommitId();
+    const id = createCommitId(run);
     const snapshotPath = node_path_1.default.join(run.paths.commitsDir, `${id}.json`);
     const audit = gate.verifierGated
         ? (0, trust_audit_1.recordTrustAuditEvent)(run, {
@@ -441,7 +441,7 @@ function recordCommitNode(run, commit, options, gate) {
 function recordCommitGateFailure(run, options, gate) {
     const first = gate.errors[0] || error("commit-gate-blocked", "Verifier-gated commit blocked");
     const node = (0, state_node_1.recordNodeError)((0, state_node_1.createStateNode)({
-        id: `${run.id}:commit-gate-failed:${createCommitId()}`,
+        id: `${run.id}:commit-gate-failed:${gateFailureSeq(run)}`,
         kind: "error",
         status: "pending",
         loopStage: "checkpoint",
@@ -553,9 +553,22 @@ function error(code, message, options = {}) {
         ...options
     };
 }
-function createCommitId() {
-    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `state-${stamp}-${(0, state_1.safeFileName)(Math.random().toString(36).slice(2, 8))}`;
+// Deterministic commit id (FreeBSD-audit L12/L13): the commit's POSITION in the
+// run's append-only commit log, not a wall-clock stamp + PRNG suffix. Re-running
+// the same workflow mints byte-identical commit ids, so snapshot/replay digests
+// match. The sequence is unique within a run (commits only ever append), and the
+// commitState caller writes the snapshot under this id before pushing the commit.
+function createCommitId(run) {
+    const seq = (run.commits || []).length + 1;
+    return `state-${String(seq).padStart(4, "0")}`;
+}
+// Deterministic suffix for a blocked-commit node id. Counts the commit-gate-failed
+// nodes already recorded on the run and returns the next position, so repeated
+// gate failures in one run stay collision-free and replay-stable.
+function gateFailureSeq(run) {
+    const marker = ":commit-gate-failed:";
+    const seq = (run.nodes || []).filter((node) => node.id.includes(marker)).length + 1;
+    return String(seq).padStart(4, "0");
 }
 function readGitHead(cwd) {
     try {
