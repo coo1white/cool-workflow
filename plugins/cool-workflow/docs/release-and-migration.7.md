@@ -288,3 +288,4 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 ## Migration Compatibility (v0.1.81)
 
 v0.1.81 is additive: every change is a new flag/verb/env (`audit verify`, `run inspect-archive`, `verify-import --strict`, `CW_REQUIRE_ARCHIVE_INTEGRITY`, `quickstart --resume`, `run resume --drive`) or an internal behavior-preserving carve. Run-state schema, existing outputs, files, and exit codes are byte-identical, so runs and archives from prior versions load and verify unchanged. No migration action is required.
+_No changes in v0.1.82._

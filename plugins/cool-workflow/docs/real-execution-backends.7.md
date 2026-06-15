@@ -148,3 +148,4 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 _No changes to the real execution backends in v0.1.81._
+_No behavioral change in v0.1.82 (delegated child programs extracted to `scripts/children/`; spawn behavior byte-identical)._

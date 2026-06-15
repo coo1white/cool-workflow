@@ -1,0 +1,2 @@
+APPROVED e5f52fed7b6a6e0435d754170ba46806317aea0b
+Replaying a captured run to verify determinism now re-derives the projection from the raw captured state, so a nondeterministic projection is actually caught instead of silently passing — the determinism moat users audit against now has teeth.

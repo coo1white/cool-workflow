@@ -261,3 +261,4 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 ## Resumable Drive & Resume Routing (v0.1.81)
 
 Adds `run resume <id> --drive/--once` alongside `quickstart --resume`: a stopped pipeline resumes in-place, advancing to completion (`--drive`) or one deterministic step (`--once`) over the same plan->dispatch->agent-fulfill->accept->commit lifecycle, echoing `resumedFrom: <id>`. Fixes the `run resume --drive` CLI routing so the drive flag reaches the resumed run instead of being read as an app name. Replay determinism and the agent evidence triple are unchanged.
+_No behavioral change in v0.1.82 (drive/quickstart resolve the run repo via an explicit base directory rather than process.chdir; delegation behavior is unchanged)._
