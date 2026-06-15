@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.1.82
+
+Architecture-audit hardening: close a false-green in the replay-determinism moat,
+remove the last global-cwd mutation from the runner, and de-risk persisted ids,
+gates, and record reads — on a fully re-verified, 87/87-green core. Full report at
+`docs/audits/architecture-audit-v0.1.81.md`.
+
+- **Replay determinism (the moat)**: the multi-agent replay eval now RE-DERIVES the
+  projection from the raw captured state instead of comparing the baseline to a
+  byte-copy of itself, so a projection-determinism regression in `normalizeRun` is
+  actually caught — it was previously a structural false-green on the exact
+  guarantee CW sells. A new regression smoke proves it has teeth: it fails on the
+  old copy-the-baseline behavior, including a case that simulates an intrinsically
+  nondeterministic projection (corrupt the stored baseline, leave raw state pristine).
+- **Deterministic, collision-free ids**: topology run ids are now a content hash (no
+  wall-clock), and run/schedule ids use a monotonic counter + `process.pid` instead
+  of `Math.random` — deterministic (not a PRNG) and collision-free across
+  same-second/same-kind and concurrent-process minting.
+- **No global cwd mutation**: `CoolWorkflowRunner.withBaseDir()` threads an explicit
+  base directory through run resolution; `drive` / `quickstart` / `export` / `import`
+  / `inspect` / `verify-import` no longer `process.chdir` the whole process, so
+  concurrent in-process callers can no longer corrupt each other's working directory.
+- **Fail-closed hardening**: the no-false-green empty-capture gate is now one shared
+  fail-closed helper (was duplicated sync-by-comment across commit + selection),
+  persisted per-record reads (`WorkerScope` / `CandidateScore` / `NodeSnapshot`) are
+  shape-validated on load, and the trust-audit correlation-id struct is de-duplicated
+  without changing the hash-chained on-disk event shape.
+- **Maintainability**: the `recordWorkerOutput` accept-path and `resolveCommitGate`
+  are decomposed; embedded `node -e` child programs are extracted to
+  `scripts/children/`; node projection and the multi-agent hash/id helpers are each
+  unified into a single source of truth.
+
 ## 0.1.81
 
 Harden the auditability story end to end (verify, restore, inspect) and make the
