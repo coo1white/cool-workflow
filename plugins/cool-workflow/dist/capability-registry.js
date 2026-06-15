@@ -28,6 +28,7 @@ exports.CAPABILITY_REGISTRY = void 0;
 exports.declaredMcpTools = declaredMcpTools;
 exports.declaredCliTokens = declaredCliTokens;
 exports.requiresReason = requiresReason;
+exports.isPayloadProbeOptOut = isPayloadProbeOptOut;
 exports.payloadIdenticalCapabilities = payloadIdenticalCapabilities;
 exports.buildParityReport = buildParityReport;
 // ---------------------------------------------------------------------------
@@ -428,10 +429,28 @@ function requiresReason(cap) {
         return true;
     return false;
 }
-/** Descriptors for the payload-identity probe: both-surface, identical payloads,
- *  read-only (safe to call on a planned run with just runId-style args). */
+/**
+ * Whether a `surface:"both"` capability is DOCUMENTED out of the payload-identity
+ * probe. The probe defaults capabilities IN (every both-surface, dual-bound verb —
+ * including write/complex-arg verbs) and requires an EXPLICIT, REASONED opt-out to
+ * fall out of scope. A capability escapes the probe only when it carries BOTH
+ * `payloadIdentical: false` AND a non-empty `reason`. A bare `payloadIdentical:
+ * false` with no recorded reason does NOT silently escape — it stays in the probe
+ * set so the undocumented divergence trips the gate (FAIL CLOSED). This mirrors the
+ * `requiresReason`/`reasonlessExceptions` gate, but enforces it at the probe-scope
+ * boundary too, so the marshalling-drift surface cannot be narrowed without a paper
+ * trail.
+ */
+function isPayloadProbeOptOut(cap) {
+    return cap.payloadIdentical === false && !!(cap.reason && cap.reason.trim());
+}
+/** Descriptors for the payload-identity probe. Defaults to EVERY both-surface,
+ *  dual-bound capability (read OR write); a capability is excluded only by a
+ *  documented opt-out (`payloadIdentical: false` + a non-empty `reason`) — see
+ *  `isPayloadProbeOptOut`. Fail-closed: an undocumented `payloadIdentical: false`
+ *  stays in scope so its divergence is caught, not silently excused. */
 function payloadIdenticalCapabilities() {
-    return exports.CAPABILITY_REGISTRY.filter((cap) => cap.surface === "both" && cap.payloadIdentical !== false && cap.cli && cap.mcp);
+    return exports.CAPABILITY_REGISTRY.filter((cap) => cap.surface === "both" && cap.cli && cap.mcp && !isPayloadProbeOptOut(cap));
 }
 function lintRegistry() {
     const issues = [];

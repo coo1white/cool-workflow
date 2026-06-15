@@ -457,6 +457,59 @@ export function hostSelect(run: WorkflowRun, options: Record<string, unknown> = 
   return envelope(run, "select", { performed: "selected-candidate", data: selection });
 }
 
+// Per-call memo for the O(state) summaries derived in envelope(). A single host
+// call (status, step, …) otherwise recomputes the same ~11 full-state summaries
+// across envelope() + classifyHostState() + hostNextActions(). Each getter
+// computes once and caches for the lifetime of one cache instance; the cache is
+// not shared across host calls, so behavior stays identical and deterministic.
+interface HostSummaryCache {
+  readonly run: WorkflowRun;
+  topologies(): ReturnType<typeof summarizeTopologies>;
+  multiAgent(): ReturnType<typeof summarizeMultiAgent>;
+  blackboard(): ReturnType<typeof summarizeBlackboard>;
+  workers(): ReturnType<typeof summarizeOperatorWorkers>;
+  candidates(): ReturnType<typeof summarizeOperatorCandidates>;
+  feedback(): ReturnType<typeof summarizeOperatorFeedback>;
+  commits(): ReturnType<typeof summarizeOperatorCommits>;
+  trust(): ReturnType<typeof summarizeTrustAudit>;
+  operator(): ReturnType<typeof summarizeOperatorRun>;
+  multiAgentOperator(): ReturnType<typeof summarizeMultiAgentOperator>;
+  active(): MultiAgentTopologyRun[];
+}
+
+function memoize<T>(compute: (run: WorkflowRun) => T): (run: WorkflowRun) => T {
+  let cached: { value: T } | undefined;
+  return (run) => (cached ??= { value: compute(run) }).value;
+}
+
+function createHostSummaryCache(run: WorkflowRun): HostSummaryCache {
+  const topologies = memoize(summarizeTopologies);
+  const multiAgent = memoize(summarizeMultiAgent);
+  const blackboard = memoize(summarizeBlackboard);
+  const workers = memoize(summarizeOperatorWorkers);
+  const candidates = memoize(summarizeOperatorCandidates);
+  const feedback = memoize(summarizeOperatorFeedback);
+  const commits = memoize(summarizeOperatorCommits);
+  const trust = memoize(summarizeTrustAudit);
+  const operator = memoize(summarizeOperatorRun);
+  const multiAgentOperator = memoize(summarizeMultiAgentOperator);
+  const active = memoize(activeTopologies);
+  return {
+    run,
+    topologies: () => topologies(run),
+    multiAgent: () => multiAgent(run),
+    blackboard: () => blackboard(run),
+    workers: () => workers(run),
+    candidates: () => candidates(run),
+    feedback: () => feedback(run),
+    commits: () => commits(run),
+    trust: () => trust(run),
+    operator: () => operator(run),
+    multiAgentOperator: () => multiAgentOperator(run),
+    active: () => active(run)
+  };
+}
+
 function envelope(
   run: WorkflowRun,
   command: MultiAgentHostResponse["command"],
@@ -467,21 +520,22 @@ function envelope(
     extraBlockedReasons?: string[];
   } = {}
 ): MultiAgentHostResponse {
-  const topologies = summarizeTopologies(run);
-  const multiAgent = summarizeMultiAgent(run);
-  const blackboard = summarizeBlackboard(run);
-  const workers = summarizeOperatorWorkers(run);
-  const candidates = summarizeOperatorCandidates(run);
-  const feedback = summarizeOperatorFeedback(run);
-  const commits = summarizeOperatorCommits(run);
-  const trust = summarizeTrustAudit(run);
-  const operator = summarizeOperatorRun(run);
-  const multiAgentOperator = summarizeMultiAgentOperator(run);
-  const active = activeTopologies(run);
+  const cache = createHostSummaryCache(run);
+  const topologies = cache.topologies();
+  const multiAgent = cache.multiAgent();
+  const blackboard = cache.blackboard();
+  const workers = cache.workers();
+  const candidates = cache.candidates();
+  const feedback = cache.feedback();
+  const commits = cache.commits();
+  const trust = cache.trust();
+  const operator = cache.operator();
+  const multiAgentOperator = cache.multiAgentOperator();
+  const active = cache.active();
   const blockedReasons = unique([...operator.blockedReasons, ...(options.extraBlockedReasons || [])]);
-  const state = blockedReasons.length ? "blocked" : classifyHostState(run);
+  const state = blockedReasons.length ? "blocked" : classifyHostState(run, cache);
   const ids = activeIds(run, active);
-  const nextActions = hostNextActions(run, state, active, options.requiredHostAction);
+  const nextActions = hostNextActions(run, state, active, options.requiredHostAction, cache);
   return {
     schemaVersion: 1,
     surface: "multi-agent-host",
@@ -510,12 +564,12 @@ function envelope(
   };
 }
 
-function classifyHostState(run: WorkflowRun): HostRunState {
-  const active = activeTopologies(run);
-  const feedback = summarizeOperatorFeedback(run);
-  const workers = summarizeOperatorWorkers(run);
-  const candidates = summarizeOperatorCandidates(run);
-  const commits = summarizeOperatorCommits(run);
+function classifyHostState(run: WorkflowRun, cache: HostSummaryCache = createHostSummaryCache(run)): HostRunState {
+  const active = cache.active();
+  const feedback = cache.feedback();
+  const workers = cache.workers();
+  const candidates = cache.candidates();
+  const commits = cache.commits();
   if (!active.length && !(run.multiAgent?.runs || []).length) return "needs-run";
   if (feedback.open.some((entry) => !entry.retryable)) return "failed";
   if (feedback.open.length) return "blocked";
@@ -554,7 +608,8 @@ function hostNextActions(
   run: WorkflowRun,
   state: HostRunState,
   active: MultiAgentTopologyRun[],
-  requiredHostAction?: string
+  requiredHostAction?: string,
+  cache: HostSummaryCache = createHostSummaryCache(run)
 ): MultiAgentHostResponse["nextActions"] {
   if (requiredHostAction) return [{ command: "host-action", reason: requiredHostAction, priority: "high" }];
   const runId = run.id;
@@ -572,7 +627,7 @@ function hostNextActions(
     case "ready-for-selection":
       return [{ command: `node scripts/cw.js multi-agent select ${runId} --candidate <candidate-id> --reason "<rationale>"`, reason: "Select a scored candidate after verifier gates pass.", priority: "high" }];
     case "ready-for-commit": {
-      const ready = summarizeOperatorCandidates(run).readyForCommit[0];
+      const ready = cache.candidates().readyForCommit[0];
       return [{ command: `node scripts/cw.js commit ${runId} --selection ${ready.selectionId} --reason "<verified rationale>"`, reason: "Create a verifier-gated CW state commit.", priority: "high" }];
     }
     case "complete":

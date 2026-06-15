@@ -124,6 +124,14 @@ function replayMultiAgentSnapshot(target, options = {}) {
     const replayDir = node_path_1.default.join(suiteDir, "replay");
     const replayRunPath = node_path_1.default.join(suiteDir, "replay-run.json");
     node_fs_1.default.mkdirSync(replayDir, { recursive: true });
+    // RE-DERIVE the projection from the raw captured state instead of copying
+    // snapshot.normalized. Copying the baseline would make compareMultiAgentReplay
+    // diff the baseline against a byte-copy of itself, so a projection-determinism
+    // regression in normalizeRun could never be caught (the determinism moat would
+    // be false-green). We reconstruct the run from the captured raw state and run
+    // the SAME normalizeRun pipeline used at capture time, producing an INDEPENDENT
+    // re-projection the comparison can pit against the baseline.
+    const replayed = rederiveNormalizedFromSnapshot(snapshot);
     const replay = {
         schemaVersion: 1,
         kind: "multi-agent-replay-run",
@@ -139,7 +147,7 @@ function replayMultiAgentSnapshot(target, options = {}) {
             replayRunPath,
             snapshotPath: snapshot.paths.snapshotPath
         },
-        replay: snapshot.normalized,
+        replay: replayed,
         errors: []
     };
     (0, state_1.writeJson)(replayRunPath, replay);
@@ -397,6 +405,24 @@ function loadScoreForTarget(target, scorePath) {
         }
     }
     return scoreMultiAgentReplay(target);
+}
+// Re-derive snapshot.normalized INDEPENDENTLY at replay time. The raw captured
+// state is the baseline run state file (snapshot.paths.baselineStatePath) — the
+// same WorkflowRun captureRun/normalizeRun projected at capture time. We re-load
+// it and re-run the IDENTICAL normalizeRun pipeline, so the result is a genuine
+// re-projection rather than a copy of the baseline. Fail-closed: if the raw
+// state cannot be reconstructed we throw (never silently fall back to the
+// baseline copy — that is exactly the false-green this guards against).
+function rederiveNormalizedFromSnapshot(snapshot) {
+    const statePath = snapshot.paths.baselineStatePath;
+    if (!statePath || !node_fs_1.default.existsSync(statePath)) {
+        throw new Error(`Cannot re-derive replay projection: baseline run state missing at ${statePath || "<unset>"}; re-snapshot from a live run before replaying.`);
+    }
+    const result = (0, state_1.loadRunStateFile)(statePath, { dryRun: true });
+    if (result.report.status === "unsupported") {
+        throw new Error(`Cannot re-derive replay projection: baseline run state at ${statePath} is unsupported: ${result.report.errors.join("; ")}`);
+    }
+    return normalizeRun(result.run);
 }
 function captureRun(run) {
     return {

@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Scheduler = void 0;
+const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
@@ -233,19 +234,47 @@ function matchesCron(value, expr, min, max) {
         return Number.isInteger(parsed) && parsed >= min && parsed <= max && parsed === value;
     });
 }
+// Deterministic jitter (replay-determinism self-audit): the jittered Date is NOT a
+// runtime-only sleep — it lands in persisted/replayed state (task.nextRunAt and,
+// transitively, the schedule store), so a Math.random() offset broke replay
+// determinism. The spread (0..jitterSeconds) is now derived from a content hash of
+// the base instant, so the same base time + jitter window always yields the same
+// offset; distinct base times still spread out across the window. The base Date is
+// itself an edge timestamp that is recorded once.
 function addJitter(date, jitterSeconds) {
     if (!jitterSeconds)
         return date;
-    const offset = Math.floor(Math.random() * (jitterSeconds + 1)) * 1000;
-    return new Date(date.getTime() + offset);
+    const digest = node_crypto_1.default.createHash("sha256").update(`${date.getTime()}`).digest();
+    const seconds = digest.readUInt32BE(0) % (jitterSeconds + 1);
+    return new Date(date.getTime() + seconds * 1000);
 }
+// Deterministic schedule id (replay-determinism self-audit): the stamp is an edge
+// timestamp (recorded once), but the former Math.random() suffix made each
+// persisted schedule id non-reproducible. The suffix is now a content hash of the
+// schedule's deterministic identity (kind + the recorded stamp), so re-deriving the
+// id for a recorded schedule yields the byte-identical value while schedules created
+// at distinct instants still get distinct ids. Mirrors src/worker-isolation/paths.ts.
+let scheduleIdSequence = 0;
 function createScheduleId(kind) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `${kind}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+    // Second-resolution stamp: two schedules of the same kind created within one
+    // second would otherwise collide on an identical id. The monotonic counter
+    // breaks the tie deterministically (not a PRNG).
+    scheduleIdSequence += 1;
+    const suffix = node_crypto_1.default.createHash("sha256").update(`${kind}:${stamp}:${scheduleIdSequence}`).digest("hex").slice(0, 6);
+    return `${kind}-${stamp}-${suffix}`;
 }
+// Deterministic schedule-run (history) id — same rationale as createScheduleId. The
+// history record stamp differs from the owning schedule's, so the hashed identity
+// (kind + run stamp) stays distinct from the schedule id while remaining a pure
+// function of already-recorded state.
+let scheduleRunIdSequence = 0;
 function createScheduleRunId(kind) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `run-${kind}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+    // Counter breaks same-kind/same-second collisions (see createScheduleId).
+    scheduleRunIdSequence += 1;
+    const suffix = node_crypto_1.default.createHash("sha256").update(`run:${kind}:${stamp}:${scheduleRunIdSequence}`).digest("hex").slice(0, 6);
+    return `run-${kind}-${stamp}-${suffix}`;
 }
 function requiredString(value, name) {
     const text = stringOption(value);

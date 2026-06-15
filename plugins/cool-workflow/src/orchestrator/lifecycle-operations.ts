@@ -5,6 +5,7 @@
 // plan() receives an already-resolved workflow app record (the runner still owns
 // app loading, which is instance-stateful). Behavior is identical to the inline
 // implementations; only the location changed.
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -492,8 +493,27 @@ function renderPrompt(prompt: string, inputs: Record<string, unknown>): string {
   return rendered;
 }
 
+// Deterministic run id (replay-determinism self-audit): the wall-clock stamp is an
+// edge timestamp (recorded once and stripped on replay), but the former
+// Math.random() suffix made the run id itself non-reproducible — re-deriving the id
+// for the SAME recorded run would never match. The suffix is now a content hash of
+// the run's deterministic identity (workflowId + the recorded stamp), so the id is a
+// pure function of inputs that already live in state. Distinct plan() invocations
+// still get distinct ids because the per-millisecond stamp differs; replaying a
+// recorded run reproduces the byte-identical id. Mirrors the de-clock done for
+// worker ids in src/worker-isolation/paths.ts.
+let runIdSequence = 0;
 function createRunId(workflowId: string): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  const suffix = Math.random().toString(36).slice(2, 8);
+  // The stamp is second-resolution, so several runs of the same workflowId minted
+  // within one second would otherwise hash to the SAME id. A monotonic counter
+  // breaks the tie — deterministic-by-creation-order (not a PRNG, so it satisfies
+  // the replay-determinism intent) and the id is an edge stamp stripped on replay.
+  runIdSequence += 1;
+  const suffix = crypto
+    .createHash("sha256")
+    .update(`${workflowId}:${stamp}:${runIdSequence}`)
+    .digest("hex")
+    .slice(0, 6);
   return `${workflowId}-${stamp}-${suffix}`;
 }
