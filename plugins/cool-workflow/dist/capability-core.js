@@ -198,65 +198,16 @@ function flag(value) {
         return false;
     return Boolean(value);
 }
-// ---- reentrancy-safe process-cwd bracket (F7) -----------------------------
-// The runner (CoolWorkflowRunner) is irreducibly process.cwd()-bound: loadRun ->
-// loadRunFromCwd(runId) and plan -> loadWorkflowApps()/lifecycleOps.plan all
-// resolve a run's repo root from process.cwd(), across ~141 methods, with no
-// per-call cwd parameter. So the legitimate way to operate WITH a run's repo as
-// cwd (run --drive --repo X invoked from anywhere; cross-directory quickstart;
-// run import/export against a target dir) is to chdir the process around the
-// run-resolving calls and restore.
-//
-// process.cwd() is a single global, so two of these brackets active at once in
-// ONE process would corrupt each other. CW ships a concurrent batch driver and a
-// parallel test runner, but BOTH fan out via separate child PROCESSES (spawnSync
-// in execution-backend.ts), each with its own cwd — and the in-process dispatch
-// surfaces (CLI main, MCP stdin handleLine) are fully synchronous, so a single
-// invocation's bracket never yields mid-window to a sibling. The residual hazard
-// is a future in-process caller that wraps these synchronous entries in
-// Promise.all / parallel tasks. This guard makes the bracket reentrant-safe and
-// FAIL-CLOSED for that case rather than silently mutating a sibling's cwd:
-//   - the OUTERMOST bracket chdirs to its target and restores on exit (unchanged
-//     single-invocation behavior — the only path exercised today);
-//   - a nested/concurrent bracket requesting the SAME directory is a no-op (the
-//     process is already there), so reentrancy is safe;
-//   - a nested/concurrent bracket requesting a DIFFERENT directory THROWS instead
-//     of stomping the held cwd — the caller learns it must pass cwd explicitly
-//     rather than rely on a corrupted global.
-// The proper long-term fix is to thread an explicit baseDir through the runner
-// (CoolWorkflowRunner.loadRun/plan + loadRunFromCwd), which is a cross-file
-// change outside this module's ownership; see the F7 escalation.
-let activeCwdBracket;
-function withProcessCwd(target, fn) {
-    if (!target)
-        return fn();
-    const resolved = node_path_1.default.resolve(target);
-    const here = process.cwd();
-    // Already standing in the target (outer bracket put us here, or the caller's
-    // cwd already matches): run inline, do NOT re-chdir or restore.
-    if (resolved === here)
-        return fn();
-    // Another bracket is holding a DIFFERENT cwd — refuse rather than corrupt it.
-    if (activeCwdBracket !== undefined && activeCwdBracket !== resolved) {
-        throw new Error(`cwd bracket conflict: cannot chdir to ${resolved} while a concurrent invocation holds ${activeCwdBracket}; ` +
-            `pass an explicit cwd/repo to this call instead of relying on process.cwd()`);
-    }
-    const previous = here;
-    const reentrant = activeCwdBracket === resolved;
-    process.chdir(resolved);
-    if (!reentrant)
-        activeCwdBracket = resolved;
-    try {
-        return fn();
-    }
-    finally {
-        if (!reentrant)
-            activeCwdBracket = undefined;
-        process.chdir(previous);
-    }
-}
-function withInvocationCwd(args, fn) {
-    return withProcessCwd(optionalString(args.cwd), fn);
+// F7: explicit invocation cwd — no more process.chdir bracket.
+// The runner resolves a run from process.cwd() by default; to operate WITH a run's
+// repo as base (run --drive --repo X from anywhere; cross-directory quickstart; run
+// import/export against a target dir) we now pass that base EXPLICITLY —
+// runner.withBaseDir(dir).loadRun(...) for run resolution (see
+// CoolWorkflowRunner.withBaseDir), and invocationCwd(args) to anchor relative path
+// args. Nothing mutates the global process.cwd(), so concurrent in-process callers
+// can no longer corrupt each other's working directory (the former reentrancy hazard).
+function invocationCwd(args) {
+    return node_path_1.default.resolve(optionalString(args.cwd) || process.cwd());
 }
 function runRegistryRefresh(reg, args) {
     return reg.refresh({ scope: scopeOf(args, "repo") });
@@ -324,36 +275,33 @@ function runRerun(reg, runId, args) {
     return reg.rerun(runId, { scope: scopeOf(args, "home"), reason: optionalString(args.reason) });
 }
 function runExportArchive(runner, runId, args) {
-    return withInvocationCwd(args, () => {
-        const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
-        return (0, run_export_1.exportRun)(runner.loadRun(runId), node_path_1.default.resolve(output));
-    });
+    const base = invocationCwd(args);
+    const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
+    return (0, run_export_1.exportRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId), node_path_1.default.resolve(base, output));
 }
 function runImportArchive(runner, args) {
-    return withInvocationCwd(args, () => {
-        const archive = optionalString(args.archive || args.path || args.file);
-        if (!archive)
-            throw new Error("run import requires an archive path (positional, --archive, --path, or --file)");
-        const target = optionalString(args.target || args.repo || args.cwd) || process.cwd();
-        const imported = (0, run_export_1.importRun)(node_path_1.default.resolve(archive), node_path_1.default.resolve(target));
-        const registry = new run_registry_1.RunRegistry(node_path_1.default.resolve(target), runner);
-        const registryReport = registry.refresh({ scope: "repo" });
-        return { ...imported, registry: registryReport };
-    });
+    const base = invocationCwd(args);
+    const archive = optionalString(args.archive || args.path || args.file);
+    if (!archive)
+        throw new Error("run import requires an archive path (positional, --archive, --path, or --file)");
+    const target = node_path_1.default.resolve(base, optionalString(args.target || args.repo || args.cwd) || base);
+    const imported = (0, run_export_1.importRun)(node_path_1.default.resolve(base, archive), target);
+    const registry = new run_registry_1.RunRegistry(target, runner.withBaseDir(target));
+    const registryReport = registry.refresh({ scope: "repo" });
+    return { ...imported, registry: registryReport };
 }
 // Read-only: inspect a portable archive's integrity WITHOUT importing it. Routes
 // both surfaces through one shared core entry. The runner is unused (no registry
 // touch — inspection writes nothing) but kept for dispatch-signature symmetry.
 function runInspectArchive(_runner, args) {
-    return withInvocationCwd(args, () => {
-        const archive = optionalString(args.archive || args.path || args.file);
-        if (!archive)
-            throw new Error("run inspect-archive requires an archive path (positional, --archive, --path, or --file)");
-        return (0, run_export_1.inspectArchive)(node_path_1.default.resolve(archive));
-    });
+    const base = invocationCwd(args);
+    const archive = optionalString(args.archive || args.path || args.file);
+    if (!archive)
+        throw new Error("run inspect-archive requires an archive path (positional, --archive, --path, or --file)");
+    return (0, run_export_1.inspectArchive)(node_path_1.default.resolve(base, archive));
 }
 function runVerifyImport(runner, runId, args) {
-    return withInvocationCwd(args, () => (0, run_export_1.verifyImportedRun)(runner.loadRun(runId)));
+    return (0, run_export_1.verifyImportedRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId));
 }
 function queueAdd(reg, args) {
     return reg.queueAdd({
@@ -515,12 +463,15 @@ function runDrive(runner, args) {
         runId = run.id;
         repoCwd = run.cwd;
     }
-    // The runner resolves the run from process.cwd(), so the drive must execute WITH
-    // the run's repo as cwd. Bracket reentrant-safely (no bare chdir): only an
-    // existing directory different from the current cwd shifts it.
+    // The runner resolves the run from its baseDir, so the drive must run WITH the
+    // run's repo as base. Pass it explicitly via withBaseDir (F7 — no process.chdir).
     const target = repoCwd && node_fs_1.default.existsSync(repoCwd) ? repoCwd : undefined;
     const driveRunId = runId;
-    return withProcessCwd(target, () => (0, drive_1.drive)(runner, driveRunId, { once: isTrue(args.once), now: optionalString(args.now), args }));
+    return (0, drive_1.drive)(runner.withBaseDir(target), driveRunId, {
+        once: isTrue(args.once),
+        now: optionalString(args.now),
+        args
+    });
 }
 /** The app the one-command quickstart plans when none is named. */
 exports.QUICKSTART_DEFAULT_APP = "architecture-review";
@@ -555,7 +506,7 @@ function quickstart(runner, args) {
         }
         const previewRunId = runId;
         const target = repoCwd && node_fs_1.default.existsSync(repoCwd) ? repoCwd : undefined;
-        return withProcessCwd(target, () => (0, drive_1.drivePreview)(runner, previewRunId, args));
+        return (0, drive_1.drivePreview)(runner.withBaseDir(target), previewRunId, args);
     }
     // Drive end-to-end (or one `--once` step). runDrive plans the run, delegates each
     // worker to the agent backend, and commits — we add only the report write + a
@@ -574,7 +525,7 @@ function quickstart(runner, args) {
     // was planned or continued; resolve to ITS repo BEFORE any run read, reentrant-safe.
     const runRepoCwd = node_path_1.default.resolve(node_path_1.default.dirname(result.statePath), "..", "..", "..");
     const reportTarget = node_fs_1.default.existsSync(runRepoCwd) ? runRepoCwd : undefined;
-    const reportPath = withProcessCwd(reportTarget, () => runner.report(result.runId).path);
+    const reportPath = runner.withBaseDir(reportTarget).report(result.runId).path;
     let hint;
     if (!agentConfigured) {
         hint =

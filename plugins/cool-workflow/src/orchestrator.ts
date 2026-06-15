@@ -58,11 +58,25 @@ export class CoolWorkflowRunner {
   pluginRoot: string;
   workflowsDir: string;
   appsDir: string;
+  // F7: the directory a run is resolved against (replaces the former process.chdir
+  // bracket in capability-core). undefined => fall back to process.cwd(). The runner
+  // reads runs from disk per call (no in-memory run state), so withBaseDir hands back
+  // a cheap scoped clone instead of mutating the global process cwd.
+  readonly baseDir?: string;
 
-  constructor({ pluginRoot }: { pluginRoot: string }) {
+  constructor({ pluginRoot, baseDir }: { pluginRoot: string; baseDir?: string }) {
     this.pluginRoot = resolvePluginRoot(pluginRoot);
     this.workflowsDir = path.join(this.pluginRoot, "workflows");
     this.appsDir = path.join(this.pluginRoot, "apps");
+    this.baseDir = baseDir ? path.resolve(baseDir) : undefined;
+  }
+
+  /** Return a runner that resolves runs against `dir` instead of process.cwd(),
+   *  WITHOUT chdir-ing the process (F7). Same instance when the dir is unchanged. */
+  withBaseDir(dir: string | undefined): CoolWorkflowRunner {
+    const resolved = dir ? path.resolve(dir) : undefined;
+    if (resolved === this.baseDir) return this;
+    return new CoolWorkflowRunner({ pluginRoot: this.pluginRoot, baseDir: resolved });
   }
 
   listWorkflows(): Array<{ id: string; title: string; summary: string; file: string }> {
@@ -812,7 +826,7 @@ export class CoolWorkflowRunner {
   }
 
   loadRun(runId: string): WorkflowRun {
-    return loadRunFromCwd(runId);
+    return loadRunFromCwd(runId, this.baseDir);
   }
 
   private loadWorkflowAppById(appId: string): LoadedWorkflowApp {
