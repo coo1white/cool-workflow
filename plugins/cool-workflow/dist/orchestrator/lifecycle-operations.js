@@ -470,13 +470,14 @@ let runIdSequence = 0;
 function createRunId(workflowId) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
     // The stamp is second-resolution, so several runs of the same workflowId minted
-    // within one second would otherwise hash to the SAME id. A monotonic counter
-    // breaks the tie — deterministic-by-creation-order (not a PRNG, so it satisfies
-    // the replay-determinism intent) and the id is an edge stamp stripped on replay.
+    // within one second would otherwise hash to the SAME id. process.pid + a monotonic
+    // counter break the tie across BOTH same-process (counter) and concurrent-process
+    // (pid) minting — deterministic-by-environment, not a PRNG, so it keeps the
+    // replay-determinism intent; the id is an edge stamp stripped on replay anyway.
     runIdSequence += 1;
     const suffix = node_crypto_1.default
         .createHash("sha256")
-        .update(`${workflowId}:${stamp}:${runIdSequence}`)
+        .update(`${workflowId}:${stamp}:${process.pid}:${runIdSequence}`)
         .digest("hex")
         .slice(0, 6);
     return `${workflowId}-${stamp}-${suffix}`;

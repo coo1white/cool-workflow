@@ -278,10 +278,11 @@ let scheduleIdSequence = 0;
 function createScheduleId(kind: ScheduleKind): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
   // Second-resolution stamp: two schedules of the same kind created within one
-  // second would otherwise collide on an identical id. The monotonic counter
-  // breaks the tie deterministically (not a PRNG).
+  // second would otherwise collide on an identical id. process.pid + a monotonic
+  // counter break the tie across concurrent processes and within one process,
+  // deterministically (not a PRNG).
   scheduleIdSequence += 1;
-  const suffix = crypto.createHash("sha256").update(`${kind}:${stamp}:${scheduleIdSequence}`).digest("hex").slice(0, 6);
+  const suffix = crypto.createHash("sha256").update(`${kind}:${stamp}:${process.pid}:${scheduleIdSequence}`).digest("hex").slice(0, 6);
   return `${kind}-${stamp}-${suffix}`;
 }
 
@@ -292,9 +293,9 @@ function createScheduleId(kind: ScheduleKind): string {
 let scheduleRunIdSequence = 0;
 function createScheduleRunId(kind: ScheduleKind): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  // Counter breaks same-kind/same-second collisions (see createScheduleId).
+  // pid + counter break same-kind/same-second collisions (see createScheduleId).
   scheduleRunIdSequence += 1;
-  const suffix = crypto.createHash("sha256").update(`run:${kind}:${stamp}:${scheduleRunIdSequence}`).digest("hex").slice(0, 6);
+  const suffix = crypto.createHash("sha256").update(`run:${kind}:${stamp}:${process.pid}:${scheduleRunIdSequence}`).digest("hex").slice(0, 6);
   return `run-${kind}-${stamp}-${suffix}`;
 }
 
