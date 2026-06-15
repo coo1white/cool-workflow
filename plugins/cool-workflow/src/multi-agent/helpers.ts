@@ -122,14 +122,10 @@ export function touch<T extends { updatedAt: string }>(record: T): T {
   return record;
 }
 
-// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
-// per-run collection, threaded from the call site. No wall-clock stamp, no PRNG
-// suffix — re-running the same multi-agent topology mints byte-identical ids, so
-// snapshot/replay digests match. Each call site already asserts the minted id is
-// unique within its collection, and these collections only ever append.
-export function createId(prefix: string, seq: number): string {
-  return `${prefix}-${String(seq).padStart(4, "0")}`;
-}
+// Deterministic record id — single source of truth in ./ids. Re-exported here so
+// multi-agent.ts importers stay byte-unchanged (F10 dedup: the coordinator layer
+// shares the exact same helper).
+export { createId } from "./ids";
 
 export function compact(value: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
   if (!value) return undefined;

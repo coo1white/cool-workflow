@@ -3,13 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.createId = void 0;
 exports.checksumFile = checksumFile;
 exports.assertUnique = assertUnique;
 exports.assertNoRecordPathCollisions = assertNoRecordPathCollisions;
 exports.indexRow = indexRow;
 exports.compareRecords = compareRecords;
 exports.uniqueEdges = uniqueEdges;
-exports.createId = createId;
 exports.touch = touch;
 exports.timestamp = timestamp;
 exports.unique = unique;
@@ -68,14 +68,11 @@ function uniqueEdges(edges) {
     }
     return result;
 }
-// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
-// per-run blackboard collection, threaded from the call site. No wall-clock stamp,
-// no PRNG suffix — replaying the same coordination mints byte-identical ids, so
-// snapshot/replay digests match. Each call site already asserts the minted id is
-// unique within its collection, and these collections only ever append.
-function createId(prefix, seq) {
-    return `${prefix}-${String(seq).padStart(4, "0")}`;
-}
+// Deterministic record id — single source of truth in ../multi-agent/ids.
+// Re-exported here so coordinator.ts importers stay byte-unchanged (F10 dedup:
+// the multi-agent kernel shares the exact same helper).
+var ids_1 = require("../multi-agent/ids");
+Object.defineProperty(exports, "createId", { enumerable: true, get: function () { return ids_1.createId; } });
 function touch(record) {
     record.updatedAt = timestamp();
     return record;

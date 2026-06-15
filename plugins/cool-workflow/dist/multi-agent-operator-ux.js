@@ -15,6 +15,7 @@ const coordinator_1 = require("./coordinator");
 const multi_agent_1 = require("./multi-agent");
 const topology_1 = require("./topology");
 const trust_audit_1 = require("./trust-audit");
+const validation_1 = require("./validation");
 function summarizeMultiAgentOperator(run) {
     const topologies = (0, topology_1.summarizeTopologies)(run);
     const multiAgent = (0, multi_agent_1.summarizeMultiAgent)(run);
@@ -447,7 +448,7 @@ function readScores(run, candidateId) {
         .readdirSync(dir)
         .filter((file) => file.endsWith(".json"))
         .sort()
-        .map((file) => JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8")));
+        .map((file) => (0, validation_1.validateCandidateScore)(JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8"))));
 }
 function scorePath(run, candidateId, scoreId) {
     const file = node_path_1.default.join(run.paths.candidatesDir || node_path_1.default.join(run.paths.runDir, "candidates"), safeFileName(candidateId), "scores", `${safeFileName(scoreId)}.json`);

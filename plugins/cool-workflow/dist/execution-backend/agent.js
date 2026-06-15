@@ -255,53 +255,16 @@ function prepareAgentSpawn(request) {
         timeoutMs: resolved.timeoutMs || 600000
     };
 }
-// Reads jobs JSON on stdin, spawns ALL concurrently (shell:false, inherited env —
-// the agent's own credentials resolve; CW never reads them), per-job SIGTERM at
-// timeoutMs + SIGKILL at +5s, caps each captured stdout at 32MB, and prints the
-// outcome array when every job has settled. stderr is drained (a full pipe must
-// never wedge a child). A kill yields exitCode null — the no-exit-code refusal.
-const BATCH_DELEGATE_CHILD = `
-const { spawn } = require("node:child_process");
-let raw = "";
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (d) => (raw += d));
-process.stdin.on("end", () => {
-  const jobs = JSON.parse(raw);
-  if (!jobs.length) { process.stdout.write("[]"); return; }
-  const out = new Array(jobs.length);
-  let pending = jobs.length;
-  const CAP = 32 * 1024 * 1024;
-  jobs.forEach((job, i) => {
-    let stdout = "";
-    let settled = false;
-    const settle = (o) => {
-      if (settled) return;
-      settled = true;
-      out[i] = o;
-      if (--pending === 0) process.stdout.write(JSON.stringify(out));
-    };
-    let child;
-    try {
-      child = spawn(job.binary, job.args, { cwd: job.cwd, env: process.env, shell: false });
-    } catch (error) {
-      settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
-      return;
-    }
-    const term = setTimeout(() => { try { child.kill("SIGTERM"); } catch {} }, job.timeoutMs);
-    const kill = setTimeout(() => { try { child.kill("SIGKILL"); } catch {} }, job.timeoutMs + 5000);
-    child.stdout.on("data", (d) => { if (stdout.length < CAP) stdout += d; });
-    child.stderr.on("data", () => {});
-    child.on("error", (error) => {
-      clearTimeout(term); clearTimeout(kill);
-      settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout });
-    });
-    child.on("close", (code) => {
-      clearTimeout(term); clearTimeout(kill);
-      settle({ exitCode: typeof code === "number" ? code : null, stdout });
-    });
-  });
-});
-`;
+// The batch delegate child is a real, packaged Node script (not an embedded
+// `node -e` string — F11). It reads jobs JSON on stdin, spawns ALL concurrently
+// (shell:false, inherited env — the agent's own credentials resolve; CW never
+// reads them), per-job SIGTERM at timeoutMs + SIGKILL at +5s, caps each captured
+// stdout at 32MB, and prints the outcome array when every job has settled. stderr
+// is drained (a full pipe must never wedge a child). A kill yields exitCode null —
+// the no-exit-code refusal. We spawn it BY PATH (shell:false); the path is
+// resolved from this compiled module (dist/execution-backend/agent.js) up to the
+// package's `scripts/children/` dir, which package.json ships in "files".
+const BATCH_DELEGATE_CHILD_SCRIPT = node_path_1.default.resolve(__dirname, "..", "..", "scripts", "children", "batch-delegate-child.js");
 /** Run a batch of agent spawns concurrently; outcomes index-align with jobs. The
  *  parent backstop timeout (max job timeout + 30s) means even a wedged delegate
  *  child cannot deadlock the drive: on any batch-level failure EVERY job settles
@@ -310,7 +273,7 @@ function runAgentBatchOutcomes(jobs) {
     if (!jobs.length)
         return [];
     const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
-    const child = (0, node_child_process_1.spawnSync)(process.execPath, ["-e", BATCH_DELEGATE_CHILD], {
+    const child = (0, node_child_process_1.spawnSync)(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
         input: JSON.stringify(jobs),
         encoding: "utf8",
         maxBuffer: 33 * 1024 * 1024 * jobs.length,

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TRUST_AUDIT_SCHEMA_VERSION = void 0;
+exports.CORRELATION_ID_FIELDS = exports.TRUST_AUDIT_SCHEMA_VERSION = void 0;
 exports.trustAuditGenesis = trustAuditGenesis;
 exports.verifyTrustAudit = verifyTrustAudit;
 exports.ensureTrustAudit = ensureTrustAudit;
@@ -152,6 +152,65 @@ function verifyTrustAudit(run) {
     }
     return { present: events.length > 0, verified, eventCount: events.length, chained, unchained, corruptLines, checks };
 }
+// ---- Correlation-id fields (single source of truth, F12) -------------------
+// These id fields are plain pass-throughs that flow input -> persisted event ->
+// summary index unchanged. They were previously re-listed by hand in three
+// places (recordTrustAuditEvent, the index writer, and partially in
+// multi-agent-trust), so adding a new correlation id meant editing every list and
+// silently dropping it from the index when one was missed. They now live in ONE
+// array; both spread sites pick from it via pickCorrelationIds, so a new id is
+// added in exactly one place.
+//
+// SERIALIZATION-PRESERVING by design: this is a plain key-copy with NO transform,
+// so the persisted JSON for these keys is byte-identical to the old hand-spread
+// (compact() still drops the undefined ones). The hash chain that binds these
+// fields is therefore unaffected. Fields needing derivation/normalization
+// (feedbackIds, sandboxProfileId, policyRef, multiAgentPolicyRef, normalizedPath,
+// envVars, …) are intentionally NOT here — they keep their bespoke handling at the
+// call site.
+exports.CORRELATION_ID_FIELDS = [
+    "candidateId",
+    "scoreId",
+    "selectionId",
+    "commitId",
+    "multiAgentRunId",
+    "agentRoleId",
+    "agentGroupId",
+    "agentMembershipId",
+    "agentFanoutId",
+    "agentFaninId",
+    "blackboardId",
+    "blackboardTopicId",
+    "blackboardMessageId",
+    "blackboardContextId",
+    "blackboardArtifactRefId",
+    "blackboardSnapshotId",
+    "coordinatorDecisionId",
+    "topologyId",
+    "topologyRunId"
+];
+/** Copy exactly the correlation-id keys (and no others) from `source`, preserving
+ *  each value verbatim (including `undefined`, which compact()/JSON.stringify drop
+ *  identically to the prior per-key spread). Spread the result; do not transform. */
+function pickCorrelationIds(source) {
+    const picked = {};
+    for (const field of exports.CORRELATION_ID_FIELDS)
+        picked[field] = source[field];
+    return picked;
+}
+// The summary index has always carried every correlation id EXCEPT scoreId (the
+// per-candidate score lives in the candidates[] rows, not the flat event index).
+// Pin that exception in ONE place so the index stays byte-identical while still
+// inheriting any NEW id from CORRELATION_ID_FIELDS automatically.
+const INDEX_OMITTED_CORRELATION_IDS = new Set(["scoreId"]);
+/** Correlation ids for the summary index: the full pick minus the keys the index
+ *  has historically omitted (see INDEX_OMITTED_CORRELATION_IDS). */
+function indexCorrelationIds(event) {
+    const picked = pickCorrelationIds(event);
+    for (const field of INDEX_OMITTED_CORRELATION_IDS)
+        delete picked[field];
+    return picked;
+}
 function ensureTrustAudit(run) {
     const auditDir = auditRoot(run);
     node_fs_1.default.mkdirSync(auditDir, { recursive: true });
@@ -177,25 +236,11 @@ function recordTrustAuditEvent(run, input) {
         taskId: input.taskId,
         nodeId: input.nodeId,
         feedbackIds: input.feedbackIds?.filter(Boolean).sort(),
-        candidateId: input.candidateId,
-        scoreId: input.scoreId,
-        selectionId: input.selectionId,
-        commitId: input.commitId,
-        multiAgentRunId: input.multiAgentRunId,
-        agentRoleId: input.agentRoleId,
-        agentGroupId: input.agentGroupId,
-        agentMembershipId: input.agentMembershipId,
-        agentFanoutId: input.agentFanoutId,
-        agentFaninId: input.agentFaninId,
-        blackboardId: input.blackboardId,
-        blackboardTopicId: input.blackboardTopicId,
-        blackboardMessageId: input.blackboardMessageId,
-        blackboardContextId: input.blackboardContextId,
-        blackboardArtifactRefId: input.blackboardArtifactRefId,
-        blackboardSnapshotId: input.blackboardSnapshotId,
-        coordinatorDecisionId: input.coordinatorDecisionId,
-        topologyId: input.topologyId,
-        topologyRunId: input.topologyRunId,
+        // Plain correlation-id pass-throughs (candidateId … topologyRunId) come from the
+        // single CORRELATION_ID_FIELDS list. Key order is preserved (the list is in the
+        // same order the keys used to be hand-written), so the persisted JSON — and thus
+        // the eventHash chain — is byte-identical.
+        ...pickCorrelationIds(input),
         sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
         policyRef: input.policyRef || (input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined),
         multiAgentPolicyRef: input.policyRef,
@@ -351,24 +396,11 @@ function summarizeTrustAudit(run) {
             source: event.source,
             workerId: event.workerId,
             taskId: event.taskId,
-            candidateId: event.candidateId,
-            selectionId: event.selectionId,
-            commitId: event.commitId,
-            multiAgentRunId: event.multiAgentRunId,
-            agentRoleId: event.agentRoleId,
-            agentGroupId: event.agentGroupId,
-            agentMembershipId: event.agentMembershipId,
-            agentFanoutId: event.agentFanoutId,
-            agentFaninId: event.agentFaninId,
-            blackboardId: event.blackboardId,
-            blackboardTopicId: event.blackboardTopicId,
-            blackboardMessageId: event.blackboardMessageId,
-            blackboardContextId: event.blackboardContextId,
-            blackboardArtifactRefId: event.blackboardArtifactRefId,
-            blackboardSnapshotId: event.blackboardSnapshotId,
-            coordinatorDecisionId: event.coordinatorDecisionId,
-            topologyId: event.topologyId,
-            topologyRunId: event.topologyRunId,
+            // Same single CORRELATION_ID_FIELDS list the record path uses, so the index
+            // can never silently omit a correlation id that the event carries. (The index
+            // historically omitted scoreId; that is preserved below by deleting it after
+            // the pick, keeping this writer's output byte-identical.)
+            ...indexCorrelationIds(event),
             sandboxProfileId: event.sandboxProfileId,
             policyRef: event.policyRef,
             multiAgentPolicyRef: event.multiAgentPolicyRef

@@ -1,7 +1,4 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.policyForRole = policyForRole;
 exports.policyForGroup = policyForGroup;
@@ -16,7 +13,7 @@ exports.summarizeMultiAgentTrust = summarizeMultiAgentTrust;
 exports.hasAcceptedJudgeRationale = hasAcceptedJudgeRationale;
 exports.sourceForActor = sourceForActor;
 exports.hashText = hashText;
-const node_crypto_1 = __importDefault(require("node:crypto"));
+const execution_backend_1 = require("./execution-backend");
 const trust_audit_1 = require("./trust-audit");
 function policyForRole(role) {
     const topologyRole = String(role.metadata?.topologyRoleId || role.title || "").toLowerCase();
@@ -294,8 +291,11 @@ function sourceForActor(actor) {
         return "runtime-derived";
     return "cw-validated";
 }
+// Delegates to the shared execution-backend sha256 (F10 dedup). Byte-identical:
+// both emit `sha256:<hex>` and Node's Hash.update(string) defaults to utf8, the
+// same encoding the shared helper passes explicitly.
 function hashText(value) {
-    return `sha256:${node_crypto_1.default.createHash("sha256").update(value).digest("hex")}`;
+    return (0, execution_backend_1.sha256)(value);
 }
 function resolvePolicy(run, input) {
     const membership = input.membershipId ? run.multiAgent?.memberships.find((entry) => entry.id === input.membershipId) : undefined;

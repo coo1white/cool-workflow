@@ -85,6 +85,70 @@ function openMcp() {
   assert.ok(registry.CAPABILITY_REGISTRY.length >= toolNames.length, "registry must cover at least every MCP tool");
   assert.ok(registry.payloadIdenticalCapabilities().length >= 20, "expected a substantial payload-identical set");
 
+  // ---- F6: the payload-identity probe defaults IN (write verbs included) ----
+  // Regression guard against the old narrow allow-list that left ~170 write/
+  // complex-arg both-surface verbs parity-declared but never payload-probed.
+  // The probe set must (a) cover the OVERWHELMING majority of both-surface,
+  // dual-bound capabilities, (b) include WRITE verbs (not just read summaries),
+  // and (c) exclude ONLY the documented `payloadIdentical:false` + reason opt-outs.
+  {
+    const probeSet = registry.payloadIdenticalCapabilities();
+    const probeIds = new Set(probeSet.map((cap) => cap.capability));
+    const bothBound = registry.CAPABILITY_REGISTRY.filter(
+      (cap) => cap.surface === "both" && cap.cli && cap.mcp
+    );
+    const documentedOptOuts = bothBound.filter((cap) => registry.isPayloadProbeOptOut(cap));
+
+    // every both-surface, dual-bound cap is IN the probe unless it is a
+    // documented opt-out — nothing falls out of scope by accident.
+    assert.equal(
+      probeSet.length,
+      bothBound.length - documentedOptOuts.length,
+      "probe set must be every both-surface dual-bound cap minus the documented opt-outs"
+    );
+    // the probe is BROAD, not a hand-picked handful.
+    assert.ok(
+      probeSet.length >= bothBound.length - 10,
+      `probe set unexpectedly narrow: ${probeSet.length}/${bothBound.length} both-bound caps probed`
+    );
+
+    // WRITE/mutating verbs that route through ONE core must be payload-probed,
+    // not just read summaries — this is exactly where marshalling drift hides.
+    for (const writeCap of ["approve", "reject", "comment.add", "handoff", "review.policy"]) {
+      const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === writeCap);
+      assert.ok(cap, `${writeCap}: registry entry must exist`);
+      assert.equal(cap.payloadIdentical, undefined, `${writeCap}: must NOT opt out of the payload probe`);
+      assert.ok(probeIds.has(writeCap), `${writeCap}: write verb must be in the payload-identity probe set`);
+    }
+
+    // the documented opt-outs are exactly the 5 reasoned divergences, each with
+    // a real reason — opting out REQUIRES a paper trail (fail-closed default).
+    for (const optId of ["commit", "backend.agent.config.set", "run.drive.step", "gc.run", "workbench.serve"]) {
+      const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === optId);
+      assert.ok(cap, `${optId}: registry entry must exist`);
+      assert.equal(cap.payloadIdentical, false, `${optId}: declared payload divergence`);
+      assert.ok(cap.reason && cap.reason.trim(), `${optId}: opt-out must record a reason`);
+      assert.ok(registry.isPayloadProbeOptOut(cap), `${optId}: must register as a documented opt-out`);
+      assert.ok(!probeIds.has(optId), `${optId}: documented opt-out must be excluded from the probe`);
+    }
+
+    // FAIL CLOSED: a bare `payloadIdentical:false` with NO reason must NOT
+    // silently escape the probe — an undocumented divergence stays in scope so
+    // the gate trips on it rather than excusing it.
+    const undocumentedDivergence = { ...bothBound[0], payloadIdentical: false, reason: undefined };
+    assert.equal(
+      registry.isPayloadProbeOptOut(undocumentedDivergence),
+      false,
+      "an undocumented payloadIdentical:false must NOT count as a probe opt-out"
+    );
+    const blankReasonDivergence = { ...bothBound[0], payloadIdentical: false, reason: "   " };
+    assert.equal(
+      registry.isPayloadProbeOptOut(blankReasonDivergence),
+      false,
+      "a blank-reason payloadIdentical:false must NOT count as a probe opt-out"
+    );
+  }
+
   // A first slimmed MCP inspection group derives tool name + description from
   // the capability registry. This prevents the old two-hand-maintained-lists
   // god object from growing back while preserving the existing input schemas.

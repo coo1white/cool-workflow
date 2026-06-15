@@ -8,7 +8,7 @@ import { summarizeTopologies } from "./topology";
 import { summarizeTrustAudit } from "./trust-audit";
 import { normalizeStateExplosionForEval } from "./state-explosion";
 import { normalizeEvidenceReasoningForEval } from "./evidence-reasoning";
-import { readJson, safeFileName, writeJson } from "./state";
+import { loadRunStateFile, readJson, safeFileName, writeJson } from "./state";
 import { WorkflowRun } from "./types";
 import { lines, normalizeValue, replayStableStringify } from "./multi-agent-eval/normalize";
 
@@ -332,6 +332,14 @@ export function replayMultiAgentSnapshot(target: string, options: Record<string,
   const replayDir = path.join(suiteDir, "replay");
   const replayRunPath = path.join(suiteDir, "replay-run.json");
   fs.mkdirSync(replayDir, { recursive: true });
+  // RE-DERIVE the projection from the raw captured state instead of copying
+  // snapshot.normalized. Copying the baseline would make compareMultiAgentReplay
+  // diff the baseline against a byte-copy of itself, so a projection-determinism
+  // regression in normalizeRun could never be caught (the determinism moat would
+  // be false-green). We reconstruct the run from the captured raw state and run
+  // the SAME normalizeRun pipeline used at capture time, producing an INDEPENDENT
+  // re-projection the comparison can pit against the baseline.
+  const replayed = rederiveNormalizedFromSnapshot(snapshot);
   const replay: MultiAgentReplayRun = {
     schemaVersion: 1,
     kind: "multi-agent-replay-run",
@@ -347,7 +355,7 @@ export function replayMultiAgentSnapshot(target: string, options: Record<string,
       replayRunPath,
       snapshotPath: snapshot.paths.snapshotPath
     },
-    replay: snapshot.normalized,
+    replay: replayed,
     errors: []
   };
   writeJson(replayRunPath, replay);
@@ -614,6 +622,25 @@ function loadScoreForTarget(target: string, scorePath: string): MultiAgentEvalSc
     }
   }
   return scoreMultiAgentReplay(target);
+}
+
+// Re-derive snapshot.normalized INDEPENDENTLY at replay time. The raw captured
+// state is the baseline run state file (snapshot.paths.baselineStatePath) — the
+// same WorkflowRun captureRun/normalizeRun projected at capture time. We re-load
+// it and re-run the IDENTICAL normalizeRun pipeline, so the result is a genuine
+// re-projection rather than a copy of the baseline. Fail-closed: if the raw
+// state cannot be reconstructed we throw (never silently fall back to the
+// baseline copy — that is exactly the false-green this guards against).
+function rederiveNormalizedFromSnapshot(snapshot: MultiAgentReplaySnapshot): MultiAgentEvalNormalized {
+  const statePath = snapshot.paths.baselineStatePath;
+  if (!statePath || !fs.existsSync(statePath)) {
+    throw new Error(`Cannot re-derive replay projection: baseline run state missing at ${statePath || "<unset>"}; re-snapshot from a live run before replaying.`);
+  }
+  const result = loadRunStateFile(statePath, { dryRun: true });
+  if (result.report.status === "unsupported") {
+    throw new Error(`Cannot re-derive replay projection: baseline run state at ${statePath} is unsupported: ${result.report.errors.join("; ")}`);
+  }
+  return normalizeRun(result.run);
 }
 
 function captureRun(run: WorkflowRun): MultiAgentEvalCapture {

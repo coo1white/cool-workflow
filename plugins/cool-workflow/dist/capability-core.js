@@ -198,18 +198,65 @@ function flag(value) {
         return false;
     return Boolean(value);
 }
-function withInvocationCwd(args, fn) {
-    const cwd = optionalString(args.cwd);
-    if (!cwd)
+// ---- reentrancy-safe process-cwd bracket (F7) -----------------------------
+// The runner (CoolWorkflowRunner) is irreducibly process.cwd()-bound: loadRun ->
+// loadRunFromCwd(runId) and plan -> loadWorkflowApps()/lifecycleOps.plan all
+// resolve a run's repo root from process.cwd(), across ~141 methods, with no
+// per-call cwd parameter. So the legitimate way to operate WITH a run's repo as
+// cwd (run --drive --repo X invoked from anywhere; cross-directory quickstart;
+// run import/export against a target dir) is to chdir the process around the
+// run-resolving calls and restore.
+//
+// process.cwd() is a single global, so two of these brackets active at once in
+// ONE process would corrupt each other. CW ships a concurrent batch driver and a
+// parallel test runner, but BOTH fan out via separate child PROCESSES (spawnSync
+// in execution-backend.ts), each with its own cwd — and the in-process dispatch
+// surfaces (CLI main, MCP stdin handleLine) are fully synchronous, so a single
+// invocation's bracket never yields mid-window to a sibling. The residual hazard
+// is a future in-process caller that wraps these synchronous entries in
+// Promise.all / parallel tasks. This guard makes the bracket reentrant-safe and
+// FAIL-CLOSED for that case rather than silently mutating a sibling's cwd:
+//   - the OUTERMOST bracket chdirs to its target and restores on exit (unchanged
+//     single-invocation behavior — the only path exercised today);
+//   - a nested/concurrent bracket requesting the SAME directory is a no-op (the
+//     process is already there), so reentrancy is safe;
+//   - a nested/concurrent bracket requesting a DIFFERENT directory THROWS instead
+//     of stomping the held cwd — the caller learns it must pass cwd explicitly
+//     rather than rely on a corrupted global.
+// The proper long-term fix is to thread an explicit baseDir through the runner
+// (CoolWorkflowRunner.loadRun/plan + loadRunFromCwd), which is a cross-file
+// change outside this module's ownership; see the F7 escalation.
+let activeCwdBracket;
+function withProcessCwd(target, fn) {
+    if (!target)
         return fn();
-    const previous = process.cwd();
-    process.chdir(cwd);
+    const resolved = node_path_1.default.resolve(target);
+    const here = process.cwd();
+    // Already standing in the target (outer bracket put us here, or the caller's
+    // cwd already matches): run inline, do NOT re-chdir or restore.
+    if (resolved === here)
+        return fn();
+    // Another bracket is holding a DIFFERENT cwd — refuse rather than corrupt it.
+    if (activeCwdBracket !== undefined && activeCwdBracket !== resolved) {
+        throw new Error(`cwd bracket conflict: cannot chdir to ${resolved} while a concurrent invocation holds ${activeCwdBracket}; ` +
+            `pass an explicit cwd/repo to this call instead of relying on process.cwd()`);
+    }
+    const previous = here;
+    const reentrant = activeCwdBracket === resolved;
+    process.chdir(resolved);
+    if (!reentrant)
+        activeCwdBracket = resolved;
     try {
         return fn();
     }
     finally {
+        if (!reentrant)
+            activeCwdBracket = undefined;
         process.chdir(previous);
     }
+}
+function withInvocationCwd(args, fn) {
+    return withProcessCwd(optionalString(args.cwd), fn);
 }
 function runRegistryRefresh(reg, args) {
     return reg.refresh({ scope: scopeOf(args, "repo") });
@@ -458,26 +505,22 @@ function planInputsFor(args) {
  *  the golden path runs each verb from the repo dir) — then restores cwd. This lets
  *  `cw run <app> --drive --repo X` work when invoked from anywhere. */
 function runDrive(runner, args) {
-    const cwd0 = process.cwd();
-    try {
-        let runId = optionalString(args.runId || args.run);
-        let repoCwd = optionalString(args.repo);
-        if (!runId) {
-            const appId = String(args.appId || args.workflowId || args.app || "");
-            if (!appId)
-                throw new Error("run --drive requires an app id (or --run <run-id> to continue)");
-            const run = runner.plan(appId, planInputsFor(args));
-            runId = run.id;
-            repoCwd = run.cwd;
-        }
-        if (repoCwd && repoCwd !== process.cwd() && node_fs_1.default.existsSync(repoCwd))
-            process.chdir(repoCwd);
-        return (0, drive_1.drive)(runner, runId, { once: isTrue(args.once), now: optionalString(args.now), args });
+    let runId = optionalString(args.runId || args.run);
+    let repoCwd = optionalString(args.repo);
+    if (!runId) {
+        const appId = String(args.appId || args.workflowId || args.app || "");
+        if (!appId)
+            throw new Error("run --drive requires an app id (or --run <run-id> to continue)");
+        const run = runner.plan(appId, planInputsFor(args));
+        runId = run.id;
+        repoCwd = run.cwd;
     }
-    finally {
-        if (process.cwd() !== cwd0)
-            process.chdir(cwd0);
-    }
+    // The runner resolves the run from process.cwd(), so the drive must execute WITH
+    // the run's repo as cwd. Bracket reentrant-safely (no bare chdir): only an
+    // existing directory different from the current cwd shifts it.
+    const target = repoCwd && node_fs_1.default.existsSync(repoCwd) ? repoCwd : undefined;
+    const driveRunId = runId;
+    return withProcessCwd(target, () => (0, drive_1.drive)(runner, driveRunId, { once: isTrue(args.once), now: optionalString(args.now), args }));
 }
 /** The app the one-command quickstart plans when none is named. */
 exports.QUICKSTART_DEFAULT_APP = "architecture-review";
@@ -503,23 +546,16 @@ function quickstart(runner, args) {
     // `--preview`: read-only, deterministic next-step projection (no spawn, no commit).
     // Plan a fresh run (the read-only first verb) then project the next drive step.
     if (isTrue(args.preview)) {
-        const cwd0 = process.cwd();
-        try {
-            let runId = optionalString(args.runId || args.run);
-            let repoCwd = optionalString(args.repo);
-            if (!runId) {
-                const run = runner.plan(appId, planInputsFor(args));
-                runId = run.id;
-                repoCwd = run.cwd;
-            }
-            if (repoCwd && repoCwd !== process.cwd() && node_fs_1.default.existsSync(repoCwd))
-                process.chdir(repoCwd);
-            return (0, drive_1.drivePreview)(runner, runId, args);
+        let runId = optionalString(args.runId || args.run);
+        let repoCwd = optionalString(args.repo);
+        if (!runId) {
+            const run = runner.plan(appId, planInputsFor(args));
+            runId = run.id;
+            repoCwd = run.cwd;
         }
-        finally {
-            if (process.cwd() !== cwd0)
-                process.chdir(cwd0);
-        }
+        const previewRunId = runId;
+        const target = repoCwd && node_fs_1.default.existsSync(repoCwd) ? repoCwd : undefined;
+        return withProcessCwd(target, () => (0, drive_1.drivePreview)(runner, previewRunId, args));
     }
     // Drive end-to-end (or one `--once` step). runDrive plans the run, delegates each
     // worker to the agent backend, and commits — we add only the report write + a
@@ -530,23 +566,15 @@ function quickstart(runner, args) {
     const result = runDrive(runner, { ...args, appId, ...(resume && !resumeRunId ? { once: true } : {}) });
     // Always (re)write the report so the one command yields a report.md on disk, even
     // when the drive blocked/parked (a partial report is still useful triage).
-    const cwd0 = process.cwd();
-    let reportPath = result.reportPath;
-    try {
-        // runDrive restored cwd, so the runs root would resolve against the CALLER's
-        // cwd here — orphaning the run when quickstart is invoked cross-directory
-        // (cwd = plugin dir, --repo elsewhere: the README's headline command). The
-        // run's statePath (<repo>/.cw/runs/<id>/state.json) is authoritative however
-        // the run was planned or continued; chdir to ITS repo BEFORE any run read.
-        const runRepoCwd = node_path_1.default.resolve(node_path_1.default.dirname(result.statePath), "..", "..", "..");
-        if (runRepoCwd !== process.cwd() && node_fs_1.default.existsSync(runRepoCwd))
-            process.chdir(runRepoCwd);
-        reportPath = runner.report(result.runId).path;
-    }
-    finally {
-        if (process.cwd() !== cwd0)
-            process.chdir(cwd0);
-    }
+    //
+    // runDrive restored cwd, so the runs root would resolve against the CALLER's cwd
+    // here — orphaning the run when quickstart is invoked cross-directory (cwd =
+    // plugin dir, --repo elsewhere: the README's headline command). The run's
+    // statePath (<repo>/.cw/runs/<id>/state.json) is authoritative however the run
+    // was planned or continued; resolve to ITS repo BEFORE any run read, reentrant-safe.
+    const runRepoCwd = node_path_1.default.resolve(node_path_1.default.dirname(result.statePath), "..", "..", "..");
+    const reportTarget = node_fs_1.default.existsSync(runRepoCwd) ? runRepoCwd : undefined;
+    const reportPath = withProcessCwd(reportTarget, () => runner.report(result.runId).path);
     let hint;
     if (!agentConfigured) {
         hint =

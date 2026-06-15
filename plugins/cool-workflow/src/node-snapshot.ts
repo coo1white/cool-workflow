@@ -25,6 +25,7 @@ import path from "node:path";
 import { getRunNode } from "./pipeline-runner";
 import { writeJson, safeFileName } from "./state";
 import { normalizeValue, replayStableStringify } from "./multi-agent-eval";
+import { projectNodeBody } from "./node-projection";
 import { fingerprintStrings } from "./state-explosion";
 import {
   NodeReplayRun,
@@ -37,6 +38,7 @@ import {
   StateNode,
   WorkflowRun
 } from "./types";
+import { validateNodeReplayRun, validateNodeSnapshot } from "./validation";
 
 export const NODE_SNAPSHOT_SCHEMA_VERSION = 1;
 
@@ -66,23 +68,11 @@ const SNAPSHOT_SECTIONS: NodeSnapshotSection["section"][] = [
 ];
 
 /** The normalized projection of a node — timestamps/paths stripped by the eval
- *  normalizer, so it is byte-stable across captures of the same logical state. */
+ *  normalizer, so it is byte-stable across captures of the same logical state. The
+ *  canonical field set lives in node-projection.ts (shared with reclamation.ts so
+ *  the projection can never drift across the two). */
 function snapshotBody(node: StateNode): NodeSnapshotBody {
-  return normalizeValue({
-    id: node.id,
-    kind: node.kind,
-    status: node.status,
-    loopStage: node.loopStage,
-    inputs: node.inputs,
-    outputs: node.outputs,
-    artifacts: node.artifacts,
-    evidence: node.evidence,
-    errors: node.errors,
-    parents: node.parents,
-    children: node.children,
-    contractId: node.contractId,
-    metadata: node.metadata
-  }) as NodeSnapshotBody;
+  return projectNodeBody(node);
 }
 
 /** RAW fingerprint (NOT normalized): any transition (updatedAt/status) or
@@ -118,7 +108,7 @@ export function readNodeSnapshot(run: WorkflowRun, snapshotId: string): NodeSnap
   if (fs.existsSync(root)) {
     for (const nodeDir of fs.readdirSync(root)) {
       const file = path.join(root, nodeDir, `${snapshotId}.json`);
-      if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8")) as NodeSnapshot;
+      if (fs.existsSync(file)) return validateNodeSnapshot(JSON.parse(fs.readFileSync(file, "utf8")));
     }
   }
   throw new NodeSnapshotError("snapshot-not-found", `Node snapshot ${snapshotId} not found in run ${run.id}`, { freshness: "absent" });
@@ -130,7 +120,7 @@ export function readNodeReplay(run: WorkflowRun, replayId: string): NodeReplayRu
   if (fs.existsSync(root)) {
     for (const nodeDir of fs.readdirSync(root)) {
       const file = path.join(root, nodeDir, "replays", `${replayId}.json`);
-      if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8")) as NodeReplayRun;
+      if (fs.existsSync(file)) return validateNodeReplayRun(JSON.parse(fs.readFileSync(file, "utf8")));
     }
   }
   throw new NodeSnapshotError("replay-not-found", `Node replay ${replayId} not found in run ${run.id}`, { freshness: "absent" });

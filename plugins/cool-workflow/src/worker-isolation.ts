@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  ResultEnvelope,
   RunTask,
   StateEvidence,
+  StateNode,
   StateNodeError,
   UsageRecord,
   WorkerBoundaryViolation,
@@ -52,6 +54,7 @@ import {
   workerArtifacts,
   workerScopePath
 } from "./worker-isolation/paths";
+import { validateWorkerScope } from "./validation";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 
@@ -306,7 +309,7 @@ export function getWorkerScope(run: WorkflowRun, workerId: string): WorkerScope 
   if (existing) return existing;
   const file = path.join(workerRoot(run), safeFileName(workerId), WORKER_SCOPE_FILE);
   if (!fs.existsSync(file)) return undefined;
-  const scope = JSON.parse(fs.readFileSync(file, "utf8")) as WorkerScope;
+  const scope = validateWorkerScope(JSON.parse(fs.readFileSync(file, "utf8")));
   upsertWorkerScope(run, scope);
   return scope;
 }
@@ -317,6 +320,52 @@ export function recordWorkerOutput(
   resultPath: string,
   options: WorkerIsolationOptions = {}
 ): WorkerOutputRecord {
+  // Accept-path orchestrator. The recorded order + side effects of these ordered
+  // steps are load-bearing (replay determinism + the hash-chained audit/telemetry
+  // ledgers cross-link by parent event ids), so each helper runs exactly where it
+  // did before and mutates the shared `accept` context in place. Do NOT reorder.
+  const accept = validateWorkerResult(run, workerId, resultPath, options);
+  const delegation = attestWorkerDelegation(accept);
+  acceptWorkerResult(accept, delegation);
+  recordWorkerDelegationLedger(accept, delegation);
+  runWorkerVerify(accept);
+  recordWorkerCompletion(accept, delegation);
+  fanOutWorkerOutput(accept);
+  if (options.persist !== false) saveCheckpoint(run);
+  return accept.output;
+}
+
+/** Mutable accept-path context threaded through the ordered recordWorkerOutput steps. */
+interface WorkerAcceptContext {
+  run: WorkflowRun;
+  workerId: string;
+  options: WorkerIsolationOptions;
+  scope: WorkerScope;
+  task: RunTask;
+  absoluteResultPath: string;
+  rawResult: string;
+  parsedResult: ResultEnvelope;
+  // Populated by acceptWorkerResult and consumed by later steps.
+  destination: string;
+  pathAuditId: string;
+  acceptedAuditId: string;
+  resultNode: StateNode;
+  verifierNodeId?: string;
+  /** Verify-stage verdict, set by runWorkerVerify, drives the scope status transition. */
+  verifierStatus: string;
+  output: WorkerOutputRecord;
+}
+
+/** Step 1 — validateResult: resolve scope/task, enforce the sandbox boundary, the
+ *  result-file existence, the envelope contract, and (opt-in) resolvable evidence.
+ *  Fail-closed: any guard records a worker failure and throws BEFORE accept-side
+ *  state mutation. Returns the partially-filled accept context on success. */
+function validateWorkerResult(
+  run: WorkflowRun,
+  workerId: string,
+  resultPath: string,
+  options: WorkerIsolationOptions
+): WorkerAcceptContext {
   const scope = requireWorkerScope(run, workerId);
   const task = requireWorkerTask(run, scope);
   const absoluteResultPath = path.resolve(resultPath);
@@ -368,6 +417,37 @@ export function recordWorkerOutput(
     }
   }
 
+  return {
+    run,
+    workerId,
+    options,
+    scope,
+    task,
+    absoluteResultPath,
+    rawResult,
+    parsedResult,
+    destination: "",
+    pathAuditId: "",
+    acceptedAuditId: "",
+    resultNode: undefined as unknown as StateNode,
+    verifierNodeId: "",
+    verifierStatus: "",
+    output: undefined as unknown as WorkerOutputRecord
+  };
+}
+
+/** Resolved agent-delegation provenance + its telemetry verdict for the accept path. */
+interface WorkerDelegation {
+  agentDelegation?: AgentDelegationProvenance;
+  telemetry?: ReturnType<typeof verifyTelemetryAttestation>;
+}
+
+/** Step 2 — attestSandbox/attestDelegation: verify the agent's signed telemetry
+ *  BEFORE recording it, enforce the opt-in require-attested-telemetry gate (still
+ *  fail-closed, pre-mutation), and build the agent-hop provenance. Non-agent hops
+ *  return an empty delegation. */
+function attestWorkerDelegation(accept: WorkerAcceptContext): WorkerDelegation {
+  const { run, workerId, options, task, absoluteResultPath, rawResult } = accept;
   // Agent Delegation Drive (v0.1.38): if this worker's result.md was produced by an
   // EXTERNAL agent, record the agent-hop attestation AS PROVENANCE — the agent
   // (kind:process) handle, the agent-REPORTED model (never CW_AGENT_MODEL), the
@@ -416,6 +496,17 @@ export function recordWorkerOutput(
         ...(telemetry ? { usageAttestation: telemetry.status, usageAttestationReason: telemetry.reason } : {})
       }
     : undefined;
+  return { agentDelegation, telemetry };
+}
+
+/** Step 3 — recordStateNode/audit: the irreversible accept. Records the allowed
+ *  path decision, copies the result into the run results dir, completes the task,
+ *  builds + appends the result node, emits the accepted audit event, re-normalizes
+ *  node evidence against both audit ids, and surfaces the empty-capture warning.
+ *  Writes destination/pathAuditId/acceptedAuditId/resultNode back into `accept`. */
+function acceptWorkerResult(accept: WorkerAcceptContext, delegation: WorkerDelegation): void {
+  const { run, workerId, scope, task, absoluteResultPath, parsedResult } = accept;
+  const { agentDelegation } = delegation;
   const pathAudit = recordSandboxPathDecision(run, {
     workerId,
     taskId: task.id,
@@ -514,59 +605,76 @@ export function recordWorkerOutput(
     });
   }
 
+  accept.destination = destination;
+  accept.pathAuditId = pathAudit.id;
+  accept.acceptedAuditId = acceptedAudit.id;
+  accept.resultNode = resultNode;
+}
+
+/** Step 4 — recordTelemetryLedger: the agent-hop attestation. Binds the telemetry
+ *  verdict into the append-only hash-chained ledger BEFORE the audit event (so the
+ *  event can cross-link the record hash), then emits the worker.agent-delegation
+ *  audit event. No-op for non-agent hops. */
+function recordWorkerDelegationLedger(accept: WorkerAcceptContext, delegation: WorkerDelegation): void {
+  const { agentDelegation } = delegation;
   // The agent-hop attestation event — hung off worker.output, alongside
   // worker.backend. Recorded in trust-audit/provenance, NEVER in node evidence.
-  if (agentDelegation) {
-    // Track 1 (tamper-evidence): bind this verdict into the append-only,
-    // hash-chained telemetry ledger BEFORE the audit event, so the event can
-    // cross-link the record hash. Editing the recorded verdict/usage later breaks
-    // the chain (verifyTelemetryLedger). Only when a verdict was computed.
-    const ledgerRecord = agentDelegation.usageAttestation
-      ? appendTelemetryAttestation(run, {
-          workerId,
-          taskId: task.id,
-          promptDigest: agentDelegation.promptDigest,
-          reportedUsage: agentDelegation.reportedUsage,
-          usageSignature: agentDelegation.usageSignature,
-          attestation: agentDelegation.usageAttestation,
-          attestationReason: agentDelegation.usageAttestationReason
-        })
-      : undefined;
-    recordTrustAuditEvent(run, {
-      kind: "worker.agent-delegation",
-      decision: "recorded",
-      source: "host-attested",
-      workerId,
-      taskId: task.id,
-      nodeId: resultNode.id,
-      sandboxProfileId: scope.sandboxProfileId,
-      policySnapshot: scope.sandboxPolicy,
-      parentEventIds: [acceptedAudit.id],
-      metadata: {
-        backendId: agentDelegation.backendId,
-        handleKind: agentDelegation.handle.kind,
-        handleRef: agentDelegation.handle.ref,
-        model: agentDelegation.model,
+  if (!agentDelegation) return;
+  const { run, workerId, scope, task, resultNode, acceptedAuditId } = accept;
+  // Track 1 (tamper-evidence): bind this verdict into the append-only,
+  // hash-chained telemetry ledger BEFORE the audit event, so the event can
+  // cross-link the record hash. Editing the recorded verdict/usage later breaks
+  // the chain (verifyTelemetryLedger). Only when a verdict was computed.
+  const ledgerRecord = agentDelegation.usageAttestation
+    ? appendTelemetryAttestation(run, {
+        workerId,
+        taskId: task.id,
         promptDigest: agentDelegation.promptDigest,
-        resultDigest: agentDelegation.resultDigest,
-        command: agentDelegation.command,
-        args: agentDelegation.args,
-        exitCode: agentDelegation.exitCode,
-        // Track 1: the telemetry verdict travels with the agent-hop event so the
-        // audit report can surface `unattested` usage loudly. Absent ⇒ no usage.
-        ...(agentDelegation.usageAttestation
-          ? {
-              telemetryAttestation: agentDelegation.usageAttestation,
-              ...(agentDelegation.usageAttestationReason ? { telemetryAttestationReason: agentDelegation.usageAttestationReason } : {}),
-              ...(agentDelegation.reportedUsage ? { reportedUsage: agentDelegation.reportedUsage } : {}),
-              // Cross-link to the hash-chained ledger entry (tamper-evidence).
-              ...(ledgerRecord ? { telemetryRecordId: ledgerRecord.recordId, telemetryRecordHash: ledgerRecord.recordHash, telemetryPrevHash: ledgerRecord.prevHash } : {})
-            }
-          : {})
-      }
-    });
-  }
+        reportedUsage: agentDelegation.reportedUsage,
+        usageSignature: agentDelegation.usageSignature,
+        attestation: agentDelegation.usageAttestation,
+        attestationReason: agentDelegation.usageAttestationReason
+      })
+    : undefined;
+  recordTrustAuditEvent(run, {
+    kind: "worker.agent-delegation",
+    decision: "recorded",
+    source: "host-attested",
+    workerId,
+    taskId: task.id,
+    nodeId: resultNode.id,
+    sandboxProfileId: scope.sandboxProfileId,
+    policySnapshot: scope.sandboxPolicy,
+    parentEventIds: [acceptedAuditId],
+    metadata: {
+      backendId: agentDelegation.backendId,
+      handleKind: agentDelegation.handle.kind,
+      handleRef: agentDelegation.handle.ref,
+      model: agentDelegation.model,
+      promptDigest: agentDelegation.promptDigest,
+      resultDigest: agentDelegation.resultDigest,
+      command: agentDelegation.command,
+      args: agentDelegation.args,
+      exitCode: agentDelegation.exitCode,
+      // Track 1: the telemetry verdict travels with the agent-hop event so the
+      // audit report can surface `unattested` usage loudly. Absent ⇒ no usage.
+      ...(agentDelegation.usageAttestation
+        ? {
+            telemetryAttestation: agentDelegation.usageAttestation,
+            ...(agentDelegation.usageAttestationReason ? { telemetryAttestationReason: agentDelegation.usageAttestationReason } : {}),
+            ...(agentDelegation.reportedUsage ? { reportedUsage: agentDelegation.reportedUsage } : {}),
+            // Cross-link to the hash-chained ledger entry (tamper-evidence).
+            ...(ledgerRecord ? { telemetryRecordId: ledgerRecord.recordId, telemetryRecordHash: ledgerRecord.recordHash, telemetryPrevHash: ledgerRecord.prevHash } : {})
+          }
+        : {})
+    }
+  });
+}
 
+/** Step 5 — runVerify: drive the verify pipeline stage off the accepted result node
+ *  and record the verifier node id on the task + accept context. */
+function runWorkerVerify(accept: WorkerAcceptContext): void {
+  const { run, workerId, scope, task, parsedResult, destination, resultNode } = accept;
   const verifierResult = createPipelineRunner({ persist: false }).runPipelineStage(run, "verify", resultNode.id, {
     outputNodeId: `${run.id}:verifier:${task.id}`,
     outputStatus: "verified",
@@ -579,15 +687,25 @@ export function recordWorkerOutput(
     metadata: { taskId: task.id, workerId, resultNodeId: resultNode.id, sandboxProfileId: scope.sandboxProfileId }
   });
   task.verifierNodeId = verifierResult.outputNodeId;
+  accept.verifierNodeId = verifierResult.outputNodeId;
+  // Carry the verify verdict for the scope-status transition in recordWorkerCompletion.
+  accept.verifierStatus = verifierResult.status;
+}
 
+/** Step 6 — recordStateNode (worker record): assemble the worker output record +
+ *  host-attested usage record, then persist the worker scope with the verify-derived
+ *  status, output digest/size, and (when present) usage. */
+function recordWorkerCompletion(accept: WorkerAcceptContext, delegation: WorkerDelegation): void {
+  const { run, workerId, scope, task, absoluteResultPath, rawResult, resultNode, verifierNodeId, verifierStatus, pathAuditId, acceptedAuditId } = accept;
+  const { agentDelegation, telemetry } = delegation;
   const output: WorkerOutputRecord = {
     workerId,
     taskId: task.id,
     resultPath: absoluteResultPath,
     recordedAt: new Date().toISOString(),
     stateNodeId: resultNode.id,
-    verifierNodeId: verifierResult.outputNodeId,
-    auditEventIds: [pathAudit.id, acceptedAudit.id]
+    verifierNodeId,
+    auditEventIds: [pathAuditId, acceptedAuditId]
   };
   // Host-attested usage rides on the worker record. Recorded when the agent
   // REPORTED a model OR token usage — `unreported`/absent stays ABSENT (never
@@ -611,7 +729,7 @@ export function recordWorkerOutput(
   updateWorkerScope(run, {
     ...scope,
     updatedAt: new Date().toISOString(),
-    status: verifierResult.status === "advanced" ? "verified" : "completed",
+    status: verifierStatus === "advanced" ? "verified" : "completed",
     resultNodeId: resultNode.id,
     output,
     // Output integrity (v0.1.63): SHA256 digest + file size
@@ -619,19 +737,24 @@ export function recordWorkerOutput(
     outputSizeBytes: Buffer.byteLength(rawResult, "utf8"),
     ...(usageRecord ? { usage: usageRecord } : {})
   });
-  const blackboardLinks = publishWorkerOutputToBlackboard(run, scope, task, parsedResult.summary, destination, absoluteResultPath, resultNode.evidence, acceptedAudit.id);
+  accept.output = output;
+}
+
+/** Step 7 — fanOut: publish the accepted output to the blackboard and record the
+ *  multi-agent worker output (linking the blackboard message/artifact refs). */
+function fanOutWorkerOutput(accept: WorkerAcceptContext): void {
+  const { run, workerId, scope, task, absoluteResultPath, parsedResult, destination, resultNode, verifierNodeId, acceptedAuditId } = accept;
+  const blackboardLinks = publishWorkerOutputToBlackboard(run, scope, task, parsedResult.summary, destination, absoluteResultPath, resultNode.evidence, acceptedAuditId);
   recordMultiAgentWorkerOutput(run, {
     workerId,
     taskId: task.id,
     resultNodeId: resultNode.id,
-    verifierNodeId: verifierResult.outputNodeId,
+    verifierNodeId,
     evidence: resultNode.evidence,
     artifactPaths: [destination, absoluteResultPath],
     blackboardMessageIds: blackboardLinks.messageIds,
     blackboardArtifactRefIds: blackboardLinks.artifactRefIds
   });
-  if (options.persist !== false) saveCheckpoint(run);
-  return output;
 }
 
 export function recordWorkerFailure(
@@ -902,7 +1025,7 @@ function loadWorkerScopesFromDisk(run: WorkflowRun): WorkerScope[] {
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(workerRoot(run), entry.name, WORKER_SCOPE_FILE))
     .filter((file) => fs.existsSync(file))
-    .map((file) => JSON.parse(fs.readFileSync(file, "utf8")) as WorkerScope);
+    .map((file) => validateWorkerScope(JSON.parse(fs.readFileSync(file, "utf8"))));
 }
 
 function requireWorkerScope(run: WorkflowRun, workerId: string): WorkerScope {

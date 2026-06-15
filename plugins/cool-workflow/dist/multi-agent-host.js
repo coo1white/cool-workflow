@@ -384,22 +384,54 @@ function hostSelect(run, options = {}) {
     }
     return envelope(run, "select", { performed: "selected-candidate", data: selection });
 }
+function memoize(compute) {
+    let cached;
+    return (run) => (cached ??= { value: compute(run) }).value;
+}
+function createHostSummaryCache(run) {
+    const topologies = memoize(topology_1.summarizeTopologies);
+    const multiAgent = memoize(multi_agent_1.summarizeMultiAgent);
+    const blackboard = memoize(coordinator_1.summarizeBlackboard);
+    const workers = memoize(operator_ux_1.summarizeOperatorWorkers);
+    const candidates = memoize(operator_ux_1.summarizeOperatorCandidates);
+    const feedback = memoize(operator_ux_1.summarizeOperatorFeedback);
+    const commits = memoize(operator_ux_1.summarizeOperatorCommits);
+    const trust = memoize(trust_audit_1.summarizeTrustAudit);
+    const operator = memoize(operator_ux_1.summarizeOperatorRun);
+    const multiAgentOperator = memoize(multi_agent_operator_ux_1.summarizeMultiAgentOperator);
+    const active = memoize(activeTopologies);
+    return {
+        run,
+        topologies: () => topologies(run),
+        multiAgent: () => multiAgent(run),
+        blackboard: () => blackboard(run),
+        workers: () => workers(run),
+        candidates: () => candidates(run),
+        feedback: () => feedback(run),
+        commits: () => commits(run),
+        trust: () => trust(run),
+        operator: () => operator(run),
+        multiAgentOperator: () => multiAgentOperator(run),
+        active: () => active(run)
+    };
+}
 function envelope(run, command, options = {}) {
-    const topologies = (0, topology_1.summarizeTopologies)(run);
-    const multiAgent = (0, multi_agent_1.summarizeMultiAgent)(run);
-    const blackboard = (0, coordinator_1.summarizeBlackboard)(run);
-    const workers = (0, operator_ux_1.summarizeOperatorWorkers)(run);
-    const candidates = (0, operator_ux_1.summarizeOperatorCandidates)(run);
-    const feedback = (0, operator_ux_1.summarizeOperatorFeedback)(run);
-    const commits = (0, operator_ux_1.summarizeOperatorCommits)(run);
-    const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
-    const operator = (0, operator_ux_1.summarizeOperatorRun)(run);
-    const multiAgentOperator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
-    const active = activeTopologies(run);
+    const cache = createHostSummaryCache(run);
+    const topologies = cache.topologies();
+    const multiAgent = cache.multiAgent();
+    const blackboard = cache.blackboard();
+    const workers = cache.workers();
+    const candidates = cache.candidates();
+    const feedback = cache.feedback();
+    const commits = cache.commits();
+    const trust = cache.trust();
+    const operator = cache.operator();
+    const multiAgentOperator = cache.multiAgentOperator();
+    const active = cache.active();
     const blockedReasons = unique([...operator.blockedReasons, ...(options.extraBlockedReasons || [])]);
-    const state = blockedReasons.length ? "blocked" : classifyHostState(run);
+    const state = blockedReasons.length ? "blocked" : classifyHostState(run, cache);
     const ids = activeIds(run, active);
-    const nextActions = hostNextActions(run, state, active, options.requiredHostAction);
+    const nextActions = hostNextActions(run, state, active, options.requiredHostAction, cache);
     return {
         schemaVersion: 1,
         surface: "multi-agent-host",
@@ -427,12 +459,12 @@ function envelope(run, command, options = {}) {
         data: options.data
     };
 }
-function classifyHostState(run) {
-    const active = activeTopologies(run);
-    const feedback = (0, operator_ux_1.summarizeOperatorFeedback)(run);
-    const workers = (0, operator_ux_1.summarizeOperatorWorkers)(run);
-    const candidates = (0, operator_ux_1.summarizeOperatorCandidates)(run);
-    const commits = (0, operator_ux_1.summarizeOperatorCommits)(run);
+function classifyHostState(run, cache = createHostSummaryCache(run)) {
+    const active = cache.active();
+    const feedback = cache.feedback();
+    const workers = cache.workers();
+    const candidates = cache.candidates();
+    const commits = cache.commits();
     if (!active.length && !(run.multiAgent?.runs || []).length)
         return "needs-run";
     if (feedback.open.some((entry) => !entry.retryable))
@@ -475,7 +507,7 @@ function activeIds(run, active) {
         auditEventIds: unique(active.flatMap((entry) => entry.links.auditEventIds))
     };
 }
-function hostNextActions(run, state, active, requiredHostAction) {
+function hostNextActions(run, state, active, requiredHostAction, cache = createHostSummaryCache(run)) {
     if (requiredHostAction)
         return [{ command: "host-action", reason: requiredHostAction, priority: "high" }];
     const runId = run.id;
@@ -493,7 +525,7 @@ function hostNextActions(run, state, active, requiredHostAction) {
         case "ready-for-selection":
             return [{ command: `node scripts/cw.js multi-agent select ${runId} --candidate <candidate-id> --reason "<rationale>"`, reason: "Select a scored candidate after verifier gates pass.", priority: "high" }];
         case "ready-for-commit": {
-            const ready = (0, operator_ux_1.summarizeOperatorCandidates)(run).readyForCommit[0];
+            const ready = cache.candidates().readyForCommit[0];
             return [{ command: `node scripts/cw.js commit ${runId} --selection ${ready.selectionId} --reason "<verified rationale>"`, reason: "Create a verifier-gated CW state commit.", priority: "high" }];
         }
         case "complete":

@@ -55,14 +55,10 @@ export function uniqueEdges(edges: BlackboardGraph["edges"]): BlackboardGraph["e
   return result;
 }
 
-// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
-// per-run blackboard collection, threaded from the call site. No wall-clock stamp,
-// no PRNG suffix — replaying the same coordination mints byte-identical ids, so
-// snapshot/replay digests match. Each call site already asserts the minted id is
-// unique within its collection, and these collections only ever append.
-export function createId(prefix: string, seq: number): string {
-  return `${prefix}-${String(seq).padStart(4, "0")}`;
-}
+// Deterministic record id — single source of truth in ../multi-agent/ids.
+// Re-exported here so coordinator.ts importers stay byte-unchanged (F10 dedup:
+// the multi-agent kernel shares the exact same helper).
+export { createId } from "../multi-agent/ids";
 
 export function touch<T extends { updatedAt: string }>(record: T): T {
   record.updatedAt = timestamp();

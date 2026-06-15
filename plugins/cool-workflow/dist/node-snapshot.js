@@ -37,7 +37,9 @@ const node_path_1 = __importDefault(require("node:path"));
 const pipeline_runner_1 = require("./pipeline-runner");
 const state_1 = require("./state");
 const multi_agent_eval_1 = require("./multi-agent-eval");
+const node_projection_1 = require("./node-projection");
 const state_explosion_1 = require("./state-explosion");
+const validation_1 = require("./validation");
 exports.NODE_SNAPSHOT_SCHEMA_VERSION = 1;
 /** Structured fail-closed error (mirrors the PipelineContractError shape). */
 class NodeSnapshotError extends Error {
@@ -64,23 +66,11 @@ const SNAPSHOT_SECTIONS = [
     "metadata"
 ];
 /** The normalized projection of a node — timestamps/paths stripped by the eval
- *  normalizer, so it is byte-stable across captures of the same logical state. */
+ *  normalizer, so it is byte-stable across captures of the same logical state. The
+ *  canonical field set lives in node-projection.ts (shared with reclamation.ts so
+ *  the projection can never drift across the two). */
 function snapshotBody(node) {
-    return (0, multi_agent_eval_1.normalizeValue)({
-        id: node.id,
-        kind: node.kind,
-        status: node.status,
-        loopStage: node.loopStage,
-        inputs: node.inputs,
-        outputs: node.outputs,
-        artifacts: node.artifacts,
-        evidence: node.evidence,
-        errors: node.errors,
-        parents: node.parents,
-        children: node.children,
-        contractId: node.contractId,
-        metadata: node.metadata
-    });
+    return (0, node_projection_1.projectNodeBody)(node);
 }
 /** RAW fingerprint (NOT normalized): any transition (updatedAt/status) or
  *  artifact/evidence change flips it, which is how drift is detected. */
@@ -113,7 +103,7 @@ function readNodeSnapshot(run, snapshotId) {
         for (const nodeDir of node_fs_1.default.readdirSync(root)) {
             const file = node_path_1.default.join(root, nodeDir, `${snapshotId}.json`);
             if (node_fs_1.default.existsSync(file))
-                return JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+                return (0, validation_1.validateNodeSnapshot)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
         }
     }
     throw new NodeSnapshotError("snapshot-not-found", `Node snapshot ${snapshotId} not found in run ${run.id}`, { freshness: "absent" });
@@ -125,7 +115,7 @@ function readNodeReplay(run, replayId) {
         for (const nodeDir of node_fs_1.default.readdirSync(root)) {
             const file = node_path_1.default.join(root, nodeDir, "replays", `${replayId}.json`);
             if (node_fs_1.default.existsSync(file))
-                return JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+                return (0, validation_1.validateNodeReplayRun)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
         }
     }
     throw new NodeSnapshotError("replay-not-found", `Node replay ${replayId} not found in run ${run.id}`, { freshness: "absent" });

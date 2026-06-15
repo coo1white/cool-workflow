@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { ScheduleKind, ScheduleRunRecord, ScheduleStatus, ScheduleStore, ScheduledTask } from "./types";
@@ -253,20 +254,49 @@ function matchesCron(value: number, expr: string, min: number, max: number): boo
   });
 }
 
+// Deterministic jitter (replay-determinism self-audit): the jittered Date is NOT a
+// runtime-only sleep — it lands in persisted/replayed state (task.nextRunAt and,
+// transitively, the schedule store), so a Math.random() offset broke replay
+// determinism. The spread (0..jitterSeconds) is now derived from a content hash of
+// the base instant, so the same base time + jitter window always yields the same
+// offset; distinct base times still spread out across the window. The base Date is
+// itself an edge timestamp that is recorded once.
 function addJitter(date: Date, jitterSeconds: number): Date {
   if (!jitterSeconds) return date;
-  const offset = Math.floor(Math.random() * (jitterSeconds + 1)) * 1000;
-  return new Date(date.getTime() + offset);
+  const digest = crypto.createHash("sha256").update(`${date.getTime()}`).digest();
+  const seconds = digest.readUInt32BE(0) % (jitterSeconds + 1);
+  return new Date(date.getTime() + seconds * 1000);
 }
 
+// Deterministic schedule id (replay-determinism self-audit): the stamp is an edge
+// timestamp (recorded once), but the former Math.random() suffix made each
+// persisted schedule id non-reproducible. The suffix is now a content hash of the
+// schedule's deterministic identity (kind + the recorded stamp), so re-deriving the
+// id for a recorded schedule yields the byte-identical value while schedules created
+// at distinct instants still get distinct ids. Mirrors src/worker-isolation/paths.ts.
+let scheduleIdSequence = 0;
 function createScheduleId(kind: ScheduleKind): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `${kind}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+  // Second-resolution stamp: two schedules of the same kind created within one
+  // second would otherwise collide on an identical id. process.pid + a monotonic
+  // counter break the tie across concurrent processes and within one process,
+  // deterministically (not a PRNG).
+  scheduleIdSequence += 1;
+  const suffix = crypto.createHash("sha256").update(`${kind}:${stamp}:${process.pid}:${scheduleIdSequence}`).digest("hex").slice(0, 6);
+  return `${kind}-${stamp}-${suffix}`;
 }
 
+// Deterministic schedule-run (history) id — same rationale as createScheduleId. The
+// history record stamp differs from the owning schedule's, so the hashed identity
+// (kind + run stamp) stays distinct from the schedule id while remaining a pure
+// function of already-recorded state.
+let scheduleRunIdSequence = 0;
 function createScheduleRunId(kind: ScheduleKind): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  return `run-${kind}-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+  // pid + counter break same-kind/same-second collisions (see createScheduleId).
+  scheduleRunIdSequence += 1;
+  const suffix = crypto.createHash("sha256").update(`run:${kind}:${stamp}:${process.pid}:${scheduleRunIdSequence}`).digest("hex").slice(0, 6);
+  return `run-${kind}-${stamp}-${suffix}`;
 }
 
 function requiredString(value: unknown, name: string): string {

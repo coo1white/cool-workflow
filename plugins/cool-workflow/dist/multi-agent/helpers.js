@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MULTI_AGENT_SCHEMA_VERSION = void 0;
+exports.createId = exports.MULTI_AGENT_SCHEMA_VERSION = void 0;
 exports.indexRow = indexRow;
 exports.assertNoRecordPathCollisions = assertNoRecordPathCollisions;
 exports.pluralKind = pluralKind;
@@ -9,7 +9,6 @@ exports.assertLifecycleTransition = assertLifecycleTransition;
 exports.lifecycleEvent = lifecycleEvent;
 exports.isMembershipReported = isMembershipReported;
 exports.touch = touch;
-exports.createId = createId;
 exports.compact = compact;
 exports.unique = unique;
 exports.countBy = countBy;
@@ -106,14 +105,11 @@ function touch(record) {
     record.updatedAt = new Date().toISOString();
     return record;
 }
-// Deterministic record id (FreeBSD-audit L12/L13): the record's POSITION in its
-// per-run collection, threaded from the call site. No wall-clock stamp, no PRNG
-// suffix — re-running the same multi-agent topology mints byte-identical ids, so
-// snapshot/replay digests match. Each call site already asserts the minted id is
-// unique within its collection, and these collections only ever append.
-function createId(prefix, seq) {
-    return `${prefix}-${String(seq).padStart(4, "0")}`;
-}
+// Deterministic record id — single source of truth in ./ids. Re-exported here so
+// multi-agent.ts importers stay byte-unchanged (F10 dedup: the coordinator layer
+// shares the exact same helper).
+var ids_1 = require("./ids");
+Object.defineProperty(exports, "createId", { enumerable: true, get: function () { return ids_1.createId; } });
 function compact(value) {
     if (!value)
         return undefined;

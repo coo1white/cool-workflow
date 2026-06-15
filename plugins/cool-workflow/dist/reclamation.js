@@ -53,6 +53,7 @@ const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const multi_agent_eval_1 = require("./multi-agent-eval");
+const node_projection_1 = require("./node-projection");
 const node_snapshot_1 = require("./node-snapshot");
 const state_1 = require("./state");
 const trust_audit_1 = require("./trust-audit");
@@ -397,46 +398,17 @@ function buildReferenceGraph(run) {
         add(message.id);
     return refs;
 }
+/** expectDigest of a node's deterministic projection. Re-uses the SHARED
+ *  node-projection field set (node-projection.ts) so reconstruction matches
+ *  node-snapshot.ts's body byte-for-byte — the projection can no longer drift. */
 function snapshotProjectionDigest(node) {
-    // Mirror node-snapshot.ts's deterministic projection so reconstruction matches.
-    const body = (0, multi_agent_eval_1.normalizeValue)({
-        id: node.id,
-        kind: node.kind,
-        status: node.status,
-        loopStage: node.loopStage,
-        inputs: node.inputs,
-        outputs: node.outputs,
-        artifacts: node.artifacts,
-        evidence: node.evidence,
-        errors: node.errors,
-        parents: node.parents,
-        children: node.children,
-        contractId: node.contractId,
-        metadata: node.metadata
-    });
-    return sha256OfString((0, multi_agent_eval_1.replayStableStringify)(body));
+    return sha256OfString((0, node_projection_1.nodeProjectionDigestInput)(node));
 }
 /** Body digest of the RETAINED node (lives in state.json). The reconstruction
- *  verifier re-derives the projection from this retained input. */
+ *  verifier re-derives the projection from this retained input. Same shared field
+ *  set / canonical bytes as snapshotProjectionDigest. */
 function nodeBodyDigest(node) {
-    return sha256OfString((0, multi_agent_eval_1.replayStableStringify)(rawNodeBody(node)));
-}
-function rawNodeBody(node) {
-    return {
-        id: node.id,
-        kind: node.kind,
-        status: node.status,
-        loopStage: node.loopStage,
-        inputs: node.inputs,
-        outputs: node.outputs,
-        artifacts: node.artifacts,
-        evidence: node.evidence,
-        errors: node.errors,
-        parents: node.parents,
-        children: node.children,
-        contractId: node.contractId,
-        metadata: node.metadata
-    };
+    return sha256OfString((0, node_projection_1.nodeProjectionDigestInput)(node));
 }
 /** Build the retention plan: which paths are freeable under `policy`, of what
  *  kind, how many bytes, and the resulting capability downgrade. */

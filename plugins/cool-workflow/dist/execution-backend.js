@@ -47,6 +47,7 @@ exports.backendProbePayload = backendProbePayload;
 exports.buildChildEnv = buildChildEnv;
 exports.clearProbeCache = clearProbeCache;
 const node_fs_1 = __importDefault(require("node:fs"));
+const node_path_1 = __importDefault(require("node:path"));
 const node_child_process_1 = require("node:child_process");
 // Pure leaf helpers — carved into ./execution-backend/util.ts (god-module carve).
 // `sha256` is re-exported below to keep the public surface byte-identical.
@@ -578,35 +579,14 @@ function runContainer(descriptor, policy, request, label, handle, attestation) {
     }
     return delegatedEnvelope(descriptor, label, handle, attestation, command, args, exitCode, String(result.stdout || ""));
 }
-// A self-contained Node child that performs the remote/CI delegation: it reads a
-// JSON job on stdin, POSTs it to the endpoint, optionally polls a returned jobId,
-// and prints `{ exitCode, stdout }` (or `{ error }`) on stdout. Node-only (global
-// fetch, node >=18), so the driver stays portable and synchronous from CW's view.
-const HTTP_DELEGATE_CHILD = `
-(async () => {
-  const read = () => new Promise((res) => { let b = ""; process.stdin.on("data", (c) => (b += c)); process.stdin.on("end", () => res(b)); });
-  try {
-    const job = JSON.parse((await read()) || "{}");
-    const endpoint = process.env.CW_DELEGATE_ENDPOINT;
-    if (!endpoint) throw new Error("no endpoint");
-    const post = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(job) });
-    if (!post.ok) throw new Error("runner responded " + post.status);
-    let data = await post.json();
-    // Poll a returned jobId until the runner reports done.
-    let guard = 0;
-    while (data && data.jobId && data.done !== true && guard++ < 600) {
-      await new Promise((r) => setTimeout(r, 1000));
-      const poll = await fetch(endpoint + (endpoint.includes("?") ? "&" : "?") + "jobId=" + encodeURIComponent(data.jobId));
-      if (!poll.ok) throw new Error("poll responded " + poll.status);
-      data = await poll.json();
-    }
-    if (typeof data.exitCode !== "number") throw new Error("runner did not report an exitCode");
-    process.stdout.write(JSON.stringify({ exitCode: data.exitCode, stdout: String(data.stdout || "") }));
-  } catch (e) {
-    process.stdout.write(JSON.stringify({ error: e && e.message ? e.message : String(e) }));
-  }
-})();
-`;
+// The remote/CI delegation child is a real, packaged Node script (not an embedded
+// `node -e` string — F11): it reads a JSON job on stdin, POSTs it to the endpoint,
+// optionally polls a returned jobId, and prints `{ exitCode, stdout }` (or
+// `{ error }`) on stdout. Node-only (global fetch, node >=18), so the driver stays
+// portable and synchronous from CW's view. We spawn it BY PATH (shell:false). The
+// path is resolved from this compiled module (dist/execution-backend.js) up to the
+// package's `scripts/children/` dir, which package.json ships in "files".
+const HTTP_DELEGATE_CHILD_SCRIPT = node_path_1.default.resolve(__dirname, "..", "scripts", "children", "http-delegate-child.js");
 /** remote / ci — real HTTP delegation. POSTs the job to the configured endpoint
  *  (and polls a returned jobId) via a Node child, then records the runner's exit +
  *  stdout digest as canonical evidence. Fails closed when the endpoint is missing,
@@ -628,7 +608,7 @@ function runHttpDelegation(descriptor, policy, request, label, handle, attestati
         sandboxProfileId: policy.id,
         jobId: handle.jobId
     });
-    const child = (0, node_child_process_1.spawnSync)(process.execPath, ["-e", HTTP_DELEGATE_CHILD], {
+    const child = (0, node_child_process_1.spawnSync)(process.execPath, [HTTP_DELEGATE_CHILD_SCRIPT], {
         input: job,
         env: { ...process.env, CW_DELEGATE_ENDPOINT: endpoint },
         encoding: "utf8",
@@ -752,7 +732,7 @@ function runAgentEndpoint(descriptor, policy, request, label, resolved, attestat
         resultPath: manifest?.resultPath,
         sandboxProfileId: policy.id
     });
-    const child = (0, node_child_process_1.spawnSync)(process.execPath, ["-e", HTTP_DELEGATE_CHILD], {
+    const child = (0, node_child_process_1.spawnSync)(process.execPath, [HTTP_DELEGATE_CHILD_SCRIPT], {
         input: job,
         env: { ...process.env, CW_DELEGATE_ENDPOINT: endpoint },
         encoding: "utf8",

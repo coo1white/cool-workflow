@@ -55,7 +55,7 @@ function createDispatchManifest(run, limit, options = {}) {
             backendSelection
         };
     }
-    const dispatchId = createDispatchId();
+    const dispatchId = createDispatchId(run);
     const manifestPath = node_path_1.default.join(run.paths.dispatchesDir, `${dispatchId}.json`);
     node_fs_1.default.mkdirSync(run.paths.dispatchesDir, { recursive: true });
     const taskIds = new Set(tasks.map((task) => task.id));
@@ -201,9 +201,17 @@ function formatDispatchTask(task) {
         multiAgent: task.multiAgent
     };
 }
-function createDispatchId() {
+// Deterministic dispatch id (replay-determinism self-audit): the wall-clock stamp
+// is an edge timestamp (stripped on replay), but the former Math.random() suffix
+// made every dispatch mint a non-reproducible id. The suffix is now a per-run
+// sequence — the count of dispatches already allocated on this run — so re-running
+// the same workflow yields byte-identical dispatch ids while each dispatch within a
+// run still gets a distinct, monotonically increasing id. Mirrors the de-clock done
+// for worker ids in src/worker-isolation/paths.ts.
+function createDispatchId(run) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    return `dispatch-${stamp}-${Math.random().toString(36).slice(2, 8)}`;
+    const seq = (run.dispatches?.length || 0) + 1;
+    return `dispatch-${stamp}-${String(seq).padStart(4, "0")}`;
 }
 // H7: persist a CUSTOM sandbox profile DEFINITION (loaded from a FILE at dispatch)
 // onto run.customSandboxProfiles, keyed by the definition's logical id. Only fires

@@ -1,15 +1,15 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-14 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-15 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
 - Version: `0.1.81`
-- Source modules: `58`
+- Source modules: `61`
 - Workflow apps: `7`
 - Docs: `49`
-- Smoke tests: `86`
+- Smoke tests: `87`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -90,9 +90,11 @@ multi-agent host -> topology -> blackboard/coordinator
 - [evidence-grounding.ts](../src/evidence-grounding.ts)
 - [evidence-reasoning.ts](../src/evidence-reasoning.ts)
 - [execution-backend.ts](../src/execution-backend.ts)
+- [gates.ts](../src/gates.ts)
 - [multi-agent-eval.ts](../src/multi-agent-eval.ts)
 - [multi-agent-operator-ux.ts](../src/multi-agent-operator-ux.ts)
 - [multi-agent-trust.ts](../src/multi-agent-trust.ts)
+- [node-projection.ts](../src/node-projection.ts)
 - [node-snapshot.ts](../src/node-snapshot.ts)
 - [observability.ts](../src/observability.ts)
 - [reclamation.ts](../src/reclamation.ts)
@@ -107,6 +109,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [telemetry-attestation.ts](../src/telemetry-attestation.ts)
 - [telemetry-demo.ts](../src/telemetry-demo.ts)
 - [telemetry-ledger.ts](../src/telemetry-ledger.ts)
+- [validation.ts](../src/validation.ts)
 - [verifier-registry.ts](../src/verifier-registry.ts)
 - [workbench-host.ts](../src/workbench-host.ts)
 - [workbench.ts](../src/workbench.ts)
@@ -210,6 +213,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
 - [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
+- [multi-agent-eval-determinism-regression-smoke.js](../test/multi-agent-eval-determinism-regression-smoke.js)
 - [multi-agent-eval-replay-harness-smoke.js](../test/multi-agent-eval-replay-harness-smoke.js)
 - [multi-agent-eval-replay-smoke.js](../test/multi-agent-eval-replay-smoke.js)
 - [multi-agent-operator-ux-smoke.js](../test/multi-agent-operator-ux-smoke.js)
