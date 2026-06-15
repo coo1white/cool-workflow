@@ -19,6 +19,7 @@ const state_1 = require("./state");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_trust_1 = require("./multi-agent-trust");
+const validation_1 = require("./validation");
 // ---------------------------------------------------------------------------
 // Evidence Adoption Reasoning Chain (v0.1.26)
 //
@@ -616,7 +617,9 @@ function readAllScores(run) {
             continue;
         for (const file of node_fs_1.default.readdirSync(dir).filter((entry) => entry.endsWith(".json")).sort()) {
             try {
-                const score = JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8"));
+                const score = (0, validation_1.tryValidateCandidateScore)(JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8")));
+                if (!score)
+                    continue; // Malformed/forged score shape: skip; the score gate fails closed.
                 scores.set(score.id, score);
             }
             catch {

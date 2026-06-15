@@ -37,6 +37,7 @@ import {
   StateNode,
   WorkflowRun
 } from "./types";
+import { validateNodeReplayRun, validateNodeSnapshot } from "./validation";
 
 export const NODE_SNAPSHOT_SCHEMA_VERSION = 1;
 
@@ -118,7 +119,7 @@ export function readNodeSnapshot(run: WorkflowRun, snapshotId: string): NodeSnap
   if (fs.existsSync(root)) {
     for (const nodeDir of fs.readdirSync(root)) {
       const file = path.join(root, nodeDir, `${snapshotId}.json`);
-      if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8")) as NodeSnapshot;
+      if (fs.existsSync(file)) return validateNodeSnapshot(JSON.parse(fs.readFileSync(file, "utf8")));
     }
   }
   throw new NodeSnapshotError("snapshot-not-found", `Node snapshot ${snapshotId} not found in run ${run.id}`, { freshness: "absent" });
@@ -130,7 +131,7 @@ export function readNodeReplay(run: WorkflowRun, replayId: string): NodeReplayRu
   if (fs.existsSync(root)) {
     for (const nodeDir of fs.readdirSync(root)) {
       const file = path.join(root, nodeDir, "replays", `${replayId}.json`);
-      if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8")) as NodeReplayRun;
+      if (fs.existsSync(file)) return validateNodeReplayRun(JSON.parse(fs.readFileSync(file, "utf8")));
     }
   }
   throw new NodeSnapshotError("replay-not-found", `Node replay ${replayId} not found in run ${run.id}`, { freshness: "absent" });

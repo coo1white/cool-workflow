@@ -34,6 +34,7 @@ const telemetry_ledger_1 = require("./telemetry-ledger");
 const coordinator_1 = require("./coordinator");
 const helpers_1 = require("./worker-isolation/helpers");
 const paths_1 = require("./worker-isolation/paths");
+const validation_1 = require("./validation");
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
 function allocateWorkerScope(run, task, options = {}) {
     ensureWorkerState(run);
@@ -269,7 +270,7 @@ function getWorkerScope(run, workerId) {
     const file = node_path_1.default.join(workerRoot(run), (0, state_1.safeFileName)(workerId), paths_1.WORKER_SCOPE_FILE);
     if (!node_fs_1.default.existsSync(file))
         return undefined;
-    const scope = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+    const scope = (0, validation_1.validateWorkerScope)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
     upsertWorkerScope(run, scope);
     return scope;
 }
@@ -786,7 +787,7 @@ function loadWorkerScopesFromDisk(run) {
         .filter((entry) => entry.isDirectory())
         .map((entry) => node_path_1.default.join(workerRoot(run), entry.name, paths_1.WORKER_SCOPE_FILE))
         .filter((file) => node_fs_1.default.existsSync(file))
-        .map((file) => JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
+        .map((file) => (0, validation_1.validateWorkerScope)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8"))));
 }
 function requireWorkerScope(run, workerId) {
     const scope = getWorkerScope(run, workerId);

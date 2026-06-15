@@ -1,4 +1,4 @@
-import crypto from "node:crypto";
+import { sha256 } from "./execution-backend";
 import {
   AgentGroup,
   AgentMembership,
@@ -414,8 +414,11 @@ export function sourceForActor(actor?: BlackboardAuthor): "cw-validated" | "host
   return "cw-validated";
 }
 
+// Delegates to the shared execution-backend sha256 (F10 dedup). Byte-identical:
+// both emit `sha256:<hex>` and Node's Hash.update(string) defaults to utf8, the
+// same encoding the shared helper passes explicitly.
 export function hashText(value: string): string {
-  return `sha256:${crypto.createHash("sha256").update(value).digest("hex")}`;
+  return sha256(value);
 }
 
 function resolvePolicy(

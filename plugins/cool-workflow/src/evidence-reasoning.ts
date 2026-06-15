@@ -25,6 +25,7 @@ import {
 } from "./multi-agent-operator-ux";
 import { listTrustAuditEvents } from "./trust-audit";
 import { policyForRole } from "./multi-agent-trust";
+import { tryValidateCandidateScore } from "./validation";
 
 // ---------------------------------------------------------------------------
 // Evidence Adoption Reasoning Chain (v0.1.26)
@@ -747,7 +748,8 @@ function readAllScores(run: WorkflowRun): Map<string, CandidateScore> {
     if (!fs.existsSync(dir)) continue;
     for (const file of fs.readdirSync(dir).filter((entry) => entry.endsWith(".json")).sort()) {
       try {
-        const score = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as CandidateScore;
+        const score = tryValidateCandidateScore(JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")));
+        if (!score) continue; // Malformed/forged score shape: skip; the score gate fails closed.
         scores.set(score.id, score);
       } catch {
         // Unreadable score record: skip; the score gate will fail closed.

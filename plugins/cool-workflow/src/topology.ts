@@ -11,6 +11,8 @@ import {
   WorkflowRun
 } from "./types";
 import { safeFileName, writeJson } from "./state";
+import { sha256 } from "./execution-backend";
+import { stableStringify } from "./telemetry-attestation";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "./pipeline-contract";
 import { appendRunNode, createStateNode } from "./state-node";
 import { recordTrustAuditEvent } from "./trust-audit";
@@ -213,9 +215,15 @@ export function applyTopology(run: WorkflowRun, topologyId: string, input: Apply
   const definition = validation.definition;
   const state = ensureTopologyState(run);
   ensureMultiAgentState(run);
-  const id = input.id || `${definition.id}-${timestampId()}`;
-  if (state.runs.some((record) => record.id === id)) throw new Error(`Duplicate MultiAgentTopologyRun id: ${id}`);
   const taskIds = selectedTaskIds(run, input.taskIds);
+  // Default id is a DETERMINISTIC content-hash (replay determinism): two `topology
+  // apply` invocations WITHOUT --id over the same definition/tasks/run produce a
+  // byte-identical id. Same sha256/stableStringify the kernel uses for node ids
+  // (state-node/createNodeId) and ledger record ids. `state.runs.length` is the
+  // stable sequence so repeated applies on the same run get distinct ids without a
+  // wall-clock stamp. input.id stays an explicit override.
+  const id = input.id || topologyRunId(definition, taskIds, run.id, state.runs.length);
+  if (state.runs.some((record) => record.id === id)) throw new Error(`Duplicate MultiAgentTopologyRun id: ${id}`);
   const board = resolveBlackboard(run, {
     id: input.blackboardId || `${id}-blackboard`,
     title: `${definition.title} Blackboard`,
@@ -542,8 +550,23 @@ function issue(code: string, message: string, path?: string) {
   return { code, message, path };
 }
 
-function timestampId(): string {
-  return new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15).toLowerCase();
+// Deterministic default topology-run id (F2, replay determinism): no wall-clock.
+// Bound to a short sha256 of canonical content — definition id, the SORTED role and
+// selected-task ids, the workflow run id, and a stable sequence (the count of
+// topology runs already on this run). Same sha256/stableStringify the kernel uses
+// for node ids and ledger record hashes, so two replays without --id reach a
+// byte-identical fingerprint, while distinct applies on one run stay distinct.
+function topologyRunId(definition: MultiAgentTopologyDefinition, taskIds: string[], runId: string, sequence: number): string {
+  const digest = sha256(
+    stableStringify({
+      definitionId: definition.id,
+      roleIds: [...definition.roles.map((role) => role.id)].sort(),
+      taskIds: [...taskIds].sort(),
+      runId,
+      sequence
+    })
+  );
+  return `${definition.id}-${digest.replace("sha256:", "").slice(0, 16)}`;
 }
 
 function countBy<T>(items: T[], pick: (item: T) => string): Record<string, number> {

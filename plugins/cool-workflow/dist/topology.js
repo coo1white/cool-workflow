@@ -17,6 +17,8 @@ exports.showTopologyRun = showTopologyRun;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const state_1 = require("./state");
+const execution_backend_1 = require("./execution-backend");
+const telemetry_attestation_1 = require("./telemetry-attestation");
 const pipeline_contract_1 = require("./pipeline-contract");
 const state_node_1 = require("./state-node");
 const trust_audit_1 = require("./trust-audit");
@@ -186,10 +188,16 @@ function applyTopology(run, topologyId, input = {}) {
     const definition = validation.definition;
     const state = ensureTopologyState(run);
     (0, multi_agent_1.ensureMultiAgentState)(run);
-    const id = input.id || `${definition.id}-${timestampId()}`;
+    const taskIds = selectedTaskIds(run, input.taskIds);
+    // Default id is a DETERMINISTIC content-hash (replay determinism): two `topology
+    // apply` invocations WITHOUT --id over the same definition/tasks/run produce a
+    // byte-identical id. Same sha256/stableStringify the kernel uses for node ids
+    // (state-node/createNodeId) and ledger record ids. `state.runs.length` is the
+    // stable sequence so repeated applies on the same run get distinct ids without a
+    // wall-clock stamp. input.id stays an explicit override.
+    const id = input.id || topologyRunId(definition, taskIds, run.id, state.runs.length);
     if (state.runs.some((record) => record.id === id))
         throw new Error(`Duplicate MultiAgentTopologyRun id: ${id}`);
-    const taskIds = selectedTaskIds(run, input.taskIds);
     const board = (0, coordinator_1.resolveBlackboard)(run, {
         id: input.blackboardId || `${id}-blackboard`,
         title: `${definition.title} Blackboard`,
@@ -514,8 +522,21 @@ function statusToNodeStatus(status) {
 function issue(code, message, path) {
     return { code, message, path };
 }
-function timestampId() {
-    return new Date().toISOString().replace(/[-:.]/g, "").slice(0, 15).toLowerCase();
+// Deterministic default topology-run id (F2, replay determinism): no wall-clock.
+// Bound to a short sha256 of canonical content — definition id, the SORTED role and
+// selected-task ids, the workflow run id, and a stable sequence (the count of
+// topology runs already on this run). Same sha256/stableStringify the kernel uses
+// for node ids and ledger record hashes, so two replays without --id reach a
+// byte-identical fingerprint, while distinct applies on one run stay distinct.
+function topologyRunId(definition, taskIds, runId, sequence) {
+    const digest = (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)({
+        definitionId: definition.id,
+        roleIds: [...definition.roles.map((role) => role.id)].sort(),
+        taskIds: [...taskIds].sort(),
+        runId,
+        sequence
+    }));
+    return `${definition.id}-${digest.replace("sha256:", "").slice(0, 16)}`;
 }
 function countBy(items, pick) {
     const counts = {};

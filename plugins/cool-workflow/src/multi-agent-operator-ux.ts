@@ -11,6 +11,7 @@ import { buildBlackboardGraph, summarizeBlackboard } from "./coordinator";
 import { buildMultiAgentGraph, summarizeMultiAgent } from "./multi-agent";
 import { buildTopologyGraph, summarizeTopologies } from "./topology";
 import { summarizeTrustAudit } from "./trust-audit";
+import { validateCandidateScore } from "./validation";
 
 export type MultiAgentOperatorEvidenceStatus =
   | "adopted"
@@ -499,7 +500,7 @@ function readScores(run: WorkflowRun, candidateId: string): CandidateScore[] {
     .readdirSync(dir)
     .filter((file) => file.endsWith(".json"))
     .sort()
-    .map((file) => JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as CandidateScore);
+    .map((file) => validateCandidateScore(JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"))));
 }
 
 function scorePath(run: WorkflowRun, candidateId: string, scoreId: string): string | undefined {

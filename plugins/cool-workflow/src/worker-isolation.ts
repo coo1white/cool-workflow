@@ -52,6 +52,7 @@ import {
   workerArtifacts,
   workerScopePath
 } from "./worker-isolation/paths";
+import { validateWorkerScope } from "./validation";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 
@@ -306,7 +307,7 @@ export function getWorkerScope(run: WorkflowRun, workerId: string): WorkerScope 
   if (existing) return existing;
   const file = path.join(workerRoot(run), safeFileName(workerId), WORKER_SCOPE_FILE);
   if (!fs.existsSync(file)) return undefined;
-  const scope = JSON.parse(fs.readFileSync(file, "utf8")) as WorkerScope;
+  const scope = validateWorkerScope(JSON.parse(fs.readFileSync(file, "utf8")));
   upsertWorkerScope(run, scope);
   return scope;
 }
@@ -902,7 +903,7 @@ function loadWorkerScopesFromDisk(run: WorkflowRun): WorkerScope[] {
     .filter((entry) => entry.isDirectory())
     .map((entry) => path.join(workerRoot(run), entry.name, WORKER_SCOPE_FILE))
     .filter((file) => fs.existsSync(file))
-    .map((file) => JSON.parse(fs.readFileSync(file, "utf8")) as WorkerScope);
+    .map((file) => validateWorkerScope(JSON.parse(fs.readFileSync(file, "utf8"))));
 }
 
 function requireWorkerScope(run: WorkflowRun, workerId: string): WorkerScope {

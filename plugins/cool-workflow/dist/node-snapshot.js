@@ -38,6 +38,7 @@ const pipeline_runner_1 = require("./pipeline-runner");
 const state_1 = require("./state");
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const state_explosion_1 = require("./state-explosion");
+const validation_1 = require("./validation");
 exports.NODE_SNAPSHOT_SCHEMA_VERSION = 1;
 /** Structured fail-closed error (mirrors the PipelineContractError shape). */
 class NodeSnapshotError extends Error {
@@ -113,7 +114,7 @@ function readNodeSnapshot(run, snapshotId) {
         for (const nodeDir of node_fs_1.default.readdirSync(root)) {
             const file = node_path_1.default.join(root, nodeDir, `${snapshotId}.json`);
             if (node_fs_1.default.existsSync(file))
-                return JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+                return (0, validation_1.validateNodeSnapshot)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
         }
     }
     throw new NodeSnapshotError("snapshot-not-found", `Node snapshot ${snapshotId} not found in run ${run.id}`, { freshness: "absent" });
@@ -125,7 +126,7 @@ function readNodeReplay(run, replayId) {
         for (const nodeDir of node_fs_1.default.readdirSync(root)) {
             const file = node_path_1.default.join(root, nodeDir, "replays", `${replayId}.json`);
             if (node_fs_1.default.existsSync(file))
-                return JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+                return (0, validation_1.validateNodeReplayRun)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
         }
     }
     throw new NodeSnapshotError("replay-not-found", `Node replay ${replayId} not found in run ${run.id}`, { freshness: "absent" });

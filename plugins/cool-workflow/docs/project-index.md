@@ -1,12 +1,12 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-14 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-15 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
 - Version: `0.1.81`
-- Source modules: `58`
+- Source modules: `59`
 - Workflow apps: `7`
 - Docs: `49`
 - Smoke tests: `86`
@@ -107,6 +107,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [telemetry-attestation.ts](../src/telemetry-attestation.ts)
 - [telemetry-demo.ts](../src/telemetry-demo.ts)
 - [telemetry-ledger.ts](../src/telemetry-ledger.ts)
+- [validation.ts](../src/validation.ts)
 - [verifier-registry.ts](../src/verifier-registry.ts)
 - [workbench-host.ts](../src/workbench-host.ts)
 - [workbench.ts](../src/workbench.ts)
