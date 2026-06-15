@@ -25,6 +25,7 @@ import path from "node:path";
 import { getRunNode } from "./pipeline-runner";
 import { writeJson, safeFileName } from "./state";
 import { normalizeValue, replayStableStringify } from "./multi-agent-eval";
+import { projectNodeBody } from "./node-projection";
 import { fingerprintStrings } from "./state-explosion";
 import {
   NodeReplayRun,
@@ -67,23 +68,11 @@ const SNAPSHOT_SECTIONS: NodeSnapshotSection["section"][] = [
 ];
 
 /** The normalized projection of a node — timestamps/paths stripped by the eval
- *  normalizer, so it is byte-stable across captures of the same logical state. */
+ *  normalizer, so it is byte-stable across captures of the same logical state. The
+ *  canonical field set lives in node-projection.ts (shared with reclamation.ts so
+ *  the projection can never drift across the two). */
 function snapshotBody(node: StateNode): NodeSnapshotBody {
-  return normalizeValue({
-    id: node.id,
-    kind: node.kind,
-    status: node.status,
-    loopStage: node.loopStage,
-    inputs: node.inputs,
-    outputs: node.outputs,
-    artifacts: node.artifacts,
-    evidence: node.evidence,
-    errors: node.errors,
-    parents: node.parents,
-    children: node.children,
-    contractId: node.contractId,
-    metadata: node.metadata
-  }) as NodeSnapshotBody;
+  return projectNodeBody(node);
 }
 
 /** RAW fingerprint (NOT normalized): any transition (updatedAt/status) or

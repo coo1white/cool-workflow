@@ -11,7 +11,6 @@ import {
   CandidateKind,
   StateArtifact,
   StateEvidence,
-  StateNode,
   StateNodeError,
   WorkflowRun
 } from "./types";
@@ -21,6 +20,8 @@ import { appendRunNode, createStateNode, linkStateNodes } from "./state-node";
 import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent } from "./trust-audit";
 import { reviewGateErrors, selfActorIdsForCandidate } from "./collaboration";
 import { compareBytes } from "./compare";
+import { emptyCaptureWarning, sandboxProfileForCandidate } from "./gates";
+import { validateCandidateRecord, validateCandidateScore } from "./validation";
 
 export const CANDIDATE_SCHEMA_VERSION = 1;
 
@@ -161,7 +162,10 @@ export function getCandidate(run: WorkflowRun, candidateId: string): CandidateRe
   if (existing) return existing;
   const file = candidateFile(run, candidateId);
   if (!fs.existsSync(file)) return undefined;
-  const candidate = JSON.parse(fs.readFileSync(file, "utf8")) as CandidateRecord;
+  // Fail-closed integrity boundary (F4/F5): validate the parsed record against
+  // its type def BEFORE upserting it as a trusted CandidateRecord. A corrupt or
+  // forged candidate.json must throw here rather than flow into the run.
+  const candidate = validateCandidateRecord(JSON.parse(fs.readFileSync(file, "utf8")));
   upsertCandidate(run, candidate);
   return candidate;
 }
@@ -308,9 +312,10 @@ export function selectCandidate(
     } else if (!verifierNode.evidence.length) {
       failures.push(error("candidate-selection-missing-evidence", `Candidate ${candidateId} verifier node has no evidence`));
     } else if (emptyCaptureWarning(run, verifierNode)) {
-      // HARD no-false-green gate (v0.1.43) — kept in SYNC with the commit gate
-      // (commit.ts emptyCaptureWarning): a verifier node whose backing result was
-      // an empty-capture must not be selectable, so selection + commit agree.
+      // HARD no-false-green gate (v0.1.43) — selection and the commit gate now
+      // share ONE emptyCaptureWarning (src/gates.ts), so they CANNOT drift: a
+      // verifier node whose backing result was an empty-capture is unselectable
+      // here for the same reason it is uncommittable, by construction.
       failures.push(error("candidate-selection-empty-capture", `Candidate ${candidateId} verifier node has no real evidence (empty-capture result)`));
     }
   }
@@ -628,7 +633,10 @@ function loadCandidatesFromDisk(run: WorkflowRun): CandidateRecord[] {
     .filter((entry) => entry.isDirectory() && entry.name !== "selections")
     .map((entry) => path.join(candidateRoot(run), entry.name, "candidate.json"))
     .filter((file) => fs.existsSync(file))
-    .map((file) => JSON.parse(fs.readFileSync(file, "utf8")) as CandidateRecord);
+    // Fail-closed integrity boundary (F4/F5): each candidate.json is validated
+    // against CandidateRecord before it merges into the run; a corrupt record
+    // throws rather than entering the candidate set as a trusted cast.
+    .map((file) => validateCandidateRecord(JSON.parse(fs.readFileSync(file, "utf8"))));
 }
 
 function readScores(run: WorkflowRun, candidateId: string): CandidateScore[] {
@@ -638,7 +646,10 @@ function readScores(run: WorkflowRun, candidateId: string): CandidateScore[] {
     .readdirSync(dir)
     .filter((file) => file.endsWith(".json"))
     .sort()
-    .map((file) => JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as CandidateScore);
+    // Fail-closed integrity boundary (F4/F5): a score file is validated against
+    // CandidateScore before it can feed ranking/selection. A corrupt score must
+    // throw, not silently widen the normalized/verdict surface the gate reads.
+    .map((file) => validateCandidateScore(JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"))));
 }
 
 function candidateArtifacts(run: WorkflowRun, candidate: CandidateRecord): StateArtifact[] {
@@ -778,19 +789,6 @@ function error(code: string, message: string, options: { details?: Record<string
   };
 }
 
-/** HARD no-false-green gate (v0.1.43) — kept in SYNC with commit.ts. Traces a
- *  verifier node back to its source result node and returns the empty-capture
- *  marker (set at ingest via isEmptyCapture) when present. Reads ONLY persisted
- *  state, so selection replays deterministically. */
-function emptyCaptureWarning(run: WorkflowRun, verifierNode: StateNode): string | undefined {
-  const resultNodeId =
-    (typeof verifierNode.inputs?.inputNodeId === "string" ? (verifierNode.inputs.inputNodeId as string) : undefined) ||
-    verifierNode.parents[0];
-  const resultNode = resultNodeId ? run.nodes?.find((node) => node.id === resultNodeId) : undefined;
-  const warning = resultNode?.metadata?.captureWarning;
-  return typeof warning === "string" && warning ? warning : undefined;
-}
-
 function mergeCandidates(left: CandidateRecord[], right: CandidateRecord[]): CandidateRecord[] {
   const merged = [...left];
   for (const candidate of right) {
@@ -825,13 +823,6 @@ function mergeEvidence(left: StateEvidence[], right: StateEvidence[]): StateEvid
     else merged.push(item);
   }
   return merged;
-}
-
-function sandboxProfileForCandidate(run: WorkflowRun, candidate: CandidateRecord): string | undefined {
-  const worker = candidate.workerId ? (run.workers || []).find((entry) => entry.id === candidate.workerId) : undefined;
-  if (worker?.sandboxProfileId) return worker.sandboxProfileId;
-  const task = candidate.taskId ? (run.tasks || []).find((entry) => entry.id === candidate.taskId) : undefined;
-  return task?.sandboxProfileId;
 }
 
 function unique(values: string[]): string[] {

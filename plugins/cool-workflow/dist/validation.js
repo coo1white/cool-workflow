@@ -26,6 +26,8 @@ exports.validateNodeReplayRun = validateNodeReplayRun;
 exports.tryValidateNodeReplayRun = tryValidateNodeReplayRun;
 exports.validateCandidateScore = validateCandidateScore;
 exports.tryValidateCandidateScore = tryValidateCandidateScore;
+exports.validateCandidateRecord = validateCandidateRecord;
+exports.tryValidateCandidateRecord = tryValidateCandidateRecord;
 // ---------------------------------------------------------------------------
 // Primitive predicates — small, total, never throw.
 // ---------------------------------------------------------------------------
@@ -54,6 +56,15 @@ const WORKER_STATUSES = new Set([
     "orphaned"
 ]);
 const SCORE_VERDICTS = new Set(["pass", "warn", "fail"]);
+const CANDIDATE_STATUSES = new Set([
+    "registered",
+    "scored",
+    "selected",
+    "rejected",
+    "verified",
+    "failed"
+]);
+const CANDIDATE_KINDS = new Set(["worker-output", "result", "artifact", "manual", "release"]);
 const SNAPSHOT_FRESHNESS = new Set(["valid", "stale", "absent"]);
 /** Descriptive integrity error — the message names the type and the field that
  *  broke, so a corrupt record is diagnosable from logs alone. */
@@ -266,4 +277,52 @@ function validateCandidateScore(value) {
  *  downstream score gate fails closed on its absence). */
 function tryValidateCandidateScore(value) {
     return candidateScoreReason(value) ? null : value;
+}
+// ---------------------------------------------------------------------------
+// CandidateRecord — candidate-scoring.ts getCandidate / loadCandidatesFromDisk.
+// Required (per src/types/candidate.ts): schemaVersion===1, id, runId, createdAt,
+// updatedAt strings; kind/status enums; artifacts/evidence object arrays;
+// scores/feedbackIds string arrays. Optional ids (workerId/taskId/…) not enforced.
+// A corrupt/forged candidate record must NOT flow into the run as a trusted T —
+// the gate that backs commit selection reads these fields, so we fail closed at
+// the read edge instead of upserting an unvalidated cast.
+// ---------------------------------------------------------------------------
+function candidateRecordReason(value) {
+    if (!isRecord(value))
+        return { reason: "not an object" };
+    if (value.schemaVersion !== 1)
+        return { field: "schemaVersion", reason: "must equal 1" };
+    const requiredStrings = ["id", "runId", "createdAt", "updatedAt"];
+    for (const field of requiredStrings) {
+        if (!isString(value[field]))
+            return { field: field, reason: "must be a string" };
+    }
+    if (!isString(value.kind) || !CANDIDATE_KINDS.has(value.kind)) {
+        return { field: "kind", reason: "must be a valid CandidateKind" };
+    }
+    if (!isString(value.status) || !CANDIDATE_STATUSES.has(value.status)) {
+        return { field: "status", reason: "must be a valid CandidateStatus" };
+    }
+    if (!isObjectArray(value.artifacts))
+        return { field: "artifacts", reason: "must be a StateArtifact[]" };
+    if (!isObjectArray(value.evidence))
+        return { field: "evidence", reason: "must be a StateEvidence[]" };
+    if (!isStringArray(value.scores))
+        return { field: "scores", reason: "must be a string[]" };
+    if (!isStringArray(value.feedbackIds))
+        return { field: "feedbackIds", reason: "must be a string[]" };
+    return undefined;
+}
+/** Throw-on-mismatch guard for CandidateRecord (callers that require the record
+ *  at the disk read edge — getCandidate / loadCandidatesFromDisk). */
+function validateCandidateRecord(value) {
+    const problem = candidateRecordReason(value);
+    if (problem)
+        throw new RecordValidationError("CandidateRecord", problem.reason, problem.field);
+    return value;
+}
+/** Best-effort variant: returns null on mismatch (caller skips the record so the
+ *  downstream selection gate fails closed on its absence). */
+function tryValidateCandidateRecord(value) {
+    return candidateRecordReason(value) ? null : value;
 }

@@ -16,7 +16,7 @@
 // Dependency-light by construction: imports ONLY from ./types. No fs, no clock,
 // no randomness — pure structural checks, safe in replay/core paths.
 
-import type { CandidateScore, CandidateScoreVerdict } from "./types/candidate";
+import type { CandidateRecord, CandidateScore, CandidateScoreVerdict, CandidateStatus, CandidateKind } from "./types/candidate";
 import type { NodeReplayRun, NodeSnapshot, NodeSnapshotBody, NodeSnapshotFreshness } from "./types/state-node";
 import type { WorkerIsolationStatus, WorkerScope } from "./types/worker";
 
@@ -55,6 +55,17 @@ const WORKER_STATUSES: ReadonlySet<string> = new Set<WorkerIsolationStatus>([
 ]);
 
 const SCORE_VERDICTS: ReadonlySet<string> = new Set<CandidateScoreVerdict>(["pass", "warn", "fail"]);
+
+const CANDIDATE_STATUSES: ReadonlySet<string> = new Set<CandidateStatus>([
+  "registered",
+  "scored",
+  "selected",
+  "rejected",
+  "verified",
+  "failed"
+]);
+
+const CANDIDATE_KINDS: ReadonlySet<string> = new Set<CandidateKind>(["worker-output", "result", "artifact", "manual", "release"]);
 
 const SNAPSHOT_FRESHNESS: ReadonlySet<string> = new Set<NodeSnapshotFreshness>(["valid", "stale", "absent"]);
 
@@ -253,4 +264,48 @@ export function validateCandidateScore(value: unknown): CandidateScore {
  *  downstream score gate fails closed on its absence). */
 export function tryValidateCandidateScore(value: unknown): CandidateScore | null {
   return candidateScoreReason(value) ? null : (value as CandidateScore);
+}
+
+// ---------------------------------------------------------------------------
+// CandidateRecord — candidate-scoring.ts getCandidate / loadCandidatesFromDisk.
+// Required (per src/types/candidate.ts): schemaVersion===1, id, runId, createdAt,
+// updatedAt strings; kind/status enums; artifacts/evidence object arrays;
+// scores/feedbackIds string arrays. Optional ids (workerId/taskId/…) not enforced.
+// A corrupt/forged candidate record must NOT flow into the run as a trusted T —
+// the gate that backs commit selection reads these fields, so we fail closed at
+// the read edge instead of upserting an unvalidated cast.
+// ---------------------------------------------------------------------------
+
+function candidateRecordReason(value: unknown): { field?: string; reason: string } | undefined {
+  if (!isRecord(value)) return { reason: "not an object" };
+  if (value.schemaVersion !== 1) return { field: "schemaVersion", reason: "must equal 1" };
+  const requiredStrings: (keyof CandidateRecord)[] = ["id", "runId", "createdAt", "updatedAt"];
+  for (const field of requiredStrings) {
+    if (!isString(value[field as string])) return { field: field as string, reason: "must be a string" };
+  }
+  if (!isString(value.kind) || !CANDIDATE_KINDS.has(value.kind)) {
+    return { field: "kind", reason: "must be a valid CandidateKind" };
+  }
+  if (!isString(value.status) || !CANDIDATE_STATUSES.has(value.status)) {
+    return { field: "status", reason: "must be a valid CandidateStatus" };
+  }
+  if (!isObjectArray(value.artifacts)) return { field: "artifacts", reason: "must be a StateArtifact[]" };
+  if (!isObjectArray(value.evidence)) return { field: "evidence", reason: "must be a StateEvidence[]" };
+  if (!isStringArray(value.scores)) return { field: "scores", reason: "must be a string[]" };
+  if (!isStringArray(value.feedbackIds)) return { field: "feedbackIds", reason: "must be a string[]" };
+  return undefined;
+}
+
+/** Throw-on-mismatch guard for CandidateRecord (callers that require the record
+ *  at the disk read edge — getCandidate / loadCandidatesFromDisk). */
+export function validateCandidateRecord(value: unknown): CandidateRecord {
+  const problem = candidateRecordReason(value);
+  if (problem) throw new RecordValidationError("CandidateRecord", problem.reason, problem.field);
+  return value as CandidateRecord;
+}
+
+/** Best-effort variant: returns null on mismatch (caller skips the record so the
+ *  downstream selection gate fails closed on its absence). */
+export function tryValidateCandidateRecord(value: unknown): CandidateRecord | null {
+  return candidateRecordReason(value) ? null : (value as CandidateRecord);
 }

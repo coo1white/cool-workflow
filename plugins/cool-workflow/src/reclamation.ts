@@ -28,7 +28,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { normalizeValue, replayStableStringify } from "./multi-agent-eval";
+import { replayStableStringify } from "./multi-agent-eval";
+import { nodeProjectionDigestInput } from "./node-projection";
 import { loadNodeSnapshot, snapshotNode } from "./node-snapshot";
 import { realResolve, writeJson, withFileLock } from "./state";
 import { recordTrustAuditEvent } from "./trust-audit";
@@ -396,48 +397,18 @@ export interface ReclamationPlan {
   capabilityReason: RunCapabilityReason;
 }
 
+/** expectDigest of a node's deterministic projection. Re-uses the SHARED
+ *  node-projection field set (node-projection.ts) so reconstruction matches
+ *  node-snapshot.ts's body byte-for-byte — the projection can no longer drift. */
 function snapshotProjectionDigest(node: StateNode): string {
-  // Mirror node-snapshot.ts's deterministic projection so reconstruction matches.
-  const body = normalizeValue({
-    id: node.id,
-    kind: node.kind,
-    status: node.status,
-    loopStage: node.loopStage,
-    inputs: node.inputs,
-    outputs: node.outputs,
-    artifacts: node.artifacts,
-    evidence: node.evidence,
-    errors: node.errors,
-    parents: node.parents,
-    children: node.children,
-    contractId: node.contractId,
-    metadata: node.metadata
-  });
-  return sha256OfString(replayStableStringify(body));
+  return sha256OfString(nodeProjectionDigestInput(node));
 }
 
 /** Body digest of the RETAINED node (lives in state.json). The reconstruction
- *  verifier re-derives the projection from this retained input. */
+ *  verifier re-derives the projection from this retained input. Same shared field
+ *  set / canonical bytes as snapshotProjectionDigest. */
 function nodeBodyDigest(node: StateNode): string {
-  return sha256OfString(replayStableStringify(rawNodeBody(node)));
-}
-
-function rawNodeBody(node: StateNode): Record<string, unknown> {
-  return {
-    id: node.id,
-    kind: node.kind,
-    status: node.status,
-    loopStage: node.loopStage,
-    inputs: node.inputs,
-    outputs: node.outputs,
-    artifacts: node.artifacts,
-    evidence: node.evidence,
-    errors: node.errors,
-    parents: node.parents,
-    children: node.children,
-    contractId: node.contractId,
-    metadata: node.metadata
-  };
+  return sha256OfString(nodeProjectionDigestInput(node));
 }
 
 /** Build the retention plan: which paths are freeable under `policy`, of what

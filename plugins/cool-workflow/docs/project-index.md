@@ -6,7 +6,7 @@ Generated from the current repository code on 2026-06-15 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.81`
-- Source modules: `59`
+- Source modules: `61`
 - Workflow apps: `7`
 - Docs: `49`
 - Smoke tests: `86`
@@ -90,9 +90,11 @@ multi-agent host -> topology -> blackboard/coordinator
 - [evidence-grounding.ts](../src/evidence-grounding.ts)
 - [evidence-reasoning.ts](../src/evidence-reasoning.ts)
 - [execution-backend.ts](../src/execution-backend.ts)
+- [gates.ts](../src/gates.ts)
 - [multi-agent-eval.ts](../src/multi-agent-eval.ts)
 - [multi-agent-operator-ux.ts](../src/multi-agent-operator-ux.ts)
 - [multi-agent-trust.ts](../src/multi-agent-trust.ts)
+- [node-projection.ts](../src/node-projection.ts)
 - [node-snapshot.ts](../src/node-snapshot.ts)
 - [observability.ts](../src/observability.ts)
 - [reclamation.ts](../src/reclamation.ts)

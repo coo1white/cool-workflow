@@ -21,6 +21,8 @@ const state_node_1 = require("./state-node");
 const trust_audit_1 = require("./trust-audit");
 const collaboration_1 = require("./collaboration");
 const compare_1 = require("./compare");
+const gates_1 = require("./gates");
+const validation_1 = require("./validation");
 exports.CANDIDATE_SCHEMA_VERSION = 1;
 /** Verdict thresholds on a score's normalized value [0,1], declared once so the
  *  numbers carry intent instead of being buried as literals in verdictFor(). A
@@ -110,7 +112,10 @@ function getCandidate(run, candidateId) {
     const file = candidateFile(run, candidateId);
     if (!node_fs_1.default.existsSync(file))
         return undefined;
-    const candidate = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
+    // Fail-closed integrity boundary (F4/F5): validate the parsed record against
+    // its type def BEFORE upserting it as a trusted CandidateRecord. A corrupt or
+    // forged candidate.json must throw here rather than flow into the run.
+    const candidate = (0, validation_1.validateCandidateRecord)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
     upsertCandidate(run, candidate);
     return candidate;
 }
@@ -245,10 +250,11 @@ function selectCandidate(run, candidateId, options = {}, scoringOptions = {}) {
         else if (!verifierNode.evidence.length) {
             failures.push(error("candidate-selection-missing-evidence", `Candidate ${candidateId} verifier node has no evidence`));
         }
-        else if (emptyCaptureWarning(run, verifierNode)) {
-            // HARD no-false-green gate (v0.1.43) — kept in SYNC with the commit gate
-            // (commit.ts emptyCaptureWarning): a verifier node whose backing result was
-            // an empty-capture must not be selectable, so selection + commit agree.
+        else if ((0, gates_1.emptyCaptureWarning)(run, verifierNode)) {
+            // HARD no-false-green gate (v0.1.43) — selection and the commit gate now
+            // share ONE emptyCaptureWarning (src/gates.ts), so they CANNOT drift: a
+            // verifier node whose backing result was an empty-capture is unselectable
+            // here for the same reason it is uncommittable, by construction.
             failures.push(error("candidate-selection-empty-capture", `Candidate ${candidateId} verifier node has no real evidence (empty-capture result)`));
         }
     }
@@ -312,7 +318,7 @@ function selectCandidate(run, candidateId, options = {}, scoringOptions = {}) {
             scoreCriteria: bestScore?.criteria,
             verifierNodeId: candidate.verifierNodeId,
             evidenceCount: mergeEvidence(candidate.evidence, verifierNode?.evidence || []).length,
-            sandboxProfileId: sandboxProfileForCandidate(run, candidate),
+            sandboxProfileId: (0, gates_1.sandboxProfileForCandidate)(run, candidate),
             workerId: candidate.workerId,
             commitGateResult: "passed"
         }),
@@ -528,7 +534,10 @@ function loadCandidatesFromDisk(run) {
         .filter((entry) => entry.isDirectory() && entry.name !== "selections")
         .map((entry) => node_path_1.default.join(candidateRoot(run), entry.name, "candidate.json"))
         .filter((file) => node_fs_1.default.existsSync(file))
-        .map((file) => JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
+        // Fail-closed integrity boundary (F4/F5): each candidate.json is validated
+        // against CandidateRecord before it merges into the run; a corrupt record
+        // throws rather than entering the candidate set as a trusted cast.
+        .map((file) => (0, validation_1.validateCandidateRecord)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8"))));
 }
 function readScores(run, candidateId) {
     const dir = node_path_1.default.join(candidateDir(run, candidateId), "scores");
@@ -538,7 +547,10 @@ function readScores(run, candidateId) {
         .readdirSync(dir)
         .filter((file) => file.endsWith(".json"))
         .sort()
-        .map((file) => JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8")));
+        // Fail-closed integrity boundary (F4/F5): a score file is validated against
+        // CandidateScore before it can feed ranking/selection. A corrupt score must
+        // throw, not silently widen the normalized/verdict surface the gate reads.
+        .map((file) => (0, validation_1.validateCandidateScore)(JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8"))));
 }
 function candidateArtifacts(run, candidate) {
     return [
@@ -661,17 +673,6 @@ function error(code, message, options = {}) {
         details: options.details
     };
 }
-/** HARD no-false-green gate (v0.1.43) — kept in SYNC with commit.ts. Traces a
- *  verifier node back to its source result node and returns the empty-capture
- *  marker (set at ingest via isEmptyCapture) when present. Reads ONLY persisted
- *  state, so selection replays deterministically. */
-function emptyCaptureWarning(run, verifierNode) {
-    const resultNodeId = (typeof verifierNode.inputs?.inputNodeId === "string" ? verifierNode.inputs.inputNodeId : undefined) ||
-        verifierNode.parents[0];
-    const resultNode = resultNodeId ? run.nodes?.find((node) => node.id === resultNodeId) : undefined;
-    const warning = resultNode?.metadata?.captureWarning;
-    return typeof warning === "string" && warning ? warning : undefined;
-}
 function mergeCandidates(left, right) {
     const merged = [...left];
     for (const candidate of right) {
@@ -707,13 +708,6 @@ function mergeEvidence(left, right) {
             merged.push(item);
     }
     return merged;
-}
-function sandboxProfileForCandidate(run, candidate) {
-    const worker = candidate.workerId ? (run.workers || []).find((entry) => entry.id === candidate.workerId) : undefined;
-    if (worker?.sandboxProfileId)
-        return worker.sandboxProfileId;
-    const task = candidate.taskId ? (run.tasks || []).find((entry) => entry.id === candidate.taskId) : undefined;
-    return task?.sandboxProfileId;
 }
 function unique(values) {
     return Array.from(new Set(values.filter(Boolean)));

@@ -1,7 +1,7 @@
 import type { StateArtifact, StateEvidence } from "./result";
 
 export type CandidateStatus = "registered" | "scored" | "selected" | "rejected" | "verified" | "failed";
-export type CandidateKind = "worker-output" | "result" | "artifact" | "manual";
+export type CandidateKind = "worker-output" | "result" | "artifact" | "manual" | "release";
 export type CandidateScoreVerdict = "pass" | "warn" | "fail";
 
 export interface CandidateScoringPolicy {
