@@ -308,3 +308,4 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 _No changes to the multi-agent eval/replay harness in v0.1.81 (the multi-agent-eval module was carved into behavior-preserving siblings; replay output is byte-identical)._
+_v0.1.82 — replay now RE-DERIVES the projection from the raw captured state instead of copying the baseline, so a nondeterministic projection is caught instead of silently passing; a new regression smoke (including an intrinsic-nondeterminism case) proves the moat has teeth._

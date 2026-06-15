@@ -199,3 +199,4 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 ## Deterministic Freed Manifest (v0.1.81)
 
 The freed manifest is path-sorted before it feeds `tombstoneHash`, so reclamation's write-ahead tombstone hash-chain is reproducible across hosts regardless of filesystem enumeration order. Reclaimed tiers, the re-point seam, and the default (reclaim-nothing) policy are unchanged.
+_No changes in v0.1.82._

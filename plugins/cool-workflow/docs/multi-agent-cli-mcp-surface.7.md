@@ -273,3 +273,4 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 ## New Both-Surface Verbs (v0.1.81)
 
 v0.1.81 adds `audit verify` (`cw_audit_verify`) and `run inspect-archive` (`cw_run_inspect_archive`) — both declared once in the capability registry and exposed identically on the CLI and MCP, fail-closed (non-zero exit / `ok:false` on an unverified chain or a tampered archive).
+_No changes in v0.1.82._

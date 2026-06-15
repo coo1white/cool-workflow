@@ -115,3 +115,4 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 ## Deterministic Tombstone Hash (v0.1.81)
 
 The reclamation tombstone's freed-manifest is now path-sorted before it feeds `tombstoneHash`, so the same freed set always yields the same hash regardless of filesystem enumeration order. This removes a non-determinism from the write-ahead chain (v0.1.39/v0.1.40), keeping the per-run tombstone hash-chain replayable and stable across hosts. Atomicity, locking, and the durable re-point seam are unchanged. v0.1.81 also adds import-time refusal (`CW_REQUIRE_ARCHIVE_INTEGRITY=1`) and restore-time trust-audit re-proving — see run-registry-control-plane(7).
+_No changes in v0.1.82._

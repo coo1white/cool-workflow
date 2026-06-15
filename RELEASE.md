@@ -118,3 +118,4 @@ target-version confirmation such as `--confirm-release-actions=0.1.24`.
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 _This checklist applies through v0.1.81._
+_Current release: v0.1.82._

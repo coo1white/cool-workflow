@@ -195,3 +195,4 @@ binary for a stub (spawned `shell:false`) so the smoke exercises it offline.
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 _No changes to the release-flow tooling in v0.1.81; this release was cut through the existing gate->review->tag flow._
+_No changes to the release-tooling contract in v0.1.82._
