@@ -1,21 +1,21 @@
 # Multi-Agent Runtime Core
 
-CW v0.1.17 made multi-agent runtime state first-class. Dispatches and worker
-records still exist, but they now have explicit process-table-style state around
+CW v0.1.17 made multi-agent runtime state a first-class thing. Dispatches and worker
+records are still here, but now they have clear process-table-style state around
 them: `MultiAgentRun`, `AgentRole`, `AgentGroup`, `AgentMembership`,
 `AgentFanout`, and `AgentFanin`.
 
-CW v0.1.18 extends these records with blackboard and topic links so fanout,
-worker manifests, accepted worker output, and fanin evidence can cite the
+CW v0.1.18 adds blackboard and topic links to these records so that fanout,
+worker manifests, accepted worker output, and fanin evidence can point to the
 Coordinator / Blackboard substrate.
 
-This release is the runtime core, not an autonomous scheduler. CW records and
-validates the state model. The agent host still executes agents and enforces
+This release is the runtime core, not a self-acting scheduler. CW keeps and
+checks the state model. The agent host still runs agents and keeps watch over
 OS/process/network/environment controls.
 
 ## State Model
 
-Multi-agent state lives in durable run state:
+Multi-agent state is kept in lasting run state:
 
 ```text
 .cw/runs/<run-id>/state.json
@@ -29,7 +29,7 @@ Multi-agent state lives in durable run state:
     fanins: []
 ```
 
-CW also mirrors records to local JSON files:
+CW also copies records to local JSON files:
 
 ```text
 .cw/runs/<run-id>/multi-agent/
@@ -42,51 +42,51 @@ CW also mirrors records to local JSON files:
   fanins/<fanin-id>.json
 ```
 
-All records carry stable ids, timestamps, schema versions, lifecycle history,
-parent/child links where relevant, and metadata. Records link back to the
-existing workflow run, phase, task, dispatch, worker, result, verifier,
+All records have fixed ids, timestamps, schema versions, lifecycle history,
+parent/child links where they are needed, and metadata. Records link back to the
+present workflow run, phase, task, dispatch, worker, result, verifier,
 candidate, commit, and audit surfaces.
 
 ## Runtime Objects
 
-`MultiAgentRun` is the top-level runtime table entry for coordinated agent work.
+`MultiAgentRun` is the top-level runtime table entry for joined-up agent work.
 Its lifecycle is:
 
 ```text
 planned -> forming -> running -> collecting -> verifying -> completed
 ```
 
-It may also move to `failed` or `cancelled`. Invalid lifecycle transitions fail
+It may also move to `failed` or `cancelled`. Bad lifecycle transitions fail
 closed.
 
-`AgentRole` describes responsibility, required evidence, sandbox profile hints,
-expected artifacts, and fanin obligations.
+`AgentRole` says what the work is, the evidence needed, sandbox profile hints,
+the artifacts looked for, and fanin duties.
 
-`AgentGroup` is a coordinated set of members for a phase or subproblem. Groups
+`AgentGroup` is a joined-up set of members for a phase or part-problem. Groups
 hold role, task, membership, worker, fanout, and fanin ids.
 
-`AgentMembership` binds one role to one task and, once dispatched, one worker.
-A worker can belong to one or more groups only through explicit membership
-records. Duplicate membership for the same group, role, task, and worker fails
+`AgentMembership` ties one role to one task and, once dispatched, one worker.
+A worker can be part of one or more groups only through clear membership
+records. A copy of the same group, role, task, and worker membership fails
 closed.
 
 `AgentFanout` records why work was split, which roles/tasks/workers were
-created or attached, concurrency limits, sandbox profile choices, dispatch ids,
-and the expected return shape.
+made or joined, concurrency limits, sandbox profile choices, dispatch ids,
+and the return shape looked for.
 
-`AgentFanin` records aggregation strategy, required roles, reported members,
-missing members, evidence coverage, blocked reasons, and verifier readiness.
-Fanin does not silently accept missing evidence for required roles.
+`AgentFanin` records the way work is brought together, required roles, members that reported,
+members that are missing, evidence coverage, blocked reasons, and verifier readiness.
+Fanin does not quietly take missing evidence for required roles.
 
 ## Dispatch Integration
 
-Existing dispatch and worker flows remain valid:
+Present dispatch and worker flows are still valid:
 
 ```bash
 node scripts/cw.js dispatch <run-id> --limit 1 --sandbox readonly
 ```
 
-To attach dispatch to explicit multi-agent state:
+To tie dispatch to clear multi-agent state:
 
 ```bash
 node scripts/cw.js multi-agent run <run-id> --id ma-release --objective "release verification"
@@ -128,12 +128,12 @@ Worker manifests then include:
 }
 ```
 
-When CW accepts worker output, it updates linked membership evidence and records
+When CW takes worker output, it updates linked membership evidence and records
 multi-agent trust audit events.
 
 ## Fanin
 
-Collect fanin after worker output:
+Gather fanin after worker output:
 
 ```bash
 node scripts/cw.js multi-agent fanin <run-id> release-fanin \
@@ -143,12 +143,12 @@ node scripts/cw.js multi-agent fanin <run-id> release-fanin \
 ```
 
 If a required role has no membership, or a membership has not reported evidence,
-the fanin record is `blocked` and `verifierReady=false`. This is intentional:
-missing evidence is a state error, not an implicit success.
+the fanin record is `blocked` and `verifierReady=false`. This is done on purpose:
+missing evidence is a state error, not a quiet success.
 
 ## Inspect
 
-Use normal operator commands:
+Use the everyday operator commands:
 
 ```bash
 node scripts/cw.js status <run-id>
@@ -158,7 +158,7 @@ node scripts/cw.js audit summary <run-id>
 node scripts/cw.js audit provenance <run-id>
 ```
 
-Use focused multi-agent commands:
+Use the more pointed multi-agent commands:
 
 ```bash
 node scripts/cw.js multi-agent summary <run-id>
@@ -175,7 +175,7 @@ node scripts/cw.js multi-agent fanin <run-id> <fanin-id>
 
 The status and report Multi-Agent panel shows group status, role coverage,
 membership health, fanout/fanin progress, blocked reasons, and the next
-recommended action.
+suggested action.
 
 ## MCP Parity
 
@@ -192,7 +192,7 @@ cw_multi_agent_fanout_show
 cw_multi_agent_fanin_show
 ```
 
-Safe write tools:
+Safe write tools are:
 
 ```text
 cw_multi_agent_run_create
@@ -204,13 +204,13 @@ cw_multi_agent_fanout_create
 cw_multi_agent_fanin_collect
 ```
 
-There is no MCP-only or CLI-only core model. The dogfood release script remains
-CLI-only because it is a local release-engineering composition of existing CW
+There is no MCP-only or CLI-only core model. The dogfood release script is still
+CLI-only because it is a local release-engineering build made from present CW
 tools, not a new runtime primitive.
 
 ## Compatibility
 
-Older v0.1.16 and earlier run state normalizes with:
+Older v0.1.16 and earlier run state is made regular with:
 
 ```json
 {
@@ -226,6 +226,6 @@ Older v0.1.16 and earlier run state normalizes with:
 }
 ```
 
-Unknown user data is preserved. Fixtures are copied before compatibility tests,
-and fixture files are not mutated.
+User data that is not known is kept safe. Fixtures are copied before compatibility tests,
+and fixture files are not changed.
 0.1.51

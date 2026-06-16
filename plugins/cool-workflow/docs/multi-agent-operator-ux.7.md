@@ -1,37 +1,37 @@
 # Multi-Agent Operator UX
 
-CW v0.1.21 makes multi-agent operator inspection first-class. The feature is a
-read-only userland view over existing run state. It does not create a hidden
-dashboard database and does not infer success when evidence, dependency, or
-lifecycle state is ambiguous.
-CW v0.1.22 adds trust panels to the same operator path so role policy,
+CW v0.1.21 makes multi-agent operator inspection a first-class part. The feature is a
+read-only userland view of the run state you already have. It does not make a hidden
+dashboard database, and it does not guess success when evidence, dependency, or
+lifecycle state is not clear.
+CW v0.1.22 adds trust panels to the same operator path, so role policy,
 permission decisions, blackboard write audit, message provenance, judge
-rationale, panel decisions, and policy violations are visible beside topology
+rationale, panel decisions, and policy violations are seen next to topology
 and evidence state.
 CW v0.1.24 uses the same operator-derived graph, dependency, failure, evidence,
 trust, and report views as replay comparison inputs for the Multi-Agent Eval &
 Replay Harness.
-CW v0.1.25 layers State Explosion Management on top of these operator views: when
-a run grows large, `summary show`, `multi-agent summarize`, and
-`multi-agent graph --view compact` collapse high-volume records into synthetic
-summary nodes while preserving the critical path, failures, missing evidence,
+CW v0.1.25 puts State Explosion Management on top of these operator views: when
+a run gets large, `summary show`, `multi-agent summarize`, and
+`multi-agent graph --view compact` fold high-volume records into made-up
+summary nodes, while keeping the critical path, failures, missing evidence,
 policy violations, and judge rationale. See
 [state-explosion-management.7.md](state-explosion-management.7.md).
 
 CW v0.1.26 adds the `Adoption Rationale` panel and the `multi-agent reasoning`
-view, which explains *why* each evidence item was adopted. Reasoning steps are on
-the critical path and are never collapsed by compaction. See
+view, which makes clear *why* each evidence item was adopted. Reasoning steps are on
+the critical path and are never folded away by compaction. See
 [evidence-adoption-reasoning-chain.7.md](evidence-adoption-reasoning-chain.7.md).
 
 CW v0.1.27 adds an additive evidence `disposition` (`adopted` | `inspectable` |
 `blocking`) and an `inspectableEvidence` list. The raw `status` (the adoption
-state) is unchanged; `disposition` is the operator-facing reading of it. Before a
-verifier-gated commit, a missing/pending row genuinely blocks. After a
-verifier-gated commit the selected path is decided, so missing/pending evidence
+state) is not changed; `disposition` is how the operator reads it. Before a
+verifier-gated commit, a missing/pending row truly blocks. After a
+verifier-gated commit the selected path is fixed, so missing/pending evidence
 for sibling roles that were never driven as separate workers — for example
 undriven judge-panel judges — is inspectable operator state, not a hidden
 failure. The `multi-agent status` "Missing Evidence" header and the `status`
-panel report the blocking-vs-inspectable split so the operator is not misled.
+panel show the blocking-vs-inspectable split so the operator is not given the wrong idea.
 
 The model is derived from:
 
@@ -47,7 +47,7 @@ The model is derived from:
 
 ## Operator Commands
 
-Use the normal status and report commands for the broad view:
+Use the normal status and report commands for the wide view:
 
 ```bash
 node scripts/cw.js status <run-id>
@@ -55,7 +55,7 @@ node scripts/cw.js graph <run-id>
 node scripts/cw.js report <run-id> --show
 ```
 
-Use the focused multi-agent views when the operator needs the process table:
+Use the focused multi-agent views when the operator needs the process table.
 
 ```bash
 node scripts/cw.js multi-agent status <run-id>
@@ -65,7 +65,7 @@ node scripts/cw.js multi-agent failures <run-id>
 node scripts/cw.js multi-agent evidence <run-id>
 ```
 
-Every focused command supports deterministic JSON:
+Every focused command can give deterministic JSON:
 
 ```bash
 node scripts/cw.js multi-agent status <run-id> --json
@@ -87,7 +87,7 @@ Next Action
 
 ## Graph
 
-`multi-agent graph` shows the topology-backed agent graph plus downstream
+`multi-agent graph` shows the topology-backed agent graph and the downstream
 acceptance records:
 
 - MultiAgentRun, topology run, roles, groups, memberships, fanout, and fanin
@@ -96,7 +96,7 @@ acceptance records:
   decisions
 - candidates, score records, selections, verifier-gated commits, and feedback
 
-Edges are labeled when the label carries operational meaning:
+Edges are labeled when the label gives operational meaning:
 
 ```text
 owns
@@ -115,12 +115,12 @@ commits
 
 Direction follows the dependency or evidence flow. For example, a membership
 depends on a task and worker, worker output reports into the membership,
-blackboard artifacts are cited by fanin, scores evaluate candidates, selections
-choose scored candidates, and commits record the selected verifier-gated result.
+blackboard artifacts are cited by fanin, scores judge candidates, selections
+pick scored candidates, and commits record the selected verifier-gated result.
 
 ## Failures
 
-`multi-agent failures` merges the records an operator normally has to inspect
+`multi-agent failures` joins the records an operator normally has to look at
 one at a time:
 
 - failed memberships and missing role coverage
@@ -131,14 +131,14 @@ one at a time:
 - score, selection, verifier, and commit-gate gaps
 - ambiguous blocked dependencies
 
-Each row includes the record id, kind, status, owner or role when known, linked
+Each row has the record id, kind, status, owner or role when known, linked
 task/worker/membership/fanin/candidate when known, the exact reason, and the
 next safe command.
 
 ## Evidence Adoption
 
-`multi-agent evidence` explains why a result was accepted or not accepted. Each
-row includes:
+`multi-agent evidence` makes clear why a result was accepted or not accepted. Each
+row has:
 
 - evidence id/ref/path/locator
 - source kind and source id
@@ -149,19 +149,19 @@ row includes:
 - status: `adopted`, `rejected`, `pending`, `superseded`, `conflicting`, or
   `missing`
 
-An accepted path should be traceable like this:
+An accepted path should be possible to trace like this:
 
 ```text
 worker result -> blackboard artifact/message -> fanin -> candidate score
 -> selection -> verifier-gated commit
 ```
 
-When any link is missing, CW reports it as pending or missing and recommends the
-next command rather than assuming the run is healthy.
+When any link is missing, CW reports it as pending or missing and points to the
+next command, instead of taking it for granted that the run is healthy.
 
 ## MCP Parity
 
-MCP hosts can inspect the same derived data:
+MCP hosts can look at the same derived data:
 
 - `cw_multi_agent_status`
 - `cw_multi_agent_graph`
@@ -169,7 +169,7 @@ MCP hosts can inspect the same derived data:
 - `cw_multi_agent_failures`
 - `cw_multi_agent_evidence`
 
-`cw_multi_agent_status` preserves the v0.1.20 host envelope and adds the
+`cw_multi_agent_status` keeps the v0.1.20 host envelope and adds the
 derived operator model under `summaries.multiAgentOperator`.
 
 ## Example Trace
@@ -186,59 +186,59 @@ node scripts/cw.js report "$RUN" --show
 
 The operator can start at an agent membership, follow `depends-on` to its task
 and worker, follow `reports` to the blackboard artifact and fanin, follow
-`scores` to the candidate score, follow `selects` to the selected result, and
+`scores` to the candidate score, follow `selects` to the picked result, and
 follow `commits` to the verifier-gated state commit.
 
 ## Smoke Coverage
 
-`test/multi-agent-operator-ux-smoke.js` creates a deterministic topology-backed
-run with a successful worker evidence path, a failed worker path, blocked fanin
+`test/multi-agent-operator-ux-smoke.js` makes a deterministic topology-backed
+run with a good worker evidence path, a failed worker path, blocked fanin
 evidence, score and selection records, a verifier-gated commit, human CLI
 assertions, JSON CLI assertions, MCP parity assertions, and report assertions.
-It is included in `npm test` and `npm run release:check`.
+It is part of `npm test` and `npm run release:check`.
 ## CLI ↔ MCP Parity (v0.1.27)
 
-Every command and tool referenced above is declared in the v0.1.27 capability
-registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
-so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+Every command and tool named above is declared in the v0.1.27 capability
+registry (`src/capability-registry.ts`) and checked by `npm run parity:check`,
+so `cw <cmd> --json` and the matching `cw_<tool>` result show one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 
 ## Run Registry / Control Plane (v0.1.28)
 
-The runs described here are indexed, searchable, resumable, archivable, and
-rerunnable across repos by the v0.1.28 Run Registry / Control Plane, which derives
+The runs talked about here are indexed, searchable, resumable, archivable, and
+rerunnable across repos by the v0.1.28 Run Registry / Control Plane, which makes
 a fingerprinted, fail-closed index over the same per-run `.cw/runs/<id>/state.json`
 source of truth. See [run-registry-control-plane.7.md](run-registry-control-plane.7.md).
 
 ## Execution Backends (v0.1.29)
 
-v0.1.29 lifts execution into a pluggable driver layer: one narrow `ExecutionBackend`
-contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
-drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
+v0.1.29 moves execution into a pluggable driver layer: one narrow `ExecutionBackend`
+contract with swappable `node`/`bun`/`shell`/`container`/`remote`/`ci`
+drivers, chosen by `--backend` (parallel to `--sandbox`) and looked at through
 `backend list|show|probe`. The result/evidence envelope is schema-identical across
 backends; the backend id + sandbox attestation are recorded as provenance, so this
-surface is unchanged regardless of which backend executed a run. See
+surface stays the same no matter which backend ran a run. See
 [execution-backends.7.md](execution-backends.7.md).
 ## Web / Desktop Workbench (v0.1.30)
 
 v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
-console that renders this surface (and the other four operator panels — run
+console that shows this surface (and the other four operator panels — run
 graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR alongside
+reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR next to
 the CLI and MCP that holds no authoritative state and forks no schema: each panel
-equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
-re-derives everything from disk. See
+is the same as its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
+makes everything again from disk. See
 [web-desktop-workbench.7.md](web-desktop-workbench.7.md).
 
 ## Observability + Cost Accounting (v0.1.31)
 
 v0.1.31 adds Observability + Cost Accounting: `metrics show`/`metrics summary`
-derive durations, failure/verifier/acceptance rates (with sample counts and
-fail-closed `n/a`), and host-attested token/cost from existing durable run state
-— no metrics database, no collector daemon, no hidden counter. Usage is additive
+work out durations, failure/verifier/acceptance rates (with sample counts and
+fail-closed `n/a`), and host-attested token/cost from the durable run state you
+already have — no metrics database, no collector daemon, no hidden counter. Usage is additive
 and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
 × a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
-verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
+verbs are parity-gated and show read-only in the v0.1.30 Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
@@ -247,11 +247,11 @@ verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
 v0.1.32 adds Team Collaboration: a host-attested actor and append-only
 approvals/rejections/comments/handoffs provenance-linked to a durable target,
 plus a review gate that STACKS ON the verifier gate — required approvals from
-authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never instead of them, failing closed on quorum/authority/self-approval and
+authorized roles, made to happen inside `resolveCommitGate` AFTER the verifier checks
+and never in place of them, failing closed on quorum/authority/self-approval and
 recording who approved the very artifact that shipped. Policy (required approvals,
 authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and render read-only in the v0.1.30
+not changed). The verbs are parity-gated and show read-only in the v0.1.30
 Workbench. See [Team Collaboration](team-collaboration.7.md).
 
 ## Release Tooling (v0.1.33)
@@ -260,11 +260,11 @@ the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffo
 
 ## Real Execution Backend Integrations (v0.1.34)
 
-container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+container/remote/ci backends truly execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is not there to use. See real-execution-backends(7).
 
 ## Node Snapshot / Diff / Replay (v0.1.35)
 
-per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
+per-node snapshot, structural diff, and isolated deterministic replay over StateNode, using again the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
 
 ## Contract Migration Tooling (v0.1.36)
 
@@ -276,11 +276,11 @@ priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed pa
 
 ## Agent Delegation Drive (v0.1.38)
 
-spawn an external agent process per worker, capture result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
+spawn an outside agent process per worker, take result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
 ## Run Retention & Provable Reclamation (v0.1.39)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it
+tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, and prove it
 
 ## Durable State & Locking (v0.1.40)
 
@@ -292,15 +292,15 @@ evidence grounding + durable audit append + symlink-hardened containment + deter
 
 ## Robust Result Ingest (v0.1.42)
 
-capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
+take findings/evidence from any reasonable agent shape (alt keys + prose), CW works out grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
 
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
-Hard gate blocking empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
+Hard gate that blocks empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now check the committed blob (`git show HEAD:<path>`) instead of the changeable working tree — taking away false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter that gives any non-Claude AI agent one common interface to CW.
 
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
@@ -317,7 +317,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, useful background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
-_No changes to the multi-agent operator UX surface in v0.1.81 (the operator-ux module was carved into behavior-preserving siblings; output is byte-identical)._
+_No changes to the multi-agent operator UX surface in v0.1.81 (the operator-ux module was cut into behavior-preserving siblings; output is byte-identical)._
 _No changes in v0.1.82._
