@@ -1281,7 +1281,7 @@ async function main() {
 }
 function required(value, label) {
     if (!value)
-        throw new Error(`Missing ${label}`);
+        throw new Error(`Missing ${label}. Run "cw.js help" for usage.`);
     return value;
 }
 function optionalArg(value) {

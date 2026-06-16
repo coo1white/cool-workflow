@@ -1279,7 +1279,7 @@ async function main(): Promise<void> {
 }
 
 function required(value: string | undefined, label: string): string {
-  if (!value) throw new Error(`Missing ${label}`);
+  if (!value) throw new Error(`Missing ${label}. Run "cw.js help" for usage.`);
   return value;
 }
 
