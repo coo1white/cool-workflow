@@ -281,8 +281,8 @@ npx cool-workflow quickstart architecture-review --repo /path/to/repo \
 ```
 
 CW DELEGATES worker execution to your own agent. With no `--agent-command` (or
-`CW_AGENT_COMMAND`) the drive fails closed (status `blocked`) — it never fabricates a
-result. `--agent-command builtin:claude` resolves to a bundled read-only `claude -p`
+`CW_AGENT_COMMAND`) the drive fails closed (status `blocked`) — it never makes up a
+result. `--agent-command builtin:claude` points to a bundled read-only `claude -p`
 wrapper (needs `claude` on your PATH).
 
 **Re-prove a finished run, offline** (`cw` is the installed bin; or `npx cool-workflow <cmd>`):
@@ -294,8 +294,8 @@ cw audit verify <run-id>                      # re-proves the trust-audit hash c
 ```
 
 More: `cw quickstart <app> --preview` (read-only dry run), `cw run resume <run-id> --drive`
-(continue an interrupted run), `cw run inspect-archive <archive>` (integrity-check a
-portable run archive without importing it).
+(go on with a run that was stopped), `cw run inspect-archive <archive>` (integrity-check a
+portable run archive without bringing it in).
 
 ## Structure
 
@@ -336,7 +336,7 @@ cool-workflow
 
 Installed via npm, the bin is `cw` (alias `cool-workflow`): e.g. `cw list`,
 `cw quickstart …`. From a cloned source checkout, before `npm run build`, use the
-equivalent `node scripts/cw.js <cmd>` form shown in the examples below.
+matching `node scripts/cw.js <cmd>` form shown in the examples below.
 
 List bundled workflows:
 
@@ -431,8 +431,8 @@ node scripts/cw.js topology graph <run-id> --json
 node scripts/cw.js topology show <run-id> <topology-run-id>
 ```
 
-Topology runs are stored under `.cw/runs/<run-id>/topologies/`, referenced from
-`state.json`, included in operator status and graph output, and counted in the
+Topology runs are kept under `.cw/runs/<run-id>/topologies/`, pointed to from
+`state.json`, put into operator status and graph output, and counted in the
 trust audit summary.
 
 Create a dispatch manifest for the current runnable phase:
@@ -480,8 +480,8 @@ node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified
 node scripts/cw.js commit <run-id> --allow-unverified-checkpoint --reason "manual checkpoint"
 ```
 
-The first two commands create verifier-gated committed state. The last command
-creates an explicit non-gated checkpoint.
+The first two commands make verifier-gated committed state. The last command
+makes a clear non-gated checkpoint.
 
 Render a report:
 
@@ -489,7 +489,7 @@ Render a report:
 node scripts/cw.js report <run-id>
 ```
 
-Manage runs across repos with the control plane (derived, fail-closed registry):
+Look after runs across repos with the control plane (derived, fail-closed registry):
 
 ```bash
 node scripts/cw.js registry refresh --scope home
@@ -517,7 +517,7 @@ npm test
 ```
 
 Run data lives under `.cw/runs/<run-id>/` in `--cwd`, or in `--repo` when
-`--cwd` is omitted.
+`--cwd` is left out.
 
 Build the TypeScript runtime:
 
@@ -580,7 +580,7 @@ node scripts/cw.js routine events
 
 ## Result Envelope
 
-Verification and synthesis tasks require a structured result block:
+Verification and synthesis tasks need a structured result block:
 
 ````text
 ```cw:result
@@ -601,15 +601,15 @@ Verification and synthesis tasks require a structured result block:
 
 ## Release Tooling (v0.1.33)
 
-the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a de-duplicated release gate. See release-tooling(7).
+the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a release gate that has no copies. See release-tooling(7).
 
 ## Real Execution Backend Integrations (v0.1.34)
 
-container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+container/remote/ci backends really do the work (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is not there to use. See real-execution-backends(7).
 
 ## Node Snapshot / Diff / Replay (v0.1.35)
 
-per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
+per-node snapshot, structural diff, and isolated deterministic replay over StateNode, using the v0.1.23 eval harness again; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
 
 ## Contract Migration Tooling (v0.1.36)
 
@@ -621,84 +621,84 @@ priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed pa
 
 ## Agent Delegation Drive (v0.1.38)
 
-spawn an external agent process per worker, capture result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
+start up an outside agent process per worker, catch result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
 ## Run Retention & Provable Reclamation (v0.1.39)
 
-tiered, append-only, cryptographically-verifiable disk reclamation: `gc plan|run|verify` seal the audit skeleton, free the reconstructable/scratch bulk, and prove it via a hash-chained tombstone. Write-ahead + fail-closed (skeleton -> tombstone -> fsync -> free); explicit capability downgrade (verify-only / re-runnable-by-reconstruction); CW never reclaims by default.
+tiered, append-only, cryptographically-verifiable disk reclamation: `gc plan|run|verify` close up the audit skeleton, free the reconstructable/scratch bulk, and prove it by way of a hash-chained tombstone. Write-ahead + fail-closed (skeleton -> tombstone -> fsync -> free); clear capability downgrade (verify-only / re-runnable-by-reconstruction); CW never reclaims to start with.
 
 ## Durable State & Locking (v0.1.40)
 
-every authoritative write is now atomic (temp -> rename, so a crash can never truncate state.json) with fsync-durability for the audit-essential stores; the cross-process read-modify-write stores (home queue, archive overlay, reclamation chain) are serialized by a portable stale-stealing file lock. Closes the architecture self-audit's non-atomic/unlocked P1 and pulls reclamation's result-node re-point inside the write-ahead boundary (durable persist + dangling-ref proof before any free) with a content-validated skeleton.
+every authoritative write is now atomic (temp -> rename, so a crash can never cut short state.json) with fsync-durability for the audit-essential stores; the cross-process read-modify-write stores (home queue, archive overlay, reclamation chain) are serialized by a portable stale-stealing file lock. Closes the architecture self-audit's non-atomic/unlocked P1 and pulls reclamation's result-node re-point inside the write-ahead boundary (durable persist + dangling-ref proof before any free) with a content-validated skeleton.
 
 ## Self-Audit Hardening & Pure-Router Decomposition (v0.1.41)
 
-closes the v0.1.41 architecture self-audit's real findings and pays down its top maintainability debt. Hardening: evidence-gated commits now require GROUNDED locators (path/URL/namespace:value), not just presence, with opt-in `CW_REQUIRE_RESOLVABLE_EVIDENCE` on-disk resolution; the trust-audit event log is appended with fsync (durable like state.json); path containment is symlink-hardened (realpath of the deepest existing ancestor) across sandbox checks and reclamation proofs; worker ids are deterministic; coordinator secret redaction recurses. Maintainability: the `descriptor.id ===` switches in the execution backend are gone — drivers self-describe through a `registerBackend` registry — and the ~2100-line CoolWorkflowRunner god-object is decomposed into per-domain operation modules under `src/orchestrator/`, leaving the runner a pure `loadRun -> delegate` router. Behavior-preserving (verified by adversarial review + full release:check).
+closes the v0.1.41 architecture self-audit's real findings and pays down its top maintainability debt. Hardening: evidence-gated commits now need GROUNDED locators (path/URL/namespace:value), not just presence, with opt-in `CW_REQUIRE_RESOLVABLE_EVIDENCE` on-disk resolution; the trust-audit event log is appended with fsync (durable like state.json); path containment is symlink-hardened (realpath of the deepest existing ancestor) across sandbox checks and reclamation proofs; worker ids are deterministic; coordinator secret redaction recurses. Maintainability: the `descriptor.id ===` switches in the execution backend are gone — drivers self-describe through a `registerBackend` registry — and the ~2100-line CoolWorkflowRunner god-object is broken up into per-domain operation modules under `src/orchestrator/`, leaving the runner a pure `loadRun -> delegate` router. Behavior-preserving (verified by adversarial review + full release:check).
 
 ## Robust Result Ingest (v0.1.42)
 
-capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
+catch findings/evidence from any agent shape that makes sense (alt keys + prose), CW works out grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
 
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
-Hard gate blocking empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
+Hard gate stopping empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) in place of the mutable working tree — doing away with false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter that gives any non-Claude AI agent one shared way in to CW.
 
 ## Migration DAG (v0.1.45)
 
-Replaces the linear migration chain with a BFS graph path resolver (`findMigrationPath()`) over directed migration edges. Each `StateMigrationStep` carries an optional `reverse()` function, enabling rollback/downgrade paths via `reverseRunState()`.
+Puts in place of the linear migration chain a BFS graph path resolver (`findMigrationPath()`) over directed migration edges. Each `StateMigrationStep` carries an optional `reverse()` function, which makes rollback/downgrade paths possible by way of `reverseRunState()`.
 
 ## Capability Auto-Discovery (v0.1.46)
 
-`registerCapability()` builder pattern replaces manual registry entries. Capabilities self-register at implementation sites via Map-based dedup; no need to touch `capability-registry.ts`. New capabilities call `registerCapability()` next to their entry function.
+`registerCapability()` builder pattern takes the place of by-hand registry entries. Capabilities self-register at implementation sites by way of Map-based dedup; no need to touch `capability-registry.ts`. New capabilities call `registerCapability()` next to their entry function.
 
 ## Vendor-Adapter Registry (v0.1.47)
 
-Data-driven manifest generation: vendor JSON shapes extracted from `gen-manifests.js` into declarative templates in `plugin.manifest.json`. A `_resolveTemplate()` engine resolves `{{path.to.field}}` markers. Adding a new AI platform is pure data. Cross-vendor is proven by boot, not just by generation: `npm run manifest:load-check` (`node test/vendor-manifest-load-smoke.js`) loads every generated manifest (claude, codex, agents, gemini, opencode) and asserts each exposes the full tool surface (184 tools).
+Data-driven manifest generation: vendor JSON shapes taken out of `gen-manifests.js` into declarative templates in `plugin.manifest.json`. A `_resolveTemplate()` engine works out `{{path.to.field}}` markers. Adding a new AI platform is pure data. Cross-vendor is proven by boot, not just by generation: `npm run manifest:load-check` (`node test/vendor-manifest-load-smoke.js`) loads every generated manifest (claude, codex, agents, gemini, opencode) and makes sure each shows the full tool surface (184 tools).
 
 ## P2 Fixes (v0.1.48)
 
-State auto-compaction via `setPostSaveCallback()` hook — after every `saveCheckpoint()`, the orchestrator checks `computeStateSize()` and auto-triggers compaction. Agent dedup docs, npm `ci` aggregate script.
+State auto-compaction by way of `setPostSaveCallback()` hook — after every `saveCheckpoint()`, the orchestrator checks `computeStateSize()` and auto-starts compaction. Agent dedup docs, npm `ci` aggregate script.
 
 ## CI Content-Surface Fix (v0.1.49)
 
-CHANGELOG.md and RELEASE.md are content surfaces checked by the dogfood-release gate. The bump-version script covers structured surfaces only; content surface updates are now documented as a release step.
+CHANGELOG.md and RELEASE.md are content surfaces checked by the dogfood-release gate. The bump-version script covers structured surfaces only; content surface updates are now written down as a release step.
 
 ## Auto-Compaction Fix (v0.1.50, v0.1.51)
 
-Auto-compaction hook moved from `saveCheckpoint()` to explicit `maybeCompactRun()` calls after major lifecycle mutations. Fixes test fixture fingerprint instability. Also fixes the dogfood-release version-sync pipeline: always use `npm run bump:version`, never hand-edit version.ts alone.
+Auto-compaction hook moved from `saveCheckpoint()` to clear `maybeCompactRun()` calls after big lifecycle mutations. Fixes test fixture fingerprint instability. Also fixes the dogfood-release version-sync pipeline: always use `npm run bump:version`, never hand-edit version.ts alone.
 
 ## Control-plane naming (v0.1.76)
 
-Positioning consistency: every self-describing surface names CW an auditable workflow control-plane / Workflow App framework, not an "SDK" (which survives only in the red-line disclaimer "embeds no model SDK").
+Positioning consistency: every self-describing surface names CW an auditable workflow control-plane / Workflow App framework, not an "SDK" (which lives on only in the red-line disclaimer "embeds no model SDK").
 
 ## Workflow orchestration: Tracks 1–3 (v0.1.77)
 
-The orchestration vision landed in one release, all reviewer-gated:
+The orchestration vision came in one release, all reviewer-gated:
 
-- **Track 1 — telemetry attestation**: each agent's reported token usage is verified against an operator ed25519 trust key (`attested`/`unattested`/`absent`, surfaced loudly), recorded in a tamper-evident hash-chained ledger; opt-in `require-attested-telemetry` fails closed on unverifiable usage.
-- **Track 2 — concurrent failure semantics**: a `parallel()` phase runs its agents concurrently with declared collapse rules — **collect-all** (a failing hop never aborts siblings) and **kill-on-timeout** (a hung agent is killed at its deadline and counted as one failure). 16 agents with a forced hang + crash + dirty-return complete with no deadlock and a replay-complete record.
-- **Track 3 — boundary contract**: per-task output `schema` validation (dependency-free, parks on mismatch), `limits.tokenBudget` enforced against recorded usage, and the one-way executor boundary welded into the type layer (a callable crossing it fails `npm run build`).
+- **Track 1 — telemetry attestation**: each agent's reported token usage is checked against an operator ed25519 trust key (`attested`/`unattested`/`absent`, shown loudly), recorded in a tamper-evident hash-chained ledger; opt-in `require-attested-telemetry` fails closed on usage it cannot check.
+- **Track 2 — concurrent failure semantics**: a `parallel()` phase runs its agents at the same time with declared collapse rules — **collect-all** (a failing hop never stops siblings) and **kill-on-timeout** (a hung agent is killed at its deadline and counted as one failure). 16 agents with a forced hang + crash + dirty-return finish with no deadlock and a replay-complete record.
+- **Track 3 — boundary contract**: per-task output `schema` validation (dependency-free, parks on mismatch), `limits.tokenBudget` made good against recorded usage, and the one-way executor boundary welded into the type layer (a callable crossing it fails `npm run build`).
 
 ## Working onboarding + npm distribution (v0.1.78)
 
-`--agent-command builtin:claude` resolves to a bundled read-only claude wrapper that completes workers with a real agent; the cross-directory quickstart crash is fixed; missing optional inputs no longer leak `{{name}}` into prompts. Published to npm (`cool-workflow`, bins `cw`/`cool-workflow`) with LICENSE and metadata. Live dogfood proof committed under `docs/dogfood/`.
+`--agent-command builtin:claude` points to a bundled read-only claude wrapper that finishes workers with a real agent; the cross-directory quickstart crash is fixed; missing optional inputs no longer let `{{name}}` slip into prompts. Published to npm (`cool-workflow`, bins `cw`/`cool-workflow`) with LICENSE and metadata. Live dogfood proof committed under `docs/dogfood/`.
 
 ## Tamper-evidence demo (v0.1.79)
 
-`cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be forged undetected: it builds a real ed25519-signed ledger, forges it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all verified offline with only the public key. `cw telemetry verify <run>` (`cw_telemetry_verify` on MCP) is the operator-facing re-proof: by default it recomputes the hash chain on disk so any later edit to a recorded verdict or usage digest is caught; add `--pubkey <pem-or-path>` to re-run each `attested` hop's ed25519 signature check against the stored raw usage too. What this does and does **not** prove — including the single-keyholder ceiling — is documented honestly in [Trust Model & Limitations](docs/trust-model.md); read it before relying on a green verdict.
+`cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be faked without being caught: it builds a real ed25519-signed ledger, fakes it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all checked offline with only the public key. `cw telemetry verify <run>` (`cw_telemetry_verify` on MCP) is the operator-facing re-proof: by default it recomputes the hash chain on disk so any later edit to a recorded verdict or usage digest is caught; add `--pubkey <pem-or-path>` to re-run each `attested` hop's ed25519 signature check against the stored raw usage too. What this does and does **not** prove — taking in the single-keyholder ceiling — is set down in a true way in [Trust Model & Limitations](docs/trust-model.md); read it before you put trust in a green verdict.
 
 ## Opt-in live agent output during a drive (on main, ships next)
 
-Set `CW_AGENT_STREAM=1` to see each worker's live agent trace. The bundled claude wrapper (`builtin:claude` / `scripts/agents/claude-p-agent.js`) keeps the legacy `--output-format json` path by default; only the opt-in path runs claude in `--output-format stream-json` and renders a concise human trace (tool uses, assistant text, per-turn summaries) to **stderr**. CW core forwards that stderr to the operator's terminal only when `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set; piped/CI runs stay silent (Rule of Silence). Core only forwards the stream, never parses it — vendor-specific rendering is the wrapper's concern (policy), not the kernel's (mechanism).
+Set `CW_AGENT_STREAM=1` to see each worker's live agent trace. The bundled claude wrapper (`builtin:claude` / `scripts/agents/claude-p-agent.js`) keeps the legacy `--output-format json` path by default; only the opt-in path runs claude in `--output-format stream-json` and renders a short human trace (tool uses, assistant text, per-turn summaries) to **stderr**. CW core sends that stderr on to the operator's terminal only when `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set; piped/CI runs stay quiet (Rule of Silence). Core only sends the stream on, never reads it — vendor-specific rendering is the wrapper's business (policy), not the kernel's (mechanism).
 
 v0.1.79
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, Map and Assess results you can use again, wrapper metrics you can measure, a background full-review handoff you can act on, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 _This documentation tracks Cool Workflow v0.1.82. See [CHANGELOG](../../CHANGELOG.md) for the release notes._
