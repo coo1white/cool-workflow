@@ -46,11 +46,11 @@ as the *worker*.
 
 ## What you need
 
-1. **Node.js** (v18+). Check with `node --version`.
-2. **An AI agent on the command line.** The easiest is **Claude Code** — after
-   installing it you'll have a `claude` command. Check with `claude --version`.
-   (CW also works with `codex`, or any command/HTTP agent — but start with
-   `claude`.)
+1. **Node.js** (v18+). Make a check with `node --version`.
+2. **An AI agent on the command line.** The most simple is **Claude Code** —
+   after you put it in you will have a `claude` command. Make a check with
+   `claude --version`. (CW also works with `codex`, or any command/HTTP agent —
+   but make your start with `claude`.)
 
 > No agent yet? You are still able to **see CW work** (next part, step 1)
 > without one. The full report needs an agent, because CW never makes a call to
@@ -66,9 +66,9 @@ as the *worker*.
 npx cool-workflow demo tamper
 ```
 
-This proves CW's headline trick in 30 seconds (more on that
+This gives proof of CW's chief trick in 30 seconds (more on that
 [below](#can-i-trust-the-report)). If you see `VERDICT: tamper-evidence holds ✓`,
-everything works.
+all is working.
 
 ### 2. Run a real review on your own repo
 
@@ -79,18 +79,19 @@ npx cool-workflow quickstart architecture-review \
   --agent-command builtin:claude
 ```
 
-- `--repo` — the folder you want reviewed.
-- `--question` — what you want to know.
-- `--agent-command builtin:claude` — use the bundled Claude wrapper (read-only;
-  it never edits your code).
+- `--repo` — the folder you have a wish to get looked at.
+- `--question` — what you have a wish to be certain of.
+- `--agent-command builtin:claude` — make use of the Claude wrapper that comes
+  with it (read-only; it never makes changes to your code).
 
-CW plans the work, drives `claude` over your repo in steps, and prints where it
-saved the report. For a live terminal trace while each worker runs, opt in with
-`CW_AGENT_STREAM=1`; the trace goes to stderr only and the recorded result is
-unchanged.
+CW makes a plan of the work, keeps `claude` working over your repo in steps, and
+gives out where it kept the report. For a living view in the window while every
+worker is at work, take it up with `CW_AGENT_STREAM=1`; the view goes to stderr
+only and the kept answer is not changed.
 
-> **No agent configured?** CW stops safely and tells you so (`status: blocked`) —
-> it never makes up an answer. Install `claude` and re-run.
+> **No agent put in place?** CW comes to a safe stop and says so
+> (`status: blocked`) — it never makes up an answer. Put in `claude` and run it
+> again.
 
 ### 3. Read the report
 
@@ -98,14 +99,16 @@ unchanged.
 cat /path/to/your/project/.cw/runs/<run-id>/report.md
 ```
 
-You'll get a summary, ranked findings, and **clickable citations** like
-`src/server.js:18` for every claim — so you can check each one yourself.
+You get a short account, ordered points, and **clickable pointers** like
+`src/server.js:18` for every point made — so you are able to make a check of
+each one yourself.
 
 ---
 
 ## Install it (optional)
 
-`npx` always works without installing. To get the short `cw` command everywhere:
+`npx` is ever working with no need to put it in. To get the short `cw` command
+everywhere:
 
 ```bash
 npm install -g cool-workflow      # then use:  cw …   instead of  npx cool-workflow …
@@ -115,17 +118,17 @@ npm install -g cool-workflow      # then use:  cw …   instead of  npx cool-wor
 
 ## What else can it do?
 
-CW ships several ready-made "jobs" (run `cw list` to see them all):
+CW comes with a number of ready-made "jobs" (run `cw list` to see them all):
 
 | Command | What it does |
 |---|---|
-| `architecture-review` | Map a repo's structure and rank its real risks, with evidence. |
-| `pr-review-fix-ci` | Review a pull request, propose fixes, check CI. |
-| `research-synthesis` | Gather and synthesize an evidence-backed answer to a question. |
-| `release-cut` | Drive a gated, reviewed release. |
+| `architecture-review` | Make a map of a repo's structure and put its true risks in order, with facts. |
+| `pr-review-fix-ci` | Go over a pull request, put forward fixes, make a check of CI. |
+| `research-synthesis` | Get together and make into one a fact-backed answer to a question. |
+| `release-cut` | Keep a gated, gone-over release moving. |
 
-It also exposes the same actions over **MCP**, so editors like Claude Desktop /
-Cursor / VS Code can call CW as a tool. See the
+It also puts the same acts out over **MCP**, so editors like Claude Desktop /
+Cursor / VS Code are able to make a call to CW as a tool. See the
 [wiki](https://github.com/coo1white/cool-workflow/wiki) for that and for
 multi-agent runs.
 
@@ -133,13 +136,14 @@ multi-agent runs.
 
 ## Can I trust the report?
 
-This is what makes CW different. Because CW only *delegates* to your agent, it
-keeps a tamper-evident record of every step: each agent's reported token usage is
-cryptographically signed and hash-chained, so **editing the record after the fact
-breaks the chain** — and anyone can re-verify it offline with only a public key.
+This is what makes CW not the same as the rest. Because CW only *gives the work
+over* to your agent, it keeps a record of every step that makes any false change
+come to light: every agent's given token use is signed by secret-key science and
+chained by hash, so **changing the record after the fact has the chain broken** —
+and anyone is able to make the check again offline with only a public key.
 
-See it for yourself — the `demo tamper` from step 1 forges a record two ways and
-catches both:
+See it for yourself — the `demo tamper` from step 1 makes a false record in two
+ways and gets both:
 
 ```text
 ▶ LEDGER tamper
@@ -149,17 +153,17 @@ catches both:
 VERDICT: tamper-evidence holds ✓ — every forgery caught offline, with only the public key.
 ```
 
-On a real run, verify any run's record yourself:
+On a true run, make a check of any run's record yourself:
 
 ```bash
 cw telemetry verify <run-id>
 ```
 
-CW dogfoods this on its own codebase — see the committed live-run proof in
+CW makes use of this on its own code — see the kept living-run proof in
 [`plugins/cool-workflow/docs/dogfood/`](plugins/cool-workflow/docs/dogfood/).
 
-The plain-English point: *the thing that spends the tokens is not the thing that
-keeps the books.* That separation is normal in accounting — CW brings it to AI
+The plain point: *the thing that uses up the tokens is not the thing that keeps
+the books.* That keeping-apart is normal in account-keeping — CW gives it to AI
 agents.
 
 ---
@@ -168,23 +172,24 @@ agents.
 
 | Problem | Fix |
 |---|---|
-| `status: blocked`, `agentConfigured: false` | No agent is set up. Install `claude` (or pass `--agent-command`). |
-| `claude: command not found` | Install Claude Code so the `claude` command exists, then re-run. |
-| Want to see the plan without running the AI | Add `--preview` — it shows the steps and spawns nothing. |
-| Want a live agent trace | Set `CW_AGENT_STREAM=1`. It is stderr-only, TTY-gated, and `CW_NO_STREAM=1` disables it. |
-| Where did my report go? | The command prints `reportPath`; it's under `<your-repo>/.cw/runs/<id>/report.md`. |
+| `status: blocked`, `agentConfigured: false` | No agent is in place. Put in `claude` (or give `--agent-command`). |
+| `claude: command not found` | Put in Claude Code so the `claude` command is there, then run again. |
+| Want to see the plan without running the AI | Put in `--preview` — it gives the steps and starts nothing. |
+| Want a live agent trace | Put `CW_AGENT_STREAM=1`. It is stderr-only, TTY-gated, and `CW_NO_STREAM=1` puts it off. |
+| Where did my report go? | The command gives out `reportPath`; it is under `<your-repo>/.cw/runs/<id>/report.md`. |
 
 ---
 
 ## How it works (one paragraph)
 
-CW is a small, zero-dependency TypeScript/Node runtime. It records the agent loop
-explicitly — *plan → dispatch → record → verify → commit → report* — as durable
-files on disk, so a run is inspectable and replayable instead of a disposable
-chat. It never embeds a model SDK and holds no API key; your configured agent does
-the thinking, CW does the bookkeeping and the checking. For the architecture,
-multi-agent coordination, execution backends, and the full CLI/MCP surface, see
-the **[wiki](https://github.com/coo1white/cool-workflow/wiki)** and
+CW is a small TypeScript/Node run-time that needs no other parts. It makes a
+record of the agent loop out in the open — *plan → dispatch → record → verify →
+commit → report* — as long-lasting files on disk, so a run is open to looking-at
+and able to be played again in place of a chat you let go. It never puts a model
+SDK inside and keeps no API key; your put-in-place agent does the thinking, CW
+does the book-keeping and the checking. For the structure, multi-agent
+working-together, execution backends, and the full CLI/MCP face, see the
+**[wiki](https://github.com/coo1white/cool-workflow/wiki)** and
 [`plugins/cool-workflow/docs/`](plugins/cool-workflow/docs/).
 
 ---
