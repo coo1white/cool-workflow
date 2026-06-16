@@ -99,6 +99,26 @@ regardless of the capability it ships. The long form lives in
   kernel, chatter on stdout, silent fallback, new runtime dependency,
   undocumented shipped behavior)
 
+# Description Standard — Ogden Basic English (850)
+All descriptions in this project are to be put into words using Ogden's Basic
+English: the list of 850 words (operations, things, and qualities). The point
+is plain, clear text that is open to all readers.
+
+Rules:
+1. Use only the 850 Basic English words for the everyday parts of the text.
+   The text is short, with simple word order.
+2. Field words and names may be kept as they are, as Basic English lets in
+   international words, science words, and names: TypeScript, MCP, Git, JSON,
+   JSON-RPC, CW, Cool Workflow, agent, model, state, run, commit, sandbox.
+3. This standard is for descriptions and the prose readers see — the
+   `descriptions` block in `manifest/plugin.manifest.json`, the `description`
+   in `package.json`, READMEs, and the docs. It does not give cover to change
+   the bytes of any machine-checked output, fixed test strings, or generated
+   files (POLA still has the last word).
+4. When you put a description into Basic English, keep its full sense. Do not
+   take out a fact (for one, "it never runs the models itself") only to make
+   the words simpler.
+
 # Reporting
 At the end of each cycle, append to ITERATION_LOG.md:
 cycle id | goal | files changed | tests added | gate result | tagged? (why/why not)

@@ -255,25 +255,23 @@ export class RunRegistry implements QueueHost, GcHost {
   }
 
   // ---- per-repo overlays (plain files) ------------------------------------
+  // Overlay reads distinguish ABSENT (clean default) from PRESENT-but-corrupt
+  // (fail closed). readJson throws `Invalid JSON in <file>` on a present file
+  // that won't parse; we let that propagate instead of swallowing it. Swallowing
+  // is the absent-vs-corrupt conflation telemetry-ledger.ts flags as the bug that
+  // "let a corrupt overlay verify green" — here it would silently un-archive every
+  // archived run / drop every provenance link. This is authoritative durable state.
   private loadArchiveOverlay(repo: string): ArchiveOverlay {
     const file = path.join(this.repoRegistryDir(repo), "archive.json");
     if (!fs.existsSync(file)) return { schemaVersion: 1, archived: {} };
-    try {
-      const parsed = readJson(file) as ArchiveOverlay;
-      return { schemaVersion: 1, archived: parsed.archived || {} };
-    } catch {
-      return { schemaVersion: 1, archived: {} };
-    }
+    const parsed = readJson(file) as ArchiveOverlay;
+    return { schemaVersion: 1, archived: parsed.archived || {} };
   }
   private loadProvenanceOverlay(repo: string): ProvenanceOverlay {
     const file = path.join(this.repoRegistryDir(repo), "provenance.json");
     if (!fs.existsSync(file)) return { schemaVersion: 1, links: {} };
-    try {
-      const parsed = readJson(file) as ProvenanceOverlay;
-      return { schemaVersion: 1, links: parsed.links || {} };
-    } catch {
-      return { schemaVersion: 1, links: {} };
-    }
+    const parsed = readJson(file) as ProvenanceOverlay;
+    return { schemaVersion: 1, links: parsed.links || {} };
   }
   private loadRepoOverlays(repo: string): RepoOverlays {
     return {
@@ -294,13 +292,13 @@ export class RunRegistry implements QueueHost, GcHost {
   }
   private loadRepos(): ReposFile {
     const file = this.reposFilePath();
+    // Absent => no registered repos. Present-but-corrupt must fail closed: a
+    // swallowed parse error here silently drops every cross-repo root the
+    // operator registered, shrinking the home index to the current repo with no
+    // signal. Let readJson's `Invalid JSON` throw surface the corruption.
     if (!fs.existsSync(file)) return { schemaVersion: 1, repos: [] };
-    try {
-      const parsed = readJson(file) as ReposFile;
-      return { schemaVersion: 1, repos: Array.isArray(parsed.repos) ? parsed.repos : [] };
-    } catch {
-      return { schemaVersion: 1, repos: [] };
-    }
+    const parsed = readJson(file) as ReposFile;
+    return { schemaVersion: 1, repos: Array.isArray(parsed.repos) ? parsed.repos : [] };
   }
   /** Persisted union of registered repo roots and the current repo, deduped and
    *  sorted. Read-only: does NOT write repos.json (reads stay pure). */
