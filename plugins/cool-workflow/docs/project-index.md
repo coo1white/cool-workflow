@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-15 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-16 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,8 +9,8 @@ Generated from the current repository code on 2026-06-15 by `npm run sync:projec
 - Source modules: `61`
 - Workflow apps: `7`
 - Docs: `49`
-- Smoke tests: `87`
-- Repository: https://github.com/coo1white/cool-workflow
+- Smoke tests: `88`
+- Repository: http://local_proxy@127.0.0.1:33315/git/coo1white/cool-workflow
 
 ## Architecture
 
@@ -231,6 +231,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [project-index-sync-smoke.js](../test/project-index-sync-smoke.js)
 - [quickstart-smoke.js](../test/quickstart-smoke.js)
 - [real-execution-backends-smoke.js](../test/real-execution-backends-smoke.js)
+- [registry-corrupt-fail-closed-smoke.js](../test/registry-corrupt-fail-closed-smoke.js)
 - [release-flow-smoke.js](../test/release-flow-smoke.js)
 - [release-gate-smoke.js](../test/release-gate-smoke.js)
 - [release-tooling-smoke.js](../test/release-tooling-smoke.js)

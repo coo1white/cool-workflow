@@ -38,13 +38,13 @@ export function queueFilePath(host: QueueHost): string {
 
 export function loadQueue(host: QueueHost): RunQueueEntry[] {
   const file = queueFilePath(host);
+  // Absent => empty queue. A present-but-corrupt queue must FAIL CLOSED rather
+  // than read as empty: silently draining to [] would lose every queued run and
+  // let scheduling/lease ops proceed as if the store were clean. readJson throws
+  // `Invalid JSON in <file>` on a present, unparseable store; let it propagate.
   if (!fs.existsSync(file)) return [];
-  try {
-    const parsed = readJson(file) as QueueFile;
-    return Array.isArray(parsed.entries) ? parsed.entries : [];
-  } catch {
-    return [];
-  }
+  const parsed = readJson(file) as QueueFile;
+  return Array.isArray(parsed.entries) ? parsed.entries : [];
 }
 
 export function saveQueue(host: QueueHost, entries: RunQueueEntry[]): void {

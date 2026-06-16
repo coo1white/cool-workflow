@@ -17,14 +17,16 @@
 
 ## What is this, really?
 
-You ask an AI coding agent a question, it answers in the chat, and then it's
-gone. Next week you ask again and start from scratch.
+You put a question to an AI coding agent, it gives an answer in the chat, and
+then the answer is gone. Next week you put the same question and have to start
+all over again.
 
-**Cool Workflow (CW) turns that throwaway question into a saved job.** You point
-it at a code repository with a question like *"what are the security risks here?"*
-It runs your AI agent over the whole repo in organized steps and writes a
-**report file** to disk — every finding backed by an exact `file.js:42` citation.
-You can re-run it, share it, and even prove the report wasn't tampered with.
+**Cool Workflow (CW) makes that lost question into a kept job.** You point it at
+a code store with a question like *"what are the security risks here?"* It runs
+your AI agent over all the code in ordered steps and puts a **report file** on
+disk — every point backed by an exact `file.js:42` pointer to the line. You are
+able to run it again, give it to others, and even give proof that the report was
+not changed by anyone.
 
 ```
         you ask once                          CW gives you
@@ -32,9 +34,10 @@ You can re-run it, share it, and even prove the report wasn't tampered with.
                                               cited findings, repeatable
 ```
 
-It does **not** run the AI model itself. You bring your own agent (e.g. the
-`claude` command line) and CW drives it, records what happened, and checks the
-result. Think of CW as the *project manager*, and your agent as the *worker*.
+It does **not** run the AI model itself. You give your own agent (for one, the
+`claude` command line) and CW keeps it working, makes a record of what took
+place, and checks the answer. Take CW as the *project manager*, and your agent
+as the *worker*.
 
 > New to this? You're in the right place — this README is a step-by-step start.
 > Deeper/advanced docs live in the [wiki](https://github.com/coo1white/cool-workflow/wiki).
@@ -49,8 +52,9 @@ result. Think of CW as the *project manager*, and your agent as the *worker*.
    (CW also works with `codex`, or any command/HTTP agent — but start with
    `claude`.)
 
-> No agent yet? You can still **see CW work** (next section, step 1) without one.
-> The full report needs an agent, because CW never calls a model itself.
+> No agent yet? You are still able to **see CW work** (next part, step 1)
+> without one. The full report needs an agent, because CW never makes a call to
+> a model itself.
 
 ---
 

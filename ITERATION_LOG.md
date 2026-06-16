@@ -1,4 +1,12 @@
 # CW Iteration Log
+
+## Batch — over-defensive review + Basic English description standard (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | over-defensive audit: 5 authoritative home-registry/scheduler state loaders conflated ABSENT with PRESENT-but-corrupt and silently returned empty/default (a §4 silent-fallback / "false-green", the same absent-vs-corrupt bug telemetry-ledger.ts documents). Made them fail closed on corrupt files via readJson's existing `Invalid JSON` throw; absent still loads the clean default | src/run-registry.ts (loadArchiveOverlay/loadProvenanceOverlay/loadRepos) + src/run-registry/queue.ts (loadQueue) + src/capability-core.ts (loadSchedulingPolicy) + dist + test/registry-corrupt-fail-closed-smoke.js (new) | 1 smoke added (absent loads default; corrupt archive/provenance/queue/repos/scheduling-policy all fail closed); fails before, passes after | BUILD OK, CHECK OK, gen:manifests/version:sync/index OK, 87/88 suite (1 pre-existing env-only fail: one-way-boundary needs local node_modules/typescript) | no (PR only) |
+| 2 | recorded Ogden Basic English (850) as the project's description standard in AGENTS.md (memory), and put the `descriptions` block (short/standard/long), package.json `description`, and README intro into Basic English while keeping every fact (incl. "it never runs the models itself") and POLA on machine-checked output | AGENTS.md + manifest/plugin.manifest.json + generated vendor plugin.json (gen:manifests) + package.json + README.md | covered by gen:manifests --check + version:sync + index:check (all green) | BUILD/CHECK/gen/version/index OK, 87/88 suite (same pre-existing env-only fail) | no (PR only) |
+
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | PipelineFailurePolicy.autoAdvance runtime | pipeline-runner.ts + test/pipeline-auto-advance-smoke.js | 1 test added | BUILD OK, 46/46 passed | no (cycle 1/4) |

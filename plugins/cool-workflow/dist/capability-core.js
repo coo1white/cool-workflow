@@ -333,13 +333,12 @@ function queueShow(reg, id) {
 // ---- control-plane scheduling (v0.1.37) -----------------------------------
 function loadSchedulingPolicy(reg) {
     const file = reg.schedulingPolicyPath();
+    // Absent policy => conservative DEFAULT (an unconfigured backend, which §4
+    // permits). But a PRESENT-but-corrupt policy must fail closed: silently
+    // substituting defaults would schedule under settings the operator never
+    // chose while their broken file sits on disk. Let readJson's throw surface it.
     if (node_fs_1.default.existsSync(file)) {
-        try {
-            return { policy: (0, scheduling_1.normalizeSchedulingPolicy)((0, state_1.readJson)(file)), source: "file" };
-        }
-        catch {
-            /* fall through to default */
-        }
+        return { policy: (0, scheduling_1.normalizeSchedulingPolicy)((0, state_1.readJson)(file)), source: "file" };
     }
     return { policy: scheduling_1.DEFAULT_SCHEDULING_POLICY, source: "default" };
 }

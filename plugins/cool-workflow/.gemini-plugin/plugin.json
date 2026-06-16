@@ -1,6 +1,6 @@
 {
   "name": "cool-workflow",
-  "description": "Auditable workflow control-plane and orchestration runtime: TypeScript dispatch, evidence-gated verification, state commits, scheduling, routines, multi-agent coordination, and MCP. Delegates execution to external agents — never runs models.",
+  "description": "A workflow control plane and run-time you are able to check: it sends out jobs in TypeScript, makes certain of work against facts before it goes through, puts state into fixed records, orders jobs by time, runs jobs again and again, gets a group of agents to do their parts together, and talks MCP. It gives the doing of the work to outside agents — it never runs the models itself.",
   "version": "0.1.82",
   "author": {
     "name": "COOLWHITE LLC"
@@ -21,8 +21,8 @@
   "mcpServers": "./.gemini-plugin/mcp.json",
   "interface": {
     "displayName": "Cool Workflow",
-    "shortDescription": "Auditable workflow control-plane.",
-    "longDescription": "Cool Workflow (CW) is an auditable workflow control-plane and orchestration runtime. It provides a TypeScript COL runtime, Workflow App framework contracts, Router/Orchestrator, Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State Commit, Sandbox Profiles, scheduled tasks, routine triggers, a high-level Multi-Agent CLI/MCP host surface, and an MCP JSON-RPC 2.0 bridge. Developers write reusable workflow apps; CW delegates execution to an external agent host and records verified, replayable state — it never embeds a model API.",
+    "shortDescription": "A workflow control plane you are able to check.",
+    "longDescription": "Cool Workflow (CW) is a workflow control plane and run-time you are able to check. It gives you: a TypeScript COL run-time, Workflow App framework agreements, a Router and Orchestrator, Subagent Dispatch, a same-every-time Harness, a hard-questioning Verifier, Git and State Commit, Sandbox Profiles, time-ordered jobs, jobs that come round again, a high-level Multi-Agent CLI and MCP host face, and an MCP JSON-RPC 2.0 bridge. Builders make workflow apps they are able to use again; CW gives the doing of the work to an outside agent host and keeps a checked, play-again record of state — it never puts a model API inside itself.",
     "developerName": "COOLWHITE LLC",
     "category": "Productivity",
     "capabilities": [
