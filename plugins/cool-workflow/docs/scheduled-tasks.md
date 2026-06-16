@@ -1,9 +1,9 @@
 # Scheduled Tasks
 
-CW scheduled tasks support looping prompts, cron-like schedules, one-shot
-reminders, expiration, jitter, and explicit completion.
+CW scheduled tasks let you make looping prompts, cron-like schedules, one-shot
+reminders, expiration, jitter, and clear completion.
 
-CW stores schedules in:
+CW keeps schedules in:
 
 ```text
 .cw/schedules/tasks.json
@@ -11,7 +11,7 @@ CW stores schedules in:
 
 ## Commands
 
-Create a `/loop`-compatible schedule:
+Make a `/loop`-ready schedule:
 
 ```bash
 node scripts/cw.js loop \
@@ -19,7 +19,7 @@ node scripts/cw.js loop \
   --prompt "Check this workflow and continue if work is due."
 ```
 
-Create a loop:
+Make a loop:
 
 ```bash
 node scripts/cw.js schedule create \
@@ -28,7 +28,7 @@ node scripts/cw.js schedule create \
   --prompt "Check this workflow and continue if work is due."
 ```
 
-Create a cron schedule:
+Make a cron schedule:
 
 ```bash
 node scripts/cw.js schedule create \
@@ -37,7 +37,7 @@ node scripts/cw.js schedule create \
   --prompt "Run the due workflow scan."
 ```
 
-Create a reminder:
+Make a reminder:
 
 ```bash
 node scripts/cw.js schedule create \
@@ -46,7 +46,7 @@ node scripts/cw.js schedule create \
   --prompt "Remind me to inspect the report."
 ```
 
-List and scan:
+List and look through:
 
 ```bash
 node scripts/cw.js schedule list
@@ -59,13 +59,13 @@ node scripts/cw.js schedule history <schedule-id>
 node scripts/cw.js schedule delete <schedule-id>
 ```
 
-Run the local desktop-style daemon once:
+Run the local desktop-like daemon one time:
 
 ```bash
 node scripts/cw.js schedule daemon --once
 ```
 
-Run it continuously:
+Run it without stopping:
 
 ```bash
 node scripts/cw.js schedule daemon --intervalSeconds 60
@@ -73,8 +73,8 @@ node scripts/cw.js schedule daemon --intervalSeconds 60
 
 ## Notes
 
-- Resolution is minute-level.
-- Default expiration is 7 days.
-- `jitterSeconds` can spread runs.
+- Time is measured to the minute.
+- By default, expiration comes after 7 days.
+- `jitterSeconds` can put space between runs.
 - CW does not start the daemon by default. Use `schedule daemon`, cron, or
-  another supervisor to call `schedule due` and execute due prompts.
+  some other overseer to call `schedule due` and run due prompts.

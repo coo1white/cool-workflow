@@ -1,9 +1,9 @@
 # Routines
 
-CW routines define a trigger, an event payload, match rules, and a generated
-prompt that an agent host can execute.
+A CW routine has a trigger, an event payload, match rules, and a prompt it makes
+for an agent host to run.
 
-CW stores routine data in:
+CW keeps routine data in:
 
 ```text
 .cw/routines/triggers.json
@@ -43,9 +43,9 @@ node scripts/cw.js routine events
 
 ## Long Architecture Reviews
 
-Use `architecture-review-fast` for the foreground user path, then schedule the
-full `architecture-review` app as background work when a deep audit should not
-block an interactive session:
+Use `architecture-review-fast` for the foreground user path. Then put the
+full `architecture-review` app in line as background work when a deep look-over
+should not get in the way of a back-and-forth session:
 
 ```bash
 node scripts/architecture-review-fast.js \
@@ -55,17 +55,17 @@ node scripts/architecture-review-fast.js \
   --schedule-full
 ```
 
-The wrapper creates a one-shot reminder schedule whose `workflowId` is
-`architecture-review`. The schedule prompt is policy. CW stores the schedule and
-records due events; the external agent host decides how to run the long review.
-The prompt includes the foreground fast run id, fast report path, source-context
-digest/profile, and asks the background agent to return the full review report
-path and digest.
-The `--metrics` flag is optional and reports foreground elapsed time plus
+The wrapper makes a one-shot reminder schedule whose `workflowId` is
+`architecture-review`. The schedule prompt is policy. CW keeps the schedule and
+notes down due events; the outside agent host says how to run the long review.
+The prompt has in it the foreground fast run id, fast report path, source-context
+digest/profile, and it asks the background agent to give back the full review
+report path and digest.
+The `--metrics` flag is not required and it gives back foreground time used plus
 agent-spawn and result-cache-hit counts for the fast run.
 
 ## Boundary
 
-CW v0.1.1 does not provide managed cloud infrastructure. It provides a local
-routine bridge that can be connected to GitHub Actions, webhooks, cron, or a
-small HTTP adapter in a future release.
+CW v0.1.1 does not give managed cloud infrastructure. It gives a local
+routine bridge that may be joined to GitHub Actions, webhooks, cron, or a
+small HTTP adapter in a later release.
