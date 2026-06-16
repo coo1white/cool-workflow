@@ -29,10 +29,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ReclamationError = exports.ReclamationAbort = exports.SKELETON_REQUIRED_KEYS = void 0;
-exports.sha256OfString = sha256OfString;
-exports.sha256OfFile = sha256OfFile;
-exports.dirBytes = dirBytes;
+exports.dirBytes = exports.sha256OfFile = exports.sha256OfString = exports.ReclamationError = exports.ReclamationAbort = exports.SKELETON_REQUIRED_KEYS = void 0;
 exports.reclaimedLogPath = reclaimedLogPath;
 exports.loadReclamationLog = loadReclamationLog;
 exports.extractSkeleton = extractSkeleton;
@@ -49,9 +46,12 @@ exports.runReclamation = runReclamation;
 exports.reconstructArtifact = reconstructArtifact;
 exports.verifyReclamation = verifyReclamation;
 exports.dominantFailureCode = dominantFailureCode;
-const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const hash_1 = require("./reclamation/hash");
+Object.defineProperty(exports, "dirBytes", { enumerable: true, get: function () { return hash_1.dirBytes; } });
+Object.defineProperty(exports, "sha256OfFile", { enumerable: true, get: function () { return hash_1.sha256OfFile; } });
+Object.defineProperty(exports, "sha256OfString", { enumerable: true, get: function () { return hash_1.sha256OfString; } });
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const node_projection_1 = require("./node-projection");
 const node_snapshot_1 = require("./node-snapshot");
@@ -95,59 +95,6 @@ class ReclamationError extends Error {
     }
 }
 exports.ReclamationError = ReclamationError;
-// ---------------------------------------------------------------------------
-// Content addressing + byte measurement (NO `du` — in-process only).
-// ---------------------------------------------------------------------------
-function sha256Hex(value) {
-    return node_crypto_1.default.createHash("sha256").update(value).digest("hex");
-}
-function sha256OfString(value) {
-    return `sha256:${sha256Hex(value)}`;
-}
-function sha256OfFile(file) {
-    return `sha256:${sha256Hex(node_fs_1.default.readFileSync(file))}`;
-}
-/** Walk a path and sum file sizes IN-PROCESS (no `du`). Returns 0 if absent. A
- *  file returns its own size; a dir returns the recursive sum. */
-function dirBytes(p) {
-    let total = 0;
-    let stat;
-    try {
-        stat = node_fs_1.default.statSync(p);
-    }
-    catch {
-        return 0;
-    }
-    if (stat.isFile())
-        return stat.size;
-    if (!stat.isDirectory())
-        return 0;
-    for (const entry of node_fs_1.default.readdirSync(p, { withFileTypes: true })) {
-        total += dirBytes(node_path_1.default.join(p, entry.name));
-    }
-    return total;
-}
-/** Stable content digest of a path (file = its bytes; dir = digest over each
- *  member's relative path + bytes, sorted). Lets the freed-manifest record a
- *  single sha per freed dir. */
-function contentDigest(p) {
-    const stat = node_fs_1.default.statSync(p);
-    if (stat.isFile())
-        return sha256OfFile(p);
-    const parts = [];
-    const walk = (dir, rel) => {
-        for (const entry of node_fs_1.default.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (0, compare_1.compareBytes)(a.name, b.name))) {
-            const abs = node_path_1.default.join(dir, entry.name);
-            const r = node_path_1.default.join(rel, entry.name);
-            if (entry.isDirectory())
-                walk(abs, r);
-            else
-                parts.push(`${r}:${sha256OfFile(abs)}`);
-        }
-    };
-    walk(p, "");
-    return sha256OfString(parts.join("\n"));
-}
 /** Persist a run's authoritative state.json DURABLY (atomic temp → fsync →
  *  rename). The re-point that scratch reclamation depends on MUST be persisted
  *  this way BEFORE any byte is freed — see prepareFree(). */
@@ -220,13 +167,13 @@ function digestEvidenceEntry(entry) {
         try {
             const stat = node_fs_1.default.statSync(candidatePath);
             if (stat.isFile())
-                return { ref, digest: sha256OfFile(candidatePath) };
+                return { ref, digest: (0, hash_1.sha256OfFile)(candidatePath) };
         }
         catch {
             /* fall through to locator digest */
         }
     }
-    return { ref, digest: sha256OfString(ref) };
+    return { ref, digest: (0, hash_1.sha256OfString)(ref) };
 }
 /** STEP 1: extract + seal the skeleton. Pure read over the run; never mutates. */
 function extractSkeleton(run) {
@@ -264,7 +211,7 @@ function extractSkeleton(run) {
         .map(([ref, digest]) => ({ ref, digest }))
         .sort((a, b) => (0, compare_1.compareBytes)(a.ref, b.ref));
     const eventLog = auditEventLogPath(run);
-    const auditLogDigest = node_fs_1.default.existsSync(eventLog) ? sha256OfFile(eventLog) : sha256OfString("");
+    const auditLogDigest = node_fs_1.default.existsSync(eventLog) ? (0, hash_1.sha256OfFile)(eventLog) : (0, hash_1.sha256OfString)("");
     const events = node_fs_1.default.existsSync(eventLog)
         ? node_fs_1.default
             .readFileSync(eventLog, "utf8")
@@ -284,18 +231,18 @@ function extractSkeleton(run) {
     const metricsReport = node_path_1.default.join(run.paths.runDir, "metrics", "metrics-report.json");
     const costRecord = {
         tasks: (run.tasks || []).map((task) => ({ taskId: task.id, model: task.usage?.model, source: task.usage?.source })),
-        metricsDigest: node_fs_1.default.existsSync(metricsReport) ? sha256OfFile(metricsReport) : undefined
+        metricsDigest: node_fs_1.default.existsSync(metricsReport) ? (0, hash_1.sha256OfFile)(metricsReport) : undefined
     };
     const collaboration = run.collaboration;
     const collaborationLog = {
-        digest: sha256OfString((0, multi_agent_eval_1.replayStableStringify)(collaboration || {})),
+        digest: (0, hash_1.sha256OfString)((0, multi_agent_eval_1.replayStableStringify)(collaboration || {})),
         approvals: collaboration?.approvals?.length || 0,
         comments: collaboration?.comments?.length || 0,
         handoffs: collaboration?.handoffs?.length || 0
     };
     // Empty (not a hash-of-empty) when state.json is absent, so the skeleton fails
     // closed — you cannot seal a run whose authoritative state is gone.
-    const stateDigest = node_fs_1.default.existsSync(run.paths.state) ? sha256OfFile(run.paths.state) : "";
+    const stateDigest = node_fs_1.default.existsSync(run.paths.state) ? (0, hash_1.sha256OfFile)(run.paths.state) : "";
     return {
         schemaVersion: 1,
         runId: run.id,
@@ -402,13 +349,13 @@ function buildReferenceGraph(run) {
  *  node-projection field set (node-projection.ts) so reconstruction matches
  *  node-snapshot.ts's body byte-for-byte — the projection can no longer drift. */
 function snapshotProjectionDigest(node) {
-    return sha256OfString((0, node_projection_1.nodeProjectionDigestInput)(node));
+    return (0, hash_1.sha256OfString)((0, node_projection_1.nodeProjectionDigestInput)(node));
 }
 /** Body digest of the RETAINED node (lives in state.json). The reconstruction
  *  verifier re-derives the projection from this retained input. Same shared field
  *  set / canonical bytes as snapshotProjectionDigest. */
 function nodeBodyDigest(node) {
-    return sha256OfString((0, node_projection_1.nodeProjectionDigestInput)(node));
+    return (0, hash_1.sha256OfString)((0, node_projection_1.nodeProjectionDigestInput)(node));
 }
 /** Build the retention plan: which paths are freeable under `policy`, of what
  *  kind, how many bytes, and the resulting capability downgrade. */
@@ -431,7 +378,7 @@ function planReclamation(run, policy = {}) {
             const resultsCopy = task?.resultPath;
             if (!resultNodeId || !resultsCopy || !node_fs_1.default.existsSync(resultsCopy))
                 continue;
-            const bytes = dirBytes(workerDir);
+            const bytes = (0, hash_1.dirBytes)(workerDir);
             if (bytes <= 0)
                 continue;
             freeable.push({
@@ -478,14 +425,14 @@ function planReclamation(run, policy = {}) {
                         continue; // source node gone → cannot reconstruct → retain
                     if (repointNodeIds.has(node.id))
                         continue; // body will be re-pointed → retain
-                    const bytes = dirBytes(snapFile);
+                    const bytes = (0, hash_1.dirBytes)(snapFile);
                     if (bytes <= 0)
                         continue;
                     const inputDigest = nodeBodyDigest(node);
                     const recipe = {
                         recipeKind: "node-snapshot-projection",
                         inputDigests: [inputDigest],
-                        inputsDigest: sha256OfString((0, multi_agent_eval_1.replayStableStringify)([inputDigest])),
+                        inputsDigest: (0, hash_1.sha256OfString)((0, multi_agent_eval_1.replayStableStringify)([inputDigest])),
                         expectDigest: snapshotProjectionDigest(node),
                         sourceRef: node.id
                     };
@@ -534,11 +481,11 @@ function planReclamation(run, policy = {}) {
     return { freeable, bytesToFree, byKind, capability, capabilityReason };
 }
 function policyDigestOf(policy) {
-    return sha256OfString((0, multi_agent_eval_1.replayStableStringify)(policy));
+    return (0, hash_1.sha256OfString)((0, multi_agent_eval_1.replayStableStringify)(policy));
 }
 /** genesis prevTombstoneHash = sha256 of the sealed skeleton. */
 function genesisPrevHash(skeleton) {
-    return sha256OfString((0, multi_agent_eval_1.replayStableStringify)(skeleton));
+    return (0, hash_1.sha256OfString)((0, multi_agent_eval_1.replayStableStringify)(skeleton));
 }
 /** The canonical bytes a tombstoneHash binds: freed-manifest + sealed skeleton +
  *  prevTombstoneHash + capability. Recomputed independently by `gc verify`. */
@@ -551,14 +498,14 @@ function tombstoneHashInput(t) {
         policyDigest: t.policyDigest,
         freed: t.freed.map((f) => ({ path: f.path, kind: f.kind, bytes: f.bytes, sha256: f.sha256, recipe: f.recipe || null })),
         bytesFreed: t.bytesFreed,
-        skeletonDigest: sha256OfString((0, multi_agent_eval_1.replayStableStringify)(t.skeleton)),
+        skeletonDigest: (0, hash_1.sha256OfString)((0, multi_agent_eval_1.replayStableStringify)(t.skeleton)),
         capability: t.capability,
         capabilityReason: t.capabilityReason,
         prevTombstoneHash: t.prevTombstoneHash
     });
 }
 function computeTombstoneHash(t) {
-    return sha256OfString(tombstoneHashInput(t));
+    return (0, hash_1.sha256OfString)(tombstoneHashInput(t));
 }
 function tombstoneId(seq) {
     // Deterministic (FreeBSD-audit L13): the chain POSITION, not a process-global
@@ -576,7 +523,7 @@ function buildTombstone(run, skeleton, plan, options = {}) {
         path: entry.path,
         kind: entry.kind,
         bytes: entry.bytes,
-        sha256: contentDigest(entry.absPath),
+        sha256: (0, hash_1.contentDigest)(entry.absPath),
         recipe: entry.recipe
     }));
     const base = {
@@ -685,7 +632,7 @@ function freeBulk(run, tombstone) {
     let freedBytes = 0;
     for (const entry of tombstone.freed) {
         const abs = node_path_1.default.join(runDir, entry.path);
-        const before = dirBytes(abs);
+        const before = (0, hash_1.dirBytes)(abs);
         node_fs_1.default.rmSync(abs, { recursive: true, force: true });
         freedBytes += before;
     }
@@ -774,15 +721,15 @@ function reconstructArtifact(run, recipe) {
     if (recipe.recipeKind === "node-snapshot-projection") {
         const node = (run.nodes || []).find((n) => n.id === recipe.sourceRef);
         if (!node) {
-            return { inputsDigest: sha256OfString("absent"), expectDigest: sha256OfString("absent") };
+            return { inputsDigest: (0, hash_1.sha256OfString)("absent"), expectDigest: (0, hash_1.sha256OfString)("absent") };
         }
         const inputDigest = nodeBodyDigest(node);
-        const inputsDigest = sha256OfString((0, multi_agent_eval_1.replayStableStringify)([inputDigest]));
+        const inputsDigest = (0, hash_1.sha256OfString)((0, multi_agent_eval_1.replayStableStringify)([inputDigest]));
         const expectDigest = snapshotProjectionDigest(node);
         return { inputsDigest, expectDigest };
     }
     // Unknown recipe kind → fail closed (digest can't match expectDigest).
-    return { inputsDigest: sha256OfString("unknown-recipe"), expectDigest: sha256OfString("unknown-recipe") };
+    return { inputsDigest: (0, hash_1.sha256OfString)("unknown-recipe"), expectDigest: (0, hash_1.sha256OfString)("unknown-recipe") };
 }
 /** Re-prove the whole reclamation chain for a run: skeleton schema-complete,
  *  tombstoneHash/prevTombstoneHash chain recomputed-and-untampered, and each
