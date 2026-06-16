@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.1.83
+
+Hardening + onboarding batch: close the remaining silent-fallback and
+concurrent-writer holes in the control plane, add a `brew doctor`-style setup
+check, make the CLI self-documenting, carve one clean god-module seam, and put
+the entire documentation prose surface into Ogden Basic English (850) — on a
+green core (90/91 local; the one miss is an environment-only toolchain issue that
+passes under CI).
+
+- **Fail closed on corrupt authoritative state**: the home-registry/scheduler
+  "plain file" loaders (archive/provenance overlays, `repos.json`, the run queue,
+  the scheduling policy) no longer conflate ABSENT with PRESENT-but-corrupt — a
+  corrupt file now surfaces via `readJson`'s `Invalid JSON` throw instead of
+  silently reading as empty/default (the false-green §4 forbids). A wrong-shape
+  overlay (valid JSON, not an object) fails closed with a clear `Corrupt overlay`
+  message rather than a cryptic TypeError.
+- **No lost writes under concurrency**: every scheduler store mutation
+  (create/due/complete/resume/run-now/set-status/delete) and `rerun()`'s
+  provenance write now serialize their read-modify-write under `withFileLock`, the
+  same advisory lock the queue and reclamation stores already use — a daemon poll
+  racing a CLI call can no longer last-writer-wins away a task/status/link.
+- **Robustness**: one corrupt `worker.json` is skipped (with a diagnostic) instead
+  of throwing the whole worker listing; the MCP stdin line buffer is capped (16MB)
+  so a peer that never sends a newline can't OOM the long-lived server;
+  `readGitHead`'s git call is bounded with a 5s timeout.
+- **`cw doctor`** (inspired by `brew doctor`): a read-only, fail-closed setup
+  diagnostic — Node >= 18, agent backend + its binary on `$PATH`, git, and writable
+  home/repo state — that prints an actionable fix per problem. Human text by
+  default, stable `--json` for scripts.
+- **Self-documenting CLI**: `cw help` now lists 14 commands it previously omitted
+  (`doctor`, `metrics`, `telemetry`, `gc`, `sched`, `migration`, `operator`,
+  `review`, `approve`/`reject`/`comment`, `handoff`, `loop`, `demo`, `audit-run`);
+  `sched policy set` fails closed on a non-numeric flag instead of silently writing
+  the default; bare `Missing X` arg errors point to `cw help`.
+- **Maintainability**: carve the pure content-addressing leaf out of
+  `reclamation.ts` into `reclamation/hash.ts` (byte-identical surface); delete the
+  fully-orphaned dead `verifier-registry.ts`.
+- **Docs**: the description standard is recorded in `AGENTS.md` and the whole
+  documentation prose surface (manifest/package descriptions, READMEs, narrative
+  docs, guides, all `*.7.md` man pages) is rewritten in Ogden Basic English, every
+  command/code/version token preserved. A PR merge-order rule (oldest-first by
+  timestamp) is recorded in `AGENTS.md`.
+
+Tests: new regression smokes — `registry-corrupt-fail-closed`,
+`robustness-failclosed`, `sched-policy-validation`, `doctor` — plus the existing
+suite; CLI<->MCP parity, jsonmode, manifest, version-sync, and project-index
+guards all green. Risk: the corrupt-state loaders now THROW where they previously
+returned empty — intentional fail-closed behavior; no valid-state path changes.
+
 ## 0.1.82
 
 Architecture-audit hardening: close a false-green in the replay-determinism moat,

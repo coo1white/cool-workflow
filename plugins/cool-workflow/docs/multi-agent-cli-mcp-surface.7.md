@@ -275,3 +275,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 v0.1.81 adds `audit verify` (`cw_audit_verify`) and `run inspect-archive` (`cw_run_inspect_archive`) — both declared once in the capability registry and shown the same way on the CLI and MCP, fail-closed (non-zero exit / `ok:false` on a chain that is not verified or an archive that has been tampered with).
 _No changes in v0.1.82._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.

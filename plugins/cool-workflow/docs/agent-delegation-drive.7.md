@@ -262,3 +262,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 Adds `run resume <id> --drive/--once` next to `quickstart --resume`: a stopped pipeline starts up again in place, moving on to the end (`--drive`) or one fixed step (`--once`) over the same plan->dispatch->agent-fulfill->accept->commit lifecycle, echoing `resumedFrom: <id>`. Fixes the `run resume --drive` CLI routing so the drive flag reaches the resumed run in place of being read as an app name. Replay determinism and the agent evidence triple are unchanged.
 _No behavioral change in v0.1.82 (drive/quickstart work out the run repo via an explicit base directory rather than process.chdir; delegation behavior is unchanged)._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.

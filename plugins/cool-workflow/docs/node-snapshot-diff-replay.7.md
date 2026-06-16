@@ -142,3 +142,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 _No changes to node-snapshot diff/replay in v0.1.81._
 _No change in behavior in v0.1.82 (the node projection field set was brought together into one source of truth; snapshot/replay digests are byte-identical)._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.

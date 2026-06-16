@@ -400,3 +400,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 v0.1.81 adds `run resume <id> --drive/--once` (go on with a run that was stopped through the agent-drive loop; default resume stays read-only and byte-identical), `run inspect-archive PATH` (read-only archive integrity check that names any bad file without importing), and restore-time hardening: `verify-import` now proves the trust-audit chain again on restore and gains `--strict`, and `CW_REQUIRE_ARCHIVE_INTEGRITY=1` turns away a stripped-integrity archive before any write.
 _No behavioral change in v0.1.82 (run resolution now threads an explicit base directory via CoolWorkflowRunner.withBaseDir in place of changing process.cwd; the resolved run is unchanged)._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.

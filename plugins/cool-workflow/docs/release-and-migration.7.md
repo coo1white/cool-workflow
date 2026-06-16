@@ -289,3 +289,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 v0.1.81 is additive: every change is a new flag/verb/env (`audit verify`, `run inspect-archive`, `verify-import --strict`, `CW_REQUIRE_ARCHIVE_INTEGRITY`, `quickstart --resume`, `run resume --drive`) or an internal behavior-preserving carve. Run-state schema, existing outputs, files, and exit codes are byte-identical, so runs and archives from earlier versions load and verify unchanged. No migration action is needed.
 _No changes in v0.1.82._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.
