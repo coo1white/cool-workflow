@@ -1,75 +1,76 @@
 # CLI ↔ MCP Parity
 
 CW v0.1.27 adds CLI ↔ MCP Parity. CW has two front doors. The CLI
-(`node scripts/cw.js ...`, `dist/cli.js`) serves human speed: terse, scannable
-text with meaningful exit codes. The MCP server (`cw_*` JSON-RPC tools) serves
-machine context: complete, stable, structured JSON. This release makes the two
-doors two renderings of one data source — declared, derived, and enforced — so
-the same capability cannot drift between surfaces.
+(`node scripts/cw.js ...`, `dist/cli.js`) is built for human speed: short,
+easy-to-read text with exit codes that have clear sense. The MCP server
+(`cw_*` JSON-RPC tools) is built for machine context: full, fixed, ordered JSON.
+This release makes the two doors two views of one body of data — named, made from
+it, and kept in line — so the same capability is not able to go off in different
+ways between surfaces.
 
-The design follows a base-system discipline that separates mechanism from
+The design keeps to a base-system way of work that keeps mechanism apart from
 policy:
 
-- one source of truth: the capability registry, not two hand-maintained lists
-- mechanism (shared core) is separate from policy (per-surface rendering)
-- one source, two renderings; no undeclared divergence
-- principle of least astonishment: matching names, flags, order, and defaults
-  across surfaces
-- the surfaces do not interfere: human formatting never leaks into machine
-  output, machine completeness never bloats the default human view
-- fail closed on drift; a surface mismatch is a release-blocking error
-- stable interfaces, backward compatible; old names remain aliases or wrappers
-- it is not done until it is documented and tested
+- one true source: the capability registry, not two lists kept up by hand
+- mechanism (shared core) is kept apart from policy (per-surface rendering)
+- one source, two views; no undeclared divergence
+- least surprise: like names, flags, order, and defaults across surfaces
+- the surfaces do not get in each other's way: human formatting is never let into
+  machine output, machine fullness never makes the default human view too big
+- fail closed on drift; a surface mismatch is an error that blocks the release
+- fixed interfaces, backward compatible; old names go on as aliases or wrappers
+- it is not done till it is put in the docs and tested
 
 ## Mechanism vs Policy
 
 The mechanism is the capability registry at `src/capability-registry.ts`
-(compiled to `dist/capability-registry.js`). It is the single source of truth.
-Every capability declares one shared core `entry` — the mechanism both surfaces
-route through — plus its CLI command, its MCP tool, the surface it lives on, and
-whether its payload is identical across surfaces.
+(compiled to `dist/capability-registry.js`). It is the one true source. Every
+capability names one shared core `entry` — the mechanism both surfaces go
+through — plus its CLI command, its MCP tool, the surface it is on, and whether
+its payload is the same across surfaces.
 
-No business logic is stranded in `cli.ts` or `mcp-server.ts`. Composite
-capabilities live in `src/capability-core.ts` (`planSummary`, `appRun`,
+No business logic is left on its own in `cli.ts` or `mcp-server.ts`. Composite
+capabilities are in `src/capability-core.ts` (`planSummary`, `appRun`,
 `sandboxChoose`, `commitEnvelope`), so both surfaces call the same core entry
-and differ only in how they render its result. The CLI renders for a human; the
-MCP tool renders for a machine; neither owns the logic.
+and are different only in how they render its result. The CLI renders for a
+human; the MCP tool renders for a machine; neither one owns the logic.
 
-A new runtime capability is added once, in the registry, against one core entry.
-The CLI command and the MCP tool are then two policies over that one mechanism —
-which is exactly what the parity gate checks.
+A new runtime capability is added one time, in the registry, against one core
+entry. The CLI command and the MCP tool are then two policies over that one
+mechanism — which is just what the parity gate checks.
 
-The MCP tool list is also being collapsed toward that single source. The first
+The MCP tool list is being pulled in toward that one source too. The first
 read-only inspection group (`operator.status`, `graph`, `operator.report`,
-worker/candidate/feedback/commit summaries, and the basic multi-agent inspection
-views) derives its MCP tool name and description directly from the capability
+worker/candidate/feedback/commit summaries, and the simple multi-agent inspection
+views) gets its MCP tool name and description straight from the capability
 registry; `mcp-server.ts` still owns the MCP input schema for those tools. This
-keeps the public `tools/list` output unchanged while removing one duplicate
+keeps the public `tools/list` output the same while taking away one copied
 description table at a time.
 
 ## Human vs Machine Contract
 
-The two surfaces have different contracts and must not interfere:
+The two surfaces have different contracts and must not get in each other's way:
 
-- CLI = human speed. The default output is terse, scannable text with meaningful
-  exit codes. The canonical payload is available on demand via `--json` or
-  `--format json`. Human formatting is never emitted on the machine path.
-- MCP = machine context. The result is always complete, stable, structured
-  JSON. Machine completeness is never forced into the default human view.
+- CLI = human speed. The default output is short, easy-to-read text with exit
+  codes that have clear sense. The canonical payload is there when you ask for it
+  with `--json` or `--format json`. Human formatting is never sent on the machine
+  path.
+- MCP = machine context. The result is always full, fixed, ordered JSON. Machine
+  fullness is never pushed into the default human view.
 
-A capability marked `payloadIdentical` returns the same canonical JSON from
-`cw <cmd> --json` and from the `cw_<tool>` MCP result — whitespace and
-generation-moment ISO timestamps aside. The `--json` payload is the contract,
-and it is the same bytes the MCP tool returns. The human text view is policy
-layered on top; it never changes the payload.
+A capability marked `payloadIdentical` gives back the same canonical JSON from
+`cw <cmd> --json` and from the `cw_<tool>` MCP result — apart from whitespace and
+ISO timestamps from the moment of generation. The `--json` payload is the
+contract, and it is the same bytes the MCP tool gives back. The human text view
+is policy put on top; it never changes the payload.
 
 ## The Parity Matrix
 
-The matrix below is derived from the live registry — one row per capability,
+The matrix below is made from the live registry — one row per capability,
 showing its CLI command, MCP tool, shared core entry, surface, and payload
-relationship. `identical` means `cw <cmd> --json` equals the `cw_<tool>`
-payload; `projected` means a declared, reasoned divergence; `cli-only` marks a
-surface-specific capability with a recorded reason. The matrix is
+relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
+payload; `projected` means a declared divergence with a reason; `cli-only` marks
+a surface-specific capability with a recorded reason. The matrix is
 machine-complete by design: 132 capabilities, 129 MCP tools.
 
 | Capability | CLI command | MCP tool | Core entry | Surface | Payload |
@@ -207,105 +208,107 @@ machine-complete by design: 132 capabilities, 129 MCP tools.
 | `routine.fire` | `cw routine fire` | `cw_routine_fire` | `triggers.fire` | both | identical |
 | `routine.events` | `cw routine events` | `cw_routine_events` | `triggers.events` | both | identical |
 
-v0.1.27 closed the historical gaps. It added MCP peers `cw_init`, `cw_next`,
+v0.1.27 closed the old gaps. It added MCP peers `cw_init`, `cw_next`,
 `cw_state_check`, `cw_contract_show`, `cw_node_list`, `cw_node_show`, and
 `cw_node_graph`; and CLI peers `app run`, `operator status`, `operator report`,
-`sandbox choose`, `sandbox resolve`, and `report --json`. Everything else is on
+`sandbox choose`, `sandbox resolve`, and `report --json`. All the rest is on
 both surfaces.
 
 ## Surface-Specific Capabilities
 
-A capability may live on one surface only, but never silently — it must carry a
-recorded reason in the registry. Three capabilities are CLI-only:
+A capability may be on one surface only, but never without word of it — it must
+carry a recorded reason in the registry. Three capabilities are CLI-only:
 
-- `help` — human help text. MCP hosts enumerate capabilities via `tools/list`,
+- `help` — human help text. MCP hosts list capabilities through `tools/list`,
   not a help command.
-- `loop` — a convenience alias of `schedule create` with `kind=loop`. MCP hosts
-  use `cw_schedule_create` with `kind=loop`.
+- `loop` — a handy alias of `schedule create` with `kind=loop`. MCP hosts use
+  `cw_schedule_create` with `kind=loop`.
 - `schedule daemon` — a long-running desktop daemon process, not a
-  request/response tool. MCP hosts drive ticks via `cw_schedule_due` and
+  request/response tool. MCP hosts drive ticks through `cw_schedule_due` and
   `cw_schedule_run_now`.
 
-One capability is intentionally payload-divergent (`projected`):
+One capability is payload-divergent on purpose (`projected`):
 
-- `commit` — both surfaces route through the single core entry `runner.commit`.
-  The CLI emits the raw `StateCommitResult` for scripting (`commit.id`,
+- `commit` — both surfaces go through the one core entry `runner.commit`. The CLI
+  sends out the raw `StateCommitResult` for scripting (`commit.id`,
   `commit.evidence`, `commit.gate`, `commit.acceptanceRationale`); `cw_commit`
-  emits the operator commit envelope (`commitId`, `verifierGated`, `checkpoint`,
-  `evidenceCount`, `snapshotPath`, `nextActions`, plus the raw result under
-  `commit`). This is a declared projection via `capability-core.commitEnvelope`,
-  not drift.
+  sends out the operator commit envelope (`commitId`, `verifierGated`,
+  `checkpoint`, `evidenceCount`, `snapshotPath`, `nextActions`, plus the raw
+  result under `commit`). This is a declared projection through
+  `capability-core.commitEnvelope`, not drift.
 
 ## Fail-Closed Rules
 
-The parity gate fails closed. Any of the following is a release-blocking error:
+The parity gate fails closed. Any of the things below is an error that blocks the
+release:
 
-- a capability present on one surface but missing from the other
+- a capability on one surface but not on the other
 - an MCP tool that is live but not declared in the registry
 - a CLI command or token that is live but not declared in the registry
 - a surface-specific or payload-divergent capability with no recorded `reason`
 - a payload divergence on a capability marked `payloadIdentical` — that is,
-  `cw <cmd> --json` and `cw_<tool>` returning different canonical JSON
+  `cw <cmd> --json` and `cw_<tool>` giving back different canonical JSON
 
-There is no "fix it later" path. A surface mismatch blocks the release until the
-registry, the surfaces, and the recorded reasons agree.
+There is no "fix it later" path. A surface mismatch blocks the release till the
+registry, the surfaces, and the recorded reasons are in agreement.
 
 ## Enforcement & Smoke Coverage
 
 Parity is checked by `scripts/parity-check.js --check`, run by
-`npm run parity:check` and wired into `npm run release:check`. The check loads
-the registry, enumerates the live CLI commands and MCP tools, and fails closed on
-any of the rules above.
+`npm run parity:check` and joined into `npm run release:check`. The check loads
+the registry, lists the live CLI commands and MCP tools, and fails closed on any
+of the rules above.
 
-`test/cli-mcp-parity-smoke.js` proves the contract end to end. It verifies
-registry ⇄ CLI ⇄ MCP coverage (every declared capability resolves on its
-declared surfaces and nothing live is undeclared), confirms `--json` output
-equals the MCP payload for every `payloadIdentical` capability, confirms the
-declared `commit` projection, and confirms fail-closed behavior by injecting
-drift — a removed peer, an undeclared tool, a reasonless exception, a mutated
-payload — and asserting the gate rejects each one. It is included in `npm test`
-and `npm run release:check`.
+`test/cli-mcp-parity-smoke.js` proves the contract from end to end. It checks
+registry ⇄ CLI ⇄ MCP coverage (every declared capability is found on its declared
+surfaces and nothing live is undeclared), makes sure `--json` output is equal to
+the MCP payload for every `payloadIdentical` capability, makes sure of the
+declared `commit` projection, and makes sure of fail-closed behavior by putting in
+drift — a peer taken away, an undeclared tool, an exception with no reason, a
+changed payload — and checking that the gate says no to each one. It is part of
+`npm test` and `npm run release:check`.
 
-In CW, parity is not a convention; it is a derived, declared, and enforced
-property of the build. It is not done until it is documented and tested.
+In CW, parity is not a custom; it is a built, declared, and kept property of the
+build. It is not done till it is put in the docs and tested.
 
 ## Run Registry / Control Plane (v0.1.28)
 
 v0.1.28 adds 13 control-plane capabilities — `registry refresh|show`, `run
 search|list|show|resume|archive|rerun`, `queue add|list|drain|show`, and
-`history` — declared once in the capability registry and validated by the same
+`history` — declared one time in the capability registry and checked by the same
 fail-closed parity gate, so each `cw <cmd> --json` is schema-identical to its
 `cw_<tool>`. See [run-registry-control-plane.7.md](run-registry-control-plane.7.md).
 
 ## Execution Backends (v0.1.29)
 
 v0.1.29 lifts execution into a pluggable driver layer: one narrow `ExecutionBackend`
-contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
-drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
+contract with `node`/`bun`/`shell`/`container`/`remote`/`ci` drivers you can swap,
+picked by `--backend` (parallel to `--sandbox`) and looked at through
 `backend list|show|probe`. The result/evidence envelope is schema-identical across
 backends; the backend id + sandbox attestation are recorded as provenance, so this
-surface is unchanged regardless of which backend executed a run. See
+surface is the same no matter which backend ran a run. See
 [execution-backends.7.md](execution-backends.7.md).
 ## Web / Desktop Workbench (v0.1.30)
 
 v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
 console that renders this surface (and the other four operator panels — run
 graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR alongside
+reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR next to
 the CLI and MCP that holds no authoritative state and forks no schema: each panel
-equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
-re-derives everything from disk. See
+is equal to its `cw <cmd> --json` payload byte-for-byte (parity-gated), and
+refresh makes everything again from disk. See
 [web-desktop-workbench.7.md](web-desktop-workbench.7.md).
 
 ## Observability + Cost Accounting (v0.1.31)
 
 v0.1.31 adds Observability + Cost Accounting: `metrics show`/`metrics summary`
-derive durations, failure/verifier/acceptance rates (with sample counts and
-fail-closed `n/a`), and host-attested token/cost from existing durable run state
-— no metrics database, no collector daemon, no hidden counter. Usage is additive
-and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
-× a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
-verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
+work out durations, failure/verifier/acceptance rates (with sample counts and
+fail-closed `n/a`), and host-attested token/cost from run state already kept on
+disk — no metrics database, no collector daemon, no hidden counter. Usage is added
+on and optional (when not there ⇒ `unreported`, never 0); cost is `attested`
+(attested usage × a recorded pricing policy) or clearly `estimated`, with pricing
+as policy. Both verbs are parity-gated and render read-only in the v0.1.30
+Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
@@ -313,25 +316,25 @@ verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
 
 v0.1.32 adds Team Collaboration: a host-attested actor and append-only
 approvals/rejections/comments/handoffs provenance-linked to a durable target,
-plus a review gate that STACKS ON the verifier gate — required approvals from
+plus a review gate that STACKS ON the verifier gate — needed approvals from
 authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never instead of them, failing closed on quorum/authority/self-approval and
-recording who approved the very artifact that shipped. Policy (required approvals,
-authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and render read-only in the v0.1.30
-Workbench. See [Team Collaboration](team-collaboration.7.md).
+and never in place of them, failing closed on quorum/authority/self-approval and
+recording who said yes to the very artifact that shipped. Policy (needed
+approvals, authorized roles, self-approval) is data, default off (pre-v0.1.32
+behavior unchanged). The verbs are parity-gated and render read-only in the
+v0.1.30 Workbench. See [Team Collaboration](team-collaboration.7.md).
 
 ## Release Tooling (v0.1.33)
 
-the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a de-duplicated release gate. See release-tooling(7).
+the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a release gate that has no copies. See release-tooling(7).
 
 ## Real Execution Backend Integrations (v0.1.34)
 
-container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+container/remote/ci backends really run (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is not there to use. See real-execution-backends(7).
 
 ## Node Snapshot / Diff / Replay (v0.1.35)
 
-per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
+per-node snapshot, structural diff, and on-its-own deterministic replay over StateNode, using again the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
 
 ## Contract Migration Tooling (v0.1.36)
 
@@ -343,23 +346,23 @@ priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed pa
 
 ## Agent Delegation Drive (v0.1.38)
 
-spawn an external agent process per worker, capture result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
+start up an outside agent process per worker, take in result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
 ## Run Retention & Provable Reclamation (v0.1.39)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it
+tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the bulk that can be built again, prove it
 
 ## Durable State & Locking (v0.1.40)
 
-atomic temp->rename writes + fsync-durability for authoritative stores; portable stale-stealing file lock serializing the cross-process read-modify-write stores
+atomic temp->rename writes + fsync-durability for authoritative stores; portable stale-stealing file lock putting in order the cross-process read-modify-write stores
 
 ## Self-Audit Hardening & Pure-Router Decomposition (v0.1.41)
 
-evidence grounding + durable audit append + symlink-hardened containment + deterministic worker ids + recursive redaction; BackendRegistry self-describing drivers (no per-id switches); orchestrator god-object decomposed into per-domain operation modules (pure loadRun->delegate router)
+evidence grounding + durable audit append + symlink-hardened containment + deterministic worker ids + recursive redaction; BackendRegistry self-describing drivers (no per-id switches); orchestrator god-object broken up into per-domain operation modules (pure loadRun->delegate router)
 
 ## Robust Result Ingest (v0.1.42)
 
-capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
+take in findings/evidence from any agent shape that makes sense (alt keys + prose), CW works out grounded evidence itself, give a warning on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
 
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
@@ -367,7 +370,7 @@ Hard gate blocking empty-capture verifier-gated commits, plus quickstart and lau
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now check the committed blob (`git show HEAD:<path>`) in place of the mutable working tree — doing away with false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
 
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
@@ -384,9 +387,9 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, Map and Assess results you can use again, wrapper metrics you can measure, a background full-review handoff you can act on, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 ## Re-Prove Verbs on Both Surfaces (v0.1.81)
 
-v0.1.81 grows the parity surface with two new both-surface, fail-closed verbs declared once in the capability registry: `cw audit verify` / `cw_audit_verify` re-proves the trust-audit chain and exits non-zero on any unverified or corrupt chain, and `cw run inspect-archive` / `cw_run_inspect_archive` is a read-only archive integrity check. Each `cw <cmd> --json` is schema-identical to its `cw_<tool>` and validated by the same parity gate.
+v0.1.81 grows the parity surface with two new both-surface, fail-closed verbs declared one time in the capability registry: `cw audit verify` / `cw_audit_verify` proves the trust-audit chain again and exits non-zero on any unverified or corrupt chain, and `cw run inspect-archive` / `cw_run_inspect_archive` is a read-only archive integrity check. Each `cw <cmd> --json` is schema-identical to its `cw_<tool>` and checked by the same parity gate.
 _No changes in v0.1.82._

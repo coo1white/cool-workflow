@@ -2,52 +2,52 @@
 
 CW v0.1.38 adds Agent Delegation Drive: a way to run a natural-language-prompt
 workflow **end-to-end by DELEGATING each worker to an EXTERNAL agent process**
-(`claude -p` headless, `codex exec`, or a configured HTTP agent endpoint),
-capturing each worker's `result.md` plus an attestation of which agent/model
-produced it. It turns the `architecture-review` app into CW's first turnkey,
+(`claude -p` headless, `codex exec`, or a configured HTTP agent endpoint). It
+keeps each worker's `result.md` plus a record of which agent/model made it. It
+turns the `architecture-review` app into CW's first ready-to-use,
 evidence-audited product: point CW at a repo, get an audited risk report — with
-no human hand-writing any `result.md`.
+no person hand-writing any `result.md`.
 
-Before v0.1.38, CW could `plan` a workflow, isolate workers, and accept their
-output, but **nothing spawned the agent that wrote each `result.md`**. Running
-`architecture-review` end-to-end meant an operator hand-writing all 14 worker
-result files out-of-band, with no recorded attestation of which agent/model
-produced each. The new `agent` backend + `run --drive` loop close that last mile.
+Before v0.1.38, CW could `plan` a workflow, keep workers apart, and take in their
+output, but **nothing spawned the agent that wrote each `result.md`**. To run
+`architecture-review` end-to-end, an operator had to hand-write all 14 worker
+result files outside the loop, with no kept record of which agent/model made
+each. The new `agent` backend + `run --drive` loop close that last gap.
 
 ## The red line — delegate, do not internalize
 
 CW **DELEGATES, IT DOES NOT BECOME THE EXECUTOR.** The `agent` backend does the
 same thing the `container`/`remote`/`ci` backends do: it `spawnSync`s an
 out-of-process child (the agent CLI, argv-style, `shell:false`) or POSTs to a
-configured endpoint, then records a `BackendExecutionHandle` (`kind: "process"`)
-+ a `SandboxAttestation` + the canonical result envelope. **The model runs in the
-agent's process, never inside CW.** CW imports no model SDK, holds no API key,
-constructs no chat/completions request, and calls no model HTTP API. Any API key
-flows from the agent's *own* inherited env; CW never reads or records it. Adding a
-provider SDK to `package.json` would lose the neutral-audit moat and is the red
-line.
+configured endpoint, then keeps a record of a `BackendExecutionHandle`
+(`kind: "process"`) + a `SandboxAttestation` + the canonical result envelope.
+**The model runs in the agent's process, never inside CW.** CW brings in no model
+SDK, holds no API key, builds no chat/completions request, and calls no model
+HTTP API. Any API key comes from the agent's *own* inherited env; CW never reads
+or keeps a record of it. Adding a provider SDK to `package.json` would lose the
+neutral-audit moat and is the red line.
 
 ## Operator-chosen model is policy; agent-reported model is the attestation
 
 Any model id CW passes **into** the agent invocation (`CW_AGENT_MODEL`
 interpolated into `{{model}}`) is **policy-as-data the operator chose**. It is
-recorded only as part of the secret-stripped command-template/args provenance and
-is **never** the source of the attested `UsageRecord.model`. The recorded/attested
-model id comes solely from what the external agent reports back in its output. If
-the agent reports no model, CW records `unreported` — it never backfills from
-`CW_AGENT_MODEL`. A configured `CW_AGENT_MODEL` that differs from the agent's
-reported model does not overwrite the host-reported model id.
+kept only as part of the secret-stripped command-template/args provenance and is
+**never** the source of the attested `UsageRecord.model`. The recorded/attested
+model id comes only from what the external agent reports back in its output. If
+the agent reports no model, CW writes down `unreported` — it never fills in from
+`CW_AGENT_MODEL`. A configured `CW_AGENT_MODEL` that is not the same as the
+agent's reported model does not overwrite the host-reported model id.
 
 ## Two layers, never conflated
 
-1. **Backend evidence triple.** `runAgentProcess` records the agent CHILD's
-   `command` + `exitCode` + `sha256(stdout)` — the identical mechanism
-   `runContainer`/`runHttpDelegation` use. This triple is byte-stable in SHAPE
-   across `node`/`container`/`remote`/`ci`/`agent`. It NEVER reads, parses, or
-   hashes a `result.md`.
+1. **Backend evidence triple.** `runAgentProcess` keeps a record of the agent
+   CHILD's `command` + `exitCode` + `sha256(stdout)` — the same mechanism
+   `runContainer`/`runHttpDelegation` use. This triple has the same byte-stable
+   SHAPE across `node`/`container`/`remote`/`ci`/`agent`. It NEVER reads, parses,
+   or hashes a `result.md`.
 2. **`result.md` acceptance.** The worker's `result.md` `cw:result` envelope is
-   accepted in a SEPARATE layer (`recordWorkerOutput`), which validates it, copies
-   it into `resultsDir`, runs the verifier gate, and records trust-audit +
+   taken in a SEPARATE layer (`recordWorkerOutput`), which checks it, copies it
+   into `resultsDir`, runs the verifier gate, and keeps a record of trust-audit +
    provenance — unchanged by this feature.
 
 The agent handle (`kind: "process"`), the agent-reported model id, the prompt
@@ -57,58 +57,58 @@ the `worker.agent-delegation` trust-audit event — **never in `evidence`**.
 ## The drive lifecycle
 
 `run --drive` is a thin orchestrator over the EXISTING verbs + the v0.1.37
-scheduler. For each worker the planner emits, in deterministic phase/dispatch
+scheduler. For each worker the planner sends out, in fixed phase/dispatch
 order:
 
 ```
 plan -> dispatch -> agent-fulfill (agent backend) -> recordWorkerOutput/verify -> commit
 ```
 
-- **dispatch** allocates the worker scope (`input.md` + manifest; the worker's own
+- **dispatch** sets up the worker scope (`input.md` + manifest; the worker's own
   sandbox profile, e.g. `readonly`).
-- **agent-fulfill** delegates the worker to the `agent` backend out-of-process; the
-  agent reads the input/manifest and writes `result.md`; CW captures the child's
+- **agent-fulfill** hands the worker to the `agent` backend out-of-process; the
+  agent reads the input/manifest and writes `result.md`; CW takes in the child's
   evidence triple + reported model.
-- **accept** records + verifies `result.md`; the agent-hop attestation is folded
-  into the result node's metadata (so the v0.1.35 replay engine covers it).
-- **commit** is verifier-gated on the Verdict node once every worker completes.
+- **accept** keeps + checks `result.md`; the agent-hop attestation is folded into
+  the result node's metadata (so the v0.1.35 replay engine covers it).
+- **commit** is verifier-gated on the Verdict node once every worker is done.
 
 The Verdict `artifact` node is fulfilled through the SAME agent backend — it is a
-worker scope with a `result.md` like any other. `--drive --once` advances exactly
-one deterministic step (injected `now`); bare `--drive` runs to completion or to a
-parked/blocked stop. `run drive <run-id>` (no `--step`) is the read-only,
-deterministic preview of the next step.
+worker scope with a `result.md` like any other. `--drive --once` moves on by
+exactly one fixed step (injected `now`); bare `--drive` runs to the end or to a
+parked/blocked stop. `run drive <run-id>` (no `--step`) is the read-only, fixed
+preview of the next step.
 
 ## Fail closed — probe vs refusal vs park
 
 - **Probe.** `backend probe agent` reports `readiness: "ready"` iff a
-  command-template/endpoint is configured; otherwise `readiness: "unverified"`,
-  `ready: false`, with a non-empty reason — byte-identical in shape to
+  command-template/endpoint is configured; if not, `readiness: "unverified"`,
+  `ready: false`, with a reason that is not empty — byte-identical in shape to
   `backend probe remote` unconfigured. It is NEVER a hard `refused`/`unavailable`.
 - **runBackend.** Unconfigured execution (no command-template AND no endpoint)
-  returns a `delegation-target-missing` refusal — never a fabricated `completed`.
+  returns a `delegation-target-missing` refusal — never a made-up `completed`.
 - **Failed hop.** A spawned agent that exits non-zero, returns no exit code,
-  produces no `result.md`, or produces a `result.md` that fails validation yields a
-  `refused`/`failed` envelope (or a rejected accept) — never a fabricated
+  makes no `result.md`, or makes a `result.md` that fails the check gives back a
+  `refused`/`failed` envelope (or a turned-down accept) — never a made-up
   completion.
-- **Park.** In the drive loop, a worker whose agent hop keeps failing exhausts its
+- **Park.** In the drive loop, a worker whose agent hop keeps failing uses up its
   scheduling retry budget and lands **parked** (reuse v0.1.37 `retryOrPark`) — the
-  drive stops; it is never silently re-driven forever.
+  drive stops; it is never quietly re-driven forever.
 
 ## Replay determinism (bound to node-snapshot)
 
 The attested record (model id, prompt digest, args, result digest, exit) is plain
 data folded into the snapshotted node body. Replaying a recorded drive run via
-`snapshotNode`/`replayNodeSnapshot`/`verifyNodeReplay` reproduces the SAME
-audit/provenance graph and the same recorded digests, **without re-spawning the
-agent or re-reading the live `result.md`** — even with the agent binary
-unavailable. Two replays with different injected `now` are byte-identical in body
+`snapshotNode`/`replayNodeSnapshot`/`verifyNodeReplay` makes the SAME
+audit/provenance graph again and the same recorded digests, **without re-spawning
+the agent or re-reading the live `result.md`** — even with the agent binary not
+on hand. Two replays with different injected `now` are byte-identical in body
 + `sourceFingerprint`/`outputFingerprint`.
 
 ## Vendor neutrality + durable config
 
-WHICH agent (claude / codex / ollama / an HTTP endpoint) is **policy expressed as
-DATA** — a command-template and/or endpoint resolved flags > env
+WHICH agent (claude / codex / ollama / an HTTP endpoint) is **policy put as
+DATA** — a command-template and/or endpoint worked out from flags > env
 (`CW_AGENT_COMMAND` / `CW_AGENT_ENDPOINT` / `CW_AGENT_MODEL`) > a durable
 `$CW_HOME/agent-config.json`. claude / codex / ollama are CONFIGS, never CW
 dependencies. No secrets are written into the config or `.cw/`: it holds a
@@ -138,45 +138,45 @@ node dist/cli.js quickstart --run <run-id> --resume                          # c
 ```
 
 `quickstart --resume` with no `--run` drives a single step and prints a
-copy-pasteable `cw quickstart --run <id> --resume` continue line; rerun it with the
-`--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`. Bare
-`quickstart` (no `--resume`) is unchanged — it drives straight to completion.
+copy-pasteable `cw quickstart --run <id> --resume` continue line; run it again with
+the `--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`.
+Bare `quickstart` (no `--resume`) is unchanged — it drives straight to the end.
 
-For faster first results, use the opt-in fast app instead of changing the full
+For faster first results, use the opt-in fast app in place of changing the full
 review contract:
 
 ```text
 node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --fast-model gpt-5.5-high --strong-model gpt-5.5-extra-high --metrics --schedule-full
 ```
 
-`architecture-review-fast` has six workers: two Map and two Assess workers in
-parallel, then sequential Verify and Verdict workers. The original
-`architecture-review` app remains the full 14-worker review and is the right
-target for background routines when a deep audit can finish outside the user's
+`architecture-review-fast` has six workers: two Map and two Assess workers at the
+same time, then Verify and Verdict workers one after the other. The original
+`architecture-review` app stays the full 14-worker review and is the right target
+for background routines when a deep audit can finish outside the user's
 foreground wait.
 
 The model flags are policy, not attestation: they set task-level `{{model}}`
 hints for the delegated agent process. The recorded model still comes only from
 the agent-reported output.
 
-The wrapper computes the source-context digest and supplies it to the fast app.
-For external repositories, the documented no-profile command creates a repo-local
-default `repo` profile over common tracked text surfaces. If the selected profile
+The wrapper works out the source-context digest and gives it to the fast app. For
+external repositories, the documented no-profile command makes a repo-local
+default `repo` profile over common tracked text surfaces. If the chosen profile
 exports zero records, the wrapper refuses rather than handing the app an empty
 context digest.
 The two Map workers opt in to result caching keyed by source-context digest plus
-prompt digest. The two Assess workers also opt in, but their cache key includes
-the completed previous-phase result digests so stale Map outputs do not satisfy
-an Assess cache hit. A cache hit still passes through `recordWorkerOutput`
+prompt digest. The two Assess workers also opt in, but their cache key takes in
+the completed previous-phase result digests so stale Map outputs do not count as
+an Assess cache hit. A cache hit still goes through `recordWorkerOutput`
 validation; a corrupt cached result parks/fails closed rather than spawning a
-silent fallback.
+quiet fallback.
 
 `--metrics` is diagnostic and opt-in. It adds elapsed milliseconds, step counts,
 agent-spawn counts, and `result-cache` hit counts to the wrapper JSON payload;
 without it, the wrapper's default output shape stays unchanged.
 
 `{{manifest}}`, `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`, and
-`{{prompt}}` are substituted into DISCRETE argv elements (never a shell-interpreted
+`{{prompt}}` are put into DISCRETE argv elements (never a shell-interpreted
 string). Each verb is declared once in `capability-registry.ts`, so `cw <cmd>
 --json` is byte-identical to the matching `cw_<tool>` MCP tool for the read-only
 preview/config-show verbs.
@@ -187,29 +187,29 @@ A drive can show the agent's activity live, without touching the evidence
 contract, when the operator opts in with `CW_AGENT_STREAM=1`:
 
 - **Default stays buffered.** Without `CW_AGENT_STREAM=1`, the bundled wrapper
-  preserves the legacy `--output-format json` path and forwards claude's JSON
-  stdout verbatim after writing `result.md`.
+  keeps the legacy `--output-format json` path and forwards claude's JSON stdout
+  word for word after writing `result.md`.
 - **The opt-in wrapper renders; stderr only.** With `CW_AGENT_STREAM=1`, the
-  bundled wrapper runs claude in `--output-format stream-json` and renders a
-  concise human trace (tool uses, assistant text, per-turn summaries) to its
-  **stderr** — diagnostics, never data. It reconstructs the single
-  `{model, usage, result}` object for stdout only on that opt-in path.
+  bundled wrapper runs claude in `--output-format stream-json` and renders a short
+  human trace (tool uses, assistant text, per-turn summaries) to its
+  **stderr** — diagnostics, never data. It builds the single
+  `{model, usage, result}` object for stdout again only on that opt-in path.
 - **Core forwards, never parses.** `runAgentProcess` passes the agent child's
   stderr straight through to the operator's terminal (`stdio` inherit) only when
   `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set.
-  Piped / CI runs stay silent (the Rule of Silence). Vendor-specific rendering
+  Piped / CI runs stay quiet (the Rule of Silence). Vendor-specific rendering
   lives in the wrapper (policy), not the kernel (mechanism).
 - **Determinism intact.** The backend evidence triple hashes stdout only, so
-  the live stderr stream never affects recorded evidence or replay.
+  the live stderr stream never changes recorded evidence or replay.
 
 ## Compatibility
 
-Agent Delegation Drive is introduced in CW v0.1.38. Adding the `agent` row leaves
+Agent Delegation Drive comes in first in CW v0.1.38. Adding the `agent` row leaves
 `node`/`bun`/`shell`/`container`/`remote`/`ci` byte-identical; `backendIds()`
-simply grows by one to the sorted 7-row set
-`["agent","bun","ci","container","node","remote","shell"]`. A run driven manually
+just grows by one to the sorted 7-row set
+`["agent","bun","ci","container","node","remote","shell"]`. A run driven by hand
 (plan → dispatch → `worker output` → commit) still works unchanged. Fields are
-additive and optional; older run state loads unchanged. No `.cw/` layout change.
+added on and optional; older run state loads unchanged. No `.cw/` layout change.
 
 ## See Also
 
@@ -219,7 +219,7 @@ observability-cost-accounting(7)
 
 ## Run Retention & Provable Reclamation (v0.1.39)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it
+tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the bulk that can be built again, prove it
 
 ## Durable State & Locking (v0.1.40)
 
@@ -239,7 +239,7 @@ Hard gate blocking empty-capture verifier-gated commits, plus quickstart and lau
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now check the committed blob (`git show HEAD:<path>`) in place of the changeable working tree — getting rid of false-red/false-green from working-tree writes at the same time (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
 
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
@@ -256,9 +256,9 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, Map and Assess results you can use again, wrapper metrics you can measure, a background full-review handoff you can act on, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 ## Resumable Drive & Resume Routing (v0.1.81)
 
-Adds `run resume <id> --drive/--once` alongside `quickstart --resume`: a stopped pipeline resumes in-place, advancing to completion (`--drive`) or one deterministic step (`--once`) over the same plan->dispatch->agent-fulfill->accept->commit lifecycle, echoing `resumedFrom: <id>`. Fixes the `run resume --drive` CLI routing so the drive flag reaches the resumed run instead of being read as an app name. Replay determinism and the agent evidence triple are unchanged.
-_No behavioral change in v0.1.82 (drive/quickstart resolve the run repo via an explicit base directory rather than process.chdir; delegation behavior is unchanged)._
+Adds `run resume <id> --drive/--once` next to `quickstart --resume`: a stopped pipeline starts up again in place, moving on to the end (`--drive`) or one fixed step (`--once`) over the same plan->dispatch->agent-fulfill->accept->commit lifecycle, echoing `resumedFrom: <id>`. Fixes the `run resume --drive` CLI routing so the drive flag reaches the resumed run in place of being read as an app name. Replay determinism and the agent evidence triple are unchanged.
+_No behavioral change in v0.1.82 (drive/quickstart work out the run repo via an explicit base directory rather than process.chdir; delegation behavior is unchanged)._

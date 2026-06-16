@@ -2,7 +2,7 @@
 
 ## NAME
 
-Candidate Scoring - inspectable decision support for competing CW outputs
+Candidate Scoring - decision support you can look into for competing CW outputs
 
 ## SYNOPSIS
 
@@ -34,12 +34,13 @@ node dist/cli.js candidate select <run-id> <candidate-id>
 
 ## DESCRIPTION
 
-Candidate Scoring is the small decision-support layer between isolated worker
-outputs, result nodes, verifier evidence, candidate scores, selected winners,
-ErrorFeedback, and commit/report.
+Candidate Scoring is the small decision-support layer that sits between isolated
+worker outputs, result nodes, verifier evidence, candidate scores, selected
+winners, ErrorFeedback, and commit/report.
 
-It does not merge code, replace verifier judgment, spawn workers, or provide a
-domain-specific ranking policy. A score is evidence, not authority.
+It does not put code together, take the place of verifier judgment, start
+workers, or give a domain-specific way to rank. A score is evidence, not power
+to decide.
 
 The normal flow is:
 
@@ -48,7 +49,7 @@ worker output -> candidate record -> score record -> ranking
 -> verifier-gated selection -> checkpoint/report
 ```
 
-Each step writes plain JSON. Rejected and failed candidates remain inspectable.
+Each step writes plain JSON. Rejected and failed candidates are still open to view.
 
 ## FILES
 
@@ -63,44 +64,45 @@ Each step writes plain JSON. Rejected and failed candidates remain inspectable.
 .cw/runs/<run-id>/report.md
 ```
 
-Candidate records point at existing worker, result, verifier, and artifact
-paths. They do not copy large worker outputs by default.
+Candidate records point at worker, result, verifier, and artifact paths that
+are already there. They do not make a copy of large worker outputs by default.
 
 ## SELECTION GATE
 
-Selection is conservative by default:
+Selection is careful by default:
 
-- score records require evidence
-- selection requires a linked verifier node with `verified` status
+- score records need evidence
+- selection needs a linked verifier node with `verified` status
 - selection failures become ErrorFeedback records
-- rejected candidates remain on disk
+- rejected candidates stay on disk
 
-Operators can record an unverified selection only with an explicit option. That
-records selection state but does not turn the candidate into committed state.
+Operators can record an unverified selection only with a clear option. That
+records selection state but does not make the candidate into committed state.
 
-Committed state has a stricter rule. A candidate can be promoted by
+Committed state has a harder rule. A candidate can be moved up by
 `cw.js commit --candidate` or `cw.js commit --selection` only when it has score
 evidence, a verified selection, and a linked verifier node with evidence.
-Rejected, failed, unscored, unselected, and unverified candidates are blocked
+Rejected, failed, unscored, unselected, and unverified candidates are stopped
 and produce ErrorFeedback.
 
 ## FAILURE MODES
 
-Missing score evidence fails scoring and records feedback.
+Missing score evidence makes scoring fail and records feedback.
 
 Selecting a failed or rejected candidate fails and records feedback.
 
-Selecting without a verified verifier node fails unless explicitly allowed.
+Selecting without a verified verifier node fails unless it is clearly allowed.
 
-Tie-breaking is predictable: higher normalized score wins; equal scores use the
-configured tie breaker, defaulting to earlier candidate creation time.
+Tie-breaking works in a way you can be certain of: the higher normalized score
+wins; equal scores use the configured tie breaker, which goes by default to the
+earlier candidate creation time.
 
 ## COMPATIBILITY
 
-Candidate Scoring is introduced in CW v0.1.6. It adds optional candidate paths
-and arrays to run state. Older runs remain readable because missing candidate
+Candidate Scoring comes in with CW v0.1.6. It adds optional candidate paths
+and arrays to run state. Older runs are still readable because missing candidate
 fields are initialized when state loads.
 
 Existing workflow, worker, feedback, node, contract, result, commit, and report
-commands remain compatible.
+commands go on working as before.
 0.1.51
