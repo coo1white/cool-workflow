@@ -1,12 +1,12 @@
 # Project Memory
 
-This is the repo-local memory for Cool Workflow agent runs. Keep it factual,
-short, and append-friendly. Do not use it for speculation.
+This is the repo-local memory for Cool Workflow agent runs. Keep it true to fact,
+short, and simple to add to. Do not use it for guesses.
 
 ## Verified Facts
 
-- Default context slimming must use the `core` source profile.
-- The `core` profile includes:
+- Default context slimming has to use the `core` source profile.
+- The `core` profile takes in:
   - `plugins/cool-workflow/src/**`
   - `plugins/cool-workflow/apps/**`
   - `plugins/cool-workflow/package.json`
@@ -14,7 +14,7 @@ short, and append-friendly. Do not use it for speculation.
   - `plugins/cool-workflow/scripts/cw.js`
   - `plugins/cool-workflow/scripts/mcp-server.js`
   - `plugins/cool-workflow/scripts/agents/**`
-- The `core` profile excludes:
+- The `core` profile keeps out:
   - `plugins/cool-workflow/dist/**`
   - `plugins/cool-workflow/test/**`
   - `plugins/cool-workflow/docs/**`
@@ -22,42 +22,42 @@ short, and append-friendly. Do not use it for speculation.
   - `.cw-release/**`
   - `CHANGELOG.md`
   - `ITERATION_LOG.md`
-- Excluding `dist/` from the context pack is allowed; deleting committed `dist/`
+- Keeping `dist/` out of the context pack is let through; deleting committed `dist/`
   is a separate release-contract decision.
-- Context slimming is opt-in and must not change existing CW command output.
-- `core` remains the default source context profile. Narrow opt-in profiles exist
+- Context slimming is opt-in and must not change the CW command output we have now.
+- `core` is still the default source context profile. Narrow opt-in profiles are there
   for scoped runs: `runtime`, `mcp`, `workflow-apps`, `release`, and
   `agent-wrappers`.
-- `source-context --changed-from REF` is opt-in diff-aware mode. It filters
-  manifest/export to changed current-ref files before profile inclusion, omits
-  deleted files, records the resolved `changedFrom` base, and uses a separate
+- `source-context --changed-from REF` is an opt-in diff-aware mode. It cuts the
+  manifest/export down to changed current-ref files before profile inclusion, leaves out
+  deleted files, keeps a note of the worked-out `changedFrom` base, and uses a separate
   cache key from full exports.
-- Skill trigger metadata must live in standard YAML frontmatter. Every
-  `SKILL.md` needs `name` and a trigger-rich `description`; the body is loaded
-  only after a skill triggers and must not be the sole source of trigger text.
-- Runtime acceleration plan:
+- Skill trigger metadata has to be in normal YAML frontmatter. Every
+  `SKILL.md` needs `name` and a `description` full of triggers; the body is loaded
+  only after a skill triggers and must not be the one place the trigger text comes from.
+- Plan for making the runtime quicker:
   1. Add an opt-in fast architecture-review path that runs Map and Assess work
-     as parallel phases instead of serial agent calls.
+     as parallel phases in place of serial agent calls.
   2. Keep separate `fast` and `full` review modes so users can get a useful
-     first result quickly while the existing deep review remains available.
-  3. Generate one JSONL source context per run and pass that stable context to
-     agent wrappers instead of making every worker rediscover the repository.
-  4. Route cheap, fast models to mapping and summarization work, and reserve
-     stronger models for verification and final verdict tasks.
-  5. Cache source context and intermediate maps by git SHA plus profile digest,
+     first result quickly while the deep review we have now is still there to use.
+  3. Make one JSONL source context per run and give that fixed context to
+     agent wrappers in place of making every worker go and find the repository again.
+  4. Send cheap, fast models to mapping and summarization work, and keep the
+     stronger models for verification and last verdict tasks.
+  5. Cache source context and middle maps by git SHA plus profile digest,
      and fail closed when the digest does not match.
   6. Move long full reviews to routines/background runs so foreground user
-     flows return progress and a fast report instead of blocking for 40 minutes.
-- `architecture-review-fast` is the opt-in fast/full split implementation. It
-  keeps `architecture-review` unchanged, plans 6 workers instead of 14, runs Map
-  and Assess as parallel phases, accepts optional `sourceContext` and
+     flows give back progress and a fast report in place of stopping for 40 minutes.
+- `architecture-review-fast` is the opt-in fast/full split build. It
+  keeps `architecture-review` the same, plans 6 workers in place of 14, runs Map
+  and Assess as parallel phases, takes in possible `sourceContext` and
   `sourceContextDigest` inputs, and reads model hints from
   `CW_ARCHITECTURE_REVIEW_FAST_MODEL` and
   `CW_ARCHITECTURE_REVIEW_STRONG_MODEL`.
-- Prefer wrapper flags for model routing in user workflows:
+- For model routing in user workflows, it is better to use wrapper flags:
   `architecture-review-fast --fast-model <fast> --strong-model <strong>`. The
-  flags set the same task-level hints as the env vars; recorded model attestation
-  still comes only from the external agent output.
+  flags set the same task-level hints as the env vars; the model attestation kept on record
+  still comes only from the outside agent output.
 - `source-context export --cache-dir DIR` caches JSONL by resolved git commit SHA
   plus source-profile digest; cache hits must be byte-identical JSONL and corrupt
   cache records fail closed.
