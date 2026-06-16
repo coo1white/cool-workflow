@@ -2,7 +2,7 @@
 
 ## NAME
 
-Error Feedback Loop - inspectable diagnostic and correction state for Cool Workflow
+Error Feedback Loop - diagnostic and correction state you can look into for Cool Workflow
 
 ## SYNOPSIS
 
@@ -27,14 +27,14 @@ const resolved = resolveFeedback(run, records[0].id, {
 ## DESCRIPTION
 
 The Error Feedback Loop is the small layer between structured failures and
-operator correction. It records failures as durable JSON, classifies them with
-plain identifiers, creates optional correction tasks, and resolves records only
-after verifier evidence is present.
+operator correction. It keeps failures as long-lasting JSON, gives them plain
+identifiers, makes optional correction tasks, and clears records only after
+verifier evidence is there.
 
-It does not repair code, retry stages, or own domain workflow behavior. Workflow
-apps and operators decide how corrections are applied.
+It does not fix code, do stages again, or own domain workflow behavior. Workflow
+apps and operators say how corrections are put to use.
 
-The loop follows:
+The loop goes like this:
 
 ```text
 error -> classify -> feedback record -> correction task -> verify -> checkpoint
@@ -43,7 +43,7 @@ error -> classify -> feedback record -> correction task -> verify -> checkpoint
 ## FEEDBACK MODEL
 
 Each feedback record is an `ErrorFeedbackRecord` with schema version `1`.
-Important fields are:
+The chief fields are:
 
 - `id`
 - `runId`
@@ -65,11 +65,11 @@ Important fields are:
 - `resolvedByNodeId`
 - `metadata`
 
-The runtime also keeps `run.feedback` in `state.json` for quick inspection.
+The runtime also keeps `run.feedback` in `state.json` for a quick look.
 
 ## FAILURE CLASSIFICATION
 
-Classifications are stable, plain strings:
+Classifications are fixed, plain strings:
 
 ```text
 contract-violation
@@ -83,21 +83,21 @@ runtime-error
 unknown
 ```
 
-Classification is conservative. The feedback loop does not duplicate
-`PipelineContract` validation logic; it classifies structured errors already
-produced by StateNode, PipelineRunner, verifier, or CLI surfaces.
+Classification is careful. The feedback loop does not copy the
+`PipelineContract` validation logic; it gives identifiers to structured errors
+already made by StateNode, PipelineRunner, verifier, or CLI surfaces.
 
 ## CORRECTION TASKS
 
 Correction tasks are normal task Markdown files under the run `tasks/`
-directory. They include the original error, affected node/stage/contract,
-evidence, expected verification command, and retry guidance.
+directory. They take in the first error, the touched node/stage/contract, the
+evidence, the looked-for verification command, and help on doing it again.
 
-Creating a correction task marks the feedback record as `tasked`. It does not
-apply code changes.
+Making a correction task marks the feedback record as `tasked`. It does not
+make code changes.
 
-Resolving feedback requires a node id whose status is `verified` or `committed`.
-Rejected corrections are preserved by setting status to `rejected`.
+To resolve feedback you need a node id whose status is `verified` or `committed`.
+Turned-down corrections are kept by setting status to `rejected`.
 
 ## FILES
 
@@ -111,7 +111,7 @@ Rejected corrections are preserved by setting status to `rejected`.
 
 ## EXAMPLES
 
-Collect failed node errors:
+Get together failed node errors:
 
 ```text
 node dist/cli.js feedback collect <run-id>
@@ -123,7 +123,7 @@ List feedback records:
 node dist/cli.js feedback list <run-id>
 ```
 
-Show one feedback record:
+Give one feedback record:
 
 ```text
 node dist/cli.js feedback show <run-id> <feedback-id>
@@ -135,19 +135,19 @@ Create a correction task:
 node dist/cli.js feedback task <run-id> <feedback-id> --verify "npm test"
 ```
 
-Resolve after a verified node:
+Clear it after a verified node:
 
 ```text
 node dist/cli.js feedback resolve <run-id> <feedback-id> --node <verified-node-id>
 ```
 
-All commands print stable JSON.
+All commands put out fixed JSON.
 
 ## COMPATIBILITY
 
-Error Feedback is introduced in CW v0.1.4. It adds optional `feedback` state and
-`feedbackDir` path metadata. Older runs remain readable; missing fields are
-initialized when the run is loaded.
+Error Feedback comes in with CW v0.1.4. It adds optional `feedback` state and
+`feedbackDir` path metadata. Older runs can still be read; missing fields are
+started up when the run is loaded.
 
-Existing workflow, node, contract, pipeline, and CLI behavior is preserved.
+The workflow, node, contract, pipeline, and CLI behavior you have now is kept.
 0.1.51
