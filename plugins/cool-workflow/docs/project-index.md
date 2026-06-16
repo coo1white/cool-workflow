@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-06-16 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.82`
-- Source modules: `61`
+- Source modules: `60`
 - Workflow apps: `7`
 - Docs: `49`
-- Smoke tests: `89`
+- Smoke tests: `90`
 - Repository: http://local_proxy@127.0.0.1:33909/git/coo1white/cool-workflow
 
 ## Architecture
@@ -110,7 +110,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [telemetry-demo.ts](../src/telemetry-demo.ts)
 - [telemetry-ledger.ts](../src/telemetry-ledger.ts)
 - [validation.ts](../src/validation.ts)
-- [verifier-registry.ts](../src/verifier-registry.ts)
 - [workbench-host.ts](../src/workbench-host.ts)
 - [workbench.ts](../src/workbench.ts)
 
@@ -248,6 +247,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-resume-drive-smoke.js](../test/run-resume-drive-smoke.js)
 - [run-retention-reclamation-smoke.js](../test/run-retention-reclamation-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)
+- [sched-policy-validation-smoke.js](../test/sched-policy-validation-smoke.js)
 - [schedule-routine-daemon-smoke.js](../test/schedule-routine-daemon-smoke.js)
 - [schema-validation-smoke.js](../test/schema-validation-smoke.js)
 - [security-trust-hardening-smoke.js](../test/security-trust-hardening-smoke.js)

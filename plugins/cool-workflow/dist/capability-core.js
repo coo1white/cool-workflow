@@ -399,8 +399,17 @@ function schedPolicySet(reg, args) {
     const current = loadSchedulingPolicy(reg).policy;
     const patch = {};
     for (const key of ["maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"]) {
-        if (args[key] !== undefined)
-            patch[key] = Number(args[key]);
+        if (args[key] === undefined)
+            continue;
+        // Fail closed on a non-numeric flag instead of letting normalizeSchedulingPolicy
+        // silently substitute the DEFAULT (which would report source:"file" + exit 0,
+        // so the operator believes they set a value they didn't). Matches the
+        // Number.isFinite guard the sibling reclaimPolicyFrom already uses.
+        const value = Number(args[key]);
+        if (!Number.isFinite(value)) {
+            throw new Error(`Invalid --${key} "${String(args[key])}": expected a number (e.g. --${key} 4)`);
+        }
+        patch[key] = value;
     }
     const policy = (0, scheduling_1.normalizeSchedulingPolicy)({ ...current, ...patch });
     (0, state_1.writeJson)(reg.schedulingPolicyPath(), policy);
