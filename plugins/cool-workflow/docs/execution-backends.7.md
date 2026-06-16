@@ -307,3 +307,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 _No changes to the execution-backends surface in v0.1.81._
 _No behavioral change in v0.1.82 (the delegated child programs moved from inline `node -e` strings to `scripts/children/`; spawn argv and shell:false behavior are the same byte for byte)._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.

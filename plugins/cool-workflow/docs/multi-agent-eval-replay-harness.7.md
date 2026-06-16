@@ -309,3 +309,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 _No changes to the multi-agent eval/replay harness in v0.1.81 (the multi-agent-eval module was split into behavior-preserving siblings; replay output is byte-identical)._
 _v0.1.82 — replay now RE-DERIVES the projection from the raw captured state instead of copying the baseline, so a nondeterministic projection is caught instead of passing quietly; a new regression smoke (including an intrinsic-nondeterminism case) proves the moat has teeth._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.

@@ -200,3 +200,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 The freed manifest is path-sorted before it feeds `tombstoneHash`, so reclamation's write-ahead tombstone hash-chain can be made again across hosts no matter the filesystem enumeration order. Reclaimed tiers, the re-point seam, and the default (reclaim-nothing) policy are unchanged.
 _No changes in v0.1.82._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.

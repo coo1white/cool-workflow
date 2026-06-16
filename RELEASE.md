@@ -139,4 +139,4 @@ The full ~4-minute test suite can run up to five times across one cut
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, wrapper metrics you can measure, background full-review handoff you can act on, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 _This checklist is true through v0.1.81._
-_Current release: v0.1.82._
+_Current release: v0.1.83._

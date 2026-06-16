@@ -393,3 +393,7 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 v0.1.81 grows the parity surface with two new both-surface, fail-closed verbs declared one time in the capability registry: `cw audit verify` / `cw_audit_verify` proves the trust-audit chain again and exits non-zero on any unverified or corrupt chain, and `cw run inspect-archive` / `cw_run_inspect_archive` is a read-only archive integrity check. Each `cw <cmd> --json` is schema-identical to its `cw_<tool>` and checked by the same parity gate.
 _No changes in v0.1.82._
+
+## Hardening and Onboarding (v0.1.83)
+
+Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.

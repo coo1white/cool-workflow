@@ -1,6 +1,6 @@
 {
   "name": "cool-workflow",
-  "version": "0.1.82",
+  "version": "0.1.83",
   "bin": {
     "cool-workflow": "scripts/cw.js",
     "cw": "scripts/cw.js"
