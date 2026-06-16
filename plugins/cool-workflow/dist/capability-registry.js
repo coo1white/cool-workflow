@@ -53,6 +53,14 @@ const BUILTIN_CAPABILITIES = [
         mcp: { tool: "cw_list" }
     },
     {
+        capability: "doctor",
+        summary: "Diagnose the host for setup problems (Node version, agent backend, agent binary on PATH, git, writable home/repo state) and print an actionable fix per check.",
+        entry: "runDoctor",
+        surface: "cli-only",
+        cli: { path: ["doctor"], jsonMode: "flag" },
+        reason: "Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`."
+    },
+    {
         capability: "init",
         summary: "Scaffold a new workflow definition.",
         entry: "init",

@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-06-16 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.82`
-- Source modules: `60`
+- Source modules: `61`
 - Workflow apps: `7`
 - Docs: `49`
-- Smoke tests: `90`
+- Smoke tests: `91`
 - Repository: http://local_proxy@127.0.0.1:33909/git/coo1white/cool-workflow
 
 ## Architecture
@@ -86,6 +86,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [collaboration.ts](../src/collaboration.ts)
 - [compare.ts](../src/compare.ts)
 - [contract-migration.ts](../src/contract-migration.ts)
+- [doctor.ts](../src/doctor.ts)
 - [drive.ts](../src/drive.ts)
 - [evidence-grounding.ts](../src/evidence-grounding.ts)
 - [evidence-reasoning.ts](../src/evidence-reasoning.ts)
@@ -199,6 +200,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [control-plane-scheduling-smoke.js](../test/control-plane-scheduling-smoke.js)
 - [coordinator-blackboard-smoke.js](../test/coordinator-blackboard-smoke.js)
 - [det-ids-b-smoke.js](../test/det-ids-b-smoke.js)
+- [doctor-smoke.js](../test/doctor-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
 - [durable-atomic-write-smoke.js](../test/durable-atomic-write-smoke.js)
 - [end-to-end-demo-smoke.js](../test/end-to-end-demo-smoke.js)

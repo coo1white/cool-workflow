@@ -936,6 +936,7 @@ export function formatHelp(): string {
     "",
     "Commands:",
     "  list",
+    "  doctor [--json]   (check your setup: Node, agent backend, git, writable state)",
     "  init <workflow-id> [--title TEXT] [--output PATH]",
     "  quickstart [app-id] [--repo PATH] [--question TEXT] [--agent-command CMD] [--once] [--preview]",
     "  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]",

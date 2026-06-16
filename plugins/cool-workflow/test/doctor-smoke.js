@@ -1,0 +1,93 @@
+#!/usr/bin/env node
+"use strict";
+
+// doctor-smoke — `cw doctor` (a `brew doctor`-style readiness diagnostic).
+// Pins: the report shape; that it is READ-ONLY (creates no .cw/$CW_HOME); that a
+// missing agent is a WARN (exit 0, not a hard fail); that an unwritable home
+// registry is a FAIL with non-zero exit; and that --json is parseable while the
+// default human rendering is not JSON.
+//
+// Included in `npm test`.
+
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+
+const pluginRoot = path.resolve(__dirname, "..");
+const cli = path.join(pluginRoot, "dist", "cli.js");
+const { runDoctor } = require(path.join(pluginRoot, "dist", "doctor.js"));
+
+function run(args, env, cwd) {
+  try {
+    const stdout = execFileSync(process.execPath, [cli, "doctor", ...args], { env, cwd, encoding: "utf8" });
+    return { code: 0, stdout };
+  } catch (error) {
+    return { code: error.status, stdout: String(error.stdout || "") };
+  }
+}
+
+// ---- 1. report shape + the in-process API ------------------------------------
+(function shape() {
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-home-")));
+  const cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-cwd-")));
+  const report = runDoctor({}, { ...process.env, CW_HOME: home, CW_AGENT_COMMAND: "", CW_AGENT_ENDPOINT: "" }, cwd);
+  assert.equal(report.schemaVersion, 1);
+  assert.ok(Array.isArray(report.checks) && report.checks.length >= 4, "has checks");
+  const names = report.checks.map((c) => c.name);
+  for (const n of ["node", "agent", "home-registry", "repo-state"]) assert.ok(names.includes(n), `check ${n} present`);
+  for (const c of report.checks) assert.ok(["ok", "warn", "fail"].includes(c.status), `valid status for ${c.name}`);
+  // node check must pass (the test runs on Node 18+).
+  assert.equal(report.checks.find((c) => c.name === "node").status, "ok", "node check ok");
+})();
+
+// ---- 2. READ-ONLY: doctor creates neither $CW_HOME nor <cwd>/.cw --------------
+(function readOnly() {
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-ro-")));
+  const home = path.join(base, "home-not-yet");
+  const cwd = path.join(base, "work");
+  fs.mkdirSync(cwd, { recursive: true });
+  runDoctor({}, { ...process.env, CW_HOME: home }, cwd);
+  assert.ok(!fs.existsSync(home), "doctor must not create $CW_HOME");
+  assert.ok(!fs.existsSync(path.join(cwd, ".cw")), "doctor must not create <cwd>/.cw");
+})();
+
+// ---- 3. no agent => WARN, exit 0 (demo/preview still work) --------------------
+(function noAgentWarns() {
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-noagent-")));
+  const env = { ...process.env, CW_HOME: home };
+  delete env.CW_AGENT_COMMAND;
+  delete env.CW_AGENT_ENDPOINT;
+  const r = run(["--json"], env, home);
+  assert.equal(r.code, 0, "no agent is not a blocking failure");
+  const report = JSON.parse(r.stdout);
+  assert.equal(report.ok, true, "ok:true with only a warning");
+  assert.equal(report.checks.find((c) => c.name === "agent").status, "warn", "agent is a warn");
+})();
+
+// ---- 4. unwritable home registry => FAIL, exit 1 ------------------------------
+(function unwritableHomeFails() {
+  // Point $CW_HOME under a regular FILE so no ancestor dir can be created/written.
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-bad-")));
+  const file = path.join(base, "afile");
+  fs.writeFileSync(file, "x");
+  const badHome = path.join(file, "registry"); // a path UNDER a file → unwritable
+  const r = run(["--json"], { ...process.env, CW_HOME: badHome }, base);
+  assert.equal(r.code, 1, "unwritable home registry is a blocking failure (exit 1)");
+  const report = JSON.parse(r.stdout);
+  assert.equal(report.ok, false);
+  assert.equal(report.checks.find((c) => c.name === "home-registry").status, "fail");
+})();
+
+// ---- 5. jsonMode "flag": --json is JSON, default human output is NOT JSON ------
+(function jsonModeFlag() {
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-mode-")));
+  const human = run([], { ...process.env, CW_HOME: home }, home).stdout;
+  assert.ok(human.startsWith("cw doctor"), "default rendering is human text");
+  assert.throws(() => JSON.parse(human), "default rendering is not canonical JSON");
+  const json = run(["--json"], { ...process.env, CW_HOME: home }, home).stdout;
+  assert.doesNotThrow(() => JSON.parse(json), "--json is parseable");
+})();
+
+process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; unwritable home fails closed; --json flag mode)\n");
