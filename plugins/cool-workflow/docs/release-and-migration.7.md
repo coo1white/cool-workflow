@@ -1,36 +1,36 @@
 # Release And Migration Discipline
 
-CW v0.1.14 made release checks and durable run-state compatibility explicit.
+CW v0.1.14 made release checks and durable run-state compatibility clear.
 
 ## Who Is Affected
 
 Maintainers cutting CW releases should use `npm run release:check` from
 `plugins/cool-workflow`. Operators loading old `.cw/runs/<run-id>/state.json`
-files can inspect compatibility with:
+files can check compatibility with:
 
 ```bash
 node scripts/cw.js state check <run-id>
 ```
 
 Use `--state /path/to/state.json` when checking a state file outside the
-current `.cw/runs` tree. Add `--write` only when you deliberately want to write
+current `.cw/runs` tree. Add `--write` only when you truly want to write
 the normalized/migrated state back to disk.
 
 ## State Policy
 
-The current durable run-state schema is `1`, defined by
+The current durable run-state schema is `1`, set by
 `CURRENT_RUN_STATE_SCHEMA_VERSION` in `src/version.ts`.
 
-Loading state follows this order:
+Loading state goes in this order:
 
 ```text
 read JSON -> detect schema -> migrate -> normalize -> validate -> report
 ```
 
-CW supports legacy run state with no `schemaVersion` as historical schema `0`
+CW supports old run state with no `schemaVersion` as past schema `0`
 and migrates it to schema `1`. Schema versions newer than the runtime fail
-closed. Invalid state objects fail closed. Unknown user data is preserved by
-copying and adding required fields instead of rebuilding state from scratch.
+closed. Bad state objects fail closed. Unknown user data is kept by
+copying and adding required fields, not by building state again from the start.
 
 ## Dry Run
 
@@ -38,7 +38,7 @@ copying and adding required fields instead of rebuilding state from scratch.
 
 - detected and current schema versions
 - compatibility status: `current`, `migrated`, `normalized`, or `unsupported`
-- whether writing would be required
+- whether writing would be needed
 - every field CW would add or normalize
 - warnings and errors
 
@@ -53,10 +53,10 @@ Fixture runs live in `test/fixtures/runs/` and cover:
 - Operator UX
 - v0.1.13 MCP/App Surface
 
-`npm run fixture-compat` copies each fixture into a temporary `.cw/runs` tree,
-runs migration, and proves `status`, `graph`, and `report` still operate. The
-fixture files are hashed before and after the test to prove they were not
-mutated.
+`npm run fixture-compat` copies each fixture into a short-term `.cw/runs` tree,
+runs migration, and shows `status`, `graph`, and `report` still work. The
+fixture files are hashed before and after the test to show they were not
+changed.
 
 ## Release Check
 
@@ -78,10 +78,10 @@ mutated.
 - `npm run version:sync`
 
 The command is dry-run and non-destructive. Tagging, pushing, and publishing
-remain manual release actions after the gate passes.
+stay manual release actions after the gate passes.
 
 For v0.1.15, the same gate also includes the Security / Trust Hardening smoke
-test so audit/provenance coverage remains part of release discipline.
+test so audit/provenance coverage stays part of release discipline.
 
 For v0.1.18, the gate includes Coordinator / Blackboard smoke coverage and
 fixture normalization for empty blackboard state on older runs.
@@ -111,7 +111,7 @@ summary metrics (`summary_freshness`, `compact_graph_parity`,
 `blackboard_digest_parity`, `critical_path_parity`, `evidence_digest_parity`,
 `expansion_ref_integrity`), and CLI/MCP parity. Summaries are derived userland
 indexes; raw blackboard, graph, audit, and evidence records are never deleted,
-and migrations remain backward compatible (pre-0.1.25 eval snapshots load with
+and migrations stay backward compatible (pre-0.1.25 eval snapshots load with
 empty summary sections).
 
 For v0.1.26, the gate includes Evidence Adoption Reasoning Chain smoke coverage
@@ -121,40 +121,40 @@ reasoning steps exempt from compaction, eval/replay reasoning metrics
 and CLI/MCP parity. The reasoning chain is derived, never authoritative over raw
 state, and pre-0.1.26 snapshots load with empty reasoning sections.
 
-The host loop must preserve CLI/MCP parity, stable JSON responses,
+The host loop must keep CLI/MCP parity, stable JSON responses,
 blackboard/audit provenance, evidence-required scoring, fail-closed selection,
 and compatibility with the lower-level topology, multi-agent, blackboard, and
 candidate primitives.
 
 For v0.1.16, release discipline adds Dogfood One Real Repo. `npm run
 dogfood:release` runs the canonical `release-cut` app against the real Cool
-Workflow repository in dry-run mode and produces a CW report, audit summary,
+Workflow repository in dry-run mode and makes a CW report, audit summary,
 provenance, release candidate, score, selection, and verifier-gated
 commit/checkpoint. `npm run release:check` includes the dogfood smoke test so
-the wiring stays covered without recursively running the full release gate.
+the wiring stays covered without running the full release gate inside itself.
 
 For v0.1.17, release discipline added Multi-Agent Runtime Core coverage.
 `npm run release:check` runs `test/multi-agent-runtime-core-smoke.js` directly
 and through `npm test`. Older fixture runs normalize with empty multi-agent
 state under `multiAgent` and `.cw/runs/<run-id>/multi-agent/`, while unknown
-user data remains preserved.
+user data stays kept.
 
 ## Unsupported Cases
 
-CW does not silently load:
+CW does not quietly load:
 
 - non-object JSON run state
 - run state with a schema version newer than the runtime
 - run state with a schema version below the supported minimum
 - state that cannot be normalized into the required runtime fields
 
-When compatibility is ambiguous, hold the release and add a fixture or migration
-step before proceeding.
+When compatibility is not clear, hold the release and add a fixture or migration
+step before going on.
 ## v0.1.27 — CLI ↔ MCP Parity
 
 v0.1.27 adds a declared capability registry and a fail-closed `npm run
-parity:check` (wired into `release:check`) guaranteeing the CLI and MCP surfaces
-are two renderings of one data source. No run-state schema change: pre-0.1.27
+parity:check` (wired into `release:check`) that makes sure the CLI and MCP surfaces
+are two views of one data source. No run-state schema change: pre-0.1.27
 runs load unchanged, and every pre-0.1.27 CLI command and MCP tool keeps working.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 
@@ -172,20 +172,20 @@ deleted and rebuilt from source. See
 
 v0.1.29 lifts execution into a pluggable driver layer: one narrow `ExecutionBackend`
 contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
-drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
+drivers, picked by `--backend` (parallel to `--sandbox`) and inspected via
 `backend list|show|probe`. The result/evidence envelope is schema-identical across
 backends; the backend id + sandbox attestation are recorded as provenance, so this
-surface is unchanged regardless of which backend executed a run. See
+surface is unchanged no matter which backend executed a run. See
 [execution-backends.7.md](execution-backends.7.md).
 ## Web / Desktop Workbench (v0.1.30)
 
 v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
 console that renders this surface (and the other four operator panels — run
 graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR alongside
+reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR next to
 the CLI and MCP that holds no authoritative state and forks no schema: each panel
 equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
-re-derives everything from disk. See
+derives everything again from disk. See
 [web-desktop-workbench.7.md](web-desktop-workbench.7.md).
 
 ## Observability + Cost Accounting (v0.1.31)
@@ -197,11 +197,11 @@ database, no collector daemon, no hidden counter. The migration is ADDITIVE and
 backward compatible: an optional, host-attested `UsageRecord` rides on the
 task/worker record via the EXISTING result/worker intake (absent ⇒ `unreported`,
 never 0); `ResultEnvelope` and the run-state schema are unchanged (schema version
-stays 1), so old runs load and report `unreported` cost while still yielding
+stays 1), so old runs load and report `unreported` cost while still giving
 correct time and rate metrics from their recorded timestamps and outcomes. Cost
-is `attested` only from attested usage × a recorded pricing policy; assumed
-pricing is a separate `estimated` figure. Pricing is POLICY supplied as data
-(`--pricing <path>|default`), out of the kernel. The per-run report persists a
+is `attested` only from attested usage × a recorded pricing policy; guessed
+pricing is a separate `estimated` figure. Pricing is POLICY given as data
+(`--pricing <path>|default`), out of the kernel. The per-run report keeps a
 rebuildable, fingerprinted snapshot under `.cw/runs/<id>/metrics/`, and the
 cross-repo summary reports each snapshot's `valid|stale|absent` freshness against
 current source. See
@@ -214,7 +214,7 @@ v0.1.32 adds Team Collaboration: a host-attested actor and append-only
 approvals/rejections/comments/handoffs provenance-linked to a durable target,
 plus a review gate that STACKS ON the verifier gate — required approvals from
 authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never instead of them, failing closed on quorum/authority/self-approval and
+and never in place of them, failing closed on quorum/authority/self-approval and
 recording who approved the very artifact that shipped. Policy (required approvals,
 authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
 unchanged). The verbs are parity-gated and render read-only in the v0.1.30
@@ -226,7 +226,7 @@ the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffo
 
 ## Real Execution Backend Integrations (v0.1.34)
 
-container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+container/remote/ci backends really run (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is not there. See real-execution-backends(7).
 
 ## Node Snapshot / Diff / Replay (v0.1.35)
 
@@ -262,11 +262,11 @@ capture findings/evidence from any reasonable agent shape (alt keys + prose), CW
 
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
-Hard gate blocking empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
+Hard gate that blocks empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) in place of the mutable working tree — taking away false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter that gives any non-Claude AI agent one common interface to CW.
 
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
@@ -287,5 +287,5 @@ Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, dif
 
 ## Migration Compatibility (v0.1.81)
 
-v0.1.81 is additive: every change is a new flag/verb/env (`audit verify`, `run inspect-archive`, `verify-import --strict`, `CW_REQUIRE_ARCHIVE_INTEGRITY`, `quickstart --resume`, `run resume --drive`) or an internal behavior-preserving carve. Run-state schema, existing outputs, files, and exit codes are byte-identical, so runs and archives from prior versions load and verify unchanged. No migration action is required.
+v0.1.81 is additive: every change is a new flag/verb/env (`audit verify`, `run inspect-archive`, `verify-import --strict`, `CW_REQUIRE_ARCHIVE_INTEGRITY`, `quickstart --resume`, `run resume --drive`) or an internal behavior-preserving carve. Run-state schema, existing outputs, files, and exit codes are byte-identical, so runs and archives from earlier versions load and verify unchanged. No migration action is needed.
 _No changes in v0.1.82._

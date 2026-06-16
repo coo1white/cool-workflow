@@ -1,34 +1,34 @@
 # Run Registry / Control Plane
 
-CW v0.1.28 adds the Run Registry / Control Plane: a layer that manages MANY
+CW v0.1.28 adds the Run Registry / Control Plane: a layer that takes care of MANY
 workflow runs across repositories. Before v0.1.28 a run lived only under its
 repo's `.cw/runs/<id>/` and was loaded from the current directory
-(`loadRunFromCwd`); there was no cross-repo index and no unified lifecycle
-management. This release adds search, resume, archive, a durable queue,
-cross-repo history, and failed-run rerun — without changing the run-state schema
+(`loadRunFromCwd`); there was no cross-repo index and no joined-up lifecycle
+control. This release adds search, resume, archive, a durable queue,
+cross-repo history, and failed-run rerun — without any change to the run-state schema
 and without taking ownership of source truth.
 
-The design follows the same base-system observability philosophy as
+The design keeps to the same base-system observability idea as
 [State Explosion Management](state-explosion-management.7.md) and the
 [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md):
 
 - the per-run `.cw/runs/<id>/state.json` is the SINGLE source of truth
-- the registry is a DERIVED userland index, never a replacement for source records
+- the registry is a DERIVED userland index, never a stand-in for source records
 - plain files, stable JSON, deterministic output
-- small composable commands and readable console views with full
-  machine-readable output available
+- small commands that join together and console views easy to read, with full
+  machine-readable output on offer
 - fail closed when the index is stale, a run's source changed, or its source is
-  missing — never fabricate run status from the cache
-- append-only history: resume continues a run, rerun creates a NEW linked run,
+  missing — never make up run status from the cache
+- append-only history: resume goes on with a run, rerun makes a NEW linked run,
   and archive marks rather than deletes
-- backward compatible; no hidden database; no daemon required to read state
+- backward compatible; no hidden database; no daemon needed to read state
 
 ## Mechanism vs policy
 
 The registry is MECHANISM: a rebuildable cache over runs. POLICY — retention
-windows, queue ordering, and archive thresholds — is configurable and kept out
+windows, queue ordering, and archive thresholds — can be set and is kept out
 of the index (`RunRegistryPolicy`, explicit flags). The index can be deleted and
-rebuilt from source at any time; it never holds authority a `state.json` does
+built again from source at any time; it never holds power that a `state.json` does
 not.
 
 ## Derived index model
@@ -42,24 +42,24 @@ counts, `commitCount`, `verifierGatedCommitCount`, `openFeedbackCount`, a bounde
 per-record `freshness` (`valid`, `stale`, or `missing`), and optional
 `provenance`.
 
-A `RunRegistryIndex` aggregates records for a scope (`repo` or `home`) with its
+A `RunRegistryIndex` brings together records for a scope (`repo` or `home`) with its
 own `sourceFingerprint`, the covered `repos`, the `queue`, and lifecycle
 `counts`. A `RunRegistryReport` wraps the index with explicit freshness
 (`valid`, `stale`, or `absent`) plus the `staleRuns` and `missingRuns` lists and
-a `nextAction`. Every read re-derives records from source; the persisted index is
+a `nextAction`. Every read makes records again from source; the persisted index is
 only compared against, never trusted as the live status.
 
 During one index build, repo-level overlays (`archive.json` and
 `provenance.json`) are read once per repo and passed as an in-memory scan
-snapshot to each run record. This is a short-lived mechanism, not a persistent
-cache: the next registry command re-reads source state and overlays from disk, so
+snapshot to each run record. This is a short-lived mechanism, not a lasting
+cache: the next registry command reads source state and overlays again from disk, so
 freshness, fail-closed behavior, and output shape stay unchanged while large
-repos avoid repeated identical overlay reads.
+repos keep clear of doing the same overlay reads over and over.
 
 ## Lifecycle state machine
 
-Lifecycle is CLASSIFIED from existing state, never invented. `deriveLifecycle`
-applies the following rules to a run's source state — first match wins:
+Lifecycle is SORTED from state that is already there, never made up. `deriveLifecycle`
+puts the following rules to a run's source state — first match wins:
 
 ```text
 1. running tasks > 0                              -> running
@@ -71,14 +71,14 @@ applies the following rules to a run's source state — first match wins:
 7. otherwise                                      -> queued
 ```
 
-`archived` is an OVERLAY disposition applied on top of this. The surfaced
-`lifecycle` becomes `archived`, but `derivedLifecycle` preserves the
-source-derived state so search and history can still match the underlying run.
+`archived` is an OVERLAY state put on top of this. The shown
+`lifecycle` becomes `archived`, but `derivedLifecycle` keeps the
+source-derived state so search and history can still match the run under it.
 The classifier never reads the cache; it reads source `state.json`.
 
 ## Cross-repo layout
 
-State is plain files, readable and diffable:
+State is plain files, easy to read and to diff:
 
 ```text
 <repo>/.cw/runs/<id>/state.json     source of truth (unchanged, never owned here)
@@ -91,131 +91,131 @@ $CW_HOME/registry/index.json        cross-repo derived index (rebuildable)
 $CW_HOME/registry/queue.json        durable run queue (plain, ordered)
 ```
 
-The home registry root resolves from `CW_HOME`, then
+The home registry root is worked out from `CW_HOME`, then
 `XDG_STATE_HOME/cool-workflow`, then `~/.local/state/cool-workflow`. A repo is
-registered into `repos.json` when it is refreshed (or when a queue entry names
-it). Reads never write: a search or show computes the repo set as the union of
+put into `repos.json` when it is refreshed (or when a queue entry names
+it). Reads never write: a search or show works out the repo set as the union of
 the registered repos and the current repo in memory, so reading the index never
-mutates discovery state.
+changes discovery state.
 
 ## Search
 
 `run search` queries runs by `--app`, `--status`, time range (`--since`,
 `--until`), `--repo`, and free-text (`--text`, matched over runId, app, workflow,
 title, repo, lifecycle, loop stage, and a bounded digest of run inputs).
-Results are deterministic (ordered by `createdAt`, then `runId`) and paginated
+Results are deterministic (ordered by `createdAt`, then `runId`) and in pages
 (`--limit`, `--offset`). Search is cross-repo by default (`--scope home`); use
-`--scope repo` to restrict to the current repo. Archived runs are included by
-default and can be excluded with `--include-archived false`.
+`--scope repo` to keep to the current repo. Archived runs are taken in by
+default and can be left out with `--include-archived false`.
 
 ## Resume
 
-`run resume <run-id>` resolves a run by id across the registry — not just the
-cwd — loads its durable state, and returns the next runnable tasks and next
-actions for the host to execute. Resume is read-only over source: it never
-mutates `state.json` and never un-archives a run.
+`run resume <run-id>` finds a run by id across the registry — not just the
+cwd — loads its durable state, and gives back the next runnable tasks and next
+actions for the host to run. Resume is read-only over source: it never
+changes `state.json` and never un-archives a run.
 
-`run resume <run-id> --drive` (or `--once` for a single step) hands the resolved
-run straight to the existing agent-delegation drive loop — it re-plans nothing and
+`run resume <run-id> --drive` (or `--once` for a single step) hands the found
+run straight to the agent-delegation drive loop that is already there — it plans nothing again and
 picks up the pending/running tasks deterministically from durable state — and
-augments the result with the drive outcome under a `drive` field. The default (no
+adds the drive outcome to the result under a `drive` field. The default (no
 `--drive`) payload and `nextActions` stay byte-identical. An unconfigured agent
-yields `drive.status="blocked"` (fail-closed, never a fabricated completion); CW
-delegates worker execution to your agent and never runs a model itself.
+gives `drive.status="blocked"` (fail-closed, never a made-up completion); CW
+hands worker execution to your agent and never runs a model itself.
 
 ## Queue
 
-`queue add` appends a durable entry to `$CW_HOME/registry/queue.json` with an
+`queue add` adds a durable entry to the end of `$CW_HOME/registry/queue.json` with an
 explicit `--priority` (lower drains first; ties break by enqueue time, then id).
 `queue list` prints the queue in policy order; `queue show <id>` shows one entry.
-`queue drain [--limit N]` marks the next ready entries drained and returns them —
-CW records order and readiness; the HOST still executes the workers. Nothing in
-the queue spawns work on its own.
+`queue drain [--limit N]` marks the next ready entries drained and gives them back —
+CW keeps a record of order and readiness; the HOST still runs the workers. Nothing in
+the queue starts work on its own.
 
 ## Archive
 
 `run archive <run-id>` writes an overlay mark to the owning repo's
 `registry/archive.json`; the run's `state.json` is never moved or deleted, and
-the run stays searchable (its `derivedLifecycle` is preserved). `--unarchive`
+the run stays searchable (its `derivedLifecycle` is kept). `--unarchive`
 clears the mark. Retention is POLICY: `run archive --older-than-days N
-[--state completed --state failed]` archives eligible runs older than the window
+[--state completed --state failed]` archives runs that fit and are older than the window
 without touching source truth. The default policy archives nothing
 (`archiveOlderThanDays = 0`) until a window is given.
 
 ## Rerun
 
-`run rerun <run-id>` re-runs a failed run as a NEW run: it reuses the original
-inputs and app, lands the new run beside the original (same repo), and records a
+`run rerun <run-id>` runs a failed run again as a NEW run: it uses the first
+inputs and app again, puts the new run next to the first one (same repo), and keeps a record of a
 provenance link (`rerunOf`, `rerunOfRepo`, `originRunId`, `generation`, `reason`)
-in the repo's `registry/provenance.json`. The original failed run is PRESERVED
-for audit — the past is never overwritten. Rerunning a rerun increments
+in the repo's `registry/provenance.json`. The first failed run is KEPT
+for audit — the past is never written over. Rerunning a rerun adds one to
 `generation` and keeps `originRunId` pinned to the chain root.
 
 ## Portable export, import, and restore verification
 
 `run export <run-id> --output PATH` writes a portable JSON archive for a run. The
-archive includes the run state plus run-local files, committed artifacts, audit
+archive takes in the run state plus run-local files, committed artifacts, audit
 overlays, telemetry ledger files, per-file sha256 digests, file sizes, and a
-manifest digest. External repo-local artifact paths referenced by the run are
-copied into the archive under `external-artifacts/` and recorded with their
-original `sourcePath`; the source run is never mutated.
+manifest digest. External repo-local artifact paths named by the run are
+copied into the archive under `external-artifacts/` and kept with their
+first `sourcePath`; the source run is never changed.
 
-`run import PATH --target DIR` restores the archive under
+`run import PATH --target DIR` puts the archive back under
 `DIR/.cw/runs/<run-id>/`, rebases paths to the target repo, writes an
-`import-manifest.json`, refreshes the target repo registry, and immediately runs
-the same verification used by `run verify-import`. Restored partial runs can be
-resumed from the target repo; restored failed runs remain discoverable from the
-home registry and can be rerun as new linked runs. The import does not alter the
+`import-manifest.json`, refreshes the target repo registry, and at once runs
+the same verification used by `run verify-import`. Restored part runs can be
+resumed from the target repo; restored failed runs can still be found from the
+home registry and can be rerun as new linked runs. The import does not change the
 source repository or the source run.
 
-**Import-time refusal (fail-closed before any write).** Import verifies every
+**Import-time refusal (fail-closed before any write).** Import checks every
 file digest, every file size, the file count, and the manifest digest *before*
-creating the target run directory — so a tampered archive is refused with a
-non-zero exit and a single `cw:` stderr line, leaving nothing on disk (no partial
-restore). Set `CW_REQUIRE_ARCHIVE_INTEGRITY=1` to additionally refuse an archive
+making the target run directory — so a tampered archive is turned away with a
+non-zero exit and a single `cw:` stderr line, leaving nothing on disk (no part
+restore). Set `CW_REQUIRE_ARCHIVE_INTEGRITY=1` to also turn away an archive
 whose top-level integrity block is *absent* — closing the legacy fail-open seam
 where a stripped-integrity archive imported unverified. Unset (the default) keeps
 legacy integrity-less archives byte-identical; the flag is mechanism, not policy.
 
-`run verify-import <run-id> [--cwd DIR]` re-reads the restore manifest, recomputes
-every restored file digest, checks the manifest digest, verifies the telemetry
-ledger when one was restored, and re-proves the **trust-audit hash chain** (the
+`run verify-import <run-id> [--cwd DIR]` reads the restore manifest again, works out
+every restored file digest again, checks the manifest digest, checks the telemetry
+ledger when one was restored, and proves the **trust-audit hash chain** again (the
 decisions / sandbox / commit-gate log, also restored under `audit/`). Missing
 manifests, digest mismatches, path escapes, unsupported archive schemas, unreadable
 files, telemetry-chain failures, or a forged audit chain (`trust-audit-invalid`)
-return explicit failed checks instead of a fabricated success. An archive with no
-audit log yields a passing `trust-audit` check (nothing to prove — no false-red).
+give back explicit failed checks in place of a made-up success. An archive with no
+audit log gives a passing `trust-audit` check (nothing to prove — no false-red).
 
 By default `verify-import` prints the result and exits 0 even when a check fails
 (it is a report). Pass `--strict` to make any failed restore check exit non-zero,
 so `cw run verify-import <run> --strict && restore` stops on a tampered archive.
 
 **Inspect an archive before restoring.** `run inspect-archive PATH [--json]`
-re-proves a portable archive's integrity *without writing anything* — contrast
-with `run import`, which validates as a side-effect of restoring a full
-`.cw/runs/<id>/` tree. It re-computes every embedded file's sha256 and size, the
-`integrity.fileCount` and manifest digest, and the whole-archive sha256, returning
-a structured `checks[]` — each failure names the offending `relativePath` with a
+proves a portable archive's integrity again *without writing anything* — set it next to
+`run import`, which checks as a side-effect of restoring a full
+`.cw/runs/<id>/` tree. It works out every built-in file's sha256 and size again, the
+`integrity.fileCount` and manifest digest, and the whole-archive sha256, giving back
+a structured `checks[]` — each failure names the bad `relativePath` with a
 `digest-mismatch` / `size-mismatch` / `manifest-digest-mismatch` /
 `file-count-mismatch` code. It never throws: an unreadable path, invalid JSON, or an
 unknown `schemaVersion` (`schemaSupported:false`) is reported as a check, not a
 stacktrace — stdout is always valid JSON, diagnostics go to stderr. It exits `1`
 when `ok:false`, so `cw run inspect-archive <path> && cw run import <path>` stops
-before importing a bad archive. It is a faithful preview of import: under
+before importing a bad archive. It is a true preview of import: under
 `CW_REQUIRE_ARCHIVE_INTEGRITY=1` a stripped-integrity archive (which import would
-refuse) also inspects as `ok:false`; with the env unset (default) an absent integrity
-block is merely reported, not failed.
+turn away) also inspects as `ok:false`; with the env unset (default) an absent integrity
+block is only reported, not failed.
 
-MCP exposes the same mechanisms as `cw_run_export`, `cw_run_import`,
+MCP gives the same mechanisms as `cw_run_export`, `cw_run_import`,
 `cw_run_verify_import`, and `cw_run_inspect_archive`; the CLI and MCP paths share
 the same runtime functions.
 
 ## Cross-repo history
 
-`history` reads a unified timeline of runs across all registered repos
+`history` reads one joined-up timeline of runs across all registered repos
 (newest first), each entry carrying its repo, lifecycle, loop stage, timestamps,
 freshness, and provenance back to its `.cw/runs/<id>/`. Filter with `--app` and
-`--status`; paginate with `--limit` and `--offset`.
+`--status`; page with `--limit` and `--offset`.
 
 ## CLI
 
@@ -240,13 +240,13 @@ node scripts/cw.js queue drain [--limit N] [--repo PATH]
 node scripts/cw.js history [--app ID] [--status STATE] [--limit N] [--offset N] [--scope repo|home] [--json]
 ```
 
-Read commands print terse human panels by default (lifecycle, freshness, counts,
+Read commands print short human panels by default (lifecycle, freshness, counts,
 and next action) and full machine output under `--json` or `--format json`.
 
 ## MCP parity
 
 Every command above is declared once in the v0.1.28 capability registry
-(`src/capability-registry.ts`) and rendered on both surfaces, so `cw <cmd>
+(`src/capability-registry.ts`) and shown on both surfaces, so `cw <cmd>
 --json` is schema-identical to the matching `cw_<tool>` result and the pair
 passes `npm run parity:check`:
 
@@ -261,23 +261,23 @@ See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 
 ## Freshness and fail-closed behavior
 
-`registry show` recomputes the current source fingerprint for every run and
+`registry show` works out the current source fingerprint again for every run and
 compares it to the persisted index. If a run's source changed, the report status
 is `stale` and the run is named in `staleRuns`. If a persisted run's source is
-gone, the run is named in `missingRuns`, it is NOT fabricated into the current
+gone, the run is named in `missingRuns`, it is NOT made up into the current
 records, and the next action is `registry refresh`. `run show` of a run whose
-source is missing returns `found: false` with `freshness: missing` and only the
-last-known persisted record, clearly flagged — never as a live status. An
-unreadable or unsupported run state is treated as missing, never as success.
+source is missing gives back `found: false` with `freshness: missing` and only the
+last-known persisted record, marked clearly — never as a live status. An
+unreadable or unsupported run state is taken as missing, never as success.
 
 ## Migration
 
-Pre-0.1.28 single-repo runs and existing `.cw/runs/` layouts keep working with
+Pre-0.1.28 single-repo runs and `.cw/runs/` layouts that are already there keep working with
 an empty, rebuildable registry: `registry show` reports `absent` until the first
 `registry refresh`, and every pre-0.1.28 CLI command and MCP tool is unchanged.
 No run-state schema change ships in v0.1.28; newer unsupported run-state schemas
 still fail closed. The registry, archive overlay, provenance overlay, queue, and
-home discovery set are all derived files that can be deleted and rebuilt from
+home discovery set are all derived files that can be deleted and built again from
 source at any time.
 
 ## CLI ↔ MCP Parity (v0.1.28)

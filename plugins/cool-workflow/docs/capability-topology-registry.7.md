@@ -6,12 +6,12 @@
 
 ## Description
 
-v0.1.53 introduces two open registries that let agents extend CW at runtime
-without manual wiring in multiple files. New capabilities self-register and
-auto-work across CLI, MCP, and Workbench. New topologies self-register and
-auto-appear in `topology list`, `topology validate`, and `topology apply`.
+v0.1.53 adds two open registries. They let agents grow CW at runtime
+with no need to wire things by hand in many files. New capabilities put
+themselves in the registry and then work by themselves across CLI, MCP, and Workbench. New topologies put
+themselves in the registry too and then come up by themselves in `topology list`, `topology validate`, and `topology apply`.
 
-BSD discipline: **mechanism** (Map / pipe) separate from **policy** (entries).
+BSD way: keep **mechanism** (Map / pipe) apart from **policy** (entries).
 Fail-closed on unknown ids.
 
 ## Capability Registry
@@ -53,18 +53,18 @@ registerCapabilityHandler({
 
 ### How it works
 
-1. `registerCapabilityHandler()` stores the handler in a `Map<string, CapabilityHandler>`
-2. CLI: `resolveCliPath(["my", "new-tool"])` resolves the CLI path to the capability id
-3. MCP: `resolveMcpTool("cw_my_new_tool")` resolves the tool name to the capability id
-4. `dispatchCapability(id, args, ctx)` invokes `handler.run(args, ctx)`
-5. Both the CLI and MCP surfaces fall through to the dynamic dispatcher when
-   their hardcoded switch statements don't match an unknown command/tool
+1. `registerCapabilityHandler()` keeps the handler in a `Map<string, CapabilityHandler>`
+2. CLI: `resolveCliPath(["my", "new-tool"])` turns the CLI path into the capability id
+3. MCP: `resolveMcpTool("cw_my_new_tool")` turns the tool name into the capability id
+4. `dispatchCapability(id, args, ctx)` calls `handler.run(args, ctx)`
+5. Both the CLI and MCP surfaces drop through to the dynamic dispatcher when
+   their hardcoded switch statements do not match an unknown command/tool
 
 ### Existing capabilities
 
-All existing 182 capabilities continue to work through their hardcoded switch
+All 182 capabilities that are there now keep working through their hardcoded switch
 cases in `cli.ts` and `mcp-server.ts`. The dynamic dispatch is a **fallback**
-— it only activates for commands/tools not found in the legacy switches.
+— it turns on only for commands/tools not found in the old switches.
 
 ## Topology Registry
 
@@ -143,24 +143,24 @@ registerTopology({
 ### How it works
 
 1. `registerTopology()` stores the definition in a `Map<string, MultiAgentTopologyDefinition>`
-2. `listTopologyDefinitions()` returns official + registered, registered wins on id collision
-3. `getTopologyDefinition(id)` checks registered first, then official
-4. `materializedRoles()` uses `role.count` for replication — no more hardcoded
+2. `listTopologyDefinitions()` gives back official + registered; registered wins when two ids are the same
+3. `getTopologyDefinition(id)` looks at registered first, then official
+4. `materializedRoles()` uses `role.count` to make copies — no more hardcoded
    mapper/judge switch logic
-5. `applyTopology()` works identically for official and registered topologies
+5. `applyTopology()` works the same way for official and registered topologies
 
 ### Data-driven role expansion
 
-Before v0.1.53, `materializedRoles()` hardcoded "mapper" and "judge" role
-expansion. Now it checks `role.count` on each role spec:
-- `role.count > 1`: creates `role-1`, `role-2`, ... `role-N`
-- `role.count` undefined or 1: creates a single role instance
-- For backward compat with official topologies, `mapperCount` and `judgeCount`
-  input overrides still apply
+Before v0.1.53, `materializedRoles()` hardcoded the "mapper" and "judge" role
+expansion. Now it reads `role.count` on each role spec:
+- `role.count > 1`: makes `role-1`, `role-2`, ... `role-N`
+- `role.count` undefined or 1: makes one role instance
+- So that official topologies keep working as before, the `mapperCount` and `judgeCount`
+  input overrides still hold
 
 ## See Also
 
-- `capability-registry.ts` — the single source of truth for all capabilities
+- `capability-registry.ts` — the one true source for all capabilities
 - `capability-dispatcher.ts` — the thin Map-based dispatch pipe
 - `topology.ts` — topology definitions and the registry
 - `types/topology.ts` — topology type definitions
