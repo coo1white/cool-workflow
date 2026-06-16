@@ -27,12 +27,12 @@ node scripts/cw.js plan my-app --question "What should happen?"
 
 ## Description
 
-CW treats the runner as the base system and workflow apps as userland. The
+CW uses the runner as the base system and workflow apps as userland. The
 runner owns state transitions, dispatch, result recording, verifier gates,
-commits, and reports. A workflow app owns domain-specific inputs, phases, task
-prompts, evidence requirements, and sandbox profile hints.
+commits, and reports. A workflow app owns its own inputs, phases, task
+prompts, evidence needs, and sandbox profile hints.
 
-The framework is intentionally small. The public app helpers are:
+The framework is kept small on purpose. The public app helpers are:
 
 - `defineWorkflowApp(definition)`
 - `workflow(definition)`
@@ -41,9 +41,9 @@ The framework is intentionally small. The public app helpers are:
 - `artifact(id, prompt, options)`
 - `input(name, options)`
 
-Legacy workflow factories remain valid. If a canonical app owns the public id,
-the legacy wrapper should use an explicit compatibility id such as
-`legacy-research-synthesis` to avoid duplicate discovery:
+Legacy workflow factories are still good to use. If a canonical app owns the public id,
+the legacy wrapper should use a clear compatibility id such as
+`legacy-research-synthesis` so the same app is not found twice:
 
 ```js
 module.exports = ({ workflow, phase, agent, artifact }) =>
@@ -61,7 +61,7 @@ module.exports = ({ workflow, phase, agent, artifact }) =>
 
 ## App Contract
 
-A first-class app contract is a plain object:
+A first-class app contract is a simple object:
 
 ```js
 module.exports = defineWorkflowApp({
@@ -101,30 +101,30 @@ module.exports = defineWorkflowApp({
 });
 ```
 
-The durable fields are:
+The lasting fields are:
 
-- `schemaVersion`: currently `1`
+- `schemaVersion`: now `1`
 - `id`: stable app id, lowercase letters, digits, dots, and hyphens
-- `title`: human-readable name
-- `summary`: short description
+- `title`: name people can read
+- `summary`: short note
 - `version`: semver app version
 - `author`: string or `{ name, url, email }`
 - `workflow`: workflow definition or manifest entrypoint
-- `inputs`: declared input definitions
-- `sandboxProfiles`: named bundled sandbox profiles used by the app
-- `compatibility`: optional CW version constraints
+- `inputs`: the input definitions you set
+- `sandboxProfiles`: named bundled sandbox profiles the app uses
+- `compatibility`: optional CW version limits
 - `metadata`: app-owned JSON metadata
 
 ## App Directory
 
-CW also discovers app directories:
+CW also finds app directories:
 
 ```text
 apps/<app-id>/app.json
 apps/<app-id>/workflow.js
 ```
 
-`app.json` stores the app metadata and points at a relative workflow entrypoint:
+`app.json` keeps the app metadata and points at a relative workflow entrypoint:
 
 ```json
 {
@@ -139,7 +139,7 @@ apps/<app-id>/workflow.js
 }
 ```
 
-The entrypoint may export a workflow object or a factory:
+The entrypoint may give out a workflow object or a factory:
 
 ```js
 module.exports = ({ workflow, phase, agent, input }) => {
@@ -159,18 +159,18 @@ module.exports = ({ workflow, phase, agent, input }) => {
 
 ## Validation
 
-App loading fails closed. CW validates:
+App loading fails closed. CW checks:
 
 - app `schemaVersion`, `id`, `title`, and semver `version`
-- input names, types, duplicate inputs, and boolean flags
-- workflow id/title matching the app id/title
-- positive limits and `maxConcurrentAgents <= maxAgents`
-- phase ids and duplicate phase ids
-- task ids, duplicate task ids, task kind, prompt, and evidence flags
+- input names, types, the same input given twice, and boolean flags
+- workflow id/title that match the app id/title
+- limits above zero and `maxConcurrentAgents <= maxAgents`
+- phase ids and the same phase id given twice
+- task ids, the same task id given twice, task kind, prompt, and evidence flags
 - sandbox profile references on the app, workflow, and tasks
-- compatibility constraints against the current CW runtime
+- compatibility limits against the current CW runtime
 
-`cw.js app validate` prints a structured result. Invalid apps return nonzero:
+`cw.js app validate` prints a structured result. Apps that are not valid return nonzero:
 
 ```json
 {
@@ -185,7 +185,7 @@ App loading fails closed. CW validates:
 }
 ```
 
-CW does not silently rewrite malformed apps into runnable workflows.
+CW does not quietly change broken apps into workflows that can run.
 
 ## CLI
 
@@ -197,20 +197,20 @@ node scripts/cw.js app init <app-id> --title "Title"
 node scripts/cw.js app package <app-id> --output app.cwapp.json
 ```
 
-`cw.js list`, `cw.js init`, and `cw.js plan` remain compatible. `list` includes
-legacy workflow files and first-class app directories. `plan` accepts either
+`cw.js list`, `cw.js init`, and `cw.js plan` still work the same way. `list` shows
+legacy workflow files and first-class app directories. `plan` takes either
 kind by id.
 
 ## Canonical Apps
 
-CW v0.1.13 includes four maintained canonical app directories:
+CW v0.1.13 comes with four kept-up canonical app directories:
 
 - `architecture-review`
 - `pr-review-fix-ci`
 - `release-cut`
 - `research-synthesis`
 
-These apps are official userland pressure tests for the framework. They use declared
+These apps are the official userland hard tests for the framework. They use set
 inputs, compatibility metadata, sandbox profile hints, and evidence-required
 verification or synthesis/verdict tasks. Validate and plan the full matrix with:
 
@@ -222,7 +222,7 @@ See [canonical-workflow-apps.7.md](canonical-workflow-apps.7.md).
 
 ## MCP
 
-The MCP bridge exposes matching tools:
+The MCP bridge gives matching tools:
 
 - `cw_app_list`
 - `cw_app_show`
@@ -232,16 +232,16 @@ The MCP bridge exposes matching tools:
 - `cw_app_run`
 
 Tool results are JSON and use the same app summaries and validation issue
-records as the CLI. `cw_app_run` creates a run from an app id and structured
-`inputs`, then returns the run id, app id/version, state/report paths, pending
-task count, compact operator status, and next actions.
+records as the CLI. `cw_app_run` makes a run from an app id and structured
+`inputs`, then gives back the run id, app id/version, state/report paths, the count of
+tasks still waiting, short operator status, and next actions.
 
-The full agent-host runtime surface is documented in
+The full agent-host runtime surface is written up in
 [mcp-app-surface.7.md](mcp-app-surface.7.md).
 
 ## State And Reports
 
-Run state records compact app metadata at:
+Run state keeps short app metadata at:
 
 ```text
 state.json.workflow.app
@@ -254,7 +254,7 @@ Workflow App: <id>@<version>
 Workflow App Source: <manifest-or-entrypoint-path>
 ```
 
-CW stores app identity, version, compatibility, source path, sandbox profile
+CW keeps app identity, version, compatibility, source path, sandbox profile
 references, and metadata. It does not copy workflow source into run state.
 
 ## Files

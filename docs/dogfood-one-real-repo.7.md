@@ -1,12 +1,13 @@
 # Dogfood One Real Repo
 
-The canonical documentation lives in
+The main docs are kept in
 `plugins/cool-workflow/docs/dogfood-one-real-repo.7.md`.
 
 Cool Workflow v0.1.16 adds `npm run dogfood:release`, a dry-run command that
-uses the real repository, the canonical `release-cut` app, isolated CW workers,
+uses the real repository, the main `release-cut` app, separate CW workers,
 candidate scoring, verifier-gated commit/checkpoint state, report generation,
-and trust audit provenance to prove the release workflow end to end.
+and trust audit provenance to show that the release workflow works from start
+to end.
 
 From `plugins/cool-workflow`:
 

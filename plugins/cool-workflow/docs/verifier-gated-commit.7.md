@@ -2,7 +2,7 @@
 
 ## NAME
 
-Verifier-Gated Commit - commit only state that passed an evidence-backed verifier
+Verifier-Gated Commit - commit only state that got past an evidence-backed verifier
 
 ## SYNOPSIS
 
@@ -25,26 +25,26 @@ commitState(run, {
 
 ## DESCRIPTION
 
-Verifier-Gated Commit is the CW rule that separates committed state from
-ordinary checkpoints:
+Verifier-Gated Commit is the CW rule that keeps committed state apart from
+normal checkpoints:
 
 ```text
 only verified state becomes committed state
 ```
 
-A verifier-gated commit requires one of these inputs:
+A verifier-gated commit needs one of these inputs:
 
 - a `verifier` state node with `verified` status and evidence
 - a verified candidate selection that references such a verifier node
 - a selected candidate whose selection references such a verifier node
 
-The verifier gate is authoritative. Candidate scores are evidence for operator
-choice, not authority to commit state.
+The verifier gate has the final say. Candidate scores are evidence to help the
+operator make a choice. They do not give the right to commit state.
 
 ## CHECKPOINTS
 
-CW still writes internal snapshots for planning, dispatch, result recording, and
-operator checkpoints. These records are checkpoints. They are useful for audit,
+CW still writes inside snapshots for planning, dispatch, result recording, and
+operator checkpoints. These records are checkpoints. They are good for audit,
 resume, and rollback, but they are not verifier-gated committed state.
 
 Checkpoint records have:
@@ -61,7 +61,7 @@ verifier-gated commit state node uses `status: "committed"`.
 
 ## COMMIT RECORDS
 
-A verifier-gated commit records gate metadata in the commit JSON and state node:
+A verifier-gated commit writes gate metadata in the commit JSON and state node:
 
 ```json
 {
@@ -74,7 +74,7 @@ A verifier-gated commit records gate metadata in the commit JSON and state node:
 }
 ```
 
-The `candidateId` and `selectionId` fields are present when the commit promotes
+The `candidateId` and `selectionId` fields are there when the commit promotes
 a candidate or candidate selection. The `evidence` field is copied from the
 verifier node.
 
@@ -88,7 +88,7 @@ verifier node.
 .cw/runs/<run-id>/report.md
 ```
 
-Every blocked commit attempt records an `error` state node and an ErrorFeedback
+Every blocked commit try writes an `error` state node and an ErrorFeedback
 record before the command exits.
 
 ## FAILURE MODES
@@ -114,12 +114,12 @@ commit-selection-not-verified
 commit-verifier-linkage-mismatch
 ```
 
-Use `cw.js feedback list <run-id>` and `cw.js node graph <run-id>` to inspect
+Use `cw.js feedback list <run-id>` and `cw.js node graph <run-id>` to look at
 the failed transition.
 
 ## CANDIDATES
 
-A candidate can become committed state only after selection passes the verifier
+A candidate can become committed state only after selection gets past the verifier
 gate. Rejected, failed, unscored, unselected, or unverified candidates are
 blocked.
 
@@ -131,10 +131,10 @@ candidate record -> score record -> verified selection -> verifier-gated commit
 
 ## COMPATIBILITY
 
-Verifier-Gated Commit is introduced in CW v0.1.7. It adds optional fields to
+Verifier-Gated Commit comes in with CW v0.1.7. It adds optional fields to
 commit records and keeps older run state readable.
 
-Programmatic snapshots that do not request a verifier gate remain checkpoints.
-The CLI `commit` command is stricter: a plain manual commit fails closed unless
+Programmatic snapshots that do not ask for a verifier gate stay checkpoints.
+The CLI `commit` command is more strict: a plain by-hand commit fails closed unless
 the operator passes `--allow-unverified-checkpoint`.
 0.1.51
