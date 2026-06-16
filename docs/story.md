@@ -1,20 +1,21 @@
 # Cool Workflow — Story & Talking Points
 
-A reusable reference for describing this project: résumé bullets, the README
-narrative, and a Show HN post. Numbers below are real (pulled from the repo):
-~22,324 LOC across 34 TypeScript modules, 26 smoke tests, 6 bundled workflow
-apps, 27 tagged releases, MCP-native, BSD-2.
+A guide you can use again and again for talking about this project: résumé
+points, the README story, and a Show HN post. The numbers below are true (taken
+from the repo): ~22,324 LOC across 34 TypeScript modules, 26 smoke tests, 6
+bundled workflow apps, 27 tagged releases, MCP-native, BSD-2.
 
 ---
 
 ## 1. What it is (one paragraph)
 
-Cool Workflow is a durable, inspectable runtime that turns open-ended agent tasks
-into auditable workflow runs. Instead of running a task as one long prompt, it
-runs one loop at every layer — plan → dispatch → record evidence → verify →
-verifier-gated commit → report — and persists every step as plain JSON you can
-read, resume, and replay. The runtime never infers success: missing evidence,
-dependencies, or rationale are visible states, not silent passes.
+Cool Workflow is a long-lasting runtime you can look into that takes open agent
+tasks and makes them into workflow runs you can check. In place of running a task
+as one long prompt, it runs one loop at every layer — plan → dispatch → record
+evidence → verify → verifier-gated commit → report — and keeps every step as
+plain JSON you can read, take up again, and play back. The runtime never takes
+success for granted: when evidence, dependencies, or reasons are not there, these
+are states you can see, not quiet passes.
 
 ---
 
@@ -59,36 +60,41 @@ Cool Workflow — 独立开发的 Agent 工作流运行时(TypeScript/Node,BSD-2
 
 ## 3. README narrative ("What I actually built")
 
-> Mirrored into the project README. Kept here so it can be reused verbatim.
+> Copied into the project README. Kept here so it can be used again word for word.
 
-Most "agent frameworks" treat a task as one long prompt and hope for the best.
-Cool Workflow treats it as a runtime problem: make the work durable, inspectable,
-and verifiable, the same way an OS makes processes durable and inspectable.
+Most "agent frameworks" take a task as one long prompt and have hope for the
+best. Cool Workflow takes it as a runtime question: make the work long-lasting,
+open to looking into, and open to being checked, in the same way an OS makes
+processes long-lasting and open to looking into.
 
-The whole system is one idea repeated at every layer:
+The full system is one idea done again at every layer:
 
 ```text
 plan → dispatch → record evidence → verify → verifier-gated commit → report
 ```
 
-- **Explicit state, no magic.** Every run is plain JSON under `.cw/runs/<id>/` —
-  readable, diffable, resumable, replayable. No hidden dashboard DB; the runtime
-  never infers success — ambiguity is a visible state.
-- **Evidence over vibes.** Results carry provenance. The Evidence Adoption
-  reasoning chain records *why* something was adopted or rejected — basis,
-  authority, rationale, and the counterfactual it beat — and fails closed to
-  `unexplained` rather than fabricating a reason.
-- **Multi-agent as a process table.** Roles, memberships, a shared blackboard,
-  and reusable topologies (map-reduce, debate, judge-panel) with policy + audit.
-- **Verified, not hand-checked.** A deterministic eval/replay harness and a
-  verifier-gated commit model gate every release; `release:check` builds,
+- **Open state, no secrets.** Every run is plain JSON under `.cw/runs/<id>/` —
+  open to reading, comparing, taking up again, and playing back. No secret
+  dashboard DB; the runtime never takes success for granted — when a thing is not
+  clear, that is a state you can see.
+- **Evidence over feelings.** Results come with a record of where they came from.
+  The Evidence Adoption reasoning chain keeps a note of *why* a thing was taken up
+  or turned down — basis, authority, rationale, and the other option it won
+  against — and when it is not sure it stops at `unexplained` in place of making
+  up a reason.
+- **Multi-agent as a process table.** Roles, group ties, a shared blackboard,
+  and topologies you can use again (map-reduce, debate, judge-panel) with policy
+  + audit.
+- **Checked, not gone over by hand.** A deterministic eval/replay harness and a
+  verifier-gated commit model put a gate on every release; `release:check` builds,
   type-checks, tests, replays, and self-dogfoods on this repo.
 - **One kernel, many front doors.** A shared CLI + MCP (JSON-RPC 2.0) runtime;
-  vendor plugin manifests (Claude, Codex, …) are generated from a single source
-  of truth, with a fail-closed drift check so no adapter forks the logic.
+  vendor plugin manifests (Claude, Codex, …) are made from a single source
+  of truth, with a fail-closed drift check so no adapter makes its own copy of the
+  logic.
 
-Design philosophy is deliberately Unix/BSD: small kernel, explicit state,
-composable pipes, isolated workers, verifier-gated commits, docs as man pages.
+The design idea is Unix/BSD on purpose: small kernel, open state, pipes you can
+put together, workers kept apart, verifier-gated commits, docs as man pages.
 
 ---
 
