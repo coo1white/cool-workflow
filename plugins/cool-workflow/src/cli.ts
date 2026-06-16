@@ -85,6 +85,7 @@ import {
 import { formatMultiAgentEval } from "./multi-agent-eval";
 import { formatBlackboardDigest, formatCompactGraph, formatStateExplosionReport } from "./state-explosion";
 import { formatEvidenceReasoningReport } from "./evidence-reasoning";
+import { runDoctor, formatDoctorReport } from "./doctor";
 
 async function main(): Promise<void> {
   const args = parseArgv(process.argv.slice(2));
@@ -102,6 +103,13 @@ async function main(): Promise<void> {
     case "list":
       printJson(runner.listWorkflows());
       return;
+    case "doctor": {
+      const report = runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
+      if (wantsJson(args.options)) printJson(report);
+      else process.stdout.write(`${formatDoctorReport(report)}\n`);
+      if (!report.ok) process.exitCode = 1;
+      return;
+    }
     case "init": {
       const [workflowId] = args.positionals;
       if (!workflowId) throw new Error("Missing workflow id. Example: cw.js init my-workflow");

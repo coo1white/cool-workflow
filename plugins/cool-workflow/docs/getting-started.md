@@ -9,6 +9,23 @@ npm run build
 node scripts/cw.js app list
 ```
 
+## Check your setup first (`cw doctor`)
+
+Like `brew doctor`, this names any setup problem and the fix for it before you
+start a run:
+
+```bash
+node scripts/cw.js doctor          # human-readable
+node scripts/cw.js doctor --json   # stable payload for scripts
+```
+
+It checks the Node version (v18+), whether an agent backend is set up (and its
+binary is on `$PATH`), whether `git` is there (for commit provenance), and
+whether the home registry and the working-dir `.cw` state are writable. It is
+read-only — it makes nothing on disk. It exits non-zero only on a blocking
+problem; a missing agent is a warning (you are still able to run `demo` and
+`--preview`).
+
 Make a run with a canonical workflow app:
 
 ```bash

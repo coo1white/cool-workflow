@@ -21,6 +21,7 @@ const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const state_explosion_1 = require("./state-explosion");
 const evidence_reasoning_1 = require("./evidence-reasoning");
+const doctor_1 = require("./doctor");
 async function main() {
     const args = (0, orchestrator_1.parseArgv)(process.argv.slice(2));
     const runner = new orchestrator_1.CoolWorkflowRunner({
@@ -36,6 +37,16 @@ async function main() {
         case "list":
             printJson(runner.listWorkflows());
             return;
+        case "doctor": {
+            const report = (0, doctor_1.runDoctor)(args.options, process.env, String(args.options.cwd || process.cwd()));
+            if (wantsJson(args.options))
+                printJson(report);
+            else
+                process.stdout.write(`${(0, doctor_1.formatDoctorReport)(report)}\n`);
+            if (!report.ok)
+                process.exitCode = 1;
+            return;
+        }
         case "init": {
             const [workflowId] = args.positionals;
             if (!workflowId)
