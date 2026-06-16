@@ -20,8 +20,12 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
    - `git rev-parse HEAD`, `git describe --tags --abbrev=0`
    - `git diff <prev-tag>..HEAD --stat` and read the actual diff.
 
-2. Run the deterministic gate yourself (do not trust prior runs):
+2. Run the deterministic gate yourself, EXACTLY ONCE (do not trust prior runs):
    - `bash plugins/cool-workflow/scripts/release-gate.sh`
+   - Run it a SINGLE time — one pass certifies the gate. Do NOT re-run it
+     "to be sure": it is deterministic, so a second run cannot change the
+     verdict and only burns the ~3-4 min suite again (the cut already ran it
+     once before delegating to you, so two independent passes is the cap).
    - If it fails, REJECT immediately with its output.
 
 3. Judgment checks the script cannot do:

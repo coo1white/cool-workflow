@@ -105,6 +105,27 @@ publish, and marketplace update remain separate visible steps. Dry-run dogfood
 mode never performs them; execute-style flags must include an explicit
 target-version confirmation such as `--confirm-release-actions=0.1.24`.
 
+## Cutting efficiently (wall-clock)
+
+The full ~4-minute test suite can run up to five times across a single cut
+(`release-flow`'s own gate, the independent reviewer's gate pass, a local
+`release:check`, the tag's `release-gate` CI, and the PR's CI). To keep a cut to
+~15-20 minutes instead of an hour:
+
+- **Cut on a quiet machine.** The suite is parallel-friendly but ~3x slower under
+  CPU contention; do not run a cut while several workflows/agents compete for cores.
+- **Two gate passes is the cap.** `release-flow` runs the gate once, then the
+  independent reviewer runs it once more (zero-trust). The reviewer is instructed
+  to run it EXACTLY ONCE (`agents/release-reviewer.md` step 2) — a deterministic
+  gate cannot change verdict on a re-run, so a third pass is pure waste.
+- **You can skip the separate local `release:check` before pushing.** The cut's
+  gate + the reviewer's independent gate + the tag's `release-gate` CI already
+  cover it; pushing and letting CI gate is faster (a tag/branch is cheap to redo
+  if CI reds). Keep the local check only when you cannot reach CI.
+- **Bundle related changes into fewer PRs.** Each PR is a full CI cycle; a stack
+  of tiny fix-PRs multiplies CI time. Group a coherent change set into one PR
+  unless independent review/revert granularity is genuinely needed.
+
 0.1.76
 
 0.1.77
