@@ -17,145 +17,145 @@
 
 **[Structure](#structure)** · [Commands](#commands) · [Result Envelope](#result-envelope) · [Scheduled Tasks](#scheduled-tasks) · [License](#license)
 
-Cool Workflow, or CW, is an independent agent workflow control-plane packaged as a
-TypeScript runtime. It provides a COL-Architecture: Router / Orchestrator,
+Cool Workflow, or CW, is a free-standing agent workflow control-plane put up as a
+TypeScript runtime. It gives a COL-Architecture: Router / Orchestrator,
 Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State
 Commit, and MCP JSON-RPC 2.0 bridge.
 
-The mental model is base system plus userland apps: CW provides the runtime and
-contracts, while developers write reusable workflow apps in
-`apps/<app-id>/app.json`. Legacy `workflows/*.workflow.js` files remain
-loadable as compatibility wrappers.
+The way to see it is a base system plus userland apps: CW gives the runtime and
+contracts, while makers write apps they can use again in
+`apps/<app-id>/app.json`. Old `workflows/*.workflow.js` files still
+load as fit-together wrappers.
 
-CW records the model workflow loop explicitly:
+CW writes down the model workflow loop in a clear way:
 
 ```text
 interpret -> act -> observe -> adjust -> checkpoint
 ```
 
-These loop stages are stored in `state.json`, task records, reports, and state
+These loop stages are kept in `state.json`, task records, reports, and state
 commit snapshots.
 
-CW keeps orchestration state and task queues in files. An agent host executes
-the tasks and feeds results back into the workflow.
+CW keeps orchestration state and task queues in files. An agent host does
+the tasks and gives results back to the workflow.
 
-CW follows a small set of Unix-inspired workflow principles: small kernel,
-explicit state, composable pipes, isolated workers, and verifier-gated commits.
+CW keeps to a small set of Unix-based workflow rules: small kernel,
+clear state, pipes that join, workers kept apart, and verifier-gated commits.
 See [docs/unix-principles.md](docs/unix-principles.md).
 
 CW v0.1.32 adds Team Collaboration: a host-attested actor, append-only
 approvals/rejections/comments/handoffs provenance-linked to a durable target
 (`run|task|candidate|selection|commit|node`), and a review gate that STACKS ON the
-verifier gate. Identity is ATTESTED provenance, never authenticated — an absent
-identity is the explicit `unattributed` actor, never a fabricated one. The review
-gate is POLICY layered on the verifier MECHANISM: it runs inside `resolveCommitGate`
-AFTER the verifier checks and can only ADD a required-approvals constraint, never
-remove the verifier's — so an approval can never turn an unverified result into a
+verifier gate. Identity is ATTESTED provenance, never authenticated — a missing
+identity is the clear `unattributed` actor, never a made-up one. The review
+gate is POLICY put on top of the verifier MECHANISM: it runs inside `resolveCommitGate`
+AFTER the verifier checks and can only ADD a required-approvals rule, never
+take away the verifier's — so an approval can never turn an unverified result into a
 committed one. It FAILS CLOSED on quorum, authority, self-approval, and
-unattributed actors, recording exactly which approvals are missing, and a
-gate-satisfied commit is stamped with WHO approved the very artifact that shipped.
+unattributed actors, writing down just which approvals are not there, and a
+gate-satisfied commit is marked with WHO approved the very artifact that went out.
 Required approvals, authorized roles, and the self-approval rule are POLICY as data
-(`review policy`), default off (pre-v0.1.32 behavior unchanged). Each verb is
-declared once in the capability registry so `cw <cmd> --json` is identical to
-`cw_<tool>`; the v0.1.30 Workbench renders the review timeline read-only and the
+(`review policy`), off to start with (pre-v0.1.32 behavior unchanged). Each verb is
+declared once in the capability registry so `cw <cmd> --json` is the same as
+`cw_<tool>`; the v0.1.30 Workbench shows the review timeline read-only and the
 v0.1.31 metrics report adds derived approval-rate/time-to-approval/handoff-count.
 See [docs/team-collaboration.7.md](docs/team-collaboration.7.md).
 
 CW v0.1.29 adds Execution Backends: the execution layer is lifted OUT of the
-kernel into pluggable, swappable drivers — `node`, `bun`, `shell`, `container`,
-`remote`, and `ci` — behind ONE narrow `ExecutionBackend` contract
-(`src/execution-backend.ts`). Modeled on a BSD VFS / device-driver layer, the
+kernel into drivers you can plug in and swap — `node`, `bun`, `shell`, `container`,
+`remote`, and `ci` — behind ONE small `ExecutionBackend` contract
+(`src/execution-backend.ts`). Built on the lines of a BSD VFS / device-driver layer, the
 kernel (orchestrator/dispatch/pipeline-runner) never learns which backend ran a
 task: WHAT to run and which evidence to record is kernel policy; HOW and WHERE it
-runs is the driver's concern. The sandbox profile is the contract — every backend
-enforces or attests each requested read/write/command/network/env dimension, or
-FAILS CLOSED rather than silently running unsandboxed. The result/evidence
-envelope is schema-identical across backends (CW's own self-verify produces
+runs is the driver's business. The sandbox profile is the contract — every backend
+makes good or attests each requested read/write/command/network/env dimension, or
+FAILS CLOSED instead of quietly running unsandboxed. The result/evidence
+envelope is schema-identical across backends (CW's own self-verify makes
 byte-stable evidence on `node`, `shell`, and `bun`); the backend id + sandbox
 attestation are recorded AS provenance, so eval/replay, the verifier gates, and
 the v0.1.28 run registry stay backend-agnostic. The container/remote/ci drivers
 DELEGATE and record a handle + attestation + result — CW does not become the
-executor. Selection mirrors `--sandbox` with a parallel `--backend` flag and
+executor. Selection is like `--sandbox` with a parallel `--backend` flag and
 `backend list|show|probe`, declared once in the capability registry so
 `cw <cmd> --json` is schema-identical to `cw_<tool>`. The default (`node`) backend
-reproduces pre-v0.1.29 behavior exactly. See
+gives pre-v0.1.29 behavior just the same. See
 [docs/execution-backends.7.md](docs/execution-backends.7.md).
 
 CW v0.1.31 adds Observability + Cost Accounting: time/duration, failure rate,
 verifier pass rate, candidate acceptance rate, and token/cost — all DERIVED from
 the run state CW already keeps (timestamps → durations; verifier nodes → pass
 rate; candidates → acceptance; failed workers/feedback → failure rate). There is
-NO metrics database, NO collector daemon, NO hidden counter. A rate over zero
-samples is `n/a`, never a fabricated 0%/100%. Cost is ATTESTED, never measured:
+NO metrics database, NO collector daemon, NO secret counter. A rate over zero
+samples is `n/a`, never a made-up 0%/100%. Cost is ATTESTED, never measured:
 CW does not call the model, so token usage is recorded as host-attested
 provenance on the existing result/worker intake (absent ⇒ `unreported`, never 0),
-and a monetary figure is `attested` only from attested usage × a recorded pricing
-policy — assumed pricing is a SEPARATE `estimated` figure, never conflated.
+and a money figure is `attested` only from attested usage × a recorded pricing
+policy — guessed pricing is a SEPARATE `estimated` figure, never mixed in.
 Pricing is POLICY as data (`--pricing <path>|default`), out of the kernel.
 `metrics show`/`metrics summary` are declared once in the capability registry so
 `cw <cmd> --json` is byte-identical to `cw_<tool>`, and the v0.1.30 Workbench
-renders a read-only metrics panel from the same payload. See
+shows a read-only metrics panel from the same payload. See
 [docs/observability-cost-accounting.7.md](docs/observability-cost-accounting.7.md).
 
-CW v0.1.30 adds the Web / Desktop Workbench: a human-facing console rendering a
+CW v0.1.30 adds the Web / Desktop Workbench: a console for people that shows a
 run's run graph, blackboard, worker logs, candidate compare, and audit timeline,
-plus a cross-run entry point over the v0.1.28 Run Registry. It is a THIRD FRONT
-DOOR alongside the CLI (human speed) and MCP (machine context) — all three are
-presentation policy over ONE mechanism. Upholding CW's "no hidden dashboard
+plus a cross-run way in over the v0.1.28 Run Registry. It is a THIRD FRONT
+DOOR next to the CLI (human speed) and MCP (machine context) — all three are
+presentation policy over ONE mechanism. Keeping CW's "no hidden dashboard
 database" promise, the Workbench holds ZERO authoritative state: it is a
 stateless, READ-ONLY renderer over the durable `.cw/` files and the existing
-capability payloads, so each panel equals its `cw <cmd> --json` payload
-byte-for-byte (parity-gated) and refresh re-derives everything from disk — delete
+capability payloads, so each panel is the same as its `cw <cmd> --json` payload
+byte-for-byte (parity-gated) and refresh works it all out again from disk — delete
 the host and nothing is lost. The optional localhost host (`cw workbench serve`)
-binds `127.0.0.1` only, is read-only (writes refused `405`), rejects non-localhost
+binds `127.0.0.1` only, is read-only (writes refused `405`), says no to non-localhost
 `Host` headers and path traversal, and fails closed on unreadable state. It is an
 OPTIONAL surface: the committed `dist/` and a plain `node` runtime keep working
-with the Workbench (and its dependency-light static UI) absent. See
+with the Workbench (and its dependency-light static UI) gone. See
 [docs/web-desktop-workbench.7.md](docs/web-desktop-workbench.7.md).
 
-CW v0.1.28 adds the Run Registry / Control Plane: a layer that manages MANY
+CW v0.1.28 adds the Run Registry / Control Plane: a layer that looks after MANY
 workflow runs across repositories — `run search`, `run resume`, `run archive`, a
 durable `queue`, cross-repo `history`, and failed-run `run rerun` — over the
-per-run `.cw/runs/<id>/state.json`, which stays the single source of truth. The
+per-run `.cw/runs/<id>/state.json`, which stays the one true source. The
 registry (`src/run-registry.ts`) is a DERIVED, rebuildable, fingerprinted index:
-it classifies a documented lifecycle (`queued → running → blocked → completed →
-failed → archived`), discovers runs cross-repo through a plain-file home registry
-(`CW_HOME`/XDG), and fails closed — tampered or missing source surfaces as
-`stale`/`missing` and triggers a rebuild, never a fabricated status. Resume
-continues a run, rerun creates a NEW run linked to the original by provenance, and
-archive marks without deleting source. Every verb is declared once in the
+it sorts a documented lifecycle (`queued → running → blocked → completed →
+failed → archived`), finds runs cross-repo through a plain-file home registry
+(`CW_HOME`/XDG), and fails closed — tampered or missing source comes up as
+`stale`/`missing` and starts a rebuild, never a made-up status. Resume
+goes on with a run, rerun makes a NEW run tied to the first one by provenance, and
+archive marks it without deleting source. Every verb is declared once in the
 capability registry, so `cw <cmd> --json` is schema-identical to `cw_<tool>`. See
 [docs/run-registry-control-plane.7.md](docs/run-registry-control-plane.7.md).
 
 CW v0.1.27 adds CLI ↔ MCP Parity: the command-line surface and the MCP surface
-are now two renderings of ONE data source, declared in a single capability
-registry (`src/capability-registry.ts`) and enforced fail-closed. Each capability
+are now two views of ONE data source, declared in a single capability
+registry (`src/capability-registry.ts`) and kept fail-closed. Each capability
 names one shared core `entry`; `cw <cmd> --json` is payload-identical to the
-matching `cw_<tool>` MCP result, the CLI stays terse for humans while MCP stays
-complete for machines, and `npm run parity:check` (wired into `release:check`)
-blocks any drift — a capability on only one surface, an undeclared tool or
-command, or a payload divergence. See
+matching `cw_<tool>` MCP result, the CLI stays short for people while MCP stays
+full for machines, and `npm run parity:check` (wired into `release:check`)
+stops any drift — a capability on only one surface, an undeclared tool or
+command, or a payload that does not match. See
 [docs/cli-mcp-parity.7.md](docs/cli-mcp-parity.7.md).
 
 CW v0.1.26 adds the Evidence Adoption Reasoning Chain: a derived, fingerprinted,
-fail-closed view that explains *why* each evidence item was adopted, rejected,
+fail-closed view that makes clear *why* each evidence item was adopted, rejected,
 superseded, or conflicting. For every gate (`fanin`, `candidate-score`,
 `selection`, `verifier`, `commit`) it records the decision, basis (evidence +
 provenance + trust source), authority (role/membership/worker + role policy),
-rationale (reusing existing reason fields), and counterfactual (the alternatives
-that lost). A "why" that cannot be traced to a real record renders as
-`unexplained` rather than a fabricated rationale. New surfaces: `multi-agent
+rationale (using existing reason fields again), and counterfactual (the other choices
+that lost). A "why" that cannot be traced to a real record comes up as
+`unexplained` rather than a made-up rationale. New surfaces: `multi-agent
 reasoning <run-id> [--evidence <id>] [--refresh]`, the MCP tools
-`cw_evidence_reasoning` and `cw_evidence_reasoning_refresh`, and an additive
+`cw_evidence_reasoning` and `cw_evidence_reasoning_refresh`, and an added
 `rationaleStatus` on `multi-agent evidence`. The chain is derived, never
-authoritative over raw state, and stored under `.cw/runs/<run-id>/reasoning/`.
+the top authority over raw state, and kept under `.cw/runs/<run-id>/reasoning/`.
 See
 [docs/evidence-adoption-reasoning-chain.7.md](docs/evidence-adoption-reasoning-chain.7.md).
 
 CW v0.1.25 adds State Explosion Management: durable, versioned,
 provenance-backed summary records (`MultiAgentSummaryIndex`,
 `BlackboardSummaryRecord`, `GraphSummaryRecord`, `OperatorDigest`,
-`StateExplosionReport`), compact and focused graph views with synthetic summary
+`StateExplosionReport`), small and pointed graph views with built-up summary
 nodes, blackboard digests, and eval/replay-gated freshness checks. Summaries are
 derived userland indexes that never delete raw blackboard, graph, audit, or
 evidence records and fail closed when stale. New surfaces: `summary refresh`,
@@ -163,7 +163,7 @@ evidence records and fail closed when stale. New surfaces: `summary refresh`,
 `multi-agent graph --view`. See
 [docs/state-explosion-management.7.md](docs/state-explosion-management.7.md).
 
-CW v0.1.24 hardens state loading, migrations, MCP tool calls, multi-agent and
+CW v0.1.24 makes harder state loading, migrations, MCP tool calls, multi-agent and
 blackboard persistence, and eval/replay artifact validation with fail-closed
 operator diagnostics.
 
@@ -178,13 +178,13 @@ rationale, panel decisions, and policy violations in the existing trust-audit
 log. See
 [docs/multi-agent-trust-policy-audit.7.md](docs/multi-agent-trust-policy-audit.7.md).
 
-CW v0.1.21 adds Multi-Agent Operator UX: compact graph, dependencies,
+CW v0.1.21 adds Multi-Agent Operator UX: small graph, dependencies,
 failures, and evidence adoption views for topology-backed multi-agent runs.
 Operators can trace agent -> dependency -> evidence -> fanin -> score ->
-selection -> verifier-gated commit without a separate dashboard state. See
+selection -> verifier-gated commit with no separate dashboard state. See
 [docs/multi-agent-operator-ux.7.md](docs/multi-agent-operator-ux.7.md).
 
-CW v0.1.20 adds Multi-Agent CLI + MCP Surface: the preferred host loop for
+CW v0.1.20 adds Multi-Agent CLI + MCP Surface: the host loop to go for, for
 `multi-agent run`, `multi-agent status`, `multi-agent step`,
 `multi-agent blackboard`, `multi-agent score`, and `multi-agent select`.
 The matching MCP tools are `cw_multi_agent_run`, `cw_multi_agent_status`,
@@ -195,9 +195,9 @@ and `cw_multi_agent_select`. See
 CW v0.1.19 adds Multi-Agent Topologies: official `map-reduce`, `debate`, and
 `judge-panel` coordination definitions with validation, apply-time
 materialization, topology run state, topology graphs, Operator UX panels, trust
-audit provenance, CLI commands, and MCP parity. Applying a topology creates the
+audit provenance, CLI commands, and MCP parity. Applying a topology makes the
 linked MultiAgentRun, roles, groups, fanout, blackboard topics, coordinator
-decisions, and deterministic next actions that the agent host can execute.
+decisions, and deterministic next actions that the agent host can do.
 See [docs/multi-agent-topologies.7.md](docs/multi-agent-topologies.7.md).
 
 CW v0.1.18 adds Coordinator / Blackboard: first-class shared topics,
@@ -215,8 +215,8 @@ and MCP parity. See
 
 CW v0.1.16 adds Dogfood One Real Repo: a dry-run release proof that runs the
 canonical `release-cut` app against this repository, records real command
-evidence, scores/selects a release candidate, creates a verifier-gated CW state
-commit, and explains trust through audit provenance. See
+evidence, scores/selects a release candidate, makes a verifier-gated CW state
+commit, and makes trust clear through audit provenance. See
 [docs/dogfood-one-real-repo.7.md](docs/dogfood-one-real-repo.7.md).
 
 CW v0.1.15 adds Security / Trust Hardening: durable trust audit records,
@@ -224,32 +224,32 @@ worker sandbox decision history, evidence provenance, acceptance rationale,
 and CLI/MCP audit inspection. See
 [docs/security-trust-hardening.7.md](docs/security-trust-hardening.7.md).
 
-CW v0.1.14 added Release & Migration Discipline: explicit run-state schema
+CW v0.1.14 added Release & Migration Discipline: clear run-state schema
 migration policy, fixture-based backward compatibility tests, version
 synchronization checks, and a dry-run release gate. See
 [docs/release-and-migration.7.md](docs/release-and-migration.7.md).
 
-CW v0.1.13 completes the MCP / App Surface so agent hosts can treat CW as a
-runtime instead of a CLI wrapper. MCP now covers app runs, worker inspection and
+CW v0.1.13 completes the MCP / App Surface so agent hosts can take CW as a
+runtime in place of a CLI wrapper. MCP now covers app runs, worker inspection and
 output recording, candidate scoring/selection, sandbox profile resolution,
-verifier-gated commits, and structured operator summaries while preserving old
+verifier-gated commits, and structured operator summaries while keeping old
 tool names. See [docs/mcp-app-surface.7.md](docs/mcp-app-surface.7.md).
 
 CW v0.1.12 added Operator UX: human-readable status, graph, report summaries,
 resource summaries, commit/feedback/worker/candidate panels, and deterministic
-next-step recommendations. JSON remains available with `--json` or
+next-step suggestions. JSON is still there with `--json` or
 `--format json`. See [docs/operator-ux.7.md](docs/operator-ux.7.md).
 
 CW v0.1.11 added Canonical Workflow Apps: official app-directory userland for
 `architecture-review`, `pr-review-fix-ci`, `release-cut`, and
 `research-synthesis`. They validate and plan through `npm run canonical-apps`
-and are the app matrix used to judge whether the framework is pleasant, stable, and
-expressive. See
+and are the app matrix used to judge if the framework is nice to use, steady, and
+able to say much. See
 [docs/canonical-workflow-apps.7.md](docs/canonical-workflow-apps.7.md).
 
 CW v0.1.10 added the End-to-End Golden Path: a deterministic regression command
 that validates a first-class app, plans a run, dispatches a readonly isolated
-worker, records a simulated worker result, scores/selects a candidate, creates a
+worker, records a simulated worker result, scores/selects a candidate, makes a
 verifier-gated commit, and renders a report. See
 [docs/end-to-end-golden-path.7.md](docs/end-to-end-golden-path.7.md).
 
@@ -260,12 +260,12 @@ state/report metadata. See
 
 CW v0.1.8 added Sandbox Profiles: named worker policy contracts for read paths,
 write paths, command execution, network access, and environment exposure. CW
-stores and validates the policy, while the agent host enforces OS/process
+keeps and validates the policy, while the agent host makes good the OS/process
 runtime controls. See [docs/sandbox-profiles.7.md](docs/sandbox-profiles.7.md).
 
 ## Quickstart
 
-**30-second proof, no install** — see that a recorded telemetry verdict can't be forged:
+**30-second proof, no install** — see that a recorded telemetry verdict can't be faked:
 
 ```bash
 npx cool-workflow demo tamper
