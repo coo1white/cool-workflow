@@ -1,16 +1,16 @@
 # Multi-Agent Eval & Replay Harness
 
 CW v0.1.23 added a deterministic replay harness for topology-backed
-multi-agent runs. It turns a completed run into plain JSON evidence that can be
-replayed without live agents, compared with normalized rules, scored, and used
-as a release gate.
+multi-agent runs. It turns a finished run into plain JSON evidence. You can
+replay this evidence without live agents, compare it with normalized rules,
+score it, and use it as a release gate.
 
-CW v0.1.25 extends the harness with State Explosion Management metrics so the
-derived summary layer is regression-gated alongside the raw run:
+CW v0.1.25 adds State Explosion Management metrics to the harness, so the
+derived summary layer is regression-gated next to the raw run:
 `summary_freshness`, `compact_graph_parity`, `blackboard_digest_parity`,
 `critical_path_parity`, `evidence_digest_parity`, and `expansion_ref_integrity`.
-Pre-0.1.25 snapshots load with empty summary sections, so old fixtures stay
-backward compatible. See
+Pre-0.1.25 snapshots load with empty summary sections, so old fixtures keep
+working. See
 [state-explosion-management.7.md](state-explosion-management.7.md).
 
 CW v0.1.26 adds Evidence Adoption Reasoning Chain metrics: `reasoning_freshness`,
@@ -18,15 +18,15 @@ CW v0.1.26 adds Evidence Adoption Reasoning Chain metrics: `reasoning_freshness`
 snapshots load with empty reasoning sections. See
 [evidence-adoption-reasoning-chain.7.md](evidence-adoption-reasoning-chain.7.md).
 
-The harness is intentionally file-first:
+The harness is file-first by design:
 
 - snapshots, replay runs, comparisons, scores, findings, gates, and reports are
   stored under `.cw/evals/<suite-id>/`
-- the baseline run is not mutated during replay
-- replay output is written to an isolated `replay/` directory
-- every CLI command supports deterministic JSON with `--json` or
+- the baseline run is not changed during replay
+- replay output is written to a separate `replay/` directory
+- every CLI command can give deterministic JSON with `--json` or
   `--format json`
-- MCP tools return JSON only and include generated artifact paths
+- MCP tools return JSON only and include the paths of generated artifacts
 
 ## Commands
 
@@ -55,10 +55,10 @@ node scripts/cw.js eval gate .cw/evals/<suite-id>
 node scripts/cw.js eval report .cw/evals/<suite-id>/replay-run.json
 ```
 
-`npm run eval:replay` runs the deterministic smoke suite and is included in
+`npm run eval:replay` runs the deterministic smoke suite. It is part of
 `npm test` and `npm run release:check`.
 
-Human output uses stable panels:
+Human output uses fixed panels:
 
 ```text
 Eval Suite
@@ -75,7 +75,7 @@ Next Action
 
 ## Artifacts
 
-Each suite writes predictable files:
+Each suite writes these fixed files:
 
 - `suite.json`
 - `snapshot.json`
@@ -86,7 +86,7 @@ Each suite writes predictable files:
 - `gate.json`
 - `report.md`
 
-The snapshot captures workflow app identity, inputs, topology shape, roles,
+The snapshot keeps workflow app identity, inputs, topology shape, roles,
 groups, memberships, fanout/fanin state, blackboard records, worker outputs,
 candidate scores, selection rationale, verifier-gated commit inputs,
 trust/policy/audit records, expected operator summaries, evidence adoption, and
@@ -94,7 +94,7 @@ report sections.
 
 ## Comparison Rules
 
-The comparison checks:
+The comparison checks these:
 
 - topology id and topology run shape
 - roles, groups, memberships, fanout, and fanin records
@@ -107,7 +107,7 @@ The comparison checks:
 - verifier-gated commit readiness
 - report sections
 
-Normalization removes unstable paths, timestamps, generated temp roots, and
+Normalization takes out unstable paths, timestamps, generated temp roots, and
 machine-local directories. It does not hide changed evidence, policy,
 selection, scoring, or commit-gate behavior.
 
@@ -138,7 +138,7 @@ Scores are deterministic metrics:
 - `verifier_commit_gate_parity`
 - `report_parity`
 
-Each metric returns `id`, `status`, `score`, `maxScore`, `reason`, evidence
+Each metric gives back `id`, `status`, `score`, `maxScore`, `reason`, evidence
 refs, baseline refs, and replay refs.
 
 ## Gate
@@ -149,13 +149,13 @@ selected candidate, changed evidence adoption, changed policy violations,
 missing provenance, lost verifier-gated commit readiness, or graph/dependency
 loss.
 
-Improvements can be represented as changed findings in future suites, but they
-must be visible in `score.json`, `findings.json`, and `report.md` before a
-release gate can accept them.
+You can show improvements as changed findings in later suites, but they
+must be seen in `score.json`, `findings.json`, and `report.md` before a
+release gate can take them.
 
 ## MCP Parity
 
-The MCP surface mirrors the CLI:
+The MCP surface matches the CLI:
 
 - `cw_eval_snapshot`
 - `cw_eval_replay`
@@ -168,7 +168,7 @@ MCP responses are deterministic JSON and include artifact paths.
 
 ## Release Use
 
-Use this harness after a topology-backed run reaches score, selection, and a
+Use this harness after a topology-backed run gets a score, a selection, and a
 verifier-gated commit:
 
 ```bash
@@ -180,41 +180,41 @@ node scripts/cw.js eval gate .cw/evals/release-replay
 node scripts/cw.js eval report .cw/evals/release-replay/replay-run.json
 ```
 
-The gate proves the replay completed, graph/dependencies stayed stable,
-evidence adoption stayed traceable, trust/policy/audit records remained
-explainable, judge rationale is present, scoring/selection did not regress, and
+The gate proves the replay finished, graph/dependencies stayed stable,
+evidence adoption stayed traceable, trust/policy/audit records stayed
+explainable, judge rationale is there, scoring/selection did not regress, and
 verifier-gated commit readiness still holds.
 ## CLI ↔ MCP Parity (v0.1.27)
 
-Every command and tool referenced above is declared in the v0.1.27 capability
-registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
-so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+Every command and tool named above is declared in the v0.1.27 capability
+registry (`src/capability-registry.ts`) and checked by `npm run parity:check`,
+so `cw <cmd> --json` and the matching `cw_<tool>` result show one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 
 ## Run Registry / Control Plane (v0.1.28)
 
 The runs described here are indexed, searchable, resumable, archivable, and
-rerunnable across repos by the v0.1.28 Run Registry / Control Plane, which derives
+rerunnable across repos by the v0.1.28 Run Registry / Control Plane. It derives
 a fingerprinted, fail-closed index over the same per-run `.cw/runs/<id>/state.json`
 source of truth. See [run-registry-control-plane.7.md](run-registry-control-plane.7.md).
 
 ## Execution Backends (v0.1.29)
 
-v0.1.29 lifts execution into a pluggable driver layer: one narrow `ExecutionBackend`
+v0.1.29 moves execution into a pluggable driver layer: one narrow `ExecutionBackend`
 contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
-drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
-`backend list|show|probe`. The result/evidence envelope is schema-identical across
-backends; the backend id + sandbox attestation are recorded as provenance, so this
-surface is unchanged regardless of which backend executed a run. See
+drivers, chosen by `--backend` (next to `--sandbox`) and looked at with
+`backend list|show|probe`. The result/evidence envelope has the same schema across
+backends; the backend id + sandbox attestation are kept as provenance, so this
+surface stays the same no matter which backend ran a run. See
 [execution-backends.7.md](execution-backends.7.md).
 ## Web / Desktop Workbench (v0.1.30)
 
 v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
-console that renders this surface (and the other four operator panels — run
+console that shows this surface (and the other four operator panels — run
 graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR alongside
+reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR next to
 the CLI and MCP that holds no authoritative state and forks no schema: each panel
-equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
+equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and a refresh
 re-derives everything from disk. See
 [web-desktop-workbench.7.md](web-desktop-workbench.7.md).
 
@@ -222,11 +222,11 @@ re-derives everything from disk. See
 
 v0.1.31 adds Observability + Cost Accounting: `metrics show`/`metrics summary`
 derive durations, failure/verifier/acceptance rates (with sample counts and
-fail-closed `n/a`), and host-attested token/cost from existing durable run state
-— no metrics database, no collector daemon, no hidden counter. Usage is additive
-and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
+fail-closed `n/a`), and host-attested token/cost from run state that is already
+durable — no metrics database, no collector daemon, no hidden counter. Usage is
+additive and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
 × a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
-verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
+verbs are parity-gated and show read-only in the v0.1.30 Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
@@ -236,10 +236,10 @@ v0.1.32 adds Team Collaboration: a host-attested actor and append-only
 approvals/rejections/comments/handoffs provenance-linked to a durable target,
 plus a review gate that STACKS ON the verifier gate — required approvals from
 authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never instead of them, failing closed on quorum/authority/self-approval and
-recording who approved the very artifact that shipped. Policy (required approvals,
-authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and render read-only in the v0.1.30
+and never in place of them, failing closed on quorum/authority/self-approval and
+recording who approved the same artifact that shipped. Policy (required approvals,
+authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior is
+the same). The verbs are parity-gated and show read-only in the v0.1.30
 Workbench. See [Team Collaboration](team-collaboration.7.md).
 
 ## Release Tooling (v0.1.33)
@@ -248,11 +248,11 @@ the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffo
 
 ## Real Execution Backend Integrations (v0.1.34)
 
-container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is not there. See real-execution-backends(7).
 
 ## Node Snapshot / Diff / Replay (v0.1.35)
 
-per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
+per-node snapshot, structural diff, and isolated deterministic replay over StateNode, using the v0.1.23 eval harness again; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
 
 ## Contract Migration Tooling (v0.1.36)
 
@@ -280,15 +280,15 @@ evidence grounding + durable audit append + symlink-hardened containment + deter
 
 ## Robust Result Ingest (v0.1.42)
 
-capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
+capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — fixes the v0.1.41 live-drive 'accepted with 0 captured' failure
 
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
-Hard gate blocking empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
+Hard gate that blocks empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now check the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — this removes false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter that gives any non-Claude AI agent one common interface to CW.
 
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
@@ -305,7 +305,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, useful background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
-_No changes to the multi-agent eval/replay harness in v0.1.81 (the multi-agent-eval module was carved into behavior-preserving siblings; replay output is byte-identical)._
-_v0.1.82 — replay now RE-DERIVES the projection from the raw captured state instead of copying the baseline, so a nondeterministic projection is caught instead of silently passing; a new regression smoke (including an intrinsic-nondeterminism case) proves the moat has teeth._
+_No changes to the multi-agent eval/replay harness in v0.1.81 (the multi-agent-eval module was split into behavior-preserving siblings; replay output is byte-identical)._
+_v0.1.82 — replay now RE-DERIVES the projection from the raw captured state instead of copying the baseline, so a nondeterministic projection is caught instead of passing quietly; a new regression smoke (including an intrinsic-nondeterminism case) proves the moat has teeth._

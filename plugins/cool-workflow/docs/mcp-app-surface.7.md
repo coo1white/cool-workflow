@@ -1,25 +1,25 @@
 # MCP App Surface
 
-Cool Workflow v0.1.13 completes the MCP bridge as a runtime surface for agent
-hosts. The CLI remains the reference interface, and MCP exposes the same
-operational contracts as explicit JSON tools.
+Cool Workflow v0.1.13 makes the MCP bridge complete as a runtime surface for agent
+hosts. The CLI is still the chief interface, and MCP gives the same
+working contracts as clear JSON tools.
 
-The bridge follows CW's base-system discipline:
+The bridge keeps to CW's base-system rules:
 
-- old tool names remain compatible
-- read-only inspection tools do not mutate state
-- state-changing tools write durable run files
-- inputs use stable names such as `runId`, `appId`, `workerId`,
+- old tool names still work
+- read-only inspection tools do not change state
+- state-changing tools write run files that last
+- inputs use fixed names such as `runId`, `appId`, `workerId`,
   `candidateId`, `selectionId`, `profileId`, `cwd`, `reason`, `evidence`, and
   `criteria`
-- errors fail closed through JSON-RPC errors and durable ErrorFeedback where the
-  runtime already records feedback
+- errors fail closed through JSON-RPC errors and lasting ErrorFeedback where the
+  runtime already keeps feedback
 
 ## App Run Flow
 
-Use `cw_app_list`, `cw_app_show`, and `cw_app_validate` to inspect app
-contracts. `cw_app_package` writes a package artifact. `cw_app_run` creates a
-run from a Workflow App framework app id and structured inputs:
+Use `cw_app_list`, `cw_app_show`, and `cw_app_validate` to look at app
+contracts. `cw_app_package` writes a package artifact. `cw_app_run` makes a
+run from a Workflow App framework app id and ordered inputs:
 
 ```json
 {
@@ -32,16 +32,16 @@ run from a Workflow App framework app id and structured inputs:
 }
 ```
 
-The result includes `runId`, workflow/app id and version, `statePath`,
-`reportPath`, pending task count, compact operator status, next actions, and
-the resolved sandbox profile when one was requested.
+The result has `runId`, workflow/app id and version, `statePath`,
+`reportPath`, waiting task count, short operator status, next actions, and
+the worked-out sandbox profile when one was asked for.
 
-`cw_plan` remains the lower-level planning tool and returns the full run object
-for compatibility.
+`cw_plan` is still the lower-level planning tool and gives back the full run object
+so old uses keep working.
 
 ## Worker Inspection
 
-Worker isolation is first-class over MCP:
+Worker isolation is fully supported over MCP:
 
 - `cw_worker_list`
 - `cw_worker_show`
@@ -51,19 +51,19 @@ Worker isolation is first-class over MCP:
 - `cw_worker_fail`
 - `cw_worker_summary`
 
-Worker records expose the worker id, task id, status, worker directory,
+Worker records show the worker id, task id, status, worker directory,
 `input.md`, `result.md`, artifacts/logs directories, sandbox profile id,
-sandbox policy, feedback ids, multi-agent metadata when present, and
+sandbox policy, feedback ids, multi-agent metadata when there is some, and
 result/verifier node ids.
 
-An agent host should inspect `cw_worker_manifest`, write worker-local output to
-the manifest `resultPath`, then call `cw_worker_output`. CW validates the
-worker boundary, parses the `cw:result` block, creates result and verifier
-nodes, updates the task, writes reports, and checkpoints state.
+An agent host should look at `cw_worker_manifest`, write worker-local output to
+the manifest `resultPath`, then call `cw_worker_output`. CW checks the
+worker boundary, reads the `cw:result` block, makes result and verifier
+nodes, brings the task up to date, writes reports, and checkpoints state.
 
 ## Candidate Scoring
 
-Candidate operations mirror the CLI:
+Candidate operations are the same as the CLI:
 
 - `cw_candidate_register`
 - `cw_candidate_list`
@@ -74,7 +74,7 @@ Candidate operations mirror the CLI:
 - `cw_candidate_reject`
 - `cw_candidate_summary`
 
-`cw_candidate_score` accepts structured `criteria` and evidence locators:
+`cw_candidate_score` takes ordered `criteria` and evidence locators:
 
 ```json
 {
@@ -88,30 +88,30 @@ Candidate operations mirror the CLI:
 }
 ```
 
-`cw_candidate_rank` and `cw_candidate_select` support the same
+`cw_candidate_rank` and `cw_candidate_select` keep the same
 evidence/verifier-gate policy as the CLI with `requireEvidence`,
-`requireVerifierGate`, `minNormalized`, and `allowUnverified`. Missing evidence
-or verifier gates fail closed and produce structured feedback through the
+`requireVerifierGate`, `minNormalized`, and `allowUnverified`. When evidence
+or verifier gates are not there, they fail closed and give ordered feedback through the
 candidate scoring layer.
 
 ## Sandbox Profiles
 
-Existing sandbox tools remain:
+The sandbox tools that are already there stay:
 
 - `cw_sandbox_list`
 - `cw_sandbox_show`
 - `cw_sandbox_validate`
 
 v0.1.13 adds `cw_sandbox_choose` and `cw_sandbox_resolve` as read-only helpers
-that validate and resolve `sandbox`, `sandboxProfile`, `sandboxProfileId`, or
-`profileId` without dispatching work. `cw_dispatch` accepts all three sandbox
-field spellings for compatibility with different hosts.
+that check and work out `sandbox`, `sandboxProfile`, `sandboxProfileId`, or
+`profileId` without sending out work. `cw_dispatch` takes all three sandbox
+field spellings so it works with different hosts.
 
 ## Multi-Agent Runtime
 
-v0.1.17 adds MCP parity for first-class multi-agent state.
+v0.1.17 adds MCP parity for fully supported multi-agent state.
 
-v0.1.20 adds preferred host-facing tools for the full multi-agent loop:
+v0.1.20 adds host-facing tools that are now the right ones to use for the full multi-agent loop:
 
 - `cw_multi_agent_run`
 - `cw_multi_agent_status`
@@ -121,9 +121,9 @@ v0.1.20 adds preferred host-facing tools for the full multi-agent loop:
 - `cw_multi_agent_select`
 
 Use these when an agent host wants to drive `run -> status -> step ->
-blackboard -> score -> select` without manually plumbing topology, blackboard,
-candidate, and audit ids. The lower-level tools below remain advanced
-primitives.
+blackboard -> score -> select` without joining up topology, blackboard,
+candidate, and audit ids by hand. The lower-level tools below are still
+deeper primitives.
 
 v0.1.22 adds audit parity for multi-agent trust:
 
@@ -133,9 +133,9 @@ v0.1.22 adds audit parity for multi-agent trust:
 - `cw_audit_blackboard`
 - `cw_audit_judge`
 
-These tools expose role policies, permission decisions, blackboard write audit,
-message provenance, judge rationales, panel decisions, and policy violations in
-deterministic JSON.
+These tools show role policies, permission decisions, blackboard write audit,
+message provenance, judge reasons, panel decisions, and policy breaks in
+fixed JSON.
 
 v0.1.24 adds eval/replay parity for multi-agent regression gates:
 
@@ -146,9 +146,9 @@ v0.1.24 adds eval/replay parity for multi-agent regression gates:
 - `cw_eval_gate`
 - `cw_eval_report`
 
-These tools create replay snapshots, run isolated replays, compare normalized
-baseline/replay records, score metrics, fail closed on regressions, and return
-artifact paths in deterministic JSON.
+These tools make replay snapshots, run separate replays, put side by side normalized
+baseline/replay records, score metrics, fail closed on regressions, and give back
+artifact paths in fixed JSON.
 
 v0.1.25 adds State Explosion Management parity for large multi-agent runs:
 
@@ -158,13 +158,13 @@ v0.1.25 adds State Explosion Management parity for large multi-agent runs:
 - `cw_multi_agent_summarize`
 - `cw_multi_agent_graph_compact`
 
-These tools refresh durable, versioned summary records, read the stale-aware
-state-explosion report, return the blackboard digest, and return compact or
-focused graph views with synthetic summary nodes. Every response keeps source
-refs and expansion hints and never deletes raw blackboard, graph, audit, or
+These tools refresh lasting, versioned summary records, read the stale-aware
+state-explosion report, give back the blackboard digest, and give back compact or
+focused graph views with made-up summary nodes. Every response keeps source
+refs and expansion hints and never takes away raw blackboard, graph, audit, or
 evidence records.
 
-Read and inspect:
+Read and look at:
 
 - `cw_multi_agent_summary`
 - `cw_multi_agent_graph`
@@ -185,13 +185,13 @@ Safe writes:
 - `cw_multi_agent_fanout_create`
 - `cw_multi_agent_fanin_collect`
 
-These tools mirror the CLI state model. CW records and validates roles, groups,
-memberships, fanout/fanin, and lifecycle state; the host still executes agents
-and enforces OS/process/network/environment controls.
+These tools are the same as the CLI state model. CW keeps and checks roles, groups,
+memberships, fanout/fanin, and lifecycle state; the host still runs agents
+and puts in force OS/process/network/environment controls.
 
 ## Verifier-Gated Commit
 
-`cw_commit` accepts verifier-gate fields:
+`cw_commit` takes verifier-gate fields:
 
 ```json
 {
@@ -201,17 +201,17 @@ and enforces OS/process/network/environment controls.
 }
 ```
 
-It also supports `verifier`, `verifierNode`, `candidate`, `selection`,
-`allowUnverifiedCheckpoint`, and `reason`. The MCP response includes `runId`,
+It also takes `verifier`, `verifierNode`, `candidate`, `selection`,
+`allowUnverifiedCheckpoint`, and `reason`. The MCP response has `runId`,
 `commitId`, `verifierGated`, `checkpoint`, verifier/candidate/selection ids,
-`evidenceCount`, `snapshotPath`, next actions, and the underlying commit record.
+`evidenceCount`, `snapshotPath`, next actions, and the commit record under it.
 
 Use `cw_commit_summary` for a read-only view of verifier-gated commits and
-explicit checkpoints.
+named checkpoints.
 
 ## Operator Views
 
-MCP exposes structured JSON equivalents of Operator UX:
+MCP gives ordered JSON forms equal to Operator UX:
 
 - `cw_operator_status`
 - `cw_operator_graph`
@@ -222,14 +222,14 @@ MCP exposes structured JSON equivalents of Operator UX:
 - `cw_commit_summary`
 - `cw_multi_agent_summary`
 
-These tools return JSON summaries instead of console text. `cw_operator_report`
+These tools give back JSON summaries in place of console text. `cw_operator_report`
 refreshes the Markdown report the same way the CLI renderer does; the rest are
 read-only inspection tools.
 
 ## CLI/MCP Parity
 
-The CLI remains the easiest way for humans to drive a run. MCP is the stable
-tool surface for agent hosts. New runtime capabilities should appear in both
-surfaces, keep old names as aliases or wrappers, and use explicit JSON
-contracts rather than host-specific policy hidden in the bridge.
+The CLI is still the easiest way for people to drive a run. MCP is the steady
+tool surface for agent hosts. New runtime powers should come up in both
+surfaces, keep old names as aliases or wrappers, and use clear JSON
+contracts in place of host-specific policy hidden in the bridge.
 0.1.51
