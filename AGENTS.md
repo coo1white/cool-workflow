@@ -119,6 +119,16 @@ Rules:
    take out a fact (for one, "it never runs the models itself") only to make
    the words simpler.
 
+# PR Merge Order
+When more than one PR is open and ready, merge them **oldest first — in ascending
+PR creation timestamp**. Enumerate with `created` ascending (e.g. list PRs sorted
+created/asc), and for EACH, in order: confirm CI is green and the PR is
+mergeable, merge it, then move to the next — re-checking the next PR's
+mergeability after the prior merge (an older merge can leave a newer PR needing a
+rebase). Never merge a newer PR ahead of an older ready one. This is an operating
+rule the agent applies when merging; there is no background hook — GitHub PR
+events do not reach a local Claude Code hook.
+
 # Reporting
 At the end of each cycle, append to ITERATION_LOG.md:
 cycle id | goal | files changed | tests added | gate result | tagged? (why/why not)
