@@ -282,40 +282,40 @@ source at any time.
 
 ## CLI ↔ MCP Parity (v0.1.28)
 
-Every command and tool referenced above is declared in the capability registry
-(`src/capability-registry.ts`) and validated by `npm run parity:check`, so
-`cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+Every command and tool named above is declared in the capability registry
+(`src/capability-registry.ts`) and checked by `npm run parity:check`, so
+`cw <cmd> --json` and the matching `cw_<tool>` result show one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 
 ## Execution Backends (v0.1.29)
 
 v0.1.29 lifts execution into a pluggable driver layer: one narrow `ExecutionBackend`
-contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
-drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
+contract with `node`/`bun`/`shell`/`container`/`remote`/`ci`
+drivers you can swap, picked by `--backend` (parallel to `--sandbox`) and looked at through
 `backend list|show|probe`. The result/evidence envelope is schema-identical across
-backends; the backend id + sandbox attestation are recorded as provenance, so this
-surface is unchanged regardless of which backend executed a run. See
+backends; the backend id + sandbox attestation are kept as provenance, so this
+surface is unchanged no matter which backend ran a run. See
 [execution-backends.7.md](execution-backends.7.md).
 ## Web / Desktop Workbench (v0.1.30)
 
 v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
-console that renders this surface (and the other four operator panels — run
+console that shows this surface (and the other four operator panels — run
 graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR alongside
+reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR beside
 the CLI and MCP that holds no authoritative state and forks no schema: each panel
 equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
-re-derives everything from disk. See
+makes everything again from disk. See
 [web-desktop-workbench.7.md](web-desktop-workbench.7.md).
 
 ## Observability + Cost Accounting (v0.1.31)
 
 v0.1.31 adds Observability + Cost Accounting: `metrics show`/`metrics summary`
-derive durations, failure/verifier/acceptance rates (with sample counts and
-fail-closed `n/a`), and host-attested token/cost from existing durable run state
+work out durations, failure/verifier/acceptance rates (with sample counts and
+fail-closed `n/a`), and host-attested token/cost from durable run state that is already there
 — no metrics database, no collector daemon, no hidden counter. Usage is additive
 and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
 × a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
-verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
+verbs are parity-gated and show read-only in the v0.1.30 Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
@@ -324,24 +324,24 @@ verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
 v0.1.32 adds Team Collaboration: a host-attested actor and append-only
 approvals/rejections/comments/handoffs provenance-linked to a durable target,
 plus a review gate that STACKS ON the verifier gate — required approvals from
-authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never instead of them, failing closed on quorum/authority/self-approval and
-recording who approved the very artifact that shipped. Policy (required approvals,
+authorized roles, made to hold inside `resolveCommitGate` AFTER the verifier checks
+and never in place of them, failing closed on quorum/authority/self-approval and
+keeping a record of who approved the very artifact that shipped. Policy (required approvals,
 authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and render read-only in the v0.1.30
+unchanged). The verbs are parity-gated and show read-only in the v0.1.30
 Workbench. See [Team Collaboration](team-collaboration.7.md).
 
 ## Release Tooling (v0.1.33)
 
-the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a de-duplicated release gate. See release-tooling(7).
+the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a release gate that has no doubles. See release-tooling(7).
 
 ## Real Execution Backend Integrations (v0.1.34)
 
-container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+container/remote/ci backends really run work (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is not on hand. See real-execution-backends(7).
 
 ## Node Snapshot / Diff / Replay (v0.1.35)
 
-per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the v0.1.23 eval harness; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
+per-node snapshot, structural diff, and on-its-own deterministic replay over StateNode, using the v0.1.23 eval harness again; fail-closed on source drift (valid|stale|absent). See node-snapshot-diff-replay(7).
 
 ## Contract Migration Tooling (v0.1.36)
 
@@ -353,11 +353,11 @@ priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed pa
 
 ## Agent Delegation Drive (v0.1.38)
 
-spawn an external agent process per worker, capture result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
+start an external agent process per worker, take in result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
 ## Run Retention & Provable Reclamation (v0.1.39)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it
+tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the bulk that can be built again, prove it
 
 ## Durable State & Locking (v0.1.40)
 
@@ -369,15 +369,15 @@ evidence grounding + durable audit append + symlink-hardened containment + deter
 
 ## Robust Result Ingest (v0.1.42)
 
-capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
+take in findings/evidence from any sensible agent shape (alt keys + prose), CW makes grounded evidence itself, give a warning on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
 
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
-Hard gate blocking empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
+Hard gate stopping empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now check the committed blob (`git show HEAD:<path>`) in place of the mutable working tree — doing away with false-red/false-green from working-tree writes at the same time (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
 
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
@@ -394,9 +394,9 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, Map and Assess results you can use again, wrapper metrics you can measure, a background full-review handoff you can act on, and userland model policy flags for routing fast/strong workers without any change to the full review contract.
 
 ## Resume Drive, Inspect-Archive & Restore Re-Prove (v0.1.81)
 
-v0.1.81 adds `run resume <id> --drive/--once` (continue an interrupted run via the agent-drive loop; default resume stays read-only and byte-identical), `run inspect-archive PATH` (read-only archive integrity check that names any offending file without importing), and restore-time hardening: `verify-import` now re-proves the trust-audit chain on restore and gains `--strict`, and `CW_REQUIRE_ARCHIVE_INTEGRITY=1` refuses a stripped-integrity archive before any write.
-_No behavioral change in v0.1.82 (run resolution now threads an explicit base directory via CoolWorkflowRunner.withBaseDir instead of mutating process.cwd; the resolved run is unchanged)._
+v0.1.81 adds `run resume <id> --drive/--once` (go on with a run that was stopped through the agent-drive loop; default resume stays read-only and byte-identical), `run inspect-archive PATH` (read-only archive integrity check that names any bad file without importing), and restore-time hardening: `verify-import` now proves the trust-audit chain again on restore and gains `--strict`, and `CW_REQUIRE_ARCHIVE_INTEGRITY=1` turns away a stripped-integrity archive before any write.
+_No behavioral change in v0.1.82 (run resolution now threads an explicit base directory via CoolWorkflowRunner.withBaseDir in place of changing process.cwd; the resolved run is unchanged)._

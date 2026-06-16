@@ -2,12 +2,12 @@
 
 CW keeps source-context slimming out of the runtime kernel. The profile is policy
 data in `manifest/source-context-profiles.json`; `scripts/source-context.js` is a
-small mechanism that reads a git ref and writes JSONL to stdout.
+small part that reads a git ref and writes JSONL to stdout.
 
 ## Core Profile
 
 The default `core` profile is the project memory for AI source imports. It keeps
-runtime source and app/userland entrypoints, and leaves generated artifacts,
+runtime source and app/userland entrypoints, and leaves made artifacts,
 tests, docs, release records, and long logs as manifest-only records.
 
 Included:
@@ -30,26 +30,26 @@ Excluded from exported content:
 - `CHANGELOG.md`
 - `ITERATION_LOG.md`
 
-Exclusion does not delete files and does not change release behavior. `dist/`
-remains a committed release artifact until the release contract is explicitly
+Leaving a file out does not delete it and does not change release behavior. `dist/`
+stays a committed release artifact till the release contract is clearly
 changed.
 
 ## Narrow Profiles
 
-Use a narrower opt-in profile when the question is already scoped:
+Use a narrower opt-in profile when the question is already scoped down:
 
 - `runtime`: the full `src/**` runtime kernel plus package and TypeScript
   metadata.
 - `mcp`: capability core/registry, CLI routing, MCP server, MCP launcher scripts,
   and shared types.
-- `workflow-apps`: canonical apps plus the Workflow App framework and app
+- `workflow-apps`: the true apps plus the Workflow App framework and app
   planning/orchestration surface.
 - `release`: release flow, gates, manifest/version tooling, package metadata, and
   release-tooling docs.
-- `agent-wrappers`: external agent wrappers, agent config, execution backend,
+- `agent-wrappers`: outside agent wrappers, agent config, execution backend,
   drive loop, and agent-delegation docs.
 
-The narrow profiles are policy data only. Selecting one changes only the JSONL
+The narrow profiles are policy data only. Picking one changes only the JSONL
 context pack; it does not change runtime behavior, release contents, or the
 default `core` profile.
 
@@ -73,35 +73,35 @@ node scripts/source-context.js export --profile core --ref HEAD --repo-root /pat
 `export` emits only included text files and adds `content`. Both commands use
 stdout for JSONL data only. Diagnostics and refusal messages go to stderr.
 
-`--changed-from REF` is opt-in diff-aware mode. It filters `manifest` and
-`export` to paths changed between the resolved base commit and `--ref`, then
-applies the selected profile include/exclude rules. Deleted files are omitted
-because there is no blob at the target ref. Records include `changedFrom` with
-the resolved base commit. Empty diffs are valid and emit empty JSONL.
+`--changed-from REF` is opt-in diff-aware mode. It cuts `manifest` and
+`export` down to paths changed between the resolved base commit and `--ref`, then
+applies the selected profile include/exclude rules. Deleted files are left out
+because there is no blob at the target ref. Records take in `changedFrom` with
+the resolved base commit. Empty diffs are good and emit empty JSONL.
 
 `export --cache-dir DIR` is opt-in. The cache key is the resolved git commit SHA
-plus a digest of the selected source profile, so changing either the ref or the
-include/exclude policy produces a different JSONL cache file. Cache hits write the
-same JSONL bytes to stdout and stay silent on stderr. Corrupt or mismatched cache
-records fail closed instead of falling back silently. Diff-aware exports include
+plus a digest of the selected source profile, so changing the ref or the
+include/exclude policy makes a different JSONL cache file. Cache hits write the
+same JSONL bytes to stdout and stay quiet on stderr. Broken or wrong cache
+records fail closed in place of falling back without a word. Diff-aware exports take in
 the resolved `--changed-from` commit in the cache key, so full and changed exports
 do not share cache files.
 
-`--repo-root DIR` is also opt-in; when omitted, the script keeps its historical
+`--repo-root DIR` is opt-in too; when left out, the script keeps its past
 default and reads the Cool Workflow repository root.
 
 ## Verification
 
 The smoke test checks that:
 
-- the profile includes and excludes exactly the remembered paths;
+- the profile takes in and leaves out the very same remembered paths;
 - `dist/`, tests, docs, release records, and long logs are manifest-only;
-- exported records are parseable JSONL with content and sha256;
-- narrow profiles are slimmer than `core` and include/exclude their intended
-  surfaces;
-- `--changed-from` emits only changed current-ref files, still honors excludes,
-  and caches separately from full exports;
-- cached exports are byte-identical to uncached exports and corrupt cache hits
+- exported records are JSONL that parses with content and sha256;
+- narrow profiles are slimmer than `core` and include/exclude the surfaces they
+  are meant to;
+- `--changed-from` emits only changed current-ref files, still keeps its excludes,
+  and caches apart from full exports;
+- cached exports are byte-identical to uncached exports and broken cache hits
   fail closed;
 - the `core` profile stays under its `maxLines` guard.
 
@@ -113,7 +113,7 @@ node test/source-context-profile-smoke.js
 
 ## FreeBSD Discipline
 
-This feature is opt-in and does not alter existing CLI output. It is mechanism,
+This feature is opt-in and does not change present CLI output. It is mechanism,
 not policy: profile selection lives in data, and vendor prompt/stream behavior
-stays in wrappers. It fails closed on invalid profiles, unknown refs, binary
-included files, and line-count drift past the configured guard.
+stays in wrappers. It fails closed on bad profiles, unknown refs, binary
+included files, and line-count drift past the set guard.
