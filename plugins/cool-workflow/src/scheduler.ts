@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { ScheduleKind, ScheduleRunRecord, ScheduleStatus, ScheduleStore, ScheduledTask } from "./types";
-import { readJson, writeJson } from "./state";
+import { readJson, withFileLock, writeJson } from "./state";
 
 const DEFAULT_TTL_DAYS = 7;
 
@@ -13,6 +13,17 @@ export class Scheduler {
   constructor(cwd = process.cwd()) {
     this.cwd = path.resolve(cwd);
     this.storePath = path.join(this.cwd, ".cw", "schedules", "tasks.json");
+  }
+
+  // Every mutation is a cross-process read-modify-write of the one store file
+  // (the daemon polls `due` while CLI calls create/complete/delete concurrently).
+  // Without serialization two writers both load, both atomically rename their
+  // copy back, and the second silently clobbers the first's new task / status /
+  // history record. `locked` holds the same advisory lock the queue and
+  // reclamation stores already use. Reads (list/history) need no lock: the atomic
+  // rename means a reader always sees a whole old-or-new store.
+  private locked<T>(fn: () => T): T {
+    return withFileLock(this.storePath, fn);
   }
 
   create(options: Record<string, unknown>): ScheduledTask {
@@ -42,10 +53,12 @@ export class Scheduler {
       maxRuns: numberOption(options.maxRuns),
       runCount: 0
     };
-    const store = this.load();
-    store.tasks.push(task);
-    this.save(store);
-    return task;
+    return this.locked(() => {
+      const store = this.load();
+      store.tasks.push(task);
+      this.save(store);
+      return task;
+    });
   }
 
   list(status?: string): ScheduledTask[] {
@@ -54,14 +67,20 @@ export class Scheduler {
   }
 
   delete(id: string): { deleted: boolean; id: string } {
-    const store = this.load();
-    const before = store.tasks.length;
-    store.tasks = store.tasks.filter((task) => task.id !== id);
-    this.save(store);
-    return { deleted: store.tasks.length !== before, id };
+    return this.locked(() => {
+      const store = this.load();
+      const before = store.tasks.length;
+      store.tasks = store.tasks.filter((task) => task.id !== id);
+      this.save(store);
+      return { deleted: store.tasks.length !== before, id };
+    });
   }
 
   due(now = new Date()): ScheduledTask[] {
+    return this.locked(() => this.dueLocked(now));
+  }
+
+  private dueLocked(now: Date): ScheduledTask[] {
     const store = this.load();
     let changed = false;
     for (const task of store.tasks) {
@@ -89,22 +108,24 @@ export class Scheduler {
   }
 
   complete(id: string, options: Record<string, unknown> = {}): ScheduledTask {
-    const store = this.load();
-    const task = store.tasks.find((candidate) => candidate.id === id);
-    if (!task) throw new Error(`Scheduled task not found: ${id}`);
-    const now = new Date();
-    task.runCount += 1;
-    task.lastRunAt = now.toISOString();
-    task.updatedAt = now.toISOString();
-    const maxRuns = numberOption(options.maxRuns) ?? task.maxRuns;
-    if (maxRuns !== undefined) task.maxRuns = maxRuns;
-    if (task.kind === "reminder" || (task.maxRuns !== undefined && task.runCount >= task.maxRuns)) {
-      task.status = "completed";
-    } else {
-      task.nextRunAt = computeNextRunAt(task, now).toISOString();
-    }
-    this.save(store);
-    return task;
+    return this.locked(() => {
+      const store = this.load();
+      const task = store.tasks.find((candidate) => candidate.id === id);
+      if (!task) throw new Error(`Scheduled task not found: ${id}`);
+      const now = new Date();
+      task.runCount += 1;
+      task.lastRunAt = now.toISOString();
+      task.updatedAt = now.toISOString();
+      const maxRuns = numberOption(options.maxRuns) ?? task.maxRuns;
+      if (maxRuns !== undefined) task.maxRuns = maxRuns;
+      if (task.kind === "reminder" || (task.maxRuns !== undefined && task.runCount >= task.maxRuns)) {
+        task.status = "completed";
+      } else {
+        task.nextRunAt = computeNextRunAt(task, now).toISOString();
+      }
+      this.save(store);
+      return task;
+    });
   }
 
   pause(id: string): ScheduledTask {
@@ -112,28 +133,32 @@ export class Scheduler {
   }
 
   resume(id: string): ScheduledTask {
-    const store = this.load();
-    const task = findTask(store, id);
-    const now = new Date();
-    task.status = "active";
-    task.updatedAt = now.toISOString();
-    if (new Date(task.nextRunAt).getTime() <= now.getTime()) {
-      task.nextRunAt = computeNextRunAt(task, now).toISOString();
-    }
-    this.save(store);
-    return task;
+    return this.locked(() => {
+      const store = this.load();
+      const task = findTask(store, id);
+      const now = new Date();
+      task.status = "active";
+      task.updatedAt = now.toISOString();
+      if (new Date(task.nextRunAt).getTime() <= now.getTime()) {
+        task.nextRunAt = computeNextRunAt(task, now).toISOString();
+      }
+      this.save(store);
+      return task;
+    });
   }
 
   runNow(id: string): ScheduleRunRecord {
-    const store = this.load();
-    const task = findTask(store, id);
-    const now = new Date();
-    task.lastDueAt = now.toISOString();
-    task.updatedAt = now.toISOString();
-    const record = createHistoryRecord(task, "started", this.cwd, now);
-    store.history.push(record);
-    this.save(store);
-    return record;
+    return this.locked(() => {
+      const store = this.load();
+      const task = findTask(store, id);
+      const now = new Date();
+      task.lastDueAt = now.toISOString();
+      task.updatedAt = now.toISOString();
+      const record = createHistoryRecord(task, "started", this.cwd, now);
+      store.history.push(record);
+      this.save(store);
+      return record;
+    });
   }
 
   history(id?: string): ScheduleRunRecord[] {
@@ -142,12 +167,14 @@ export class Scheduler {
   }
 
   private setStatus(id: string, status: ScheduleStatus): ScheduledTask {
-    const store = this.load();
-    const task = findTask(store, id);
-    task.status = status;
-    task.updatedAt = new Date().toISOString();
-    this.save(store);
-    return task;
+    return this.locked(() => {
+      const store = this.load();
+      const task = findTask(store, id);
+      task.status = status;
+      task.updatedAt = new Date().toISOString();
+      this.save(store);
+      return task;
+    });
   }
 
   private load(): ScheduleStore {

@@ -17,6 +17,11 @@ const runner = new orchestrator_1.CoolWorkflowRunner({
 });
 process.stdin.setEncoding("utf8");
 let buffer = "";
+// A single line-delimited JSON-RPC request is bounded; an un-terminated stream
+// (a peer that never sends a newline, or a slow byte dribble) must not grow the
+// long-lived server's buffer without limit until it OOMs. Cap the unconsumed
+// buffer and fail closed on a frame that exceeds it.
+const MAX_LINE_BYTES = 16 * 1024 * 1024;
 process.stdin.on("data", (chunk) => {
     buffer += chunk;
     let newlineIndex;
@@ -25,6 +30,12 @@ process.stdin.on("data", (chunk) => {
         buffer = buffer.slice(newlineIndex + 1);
         if (line)
             handleLine(line);
+    }
+    if (buffer.length > MAX_LINE_BYTES) {
+        // No newline in an over-cap buffer ⇒ a malformed or hostile frame. Reject it
+        // and drop the partial bytes rather than accumulate toward OOM.
+        buffer = "";
+        sendError(null, -32700, `Parse error: request line exceeds ${MAX_LINE_BYTES} bytes`);
     }
 });
 function handleLine(line) {

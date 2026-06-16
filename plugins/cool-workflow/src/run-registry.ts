@@ -261,16 +261,27 @@ export class RunRegistry implements QueueHost, GcHost {
   // is the absent-vs-corrupt conflation telemetry-ledger.ts flags as the bug that
   // "let a corrupt overlay verify green" — here it would silently un-archive every
   // archived run / drop every provenance link. This is authoritative durable state.
+  // A present overlay must parse to a JSON OBJECT. readJson already fails closed
+  // on unparseable bytes; this catches the next shape over: valid JSON that is
+  // `null`, an array, or a scalar. Without it `parsed.archived` throws a cryptic
+  // TypeError (null) or silently reads `undefined` (array) and the whole registry
+  // scan breaks. Fail closed with a clear message instead.
+  private requireOverlayObject<T>(parsed: unknown, file: string): T {
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(`Corrupt overlay ${file}: expected a JSON object, got ${Array.isArray(parsed) ? "array" : parsed === null ? "null" : typeof parsed}`);
+    }
+    return parsed as T;
+  }
   private loadArchiveOverlay(repo: string): ArchiveOverlay {
     const file = path.join(this.repoRegistryDir(repo), "archive.json");
     if (!fs.existsSync(file)) return { schemaVersion: 1, archived: {} };
-    const parsed = readJson(file) as ArchiveOverlay;
+    const parsed = this.requireOverlayObject<ArchiveOverlay>(readJson(file), file);
     return { schemaVersion: 1, archived: parsed.archived || {} };
   }
   private loadProvenanceOverlay(repo: string): ProvenanceOverlay {
     const file = path.join(this.repoRegistryDir(repo), "provenance.json");
     if (!fs.existsSync(file)) return { schemaVersion: 1, links: {} };
-    const parsed = readJson(file) as ProvenanceOverlay;
+    const parsed = this.requireOverlayObject<ProvenanceOverlay>(readJson(file), file);
     return { schemaVersion: 1, links: parsed.links || {} };
   }
   private loadRepoOverlays(repo: string): RepoOverlays {
@@ -297,7 +308,7 @@ export class RunRegistry implements QueueHost, GcHost {
     // operator registered, shrinking the home index to the current repo with no
     // signal. Let readJson's `Invalid JSON` throw surface the corruption.
     if (!fs.existsSync(file)) return { schemaVersion: 1, repos: [] };
-    const parsed = readJson(file) as ReposFile;
+    const parsed = this.requireOverlayObject<ReposFile>(readJson(file), file);
     return { schemaVersion: 1, repos: Array.isArray(parsed.repos) ? parsed.repos : [] };
   }
   /** Persisted union of registered repo roots and the current repo, deduped and
@@ -837,9 +848,14 @@ export class RunRegistry implements QueueHost, GcHost {
     // Record provenance in the per-repo overlay (derived metadata), NOT in the
     // original run's source state — the past is never mutated.
     const provFile = path.join(this.repoRegistryDir(original.repo), "provenance.json");
-    const provOverlay = this.loadProvenanceOverlay(original.repo);
-    provOverlay.links[newRun.id] = provenance;
-    writeJson(provFile, provOverlay, { durable: true });
+    // Lock the read-modify-write: a concurrent rerun/archive on the same repo
+    // overlay would otherwise last-writer-wins and drop a provenance link. The
+    // sibling writers (registerRepo, archive) already serialize via withFileLock.
+    withFileLock(provFile, () => {
+      const provOverlay = this.loadProvenanceOverlay(original.repo);
+      provOverlay.links[newRun.id] = provenance;
+      writeJson(provFile, provOverlay, { durable: true });
+    });
     return {
       schemaVersion: 1,
       originalRunId: runId,

@@ -270,7 +270,15 @@ function getWorkerScope(run, workerId) {
     const file = node_path_1.default.join(workerRoot(run), (0, state_1.safeFileName)(workerId), paths_1.WORKER_SCOPE_FILE);
     if (!node_fs_1.default.existsSync(file))
         return undefined;
-    const scope = (0, validation_1.validateWorkerScope)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
+    let scope;
+    try {
+        scope = (0, validation_1.validateWorkerScope)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
+    }
+    catch (error) {
+        // A present-but-corrupt scope fails closed with context, not a raw
+        // SyntaxError/validation throw bubbling up from deep in the call stack.
+        throw new Error(`Corrupt worker scope ${file}: ${error instanceof Error ? error.message : String(error)}`);
+    }
     upsertWorkerScope(run, scope);
     return scope;
 }
@@ -871,7 +879,19 @@ function loadWorkerScopesFromDisk(run) {
         .filter((entry) => entry.isDirectory())
         .map((entry) => node_path_1.default.join(workerRoot(run), entry.name, paths_1.WORKER_SCOPE_FILE))
         .filter((file) => node_fs_1.default.existsSync(file))
-        .map((file) => (0, validation_1.validateWorkerScope)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8"))));
+        .map((file) => {
+        // One corrupt/partially-written worker.json must not blank the whole
+        // listing (summarizeWorkers/listWorkerScopes) — skip it with a diagnostic
+        // and surface every worker that IS readable.
+        try {
+            return (0, validation_1.validateWorkerScope)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
+        }
+        catch (error) {
+            process.stderr.write(`cw: skipping unreadable worker scope ${file}: ${error instanceof Error ? error.message : String(error)}\n`);
+            return undefined;
+        }
+    })
+        .filter((scope) => scope !== undefined);
 }
 function requireWorkerScope(run, workerId) {
     const scope = getWorkerScope(run, workerId);
