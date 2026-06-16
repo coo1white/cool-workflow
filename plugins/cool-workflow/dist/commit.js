@@ -584,7 +584,11 @@ function readGitHead(cwd) {
         return (0, node_child_process_1.execFileSync)("git", ["rev-parse", "HEAD"], {
             cwd,
             encoding: "utf8",
-            stdio: ["ignore", "pipe", "ignore"]
+            stdio: ["ignore", "pipe", "ignore"],
+            // Bound the call: a hung filesystem, a held .git/index.lock, or a
+            // credential-helper prompt must not block the commit path forever. A
+            // timeout throws, which the catch below maps to "no git head".
+            timeout: 5000
         }).trim();
     }
     catch {
