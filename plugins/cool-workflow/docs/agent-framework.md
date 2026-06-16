@@ -1,59 +1,60 @@
 # Workflow App framework
 
-CW is designed as an independent agent workflow control-plane.
+CW is made as an independent agent workflow control-plane.
 
-The goal is to make agent development feel like building inside a platform
-ecosystem. CW provides the runtime, contracts, storage, CLI, MCP bridge, and
-package structure. Developers write workflow apps against those contracts.
+The aim is to make agent development feel like building inside a platform
+ecosystem. CW gives the runtime, contracts, storage, CLI, MCP bridge, and
+package structure. Developers make workflow apps that keep to those contracts.
 
-The framework is guided by five practical systems principles: small kernel, explicit
-state, composable pipes, isolated workers, and verifier-gated commits. See
+The framework is guided by five useful systems rules: small kernel, explicit
+state, pipes you can put together, separate workers, and commits that a verifier
+lets through. See
 [unix-principles.md](unix-principles.md).
 
 ## Platform Contract
 
-Every CW workflow follows this loop:
+Every CW workflow keeps to this loop:
 
 ```text
 interpret -> act -> observe -> adjust -> checkpoint
 ```
 
-The loop maps to concrete framework operations:
+The loop maps to real framework operations:
 
 | Loop stage | framework operation | Responsibility |
 | --- | --- | --- |
-| Interpret | `plan()` | Load workflow, validate inputs, generate tasks |
-| Act | `dispatch()` | Move runnable tasks from pending to running |
+| Interpret | `plan()` | Load workflow, check inputs, make tasks |
+| Act | `dispatch()` | Move tasks that can run from pending to running |
 | Observe | `recordResult()` | Read Markdown/JSON-RPC result evidence |
-| Adjust | verifier gates | Validate evidence and choose the next phase |
-| Checkpoint | `commitState()` | Snapshot state after important transitions |
+| Adjust | verifier gates | Check evidence and pick the next phase |
+| Checkpoint | `commitState()` | Take a snapshot of state after important changes |
 
-The v0.1.12 operator UX layer renders read-only summaries over run state:
+The v0.1.12 operator UX layer makes read-only summaries over run state:
 human `status`, graph maps, report summaries, resource summaries, and
-deterministic next-step recommendations. Scripts can keep using `--json` or
+fixed next-step suggestions. Scripts can go on using `--json` or
 `--format json`.
 
-The v0.1.13 MCP app surface exposes the same runtime operations to agent hosts
+The v0.1.13 MCP app surface gives the same runtime operations to agent hosts
 with stable JSON tools: app run, dispatch, worker inspection/output, candidate
 scoring/selection, sandbox profile resolution, verifier-gated commit, and
 operator status/graph/report summaries.
 
-The v0.1.13 canonical app matrix validates and plans the maintained userland
+The v0.1.13 canonical app matrix checks and plans the kept userland
 apps with public CLI commands:
 
 ```bash
 npm run canonical-apps
 ```
 
-The golden path runs the full integration chain end to end:
+The golden path runs the full integration chain from start to end:
 
 ```bash
 npm run golden-path
 ```
 
-It validates an app, plans a run, dispatches a readonly worker, accepts a
-worker-local `cw:result`, scores and selects a candidate, creates a
-verifier-gated commit, and renders a report. See
+It checks an app, plans a run, dispatches a readonly worker, takes a
+worker-local `cw:result`, scores and picks a candidate, makes a
+verifier-gated commit, and makes a report. See
 [end-to-end-golden-path.7.md](end-to-end-golden-path.7.md).
 
 ## Developer Contract
@@ -63,7 +64,7 @@ A workflow app defines:
 - `id`, `title`, and `summary`
 - `schemaVersion`, app `version`, compatibility, and metadata when using the
   first-class Workflow App framework contract
-- required and repeated inputs
+- needed and repeated inputs
 - phase order
 - agent tasks
 - artifact tasks
@@ -119,7 +120,7 @@ module.exports = defineWorkflowApp({
 ```
 
 Legacy `module.exports = ({ workflow, phase, agent, artifact }) => workflow(...)`
-files remain loadable. CW wraps them as compatibility apps with version `0.0.0`
+files can still be loaded. CW wraps them as compatibility apps with version `0.0.0`
 so workflow files still plan and dispatch. When a canonical app owns the public
 id, compatibility wrappers use explicit ids such as `legacy-research-synthesis`.
 
@@ -139,22 +140,22 @@ apps/<app-id>/app.json
 apps/<app-id>/workflow.js
 ```
 
-This is intentional. The runtime is strongly typed for maintainability, while
-workflow scripts can run without `ts-node`.
+This is done on purpose. The runtime is strongly typed so it is simple to keep
+up, while workflow scripts can run without `ts-node`.
 
 See [workflow-app-framework.7.md](workflow-app-framework.7.md) for the full app contract,
-validation rules, CLI commands, MCP tools, and state/report fields.
+the rules for checking, CLI commands, MCP tools, and state/report fields.
 See [mcp-app-surface.7.md](mcp-app-surface.7.md) for the agent-host runtime
 surface over MCP.
 See [operator-ux.7.md](operator-ux.7.md) for the operator inspection surface.
 See [canonical-workflow-apps.7.md](canonical-workflow-apps.7.md) for the
 official app matrix.
 See [end-to-end-golden-path.7.md](end-to-end-golden-path.7.md) for the
-deterministic release proof that those pieces connect.
+fixed release proof that those parts connect.
 
 ## Evidence Contract
 
-Verification and verdict tasks should return:
+Verification and verdict tasks should give back:
 
 ````text
 ```cw:result
@@ -166,11 +167,11 @@ Verification and verdict tasks should return:
 ```
 ````
 
-CW rejects high-priority findings without evidence. This keeps agent work closer
-to inspectable engineering output than unconstrained conversation.
+CW says no to high-priority findings without evidence. This keeps agent work
+nearer to engineering output you can look into than to free talk.
 
 ## Boundary
 
-CW is an independent workflow control-plane by COOLWHITE LLC. It implements dynamic workflows,
-scheduled tasks, local scheduling, routine triggers, state checkpoints, and
-multi-agent verification.
+CW is an independent workflow control-plane by COOLWHITE LLC. It puts into effect
+workflows that change, scheduled tasks, local scheduling, routine triggers, state
+checkpoints, and multi-agent verification.
