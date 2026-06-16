@@ -16,14 +16,14 @@ node dist/cli.js worker manifest <run-id> <worker-id>
 
 ## DESCRIPTION
 
-A sandbox profile is a CW policy contract. It tells the agent host what a
-worker may read, write, execute, access over the network, and receive through
+A sandbox profile is a CW policy contract. It says what the agent host lets a
+worker read, write, execute, get to over the network, and take in through
 environment variables.
 
-It is not a container, jail, chroot, seatbelt profile, packet filter, or OS
-process sandbox by itself. CW enforces profile validation, deterministic path
+By itself it is not a container, jail, chroot, seatbelt profile, packet filter,
+or OS process sandbox. CW does profile validation, deterministic path
 normalization, worker result acceptance, and durable feedback for denied worker
-output. The agent host must enforce OS-level file access, process execution,
+output. The agent host has to do OS-level file access, process execution,
 network access, and environment filtering.
 
 The design goal is simple:
@@ -32,28 +32,28 @@ The design goal is simple:
 named policy -> resolved worker manifest -> host enforcement -> CW acceptance
 ```
 
-Profiles are selected at dispatch time and stored in run state, worker records,
+Profiles are picked at dispatch time and kept in run state, worker records,
 dispatch manifests, worker manifests, feedback records, and reports.
 
 ## BUNDLED PROFILES
 
 `default`
-: Preserves existing Worker Isolation behavior. Workers may read the workspace
-  and write only accepted worker output paths unless additional `allowedPaths`
-  are supplied by older APIs.
+: Keeps the same Worker Isolation behavior. Workers may read the workspace
+  and write only accepted worker output paths, unless more `allowedPaths`
+  come from older APIs.
 
 `readonly`
 : Workers may read the workspace and write only worker-local output paths.
-  Network access is denied by profile. CW still relies on the host to enforce
-  read-only mounts or equivalent OS policy.
+  Network access is denied by profile. CW still needs the host to do
+  read-only mounts or an equal OS policy.
 
 `workspace-write`
-: Workers may read and write the workspace, plus worker-local output paths.
-  Use this only for workers expected to modify repository files.
+: Workers may read and write the workspace, and worker-local output paths too.
+  Use this only for workers that are meant to change repository files.
 
 `locked-down`
 : Workers may read only `input.md` and write only `result.md`. Command,
-  network, and inherited environment access are denied by policy.
+  network, and inherited environment access are all denied by policy.
 
 ## PROFILE SHAPE
 
@@ -73,14 +73,14 @@ Profile files use schema version `1`:
 }
 ```
 
-Supported path tokens are `$cwd`, `$runDir`, `$workerDir`, `$inputPath`,
-`$resultPath`, `$artifactsDir`, and `$logsDir`. Relative paths are resolved
+The path tokens you may use are `$cwd`, `$runDir`, `$workerDir`, `$inputPath`,
+`$resultPath`, `$artifactsDir`, and `$logsDir`. Relative paths are worked out
 from the run workspace. Empty paths, control characters, unknown tokens, and
-`..` traversal are rejected.
+`..` traversal are turned away.
 
 `execute.mode` and `network.mode` are `none`, `allowlist`, or `any`.
 Allowlisted commands or network targets are exact strings. Environment variable
-names must use normal shell identifier syntax.
+names have to use normal shell identifier syntax.
 
 ## ENFORCEMENT
 
@@ -93,15 +93,15 @@ CW-enforced:
 
 Host-required:
 
-- preventing reads outside `readPaths`
-- preventing writes before CW accepts a result
+- stopping reads outside `readPaths`
+- stopping writes before CW takes a result
 - command execution restrictions
 - network restrictions
 - environment variable filtering
 
-Worker manifests include both lists as `sandbox.enforcedByCW` and
-`sandbox.hostRequired`. Do not present CW Sandbox Profiles as OS-level
-sandboxing unless the agent host actually applies OS policy.
+Worker manifests have both lists as `sandbox.enforcedByCW` and
+`sandbox.hostRequired`. Do not put forward CW Sandbox Profiles as OS-level
+sandboxing unless the agent host truly puts OS policy to work.
 
 ## FILES
 
@@ -118,20 +118,20 @@ sandboxing unless the agent host actually applies OS policy.
 
 Unknown requested profiles fail closed with `sandbox-profile-not-found`.
 
-Malformed profile files fail validation with `sandbox-profile-invalid`.
+Bad profile files fail validation with `sandbox-profile-invalid`.
 
-Denied worker output writes create `sandbox-write-denied` feedback. Runtime
-helpers also provide `sandbox-read-denied`, `sandbox-network-denied`, and
-`sandbox-command-denied` for hosts that want to record those decisions through
+Denied worker output writes make `sandbox-write-denied` feedback. Runtime
+helpers also give `sandbox-read-denied`, `sandbox-network-denied`, and
+`sandbox-command-denied` for hosts that want to note down those decisions through
 CW.
 
-CW never silently downgrades a requested profile to `default`.
+CW never quietly drops a requested profile down to `default`.
 
 ## COMPATIBILITY
 
-Sandbox Profiles are introduced in CW v0.1.8. The legacy `allowedPaths` field
-remains in worker scopes and manifests as the effective write-path alias for
+Sandbox Profiles come in with CW v0.1.8. The legacy `allowedPaths` field
+stays in worker scopes and manifests as the effective write-path alias for
 older callers. New hosts should read `sandboxPolicy.readPaths` and
-`sandboxPolicy.writePaths`, then apply worker output allowances from
-`sandboxPolicy.workerOutput`.
+`sandboxPolicy.writePaths`, then put worker output allowances from
+`sandboxPolicy.workerOutput` to work.
 0.1.51

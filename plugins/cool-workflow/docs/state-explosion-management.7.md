@@ -1,30 +1,30 @@
 # State Explosion Management
 
-CW v0.1.25 adds State Explosion Management. As multi-agent collaboration grows,
-blackboard and graph output can become too large to read. This release adds a
-first-class summarization and compaction layer that makes complex runs
-understandable without hiding source truth.
+CW v0.1.25 adds State Explosion Management. When multi-agent work grows,
+blackboard and graph output can get too big to read. This release adds a
+first-class summarization and compaction layer that makes hard runs
+clear to read without hiding source truth.
 
 CW v0.1.26 builds on this layer with the Evidence Adoption Reasoning Chain, which
-reuses the same derived, fingerprinted, fail-closed discipline and whose
-reasoning steps are exempt from the compaction described here. See
+reuses the same derived, fingerprinted, fail-closed way of working and whose
+reasoning steps are free from the compaction talked about here. See
 [evidence-adoption-reasoning-chain.7.md](evidence-adoption-reasoning-chain.7.md).
 
-The design follows a base-system observability philosophy:
+The design keeps to a base-system observability way of thinking:
 
 - raw state is the source of truth
-- summaries are derived userland indexes, never replacements for source records
+- summaries are derived userland indexes, never a substitute for source records
 - plain files, stable JSON, deterministic output
-- small composable commands and readable console views with full
-  machine-readable output available
-- fail closed when a summary is stale, incomplete, ambiguous, or loses
+- small composable commands and readable console views, with full
+  machine-readable output ready to use
+- fail closed when a summary is stale, not complete, not clear, or loses
   provenance
 - backward compatible; no hidden daemon; no lossy deletion of blackboard,
   graph, audit, or evidence records
 
 ## Derived summary model
 
-Summary records are durable, versioned, and provenance-backed. Each carries
+Summary records are durable, versioned, and backed by provenance. Each one carries
 `schemaVersion`, `runId`, a summary `id`, a `scope`
 (`run`, `topology`, `multi-agent-run`, `group`, `role`, `membership`, `fanout`,
 `fanin`, `blackboard`, `topic`, `evidence`, `trust`, or `eval`),
@@ -43,14 +43,14 @@ Record types:
 
 Summaries are written under `.cw/runs/<run-id>/summaries/` as plain JSON. Raw
 blackboard messages, graph nodes, graph edges, audit events, evidence refs, and
-eval artifacts are never deleted or overwritten.
+eval artifacts are never deleted or written over.
 
 Within a single summary build, CW shares the derived full operator graph,
 operator status, blackboard digest, state-size record, and graph view records
-through a short-lived in-memory context. This avoids rebuilding the same graph
-for `summary refresh`, `summary show`, and the top-level state-explosion report.
-It is not a daemon or persistent cache: the next command re-reads run state from
-disk, recomputes source fingerprints, and still fails closed on stale summaries.
+through a short-lived in-memory context. This way it does not build the same graph
+again for `summary refresh`, `summary show`, and the top-level state-explosion report.
+It is not a daemon or persistent cache: the next command reads run state from
+disk again, works out source fingerprints again, and still fails closed on stale summaries.
 
 ## Blackboard summarization
 
@@ -58,28 +58,28 @@ disk, recomputes source fingerprints, and still fails closed on stale summaries.
 deterministic structural digest with topic rollups, message thread summaries,
 unresolved questions, conflicts, decisions, artifacts, adopted evidence,
 missing evidence, policy violations, judge rationale, recent changes, and
-high-signal records. Every entry preserves links back to source messages,
+high-signal records. Every entry keeps links back to source messages,
 contexts, artifacts, snapshots, coordinator decisions, and audit events, plus an
 expansion command for the raw records. Structural summaries exist without any
-LLM output; any semantic summary must be explicit, provenance-backed, and
-evidence-linked.
+LLM output; any semantic summary must be clear, backed by provenance, and
+linked to evidence.
 
 ## Graph compaction
 
 `multi-agent graph <run-id> --view <view>` produces compact graph views.
 Supported views: `full`, `compact`, `critical-path`, `failures`, `evidence`,
 `trust`, `topology`, `blackboard`, `candidate`, and `commit-gate`. Use
-`--focus <id>` and `--depth <n>` to center the view on a node and its
-neighborhood.
+`--focus <id>` and `--depth <n>` to put the view on a node and the
+nodes near it.
 
-Compact views collapse high-volume groups, topics, fanouts, fanins, message
+Compact views fold high-volume groups, topics, fanouts, fanins, message
 clusters, and evidence chains into synthetic summary nodes. Each synthetic node
-exposes `collapsedNodeCount`, `collapsedEdgeCount`, `sourceIds`,
+shows `collapsedNodeCount`, `collapsedEdgeCount`, `sourceIds`,
 `dominantStatus`, an optional `blockedReason`, and an `expansionCommand`.
 
-The critical path is always preserved, and failures, blocked records,
+The critical path is always kept, and failures, blocked records,
 conflicts, missing evidence, policy violations, and judge rationale are never
-collapsed.
+folded.
 
 ## CLI
 
@@ -98,11 +98,11 @@ Every command supports deterministic JSON with `--json` or `--format json`.
 Human output is organized into stable panels: State Size, Compact Graph,
 Blackboard Digest, Critical Path, Failures / Blockers, Evidence Digest,
 Trust / Policy Digest, Hidden Source Records, Expansion Commands, and Next
-Action. JSON output is never silently compacted; compaction is applied only to
-human views or when a compact view is explicitly requested.
+Action. JSON output is never quietly compacted; compaction is used only on
+human views or when a compact view is clearly asked for.
 
-When thresholds are exceeded, human output automatically shows compact
-summaries and tells the operator how to inspect the full data, for example:
+When thresholds are gone past, human output by itself shows compact
+summaries and tells the operator how to look at the full data, for example:
 
 ```text
 Graph compacted: 420 nodes collapsed into 18 summary nodes
@@ -122,7 +122,7 @@ MCP responses include source refs and expansion hints.
 
 ## Eval / replay integration
 
-Eval snapshots include summary artifacts, and replay comparison treats them as
+Eval snapshots take in summary artifacts, and replay comparison treats them as
 regression-gated. Metrics: `summary_freshness`, `compact_graph_parity`,
 `blackboard_digest_parity`, `critical_path_parity`, `evidence_digest_parity`,
 and `expansion_ref_integrity`. The eval gate fails closed on stale summaries,
@@ -133,36 +133,36 @@ summary/report mismatch.
 ## Trust and audit
 
 Summary generation is recorded in the trust-audit log. `summary refresh` records
-a `summary.refresh` event noting who or what generated the summary, which scopes
-were summarized, how many records were included and omitted, whether the summary
+a `summary.refresh` event noting who or what made the summary, which scopes
+were summarized, how many records were put in and left out, whether the summary
 is deterministic, the source fingerprint, and whether it is stale. `summary
-show` records a `summary.stale` event when the persisted fingerprint no longer
-matches current source state. Audit metadata never stores secrets or large raw
+show` records a `summary.stale` event when the kept fingerprint no longer
+matches current source state. Audit metadata never keeps secrets or large raw
 message bodies.
 
 ## Freshness and fail-closed behavior
 
-`summary show` recomputes the current source fingerprint and compares it to the
-persisted record. If they differ, the report status is `stale`, stale scopes are
+`summary show` works out the current source fingerprint again and compares it to the
+kept record. If they are not the same, the report status is `stale`, stale scopes are
 listed, and the next action is `summary refresh`. This keeps derived indexes
-honest: a summary is never trusted once its source records change.
+true: a summary is never trusted once its source records change.
 
 ## Migration
 
 Pre-0.1.25 runs have no `summaries/` directory; `summary show` reports `absent`
-and recommends `summary refresh`. Pre-0.1.25 eval snapshots load with empty
-summary sections, so existing fixtures and replays remain backward compatible.
+and tells you to use `summary refresh`. Pre-0.1.25 eval snapshots load with empty
+summary sections, so existing fixtures and replays stay backward compatible.
 Newer unsupported run-state schemas still fail closed.
 ## CLI ↔ MCP Parity (v0.1.27)
 
-Every command and tool referenced above is declared in the v0.1.27 capability
-registry (`src/capability-registry.ts`) and validated by `npm run parity:check`,
-so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
+Every command and tool named above is declared in the v0.1.27 capability
+registry (`src/capability-registry.ts`) and checked by `npm run parity:check`,
+so `cw <cmd> --json` and the matching `cw_<tool>` result show one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 
 ## Run Registry / Control Plane (v0.1.28)
 
-The runs described here are indexed, searchable, resumable, archivable, and
+The runs talked about here are indexed, searchable, resumable, archivable, and
 rerunnable across repos by the v0.1.28 Run Registry / Control Plane, which derives
 a fingerprinted, fail-closed index over the same per-run `.cw/runs/<id>/state.json`
 source of truth. See [run-registry-control-plane.7.md](run-registry-control-plane.7.md).
@@ -170,21 +170,21 @@ source of truth. See [run-registry-control-plane.7.md](run-registry-control-plan
 ## Execution Backends (v0.1.29)
 
 v0.1.29 lifts execution into a pluggable driver layer: one narrow `ExecutionBackend`
-contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
-drivers, selected by `--backend` (parallel to `--sandbox`) and inspected via
+contract with swappable `node`/`bun`/`shell`/`container`/`remote`/`ci`
+drivers, picked by `--backend` (parallel to `--sandbox`) and looked at through
 `backend list|show|probe`. The result/evidence envelope is schema-identical across
 backends; the backend id + sandbox attestation are recorded as provenance, so this
-surface is unchanged regardless of which backend executed a run. See
+surface stays the same no matter which backend ran a run. See
 [execution-backends.7.md](execution-backends.7.md).
 ## Web / Desktop Workbench (v0.1.30)
 
 v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
-console that renders this surface (and the other four operator panels — run
+console that shows this surface (and the other four operator panels — run
 graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR alongside
+reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR next to
 the CLI and MCP that holds no authoritative state and forks no schema: each panel
 equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
-re-derives everything from disk. See
+derives everything again from disk. See
 [web-desktop-workbench.7.md](web-desktop-workbench.7.md).
 
 ## Observability + Cost Accounting (v0.1.31)
@@ -195,7 +195,7 @@ fail-closed `n/a`), and host-attested token/cost from existing durable run state
 — no metrics database, no collector daemon, no hidden counter. Usage is additive
 and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
 × a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
-verbs are parity-gated and render read-only in the v0.1.30 Workbench. See
+verbs are parity-gated and show read-only in the v0.1.30 Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
@@ -205,10 +205,10 @@ v0.1.32 adds Team Collaboration: a host-attested actor and append-only
 approvals/rejections/comments/handoffs provenance-linked to a durable target,
 plus a review gate that STACKS ON the verifier gate — required approvals from
 authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never instead of them, failing closed on quorum/authority/self-approval and
+and never in place of them, failing closed on quorum/authority/self-approval and
 recording who approved the very artifact that shipped. Policy (required approvals,
 authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and render read-only in the v0.1.30
+not changed). The verbs are parity-gated and show read-only in the v0.1.30
 Workbench. See [Team Collaboration](team-collaboration.7.md).
 
 ## Release Tooling (v0.1.33)
@@ -217,7 +217,7 @@ the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffo
 
 ## Real Execution Backend Integrations (v0.1.34)
 
-container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+container/remote/ci backends really run (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is not there to use. See real-execution-backends(7).
 
 ## Node Snapshot / Diff / Replay (v0.1.35)
 
@@ -249,15 +249,15 @@ evidence grounding + durable audit append + symlink-hardened containment + deter
 
 ## Robust Result Ingest (v0.1.42)
 
-capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
+capture findings/evidence from any sensible agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
 
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
-Hard gate blocking empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
+Hard gate stopping empty-capture verifier-gated commits, plus quickstart and launch-prep docs.
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now check the committed blob (`git show HEAD:<path>`) instead of the changeable working tree — taking away false-red/false-green from working-tree writes at the same time (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
 
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
@@ -274,7 +274,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, useful background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
-_No changes to the state-explosion management surface in v0.1.81 (the module was carved into behavior-preserving siblings; output is byte-identical)._
+_No changes to the state-explosion management surface in v0.1.81 (the module was cut into behavior-preserving siblings; output is byte-identical)._
 _No changes in v0.1.82._

@@ -3,28 +3,28 @@
 CW v0.1.31 adds Observability + Cost Accounting: time/duration, failure rate,
 verifier pass rate, candidate acceptance rate, and token/cost — all DERIVED from
 the run state CW already keeps. Before v0.1.31 there was no metrics module and no
-token or cost field anywhere; run state already carried `createdAt`/`updatedAt`/
+token or cost field anywhere; run state already had `createdAt`/`updatedAt`/
 `completedAt`/`dispatchedAt` and outcome statuses on tasks, workers, verifier
-nodes, candidates, memberships, and feedback. This release projects those into a
-report — and adds an additive, host-attested usage record so cost can be
-accounted honestly — without changing the `ResultEnvelope` schema and without
-taking ownership of source truth.
+nodes, candidates, memberships, and feedback. This release turns those into a
+report — and adds an added-on, host-attested usage record so cost can be
+worked out in an honest way — without changing the `ResultEnvelope` schema and without
+taking over the source truth.
 
-The design follows the same base-system observability philosophy as
+The design keeps to the same base-system observability idea as
 [State Explosion Management](state-explosion-management.7.md) and the
 [Run Registry / Control Plane](run-registry-control-plane.7.md):
 
 - the per-run `.cw/runs/<id>/state.json` is the SINGLE source of truth
-- metrics are a DERIVED projection of source records, never a separate database
+- metrics are a DERIVED view of source records, never a separate database
 - no telemetry pipeline, no background collector daemon, no hidden counters
 - plain files, stable JSON, deterministic output
-- fail closed: a rate over zero samples is `n/a`, never a fabricated 0%/100%
-- cost is ATTESTED, never measured or fabricated; absent usage is `unreported`
-- backward compatible; usage/cost fields are additive and optional
+- fail closed: a rate over zero samples is `n/a`, never a made-up 0%/100%
+- cost is ATTESTED, never measured or made up; missing usage is `unreported`
+- backward compatible; usage/cost fields are added-on and optional
 
 ## Derived, not a telemetry pipeline
 
-Every number is a projection of existing durable state:
+Every number comes from durable state that is already there:
 
 - durations come from recorded timestamps — `dispatchedAt`→`completedAt` for
   tasks, `createdAt`→worker output `recordedAt` for workers, `createdAt`→
@@ -34,31 +34,31 @@ Every number is a projection of existing durable state:
   total of those samples;
 - the verifier pass rate counts `verifier` state nodes whose status is a pass
   (`verified`/`committed`) against decided gates (pass + `failed`/`rejected`/
-  `blocked`); pending/running gates are undecided and excluded;
+  `blocked`); pending/running gates are not yet decided and left out;
 - the candidate acceptance rate counts `selected`/`verified` candidates over all
   candidate records.
 
 There is no metrics store. `deriveMetricsReport(run, { now, policy })` is a PURE
 function of one run's state, an injected `now`, and an optional pricing policy.
-The only now-derived field is `generatedAt`; durations are computed from recorded
+The only now-derived field is `generatedAt`; durations are worked out from recorded
 timestamps, so a report over a fixed snapshot is byte-reproducible (eval/replay
-agnostic). The per-run report is persisted as a rebuildable, fingerprinted
+agnostic). The per-run report is kept as a rebuildable, fingerprinted
 snapshot under `.cw/runs/<id>/metrics/metrics-report.json`; the cross-repo
 summary reports each run's snapshot freshness as `valid|stale|absent` against
-current source — fail closed, exactly like the registry.
+current source — fail closed, just like the registry.
 
 ## A counter you cannot trust is worse than none
 
 Each rate is a `RateMetric` carrying `state` (`ok`/`n/a`), `count`, `total`,
 `rate`, and per-bucket sample counts. Over zero samples the state is `n/a` and
-`count`/`rate` are `null` — never `0`. No divide-by-zero, no partial-data rate
-presented as complete. Sample counts and buckets accompany every rate so a reader
-can audit the numerator and denominator.
+`count`/`rate` are `null` — never `0`. No divide-by-zero, and no part-data rate
+shown as if it were complete. Sample counts and buckets come with every rate so a reader
+can check the numerator and denominator.
 
 ## Cost is attested, never measured or fabricated
 
 CW does not call the model; the host/worker does. Token usage is recorded as
-HOST-ATTESTED provenance — a `UsageRecord` accepted on the existing intake path
+HOST-ATTESTED provenance — a `UsageRecord` taken in on the existing intake path
 and stored on the task or worker record (never on `ResultEnvelope`):
 
 ```
@@ -68,15 +68,15 @@ cw result <run-id> <task-id> <file> \
 cw worker output <run-id> <worker-id> <file> --usage-input-tokens N --usage-output-tokens M --usage-model ID
 ```
 
-CW records what the host attests, verbatim, and synthesizes nothing. When the
-host reports no usage the value is an explicit `unreported` — never `0`, never a
-silent guess. The report surfaces `usage.coverage` (the fraction of work units
-carrying attested usage) and `usage.unreportedUnits` so the gap is visible.
+CW records what the host attests, word for word, and makes up nothing. When the
+host reports no usage the value is a clear `unreported` — never `0`, never a
+quiet guess. The report shows `usage.coverage` (the part of work units
+carrying attested usage) and `usage.unreportedUnits` so the gap can be seen.
 
-A monetary figure is `attested` ONLY when derived from attested usage × a
+A money figure is `attested` ONLY when it comes from attested usage × a
 recorded pricing policy with an EXACT model match. When a model is priced by the
-policy's `defaultPrice` fallback, that portion is a SEPARATE `estimated` figure
-and the cost `state` becomes `estimated`; the two USD figures are never conflated
+policy's `defaultPrice` fallback, that part is a SEPARATE `estimated` figure
+and the cost `state` becomes `estimated`; the two USD figures are never mixed
 into one. Cost states:
 
 - `attested` — every attested model exact-matched a policy entry;
@@ -87,23 +87,23 @@ into one. Cost states:
 ## Mechanism vs policy: pricing is data
 
 The runtime is MECHANISM: it records attested usage and derives rates/durations.
-The pricing table is POLICY — supplied as DATA (`CostPolicy`), not baked into the
-kernel. The same attested usage yields different cost reports under different
+The pricing table is POLICY — given as DATA (`CostPolicy`), not built into the
+kernel. The same attested usage gives different cost reports under different
 pricing without touching the runtime. A bundled EXAMPLE policy lives at
-`manifest/pricing.policy.json` (USD per 1e6 tokens, an editable starting point —
+`manifest/pricing.policy.json` (USD per 1e6 tokens, a starting point you can edit —
 not a live price feed); pass `--pricing <path>` to use your own, or
-`--pricing default` for the bundled example. With no policy supplied, cost is
+`--pricing default` for the bundled example. With no policy given, cost is
 `unpriced`/`unreported`, never guessed.
 
 ## One source, every surface
 
 The metrics verbs are declared once in `src/capability-registry.ts`, so the CLI
-and MCP surfaces are two renderings of one core (`src/observability.ts`) and pass
+and MCP surfaces are two views of one core (`src/observability.ts`) and pass
 the v0.1.27 parity gate — `cw <cmd> --json` is byte-identical to `cw_<tool>`
 (durations are integers from recorded timestamps; only the ISO `generatedAt` is
-now-derived and neutralized by the parity probe). The v0.1.30 Workbench renders a
+now-derived and made neutral by the parity probe). The v0.1.30 Workbench renders a
 read-only metrics panel from the same payload, showing coverage and
-`unreported`/`n/a` honestly — it shows nothing the CLI/MCP cannot.
+`unreported`/`n/a` in an honest way — it shows nothing the CLI/MCP cannot.
 
 ## Commands
 
@@ -112,11 +112,11 @@ read-only metrics panel from the same payload, showing coverage and
   the canonical payload; `--pricing <path>|default` to price attested usage.
 - `cw metrics summary` — the cross-repo rollup over the v0.1.28 run registry:
   pooled rates, summed attested usage/cost with coverage, and per-app and
-  per-backend breakdowns. `--scope repo|home`; unreadable runs are counted
-  (`unreadableRuns`), never silently dropped.
+  per-backend breakdowns. `--scope repo|home`; runs that cannot be read are counted
+  (`unreadableRuns`), never quietly dropped.
 
-MCP hosts call `cw_metrics_show` and `cw_metrics_summary` with the identical
-payloads. Old runs load and report `unreported` cost while still yielding correct
+MCP hosts call `cw_metrics_show` and `cw_metrics_summary` with the same
+payloads. Old runs load and report `unreported` cost while still giving correct
 time and rate metrics from their existing timestamps and outcomes.
 
 This document targets CW 0.1.31.
@@ -127,8 +127,8 @@ This document targets CW 0.1.31.
 v0.1.32 adds Team Collaboration: a host-attested actor and append-only
 approvals/rejections/comments/handoffs provenance-linked to a durable target,
 plus a review gate that STACKS ON the verifier gate — required approvals from
-authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never instead of them, failing closed on quorum/authority/self-approval and
+authorized roles, made to hold inside `resolveCommitGate` AFTER the verifier checks
+and never in place of them, failing closed on quorum/authority/self-approval and
 recording who approved the very artifact that shipped. Policy (required approvals,
 authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
 unchanged). The verbs are parity-gated and render read-only in the v0.1.30
@@ -136,11 +136,11 @@ Workbench. See [Team Collaboration](team-collaboration.7.md).
 
 ## Release Tooling (v0.1.33)
 
-the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a de-duplicated release gate. See release-tooling(7).
+the per-tag mechanical surfaces (version bump across 17 surfaces, feature scaffold, and the forward-reference docs) become deterministic scripts, with a release gate that drops repeats. See release-tooling(7).
 
 ## Real Execution Backend Integrations (v0.1.34)
 
-container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint is unavailable. See real-execution-backends(7).
+container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, with byte-stable evidence vs node and fail-closed refusal when a runtime/endpoint cannot be reached. See real-execution-backends(7).
 
 ## Node Snapshot / Diff / Replay (v0.1.35)
 
@@ -172,7 +172,7 @@ evidence grounding + durable audit append + symlink-hardened containment + deter
 
 ## Robust Result Ingest (v0.1.42)
 
-capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, warn on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
+capture findings/evidence from any reasonable agent shape (alt keys + prose), CW derives grounded evidence itself, give a warning on empty capture — closes the v0.1.41 live-drive 'accepted with 0 captured' failure
 
 ## No-False-Green Gate & Launch Prep (v0.1.43)
 
@@ -180,7 +180,7 @@ Hard gate blocking empty-capture verifier-gated commits, plus quickstart and lau
 
 ## Release-Gate Determinism & Agents Vendor (v0.1.44)
 
-Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — eliminating false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
+Release-readiness checks now validate the committed blob (`git show HEAD:<path>`) instead of the mutable working tree — taking away false-red/false-green from concurrent working-tree writes (iCloud/Spotlight/editor). Adds the `agents` vendor manifest target: a generated `.agents/plugins/cool-workflow/` adapter giving any non-Claude AI agent one common interface to CW.
 
 ## P1-P2 Fixes & CI Content Surfaces (v0.1.49)
 
@@ -197,7 +197,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, actionable background full-review handoff, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, background full-review handoff you can act on, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
-_No changes to the observability + cost-accounting surface in v0.1.81 (the observability module was carved into behavior-preserving siblings; output is byte-identical)._
+_No changes to the observability + cost-accounting surface in v0.1.81 (the observability module was split into behavior-preserving siblings; output is byte-identical)._
 _No changes in v0.1.82._

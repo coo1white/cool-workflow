@@ -1,9 +1,9 @@
 # Dogfood One Real Repo
 
-CW v0.1.16 proves the release workflow against the real Cool Workflow
-repository. The proof uses the canonical `release-cut` app, records isolated
-worker outputs, scores a release candidate, selects it only with verifier
-evidence, creates a verifier-gated CW state commit, and renders trust audit
+CW v0.1.16 tests the release workflow against the real Cool Workflow
+repository. The test uses the canonical `release-cut` app, keeps a record of
+separate worker outputs, scores a release candidate, picks it only with verifier
+evidence, makes a verifier-gated CW state commit, and shows trust audit
 provenance.
 
 ## Dry-Run Command
@@ -15,7 +15,7 @@ cd plugins/cool-workflow
 npm run dogfood:release
 ```
 
-The command targets the repository two directories above the package, uses
+The command points at the repository two directories above the package, uses
 `release-cut`, sets `version=0.1.18`, `previousVersion=0.1.17`, the current git
 branch, and `dryRun=true`. It writes a machine-readable summary to:
 
@@ -23,13 +23,13 @@ branch, and `dryRun=true`. It writes a machine-readable summary to:
 .cw/runs/<run-id>/dogfood-summary.json
 ```
 
-The summary includes the run id, report path, audit summary path, provenance
+The summary has the run id, report path, audit summary path, provenance
 counts, worker ids, candidate id, score id, selection id, commit or checkpoint
 id, command log paths, and the release verdict.
 
 ## Real Evidence
 
-The full dry-run collects real repository evidence from:
+The full dry-run gets real repository evidence from:
 
 ```bash
 git status --short --branch
@@ -44,8 +44,8 @@ npm run release:check
 npm pack --dry-run --json
 ```
 
-Each command log is written under the worker `logs/` directory and cited in the
-worker `cw:result` evidence array. The release verdict worker carries the full
+Each command log is written under the worker `logs/` directory and named in the
+worker `cw:result` evidence array. The release verdict worker takes the full
 set of command locators into the release candidate, score, selection, and
 commit/checkpoint provenance.
 
@@ -72,14 +72,14 @@ node scripts/cw.js audit provenance <run-id> --candidate dogfood-release-0.1.18
 node scripts/cw.js audit provenance <run-id> --commit <commit-id>
 ```
 
-The report answers why the candidate is trusted by showing sandbox profiles,
-host attestations, evidence provenance, candidate scoring, acceptance rationale,
+The report tells why the candidate is trusted by showing sandbox profiles,
+host attestations, evidence provenance, candidate scoring, acceptance reasons,
 and the verifier-gated commit.
 
-The dogfood command remains a local release-engineering script rather than a new
-MCP tool because it composes existing first-class CW capabilities: `release-cut`
+The dogfood command stays a local release-engineering script and not a new
+MCP tool because it is built from existing first-class CW capabilities: `release-cut`
 planning, dispatch, worker manifests/output, candidate scoring/selection,
-commits, reports, and audit/provenance. MCP parity is preserved for the
+commits, reports, and audit/provenance. MCP parity is kept for the
 inspectable state through the existing worker, candidate, commit, operator
 report, and audit tools.
 
@@ -91,14 +91,14 @@ report, and audit tools.
 node test/dogfood-release-smoke.js
 ```
 
-The smoke test executes `scripts/dogfood-release.js --smoke --json`. It still
+The smoke test runs `scripts/dogfood-release.js --smoke --json`. It still
 uses the real repository, `release-cut`, worker manifests, trust audit records,
 candidate scoring, selection, verifier-gated commit, and a report, but keeps the
-command set smaller to avoid recursive release checking.
+command set smaller so it does not do recursive release checking.
 
 ## Promote To Real Release Actions
 
-Dry-run mode never creates tags, pushes, publishes packages, or mutates a
+Dry-run mode never makes tags, pushes, puts out packages, or changes a
 marketplace. Real actions are separate maintainer commands after the dogfood
 run passes:
 
@@ -110,42 +110,42 @@ git tag v0.1.18
 git push origin main --tags
 ```
 
-Package publish and plugin marketplace updates should be separate visible
-steps. If future execute flags are used, they must be explicit, for example
-`--execute --tag --confirm-release-actions=0.1.18`. The script refuses tag,
-push, or publish flags in dry-run mode and refuses execute mode without the
+Package publish and plugin marketplace updates should be separate, clear
+steps. If execute flags are used later, they must be stated openly, for example
+`--execute --tag --confirm-release-actions=0.1.18`. The script says no to tag,
+push, or publish flags in dry-run mode and says no to execute mode without the
 target-version confirmation.
 
 ## Safety Gates
 
-The dogfood command holds the candidate and writes an explicit checkpoint if
-any evidence command fails, version sync is incomplete, release docs are
-missing, audit records are unavailable, or verifier evidence is absent. A
-selected candidate requires score evidence and a verified verifier node; a
-verifier-gated commit requires the selected candidate, score, evidence, sandbox
-profile, worker, and acceptance rationale.
+The dogfood command holds the candidate and writes a clear checkpoint if
+any evidence command fails, version sync is not complete, release docs are
+missing, audit records are not there, or verifier evidence is not present. A
+selected candidate needs score evidence and a verified verifier node; a
+verifier-gated commit needs the selected candidate, score, evidence, sandbox
+profile, worker, and acceptance reasons.
 
-This is intentionally boring release engineering: local-first, inspectable,
+This is release engineering made dull on purpose: local-first, inspectable,
 scriptable, and fail-closed.
 
 ## Architecture-Review Agent-Delegation Dogfood (v0.1.38)
 
 `scripts/dogfood-architecture-review.js` dogfoods the v0.1.38 Agent Delegation
-Drive: the `architecture-review` app driven end-to-end by the `agent` backend,
-with zero hand-written `result.md`.
+Drive: the `architecture-review` app driven from end to end by the `agent` backend,
+with no hand-written `result.md` at all.
 
-It splits into two halves, exactly like the release dogfood above:
+It is cut into two halves, just like the release dogfood above:
 
 - **`--smoke` (CI-verifiable).** A hermetic STUB agent (no live binary, no second
   repo, no network, no model SDK) drives the real app to a committed audited
-  report. `node scripts/dogfood-architecture-review.js --smoke --json` emits
+  report. `node scripts/dogfood-architecture-review.js --smoke --json` gives back
   `{ ok: true, mode: "smoke" }` with a `reportPath` and `auditSummaryPath` that
-  exist, the Verdict node accepted, and `audit.byKind["worker.agent-delegation"]
-  >= 1`. This is asserted under `npm test` (`test/dogfood-release-smoke.js`).
+  are there, the Verdict node accepted, and `audit.byKind["worker.agent-delegation"]
+  >= 1`. This is checked under `npm test` (`test/dogfood-release-smoke.js`).
 
-- **Live full-drive (MAINTAINER-RUN, OUT OF CI).** With a REAL configured agent
+- **Live full-drive (MAINTAINER-RUN, OUT OF CI).** With a REAL set-up agent
   (`CW_AGENT_COMMAND`, e.g. `claude -p {{input}}` / `codex exec`, or
-  `--agent-command`) against ONE real external repository:
+  `--agent-command`) against ONE real outside repository:
 
   ```bash
   CW_AGENT_COMMAND="claude -p {{input}}" \
@@ -154,15 +154,15 @@ It splits into two halves, exactly like the release dogfood above:
   ```
 
   This drives plan → dispatch → agent-fulfill → accept/verify → commit for every
-  worker the planner emits, produces the committed audited risk report, and writes
-  a `docs/dogfood/architecture-review-<repo>.md` provenance note recording the repo
-  name and the agent-REPORTED model id. It depends on a live external agent binary
+  worker the planner emits, makes the committed audited risk report, and writes
+  a `docs/dogfood/architecture-review-<repo>.md` provenance note that keeps the repo
+  name and the agent-REPORTED model id. It needs a live outside agent binary
   and a second repository, which CI cannot have (CI is node/npm/git-only and
-  hermetic), so it is **explicitly OUT of CI** — a maintainer bar run out-of-band,
-  exactly like the "Promote To Real Release Actions" above. The CI/release gate is
-  strictly the stub `--smoke` path.
+  hermetic), so it is **explicitly OUT of CI** — a maintainer step run out-of-band,
+  just like the "Promote To Real Release Actions" above. The CI/release gate is
+  only the stub `--smoke` path.
 
-  The model runs in the external agent's process, never inside CW: this script
-  spawns the agent and records its attested output; it imports no model SDK and
+  The model runs in the outside agent's process, never inside CW: this script
+  starts the agent and records its attested output; it brings in no model SDK and
   holds no API key.
 0.1.51

@@ -1,6 +1,6 @@
 # Getting Started
 
-From a fresh clone:
+Start from a new clone:
 
 ```bash
 cd plugins/cool-workflow
@@ -9,7 +9,7 @@ npm run build
 node scripts/cw.js app list
 ```
 
-Create a run with a canonical workflow app:
+Make a run with a canonical workflow app:
 
 ```bash
 node scripts/cw.js plan release-cut \
@@ -20,7 +20,7 @@ node scripts/cw.js plan release-cut \
   --dryRun true
 ```
 
-Use the returned run id:
+Use the run id you get back:
 
 ```bash
 node scripts/cw.js status <run-id>
@@ -56,7 +56,7 @@ node scripts/cw.js eval report .cw/evals/<suite-id>/replay-run.json
 node scripts/cw.js report <run-id> --show
 ```
 
-Run the deterministic regression commands:
+Run the deterministic regression commands. They give the same result every time:
 
 ```bash
 npm run check
@@ -67,33 +67,33 @@ npm run eval:replay
 npm run fixture-compat
 ```
 
-Before cutting a release, run the full dry-run gate:
+Before you cut a release, run the full dry-run gate:
 
 ```bash
 npm run release:check
 npm run dogfood:release
 ```
 
-The release check is non-destructive. It builds, type-checks, runs tests,
+The release check does not damage anything. It builds, type-checks, runs tests,
 validates canonical apps and golden path behavior, checks old fixture
-compatibility, verifies docs, runs the dogfood smoke proof, and checks version
-synchronization. It does not tag, push, publish, or rewrite fixture files.
+compatibility, verifies docs, runs the dogfood smoke proof, and checks that the
+version numbers are in agreement. It does not tag, push, publish, or rewrite fixture files.
 
-`npm run dogfood:release` is the real-repository release proof. It uses the
+`npm run dogfood:release` is the release proof on the real repository. It uses the
 canonical `release-cut` app against this repository in dry-run mode, records CW
-worker outputs from real command logs, scores and selects a release candidate,
-creates a verifier-gated CW state commit, and writes
+worker outputs from real command logs, scores and picks a release candidate,
+makes a verifier-gated CW state commit, and writes
 `.cw/runs/<run-id>/dogfood-summary.json`.
 
-Trust audit records live under `.cw/runs/<run-id>/audit/`. CW records the
-sandbox profile used by each worker, allowed and denied decisions, evidence
-provenance, and why selected candidates or verifier-gated commits were
-accepted. Multi-agent trust records add role policy, blackboard write audit,
-message provenance, judge rationale, and policy violations. Inspect them with
+Trust audit records are kept under `.cw/runs/<run-id>/audit/`. CW records the
+sandbox profile used by each worker, allowed and denied decisions, where the
+evidence came from, and why picked candidates or verifier-gated commits were
+taken. Multi-agent trust records add role policy, blackboard write audit,
+where each message came from, judge reasons, and policy violations. Look at them with
 `audit summary`, `audit worker`, `audit provenance`, `audit multi-agent`,
 `audit policy`, `audit blackboard`, and `audit judge`.
 
-Eval/replay artifacts live under `.cw/evals/<suite-id>/`. They let a release
+Eval/replay artifacts are kept under `.cw/evals/<suite-id>/`. They let a release
 gate prove replay completion, graph/dependency parity, evidence adoption,
-trust/policy/audit parity, judge rationale, candidate scoring, selection, and
+trust/policy/audit parity, judge reasons, candidate scoring, selection, and
 verifier-gated commit readiness without running live agents.

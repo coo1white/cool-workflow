@@ -1,15 +1,15 @@
 # Multi-Agent Trust / Policy / Audit
 
-CW v0.1.22 extends the existing trust-audit layer with first-class
-multi-agent policy, provenance, blackboard write audit, and judge rationale.
-It does not introduce a second audit subsystem.
-CW v0.1.24 includes these trust projections in eval/replay comparison so
-missing provenance, changed policy violations, or missing judge rationale fail
-the regression gate.
+CW v0.1.22 adds to the trust-audit layer that is already there. It gives
+first-class multi-agent policy, provenance, blackboard write audit, and judge
+rationale. It does not add a second audit subsystem.
+CW v0.1.24 puts these trust projections into eval/replay comparison, so
+missing provenance, changed policy violations, or missing judge rationale make
+the regression gate fail.
 
 ## Model
 
-Multi-agent trust state is plain JSON attached to existing records:
+Multi-agent trust state is plain JSON joined to records that are already there:
 
 - `AgentRole.policy`
 - `AgentGroup.policy`
@@ -18,7 +18,7 @@ Multi-agent trust state is plain JSON attached to existing records:
 - candidate score and selection audit links
 - append-friendly trust events in `.cw/runs/<run-id>/audit/events.jsonl`
 
-Policies describe explicit authority:
+Policies say clearly what is let through:
 
 - allowed blackboard topic ids
 - allowed write operations: `message`, `context`, `artifact`, `snapshot`,
@@ -30,11 +30,11 @@ Policies describe explicit authority:
 - denied operations and reasons
 
 Missing policy, missing role authority, out-of-scope topics, missing evidence,
-or missing judge rationale fail closed and create audit records.
+or missing judge rationale fail closed and make audit records.
 
 ## Audit Events
 
-The existing audit log records multi-agent dimensions with stable ids:
+The audit log that is already there keeps multi-agent dimensions with stable ids:
 
 - `multi-agent.role-policy`
 - `multi-agent.permission`
@@ -44,19 +44,19 @@ The existing audit log records multi-agent dimensions with stable ids:
 - `judge.panel-decision`
 - `policy.violation`
 
-Events carry ids such as `multiAgentRunId`, `agentRoleId`, `agentGroupId`,
+Events hold ids such as `multiAgentRunId`, `agentRoleId`, `agentGroupId`,
 `agentMembershipId`, `agentFanoutId`, `agentFaninId`, blackboard record ids,
 candidate/score/selection/commit ids, topology ids, `sandboxProfileId`, and
-`policyRef` when relevant.
+`policyRef` when they have a part to play.
 
-Audit events do not copy large blackboard bodies. Message provenance stores
-author kind/id, role/group/membership/worker ids when known, source, linked
-evidence refs, parent message ids, topic scope, a body hash, and a short
+Audit events do not copy large blackboard bodies. Message provenance keeps
+author kind/id, role/group/membership/worker ids when these are known, source,
+linked evidence refs, parent message ids, topic scope, a body hash, and a short
 summary.
 
 ## Blackboard Writes
 
-Every blackboard write is audited:
+Every blackboard write goes through audit:
 
 - topic create/update
 - message post
@@ -66,24 +66,24 @@ Every blackboard write is audited:
 - coordinator decision
 
 The audit record says who wrote, under which role or membership, which policy
-allowed or denied it, what evidence was cited, what record changed, and whether
-the write was accepted, denied, superseded, conflicting, or blocked.
+let it through or said no to it, what evidence was given, what record changed,
+and if the write was accepted, denied, superseded, conflicting, or blocked.
 
-Denied writes are rejected before state mutation and are visible through
-`policy.violation` and `blackboard.write` audit projections.
+Denied writes are turned away before state mutation, and you can see them
+through `policy.violation` and `blackboard.write` audit projections.
 
 ## Judge Rationale
 
-Judge-panel scoring requires evidence and rationale. Panel selection requires
-score evidence and chair rationale. Accepted judge and panel records cite the
-score, candidate, evidence refs, role policy, and parent audit events.
+Judge-panel scoring needs evidence and rationale. Panel selection needs
+score evidence and chair rationale. Accepted judge and panel records point to
+the score, candidate, evidence refs, role policy, and parent audit events.
 
 Missing rationale or evidence blocks score, selection, fanin readiness, and
-verifier-gated commit readiness where those gates depend on judge evidence.
+verifier-gated commit readiness where those gates lean on judge evidence.
 
 ## CLI
 
-Existing commands remain compatible:
+The commands that are already there still work the same way:
 
 ```bash
 node scripts/cw.js audit summary <run-id>
@@ -104,7 +104,7 @@ node scripts/cw.js audit judge <run-id>
 
 Use `--json` or `--format json` for deterministic machine output.
 
-Human output includes stable panels:
+Human output has stable panels:
 
 - Multi-Agent Trust
 - Role Policies
@@ -117,7 +117,7 @@ Human output includes stable panels:
 
 ## Verify (fail-closed)
 
-`audit summary` embeds an `integrity` field but is a *reader* — it always exits 0,
+`audit summary` puts in an `integrity` field but is a *reader* — it always exits 0,
 so it cannot gate a script. `audit verify` is the gate:
 
 ```bash
@@ -125,9 +125,9 @@ node scripts/cw.js audit verify <run-id>        # exit 1 if the chain is forged
 node scripts/cw.js audit verify <run-id> --json
 ```
 
-It re-proves the run's trust-audit hash chain offline: it recomputes every event
-hash from genesis, checks `prevEventHash` linkage, and catches the unchained-event
-forgery (an `eventHash`-less line slipped into a chained log to be waved through as
+It proves the run's trust-audit hash chain again offline: it works out every event
+hash from genesis, checks `prevEventHash` linkage, and finds the unchained-event
+forgery (an `eventHash`-less line put into a chained log to be waved through as
 "legacy"). The JSON reports `present`, `verified`, `eventCount`, `chained`,
 `unchained`, `corruptLines`, and `failedChecks[]`.
 
@@ -135,9 +135,9 @@ Exit-code contract (the peer of `telemetry verify`):
 
 - ANY **unverified** chain exits **1** — forged / edited / truncated / unchained-injected,
   *and* a fully-corrupt log (every line unparseable, which reports `present:false` but
-  `verified:false`). The gate keys on `verified`, not `present`, so the most severe
-  tamper — garbling the whole log — cannot escape by looking "absent". So
-  `cw audit verify <run> && deploy` stops on tampering.
+  `verified:false`). The gate keys on `verified`, not `present`, so the worst kind of
+  tamper — making a mess of the whole log — cannot get away by looking "absent". So
+  `cw audit verify <run> && deploy` stops when there is tampering.
 - Only a truly **absent / empty** chain is `verified:true` / exit **0** — a run with
   no audit log (or a blank one) has nothing to prove (no false-red).
 
@@ -151,10 +151,10 @@ MCP parity tools:
 - `cw_audit_blackboard`
 - `cw_audit_judge`
 
-The older audit tools remain available:
+The older audit tools are still there to use:
 
 - `cw_audit_summary`
-- `cw_audit_verify` — fail-closed re-prove of the trust-audit hash chain (peer of `cw_telemetry_verify`)
+- `cw_audit_verify` — fail-closed proof again of the trust-audit hash chain (peer of `cw_telemetry_verify`)
 - `cw_audit_worker`
 - `cw_audit_provenance`
 - `cw_audit_attest`
@@ -163,9 +163,9 @@ The older audit tools remain available:
 ## Operator Questions
 
 The combined `multi-agent status`, `multi-agent evidence`, `report --show`,
-`audit summary`, and `audit provenance` views answer:
+`audit summary`, and `audit provenance` views give the answers to:
 
-- Which role was allowed to do this?
+- Which role was let to do this?
 - Which blackboard message came from which role, member, or worker?
 - Which write was denied and why?
 - Which judge rationale was accepted?
@@ -173,7 +173,7 @@ The combined `multi-agent status`, `multi-agent evidence`, `report --show`,
 
 ## Regression
 
-`test/multi-agent-trust-policy-audit-smoke.js` creates a judge-panel run with
+`test/multi-agent-trust-policy-audit-smoke.js` makes a judge-panel run with
 allowed and denied blackboard writes, message provenance, role/membership/worker
 links, accepted judge rationale, missing-rationale and missing-evidence failure
 paths, CLI output assertions, MCP parity assertions, report assertions, and

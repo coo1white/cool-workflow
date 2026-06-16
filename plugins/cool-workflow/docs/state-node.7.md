@@ -29,17 +29,17 @@ const verified = transitionStateNode(result, { status: "verified", loopStage: "a
 
 ## DESCRIPTION
 
-`StateNode` is the small runtime object used to represent meaningful CW transitions as JSON. It is not a workflow app model and does not encode domain behavior.
+`StateNode` is the small runtime object used to show important CW transitions as JSON. It is not a workflow app model and it does not hold domain behavior.
 
-The kernel owns node creation, explicit status transitions, artifact paths, contract validation, and structured errors. Workflow apps own prompts, phase order, and domain-specific interpretation.
+The kernel owns node creation, clear status transitions, artifact paths, contract checks, and structured errors. Workflow apps own prompts, phase order, and the reading of domain-specific meaning.
 
-CW writes node JSON artifacts under:
+CW writes node JSON artifacts in:
 
 ```text
 .cw/runs/<run-id>/nodes/
 ```
 
-The normal flow is:
+The common flow is:
 
 ```text
 input node -> task node -> dispatch node -> result node -> verifier node -> commit/report node
@@ -51,11 +51,11 @@ Every `StateNode` includes `schemaVersion`, `id`, `kind`, `status`, `loopStage`,
 
 Every `PipelineContract` includes `schemaVersion`, `id`, `title`, `stages`, optional input/output schemas, artifact/evidence/failure/commit policies, and compatibility bounds.
 
-Each stage declares accepted input node kinds and statuses, produced output kind, required artifacts, required evidence, verifier gate, and retry/failure behavior.
+Each stage names the input node kinds and statuses it takes, the output kind it makes, required artifacts, required evidence, verifier gate, and retry/failure behavior.
 
 ## FAILURE MODES
 
-Contract failures are raised as `PipelineContractError`. Each error carries a structured `StateNodeError` with:
+Contract failures come up as `PipelineContractError`. Each error carries a structured `StateNodeError` with:
 
 - `code`
 - `message`
@@ -65,7 +65,7 @@ Contract failures are raised as `PipelineContractError`. Each error carries a st
 - optional `retryable`
 - optional `details`
 
-Illegal status transitions fail before mutating the node. Missing artifacts and missing evidence fail with locatable error records suitable for saving into a failure node.
+Illegal status transitions fail before they change the node. Missing artifacts and missing evidence fail with error records you can locate, ready for saving into a failure node.
 
 Commit status is verifier-gated. A node cannot transition into `committed` unless it is already `verified`.
 
@@ -73,7 +73,7 @@ Commit status is verifier-gated. A node cannot transition into `committed` unles
 
 `schemaVersion` is required on both nodes and contracts. The current schema is `1`.
 
-New fields should be optional unless the runtime cannot proceed without them. Older run state without `nodes` or `contracts` remains readable; those arrays are initialized when loaded.
+New fields should be optional unless the runtime cannot go on without them. Older run state without `nodes` or `contracts` can still be read; those arrays are set up when loaded.
 
 ## EXAMPLES
 

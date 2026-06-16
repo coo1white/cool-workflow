@@ -7,7 +7,7 @@ Read these in order when you are new to CW:
 3. [Workflow App framework](workflow-app-framework.7.md) - userland app manifests, entrypoints, compatibility, and validation.
 4. [Sandbox Profiles](sandbox-profiles.7.md) - named worker policy contracts for read/write/execute/network/env handling.
 5. [Security / Trust Hardening](security-trust-hardening.7.md) - audit records, provenance, sandbox attestations, and acceptance rationale.
-   - [Trust Model & Limitations](trust-model.md) - what the ed25519 + hash-chain tamper-evidence proves and, honestly, what it does **not** (the single-keyholder ceiling). Read this before relying on a green verdict.
+   - [Trust Model & Limitations](trust-model.md) - what the ed25519 + hash-chain tamper-evidence proves and what it does **not** (the single-keyholder ceiling). Read this before you trust a green verdict.
 6. [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md) - first-class MultiAgentRun, roles, groups, memberships, fanout, fanin, and lifecycle state.
 7. [Coordinator / Blackboard](coordinator-blackboard.7.md) - shared topics, messages, context frames, artifact refs, snapshots, decisions, conflicts, and fanin evidence.
 8. [Multi-Agent Topologies](multi-agent-topologies.7.md) - official map-reduce, debate, and judge-panel recipes built on multi-agent and blackboard records.
@@ -39,5 +39,5 @@ Read these in order when you are new to CW:
 34. [Source Context Profiles](source-context-profiles.7.md) - opt-in JSONL source exports for AI context slimming, with profile policy in manifest data and manifest records proving every included or omitted tracked file.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
-must preserve that line: stable contracts, explicit compatibility checks, and
-inspectable state.
+must keep that line clear: stable contracts, clear compatibility checks, and
+state you can look at.
