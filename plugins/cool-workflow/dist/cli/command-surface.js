@@ -151,6 +151,18 @@ async function runCli(argv = process.argv.slice(2)) {
             printJson(runner.commit(required(args.positionals[0], "run id"), args.options));
             return;
         case "report": {
+            // `report verify-bundle <path>` is the offline self-contained bundle verifier;
+            // every other `report <run-id>` form prints/inspects a local run's report.
+            if (args.positionals[0] === "verify-bundle") {
+                const result = (0, capability_core_1.runVerifyReportBundle)(runner, { ...args.options, archive: args.positionals[1] || args.options.archive || args.options.path || args.options.file || args.options.bundle });
+                printJson(result);
+                // Fail closed: a forged/edited/corrupt bundle verifies false — surface it
+                // through the exit code so `cw report verify-bundle <file> && ship` cannot
+                // pass on a lie. Mirrors run inspect-archive / telemetry verify.
+                if (!result.ok)
+                    process.exitCode = 1;
+                return;
+            }
             const runId = required(args.positionals[0], "run id");
             const report = runner.report(runId);
             if (wantsJson(args.options)) {

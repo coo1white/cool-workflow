@@ -345,6 +345,7 @@ const BUILTIN_CAPABILITIES = [
     { capability: "run.import", summary: "Restore a portable run archive into a target repo and verify restored file digests.", entry: "runImportArchive", surface: "both", cli: { path: ["run", "import"], jsonMode: "default" }, mcp: { tool: "cw_run_import", requiredArgs: ["archive|path|file"] } },
     { capability: "run.verify-import", summary: "Verify an imported run against its restore manifest and telemetry chain.", entry: "runVerifyImport", surface: "both", cli: { path: ["run", "verify-import"], jsonMode: "default" }, mcp: { tool: "cw_run_verify_import", requiredArgs: ["runId"] } },
     { capability: "run.inspect-archive", summary: "Read-only integrity inspection of a portable run archive without importing it.", entry: "runInspectArchive", surface: "both", cli: { path: ["run", "inspect-archive"], jsonMode: "default" }, mcp: { tool: "cw_run_inspect_archive", requiredArgs: ["archive|path|file"] } },
+    { capability: "report.verify-bundle", summary: "Offline self-contained verify of a portable run bundle: archive bytes + telemetry chain + trust-audit chain + embedded-key signatures.", entry: "runVerifyReportBundle", surface: "both", cli: { path: ["report", "verify-bundle"], caseTokens: ["report"], jsonMode: "default" }, mcp: { tool: "cw_report_verify_bundle", requiredArgs: ["archive|path|file|bundle"] } },
     { capability: "run.drive", summary: "Preview the next agent-delegation drive step for a run (read-only, deterministic).", entry: "runDrivePreview", surface: "both", cli: { path: ["run", "drive"], caseTokens: ["run", "drive"], jsonMode: "default" }, mcp: { tool: "cw_run_drive" } },
     { capability: "run.drive.step", summary: "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step).", entry: "runDrive", surface: "both", cli: { path: ["run", "drive"], caseTokens: ["run", "drive"], jsonMode: "default" }, mcp: { tool: "cw_run_drive_step" }, payloadIdentical: false, reason: "Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core." },
     {
@@ -589,6 +590,7 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "run.import",
             "run.verify-import",
             "run.inspect-archive",
+            "report.verify-bundle",
             "queue.add",
             "queue.list",
             "queue.drain",

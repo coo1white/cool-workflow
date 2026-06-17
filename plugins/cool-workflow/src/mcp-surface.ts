@@ -29,6 +29,7 @@ import {
   runImportArchive,
   runVerifyImport,
   runInspectArchive,
+  runVerifyReportBundle,
   sandboxChoose,
   schedPlan,
   schedLease,
@@ -409,6 +410,8 @@ export function callTool(name: string, args: Record<string, unknown>): unknown {
         return runVerifyImport(runner, String(args.runId || ""), args);
       case "cw_run_inspect_archive":
         return runInspectArchive(runner, args);
+      case "cw_report_verify_bundle":
+        return runVerifyReportBundle(runner, args);
       case "cw_run_drive":
         return runDrivePreview(runner, args);
       case "cw_run_drive_step":
@@ -1295,7 +1298,9 @@ export function toolDefinitions(): unknown[] {
       cwd: stringSchema("Repo workspace containing .cw/runs/<run-id>"),
       output: stringSchema("Archive output path"),
       path: stringSchema("Alias for output"),
-      archive: stringSchema("Alias for output")
+      archive: stringSchema("Alias for output"),
+      trustKey: stringSchema("Optional ed25519 PUBLIC key (inline PEM or path) to embed so the bundle re-verifies offline; defaults to CW_AGENT_ATTEST_PUBKEY"),
+      withTrustKey: stringSchema("Alias for trustKey")
     }),
     capabilityTool("run.import", "Restore a portable run archive into a target repo and immediately verify restored file digests.", {
       archive: stringSchema("Archive path"),
@@ -1313,6 +1318,16 @@ export function toolDefinitions(): unknown[] {
       archive: stringSchema("Archive path"),
       path: stringSchema("Alias for archive"),
       file: stringSchema("Alias for archive"),
+      cwd: stringSchema("Invocation workspace")
+    }),
+    capabilityTool("report.verify-bundle", "Offline, self-contained verify of a portable run bundle: proves the archive bytes, the telemetry hash chain, the trust-audit chain, and (with the bundle's embedded public key) the ed25519 signatures — no source repo, no pre-existing .cw tree, no out-of-band key. Restores into a throwaway tmpdir and writes nothing. A forged or edited bundle fails it. Peer of `cw report verify-bundle`.", {
+      archive: stringSchema("Bundle (.cwrun.json) path"),
+      path: stringSchema("Alias for archive"),
+      file: stringSchema("Alias for archive"),
+      bundle: stringSchema("Alias for archive"),
+      pubkey: stringSchema("Optional public key (inline PEM or path); used only when the bundle embeds no trust key"),
+      extractReport: stringSchema("Optional path to write the bundle's report.md to"),
+      strictSignatures: booleanSchema("Fail when the bundle claims attested telemetry but no key is available to re-verify it"),
       cwd: stringSchema("Invocation workspace")
     }),
     capabilityTool("run.drive", "Preview the next agent-delegation drive step for a run (read-only, deterministic). Counts come from state; no spawn, no mutation.", {

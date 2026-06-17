@@ -264,6 +264,14 @@ export interface RunExport {
     fileCount: number;
     manifestSha256: string;
   };
+  /** Optional embedded trust anchor so a stranger can re-verify the run's signed
+   *  telemetry OFFLINE — without being handed the public key out of band. Carries
+   *  ONLY the operator's ed25519 PUBLIC key (PEM); CW never exports a private key.
+   *  Absent on archives exported without --with-trust-key (backward compatible). */
+  trust?: {
+    publicKeyPem: string;
+    algorithm: "ed25519";
+  };
   /** Legacy v0.1.74 field, retained for old archives. */
   artifacts: Array<{ path: string; content?: string; contentBase64?: string; sha256?: string; sizeBytes?: number }>;
   audit: string[];

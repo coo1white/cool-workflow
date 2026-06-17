@@ -8,8 +8,8 @@ Generated from the current repository code on 2026-06-17 by `npm run sync:projec
 - Version: `0.1.84`
 - Source modules: `62`
 - Workflow apps: `7`
-- Docs: `49`
-- Smoke tests: `97`
+- Docs: `50`
+- Smoke tests: `98`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -161,6 +161,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Real Execution Backend Integrations](real-execution-backends.7.md)
 - [Release And Migration Discipline](release-and-migration.7.md)
 - [Release Tooling](release-tooling.7.md)
+- [Verifiable Report Bundle](report-verifiable-bundle.7.md)
 - [Routines](routines.md)
 - [Run Registry / Control Plane](run-registry-control-plane.7.md)
 - [Run Retention & Provable Reclamation](run-retention-reclamation.7.md)
@@ -242,6 +243,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [release-flow-smoke.js](../test/release-flow-smoke.js)
 - [release-gate-smoke.js](../test/release-gate-smoke.js)
 - [release-tooling-smoke.js](../test/release-tooling-smoke.js)
+- [report-verify-bundle-smoke.js](../test/report-verify-bundle-smoke.js)
 - [result-normalize-smoke.js](../test/result-normalize-smoke.js)
 - [robustness-failclosed-smoke.js](../test/robustness-failclosed-smoke.js)
 - [robustness-hardening-smoke.js](../test/robustness-hardening-smoke.js)
