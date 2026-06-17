@@ -143,11 +143,20 @@ The per-platform difference is config, not code — set the reviewer agent here:
 
 | Platform | Reviewer config |
 |---|---|
-| Claude    | `CW_AGENT_COMMAND="claude -p {{input}}"` |
+| Claude    | `CW_AGENT_COMMAND="claude -p --permission-mode acceptEdits {{input}}"` |
 | Codex     | `CW_AGENT_COMMAND="codex exec {{input}}"` |
 | Gemini    | `CW_AGENT_COMMAND="gemini -p {{input}}"` |
 | OpenCode  | `CW_AGENT_COMMAND="opencode run -m <provider/model> {{input}}"` |
 | DeepSeek  | via OpenCode (`-m deepseek/deepseek-chat`) or `CW_AGENT_ENDPOINT=<deepseek-compatible HTTP agent>` |
+
+The reviewer's last act is to **write** the verdict file, so a headless agent
+needs file-write permission. For `claude -p`, recent CLIs default to a mode that
+silently denies `Write` (no prompt in headless mode), so the reviewer reaches a
+verdict but cannot persist it and the flow fails closed at `[3/3] verify` with
+`no verdict written`. The `--permission-mode acceptEdits` flag in the preset above
+fixes this; Read/Bash (which the review itself needs) keep working. The reviewer
+CLI must also be logged in (`claude auth login` / `claude auth status` →
+`loggedIn: true`) — a fresh shell or CI runner is not.
 
 `{{input}}` is put in place of the reviewer prompt file path. Gemini and OpenCode
 also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the
