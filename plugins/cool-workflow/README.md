@@ -706,3 +706,7 @@ _This documentation tracks Cool Workflow v0.1.82. See [CHANGELOG](../../CHANGELO
 ## Hardening and Onboarding (v0.1.83)
 
 Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.
+
+## Privacy Release (v0.1.84)
+
+This release removes local user path text from saved release review input and adds a scan that keeps those words out of tracked files.

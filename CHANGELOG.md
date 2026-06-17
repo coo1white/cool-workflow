@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.84
+
+- **Capability**: A maintainer can now cut a scrubbed hardening release with no
+  saved release-review input or tracked file carrying the blocked local user
+  markers. The release also includes the four god-object hardening PRs: registry
+  owned parity probes, an extracted MCP surface, a thin CLI entrypoint, and a
+  split worker accept path.
+- **Implementation**: Removed tracked `.cw-release/review-input-*` prompt
+  captures, changed `release-flow` reviewer prompts to use repo-local paths,
+  replaced the personal Obsidian default in `sync-project-index`, and added a
+  tracked-file privacy smoke. Structured version surfaces and generated manifests
+  are bumped to `0.1.84`.
+- **Tests**: New `pii-redaction-smoke` scans tracked files for the blocked
+  markers. The release gate also runs build, type check, dist drift, CLI/MCP
+  parity, project-index, version-sync, and the full smoke suite.
+- **Risk**: Low runtime risk. The scrub removes obsolete saved reviewer inputs
+  and changes release-tooling prompt text only; the public CLI/MCP payloads and
+  worker behavior are unchanged.
+
 ## 0.1.83
 
 Hardening + onboarding batch: close the remaining silent-fallback and

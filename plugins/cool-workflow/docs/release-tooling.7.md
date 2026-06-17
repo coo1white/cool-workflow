@@ -209,3 +209,7 @@ _No changes to the release-tooling contract in v0.1.82._
 ## Hardening and Onboarding (v0.1.83)
 
 Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.
+
+## Privacy Release (v0.1.84)
+
+`release-flow` now writes reviewer input with repo-local paths, so local user home names do not enter the saved review prompt.

@@ -311,7 +311,7 @@ function ensureLine(file, line, afterHeading) {
 }
 
 function detectObsidianVault() {
-  const candidate = path.join(process.env.HOME || "", "Documents", "Nick");
+  const candidate = process.env.CW_OBSIDIAN_VAULT || path.join(process.env.HOME || "", "Documents", "Cool Workflow");
   return fs.existsSync(path.join(candidate, ".obsidian")) ? candidate : "";
 }
 
