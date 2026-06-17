@@ -1,0 +1,73 @@
+APPROVED b6a6e4921b436b8983ce148594ac393ee2de1b57
+Users can now run `cw doctor` to get a pass/fail readiness check (Node version, agent backend, git, writable state) before starting a workflow, and corrupt authoritative state files now surface explicit errors instead of silently returning wrong data.
+
+---
+Review notes (b6a6e4921b436b8983ce148594ac393ee2de1b57 → v0.1.83)
+
+1. GROUND TRUTH
+   HEAD confirmed: b6a6e4921b436b8983ce148594ac393ee2de1b57
+   Previous tag confirmed: v0.1.82 (git describe --tags --abbrev=0)
+   Tag v0.1.83 not yet created — this verdict authorises tagging.
+
+2. RELEASE GATE
+   bash plugins/cool-workflow/scripts/release-gate.sh: PASSED (6/6 checks).
+   Build clean; all tests green; substance confirmed (src/ + dist/ changed in
+   lockstep with tests); test evidence present; cadence and branch-naming OK.
+
+3. JUDGMENT CHECKS
+
+   Spec accretion — NONE FOUND.
+   DoctorStatus/DoctorCheck/DoctorReport are consumed by runDoctor() return values
+   and read in doctor-smoke.js (checks[n].status, report.ok, report.summary, etc.).
+   The new "doctor" capability descriptor's `surface` and `reason` fields are read
+   at runtime in capability-registry.ts (lines 514, 532, 542, 557–563, 587).
+   No declared-but-never-read types introduced.
+
+   Test quality — ALL PASS THE REVERT TEST.
+   - registry-corrupt-fail-closed-smoke.js: the five assert.throws calls fail if
+     the silent-fallback catch blocks are restored.
+   - robustness-failclosed-smoke.js part C (16 concurrent scheduler creates,
+     asserts all N tasks survive) provably fails without the withFileLock wrapper.
+   - doctor-smoke.js: the five pinned behaviors (shape, read-only, no-agent warn,
+     unwritable-home fail, --json mode) all fail if doctor.ts is reverted.
+   - sched-policy-validation-smoke.js: assert.throws on non-numeric flag fails
+     without the Number.isFinite guard.
+   - bump-version-idempotent-smoke.js and parity-doc-sync-smoke.js: gate guards,
+     not trivial assertions.
+
+   Direction — SERVES NORTH STAR.
+   - Track A (5-min demo): `cw doctor` eliminates the most common new-user
+     friction (misconfigured agent, bad Node version, unwritable state surfacing
+     mid-run as a confusing error). Self-documenting CLI (14 previously-hidden
+     commands now listed by `cw help`) directly reduces onboarding time.
+   - Track B (failure-recovery): fail-closed hardening on all authoritative
+     durable-state loaders (archive/provenance overlays, repos.json, queue,
+     scheduling policy) and scheduler write serialisation are correctness fixes
+     that make failure-recovery paths reliable.
+
+   Tag message — SATISFIES REQUIREMENT.
+   User-visible capability stated in one concrete sentence (first two lines above).
+
+   FreeBSD discipline — NO VIOLATIONS.
+   - POLA: no flag, exit code, or output shape changed for VALID input. The
+     corrupt-input path change (silent-fallback → throw) is a bug fix, not a
+     POLA violation; Rule 4 (fail closed) explicitly supersedes silent-fallback.
+   - Mechanism not policy: `cw doctor` is marked surface:"cli-only" by design;
+     no vendor-specific logic enters core.
+   - Rule of Silence: doctor report is data (stdout); skipped-worker diagnostic
+     goes to stderr; --json surface is clean, stable, machine-parseable.
+   - Fail closed: explicit hardening across scheduling-policy, archive overlay,
+     provenance overlay, queue, repos.json, worker scope, and MCP line buffer.
+   - Man pages: `doctor` documented in the generated cli-mcp-parity.7.md (row
+     at line 83, rationale at line 288); also referenced in agent-delegation-
+     drive.7.md, durable-state-and-locking.7.md, execution-backends.7.md, and
+     others. Parity-doc sync verified by parity-doc-sync-smoke (gate step 4).
+   - style(9): scheduler changes are mechanical lock-wrapper additions; reclamation
+     carve-out is a behavior-preserving code movement. No reformatting of
+     untouched code.
+
+4. ANTI-GAMING
+   No prior verdict exists for b6a6e49 (bf3b68c verdict was dropped in commit
+   2804ffa before this HEAD was reached; no .cw-release/review-b6a6e49*.verdict
+   file existed before this review). First and only review of this lineage at
+   this hash.
