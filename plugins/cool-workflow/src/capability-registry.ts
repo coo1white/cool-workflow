@@ -63,6 +63,26 @@ export interface CapabilityDescriptor {
   reason?: string;
 }
 
+export type PayloadProbeKind = "global" | "run";
+
+export interface PayloadProbeTarget {
+  capability: string;
+  kind: PayloadProbeKind;
+}
+
+export interface PayloadProbeDeferred {
+  capability: string;
+  reason: string;
+}
+
+export interface PayloadProbePlan {
+  targets: PayloadProbeTarget[];
+  deferred: PayloadProbeDeferred[];
+  unclassified: string[];
+  duplicateClassifications: string[];
+  invalidClassifications: string[];
+}
+
 export interface ParityReport {
   ok: boolean;
   registrySize: number;
@@ -76,6 +96,12 @@ export interface ParityReport {
   undeclaredCliTokens: string[];
   /** Descriptors that must carry a reason but do not. */
   reasonlessExceptions: string[];
+  /** Payload-identical both-surface capabilities that are neither probed nor deferred. */
+  payloadProbeUnclassified: string[];
+  /** Capabilities named more than once in the payload probe classification. */
+  payloadProbeDuplicateClassifications: string[];
+  /** Payload probe classifications that do not name a payload-identical capability. */
+  payloadProbeInvalidClassifications: string[];
   /** Internal registry lint failures (duplicate ids/tools, malformed bindings). */
   registryLint: string[];
 }
@@ -491,6 +517,204 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Array.from(
 );
 
 // ---------------------------------------------------------------------------
+// Payload probe classification.
+// ---------------------------------------------------------------------------
+
+const GLOBAL_PAYLOAD_PROBE_CAPABILITIES = [
+  "list",
+  "app.list",
+  "topology.list",
+  "sandbox.list",
+  "backend.list",
+  "backend.agent.config.show",
+  "metrics.summary"
+];
+
+const RUN_PAYLOAD_PROBE_CAPABILITIES = [
+  "status",
+  "operator.status",
+  "operator.report",
+  "graph",
+  "report",
+  "next",
+  "state.check",
+  "contract.show",
+  "node.list",
+  "node.graph",
+  "worker.summary",
+  "candidate.summary",
+  "feedback.summary",
+  "commit.summary",
+  "audit.summary",
+  "multi-agent.summary",
+  "workbench.view",
+  "metrics.show",
+  "review.status",
+  "comment.list",
+  "run.drive",
+  "gc.plan",
+  "gc.verify"
+];
+
+const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: string[] }> = [
+  {
+    reason:
+      "Not safe for the deterministic bootstrap parity probe yet: this capability needs extra target ids/files, mutates durable state, depends on external state, or needs a dedicated fixture beyond cwd/runId.",
+    capabilities: [
+      "init",
+      "plan",
+      "dispatch",
+      "result",
+      "app.show",
+      "app.validate",
+      "app.init",
+      "app.package",
+      "app.run",
+      "node.show",
+      "node.snapshot",
+      "node.diff",
+      "node.replay",
+      "node.replay.verify",
+      "migration.list",
+      "migration.check",
+      "migration.prove",
+      "topology.show",
+      "topology.validate",
+      "topology.apply",
+      "topology.summary",
+      "topology.graph",
+      "summary.refresh",
+      "summary.show",
+      "multi-agent.run",
+      "multi-agent.status",
+      "multi-agent.step",
+      "multi-agent.blackboard",
+      "multi-agent.score",
+      "multi-agent.select",
+      "multi-agent.summarize",
+      "multi-agent.graph",
+      "multi-agent.graph.compact",
+      "multi-agent.dependencies",
+      "multi-agent.failures",
+      "multi-agent.evidence",
+      "multi-agent.reasoning",
+      "multi-agent.reasoning.refresh",
+      "multi-agent.run.create",
+      "multi-agent.run.transition",
+      "multi-agent.run.show",
+      "multi-agent.role.create",
+      "multi-agent.role.show",
+      "multi-agent.group.create",
+      "multi-agent.group.show",
+      "multi-agent.membership.create",
+      "multi-agent.membership.show",
+      "multi-agent.fanout.create",
+      "multi-agent.fanout.show",
+      "multi-agent.fanin.collect",
+      "multi-agent.fanin.show",
+      "eval.snapshot",
+      "eval.replay",
+      "eval.compare",
+      "eval.score",
+      "eval.gate",
+      "eval.report",
+      "blackboard.summary",
+      "blackboard.summarize",
+      "blackboard.graph",
+      "blackboard.resolve",
+      "blackboard.topic.create",
+      "blackboard.message.post",
+      "blackboard.message.list",
+      "blackboard.context.put",
+      "blackboard.artifact.add",
+      "blackboard.artifact.list",
+      "blackboard.snapshot",
+      "coordinator.summary",
+      "coordinator.decision",
+      "audit.verify",
+      "audit.worker",
+      "audit.provenance",
+      "audit.multi-agent",
+      "audit.policy",
+      "audit.role",
+      "audit.blackboard",
+      "audit.judge",
+      "audit.attest",
+      "audit.decision",
+      "sandbox.show",
+      "sandbox.validate",
+      "sandbox.choose",
+      "sandbox.resolve",
+      "backend.show",
+      "backend.probe",
+      "worker.list",
+      "worker.show",
+      "worker.manifest",
+      "worker.output",
+      "worker.fail",
+      "worker.validate",
+      "candidate.list",
+      "candidate.show",
+      "candidate.register",
+      "candidate.score",
+      "candidate.rank",
+      "candidate.select",
+      "candidate.reject",
+      "feedback.list",
+      "feedback.show",
+      "feedback.collect",
+      "feedback.task",
+      "feedback.resolve",
+      "schedule.create",
+      "schedule.list",
+      "schedule.delete",
+      "schedule.due",
+      "schedule.complete",
+      "schedule.pause",
+      "schedule.resume",
+      "schedule.run-now",
+      "schedule.history",
+      "routine.create",
+      "routine.list",
+      "routine.delete",
+      "routine.fire",
+      "routine.events",
+      "registry.refresh",
+      "registry.show",
+      "run.search",
+      "run.list",
+      "run.show",
+      "run.resume",
+      "run.archive",
+      "run.rerun",
+      "run.export",
+      "run.import",
+      "run.verify-import",
+      "run.inspect-archive",
+      "queue.add",
+      "queue.list",
+      "queue.drain",
+      "queue.show",
+      "sched.plan",
+      "sched.lease",
+      "sched.release",
+      "sched.complete",
+      "sched.reclaim",
+      "sched.reset",
+      "sched.policy.show",
+      "sched.policy.set",
+      "telemetry.verify",
+      "history",
+      "approve",
+      "reject",
+      "comment.add",
+      "handoff",
+      "review.policy"
+    ]
+  }
+];
+
+// ---------------------------------------------------------------------------
 // Derivations + the fail-closed parity report builder.
 // ---------------------------------------------------------------------------
 
@@ -543,6 +767,34 @@ export function payloadIdenticalCapabilities(): CapabilityDescriptor[] {
   );
 }
 
+export function payloadProbeTargets(): PayloadProbeTarget[] {
+  return [
+    ...GLOBAL_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "global" as const })),
+    ...RUN_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "run" as const }))
+  ];
+}
+
+export function deferredPayloadProbeCapabilities(): PayloadProbeDeferred[] {
+  return PAYLOAD_PROBE_DEFERRED_GROUPS.flatMap((group) =>
+    group.capabilities.map((capability) => ({ capability, reason: group.reason }))
+  );
+}
+
+export function payloadProbePlan(): PayloadProbePlan {
+  const candidateIds = new Set(payloadIdenticalCapabilities().map((cap) => cap.capability));
+  const counts = new Map<string, number>();
+  const classified = [...payloadProbeTargets().map((entry) => entry.capability), ...deferredPayloadProbeCapabilities().map((entry) => entry.capability)];
+  for (const capability of classified) counts.set(capability, (counts.get(capability) || 0) + 1);
+  const classifiedIds = new Set(classified);
+  return {
+    targets: payloadProbeTargets(),
+    deferred: deferredPayloadProbeCapabilities(),
+    unclassified: [...candidateIds].filter((capability) => !classifiedIds.has(capability)).sort(),
+    duplicateClassifications: [...counts.entries()].filter(([, count]) => count > 1).map(([capability]) => capability).sort(),
+    invalidClassifications: [...classifiedIds].filter((capability) => !candidateIds.has(capability)).sort()
+  };
+}
+
 function lintRegistry(): string[] {
   const issues: string[] = [];
   const seenCaps = new Set<string>();
@@ -589,6 +841,7 @@ export function buildParityReport(input: { mcpTools: string[]; cliTokens: string
     .map((cap) => cap.capability)
     .sort();
 
+  const payloadPlan = payloadProbePlan();
   const registryLint = lintRegistry();
 
   const ok =
@@ -597,6 +850,9 @@ export function buildParityReport(input: { mcpTools: string[]; cliTokens: string
     missingCliTokens.length === 0 &&
     undeclaredCliTokens.length === 0 &&
     reasonlessExceptions.length === 0 &&
+    payloadPlan.unclassified.length === 0 &&
+    payloadPlan.duplicateClassifications.length === 0 &&
+    payloadPlan.invalidClassifications.length === 0 &&
     registryLint.length === 0;
 
   return {
@@ -607,6 +863,9 @@ export function buildParityReport(input: { mcpTools: string[]; cliTokens: string
     missingCliTokens,
     undeclaredCliTokens,
     reasonlessExceptions,
+    payloadProbeUnclassified: payloadPlan.unclassified,
+    payloadProbeDuplicateClassifications: payloadPlan.duplicateClassifications,
+    payloadProbeInvalidClassifications: payloadPlan.invalidClassifications,
     registryLint
   };
 }
