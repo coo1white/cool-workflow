@@ -15,6 +15,8 @@ bun.lockb
 .cw-release/gate-*.ok
 # Transient GitHub-Release notes bodies (regenerated from CHANGELOG + verdict).
 .cw-release/release-notes-*.md
+# Reviewer prompt inputs may include local checkout details and are regenerated.
+.cw-release/review-input-*.md
 coverage/
 .nyc_output/
 .turbo/

@@ -462,3 +462,7 @@ _No changes in v0.1.82._
 ## Hardening and Onboarding (v0.1.83)
 
 Loaders fail closed on corrupt state; store writes are made safe under more than one writer; a new cw doctor checks your setup; help lists every command; and the docs are put into Basic English.
+
+## Privacy Release (v0.1.84)
+
+No other change to this page in v0.1.84.

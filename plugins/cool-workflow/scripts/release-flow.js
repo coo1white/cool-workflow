@@ -124,6 +124,7 @@ function reviewerPromptBody() {
 
 function buildReviewerInput(resultPath) {
   const action = MODE_CUT ? `tag v${cutVersion || "<next>"}` : "check (no tag)";
+  const resultDisplay = path.relative(repoRoot, resultPath);
   return [
     reviewerPromptBody(),
     "",
@@ -133,11 +134,11 @@ function buildReviewerInput(resultPath) {
     `- Previous tag: ${PREV_TAG || "(none)"}`,
     `- Diff range: ${PREV_TAG ? `${PREV_TAG}..HEAD` : "(no previous tag)"}`,
     `- Proposed action: ${action}`,
-    `- Repo root (run git here): ${repoRoot}`,
+    "- Repo root (run git here): .",
     "",
     "## Required output — write ONLY this file, nothing else",
     `Write your verdict to this exact path:`,
-    `  ${resultPath}`,
+    `  ${resultDisplay}`,
     "First line MUST be exactly one of:",
     `  APPROVED ${HEAD}`,
     "  <one concrete sentence: the user-visible capability this ships>",
@@ -174,10 +175,10 @@ function delegateReview(resultPath, inputPath) {
   }
 
   const subMap = {
-    input: inputPath,
-    manifest: inputPath,
-    result: resultPath,
-    workerDir: repoRoot,
+    input: path.relative(repoRoot, inputPath),
+    manifest: path.relative(repoRoot, inputPath),
+    result: path.relative(repoRoot, resultPath),
+    workerDir: ".",
     model: cfg.model || "",
     prompt: fs.readFileSync(inputPath, "utf8")
   };

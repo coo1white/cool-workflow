@@ -1,7 +1,7 @@
 {
   "name": "cool-workflow",
   "description": "A workflow control plane and run-time you are able to check: it sends out jobs in TypeScript, makes certain of work against facts before it goes through, puts state into fixed records, orders jobs by time, runs jobs again and again, gets a group of agents to do their parts together, and talks MCP. It gives the doing of the work to outside agents — it never runs the models itself.",
-  "version": "0.1.83",
+  "version": "0.1.84",
   "author": {
     "name": "COOLWHITE LLC"
   },
