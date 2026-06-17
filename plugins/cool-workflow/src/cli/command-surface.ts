@@ -44,10 +44,11 @@ import {
   backendAgentConfigSet,
   telemetryVerify,
   auditVerify,
-  demoTamper
+  demoTamper,
+  demoBundle
 } from "../capability-core";
 import { formatMetricsReport, formatMetricsSummary } from "../observability";
-import { formatTelemetryVerify, formatTamperDemo } from "../telemetry-demo";
+import { formatTelemetryVerify, formatTamperDemo, formatBundleDemo } from "../telemetry-demo";
 import {
   formatGcPlan,
   formatGcRun,
@@ -1269,8 +1270,17 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           if (!result.proven) process.exitCode = 1;
           return;
         }
+        case "bundle": {
+          const result = demoBundle(runner, args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatBundleDemo(result)}\n`);
+          // Fail closed: a forged bundle that verified would be a regression in the
+          // bundle guarantee — exit nonzero so the demo can never green it.
+          if (!result.proven) process.exitCode = 1;
+          return;
+        }
         default:
-          throw new Error("Usage: cw.js demo tamper [--json]");
+          throw new Error("Usage: cw.js demo tamper|bundle [--json]");
       }
     }
     case "workbench": {

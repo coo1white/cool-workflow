@@ -71,6 +71,7 @@ exports.isRecord = isRecord;
 exports.telemetryVerify = telemetryVerify;
 exports.auditVerify = auditVerify;
 exports.demoTamper = demoTamper;
+exports.demoBundle = demoBundle;
 const drive_1 = require("./drive");
 const agent_config_1 = require("./agent-config");
 const run_registry_1 = require("./run-registry");
@@ -810,4 +811,7 @@ function auditVerify(runner, args) {
 // (a human-facing demonstration; the underlying verify is the telemetry.verify verb).
 function demoTamper(_runner, _args = {}) {
     return (0, telemetry_demo_1.runTamperDemo)();
+}
+function demoBundle(_runner, _args = {}) {
+    return (0, telemetry_demo_1.runBundleDemo)();
 }
