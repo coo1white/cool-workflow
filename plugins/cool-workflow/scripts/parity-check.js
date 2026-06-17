@@ -9,8 +9,8 @@
 // FAIL CLOSED ON DRIFT (BSD discipline, same shape as gen-manifests --check):
 //   1. STATIC parity — the declared capability registry must exactly match the
 //      live MCP tool list (tools/list) and the CLI dispatch tokens parsed from
-//      dist/cli.js. A tool or command on one surface but not the other, or not
-//      declared in src/capability-registry.ts, is release-blocking.
+//      the built CLI dispatch surface. A tool or command on one surface but not
+//      the other, or not declared in src/capability-registry.ts, is release-blocking.
 //   2. PAYLOAD parity — for every capability declared `payloadIdentical`, the
 //      `cw <cmd> --json` payload must equal the `cw_<tool>` MCP result on a real
 //      bootstrap run (whitespace + generation-moment ISO timestamps aside).
@@ -57,8 +57,12 @@ function liveMcpTools() {
 }
 
 function cliDispatchTokens() {
-  const source = fs.readFileSync(cli, "utf8");
+  const source = cliDispatchSources().map((file) => fs.readFileSync(file, "utf8")).join("\n");
   return [...new Set([...source.matchAll(/case\s+"([^"]+)":/g)].map((match) => match[1]))];
+}
+
+function cliDispatchSources() {
+  return [cli, path.join(pluginRoot, "dist", "cli", "command-surface.js")].filter((file) => fs.existsSync(file));
 }
 
 // ---- 2. payload identity ---------------------------------------------------
