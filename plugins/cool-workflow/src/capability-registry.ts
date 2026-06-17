@@ -47,6 +47,16 @@ export interface McpBinding {
   requiredArgs?: string[];
 }
 
+export interface McpToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: "object";
+    properties: Record<string, unknown>;
+    additionalProperties: true;
+  };
+}
+
 export interface CapabilityDescriptor {
   /** Canonical capability id, dot-namespaced, e.g. "worker.list". */
   capability: string;
@@ -721,6 +731,46 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: strin
 /** The MCP tool names this registry declares. */
 export function declaredMcpTools(): string[] {
   return CAPABILITY_REGISTRY.filter((cap) => cap.mcp).map((cap) => cap.mcp!.tool);
+}
+
+/** The descriptor for a registry-declared MCP tool name. */
+export function mcpCapabilityForTool(tool: string): CapabilityDescriptor | undefined {
+  return CAPABILITY_REGISTRY.find((capability) => capability.mcp?.tool === tool);
+}
+
+/** The descriptor for a registry-declared capability id. */
+export function mcpCapabilityForId(capabilityId: string): CapabilityDescriptor | undefined {
+  const descriptor = CAPABILITY_REGISTRY.find((capability) => capability.capability === capabilityId);
+  return descriptor?.mcp ? descriptor : undefined;
+}
+
+/** Required MCP argument groups for a registry-declared tool. */
+export function mcpRequiredArgsForTool(tool: string): string[] {
+  return mcpCapabilityForTool(tool)?.mcp?.requiredArgs ?? [];
+}
+
+/** Build the public tools/list entry for a registry-declared capability. */
+export function mcpToolDefinition(capabilityId: string, properties: Record<string, unknown>): McpToolDefinition;
+export function mcpToolDefinition(capabilityId: string, description: string, properties: Record<string, unknown>): McpToolDefinition;
+export function mcpToolDefinition(
+  capabilityId: string,
+  descriptionOrProperties: string | Record<string, unknown>,
+  maybeProperties?: Record<string, unknown>
+): McpToolDefinition {
+  const descriptor = mcpCapabilityForId(capabilityId);
+  if (!descriptor?.mcp) throw new Error(`MCP capability not declared: ${capabilityId}`);
+  const description = typeof descriptionOrProperties === "string" ? descriptionOrProperties : descriptor.summary;
+  const properties = typeof descriptionOrProperties === "string" ? maybeProperties : descriptionOrProperties;
+  if (!properties) throw new Error(`MCP capability ${capabilityId} missing input schema properties.`);
+  return {
+    name: descriptor.mcp.tool,
+    description,
+    inputSchema: {
+      type: "object",
+      properties,
+      additionalProperties: true
+    }
+  };
 }
 
 /** The CLI `case` tokens this registry declares (deduped). */

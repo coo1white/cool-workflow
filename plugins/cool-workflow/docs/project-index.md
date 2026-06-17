@@ -6,11 +6,11 @@ Generated from the current repository code on 2026-06-17 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.83`
-- Source modules: `61`
+- Source modules: `62`
 - Workflow apps: `7`
 - Docs: `49`
-- Smoke tests: `93`
-- Repository: http://local_proxy@127.0.0.1:39583/git/coo1white/cool-workflow
+- Smoke tests: `94`
+- Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
 
@@ -92,6 +92,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [evidence-reasoning.ts](../src/evidence-reasoning.ts)
 - [execution-backend.ts](../src/execution-backend.ts)
 - [gates.ts](../src/gates.ts)
+- [mcp-surface.ts](../src/mcp-surface.ts)
 - [multi-agent-eval.ts](../src/multi-agent-eval.ts)
 - [multi-agent-operator-ux.ts](../src/multi-agent-operator-ux.ts)
 - [multi-agent-trust.ts](../src/multi-agent-trust.ts)
@@ -214,6 +215,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [freebsd-audit-fixes-smoke.js](../test/freebsd-audit-fixes-smoke.js)
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
+- [mcp-surface-registry-smoke.js](../test/mcp-surface-registry-smoke.js)
 - [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
 - [multi-agent-eval-determinism-regression-smoke.js](../test/multi-agent-eval-determinism-regression-smoke.js)
 - [multi-agent-eval-replay-harness-smoke.js](../test/multi-agent-eval-replay-harness-smoke.js)

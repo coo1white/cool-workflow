@@ -26,6 +26,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CAPABILITY_REGISTRY = void 0;
 exports.declaredMcpTools = declaredMcpTools;
+exports.mcpCapabilityForTool = mcpCapabilityForTool;
+exports.mcpCapabilityForId = mcpCapabilityForId;
+exports.mcpRequiredArgsForTool = mcpRequiredArgsForTool;
+exports.mcpToolDefinition = mcpToolDefinition;
 exports.declaredCliTokens = declaredCliTokens;
 exports.requiresReason = requiresReason;
 exports.isPayloadProbeOptOut = isPayloadProbeOptOut;
@@ -613,6 +617,37 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
 /** The MCP tool names this registry declares. */
 function declaredMcpTools() {
     return exports.CAPABILITY_REGISTRY.filter((cap) => cap.mcp).map((cap) => cap.mcp.tool);
+}
+/** The descriptor for a registry-declared MCP tool name. */
+function mcpCapabilityForTool(tool) {
+    return exports.CAPABILITY_REGISTRY.find((capability) => capability.mcp?.tool === tool);
+}
+/** The descriptor for a registry-declared capability id. */
+function mcpCapabilityForId(capabilityId) {
+    const descriptor = exports.CAPABILITY_REGISTRY.find((capability) => capability.capability === capabilityId);
+    return descriptor?.mcp ? descriptor : undefined;
+}
+/** Required MCP argument groups for a registry-declared tool. */
+function mcpRequiredArgsForTool(tool) {
+    return mcpCapabilityForTool(tool)?.mcp?.requiredArgs ?? [];
+}
+function mcpToolDefinition(capabilityId, descriptionOrProperties, maybeProperties) {
+    const descriptor = mcpCapabilityForId(capabilityId);
+    if (!descriptor?.mcp)
+        throw new Error(`MCP capability not declared: ${capabilityId}`);
+    const description = typeof descriptionOrProperties === "string" ? descriptionOrProperties : descriptor.summary;
+    const properties = typeof descriptionOrProperties === "string" ? maybeProperties : descriptionOrProperties;
+    if (!properties)
+        throw new Error(`MCP capability ${capabilityId} missing input schema properties.`);
+    return {
+        name: descriptor.mcp.tool,
+        description,
+        inputSchema: {
+            type: "object",
+            properties,
+            additionalProperties: true
+        }
+    };
 }
 /** The CLI `case` tokens this registry declares (deduped). */
 function declaredCliTokens() {
