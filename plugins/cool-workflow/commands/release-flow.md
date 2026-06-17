@@ -12,8 +12,11 @@ Steps:
 1. Configure the reviewer agent for THIS host (Claude):
 
    ```bash
-   export CW_AGENT_COMMAND="claude -p {{input}}"
+   export CW_AGENT_COMMAND="claude -p --permission-mode acceptEdits {{input}}"
    export CW_AGENT_MODEL="claude-opus-4-8"   # optional; the agent picks otherwise
+   # acceptEdits lets the headless reviewer WRITE its verdict file; without it the
+   # review runs but the verdict can't be persisted and the flow fails closed at
+   # [3/3]. The reviewer CLI must also be logged in (claude auth login).
    ```
 
 2. Run the flow in check mode (gate + independent review, no mutation):
