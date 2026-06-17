@@ -59,7 +59,15 @@ function main() {
   if (!SEMVER.test(next)) fail(`"${next}" is not a x.y.z version`);
 
   const current = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8")).version;
-  if (next === current) fail(`already at ${next}`);
+  if (next === current) {
+    // Idempotent: re-running the bump for the same version is a no-op (exit 0)
+    // rather than a hard fail. Required by `release-flow --cut --version X` when
+    // the bump was already landed in a prior PR (e.g. a release-prep PR that
+    // committed the version surfaces, then a follow-up fix on top — cut should
+    // still be able to commit the verdict and tag without re-bumping).
+    process.stdout.write(`bump:version: already at ${next}, no surfaces to update\n`);
+    process.exit(0);
+  }
 
   const touched = [];
   const note = (rel) => touched.push(rel);

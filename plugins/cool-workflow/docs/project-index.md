@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-16 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-17 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -10,7 +10,7 @@ Generated from the current repository code on 2026-06-16 by `npm run sync:projec
 - Workflow apps: `7`
 - Docs: `49`
 - Smoke tests: `92`
-- Repository: http://local_proxy@127.0.0.1:33273/git/coo1white/cool-workflow
+- Repository: http://local_proxy@127.0.0.1:39345/git/coo1white/cool-workflow
 
 ## Architecture
 
