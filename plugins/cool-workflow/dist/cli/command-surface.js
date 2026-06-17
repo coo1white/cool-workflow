@@ -1273,8 +1273,20 @@ async function runCli(argv = process.argv.slice(2)) {
                         process.exitCode = 1;
                     return;
                 }
+                case "bundle": {
+                    const result = (0, capability_core_1.demoBundle)(runner, args.options);
+                    if (wantsJson(args.options))
+                        printJson(result);
+                    else
+                        process.stdout.write(`${(0, telemetry_demo_1.formatBundleDemo)(result)}\n`);
+                    // Fail closed: a forged bundle that verified would be a regression in the
+                    // bundle guarantee — exit nonzero so the demo can never green it.
+                    if (!result.proven)
+                        process.exitCode = 1;
+                    return;
+                }
                 default:
-                    throw new Error("Usage: cw.js demo tamper [--json]");
+                    throw new Error("Usage: cw.js demo tamper|bundle [--json]");
             }
         }
         case "workbench": {

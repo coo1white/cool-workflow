@@ -27,7 +27,7 @@ import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, 
 import { verifyTelemetryLedger } from "./telemetry-ledger";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "./telemetry-attestation";
 import { verifyTrustAudit } from "./trust-audit";
-import { runTamperDemo, TelemetryVerifyResult } from "./telemetry-demo";
+import { runTamperDemo, runBundleDemo, TelemetryVerifyResult } from "./telemetry-demo";
 import { loadRunStateFile, readJson, writeJson } from "./state";
 import { ArchiveInspectResult, ReportBundleVerification, exportRun, importRun, inspectArchive, verifyImportedRun, verifyReportBundle } from "./run-export";
 import fs from "node:fs";
@@ -854,4 +854,8 @@ export function auditVerify(runner: CoolWorkflowRunner, args: Record<string, unk
 // (a human-facing demonstration; the underlying verify is the telemetry.verify verb).
 export function demoTamper(_runner: CoolWorkflowRunner, _args: Record<string, unknown> = {}): ReturnType<typeof runTamperDemo> {
   return runTamperDemo();
+}
+
+export function demoBundle(_runner: CoolWorkflowRunner, _args: Record<string, unknown> = {}): ReturnType<typeof runBundleDemo> {
+  return runBundleDemo();
 }

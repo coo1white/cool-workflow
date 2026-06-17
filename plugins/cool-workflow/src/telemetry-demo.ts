@@ -20,8 +20,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { WorkflowRun } from "./types";
-import { appendTelemetryAttestation, computeRecordHash, telemetryLedgerPath, verifyTelemetryLedger, TelemetryLedgerCheck } from "./telemetry-ledger";
+import { appendTelemetryAttestation, computeRecordHash, reportedUsageDigest, telemetryLedgerPath, verifyTelemetryLedger, TelemetryLedgerCheck } from "./telemetry-ledger";
 import { signTelemetry, verifyTelemetryAttestation } from "./telemetry-attestation";
+import { exportRun, verifyReportBundle } from "./run-export";
+import { createRunPaths, ensureRunDirs, saveCheckpoint } from "./state";
 import { sha256 } from "./execution-backend";
 
 export interface TamperDemoLayer {
@@ -228,4 +230,165 @@ export function runTamperDemo(options: { dir?: string; keepDir?: boolean } = {})
     layers.every((l) => l.before.verified && !l.after.verified && l.failures.length > 0);
 
   return { schemaVersion: 1, runId, workers: HOPS.length, trustKey: "ephemeral-ed25519", baseline, layers, proven };
+}
+
+// ---------------------------------------------------------------------------
+// Bundle-verification demo — the portable-artifact counterpart to demo tamper.
+// Proves the SHIPPABLE bundle (archive bytes + telemetry chain + trust-audit chain
+// + embedded-key ed25519 signatures) re-verifies offline with ONLY the public key
+// the bundle itself carries, and that forging it — at the chain layer OR the
+// signature layer — is caught even when the archive's own file digests stay valid.
+// Hermetic + deterministic: ephemeral key, real export, private tmpdir, no network.
+// ---------------------------------------------------------------------------
+
+export interface BundleDemoLayer {
+  layer: "chain" | "signature";
+  /** What was forged, in plain words. */
+  tamper: string;
+  before: { ok: boolean; detail: string };
+  after: { ok: boolean; detail: string };
+  /** The failed checks the bundle verifier reported after the forgery. */
+  failures: string[];
+}
+
+export interface BundleDemoResult {
+  schemaVersion: 1;
+  runId: string;
+  workers: number;
+  trustKey: "ephemeral-ed25519";
+  /** The clean baseline both forgeries start from. */
+  baseline: { ok: boolean; telemetryVerified: boolean; signaturesReverified: number };
+  layers: BundleDemoLayer[];
+  /** True iff the clean bundle verified AND every forgery was caught. */
+  proven: boolean;
+}
+
+export function runBundleDemo(options: { dir?: string; keepDir?: boolean } = {}): BundleDemoResult {
+  const workdir = options.dir || fs.mkdtempSync(path.join(os.tmpdir(), "cw-bundle-demo-"));
+  fs.mkdirSync(workdir, { recursive: true });
+  const runId = "demo-bundle-run";
+  const runDir = path.join(workdir, ".cw", "runs", runId);
+  const paths = createRunPaths(runDir);
+  ensureRunDirs(paths);
+
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+  const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
+  const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+
+  // Build a real signed ledger + a cited report, the way an attested run would.
+  const ledgerRun = { id: runId, paths } as unknown as WorkflowRun;
+  for (const hop of HOPS) {
+    const ctx = { runId, taskId: hop.taskId, promptDigest: hop.promptDigest };
+    appendTelemetryAttestation(ledgerRun, {
+      workerId: hop.workerId,
+      taskId: hop.taskId,
+      promptDigest: hop.promptDigest,
+      reportedUsage: hop.usage,
+      usageSignature: hop.attestation === "attested" ? signTelemetry(hop.usage, privateKeyPem, ctx) : undefined,
+      attestation: hop.attestation,
+      now: DEMO_NOW
+    });
+  }
+  fs.writeFileSync(path.join(runDir, "report.md"), "# Architecture review\n\nRisk: src/server.js:18 — unauthenticated route.\n", "utf8");
+  const attestedCount = HOPS.filter((h) => h.attestation === "attested").length;
+
+  const fullRun = {
+    schemaVersion: 1, id: runId, createdAt: DEMO_NOW, updatedAt: DEMO_NOW, cwd: workdir,
+    workflow: { id: "demo", title: "Demo", summary: "", limits: { maxAgents: 1, maxConcurrentAgents: 1 } },
+    inputs: { question: "what are the risks?" }, loopStage: "interpret",
+    phases: [], tasks: [], dispatches: [], commits: [], paths, nodes: [], contracts: []
+  } as unknown as WorkflowRun;
+  saveCheckpoint(fullRun);
+
+  const ledgerFile = telemetryLedgerPath(ledgerRun);
+  const cleanLedger = fs.readFileSync(ledgerFile, "utf8");
+  const exportSealed = (out: string): void => { exportRun(fullRun, out, { trustPublicKey: publicKeyPem }); };
+
+  // Baseline: a clean sealed bundle verifies offline; the embedded key reverifies
+  // every signed hop.
+  const cleanBundle = path.join(workdir, "clean.cwrun.json");
+  exportSealed(cleanBundle);
+  const clean = verifyReportBundle(cleanBundle);
+  const baseline = { ok: clean.ok, telemetryVerified: clean.telemetryVerified, signaturesReverified: clean.signaturesReverified };
+
+  const layers: BundleDemoLayer[] = [];
+
+  // CHAIN forgery: flip record[1]'s verdict and reseal its recordHash; record[2]'s
+  // prevHash still points at the original hash, so the chain breaks — even though
+  // every archive file digest (computed at export over the tampered bytes) is valid.
+  // This is exactly what inspect-archive alone cannot catch.
+  {
+    const j = JSON.parse(cleanLedger);
+    j.records[1].attestation = "attested";
+    const { recordHash: _drop, ...rest } = j.records[1];
+    j.records[1].recordHash = computeRecordHash(rest);
+    fs.writeFileSync(ledgerFile, JSON.stringify(j, null, 2));
+    const forged = path.join(workdir, "forged-chain.cwrun.json");
+    exportSealed(forged);
+    const after = verifyReportBundle(forged);
+    fs.writeFileSync(ledgerFile, cleanLedger);
+    layers.push({
+      layer: "chain",
+      tamper: `forged record[1] verdict "unattested" -> "attested" and resealed its recordHash; the archive's own file digests stay valid`,
+      before: { ok: clean.ok, detail: `${clean.signaturesReverified} signed hop(s) reverify; chain intact` },
+      after: { ok: after.ok, detail: after.telemetryVerified ? "telemetry chain still verified (UNDETECTED!)" : "the embedded hash chain broke at the next record" },
+      failures: after.ok ? [] : after.failedChecks.map((c) => `${c.name}: ${c.code}`)
+    });
+  }
+
+  // SIGNATURE forgery: inflate the last attested hop's reported tokens and reseal its
+  // usage digest + recordHash so the chain AND archive digests still verify; only the
+  // ed25519 signature (over the original usage) no longer matches the inflated number.
+  {
+    const j = JSON.parse(cleanLedger);
+    const idx = j.records.length - 1;
+    j.records[idx].reportedUsage = { ...j.records[idx].reportedUsage, output_tokens: (j.records[idx].reportedUsage.output_tokens as number) * 10 };
+    j.records[idx].reportedUsageDigest = reportedUsageDigest(j.records[idx].reportedUsage);
+    const { recordHash: _drop, ...rest } = j.records[idx];
+    j.records[idx].recordHash = computeRecordHash(rest);
+    fs.writeFileSync(ledgerFile, JSON.stringify(j, null, 2));
+    const forged = path.join(workdir, "forged-sig.cwrun.json");
+    exportSealed(forged);
+    const after = verifyReportBundle(forged);
+    fs.writeFileSync(ledgerFile, cleanLedger);
+    layers.push({
+      layer: "signature",
+      tamper: `inflated the last attested hop's output_tokens 10x and resealed its digest + recordHash; the chain stays valid`,
+      before: { ok: clean.ok, detail: `the embedded public key reverifies the original signature` },
+      after: { ok: after.ok, detail: after.signaturesFailed > 0 ? `${after.signaturesFailed} signature(s) failed ed25519 reverify` : "signature still verified (UNDETECTED!)" },
+      failures: after.ok ? [] : after.failedChecks.map((c) => `${c.name}: ${c.code}`)
+    });
+  }
+
+  if (!options.keepDir && !options.dir) fs.rmSync(workdir, { recursive: true, force: true });
+
+  const proven =
+    baseline.ok &&
+    baseline.telemetryVerified &&
+    baseline.signaturesReverified === attestedCount &&
+    layers.every((l) => l.before.ok && !l.after.ok && l.failures.length > 0);
+
+  return { schemaVersion: 1, runId, workers: HOPS.length, trustKey: "ephemeral-ed25519", baseline, layers, proven };
+}
+
+export function formatBundleDemo(r: BundleDemoResult): string {
+  const lines: string[] = [];
+  lines.push(`cw demo bundle — portable-bundle verification proof (hermetic, ${r.trustKey} key)`);
+  lines.push("");
+  lines.push(`▶ Exported a sealed report bundle: ${r.workers} hops, public key embedded`);
+  lines.push(`  ${r.baseline.ok ? "✓" : "✗"} bundle verifies offline   ${r.baseline.signaturesReverified} signed hop(s) reverify with only the embedded public key`);
+  for (const l of r.layers) {
+    lines.push("");
+    lines.push(`▶ ${l.layer.toUpperCase()} forgery`);
+    lines.push(`  edit:   ${l.tamper}`);
+    lines.push(`  before: ${l.before.ok ? "✓ verifies" : "✗"} — ${l.before.detail}`);
+    lines.push(`  after:  ${l.after.ok ? "✓ (UNDETECTED!)" : "✗ DETECTED"} — ${l.after.detail}`);
+  }
+  lines.push("");
+  lines.push(
+    r.proven
+      ? "VERDICT: bundle verification holds ✓ — every forgery caught offline with only the bundle's embedded public key. No repo, no server, no key handed over."
+      : "VERDICT: PROOF FAILED ✗ — a forged bundle verified. This is a regression in the bundle guarantee."
+  );
+  return lines.join("\n");
 }

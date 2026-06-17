@@ -72,7 +72,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 192 capabilities, 186 MCP tools.
+machine-complete by design: 193 capabilities, 186 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -258,6 +258,7 @@ machine-complete by design: 192 capabilities, 186 MCP tools.
 | `gc.verify` | `cw gc verify` | `cw_gc_verify` | `gcVerify` | both | identical |
 | `telemetry.verify` | `cw telemetry verify` | `cw_telemetry_verify` | `telemetryVerify` | both | identical |
 | `demo.tamper` | `cw demo tamper` | `—` | `demoTamper` | cli-only | cli-only |
+| `demo.bundle` | `cw demo bundle` | `—` | `demoBundle` | cli-only | cli-only |
 | `history` | `cw history` | `cw_history` | `runRegistry.history` | both | identical |
 | `workbench.view` | `cw workbench view` | `cw_workbench_view` | `buildWorkbenchRunView` | both | identical |
 | `workbench.serve` | `cw workbench serve` | `cw_workbench_serve` | `buildWorkbenchServeDescriptor` | both | projected |
@@ -284,7 +285,7 @@ A capability may be on one surface only, but never without word of it — it mus
 carry a recorded reason in the registry.
 
 <!-- gen:parity:cliOnly -->
-Six capabilities are CLI-only:
+Seven capabilities are CLI-only:
 
 - `help` — Human help text. MCP hosts enumerate capabilities via tools/list, not a help command.
 - `doctor` — Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`.
@@ -292,6 +293,7 @@ Six capabilities are CLI-only:
 - `schedule daemon` — Long-running desktop daemon process, not a request/response tool. MCP hosts drive ticks via cw_schedule_due + cw_schedule_run_now.
 - `quickstart` — CLI UX convenience layer (newcomer first value in one command) over the existing run.drive.step + report verbs; it spawns nothing new and delegates worker execution to the operator's agent backend. MCP hosts compose the same outcome from cw_run_drive_step + cw_report. `audit-run` is a CLI-only alias of the same wrapper.
 - `demo tamper` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo.
+- `demo bundle` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo.
 <!-- /gen:parity:cliOnly -->
 
 <!-- gen:parity:projected -->

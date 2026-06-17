@@ -74,6 +74,11 @@ usage. A missing, unreadable, or schema-unsupported bundle is also `ok: false`.
 ## Usage
 
 ```
+# See it in 30 seconds, hermetic — no agent, no API key, no repo:
+npx cool-workflow demo bundle
+#   -> builds a sealed bundle, forges it two ways, and shows verify-bundle
+#      catching both offline with only the embedded public key.
+
 # Produce-and-prove in ONE command: export sealed + self-verify + emit the report.
 cw report bundle <run-id> --with-trust-key ./trust-pub.pem \
   --output report.cwrun.json --extract-report report.md
