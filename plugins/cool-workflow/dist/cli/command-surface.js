@@ -152,6 +152,7 @@ async function runCli(argv = process.argv.slice(2)) {
             return;
         case "report": {
             // `report verify-bundle <path>` is the offline self-contained bundle verifier;
+            // `report bundle <run-id>` exports a sealed bundle and self-verifies it;
             // every other `report <run-id>` form prints/inspects a local run's report.
             if (args.positionals[0] === "verify-bundle") {
                 const result = (0, capability_core_1.runVerifyReportBundle)(runner, { ...args.options, archive: args.positionals[1] || args.options.archive || args.options.path || args.options.file || args.options.bundle });
@@ -159,6 +160,16 @@ async function runCli(argv = process.argv.slice(2)) {
                 // Fail closed: a forged/edited/corrupt bundle verifies false — surface it
                 // through the exit code so `cw report verify-bundle <file> && ship` cannot
                 // pass on a lie. Mirrors run inspect-archive / telemetry verify.
+                if (!result.ok)
+                    process.exitCode = 1;
+                return;
+            }
+            if (args.positionals[0] === "bundle") {
+                const result = (0, capability_core_1.reportBundle)(runner, required(args.positionals[1] || optionalArg(args.options.runId || args.options.run), "run id"), args.options);
+                printJson(result);
+                // Fail closed: never report a "bundle made" success if the artifact does not
+                // self-verify — so `cw report bundle <run> && send-to-client` cannot ship an
+                // unverifiable report (e.g. no trust key under --strict-signatures).
                 if (!result.ok)
                     process.exitCode = 1;
                 return;

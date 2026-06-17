@@ -367,6 +367,8 @@ function callTool(name, args) {
                 return (0, capability_core_1.runInspectArchive)(runner, args);
             case "cw_report_verify_bundle":
                 return (0, capability_core_1.runVerifyReportBundle)(runner, args);
+            case "cw_report_bundle":
+                return (0, capability_core_1.reportBundle)(runner, String(args.runId || ""), args);
             case "cw_run_drive":
                 return (0, capability_core_1.runDrivePreview)(runner, args);
             case "cw_run_drive_step":
@@ -1284,6 +1286,16 @@ function toolDefinitions() {
             extractReport: stringSchema("Optional path to write the bundle's report.md to"),
             strictSignatures: booleanSchema("Fail when the bundle claims attested telemetry but no key is available to re-verify it"),
             cwd: stringSchema("Invocation workspace")
+        }),
+        capabilityTool("report.bundle", "Produce-and-prove: export a run to a portable bundle sealed with the operator's ed25519 public key (defaults to CW_AGENT_ATTEST_PUBKEY), then immediately self-verify it offline the way a recipient will. Fail-closed: the producer learns now whether the artifact is verifiable before shipping it. Peer of `cw report bundle`.", {
+            runId: stringSchema("Run id to bundle"),
+            cwd: stringSchema("Repo workspace containing .cw/runs/<run-id>"),
+            output: stringSchema("Bundle output path"),
+            path: stringSchema("Alias for output"),
+            trustKey: stringSchema("Optional ed25519 PUBLIC key (inline PEM or path) to seal; defaults to CW_AGENT_ATTEST_PUBKEY"),
+            withTrustKey: stringSchema("Alias for trustKey"),
+            extractReport: stringSchema("Optional path to also write the human-readable report.md to"),
+            strictSignatures: booleanSchema("Refuse to call the bundle ok if attested telemetry cannot be re-verified (no key)")
         }),
         capabilityTool("run.drive", "Preview the next agent-delegation drive step for a run (read-only, deterministic). Counts come from state; no spawn, no mutation.", {
             runId: stringSchema("Run id to preview"),
