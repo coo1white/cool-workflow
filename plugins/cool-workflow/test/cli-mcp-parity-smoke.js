@@ -37,8 +37,12 @@ function liveMcpToolDefinitions() {
 }
 
 function cliDispatchTokens() {
-  const source = fs.readFileSync(cli, "utf8");
+  const source = cliDispatchSources().map((file) => fs.readFileSync(file, "utf8")).join("\n");
   return [...new Set([...source.matchAll(/case\s+"([^"]+)":/g)].map((match) => match[1]))];
+}
+
+function cliDispatchSources() {
+  return [cli, path.join(pluginRoot, "dist", "cli", "command-surface.js")].filter((file) => fs.existsSync(file));
 }
 
 function canonical(value) {

@@ -236,7 +236,13 @@ function main() {
     assert.equal(cap.surface, "cli-only", "quickstart is a CLI-only UX convenience");
     assert.equal(cap.entry, "quickstart", "routes through the shared quickstart core entry");
     assert.deepEqual(cap.cli.caseTokens, ["quickstart", "audit-run"], "declares both case tokens (incl. the audit-run alias)");
-    const cliSource = fs.readFileSync(path.join(pluginRoot, "dist/cli.js"), "utf8");
+    const cliSource = [
+      path.join(pluginRoot, "dist", "cli.js"),
+      path.join(pluginRoot, "dist", "cli", "command-surface.js")
+    ]
+      .filter((file) => fs.existsSync(file))
+      .map((file) => fs.readFileSync(file, "utf8"))
+      .join("\n");
     assert.ok(/case "quickstart":/.test(cliSource), "cli dispatches quickstart");
     assert.ok(/case "audit-run":/.test(cliSource), "cli dispatches the audit-run alias");
   }
