@@ -9,8 +9,8 @@ Generated from the current repository code on 2026-06-17 by `npm run sync:projec
 - Source modules: `61`
 - Workflow apps: `7`
 - Docs: `49`
-- Smoke tests: `92`
-- Repository: http://local_proxy@127.0.0.1:39345/git/coo1white/cool-workflow
+- Smoke tests: `93`
+- Repository: http://local_proxy@127.0.0.1:39583/git/coo1white/cool-workflow
 
 ## Architecture
 
@@ -189,6 +189,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [audit-verify-smoke.js](../test/audit-verify-smoke.js)
 - [backend-registry-smoke.js](../test/backend-registry-smoke.js)
 - [block-unapproved-tag-smoke.js](../test/block-unapproved-tag-smoke.js)
+- [bump-version-idempotent-smoke.js](../test/bump-version-idempotent-smoke.js)
 - [candidate-scoring-smoke.js](../test/candidate-scoring-smoke.js)
 - [canonical-workflow-apps-smoke.js](../test/canonical-workflow-apps-smoke.js)
 - [claude-p-agent-wrapper-smoke.js](../test/claude-p-agent-wrapper-smoke.js)

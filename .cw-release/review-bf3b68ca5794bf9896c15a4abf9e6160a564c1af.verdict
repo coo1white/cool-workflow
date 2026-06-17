@@ -1,2 +1,0 @@
-APPROVED bf3b68ca5794bf9896c15a4abf9e6160a564c1af
-Users can now run `cw doctor` to get a named, actionable readiness check (Node version, agent backend, git, writable state) before their first run, and the scheduler and registry now fail closed on corrupt authoritative files and concurrent writes instead of silently substituting stale defaults.
