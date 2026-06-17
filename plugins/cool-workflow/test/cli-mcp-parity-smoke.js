@@ -84,6 +84,19 @@ function openMcp() {
   assert.equal(registry.declaredMcpTools().length, toolNames.length, "every live MCP tool must be declared exactly once");
   assert.ok(registry.CAPABILITY_REGISTRY.length >= toolNames.length, "registry must cover at least every MCP tool");
   assert.ok(registry.payloadIdenticalCapabilities().length >= 20, "expected a substantial payload-identical set");
+  assert.equal(typeof registry.payloadProbePlan, "function", "registry must own the payload probe classification plan");
+
+  {
+    const plan = registry.payloadProbePlan();
+    assert.deepEqual(plan.unclassified, [], "payload-identical capabilities must be probed or explicitly deferred");
+    assert.deepEqual(plan.duplicateClassifications, [], "payload probe classification must not duplicate capabilities");
+    assert.deepEqual(plan.invalidClassifications, [], "payload probe classification must only reference payload-identical capabilities");
+    assert.ok(plan.targets.length >= 30, "payload probe plan must retain the existing CLI <-> MCP coverage");
+    assert.ok(plan.deferred.length > 0, "complex payload-identical capabilities must be explicitly deferred with reasons");
+    for (const deferred of plan.deferred) {
+      assert.ok(deferred.reason && deferred.reason.trim(), `${deferred.capability}: deferred payload probe must record a reason`);
+    }
+  }
 
   // ---- F6: the payload-identity probe defaults IN (write verbs included) ----
   // Regression guard against the old narrow allow-list that left ~170 write/

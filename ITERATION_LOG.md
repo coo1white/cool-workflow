@@ -205,3 +205,8 @@
 | 4 | F1 test strengthening: add an intrinsic-projection-nondeterminism scenario (corrupt the stored baseline, leave raw state pristine) to the determinism regression smoke; teeth-verified against the old copy-the-baseline bug | test/multi-agent-eval-determinism-regression-smoke.js | 87/87 + release:check | no (PR #167 / CI / merge) |
 | 5 | cut v0.1.82: write the CHANGELOG release notes, run the deterministic gate + independent reviewer, bump every structured version surface, tag | CHANGELOG.md + ITERATION_LOG.md + structured version surfaces (via bump:version) + dist | release-gate.sh (build + npm test + substance + test-evidence + cadence) + independent reviewer verdict | yes (v0.1.82: architecture-audit hardening) |
 
+## Batch - god-object fix loop (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | move payload probe classification into the capability registry so the release parity gate no longer owns a hidden hand list; fail closed when a payload-identical both-surface capability is not probed or given a reasoned deferment | src/capability-registry.ts + dist + scripts/parity-check.js + test/cli-mcp-parity-smoke.js | cli-mcp-parity-smoke now asserts registry-owned probe targets, deferments, and unclassified/duplicate/invalid classification failures | BUILD OK, check OK, parity OK, dist-drift OK, npm test 93/93, release:check PASS | no (refactor/hardening PR; no release tag in this loop) |

@@ -30,6 +30,9 @@ exports.declaredCliTokens = declaredCliTokens;
 exports.requiresReason = requiresReason;
 exports.isPayloadProbeOptOut = isPayloadProbeOptOut;
 exports.payloadIdenticalCapabilities = payloadIdenticalCapabilities;
+exports.payloadProbeTargets = payloadProbeTargets;
+exports.deferredPayloadProbeCapabilities = deferredPayloadProbeCapabilities;
+exports.payloadProbePlan = payloadProbePlan;
 exports.buildParityReport = buildParityReport;
 // ---------------------------------------------------------------------------
 // Builtin entries. Grouped to mirror the CLI dispatch and the MCP tool list.
@@ -412,6 +415,199 @@ const BUILTIN_CAPABILITIES = [
  *  silently-dead duplicate the way the old snapshot-then-register design allowed. */
 exports.CAPABILITY_REGISTRY = Array.from(new Map(BUILTIN_CAPABILITIES.map((cap) => [cap.capability, cap])).values());
 // ---------------------------------------------------------------------------
+// Payload probe classification.
+// ---------------------------------------------------------------------------
+const GLOBAL_PAYLOAD_PROBE_CAPABILITIES = [
+    "list",
+    "app.list",
+    "topology.list",
+    "sandbox.list",
+    "backend.list",
+    "backend.agent.config.show",
+    "metrics.summary"
+];
+const RUN_PAYLOAD_PROBE_CAPABILITIES = [
+    "status",
+    "operator.status",
+    "operator.report",
+    "graph",
+    "report",
+    "next",
+    "state.check",
+    "contract.show",
+    "node.list",
+    "node.graph",
+    "worker.summary",
+    "candidate.summary",
+    "feedback.summary",
+    "commit.summary",
+    "audit.summary",
+    "multi-agent.summary",
+    "workbench.view",
+    "metrics.show",
+    "review.status",
+    "comment.list",
+    "run.drive",
+    "gc.plan",
+    "gc.verify"
+];
+const PAYLOAD_PROBE_DEFERRED_GROUPS = [
+    {
+        reason: "Not safe for the deterministic bootstrap parity probe yet: this capability needs extra target ids/files, mutates durable state, depends on external state, or needs a dedicated fixture beyond cwd/runId.",
+        capabilities: [
+            "init",
+            "plan",
+            "dispatch",
+            "result",
+            "app.show",
+            "app.validate",
+            "app.init",
+            "app.package",
+            "app.run",
+            "node.show",
+            "node.snapshot",
+            "node.diff",
+            "node.replay",
+            "node.replay.verify",
+            "migration.list",
+            "migration.check",
+            "migration.prove",
+            "topology.show",
+            "topology.validate",
+            "topology.apply",
+            "topology.summary",
+            "topology.graph",
+            "summary.refresh",
+            "summary.show",
+            "multi-agent.run",
+            "multi-agent.status",
+            "multi-agent.step",
+            "multi-agent.blackboard",
+            "multi-agent.score",
+            "multi-agent.select",
+            "multi-agent.summarize",
+            "multi-agent.graph",
+            "multi-agent.graph.compact",
+            "multi-agent.dependencies",
+            "multi-agent.failures",
+            "multi-agent.evidence",
+            "multi-agent.reasoning",
+            "multi-agent.reasoning.refresh",
+            "multi-agent.run.create",
+            "multi-agent.run.transition",
+            "multi-agent.run.show",
+            "multi-agent.role.create",
+            "multi-agent.role.show",
+            "multi-agent.group.create",
+            "multi-agent.group.show",
+            "multi-agent.membership.create",
+            "multi-agent.membership.show",
+            "multi-agent.fanout.create",
+            "multi-agent.fanout.show",
+            "multi-agent.fanin.collect",
+            "multi-agent.fanin.show",
+            "eval.snapshot",
+            "eval.replay",
+            "eval.compare",
+            "eval.score",
+            "eval.gate",
+            "eval.report",
+            "blackboard.summary",
+            "blackboard.summarize",
+            "blackboard.graph",
+            "blackboard.resolve",
+            "blackboard.topic.create",
+            "blackboard.message.post",
+            "blackboard.message.list",
+            "blackboard.context.put",
+            "blackboard.artifact.add",
+            "blackboard.artifact.list",
+            "blackboard.snapshot",
+            "coordinator.summary",
+            "coordinator.decision",
+            "audit.verify",
+            "audit.worker",
+            "audit.provenance",
+            "audit.multi-agent",
+            "audit.policy",
+            "audit.role",
+            "audit.blackboard",
+            "audit.judge",
+            "audit.attest",
+            "audit.decision",
+            "sandbox.show",
+            "sandbox.validate",
+            "sandbox.choose",
+            "sandbox.resolve",
+            "backend.show",
+            "backend.probe",
+            "worker.list",
+            "worker.show",
+            "worker.manifest",
+            "worker.output",
+            "worker.fail",
+            "worker.validate",
+            "candidate.list",
+            "candidate.show",
+            "candidate.register",
+            "candidate.score",
+            "candidate.rank",
+            "candidate.select",
+            "candidate.reject",
+            "feedback.list",
+            "feedback.show",
+            "feedback.collect",
+            "feedback.task",
+            "feedback.resolve",
+            "schedule.create",
+            "schedule.list",
+            "schedule.delete",
+            "schedule.due",
+            "schedule.complete",
+            "schedule.pause",
+            "schedule.resume",
+            "schedule.run-now",
+            "schedule.history",
+            "routine.create",
+            "routine.list",
+            "routine.delete",
+            "routine.fire",
+            "routine.events",
+            "registry.refresh",
+            "registry.show",
+            "run.search",
+            "run.list",
+            "run.show",
+            "run.resume",
+            "run.archive",
+            "run.rerun",
+            "run.export",
+            "run.import",
+            "run.verify-import",
+            "run.inspect-archive",
+            "queue.add",
+            "queue.list",
+            "queue.drain",
+            "queue.show",
+            "sched.plan",
+            "sched.lease",
+            "sched.release",
+            "sched.complete",
+            "sched.reclaim",
+            "sched.reset",
+            "sched.policy.show",
+            "sched.policy.set",
+            "telemetry.verify",
+            "history",
+            "approve",
+            "reject",
+            "comment.add",
+            "handoff",
+            "review.policy"
+        ]
+    }
+];
+// ---------------------------------------------------------------------------
 // Derivations + the fail-closed parity report builder.
 // ---------------------------------------------------------------------------
 /** The MCP tool names this registry declares. */
@@ -460,6 +656,30 @@ function isPayloadProbeOptOut(cap) {
 function payloadIdenticalCapabilities() {
     return exports.CAPABILITY_REGISTRY.filter((cap) => cap.surface === "both" && cap.cli && cap.mcp && !isPayloadProbeOptOut(cap));
 }
+function payloadProbeTargets() {
+    return [
+        ...GLOBAL_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "global" })),
+        ...RUN_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "run" }))
+    ];
+}
+function deferredPayloadProbeCapabilities() {
+    return PAYLOAD_PROBE_DEFERRED_GROUPS.flatMap((group) => group.capabilities.map((capability) => ({ capability, reason: group.reason })));
+}
+function payloadProbePlan() {
+    const candidateIds = new Set(payloadIdenticalCapabilities().map((cap) => cap.capability));
+    const counts = new Map();
+    const classified = [...payloadProbeTargets().map((entry) => entry.capability), ...deferredPayloadProbeCapabilities().map((entry) => entry.capability)];
+    for (const capability of classified)
+        counts.set(capability, (counts.get(capability) || 0) + 1);
+    const classifiedIds = new Set(classified);
+    return {
+        targets: payloadProbeTargets(),
+        deferred: deferredPayloadProbeCapabilities(),
+        unclassified: [...candidateIds].filter((capability) => !classifiedIds.has(capability)).sort(),
+        duplicateClassifications: [...counts.entries()].filter(([, count]) => count > 1).map(([capability]) => capability).sort(),
+        invalidClassifications: [...classifiedIds].filter((capability) => !candidateIds.has(capability)).sort()
+    };
+}
 function lintRegistry() {
     const issues = [];
     const seenCaps = new Set();
@@ -502,12 +722,16 @@ function buildParityReport(input) {
     const reasonlessExceptions = exports.CAPABILITY_REGISTRY.filter((cap) => requiresReason(cap) && !(cap.reason && cap.reason.trim()))
         .map((cap) => cap.capability)
         .sort();
+    const payloadPlan = payloadProbePlan();
     const registryLint = lintRegistry();
     const ok = missingMcpTools.length === 0 &&
         undeclaredMcpTools.length === 0 &&
         missingCliTokens.length === 0 &&
         undeclaredCliTokens.length === 0 &&
         reasonlessExceptions.length === 0 &&
+        payloadPlan.unclassified.length === 0 &&
+        payloadPlan.duplicateClassifications.length === 0 &&
+        payloadPlan.invalidClassifications.length === 0 &&
         registryLint.length === 0;
     return {
         ok,
@@ -517,6 +741,9 @@ function buildParityReport(input) {
         missingCliTokens,
         undeclaredCliTokens,
         reasonlessExceptions,
+        payloadProbeUnclassified: payloadPlan.unclassified,
+        payloadProbeDuplicateClassifications: payloadPlan.duplicateClassifications,
+        payloadProbeInvalidClassifications: payloadPlan.invalidClassifications,
         registryLint
     };
 }

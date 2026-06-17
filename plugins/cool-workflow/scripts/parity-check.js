@@ -31,48 +31,14 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 const registry = require(path.join(pluginRoot, "dist", "capability-registry.js"));
 
-// Read capabilities that are safe to probe on a freshly planned run with only a
-// runId (or no args). Each: [capability, cliArgvAfterRunId, mcpTool].
-// runId-less reads use [] for cli args and {} mcp args.
-const RUN_PROBES = [
-  ["status", ["--json"], "cw_status"],
-  ["operator.status", ["--json"], "cw_operator_status"],
-  ["operator.report", ["--json"], "cw_operator_report"],
-  ["graph", ["--json"], "cw_operator_graph"],
-  ["report", ["--json"], "cw_report"],
-  ["next", [], "cw_next"],
-  ["state.check", [], "cw_state_check"],
-  ["contract.show", [], "cw_contract_show"],
-  ["node.list", [], "cw_node_list"],
-  ["node.graph", ["--json"], "cw_node_graph"],
-  ["worker.summary", ["--json"], "cw_worker_summary"],
-  ["candidate.summary", ["--json"], "cw_candidate_summary"],
-  ["feedback.summary", ["--json"], "cw_feedback_summary"],
-  ["commit.summary", ["--json"], "cw_commit_summary"],
-  ["audit.summary", [], "cw_audit_summary"],
-  ["multi-agent.summary", ["--json"], "cw_multi_agent_summary"],
-  ["workbench.view", ["--json"], "cw_workbench_view"],
-  ["metrics.show", ["--json"], "cw_metrics_show"],
-  ["review.status", ["--json"], "cw_review_status"],
-  ["comment.list", ["--json"], "cw_comment_list"],
-  ["run.drive", ["--json"], "cw_run_drive"],
-  ["gc.plan", ["--json"], "cw_gc_plan"],
-  ["gc.verify", ["--json"], "cw_gc_verify"]
-];
-const GLOBAL_PROBES = [
-  ["list", "cw_list"],
-  ["app.list", "cw_app_list"],
-  ["topology.list", "cw_topology_list"],
-  ["sandbox.list", "cw_sandbox_list"],
-  ["backend.list", "cw_backend_list"],
-  ["backend.agent.config.show", "cw_backend_agent_config_show"],
-  ["metrics.summary", "cw_metrics_summary"]
-];
-
 function capById(id) {
   const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === id);
   assert.ok(cap, `probe references unknown capability ${id}`);
   return cap;
+}
+
+function jsonFlag(cap) {
+  return cap.cli.jsonMode === "flag" ? ["--json"] : [];
 }
 
 // ---- 1. static surface parity ---------------------------------------------
@@ -144,31 +110,28 @@ async function payloadParity() {
   const runId = plan.runId;
   const mismatches = [];
   const checked = [];
+  const probePlan = registry.payloadProbePlan();
+  assert.deepEqual(probePlan.unclassified, [], "payload probe classification has unclassified capabilities");
+  assert.deepEqual(probePlan.duplicateClassifications, [], "payload probe classification has duplicates");
+  assert.deepEqual(probePlan.invalidClassifications, [], "payload probe classification names non-payload capabilities");
   const mcp = openMcp();
   try {
     await mcp.rpc("initialize", {});
-    for (const [capability, mcpTool] of GLOBAL_PROBES) {
-      const cap = capById(capability);
-      assert.equal(cap.mcp.tool, mcpTool, `probe/registry MCP tool mismatch for ${capability}`);
+    for (const target of registry.payloadProbeTargets()) {
+      const cap = capById(target.capability);
       // jsonMode is the single source for the CLI's --json policy; this probe only
       // appends --json for "flag" verbs and JSON.parse-es the result. The human
       // rendering and "default"-verb no-flag JSON are pinned to cap.cli.jsonMode by
       // the companion test/cli-jsonmode-parity-smoke.js, so cli.ts can't silently
       // re-encode that policy by hand and drift from this registry data.
-      const cliArgv = [...cap.cli.path, ...(cap.cli.jsonMode === "flag" ? ["--json"] : [])];
+      const cliArgv = target.kind === "run"
+        ? [...cap.cli.path, runId, ...jsonFlag(cap)]
+        : [...cap.cli.path, ...jsonFlag(cap)];
       const cliOut = JSON.parse(execFileSync(node, [cli, ...cliArgv], { cwd: workspace, encoding: "utf8" }));
-      const mcpOut = await mcp.tool(mcpTool, { cwd: workspace });
-      checked.push(capability);
-      if (canonical(cliOut) !== canonical(mcpOut)) mismatches.push(capability);
-    }
-    for (const [capability, extraArgv, mcpTool] of RUN_PROBES) {
-      const cap = capById(capability);
-      assert.equal(cap.mcp.tool, mcpTool, `probe/registry MCP tool mismatch for ${capability}`);
-      const cliArgv = [...cap.cli.path, runId, ...extraArgv];
-      const cliOut = JSON.parse(execFileSync(node, [cli, ...cliArgv], { cwd: workspace, encoding: "utf8" }));
-      const mcpOut = await mcp.tool(mcpTool, { cwd: workspace, runId });
-      checked.push(capability);
-      if (canonical(cliOut) !== canonical(mcpOut)) mismatches.push(capability);
+      const mcpArgs = target.kind === "run" ? { cwd: workspace, runId } : { cwd: workspace };
+      const mcpOut = await mcp.tool(cap.mcp.tool, mcpArgs);
+      checked.push(target.capability);
+      if (canonical(cliOut) !== canonical(mcpOut)) mismatches.push(target.capability);
     }
   } finally {
     mcp.server.kill();
@@ -204,6 +167,9 @@ async function main() {
     if (report.missingCliTokens.length) lines.push(`  - registry declares CLI tokens absent from dist/cli.js: ${report.missingCliTokens.join(", ")}`);
     if (report.undeclaredCliTokens.length) lines.push(`  - dist/cli.js dispatches tokens not declared in the registry: ${report.undeclaredCliTokens.join(", ")}`);
     if (report.reasonlessExceptions.length) lines.push(`  - surface-specific / payload-divergent capabilities missing a recorded reason: ${report.reasonlessExceptions.join(", ")}`);
+    if (report.payloadProbeUnclassified.length) lines.push(`  - payload-identical capabilities neither probed nor deferred: ${report.payloadProbeUnclassified.join(", ")}`);
+    if (report.payloadProbeDuplicateClassifications.length) lines.push(`  - payload probe duplicate classifications: ${report.payloadProbeDuplicateClassifications.join(", ")}`);
+    if (report.payloadProbeInvalidClassifications.length) lines.push(`  - payload probe classifications for invalid capabilities: ${report.payloadProbeInvalidClassifications.join(", ")}`);
     if (report.registryLint.length) lines.push(`  - registry lint: ${report.registryLint.join("; ")}`);
     if (payload.mismatches.length) lines.push(`  - cw --json != cw_<tool> payload for: ${payload.mismatches.join(", ")}`);
     lines.push("Reconcile src/capability-registry.ts, cli.ts, and mcp-server.ts so both surfaces render one data source.\n");
