@@ -16,19 +16,26 @@ exports.importRun = importRun;
 exports.verifyImportedRun = verifyImportedRun;
 exports.inspectArchive = inspectArchive;
 exports.importManifestPath = importManifestPath;
+exports.verifyReportBundle = verifyReportBundle;
 const node_fs_1 = __importDefault(require("node:fs"));
+const node_os_1 = __importDefault(require("node:os"));
 const node_path_1 = __importDefault(require("node:path"));
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const state_1 = require("./state");
 const version_1 = require("./version");
 const telemetry_ledger_1 = require("./telemetry-ledger");
+const telemetry_attestation_1 = require("./telemetry-attestation");
 const trust_audit_1 = require("./trust-audit");
 const compare_1 = require("./compare");
 /** Export a run to a portable JSON archive with run-local bytes and digests. */
-function exportRun(run, outputPath) {
+function exportRun(run, outputPath, options = {}) {
     const exportedAt = new Date().toISOString();
     const files = collectArchiveFiles(run);
     const manifestSha256 = digestManifest(files);
+    // Embed ONLY a public key. resolveTrustPublicKey normalizes an inline PEM or a
+    // file path down to inline PEM bytes so the archive is self-contained; a value
+    // that resolves to nothing (bad path) yields no trust block rather than a throw.
+    const trustPublicKeyPem = (0, telemetry_attestation_1.resolveTrustPublicKey)(options.trustPublicKey);
     const exported = {
         schemaVersion: 1,
         exportedAt,
@@ -39,6 +46,7 @@ function exportRun(run, outputPath) {
             fileCount: files.length,
             manifestSha256
         },
+        ...(trustPublicKeyPem ? { trust: { publicKeyPem: trustPublicKeyPem, algorithm: "ed25519" } } : {}),
         // Legacy field retained so old readers still find an artifact-ish list.
         artifacts: files
             .filter((file) => file.role === "artifact")
@@ -62,6 +70,7 @@ function exportRun(run, outputPath) {
         artifactCount: files.filter((file) => file.role === "artifact").length,
         auditFileCount: files.filter((file) => file.role === "audit").length,
         telemetryIncluded: files.some((file) => file.role === "telemetry"),
+        trustKeyEmbedded: Boolean(trustPublicKeyPem),
         manifestSha256,
         archiveSha256
     };
@@ -275,6 +284,127 @@ function inspectArchive(archivePath) {
 }
 function importManifestPath(run) {
     return node_path_1.default.join(run.paths.runDir, "import-manifest.json");
+}
+/** Verify a portable run bundle OFFLINE and SELF-CONTAINED: prove the archive bytes,
+ *  the telemetry hash chain, the trust-audit chain, and (with the bundle's embedded
+ *  public key) the ed25519 signatures — WITHOUT a source repo, a pre-existing .cw
+ *  tree, or an out-of-band key. Reuses the existing import + restore-verify path: it
+ *  restores into an auto-cleaned tmpdir so a stranger's machine is left untouched.
+ *  Never throws — every failure is a structured check and a false `ok` (exit-1 worthy).
+ *
+ *  Key precedence is bundle > argument > environment, so the artifact verifies the
+ *  same on any machine; only when the bundle omits a key do the override/env apply. */
+function verifyReportBundle(archivePath, options = {}) {
+    const inspect = inspectArchive(archivePath);
+    const failedChecks = inspect.checks
+        .filter((check) => !check.pass)
+        .map((check) => ({ name: check.name, code: check.code }));
+    const base = {
+        schemaVersion: 1,
+        archivePath,
+        runId: inspect.runId,
+        ok: false,
+        archiveOk: inspect.ok,
+        telemetryVerified: false,
+        trustAuditVerified: false,
+        trustKeySource: "none",
+        signatureKeyProvided: false,
+        signaturesChecked: 0,
+        signaturesReverified: 0,
+        signaturesFailed: 0,
+        failedChecks
+    };
+    // A bundle that is not even a supported archive cannot be restored — report the
+    // inspection failure and stop (fail-closed, no tmpdir, nothing written).
+    if (!inspect.schemaSupported)
+        return base;
+    // Read the embedded trust key (and, if requested, the report bytes) straight from
+    // the archive JSON. inspectArchive already proved the bytes parse + digest-match.
+    let bundleKey;
+    let reportContent;
+    try {
+        const raw = JSON.parse(node_fs_1.default.readFileSync(archivePath, "utf8"));
+        bundleKey = raw.trust?.publicKeyPem;
+        if (options.extractReportTo) {
+            const reportFile = (raw.files || []).find((file) => file.relativePath === "report.md");
+            if (reportFile)
+                reportContent = Buffer.from(reportFile.contentBase64, "base64").toString("utf8");
+        }
+    }
+    catch {
+        /* inspect already recorded the parse failure; treat key as absent */
+    }
+    const trustKeySource = bundleKey
+        ? "bundle"
+        : options.pubkey
+            ? "argument"
+            : process.env.CW_AGENT_ATTEST_PUBKEY
+                ? "environment"
+                : "none";
+    const trustKey = (0, telemetry_attestation_1.resolveTrustPublicKey)(bundleKey || options.pubkey || process.env.CW_AGENT_ATTEST_PUBKEY);
+    const tmpDir = node_fs_1.default.mkdtempSync(node_path_1.default.join(node_os_1.default.tmpdir(), "cw-verify-bundle-"));
+    let telemetryVerified = false;
+    let trustAuditVerified = false;
+    let signaturesChecked = 0;
+    let signaturesReverified = 0;
+    let signaturesFailed = 0;
+    let reportExtractedTo;
+    try {
+        // Restore into the throwaway tree. importRun digest-checks every file and throws
+        // on the first mismatch (or on a stripped integrity block under
+        // CW_REQUIRE_ARCHIVE_INTEGRITY=1) — caught below as a failed "restore" check.
+        const imported = importRun(archivePath, tmpDir);
+        for (const check of imported.verification.checks) {
+            if (check.name === "telemetry-ledger")
+                telemetryVerified = check.pass;
+            if (check.name === "trust-audit")
+                trustAuditVerified = check.pass;
+            if (!check.pass)
+                failedChecks.push({ name: check.name, code: check.code });
+        }
+        // Independent ed25519 re-verification over the restored ledger using the bundle's
+        // own key (or override/env). With no key, attested records degrade to
+        // informational (signaturesFailed stays 0); the chain check above still gates ok.
+        const ledger = (0, telemetry_ledger_1.verifyTelemetryLedger)(imported.run);
+        const sig = (0, telemetry_attestation_1.verifyTelemetrySignatures)(ledger.records, trustKey);
+        signaturesChecked = sig.checked;
+        signaturesReverified = sig.reverified;
+        signaturesFailed = sig.failed;
+        for (const check of sig.checks)
+            if (!check.pass)
+                failedChecks.push({ name: check.name, code: check.code });
+        if (options.extractReportTo && reportContent !== undefined) {
+            reportExtractedTo = node_path_1.default.resolve(options.extractReportTo);
+            node_fs_1.default.writeFileSync(reportExtractedTo, reportContent);
+        }
+    }
+    catch (error) {
+        failedChecks.push({ name: "restore", code: messageOf(error) });
+    }
+    finally {
+        node_fs_1.default.rmSync(tmpDir, { recursive: true, force: true });
+    }
+    // Strict mode: a bundle that claims attested telemetry but offers no key to check
+    // it is unverifiable — refuse rather than green it.
+    const strictShortfall = Boolean(options.strictSignatures) && signaturesChecked > 0 && !trustKey;
+    if (strictShortfall)
+        failedChecks.push({ name: "signatures", code: "signature-key-required" });
+    return {
+        schemaVersion: 1,
+        archivePath,
+        runId: inspect.runId,
+        ok: inspect.ok && telemetryVerified && trustAuditVerified && signaturesFailed === 0 && !strictShortfall,
+        archiveOk: inspect.ok,
+        telemetryVerified,
+        trustAuditVerified,
+        trustKeySource,
+        signatureKeyProvided: Boolean(trustKey),
+        signaturesChecked,
+        signaturesReverified,
+        signaturesFailed,
+        reportExtractedTo,
+        failedChecks
+    };
 }
 function collectArchiveFiles(run) {
     const entries = new Map();

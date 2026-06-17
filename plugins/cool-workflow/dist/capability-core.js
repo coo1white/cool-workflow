@@ -40,6 +40,7 @@ exports.runExportArchive = runExportArchive;
 exports.runImportArchive = runImportArchive;
 exports.runInspectArchive = runInspectArchive;
 exports.runVerifyImport = runVerifyImport;
+exports.runVerifyReportBundle = runVerifyReportBundle;
 exports.queueAdd = queueAdd;
 exports.queueList = queueList;
 exports.queueDrain = queueDrain;
@@ -277,7 +278,11 @@ function runRerun(reg, runId, args) {
 function runExportArchive(runner, runId, args) {
     const base = invocationCwd(args);
     const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
-    return (0, run_export_1.exportRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId), node_path_1.default.resolve(base, output));
+    // Optionally seal in the operator's PUBLIC trust key so the bundle re-verifies
+    // offline. Default falls back to the same env the verify gate reads, so a single
+    // configured key both attests at record-time and travels with the export.
+    const trustPublicKey = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    return (0, run_export_1.exportRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId), node_path_1.default.resolve(base, output), { trustPublicKey });
 }
 function runImportArchive(runner, args) {
     const base = invocationCwd(args);
@@ -302,6 +307,22 @@ function runInspectArchive(_runner, args) {
 }
 function runVerifyImport(runner, runId, args) {
     return (0, run_export_1.verifyImportedRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId));
+}
+// Read-only: verify a portable run bundle OFFLINE and self-contained (archive bytes
+// + telemetry chain + trust-audit chain + embedded-key signatures). The runner is
+// unused — verification restores into its own throwaway tmpdir and writes nothing to
+// any registry — but kept for dispatch-signature symmetry with the other run verbs.
+function runVerifyReportBundle(_runner, args) {
+    const base = invocationCwd(args);
+    const archive = optionalString(args.archive || args.path || args.file || args.bundle);
+    if (!archive)
+        throw new Error("report verify-bundle requires a bundle path (positional, --archive, --path, --file, or --bundle)");
+    const extractReportTo = optionalString(args["extract-report"] || args.extractReport || args.extractReportTo);
+    return (0, run_export_1.verifyReportBundle)(node_path_1.default.resolve(base, archive), {
+        pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
+        extractReportTo: extractReportTo ? node_path_1.default.resolve(base, extractReportTo) : undefined,
+        strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)
+    });
 }
 function queueAdd(reg, args) {
     return reg.queueAdd({

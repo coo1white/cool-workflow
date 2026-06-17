@@ -8,12 +8,14 @@
 // paths from the archive without containment checks.
 
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { RunExport, WorkflowRun } from "./types";
 import { createRunPaths, ensureRunDirs, isContainedPath, readJson, saveCheckpoint, writeJson } from "./state";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "./version";
 import { verifyTelemetryLedger } from "./telemetry-ledger";
+import { resolveTrustPublicKey, verifyTelemetrySignatures } from "./telemetry-attestation";
 import { verifyTrustAudit } from "./trust-audit";
 import { compareBytes } from "./compare";
 
@@ -38,6 +40,7 @@ export interface ExportResult {
   artifactCount: number;
   auditFileCount: number;
   telemetryIncluded: boolean;
+  trustKeyEmbedded: boolean;
   manifestSha256: string;
   archiveSha256: string;
 }
@@ -93,11 +96,23 @@ interface ImportManifest {
   files: Array<Omit<ArchiveFileEntry, "contentBase64">>;
 }
 
+export interface ExportRunOptions {
+  /** An ed25519 PUBLIC key (inline PEM or a path to a .pem file) to embed in the
+   *  archive so a recipient can re-verify signed telemetry OFFLINE without being
+   *  handed the key separately. Resolved with the same loader the verify gate uses
+   *  (resolveTrustPublicKey). Absent ⇒ no trust block (backward compatible). */
+  trustPublicKey?: string;
+}
+
 /** Export a run to a portable JSON archive with run-local bytes and digests. */
-export function exportRun(run: WorkflowRun, outputPath: string): ExportResult {
+export function exportRun(run: WorkflowRun, outputPath: string, options: ExportRunOptions = {}): ExportResult {
   const exportedAt = new Date().toISOString();
   const files = collectArchiveFiles(run);
   const manifestSha256 = digestManifest(files);
+  // Embed ONLY a public key. resolveTrustPublicKey normalizes an inline PEM or a
+  // file path down to inline PEM bytes so the archive is self-contained; a value
+  // that resolves to nothing (bad path) yields no trust block rather than a throw.
+  const trustPublicKeyPem = resolveTrustPublicKey(options.trustPublicKey);
   const exported: RunExport = {
     schemaVersion: 1,
     exportedAt,
@@ -108,6 +123,7 @@ export function exportRun(run: WorkflowRun, outputPath: string): ExportResult {
       fileCount: files.length,
       manifestSha256
     },
+    ...(trustPublicKeyPem ? { trust: { publicKeyPem: trustPublicKeyPem, algorithm: "ed25519" as const } } : {}),
     // Legacy field retained so old readers still find an artifact-ish list.
     artifacts: files
       .filter((file) => file.role === "artifact")
@@ -131,6 +147,7 @@ export function exportRun(run: WorkflowRun, outputPath: string): ExportResult {
     artifactCount: files.filter((file) => file.role === "artifact").length,
     auditFileCount: files.filter((file) => file.role === "audit").length,
     telemetryIncluded: files.some((file) => file.role === "telemetry"),
+    trustKeyEmbedded: Boolean(trustPublicKeyPem),
     manifestSha256,
     archiveSha256
   };
@@ -349,6 +366,161 @@ export function inspectArchive(archivePath: string): ArchiveInspectResult {
 
 export function importManifestPath(run: WorkflowRun): string {
   return path.join(run.paths.runDir, "import-manifest.json");
+}
+
+export interface VerifyReportBundleOptions {
+  /** Public key override (inline PEM or path). Used only when the bundle carries
+   *  no embedded trust block; the bundle's own key always wins so the artifact is
+   *  self-describing. */
+  pubkey?: string;
+  /** Write the bundle's human-readable report.md to this path on a successful read. */
+  extractReportTo?: string;
+  /** Fail (ok:false) when the bundle claims attested telemetry but no key is
+   *  available to re-verify it — for callers who refuse to trust an unverifiable
+   *  attestation. Default: degrade (report signatureKeyProvided:false, chain still
+   *  decides ok). */
+  strictSignatures?: boolean;
+}
+
+/** Where the public key used for signature re-verification came from. */
+export type TrustKeySource = "bundle" | "argument" | "environment" | "none";
+
+export interface ReportBundleVerification {
+  schemaVersion: number;
+  archivePath: string;
+  runId: string | null;
+  /** The single fail-closed verdict: archive bytes intact AND telemetry chain AND
+   *  trust-audit chain verify AND no signature re-verification failed AND not a
+   *  strict-signatures shortfall. */
+  ok: boolean;
+  archiveOk: boolean;
+  telemetryVerified: boolean;
+  trustAuditVerified: boolean;
+  trustKeySource: TrustKeySource;
+  signatureKeyProvided: boolean;
+  signaturesChecked: number;
+  signaturesReverified: number;
+  signaturesFailed: number;
+  reportExtractedTo?: string;
+  failedChecks: Array<{ name: string; code?: string }>;
+}
+
+/** Verify a portable run bundle OFFLINE and SELF-CONTAINED: prove the archive bytes,
+ *  the telemetry hash chain, the trust-audit chain, and (with the bundle's embedded
+ *  public key) the ed25519 signatures — WITHOUT a source repo, a pre-existing .cw
+ *  tree, or an out-of-band key. Reuses the existing import + restore-verify path: it
+ *  restores into an auto-cleaned tmpdir so a stranger's machine is left untouched.
+ *  Never throws — every failure is a structured check and a false `ok` (exit-1 worthy).
+ *
+ *  Key precedence is bundle > argument > environment, so the artifact verifies the
+ *  same on any machine; only when the bundle omits a key do the override/env apply. */
+export function verifyReportBundle(archivePath: string, options: VerifyReportBundleOptions = {}): ReportBundleVerification {
+  const inspect = inspectArchive(archivePath);
+  const failedChecks: Array<{ name: string; code?: string }> = inspect.checks
+    .filter((check) => !check.pass)
+    .map((check) => ({ name: check.name, code: check.code }));
+
+  const base: ReportBundleVerification = {
+    schemaVersion: 1,
+    archivePath,
+    runId: inspect.runId,
+    ok: false,
+    archiveOk: inspect.ok,
+    telemetryVerified: false,
+    trustAuditVerified: false,
+    trustKeySource: "none",
+    signatureKeyProvided: false,
+    signaturesChecked: 0,
+    signaturesReverified: 0,
+    signaturesFailed: 0,
+    failedChecks
+  };
+
+  // A bundle that is not even a supported archive cannot be restored — report the
+  // inspection failure and stop (fail-closed, no tmpdir, nothing written).
+  if (!inspect.schemaSupported) return base;
+
+  // Read the embedded trust key (and, if requested, the report bytes) straight from
+  // the archive JSON. inspectArchive already proved the bytes parse + digest-match.
+  let bundleKey: string | undefined;
+  let reportContent: string | undefined;
+  try {
+    const raw = JSON.parse(fs.readFileSync(archivePath, "utf8")) as RunExport;
+    bundleKey = raw.trust?.publicKeyPem;
+    if (options.extractReportTo) {
+      const reportFile = (raw.files || []).find((file) => file.relativePath === "report.md");
+      if (reportFile) reportContent = Buffer.from(reportFile.contentBase64, "base64").toString("utf8");
+    }
+  } catch {
+    /* inspect already recorded the parse failure; treat key as absent */
+  }
+
+  const trustKeySource: TrustKeySource = bundleKey
+    ? "bundle"
+    : options.pubkey
+      ? "argument"
+      : process.env.CW_AGENT_ATTEST_PUBKEY
+        ? "environment"
+        : "none";
+  const trustKey = resolveTrustPublicKey(bundleKey || options.pubkey || process.env.CW_AGENT_ATTEST_PUBKEY);
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-verify-bundle-"));
+  let telemetryVerified = false;
+  let trustAuditVerified = false;
+  let signaturesChecked = 0;
+  let signaturesReverified = 0;
+  let signaturesFailed = 0;
+  let reportExtractedTo: string | undefined;
+  try {
+    // Restore into the throwaway tree. importRun digest-checks every file and throws
+    // on the first mismatch (or on a stripped integrity block under
+    // CW_REQUIRE_ARCHIVE_INTEGRITY=1) — caught below as a failed "restore" check.
+    const imported = importRun(archivePath, tmpDir);
+    for (const check of imported.verification.checks) {
+      if (check.name === "telemetry-ledger") telemetryVerified = check.pass;
+      if (check.name === "trust-audit") trustAuditVerified = check.pass;
+      if (!check.pass) failedChecks.push({ name: check.name, code: check.code });
+    }
+    // Independent ed25519 re-verification over the restored ledger using the bundle's
+    // own key (or override/env). With no key, attested records degrade to
+    // informational (signaturesFailed stays 0); the chain check above still gates ok.
+    const ledger = verifyTelemetryLedger(imported.run);
+    const sig = verifyTelemetrySignatures(ledger.records, trustKey);
+    signaturesChecked = sig.checked;
+    signaturesReverified = sig.reverified;
+    signaturesFailed = sig.failed;
+    for (const check of sig.checks) if (!check.pass) failedChecks.push({ name: check.name, code: check.code });
+    if (options.extractReportTo && reportContent !== undefined) {
+      reportExtractedTo = path.resolve(options.extractReportTo);
+      fs.writeFileSync(reportExtractedTo, reportContent);
+    }
+  } catch (error) {
+    failedChecks.push({ name: "restore", code: messageOf(error) });
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+
+  // Strict mode: a bundle that claims attested telemetry but offers no key to check
+  // it is unverifiable — refuse rather than green it.
+  const strictShortfall = Boolean(options.strictSignatures) && signaturesChecked > 0 && !trustKey;
+  if (strictShortfall) failedChecks.push({ name: "signatures", code: "signature-key-required" });
+
+  return {
+    schemaVersion: 1,
+    archivePath,
+    runId: inspect.runId,
+    ok: inspect.ok && telemetryVerified && trustAuditVerified && signaturesFailed === 0 && !strictShortfall,
+    archiveOk: inspect.ok,
+    telemetryVerified,
+    trustAuditVerified,
+    trustKeySource,
+    signatureKeyProvided: Boolean(trustKey),
+    signaturesChecked,
+    signaturesReverified,
+    signaturesFailed,
+    reportExtractedTo,
+    failedChecks
+  };
 }
 
 function collectArchiveFiles(run: WorkflowRun): ArchiveFileEntry[] {

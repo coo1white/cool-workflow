@@ -37,6 +37,7 @@ Read these in order when you are new to CW:
 32. [Run Retention & Provable Reclamation](run-retention-reclamation.7.md) - tiered, append-only, cryptographically-verifiable disk reclamation over the v0.1.28 archive overlay: seal the audit skeleton, free the reconstructable/scratch bulk, and prove it via a hash-chained tombstone; `gc plan|run|verify`, write-ahead + fail-closed, explicit capability downgrade.
 33. [Durable State & Locking](durable-state-and-locking.7.md) - atomic (temp→rename) writes for every authoritative store with fsync-durability for the audit-essential ones, plus a portable stale-stealing file lock serializing the cross-process read-modify-write stores (home queue, archive overlay, reclamation chain); closes the prior verdict's non-atomic/unlocked P1.
 34. [Source Context Profiles](source-context-profiles.7.md) - opt-in JSONL source exports for AI context slimming, with profile policy in manifest data and manifest records proving every included or omitted tracked file.
+35. [Verifiable Report Bundle](report-verifiable-bundle.7.md) - embed the operator's ed25519 public key into a portable run archive so anyone can `report verify-bundle` it OFFLINE and self-contained — archive bytes + telemetry chain + trust-audit chain + signatures, fail-closed, no repo/key/install beyond npx.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must keep that line clear: stable contracts, clear compatibility checks, and
