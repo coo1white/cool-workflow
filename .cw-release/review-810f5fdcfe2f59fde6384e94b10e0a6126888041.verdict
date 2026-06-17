@@ -1,0 +1,2 @@
+APPROVED 810f5fdcfe2f59fde6384e94b10e0a6126888041
+A maintainer can now cut a privacy-scrubbed release with repo-local reviewer prompts, ignored regenerated review inputs, and registry-backed CLI/MCP and worker accept-path hardening covered by the gate.
