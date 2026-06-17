@@ -71,25 +71,29 @@ showing its CLI command, MCP tool, shared core entry, surface, and payload
 relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
-machine-complete by design: 132 capabilities, 129 MCP tools.
+<!-- gen:parity:count -->
+machine-complete by design: 190 capabilities, 184 MCP tools.
+<!-- /gen:parity:count -->
 
+<!-- gen:parity:table -->
 | Capability | CLI command | MCP tool | Core entry | Surface | Payload |
 | --- | --- | --- | --- | --- | --- |
 | `help` | `cw help` | `—` | `formatHelp` | cli-only | cli-only |
 | `list` | `cw list` | `cw_list` | `listWorkflows` | both | identical |
+| `doctor` | `cw doctor` | `—` | `runDoctor` | cli-only | cli-only |
 | `init` | `cw init` | `cw_init` | `init` | both | identical |
 | `plan` | `cw plan` | `cw_plan` | `planSummary` | both | identical |
-| `status` | `cw status --json` | `cw_status` | `status` | both | identical |
+| `status` | `cw status` | `cw_status` | `status` | both | identical |
 | `next` | `cw next` | `cw_next` | `next` | both | identical |
 | `dispatch` | `cw dispatch` | `cw_dispatch` | `dispatch` | both | identical |
 | `result` | `cw result` | `cw_result` | `recordResult` | both | identical |
 | `commit` | `cw commit` | `cw_commit` | `commit` | both | projected |
-| `commit.summary` | `cw commit summary --json` | `cw_commit_summary` | `summarizeCommitRecords` | both | identical |
-| `report` | `cw report --json` | `cw_report` | `report` | both | identical |
-| `graph` | `cw graph --json` | `cw_operator_graph` | `operatorGraph` | both | identical |
+| `commit.summary` | `cw commit summary` | `cw_commit_summary` | `summarizeCommitRecords` | both | identical |
+| `report` | `cw report` | `cw_report` | `report` | both | identical |
+| `graph` | `cw graph` | `cw_operator_graph` | `operatorGraph` | both | identical |
 | `loop` | `cw loop` | `—` | `scheduler.create` | cli-only | cli-only |
-| `operator.status` | `cw operator status --json` | `cw_operator_status` | `operatorStatus` | both | identical |
-| `operator.report` | `cw operator report --json` | `cw_operator_report` | `operatorReport` | both | identical |
+| `operator.status` | `cw operator status` | `cw_operator_status` | `operatorStatus` | both | identical |
+| `operator.report` | `cw operator report` | `cw_operator_report` | `operatorReport` | both | identical |
 | `app.list` | `cw app list` | `cw_app_list` | `listApps` | both | identical |
 | `app.show` | `cw app show` | `cw_app_show` | `showApp` | both | identical |
 | `app.validate` | `cw app validate` | `cw_app_validate` | `validateApp` | both | identical |
@@ -100,29 +104,36 @@ machine-complete by design: 132 capabilities, 129 MCP tools.
 | `contract.show` | `cw contract show` | `cw_contract_show` | `showContract` | both | identical |
 | `node.list` | `cw node list` | `cw_node_list` | `listNodes` | both | identical |
 | `node.show` | `cw node show` | `cw_node_show` | `showNode` | both | identical |
-| `node.graph` | `cw node graph --json` | `cw_node_graph` | `graphNodes` | both | identical |
+| `node.graph` | `cw node graph` | `cw_node_graph` | `graphNodes` | both | identical |
+| `node.snapshot` | `cw node snapshot` | `cw_node_snapshot` | `nodeSnapshot` | both | identical |
+| `node.diff` | `cw node diff` | `cw_node_diff` | `nodeDiff` | both | identical |
+| `node.replay` | `cw node replay` | `cw_node_replay` | `nodeReplay` | both | identical |
+| `node.replay.verify` | `cw node verify` | `cw_node_replay_verify` | `nodeReplayVerify` | both | identical |
+| `migration.list` | `cw migration list` | `cw_migration_list` | `migrationList` | both | identical |
+| `migration.check` | `cw migration check` | `cw_migration_check` | `migrationCheck` | both | identical |
+| `migration.prove` | `cw migration prove` | `cw_migration_prove` | `migrationProve` | both | identical |
 | `topology.list` | `cw topology list` | `cw_topology_list` | `listTopologies` | both | identical |
 | `topology.show` | `cw topology show` | `cw_topology_show` | `showTopology` | both | identical |
 | `topology.validate` | `cw topology validate` | `cw_topology_validate` | `validateTopology` | both | identical |
 | `topology.apply` | `cw topology apply` | `cw_topology_apply` | `applyTopology` | both | identical |
-| `topology.summary` | `cw topology summary --json` | `cw_topology_summary` | `topologySummary` | both | identical |
-| `topology.graph` | `cw topology graph --json` | `cw_topology_graph` | `topologyGraph` | both | identical |
-| `summary.refresh` | `cw summary refresh --json` | `cw_summary_refresh` | `summaryRefresh` | both | identical |
-| `summary.show` | `cw summary show --json` | `cw_summary_show` | `summaryShow` | both | identical |
+| `topology.summary` | `cw topology summary` | `cw_topology_summary` | `topologySummary` | both | identical |
+| `topology.graph` | `cw topology graph` | `cw_topology_graph` | `topologyGraph` | both | identical |
+| `summary.refresh` | `cw summary refresh` | `cw_summary_refresh` | `summaryRefresh` | both | identical |
+| `summary.show` | `cw summary show` | `cw_summary_show` | `summaryShow` | both | identical |
 | `multi-agent.run` | `cw multi-agent run` | `cw_multi_agent_run` | `hostMultiAgentRun` | both | identical |
-| `multi-agent.status` | `cw multi-agent status --json` | `cw_multi_agent_status` | `hostMultiAgentStatus` | both | identical |
+| `multi-agent.status` | `cw multi-agent status` | `cw_multi_agent_status` | `hostMultiAgentStatus` | both | identical |
 | `multi-agent.step` | `cw multi-agent step` | `cw_multi_agent_step` | `hostMultiAgentStep` | both | identical |
 | `multi-agent.blackboard` | `cw multi-agent blackboard` | `cw_multi_agent_blackboard` | `hostMultiAgentBlackboard` | both | identical |
 | `multi-agent.score` | `cw multi-agent score` | `cw_multi_agent_score` | `hostMultiAgentScore` | both | identical |
 | `multi-agent.select` | `cw multi-agent select` | `cw_multi_agent_select` | `hostMultiAgentSelect` | both | identical |
-| `multi-agent.summary` | `cw multi-agent summary --json` | `cw_multi_agent_summary` | `multiAgentSummary` | both | identical |
-| `multi-agent.summarize` | `cw multi-agent summarize --json` | `cw_multi_agent_summarize` | `multiAgentSummarize` | both | identical |
-| `multi-agent.graph` | `cw multi-agent graph --json` | `cw_multi_agent_graph` | `multiAgentOperatorGraph` | both | identical |
-| `multi-agent.graph.compact` | `cw multi-agent graph --json` | `cw_multi_agent_graph_compact` | `multiAgentGraphView` | both | identical |
-| `multi-agent.dependencies` | `cw multi-agent dependencies --json` | `cw_multi_agent_dependencies` | `multiAgentDependencies` | both | identical |
-| `multi-agent.failures` | `cw multi-agent failures --json` | `cw_multi_agent_failures` | `multiAgentFailures` | both | identical |
-| `multi-agent.evidence` | `cw multi-agent evidence --json` | `cw_multi_agent_evidence` | `multiAgentEvidence` | both | identical |
-| `multi-agent.reasoning` | `cw multi-agent reasoning --json` | `cw_evidence_reasoning` | `multiAgentReasoning` | both | identical |
+| `multi-agent.summary` | `cw multi-agent summary` | `cw_multi_agent_summary` | `multiAgentSummary` | both | identical |
+| `multi-agent.summarize` | `cw multi-agent summarize` | `cw_multi_agent_summarize` | `multiAgentSummarize` | both | identical |
+| `multi-agent.graph` | `cw multi-agent graph` | `cw_multi_agent_graph` | `multiAgentOperatorGraph` | both | identical |
+| `multi-agent.graph.compact` | `cw multi-agent graph` | `cw_multi_agent_graph_compact` | `multiAgentGraphView` | both | identical |
+| `multi-agent.dependencies` | `cw multi-agent dependencies` | `cw_multi_agent_dependencies` | `multiAgentDependencies` | both | identical |
+| `multi-agent.failures` | `cw multi-agent failures` | `cw_multi_agent_failures` | `multiAgentFailures` | both | identical |
+| `multi-agent.evidence` | `cw multi-agent evidence` | `cw_multi_agent_evidence` | `multiAgentEvidence` | both | identical |
+| `multi-agent.reasoning` | `cw multi-agent reasoning` | `cw_evidence_reasoning` | `multiAgentReasoning` | both | identical |
 | `multi-agent.reasoning.refresh` | `cw multi-agent reasoning` | `cw_evidence_reasoning_refresh` | `multiAgentReasoningRefresh` | both | identical |
 | `multi-agent.run.create` | `cw multi-agent run` | `cw_multi_agent_run_create` | `createMultiAgentRun` | both | identical |
 | `multi-agent.run.transition` | `cw multi-agent run` | `cw_multi_agent_run_transition` | `transitionMultiAgentRun` | both | identical |
@@ -137,14 +148,14 @@ machine-complete by design: 132 capabilities, 129 MCP tools.
 | `multi-agent.fanout.show` | `cw multi-agent fanout` | `cw_multi_agent_fanout_show` | `showAgentFanout` | both | identical |
 | `multi-agent.fanin.collect` | `cw multi-agent fanin` | `cw_multi_agent_fanin_collect` | `collectAgentFanin` | both | identical |
 | `multi-agent.fanin.show` | `cw multi-agent fanin` | `cw_multi_agent_fanin_show` | `showAgentFanin` | both | identical |
-| `eval.snapshot` | `cw eval snapshot --json` | `cw_eval_snapshot` | `evalSnapshot` | both | identical |
-| `eval.replay` | `cw eval replay --json` | `cw_eval_replay` | `evalReplay` | both | identical |
-| `eval.compare` | `cw eval compare --json` | `cw_eval_compare` | `evalCompare` | both | identical |
-| `eval.score` | `cw eval score --json` | `cw_eval_score` | `evalScore` | both | identical |
-| `eval.gate` | `cw eval gate --json` | `cw_eval_gate` | `evalGate` | both | identical |
-| `eval.report` | `cw eval report --json` | `cw_eval_report` | `evalReport` | both | identical |
+| `eval.snapshot` | `cw eval snapshot` | `cw_eval_snapshot` | `evalSnapshot` | both | identical |
+| `eval.replay` | `cw eval replay` | `cw_eval_replay` | `evalReplay` | both | identical |
+| `eval.compare` | `cw eval compare` | `cw_eval_compare` | `evalCompare` | both | identical |
+| `eval.score` | `cw eval score` | `cw_eval_score` | `evalScore` | both | identical |
+| `eval.gate` | `cw eval gate` | `cw_eval_gate` | `evalGate` | both | identical |
+| `eval.report` | `cw eval report` | `cw_eval_report` | `evalReport` | both | identical |
 | `blackboard.summary` | `cw blackboard summary` | `cw_blackboard_summary` | `blackboardSummary` | both | identical |
-| `blackboard.summarize` | `cw blackboard summarize --json` | `cw_blackboard_summarize` | `blackboardSummarize` | both | identical |
+| `blackboard.summarize` | `cw blackboard summarize` | `cw_blackboard_summarize` | `blackboardSummarize` | both | identical |
 | `blackboard.graph` | `cw blackboard graph` | `cw_blackboard_graph` | `blackboardGraph` | both | identical |
 | `blackboard.resolve` | `cw blackboard resolve` | `cw_blackboard_resolve` | `resolveRunBlackboard` | both | identical |
 | `blackboard.topic.create` | `cw blackboard topic create` | `cw_blackboard_topic_create` | `createBlackboardTopic` | both | identical |
@@ -157,13 +168,14 @@ machine-complete by design: 132 capabilities, 129 MCP tools.
 | `coordinator.summary` | `cw coordinator summary` | `cw_coordinator_summary` | `coordinatorSummary` | both | identical |
 | `coordinator.decision` | `cw coordinator decision` | `cw_coordinator_decision` | `recordCoordinatorDecision` | both | identical |
 | `audit.summary` | `cw audit summary` | `cw_audit_summary` | `auditSummary` | both | identical |
+| `audit.verify` | `cw audit verify` | `cw_audit_verify` | `auditVerify` | both | identical |
 | `audit.worker` | `cw audit worker` | `cw_audit_worker` | `workerAudit` | both | identical |
 | `audit.provenance` | `cw audit provenance` | `cw_audit_provenance` | `evidenceProvenance` | both | identical |
-| `audit.multi-agent` | `cw audit multi-agent --json` | `cw_audit_multi_agent` | `auditMultiAgent` | both | identical |
-| `audit.policy` | `cw audit policy --json` | `cw_audit_policy` | `auditPolicy` | both | identical |
-| `audit.role` | `cw audit role --json` | `cw_audit_role` | `auditRole` | both | identical |
-| `audit.blackboard` | `cw audit blackboard --json` | `cw_audit_blackboard` | `auditBlackboard` | both | identical |
-| `audit.judge` | `cw audit judge --json` | `cw_audit_judge` | `auditJudge` | both | identical |
+| `audit.multi-agent` | `cw audit multi-agent` | `cw_audit_multi_agent` | `auditMultiAgent` | both | identical |
+| `audit.policy` | `cw audit policy` | `cw_audit_policy` | `auditPolicy` | both | identical |
+| `audit.role` | `cw audit role` | `cw_audit_role` | `auditRole` | both | identical |
+| `audit.blackboard` | `cw audit blackboard` | `cw_audit_blackboard` | `auditBlackboard` | both | identical |
+| `audit.judge` | `cw audit judge` | `cw_audit_judge` | `auditJudge` | both | identical |
 | `audit.attest` | `cw audit attest` | `cw_audit_attest` | `recordAuditAttestation` | both | identical |
 | `audit.decision` | `cw audit decision` | `cw_audit_decision` | `recordAuditDecision` | both | identical |
 | `sandbox.list` | `cw sandbox list` | `cw_sandbox_list` | `listSandboxProfiles` | both | identical |
@@ -171,8 +183,13 @@ machine-complete by design: 132 capabilities, 129 MCP tools.
 | `sandbox.validate` | `cw sandbox validate` | `cw_sandbox_validate` | `validateSandboxProfile` | both | identical |
 | `sandbox.choose` | `cw sandbox choose` | `cw_sandbox_choose` | `sandboxChoose` | both | identical |
 | `sandbox.resolve` | `cw sandbox resolve` | `cw_sandbox_resolve` | `sandboxChoose` | both | identical |
+| `backend.list` | `cw backend list` | `cw_backend_list` | `listBackends` | both | identical |
+| `backend.show` | `cw backend show` | `cw_backend_show` | `showBackend` | both | identical |
+| `backend.probe` | `cw backend probe` | `cw_backend_probe` | `probeBackend` | both | identical |
+| `backend.agent.config.show` | `cw backend agent config` | `cw_backend_agent_config_show` | `backendAgentConfigShow` | both | identical |
+| `backend.agent.config.set` | `cw backend agent config` | `cw_backend_agent_config_set` | `backendAgentConfigSet` | both | projected |
 | `worker.list` | `cw worker list` | `cw_worker_list` | `listWorkers` | both | identical |
-| `worker.summary` | `cw worker summary --json` | `cw_worker_summary` | `summarizeWorkerRecords` | both | identical |
+| `worker.summary` | `cw worker summary` | `cw_worker_summary` | `summarizeWorkerRecords` | both | identical |
 | `worker.show` | `cw worker show` | `cw_worker_show` | `showWorker` | both | identical |
 | `worker.manifest` | `cw worker manifest` | `cw_worker_manifest` | `showWorkerManifest` | both | identical |
 | `worker.output` | `cw worker output` | `cw_worker_output` | `recordWorkerOutput` | both | identical |
@@ -185,11 +202,11 @@ machine-complete by design: 132 capabilities, 129 MCP tools.
 | `candidate.rank` | `cw candidate rank` | `cw_candidate_rank` | `rankCandidates` | both | identical |
 | `candidate.select` | `cw candidate select` | `cw_candidate_select` | `selectCandidate` | both | identical |
 | `candidate.reject` | `cw candidate reject` | `cw_candidate_reject` | `rejectCandidate` | both | identical |
-| `candidate.summary` | `cw candidate summary --json` | `cw_candidate_summary` | `summarizeCandidateOperatorRecords` | both | identical |
+| `candidate.summary` | `cw candidate summary` | `cw_candidate_summary` | `summarizeCandidateOperatorRecords` | both | identical |
 | `feedback.list` | `cw feedback list` | `cw_feedback_list` | `listFeedback` | both | identical |
 | `feedback.show` | `cw feedback show` | `cw_feedback_show` | `showFeedback` | both | identical |
 | `feedback.collect` | `cw feedback collect` | `cw_feedback_collect` | `collectFeedback` | both | identical |
-| `feedback.summary` | `cw feedback summary --json` | `cw_feedback_summary` | `summarizeFeedbackRecords` | both | identical |
+| `feedback.summary` | `cw feedback summary` | `cw_feedback_summary` | `summarizeFeedbackRecords` | both | identical |
 | `feedback.task` | `cw feedback task` | `cw_feedback_task` | `createFeedbackTask` | both | identical |
 | `feedback.resolve` | `cw feedback resolve` | `cw_feedback_resolve` | `resolveFeedback` | both | identical |
 | `schedule.create` | `cw schedule create` | `cw_schedule_create` | `scheduler.create` | both | identical |
@@ -207,6 +224,51 @@ machine-complete by design: 132 capabilities, 129 MCP tools.
 | `routine.delete` | `cw routine delete` | `cw_routine_delete` | `triggers.delete` | both | identical |
 | `routine.fire` | `cw routine fire` | `cw_routine_fire` | `triggers.fire` | both | identical |
 | `routine.events` | `cw routine events` | `cw_routine_events` | `triggers.events` | both | identical |
+| `registry.refresh` | `cw registry refresh` | `cw_registry_refresh` | `runRegistry.refresh` | both | identical |
+| `registry.show` | `cw registry show` | `cw_registry_show` | `runRegistry.show` | both | identical |
+| `run.search` | `cw run search` | `cw_run_search` | `runRegistry.search` | both | identical |
+| `run.list` | `cw run list` | `cw_run_list` | `runRegistry.list` | both | identical |
+| `run.show` | `cw run show` | `cw_run_show` | `runRegistry.showRun` | both | identical |
+| `run.resume` | `cw run resume` | `cw_run_resume` | `runRegistry.resume` | both | identical |
+| `run.archive` | `cw run archive` | `cw_run_archive` | `runRegistry.archive` | both | identical |
+| `run.rerun` | `cw run rerun` | `cw_run_rerun` | `runRegistry.rerun` | both | identical |
+| `run.export` | `cw run export` | `cw_run_export` | `runExportArchive` | both | identical |
+| `run.import` | `cw run import` | `cw_run_import` | `runImportArchive` | both | identical |
+| `run.verify-import` | `cw run verify-import` | `cw_run_verify_import` | `runVerifyImport` | both | identical |
+| `run.inspect-archive` | `cw run inspect-archive` | `cw_run_inspect_archive` | `runInspectArchive` | both | identical |
+| `run.drive` | `cw run drive` | `cw_run_drive` | `runDrivePreview` | both | identical |
+| `run.drive.step` | `cw run drive` | `cw_run_drive_step` | `runDrive` | both | projected |
+| `quickstart` | `cw quickstart` | `—` | `quickstart` | cli-only | cli-only |
+| `queue.add` | `cw queue add` | `cw_queue_add` | `runRegistry.queueAdd` | both | identical |
+| `queue.list` | `cw queue list` | `cw_queue_list` | `runRegistry.queueList` | both | identical |
+| `queue.drain` | `cw queue drain` | `cw_queue_drain` | `runRegistry.queueDrain` | both | identical |
+| `queue.show` | `cw queue show` | `cw_queue_show` | `runRegistry.queueShow` | both | identical |
+| `sched.plan` | `cw sched plan` | `cw_sched_plan` | `schedPlan` | both | identical |
+| `sched.lease` | `cw sched lease` | `cw_sched_lease` | `schedLease` | both | identical |
+| `sched.release` | `cw sched release` | `cw_sched_release` | `schedRelease` | both | identical |
+| `sched.complete` | `cw sched complete` | `cw_sched_complete` | `schedComplete` | both | identical |
+| `sched.reclaim` | `cw sched reclaim` | `cw_sched_reclaim` | `schedReclaim` | both | identical |
+| `sched.reset` | `cw sched reset` | `cw_sched_reset` | `schedReset` | both | identical |
+| `sched.policy.show` | `cw sched policy` | `cw_sched_policy_show` | `schedPolicyShow` | both | identical |
+| `sched.policy.set` | `cw sched policy` | `cw_sched_policy_set` | `schedPolicySet` | both | identical |
+| `gc.plan` | `cw gc plan` | `cw_gc_plan` | `gcPlan` | both | identical |
+| `gc.run` | `cw gc run` | `cw_gc_run` | `gcRun` | both | projected |
+| `gc.verify` | `cw gc verify` | `cw_gc_verify` | `gcVerify` | both | identical |
+| `telemetry.verify` | `cw telemetry verify` | `cw_telemetry_verify` | `telemetryVerify` | both | identical |
+| `demo.tamper` | `cw demo tamper` | `—` | `demoTamper` | cli-only | cli-only |
+| `history` | `cw history` | `cw_history` | `runRegistry.history` | both | identical |
+| `workbench.view` | `cw workbench view` | `cw_workbench_view` | `buildWorkbenchRunView` | both | identical |
+| `workbench.serve` | `cw workbench serve` | `cw_workbench_serve` | `buildWorkbenchServeDescriptor` | both | projected |
+| `metrics.show` | `cw metrics show` | `cw_metrics_show` | `metricsShow` | both | identical |
+| `metrics.summary` | `cw metrics summary` | `cw_metrics_summary` | `metricsSummary` | both | identical |
+| `approve` | `cw approve` | `cw_approve` | `collaborationApprove` | both | identical |
+| `reject` | `cw reject` | `cw_reject` | `collaborationReject` | both | identical |
+| `comment.add` | `cw comment add` | `cw_comment_add` | `collaborationComment` | both | identical |
+| `comment.list` | `cw comment list` | `cw_comment_list` | `collaborationCommentList` | both | identical |
+| `handoff` | `cw handoff` | `cw_handoff` | `collaborationHandoff` | both | identical |
+| `review.status` | `cw review status` | `cw_review_status` | `reviewStatus` | both | identical |
+| `review.policy` | `cw review policy` | `cw_review_policy` | `reviewPolicy` | both | identical |
+<!-- /gen:parity:table -->
 
 v0.1.27 closed the old gaps. It added MCP peers `cw_init`, `cw_next`,
 `cw_state_check`, `cw_contract_show`, `cw_node_list`, `cw_node_show`, and
@@ -217,25 +279,28 @@ both surfaces.
 ## Surface-Specific Capabilities
 
 A capability may be on one surface only, but never without word of it — it must
-carry a recorded reason in the registry. Three capabilities are CLI-only:
+carry a recorded reason in the registry.
 
-- `help` — human help text. MCP hosts list capabilities through `tools/list`,
-  not a help command.
-- `loop` — a handy alias of `schedule create` with `kind=loop`. MCP hosts use
-  `cw_schedule_create` with `kind=loop`.
-- `schedule daemon` — a long-running desktop daemon process, not a
-  request/response tool. MCP hosts drive ticks through `cw_schedule_due` and
-  `cw_schedule_run_now`.
+<!-- gen:parity:cliOnly -->
+Six capabilities are CLI-only:
 
-One capability is payload-divergent on purpose (`projected`):
+- `help` — Human help text. MCP hosts enumerate capabilities via tools/list, not a help command.
+- `doctor` — Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`.
+- `loop` — Convenience alias of `schedule create` with kind=loop. MCP hosts use cw_schedule_create with kind=loop.
+- `schedule daemon` — Long-running desktop daemon process, not a request/response tool. MCP hosts drive ticks via cw_schedule_due + cw_schedule_run_now.
+- `quickstart` — CLI UX convenience layer (newcomer first value in one command) over the existing run.drive.step + report verbs; it spawns nothing new and delegates worker execution to the operator's agent backend. MCP hosts compose the same outcome from cw_run_drive_step + cw_report. `audit-run` is a CLI-only alias of the same wrapper.
+- `demo tamper` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo.
+<!-- /gen:parity:cliOnly -->
 
-- `commit` — both surfaces go through the one core entry `runner.commit`. The CLI
-  sends out the raw `StateCommitResult` for scripting (`commit.id`,
-  `commit.evidence`, `commit.gate`, `commit.acceptanceRationale`); `cw_commit`
-  sends out the operator commit envelope (`commitId`, `verifierGated`,
-  `checkpoint`, `evidenceCount`, `snapshotPath`, `nextActions`, plus the raw
-  result under `commit`). This is a declared projection through
-  `capability-core.commitEnvelope`, not drift.
+<!-- gen:parity:projected -->
+Five capabilities are payload-divergent on purpose (`projected`):
+
+- `commit` — Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate, commit.acceptanceRationale); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection via capability-core.commitEnvelope, not drift.
+- `backend.agent.config.set` — Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe.
+- `run.drive.step` — Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core.
+- `gc.run` — Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone.
+- `workbench.serve` — Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host (like `schedule daemon`), which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.
+<!-- /gen:parity:projected -->
 
 ## Fail-Closed Rules
 
