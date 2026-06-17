@@ -313,6 +313,45 @@ export function runVerifyImport(runner: CoolWorkflowRunner, runId: string, args:
   return verifyImportedRun(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId));
 }
 
+export interface ReportBundleResult {
+  schemaVersion: number;
+  runId: string;
+  archivePath: string;
+  trustKeyEmbedded: boolean;
+  reportExtractedTo?: string;
+  verification: ReportBundleVerification;
+  // The producer's go/no-go: the bundle was written AND it self-verifies the same
+  // way a recipient will. False means do not ship this artifact.
+  ok: boolean;
+}
+
+// Produce-and-prove: export a run to a portable bundle sealed with the operator's
+// trust key (defaulting to CW_AGENT_ATTEST_PUBKEY, same as `run export`), then
+// IMMEDIATELY verify the artifact offline the way a recipient will. The producer
+// learns now — fail-closed — whether the bundle a client will check is actually
+// verifiable (e.g. an unconfigured attest key yields an unverifiable bundle). Pure
+// composition of runExportArchive + verifyReportBundle; spawns nothing, writes only
+// the archive (and, with --extract-report, the human report) that `run export` would.
+export function reportBundle(runner: CoolWorkflowRunner, runId: string, args: Record<string, unknown>): ReportBundleResult {
+  const exported = runExportArchive(runner, runId, args) as { path: string; trustKeyEmbedded: boolean };
+  const base = invocationCwd(args);
+  const extractReportTo = optionalString(args["extract-report"] || args.extractReport || args.extractReportTo);
+  const verification = verifyReportBundle(exported.path, {
+    pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
+    extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
+    strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)
+  });
+  return {
+    schemaVersion: 1,
+    runId,
+    archivePath: exported.path,
+    trustKeyEmbedded: exported.trustKeyEmbedded,
+    reportExtractedTo: verification.reportExtractedTo,
+    verification,
+    ok: verification.ok
+  };
+}
+
 // Read-only: verify a portable run bundle OFFLINE and self-contained (archive bytes
 // + telemetry chain + trust-audit chain + embedded-key signatures). The runner is
 // unused — verification restores into its own throwaway tmpdir and writes nothing to

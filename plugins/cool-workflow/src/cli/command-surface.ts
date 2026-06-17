@@ -24,6 +24,7 @@ import {
   runVerifyImport,
   runInspectArchive,
   runVerifyReportBundle,
+  reportBundle,
   sandboxChoose,
   schedPlan,
   schedLease,
@@ -211,6 +212,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       return;
     case "report": {
       // `report verify-bundle <path>` is the offline self-contained bundle verifier;
+      // `report bundle <run-id>` exports a sealed bundle and self-verifies it;
       // every other `report <run-id>` form prints/inspects a local run's report.
       if (args.positionals[0] === "verify-bundle") {
         const result = runVerifyReportBundle(runner, { ...args.options, archive: args.positionals[1] || args.options.archive || args.options.path || args.options.file || args.options.bundle });
@@ -218,6 +220,15 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
         // Fail closed: a forged/edited/corrupt bundle verifies false — surface it
         // through the exit code so `cw report verify-bundle <file> && ship` cannot
         // pass on a lie. Mirrors run inspect-archive / telemetry verify.
+        if (!result.ok) process.exitCode = 1;
+        return;
+      }
+      if (args.positionals[0] === "bundle") {
+        const result = reportBundle(runner, required(args.positionals[1] || optionalArg(args.options.runId || args.options.run), "run id"), args.options);
+        printJson(result);
+        // Fail closed: never report a "bundle made" success if the artifact does not
+        // self-verify — so `cw report bundle <run> && send-to-client` cannot ship an
+        // unverifiable report (e.g. no trust key under --strict-signatures).
         if (!result.ok) process.exitCode = 1;
         return;
       }

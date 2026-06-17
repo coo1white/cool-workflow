@@ -40,6 +40,7 @@ exports.runExportArchive = runExportArchive;
 exports.runImportArchive = runImportArchive;
 exports.runInspectArchive = runInspectArchive;
 exports.runVerifyImport = runVerifyImport;
+exports.reportBundle = reportBundle;
 exports.runVerifyReportBundle = runVerifyReportBundle;
 exports.queueAdd = queueAdd;
 exports.queueList = queueList;
@@ -307,6 +308,32 @@ function runInspectArchive(_runner, args) {
 }
 function runVerifyImport(runner, runId, args) {
     return (0, run_export_1.verifyImportedRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId));
+}
+// Produce-and-prove: export a run to a portable bundle sealed with the operator's
+// trust key (defaulting to CW_AGENT_ATTEST_PUBKEY, same as `run export`), then
+// IMMEDIATELY verify the artifact offline the way a recipient will. The producer
+// learns now — fail-closed — whether the bundle a client will check is actually
+// verifiable (e.g. an unconfigured attest key yields an unverifiable bundle). Pure
+// composition of runExportArchive + verifyReportBundle; spawns nothing, writes only
+// the archive (and, with --extract-report, the human report) that `run export` would.
+function reportBundle(runner, runId, args) {
+    const exported = runExportArchive(runner, runId, args);
+    const base = invocationCwd(args);
+    const extractReportTo = optionalString(args["extract-report"] || args.extractReport || args.extractReportTo);
+    const verification = (0, run_export_1.verifyReportBundle)(exported.path, {
+        pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
+        extractReportTo: extractReportTo ? node_path_1.default.resolve(base, extractReportTo) : undefined,
+        strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)
+    });
+    return {
+        schemaVersion: 1,
+        runId,
+        archivePath: exported.path,
+        trustKeyEmbedded: exported.trustKeyEmbedded,
+        reportExtractedTo: verification.reportExtractedTo,
+        verification,
+        ok: verification.ok
+    };
 }
 // Read-only: verify a portable run bundle OFFLINE and self-contained (archive bytes
 // + telemetry chain + trust-audit chain + embedded-key signatures). The runner is

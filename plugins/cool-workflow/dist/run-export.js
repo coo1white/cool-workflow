@@ -389,11 +389,19 @@ function verifyReportBundle(archivePath, options = {}) {
     const strictShortfall = Boolean(options.strictSignatures) && signaturesChecked > 0 && !trustKey;
     if (strictShortfall)
         failedChecks.push({ name: "signatures", code: "signature-key-required" });
+    // Extraction was requested but could not be fulfilled (no report.md in the bundle,
+    // or the write failed): fail closed rather than silently green a missing artifact —
+    // otherwise `report bundle <run> --extract-report r.md && send r.md` would ship
+    // nothing (or a stale file) with exit 0. A requested-but-absent output is a failure,
+    // not a no-op (distinct from extraction never being requested).
+    const extractShortfall = Boolean(options.extractReportTo) && !reportExtractedTo;
+    if (extractShortfall)
+        failedChecks.push({ name: "extract-report", code: "report-md-unavailable" });
     return {
         schemaVersion: 1,
         archivePath,
         runId: inspect.runId,
-        ok: inspect.ok && telemetryVerified && trustAuditVerified && signaturesFailed === 0 && !strictShortfall,
+        ok: inspect.ok && telemetryVerified && trustAuditVerified && signaturesFailed === 0 && !strictShortfall && !extractShortfall,
         archiveOk: inspect.ok,
         telemetryVerified,
         trustAuditVerified,

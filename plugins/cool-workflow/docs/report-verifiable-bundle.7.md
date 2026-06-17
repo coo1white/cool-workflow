@@ -20,7 +20,7 @@ The Verifiable Report Bundle closes both gaps without a new archive format.
 
 ## Mechanism vs Policy
 
-The MECHANISM is two small additions to the existing export/verify path:
+The MECHANISM is three small additions to the existing export/verify path:
 
 1. `cw run export <run> --with-trust-key <pem-or-path>` embeds the operator's
    ed25519 PUBLIC key into the archive under a new optional `trust` block
@@ -38,6 +38,14 @@ The MECHANISM is two small additions to the existing export/verify path:
    chain, then `verifyTelemetrySignatures` re-runs ed25519 over each attested hop
    using the key the bundle carries. It writes nothing to any registry.
 
+3. `cw report bundle <run>` is the PRODUCER counterpart: it exports a sealed
+   bundle (step 1) and then immediately self-verifies it (step 2), returning the
+   archive path and the verification verdict together. It fails closed — a solo
+   operator never hands off a report whose bundle does not verify (for example, no
+   trust key configured under `--strict-signatures`). `--extract-report` also
+   writes the human-readable `report.md` next to the bundle so the shippable pair
+   is produced in one command. It is pure composition; it spawns nothing.
+
 The POLICY is fail-closed and self-describing:
 
 - Key precedence is **bundle > `--pubkey` > `CW_AGENT_ATTEST_PUBKEY`**, so a bundle
@@ -49,7 +57,10 @@ The POLICY is fail-closed and self-describing:
   (`signatureKeyProvided: false`, the intact chain still decides `ok`).
   `--strict-signatures` refuses such a bundle instead.
 - `--extract-report <path>` writes the bundle's `report.md` out for a human to
-  read alongside the machine verdict.
+  read alongside the machine verdict. If extraction is requested but the bundle
+  has no `report.md` (or the write fails), that is a failure, not a silent no-op:
+  a `extract-report` / `report-md-unavailable` check is recorded and `ok` is
+  false — so a producer never ships a green verdict with no report attached.
 
 ## Fail closed
 
@@ -63,7 +74,12 @@ usage. A missing, unreadable, or schema-unsupported bundle is also `ok: false`.
 ## Usage
 
 ```
-# Export a run sealed with the operator's public key (key file on the CLI).
+# Produce-and-prove in ONE command: export sealed + self-verify + emit the report.
+cw report bundle <run-id> --with-trust-key ./trust-pub.pem \
+  --output report.cwrun.json --extract-report report.md
+#   -> exits non-zero if the produced bundle would not verify (don't ship it).
+
+# Or the two steps separately:
 cw run export <run-id> --with-trust-key ./trust-pub.pem --output report.cwrun.json
 
 # Anyone, anywhere, offline — no repo, no key handed over, no install beyond npx:
