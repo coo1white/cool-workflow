@@ -30,6 +30,7 @@ const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 const registry = require(path.join(pluginRoot, "dist", "capability-registry.js"));
+const { formatHelp } = require(path.join(pluginRoot, "dist", "orchestrator.js"));
 
 function capById(id) {
   const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === id);
@@ -63,6 +64,22 @@ function cliDispatchTokens() {
 
 function cliDispatchSources() {
   return [cli, path.join(pluginRoot, "dist", "cli", "command-surface.js")].filter((file) => fs.existsSync(file));
+}
+
+function cliHelpTokens() {
+  const lines = formatHelp().split(/\r?\n/);
+  const start = lines.indexOf("Commands:");
+  if (start < 0) return [];
+  const tokens = new Set();
+  for (const line of lines.slice(start + 1)) {
+    if (!line.trim()) break;
+    const first = line.trim().split(/\s+/)[0];
+    for (const token of first.split("|")) {
+      const clean = token.replace(/[<[].*$/, "");
+      if (clean) tokens.add(clean);
+    }
+  }
+  return [...tokens].sort();
 }
 
 // ---- 2. payload identity ---------------------------------------------------
@@ -147,7 +164,8 @@ async function main() {
   const check = process.argv.includes("--check");
   const tools = liveMcpTools();
   const tokens = cliDispatchTokens();
-  const report = registry.buildParityReport({ mcpTools: tools, cliTokens: tokens });
+  const helpTokens = cliHelpTokens();
+  const report = registry.buildParityReport({ mcpTools: tools, cliTokens: tokens, helpTokens });
   const payload = await payloadParity();
 
   const ok = report.ok && payload.mismatches.length === 0;
@@ -170,6 +188,8 @@ async function main() {
     if (report.undeclaredMcpTools.length) lines.push(`  - server exposes MCP tools not declared in the registry: ${report.undeclaredMcpTools.join(", ")}`);
     if (report.missingCliTokens.length) lines.push(`  - registry declares CLI tokens absent from dist/cli.js: ${report.missingCliTokens.join(", ")}`);
     if (report.undeclaredCliTokens.length) lines.push(`  - dist/cli.js dispatches tokens not declared in the registry: ${report.undeclaredCliTokens.join(", ")}`);
+    if (report.helpMissingCliTokens.length) lines.push(`  - registry declares CLI commands absent from cw help: ${report.helpMissingCliTokens.join(", ")}`);
+    if (report.helpUndeclaredCliTokens.length) lines.push(`  - cw help lists commands not declared in the registry: ${report.helpUndeclaredCliTokens.join(", ")}`);
     if (report.reasonlessExceptions.length) lines.push(`  - surface-specific / payload-divergent capabilities missing a recorded reason: ${report.reasonlessExceptions.join(", ")}`);
     if (report.payloadProbeUnclassified.length) lines.push(`  - payload-identical capabilities neither probed nor deferred: ${report.payloadProbeUnclassified.join(", ")}`);
     if (report.payloadProbeDuplicateClassifications.length) lines.push(`  - payload probe duplicate classifications: ${report.payloadProbeDuplicateClassifications.join(", ")}`);

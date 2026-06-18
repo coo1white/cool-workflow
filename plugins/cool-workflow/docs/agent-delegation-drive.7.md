@@ -128,6 +128,7 @@ node dist/cli.js backend agent config            # show the effective config (se
 node dist/cli.js backend probe agent --json      # ready iff configured, else unverified
 
 # drive a real repo end-to-end (zero hand-written result.md)
+node dist/cli.js quickstart architecture-review --check --repo /path/to/repo --question "Is the design sound?" --agent-command "node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
 node dist/cli.js run architecture-review --drive --repo /path/to/repo --question "Is the design sound?"
 node dist/cli.js run architecture-review --drive --once --repo /path/to/repo --question "..."   # one step
 node dist/cli.js run drive <run-id> --json       # read-only preview of the next step
@@ -135,12 +136,22 @@ node dist/cli.js run drive <run-id> --json       # read-only preview of the next
 # quickstart --resume: a guided stop-then-resume a newcomer can WITNESS in <5 min
 node dist/cli.js quickstart --resume --repo /path/to/repo --question "..."   # advances ONE step, prints a continue line
 node dist/cli.js quickstart --run <run-id> --resume                          # continues that run to completion
+node dist/cli.js quickstart --run <run-id> --resume --bundle                  # continues, then seals a completed run
 ```
+
+`quickstart --check` is a zero-write preflight. It does not make a run, write
+`.cw/`, call the agent, write a report, or commit. It checks the app id, repo,
+question, agent config, and (with `--bundle`) the trust-key shape, then gives the
+next command to run. A blocked check exits non-zero, so scripts may use it as a
+gate before a real run.
 
 `quickstart --resume` with no `--run` drives a single step and prints a
 copy-pasteable `cw quickstart --run <id> --resume` continue line; run it again with
 the `--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`.
 Bare `quickstart` (no `--resume`) is unchanged — it drives straight to the end.
+When `--bundle` is present on the fresh resume step, no bundle is sealed until
+the run is complete; the continue line keeps `--bundle` so the second command
+finishes and seals the report.
 
 For faster first results, use the opt-in fast app in place of changing the full
 review contract:

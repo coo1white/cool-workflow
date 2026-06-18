@@ -54,6 +54,13 @@ function argConcurrency() {
   const i = args.indexOf("--concurrency");
   return i >= 0 ? args[i + 1] : undefined;
 }
+function argValue(name) {
+  const args = process.argv.slice(2);
+  const eq = args.find((a) => a.startsWith(`${name}=`));
+  if (eq) return eq.slice(name.length + 1);
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+}
 function resolveConcurrency() {
   const raw = argConcurrency() ?? process.env.CW_TEST_CONCURRENCY;
   if (raw === "auto") {
@@ -63,6 +70,7 @@ function resolveConcurrency() {
   return Math.max(1, Number(raw) || 1);
 }
 const concurrency = resolveConcurrency();
+const jsonSummaryPath = argValue("--json-summary");
 
 const smokes = fs
   .readdirSync(testDir)
@@ -133,6 +141,7 @@ function runSmoke(file) {
 }
 
 async function main() {
+  const wallStartedAt = process.hrtime.bigint();
   process.stdout.write(
     `Running ${smokes.length} smoke(s) — concurrency ${concurrency}` +
       (concurrency === 1
@@ -180,13 +189,44 @@ async function main() {
   }
 
   const totalMs = results.reduce((sum, r) => sum + r.elapsedMs, 0);
+  const wallElapsedMs = Number((process.hrtime.bigint() - wallStartedAt) / 1000000n);
   process.stdout.write(
     `\n${"=".repeat(70)}\n` +
       `${results.length - failures.length}/${results.length} passed` +
       `, ${failures.length} failed — ${totalMs}ms total\n`,
   );
 
+  if (jsonSummaryPath) {
+    writeJsonSummary(jsonSummaryPath, {
+      schemaVersion: 1,
+      concurrency,
+      wallElapsedMs,
+      sumChildElapsedMs: totalMs,
+      results: results.map((result) => ({
+        file: result.file,
+        ok: result.ok,
+        code: result.code,
+        elapsedMs: result.elapsedMs
+      })),
+      slowest: [...results]
+        .sort((a, b) => b.elapsedMs - a.elapsedMs)
+        .slice(0, 10)
+        .map((result) => ({
+          file: result.file,
+          ok: result.ok,
+          code: result.code,
+          elapsedMs: result.elapsedMs
+        }))
+    });
+  }
+
   process.exit(failures.length === 0 ? 0 : 1);
+}
+
+function writeJsonSummary(file, summary) {
+  const absolute = path.resolve(file);
+  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  fs.writeFileSync(absolute, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
 }
 
 main().catch((error) => {

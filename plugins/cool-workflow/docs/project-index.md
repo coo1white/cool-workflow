@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-18 by `npm run sync:projec
 - Source modules: `62`
 - Workflow apps: `7`
 - Docs: `50`
-- Smoke tests: `101`
+- Smoke tests: `104`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -239,6 +239,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [pipeline-runner-smoke.js](../test/pipeline-runner-smoke.js)
 - [project-index-sync-smoke.js](../test/project-index-sync-smoke.js)
 - [quickstart-bundle-smoke.js](../test/quickstart-bundle-smoke.js)
+- [quickstart-check-smoke.js](../test/quickstart-check-smoke.js)
 - [quickstart-smoke.js](../test/quickstart-smoke.js)
 - [real-execution-backends-smoke.js](../test/real-execution-backends-smoke.js)
 - [registry-corrupt-fail-closed-smoke.js](../test/registry-corrupt-fail-closed-smoke.js)
@@ -250,6 +251,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [result-normalize-smoke.js](../test/result-normalize-smoke.js)
 - [robustness-failclosed-smoke.js](../test/robustness-failclosed-smoke.js)
 - [robustness-hardening-smoke.js](../test/robustness-hardening-smoke.js)
+- [run-all-json-summary-smoke.js](../test/run-all-json-summary-smoke.js)
 - [run-export-import-smoke.js](../test/run-export-import-smoke.js)
 - [run-export-restore-rerun-smoke.js](../test/run-export-restore-rerun-smoke.js)
 - [run-export-restore-resume-smoke.js](../test/run-export-restore-resume-smoke.js)
@@ -265,6 +267,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [schema-validation-smoke.js](../test/schema-validation-smoke.js)
 - [security-trust-hardening-smoke.js](../test/security-trust-hardening-smoke.js)
 - [self-audit-hardening-smoke.js](../test/self-audit-hardening-smoke.js)
+- [source-context-batch-smoke.js](../test/source-context-batch-smoke.js)
 - [source-context-profile-smoke.js](../test/source-context-profile-smoke.js)
 - [state-explosion-management-smoke.js](../test/state-explosion-management-smoke.js)
 - [state-node-smoke.js](../test/state-node-smoke.js)

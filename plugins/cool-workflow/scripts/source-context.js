@@ -59,6 +59,7 @@ function main() {
   }
 
   const files = gitLines(["ls-tree", "-r", "--name-only", ref]).filter((file) => !changedPaths || changedPaths.has(file));
+  const blobs = gitBlobs(ref, files);
   let exportedLines = 0;
   const buffered = cachePath ? [] : null;
   const emit = (value) => {
@@ -68,7 +69,8 @@ function main() {
 
   for (const file of files) {
     const classification = classify(file, profile);
-    const blob = gitBlob(ref, file);
+    const blob = blobs.get(file);
+    if (!blob) die(`cannot read ${file} at ${ref}`);
     const binary = isBinary(blob);
     const record = {
       schemaVersion: profiles.schemaVersion,
@@ -161,10 +163,34 @@ function git(argv) {
   return result.stdout;
 }
 
-function gitBlob(ref, file) {
-  const result = spawnSync("git", ["show", `${ref}:${file}`], { cwd: repoRoot, encoding: "buffer", maxBuffer: 1024 * 1024 * 64 });
-  if (result.status !== 0) die((result.stderr || result.stdout || `cannot read ${file} at ${ref}`).toString().trim());
-  return result.stdout;
+function gitBlobs(ref, files) {
+  const blobs = new Map();
+  if (files.length === 0) return blobs;
+  const input = files.map((file) => `${ref}:${file}\n`).join("");
+  const result = spawnSync("git", ["cat-file", "--batch"], {
+    cwd: repoRoot,
+    input: Buffer.from(input, "utf8"),
+    maxBuffer: 1024 * 1024 * 256
+  });
+  if (result.status !== 0) die((result.stderr || result.stdout || `git cat-file --batch failed`).toString().trim());
+
+  let offset = 0;
+  for (const file of files) {
+    const headerEnd = result.stdout.indexOf(10, offset);
+    if (headerEnd < 0) die(`cannot read ${file} at ${ref}: truncated batch header`);
+    const header = result.stdout.slice(offset, headerEnd).toString("utf8");
+    offset = headerEnd + 1;
+    const parts = header.split(" ");
+    if (parts.length !== 3 || parts[1] !== "blob") die(`cannot read ${file} at ${ref}: ${header}`);
+    const size = Number(parts[2]);
+    if (!Number.isSafeInteger(size) || size < 0) die(`cannot read ${file} at ${ref}: invalid blob size`);
+    const end = offset + size;
+    if (end > result.stdout.length) die(`cannot read ${file} at ${ref}: truncated blob`);
+    blobs.set(file, result.stdout.slice(offset, end));
+    offset = end;
+    if (result.stdout[offset] === 10) offset++;
+  }
+  return blobs;
 }
 
 function classify(file, profile) {

@@ -95,6 +95,28 @@ export interface QuickstartResult {
   bundle?: ReportBundleResult;
 }
 
+export type QuickstartCheckStatus = "ok" | "warn" | "blocked";
+
+export interface QuickstartCheck {
+  name: string;
+  status: QuickstartCheckStatus;
+  detail: string;
+  fix?: string;
+}
+
+/** Zero-write preflight for the one-command quickstart. It checks the inputs and
+ *  host readiness without creating a run, writing `.cw/`, spawning an agent, or
+ *  rendering a report. */
+export interface QuickstartCheckResult {
+  schemaVersion: 1;
+  mode: "check";
+  ok: boolean;
+  appId: string;
+  repo: string;
+  checks: QuickstartCheck[];
+  nextCommand: string;
+}
+
 /** Read-only, deterministic preview of the drive loop's NEXT step for a run —
  *  no mutation, no spawn. Counts come from state; safe for CLI<->MCP parity. */
 export interface DrivePreview {
