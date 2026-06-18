@@ -823,7 +823,7 @@ function formatHelp() {
         "  list",
         "  doctor [--json]   (check your setup: Node, agent backend, git, writable state)",
         "  init <workflow-id> [--title TEXT] [--output PATH]",
-        "  quickstart [app-id] [--repo PATH] [--question TEXT] [--agent-command CMD] [--once] [--preview]",
+        "  quickstart [app-id] [--repo PATH] [--question TEXT] [--agent-command CMD] [--check] [--once] [--preview]",
         "  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]",
         "  status <run-id> [--json|--format json]",
         "  next <run-id> [--limit N]",

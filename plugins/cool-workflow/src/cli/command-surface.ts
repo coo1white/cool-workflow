@@ -156,6 +156,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
       const qs = quickstart(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
       printJson(qs);
+      if ((qs as { mode?: string; ok?: boolean }).mode === "check" && (qs as { ok?: boolean }).ok === false) {
+        process.exitCode = 1;
+      }
       // Fail closed: if --bundle produced an artifact that does not self-verify, exit
       // non-zero so `cw quickstart ... --bundle && send-to-client` cannot ship a report
       // whose bundle a client could not verify. Mirrors `report bundle`.

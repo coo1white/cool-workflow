@@ -90,7 +90,19 @@ This gives proof of CW's chief trick in 30 seconds (more on that
 [below](#can-i-trust-the-report)). If you see `VERDICT: tamper-evidence holds ✓`,
 all is working.
 
-### 2. Run a real review on your own repo
+### 2. Check, then run a real review on your own repo
+
+First make a zero-write check. It does not make a run, write `.cw/`, or call
+your agent:
+
+```bash
+npx cool-workflow quickstart architecture-review --check \
+  --repo /path/to/your/project \
+  --question "What are the main risks in this codebase?" \
+  --agent-command builtin:claude
+```
+
+If the check is good, run the review:
 
 ```bash
 npx cool-workflow quickstart architecture-review \

@@ -20,7 +20,7 @@
 import { CoolWorkflowRunner } from "./orchestrator";
 import { drive, drivePreview } from "./drive";
 import { agentConfigShow, setAgentConfigFile, resolveAgentConfig, AgentConfigShowResult } from "./agent-config";
-import { DrivePreview, DriveResult, QuickstartResult, ReportBundleResult, ReportBundleVerification } from "./types";
+import { DrivePreview, DriveResult, QuickstartCheck, QuickstartCheckResult, QuickstartResult, ReportBundleResult, ReportBundleVerification } from "./types";
 import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
 import { RunRegistry, isRunLifecycleState } from "./run-registry";
 import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
@@ -552,9 +552,10 @@ export const QUICKSTART_DEFAULT_APP = "architecture-review";
  *  RED LINE (DIRECTION.md): worker execution still DELEGATES to the operator's own
  *  agent backend (claude -p / codex exec / HTTP endpoint). With no agent configured
  *  the drive fails closed (status=blocked) and we never fabricate a completion. */
-export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unknown>): QuickstartResult | DrivePreview {
+export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unknown>): QuickstartResult | DrivePreview | QuickstartCheckResult {
   const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
   const agentConfigured = Boolean(resolveAgentConfig(args).command || resolveAgentConfig(args).endpoint);
+  if (isTrue(args.check)) return quickstartCheck(runner, appId, args, agentConfigured);
   // `--resume`: a discoverability flag over the existing continuation. With no
   // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
   // copy-pasteable continue line; with `--run <id>`, continue that run to
@@ -635,7 +636,7 @@ export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unkn
     hint = `the drive is blocked — inspect: cw run drive ${result.runId}`;
   } else if (result.status === "in-progress") {
     hint = resume
-      ? `one step advanced — continue: cw quickstart ${appId} --run ${result.runId} --resume`
+      ? `one step advanced — continue: cw quickstart ${appId} --run ${result.runId} --resume${wantsBundle ? " --bundle" : ""}`
       : `one step advanced (--once) — continue: cw quickstart ${appId} --run ${result.runId} --once`;
   }
   // --bundle on a run that didn't complete is a NO-OP, not silence: tell the operator
@@ -667,6 +668,132 @@ export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unkn
     // on a completed drive, so the default (no --bundle) payload is byte-identical.
     ...(bundle ? { bundle } : {})
   };
+}
+
+function quickstartCheck(
+  runner: CoolWorkflowRunner,
+  appId: string,
+  args: Record<string, unknown>,
+  agentConfigured: boolean
+): QuickstartCheckResult {
+  const base = invocationCwd(args);
+  const repoArg = optionalString(args.repo) || base;
+  const repo = path.resolve(base, repoArg);
+  const checks: QuickstartCheck[] = [];
+
+  try {
+    runner.showApp(appId);
+    checks.push({ name: "app", status: "ok", detail: `Workflow app ${appId} is available.` });
+  } catch (error) {
+    checks.push({
+      name: "app",
+      status: "blocked",
+      detail: `Workflow app ${appId} is not available.`,
+      fix: "Run `cw app list` and choose one of the listed app ids."
+    });
+  }
+
+  let repoReadable = false;
+  let repoStateWritable = false;
+  try {
+    const stat = fs.statSync(repo);
+    repoReadable = stat.isDirectory();
+    if (!repoReadable) throw new Error("not a directory");
+    fs.accessSync(repo, fs.constants.R_OK);
+    checks.push({ name: "repo", status: "ok", detail: `Repository path is readable (${repo}).` });
+  } catch (error) {
+    checks.push({
+      name: "repo",
+      status: "blocked",
+      detail: `Repository path is not readable (${repo}).`,
+      fix: "Pass --repo PATH for a readable repository directory."
+    });
+  }
+  try {
+    const cwDir = path.join(repo, ".cw");
+    fs.accessSync(fs.existsSync(cwDir) ? cwDir : repo, fs.constants.W_OK);
+    repoStateWritable = repoReadable;
+    checks.push({ name: "repo-state", status: "ok", detail: "Run state location is writable." });
+  } catch (error) {
+    checks.push({
+      name: "repo-state",
+      status: "blocked",
+      detail: "Run state location is not writable.",
+      fix: "Use a writable repo, fix directory permissions, or pass --repo to a writable checkout."
+    });
+  }
+
+  if (optionalString(args.question)) {
+    checks.push({ name: "question", status: "ok", detail: "Question is set." });
+  } else {
+    checks.push({
+      name: "question",
+      status: "blocked",
+      detail: "Question is missing.",
+      fix: "Pass --question TEXT."
+    });
+  }
+
+  if (agentConfigured) {
+    checks.push({ name: "agent", status: "ok", detail: "Agent backend is configured." });
+  } else {
+    checks.push({
+      name: "agent",
+      status: "blocked",
+      detail: "No agent backend is configured.",
+      fix: "Pass --agent-command \"claude -p\", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude."
+    });
+  }
+
+  if (flag(args.bundle) === true) {
+    const trustKey = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    if (trustKey) {
+      checks.push({ name: "bundle-trust-key", status: "ok", detail: "Bundle trust public key is configured." });
+    } else if (Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)) {
+      checks.push({
+        name: "bundle-trust-key",
+        status: "blocked",
+        detail: "Strict signature verification needs a public trust key.",
+        fix: "Pass --with-trust-key PATH or set $CW_AGENT_ATTEST_PUBKEY."
+      });
+    } else {
+      checks.push({
+        name: "bundle-trust-key",
+        status: "warn",
+        detail: "No public trust key is configured; unsigned or unkeyed bundles may verify with reduced signature proof.",
+        fix: "Pass --with-trust-key PATH to embed the public key."
+      });
+    }
+  }
+
+  const ok = checks.every((check) => check.status !== "blocked") && repoStateWritable;
+  return {
+    schemaVersion: 1,
+    mode: "check",
+    ok,
+    appId,
+    repo,
+    checks,
+    nextCommand: quickstartNextCommand(appId, repo, args)
+  };
+}
+
+function quickstartNextCommand(appId: string, repo: string, args: Record<string, unknown>): string {
+  const parts = ["cw", "quickstart", shellWord(appId), "--repo", shellWord(repo)];
+  const question = optionalString(args.question);
+  if (question) parts.push("--question", shellWord(question));
+  const command = optionalString(args.agentCommand || args["agent-command"]);
+  if (command) parts.push("--agent-command", shellWord(command));
+  if (flag(args.bundle) === true) parts.push("--bundle");
+  const trustKey = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey);
+  if (trustKey) parts.push("--with-trust-key", shellWord(trustKey));
+  if (Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)) parts.push("--strict-signatures");
+  return parts.join(" ");
+}
+
+function shellWord(value: string): string {
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
 /** Read-only, deterministic projection of the effective agent config (secret-stripped). */

@@ -104,6 +104,10 @@ export interface ParityReport {
   missingCliTokens: string[];
   /** CLI case tokens in cli source not declared here (undeclared drift). */
   undeclaredCliTokens: string[];
+  /** Top-level CLI commands declared here but absent from `cw help`. */
+  helpMissingCliTokens: string[];
+  /** Top-level CLI commands shown in `cw help` but absent from the registry. */
+  helpUndeclaredCliTokens: string[];
   /** Descriptors that must carry a reason but do not. */
   reasonlessExceptions: string[];
   /** Payload-identical both-surface capabilities that are neither probed nor deferred. */
@@ -449,7 +453,7 @@ const BUILTIN_CAPABILITIES: CapabilityDescriptor[] = [
   { capability: "run.drive.step", summary: "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step).", entry: "runDrive", surface: "both", cli: { path: ["run", "drive"], caseTokens: ["run", "drive"], jsonMode: "default" }, mcp: { tool: "cw_run_drive_step" }, payloadIdentical: false, reason: "Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core." },
   {
     capability: "quickstart",
-    summary: "ONE-COMMAND quickstart: plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).",
+    summary: "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).",
     entry: "quickstart",
     surface: "cli-only",
     cli: { path: ["quickstart"], caseTokens: ["quickstart", "audit-run"], jsonMode: "default" },
@@ -788,6 +792,23 @@ export function declaredCliTokens(): string[] {
   return [...tokens].sort();
 }
 
+/** The top-level CLI commands that should be visible in `cw help`. Subcommands
+ *  are intentionally collapsed to their first token; aliases such as audit-run
+ *  stay visible. */
+export function declaredCliHelpTokens(): string[] {
+  const tokens = new Set<string>();
+  for (const cap of CAPABILITY_REGISTRY) {
+    if (!cap.cli) continue;
+    const subcommandTokens = new Set(cap.cli.path.slice(1));
+    tokens.add(cap.cli.path[0]);
+    for (const token of cap.cli.caseTokens || []) {
+      if (!subcommandTokens.has(token)) tokens.add(token);
+    }
+  }
+  tokens.delete("help");
+  return [...tokens].sort();
+}
+
 /** Whether a descriptor MUST carry a reason (surface-specific or divergent). */
 export function requiresReason(cap: CapabilityDescriptor): boolean {
   if (cap.surface !== "both") return true;
@@ -879,16 +900,20 @@ function lintRegistry(): string[] {
  * fail-closed gap. `mcpTools` is the live `tools/list` result; `cliTokens` is the
  * set of `case "<token>"` strings parsed from the CLI source.
  */
-export function buildParityReport(input: { mcpTools: string[]; cliTokens: string[] }): ParityReport {
+export function buildParityReport(input: { mcpTools: string[]; cliTokens: string[]; helpTokens?: string[] }): ParityReport {
   const declaredTools = new Set(declaredMcpTools());
   const actualTools = new Set(input.mcpTools);
   const declaredTokens = new Set(declaredCliTokens());
   const actualTokens = new Set(input.cliTokens);
+  const declaredHelpTokens = new Set(declaredCliHelpTokens());
+  const actualHelpTokens = new Set(input.helpTokens || []);
 
   const missingMcpTools = [...declaredTools].filter((tool) => !actualTools.has(tool)).sort();
   const undeclaredMcpTools = [...actualTools].filter((tool) => !declaredTools.has(tool)).sort();
   const missingCliTokens = [...declaredTokens].filter((token) => !actualTokens.has(token)).sort();
   const undeclaredCliTokens = [...actualTokens].filter((token) => !declaredTokens.has(token)).sort();
+  const helpMissingCliTokens = input.helpTokens ? [...declaredHelpTokens].filter((token) => !actualHelpTokens.has(token)).sort() : [];
+  const helpUndeclaredCliTokens = input.helpTokens ? [...actualHelpTokens].filter((token) => !declaredHelpTokens.has(token)).sort() : [];
 
   const reasonlessExceptions = CAPABILITY_REGISTRY.filter(
     (cap) => requiresReason(cap) && !(cap.reason && cap.reason.trim())
@@ -904,6 +929,8 @@ export function buildParityReport(input: { mcpTools: string[]; cliTokens: string
     undeclaredMcpTools.length === 0 &&
     missingCliTokens.length === 0 &&
     undeclaredCliTokens.length === 0 &&
+    helpMissingCliTokens.length === 0 &&
+    helpUndeclaredCliTokens.length === 0 &&
     reasonlessExceptions.length === 0 &&
     payloadPlan.unclassified.length === 0 &&
     payloadPlan.duplicateClassifications.length === 0 &&
@@ -917,6 +944,8 @@ export function buildParityReport(input: { mcpTools: string[]; cliTokens: string
     undeclaredMcpTools,
     missingCliTokens,
     undeclaredCliTokens,
+    helpMissingCliTokens,
+    helpUndeclaredCliTokens,
     reasonlessExceptions,
     payloadProbeUnclassified: payloadPlan.unclassified,
     payloadProbeDuplicateClassifications: payloadPlan.duplicateClassifications,

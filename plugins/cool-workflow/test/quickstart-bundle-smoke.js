@@ -124,6 +124,53 @@ clearAgentEnv();
   }
 }
 
+// --- 3b. resume + bundle: the first guided step does not seal; continuing the
+//         same run to completion does seal and self-verify. ---
+{
+  const work = tmpWorkspace();
+  const stub = writeStub(path.join(work, "stub.js"), false);
+  const keyDir = tmpWorkspace();
+  const gen = spawnSync(process.execPath, [KEYGEN, "--out-dir", keyDir], { encoding: "utf8" });
+  assert.equal(gen.status, 0, `keygen exits 0: ${gen.stderr}`);
+  const pubPath = path.join(keyDir, "cw-attest.pub");
+
+  process.chdir(work);
+  try {
+    const runner = new CoolWorkflowRunner({ pluginRoot });
+    const agentCommand = `${process.execPath} ${stub} {{result}}`;
+    const first = quickstart(runner, {
+      appId: "architecture-review",
+      repo: work,
+      question: "risks?",
+      agentCommand,
+      resume: true,
+      bundle: true,
+      withTrustKey: pubPath
+    });
+    assert.equal(first.status, "in-progress", "fresh --resume advances one step");
+    assert.equal(Object.prototype.hasOwnProperty.call(first, "bundle"), false, "fresh resume does not seal a partial run");
+    assert.match(first.hint || "", /--run .* --resume --bundle/, "continue hint keeps the bundle intent");
+    assert.match(first.hint || "", /--bundle skipped/, "the skip is explicit");
+
+    const done = quickstart(runner, {
+      appId: "architecture-review",
+      repo: work,
+      question: "risks?",
+      agentCommand,
+      resume: true,
+      run: first.runId,
+      bundle: true,
+      withTrustKey: pubPath
+    });
+    assert.equal(done.runId, first.runId, "resume continues the same run");
+    assert.equal(done.status, "complete", "resume drives the run to completion");
+    assert.ok(done.bundle, "completed resumed run is sealed");
+    assert.equal(done.bundle.ok, true, "resumed bundle self-verifies");
+  } finally {
+    process.chdir(cwd0);
+  }
+}
+
 // --- 4. FAIL-CLOSED exit: a completed run with ATTESTED telemetry but no key to verify
 //        it under --strict-signatures yields bundle.ok=false and the CLI exits 1.
 //        The attested run is built via the signing wrapper (attestPublicKey lives in
