@@ -188,6 +188,49 @@ clearAgentEnv();
   assert.equal(JSON.parse(r.stdout).bundle.ok, false, "CLI payload reports bundle.ok=false");
 }
 
+// --- 5. CROSS-DIRECTORY anchoring (the headline correctness fix): invoked from a
+//        caller cwd that is NOT the analyzed repo (the README headline shape), the
+//        bundle still resolves the run from the run's OWN repo (no crash), and its
+//        OUTPUT artifacts land in the CALLER's cwd — never polluting the repo. ---
+{
+  const repo = tmpWorkspace();
+  const stub = writeStub(path.join(repo, "stub.js"), false);
+  const keyDir = tmpWorkspace();
+  const gen = spawnSync(process.execPath, [KEYGEN, "--out-dir", keyDir], { encoding: "utf8" });
+  assert.equal(gen.status, 0, `keygen exits 0: ${gen.stderr}`);
+  const pubPath = path.join(keyDir, "cw-attest.pub");
+  const caller = tmpWorkspace(); // the operator's shell cwd, distinct from the repo
+
+  process.chdir(caller);
+  try {
+    const runner = new CoolWorkflowRunner({ pluginRoot });
+    const result = quickstart(runner, {
+      appId: "architecture-review",
+      repo, // analyzed repo != process.cwd()
+      question: "What are the risks?",
+      agentCommand: `${process.execPath} ${stub} {{result}}`,
+      bundle: true,
+      withTrustKey: pubPath,
+      extractReport: "out.md"
+    });
+    assert.equal(result.status, "complete", "cross-directory drive completes");
+    assert.ok(result.bundle, "a bundle is produced even though cwd != repo");
+    // The run was resolved from its OWN repo (reportTarget), not the caller cwd — a
+    // regression dropping that anchor would THROW File-not-found here.
+    assert.equal(result.bundle.ok, true, "the cross-directory bundle self-verifies (run resolved from its repo)");
+    // Output artifacts land in the CALLER's cwd, not the analyzed repo.
+    assert.ok(result.bundle.archivePath.startsWith(caller), `archive lands in the caller cwd, got ${result.bundle.archivePath}`);
+    assert.ok(result.bundle.reportExtractedTo && result.bundle.reportExtractedTo.startsWith(caller), "extracted report lands in the caller cwd");
+    assert.ok(fs.existsSync(result.bundle.reportExtractedTo), "extracted report exists in the caller cwd");
+    // The analyzed repo's working tree is NOT polluted by bundle/extract artifacts.
+    const repoEntries = fs.readdirSync(repo);
+    assert.ok(!repoEntries.some((e) => e.endsWith(".cwrun.json")), "no .cwrun.json written into the analyzed repo");
+    assert.ok(!repoEntries.includes("out.md"), "extracted report did not pollute the analyzed repo");
+  } finally {
+    process.chdir(cwd0);
+  }
+}
+
 for (const dir of cleanups) {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
 }

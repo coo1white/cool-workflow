@@ -54,6 +54,13 @@ sealed (the operator gets a `hint`, not a half-shipped artifact) — and the CLI
 exits non-zero when `result.bundle.ok` is false. `quickstart` stays `cli-only`;
 MCP hosts compose `cw_run_drive_step` + `cw_report_bundle` for the same outcome.
 
+Because the README headline runs quickstart cross-directory (your shell cwd is not
+the `--repo`), the run is resolved from its own repo, but the bundle's OUTPUT —
+the `.cwrun.json` and any `--extract-report` — lands in **your cwd**, not the
+analyzed repo (so `cw quickstart … --bundle --extract-report out.md && send out.md`
+works and the repo's working tree is never polluted). `result.bundle.archivePath`
+and `result.bundle.reportExtractedTo` report the absolute paths.
+
 The POLICY is fail-closed and self-describing:
 
 - Key precedence is **bundle > `--pubkey` > `CW_AGENT_ATTEST_PUBKEY`**, so a bundle
