@@ -599,14 +599,30 @@ export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unkn
 
   // --bundle: after a COMPLETE drive, seal the run into a portable, self-verified
   // bundle so the one command yields a client-verifiable artifact. Pure composition
-  // of reportBundle() (export sealed + offline self-verify); spawns nothing. Anchored
-  // to the run's repo (reportTarget) — the same root the report was just written to,
-  // closing the cross-directory orphan footgun. Gated on completion: a partial or
-  // blocked run is NEVER sealed (you must not ship an uncommitted artifact).
+  // of reportBundle() (export sealed + offline self-verify); spawns nothing. Gated on
+  // completion: a partial or blocked run is NEVER sealed (you must not ship an
+  // uncommitted artifact).
+  //
+  // Run-state resolution MUST anchor to the run's OWN repo (reportTarget): the README
+  // headline runs quickstart cross-directory (caller cwd != --repo), so a caller-cwd
+  // loadRun would not find the run. But operator-supplied OUTPUT paths
+  // (--output/--extract-report) and the default archive name resolve against the
+  // CALLER's cwd — so artifacts land where the operator ran the command (and `&&
+  // send out.md` works) and never pollute the analyzed repo's working tree, matching
+  // standalone `report bundle`. Pre-resolving to absolute makes path.resolve(base, …)
+  // inside reportBundle a no-op, so the run-repo cwd cannot reclaim them.
   let bundle: ReportBundleResult | undefined;
   const wantsBundle = flag(args.bundle) === true;
   if (wantsBundle && result.status === "complete") {
-    bundle = reportBundle(runner, result.runId, { ...args, cwd: reportTarget });
+    const callerBase = invocationCwd(args);
+    const outArg = optionalString(args.output || args.path || args.archive);
+    const extractArg = optionalString(args["extract-report"] || args.extractReport || args.extractReportTo);
+    bundle = reportBundle(runner, result.runId, {
+      ...args,
+      cwd: reportTarget,
+      output: path.resolve(callerBase, outArg || `${result.runId}.cwrun.json`),
+      ...(extractArg ? { "extract-report": path.resolve(callerBase, extractArg) } : {})
+    });
   }
 
   let hint: string | undefined;
