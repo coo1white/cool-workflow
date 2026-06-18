@@ -91,7 +91,14 @@ async function runCli(argv = process.argv.slice(2)) {
             // fails closed (status=blocked) when none is set. No new executor/scheduler.
             const [appId] = args.positionals;
             const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
-            printJson((0, capability_core_1.quickstart)(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) }));
+            const qs = (0, capability_core_1.quickstart)(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
+            printJson(qs);
+            // Fail closed: if --bundle produced an artifact that does not self-verify, exit
+            // non-zero so `cw quickstart ... --bundle && send-to-client` cannot ship a report
+            // whose bundle a client could not verify. Mirrors `report bundle`.
+            if (qs.bundle && qs.bundle.ok === false) {
+                process.exitCode = 1;
+            }
             return;
         }
         case "plan": {

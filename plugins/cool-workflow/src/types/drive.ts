@@ -7,6 +7,8 @@
 // No now-derived NUMERIC field (counts come from state); only ISO timestamps may be
 // now-derived (the parity probe strips them).
 
+import { ReportBundleResult } from "./report-bundle";
+
 /** What the drive loop did in ONE step. */
 export type DriveStepAction =
   | "dispatch" // allocated the next worker scope (input.md + manifest)
@@ -86,6 +88,11 @@ export interface QuickstartResult {
    *  run id it resumed from (=== runId). Absent on a fresh plan and on the default
    *  (no `--resume`) path, so default output stays byte-identical. */
   resumedFrom?: string;
+  /** Present ONLY when `--bundle` was passed AND the drive completed: the sealed,
+   *  self-verified portable bundle (export + offline self-verify of this run). Absent
+   *  on every other path (no `--bundle`, or status != complete), so default quickstart
+   *  output stays byte-identical. `bundle.ok === false` means do not ship it. */
+  bundle?: ReportBundleResult;
 }
 
 /** Read-only, deterministic preview of the drive loop's NEXT step for a run —

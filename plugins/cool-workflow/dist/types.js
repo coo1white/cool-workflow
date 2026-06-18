@@ -28,6 +28,7 @@ __exportStar(require("./types/sandbox"), exports);
 __exportStar(require("./types/execution-backend"), exports);
 __exportStar(require("./types/boundary"), exports);
 __exportStar(require("./types/drive"), exports);
+__exportStar(require("./types/report-bundle"), exports);
 __exportStar(require("./types/multi-agent"), exports);
 __exportStar(require("./types/topology"), exports);
 __exportStar(require("./types/blackboard"), exports);

@@ -351,11 +351,11 @@ const BUILTIN_CAPABILITIES = [
     { capability: "run.drive.step", summary: "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step).", entry: "runDrive", surface: "both", cli: { path: ["run", "drive"], caseTokens: ["run", "drive"], jsonMode: "default" }, mcp: { tool: "cw_run_drive_step" }, payloadIdentical: false, reason: "Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core." },
     {
         capability: "quickstart",
-        summary: "ONE-COMMAND quickstart: plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run).",
+        summary: "ONE-COMMAND quickstart: plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).",
         entry: "quickstart",
         surface: "cli-only",
         cli: { path: ["quickstart"], caseTokens: ["quickstart", "audit-run"], jsonMode: "default" },
-        reason: "CLI UX convenience layer (newcomer first value in one command) over the existing run.drive.step + report verbs; it spawns nothing new and delegates worker execution to the operator's agent backend. MCP hosts compose the same outcome from cw_run_drive_step + cw_report. `audit-run` is a CLI-only alias of the same wrapper."
+        reason: "CLI UX convenience layer (newcomer first value in one command) over the existing run.drive.step + report verbs; it spawns nothing new and delegates worker execution to the operator's agent backend. MCP hosts compose the same outcome from cw_run_drive_step + cw_report (+ cw_report_bundle for --bundle). `audit-run` is a CLI-only alias of the same wrapper."
     },
     { capability: "queue.add", summary: "Enqueue a pending/planned run with explicit ordering policy.", entry: "runRegistry.queueAdd", surface: "both", cli: { path: ["queue", "add"], jsonMode: "default" }, mcp: { tool: "cw_queue_add" } },
     { capability: "queue.list", summary: "List the durable run queue in policy order.", entry: "runRegistry.queueList", surface: "both", cli: { path: ["queue", "list"], jsonMode: "flag" }, mcp: { tool: "cw_queue_list" } },

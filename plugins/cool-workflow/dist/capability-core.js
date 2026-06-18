@@ -583,6 +583,17 @@ function quickstart(runner, args) {
     const runRepoCwd = node_path_1.default.resolve(node_path_1.default.dirname(result.statePath), "..", "..", "..");
     const reportTarget = node_fs_1.default.existsSync(runRepoCwd) ? runRepoCwd : undefined;
     const reportPath = runner.withBaseDir(reportTarget).report(result.runId).path;
+    // --bundle: after a COMPLETE drive, seal the run into a portable, self-verified
+    // bundle so the one command yields a client-verifiable artifact. Pure composition
+    // of reportBundle() (export sealed + offline self-verify); spawns nothing. Anchored
+    // to the run's repo (reportTarget) — the same root the report was just written to,
+    // closing the cross-directory orphan footgun. Gated on completion: a partial or
+    // blocked run is NEVER sealed (you must not ship an uncommitted artifact).
+    let bundle;
+    const wantsBundle = flag(args.bundle) === true;
+    if (wantsBundle && result.status === "complete") {
+        bundle = reportBundle(runner, result.runId, { ...args, cwd: reportTarget });
+    }
     let hint;
     if (!agentConfigured) {
         hint =
@@ -598,6 +609,11 @@ function quickstart(runner, args) {
         hint = resume
             ? `one step advanced — continue: cw quickstart ${appId} --run ${result.runId} --resume`
             : `one step advanced (--once) — continue: cw quickstart ${appId} --run ${result.runId} --once`;
+    }
+    // --bundle on a run that didn't complete is a NO-OP, not silence: tell the operator
+    // why nothing was sealed (Rule of Silence permits a human-facing hint).
+    if (wantsBundle && result.status !== "complete") {
+        hint = `${hint ? `${hint} ` : ""}--bundle skipped: the run did not complete (status=${result.status}); no bundle was sealed.`;
     }
     return {
         schemaVersion: 1,
@@ -617,7 +633,10 @@ function quickstart(runner, args) {
         // Stamp resumedFrom ONLY when we continued an explicit run. Conditional spread
         // keeps the key absent on the default/fresh path (own-property absent + omitted
         // by JSON.stringify), so default output is byte-identical.
-        ...(resumeRunId ? { resumedFrom: resumeRunId } : {})
+        ...(resumeRunId ? { resumedFrom: resumeRunId } : {}),
+        // Same conditional-spread discipline: `bundle` is present only when --bundle ran
+        // on a completed drive, so the default (no --bundle) payload is byte-identical.
+        ...(bundle ? { bundle } : {})
     };
 }
 /** Read-only, deterministic projection of the effective agent config (secret-stripped). */

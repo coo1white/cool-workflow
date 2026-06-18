@@ -11,7 +11,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
-import { RunExport, WorkflowRun } from "./types";
+import { ReportBundleVerification, RunExport, TrustKeySource, WorkflowRun } from "./types";
 import { createRunPaths, ensureRunDirs, isContainedPath, readJson, saveCheckpoint, writeJson } from "./state";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "./version";
 import { verifyTelemetryLedger } from "./telemetry-ledger";
@@ -382,28 +382,6 @@ export interface VerifyReportBundleOptions {
   strictSignatures?: boolean;
 }
 
-/** Where the public key used for signature re-verification came from. */
-export type TrustKeySource = "bundle" | "argument" | "environment" | "none";
-
-export interface ReportBundleVerification {
-  schemaVersion: number;
-  archivePath: string;
-  runId: string | null;
-  /** The single fail-closed verdict: archive bytes intact AND telemetry chain AND
-   *  trust-audit chain verify AND no signature re-verification failed AND not a
-   *  strict-signatures shortfall. */
-  ok: boolean;
-  archiveOk: boolean;
-  telemetryVerified: boolean;
-  trustAuditVerified: boolean;
-  trustKeySource: TrustKeySource;
-  signatureKeyProvided: boolean;
-  signaturesChecked: number;
-  signaturesReverified: number;
-  signaturesFailed: number;
-  reportExtractedTo?: string;
-  failedChecks: Array<{ name: string; code?: string }>;
-}
 
 /** Verify a portable run bundle OFFLINE and SELF-CONTAINED: prove the archive bytes,
  *  the telemetry hash chain, the trust-audit chain, and (with the bundle's embedded
