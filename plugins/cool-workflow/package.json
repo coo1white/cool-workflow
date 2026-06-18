@@ -54,6 +54,7 @@
     "gen:parity": "node scripts/gen-parity-doc.js",
     "manifest:load-check": "node test/vendor-manifest-load-smoke.js",
     "parity:check": "node scripts/parity-check.js --check",
+    "onramp:check": "node scripts/onramp-check.js --check",
     "version:sync": "node scripts/version-sync-check.js",
     "release:check": "node scripts/release-check.js",
     "test": "node dist/cli.js list && node test/run-all.js",

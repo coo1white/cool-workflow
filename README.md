@@ -90,6 +90,22 @@ This gives proof of CW's chief trick in 30 seconds (more on that
 [below](#can-i-trust-the-report)). If you see `VERDICT: tamper-evidence holds ✓`,
 all is working.
 
+Not sure what to run next?
+
+```bash
+npx cool-workflow doctor --onramp
+```
+
+This prints the short path for a first run, the fast checks for source work, and
+the full gate to use before a release.
+
+From a source checkout, use:
+
+```bash
+cd plugins/cool-workflow
+node scripts/cw.js doctor --onramp --changed-from origin/main
+```
+
 ### 2. Check, then run a real review on your own repo
 
 First make a zero-write check. It does not make a run, write `.cw/`, or call
