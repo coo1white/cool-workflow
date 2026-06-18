@@ -5,6 +5,8 @@
 - **Docs**: The README and agent memory now name the two project rules:
   FreeBSD-style engineering discipline inside the code, and a
   Homebrew-like small command surface for doctor, verify, and recovery.
+- **Docs**: Codex, Claude, Gemini, Copilot, Cursor, Windsurf, Aider, and
+  other agents now have shared AI-memory entry points for those rules.
 
 ## 0.1.85
 
