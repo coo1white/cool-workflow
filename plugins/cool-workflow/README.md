@@ -67,6 +67,7 @@ Run `npm run release:check` only when the batch is ready for the full gate. Star
 with `quickstart` and `report` before the multi-agent pages.
 
 For the full capability and release history, see [docs/release-history.md](docs/release-history.md).
+This README tracks CW v0.1.85.
 
 ## Quickstart
 
