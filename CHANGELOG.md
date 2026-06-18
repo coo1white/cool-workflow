@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Docs**: The README and agent memory now name the two project rules:
+  FreeBSD-style engineering discipline inside the code, and a
+  Homebrew-like small command surface for doctor, verify, and recovery.
+
 ## 0.1.85
 
 - **Capability**: Anyone can now turn a CW run into a portable, self-checking

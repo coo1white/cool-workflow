@@ -44,6 +44,26 @@ as the *worker*.
 
 ---
 
+## Project rule
+
+CW should stay a small, trusted tool, not a platform.
+
+```text
+ask simple -> run simple -> verify simple -> resume simple
+```
+
+The engineering base is FreeBSD-like: POLA first, fail closed, no silent
+fallback, stdout as data, stderr as diagnostics, and documented stable
+surfaces. The user-facing spirit is close to Homebrew: a small command
+surface, a strong `doctor` check, and clear next steps when a run is
+blocked or a report does not verify.
+
+That means CW should hide orchestration detail behind clear commands,
+keep `.cw/` state open to check, make recovery boring, and prefer a
+small tool that can be trusted over a broad agent platform.
+
+---
+
 ## What you need
 
 1. **Node.js** (v18+). Make a check with `node --version`.

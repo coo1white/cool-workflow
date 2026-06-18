@@ -55,6 +55,26 @@ Every cycle must trace to one of these validated-use-case tracks:
 If a proposed change serves none of these tracks, log it to docs/BACKLOG.md
 instead of implementing it.
 
+# Project Memory
+CW has two joined ideas:
+
+- FreeBSD engineering discipline inside the code: POLA, mechanism over policy,
+  stdout as data, stderr as diagnostics, fail closed, zero runtime
+  dependencies, documented surfaces, and gated releases.
+- Homebrew-like tool spirit outside the code: few commands, strong checks,
+  clear next steps, saved state that can be inspected, and boring recovery.
+
+Keep this line true:
+
+```text
+ask simple -> run simple -> verify simple -> resume simple
+```
+
+CW is not a model SDK or an agent platform. It is a small control-plane that
+keeps agent work, citations, state, and verification in order. When work touches
+user or operator flows, prefer `cw doctor`, `report verify`, clear blocked
+states, and resumable runs over hidden magic or broad framework behavior.
+
 # FreeBSD Engineering Discipline (hard constraints — every cycle)
 This project STRICTLY follows the FreeBSD programming philosophy. These rules
 are binding, not aspirational; a diff that violates one is rejected in review
