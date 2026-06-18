@@ -46,6 +46,14 @@ The MECHANISM is three small additions to the existing export/verify path:
    writes the human-readable `report.md` next to the bundle so the shippable pair
    is produced in one command. It is pure composition; it spawns nothing.
 
+`cw quickstart <app> --bundle [--with-trust-key K]` folds step 3 into the
+one-command entry: after the drive reaches `status: complete`, it seals the run
+with `reportBundle` (anchored to the run's own repo) and returns the verdict as
+`result.bundle`. It is gated on completion — a blocked/partial run is **never**
+sealed (the operator gets a `hint`, not a half-shipped artifact) — and the CLI
+exits non-zero when `result.bundle.ok` is false. `quickstart` stays `cli-only`;
+MCP hosts compose `cw_run_drive_step` + `cw_report_bundle` for the same outcome.
+
 The POLICY is fail-closed and self-describing:
 
 - Key precedence is **bundle > `--pubkey` > `CW_AGENT_ATTEST_PUBKEY`**, so a bundle
@@ -79,7 +87,14 @@ npx cool-workflow demo bundle
 #   -> builds a sealed bundle, forges it two ways, and shows verify-bundle
 #      catching both offline with only the embedded public key.
 
-# Produce-and-prove in ONE command: export sealed + self-verify + emit the report.
+# Run the review AND get a shippable, client-verifiable bundle from ONE command:
+cw quickstart architecture-review --repo . --question "What are the risks?" \
+  --agent-command "claude -p" --bundle --with-trust-key ./trust-pub.pem
+#   -> after the drive COMPLETES, the run is sealed into a self-verified bundle and
+#      the verdict is folded into the quickstart JSON (result.bundle). Exits non-zero
+#      if that bundle would not verify. A run that did not complete is never sealed.
+
+# Produce-and-prove from an existing run: export sealed + self-verify + emit the report.
 cw report bundle <run-id> --with-trust-key ./trust-pub.pem \
   --output report.cwrun.json --extract-report report.md
 #   -> exits non-zero if the produced bundle would not verify (don't ship it).
