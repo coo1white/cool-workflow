@@ -1,0 +1,2 @@
+APPROVED fd347681a6253e8ac733ebea91be9fa9cad6ea06
+A user can hand someone a single self-contained .cwrun.json bundle and that person can verify the run's report offline — archive bytes, telemetry hash chain, trust-audit chain, and ed25519 signatures — with only the file (no repo, no out-of-band key, no install past npx), via report verify-bundle / report bundle / quickstart --bundle.

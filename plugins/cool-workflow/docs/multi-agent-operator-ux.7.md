@@ -329,3 +329,5 @@ Loaders fail closed on corrupt state; store writes are made safe under more than
 ## Privacy Release (v0.1.84)
 
 No other change to this page in v0.1.84.
+
+0.1.85

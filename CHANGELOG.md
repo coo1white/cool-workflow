@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.1.85
+
+- **Capability**: Anyone can now turn a CW run into a portable, self-checking
+  report bundle and verify it OFFLINE with only the file. `report bundle` (and
+  `quickstart <app> --bundle`) seal a finished run — its report, `file.js:42`
+  evidence pointers, signed hash-chained telemetry, and the operator's ed25519
+  PUBLIC key — into one `report.cwrun.json`. `report verify-bundle` re-proves the
+  archive bytes, the telemetry chain, the trust-audit chain, and the signatures
+  with no source repo, no `.cw` tree, and no key handed over; `demo bundle` proves
+  the whole guarantee hermetically in 30 seconds.
+- **Implementation**: Added an optional `trust` block (public key only) to the
+  portable run archive; `verifyReportBundle` (reuses inspectArchive + a
+  throwaway-tmpdir import/verify + ed25519 re-verify); the `report bundle`
+  producer (export sealed + self-verify, fail-closed); the cli-only `demo bundle`;
+  and a `quickstart --bundle` flag that seals a COMPLETED run anchored to its own
+  repo while resolving output paths to the caller's cwd (never polluting the
+  analyzed repo). Bundle result types moved to `src/types/report-bundle.ts`. CW
+  still never runs a model itself — it only keeps the books and makes the check.
+- **Tests**: Four new smokes (`report-verify-bundle`, `report-bundle`,
+  `demo-bundle`, `quickstart-bundle`) — 97 → 101 — proving clean bundles verify,
+  chain/signature forgeries are caught even when archive digests match, the
+  fail-closed exits, no-key degrade vs `--strict-signatures`, cross-directory
+  anchoring, and no repo pollution.
+- **Risk**: Low. Everything is additive and opt-in; the no-flag paths stay
+  byte-identical. Every cycle passed CI and an adversarial multi-agent review
+  (with confirmed findings fixed) before merge.
+
 ## 0.1.84
 
 - **Capability**: A maintainer can now cut a scrubbed hardening release with no

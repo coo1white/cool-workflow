@@ -3,7 +3,7 @@
   "id": "release-cut",
   "title": "Release Cut",
   "summary": "Prepare a release with checklist discipline: version checks, changelog, tests, packaging, release notes, and final verification.",
-  "version": "0.1.84",
+  "version": "0.1.85",
   "author": "COOLWHITE LLC",
   "inputs": [
     {

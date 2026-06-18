@@ -710,3 +710,5 @@ Loaders fail closed on corrupt state; store writes are made safe under more than
 ## Privacy Release (v0.1.84)
 
 This release removes local user path text from saved release review input and adds a scan that keeps those words out of tracked files.
+
+v0.1.85
