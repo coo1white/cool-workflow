@@ -168,6 +168,47 @@ agents.
 
 ---
 
+## Hand the report to someone — they can check it on their own
+
+A report you keep on your own machine is one thing. A report you can **give to
+someone** who then makes the check themselves is what you are really after. Add
+`--bundle` to the one command and CW seals the finished run into a single,
+self-checking file:
+
+```bash
+npx cool-workflow quickstart architecture-review \
+  --repo /path/to/your/project --question "What are the main risks?" \
+  --agent-command builtin:claude --bundle --with-trust-key ./trust-pub.pem
+```
+
+This puts a `report.cwrun.json` file **where you are** (not in the looked-at
+repo). The one file holds the report, the `file.js:42` pointers, the signed and
+hash-chained record, **and the public key**.
+
+Give that file to anyone. With no need for your repo, your keys given over on the
+side, or a put-in past `npx`, they make the check on their own — offline, with
+only the file:
+
+```bash
+npx cool-workflow report verify-bundle report.cwrun.json
+```
+
+If the bundle was changed in any way after the fact — the record, a signature, or
+the bytes — the check says so and comes to a stop (it gives back `ok: false` and a
+non-zero code), so a bundle you send on can never be a quiet lie. CW still never
+runs the model itself; it only keeps the books and makes the check.
+
+Want to see the whole thing in 30 seconds, with no agent and no key of your own?
+
+```bash
+npx cool-workflow demo bundle
+```
+
+It makes a real sealed bundle, makes two false changes to it, and shows the check
+getting **both** — offline, with only the public key the bundle carries.
+
+---
+
 ## Troubleshooting
 
 | Problem | Fix |
