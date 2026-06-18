@@ -1,43 +1,56 @@
 # Cool Workflow Docs
 
-Read these in order when you are new to CW:
+Start with the first run. Use the developer loop when you change code. Read the
+advanced pages only when you need those parts.
 
-1. [Getting Started](getting-started.md) - clone, install, run a workflow, inspect it, and run the release check.
-2. [Project Index](project-index.md) - code-derived map of source modules, workflow apps, docs, tests, and sync targets.
-3. [Workflow App framework](workflow-app-framework.7.md) - userland app manifests, entrypoints, compatibility, and validation.
-4. [Sandbox Profiles](sandbox-profiles.7.md) - named worker policy contracts for read/write/execute/network/env handling.
-5. [Security / Trust Hardening](security-trust-hardening.7.md) - audit records, provenance, sandbox attestations, and acceptance rationale.
-   - [Trust Model & Limitations](trust-model.md) - what the ed25519 + hash-chain tamper-evidence proves and what it does **not** (the single-keyholder ceiling). Read this before you trust a green verdict.
-6. [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md) - first-class MultiAgentRun, roles, groups, memberships, fanout, fanin, and lifecycle state.
-7. [Coordinator / Blackboard](coordinator-blackboard.7.md) - shared topics, messages, context frames, artifact refs, snapshots, decisions, conflicts, and fanin evidence.
-8. [Multi-Agent Topologies](multi-agent-topologies.7.md) - official map-reduce, debate, and judge-panel recipes built on multi-agent and blackboard records.
-9. [Multi-Agent CLI + MCP Surface](multi-agent-cli-mcp-surface.7.md) - preferred host loop for run, status, step, blackboard, score, and select.
-10. [Multi-Agent Operator UX](multi-agent-operator-ux.7.md) - graph, dependencies, failures, and evidence adoption for topology-backed multi-agent runs.
-11. [Multi-Agent Trust / Policy / Audit](multi-agent-trust-policy-audit.7.md) - role authority, message provenance, blackboard write audit, judge rationale, and policy violations.
-12. [Multi-Agent Eval & Replay Harness](multi-agent-eval-replay-harness.7.md) - snapshots, isolated replays, comparison, scoring, gates, reports, and MCP parity.
-13. [State Explosion Management](state-explosion-management.7.md) - durable summary records, compact and focused graph views, blackboard digests, and stale-aware compaction for large multi-agent runs.
-14. [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md) - derived, fingerprinted reasoning chains explaining why each evidence item was adopted/rejected with basis, authority, rationale, and counterfactual, and a fail-closed `unexplained` state.
-15. [Run Registry / Control Plane](run-registry-control-plane.7.md) - derived, fingerprinted, fail-closed index over runs across repos: search, resume, archive, durable queue, cross-repo history, and failed-run rerun with provenance.
-16. [Execution Backends](execution-backends.7.md) - the pluggable driver layer (node/bun/shell/container/remote/ci): one narrow `ExecutionBackend` contract, sandbox attestation, identical envelopes across backends, and fail-closed delegation.
-17. [Operator UX](operator-ux.7.md) - `status`, `graph`, report, worker, candidate, feedback, commit, topology, multi-agent, blackboard, coordinator, and trust summaries.
-18. [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
-19. [CLI ↔ MCP Parity](cli-mcp-parity.7.md) - the capability registry and fail-closed gate proving the CLI and MCP surfaces render one data source.
-20. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
-21. [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against the real Cool Workflow repository.
-22. [Web / Desktop Workbench](web-desktop-workbench.7.md) - a read-only, localhost-only human console rendering the run graph, blackboard, worker logs, candidate compare, and audit timeline over existing capability payloads — a third front door that holds no authoritative state.
-23. [Observability + Cost Accounting](observability-cost-accounting.7.md) - derived time/duration, failure/verifier/acceptance rates with sample counts and fail-closed `n/a`, plus host-attested token usage and attested-vs-estimated cost with explicit `unreported` coverage; pricing is policy as data.
-24. [Team Collaboration](team-collaboration.7.md) - host-attested actor, append-only approvals/rejections/comments/handoffs provenance-linked to durable targets, and a review gate that stacks on the verifier gate (required approvals from authorized roles, fail-closed quorum/authority/self-approval); policy is data.
-25. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
-26. [Release Tooling](release-tooling.7.md) - one-command version bump across every surface, a per-feature scaffolder, forward-reference doc automation, and a de-duplicated release gate.
-27. [Real Execution Backend Integrations](real-execution-backends.7.md) - container/remote/ci backends really execute (docker/podman run, remote/CI POST-and-poll) under the sandbox contract, byte-stable evidence vs node, fail-closed on an unavailable runtime/endpoint.
-28. [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md) - per-node snapshot, structural diff, and isolated deterministic replay over StateNode, reusing the eval harness; sha256-fingerprinted with fail-closed `valid|stale|absent` freshness.
-29. [Contract Migration Tooling](contract-migration-tooling.7.md) - a declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover over the existing migrateRunState pipeline.
-30. [Control-Plane Scheduling](control-plane-scheduling.7.md) - priority + hard concurrency ceiling + lease lifecycle + retry/backoff + fail-closed park policy over the v0.1.28 Run Registry queue; policy-as-data, deterministic, with a read-only `sched plan`.
-31. [Agent Delegation Drive](agent-delegation-drive.7.md) - the `agent` backend delegates each worker to an EXTERNAL agent process (claude/codex/HTTP endpoint) and `run --drive` auto-advances plan→dispatch→fulfill→accept→commit; the model runs in the agent's process, never in CW. Two-layer evidence, operator-vs-attested model, fail-closed park, replay without re-spawn.
-32. [Run Retention & Provable Reclamation](run-retention-reclamation.7.md) - tiered, append-only, cryptographically-verifiable disk reclamation over the v0.1.28 archive overlay: seal the audit skeleton, free the reconstructable/scratch bulk, and prove it via a hash-chained tombstone; `gc plan|run|verify`, write-ahead + fail-closed, explicit capability downgrade.
-33. [Durable State & Locking](durable-state-and-locking.7.md) - atomic (temp→rename) writes for every authoritative store with fsync-durability for the audit-essential ones, plus a portable stale-stealing file lock serializing the cross-process read-modify-write stores (home queue, archive overlay, reclamation chain); closes the prior verdict's non-atomic/unlocked P1.
-34. [Source Context Profiles](source-context-profiles.7.md) - opt-in JSONL source exports for AI context slimming, with profile policy in manifest data and manifest records proving every included or omitted tracked file.
-35. [Verifiable Report Bundle](report-verifiable-bundle.7.md) - embed the operator's ed25519 public key into a portable run archive so anyone can `report verify-bundle` it OFFLINE and self-contained (archive bytes + telemetry chain + trust-audit chain + signatures); `report bundle` produces-and-proves in one command. Fail-closed, no repo/key/install beyond npx.
+## First Run
+
+1. [Getting Started](getting-started.md) - clone, install, run `doctor --onramp`, run one workflow, inspect it, and run the right check.
+2. [End-to-End Golden Path](end-to-end-golden-path.7.md) - deterministic proof of app, worker, verifier, candidate, commit, and report flow.
+3. [Verifiable Report Bundle](report-verifiable-bundle.7.md) - make a portable report bundle and verify it offline.
+4. [Trust Model & Limitations](trust-model.md) - what the ed25519 and hash-chain proof does and does not prove.
+
+## Developer Loop
+
+1. [Project Index](project-index.md) - code-derived map of source modules, workflow apps, docs, tests, and sync targets.
+2. [Workflow App framework](workflow-app-framework.7.md) - userland app manifests, entrypoints, compatibility, and validation.
+3. [Sandbox Profiles](sandbox-profiles.7.md) - named worker policy contracts for read/write/execute/network/env handling.
+4. [CLI <-> MCP Parity](cli-mcp-parity.7.md) - the capability registry and fail-closed gate proving the CLI and MCP surfaces render one data source.
+5. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+6. [Release Tooling](release-tooling.7.md) - version bump, feature scaffold, forward-reference docs, and release gates.
+7. [Cool Workflow Release History](release-history.md) - long capability notes moved out of the README.
+
+## Advanced And Multi-Agent
+
+1. [Agent Delegation Drive](agent-delegation-drive.7.md) - the `agent` backend delegates workers to an external process and drives plan -> report.
+2. [Run Registry / Control Plane](run-registry-control-plane.7.md) - search, resume, archive, queue, history, and rerun across repos.
+3. [Execution Backends](execution-backends.7.md) - node/bun/shell/container/remote/ci drivers, sandbox attestation, and fail-closed delegation.
+4. [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md) - MultiAgentRun, roles, groups, memberships, fanout, fanin, and lifecycle state.
+5. [Coordinator / Blackboard](coordinator-blackboard.7.md) - topics, messages, context, artifacts, snapshots, decisions, conflicts, and fanin evidence.
+6. [Multi-Agent Topologies](multi-agent-topologies.7.md) - map-reduce, debate, and judge-panel recipes.
+7. [Multi-Agent CLI + MCP Surface](multi-agent-cli-mcp-surface.7.md) - host loop for run, status, step, blackboard, score, and select.
+8. [Multi-Agent Operator UX](multi-agent-operator-ux.7.md) - graph, dependencies, failures, and evidence adoption.
+9. [Multi-Agent Trust / Policy / Audit](multi-agent-trust-policy-audit.7.md) - role authority, message provenance, blackboard audit, judge rationale, and policy violations.
+10. [Multi-Agent Eval & Replay Harness](multi-agent-eval-replay-harness.7.md) - snapshots, replay, comparison, scoring, gates, reports, and MCP parity.
+
+## Reference
+
+- [Operator UX](operator-ux.7.md) - `status`, `graph`, reports, worker, candidate, feedback, commit, topology, blackboard, coordinator, and trust summaries.
+- [MCP App Surface](mcp-app-surface.7.md) - JSON tool parity for agent hosts.
+- [Dogfood One Real Repo](dogfood-one-real-repo.7.md) - dry-run release proof against this repository.
+- [Web / Desktop Workbench](web-desktop-workbench.7.md) - read-only localhost console over existing run state.
+- [Observability + Cost Accounting](observability-cost-accounting.7.md) - derived durations, rates, token usage, and cost.
+- [Team Collaboration](team-collaboration.7.md) - append-only approvals, comments, handoffs, and review gates.
+- [Real Execution Backend Integrations](real-execution-backends.7.md) - real container/remote/ci execution under the sandbox contract.
+- [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md) - per-node snapshots, structural diff, and deterministic replay.
+- [Contract Migration Tooling](contract-migration-tooling.7.md) - declared migration registry and compatibility proofs.
+- [Control-Plane Scheduling](control-plane-scheduling.7.md) - priority, leases, retry/backoff, and scheduling policy.
+- [Run Retention & Provable Reclamation](run-retention-reclamation.7.md) - tiered, hash-chained disk reclamation.
+- [Durable State & Locking](durable-state-and-locking.7.md) - atomic writes, fsync durability, and portable file locks.
+- [Source Context Profiles](source-context-profiles.7.md) - opt-in JSONL source exports for context slimming.
+- [Security / Trust Hardening](security-trust-hardening.7.md) - audit records, provenance, sandbox attestations, and acceptance rationale.
+- [State Explosion Management](state-explosion-management.7.md) - summaries, compact graph views, blackboard digests, and stale-aware compaction.
+- [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md) - why evidence was adopted or rejected.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must keep that line clear: stable contracts, clear compatibility checks, and

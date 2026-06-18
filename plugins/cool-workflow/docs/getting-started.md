@@ -17,6 +17,8 @@ start a run:
 ```bash
 node scripts/cw.js doctor          # human-readable
 node scripts/cw.js doctor --json   # stable payload for scripts
+node scripts/cw.js doctor --onramp # short path for users and code work
+node scripts/cw.js doctor --onramp --changed-from origin/main
 ```
 
 It checks the Node version (v18+), whether an agent backend is set up (and its
@@ -25,6 +27,19 @@ whether the home registry and the working-dir `.cw` state are writable. It is
 read-only — it makes nothing on disk. It exits non-zero only on a blocking
 problem; a missing agent is a warning (you are still able to run `demo` and
 `--preview`).
+
+Use `--onramp` when you are not certain what to do next. It keeps the main path
+small:
+
+1. `cw demo tamper` - prove the trust check with no agent.
+2. `cw quickstart architecture-review --check ...` - check a real run with no
+   writes.
+3. `cw quickstart architecture-review ...` - make the report.
+4. `npm run test:fast` - use the fast code check while you work.
+5. `npm run release:check` - use the full gate only when the batch is ready.
+
+Add `--changed-from origin/main` in a source checkout to get the nearest smoke
+tests and guard checks for your current change.
 
 Make a run with a canonical workflow app:
 
@@ -73,15 +88,26 @@ node scripts/cw.js eval report .cw/evals/<suite-id>/replay-run.json
 node scripts/cw.js report <run-id> --show
 ```
 
-Run the deterministic regression commands. They give the same result every time:
+Run the smallest check that fits the change:
 
 ```bash
 npm run check
-npm test
+npm run build
+node test/<nearest-smoke>.js
+npm run onramp:check
+npm run test:fast
+npm test                    # slow serial backstop
 npm run canonical-apps
 npm run golden-path
 npm run eval:replay
 npm run fixture-compat
+```
+
+For a CLI or MCP surface change, also run:
+
+```bash
+npm run parity:check
+npm run gen:manifests -- --check
 ```
 
 Before you cut a release, run the full dry-run gate:

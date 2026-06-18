@@ -4,8 +4,9 @@
 // doctor-smoke — `cw doctor` (a `brew doctor`-style readiness diagnostic).
 // Pins: the report shape; that it is READ-ONLY (creates no .cw/$CW_HOME); that a
 // missing agent is a WARN (exit 0, not a hard fail); that an unwritable home
-// registry is a FAIL with non-zero exit; and that --json is parseable while the
-// default human rendering is not JSON.
+// registry is a FAIL with non-zero exit; that --json is parseable while the
+// default human rendering is not JSON; and that --onramp returns the short safe
+// first-run / change-loop / release-gate path without changing default JSON.
 //
 // Included in `npm test`.
 
@@ -16,6 +17,7 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(pluginRoot, "..", "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const { runDoctor } = require(path.join(pluginRoot, "dist", "doctor.js"));
 
@@ -38,6 +40,7 @@ function run(args, env, cwd) {
   const names = report.checks.map((c) => c.name);
   for (const n of ["node", "agent", "home-registry", "repo-state"]) assert.ok(names.includes(n), `check ${n} present`);
   for (const c of report.checks) assert.ok(["ok", "warn", "fail"].includes(c.status), `valid status for ${c.name}`);
+  assert.equal(report.onramp, undefined, "onramp is opt-in");
   // node check must pass (the test runs on Node 18+).
   assert.equal(report.checks.find((c) => c.name === "node").status, "ok", "node check ok");
 })();
@@ -90,4 +93,47 @@ function run(args, env, cwd) {
   assert.doesNotThrow(() => JSON.parse(json), "--json is parseable");
 })();
 
-process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; unwritable home fails closed; --json flag mode)\n");
+// ---- 6. --onramp is opt-in and gives the short, safe path --------------------
+(function onramp() {
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-onramp-")));
+  const env = { ...process.env, CW_HOME: home };
+  delete env.CW_AGENT_COMMAND;
+  delete env.CW_AGENT_ENDPOINT;
+  const json = run(["--onramp", "--json"], env, pluginRoot);
+  assert.equal(json.code, 0);
+  const report = JSON.parse(json.stdout);
+  assert.equal(report.schemaVersion, 1);
+  assert.equal(report.onramp.schemaVersion, 1);
+  const sectionIds = report.onramp.sections.map((section) => section.id);
+  for (const id of ["first-run", "change-loop", "surface-guard", "release-gate"]) {
+    assert.ok(sectionIds.includes(id), `onramp section ${id} present`);
+  }
+  const commands = report.onramp.sections.flatMap((section) => section.actions.map((action) => action.command));
+  assert.ok(commands.includes("cw demo tamper"), "first-run demo is named");
+  assert.ok(commands.includes("npm run test:fast"), "fast suite is named");
+  assert.ok(commands.includes("npm run release:check"), "release gate is named");
+  assert.ok(commands.includes("npm run parity:check"), "surface drift guard is named");
+
+  const plain = run(["--onramp"], env, pluginRoot).stdout;
+  assert.ok(plain.includes("Onramp"), "human onramp section is rendered");
+  assert.ok(plain.includes("cw quickstart architecture-review --check"), "human onramp names the zero-write check");
+
+  const changedPlain = run(["--onramp", "--changed-from", "HEAD"], env, pluginRoot).stdout;
+  assert.ok(changedPlain.includes("Recommended Checks"), "changed-file onramp renders recommended checks");
+  assert.ok(changedPlain.includes("npm run test:fast"), "changed-file onramp names the fast suite");
+
+  const fromRepoRoot = JSON.parse(run(["--onramp", "--json"], env, repoRoot).stdout);
+  const rootedCommands = fromRepoRoot.onramp.sections.flatMap((section) => section.actions.map((action) => action.command));
+  assert.ok(
+    rootedCommands.includes("cd plugins/cool-workflow && npm run test:fast"),
+    "source checkout commands are rooted when doctor runs from the repo root"
+  );
+
+  const changedFromRepoRoot = JSON.parse(run(["--onramp", "--changed-from", "HEAD", "--json"], env, repoRoot).stdout);
+  assert.ok(
+    changedFromRepoRoot.onramp.recommendedChecks.commands.includes("cd plugins/cool-workflow && npm run test:fast"),
+    "changed-file recommended commands are rooted when doctor runs from the repo root"
+  );
+})();
+
+process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; unwritable home fails closed; --json flag mode; onramp opt-in)\n");

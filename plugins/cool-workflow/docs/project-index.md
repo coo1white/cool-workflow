@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-06-18 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.85`
-- Source modules: `62`
+- Source modules: `63`
 - Workflow apps: `7`
-- Docs: `50`
-- Smoke tests: `104`
+- Docs: `51`
+- Smoke tests: `105`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -99,6 +99,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [node-projection.ts](../src/node-projection.ts)
 - [node-snapshot.ts](../src/node-snapshot.ts)
 - [observability.ts](../src/observability.ts)
+- [onramp.ts](../src/onramp.ts)
 - [reclamation.ts](../src/reclamation.ts)
 - [result-normalize.ts](../src/result-normalize.ts)
 - [run-export.ts](../src/run-export.ts)
@@ -160,6 +161,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Cool Workflow Project Index](project-index.md)
 - [Real Execution Backend Integrations](real-execution-backends.7.md)
 - [Release And Migration Discipline](release-and-migration.7.md)
+- [Cool Workflow Release History](release-history.md)
 - [Release Tooling](release-tooling.7.md)
 - [Verifiable Report Bundle](report-verifiable-bundle.7.md)
 - [Routines](routines.md)
@@ -231,6 +233,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [node-snapshot-diff-replay-smoke.js](../test/node-snapshot-diff-replay-smoke.js)
 - [observability-cost-accounting-smoke.js](../test/observability-cost-accounting-smoke.js)
 - [one-way-boundary-smoke.js](../test/one-way-boundary-smoke.js)
+- [onramp-check-smoke.js](../test/onramp-check-smoke.js)
 - [operator-ux-smoke.js](../test/operator-ux-smoke.js)
 - [parallel-onramp-smoke.js](../test/parallel-onramp-smoke.js)
 - [parity-doc-sync-smoke.js](../test/parity-doc-sync-smoke.js)

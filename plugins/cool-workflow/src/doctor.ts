@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveAgentConfig } from "./agent-config";
+import { buildDoctorOnramp, DoctorOnramp, optionEnabled } from "./onramp";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
 export interface DoctorCheck {
@@ -31,6 +32,7 @@ export interface DoctorReport {
   ok: boolean;
   checks: DoctorCheck[];
   summary: string;
+  onramp?: DoctorOnramp;
 }
 
 /** Resolve a bare binary name against $PATH (or accept an explicit path). Returns
@@ -142,7 +144,15 @@ export function runDoctor(
       ? "ready — all checks passed"
       : `ready, with ${warns} warning${warns === 1 ? "" : "s"}`
     : `${fails} blocking problem${fails === 1 ? "" : "s"} found`;
-  return { schemaVersion: 1, ok, checks, summary };
+  return {
+    schemaVersion: 1,
+    ok,
+    checks,
+    summary,
+    ...(optionEnabled(args.onramp)
+      ? { onramp: buildDoctorOnramp({ cwd, env, changedFrom: typeof args["changed-from"] === "string" ? args["changed-from"] : undefined }) }
+      : {})
+  };
 }
 
 /** Human rendering (TTY/default). `--json` callers use the report object directly. */
@@ -155,5 +165,31 @@ export function formatDoctorReport(report: DoctorReport): string {
   }
   lines.push("");
   lines.push(`${report.ok ? "✓" : "✗"} ${report.summary}`);
+  if (report.onramp) {
+    lines.push("");
+    lines.push("Onramp");
+    lines.push(`  ${report.onramp.summary}`);
+    if (report.onramp.recommendedChecks) {
+      lines.push("");
+      lines.push("  Recommended Checks");
+      for (const command of report.onramp.recommendedChecks.commands) lines.push(`    - ${command}`);
+    }
+    if (report.onramp.contract && !report.onramp.contract.ok) {
+      lines.push("");
+      lines.push("  Contract Issues");
+      for (const issue of report.onramp.contract.issues) {
+        lines.push(`    - ${issue.code}: ${issue.detail}`);
+        lines.push(`      fix: ${issue.fix}`);
+      }
+    }
+    for (const section of report.onramp.sections) {
+      lines.push("");
+      lines.push(`  ${section.title}: ${section.summary}`);
+      for (const action of section.actions) {
+        lines.push(`    - ${action.command}`);
+        lines.push(`      ${action.reason}`);
+      }
+    }
+  }
   return lines.join("\n");
 }

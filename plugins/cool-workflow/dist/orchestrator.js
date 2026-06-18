@@ -821,7 +821,7 @@ function formatHelp() {
         "",
         "Commands:",
         "  list",
-        "  doctor [--json]   (check your setup: Node, agent backend, git, writable state)",
+        "  doctor [--json] [--onramp] [--changed-from REF]   (check setup and show the shortest safe next steps)",
         "  init <workflow-id> [--title TEXT] [--output PATH]",
         "  quickstart [app-id] [--repo PATH] [--question TEXT] [--agent-command CMD] [--check] [--once] [--preview]",
         "  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]",

@@ -15,6 +15,7 @@ const checks = [
         "README.md",
         "docs/index.md",
         "docs/getting-started.md",
+        "docs/release-history.md",
         "docs/release-and-migration.7.md",
         "docs/multi-agent-cli-mcp-surface.7.md",
         "docs/multi-agent-operator-ux.7.md",
@@ -57,6 +58,7 @@ const checks = [
   // from that fresh build — strictly stronger than a bare `npm run build`.
   { name: "dist freshness", command: ["npm", "run", "dist:check"] },
   { name: "type check", command: ["npm", "run", "check"] },
+  { name: "onramp contract", command: ["npm", "run", "onramp:check"] },
   { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.js"] },
   // Parallel suite (test:ci = run-all.js --concurrency auto). Each smoke runs in
   // a private cwd + state roots (CW_HOME/HOME/TMPDIR), so concurrency is race-free.
