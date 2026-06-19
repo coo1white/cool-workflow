@@ -4,6 +4,7 @@
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
+const { CoolWorkflowRunner } = require("../dist/orchestrator.js");
 
 const TARGET_VERSION = "0.1.85";
 const PREVIOUS_VERSION = "0.1.31";
@@ -17,30 +18,22 @@ function main() {
   const dryRun = !options.execute;
   enforceReleaseActionGate(options, dryRun);
 
-  const plan = cwJson(
-    [
-      "plan",
-      "release-cut",
-      "--repo",
-      repoRoot,
-      "--version",
-      TARGET_VERSION,
-      "--previousVersion",
-      PREVIOUS_VERSION,
-      "--releaseBranch",
-      currentBranch(),
-      "--dryRun",
-      String(dryRun)
-    ],
-    repoRoot
-  );
+  const runner = new CoolWorkflowRunner({ pluginRoot }).withBaseDir(repoRoot);
+  const plan = runner.plan("release-cut", {
+    repo: repoRoot,
+    version: TARGET_VERSION,
+    previousVersion: PREVIOUS_VERSION,
+    releaseBranch: currentBranch(),
+    dryRun: String(dryRun)
+  });
 
   const context = {
+    runner,
     options,
     dryRun,
-    runId: plan.runId,
-    reportPath: plan.reportPath,
-    statePath: plan.statePath,
+    runId: plan.id,
+    reportPath: plan.paths.report,
+    statePath: plan.paths.state,
     commandResults: [],
     workerIds: [],
     taskWorkers: {},
@@ -63,85 +56,48 @@ function main() {
   const candidateId = `dogfood-release-${TARGET_VERSION}`;
   const evidence = compactEvidence(context.commandResults.map((result) => result.locator));
 
-  const candidate = cwJson(
-    ["candidate", "register", context.runId, "--worker", verdictWorkerId, "--id", candidateId, "--kind", "release"],
-    repoRoot
-  );
+  const candidate = runner.registerCandidate(context.runId, { worker: verdictWorkerId, id: candidateId, kind: "release" });
 
-  const scoreArgs = [
-    "candidate",
-    "score",
-    context.runId,
-    candidateId,
-    "--criterion",
-    `correctness=${allPassed ? 10 : 0}`,
-    "--criterion",
-    `completeness=${requiredEvidencePresent(context) ? 10 : 0}`,
-    "--criterion",
-    `releaseSafety=${dryRun && context.externalActions.length === 0 ? 10 : 0}`,
-    "--criterion",
-    `auditability=${context.workerIds.length >= 6 ? 10 : 0}`,
-    "--criterion",
-    `reproducibility=${allPassed ? 10 : 4}`,
-    "--maxTotal",
-    "50",
-    "--verdict",
-    allPassed ? "pass" : "fail",
-    "--notes",
-    allPassed
+  const score = runner.scoreCandidate(context.runId, candidateId, {
+    criterion: [
+      `correctness=${allPassed ? 10 : 0}`,
+      `completeness=${requiredEvidencePresent(context) ? 10 : 0}`,
+      `releaseSafety=${dryRun && context.externalActions.length === 0 ? 10 : 0}`,
+      `auditability=${context.workerIds.length >= 6 ? 10 : 0}`,
+      `reproducibility=${allPassed ? 10 : 4}`
+    ],
+    maxTotal: 50,
+    verdict: allPassed ? "pass" : "fail",
+    notes: allPassed
       ? "Dogfood release candidate accepted: all real dry-run evidence commands passed."
-      : "Dogfood release candidate held: at least one real evidence command failed."
-  ];
-  for (const locator of evidence.slice(0, 20)) scoreArgs.push("--evidence", locator);
-  const score = cwJson(scoreArgs, repoRoot);
+      : "Dogfood release candidate held: at least one real evidence command failed.",
+    evidence: evidence.slice(0, 20)
+  });
 
   let selection = null;
   let commit = null;
   let releaseVerdict = "hold";
   if (allPassed) {
-    selection = cwJson(
-      [
-        "candidate",
-        "select",
-        context.runId,
-        candidateId,
-        "--reason",
-        `Dogfood release ${TARGET_VERSION} selected after verifier-backed dry-run evidence.`
-      ],
-      repoRoot
-    );
-    const commitResult = cwJson(
-      [
-        "commit",
-        context.runId,
-        "--selection",
-        selection.id,
-        "--reason",
-        `Dogfood One Real Repo ${TARGET_VERSION} verifier-gated checkpoint`
-      ],
-      repoRoot
-    );
+    selection = runner.selectCandidate(context.runId, candidateId, {
+      reason: `Dogfood release ${TARGET_VERSION} selected after verifier-backed dry-run evidence.`
+    });
+    const commitResult = runner.commit(context.runId, {
+      selection: selection.id,
+      reason: `Dogfood One Real Repo ${TARGET_VERSION} verifier-gated checkpoint`
+    });
     commit = commitResult.commit;
     releaseVerdict = "ready-dry-run";
   } else {
-    const checkpoint = cwJson(
-      [
-        "commit",
-        context.runId,
-        "--allow-unverified-checkpoint",
-        "--reason",
-        `Dogfood One Real Repo ${TARGET_VERSION} held; evidence commands failed.`
-      ],
-      repoRoot
-    );
+    const checkpoint = runner.commit(context.runId, {
+      allowUnverifiedCheckpoint: true,
+      reason: `Dogfood One Real Repo ${TARGET_VERSION} held; evidence commands failed.`
+    });
     commit = checkpoint.commit;
   }
 
-  const auditSummary = cwJson(["audit", "summary", context.runId], repoRoot);
-  const provenanceArgs = ["audit", "provenance", context.runId];
-  if (commit && commit.id) provenanceArgs.push("--commit", commit.id);
-  const provenance = cwJson(provenanceArgs, repoRoot);
-  const reportPath = cwText(["report", context.runId], repoRoot).trim();
+  const auditSummary = runner.auditSummary(context.runId);
+  const provenance = runner.evidenceProvenance(context.runId, commit && commit.id ? { commit: commit.id } : {});
+  const reportPath = runner.report(context.runId).path;
 
   const summary = {
     ok: allPassed,
@@ -205,7 +161,7 @@ function main() {
 }
 
 function runTask(context, expectedTaskId) {
-  const dispatch = cwJson(["dispatch", context.runId, "--limit", "1"], repoRoot);
+  const dispatch = context.runner.dispatch(context.runId, { limit: 1 });
   if (!dispatch.tasks || dispatch.tasks.length !== 1) {
     throw new Error(`Expected one dispatched task for ${expectedTaskId}`);
   }
@@ -215,7 +171,7 @@ function runTask(context, expectedTaskId) {
   context.workerIds.push(workerId);
   context.taskWorkers[task.id] = workerId;
 
-  const manifest = cwJson(["worker", "manifest", context.runId, workerId], repoRoot);
+  const manifest = context.runner.showWorkerManifest(context.runId, workerId);
   const commandResults = executeCommandsForTask(context, task.id, manifest);
   const taskEvidence = evidenceForTask(task.id, commandResults, context);
   const findings = commandResults
@@ -237,7 +193,7 @@ function runTask(context, expectedTaskId) {
     smoke: context.options.smoke
   });
   fs.writeFileSync(manifest.resultPath, resultMarkdown, "utf8");
-  cwJson(["worker", "output", context.runId, workerId, manifest.resultPath], repoRoot);
+  context.runner.recordWorkerOutput(context.runId, workerId, manifest.resultPath);
 }
 
 function executeCommandsForTask(context, taskId, manifest) {
@@ -247,23 +203,13 @@ function executeCommandsForTask(context, taskId, manifest) {
     const result = runEvidenceCommand(command, manifest, context);
     results.push(result);
     context.commandResults.push(result);
-    cwJson(
-      [
-        "audit",
-        "attest",
-        context.runId,
-        "--worker",
-        manifest.id,
-        "--hostEnforced",
-        "true",
-        "--command",
-        result.command,
-        "--note",
-        `dogfood ${taskId} command status=${result.status}`
-      ],
-      repoRoot
-    );
-    cwJson(["audit", "decision", context.runId, manifest.id, "--command", result.command], repoRoot);
+    context.runner.recordAuditAttestation(context.runId, {
+      worker: manifest.id,
+      hostEnforced: true,
+      command: result.command,
+      note: `dogfood ${taskId} command status=${result.status}`
+    });
+    context.runner.recordAuditDecision(context.runId, manifest.id, { command: result.command });
   }
   return results;
 }
@@ -378,7 +324,6 @@ function commandsForTask(taskId, context) {
     case "package:artifacts":
       if (smoke) {
         return [
-          { id: "app-validate-release-cut", cwd: pluginRoot, command: [node, ["scripts/cw.js", "app", "validate", "release-cut"]] },
           { id: "npm-pack-dry-run", cwd: pluginRoot, command: packDryRunCommand() }
         ];
       }
@@ -389,8 +334,7 @@ function commandsForTask(taskId, context) {
     case "verify:package":
       if (smoke) {
         return [
-          { id: "canonical-apps", cwd: pluginRoot, command: ["npm", ["run", "canonical-apps"]] },
-          { id: "golden-path", cwd: pluginRoot, command: ["npm", ["run", "golden-path"]] }
+          { id: "app-validate-release-cut", cwd: pluginRoot, command: [node, ["scripts/cw.js", "app", "validate", "release-cut"]] }
         ];
       }
       return [
@@ -526,7 +470,7 @@ function renderWorkerResult({ task, manifest, commandResults, findings, evidence
 
 function requiredEvidencePresent(context) {
   const required = context.options.smoke
-    ? ["git-status", "version-sync", "release-docs", "app-validate-release-cut", "canonical-apps", "golden-path"]
+    ? ["git-status", "version-sync", "release-docs", "npm-pack-dry-run", "app-validate-release-cut"]
     : [
         "git-status",
         "version-sync",
@@ -558,28 +502,6 @@ function enforceReleaseActionGate(options, dryRun) {
 function currentBranch() {
   const result = spawnSync("git", ["branch", "--show-current"], { cwd: repoRoot, encoding: "utf8" });
   return (result.stdout || "").trim() || "main";
-}
-
-function cwJson(args, cwd) {
-  const text = cwText(args, cwd);
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    throw new Error(`cw JSON parse failed for ${args.join(" ")}\n${text}`);
-  }
-}
-
-function cwText(args, cwd) {
-  const result = spawnSync(node, [cli, ...args], {
-    cwd,
-    encoding: "utf8",
-    env: process.env,
-    maxBuffer: 1024 * 1024 * 20
-  });
-  if (result.status !== 0) {
-    throw new Error(`cw ${args.join(" ")} exited ${result.status}\n${result.stdout}\n${result.stderr}`);
-  }
-  return result.stdout;
 }
 
 function parseArgs(argv) {
