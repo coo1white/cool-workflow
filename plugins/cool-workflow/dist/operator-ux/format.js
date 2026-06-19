@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatOperatorStatus = formatOperatorStatus;
+exports.formatOperatorSummary = formatOperatorSummary;
 exports.formatOperatorReport = formatOperatorReport;
 exports.formatOperatorGraph = formatOperatorGraph;
 exports.formatWorkerSummary = formatWorkerSummary;
@@ -11,18 +12,10 @@ exports.formatMultiAgentSummary = formatMultiAgentSummary;
 exports.formatTopologySummary = formatTopologySummary;
 exports.formatMultiAgentTrustAudit = formatMultiAgentTrustAudit;
 const multi_agent_operator_ux_1 = require("../multi-agent-operator-ux");
+const term_1 = require("../term");
 function formatOperatorStatus(summary) {
-    const operator = summary.multiAgentOperator;
     return [
-        `Run: ${summary.runId}`,
-        `Workflow: ${summary.workflowId}${summary.appId ? ` (${summary.appId}@${summary.appVersion || "unknown"})` : ""}`,
-        `Loop Stage: ${summary.loopStage}`,
-        `Active Phase: ${summary.activePhase || "none"}`,
-        `Blocked: ${summary.blocked ? summary.blockedReasons.join("; ") : "no"}`,
-        `Tasks: ${formatCounts(summary.tasks.byStatus)}; total=${summary.tasks.total}`,
-        "",
-        "Phases",
-        ...summary.phases.map((phase) => `  ${phase.name}: ${phase.status} (${phase.tasks.completed}/${phase.tasks.total} completed)`),
+        formatOperatorSummary(summary),
         "",
         formatWorkerPanel(summary.workers),
         "",
@@ -37,9 +30,9 @@ function formatOperatorStatus(summary) {
         formatMultiAgentPanel(summary.multiAgent),
         "",
         "Multi-Agent Operator UX",
-        `  active=${operator.activeMultiAgentRunIds.join(", ") || "none"}; topologies=${operator.topologyRunIds.join(", ") || "none"}; blocked=${operator.blocked ? "yes" : "no"}`,
-        `  dependencies=${operator.dependencies.length}; failures=${operator.failures.length}; adoptedEvidence=${operator.adoptedEvidence.length}; missingEvidence=${operator.missingEvidence.length}${operator.inspectableEvidence.length ? ` (inspectable=${operator.inspectableEvidence.length})` : ""}`,
-        `  next=${operator.nextAction}`,
+        `  active=${operator(summary).activeMultiAgentRunIds.join(", ") || "none"}; topologies=${operator(summary).topologyRunIds.join(", ") || "none"}; blocked=${operator(summary).blocked ? "yes" : "no"}`,
+        `  dependencies=${operator(summary).dependencies.length}; failures=${operator(summary).failures.length}; adoptedEvidence=${operator(summary).adoptedEvidence.length}; missingEvidence=${operator(summary).missingEvidence.length}${operator(summary).inspectableEvidence.length ? ` (inspectable=${operator(summary).inspectableEvidence.length})` : ""}`,
+        `  next=${operator(summary).nextAction}`,
         "",
         formatBlackboardPanel(summary.blackboard),
         "",
@@ -47,10 +40,23 @@ function formatOperatorStatus(summary) {
         "",
         formatMultiAgentTrustAudit(summary.multiAgentTrust),
         "",
-        `Report: ${summary.reportPath}`,
+        `Report: ${summary.reportPath}`
+    ].join("\n");
+}
+function operator(summary) { return summary.multiAgentOperator; }
+/** Compact summary — the default `cw status` output. `cw status --verbose` shows the full panel. */
+function formatOperatorSummary(summary) {
+    return [
+        `Run: ${summary.runId}`,
+        `Workflow: ${summary.workflowId}${summary.appId ? ` (${summary.appId}@${summary.appVersion || "unknown"})` : ""}`,
+        `Phase: ${summary.activePhase || "none"} | Stage: ${summary.loopStage} | Blocked: ${summary.blocked ? summary.blockedReasons.join("; ") : "no"}`,
+        `Tasks: ${formatCounts(summary.tasks.byStatus)}; total=${summary.tasks.total}`,
+        ...summary.phases.map((phase) => `  ${phase.name}: ${phase.status} (${phase.tasks.completed}/${phase.tasks.total} completed)`),
         "",
         "Next Action",
-        ...formatRecommendations(summary.nextActions)
+        ...formatRecommendations(summary.nextActions),
+        "",
+        (0, term_1.dim)(`(use --verbose for full worker/candidate/feedback/commit/trust panels)`)
     ].join("\n");
 }
 function formatOperatorReport(summary) {

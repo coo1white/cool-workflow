@@ -82,7 +82,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 193 capabilities, 186 MCP tools.
+machine-complete by design: 194 capabilities, 186 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -90,6 +90,7 @@ machine-complete by design: 193 capabilities, 186 MCP tools.
 | --- | --- | --- | --- | --- | --- |
 | `help` | `cw help` | `—` | `formatHelp` | cli-only | cli-only |
 | `list` | `cw list` | `cw_list` | `listWorkflows` | both | identical |
+| `info` | `cw info` | `—` | `showApp` | cli-only | cli-only |
 | `doctor` | `cw doctor` | `—` | `runDoctor` | cli-only | cli-only |
 | `init` | `cw init` | `cw_init` | `init` | both | identical |
 | `plan` | `cw plan` | `cw_plan` | `planSummary` | both | identical |
@@ -295,9 +296,10 @@ A capability may be on one surface only, but never without word of it — it mus
 carry a recorded reason in the registry.
 
 <!-- gen:parity:cliOnly -->
-Seven capabilities are CLI-only:
+Eight capabilities are CLI-only:
 
 - `help` — Human help text. MCP hosts enumerate capabilities via tools/list, not a help command.
+- `info` — Human-focused workflow discovery tool (like Homebrew's `brew info`). MCP agents discover workflows via cw_list and cw_app_show tools.
 - `doctor` — Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`.
 - `loop` — Convenience alias of `schedule create` with kind=loop. MCP hosts use cw_schedule_create with kind=loop.
 - `schedule daemon` — Long-running desktop daemon process, not a request/response tool. MCP hosts drive ticks via cw_schedule_due + cw_schedule_run_now.

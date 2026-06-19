@@ -30,8 +30,8 @@ const plan = runJson(
 let status = runText(["status", plan.runId], tmp);
 assert.match(status, new RegExp(`Run: ${plan.runId}`));
 assert.match(status, /Workflow: end-to-end-golden-path \(end-to-end-golden-path@0\.1\.86\)/);
-assert.match(status, /Loop Stage: interpret/);
-assert.match(status, /Active Phase: Golden Path/);
+assert.match(status, /Stage: interpret/);
+assert.match(status, /Phase: Golden Path/);
 assert.match(status, /Tasks: pending=1; total=1/);
 assert.match(status, /Workers/);
 assert.match(status, /Candidates/);
@@ -52,7 +52,7 @@ const workerId = dispatch.tasks[0].workerId;
 assert.ok(workerId);
 
 status = runText(["status", plan.runId], tmp);
-assert.match(status, /Loop Stage: act/);
+assert.match(status, /Stage: act/);
 assert.match(status, /node scripts\/cw\.js worker manifest/);
 assert.match(status, new RegExp(workerId));
 

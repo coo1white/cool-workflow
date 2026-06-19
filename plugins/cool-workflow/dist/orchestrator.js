@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.KNOWN_COMMANDS = exports.CoolWorkflowRunner = void 0;
 exports.parseArgv = parseArgv;
 exports.suggestCommand = suggestCommand;
+exports.formatInfo = formatInfo;
 exports.formatHelp = formatHelp;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -820,7 +821,7 @@ function parseArgv(argv) {
 }
 /** All known top-level CW commands. Used for "did you mean?" suggestions. */
 exports.KNOWN_COMMANDS = new Set([
-    "help", "list", "doctor", "init", "quickstart", "plan", "status", "next",
+    "help", "list", "doctor", "info", "init", "quickstart", "plan", "status", "next",
     "dispatch", "result", "state", "commit", "report", "app", "sandbox",
     "backend", "contract", "node", "feedback", "worker", "audit", "candidate",
     "review", "loop", "schedule", "routine", "registry", "run", "queue",
@@ -859,10 +860,46 @@ function suggestCommand(input) {
             bestDist = dist;
         }
     }
-    // Threshold: distance must be less than half the input length AND <= 3
-    if (bestDist <= 3 && bestDist < lower.length / 2)
+    // Threshold: distance must be <= half the input length AND <= 3
+    if (bestDist <= 3 && bestDist <= lower.length / 2)
         return best;
     return undefined;
+}
+function formatInfo(appId, data) {
+    const app = (data.app || {});
+    const inputs = (Array.isArray(data.inputs) ? data.inputs : []);
+    const phases = (Array.isArray(data.phases) ? data.phases : []);
+    const lines = [(0, term_1.bold)(`cw info ${appId}`)];
+    if (data.title)
+        lines.push(`  Title: ${data.title}`);
+    if (data.version)
+        lines.push(`  Version: ${data.version}`);
+    if (data.summary)
+        lines.push(`  Summary: ${data.summary}`);
+    if (data.author)
+        lines.push(`  Author: ${typeof data.author === "object" ? data.author.name : data.author}`);
+    if (data.compatible !== undefined)
+        lines.push(`  Compatible: ${data.compatible ? "yes" : "no"}`);
+    if (inputs.length > 0) {
+        lines.push("  Inputs:");
+        for (const input of inputs) {
+            const name = input.name || "";
+            const type = input.type || "string";
+            const required = input.required ? ", required" : "";
+            const def = input.default ? `, default: ${input.default}` : "";
+            const desc = input.description ? ` — ${input.description}` : "";
+            lines.push(`    - ${name} (${type}${required}${def})${desc}`);
+        }
+    }
+    if (Array.isArray(data.sandboxProfiles) && data.sandboxProfiles.length > 0) {
+        lines.push(`  Sandbox: ${data.sandboxProfiles.join(", ")}`);
+    }
+    const taskCount = data.taskCount || 0;
+    if (phases.length > 0) {
+        lines.push(`  Phases: ${phases.length} phase${phases.length !== 1 ? "s" : ""}, ${taskCount} task${taskCount !== 1 ? "s" : ""}`);
+    }
+    lines.push(`  Run: cw quickstart ${appId} --repo . --question "..."`);
+    return lines.join("\n");
 }
 function formatHelp() {
     return [
@@ -874,6 +911,7 @@ function formatHelp() {
         "",
         (0, term_1.bold)("Getting Started"),
         "  list                          List available workflow apps",
+        "  info <app-id> [--json]         Show what a workflow app does and how to run it",
         "  doctor [--json] [--onramp]    Check your setup and show the shortest safe next steps",
         "  init <id> [--title T]         Create a new workflow app",
         "  quickstart [app] [...]        Plan → drive → report in one command",
@@ -882,7 +920,7 @@ function formatHelp() {
         (0, term_1.bold)("Run Management"),
         "  plan <id> [--repo P] [--question Q]   Create a new run plan",
         "  quickstart|audit-run [app] [...]       Plan → drive → report in one command",
-        "  status <run-id> [--json]              Show run status",
+        "  status <run-id> [--json] [--brief]    Show run status (--brief for compact summary)",
         "  next <run-id> [--limit N]             Show pending dispatch tasks",
         "  dispatch <run-id> [--limit N]         Dispatch tasks to workers",
         "  result <run-id> <task-id> <file>      Record a task result",

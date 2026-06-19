@@ -21,19 +21,11 @@ import type {
   OperatorTaskSummary,
   OperatorWorkerSummary
 } from "../operator-ux";
+import { dim } from "../term";
 
 export function formatOperatorStatus(summary: OperatorRunSummary): string {
-  const operator = summary.multiAgentOperator;
   return [
-    `Run: ${summary.runId}`,
-    `Workflow: ${summary.workflowId}${summary.appId ? ` (${summary.appId}@${summary.appVersion || "unknown"})` : ""}`,
-    `Loop Stage: ${summary.loopStage}`,
-    `Active Phase: ${summary.activePhase || "none"}`,
-    `Blocked: ${summary.blocked ? summary.blockedReasons.join("; ") : "no"}`,
-    `Tasks: ${formatCounts(summary.tasks.byStatus)}; total=${summary.tasks.total}`,
-    "",
-    "Phases",
-    ...summary.phases.map((phase) => `  ${phase.name}: ${phase.status} (${phase.tasks.completed}/${phase.tasks.total} completed)`),
+    formatOperatorSummary(summary),
     "",
     formatWorkerPanel(summary.workers),
     "",
@@ -48,9 +40,9 @@ export function formatOperatorStatus(summary: OperatorRunSummary): string {
     formatMultiAgentPanel(summary.multiAgent),
     "",
     "Multi-Agent Operator UX",
-    `  active=${operator.activeMultiAgentRunIds.join(", ") || "none"}; topologies=${operator.topologyRunIds.join(", ") || "none"}; blocked=${operator.blocked ? "yes" : "no"}`,
-    `  dependencies=${operator.dependencies.length}; failures=${operator.failures.length}; adoptedEvidence=${operator.adoptedEvidence.length}; missingEvidence=${operator.missingEvidence.length}${operator.inspectableEvidence.length ? ` (inspectable=${operator.inspectableEvidence.length})` : ""}`,
-    `  next=${operator.nextAction}`,
+    `  active=${operator(summary).activeMultiAgentRunIds.join(", ") || "none"}; topologies=${operator(summary).topologyRunIds.join(", ") || "none"}; blocked=${operator(summary).blocked ? "yes" : "no"}`,
+    `  dependencies=${operator(summary).dependencies.length}; failures=${operator(summary).failures.length}; adoptedEvidence=${operator(summary).adoptedEvidence.length}; missingEvidence=${operator(summary).missingEvidence.length}${operator(summary).inspectableEvidence.length ? ` (inspectable=${operator(summary).inspectableEvidence.length})` : ""}`,
+    `  next=${operator(summary).nextAction}`,
     "",
     formatBlackboardPanel(summary.blackboard),
     "",
@@ -58,10 +50,25 @@ export function formatOperatorStatus(summary: OperatorRunSummary): string {
     "",
     formatMultiAgentTrustAudit(summary.multiAgentTrust as unknown as Record<string, unknown>),
     "",
-    `Report: ${summary.reportPath}`,
+    `Report: ${summary.reportPath}`
+  ].join("\n");
+}
+
+function operator(summary: OperatorRunSummary) { return summary.multiAgentOperator; }
+
+/** Compact summary — the default `cw status` output. `cw status --verbose` shows the full panel. */
+export function formatOperatorSummary(summary: OperatorRunSummary): string {
+  return [
+    `Run: ${summary.runId}`,
+    `Workflow: ${summary.workflowId}${summary.appId ? ` (${summary.appId}@${summary.appVersion || "unknown"})` : ""}`,
+    `Phase: ${summary.activePhase || "none"} | Stage: ${summary.loopStage} | Blocked: ${summary.blocked ? summary.blockedReasons.join("; ") : "no"}`,
+    `Tasks: ${formatCounts(summary.tasks.byStatus)}; total=${summary.tasks.total}`,
+    ...summary.phases.map((phase) => `  ${phase.name}: ${phase.status} (${phase.tasks.completed}/${phase.tasks.total} completed)`),
     "",
     "Next Action",
-    ...formatRecommendations(summary.nextActions)
+    ...formatRecommendations(summary.nextActions),
+    "",
+    dim(`(use --verbose for full worker/candidate/feedback/commit/trust panels)`)
   ].join("\n");
 }
 

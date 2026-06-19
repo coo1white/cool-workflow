@@ -22,6 +22,7 @@ const multi_agent_eval_1 = require("../multi-agent-eval");
 const state_explosion_1 = require("../state-explosion");
 const evidence_reasoning_1 = require("../evidence-reasoning");
 const doctor_1 = require("../doctor");
+const orchestrator_2 = require("../orchestrator");
 async function runCli(argv = process.argv.slice(2)) {
     const args = (0, orchestrator_1.parseArgv)(argv);
     const runner = new orchestrator_1.CoolWorkflowRunner({
@@ -37,6 +38,17 @@ async function runCli(argv = process.argv.slice(2)) {
         case "list":
             printJson(runner.listWorkflows());
             return;
+        case "info": {
+            const [appId] = args.positionals;
+            if (!appId)
+                throw new Error("Missing workflow app id.\n  Tip: list apps with \"cw list\", then \"cw info <id>\" for details");
+            const data = runner.showApp(appId);
+            if (wantsJson(args.options))
+                printJson(data);
+            else
+                process.stdout.write(`${(0, orchestrator_2.formatInfo)(appId, data)}\n`);
+            return;
+        }
         case "doctor": {
             const report = (0, doctor_1.runDoctor)(args.options, process.env, String(args.options.cwd || process.cwd()));
             if (wantsJson(args.options))
@@ -121,8 +133,10 @@ async function runCli(argv = process.argv.slice(2)) {
             }
             else if (wantsJson(args.options))
                 printJson(runner.status(args.positionals[0]));
-            else
-                process.stdout.write(`${(0, operator_ux_1.formatOperatorStatus)(runner.operatorStatus(args.positionals[0]))}\n`);
+            else {
+                const summary = runner.operatorStatus(args.positionals[0]);
+                process.stdout.write(`${(args.options.summary || args.options.brief ? (0, operator_ux_1.formatOperatorSummary)(summary) : (0, operator_ux_1.formatOperatorStatus)(summary))}\n`);
+            }
             return;
         case "next":
             printJson(runner.next(required(args.positionals[0], "run id"), args.options));
@@ -204,8 +218,10 @@ async function runCli(argv = process.argv.slice(2)) {
                 case "status":
                     if (wantsJson(args.options))
                         printJson(runner.operatorStatus(required(runId, "run id")));
-                    else
-                        process.stdout.write(`${(0, operator_ux_1.formatOperatorStatus)(runner.operatorStatus(required(runId, "run id")))}\n`);
+                    else {
+                        const summary = runner.operatorStatus(required(runId, "run id"));
+                        process.stdout.write(`${(args.options.summary || args.options.brief ? (0, operator_ux_1.formatOperatorSummary)(summary) : (0, operator_ux_1.formatOperatorStatus)(summary))}\n`);
+                    }
                     return;
                 case "report":
                     if (wantsJson(args.options))

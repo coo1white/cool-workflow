@@ -775,6 +775,7 @@ function safeId(value: string): string {
 // surface.
 export {
   formatOperatorStatus,
+  formatOperatorSummary,
   formatOperatorReport,
   formatOperatorGraph,
   formatWorkerSummary,
