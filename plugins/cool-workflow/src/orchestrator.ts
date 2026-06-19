@@ -35,7 +35,7 @@ import * as feedbackOps from "./orchestrator/feedback-operations";
 import * as topologyOps from "./orchestrator/topology-operations";
 import * as lifecycleOps from "./orchestrator/lifecycle-operations";
 import * as migrationOps from "./orchestrator/migration-operations";
-import { bold } from "./term";
+import { bold, dim } from "./term";
 
 // CoolWorkflowRunner — the single FACADE both surfaces (cli.ts and the MCP server)
 // call through. It is deliberately WIDE but THIN: each method either
@@ -934,7 +934,7 @@ export function parseArgv(argv: string[]): {
 
 /** All known top-level CW commands. Used for "did you mean?" suggestions. */
 export const KNOWN_COMMANDS = new Set([
-  "help", "list", "doctor", "info", "init", "quickstart", "plan", "status", "next",
+  "help", "list", "doctor", "info", "search", "man", "init", "quickstart", "plan", "status", "next",
   "dispatch", "result", "state", "commit", "report", "app", "sandbox",
   "backend", "contract", "node", "feedback", "worker", "audit", "candidate",
   "review", "loop", "schedule", "routine", "registry", "run", "queue",
@@ -980,6 +980,16 @@ export function suggestCommand(input: string): string | undefined {
   return undefined;
 }
 
+export function formatSearchResults(keyword: string, results: Array<{ id: string; title: string; summary: string }>): string {
+  if (!results.length) return `No workflows matched "${keyword}".\n  Tip: cw list for all available workflows.`;
+  return [
+    bold(`${results.length} workflow${results.length !== 1 ? "s" : ""} matching "${keyword}"`),
+    ...results.map((r) => `  ${r.id} — ${r.title}\n    ${dim(r.summary.slice(0, 120))}${r.summary.length > 120 ? "…" : ""}`),
+    "",
+    dim("Use cw info <id> for full details.")
+  ].join("\n");
+}
+
 export function formatInfo(appId: string, data: Record<string, unknown>): string {
   const app = (data.app || {}) as Record<string, unknown>;
   const inputs = (Array.isArray(data.inputs) ? data.inputs : []) as Array<Record<string, unknown>>;
@@ -1022,11 +1032,13 @@ export function formatHelp(): string {
     "",
     bold("Getting Started"),
     "  list                          List available workflow apps",
+    "  search <keyword>              Search workflows by title or description",
     "  info <app-id> [--json]         Show what a workflow app does and how to run it",
-    "  doctor [--json] [--onramp]    Check your setup and show the shortest safe next steps",
+    "  doctor [--json] [--onramp] [--fix]  Check setup (--fix for consolidated fix commands)",
     "  init <id> [--title T]         Create a new workflow app",
     "  quickstart [app] [...]        Plan → drive → report in one command",
     "  demo tamper|bundle            Prove trust checks work (30s, no agent needed)",
+    "  man <topic>                   Show a man page (e.g. cw man release-tooling)",
     "",
     bold("Run Management"),
     "  plan <id> [--repo P] [--question Q]   Create a new run plan",

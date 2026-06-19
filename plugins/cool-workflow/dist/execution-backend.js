@@ -411,9 +411,17 @@ function executeLocal(descriptor, policy, request, label, attestation) {
     // shell backend runs via /bin/sh -c; node/bun run the command directly
     // (bun is Node-compatible by default so evidence stays byte-stable with node).
     // spawnStyle comes from the registered driver, not a hardcoded id check.
+    const isTTY = process.stderr.isTTY;
+    const shortLabel = command.split("/").pop() || command;
+    if (isTTY)
+        process.stderr.write(`● Running ${shortLabel}...\n`);
+    const startedAt = process.hrtime.bigint();
     const result = getBackendDriver(descriptor.id)?.spawnStyle === "shell"
         ? (0, node_child_process_1.spawnSync)([command, ...args].join(" "), { ...options, shell: true })
         : (0, node_child_process_1.spawnSync)(command, args, { ...options, shell: false });
+    const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
+    if (isTTY)
+        process.stderr.write(`✓ Done (${elapsedMs}ms)\n`);
     const exitCode = typeof result.status === "number" ? result.status : null;
     const spawnError = result.error ? (0, util_1.messageOf)(result.error) : undefined;
     const stdout = String(result.stdout || "");

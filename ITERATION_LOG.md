@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — remaining Homebrew-style polish (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 5 | post-success summary, agent progress timing, doctor --fix, cw search, cw man | src/term.ts + src/execution-backend.ts + src/doctor.ts + src/orchestrator.ts + src/cli/command-surface.ts + src/capability-registry.ts + docs/cli-mcp-parity.7.md + CHANGELOG.md + ITERATION_LOG.md | all existing smokes pass (operator-ux updated in prior cycle) | BUILD OK; npm test 115/115; parity PASS; release:check PASS; gen/index/version/dist checks OK | no (capability cycle; no release requested) |
+
 ## Batch — Homebrew-style CLI polish (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |

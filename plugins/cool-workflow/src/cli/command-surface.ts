@@ -88,8 +88,9 @@ import {
 import { formatMultiAgentEval } from "../multi-agent-eval";
 import { formatBlackboardDigest, formatCompactGraph, formatStateExplosionReport } from "../state-explosion";
 import { formatEvidenceReasoningReport } from "../evidence-reasoning";
-import { runDoctor, formatDoctorReport } from "../doctor";
-import { formatInfo } from "../orchestrator";
+import { runDoctor, formatDoctorReport, formatDoctorFixes } from "../doctor";
+import { formatInfo, formatSearchResults } from "../orchestrator";
+import { printSuccessSummary } from "../term";
 
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgv(argv);
@@ -107,6 +108,33 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "list":
       printJson(runner.listWorkflows());
       return;
+    case "search": {
+      const keyword = args.positionals.join(" ");
+      if (!keyword.trim()) throw new Error("Missing search keyword.\n  Tip: cw search architecture to find workflows about architecture.");
+      const apps = runner.listApps();
+      const lower = keyword.toLowerCase();
+      const results = apps.filter((a) =>
+        a.title.toLowerCase().includes(lower) || a.summary.toLowerCase().includes(lower) || a.id.toLowerCase().includes(lower)
+      ).map((a) => ({ id: a.id, title: a.title, summary: a.summary }));
+      if (wantsJson(args.options)) printJson(results);
+      else process.stdout.write(`${formatSearchResults(keyword, results)}\n`);
+      return;
+    }
+    case "man": {
+      const [topic] = args.positionals;
+      if (!topic) throw new Error("Missing topic.\n  Tip: cw man release-tooling for the release tooling manual.");
+      const docsDir = path.resolve(runner.pluginRoot, "docs");
+      const candidates = [
+        path.join(docsDir, `${topic}.7.md`),
+        path.join(docsDir, `${topic}.md`),
+        path.join(docsDir, `${topic}`)
+      ];
+      let found: string | undefined;
+      for (const c of candidates) { try { if (fs.statSync(c).isFile()) { found = c; break; } } catch { /* keep looking */ } }
+      if (!found) throw new Error(`Man page not found: ${topic}.\n  Tip: cw list for workflow topics, or browse docs/ for manuals.`);
+      process.stdout.write(fs.readFileSync(found, "utf8"));
+      return;
+    }
     case "info": {
       const [appId] = args.positionals;
       if (!appId) throw new Error("Missing workflow app id.\n  Tip: list apps with \"cw list\", then \"cw info <id>\" for details");
@@ -118,6 +146,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "doctor": {
       const report = runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
       if (wantsJson(args.options)) printJson(report);
+      else if (args.options.fix) process.stdout.write(`${formatDoctorFixes(report)}\n`);
       else process.stdout.write(`${formatDoctorReport(report)}\n`);
       if (!report.ok) process.exitCode = 1;
       return;
@@ -166,6 +195,15 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
       const qs = quickstart(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
       printJson(qs);
+      const qr = qs as unknown as Record<string, unknown>;
+      if (typeof qr.runId === "string" && typeof qr.reportPath === "string") {
+        printSuccessSummary({
+          runId: qr.runId as string,
+          reportPath: qr.reportPath as string,
+          status: String(qr.status || ""),
+          bundle: Boolean(args.options.bundle)
+        });
+      }
       if ((qs as { mode?: string; ok?: boolean }).mode === "check" && (qs as { ok?: boolean }).ok === false) {
         process.exitCode = 1;
       }
@@ -1091,7 +1129,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
         const driveArgs = { ...args.options } as Record<string, unknown>;
         if (runId) driveArgs.runId = runId;
         else driveArgs.appId = target;
-        printJson(runDrive(runner, driveArgs));
+        const dr = runDrive(runner, driveArgs);
+        printJson(dr);
+        printSuccessSummary({ runId: dr.runId, reportPath: dr.reportPath, status: dr.status });
         return;
       }
       const registry = runRegistryFor(args.options, runner);
@@ -1102,7 +1142,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           if (args.options.step) {
             const driveArgs = { ...args.options } as Record<string, unknown>;
             if (id) driveArgs.runId = id;
-            printJson(runDrive(runner, driveArgs));
+            const dr = runDrive(runner, driveArgs);
+            printJson(dr);
+            printSuccessSummary({ runId: dr.runId, reportPath: dr.reportPath, status: dr.status });
             return;
           }
           printJson(runDrivePreview(runner, { ...args.options, runId: required(id, "run id") }));

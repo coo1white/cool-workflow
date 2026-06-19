@@ -16,6 +16,7 @@ exports.cyan = cyan;
 exports.doctorGlyph = doctorGlyph;
 exports.cwLabel = cwLabel;
 exports.indent = indent;
+exports.printSuccessSummary = printSuccessSummary;
 function isTTY(stream = process.stderr) {
     return Boolean(stream.isTTY);
 }
@@ -72,4 +73,21 @@ function cwLabel(stream) {
 function indent(text, spaces = 2) {
     const prefix = " ".repeat(spaces);
     return text.split("\n").map((line) => `${prefix}${line}`).join("\n");
+}
+/** Print a success summary to stderr (TTY-gated). Shows the report path and a
+ *  suggested next command. Pipe-friendly: silent when stderr is not a TTY. */
+function printSuccessSummary(fields, stream) {
+    if (!isTTY(stream))
+        return;
+    const s = stream || process.stderr;
+    s.write(`\n${green("✓")} Report: ${fields.reportPath}\n`);
+    if (fields.status === "complete") {
+        s.write(`  Next: cw status ${fields.runId} --brief\n`);
+        if (fields.bundle !== false) {
+            s.write(`  Bundle: cw report bundle ${fields.runId}\n`);
+        }
+    }
+    else {
+        s.write(`  ${yellow("!")} Status: ${fields.status}. Next: cw status ${fields.runId}\n`);
+    }
 }

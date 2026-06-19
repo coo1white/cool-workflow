@@ -194,3 +194,10 @@ export function formatDoctorReport(report: DoctorReport): string {
   }
   return lines.join("\n");
 }
+
+/** `--fix` rendering: consolidates all fix strings into an actionable block. */
+export function formatDoctorFixes(report: DoctorReport): string {
+  const fixes = report.checks.filter((c) => c.fix && c.status !== "ok").map((c) => c.fix as string);
+  if (!fixes.length) return "No fixes needed.";
+  return [bold("Fix Commands"), ...fixes.map((f, i) => `  ${i + 1}. ${f}`), ""].join("\n");
+}

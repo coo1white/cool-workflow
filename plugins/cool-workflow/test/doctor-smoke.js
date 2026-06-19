@@ -140,4 +140,11 @@ function run(args, env, cwd) {
   );
 })();
 
-process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; unwritable home fails closed; --json flag mode; onramp opt-in)\n");
+// --fix consolidated fix commands
+(() => {
+  const { stdout } = run(["--fix"], process.env, pluginRoot);
+  assert.match(stdout, /Fix Commands/, "doctor --fix shows Fix Commands header");
+  assert.match(stdout, /cw_agent_command/i, "doctor --fix includes agent fix suggestion");
+})();
+
+process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; unwritable home fails closed; --json flag mode; onramp opt-in; --fix mode)\n");
