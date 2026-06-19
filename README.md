@@ -142,11 +142,13 @@ npx cool-workflow quickstart architecture-review \
 - `--question` — what you have a wish to be certain of.
 - `--agent-command builtin:claude` — make use of the Claude wrapper that comes
   with it (read-only; it never makes changes to your code).
+- `--agent-command builtin:codex` — make use of the Codex wrapper that comes
+  with it (read-only; it never makes changes to your code).
 
-CW makes a plan of the work, keeps `claude` working over your repo in steps, and
-gives out where it kept the report. For a living view in the window while every
-worker is at work, take it up with `CW_AGENT_STREAM=1`; the view goes to stderr
-only and the kept answer is not changed.
+CW makes a plan of the work, keeps your agent working over your repo in steps,
+and gives out where it kept the report. For a living view in the window while
+every worker is at work, take it up with `CW_AGENT_STREAM=1`; the view goes to
+stderr only and the kept answer is not changed.
 
 > **No agent put in place?** CW comes to a safe stop and says so
 > (`status: blocked`) — it never makes up an answer. Put in `claude` and run it

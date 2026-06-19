@@ -95,7 +95,10 @@ offline with `cw report verify-bundle report.cwrun.json`.
 CW DELEGATES worker execution to your own agent. With no `--agent-command` (or
 `CW_AGENT_COMMAND`) the drive fails closed (status `blocked`) — it never makes up a
 result. `--agent-command builtin:claude` points to a bundled read-only `claude -p`
-wrapper (needs `claude` on your PATH).
+wrapper (needs `claude` on your PATH). `--agent-command builtin:codex` points to
+the bundled read-only Codex wrapper (needs `codex` on your PATH). With
+`CW_AGENT_STREAM=1`, both wrappers can show a live stderr trace while stdout stays
+the kept data channel.
 
 **Re-prove a finished run, offline** (`cw` is the installed bin; or `npx cool-workflow <cmd>`):
 

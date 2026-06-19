@@ -204,13 +204,15 @@ A drive can show the agent's activity live, without touching the evidence
 contract, when the operator opts in with `CW_AGENT_STREAM=1`:
 
 - **Default stays buffered.** Without `CW_AGENT_STREAM=1`, the bundled wrapper
-  keeps the legacy `--output-format json` path and forwards claude's JSON stdout
-  word for word after writing `result.md`.
+  keeps the buffered path and writes one JSON report to stdout after writing
+  `result.md`.
 - **The opt-in wrapper renders; stderr only.** With `CW_AGENT_STREAM=1`, the
-  bundled wrapper runs claude in `--output-format stream-json` and renders a short
-  human trace (tool uses, assistant text, per-turn summaries) to its
-  **stderr** — diagnostics, never data. It builds the single
-  `{model, usage, result}` object for stdout again only on that opt-in path.
+  bundled Claude wrapper runs claude in `--output-format stream-json`, and the
+  bundled Codex wrapper runs `codex exec --json --output-last-message`.
+  Each wrapper renders a short human trace (tool uses, assistant text, per-turn
+  summaries where present) to its **stderr** — diagnostics, never data. It builds
+  the single `{model, usage, result}` object for stdout after the final answer is
+  captured.
 - **Core forwards, never parses.** `runAgentProcess` passes the agent child's
   stderr straight through to the operator's terminal (`stdio` inherit) only when
   `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set.
@@ -218,6 +220,18 @@ contract, when the operator opts in with `CW_AGENT_STREAM=1`:
   lives in the wrapper (policy), not the kernel (mechanism).
 - **Determinism intact.** The backend evidence triple hashes stdout only, so
   the live stderr stream never changes recorded evidence or replay.
+
+The built-in templates are:
+
+```text
+--agent-command builtin:claude
+--agent-command builtin:codex
+```
+
+Gemini, OpenCode, DeepSeek, and GLM stay as external agent commands or HTTP
+endpoints until their stream format is proven by a local, deterministic wrapper
+smoke. DeepSeek and GLM are best reached through OpenCode or an HTTP agent
+adapter first; CW still imports no model SDK.
 
 ## Compatibility
 

@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "comment": "Builtin agent-delegation templates as DATA, not a hand-edited kernel TS literal (FreeBSD-audit L15). Each entry maps a vendor name to the wrapper script in THIS directory that `builtin:<name>` (or CW_AGENT_COMMAND=builtin:<name>) resolves to. Adding a vendor is a content/distribution step: drop a wrapper script here + add a line below — NO kernel edit. Still pure config: the wrapper is an out-of-process delegation script; CW never imports or calls a model API.",
   "templates": {
-    "claude": "claude-p-agent.js"
+    "claude": "claude-p-agent.js",
+    "codex": "codex-agent.js"
   }
 }
