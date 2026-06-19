@@ -75,6 +75,19 @@ keeps agent work, citations, state, and verification in order. When work touches
 user or operator flows, prefer `cw doctor`, `report verify`, clear blocked
 states, and resumable runs over hidden magic or broad framework behavior.
 
+# Privacy Memory
+
+Never put personal information into GitHub text. Do not write local user
+names, real names, personal email addresses, home directory paths, host
+names, IP addresses, domains, tokens, secrets, or screenshots with such
+data in commit bodies, pull requests, issues, release notes, wiki pages,
+docs, changelog entries, or tool output summaries.
+
+Before any GitHub push, pull request, release, or wiki edit, redact local
+paths as `$HOME/...` or `<path>`, replace user data with `<user>` or
+`<redacted>`, and keep command examples portable. If tool output has
+private data, summarize only the safe part.
+
 # FreeBSD Engineering Discipline (hard constraints — every cycle)
 This project STRICTLY follows the FreeBSD programming philosophy. These rules
 are binding, not aspirational; a diff that violates one is rejected in review
