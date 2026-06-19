@@ -23,6 +23,8 @@ const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.
 const { quickstart, runVerifyReportBundle } = require(path.join(pluginRoot, "dist/capability-core.js"));
 const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
 
+const BUNDLE_APP = "end-to-end-golden-path";
+
 const cleanups = [];
 function tmpWorkspace() {
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-qs-bundle-")));
@@ -66,7 +68,7 @@ clearAgentEnv();
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
     const result = quickstart(runner, {
-      appId: "architecture-review",
+      appId: BUNDLE_APP,
       repo: work,
       question: "What are the architecture risks?",
       agentCommand: `${process.execPath} ${stub} {{result}}`,
@@ -95,7 +97,7 @@ clearAgentEnv();
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
     const result = quickstart(runner, {
-      appId: "architecture-review",
+      appId: BUNDLE_APP,
       repo: work,
       question: "risks?",
       agentCommand: `${process.execPath} ${stub} {{result}}`
@@ -139,7 +141,7 @@ clearAgentEnv();
     const runner = new CoolWorkflowRunner({ pluginRoot });
     const agentCommand = `${process.execPath} ${stub} {{result}}`;
     const first = quickstart(runner, {
-      appId: "architecture-review",
+      appId: BUNDLE_APP,
       repo: work,
       question: "risks?",
       agentCommand,
@@ -153,7 +155,7 @@ clearAgentEnv();
     assert.match(first.hint || "", /--bundle skipped/, "the skip is explicit");
 
     const done = quickstart(runner, {
-      appId: "architecture-review",
+      appId: BUNDLE_APP,
       repo: work,
       question: "risks?",
       agentCommand,
@@ -189,7 +191,7 @@ clearAgentEnv();
   try {
     process.env.CW_AGENT_ATTEST_PRIVKEY = keyPath; // wrapper signs with this
     const runner = new CoolWorkflowRunner({ pluginRoot });
-    const run = runner.plan("architecture-review", { repo: work, question: "Sound?" });
+    const run = runner.plan(BUNDLE_APP, { repo: work, question: "Sound?" });
     runId = run.id;
     const driven = drive(runner, run.id, {
       now: "2026-06-12T00:00:00.000Z",
@@ -214,7 +216,7 @@ clearAgentEnv();
   process.chdir(work);
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
-    const result = quickstart(runner, { appId: "architecture-review", runId, repo: work, bundle: true, strictSignatures: true });
+    const result = quickstart(runner, { appId: BUNDLE_APP, runId, repo: work, bundle: true, strictSignatures: true });
     assert.equal(result.status, "complete", "the already-complete run stays complete");
     assert.ok(result.bundle, "bundle attempted on the completed run");
     assert.equal(result.bundle.ok, false, "strict + attested + no key => not shippable");
@@ -228,7 +230,7 @@ clearAgentEnv();
   }
 
   // Real CLI: the unverifiable bundle drives a non-zero exit code (fail-closed).
-  const r = spawnSync(process.execPath, [cli, "quickstart", "architecture-review", "--run", runId, "--repo", work, "--bundle", "--strict-signatures", "--json"], {
+  const r = spawnSync(process.execPath, [cli, "quickstart", BUNDLE_APP, "--run", runId, "--repo", work, "--bundle", "--strict-signatures", "--json"], {
     cwd: work, encoding: "utf8", env: { ...process.env, CW_AGENT_ATTEST_PUBKEY: "" }
   });
   assert.equal(r.status, 1, `cw quickstart --bundle must exit 1 on an unverifiable bundle (stderr: ${r.stderr})`);
@@ -252,7 +254,7 @@ clearAgentEnv();
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
     const result = quickstart(runner, {
-      appId: "architecture-review",
+      appId: BUNDLE_APP,
       repo, // analyzed repo != process.cwd()
       question: "What are the risks?",
       agentCommand: `${process.execPath} ${stub} {{result}}`,

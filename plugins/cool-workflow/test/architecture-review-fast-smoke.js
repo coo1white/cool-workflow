@@ -104,6 +104,10 @@ function main() {
     assert.equal(byTask.get("verdict:fast-synthesis").model, "strong-verify-model");
     assert.match(byTask.get("map:runtime-surface").prompt, new RegExp(escapeRegExp(sourceContext)), "map prompt carries sourceContext");
     assert.match(byTask.get("map:runtime-surface").prompt, /sha256:smoke/, "map prompt carries sourceContextDigest");
+    assert.match(byTask.get("verify:p0-p2-risks").prompt, new RegExp(escapeRegExp(sourceContext)), "verify prompt carries sourceContext");
+    assert.match(byTask.get("verdict:fast-synthesis").prompt, new RegExp(escapeRegExp(sourceContext)), "verdict prompt carries sourceContext");
+    assert.equal(byTask.get("verify:p0-p2-risks").resultCache, undefined, "Verify stays uncached");
+    assert.equal(byTask.get("verdict:fast-synthesis").resultCache, undefined, "Verdict stays uncached");
 
     const once = drive(runner, fast.id, { once: true, now: FIXED_NOW, agentConfig: agentConfig(stub, spawnCount) });
     assert.equal(once.status, "in-progress");
@@ -137,6 +141,14 @@ function main() {
     assert.deepEqual(cachedAssess.steps.map((step) => step.taskId), ["assess:risks", "assess:runtime-speed"]);
     assert.ok(cachedAssess.steps.every((step) => step.handleKind === "result-cache"), "cached Assess workers include previous result digests in their cache key");
     assert.equal(spawnLines(spawnCount), 6, "cache hit does not spawn assess agents again");
+
+    const noContext = runner.plan("architecture-review-fast", {
+      repo: work,
+      question: "Can a user run without a source context digest?"
+    });
+    const noContextOnce = drive(runner, noContext.id, { once: true, now: FIXED_NOW, agentConfig: agentConfig(stub, spawnCount) });
+    assert.equal(noContextOnce.completedWorkers, 2, "no-context run still advances the Map round");
+    assert.ok(noContextOnce.steps.every((step) => step.handleKind !== "result-cache"), "missing sourceContextDigest never fabricates result-cache hits");
   } finally {
     process.chdir(cwd0);
     if (priorFast === undefined) delete process.env.CW_ARCHITECTURE_REVIEW_FAST_MODEL;

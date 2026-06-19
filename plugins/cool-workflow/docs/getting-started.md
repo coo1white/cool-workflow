@@ -35,8 +35,11 @@ small:
 2. `cw quickstart architecture-review --check ...` - check a real run with no
    writes.
 3. `cw quickstart architecture-review ...` - make the report.
-4. `npm run test:fast` - use the fast code check while you work.
-5. `npm run release:check` - use the full gate only when the batch is ready.
+4. `cw quickstart architecture-review ... --bundle` - make a portable report
+   file for another person.
+5. `cw report verify-bundle report.cwrun.json` - check that file offline.
+6. `npm run test:fast` - use the fast code check while you work.
+7. `npm run release:check` - use the full gate only when the batch is ready.
 
 Add `--changed-from origin/main` in a source checkout to get the nearest smoke
 tests and guard checks for your current change.
@@ -102,6 +105,15 @@ npm run golden-path
 npm run eval:replay
 npm run fixture-compat
 ```
+
+When a test run is slow, make a read-only timing report:
+
+```bash
+npm run test:ci -- --json-summary /tmp/cw-test-summary.json
+```
+
+Use the `slowest` list in that file to choose one test-speed cycle. This is a
+guide, not a release gate.
 
 For a CLI or MCP surface change, also run:
 

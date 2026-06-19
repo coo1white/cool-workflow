@@ -21,6 +21,10 @@ const CURATED_SMOKE_MAP = [
         smokes: ["doctor-smoke.js", "onramp-check-smoke.js"]
     },
     {
+        patterns: ["README.md", "docs/getting-started.md", "docs/index.md"],
+        smokes: ["quickstart-readme-path-smoke.js", "doctor-smoke.js"]
+    },
+    {
         patterns: ["src/cli.ts", "src/cli/"],
         smokes: ["cli-command-surface-smoke.js", "cli-jsonmode-parity-smoke.js", "cli-mcp-parity-smoke.js"]
     },
@@ -142,6 +146,18 @@ function buildDoctorOnramp(options = {}) {
                         title: "Make the report",
                         command: `cw quickstart architecture-review --repo /path/to/repo --question "What are the main risks?" ${agentCommand}`,
                         reason: "Runs the short user path: ask, run, verify, report."
+                    },
+                    {
+                        id: "bundle",
+                        title: "Make a bundle",
+                        command: `cw quickstart architecture-review --repo /path/to/repo --question "What are the main risks?" ${agentCommand} --bundle`,
+                        reason: "Seals a completed report into a portable file the receiver can check offline."
+                    },
+                    {
+                        id: "verify-bundle",
+                        title: "Check the bundle",
+                        command: "cw report verify-bundle report.cwrun.json",
+                        reason: "Checks the report bundle without the source repo or a .cw tree."
                     }
                 ]
             },

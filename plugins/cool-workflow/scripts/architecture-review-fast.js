@@ -308,11 +308,13 @@ function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, 
   const steps = Array.isArray(fastReview?.steps) ? fastReview.steps : [];
   const handleKinds = countBy(steps.map((step) => step && step.handleKind).filter(Boolean));
   const actions = countBy(steps.map((step) => step && step.action).filter(Boolean));
+  const taskMetrics = buildTaskMetrics(fastReview, steps);
   return {
     totalElapsedMs: elapsedMs(started),
     sourceContext: {
       elapsedMs: sourceContextElapsedMs,
-      bytes: Buffer.byteLength(contextText, "utf8")
+      bytes: Buffer.byteLength(contextText, "utf8"),
+      digest: `sha256:${crypto.createHash("sha256").update(contextText, "utf8").digest("hex")}`
     },
     fastReview: {
       elapsedMs: fastReviewElapsedMs,
@@ -323,10 +325,50 @@ function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, 
       actions,
       handleKinds,
       resultCacheHits: Number(handleKinds["result-cache"] || 0),
-      agentSpawns: steps.filter((step) => step && step.backendId === "agent" && step.handleKind && step.handleKind !== "result-cache").length
+      agentSpawns: steps.filter((step) => step && step.backendId === "agent" && step.handleKind && step.handleKind !== "result-cache").length,
+      taskMetrics
     },
     ...(fullReviewScheduleElapsedMs === undefined ? {} : { fullReviewSchedule: { elapsedMs: fullReviewScheduleElapsedMs } })
   };
+}
+
+function buildTaskMetrics(fastReview, steps) {
+  const statePath = stringArg(fastReview?.statePath);
+  const run = readRunState(statePath);
+  const tasks = Array.isArray(run?.tasks) ? run.tasks : [];
+  const byTask = new Map(tasks.map((task) => [task.id, task]));
+  return steps
+    .filter((step) => step && step.taskId)
+    .map((step) => {
+      const task = byTask.get(step.taskId) || {};
+      return {
+        phase: step.phase || task.phase || "",
+        taskId: step.taskId,
+        action: step.action,
+        status: step.status,
+        elapsedMs: taskElapsedMs(task),
+        handleKind: step.handleKind || "",
+        agentSpawned: Boolean(step.backendId === "agent" && step.handleKind && step.handleKind !== "result-cache"),
+        resultCacheHit: step.handleKind === "result-cache",
+        reportedModel: step.reportedModel || ""
+      };
+    });
+}
+
+function readRunState(statePath) {
+  if (!statePath) return null;
+  try {
+    return JSON.parse(fs.readFileSync(statePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function taskElapsedMs(task) {
+  const started = Date.parse(task?.startedAt || task?.dispatchedAt || "");
+  const completed = Date.parse(task?.completedAt || "");
+  if (!Number.isFinite(started) || !Number.isFinite(completed)) return null;
+  return Math.max(0, completed - started);
 }
 
 function countBy(values) {

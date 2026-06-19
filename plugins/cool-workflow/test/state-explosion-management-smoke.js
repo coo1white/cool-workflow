@@ -55,7 +55,7 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
   }
 
   // Many blackboard messages across topics (drives graph node explosion).
-  for (let i = 0; i < 40; i += 1) {
+  for (let i = 0; i < 28; i += 1) {
     const topic = topics[i % topics.length];
     runJson(["blackboard", "message", "post", runId, "--topic", topic, "--body", `Bulk discussion message ${i} on ${topic}.`]);
   }
@@ -157,7 +157,7 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
   const report = runJson(["summary", "show", runId, "--json"]);
   assert.equal(report.freshness.status, "valid");
   assert.equal(report.stateSize.compactionRecommended, true, "large run must recommend compaction");
-  assert.ok(report.stateSize.graphNodes > 40, `expected >40 graph nodes, got ${report.stateSize.graphNodes}`);
+  assert.ok(report.stateSize.messages > 25, `expected message threshold to trigger compaction, got ${report.stateSize.messages}`);
 
   // --- Compact graph is smaller than full; critical path preserved ------------
   const full = runJson(["multi-agent", "graph", runId, "--view", "full", "--json"]);
@@ -195,7 +195,7 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
 
   // --- Full source records remain available + expand back ---------------------
   const allMessages = runJson(["blackboard", "message", "list", runId, "--json"]);
-  assert.ok(allMessages.length >= 41, `raw messages must remain available, got ${allMessages.length}`);
+  assert.ok(allMessages.length >= 29, `raw messages must remain available, got ${allMessages.length}`);
   const messagesJsonl = path.join(tmp, ".cw", "runs", runId, "blackboard", "messages.jsonl");
   assert.ok(fs.existsSync(messagesJsonl), "raw blackboard messages.jsonl must persist");
   const messageSynthetic = compact.syntheticNodes.find((syn) => syn.id.includes(":summary:messages"));

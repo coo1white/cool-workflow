@@ -96,6 +96,7 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
           "verify:p0-p2-risks",
           [
             "Re-open evidence for every candidate P0/P1/P2 risk from the fast assessment.",
+            contextInstruction(),
             "Confirm real risks, downgrade unsupported claims, and list exact file paths, commands, logs, or unknowns.",
             "The cw:result evidence array must cite durable locators."
           ].join(" "),
@@ -107,6 +108,7 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
           "verdict:fast-synthesis",
           [
             "Synthesize a fast architecture verdict for {{question}}.",
+            contextInstruction(),
             "Include a short answer, compact architecture map, ranked risks, speed recommendations, non-issues, and evidence links.",
             "State when the full architecture-review app should be scheduled as a background routine.",
             "The cw:result evidence array must support the final verdict."
