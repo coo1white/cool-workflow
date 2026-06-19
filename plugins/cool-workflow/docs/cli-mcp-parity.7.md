@@ -82,13 +82,16 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 196 capabilities, 186 MCP tools.
+machine-complete by design: 199 capabilities, 186 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
 | Capability | CLI command | MCP tool | Core entry | Surface | Payload |
 | --- | --- | --- | --- | --- | --- |
 | `help` | `cw help` | `—` | `formatHelp` | cli-only | cli-only |
+| `version` | `cw version` | `—` | `CURRENT_COOL_WORKFLOW_VERSION` | cli-only | cli-only |
+| `update` | `cw update` | `—` | `npmUpdate` | cli-only | cli-only |
+| `fix` | `cw fix` | `—` | `runDoctor` | cli-only | cli-only |
 | `list` | `cw list` | `cw_list` | `listWorkflows` | both | identical |
 | `info` | `cw info` | `—` | `showApp` | cli-only | cli-only |
 | `search` | `cw search` | `—` | `listApps` | cli-only | cli-only |
@@ -298,9 +301,12 @@ A capability may be on one surface only, but never without word of it — it mus
 carry a recorded reason in the registry.
 
 <!-- gen:parity:cliOnly -->
-Ten capabilities are CLI-only:
+13 capabilities are CLI-only:
 
 - `help` — Human help text. MCP hosts enumerate capabilities via tools/list, not a help command.
+- `version` — Version string — no structured data contract.
+- `update` — Self-update via npm — inherently local shell operation, no MCP surface.
+- `fix` — Environment fix commands are local diagnostics, same reasoning as doctor.
 - `info` — Human-focused workflow discovery tool (like Homebrew's `brew info`). MCP agents discover workflows via cw_list and cw_app_show tools.
 - `search` — Human-focused workflow discovery (like Homebrew's `brew search`). MCP agents discover workflows via cw_list tool.
 - `man` — Human documentation viewer. MCP agents read docs/ directly via file tools.

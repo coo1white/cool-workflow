@@ -54,6 +54,30 @@ const BUILTIN_CAPABILITIES = [
         reason: "Human help text. MCP hosts enumerate capabilities via tools/list, not a help command."
     },
     {
+        capability: "version",
+        summary: "Print the current cool-workflow version.",
+        entry: "CURRENT_COOL_WORKFLOW_VERSION",
+        surface: "cli-only",
+        cli: { path: ["version"], jsonMode: "human" },
+        reason: "Version string — no structured data contract."
+    },
+    {
+        capability: "update",
+        summary: "Update cool-workflow to the latest release via npm.",
+        entry: "npmUpdate",
+        surface: "cli-only",
+        cli: { path: ["update"], jsonMode: "human" },
+        reason: "Self-update via npm — inherently local shell operation, no MCP surface."
+    },
+    {
+        capability: "fix",
+        summary: "Print consolidated fix commands for CW setup issues.",
+        entry: "runDoctor",
+        surface: "cli-only",
+        cli: { path: ["fix"], jsonMode: "human" },
+        reason: "Environment fix commands are local diagnostics, same reasoning as doctor."
+    },
+    {
         capability: "list",
         summary: "List bundled CW workflows.",
         entry: "listWorkflows",

@@ -69,7 +69,7 @@ HARD RULES (the result is REJECTED otherwise):
 - If you have no structured findings, use "findings": [] (empty) — never omit a finding's id.`;
 
 const prompt = `${fs.readFileSync(inputPath, "utf8")}\n${CONTRACT}`;
-const streamEnabled = process.env.CW_AGENT_STREAM === "1" && process.env.CW_NO_STREAM !== "1";
+const streamEnabled = process.env.CW_AGENT_STREAM !== "0" && process.env.CW_NO_STREAM !== "1";
 const traceEnabled = streamEnabled && Boolean(process.stderr.isTTY);
 
 if (!streamEnabled) {

@@ -79,7 +79,7 @@ child.stdout.on("data", (chunk) => {
 child.stderr.setEncoding("utf8");
 child.stderr.on("data", (chunk) => {
   childStderr += chunk;
-  if (process.env.CW_AGENT_STREAM === "1" && process.env.CW_NO_STREAM !== "1" && process.stderr.isTTY) {
+  if (process.env.CW_AGENT_STREAM !== "0" && process.env.CW_NO_STREAM !== "1" && process.stderr.isTTY) {
     process.stderr.write(chunk);
   }
 });

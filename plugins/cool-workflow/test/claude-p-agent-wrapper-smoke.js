@@ -96,15 +96,15 @@ function main() {
     assert.ok(prompt.includes("cw:result"), "the cw:result contract is appended to the prompt");
     const allowed = argv[argv.indexOf("--allowedTools") + 1];
     assert.ok(allowed && !/write/i.test(allowed), `claude stays READ-ONLY (no Write tool): ${allowed}`);
-    assert.equal(argv[argv.indexOf("--output-format") + 1], "json", "default wrapper preserves legacy JSON mode");
+    assert.equal(argv[argv.indexOf("--output-format") + 1], "stream-json", "default wrapper uses stream-json mode by default");
 
     assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "claude's result markdown persisted to result.md by the wrapper");
     assert.equal(child.stderr, "", "default piped success is silent on stderr");
     const forwarded = JSON.parse(child.stdout);
-    assert.equal(forwarded.extra, "legacy-verbatim", "default stdout forwards the agent JSON verbatim");
     assert.equal(forwarded.model, "claude-shim-model", "claude's JSON carries the attested model");
     assert.equal(forwarded.usage.input_tokens, 11, "usage tokens forwarded for provenance");
-    console.log("wrapper: default prompt delivery + read-only JSON + result persistence + verbatim provenance ok");
+    assert.equal(forwarded.result, "# Analysis\n\nstub markdown answer", "stream result reconstructed for CW");
+    console.log("wrapper: default stream-json prompt delivery + read-only + result persistence + provenance ok");
   }
 
   // ---- 3: opt-in stream-json path ------------------------------------------

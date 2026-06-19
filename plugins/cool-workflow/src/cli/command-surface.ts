@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import * as readline from "node:readline";
 import { CoolWorkflowRunner, formatHelp, parseArgv, suggestCommand } from "../orchestrator";
 import {
@@ -109,6 +110,19 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     }
   }
 
+  // Map vendor shorthand flags (-claude, -codex, -deepseek) to --agent-command.
+  if (args.options.claude) args.options["agent-command"] = "builtin:claude";
+  if (args.options.codex) args.options["agent-command"] = "builtin:codex";
+  if (args.options.deepseek) args.options["agent-command"] = "builtin:deepseek";
+
+  // Bare -q / --question -> redirect to quickstart (auto-detect repo/agent/app).
+  if (args.command === "-q" || args.command === "--question") {
+    if (!args.options.question && args.positionals[0]) args.options.question = args.positionals[0];
+    args.command = "quickstart";
+  } else if (!args.command && typeof args.options.question === "string") {
+    args.command = "quickstart";
+  }
+
   const runner = new CoolWorkflowRunner({
     pluginRoot: path.resolve(__dirname, "../..")
   });
@@ -120,6 +134,28 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case undefined:
       process.stdout.write(formatHelp());
       return;
+    case "version":
+      process.stdout.write(`${CURRENT_COOL_WORKFLOW_VERSION}\n`);
+      return;
+    case "update": {
+      process.stderr.write("Updating cool-workflow...\n");
+      const npm = spawnSync("npm", ["update", "-g", "cool-workflow"], { encoding: "utf8", stdio: "inherit" });
+      if (npm.status !== 0) {
+        process.stderr.write("Update failed, trying install...\n");
+        const install = spawnSync("npm", ["install", "-g", "cool-workflow@latest"], { encoding: "utf8", stdio: "inherit" });
+        if (install.status !== 0) {
+          process.stderr.write("Install failed. Check npm and try again.\n");
+          process.exitCode = 1;
+        }
+      }
+      return;
+    }
+    case "fix": {
+      const report = runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
+      process.stdout.write(`${formatDoctorFixes(report)}\n`);
+      if (!report.ok) process.exitCode = 1;
+      return;
+    }
     case "list":
       printJson(runner.listWorkflows());
       return;

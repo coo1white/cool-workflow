@@ -5,6 +5,7 @@
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 8 | rewrite README (301→80 lines, install-first), add --version/-h top-level flags, short flags (-q/-r/-a), auto-detect agent from PATH, interactive question prompt | README.md + src/cli/command-surface.ts + src/orchestrator.ts + src/agent-config.ts + src/doctor.ts + src/types/execution-backend.ts + test/run-all.js + src/version.ts + CHANGELOG.md + ITERATION_LOG.md + docs/project-index.md | added CW_NO_AUTO_AGENT=1 to test sandbox; all smokes pass (115/115) | BUILD OK; npm test 115/115; parity PASS; release:check PASS | no (capability cycle; no release requested) |
+| 9 | simplify CLI to 6 commands (cw -q/version/update/doctor/fix), vendor flags (-claude/-codex/-deepseek), streaming on by default (TTY-gated), help text slimmed, deepseek builtin template | src/cli/command-surface.ts + src/orchestrator.ts + src/capability-registry.ts + src/drive.ts + src/execution-backend.ts + scripts/agents/agent-adapter-core.js + scripts/agents/builtin-templates.json + scripts/agents/claude-p-agent.js + scripts/agents/codex-agent.js + scripts/agents/gemini-agent.js + scripts/agents/opencode-agent.js + test/claude-p-agent-wrapper-smoke.js + package.json + docs/cli-mcp-parity.7.md + ITERATION_LOG.md | updated claude-p-agent smoke to new default; 115/115 pass | BUILD OK; npm test 115/115; parity PASS; release:check FAIL (iteration-log-required — this entry) | no (capability cycle; no release requested) |
 
 ## Batch — release v0.1.87 (Unreleased)
 

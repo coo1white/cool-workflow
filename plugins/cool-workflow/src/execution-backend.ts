@@ -902,10 +902,10 @@ function runAgentProcess(
     if (request.preparedAgentOutcome) {
       outcome = request.preparedAgentOutcome;
     } else {
-      // Live output is opt-in (POLA): stdout is always captured as data, while
-      // stderr is forwarded only when the operator explicitly asks for a stream
-      // and this process is attached to a terminal. CI/pipes stay silent.
-      const streamStderr = process.env.CW_AGENT_STREAM === "1" && Boolean(process.stderr.isTTY) && process.env.CW_NO_STREAM !== "1";
+      // Live output on by default when stderr is a TTY. stdout is always
+      // captured as data. CI/pipes stay silent. CW_AGENT_STREAM=0 or
+      // CW_NO_STREAM=1 forces off; CW_AGENT_STREAM=1 forces on.
+      const streamStderr = process.env.CW_AGENT_STREAM !== "0" && Boolean(process.stderr.isTTY) && process.env.CW_NO_STREAM !== "1";
       const child = spawnSync(resolved.binary, realArgs, {
         cwd: request.cwd,
         env: { ...process.env },

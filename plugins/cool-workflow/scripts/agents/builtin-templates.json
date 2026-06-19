@@ -5,6 +5,7 @@
     "claude": "claude-p-agent.js",
     "codex": "codex-agent.js",
     "gemini": "gemini-agent.js",
-    "opencode": "opencode-agent.js"
+    "opencode": "opencode-agent.js",
+    "deepseek": "opencode-agent.js"
   }
 }
