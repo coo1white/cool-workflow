@@ -29,6 +29,11 @@
 
 ## Unreleased
 
+- **Capability**: `cw --version` and `cw -h` work as top-level flags. Short flag aliases: `-q` (--question), `-r` (--repo), `-a` (--agent-command). Auto-detect agent: `cw quickstart` no longer needs `--agent-command` — it finds the first installed agent (claude/codex/gemini/opencode) on PATH. Interactive question: when `--question` is missing on a TTY, CW prompts you. New README: ~80 lines, install-first, copy-paste ready.
+- **Implementation**: Added top-level flag handling in `runCli()`. Added short flag mapping in `parseArgv()`. Added `detectAgentFromPath()` to `agent-config.ts` with `CW_NO_AUTO_AGENT` guard for test environments. Added `promptQuestion()` for interactive readline input. Updated `formatHelp()` with short flags. Rewrote README.md (301→80 lines). Updated `AgentDelegationConfig.source` type to include `"auto"`.
+- **Tests**: Added `CW_NO_AUTO_AGENT=1` to test sandbox env to prevent auto-detection interfering with smoke tests. Full suite: 115/115 passed, 0 failed.
+- **Risk**: Low. Auto-detection is backwards-compatible — `CW_AGENT_COMMAND` and `--agent-command` still override. Test sandbox explicitly disables it. `--json` and piped output unchanged.
+
 ## 0.1.86
 
 - **Capability**: A new user now gets a clearer and faster first run: `doctor --onramp` points from zero-write `quickstart --check` to `quickstart --bundle` and offline `report verify-bundle`, while the README path is covered by an end-to-end smoke.

@@ -94,7 +94,14 @@ export function runDoctor(
 
   // 2. Agent backend — CW delegates execution; without one, real runs park.
   const cfg = resolveAgentConfig(args, env);
-  if (cfg.source === "none") {
+  if (cfg.source === "auto") {
+    const vendor = (cfg.model && cfg.model.startsWith("builtin:")) ? cfg.model.slice("builtin:".length) : "auto";
+    checks.push({
+      name: "agent",
+      status: "ok",
+      detail: `Agent auto-detected: ${vendor}. Set CW_AGENT_COMMAND or --agent-command to override.`
+    });
+  } else if (cfg.source === "none") {
     checks.push({
       name: "agent",
       status: "warn",

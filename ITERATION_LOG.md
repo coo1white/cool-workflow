@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — README rewrite + CLI UX simplifications (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 8 | rewrite README (301→80 lines, install-first), add --version/-h top-level flags, short flags (-q/-r/-a), auto-detect agent from PATH, interactive question prompt | README.md + src/cli/command-surface.ts + src/orchestrator.ts + src/agent-config.ts + src/doctor.ts + src/types/execution-backend.ts + test/run-all.js + src/version.ts + CHANGELOG.md + ITERATION_LOG.md + docs/project-index.md | added CW_NO_AUTO_AGENT=1 to test sandbox; all smokes pass (115/115) | BUILD OK; npm test 115/115; parity PASS; release:check PASS | no (capability cycle; no release requested) |
+
 ## Batch — release v0.1.87 (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |

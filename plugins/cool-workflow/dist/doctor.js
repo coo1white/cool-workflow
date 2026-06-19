@@ -91,7 +91,15 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         : { name: "node", status: "fail", detail: `Node ${process.version} is below the required v18.`, fix: "Install Node.js 18+ (e.g. `brew install node`, or https://nodejs.org)." });
     // 2. Agent backend — CW delegates execution; without one, real runs park.
     const cfg = (0, agent_config_1.resolveAgentConfig)(args, env);
-    if (cfg.source === "none") {
+    if (cfg.source === "auto") {
+        const vendor = (cfg.model && cfg.model.startsWith("builtin:")) ? cfg.model.slice("builtin:".length) : "auto";
+        checks.push({
+            name: "agent",
+            status: "ok",
+            detail: `Agent auto-detected: ${vendor}. Set CW_AGENT_COMMAND or --agent-command to override.`
+        });
+    }
+    else if (cfg.source === "none") {
         checks.push({
             name: "agent",
             status: "warn",

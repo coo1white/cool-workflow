@@ -136,6 +136,27 @@ function agentConfigFromArgs(args: Record<string, unknown>): AgentDelegationConf
 // in scripts/agents/builtin-templates.json (vendor name -> wrapper script name).
 // Adding a vendor is a content/distribution step (drop a wrapper + a JSON line),
 // not a kernel edit — keeping CW vendor-agnostic at the source level.
+
+/** Detect which known agent CLIs are on PATH. Returns the first found, or undefined.
+ *  Skipped when CW_NO_AUTO_AGENT=1 (test sandboxes, CI without real agents). */
+function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  if (env.CW_NO_AUTO_AGENT === "1") return undefined;
+  const known = ["claude", "codex", "gemini", "opencode"];
+  const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
+  const exts = process.platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
+  for (const name of known) {
+    // Also check if the builtin template exists (so we don't suggest an unsupported agent).
+    const templates = builtinAgentTemplates();
+    if (!templates[name]) continue;
+    for (const dir of dirs) {
+      for (const ext of exts) {
+        try { if (fs.statSync(path.join(dir, name + ext)).isFile()) return name; } catch { /* keep looking */ }
+      }
+    }
+  }
+  return undefined;
+}
+
 function builtinAgentTemplates(): Record<string, string> {
   const agentsDir = path.join(__dirname, "..", "scripts", "agents");
   const manifest = JSON.parse(fs.readFileSync(path.join(agentsDir, "builtin-templates.json"), "utf8")) as {
@@ -180,7 +201,24 @@ export function resolveAgentConfig(args: Record<string, unknown> = {}, env: Node
         : fileCfg && (fileCfg.command || fileCfg.endpoint)
           ? "file"
           : "none";
-  return { schemaVersion: 1, command, args: cfgArgs, endpoint, model, timeoutMs, attestPublicKey, requireAttestedTelemetry, source };
+
+  // Auto-detect: if no agent is configured, check PATH for known agent CLIs and
+  // resolve via builtin:<name>. This makes `cw quickstart` work without
+  // --agent-command on machines where claude/codex/gemini/opencode are installed.
+  let finalCommand = command;
+  let finalSource: AgentDelegationConfig["source"] = source;
+  let finalModel = model;
+  if (!finalCommand && !endpoint) {
+    const detected = detectAgentFromPath(env);
+    if (detected) {
+      finalCommand = expandBuiltinAgentCommand(`builtin:${detected}`);
+      finalSource = "auto";
+      // Store the detected vendor name as the model hint so doctor can show it.
+      if (!finalModel) finalModel = `builtin:${detected}`;
+    }
+  }
+
+  return { schemaVersion: 1, command: finalCommand, args: cfgArgs, endpoint, model: finalModel, timeoutMs, attestPublicKey, requireAttestedTelemetry, source: finalSource };
 }
 
 /** True iff a command-template OR endpoint is configured (after resolution). */

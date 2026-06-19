@@ -258,7 +258,7 @@ export interface AgentDelegationConfig {
    *  than accepted. Resolves flags > env (CW_REQUIRE_ATTESTED_TELEMETRY) > file. */
   requireAttestedTelemetry?: boolean;
   /** Where this config was resolved from (provenance for the show verb). */
-  source?: "flag" | "env" | "file" | "none";
+  source?: "flag" | "env" | "file" | "auto" | "none";
 }
 
 /** The attestation/provenance recorded for ONE agent-fulfilled worker. Lives in
