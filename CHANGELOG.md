@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.87
 
 - **Capability**: `npm test` now runs in parallel by default (cores-capped `--concurrency auto`), giving users ~2-3x faster local test runs. The release tag-gate stays sequential via `CW_TEST_CONCURRENCY=1` for deterministic results.
 - **Implementation**: Changed `test/run-all.js` `resolveConcurrency()` default from `1` to `auto`. The `release-gate.sh` line 33 now passes `CW_TEST_CONCURRENCY=1` to force sequential execution for the authoritative gate. Updated `release-check.js` comments. Added `concurrency-default-smoke.js` to verify default parallelism, gate sequential mode, and flag-override precedence.
@@ -26,6 +26,8 @@
 - **Implementation**: Added `printSuccessSummary()` to `term.ts` (writes report path + next-steps to stderr). Added timing around `spawnSync` in `execution-backend.ts` (TTY-gated `● Running ...` / `✓ Done (ms)`). Added `formatDoctorFixes()`. Added `formatSearchResults()` and `cw man` page loader. Updated help text, KNOWN_COMMANDS, and capability registry.
 - **Tests**: Full suite: 115/115 passed, 0 failed.
 - **Risk**: Low. All new output is TTY-gated (pipes get silent). `--json` surfaces unchanged.
+
+## Unreleased
 
 ## 0.1.86
 
