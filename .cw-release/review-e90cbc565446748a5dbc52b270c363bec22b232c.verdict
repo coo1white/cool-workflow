@@ -1,0 +1,2 @@
+APPROVED e90cbc565446748a5dbc52b270c363bec22b232c
+A new user can run a zero-write `cw quickstart --check` preflight and a guided `cw doctor --onramp` path that walks from readiness check to a self-verifying report bundle.
