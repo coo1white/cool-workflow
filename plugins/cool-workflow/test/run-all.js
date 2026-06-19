@@ -25,9 +25,9 @@
 // file lock. This replaces the previous "some smokes race on the shared
 // package .cw/" hazard that forced sequential execution.
 //
-// The DEFAULT stays sequential (concurrency 1) as a deterministic backstop for
-// the bare `npm test` / tag-gate path; the high-frequency CI surfaces opt into
-// `--concurrency auto`. Override anytime: CW_TEST_CONCURRENCY=4 or --concurrency.
+// Default is auto (cores-capped parallel). The tag-gate (release-gate.sh) forces
+// sequential via CW_TEST_CONCURRENCY=1 to stay deterministic. Override anytime:
+// CW_TEST_CONCURRENCY=4 or --concurrency.
 
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -39,8 +39,8 @@ const packageDir = path.resolve(testDir, "..");
 const SELF = path.basename(__filename);
 
 // Concurrency precedence: `--concurrency <n|auto>` (portable, Windows-safe) >
-// CW_TEST_CONCURRENCY env > sequential default (1). Sequential stays the default
-// for the authoritative gate (`npm test`); `npm run test:fast` passes `auto`.
+// CW_TEST_CONCURRENCY env > auto default. The release-gate forces sequential
+// via CW_TEST_CONCURRENCY=1.
 //
 // `auto` is cores-aware AND capped: it prefers os.availableParallelism() (which
 // respects CPU affinity, so it is sane in many containers) and falls back to
@@ -63,7 +63,7 @@ function argValue(name) {
 }
 function resolveConcurrency() {
   const raw = argConcurrency() ?? process.env.CW_TEST_CONCURRENCY;
-  if (raw === "auto") {
+  if (raw === "auto" || raw === undefined) {
     const cores = (typeof os.availableParallelism === "function" ? os.availableParallelism() : 0) || os.cpus().length || 4;
     return Math.min(8, Math.max(2, cores - 1));
   }
