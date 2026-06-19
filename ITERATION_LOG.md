@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — npm test parallel default (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | change `npm test` default to parallel (cores-capped auto), keep release-gate sequential via `CW_TEST_CONCURRENCY=1`, add concurrency-default smoke | test/run-all.js + scripts/release-gate.sh + scripts/release-check.js + test/concurrency-default-smoke.js + CHANGELOG.md + docs/project-index.md | concurrency-default-smoke.js added (verifies default auto, gate sequential, flag override) | BUILD OK; npm test 113/113 (concurrency 7, parallel); CW_TEST_CONCURRENCY=1 npm test 113/113 (concurrency 1, sequential); release-gate.sh PASSED | no (capability cycle; no release requested) |
+
 ## Batch — builtin Codex agent live trace (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |

@@ -60,9 +60,9 @@ const checks = [
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "onramp contract", command: ["npm", "run", "onramp:check"] },
   { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.js"] },
-  // Parallel suite (test:ci = run-all.js --concurrency auto). Each smoke runs in
-  // a private cwd + state roots (CW_HOME/HOME/TMPDIR), so concurrency is race-free.
-  // The bare `npm test` and the tag-gate (release-gate.sh) stay sequential as the
+  // Every test path uses --concurrency auto by default (parallel, race-free:
+  // each smoke runs in a private cwd + state roots). The release tag-gate
+  // (release-gate.sh) forces CW_TEST_CONCURRENCY=1 to stay sequential as the
   // deterministic backstop.
   { name: "tests", command: ["npm", "run", "test:ci"] },
   { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },

@@ -30,7 +30,7 @@ say "[1/6] build"
 npm run --prefix plugins/cool-workflow build >/dev/null 2>&1 || fail "build failed"
 
 say "[2/6] tests"
-npm test --prefix plugins/cool-workflow >/dev/null 2>&1 || fail "tests failed"
+CW_TEST_CONCURRENCY=1 npm test --prefix plugins/cool-workflow >/dev/null 2>&1 || fail "tests failed"
 
 if [[ -n "$PREV_TAG" ]]; then
   RANGE="$PREV_TAG..HEAD"

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Capability**: `npm test` now runs in parallel by default (cores-capped `--concurrency auto`), giving users ~2-3x faster local test runs. The release tag-gate stays sequential via `CW_TEST_CONCURRENCY=1` for deterministic results.
+- **Implementation**: Changed `test/run-all.js` `resolveConcurrency()` default from `1` to `auto`. The `release-gate.sh` line 33 now passes `CW_TEST_CONCURRENCY=1` to force sequential execution for the authoritative gate. Updated `release-check.js` comments. Added `concurrency-default-smoke.js` to verify default parallelism, gate sequential mode, and flag-override precedence.
+- **Tests**: Added `concurrency-default-smoke.js` (113 smokes total). Full suite: 113/113 passed, 0 failed.
+- **Risk**: Low. Test sandbox isolation (private cwd/HOME/state per child) already prevents concurrency races. The gate path explicitly overrides the default, so tag behavior is unchanged.
+
 ## 0.1.86
 
 - **Capability**: A new user now gets a clearer and faster first run: `doctor --onramp` points from zero-write `quickstart --check` to `quickstart --bundle` and offline `report verify-bundle`, while the README path is covered by an end-to-end smoke.
