@@ -53,6 +53,9 @@ cw demo tamper
 cw doctor --onramp
 cw quickstart architecture-review --check --repo /path/to/repo \
   --question "What are the main risks?" --agent-command builtin:claude
+cw quickstart architecture-review --repo /path/to/repo \
+  --question "What are the main risks?" --agent-command builtin:claude --bundle
+cw report verify-bundle report.cwrun.json
 ```
 
 For source work, keep the loop small:
@@ -85,6 +88,9 @@ npx cool-workflow demo tamper
 npx cool-workflow quickstart architecture-review --repo /path/to/repo \
   --question "Is this architecture sound?" --agent-command builtin:claude
 ```
+
+Add `--bundle` when the report has to go to someone else; then check the file
+offline with `cw report verify-bundle report.cwrun.json`.
 
 CW DELEGATES worker execution to your own agent. With no `--agent-command` (or
 `CW_AGENT_COMMAND`) the drive fails closed (status `blocked`) — it never makes up a

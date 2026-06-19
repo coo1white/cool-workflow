@@ -127,6 +127,17 @@ npx cool-workflow quickstart architecture-review \
   --agent-command builtin:claude
 ```
 
+If the report has to go to someone else, make the checked bundle in the same
+run:
+
+```bash
+npx cool-workflow quickstart architecture-review \
+  --repo /path/to/your/project \
+  --question "What are the main risks in this codebase?" \
+  --agent-command builtin:claude \
+  --bundle
+```
+
 - `--repo` — the folder you have a wish to get looked at.
 - `--question` — what you have a wish to be certain of.
 - `--agent-command builtin:claude` — make use of the Claude wrapper that comes

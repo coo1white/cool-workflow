@@ -114,10 +114,25 @@ function main() {
   assert.match(first.fullReviewSchedule.prompt, /write the full review report path and digest/, "full schedule prompt asks for durable completion output");
   assert.ok(first.metrics.totalElapsedMs >= 0, "metrics include total elapsed time");
   assert.ok(first.metrics.sourceContext.bytes > 0, "metrics include context byte size");
+  assert.equal(first.metrics.sourceContext.digest, first.sourceContext.digest, "metrics include the source context digest");
   assert.equal(first.metrics.fastReview.steps, 2);
   assert.equal(first.metrics.fastReview.agentSpawns, 2);
   assert.equal(first.metrics.fastReview.resultCacheHits, 0);
   assert.equal(first.metrics.fastReview.handleKinds.process, 2);
+  assert.deepEqual(
+    first.metrics.fastReview.taskMetrics.map((task) => ({
+      phase: task.phase,
+      action: task.action,
+      agentSpawned: task.agentSpawned,
+      resultCacheHit: task.resultCacheHit
+    })),
+    [
+      { phase: "Map", action: "accept", agentSpawned: true, resultCacheHit: false },
+      { phase: "Map", action: "accept", agentSpawned: true, resultCacheHit: false }
+    ],
+    "metrics include per-task spawn/cache rows"
+  );
+  assert.ok(first.metrics.fastReview.taskMetrics.every((task) => task.taskId && Number.isInteger(task.elapsedMs)), "task metrics include task ids and elapsedMs");
   assert.ok(first.metrics.fullReviewSchedule.elapsedMs >= 0, "metrics include schedule elapsed time");
   assert.equal(spawnLines(countFile), 2, "first run spawns two Map workers");
   assert.deepEqual(
@@ -143,6 +158,7 @@ function main() {
   assert.equal(second.metrics.fastReview.agentSpawns, 0);
   assert.equal(second.metrics.fastReview.resultCacheHits, 2);
   assert.equal(second.metrics.fastReview.handleKinds["result-cache"], 2);
+  assert.ok(second.metrics.fastReview.taskMetrics.every((task) => task.resultCacheHit && !task.agentSpawned), "warm metrics mark cache hits without agent spawns");
   assert.equal(spawnLines(countFile), 2, "result cache avoids spawning Map workers again");
 
   fs.rmSync(tmp, { recursive: true, force: true });

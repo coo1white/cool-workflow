@@ -62,6 +62,16 @@ keeps full coverage while cutting the doubled wall time. The steps that stay
 are the ones NOT covered by `npm test`: build, type check, `npm test`,
 canonical-apps, golden-path, parity, vendor-manifest drift, and `version:sync`.
 
+For timing work, the smoke runner can write a JSON timing report without changing
+the normal output:
+
+```text
+npm run test:ci -- --json-summary /tmp/cw-test-summary.json
+```
+
+The file lists wall time, total child time, and the slowest smokes. Use it to
+pick one speed cycle at a time; it is diagnostic, not a hard release threshold.
+
 ## Boundary
 
 Release Tooling touches only the build/release surfaces. It adds no runtime

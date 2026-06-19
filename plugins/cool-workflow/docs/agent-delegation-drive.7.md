@@ -182,9 +182,15 @@ an Assess cache hit. A cache hit still goes through `recordWorkerOutput`
 validation; a corrupt cached result parks/fails closed rather than spawning a
 quiet fallback.
 
+Verify and Verdict also get the source-context instruction so they do not have to
+start by scanning the repo again. They are not result-cached; they still have to
+cite evidence and make the final check from the accepted Map and Assess work.
+
 `--metrics` is diagnostic and opt-in. It adds elapsed milliseconds, step counts,
-agent-spawn counts, and `result-cache` hit counts to the wrapper JSON payload;
-without it, the wrapper's default output shape stays unchanged.
+agent-spawn counts, `result-cache` hit counts, source-context bytes/digest, and
+one row per driven task with phase, task id, elapsed time, and spawn/cache state
+to the wrapper JSON payload; without it, the wrapper's default output shape stays
+unchanged.
 
 `{{manifest}}`, `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`, and
 `{{prompt}}` are put into DISCRETE argv elements (never a shell-interpreted

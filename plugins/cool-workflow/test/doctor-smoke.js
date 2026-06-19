@@ -110,6 +110,8 @@ function run(args, env, cwd) {
   }
   const commands = report.onramp.sections.flatMap((section) => section.actions.map((action) => action.command));
   assert.ok(commands.includes("cw demo tamper"), "first-run demo is named");
+  assert.ok(commands.some((command) => /quickstart architecture-review .*--bundle/.test(command)), "first-run bundle handoff is named");
+  assert.ok(commands.includes("cw report verify-bundle report.cwrun.json"), "first-run offline bundle verification is named");
   assert.ok(commands.includes("npm run test:fast"), "fast suite is named");
   assert.ok(commands.includes("npm run release:check"), "release gate is named");
   assert.ok(commands.includes("npm run parity:check"), "surface drift guard is named");
@@ -117,6 +119,8 @@ function run(args, env, cwd) {
   const plain = run(["--onramp"], env, pluginRoot).stdout;
   assert.ok(plain.includes("Onramp"), "human onramp section is rendered");
   assert.ok(plain.includes("cw quickstart architecture-review --check"), "human onramp names the zero-write check");
+  assert.ok(plain.includes("--bundle"), "human onramp names the bundle handoff");
+  assert.ok(plain.includes("cw report verify-bundle report.cwrun.json"), "human onramp names offline bundle verification");
 
   const changedPlain = run(["--onramp", "--changed-from", "HEAD"], env, pluginRoot).stdout;
   assert.ok(changedPlain.includes("Recommended Checks"), "changed-file onramp renders recommended checks");

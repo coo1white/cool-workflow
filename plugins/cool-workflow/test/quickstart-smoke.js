@@ -34,6 +34,9 @@ const pluginRoot = path.resolve(__dirname, "..");
 const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
 const { quickstart, QUICKSTART_DEFAULT_APP } = require(path.join(pluginRoot, "dist/capability-core.js"));
 
+const FAST_APP = "architecture-review-fast";
+const GOLDEN_APP = "end-to-end-golden-path";
+
 const cleanups = [];
 function tmpWorkspace() {
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-quickstart-smoke-")));
@@ -111,7 +114,7 @@ function main() {
       const runner = new CoolWorkflowRunner({ pluginRoot });
       const agentCommand = `${process.execPath} ${stub} {{result}}`;
       // (a) --resume, no --run: advance exactly ONE step and print a continue line.
-      const step1 = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", agentCommand, resume: true });
+      const step1 = quickstart(runner, { appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true });
       assert.equal(step1.status, "in-progress", "--resume advances one step, not the whole drive");
       assert.ok(step1.completedWorkers < step1.plannedWorkers, "one resume step leaves work pending");
       assert.ok(!step1.commitId, "an in-progress resume step has not committed");
@@ -119,7 +122,7 @@ function main() {
       assert.ok(step1.hint && /--run .* --resume/.test(step1.hint), "hint is a copy-pasteable --resume continue line");
       assert.ok(!/--once/.test(step1.hint), "the resume hint uses --resume, not --once");
       // (b) --resume --run <id>: continue THAT run to completion.
-      const done = quickstart(runner, { repo: work, question: "risks?", agentCommand, resume: true, run: step1.runId });
+      const done = quickstart(runner, { appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true, run: step1.runId });
       assert.equal(done.runId, step1.runId, "resume --run continues the SAME run");
       assert.equal(done.status, "complete", "resume --run drives to completion");
       assert.equal(done.completedWorkers, done.plannedWorkers, "all workers completed after resume");
@@ -137,7 +140,7 @@ function main() {
     process.chdir(work);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const result = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", agentCommand: `${process.execPath} ${stub} {{result}}` });
+      const result = quickstart(runner, { appId: GOLDEN_APP, repo: work, question: "risks?", agentCommand: `${process.execPath} ${stub} {{result}}` });
       assert.equal(Object.prototype.hasOwnProperty.call(result, "resumedFrom"), false, "default (no --resume) output has no resumedFrom key");
       assert.ok(result.hint === undefined, "clean default completion still has no hint (unchanged wording)");
     } finally {
@@ -151,7 +154,7 @@ function main() {
     process.chdir(work);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const blocked = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", resume: true });
+      const blocked = quickstart(runner, { appId: FAST_APP, repo: work, question: "risks?", resume: true });
       assert.notEqual(blocked.status, "complete", "--resume with no agent never reports complete");
       assert.equal(blocked.completedWorkers, 0, "no fabricated completion under --resume");
       assert.equal(Object.prototype.hasOwnProperty.call(blocked, "resumedFrom"), false, "blocked fresh resume carries no resumedFrom");
