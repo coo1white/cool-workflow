@@ -23,6 +23,7 @@ const state_explosion_1 = require("../state-explosion");
 const evidence_reasoning_1 = require("../evidence-reasoning");
 const doctor_1 = require("../doctor");
 const orchestrator_2 = require("../orchestrator");
+const term_1 = require("../term");
 async function runCli(argv = process.argv.slice(2)) {
     const args = (0, orchestrator_1.parseArgv)(argv);
     const runner = new orchestrator_1.CoolWorkflowRunner({
@@ -38,6 +39,44 @@ async function runCli(argv = process.argv.slice(2)) {
         case "list":
             printJson(runner.listWorkflows());
             return;
+        case "search": {
+            const keyword = args.positionals.join(" ");
+            if (!keyword.trim())
+                throw new Error("Missing search keyword.\n  Tip: cw search architecture to find workflows about architecture.");
+            const apps = runner.listApps();
+            const lower = keyword.toLowerCase();
+            const results = apps.filter((a) => a.title.toLowerCase().includes(lower) || a.summary.toLowerCase().includes(lower) || a.id.toLowerCase().includes(lower)).map((a) => ({ id: a.id, title: a.title, summary: a.summary }));
+            if (wantsJson(args.options))
+                printJson(results);
+            else
+                process.stdout.write(`${(0, orchestrator_2.formatSearchResults)(keyword, results)}\n`);
+            return;
+        }
+        case "man": {
+            const [topic] = args.positionals;
+            if (!topic)
+                throw new Error("Missing topic.\n  Tip: cw man release-tooling for the release tooling manual.");
+            const docsDir = node_path_1.default.resolve(runner.pluginRoot, "docs");
+            const candidates = [
+                node_path_1.default.join(docsDir, `${topic}.7.md`),
+                node_path_1.default.join(docsDir, `${topic}.md`),
+                node_path_1.default.join(docsDir, `${topic}`)
+            ];
+            let found;
+            for (const c of candidates) {
+                try {
+                    if (node_fs_1.default.statSync(c).isFile()) {
+                        found = c;
+                        break;
+                    }
+                }
+                catch { /* keep looking */ }
+            }
+            if (!found)
+                throw new Error(`Man page not found: ${topic}.\n  Tip: cw list for workflow topics, or browse docs/ for manuals.`);
+            process.stdout.write(node_fs_1.default.readFileSync(found, "utf8"));
+            return;
+        }
         case "info": {
             const [appId] = args.positionals;
             if (!appId)
@@ -53,6 +92,8 @@ async function runCli(argv = process.argv.slice(2)) {
             const report = (0, doctor_1.runDoctor)(args.options, process.env, String(args.options.cwd || process.cwd()));
             if (wantsJson(args.options))
                 printJson(report);
+            else if (args.options.fix)
+                process.stdout.write(`${(0, doctor_1.formatDoctorFixes)(report)}\n`);
             else
                 process.stdout.write(`${(0, doctor_1.formatDoctorReport)(report)}\n`);
             if (!report.ok)
@@ -105,6 +146,15 @@ async function runCli(argv = process.argv.slice(2)) {
             const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
             const qs = (0, capability_core_1.quickstart)(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
             printJson(qs);
+            const qr = qs;
+            if (typeof qr.runId === "string" && typeof qr.reportPath === "string") {
+                (0, term_1.printSuccessSummary)({
+                    runId: qr.runId,
+                    reportPath: qr.reportPath,
+                    status: String(qr.status || ""),
+                    bundle: Boolean(args.options.bundle)
+                });
+            }
             if (qs.mode === "check" && qs.ok === false) {
                 process.exitCode = 1;
             }
@@ -1066,7 +1116,9 @@ async function runCli(argv = process.argv.slice(2)) {
                     driveArgs.runId = runId;
                 else
                     driveArgs.appId = target;
-                printJson((0, capability_core_1.runDrive)(runner, driveArgs));
+                const dr = (0, capability_core_1.runDrive)(runner, driveArgs);
+                printJson(dr);
+                (0, term_1.printSuccessSummary)({ runId: dr.runId, reportPath: dr.reportPath, status: dr.status });
                 return;
             }
             const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
@@ -1078,7 +1130,9 @@ async function runCli(argv = process.argv.slice(2)) {
                         const driveArgs = { ...args.options };
                         if (id)
                             driveArgs.runId = id;
-                        printJson((0, capability_core_1.runDrive)(runner, driveArgs));
+                        const dr = (0, capability_core_1.runDrive)(runner, driveArgs);
+                        printJson(dr);
+                        (0, term_1.printSuccessSummary)({ runId: dr.runId, reportPath: dr.reportPath, status: dr.status });
                         return;
                     }
                     printJson((0, capability_core_1.runDrivePreview)(runner, { ...args.options, runId: required(id, "run id") }));

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runDoctor = runDoctor;
 exports.formatDoctorReport = formatDoctorReport;
+exports.formatDoctorFixes = formatDoctorFixes;
 // `cw doctor` — environment diagnostics, in the spirit of `brew doctor`.
 //
 // Homebrew's `doctor` turned "something is subtly wrong with your setup" into a
@@ -187,4 +188,11 @@ function formatDoctorReport(report) {
         }
     }
     return lines.join("\n");
+}
+/** `--fix` rendering: consolidates all fix strings into an actionable block. */
+function formatDoctorFixes(report) {
+    const fixes = report.checks.filter((c) => c.fix && c.status !== "ok").map((c) => c.fix);
+    if (!fixes.length)
+        return "No fixes needed.";
+    return [(0, term_1.bold)("Fix Commands"), ...fixes.map((f, i) => `  ${i + 1}. ${f}`), ""].join("\n");
 }

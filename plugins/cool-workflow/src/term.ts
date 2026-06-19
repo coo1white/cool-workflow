@@ -79,3 +79,19 @@ export function indent(text: string, spaces = 2): string {
   const prefix = " ".repeat(spaces);
   return text.split("\n").map((line) => `${prefix}${line}`).join("\n");
 }
+
+/** Print a success summary to stderr (TTY-gated). Shows the report path and a
+ *  suggested next command. Pipe-friendly: silent when stderr is not a TTY. */
+export function printSuccessSummary(fields: { runId: string; reportPath: string; status: string; bundle?: boolean }, stream?: NodeJS.WriteStream): void {
+  if (!isTTY(stream)) return;
+  const s = stream || process.stderr;
+  s.write(`\n${green("✓")} Report: ${fields.reportPath}\n`);
+  if (fields.status === "complete") {
+    s.write(`  Next: cw status ${fields.runId} --brief\n`);
+    if (fields.bundle !== false) {
+      s.write(`  Bundle: cw report bundle ${fields.runId}\n`);
+    }
+  } else {
+    s.write(`  ${yellow("!")} Status: ${fields.status}. Next: cw status ${fields.runId}\n`);
+  }
+}

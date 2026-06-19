@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.KNOWN_COMMANDS = exports.CoolWorkflowRunner = void 0;
 exports.parseArgv = parseArgv;
 exports.suggestCommand = suggestCommand;
+exports.formatSearchResults = formatSearchResults;
 exports.formatInfo = formatInfo;
 exports.formatHelp = formatHelp;
 const node_fs_1 = __importDefault(require("node:fs"));
@@ -821,7 +822,7 @@ function parseArgv(argv) {
 }
 /** All known top-level CW commands. Used for "did you mean?" suggestions. */
 exports.KNOWN_COMMANDS = new Set([
-    "help", "list", "doctor", "info", "init", "quickstart", "plan", "status", "next",
+    "help", "list", "doctor", "info", "search", "man", "init", "quickstart", "plan", "status", "next",
     "dispatch", "result", "state", "commit", "report", "app", "sandbox",
     "backend", "contract", "node", "feedback", "worker", "audit", "candidate",
     "review", "loop", "schedule", "routine", "registry", "run", "queue",
@@ -864,6 +865,16 @@ function suggestCommand(input) {
     if (bestDist <= 3 && bestDist <= lower.length / 2)
         return best;
     return undefined;
+}
+function formatSearchResults(keyword, results) {
+    if (!results.length)
+        return `No workflows matched "${keyword}".\n  Tip: cw list for all available workflows.`;
+    return [
+        (0, term_1.bold)(`${results.length} workflow${results.length !== 1 ? "s" : ""} matching "${keyword}"`),
+        ...results.map((r) => `  ${r.id} — ${r.title}\n    ${(0, term_1.dim)(r.summary.slice(0, 120))}${r.summary.length > 120 ? "…" : ""}`),
+        "",
+        (0, term_1.dim)("Use cw info <id> for full details.")
+    ].join("\n");
 }
 function formatInfo(appId, data) {
     const app = (data.app || {});
@@ -911,11 +922,13 @@ function formatHelp() {
         "",
         (0, term_1.bold)("Getting Started"),
         "  list                          List available workflow apps",
+        "  search <keyword>              Search workflows by title or description",
         "  info <app-id> [--json]         Show what a workflow app does and how to run it",
-        "  doctor [--json] [--onramp]    Check your setup and show the shortest safe next steps",
+        "  doctor [--json] [--onramp] [--fix]  Check setup (--fix for consolidated fix commands)",
         "  init <id> [--title T]         Create a new workflow app",
         "  quickstart [app] [...]        Plan → drive → report in one command",
         "  demo tamper|bundle            Prove trust checks work (30s, no agent needed)",
+        "  man <topic>                   Show a man page (e.g. cw man release-tooling)",
         "",
         (0, term_1.bold)("Run Management"),
         "  plan <id> [--repo P] [--question Q]   Create a new run plan",

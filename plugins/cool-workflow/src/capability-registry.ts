@@ -150,6 +150,22 @@ const BUILTIN_CAPABILITIES: CapabilityDescriptor[] = [
     reason: "Human-focused workflow discovery tool (like Homebrew's `brew info`). MCP agents discover workflows via cw_list and cw_app_show tools."
   },
   {
+    capability: "search",
+    summary: "Search workflow apps by keyword (title, description, id).",
+    entry: "listApps",
+    surface: "cli-only",
+    cli: { path: ["search"], jsonMode: "flag" },
+    reason: "Human-focused workflow discovery (like Homebrew's `brew search`). MCP agents discover workflows via cw_list tool."
+  },
+  {
+    capability: "man",
+    summary: "Show a man page from docs/ (e.g. cw man release-tooling).",
+    entry: "n/a",
+    surface: "cli-only",
+    cli: { path: ["man"], jsonMode: "human" },
+    reason: "Human documentation viewer. MCP agents read docs/ directly via file tools."
+  },
+  {
     capability: "doctor",
     summary: "Diagnose the host for setup problems (Node version, agent backend, agent binary on PATH, git, writable home/repo state) and print an actionable fix per check.",
     entry: "runDoctor",

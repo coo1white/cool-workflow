@@ -22,6 +22,11 @@
 - **Tests**: Updated `operator-ux-smoke.js` assertions for the combined Phase|Stage|Blocked line. Full suite: 115/115 passed, 0 failed.
 - **Risk**: Low. `cw info` is additive. `cw status` output format changed slightly (combined header line), but full panels are byte-identical via `--verbose` (default).
 
+- **Capability**: Post-success summary line on `cw quickstart`/`cw run drive` (TTY-gated, shows report path + next command). Agent execution progress indicator (elapsed time). `cw doctor --fix` consolidated fix commands. `cw search <keyword>` and `cw man <topic>` for workflow discovery and documentation browsing.
+- **Implementation**: Added `printSuccessSummary()` to `term.ts` (writes report path + next-steps to stderr). Added timing around `spawnSync` in `execution-backend.ts` (TTY-gated `● Running ...` / `✓ Done (ms)`). Added `formatDoctorFixes()`. Added `formatSearchResults()` and `cw man` page loader. Updated help text, KNOWN_COMMANDS, and capability registry.
+- **Tests**: Full suite: 115/115 passed, 0 failed.
+- **Risk**: Low. All new output is TTY-gated (pipes get silent). `--json` surfaces unchanged.
+
 ## 0.1.86
 
 - **Capability**: A new user now gets a clearer and faster first run: `doctor --onramp` points from zero-write `quickstart --check` to `quickstart --bundle` and offline `report verify-bundle`, while the README path is covered by an end-to-end smoke.
