@@ -1,0 +1,31 @@
+name: github-release
+
+# Automatically create a GitHub Release when a v* tag is pushed.
+# The tag can only land after the gated release flow (deterministic gate →
+# independent reviewer → verdict → tag), so reaching this workflow already
+# implies an approved release. Runs in parallel with npm-publish.yml.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            --verify-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
