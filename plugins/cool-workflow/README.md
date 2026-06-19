@@ -45,32 +45,19 @@ See [docs/unix-principles.md](docs/unix-principles.md).
 
 ## Start Here
 
-Use the short path first. The long notes below are history and deep reference,
-not the first run.
-
 ```bash
 cw demo tamper
-cw doctor --onramp
-cw quickstart architecture-review --check --repo /path/to/repo \
-  --question "What are the main risks?" --agent-command builtin:claude
-cw quickstart architecture-review --repo /path/to/repo \
-  --question "What are the main risks?" --agent-command builtin:claude --bundle
-cw report verify-bundle report.cwrun.json
+cw doctor
+cw -q "What are the main risks?" -claude
 ```
 
-For source work, keep the loop small:
+Pick an agent with a flag:
 
 ```bash
-npm run build
-node test/<nearest-smoke>.js
-npm run test:fast
+cw -q "What are the main risks?" -claude      # Claude
+cw -q "What are the main risks?" -codex       # Codex
+cw -q "What are the main risks?" -deepseek    # DeepSeek
 ```
-
-Run `npm run release:check` only when the batch is ready for the full gate. Start
-with `quickstart` and `report` before the multi-agent pages.
-
-For the full capability and release history, see [docs/release-history.md](docs/release-history.md).
-This README tracks CW v0.1.85.
 
 ## Quickstart
 
@@ -82,25 +69,17 @@ npx cool-workflow demo tamper
 # -> VERDICT: tamper-evidence holds ✓
 ```
 
-**Try a real run** — no clone needed; drive an architecture review with your own agent:
+**Try a real run** — no clone needed; one command drives an architecture review with your own agent:
 
 ```bash
-npx cool-workflow quickstart architecture-review --repo /path/to/repo \
-  --question "Is this architecture sound?" --agent-command builtin:claude
+npx cool-workflow -q "Is this architecture sound?" -claude
 ```
 
-Add `--bundle` when the report has to go to someone else; then check the file
-offline with `cw report verify-bundle report.cwrun.json`.
+Live streaming output shows the agent's work as it happens — no env vars needed.
+Pick a vendor with `-claude`, `-codex`, or `-deepseek`. CW auto-detects your repo
+(current folder) and agent (first on PATH). No agent? `cw demo` still works.
 
-CW DELEGATES worker execution to your own agent. With no `--agent-command` (or
-`CW_AGENT_COMMAND`) the drive fails closed (status `blocked`) — it never makes up a
-result. `--agent-command builtin:claude` points to a bundled read-only `claude -p`
-wrapper (needs `claude` on your PATH). `--agent-command builtin:codex` points to
-the bundled read-only Codex wrapper (needs `codex` on your PATH). With
-`CW_AGENT_STREAM=1`, both wrappers can show a live stderr trace while stdout stays
-the kept data channel.
-
-**Re-prove a finished run, offline** (`cw` is the installed bin; or `npx cool-workflow <cmd>`):
+**Re-prove a finished run, offline**:
 
 ```bash
 cw telemetry verify <run-id>                  # re-checks the hash-chained ledger
@@ -108,7 +87,7 @@ cw telemetry verify <run-id> --pubkey pub.pem # also re-runs ed25519 signature c
 cw audit verify <run-id>                      # re-proves the trust-audit hash chain
 ```
 
-More: `cw quickstart <app> --preview` (read-only dry run), `cw run resume <run-id> --drive`
+More: `cw -q "..." --bundle` (sealed portable report), `cw run resume <run-id> --drive`
 (go on with a run that was stopped), `cw run inspect-archive <archive>` (integrity-check a
 portable run archive without bringing it in).
 
