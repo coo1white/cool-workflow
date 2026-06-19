@@ -116,6 +116,9 @@ function canonicalScenario(value, context) {
     .replace(/"durationMs":\d+/g, '"durationMs":<ms>')
     .replace(/dispatch-\d{8}T\d{6}Z-\d{4}/g, "dispatch-<ts>-<seq>")
     .replace(/(architecture-review|end-to-end-golden-path)-\d{8}T\d{6}Z-[a-f0-9]+/g, "<runId>")
+    .replace(/(architecture-review|end-to-end-golden-path)-<timestamp>-[a-f0-9]+/g, "<runId>")
+    .replace(/snap-<runId>([^"]*)-[a-f0-9]{12}/g, "snap-<runId>$1-<snap>")
+    .replace(/replay-snap-<runId>([^"]*)-<snap>-[a-f0-9]{8}/g, "replay-snap-<runId>$1-<snap>-<replay>")
     .replace(/sha256:[a-f0-9]{32,64}/g, "sha256:<hash>")
     .replace(/[a-f0-9]{64}/g, "<hex64>");
 }
@@ -197,6 +200,46 @@ function verifiedWorkerCli(workspace, runId) {
 
 async function verifiedWorkerMcp(mcp, workspace, runId) {
   return workerOutputMcp(mcp, workspace, runId, await dispatchWorkerMcp(mcp, workspace, runId));
+}
+
+function resultNodeId(runId) {
+  return `${runId}:result:golden:path`;
+}
+
+function verifiedNodeCli(workspace, runId) {
+  verifiedWorkerCli(workspace, runId);
+  return { nodeId: resultNodeId(runId) };
+}
+
+async function verifiedNodeMcp(mcp, workspace, runId) {
+  await verifiedWorkerMcp(mcp, workspace, runId);
+  return { nodeId: resultNodeId(runId) };
+}
+
+function nodeSnapshotsCli(workspace, runId) {
+  const node = verifiedNodeCli(workspace, runId);
+  const baseline = runCli(["node", "snapshot", runId, node.nodeId], workspace);
+  const candidate = runCli(["node", "snapshot", runId, node.nodeId], workspace);
+  return { ...node, baselineSnapshotId: baseline.snapshotId, candidateSnapshotId: candidate.snapshotId };
+}
+
+async function nodeSnapshotsMcp(mcp, workspace, runId) {
+  const node = await verifiedNodeMcp(mcp, workspace, runId);
+  const baseline = await mcp.tool("cw_node_snapshot", { cwd: workspace, runId, nodeId: node.nodeId });
+  const candidate = await mcp.tool("cw_node_snapshot", { cwd: workspace, runId, nodeId: node.nodeId });
+  return { ...node, baselineSnapshotId: baseline.snapshotId, candidateSnapshotId: candidate.snapshotId };
+}
+
+function nodeReplayCli(workspace, runId) {
+  const snapshots = nodeSnapshotsCli(workspace, runId);
+  const replay = runCli(["node", "replay", runId, snapshots.baselineSnapshotId], workspace);
+  return { ...snapshots, replayId: replay.replayId };
+}
+
+async function nodeReplayMcp(mcp, workspace, runId) {
+  const snapshots = await nodeSnapshotsMcp(mcp, workspace, runId);
+  const replay = await mcp.tool("cw_node_replay", { cwd: workspace, runId, snapshotId: snapshots.baselineSnapshotId });
+  return { ...snapshots, replayId: replay.replayId };
 }
 
 function registerCandidateCli(workspace, runId, worker, candidateId = "parity-candidate") {
@@ -417,6 +460,15 @@ async function prepareScoredCandidateMcp(mcp, workspace, runId, candidateId = "p
 
 function prepareScenarioCli(capability, workspace, runId) {
   switch (capability) {
+    case "node.show":
+    case "node.snapshot":
+      return verifiedNodeCli(workspace, runId);
+    case "node.diff":
+      return nodeSnapshotsCli(workspace, runId);
+    case "node.replay":
+      return { snapshotId: nodeSnapshotsCli(workspace, runId).baselineSnapshotId };
+    case "node.replay.verify":
+      return nodeReplayCli(workspace, runId);
     case "worker.list":
     case "worker.show":
     case "worker.manifest":
@@ -455,6 +507,17 @@ function prepareScenarioCli(capability, workspace, runId) {
 
 async function prepareScenarioMcp(capability, mcp, workspace, runId) {
   switch (capability) {
+    case "node.show":
+    case "node.snapshot":
+      return verifiedNodeMcp(mcp, workspace, runId);
+    case "node.diff":
+      return nodeSnapshotsMcp(mcp, workspace, runId);
+    case "node.replay": {
+      const snapshots = await nodeSnapshotsMcp(mcp, workspace, runId);
+      return { snapshotId: snapshots.baselineSnapshotId };
+    }
+    case "node.replay.verify":
+      return nodeReplayMcp(mcp, workspace, runId);
     case "worker.list":
     case "worker.show":
     case "worker.manifest":
@@ -544,6 +607,16 @@ function runScenarioCli(capability, workspace, runId, context = {}) {
         "commit,selection",
         "--allow-self-approval"
       ], workspace);
+    case "node.show":
+      return runCli(["node", "show", runId, context.nodeId], workspace);
+    case "node.snapshot":
+      return runCli(["node", "snapshot", runId, context.nodeId], workspace);
+    case "node.diff":
+      return runCli(["node", "diff", runId, context.baselineSnapshotId, context.candidateSnapshotId], workspace);
+    case "node.replay":
+      return runCli(["node", "replay", runId, context.snapshotId], workspace);
+    case "node.replay.verify":
+      return runCli(["node", "verify", runId, context.replayId], workspace);
     case "worker.list":
       return runCli(["worker", "list", runId], workspace);
     case "worker.show":
@@ -634,6 +707,16 @@ async function runScenarioMcp(capability, mcp, workspace, runId, context = {}) {
         appliesTo: "commit,selection",
         allowSelfApproval: true
       });
+    case "node.show":
+      return mcp.tool("cw_node_show", { cwd: workspace, runId, nodeId: context.nodeId });
+    case "node.snapshot":
+      return mcp.tool("cw_node_snapshot", { cwd: workspace, runId, nodeId: context.nodeId });
+    case "node.diff":
+      return mcp.tool("cw_node_diff", { cwd: workspace, runId, baselineSnapshotId: context.baselineSnapshotId, candidateSnapshotId: context.candidateSnapshotId });
+    case "node.replay":
+      return mcp.tool("cw_node_replay", { cwd: workspace, runId, snapshotId: context.snapshotId });
+    case "node.replay.verify":
+      return mcp.tool("cw_node_replay_verify", { cwd: workspace, runId, replayId: context.replayId });
     case "worker.list":
       return mcp.tool("cw_worker_list", { cwd: workspace, runId });
     case "worker.show":

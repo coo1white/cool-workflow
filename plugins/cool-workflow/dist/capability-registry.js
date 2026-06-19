@@ -498,7 +498,12 @@ const SCENARIO_PAYLOAD_PROBE_CAPABILITIES = [
     "feedback.show",
     "feedback.collect",
     "feedback.task",
-    "feedback.resolve"
+    "feedback.resolve",
+    "node.show",
+    "node.snapshot",
+    "node.diff",
+    "node.replay",
+    "node.replay.verify"
 ];
 const PAYLOAD_PROBE_DEFERRED_GROUPS = [
     {
@@ -509,11 +514,6 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "result",
             "app.init",
             "app.run",
-            "node.show",
-            "node.snapshot",
-            "node.diff",
-            "node.replay",
-            "node.replay.verify",
             "migration.list",
             "migration.check",
             "migration.prove",
