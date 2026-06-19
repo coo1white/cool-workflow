@@ -113,14 +113,58 @@ function openMcp() {
 
   {
     const plan = registry.payloadProbePlan();
+    const firstBatchScenarioCaps = ["plan", "app.package", "approve", "reject", "comment.add", "handoff", "review.policy"];
+    const secondBatchScenarioCaps = [
+      "app.show",
+      "app.validate",
+      "topology.show",
+      "topology.validate",
+      "topology.apply",
+      "topology.summary",
+      "topology.graph",
+      "sandbox.show",
+      "sandbox.validate",
+      "sandbox.choose",
+      "sandbox.resolve",
+      "summary.refresh",
+      "summary.show"
+    ];
+    const scenarioCaps = [...firstBatchScenarioCaps, ...secondBatchScenarioCaps];
+    const targetByCapability = new Map(plan.targets.map((target) => [target.capability, target]));
+    const deferredIds = new Set(plan.deferred.map((entry) => entry.capability));
     assert.deepEqual(plan.unclassified, [], "payload-identical capabilities must be probed or explicitly deferred");
     assert.deepEqual(plan.duplicateClassifications, [], "payload probe classification must not duplicate capabilities");
     assert.deepEqual(plan.invalidClassifications, [], "payload probe classification must only reference payload-identical capabilities");
-    assert.ok(plan.targets.length >= 30, "payload probe plan must retain the existing CLI <-> MCP coverage");
+    assert.ok(plan.targets.length > 30, "payload probe plan must grow beyond the original read-only coverage");
+    assert.equal(plan.targets.length, 50, "payload probe plan must include both local scenario target batches");
     assert.ok(plan.deferred.length > 0, "complex payload-identical capabilities must be explicitly deferred with reasons");
     for (const deferred of plan.deferred) {
       assert.ok(deferred.reason && deferred.reason.trim(), `${deferred.capability}: deferred payload probe must record a reason`);
     }
+    for (const capability of scenarioCaps) {
+      assert.equal(targetByCapability.get(capability)?.kind, "scenario", `${capability}: probe target must be a scenario`);
+      assert.equal(deferredIds.has(capability), false, `${capability}: scenario must not stay deferred`);
+    }
+    assert.equal(typeof registry.buildPayloadProbePlan, "function", "registry must expose the pure payload probe plan checker");
+
+    const classificationGuardCap = "topology.apply";
+    const missingScenario = registry.buildPayloadProbePlan(
+      plan.targets.filter((target) => target.capability !== classificationGuardCap),
+      plan.deferred
+    );
+    assert.ok(missingScenario.unclassified.includes(classificationGuardCap), "missing scenario target must fail closed");
+
+    const duplicateScenario = registry.buildPayloadProbePlan(
+      [...plan.targets, { capability: classificationGuardCap, kind: "scenario" }],
+      plan.deferred
+    );
+    assert.ok(duplicateScenario.duplicateClassifications.includes(classificationGuardCap), "duplicate scenario target must fail closed");
+
+    const invalidScenario = registry.buildPayloadProbePlan(
+      [...plan.targets, { capability: "phantom.scenario", kind: "scenario" }],
+      plan.deferred
+    );
+    assert.ok(invalidScenario.invalidClassifications.includes("phantom.scenario"), "invalid scenario target must fail closed");
   }
 
   // ---- F6: the payload-identity probe defaults IN (write verbs included) ----
@@ -150,13 +194,37 @@ function openMcp() {
       `probe set unexpectedly narrow: ${probeSet.length}/${bothBound.length} both-bound caps probed`
     );
 
-    // WRITE/mutating verbs that route through ONE core must be payload-probed,
-    // not just read summaries — this is exactly where marshalling drift hides.
-    for (const writeCap of ["approve", "reject", "comment.add", "handoff", "review.policy"]) {
+    // Safe multi-argument/write verbs that route through ONE core must be
+    // scenario-probed, not just read summaries — this is exactly where
+    // marshalling drift hides.
+    const scenarioTargets = new Map(registry.payloadProbeTargets().map((target) => [target.capability, target.kind]));
+    for (const writeCap of [
+      "plan",
+      "app.show",
+      "app.validate",
+      "app.package",
+      "topology.show",
+      "topology.validate",
+      "topology.apply",
+      "topology.summary",
+      "topology.graph",
+      "summary.refresh",
+      "summary.show",
+      "sandbox.show",
+      "sandbox.validate",
+      "sandbox.choose",
+      "sandbox.resolve",
+      "approve",
+      "reject",
+      "comment.add",
+      "handoff",
+      "review.policy"
+    ]) {
       const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === writeCap);
       assert.ok(cap, `${writeCap}: registry entry must exist`);
       assert.equal(cap.payloadIdentical, undefined, `${writeCap}: must NOT opt out of the payload probe`);
       assert.ok(probeIds.has(writeCap), `${writeCap}: write verb must be in the payload-identity probe set`);
+      assert.equal(scenarioTargets.get(writeCap), "scenario", `${writeCap}: write/multi-argument verb must be scenario-probed`);
     }
 
     // the documented opt-outs are exactly the 5 reasoned divergences, each with

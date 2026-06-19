@@ -37,6 +37,7 @@ exports.isPayloadProbeOptOut = isPayloadProbeOptOut;
 exports.payloadIdenticalCapabilities = payloadIdenticalCapabilities;
 exports.payloadProbeTargets = payloadProbeTargets;
 exports.deferredPayloadProbeCapabilities = deferredPayloadProbeCapabilities;
+exports.buildPayloadProbePlan = buildPayloadProbePlan;
 exports.payloadProbePlan = payloadProbePlan;
 exports.buildParityReport = buildParityReport;
 // ---------------------------------------------------------------------------
@@ -459,18 +460,36 @@ const RUN_PAYLOAD_PROBE_CAPABILITIES = [
     "gc.plan",
     "gc.verify"
 ];
+const SCENARIO_PAYLOAD_PROBE_CAPABILITIES = [
+    "plan",
+    "app.show",
+    "app.validate",
+    "app.package",
+    "topology.show",
+    "topology.validate",
+    "topology.apply",
+    "topology.summary",
+    "topology.graph",
+    "summary.refresh",
+    "summary.show",
+    "sandbox.show",
+    "sandbox.validate",
+    "sandbox.choose",
+    "sandbox.resolve",
+    "approve",
+    "reject",
+    "comment.add",
+    "handoff",
+    "review.policy"
+];
 const PAYLOAD_PROBE_DEFERRED_GROUPS = [
     {
         reason: "Not safe for the deterministic bootstrap parity probe yet: this capability needs extra target ids/files, mutates durable state, depends on external state, or needs a dedicated fixture beyond cwd/runId.",
         capabilities: [
             "init",
-            "plan",
             "dispatch",
             "result",
-            "app.show",
-            "app.validate",
             "app.init",
-            "app.package",
             "app.run",
             "node.show",
             "node.snapshot",
@@ -480,13 +499,6 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "migration.list",
             "migration.check",
             "migration.prove",
-            "topology.show",
-            "topology.validate",
-            "topology.apply",
-            "topology.summary",
-            "topology.graph",
-            "summary.refresh",
-            "summary.show",
             "multi-agent.run",
             "multi-agent.status",
             "multi-agent.step",
@@ -543,10 +555,6 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "audit.judge",
             "audit.attest",
             "audit.decision",
-            "sandbox.show",
-            "sandbox.validate",
-            "sandbox.choose",
-            "sandbox.resolve",
             "backend.show",
             "backend.probe",
             "worker.list",
@@ -608,12 +616,7 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "sched.policy.show",
             "sched.policy.set",
             "telemetry.verify",
-            "history",
-            "approve",
-            "reject",
-            "comment.add",
-            "handoff",
-            "review.policy"
+            "history"
         ]
     }
 ];
@@ -718,26 +721,30 @@ function payloadIdenticalCapabilities() {
 function payloadProbeTargets() {
     return [
         ...GLOBAL_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "global" })),
-        ...RUN_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "run" }))
+        ...RUN_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "run" })),
+        ...SCENARIO_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "scenario" }))
     ];
 }
 function deferredPayloadProbeCapabilities() {
     return PAYLOAD_PROBE_DEFERRED_GROUPS.flatMap((group) => group.capabilities.map((capability) => ({ capability, reason: group.reason })));
 }
-function payloadProbePlan() {
+function buildPayloadProbePlan(targets, deferred) {
     const candidateIds = new Set(payloadIdenticalCapabilities().map((cap) => cap.capability));
     const counts = new Map();
-    const classified = [...payloadProbeTargets().map((entry) => entry.capability), ...deferredPayloadProbeCapabilities().map((entry) => entry.capability)];
+    const classified = [...targets.map((entry) => entry.capability), ...deferred.map((entry) => entry.capability)];
     for (const capability of classified)
         counts.set(capability, (counts.get(capability) || 0) + 1);
     const classifiedIds = new Set(classified);
     return {
-        targets: payloadProbeTargets(),
-        deferred: deferredPayloadProbeCapabilities(),
+        targets,
+        deferred,
         unclassified: [...candidateIds].filter((capability) => !classifiedIds.has(capability)).sort(),
         duplicateClassifications: [...counts.entries()].filter(([, count]) => count > 1).map(([capability]) => capability).sort(),
         invalidClassifications: [...classifiedIds].filter((capability) => !candidateIds.has(capability)).sort()
     };
+}
+function payloadProbePlan() {
+    return buildPayloadProbePlan(payloadProbeTargets(), deferredPayloadProbeCapabilities());
 }
 function lintRegistry() {
     const issues = [];

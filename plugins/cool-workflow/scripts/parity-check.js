@@ -42,6 +42,10 @@ function jsonFlag(cap) {
   return cap.cli.jsonMode === "flag" ? ["--json"] : [];
 }
 
+function runCli(argv, cwd) {
+  return JSON.parse(execFileSync(node, [cli, ...argv], { cwd, encoding: "utf8" }));
+}
+
 // ---- 1. static surface parity ---------------------------------------------
 function liveMcpTools() {
   const result = execFileSync(node, [mcpServer], {
@@ -88,6 +92,271 @@ function cliHelpTokens() {
 // them (and only them) before comparison so we assert canonical-payload identity.
 function canonical(value) {
   return JSON.stringify(value).replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, "<ts>");
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceAllLiteral(text, search, replacement) {
+  return text.replace(new RegExp(escapeRegExp(search), "g"), replacement);
+}
+
+function canonicalScenario(value, context) {
+  let text = canonical(value);
+  for (const root of context.workspaceRoots || []) {
+    text = replaceAllLiteral(text, root, "<workspace>");
+  }
+  for (const runId of context.runIds || []) {
+    text = replaceAllLiteral(text, runId, "<runId>");
+  }
+  return text
+    .replace(/(architecture-review|end-to-end-golden-path)-\d{8}T\d{6}Z-[a-f0-9]+/g, "<runId>")
+    .replace(/sha256:[a-f0-9]{32,64}/g, "sha256:<hash>")
+    .replace(/[a-f0-9]{64}/g, "<hex64>");
+}
+
+function makeWorkspace(label) {
+  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `cw-parity-${label}-`)));
+  fs.writeFileSync(path.join(workspace, "README.md"), `# ${label}\n`, "utf8");
+  return workspace;
+}
+
+function bootstrapRun(workspace) {
+  return runCli(["plan", "end-to-end-golden-path", "--question", "CLI/MCP scenario payload parity"], workspace);
+}
+
+function bootstrapTopologyRun(workspace) {
+  return runCli(["plan", "architecture-review", "--repo", workspace, "--question", "CLI/MCP topology scenario parity"], workspace);
+}
+
+function sandboxProfileFile(workspace) {
+  const profileFile = path.join(workspace, "parity-sandbox-profile.json");
+  const profile = {
+    schemaVersion: 1,
+    id: "parity-readonly",
+    title: "Parity Readonly",
+    description: "Local sandbox profile fixture for CLI/MCP parity.",
+    readPaths: ["$cwd"],
+    writePaths: [],
+    workerOutput: { result: true, artifacts: true, logs: true },
+    execute: { mode: "none" },
+    network: { mode: "none" },
+    env: { inherit: false, expose: [] },
+    hostInstructions: ["Used only by the parity check."]
+  };
+  fs.writeFileSync(profileFile, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+  return profileFile;
+}
+
+function applyTopologyCli(workspace, runId) {
+  return runCli([
+    "topology",
+    "apply",
+    runId,
+    "map-reduce",
+    "--id",
+    "parity-map",
+    "--mapper-count",
+    "2",
+    "--task",
+    "map:server-api",
+    "--task",
+    "map:web-client"
+  ], workspace);
+}
+
+async function applyTopologyMcp(mcp, workspace, runId) {
+  return mcp.tool("cw_topology_apply", {
+    cwd: workspace,
+    runId,
+    topologyId: "map-reduce",
+    id: "parity-map",
+    mapperCount: 2,
+    task: ["map:server-api", "map:web-client"]
+  });
+}
+
+function refreshSummaryCli(workspace, runId) {
+  return runCli(["summary", "refresh", runId, "--json"], workspace);
+}
+
+async function refreshSummaryMcp(mcp, workspace, runId) {
+  return mcp.tool("cw_summary_refresh", { cwd: workspace, runId });
+}
+
+function scenarioWorkspacePair(capability) {
+  const slug = capability.replace(/[^a-z0-9]+/gi, "-");
+  return {
+    cliWorkspace: makeWorkspace(`${slug}-cli`),
+    mcpWorkspace: makeWorkspace(`${slug}-mcp`)
+  };
+}
+
+function runScenarioCli(capability, workspace, runId) {
+  switch (capability) {
+    case "plan":
+      return runCli(["plan", "end-to-end-golden-path", "--question", "CLI/MCP scenario payload parity"], workspace);
+    case "app.show":
+      return runCli(["app", "show", "end-to-end-golden-path"], workspace);
+    case "app.validate":
+      return runCli(["app", "validate", "end-to-end-golden-path"], workspace);
+    case "app.package":
+      return runCli(["app", "package", "end-to-end-golden-path"], workspace);
+    case "topology.show":
+      return runCli(["topology", "show", "map-reduce"], workspace);
+    case "topology.validate":
+      return runCli(["topology", "validate", "map-reduce"], workspace);
+    case "topology.apply":
+      return applyTopologyCli(workspace, runId);
+    case "topology.summary":
+      return runCli(["topology", "summary", runId, "--json"], workspace);
+    case "topology.graph":
+      return runCli(["topology", "graph", runId, "--json"], workspace);
+    case "summary.refresh":
+      return refreshSummaryCli(workspace, runId);
+    case "summary.show":
+      return runCli(["summary", "show", runId, "--json"], workspace);
+    case "sandbox.show":
+      return runCli(["sandbox", "show", "readonly"], workspace);
+    case "sandbox.validate":
+      return runCli(["sandbox", "validate", sandboxProfileFile(workspace)], workspace);
+    case "sandbox.choose":
+      return runCli(["sandbox", "choose", "readonly"], workspace);
+    case "sandbox.resolve":
+      return runCli(["sandbox", "resolve", "readonly"], workspace);
+    case "approve":
+      return runCli(["approve", "run", runId, runId, "--actor", "parity-operator", "--role", "reviewer", "--rationale", "scenario approval"], workspace);
+    case "reject":
+      return runCli(["reject", "run", runId, runId, "--actor", "parity-operator", "--role", "reviewer", "--reason", "scenario rejection"], workspace);
+    case "comment.add":
+      return runCli(["comment", "add", "run", runId, runId, "--body", "scenario comment", "--actor", "parity-operator", "--role", "reviewer"], workspace);
+    case "handoff":
+      return runCli(["handoff", "run", runId, runId, "--from", "parity-operator", "--to", "parity-peer", "--reason", "scenario handoff"], workspace);
+    case "review.policy":
+      return runCli([
+        "review",
+        "policy",
+        runId,
+        "--required-approvals",
+        "2",
+        "--authorized-roles",
+        "reviewer,lead",
+        "--applies-to",
+        "commit,selection",
+        "--allow-self-approval"
+      ], workspace);
+    default:
+      throw new Error(`No CLI payload scenario for ${capability}`);
+  }
+}
+
+async function runScenarioMcp(capability, mcp, workspace, runId) {
+  switch (capability) {
+    case "plan":
+      return mcp.tool("cw_plan", { cwd: workspace, workflowId: "end-to-end-golden-path", question: "CLI/MCP scenario payload parity" });
+    case "app.show":
+      return mcp.tool("cw_app_show", { cwd: workspace, appId: "end-to-end-golden-path" });
+    case "app.validate":
+      return mcp.tool("cw_app_validate", { cwd: workspace, appId: "end-to-end-golden-path" });
+    case "app.package":
+      return mcp.tool("cw_app_package", { cwd: workspace, appId: "end-to-end-golden-path" });
+    case "topology.show":
+      return mcp.tool("cw_topology_show", { cwd: workspace, topologyId: "map-reduce" });
+    case "topology.validate":
+      return mcp.tool("cw_topology_validate", { cwd: workspace, topologyId: "map-reduce" });
+    case "topology.apply":
+      return applyTopologyMcp(mcp, workspace, runId);
+    case "topology.summary":
+      return mcp.tool("cw_topology_summary", { cwd: workspace, runId });
+    case "topology.graph":
+      return mcp.tool("cw_topology_graph", { cwd: workspace, runId });
+    case "summary.refresh":
+      return refreshSummaryMcp(mcp, workspace, runId);
+    case "summary.show":
+      return mcp.tool("cw_summary_show", { cwd: workspace, runId });
+    case "sandbox.show":
+      return mcp.tool("cw_sandbox_show", { cwd: workspace, profileId: "readonly" });
+    case "sandbox.validate":
+      return mcp.tool("cw_sandbox_validate", { cwd: workspace, profileFile: sandboxProfileFile(workspace) });
+    case "sandbox.choose":
+      return mcp.tool("cw_sandbox_choose", { cwd: workspace, profileId: "readonly" });
+    case "sandbox.resolve":
+      return mcp.tool("cw_sandbox_resolve", { cwd: workspace, profileId: "readonly" });
+    case "approve":
+      return mcp.tool("cw_approve", { cwd: workspace, runId, targetKind: "run", targetId: runId, actor: "parity-operator", role: "reviewer", rationale: "scenario approval" });
+    case "reject":
+      return mcp.tool("cw_reject", { cwd: workspace, runId, targetKind: "run", targetId: runId, actor: "parity-operator", role: "reviewer", reason: "scenario rejection" });
+    case "comment.add":
+      return mcp.tool("cw_comment_add", { cwd: workspace, runId, targetKind: "run", targetId: runId, body: "scenario comment", actor: "parity-operator", role: "reviewer" });
+    case "handoff":
+      return mcp.tool("cw_handoff", { cwd: workspace, runId, targetKind: "run", targetId: runId, from: "parity-operator", to: "parity-peer", reason: "scenario handoff" });
+    case "review.policy":
+      return mcp.tool("cw_review_policy", {
+        cwd: workspace,
+        runId,
+        requiredApprovals: 2,
+        authorizedRoles: "reviewer,lead",
+        appliesTo: "commit,selection",
+        allowSelfApproval: true
+      });
+    default:
+      throw new Error(`No MCP payload scenario for ${capability}`);
+  }
+}
+
+async function executeScenario(target, mcp) {
+  const { cliWorkspace, mcpWorkspace } = scenarioWorkspacePair(target.capability);
+  const runlessScenarios = new Set([
+    "plan",
+    "app.show",
+    "app.validate",
+    "app.package",
+    "topology.show",
+    "topology.validate",
+    "sandbox.show",
+    "sandbox.validate",
+    "sandbox.choose",
+    "sandbox.resolve"
+  ]);
+  if (runlessScenarios.has(target.capability)) {
+    const cliOut = runScenarioCli(target.capability, cliWorkspace);
+    const mcpOut = await runScenarioMcp(target.capability, mcp, mcpWorkspace);
+    return {
+      cliPayload: canonicalScenario(cliOut, {
+        workspaceRoots: [cliWorkspace],
+        runIds: cliOut.runId ? [cliOut.runId] : []
+      }),
+      mcpPayload: canonicalScenario(mcpOut, {
+        workspaceRoots: [mcpWorkspace],
+        runIds: mcpOut.runId ? [mcpOut.runId] : []
+      })
+    };
+  }
+
+  const topologyScenarios = new Set(["topology.apply", "topology.summary", "topology.graph"]);
+  const cliPlan = topologyScenarios.has(target.capability) ? bootstrapTopologyRun(cliWorkspace) : bootstrapRun(cliWorkspace);
+  const mcpPlan = topologyScenarios.has(target.capability) ? bootstrapTopologyRun(mcpWorkspace) : bootstrapRun(mcpWorkspace);
+  if (target.capability === "topology.summary" || target.capability === "topology.graph") {
+    applyTopologyCli(cliWorkspace, cliPlan.runId);
+    await applyTopologyMcp(mcp, mcpWorkspace, mcpPlan.runId);
+  }
+  if (target.capability === "summary.show") {
+    refreshSummaryCli(cliWorkspace, cliPlan.runId);
+    await refreshSummaryMcp(mcp, mcpWorkspace, mcpPlan.runId);
+  }
+  const cliOut = runScenarioCli(target.capability, cliWorkspace, cliPlan.runId);
+  const mcpOut = await runScenarioMcp(target.capability, mcp, mcpWorkspace, mcpPlan.runId);
+  return {
+    cliPayload: canonicalScenario(cliOut, {
+      workspaceRoots: [cliWorkspace],
+      runIds: [cliPlan.runId]
+    }),
+    mcpPayload: canonicalScenario(mcpOut, {
+      workspaceRoots: [mcpWorkspace],
+      runIds: [mcpPlan.runId]
+    })
+  };
 }
 
 function openMcp() {
@@ -140,15 +409,22 @@ async function payloadParity() {
     await mcp.rpc("initialize", {});
     for (const target of registry.payloadProbeTargets()) {
       const cap = capById(target.capability);
+      if (target.kind === "scenario") {
+        const result = await executeScenario(target, mcp);
+        checked.push(target.capability);
+        if (result.cliPayload !== result.mcpPayload) mismatches.push(target.capability);
+        continue;
+      }
       // jsonMode is the single source for the CLI's --json policy; this probe only
       // appends --json for "flag" verbs and JSON.parse-es the result. The human
       // rendering and "default"-verb no-flag JSON are pinned to cap.cli.jsonMode by
       // the companion test/cli-jsonmode-parity-smoke.js, so cli.ts can't silently
       // re-encode that policy by hand and drift from this registry data.
+      if (target.kind !== "global" && target.kind !== "run") throw new Error(`Unknown payload probe target kind: ${target.kind}`);
       const cliArgv = target.kind === "run"
         ? [...cap.cli.path, runId, ...jsonFlag(cap)]
         : [...cap.cli.path, ...jsonFlag(cap)];
-      const cliOut = JSON.parse(execFileSync(node, [cli, ...cliArgv], { cwd: workspace, encoding: "utf8" }));
+      const cliOut = runCli(cliArgv, workspace);
       const mcpArgs = target.kind === "run" ? { cwd: workspace, runId } : { cwd: workspace };
       const mcpOut = await mcp.tool(cap.mcp.tool, mcpArgs);
       checked.push(target.capability);

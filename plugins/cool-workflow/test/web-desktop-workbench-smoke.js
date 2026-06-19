@@ -101,11 +101,8 @@ async function main() {
   assert.ok(runId, "planned run has an id");
 
   const runner = new CoolWorkflowRunner({ pluginRoot });
-  // The core view loads the run from process.cwd() (like the MCP surface chdirs
-  // to args.cwd, and the host chdirs to its bound cwd). Anchor the in-process
-  // calls to the workspace so they read the bootstrapped run.
-  process.chdir(workspace);
-  const view = buildWorkbenchRunView(runner, runId);
+  const scopedRunner = runner.withBaseDir(workspace);
+  const view = buildWorkbenchRunView(scopedRunner, runId);
 
   // ---- 1. shape + the five operator panels exist ---------------------------
   assert.equal(view.schemaVersion, 1);
@@ -211,7 +208,7 @@ async function main() {
   assert.deepEqual(listRunDir(runId), beforeListing, "serving writes nothing to .cw/runs/<id>");
 
   // ---- 4. fail closed: an absent run is resolved:false, all panels absent ---
-  const ghost = buildWorkbenchRunView(runner, "does-not-exist-000");
+  const ghost = buildWorkbenchRunView(scopedRunner, "does-not-exist-000");
   assert.equal(ghost.resolved, false, "absent run is unresolved");
   assert.ok(ghost.error, "absent run carries an honest error");
   for (const group of Object.values(ghost.panels)) {

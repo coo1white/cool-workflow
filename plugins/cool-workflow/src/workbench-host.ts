@@ -113,13 +113,7 @@ export class WorkbenchHost {
       }
       const runMatch = /^\/api\/run\/([^/]+)$/.exec(route);
       if (runMatch) {
-        const previousCwd = process.cwd();
-        process.chdir(this.cwd);
-        try {
-          return this.send(res, 200, buildWorkbenchRunView(this.runner, runMatch[1]));
-        } finally {
-          process.chdir(previousCwd);
-        }
+        return this.send(res, 200, buildWorkbenchRunView(this.runner.withBaseDir(this.cwd), runMatch[1]));
       }
       this.send(res, 404, { error: `no such read-only view: ${route}` });
     } catch (error) {
