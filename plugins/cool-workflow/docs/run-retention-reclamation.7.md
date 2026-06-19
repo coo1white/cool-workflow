@@ -210,3 +210,5 @@ Loaders fail closed on corrupt state; store writes are made safe under more than
 No other change to this page in v0.1.84.
 
 0.1.85
+
+0.1.86

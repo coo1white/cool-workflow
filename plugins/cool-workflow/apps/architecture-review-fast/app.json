@@ -3,7 +3,7 @@
   "id": "architecture-review-fast",
   "title": "Architecture Review Fast",
   "summary": "Run a shorter architecture review with parallel map and assess phases for faster first results.",
-  "version": "0.1.85",
+  "version": "0.1.86",
   "author": "COOLWHITE LLC",
   "inputs": [
     {

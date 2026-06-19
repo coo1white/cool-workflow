@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.86
+
+- **Capability**: A new user now gets a clearer and faster first run: `doctor --onramp` points from zero-write `quickstart --check` to `quickstart --bundle` and offline `report verify-bundle`, while the README path is covered by an end-to-end smoke.
+- **Implementation**: Added the onramp contract gate, first-run README smoke, fast-review source-context metrics, strong-phase source-context prompts, explicit-cwd MCP/Workbench hardening, broader CLI/MCP scenario payload probes, batched source-context reads, and focused `test:ci` timing summaries.
+- **Tests**: Added and split deterministic smokes for quickstart checks, README bundle handoff, onramp checks, source-context batching, run-all JSON summaries, dogfood architecture review, topology scenarios, and long-tail timing proof. `test:ci` now has more margin under 120s: the latest local run was 110/110 with 104909ms wall time.
+- **Risk**: Low to medium. Most user-facing behavior is opt-in or diagnostic; default JSON/stdout surfaces stay stable. The larger changes are in test structure, release/onramp tooling, MCP surface routing, and docs.
+
 - **Docs**: The README and agent memory now name the two project rules:
   FreeBSD-style engineering discipline inside the code, and a
   Homebrew-like small command surface for doctor, verify, and recovery.

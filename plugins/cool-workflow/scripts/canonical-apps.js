@@ -83,7 +83,7 @@ const canonicalApps = [
       "--source",
       "plugins/cool-workflow/docs/workflow-app-framework.7.md",
       "--scope",
-      "Cool Workflow v0.1.85",
+      "Cool Workflow v0.1.86",
       "--freshness",
       "as of release preparation"
     ]
@@ -117,14 +117,14 @@ function main() {
     assert.ok(summary, `${app.id} must appear in app list`);
     assert.equal(summary.sourceKind, "app-directory");
     assert.equal(summary.legacy, false);
-    assert.equal(summary.version, "0.1.85");
+    assert.equal(summary.version, "0.1.86");
 
     const validation = runJson(["app", "validate", manifestPath]);
     assert.equal(validation.valid, true, `${app.id} manifest must validate`);
 
     const shown = runJson(["app", "show", app.id]);
     assert.equal(shown.app.id, app.id);
-    assert.equal(shown.app.version, "0.1.85");
+    assert.equal(shown.app.version, "0.1.86");
     assert.ok(shown.app.metadata.canonical, `${app.id} must be marked canonical`);
     assert.ok(shown.app.sandboxProfiles.length > 0, `${app.id} must declare sandbox profiles`);
     assertTaskIdsUnique(shown);
@@ -135,7 +135,7 @@ function main() {
     const plan = runJson(["plan", app.id, ...app.args(workspace)]);
     const state = JSON.parse(fs.readFileSync(plan.statePath, "utf8"));
     assert.equal(state.workflow.app.id, app.id);
-    assert.equal(state.workflow.app.version, "0.1.85");
+    assert.equal(state.workflow.app.version, "0.1.86");
     assert.equal(state.workflow.app.metadata.canonical, true);
     assert.ok(state.tasks.some((task) => task.requiresEvidence), `${app.id} plan must include evidence gates`);
     assert.ok(state.tasks.every((task) => task.sandboxProfileId), `${app.id} plan must include sandbox hints`);
