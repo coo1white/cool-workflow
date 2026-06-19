@@ -31,6 +31,8 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 const registry = require(path.join(pluginRoot, "dist", "capability-registry.js"));
 const { formatHelp } = require(path.join(pluginRoot, "dist", "orchestrator.js"));
+const { loadRunFromCwd, saveCheckpoint } = require(path.join(pluginRoot, "dist", "state.js"));
+const { appendRunNode, createStateNode } = require(path.join(pluginRoot, "dist", "state-node.js"));
 
 function capById(id) {
   const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === id);
@@ -111,6 +113,8 @@ function canonicalScenario(value, context) {
     text = replaceAllLiteral(text, runId, "<runId>");
   }
   return text
+    .replace(/"durationMs":\d+/g, '"durationMs":<ms>')
+    .replace(/dispatch-\d{8}T\d{6}Z-\d{4}/g, "dispatch-<ts>-<seq>")
     .replace(/(architecture-review|end-to-end-golden-path)-\d{8}T\d{6}Z-[a-f0-9]+/g, "<runId>")
     .replace(/sha256:[a-f0-9]{32,64}/g, "sha256:<hash>")
     .replace(/[a-f0-9]{64}/g, "<hex64>");
@@ -118,7 +122,7 @@ function canonicalScenario(value, context) {
 
 function makeWorkspace(label) {
   const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `cw-parity-${label}-`)));
-  fs.writeFileSync(path.join(workspace, "README.md"), `# ${label}\n`, "utf8");
+  fs.writeFileSync(path.join(workspace, "README.md"), "# CLI/MCP parity fixture\n", "utf8");
   return workspace;
 }
 
@@ -128,6 +132,189 @@ function bootstrapRun(workspace) {
 
 function bootstrapTopologyRun(workspace) {
   return runCli(["plan", "architecture-review", "--repo", workspace, "--question", "CLI/MCP topology scenario parity"], workspace);
+}
+
+function writeParityResult(resultPath) {
+  fs.writeFileSync(
+    resultPath,
+    [
+      "# Result",
+      "",
+      "Deterministic parity result.",
+      "",
+      "```cw:result",
+      '{ "summary": "parity result", "findings": [], "evidence": ["README.md:1"] }',
+      "```",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+}
+
+function readmePath(workspace) {
+  return path.join(workspace, "README.md");
+}
+
+function dispatchWorkerCli(workspace, runId) {
+  const dispatch = runCli(["dispatch", runId, "--limit", "1"], workspace);
+  const task = dispatch.tasks[0];
+  assert.ok(task?.workerId, `${runId}: dispatch produced no worker id`);
+  assert.ok(task.workerResultPath, `${runId}: dispatch produced no worker result path`);
+  return {
+    workerId: task.workerId,
+    taskId: task.id,
+    resultPath: task.workerResultPath
+  };
+}
+
+async function dispatchWorkerMcp(mcp, workspace, runId) {
+  const dispatch = await mcp.tool("cw_dispatch", { cwd: workspace, runId, limit: 1 });
+  const task = dispatch.tasks[0];
+  assert.ok(task?.workerId, `${runId}: MCP dispatch produced no worker id`);
+  assert.ok(task.workerResultPath, `${runId}: MCP dispatch produced no worker result path`);
+  return {
+    workerId: task.workerId,
+    taskId: task.id,
+    resultPath: task.workerResultPath
+  };
+}
+
+function workerOutputCli(workspace, runId, worker) {
+  writeParityResult(worker.resultPath);
+  runCli(["worker", "output", runId, worker.workerId, worker.resultPath], workspace);
+  return worker;
+}
+
+async function workerOutputMcp(mcp, workspace, runId, worker) {
+  writeParityResult(worker.resultPath);
+  await mcp.tool("cw_worker_output", { cwd: workspace, runId, workerId: worker.workerId, resultPath: worker.resultPath });
+  return worker;
+}
+
+function verifiedWorkerCli(workspace, runId) {
+  return workerOutputCli(workspace, runId, dispatchWorkerCli(workspace, runId));
+}
+
+async function verifiedWorkerMcp(mcp, workspace, runId) {
+  return workerOutputMcp(mcp, workspace, runId, await dispatchWorkerMcp(mcp, workspace, runId));
+}
+
+function registerCandidateCli(workspace, runId, worker, candidateId = "parity-candidate") {
+  runCli(["candidate", "register", runId, "--id", candidateId, "--worker", worker.workerId, "--kind", "worker-output"], workspace);
+  return { candidateId, worker };
+}
+
+async function registerCandidateMcp(mcp, workspace, runId, worker, candidateId = "parity-candidate") {
+  await mcp.tool("cw_candidate_register", { cwd: workspace, runId, id: candidateId, worker: worker.workerId, kind: "worker-output" });
+  return { candidateId, worker };
+}
+
+function scoreCandidateCli(workspace, runId, candidateId) {
+  return runCli([
+    "candidate",
+    "score",
+    runId,
+    candidateId,
+    "--criterion",
+    "correctness=4",
+    "--criterion",
+    "evidence=4",
+    "--criterion",
+    "fit=2",
+    "--max",
+    "10",
+    "--evidence",
+    "README.md:1",
+    "--notes",
+    "parity score",
+    "--scorer",
+    "parity"
+  ], workspace);
+}
+
+async function scoreCandidateMcp(mcp, workspace, runId, candidateId) {
+  return mcp.tool("cw_candidate_score", {
+    cwd: workspace,
+    runId,
+    candidateId,
+    criterion: ["correctness=4", "evidence=4", "fit=2"],
+    max: 10,
+    evidence: ["README.md:1"],
+    notes: "parity score",
+    scorer: "parity"
+  });
+}
+
+function failedWorkerFeedbackCli(workspace, runId) {
+  const worker = dispatchWorkerCli(workspace, runId);
+  const failed = runCli([
+    "worker",
+    "fail",
+    runId,
+    worker.workerId,
+    "parity failure",
+    "--code",
+    "runtime-error",
+    "--path",
+    readmePath(workspace)
+  ], workspace);
+  const feedbackId = failed.feedbackIds?.[0];
+  assert.ok(feedbackId, `${runId}: worker failure produced no feedback id`);
+  return { worker, feedbackId };
+}
+
+async function failedWorkerFeedbackMcp(mcp, workspace, runId) {
+  const worker = await dispatchWorkerMcp(mcp, workspace, runId);
+  const failed = await mcp.tool("cw_worker_fail", {
+    cwd: workspace,
+    runId,
+    workerId: worker.workerId,
+    message: "parity failure",
+    code: "runtime-error",
+    path: readmePath(workspace)
+  });
+  const feedbackId = failed.feedbackIds?.[0];
+  assert.ok(feedbackId, `${runId}: MCP worker failure produced no feedback id`);
+  return { worker, feedbackId };
+}
+
+function seedFailedNode(workspace, runId) {
+  const run = loadRunFromCwd(runId, workspace);
+  const nodeId = `${run.id}:parity:failed-node`;
+  if (!(run.nodes || []).some((node) => node.id === nodeId)) {
+    appendRunNode(run, createStateNode({
+      id: nodeId,
+      kind: "error",
+      status: "failed",
+      loopStage: "adjust",
+      errors: [{
+        code: "runtime-error",
+        message: "parity collect failure",
+        at: "2020-01-01T00:00:00.000Z",
+        path: readmePath(workspace),
+        retryable: false
+      }],
+      metadata: { pipelineStage: "parity" }
+    }));
+    saveCheckpoint(run);
+  }
+  return nodeId;
+}
+
+function seedVerifiedNode(workspace, runId) {
+  const run = loadRunFromCwd(runId, workspace);
+  const nodeId = `${run.id}:parity:verified-node`;
+  if (!(run.nodes || []).some((node) => node.id === nodeId)) {
+    appendRunNode(run, createStateNode({
+      id: nodeId,
+      kind: "verifier",
+      status: "verified",
+      loopStage: "adjust",
+      evidence: [{ id: "parity:verified", source: "test", locator: "README.md:1" }]
+    }));
+    saveCheckpoint(run);
+  }
+  return nodeId;
 }
 
 function sandboxProfileFile(workspace) {
@@ -193,7 +380,118 @@ function scenarioWorkspacePair(capability) {
   };
 }
 
-function runScenarioCli(capability, workspace, runId) {
+const RUNLESS_SCENARIOS = new Set([
+  "plan",
+  "app.show",
+  "app.validate",
+  "app.package",
+  "topology.show",
+  "topology.validate",
+  "sandbox.show",
+  "sandbox.validate",
+  "sandbox.choose",
+  "sandbox.resolve"
+]);
+
+const TOPOLOGY_SCENARIOS = new Set(["topology.apply", "topology.summary", "topology.graph"]);
+
+function prepareRegisteredCandidateCli(workspace, runId, candidateId = "parity-candidate") {
+  return registerCandidateCli(workspace, runId, verifiedWorkerCli(workspace, runId), candidateId);
+}
+
+async function prepareRegisteredCandidateMcp(mcp, workspace, runId, candidateId = "parity-candidate") {
+  return registerCandidateMcp(mcp, workspace, runId, await verifiedWorkerMcp(mcp, workspace, runId), candidateId);
+}
+
+function prepareScoredCandidateCli(workspace, runId, candidateId = "parity-candidate") {
+  const candidate = prepareRegisteredCandidateCli(workspace, runId, candidateId);
+  scoreCandidateCli(workspace, runId, candidate.candidateId);
+  return candidate;
+}
+
+async function prepareScoredCandidateMcp(mcp, workspace, runId, candidateId = "parity-candidate") {
+  const candidate = await prepareRegisteredCandidateMcp(mcp, workspace, runId, candidateId);
+  await scoreCandidateMcp(mcp, workspace, runId, candidate.candidateId);
+  return candidate;
+}
+
+function prepareScenarioCli(capability, workspace, runId) {
+  switch (capability) {
+    case "worker.list":
+    case "worker.show":
+    case "worker.manifest":
+    case "worker.validate":
+    case "worker.fail":
+      return { worker: dispatchWorkerCli(workspace, runId) };
+    case "worker.output": {
+      const worker = dispatchWorkerCli(workspace, runId);
+      writeParityResult(worker.resultPath);
+      return { worker };
+    }
+    case "candidate.register":
+      return { worker: verifiedWorkerCli(workspace, runId), candidateId: "parity-candidate" };
+    case "candidate.list":
+    case "candidate.show":
+    case "candidate.score":
+    case "candidate.reject":
+      return prepareRegisteredCandidateCli(workspace, runId);
+    case "candidate.rank":
+    case "candidate.select":
+      return prepareScoredCandidateCli(workspace, runId);
+    case "feedback.collect":
+      return { failedNodeId: seedFailedNode(workspace, runId) };
+    case "feedback.list":
+    case "feedback.show":
+    case "feedback.task":
+      return failedWorkerFeedbackCli(workspace, runId);
+    case "feedback.resolve": {
+      const feedback = failedWorkerFeedbackCli(workspace, runId);
+      return { ...feedback, verifierNodeId: seedVerifiedNode(workspace, runId) };
+    }
+    default:
+      return {};
+  }
+}
+
+async function prepareScenarioMcp(capability, mcp, workspace, runId) {
+  switch (capability) {
+    case "worker.list":
+    case "worker.show":
+    case "worker.manifest":
+    case "worker.validate":
+    case "worker.fail":
+      return { worker: await dispatchWorkerMcp(mcp, workspace, runId) };
+    case "worker.output": {
+      const worker = await dispatchWorkerMcp(mcp, workspace, runId);
+      writeParityResult(worker.resultPath);
+      return { worker };
+    }
+    case "candidate.register":
+      return { worker: await verifiedWorkerMcp(mcp, workspace, runId), candidateId: "parity-candidate" };
+    case "candidate.list":
+    case "candidate.show":
+    case "candidate.score":
+    case "candidate.reject":
+      return prepareRegisteredCandidateMcp(mcp, workspace, runId);
+    case "candidate.rank":
+    case "candidate.select":
+      return prepareScoredCandidateMcp(mcp, workspace, runId);
+    case "feedback.collect":
+      return { failedNodeId: seedFailedNode(workspace, runId) };
+    case "feedback.list":
+    case "feedback.show":
+    case "feedback.task":
+      return failedWorkerFeedbackMcp(mcp, workspace, runId);
+    case "feedback.resolve": {
+      const feedback = await failedWorkerFeedbackMcp(mcp, workspace, runId);
+      return { ...feedback, verifierNodeId: seedVerifiedNode(workspace, runId) };
+    }
+    default:
+      return {};
+  }
+}
+
+function runScenarioCli(capability, workspace, runId, context = {}) {
   switch (capability) {
     case "plan":
       return runCli(["plan", "end-to-end-golden-path", "--question", "CLI/MCP scenario payload parity"], workspace);
@@ -246,12 +544,48 @@ function runScenarioCli(capability, workspace, runId) {
         "commit,selection",
         "--allow-self-approval"
       ], workspace);
+    case "worker.list":
+      return runCli(["worker", "list", runId], workspace);
+    case "worker.show":
+      return runCli(["worker", "show", runId, context.worker.workerId], workspace);
+    case "worker.manifest":
+      return runCli(["worker", "manifest", runId, context.worker.workerId], workspace);
+    case "worker.output":
+      return runCli(["worker", "output", runId, context.worker.workerId, context.worker.resultPath], workspace);
+    case "worker.fail":
+      return runCli(["worker", "fail", runId, context.worker.workerId, "parity failure", "--code", "runtime-error", "--path", readmePath(workspace)], workspace);
+    case "worker.validate":
+      return runCli(["worker", "validate", runId, context.worker.workerId, context.worker.resultPath], workspace);
+    case "candidate.list":
+      return runCli(["candidate", "list", runId], workspace);
+    case "candidate.show":
+      return runCli(["candidate", "show", runId, context.candidateId], workspace);
+    case "candidate.register":
+      return runCli(["candidate", "register", runId, "--id", context.candidateId, "--worker", context.worker.workerId, "--kind", "worker-output"], workspace);
+    case "candidate.score":
+      return scoreCandidateCli(workspace, runId, context.candidateId);
+    case "candidate.rank":
+      return runCli(["candidate", "rank", runId], workspace);
+    case "candidate.select":
+      return runCli(["candidate", "select", runId, context.candidateId, "--reason", "parity selected", "--selectedBy", "parity"], workspace);
+    case "candidate.reject":
+      return runCli(["candidate", "reject", runId, context.candidateId, "--reason", "parity rejected"], workspace);
+    case "feedback.list":
+      return runCli(["feedback", "list", runId], workspace);
+    case "feedback.show":
+      return runCli(["feedback", "show", runId, context.feedbackId], workspace);
+    case "feedback.collect":
+      return runCli(["feedback", "collect", runId], workspace);
+    case "feedback.task":
+      return runCli(["feedback", "task", runId, context.feedbackId, "--verify", "npm test"], workspace);
+    case "feedback.resolve":
+      return runCli(["feedback", "resolve", runId, context.feedbackId, "--status", "resolved", "--node", context.verifierNodeId, "--message", "parity resolved"], workspace);
     default:
       throw new Error(`No CLI payload scenario for ${capability}`);
   }
 }
 
-async function runScenarioMcp(capability, mcp, workspace, runId) {
+async function runScenarioMcp(capability, mcp, workspace, runId, context = {}) {
   switch (capability) {
     case "plan":
       return mcp.tool("cw_plan", { cwd: workspace, workflowId: "end-to-end-golden-path", question: "CLI/MCP scenario payload parity" });
@@ -300,6 +634,42 @@ async function runScenarioMcp(capability, mcp, workspace, runId) {
         appliesTo: "commit,selection",
         allowSelfApproval: true
       });
+    case "worker.list":
+      return mcp.tool("cw_worker_list", { cwd: workspace, runId });
+    case "worker.show":
+      return mcp.tool("cw_worker_show", { cwd: workspace, runId, workerId: context.worker.workerId });
+    case "worker.manifest":
+      return mcp.tool("cw_worker_manifest", { cwd: workspace, runId, workerId: context.worker.workerId });
+    case "worker.output":
+      return mcp.tool("cw_worker_output", { cwd: workspace, runId, workerId: context.worker.workerId, resultPath: context.worker.resultPath });
+    case "worker.fail":
+      return mcp.tool("cw_worker_fail", { cwd: workspace, runId, workerId: context.worker.workerId, message: "parity failure", code: "runtime-error", path: readmePath(workspace) });
+    case "worker.validate":
+      return mcp.tool("cw_worker_validate", { cwd: workspace, runId, workerId: context.worker.workerId, resultPath: context.worker.resultPath });
+    case "candidate.list":
+      return mcp.tool("cw_candidate_list", { cwd: workspace, runId });
+    case "candidate.show":
+      return mcp.tool("cw_candidate_show", { cwd: workspace, runId, candidateId: context.candidateId });
+    case "candidate.register":
+      return mcp.tool("cw_candidate_register", { cwd: workspace, runId, id: context.candidateId, worker: context.worker.workerId, kind: "worker-output" });
+    case "candidate.score":
+      return scoreCandidateMcp(mcp, workspace, runId, context.candidateId);
+    case "candidate.rank":
+      return mcp.tool("cw_candidate_rank", { cwd: workspace, runId });
+    case "candidate.select":
+      return mcp.tool("cw_candidate_select", { cwd: workspace, runId, candidateId: context.candidateId, reason: "parity selected", selectedBy: "parity" });
+    case "candidate.reject":
+      return mcp.tool("cw_candidate_reject", { cwd: workspace, runId, candidateId: context.candidateId, reason: "parity rejected" });
+    case "feedback.list":
+      return mcp.tool("cw_feedback_list", { cwd: workspace, runId });
+    case "feedback.show":
+      return mcp.tool("cw_feedback_show", { cwd: workspace, runId, feedbackId: context.feedbackId });
+    case "feedback.collect":
+      return mcp.tool("cw_feedback_collect", { cwd: workspace, runId });
+    case "feedback.task":
+      return mcp.tool("cw_feedback_task", { cwd: workspace, runId, feedbackId: context.feedbackId, verify: "npm test" });
+    case "feedback.resolve":
+      return mcp.tool("cw_feedback_resolve", { cwd: workspace, runId, feedbackId: context.feedbackId, status: "resolved", node: context.verifierNodeId, message: "parity resolved" });
     default:
       throw new Error(`No MCP payload scenario for ${capability}`);
   }
@@ -307,19 +677,7 @@ async function runScenarioMcp(capability, mcp, workspace, runId) {
 
 async function executeScenario(target, mcp) {
   const { cliWorkspace, mcpWorkspace } = scenarioWorkspacePair(target.capability);
-  const runlessScenarios = new Set([
-    "plan",
-    "app.show",
-    "app.validate",
-    "app.package",
-    "topology.show",
-    "topology.validate",
-    "sandbox.show",
-    "sandbox.validate",
-    "sandbox.choose",
-    "sandbox.resolve"
-  ]);
-  if (runlessScenarios.has(target.capability)) {
+  if (RUNLESS_SCENARIOS.has(target.capability)) {
     const cliOut = runScenarioCli(target.capability, cliWorkspace);
     const mcpOut = await runScenarioMcp(target.capability, mcp, mcpWorkspace);
     return {
@@ -334,9 +692,8 @@ async function executeScenario(target, mcp) {
     };
   }
 
-  const topologyScenarios = new Set(["topology.apply", "topology.summary", "topology.graph"]);
-  const cliPlan = topologyScenarios.has(target.capability) ? bootstrapTopologyRun(cliWorkspace) : bootstrapRun(cliWorkspace);
-  const mcpPlan = topologyScenarios.has(target.capability) ? bootstrapTopologyRun(mcpWorkspace) : bootstrapRun(mcpWorkspace);
+  const cliPlan = TOPOLOGY_SCENARIOS.has(target.capability) ? bootstrapTopologyRun(cliWorkspace) : bootstrapRun(cliWorkspace);
+  const mcpPlan = TOPOLOGY_SCENARIOS.has(target.capability) ? bootstrapTopologyRun(mcpWorkspace) : bootstrapRun(mcpWorkspace);
   if (target.capability === "topology.summary" || target.capability === "topology.graph") {
     applyTopologyCli(cliWorkspace, cliPlan.runId);
     await applyTopologyMcp(mcp, mcpWorkspace, mcpPlan.runId);
@@ -345,8 +702,10 @@ async function executeScenario(target, mcp) {
     refreshSummaryCli(cliWorkspace, cliPlan.runId);
     await refreshSummaryMcp(mcp, mcpWorkspace, mcpPlan.runId);
   }
-  const cliOut = runScenarioCli(target.capability, cliWorkspace, cliPlan.runId);
-  const mcpOut = await runScenarioMcp(target.capability, mcp, mcpWorkspace, mcpPlan.runId);
+  const cliContext = prepareScenarioCli(target.capability, cliWorkspace, cliPlan.runId);
+  const mcpContext = await prepareScenarioMcp(target.capability, mcp, mcpWorkspace, mcpPlan.runId);
+  const cliOut = runScenarioCli(target.capability, cliWorkspace, cliPlan.runId, cliContext);
+  const mcpOut = await runScenarioMcp(target.capability, mcp, mcpWorkspace, mcpPlan.runId, mcpContext);
   return {
     cliPayload: canonicalScenario(cliOut, {
       workspaceRoots: [cliWorkspace],
