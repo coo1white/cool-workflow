@@ -349,6 +349,12 @@ an exception with no reason, a bad probe classification, a changed payload — a
 checking that the gate says no to each one. It is part of `npm test` and
 `npm run release:check`.
 
+The scenario probes now cover local worker/candidate/feedback read and write
+paths. They make temp runs, send out a worker, write a fixed `result.md`, score
+and pick a candidate, and make feedback from local state. No outside agent is
+run; the probe checks only that CLI and MCP carry the same JSON to the same CW
+core.
+
 In CW, parity is not a custom; it is a built, declared, and kept property of the
 build. It is not done till it is put in the docs and tested.
 
