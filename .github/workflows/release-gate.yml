@@ -40,4 +40,5 @@ jobs:
             fi
           done
           echo "::error::No committed APPROVED verdict for this tag. The release flow was bypassed."
+          echo "::error::Expected: .cw-release/review-<sha>.verdict with first line 'APPROVED <sha>' — auto-created by release-flow.js --cut"
           exit 1

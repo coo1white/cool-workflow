@@ -4,7 +4,7 @@
 
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
-| 6 | bump version to 0.1.87, sync all 22 content surfaces, forward-ref docs | package.json + src/version.ts + manifest/* + apps/*/app.json + scripts/* + test/* + docs/*.7.md + README.md + RELEASE.md + CHANGELOG.md | all 115 smokes pass (version bump is existing test surface) | BUILD OK; npm test 115/115; parity PASS; manifests in-sync | yes — v0.1.87 |
+| 7 | harden verdict contract documentation: add path/format comment in release-flow.js, checklist item #13 in RELEASE.md, improved error message in release-gate.yml | plugins/cool-workflow/scripts/release-flow.js + RELEASE.md + .github/workflows/release-gate.yml + ITERATION_LOG.md | none (docs/error-message only) | BUILD OK; npm test 115/115; parity PASS | no (docs only) |
 
 ## Batch — remaining Homebrew-style polish (Unreleased)
 
