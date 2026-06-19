@@ -7,6 +7,11 @@
 - **Tests**: Added `concurrency-default-smoke.js` (113 smokes total). Full suite: 113/113 passed, 0 failed.
 - **Risk**: Low. Test sandbox isolation (private cwd/HOME/state per child) already prevents concurrency races. The gate path explicitly overrides the default, so tag behavior is unchanged.
 
+- **Capability**: Gemini and OpenCode now have builtin agent wrappers (`builtin:gemini`, `builtin:opencode`), joining Claude and Codex. All four vendors are usable as agent delegation backends via `CW_AGENT_COMMAND=builtin:<name>` or `--agent-command builtin:<name>`.
+- **Implementation**: Added `scripts/agents/gemini-agent.js` (streams `gemini -p --output-format stream-json --approval-mode plan`) and `scripts/agents/opencode-agent.js` (streams `opencode run --format json`). Both reuse `agent-adapter-core.js` for prompt building, JSONL parsing, result writing, and report emission. Added entries to `builtin-templates.json`.
+- **Tests**: Added `gemini-agent-wrapper-smoke.js` and `opencode-agent-wrapper-smoke.js` (PATH shim tests covering normal path, streaming, crash, garbage output, and builtin alias resolution). Full suite: 115/115 passed, 0 failed.
+- **Risk**: Low. Wrappers are additive config — no kernel changes. OpenCode uses `--dangerously-skip-permissions` since no native `--read-only` flag exists; CW's sandbox layer enforces write safety.
+
 ## 0.1.86
 
 - **Capability**: A new user now gets a clearer and faster first run: `doctor --onramp` points from zero-write `quickstart --check` to `quickstart --bundle` and offline `report verify-bundle`, while the README path is covered by an end-to-end smoke.

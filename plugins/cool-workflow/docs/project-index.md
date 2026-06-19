@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-19 by `npm run sync:projec
 - Source modules: `63`
 - Workflow apps: `7`
 - Docs: `51`
-- Smoke tests: `113`
+- Smoke tests: `115`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -222,6 +222,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [evidence-content-extraction-smoke.js](../test/evidence-content-extraction-smoke.js)
 - [execution-backends-smoke.js](../test/execution-backends-smoke.js)
 - [freebsd-audit-fixes-smoke.js](../test/freebsd-audit-fixes-smoke.js)
+- [gemini-agent-wrapper-smoke.js](../test/gemini-agent-wrapper-smoke.js)
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
 - [mcp-surface-registry-smoke.js](../test/mcp-surface-registry-smoke.js)
@@ -241,6 +242,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [observability-cost-accounting-smoke.js](../test/observability-cost-accounting-smoke.js)
 - [one-way-boundary-smoke.js](../test/one-way-boundary-smoke.js)
 - [onramp-check-smoke.js](../test/onramp-check-smoke.js)
+- [opencode-agent-wrapper-smoke.js](../test/opencode-agent-wrapper-smoke.js)
 - [operator-ux-smoke.js](../test/operator-ux-smoke.js)
 - [parallel-onramp-smoke.js](../test/parallel-onramp-smoke.js)
 - [parity-doc-sync-smoke.js](../test/parity-doc-sync-smoke.js)
