@@ -62,6 +62,14 @@ const BUILTIN_CAPABILITIES = [
         mcp: { tool: "cw_list" }
     },
     {
+        capability: "info",
+        summary: "Show what a workflow app does: title, description, inputs, sandbox, phases, and a runnable example.",
+        entry: "showApp",
+        surface: "cli-only",
+        cli: { path: ["info"], jsonMode: "flag" },
+        reason: "Human-focused workflow discovery tool (like Homebrew's `brew info`). MCP agents discover workflows via cw_list and cw_app_show tools."
+    },
+    {
         capability: "doctor",
         summary: "Diagnose the host for setup problems (Node version, agent backend, agent binary on PATH, git, writable home/repo state) and print an actionable fix per check.",
         entry: "runDoctor",

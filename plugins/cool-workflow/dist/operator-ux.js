@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatMultiAgentTrustAudit = exports.formatTopologySummary = exports.formatMultiAgentSummary = exports.formatCommitSummary = exports.formatFeedbackSummary = exports.formatCandidateSummary = exports.formatWorkerSummary = exports.formatOperatorGraph = exports.formatOperatorReport = exports.formatOperatorStatus = void 0;
+exports.formatMultiAgentTrustAudit = exports.formatTopologySummary = exports.formatMultiAgentSummary = exports.formatCommitSummary = exports.formatFeedbackSummary = exports.formatCandidateSummary = exports.formatWorkerSummary = exports.formatOperatorGraph = exports.formatOperatorReport = exports.formatOperatorSummary = exports.formatOperatorStatus = void 0;
 exports.summarizeOperatorRun = summarizeOperatorRun;
 exports.adviseNoRun = adviseNoRun;
 exports.summarizeOperatorWorkers = summarizeOperatorWorkers;
@@ -619,6 +619,7 @@ function safeId(value) {
 // surface.
 var format_1 = require("./operator-ux/format");
 Object.defineProperty(exports, "formatOperatorStatus", { enumerable: true, get: function () { return format_1.formatOperatorStatus; } });
+Object.defineProperty(exports, "formatOperatorSummary", { enumerable: true, get: function () { return format_1.formatOperatorSummary; } });
 Object.defineProperty(exports, "formatOperatorReport", { enumerable: true, get: function () { return format_1.formatOperatorReport; } });
 Object.defineProperty(exports, "formatOperatorGraph", { enumerable: true, get: function () { return format_1.formatOperatorGraph; } });
 Object.defineProperty(exports, "formatWorkerSummary", { enumerable: true, get: function () { return format_1.formatWorkerSummary; } });

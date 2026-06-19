@@ -17,6 +17,11 @@
 - **Tests**: Updated `cli-mcp-parity-smoke.js` and `scripts/parity-check.js` help-token parsers for the new categorized format. Full suite: 115/115 passed, 0 failed. Parity check: clean.
 - **Risk**: Low. All styling is TTY-gated (pipes get plain text). `--json` output is byte-identical. Help text format change is additive — old scripts that parsed text may need updating (parity-check.js and parity smoke updated in this cycle).
 
+- **Capability**: `cw info <app-id>` shows what a workflow app does — title, description, version, author, required inputs, sandbox profiles, phases, and a runnable `cw quickstart` example. `cw status --brief` shows a compact summary instead of the full multi-panel dump.
+- **Implementation**: Added `cw info` CLI command wired to `showApp()`, with `formatInfo()` rendering. Added `--brief` flag to `cw status` / `cw operator status`, using new `formatOperatorSummary()` (one line per run/phase + next action). Collapsed `formatOperatorStatus()` to reuse the summary as its header. Added `info` capability registry entry. Added `dim` styling to `term.ts`.
+- **Tests**: Updated `operator-ux-smoke.js` assertions for the combined Phase|Stage|Blocked line. Full suite: 115/115 passed, 0 failed.
+- **Risk**: Low. `cw info` is additive. `cw status` output format changed slightly (combined header line), but full panels are byte-identical via `--verbose` (default).
+
 ## 0.1.86
 
 - **Capability**: A new user now gets a clearer and faster first run: `doctor --onramp` points from zero-write `quickstart --check` to `quickstart --bundle` and offline `report verify-bundle`, while the README path is covered by an end-to-end smoke.

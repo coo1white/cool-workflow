@@ -75,6 +75,7 @@ import {
   formatOperatorGraph,
   formatOperatorReport,
   formatOperatorStatus,
+  formatOperatorSummary,
   formatTopologySummary,
   formatWorkerSummary
 } from "../operator-ux";
@@ -88,6 +89,7 @@ import { formatMultiAgentEval } from "../multi-agent-eval";
 import { formatBlackboardDigest, formatCompactGraph, formatStateExplosionReport } from "../state-explosion";
 import { formatEvidenceReasoningReport } from "../evidence-reasoning";
 import { runDoctor, formatDoctorReport } from "../doctor";
+import { formatInfo } from "../orchestrator";
 
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgv(argv);
@@ -105,6 +107,14 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "list":
       printJson(runner.listWorkflows());
       return;
+    case "info": {
+      const [appId] = args.positionals;
+      if (!appId) throw new Error("Missing workflow app id.\n  Tip: list apps with \"cw list\", then \"cw info <id>\" for details");
+      const data = runner.showApp(appId);
+      if (wantsJson(args.options)) printJson(data);
+      else process.stdout.write(`${formatInfo(appId, data)}\n`);
+      return;
+    }
     case "doctor": {
       const report = runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
       if (wantsJson(args.options)) printJson(report);
@@ -179,7 +189,10 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
         if (wantsJson(args.options)) printJson({ runId: null, nextActions });
         else process.stdout.write(`No run selected\n\nNext Action\n${nextActions.map((action) => `  ${action.command}\n    reason: ${action.reason}`).join("\n")}\n`);
       } else if (wantsJson(args.options)) printJson(runner.status(args.positionals[0]));
-      else process.stdout.write(`${formatOperatorStatus(runner.operatorStatus(args.positionals[0]))}\n`);
+      else {
+        const summary = runner.operatorStatus(args.positionals[0]);
+        process.stdout.write(`${(args.options.summary || args.options.brief ? formatOperatorSummary(summary) : formatOperatorStatus(summary))}\n`);
+      }
       return;
     case "next":
       printJson(runner.next(required(args.positionals[0], "run id"), args.options));
@@ -260,7 +273,10 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       switch (subcommand) {
         case "status":
           if (wantsJson(args.options)) printJson(runner.operatorStatus(required(runId, "run id")));
-          else process.stdout.write(`${formatOperatorStatus(runner.operatorStatus(required(runId, "run id")))}\n`);
+          else {
+            const summary = runner.operatorStatus(required(runId, "run id"));
+            process.stdout.write(`${(args.options.summary || args.options.brief ? formatOperatorSummary(summary) : formatOperatorStatus(summary))}\n`);
+          }
           return;
         case "report":
           if (wantsJson(args.options)) printJson(runner.operatorReport(required(runId, "run id")));
