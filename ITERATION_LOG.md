@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — Gemini + OpenCode agent wrappers (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 2 | add `builtin:gemini` and `builtin:opencode` agent wrappers, reusing `agent-adapter-core.js` | scripts/agents/gemini-agent.js + scripts/agents/opencode-agent.js + scripts/agents/builtin-templates.json + test/gemini-agent-wrapper-smoke.js + test/opencode-agent-wrapper-smoke.js + CHANGELOG.md + ITERATION_LOG.md + docs/project-index.md | gemini-agent-wrapper-smoke.js + opencode-agent-wrapper-smoke.js added (6 assertions each: happy path, streaming, crash, garbage, builtin alias) | BUILD OK; npm test 115/115; parity PASS; release:check PASS; gen/index/version/dist checks OK | no (capability cycle; no release requested) |
+
 ## Batch — npm test parallel default (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |
