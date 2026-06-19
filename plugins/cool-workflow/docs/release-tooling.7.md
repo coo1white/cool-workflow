@@ -205,6 +205,14 @@ an ungated tag gives a plain caveat instead and warns on stderr — the notes ne
 claim a review that is not there. Test seam: `CW_RELEASE_FLOW_GH_CMD` puts a stub in place of the `gh`
 binary (spawned `shell:false`) so the smoke runs it offline.
 
+### npm publishing trust
+
+The `npm-publish` GitHub Action uses npm Trusted Publishing. GitHub gives the
+job a short OIDC token, npm checks that the request is from this repo and
+workflow, and npm adds provenance for the package. The workflow does not use a
+long-lived `NPM_TOKEN`, so no publish token with two-factor bypass is kept in
+GitHub secrets.
+
 0.1.51
 
 0.1.76

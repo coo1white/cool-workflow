@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — npm Trusted Publishing release fix (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | move npm publish from long-lived `NPM_TOKEN` to npm Trusted Publishing so v0.1.86 can publish without two-factor bypass tokens | .github/workflows/npm-publish.yml + docs/release-tooling.7.md + ITERATION_LOG.md | npm-trusted-publish-smoke added | BUILD OK; npm test 111/111; release:check PASS; gen/index/version/dist checks OK | no (publish repair only; v0.1.86 tag already exists) |
+
 ## Batch — over-defensive review + Basic English description standard (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |
