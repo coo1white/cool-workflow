@@ -355,6 +355,11 @@ and pick a candidate, and make feedback from local state. No outside agent is
 run; the probe checks only that CLI and MCP carry the same JSON to the same CW
 core.
 
+They also cover local state-node read, snapshot, diff, replay, and replay-check
+paths from the same temp run. Snapshot and replay ids are made by CW, so the
+parity check sets aside only those made ids and timestamps before it compares the
+JSON.
+
 In CW, parity is not a custom; it is a built, declared, and kept property of the
 build. It is not done till it is put in the docs and tested.
 

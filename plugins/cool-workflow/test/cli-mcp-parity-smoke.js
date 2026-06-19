@@ -149,14 +149,21 @@ function openMcp() {
       "feedback.task",
       "feedback.resolve"
     ];
-    const scenarioCaps = [...firstBatchScenarioCaps, ...secondBatchScenarioCaps, ...localRunScenarioCaps];
+    const nodeScenarioCaps = [
+      "node.show",
+      "node.snapshot",
+      "node.diff",
+      "node.replay",
+      "node.replay.verify"
+    ];
+    const scenarioCaps = [...firstBatchScenarioCaps, ...secondBatchScenarioCaps, ...localRunScenarioCaps, ...nodeScenarioCaps];
     const targetByCapability = new Map(plan.targets.map((target) => [target.capability, target]));
     const deferredIds = new Set(plan.deferred.map((entry) => entry.capability));
     assert.deepEqual(plan.unclassified, [], "payload-identical capabilities must be probed or explicitly deferred");
     assert.deepEqual(plan.duplicateClassifications, [], "payload probe classification must not duplicate capabilities");
     assert.deepEqual(plan.invalidClassifications, [], "payload probe classification must only reference payload-identical capabilities");
     assert.ok(plan.targets.length > 30, "payload probe plan must grow beyond the original read-only coverage");
-    assert.equal(plan.targets.length, 68, "payload probe plan must include all local scenario target batches");
+    assert.equal(plan.targets.length, 73, "payload probe plan must include all local scenario target batches");
     assert.ok(plan.deferred.length > 0, "complex payload-identical capabilities must be explicitly deferred with reasons");
     for (const deferred of plan.deferred) {
       assert.ok(deferred.reason && deferred.reason.trim(), `${deferred.capability}: deferred payload probe must record a reason`);
@@ -256,7 +263,12 @@ function openMcp() {
       "feedback.show",
       "feedback.collect",
       "feedback.task",
-      "feedback.resolve"
+      "feedback.resolve",
+      "node.show",
+      "node.snapshot",
+      "node.diff",
+      "node.replay",
+      "node.replay.verify"
     ]) {
       const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === writeCap);
       assert.ok(cap, `${writeCap}: registry entry must exist`);
