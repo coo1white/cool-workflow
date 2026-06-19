@@ -6,7 +6,7 @@ Generated from the current repository code on 2026-06-19 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.86`
-- Source modules: `63`
+- Source modules: `64`
 - Workflow apps: `7`
 - Docs: `51`
 - Smoke tests: `115`
@@ -112,6 +112,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [telemetry-attestation.ts](../src/telemetry-attestation.ts)
 - [telemetry-demo.ts](../src/telemetry-demo.ts)
 - [telemetry-ledger.ts](../src/telemetry-ledger.ts)
+- [term.ts](../src/term.ts)
 - [validation.ts](../src/validation.ts)
 - [workbench-host.ts](../src/workbench-host.ts)
 - [workbench.ts](../src/workbench.ts)

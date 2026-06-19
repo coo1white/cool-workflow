@@ -36,8 +36,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CoolWorkflowRunner = void 0;
+exports.KNOWN_COMMANDS = exports.CoolWorkflowRunner = void 0;
 exports.parseArgv = parseArgv;
+exports.suggestCommand = suggestCommand;
 exports.formatHelp = formatHelp;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -68,6 +69,7 @@ const feedbackOps = __importStar(require("./orchestrator/feedback-operations"));
 const topologyOps = __importStar(require("./orchestrator/topology-operations"));
 const lifecycleOps = __importStar(require("./orchestrator/lifecycle-operations"));
 const migrationOps = __importStar(require("./orchestrator/migration-operations"));
+const term_1 = require("./term");
 // CoolWorkflowRunner — the single FACADE both surfaces (cli.ts and the MCP server)
 // call through. It is deliberately WIDE but THIN: each method either
 //   (a) loads the run's durable state and delegates to a domain function in
@@ -816,83 +818,128 @@ function parseArgv(argv) {
     }
     return { command, positionals, options };
 }
+/** All known top-level CW commands. Used for "did you mean?" suggestions. */
+exports.KNOWN_COMMANDS = new Set([
+    "help", "list", "doctor", "init", "quickstart", "plan", "status", "next",
+    "dispatch", "result", "state", "commit", "report", "app", "sandbox",
+    "backend", "contract", "node", "feedback", "worker", "audit", "candidate",
+    "review", "loop", "schedule", "routine", "registry", "run", "queue",
+    "history", "audit-run", "multi-agent", "topology", "summary", "blackboard",
+    "coordinator", "metrics", "operator", "sched", "gc", "telemetry",
+    "migration", "demo", "workbench", "approve", "reject", "comment", "handoff",
+    "graph", "eval"
+]);
+/** Levenshtein distance between two short strings. */
+function levenshtein(a, b) {
+    const m = a.length;
+    const n = b.length;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+    let curr = new Array(n + 1);
+    for (let i = 1; i <= m; i++) {
+        curr[0] = i;
+        for (let j = 1; j <= n; j++) {
+            curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        }
+        [prev, curr] = [curr, prev];
+    }
+    return prev[n];
+}
+/** Suggest the closest known command for a typo. Returns undefined if no match
+ *  within half the length of the input (avoiding wild guesses on short strings). */
+function suggestCommand(input) {
+    if (!input || input.length < 2)
+        return undefined;
+    const lower = input.toLowerCase();
+    let best = "";
+    let bestDist = Infinity;
+    for (const cmd of exports.KNOWN_COMMANDS) {
+        const dist = levenshtein(lower, cmd);
+        if (dist < bestDist) {
+            best = cmd;
+            bestDist = dist;
+        }
+    }
+    // Threshold: distance must be less than half the input length AND <= 3
+    if (bestDist <= 3 && bestDist < lower.length / 2)
+        return best;
+    return undefined;
+}
 function formatHelp() {
     return [
-        "Cool Workflow",
+        (0, term_1.bold)("Cool Workflow"),
         "",
-        "Quick start (ONE command — plan -> drive -> report):",
-        "  quickstart [architecture-review] --repo PATH --question TEXT --agent-command \"claude -p\"",
-        "    (delegates each worker to YOUR configured agent backend; --preview for a dry run)",
+        "  Quick start (one command — plan → drive → report):",
+        "    cw quickstart [app] --repo . --question \"...\" --agent-command builtin:claude",
+        "      (--preview for a dry run without an agent; --bundle for a portable sealed report)",
         "",
-        "Commands:",
-        "  list",
-        "  doctor [--json] [--onramp] [--changed-from REF]   (check setup and show the shortest safe next steps)",
-        "  init <workflow-id> [--title TEXT] [--output PATH]",
-        "  quickstart [app-id] [--repo PATH] [--question TEXT] [--agent-command CMD] [--check] [--once] [--preview]",
-        "  plan <workflow-id> [--repo PATH] [--question TEXT] [--invariant TEXT]",
-        "  status <run-id> [--json|--format json]",
-        "  next <run-id> [--limit N]",
-        "  graph <run-id> [--json]",
-        "  dispatch <run-id> [--limit N] [--sandbox PROFILE] [--backend node|bun|shell|container|remote|ci]",
-        "  result <run-id> <task-id> <result-file>",
-        "  state check <run-id> [--state PATH] [--write]",
-        "  commit <run-id> --verifier <node-id> [--reason TEXT]",
-        "  commit <run-id> --candidate <candidate-id> [--reason TEXT]",
-        "  commit <run-id> --selection <selection-id> [--reason TEXT]",
-        "  commit <run-id> --allow-unverified-checkpoint [--reason TEXT]",
-        "  commit summary <run-id> [--json]",
-        "  report <run-id> [--show|--summary]",
-        "  app list|show|validate|init|package",
-        "  sandbox list|show|validate",
-        "  backend list|show|probe [backend-id]",
-        "  contract show <run-id> [contract-id]",
-        "  node list|show|graph <run-id>",
-        "  feedback list|summary|show|collect|task|resolve <run-id>",
-        "  worker list|summary|show|manifest|output|fail|validate <run-id>",
-        "  audit summary <run-id>",
-        "  audit worker <run-id> <worker-id>",
-        "  audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]",
-        "  audit multi-agent <run-id> [--json]",
-        "  audit policy <run-id> [--json]",
-        "  audit role <run-id> <role-id> [--json]",
-        "  audit blackboard <run-id> [--json]",
-        "  audit judge <run-id> [--json]",
-        "  audit attest <run-id> [--worker ID] [--hostEnforced true] [--env NAME]",
-        "  audit decision <run-id> <worker-id> [--path PATH|--command CMD|--network TARGET|--env NAME]",
-        "  candidate list|summary|register|score|rank|select|reject <run-id>",
-        "  eval snapshot|replay|compare|score|gate|report",
-        "  summary refresh|show <run-id> [--json]",
-        "  blackboard summary|summarize|graph|resolve <run-id>",
-        "  blackboard topic create <run-id> --id <topic-id> --title TEXT",
-        "  blackboard message post|list <run-id>",
-        "  blackboard context put <run-id>",
-        "  blackboard artifact add|list <run-id>",
-        "  blackboard snapshot <run-id>",
-        "  coordinator summary <run-id>",
-        "  coordinator decision <run-id> --kind KIND --outcome OUTCOME --reason TEXT",
-        "  multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence <run-id>",
-        "  multi-agent graph <run-id> --view full|compact|critical-path|failures|evidence|trust|topology|blackboard|candidate|commit-gate [--focus ID] [--depth N]",
-        "  topology list|show|validate|apply|summary|graph",
-        "  schedule create|list|due|complete|pause|resume|run-now|history|daemon|delete",
-        "  routine create|fire|list|events|delete",
-        "  registry refresh|show [--scope repo|home] [--json]",
-        "  run search|list|show|resume|archive|rerun|export|import|verify-import [run-id|archive] [--scope repo|home] [--json]",
-        "  queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]",
-        "  history [--scope repo|home] [--app ID] [--status STATE] [--json]",
-        "  audit-run <app-id> [--repo PATH] [--question TEXT] [--agent-command CMD]",
-        "  metrics show|summary <run-id> [--scope repo|home] [--json]",
-        "  telemetry verify <run-id> [--pubkey PEM|PATH] [--json]",
-        "  gc plan|run|verify [run-id] [--json]",
-        "  sched plan|lease|release|complete|reclaim|reset|policy [--json]",
-        "  migration list|check|prove [target] [--json]",
-        "  operator status|report <run-id> [--json]",
-        "  review status|policy <run-id> [--json]",
-        "  approve|reject|comment <kind> <run-id> <target-id> [--reason TEXT]",
-        "  handoff <kind> <run-id> <target-id> [--to ROLE]",
-        "  loop --prompt TEXT [--interval-minutes N]",
-        "  demo tamper",
-        "  workbench view <run-id> [--json]",
-        "  workbench serve [--port N] [--scope repo|home] [--once|--json]",
+        (0, term_1.bold)("Getting Started"),
+        "  list                          List available workflow apps",
+        "  doctor [--json] [--onramp]    Check your setup and show the shortest safe next steps",
+        "  init <id> [--title T]         Create a new workflow app",
+        "  quickstart [app] [...]        Plan → drive → report in one command",
+        "  demo tamper|bundle            Prove trust checks work (30s, no agent needed)",
+        "",
+        (0, term_1.bold)("Run Management"),
+        "  plan <id> [--repo P] [--question Q]   Create a new run plan",
+        "  quickstart|audit-run [app] [...]       Plan → drive → report in one command",
+        "  status <run-id> [--json]              Show run status",
+        "  next <run-id> [--limit N]             Show pending dispatch tasks",
+        "  dispatch <run-id> [--limit N]         Dispatch tasks to workers",
+        "  result <run-id> <task-id> <file>      Record a task result",
+        "  state check <run-id> [--write]        Validate run state",
+        "  commit <run-id> <mode> [...]          Record a gated commit",
+        "  report <run-id> [--show|--summary]    Show the report (or bundle/verify-bundle)",
+        "  graph <run-id> [--json]               Show operator graph",
+        "",
+        (0, term_1.bold)("Inspection & Diagnostics"),
+        "  operator status|report <run-id> [--json]   Human-friendly operator panel",
+        "  metrics show|summary <run-id> [--json]     Cost and usage metrics",
+        "  telemetry verify <run-id> [--pubkey P]     Verify tamper-evident telemetry",
+        "  migration list|check|prove [target]        Schema migration tools",
+        "  gc plan|run|verify [run-id]                Garbage collection",
+        "",
+        (0, term_1.bold)("Audit & Trust"),
+        "  audit summary|worker|provenance|multi-agent|... <run-id>   Trust audit operations",
+        "  candidate list|register|score|rank|select|reject <run-id>  Candidate management",
+        "  node list|show|graph|snapshot|diff|replay|verify <run-id>  State-node inspection",
+        "  eval snapshot|replay|compare|score|gate|report             Eval/replay harness",
+        "",
+        (0, term_1.bold)("Multi‑Agent & Collaboration"),
+        "  multi-agent run|status|step|blackboard|score|... <run-id>   Multi-agent coordination",
+        "  topology list|show|validate|apply|summary|graph              Topology management",
+        "  blackboard summary|graph|resolve|topic|message|... <run-id>  Blackboard workspace",
+        "  coordinator summary|decision <run-id>                        Coordinator interface",
+        "  summary refresh|show <run-id>                                State explosion summaries",
+        "  approve|reject|comment <kind> <run-id> <id> [--reason T]    Team approval actions",
+        "  handoff <kind> <run-id> <id> [--to ROLE]                    Team handoff",
+        "  review status|policy <run-id> [--json]                      Review status",
+        "",
+        (0, term_1.bold)("Run Registry & Scheduling"),
+        "  run search|list|show|resume|archive|export|import <id>   Cross-repo run management",
+        "  registry refresh|show [--scope repo|home] [--json]       Run registry index",
+        "  queue add|list|drain|show [queue-id]                     Work queue operations",
+        "  history [--scope repo|home] [--json]                     Run history",
+        "  schedule create|list|due|complete|...                    Scheduled tasks",
+        "  routine create|fire|list|events|delete                   Event-driven triggers",
+        "  sched plan|lease|release|complete|...                    Lease-based scheduling",
+        "  loop --prompt T [--interval-minutes N]                   Continuous loop runner",
+        "",
+        (0, term_1.bold)("Developer & Workspace"),
+        "  app list|show|validate|init|package|run [id|path]    Workflow app management",
+        "  sandbox list|show|validate|choose|resolve [id]       Sandbox profiles",
+        "  backend list|show|probe [id]                         Agent execution backends",
+        "  contract show <run-id> [id]                          Run contract view",
+        "  worker list|summary|show|manifest|output|... <id>    Worker operations",
+        "  feedback list|show|summary|collect|task|resolve <id> Feedback loop",
+        "  workbench serve [--port N] | view <run-id>           Optional localhost workbench",
+        "",
+        (0, term_1.bold)("Common Flags"),
+        "  --json, --format json     Machine-readable JSON output",
+        "  --repo PATH               Target repository path",
+        "  --question TEXT           The task or question to answer",
+        "  --agent-command CMD       Agent backend (e.g. builtin:claude, builtin:codex)",
+        "  --scope repo|home         Scope for cross-repo operations",
+        "  --cwd PATH                Working directory override",
         ""
     ].join("\n");
 }

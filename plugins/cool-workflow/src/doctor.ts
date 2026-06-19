@@ -19,6 +19,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveAgentConfig } from "./agent-config";
 import { buildDoctorOnramp, DoctorOnramp, optionEnabled } from "./onramp";
+import { doctorGlyph, bold, green, red } from "./term";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
 export interface DoctorCheck {
@@ -157,14 +158,14 @@ export function runDoctor(
 
 /** Human rendering (TTY/default). `--json` callers use the report object directly. */
 export function formatDoctorReport(report: DoctorReport): string {
-  const glyph: Record<DoctorStatus, string> = { ok: "✓", warn: "!", fail: "✗" };
-  const lines = ["cw doctor"];
+  const lines = [bold("cw doctor")];
   for (const check of report.checks) {
-    lines.push(`  ${glyph[check.status]} ${check.name}: ${check.detail}`);
+    lines.push(`  ${doctorGlyph(check.status)} ${check.name}: ${check.detail}`);
     if (check.fix && check.status !== "ok") lines.push(`      fix: ${check.fix}`);
   }
   lines.push("");
-  lines.push(`${report.ok ? "✓" : "✗"} ${report.summary}`);
+  const summaryGlyph = report.ok ? green("✓") : red("✗");
+  lines.push(`${summaryGlyph} ${report.summary}`);
   if (report.onramp) {
     lines.push("");
     lines.push("Onramp");

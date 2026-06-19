@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — Homebrew-style CLI polish (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 3 | Homebrew-style CLI UX: colored output (src/term.ts), "did you mean?" typos (Levenshtein), categorized help (8 sections), contextual error tips | src/term.ts + src/doctor.ts + src/cli.ts + src/orchestrator.ts + src/cli/command-surface.ts + scripts/parity-check.js + test/cli-mcp-parity-smoke.js + CHANGELOG.md + ITERATION_LOG.md | cli-mcp-parity-smoke.js parser updated for new help format | BUILD OK; npm test 115/115; parity PASS; release:check PASS; gen/index/version/dist checks OK | no (capability cycle; no release requested) |
+
 ## Batch — Gemini + OpenCode agent wrappers (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |

@@ -50,7 +50,7 @@ async function runCli(argv = process.argv.slice(2)) {
         case "init": {
             const [workflowId] = args.positionals;
             if (!workflowId)
-                throw new Error("Missing workflow id. Example: cw.js init my-workflow");
+                throw new Error("Missing workflow id.\n  Tip: create one with \"cw init my-workflow\" or list with \"cw list\"");
             printJson(runner.init(workflowId, args.options));
             return;
         }
@@ -107,7 +107,7 @@ async function runCli(argv = process.argv.slice(2)) {
         case "plan": {
             const [workflowId] = args.positionals;
             if (!workflowId)
-                throw new Error("Missing workflow id. Example: cw.js plan architecture-review");
+                throw new Error("Missing workflow id.\n  Tip: plan an architecture review with \"cw plan architecture-review\"");
             printJson((0, capability_core_1.planSummary)(runner, workflowId, args.options));
             return;
         }
@@ -1332,12 +1332,12 @@ async function runCli(argv = process.argv.slice(2)) {
             }
         }
         default:
-            throw new Error(`Unknown command: ${args.command}`);
+            throw new Error(`Unknown command: ${args.command}${((0, orchestrator_1.suggestCommand)(String(args.command || "")) ? `. Did you mean: ${(0, orchestrator_1.suggestCommand)(String(args.command))}?` : "")}`);
     }
 }
 function required(value, label) {
     if (!value)
-        throw new Error(`Missing ${label}. Run "cw.js help" for usage.`);
+        throw new Error(`Missing ${label}.\n  Tip: find run ids with "cw run list" or create one with "cw quickstart"`);
     return value;
 }
 function optionalArg(value) {
