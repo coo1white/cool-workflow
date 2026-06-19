@@ -323,6 +323,16 @@ The orchestration vision came in one release, all reviewer-gated:
 
 Set `CW_AGENT_STREAM=1` to see each worker's live agent trace. The bundled claude wrapper (`builtin:claude` / `scripts/agents/claude-p-agent.js`) keeps the legacy `--output-format json` path by default; only the opt-in path runs claude in `--output-format stream-json` and renders a short human trace (tool uses, assistant text, per-turn summaries) to **stderr**. CW core sends that stderr on to the operator's terminal only when `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set; piped/CI runs stay quiet (Rule of Silence). Core only sends the stream on, never reads it — vendor-specific rendering is the wrapper's business (policy), not the kernel's (mechanism).
 
+## Builtin Codex agent wrapper (on main, ships next)
+
+`--agent-command builtin:codex` points to a bundled read-only Codex wrapper. It
+runs `codex exec --json --output-last-message`, sends the worker prompt on stdin,
+writes the final answer to `result.md`, and writes one `{model, usage, result}`
+JSON object to stdout for CW provenance. With `CW_AGENT_STREAM=1`, it renders a
+short stderr trace from Codex JSONL events. Gemini, OpenCode, DeepSeek, and GLM
+stay outside CW until their wrapper stream shape is proven by a local smoke; CW
+still imports no model SDK.
+
 v0.1.79
 
 ## Fast Architecture Review (v0.1.80)

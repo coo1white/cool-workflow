@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — builtin Codex agent live trace (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | add `builtin:codex` as a userland agent wrapper with read-only `codex exec --json`, final-result file capture, stdout JSON report, opt-in stderr live trace, and fail-closed malformed output handling | scripts/agents/agent-adapter-core.js + scripts/agents/codex-agent.js + builtin templates + README/docs + ITERATION_LOG.md | codex-agent-wrapper-smoke added; claude wrapper alias guard kept | BUILD OK; focused smokes OK; npm test 112/112; parity PASS; release:check PASS; gen/index/version/dist checks OK | no (capability cycle; no release requested) |
+
 ## Batch — npm Trusted Publishing release fix (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |
