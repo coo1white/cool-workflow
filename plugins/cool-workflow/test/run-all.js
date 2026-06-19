@@ -101,7 +101,7 @@ function makeSandbox() {
   const home = path.join(root, "home");
   const tmp = path.join(root, "tmp");
   for (const dir of [cwd, home, tmp]) fs.mkdirSync(dir, { recursive: true });
-  const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home, TMPDIR: tmp };
+  const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home, TMPDIR: tmp, CW_NO_AUTO_AGENT: "1" };
   return { root, cwd, env };
 }
 

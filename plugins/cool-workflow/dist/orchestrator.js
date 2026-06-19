@@ -800,8 +800,18 @@ function parseArgv(argv) {
                 positionals.push(rest[restIndex]);
             break;
         }
-        if (!token.startsWith("--")) {
+        if (!token.startsWith("-")) {
             positionals.push(token);
+            continue;
+        }
+        if (!token.startsWith("--")) {
+            // Single-dash short flag aliases: -q → question, -r → repo, -a → agent-command, -h → help, -v → version
+            const shortMap = { q: "question", r: "repo", a: "agent-command", h: "help", v: "version" };
+            const flag = token.slice(1);
+            // Handle combined short flags like -qr (not common but safe to ignore)
+            const key = shortMap[flag] || flag;
+            const val = rest[index + 1] && !rest[index + 1].startsWith("-") ? rest[++index] : true;
+            appendOption(options, key, val);
             continue;
         }
         const withoutPrefix = token.slice(2);
@@ -917,8 +927,8 @@ function formatHelp() {
         (0, term_1.bold)("Cool Workflow"),
         "",
         "  Quick start (one command — plan → drive → report):",
-        "    cw quickstart [app] --repo . --question \"...\" --agent-command builtin:claude",
-        "      (--preview for a dry run without an agent; --bundle for a portable sealed report)",
+        "    cw quickstart -q \"What are the main risks?\"",
+        "      (repo = current folder, agent = auto-detected; --check for dry run)",
         "",
         (0, term_1.bold)("Getting Started"),
         "  list                          List available workflow apps",
@@ -926,7 +936,7 @@ function formatHelp() {
         "  info <app-id> [--json]         Show what a workflow app does and how to run it",
         "  doctor [--json] [--onramp] [--fix]  Check setup (--fix for consolidated fix commands)",
         "  init <id> [--title T]         Create a new workflow app",
-        "  quickstart [app] [...]        Plan → drive → report in one command",
+        "  quickstart [app] [...]         Plan → drive → report in one command",
         "  demo tamper|bundle            Prove trust checks work (30s, no agent needed)",
         "  man <topic>                   Show a man page (e.g. cw man release-tooling)",
         "",
@@ -985,12 +995,12 @@ function formatHelp() {
         "  workbench serve [--port N] | view <run-id>           Optional localhost workbench",
         "",
         (0, term_1.bold)("Common Flags"),
-        "  --json, --format json     Machine-readable JSON output",
-        "  --repo PATH               Target repository path",
-        "  --question TEXT           The task or question to answer",
-        "  --agent-command CMD       Agent backend (e.g. builtin:claude, builtin:codex)",
-        "  --scope repo|home         Scope for cross-repo operations",
-        "  --cwd PATH                Working directory override",
+        "  -q, --question TEXT    The task or question to answer",
+        "  -r, --repo PATH        Target repository path",
+        "  -a, --agent-command CMD Agent backend (e.g. builtin:claude, builtin:codex)",
+        "  --json, --format json   Machine-readable JSON output",
+        "  --scope repo|home       Scope for cross-repo operations",
+        "  --cwd PATH              Working directory override",
         ""
     ].join("\n");
 }

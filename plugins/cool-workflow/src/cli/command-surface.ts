@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import * as readline from "node:readline";
 import { CoolWorkflowRunner, formatHelp, parseArgv, suggestCommand } from "../orchestrator";
 import {
   appRun,
@@ -91,9 +92,23 @@ import { formatEvidenceReasoningReport } from "../evidence-reasoning";
 import { runDoctor, formatDoctorReport, formatDoctorFixes } from "../doctor";
 import { formatInfo, formatSearchResults } from "../orchestrator";
 import { printSuccessSummary } from "../term";
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../version";
 
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<void> {
   const args = parseArgv(argv);
+
+  // Top-level flags: accept --version / -v / --help / -h before command lookup.
+  if (args.command?.startsWith("-") || !args.command) {
+    if (args.command === "--version" || args.command === "-v" || args.options.v || args.options.version) {
+      process.stdout.write(`${CURRENT_COOL_WORKFLOW_VERSION}\n`);
+      return;
+    }
+    if (!args.command || args.command === "--help" || args.command === "-h" || args.options.h || args.options.help) {
+      process.stdout.write(formatHelp());
+      return;
+    }
+  }
+
   const runner = new CoolWorkflowRunner({
     pluginRoot: path.resolve(__dirname, "../..")
   });
@@ -193,6 +208,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       // fails closed (status=blocked) when none is set. No new executor/scheduler.
       const [appId] = args.positionals;
       const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
+      await promptQuestion(args.options);
       const qs = quickstart(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
       printJson(qs);
       const qr = qs as unknown as Record<string, unknown>;
@@ -1401,6 +1417,19 @@ function printJson(value: unknown): void {
 
 function wantsJson(options: Record<string, unknown>): boolean {
   return Boolean(options.json || options.format === "json");
+}
+
+/** Prompt the user for a question interactively when --question is missing on a TTY. */
+async function promptQuestion(options: Record<string, unknown>): Promise<void> {
+  if (options.question || !process.stdin.isTTY) return;
+  const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+  return new Promise<void>((resolve) => {
+    rl.question("Question: ", (answer) => {
+      rl.close();
+      if (answer.trim()) options.question = answer.trim();
+      resolve();
+    });
+  });
 }
 
 function formatWorkbenchView(view: ReturnType<typeof buildWorkbenchRunView>): string {

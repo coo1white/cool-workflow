@@ -147,4 +147,21 @@ function run(args, env, cwd) {
   assert.match(stdout, /cw_agent_command/i, "doctor --fix includes agent fix suggestion");
 })();
 
-process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; unwritable home fails closed; --json flag mode; onramp opt-in; --fix mode)\n");
+// ---- CW_NO_AUTO_AGENT guard ------------------------------------------------
+(() => {
+  // When CW_NO_AUTO_AGENT=1 is set (as the test runner sandbox does), the agent
+  // check should report "warn" (not auto-detected). This is the expected test
+  // behavior — auto-detection is for real user sessions, not smoke tests.
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-noauto-")));
+  const env = { ...process.env, CW_HOME: home, CW_NO_AUTO_AGENT: "1" };
+  delete env.CW_AGENT_COMMAND;
+  delete env.CW_AGENT_ENDPOINT;
+  const r = run(["--json"], env, home);
+  assert.equal(r.code, 0, "CW_NO_AUTO_AGENT=1 exits cleanly");
+  const report = JSON.parse(r.stdout);
+  const agentCheck = report.checks.find((c) => c.name === "agent");
+  assert.ok(agentCheck.status === "warn" || agentCheck.status === "ok",
+    `CW_NO_AUTO_AGENT=1 agent status is warn or ok, got ${agentCheck.status}`);
+})();
+
+process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; unwritable home fails closed; --json flag mode; onramp opt-in; --fix mode; CW_NO_AUTO_AGENT guard)\n");

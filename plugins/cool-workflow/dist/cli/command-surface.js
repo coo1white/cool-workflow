@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -6,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.runCli = runCli;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const readline = __importStar(require("node:readline"));
 const orchestrator_1 = require("../orchestrator");
 const capability_core_1 = require("../capability-core");
 const observability_1 = require("../observability");
@@ -24,8 +58,20 @@ const evidence_reasoning_1 = require("../evidence-reasoning");
 const doctor_1 = require("../doctor");
 const orchestrator_2 = require("../orchestrator");
 const term_1 = require("../term");
+const version_1 = require("../version");
 async function runCli(argv = process.argv.slice(2)) {
     const args = (0, orchestrator_1.parseArgv)(argv);
+    // Top-level flags: accept --version / -v / --help / -h before command lookup.
+    if (args.command?.startsWith("-") || !args.command) {
+        if (args.command === "--version" || args.command === "-v" || args.options.v || args.options.version) {
+            process.stdout.write(`${version_1.CURRENT_COOL_WORKFLOW_VERSION}\n`);
+            return;
+        }
+        if (!args.command || args.command === "--help" || args.command === "-h" || args.options.h || args.options.help) {
+            process.stdout.write((0, orchestrator_1.formatHelp)());
+            return;
+        }
+    }
     const runner = new orchestrator_1.CoolWorkflowRunner({
         pluginRoot: node_path_1.default.resolve(__dirname, "../..")
     });
@@ -144,6 +190,7 @@ async function runCli(argv = process.argv.slice(2)) {
             // fails closed (status=blocked) when none is set. No new executor/scheduler.
             const [appId] = args.positionals;
             const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
+            await promptQuestion(args.options);
             const qs = (0, capability_core_1.quickstart)(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
             printJson(qs);
             const qr = qs;
@@ -1418,6 +1465,20 @@ function printJson(value) {
 }
 function wantsJson(options) {
     return Boolean(options.json || options.format === "json");
+}
+/** Prompt the user for a question interactively when --question is missing on a TTY. */
+async function promptQuestion(options) {
+    if (options.question || !process.stdin.isTTY)
+        return;
+    const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+    return new Promise((resolve) => {
+        rl.question("Question: ", (answer) => {
+            rl.close();
+            if (answer.trim())
+                options.question = answer.trim();
+            resolve();
+        });
+    });
 }
 function formatWorkbenchView(view) {
     const lines = [

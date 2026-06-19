@@ -8,7 +8,7 @@ Generated from the current repository code on 2026-06-19 by `npm run sync:projec
 - Version: `0.1.87`
 - Source modules: `64`
 - Workflow apps: `7`
-- Docs: `51`
+- Docs: `52`
 - Smoke tests: `115`
 - Repository: https://github.com/coo1white/cool-workflow
 
@@ -160,6 +160,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Operator UX](operator-ux.7.md)
 - [PIPELINE-RUNNER(7)](pipeline-runner.7.md)
 - [Cool Workflow Project Index](project-index.md)
+- [Cool Workflow](readme-v0.1.87-full.md)
 - [Real Execution Backend Integrations](real-execution-backends.7.md)
 - [Release And Migration Discipline](release-and-migration.7.md)
 - [Cool Workflow Release History](release-history.md)
