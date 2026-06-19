@@ -52,11 +52,16 @@ logs, and release verdict.
    artifacts: `snapshot.json`, `replay-run.json`, `comparison.json`,
    `score.json`, `findings.json`, `gate.json`, and `report.md`.
 12. Make sure `npm run dogfood:release` reports `ready-dry-run` and have a look at the
-   run with `status`, `graph`, `report --show`, `candidate summary`,
-   `commit summary`, `multi-agent dependencies`, `multi-agent failures`,
-   `multi-agent evidence`, `audit summary`, `audit provenance`,
-   `audit multi-agent`, `audit policy`, `audit blackboard`, and
-   `audit judge`.
+    run with `status`, `graph`, `report --show`, `candidate summary`,
+    `commit summary`, `multi-agent dependencies`, `multi-agent failures`,
+    `multi-agent evidence`, `audit summary`, `audit provenance`,
+    `audit multi-agent`, `audit policy`, `audit blackboard`, and
+    `audit judge`.
+13. Make sure the reviewer verdict is committed: `.cw-release/review-<FULLSHA>.verdict`
+    must exist in the tag's commit history and its first line must be
+    `APPROVED <FULLSHA>`. Run `node scripts/release-flow.js --cut --version x.y.z`
+    to auto-create it and commit it, then `git push`. The `release-gate` CI workflow
+    will verify this file is present at the tag commit.
 
 ## Version Surfaces
 
