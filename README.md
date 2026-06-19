@@ -33,21 +33,22 @@ cw demo tamper
 # → VERDICT: tamper-evidence holds ✓
 ```
 
-### 2. Run a review on your code
+### 2. Run a review on your code — one command
 
 ```bash
-cw doctor                    # check your setup (shows which agents are on your machine)
-cw quickstart -q "What are the main risks here?"
+cw -q "What are the main risks here?"
 ```
 
 CW auto-detects the repo (current folder) and your agent (first found on PATH).
-To be clear, pass the flags by name:
+Pick a specific agent with a flag:
 
 ```bash
-cw quickstart -q "What are the security risks?" -r /path/to/project -a builtin:claude
+cw -q "What are the security risks?" -claude
+cw -q "What are the security risks?" -codex
+cw -q "What are the security risks?" -deepseek
 ```
 
-Want a dry run first? Add `--check` (zero writes). Want to watch the agent work? Set `CW_AGENT_STREAM=1`.
+You will see live streaming output as the agent works — no env vars needed.
 
 ### 3. Open the report
 
@@ -61,10 +62,10 @@ cat .cw/runs/<run-id>/report.md
 ## What Else Can It Do?
 
 ```bash
-cw list                            # see all built-in workflows
-cw info architecture-review        # what a workflow does and what it needs
-cw search security                 # find workflows by keyword
-cw man release-tooling             # read a manual page
+cw version                        # show version
+cw update                         # update to latest release
+cw doctor                         # check your setup
+cw fix                            # show fix commands for setup issues
 ```
 
 | Workflow | Does |
@@ -91,7 +92,7 @@ cw telemetry verify <run-id>                # checks a real run
 Give the report to another person — they need nothing but the file:
 
 ```bash
-cw quickstart -q "…" --bundle               # seal into one portable file
+cw -q "…" --bundle                           # seal into one portable file
 cw report verify-bundle report.cwrun.json   # they check it offline
 ```
 
@@ -100,10 +101,8 @@ cw report verify-bundle report.cwrun.json   # they check it offline
 | Problem | Fix |
 |---|---|
 | No agent found | Run `cw doctor` — it shows which agents are on your machine |
-| `status: blocked` | Set `CW_AGENT_COMMAND=builtin:claude` or pass `-a builtin:claude` |
+| `status: blocked` | Set `CW_AGENT_COMMAND=builtin:claude` or pass `-claude` |
 | `claude: command not found` | Install Claude Code and run again |
-| Want a dry run | Add `--check` — zero writes, no agent call |
-| Want live agent trace | `CW_AGENT_STREAM=1` (stderr only, TTY-gated) |
 | Where is my report? | `<repo>/.cw/runs/<id>/report.md` |
 | Need the old README? | See [docs/readme-v0.1.87-full.md](plugins/cool-workflow/docs/readme-v0.1.87-full.md) |
 
