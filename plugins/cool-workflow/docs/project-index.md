@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-19 by `npm run sync:projec
 - Source modules: `63`
 - Workflow apps: `7`
 - Docs: `51`
-- Smoke tests: `107`
+- Smoke tests: `110`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -192,6 +192,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [artifact-integrity-smoke.js](../test/artifact-integrity-smoke.js)
 - [audit-verify-smoke.js](../test/audit-verify-smoke.js)
 - [backend-registry-smoke.js](../test/backend-registry-smoke.js)
+- [blackboard-state-explosion-management-smoke.js](../test/blackboard-state-explosion-management-smoke.js)
 - [block-unapproved-tag-smoke.js](../test/block-unapproved-tag-smoke.js)
 - [bump-version-idempotent-smoke.js](../test/bump-version-idempotent-smoke.js)
 - [candidate-scoring-smoke.js](../test/candidate-scoring-smoke.js)
@@ -208,6 +209,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [demo-bundle-smoke.js](../test/demo-bundle-smoke.js)
 - [det-ids-b-smoke.js](../test/det-ids-b-smoke.js)
 - [doctor-smoke.js](../test/doctor-smoke.js)
+- [dogfood-architecture-review-smoke.js](../test/dogfood-architecture-review-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
 - [durable-atomic-write-smoke.js](../test/durable-atomic-write-smoke.js)
 - [end-to-end-demo-smoke.js](../test/end-to-end-demo-smoke.js)
@@ -227,7 +229,9 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [multi-agent-eval-replay-smoke.js](../test/multi-agent-eval-replay-smoke.js)
 - [multi-agent-operator-ux-smoke.js](../test/multi-agent-operator-ux-smoke.js)
 - [multi-agent-runtime-core-smoke.js](../test/multi-agent-runtime-core-smoke.js)
-- [multi-agent-topologies-smoke.js](../test/multi-agent-topologies-smoke.js)
+- [multi-agent-topologies-debate-smoke.js](../test/multi-agent-topologies-debate-smoke.js)
+- [multi-agent-topologies-judge-panel-smoke.js](../test/multi-agent-topologies-judge-panel-smoke.js)
+- [multi-agent-topologies-map-reduce-smoke.js](../test/multi-agent-topologies-map-reduce-smoke.js)
 - [multi-agent-trust-policy-audit-smoke.js](../test/multi-agent-trust-policy-audit-smoke.js)
 - [no-false-green-smoke.js](../test/no-false-green-smoke.js)
 - [node-snapshot-diff-replay-smoke.js](../test/node-snapshot-diff-replay-smoke.js)
@@ -273,7 +277,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [self-audit-hardening-smoke.js](../test/self-audit-hardening-smoke.js)
 - [source-context-batch-smoke.js](../test/source-context-batch-smoke.js)
 - [source-context-profile-smoke.js](../test/source-context-profile-smoke.js)
-- [state-explosion-management-smoke.js](../test/state-explosion-management-smoke.js)
 - [state-node-smoke.js](../test/state-node-smoke.js)
 - [surface-explicit-cwd-smoke.js](../test/surface-explicit-cwd-smoke.js)
 - [tamper-evidence-demo-smoke.js](../test/tamper-evidence-demo-smoke.js)

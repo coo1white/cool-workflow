@@ -38,10 +38,6 @@ const cwd0 = process.cwd();
 
 const N = 6;
 const STUB_MS = 2000;
-// Serial floor: 6 stubs x 2s = 12s of stub time alone (plus ~0.5s/task accept
-// overhead). Concurrent: max(stub) + overhead ≈ 5s. 10s splits them with CI
-// headroom on both sides.
-const PARALLEL_WALL_MS = 10000;
 
 // Stub agent: argv[2] = resultPath, argv[3] = the substituted {{model}}. Sleeps
 // STUB_MS, writes a valid result, and reports the model it was INVOKED with —
@@ -52,9 +48,13 @@ function writeStub(file) {
     "const fence = String.fromCharCode(96).repeat(3);",
     "const rp = process.argv[2];",
     'const invokedModel = process.argv[3] || "none";',
+    'const timingLog = process.env.CW_TIMING_LOG || "";',
+    "function mark(event) { if (timingLog) fs.appendFileSync(timingLog, JSON.stringify({ event, model: invokedModel, pid: process.pid, time: Date.now() }) + '\\n'); }",
+    'mark("start");',
     "setTimeout(() => {",
     '  const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "ok", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n";',
     "  fs.writeFileSync(rp, body);",
+    '  mark("end");',
     '  process.stdout.write(JSON.stringify({ model: invokedModel, usage: { input_tokens: 4, output_tokens: 2 } }));',
     "  process.exit(0);",
     `}, ${STUB_MS});`
@@ -106,13 +106,16 @@ function main() {
       assert.equal(run.tasks[0].model, "task-pick-m", "plan carries task.model");
       assert.equal(run.tasks[0].agentType, "agent", "plan carries task.agentType");
 
+      const timingLog = path.join(work, "parallel-timing.jsonl");
+      process.env.CW_TIMING_LOG = timingLog;
       const started = Date.now();
       const result = runDrive(runner, { run: run.id, now: FIXED_NOW, "agent-command": agentCommand, "agent-model": "config-m" });
       const elapsed = Date.now() - started;
+      delete process.env.CW_TIMING_LOG;
 
       assert.equal(result.status, "complete", "parallel run drives to completion through runDrive");
       assert.equal(result.completedWorkers, N, "every parallel worker fulfilled");
-      assert.ok(elapsed < PARALLEL_WALL_MS, `parallel() parallelizes through the real surface: ${elapsed}ms (< ${PARALLEL_WALL_MS}ms; serial floor ~${N * STUB_MS}ms of stub time)`);
+      assertOverlapped(readTimingLog(timingLog), N, "parallel() parallelizes through the real surface");
       console.log(`parallel-onramp: runDrive fulfilled ${N} agents concurrently in ${elapsed}ms ok`);
 
       // {{model}} reached the spawn: task 1 was invoked with ITS model, the
@@ -147,11 +150,14 @@ function main() {
         { repo: work }
       );
       assert.equal(run.phases[0].mode, undefined, "plain phase() carries no mode");
+      const timingLog = path.join(work, "sequential-timing.jsonl");
+      process.env.CW_TIMING_LOG = timingLog;
       const started = Date.now();
       const result = runDrive(runner, { run: run.id, now: FIXED_NOW, "agent-command": agentCommand });
       const elapsed = Date.now() - started;
+      delete process.env.CW_TIMING_LOG;
       assert.equal(result.status, "complete", "sequential run completes");
-      assert.ok(elapsed >= 2 * STUB_MS, `plain phase() stays sequential (${elapsed}ms >= ${2 * STUB_MS}ms)`);
+      assertSequential(readTimingLog(timingLog), 2, "plain phase() stays sequential");
       console.log(`parallel-onramp: plain phase() unchanged (sequential, ${elapsed}ms) ok`);
     }
   } finally {
@@ -159,6 +165,26 @@ function main() {
     fs.rmSync(work, { recursive: true, force: true });
   }
   console.log("parallel-onramp-smoke: ok (parallel() parallelizes via runDrive; model/label/agentType load-bearing; sequential unchanged)");
+}
+
+function readTimingLog(file) {
+  return fs.readFileSync(file, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
+}
+
+function assertOverlapped(events, expectedCount, label) {
+  const starts = events.filter((event) => event.event === "start").map((event) => event.time).sort((a, b) => a - b);
+  const ends = events.filter((event) => event.event === "end").map((event) => event.time).sort((a, b) => a - b);
+  assert.equal(starts.length, expectedCount, `${label}: start count`);
+  assert.equal(ends.length, expectedCount, `${label}: end count`);
+  assert.ok(starts[starts.length - 1] < ends[0], `${label}: worker intervals overlap`);
+}
+
+function assertSequential(events, expectedCount, label) {
+  const starts = events.filter((event) => event.event === "start").map((event) => event.time).sort((a, b) => a - b);
+  const ends = events.filter((event) => event.event === "end").map((event) => event.time).sort((a, b) => a - b);
+  assert.equal(starts.length, expectedCount, `${label}: start count`);
+  assert.equal(ends.length, expectedCount, `${label}: end count`);
+  assert.ok(starts[1] >= ends[0], `${label}: second worker starts after first worker ends`);
 }
 
 main();

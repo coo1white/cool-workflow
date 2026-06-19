@@ -78,10 +78,12 @@ function main() {
   checkIncludes("plugins/cool-workflow/scripts/dogfood-release.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/dogfood-release-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/coordinator-blackboard-smoke.js", "coordinator-blackboard-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-smoke.js", "multi-agent-topologies-smoke", checks);
+  checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-map-reduce-smoke.js", "multi-agent-topologies-map-reduce-smoke", checks);
+  checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-debate-smoke.js", "multi-agent-topologies-debate-smoke", checks);
+  checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-judge-panel-smoke.js", "multi-agent-topologies-judge-panel-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/multi-agent-cli-mcp-surface-smoke.js", "multi-agent-cli-mcp-surface-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/multi-agent-eval-replay-harness-smoke.js", "multi-agent-eval-replay-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/state-explosion-management-smoke.js", "state-explosion-management-smoke", checks);
+  checkIncludes("plugins/cool-workflow/test/blackboard-state-explosion-management-smoke.js", "blackboard-state-explosion-management-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/evidence-adoption-reasoning-smoke.js", "evidence-adoption-reasoning-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/mcp-app-surface-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/canonical-workflow-apps-smoke.js", VERSION, checks);

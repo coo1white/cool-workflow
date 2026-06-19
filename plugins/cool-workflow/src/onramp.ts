@@ -117,9 +117,11 @@ const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> = [
     patterns: ["src/multi-agent", "src/topology.ts", "src/coordinator", "src/evidence-reasoning.ts", "src/state-explosion"],
     smokes: [
       "multi-agent-runtime-core-smoke.js",
-      "multi-agent-topologies-smoke.js",
+      "multi-agent-topologies-map-reduce-smoke.js",
+      "multi-agent-topologies-debate-smoke.js",
+      "multi-agent-topologies-judge-panel-smoke.js",
       "multi-agent-cli-mcp-surface-smoke.js",
-      "state-explosion-management-smoke.js"
+      "blackboard-state-explosion-management-smoke.js"
     ]
   }
 ];

@@ -72,6 +72,10 @@ npm run test:ci -- --json-summary /tmp/cw-test-summary.json
 The file lists wall time, total child time, and the slowest smokes. Use it to
 pick one speed cycle at a time; it is diagnostic, not a hard release threshold.
 
+The dogfood release smoke and the architecture-review dogfood smoke are separate
+test files. The split keeps the same release and agent-drive proof, but lets
+`test:ci` schedule the two long checks in parallel.
+
 ## Boundary
 
 Release Tooling touches only the build/release surfaces. It adds no runtime

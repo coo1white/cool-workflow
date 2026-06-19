@@ -38,12 +38,6 @@ const CRASH_ID = "map:t15";
 const DIRTY_ID = "map:t16";
 const GOOD_MS = 2500;
 const TIMEOUT_MS = 3500;
-// A serial round would need >= 13*GOOD_MS + TIMEOUT_MS ≈ 36s of stub time alone.
-// Concurrent wall = max(stub times) + the accept layer's fixed per-task state
-// writes (~8s for 16 on a dev laptop) ≈ 11s. The 20s bound is ~2× the expected
-// concurrent wall (CI-jitter headroom) yet far BELOW the 36s serial floor, so
-// passing it is a rigorous parallelism proof in both directions.
-const PARALLEL_WALL_MS = 20000;
 
 function writeStub(file) {
   const lines = [
@@ -55,10 +49,13 @@ function writeStub(file) {
     'try { input = fs.readFileSync(path.join(path.dirname(rp), "input.md"), "utf8"); } catch { process.exit(9); }',
     "const m = input.match(/BEHAVIOR=([a-z]+)/);",
     "const behavior = m ? m[1] : null;",
+    'const timingLog = process.env.CW_TIMING_LOG || "";',
+    "function mark(event) { if (timingLog) fs.appendFileSync(timingLog, JSON.stringify({ event, behavior, pid: process.pid, time: Date.now() }) + '\\n'); }",
+    'mark("start");',
     "if (behavior === \"hang\") { setInterval(() => {}, 1000); }",
-    'else if (behavior === "crash") { process.stderr.write("agent boom"); process.exit(1); }',
-    'else if (behavior === "dirty") { fs.writeFileSync(rp, "# R\\n\\n" + fence + "cw:result\\n{ not json ::: \\n" + fence + "\\n"); process.stdout.write(JSON.stringify({ model: "stub-m" })); }',
-    'else if (behavior === "good") { setTimeout(() => { const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "ok", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n"; fs.writeFileSync(rp, body); process.stdout.write(JSON.stringify({ model: "stub-m", usage: { input_tokens: 4, output_tokens: 2 } })); process.exit(0); }, ' +
+    'else if (behavior === "crash") { mark("end"); process.stderr.write("agent boom"); process.exit(1); }',
+    'else if (behavior === "dirty") { fs.writeFileSync(rp, "# R\\n\\n" + fence + "cw:result\\n{ not json ::: \\n" + fence + "\\n"); mark("end"); process.stdout.write(JSON.stringify({ model: "stub-m" })); }',
+    'else if (behavior === "good") { setTimeout(() => { const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "ok", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n"; fs.writeFileSync(rp, body); mark("end"); process.stdout.write(JSON.stringify({ model: "stub-m", usage: { input_tokens: 4, output_tokens: 2 } })); process.exit(0); }, ' +
       String(GOOD_MS) +
       "); }",
     "else { process.exit(9); }"
@@ -117,6 +114,8 @@ function main() {
     const run = lifecycle.plan(record, { repo: work });
     assert.equal(run.tasks.length, TOTAL, `planned ${TOTAL} tasks`);
 
+    const timingLog = path.join(work, "concurrent-timing.jsonl");
+    process.env.CW_TIMING_LOG = timingLog;
     const started = Date.now();
     const result = drive(runner, run.id, {
       now: FIXED_NOW,
@@ -125,9 +124,10 @@ function main() {
       agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: TIMEOUT_MS }
     });
     const elapsed = Date.now() - started;
+    delete process.env.CW_TIMING_LOG;
 
     // ---- no deadlock + REAL parallelism ------------------------------------
-    assert.ok(elapsed < PARALLEL_WALL_MS, `concurrent round finished in ${elapsed}ms (< ${PARALLEL_WALL_MS}ms; serial would need ~18s)`);
+    assertConcurrentTiming(readTimingLog(timingLog));
     console.log(`t2-acceptance: 16-agent round, no deadlock, wall ${elapsed}ms ok`);
 
     // ---- collect-all: all 13 good accepted DESPITE 3 failures in-round ------
@@ -170,6 +170,23 @@ function main() {
     fs.rmSync(work, { recursive: true, force: true });
   }
   console.log("concurrent-failure-semantics-smoke: ok (collect-all; hang killed+counted; no deadlock; deterministic order; replay-complete)");
+}
+
+function readTimingLog(file) {
+  return fs.readFileSync(file, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
+}
+
+function assertConcurrentTiming(events) {
+  const starts = events.filter((event) => event.event === "start");
+  const goodStarts = starts.filter((event) => event.behavior === "good").map((event) => event.time).sort((a, b) => a - b);
+  const goodEnds = events.filter((event) => event.event === "end" && event.behavior === "good").map((event) => event.time).sort((a, b) => a - b);
+  assert.equal(starts.length, TOTAL, "every worker process recorded a start");
+  assert.equal(goodStarts.length, TOTAL - 3, "all good workers recorded starts");
+  assert.equal(goodEnds.length, TOTAL - 3, "all good workers recorded ends");
+  assert.ok(goodStarts[goodStarts.length - 1] < goodEnds[0], "good worker intervals overlap, proving concurrent dispatch");
+  assert.ok(starts.some((event) => event.behavior === "hang"), "hung worker recorded a start");
+  assert.ok(starts.some((event) => event.behavior === "crash"), "crashed worker recorded a start");
+  assert.ok(starts.some((event) => event.behavior === "dirty"), "dirty worker recorded a start");
 }
 
 main();
