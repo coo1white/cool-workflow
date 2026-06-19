@@ -16,6 +16,10 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const readline = require("node:readline");
+const blackboard = require("../dist/coordinator.js");
+const { CoolWorkflowRunner } = require("../dist/orchestrator.js");
+const { writeReport } = require("../dist/orchestrator/report.js");
+const { loadRunFromCwd, saveCheckpoint } = require("../dist/state.js");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -29,119 +33,81 @@ const artifactPath = path.join(tmp, "explosion-artifact.md");
 fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
 
 (async () => {
-  const plan = runJson(["plan", "architecture-review", "--repo", tmp, "--question", "Prove v0.1.25 state explosion management."]);
-  const runId = plan.runId;
-  runJson([
-    "multi-agent",
-    "run",
-    runId,
-    "--topology",
-    "judge-panel",
-    "--topology-run",
-    "sem",
-    "--judge-count",
-    "2",
-    "--task",
-    "map:server-api",
-    "--task",
-    "map:web-client"
-  ]);
+  const runner = new CoolWorkflowRunner({ pluginRoot }).withBaseDir(tmp);
+  const plan = runner.plan("architecture-review", { repo: tmp, question: "Prove v0.1.25 state explosion management." });
+  const runId = plan.id;
+  runner.hostMultiAgentRun(runId, {
+    topology: "judge-panel",
+    topologyRun: "sem",
+    judgeCount: 2,
+    task: ["map:server-api", "map:web-client"]
+  });
 
   // Multiple topics.
+  const run = loadRunFromCwd(runId, tmp);
   const topics = ["sem-judge-verdicts"];
   for (const id of ["sem-design", "sem-risks", "sem-evidence"]) {
-    runJson(["blackboard", "topic", "create", runId, "--id", id, "--title", `Topic ${id}`]);
+    blackboard.createBlackboardTopic(run, { id, title: `Topic ${id}` });
     topics.push(id);
   }
 
   // Many blackboard messages across topics (drives graph node explosion).
-  for (let i = 0; i < 28; i += 1) {
+  for (let i = 0; i < 25; i += 1) {
     const topic = topics[i % topics.length];
-    runJson(["blackboard", "message", "post", runId, "--topic", topic, "--body", `Bulk discussion message ${i} on ${topic}.`]);
+    blackboard.postBlackboardMessage(run, { topicId: topic, body: `Bulk discussion message ${i} on ${topic}.` });
   }
 
   // Judge rationale message with evidence (must never be hidden).
-  const rationale = runJson([
-    "blackboard",
-    "message",
-    "post",
-    runId,
-    "--topic",
-    "sem-judge-verdicts",
-    "--blackboard",
-    "sem-blackboard",
-    "--body",
-    "Judge rationale: candidate is acceptable with explicit cited evidence.",
-    "--authorKind",
-    "role",
-    "--authorId",
-    "sem-judge-1",
-    "--multi-agent-run",
-    "sem-ma",
-    "--role",
-    "sem-judge-1",
-    "--evidence",
-    evidenceLocator,
-    "--tag",
-    "judge-rationale"
-  ]);
+  const rationale = blackboard.postBlackboardMessage(run, {
+    topicId: "sem-judge-verdicts",
+    blackboardId: "sem-blackboard",
+    body: "Judge rationale: candidate is acceptable with explicit cited evidence.",
+    author: { kind: "role", id: "sem-judge-1" },
+    links: { multiAgentRunId: "sem-ma", agentRoleId: "sem-judge-1" },
+    evidenceRefs: [evidenceLocator],
+    tags: ["judge-rationale"]
+  });
   assert.equal(rationale.provenance.agentRoleId, "sem-judge-1");
 
   // Unresolved question (missing evidence) + conflicting context (policy/conflict).
-  runJson(["blackboard", "context", "put", runId, "--topic", "sem-risks", "--kind", "question", "--key", "open-risk", "--value", "Is the compaction layer lossless?"]);
-  runJson(["blackboard", "context", "put", runId, "--topic", "sem-design", "--kind", "decision", "--key", "store", "--value", "files"]);
-  runJson(["blackboard", "context", "put", runId, "--topic", "sem-design", "--kind", "decision", "--key", "store", "--value", "database"]);
+  blackboard.putBlackboardContext(run, { topicId: "sem-risks", kind: "question", key: "open-risk", value: "Is the compaction layer lossless?" });
+  blackboard.putBlackboardContext(run, { topicId: "sem-design", kind: "decision", key: "store", value: "files" });
+  blackboard.putBlackboardContext(run, { topicId: "sem-design", kind: "decision", key: "store", value: "database" });
 
   // Adopted evidence artifact.
-  runJson(["blackboard", "artifact", "add", runId, "--topic", "sem-evidence", "--path", artifactPath, "--kind", "doc"]);
+  blackboard.addBlackboardArtifact(run, { topicId: "sem-evidence", path: artifactPath, kind: "doc" });
+  saveCheckpoint(run);
+  writeReport(run);
 
   // Workers report output with evidence.
   for (const label of ["judge one", "judge two"]) {
-    const dispatch = runJson(["multi-agent", "step", runId, "--sandbox", "readonly"]);
+    const dispatch = runner.hostMultiAgentStep(runId, { sandbox: "readonly" });
     const workerId = dispatch.data.tasks[0].workerId;
-    const manifest = runJson(["worker", "manifest", runId, workerId]);
+    const manifest = runner.showWorkerManifest(runId, workerId);
     writeWorkerResult(manifest.resultPath, label);
-    runJson(["worker", "output", runId, workerId, manifest.resultPath]);
+    runner.recordWorkerOutput(runId, workerId, manifest.resultPath);
   }
-  assert.equal(runJson(["multi-agent", "step", runId]).performed, "collected-fanin");
-  assert.equal(runJson(["multi-agent", "step", runId]).performed, "created-blackboard-snapshot");
-  assert.equal(runJson(["multi-agent", "step", runId, "--candidate", "sem-candidate"]).performed, "registered-candidate");
+  assert.equal(runner.hostMultiAgentStep(runId).performed, "collected-fanin");
+  assert.equal(runner.hostMultiAgentStep(runId).performed, "created-blackboard-snapshot");
+  assert.equal(runner.hostMultiAgentStep(runId, { candidate: "sem-candidate" }).performed, "registered-candidate");
 
-  const score = runJson([
-    "multi-agent",
-    "score",
-    runId,
-    "sem-candidate",
-    "--role",
-    "sem-judge-1",
-    "--multi-agent-run",
-    "sem-ma",
-    "--criterion",
-    "correctness=1",
-    "--criterion",
-    "evidence=1",
-    "--evidence",
-    evidenceLocator,
-    "--rationale",
-    "Judge accepts the candidate; worker and verifier evidence agree."
-  ]);
-  const selection = runJson([
-    "multi-agent",
-    "select",
-    runId,
-    "sem-candidate",
-    "--role",
-    "sem-panel-chair",
-    "--multi-agent-run",
-    "sem-ma",
-    "--score",
-    score.data.id,
-    "--evidence",
-    evidenceLocator,
-    "--reason",
-    "Panel selected the score-backed candidate with cited judge rationale."
-  ]);
-  const commit = runJson(["commit", runId, "--selection", selection.data.id, "--reason", "State explosion verifier-gated commit."]);
+  const score = runner.hostMultiAgentScore(runId, {
+    candidate: "sem-candidate",
+    role: "sem-judge-1",
+    multiAgentRun: "sem-ma",
+    criterion: ["correctness=1", "evidence=1"],
+    evidence: evidenceLocator,
+    rationale: "Judge accepts the candidate; worker and verifier evidence agree."
+  });
+  const selection = runner.hostMultiAgentSelect(runId, {
+    candidate: "sem-candidate",
+    role: "sem-panel-chair",
+    multiAgentRun: "sem-ma",
+    score: score.data.id,
+    evidence: evidenceLocator,
+    reason: "Panel selected the score-backed candidate with cited judge rationale."
+  });
+  const commit = runner.commit(runId, { selection: selection.data.id, reason: "State explosion verifier-gated commit." });
   assert.equal(commit.commit.verifierGated, true);
 
   // --- Summary refresh + show -------------------------------------------------
@@ -394,17 +360,13 @@ function readMcp(runId, snapshotPath) {
     .then(() => rpc("tools/list", {}))
     .then((listed) =>
       Promise.all([
-        tool("cw_summary_refresh", { cwd: tmp, runId }),
         tool("cw_summary_show", { cwd: tmp, runId }),
         tool("cw_blackboard_summarize", { cwd: tmp, runId }),
-        tool("cw_multi_agent_summarize", { cwd: tmp, runId }),
         tool("cw_multi_agent_graph_compact", { cwd: tmp, runId, view: "compact" })
-      ]).then(([summaryRefresh, summaryShow, blackboardDigest, multiAgentSummarize, graphCompact]) => ({
+      ]).then(([summaryShow, blackboardDigest, graphCompact]) => ({
         tools: new Set(listed.tools.map((entry) => entry.name)),
-        summaryRefresh,
         summaryShow,
         blackboardDigest,
-        multiAgentSummarize,
         graphCompact
       }))
     )

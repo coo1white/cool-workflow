@@ -83,8 +83,8 @@ assert.match(report, /## Trust Audit/);
 assert.match(report, /## Acceptance Rationale/);
 assert.match(report, /dogfood-release-0\.1\.85/);
 
-assert.ok(summary.commandResults.some((entry) => entry.id === "canonical-apps" && entry.status === 0));
-assert.ok(summary.commandResults.some((entry) => entry.id === "golden-path" && entry.status === 0));
+assert.ok(summary.commandResults.some((entry) => entry.id === "npm-pack-dry-run" && entry.status === 0));
+assert.ok(summary.commandResults.some((entry) => entry.id === "app-validate-release-cut" && entry.status === 0));
 assert.ok(summary.commandResults.every((entry) => fs.existsSync(entry.logPath)));
 
 process.stdout.write("dogfood-release-smoke: ok\n");

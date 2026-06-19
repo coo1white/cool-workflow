@@ -95,7 +95,9 @@ node test/dogfood-architecture-review-smoke.js
 The smoke test runs `scripts/dogfood-release.js --smoke --json`. It still
 uses the real repository, `release-cut`, worker manifests, trust audit records,
 candidate scoring, selection, verifier-gated commit, and a report, but keeps the
-command set smaller so it does not do recursive release checking.
+command set smaller so it does not do recursive release checking. Smoke mode
+does not run `canonical-apps` or `golden-path`; `npm test` runs those checks as
+separate smokes.
 
 The architecture-review smoke runs beside it. That smoke uses a stub agent to
 drive the real `architecture-review` app to a report and audit proof. Keeping it
