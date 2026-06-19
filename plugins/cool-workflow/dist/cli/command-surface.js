@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.runCli = runCli;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const node_child_process_1 = require("node:child_process");
 const readline = __importStar(require("node:readline"));
 const orchestrator_1 = require("../orchestrator");
 const capability_core_1 = require("../capability-core");
@@ -72,6 +73,22 @@ async function runCli(argv = process.argv.slice(2)) {
             return;
         }
     }
+    // Map vendor shorthand flags (-claude, -codex, -deepseek) to --agent-command.
+    if (args.options.claude)
+        args.options["agent-command"] = "builtin:claude";
+    if (args.options.codex)
+        args.options["agent-command"] = "builtin:codex";
+    if (args.options.deepseek)
+        args.options["agent-command"] = "builtin:deepseek";
+    // Bare -q / --question -> redirect to quickstart (auto-detect repo/agent/app).
+    if (args.command === "-q" || args.command === "--question") {
+        if (!args.options.question && args.positionals[0])
+            args.options.question = args.positionals[0];
+        args.command = "quickstart";
+    }
+    else if (!args.command && typeof args.options.question === "string") {
+        args.command = "quickstart";
+    }
     const runner = new orchestrator_1.CoolWorkflowRunner({
         pluginRoot: node_path_1.default.resolve(__dirname, "../..")
     });
@@ -82,6 +99,29 @@ async function runCli(argv = process.argv.slice(2)) {
         case undefined:
             process.stdout.write((0, orchestrator_1.formatHelp)());
             return;
+        case "version":
+            process.stdout.write(`${version_1.CURRENT_COOL_WORKFLOW_VERSION}\n`);
+            return;
+        case "update": {
+            process.stderr.write("Updating cool-workflow...\n");
+            const npm = (0, node_child_process_1.spawnSync)("npm", ["update", "-g", "cool-workflow"], { encoding: "utf8", stdio: "inherit" });
+            if (npm.status !== 0) {
+                process.stderr.write("Update failed, trying install...\n");
+                const install = (0, node_child_process_1.spawnSync)("npm", ["install", "-g", "cool-workflow@latest"], { encoding: "utf8", stdio: "inherit" });
+                if (install.status !== 0) {
+                    process.stderr.write("Install failed. Check npm and try again.\n");
+                    process.exitCode = 1;
+                }
+            }
+            return;
+        }
+        case "fix": {
+            const report = (0, doctor_1.runDoctor)(args.options, process.env, String(args.options.cwd || process.cwd()));
+            process.stdout.write(`${(0, doctor_1.formatDoctorFixes)(report)}\n`);
+            if (!report.ok)
+                process.exitCode = 1;
+            return;
+        }
         case "list":
             printJson(runner.listWorkflows());
             return;

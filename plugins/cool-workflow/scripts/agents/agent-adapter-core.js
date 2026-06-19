@@ -39,7 +39,7 @@ function buildPrompt(inputPath) {
 }
 
 function streamEnabled(env = process.env) {
-  return env.CW_AGENT_STREAM === "1" && env.CW_NO_STREAM !== "1";
+  return env.CW_AGENT_STREAM !== "0" && env.CW_NO_STREAM !== "1";
 }
 
 function traceEnabled(env = process.env, stderr = process.stderr) {

@@ -104,10 +104,12 @@ function agentConfigured(config: AgentDelegationConfig): boolean {
   return Boolean(config.command || config.endpoint);
 }
 
-/** Opt-in progress to STDERR (stdout stays clean JSON), gated on CW_DRIVE_PROGRESS,
- *  so a live multi-minute drive is observable. */
+/** Progress to STDERR (stdout stays clean JSON). On by default when stderr is a
+ *  TTY; silent in CI/pipes. CW_DRIVE_PROGRESS=0 forces off, =1 forces on. */
 function emitProgress(message: string): void {
-  if (process.env.CW_DRIVE_PROGRESS) process.stderr.write(`[drive] ${message}\n`);
+  const forcedOff = process.env.CW_DRIVE_PROGRESS === "0";
+  const forcedOn = process.env.CW_DRIVE_PROGRESS === "1";
+  if ((Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn) process.stderr.write(`[drive] ${message}\n`);
 }
 
 /** Advance exactly ONE deterministic step. Pure-ish: all mutation is through the
