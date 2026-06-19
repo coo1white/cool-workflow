@@ -150,7 +150,7 @@ export class CoolWorkflowRunner {
       return {
         valid: false,
         appId: target,
-        appPath: path.resolve(target),
+        appPath: this.resolveFromBase(target),
         issues
       };
     }
@@ -160,7 +160,7 @@ export class CoolWorkflowRunner {
     const id = slugify(appId);
     if (!id) throw new Error("App id must include at least one letter or digit");
     const title = String(options.title || titleize(id));
-    const destinationDir = path.resolve(String(options.directory || options.output || path.join(this.appsDir, id)));
+    const destinationDir = this.resolveFromBase(String(options.directory || options.output || path.join(this.appsDir, id)));
     const manifestPath = path.join(destinationDir, "app.json");
     const entrypointPath = path.join(destinationDir, "workflow.js");
     if (!options.force && (fs.existsSync(manifestPath) || fs.existsSync(entrypointPath))) {
@@ -178,11 +178,8 @@ export class CoolWorkflowRunner {
 
   packageApp(appId: string, options: Record<string, unknown> = {}): { id: string; version: string; path: string } {
     const record = this.loadWorkflowAppById(appId);
-    const destination = path.resolve(
-      String(
-        options.output ||
-          path.join(process.cwd(), ".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)
-      )
+    const destination = this.resolveFromBase(
+      String(options.output || path.join(".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`))
     );
     fs.mkdirSync(path.dirname(destination), { recursive: true });
     writeJson(destination, {
@@ -198,7 +195,7 @@ export class CoolWorkflowRunner {
     const id = slugify(workflowId);
     if (!id) throw new Error("Workflow id must include at least one letter or digit");
     const title = String(options.title || titleize(id));
-    const destination = path.resolve(
+    const destination = this.resolveFromBase(
       String(options.output || path.join(this.workflowsDir, `${id}.workflow.js`))
     );
     if (fs.existsSync(destination) && !options.force) {
@@ -233,7 +230,7 @@ export class CoolWorkflowRunner {
   }
 
   recordResult(runId: string, taskId: string, resultPath: string, options: Record<string, unknown> = {}): RunSummary {
-    return lifecycleOps.recordResult(this.loadRun(runId), taskId, resultPath, options);
+    return lifecycleOps.recordResult(this.loadRun(runId), taskId, this.resolveFromBase(resultPath), options);
   }
 
   listWorkers(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof listWorkerScopes> {
@@ -260,7 +257,7 @@ export class CoolWorkflowRunner {
   }
 
   recordWorkerOutput(runId: string, workerId: string, resultPath: string, options: Record<string, unknown> = {}): RunSummary {
-    return lifecycleOps.recordWorkerOutput(this.loadRun(runId), workerId, resultPath, options);
+    return lifecycleOps.recordWorkerOutput(this.loadRun(runId), workerId, this.resolveFromBase(resultPath), options);
   }
 
   recordWorkerFailure(
@@ -273,7 +270,7 @@ export class CoolWorkflowRunner {
   }
 
   validateWorker(runId: string, workerId: string, targetPath?: string): ReturnType<typeof validateWorkerBoundary> {
-    return validateWorkerBoundary(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
+    return validateWorkerBoundary(this.loadRun(runId), workerId, targetPath ? { path: this.resolveFromBase(targetPath) } : {});
   }
 
   // Audit domain — delegated to ./orchestrator/audit-operations (v0.1.40 P3
@@ -320,15 +317,15 @@ export class CoolWorkflowRunner {
   }
 
   listSandboxProfiles(options: Record<string, unknown> = {}): ReturnType<typeof listBundledSandboxProfiles> {
-    return listBundledSandboxProfiles(sandboxContextForValidation(String(options.cwd || process.cwd())));
+    return listBundledSandboxProfiles(sandboxContextForValidation(String(options.cwd || this.invocationCwd())));
   }
 
   showSandboxProfile(profileId: string, options: Record<string, unknown> = {}): ReturnType<typeof showBundledSandboxProfile> {
-    return showBundledSandboxProfile(profileId, sandboxContextForValidation(String(options.cwd || process.cwd())));
+    return showBundledSandboxProfile(profileId, sandboxContextForValidation(String(options.cwd || this.invocationCwd())));
   }
 
   validateSandboxProfile(profileFile: string, options: Record<string, unknown> = {}): ReturnType<typeof validateSandboxProfileFile> {
-    return validateSandboxProfileFile(profileFile, sandboxContextForValidation(String(options.cwd || process.cwd())));
+    return validateSandboxProfileFile(this.resolveFromBase(profileFile), sandboxContextForValidation(String(options.cwd || this.invocationCwd())));
   }
 
   listBackends(options: Record<string, unknown> = {}): ReturnType<typeof backendListPayload> {
@@ -342,7 +339,7 @@ export class CoolWorkflowRunner {
   }
 
   probeBackend(backendId: string | undefined, options: Record<string, unknown> = {}): ReturnType<typeof backendProbePayload> {
-    return backendProbePayload(backendId, { cwd: String(options.cwd || process.cwd()) });
+    return backendProbePayload(backendId, { cwd: String(options.cwd || this.invocationCwd()) });
   }
 
   // Candidate domain — delegated to ./orchestrator/candidate-operations.
@@ -829,6 +826,14 @@ export class CoolWorkflowRunner {
     return loadRunFromCwd(runId, this.baseDir);
   }
 
+  private invocationCwd(): string {
+    return this.baseDir || process.cwd();
+  }
+
+  private resolveFromBase(target: string): string {
+    return path.resolve(this.invocationCwd(), target);
+  }
+
   private loadWorkflowAppById(appId: string): LoadedWorkflowApp {
     const record = this.loadWorkflowApps().find((candidate) => candidate.app.id === appId);
     if (!record) throw new Error(`Workflow app not found: ${appId}`);
@@ -837,7 +842,7 @@ export class CoolWorkflowRunner {
 
   private loadWorkflowAppTarget(target: string): LoadedWorkflowApp {
     if (!target) throw new Error("Missing workflow app path or id");
-    const resolved = path.resolve(target);
+    const resolved = this.resolveFromBase(target);
     if (fs.existsSync(resolved)) {
       const stat = fs.statSync(resolved);
       if (stat.isDirectory()) return loadWorkflowAppFromManifest(path.join(resolved, "app.json"));

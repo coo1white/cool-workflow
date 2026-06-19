@@ -64,6 +64,16 @@ ISO timestamps from the moment of generation. The `--json` payload is the
 contract, and it is the same bytes the MCP tool gives back. The human text view
 is policy put on top; it never changes the payload.
 
+Some payload checks need more than `cwd` or `runId`. The registry may name a
+scenario probe for a safe local case. A scenario gets two new temp workspaces,
+one for CLI and one for MCP, sets up the same state, runs one capability through
+each door, and then compares the payload after taking out temp roots, run ids,
+time stamps, and chain hashes that are made by that workspace. This is used for
+local deterministic work such as app show/validate/package, topology
+show/validate/apply/summary/graph, sandbox show/validate/choose/resolve, state
+summary refresh/show, `plan`, `approve`, `reject`, `comment.add`, `handoff`, and
+`review.policy`.
+
 ## The Parity Matrix
 
 The matrix below is made from the live registry — one row per capability,
@@ -332,10 +342,12 @@ of the rules above.
 registry ⇄ CLI ⇄ MCP coverage (every declared capability is found on its declared
 surfaces and nothing live is undeclared), makes sure `--json` output is equal to
 the MCP payload for every `payloadIdentical` capability, makes sure of the
-declared `commit` projection, and makes sure of fail-closed behavior by putting in
-drift — a peer taken away, an undeclared tool, an exception with no reason, a
-changed payload — and checking that the gate says no to each one. It is part of
-`npm test` and `npm run release:check`.
+declared `commit` projection, checks that safe write/multi-argument capabilities
+are named scenario probes rather than deferred work, and makes sure of
+fail-closed behavior by putting in drift — a peer taken away, an undeclared tool,
+an exception with no reason, a bad probe classification, a changed payload — and
+checking that the gate says no to each one. It is part of `npm test` and
+`npm run release:check`.
 
 In CW, parity is not a custom; it is a built, declared, and kept property of the
 build. It is not done till it is put in the docs and tested.

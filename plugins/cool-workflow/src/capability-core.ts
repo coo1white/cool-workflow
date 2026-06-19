@@ -168,8 +168,8 @@ export function compactOperatorStatus(status: OperatorRunSummary): Record<string
 // functions so `cw <cmd> --json` is byte-identical to `cw_<tool>`. Each accepts
 // the raw CLI options OR the raw MCP arguments and normalizes them identically,
 // then calls the single RunRegistry method. The registry is constructed from the
-// same resolved cwd on both surfaces (CLI: --cwd|process.cwd(); MCP chdir'd to
-// args.cwd), so repo/home roots line up.
+// same resolved cwd on both surfaces (CLI: --cwd|process.cwd(); MCP passes a
+// resolved cwd and scopes the runner), so repo/home roots line up.
 
 export function runRegistryFor(args: Record<string, unknown>, planner: CoolWorkflowRunner): RunRegistry {
   return new RunRegistry(String(args.cwd || process.cwd()), planner);

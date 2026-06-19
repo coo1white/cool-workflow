@@ -178,7 +178,7 @@ class CoolWorkflowRunner {
             return {
                 valid: false,
                 appId: target,
-                appPath: node_path_1.default.resolve(target),
+                appPath: this.resolveFromBase(target),
                 issues
             };
         }
@@ -188,7 +188,7 @@ class CoolWorkflowRunner {
         if (!id)
             throw new Error("App id must include at least one letter or digit");
         const title = String(options.title || titleize(id));
-        const destinationDir = node_path_1.default.resolve(String(options.directory || options.output || node_path_1.default.join(this.appsDir, id)));
+        const destinationDir = this.resolveFromBase(String(options.directory || options.output || node_path_1.default.join(this.appsDir, id)));
         const manifestPath = node_path_1.default.join(destinationDir, "app.json");
         const entrypointPath = node_path_1.default.join(destinationDir, "workflow.js");
         if (!options.force && (node_fs_1.default.existsSync(manifestPath) || node_fs_1.default.existsSync(entrypointPath))) {
@@ -205,8 +205,7 @@ class CoolWorkflowRunner {
     }
     packageApp(appId, options = {}) {
         const record = this.loadWorkflowAppById(appId);
-        const destination = node_path_1.default.resolve(String(options.output ||
-            node_path_1.default.join(process.cwd(), ".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
+        const destination = this.resolveFromBase(String(options.output || node_path_1.default.join(".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
         node_fs_1.default.mkdirSync(node_path_1.default.dirname(destination), { recursive: true });
         (0, state_1.writeJson)(destination, {
             schemaVersion: 1,
@@ -221,7 +220,7 @@ class CoolWorkflowRunner {
         if (!id)
             throw new Error("Workflow id must include at least one letter or digit");
         const title = String(options.title || titleize(id));
-        const destination = node_path_1.default.resolve(String(options.output || node_path_1.default.join(this.workflowsDir, `${id}.workflow.js`)));
+        const destination = this.resolveFromBase(String(options.output || node_path_1.default.join(this.workflowsDir, `${id}.workflow.js`)));
         if (node_fs_1.default.existsSync(destination) && !options.force) {
             throw new Error(`Refusing to overwrite existing workflow: ${destination}`);
         }
@@ -248,7 +247,7 @@ class CoolWorkflowRunner {
         return lifecycleOps.dispatch(this.loadRun(runId), options);
     }
     recordResult(runId, taskId, resultPath, options = {}) {
-        return lifecycleOps.recordResult(this.loadRun(runId), taskId, resultPath, options);
+        return lifecycleOps.recordResult(this.loadRun(runId), taskId, this.resolveFromBase(resultPath), options);
     }
     listWorkers(runId, options = {}) {
         return (0, worker_isolation_1.listWorkerScopes)(this.loadRun(runId), {
@@ -272,13 +271,13 @@ class CoolWorkflowRunner {
         return (0, worker_isolation_1.writeWorkerManifest)(run, worker);
     }
     recordWorkerOutput(runId, workerId, resultPath, options = {}) {
-        return lifecycleOps.recordWorkerOutput(this.loadRun(runId), workerId, resultPath, options);
+        return lifecycleOps.recordWorkerOutput(this.loadRun(runId), workerId, this.resolveFromBase(resultPath), options);
     }
     recordWorkerFailure(runId, workerId, message, options = {}) {
         return lifecycleOps.recordWorkerFailure(this.loadRun(runId), workerId, message, options);
     }
     validateWorker(runId, workerId, targetPath) {
-        return (0, worker_isolation_1.validateWorkerBoundary)(this.loadRun(runId), workerId, targetPath ? { path: targetPath } : {});
+        return (0, worker_isolation_1.validateWorkerBoundary)(this.loadRun(runId), workerId, targetPath ? { path: this.resolveFromBase(targetPath) } : {});
     }
     // Audit domain — delegated to ./orchestrator/audit-operations (v0.1.40 P3
     // router pattern). The runner stays the routing surface; the logic lives in the
@@ -314,13 +313,13 @@ class CoolWorkflowRunner {
         return auditOps.recordAuditDecision(this.loadRun(runId), workerId, options);
     }
     listSandboxProfiles(options = {}) {
-        return (0, sandbox_profile_1.listBundledSandboxProfiles)((0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
+        return (0, sandbox_profile_1.listBundledSandboxProfiles)((0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || this.invocationCwd())));
     }
     showSandboxProfile(profileId, options = {}) {
-        return (0, sandbox_profile_1.showBundledSandboxProfile)(profileId, (0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
+        return (0, sandbox_profile_1.showBundledSandboxProfile)(profileId, (0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || this.invocationCwd())));
     }
     validateSandboxProfile(profileFile, options = {}) {
-        return (0, sandbox_profile_1.validateSandboxProfileFile)(profileFile, (0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || process.cwd())));
+        return (0, sandbox_profile_1.validateSandboxProfileFile)(this.resolveFromBase(profileFile), (0, sandbox_profile_1.sandboxContextForValidation)(String(options.cwd || this.invocationCwd())));
     }
     listBackends(options = {}) {
         void options;
@@ -331,7 +330,7 @@ class CoolWorkflowRunner {
         return (0, execution_backend_1.backendShowPayload)(backendId);
     }
     probeBackend(backendId, options = {}) {
-        return (0, execution_backend_1.backendProbePayload)(backendId, { cwd: String(options.cwd || process.cwd()) });
+        return (0, execution_backend_1.backendProbePayload)(backendId, { cwd: String(options.cwd || this.invocationCwd()) });
     }
     // Candidate domain — delegated to ./orchestrator/candidate-operations.
     listCandidates(runId, options = {}) {
@@ -716,6 +715,12 @@ class CoolWorkflowRunner {
     loadRun(runId) {
         return (0, state_1.loadRunFromCwd)(runId, this.baseDir);
     }
+    invocationCwd() {
+        return this.baseDir || process.cwd();
+    }
+    resolveFromBase(target) {
+        return node_path_1.default.resolve(this.invocationCwd(), target);
+    }
     loadWorkflowAppById(appId) {
         const record = this.loadWorkflowApps().find((candidate) => candidate.app.id === appId);
         if (!record)
@@ -725,7 +730,7 @@ class CoolWorkflowRunner {
     loadWorkflowAppTarget(target) {
         if (!target)
             throw new Error("Missing workflow app path or id");
-        const resolved = node_path_1.default.resolve(target);
+        const resolved = this.resolveFromBase(target);
         if (node_fs_1.default.existsSync(resolved)) {
             const stat = node_fs_1.default.statSync(resolved);
             if (stat.isDirectory())
