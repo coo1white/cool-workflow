@@ -229,7 +229,7 @@ function main() {
     process.chdir(workN);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const run = runner.plan("architecture-review", { repo: workN, question: "q" });
+      const run = runner.plan("end-to-end-golden-path", { question: "q" });
       const result = drive(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 2 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubN, "{{result}}"], source: "flag" } });
       assert.equal(result.status, "parked", "an agent that writes no result.md fails closed (parks)");
       assert.equal(result.completedWorkers, 0, "no worker fabricated when no result.md is produced");
@@ -246,14 +246,13 @@ function main() {
     process.chdir(workI);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const run = runner.plan("architecture-review", { repo: workI, question: "q" });
+      const run = runner.plan("end-to-end-golden-path", { question: "q" });
       const result = drive(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 2 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubI, "{{result}}"], source: "flag" } });
       assert.equal(result.status, "parked", "an invalid (evidence-less) result.md fails closed at the evidence-gated worker");
       assert.ok(result.completedWorkers < result.plannedWorkers, "the run did not complete on invalid output");
       assert.ok(!result.commitId, "no commit when an evidence-gated worker is unsatisfied");
       const finalI = runner.loadRun(run.id);
-      const verdictI = finalI.tasks.find((t) => /^verdict[:/]/i.test(t.id));
-      assert.notEqual(verdictI.status, "completed", "verdict NOT accepted on invalid upstream output");
+      assert.notEqual(finalI.tasks[0].status, "completed", "the evidence-gated task was NOT accepted on invalid output");
     } finally {
       process.chdir(cwd0);
     }
@@ -266,7 +265,7 @@ function main() {
     process.chdir(workP);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const run = runner.plan("architecture-review", { repo: workP, question: "q" });
+      const run = runner.plan("end-to-end-golden-path", { question: "q" });
       const result = drive(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 3 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubP, "{{result}}"], source: "flag" } });
       assert.equal(result.status, "parked");
       const park = result.steps.find((s) => s.action === "park");
@@ -286,7 +285,7 @@ function main() {
       process.chdir(w);
       try {
         const runner = new CoolWorkflowRunner({ pluginRoot });
-        const run = runner.plan("architecture-review", { repo: w, question: "q" });
+        const run = runner.plan("end-to-end-golden-path", { question: "q" });
         return drive(runner, run.id, { once: true, now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [s, "{{result}}"], source: "flag" } });
       } finally {
         process.chdir(cwd0);
@@ -308,7 +307,7 @@ function main() {
     process.chdir(workO);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const run = runner.plan("architecture-review", { repo: workO, question: "q" });
+      const run = runner.plan("end-to-end-golden-path", { question: "q" });
       const common = { once: true, now: FIXED_NOW, policy: { maxAttempts: 2 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubO, "{{result}}"], source: "flag" } };
       const first = drive(runner, run.id, common);
       assert.equal(first.status, "in-progress", "first once failure leaves the worker retryable");
@@ -334,7 +333,7 @@ function main() {
     process.chdir(w);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const run = runner.plan("architecture-review", { repo: w, question: "q" });
+      const run = runner.plan("end-to-end-golden-path", { question: "q" });
       clearAgentEnv();
       const p1 = drivePreview(runner, run.id, {});
       const p2 = drivePreview(runner, run.id, {});

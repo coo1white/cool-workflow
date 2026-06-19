@@ -17,6 +17,7 @@ const files = execFileSync("git", ["ls-files"], { cwd: repoRoot, encoding: "utf8
 const matches = [];
 for (const file of files) {
   const absolute = path.join(repoRoot, file);
+  if (!fs.existsSync(absolute)) continue;
   const text = fs.readFileSync(absolute, "utf8").toLowerCase();
   for (const term of blocked) {
     if (text.includes(term)) matches.push(`${file}: contains blocked personal marker`);

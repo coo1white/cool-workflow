@@ -89,12 +89,18 @@ report, and audit tools.
 
 ```bash
 node test/dogfood-release-smoke.js
+node test/dogfood-architecture-review-smoke.js
 ```
 
 The smoke test runs `scripts/dogfood-release.js --smoke --json`. It still
 uses the real repository, `release-cut`, worker manifests, trust audit records,
 candidate scoring, selection, verifier-gated commit, and a report, but keeps the
 command set smaller so it does not do recursive release checking.
+
+The architecture-review smoke runs beside it. That smoke uses a stub agent to
+drive the real `architecture-review` app to a report and audit proof. Keeping it
+as a second smoke lets the parallel gate run both dogfood halves at the same
+time while keeping the same proof.
 
 ## Promote To Real Release Actions
 

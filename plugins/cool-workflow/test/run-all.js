@@ -82,15 +82,11 @@ if (smokes.length === 0) {
   process.exit(1);
 }
 
-// Timing-benchmark smokes that ASSERT wall-clock thresholds to prove CW's own
-// concurrency beats serial. Their measurement is only valid on a QUIET cpu —
-// co-tenant load from the parallel pool inflates their wall-clock past the bound
-// and red-flakes them (surfaced by a stress sweep at --concurrency 16/8). They
-// are fully state-isolated like every other smoke (private sandbox); they are
-// only contention-SENSITIVE, so the runner runs them ALONE, after the pool
-// drains, where the cpu is quiet. Keep this list MINIMAL and justified — it is
-// not an escape hatch for races (those must be fixed), only for timing assays.
-const SERIAL_ONLY = new Set(["concurrent-failure-semantics-smoke.js", "parallel-onramp-smoke.js"]);
+// Contention-sensitive smokes can be kept out of the parallel pool here. Keep
+// this list minimal and justified: it is not an escape hatch for races. It is
+// currently empty because the former timing smokes now prove concurrency from
+// child start/end intervals rather than whole-smoke wall-clock thresholds.
+const SERIAL_ONLY = new Set([]);
 const pooledSmokes = smokes.filter((file) => !SERIAL_ONLY.has(file));
 const serialSmokes = smokes.filter((file) => SERIAL_ONLY.has(file));
 

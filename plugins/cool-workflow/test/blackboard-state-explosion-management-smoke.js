@@ -223,10 +223,10 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
   assert.match(human, /node scripts\/cw\.js multi-agent graph .* --view full/);
 
   // --- CLI JSON is deterministic ----------------------------------------------
-  const showA = stripVolatile(runJson(["summary", "show", runId, "--json"]));
+  const showA = stripVolatile(report);
   const showB = stripVolatile(runJson(["summary", "show", runId, "--json"]));
   assert.deepEqual(showA, showB, "summary show JSON must be deterministic");
-  const graphA = stripVolatile(runJson(["multi-agent", "graph", runId, "--view", "compact", "--json"]));
+  const graphA = stripVolatile(compact);
   const graphB = stripVolatile(runJson(["multi-agent", "graph", runId, "--view", "compact", "--json"]));
   assert.deepEqual(graphA, graphB, "compact graph JSON must be deterministic");
 
@@ -302,11 +302,6 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
   const failedGate = runFail(["eval", "gate", path.dirname(snapshot.paths.snapshotPath)]);
   assert.notEqual(failedGate.status, 0, "release gate must fail on broken summaries");
 
-  // Restore a clean, passing comparison/score/gate so the suite ends green.
-  runJson(["eval", "compare", snapshot.paths.snapshotPath, replay.paths.replayRunPath, "--json"]);
-  runJson(["eval", "score", replay.paths.replayRunPath, "--json"]);
-  runJson(["eval", "gate", path.dirname(snapshot.paths.snapshotPath), "--json"]);
-
   // --- MCP parity -------------------------------------------------------------
   const mcp = await readMcp(runId, snapshot.paths.snapshotPath);
   for (const name of [
@@ -326,7 +321,7 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
   // --- Slim summary builders: one full graph/operator pass per summary path ---
   assertSlimSummaryBuilders(runId);
 
-  process.stdout.write("state-explosion-management-smoke: ok\n");
+  process.stdout.write("blackboard-state-explosion-management-smoke: ok\n");
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;
