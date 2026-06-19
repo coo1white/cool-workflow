@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { CoolWorkflowRunner, formatHelp, parseArgv } from "../orchestrator";
+import { CoolWorkflowRunner, formatHelp, parseArgv, suggestCommand } from "../orchestrator";
 import {
   appRun,
   metricsSummary,
@@ -114,7 +114,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     }
     case "init": {
       const [workflowId] = args.positionals;
-      if (!workflowId) throw new Error("Missing workflow id. Example: cw.js init my-workflow");
+      if (!workflowId) throw new Error("Missing workflow id.\n  Tip: create one with \"cw init my-workflow\" or list with \"cw list\"");
       printJson(runner.init(workflowId, args.options));
       return;
     }
@@ -169,7 +169,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     }
     case "plan": {
       const [workflowId] = args.positionals;
-      if (!workflowId) throw new Error("Missing workflow id. Example: cw.js plan architecture-review");
+      if (!workflowId) throw new Error("Missing workflow id.\n  Tip: plan an architecture review with \"cw plan architecture-review\"");
       printJson(planSummary(runner, workflowId, args.options));
       return;
     }
@@ -1324,12 +1324,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       }
     }
     default:
-      throw new Error(`Unknown command: ${args.command}`);
+      throw new Error(`Unknown command: ${args.command}${(suggestCommand(String(args.command || "")) ? `. Did you mean: ${suggestCommand(String(args.command))}?` : "")}`);
   }
 }
 
 function required(value: string | undefined, label: string): string {
-  if (!value) throw new Error(`Missing ${label}. Run "cw.js help" for usage.`);
+  if (!value) throw new Error(`Missing ${label}.\n  Tip: find run ids with "cw run list" or create one with "cw quickstart"`);
   return value;
 }
 

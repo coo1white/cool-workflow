@@ -12,6 +12,11 @@
 - **Tests**: Added `gemini-agent-wrapper-smoke.js` and `opencode-agent-wrapper-smoke.js` (PATH shim tests covering normal path, streaming, crash, garbage output, and builtin alias resolution). Full suite: 115/115 passed, 0 failed.
 - **Risk**: Low. Wrappers are additive config — no kernel changes. OpenCode uses `--dangerously-skip-permissions` since no native `--read-only` flag exists; CW's sandbox layer enforces write safety.
 
+- **Capability**: Homebrew-style CLI polish — colored output (TTY-gated ANSI), "did you mean?" typo suggestions, categorized help text grouped by task domain, and contextual next-step hints in error messages.
+- **Implementation**: Added `src/term.ts` (zero-dependency ANSI styling: green ✓, yellow !, red ✗, bold, dim). Wired into `cw doctor`, CLI error handler, and `formatHelp()`. Rewrote `formatHelp()` into 8 categorized sections (Getting Started, Run Management, Inspection, Audit, Multi-Agent, Registry, Developer, Common Flags). Added `suggestCommand()` with Levenshtein distance for "did you mean?" on unknown commands. Updated `required()` and init/plan error messages with concrete tips instead of generic "run cw.js help".
+- **Tests**: Updated `cli-mcp-parity-smoke.js` and `scripts/parity-check.js` help-token parsers for the new categorized format. Full suite: 115/115 passed, 0 failed. Parity check: clean.
+- **Risk**: Low. All styling is TTY-gated (pipes get plain text). `--json` output is byte-identical. Help text format change is additive — old scripts that parsed text may need updating (parity-check.js and parity smoke updated in this cycle).
+
 ## 0.1.86
 
 - **Capability**: A new user now gets a clearer and faster first run: `doctor --onramp` points from zero-write `quickstart --check` to `quickstart --bundle` and offline `report verify-bundle`, while the README path is covered by an end-to-end smoke.

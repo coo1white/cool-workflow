@@ -48,12 +48,12 @@ function cliDispatchSources() {
 
 function cliHelpTokens() {
   const lines = formatHelp().split(/\r?\n/);
-  const start = lines.indexOf("Commands:");
-  assert.ok(start >= 0, "help text must include a Commands section");
   const tokens = new Set();
-  for (const line of lines.slice(start + 1)) {
-    if (!line.trim()) break;
-    const first = line.trim().split(/\s+/)[0];
+  for (const line of lines) {
+    if (!line.startsWith("  ") || line.startsWith("    ")) continue;
+    const trimmed = line.trim();
+    if (!trimmed || !/^[a-z]/.test(trimmed)) continue;
+    const first = trimmed.split(/\s+/)[0];
     for (const token of first.split("|")) {
       const clean = token.replace(/[<[].*$/, "");
       if (clean) tokens.add(clean);

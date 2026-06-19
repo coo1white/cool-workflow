@@ -26,6 +26,7 @@ const node_path_1 = __importDefault(require("node:path"));
 const node_child_process_1 = require("node:child_process");
 const agent_config_1 = require("./agent-config");
 const onramp_1 = require("./onramp");
+const term_1 = require("./term");
 /** Resolve a bare binary name against $PATH (or accept an explicit path). Returns
  *  the resolved path, or undefined when not found. No spawning. */
 function whichBinary(bin, env) {
@@ -149,15 +150,15 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
 }
 /** Human rendering (TTY/default). `--json` callers use the report object directly. */
 function formatDoctorReport(report) {
-    const glyph = { ok: "✓", warn: "!", fail: "✗" };
-    const lines = ["cw doctor"];
+    const lines = [(0, term_1.bold)("cw doctor")];
     for (const check of report.checks) {
-        lines.push(`  ${glyph[check.status]} ${check.name}: ${check.detail}`);
+        lines.push(`  ${(0, term_1.doctorGlyph)(check.status)} ${check.name}: ${check.detail}`);
         if (check.fix && check.status !== "ok")
             lines.push(`      fix: ${check.fix}`);
     }
     lines.push("");
-    lines.push(`${report.ok ? "✓" : "✗"} ${report.summary}`);
+    const summaryGlyph = report.ok ? (0, term_1.green)("✓") : (0, term_1.red)("✗");
+    lines.push(`${summaryGlyph} ${report.summary}`);
     if (report.onramp) {
         lines.push("");
         lines.push("Onramp");
