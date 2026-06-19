@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — release v0.1.87 (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 6 | bump version to 0.1.87, sync all 22 content surfaces, forward-ref docs | package.json + src/version.ts + manifest/* + apps/*/app.json + scripts/* + test/* + docs/*.7.md + README.md + RELEASE.md + CHANGELOG.md | all 115 smokes pass (version bump is existing test surface) | BUILD OK; npm test 115/115; parity PASS; manifests in-sync | yes — v0.1.87 |
+
 ## Batch — remaining Homebrew-style polish (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |
