@@ -11,7 +11,7 @@
 [![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
 [![license](https://img.shields.io/badge/license-BSD--2--Clause-blue?style=flat-square)](LICENSE)
 
-<img src="docs/assets/cool-workflow-readme-promo.png" alt="Cool Workflow turns AI agent repo questions into saved, cited, tamper-evident reports." width="100%">
+<img src="docs/assets/cw-hero.svg" alt="Your AI report, already proven — cw demo tamper forges a signed report three ways (ledger, signature, result) and catches every one offline with only the public key." width="100%">
 
 </div>
 
@@ -77,7 +77,15 @@ cw fix                            # show fix commands for setup issues
 | `research-synthesis` | Answer a question with fact-backed research |
 | `release-cut` | Run a gated, reviewed release |
 
-CW also has an **MCP** surface — Claude Desktop, Cursor, and VS Code can call CW as a tool.
+**Multi-agent, when you need it.** Fan work out across agents with built-in topologies —
+and re-run fast: `cw run <app> --drive --incremental` reuses every step whose inputs didn't change.
+
+<div align="center">
+<img src="docs/assets/topologies.svg" alt="Built-in multi-agent topologies: map-reduce (fan out, fold in), debate (argue then draw a verdict), and judge-panel (N independent judges score one candidate)." width="92%">
+</div>
+
+CW also has an **MCP** surface — **Claude Desktop, Cursor, and VS Code call CW as a tool**, so
+your agent can plan a run, drive it, and verify a report without leaving the editor.
 See the [wiki](https://github.com/coo1white/cool-workflow/wiki).
 
 ## Can I Trust the Report?
@@ -122,6 +130,10 @@ CW is a small TypeScript tool with zero runtime deps. It drives your agent over 
 saved, replayable stages — it plans the work, dispatches each task to your agent, records and
 verifies every result, then commits and renders the report — writing everything to disk as
 inspectable files. It never imports a model SDK or stores an API key.
+
+<div align="center">
+<img src="docs/assets/pipeline.svg" alt="The CW pipeline: ask, plan, dispatch (fanning out to parallel agents), verify, commit, ending in a saved report.md with a clickable file.ts:42 citation. CW keeps the books; it never runs the model itself." width="100%">
+</div>
 
 `ask simple → run simple → verify simple → resume simple`
 
