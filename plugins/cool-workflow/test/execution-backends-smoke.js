@@ -32,6 +32,7 @@ const {
   listBackendDescriptors,
   requiredSandboxDimensions,
   backendListPayload,
+  probeBackend,
   DEFAULT_BACKEND_ID
 } = require("../dist/execution-backend");
 const { showBundledSandboxProfile, sandboxContextForValidation } = require("../dist/sandbox-profile");
@@ -62,6 +63,15 @@ for (const descriptor of listBackendDescriptors()) {
   }
 }
 assert.equal(listBackendDescriptors().filter((d) => d.default).length, 1, "exactly one default backend");
+// Every built-in backend exposes a dedicated probe that resolves via probeBackend
+// without a central switch — ci and agent each own their probe body.
+for (const id of ["ci", "agent"]) {
+  const probe = probeBackend(id);
+  assert.equal(typeof probe.backendId, "string", `${id} probe returns backendId`);
+  assert.ok(Array.isArray(probe.checks), `${id} probe returns checks array`);
+  assert.ok(probe.checks.length > 0, `${id} probe has at least one check`);
+  assert.ok(["ready", "unavailable", "unverified"].includes(probe.readiness), `${id} probe readiness is a valid enum`);
+}
 
 // ---------------------------------------------------------------------------
 // 1. IDENTICAL ENVELOPES, ANY BACKEND. Run CW's own self-verify (`cw list`)
@@ -255,6 +265,36 @@ assert.equal(containerEnvelope.provenance.handle.image, "cw/test");
 assert.equal(containerEnvelope.provenance.handle.ref, "cw/test@sha256:deadbeef");
 assert.ok(containerEnvelope.evidence.some((e) => e.startsWith("refused:")), "refusal is recorded as evidence");
 assert.ok(!containerEnvelope.evidence.some((e) => e.startsWith("stdoutSha256:")), "nothing ran — no output digest");
+
+// ci: delegation handle recorded even on refusal (v0.1.88 — previously only
+// refused in the smoke; now the success path lives in execution-backend-ci-smoke).
+const ciRefused = runBackend({
+  schemaVersion: 1,
+  backendId: "ci",
+  command,
+  args,
+  cwd: pluginRoot,
+  sandboxPolicy: showBundledSandboxProfile("readonly", ctx),
+  label: "cw-self-verify",
+  delegation: {}
+});
+assert.equal(ciRefused.status, "refused", "ci with no endpoint refuses");
+assert.equal(ciRefused.provenance.attestation.status, "refused");
+assert.ok(ciRefused.evidence.some((e) => e.startsWith("refused:")), "ci refusal is recorded as evidence");
+
+// agent: commandlessDelegate — no command/args needed for handle, but refusal
+// still fail-closed when unconfigured. The success path is in execution-backend-agent-smoke.
+const agentRefused = runBackend({
+  schemaVersion: 1,
+  backendId: "agent",
+  cwd: pluginRoot,
+  sandboxPolicy: showBundledSandboxProfile("readonly", ctx),
+  label: "cw-self-verify",
+  delegation: {}
+});
+assert.equal(agentRefused.status, "refused", "agent with no config refuses");
+assert.equal(agentRefused.provenance.attestation.status, "refused");
+assert.ok(agentRefused.evidence.some((e) => e.startsWith("refused:")), "agent refusal is recorded as evidence");
 
 // ---------------------------------------------------------------------------
 // 5. KERNEL STAYS BACKEND-AGNOSTIC. Worker output + verifier work identically on
