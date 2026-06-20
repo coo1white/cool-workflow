@@ -1,118 +1,132 @@
+<div align="center">
+
 # Cool Workflow
 
-```text
-══════════════════════════════════════════════════════════════════════
-  auditable agent-workflow control-plane — delegate, don't execute
-  plan → dispatch → record → verify → commit → report
-══════════════════════════════════════════════════════════════════════
-```
+**Get a saved, cited report from your AI agent — not a chat message you lose.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/coo1white/cool-workflow/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/coo1white/cool-workflow/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/cool-workflow?style=flat-square&label=npm&color=cb3837)](https://www.npmjs.com/package/cool-workflow)
 [![downloads](https://img.shields.io/npm/dm/cool-workflow?style=flat-square&label=downloads)](https://www.npmjs.com/package/cool-workflow)
+[![provenance](https://img.shields.io/badge/npm-provenance-3178C6?style=flat-square)](https://www.npmjs.com/package/cool-workflow)
 [![release](https://img.shields.io/github/v/tag/coo1white/cool-workflow?style=flat-square&label=release&color=brightgreen&sort=semver)](https://github.com/coo1white/cool-workflow/tags)
-[![license](https://img.shields.io/badge/license-BSD--2--Clause-blue?style=flat-square)](../../LICENSE)
+[![license](https://img.shields.io/badge/license-BSD--2--Clause-blue?style=flat-square)](https://github.com/coo1white/cool-workflow/blob/main/LICENSE)
 ![MCP](https://img.shields.io/badge/MCP-native-8A2BE2?style=flat-square)
 ![runtime](https://img.shields.io/badge/runtime-TypeScript%20%C2%B7%20Node-3178C6?style=flat-square)
 
-**[Start Here](#start-here)** · [Quickstart](#quickstart) · [Developer Loop](#developer-loop) · [Commands](#commands) · [Release History](docs/release-history.md)
+<img src="https://raw.githubusercontent.com/coo1white/cool-workflow/main/docs/assets/cool-workflow-readme-promo.png" alt="Cool Workflow turns AI agent repo questions into saved, cited, tamper-evident reports." width="100%">
 
-Cool Workflow, or CW, is a free-standing agent workflow control-plane put up as a
-TypeScript runtime. It gives a COL-Architecture: Router / Orchestrator,
-Subagent Dispatch, Deterministic Harness, Adversarial Verifier, Git/State
-Commit, and MCP JSON-RPC 2.0 bridge.
+</div>
 
-The way to see it is a base system plus userland apps: CW gives the runtime and
-contracts, while makers write apps they can use again in
-`apps/<app-id>/app.json`. Old `workflows/*.workflow.js` files still
-load as fit-together wrappers.
+> An auditable agent-workflow control-plane — **delegate, don't execute**.
+> `plan → dispatch → record → verify → commit → report`
 
-CW writes down the model workflow loop in a clear way:
+## Install
 
-```text
-interpret -> act -> observe -> adjust -> checkpoint
+```bash
+npm install -g cool-workflow
 ```
 
-These loop stages are kept in `state.json`, task records, reports, and state
-commit snapshots.
+What you need: **Node.js v18+** (`node --version`) and one AI agent CLI on your machine
+(`claude`, `codex`, `gemini`, or `opencode`). No agent? `cw demo` still works — CW never runs a model itself.
 
-CW keeps orchestration state and task queues in files. An agent host does
-the tasks and gives results back to the workflow.
+## Quick Start (3 steps)
 
-CW keeps to a small set of Unix-based workflow rules: small kernel,
-clear state, pipes that join, workers kept apart, and verifier-gated commits.
-See [docs/unix-principles.md](docs/unix-principles.md).
-
-## Start Here
+### 1. Prove it works (30 seconds, no agent needed)
 
 ```bash
 cw demo tamper
-cw doctor
-cw -q "What are the main risks?" -claude
+# → VERDICT: tamper-evidence holds ✓
 ```
 
-Pick an agent with a flag:
+### 2. Run a review on your code — one command
 
 ```bash
-cw -q "What are the main risks?" -claude      # Claude
-cw -q "What are the main risks?" -codex       # Codex
-cw -q "What are the main risks?" -deepseek    # DeepSeek
+cw -q "What are the main risks here?"
 ```
 
-## Quickstart
-
-**30-second proof, no install** — see that a recorded telemetry verdict can't be faked:
+CW auto-detects the repo (current folder) and your agent (first found on PATH).
+Pick a specific agent with a flag:
 
 ```bash
-npx cool-workflow demo tamper
-# builds a signed ed25519 ledger, forges it 3 ways (incl. editing a signed finding), all caught offline
-# -> VERDICT: tamper-evidence holds ✓
+cw -q "What are the security risks?" -claude
+cw -q "What are the security risks?" -codex
+cw -q "What are the security risks?" -deepseek
 ```
 
-**Try a real run** — no clone needed; one command drives an architecture review with your own agent:
+You will see live streaming output as the agent works — no env vars needed.
+
+### 3. Open the report
 
 ```bash
-npx cool-workflow -q "Is this architecture sound?" -claude
+cat .cw/runs/<run-id>/report.md
+# → findings with clickable file.ts:42 pointers for every claim
 ```
 
-Live streaming output shows the agent's work as it happens — no env vars needed.
-Pick a vendor with `-claude`, `-codex`, or `-deepseek`. CW auto-detects your repo
-(current folder) and agent (first on PATH). No agent? `cw demo` still works.
-
-**Re-prove a finished run, offline**:
+## What Else Can It Do?
 
 ```bash
-cw telemetry verify <run-id>                  # re-checks the hash-chained ledger
-cw telemetry verify <run-id> --pubkey pub.pem # also re-runs ed25519 signature checks
-cw audit verify <run-id>                      # re-proves the trust-audit hash chain
-cw report verify-bundle report.cwrun.json --require-signatures  # offline & self-contained
+cw version                        # show version
+cw update                         # update to latest release
+cw doctor                         # check your setup
+cw fix                            # show fix commands for setup issues
 ```
 
-The agent signs its findings (ed25519, result-bound); `cw report verify-bundle` checks
-offline, with only the public key, that every signed finding is present in the report
-unaltered. CW holds no private key — the agent signs, CW only verifies.
+| Workflow | Does |
+|---|---|
+| `architecture-review` | Map a repo, rank risks, back every claim with evidence |
+| `pr-review-fix-ci` | Review a pull request, suggest fixes, verify CI |
+| `research-synthesis` | Answer a question with fact-backed research |
+| `release-cut` | Run a gated, reviewed release |
 
-**No agent? Here is what to do:**
+**Multi-agent, when you need it.** Fan work out across agents with built-in topologies,
+compose flows (a task can run a whole child workflow with `subWorkflow`, or a `loop()` phase
+can keep iterating until a predicate or a token budget says stop) — and re-run fast:
+`cw run <app> --drive --incremental` reuses every step whose inputs didn't change.
+
+CW also has an **MCP** surface — **Claude Desktop, Cursor, and VS Code call CW as a tool**, so
+your agent can plan a run, drive it, and verify a report without leaving the editor.
+
+## Can I Trust the Report?
+
+CW does not run the AI model — it keeps the books. The agent signs its findings (ed25519), and
+`cw report verify-bundle` checks — offline, with nothing but the public key — that every signed
+finding is in the report **unaltered**: edit a finding, in the report or in the agent's own result,
+and the check fails. CW holds no private key — the agent signs, CW only verifies.
 
 ```bash
-cw demo tamper          # prove the trust check works (no agent needed)
-cw demo bundle           # prove portable bundles work (no agent needed)
-cw doctor                # names what is missing and how to fix it
+cw demo tamper                              # proves it in 30s — edits a signed result, watch it fail
+cw telemetry verify <run-id>                # checks a real run
+cw audit verify <run-id>                    # re-proves the trust-audit hash chain
 ```
 
-`cw doctor` gives you the missing piece and tells you which agent binary to install
-(`npm install -g @anthropic-ai/claude-code` for Claude Code, or install `codex`,
-`gemini`, or `opencode`). After that, `cw -q "what risks?"` makes your first real
-report. Stop-and-resume with `cw -q "..." --resume`.
+Give the report to another person — they need nothing but the file:
 
-**Status `blocked`?** That is CW failing closed — it never makes up a result.
-Run `cw doctor` to see the exact reason. Common fixes:
-- No agent binary → install the agent CLI, e.g. `npm install -g @anthropic-ai/claude-code`
-- Use `cw quickstart --check` for a zero-write preflight before any agent spawn
+```bash
+cw -q "…" --bundle                              # seal into one portable file
+cw report verify-bundle report.cwrun.json       # they check it offline
+cw report verify-bundle report.cwrun.json \
+  --require-signatures                          # …and insist the findings are signed
+```
 
-More: `cw -q "..." --bundle` (sealed portable report), `cw run resume <run-id> --drive`
-(go on with a run that was stopped), `cw run inspect-archive <archive>` (integrity-check a
-portable run archive without bringing it in).
+This attests the agent's **signed findings** — not that the report holds nothing else, and not that
+none were left out. CW has no key to sign the rendered report, and a determined re-chainer can drop a
+signed finding entirely — so check the findings you act on against the signed results. For exactly
+what is and is not proven, see the [Trust Model](docs/trust-model.md).
+
+## Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| No agent found | Run `cw doctor` — it shows which agents are on your machine |
+| `status: blocked` | CW failing closed (it never makes up a result). Set `CW_AGENT_COMMAND=builtin:claude` or pass `-claude`; `cw doctor` names the exact reason |
+| `claude: command not found` | Install Claude Code (`npm install -g @anthropic-ai/claude-code`) and run again |
+| Where is my report? | `<repo>/.cw/runs/<id>/report.md` |
+| Preflight before a spawn | `cw quickstart --check` — a zero-write check |
+
+---
+
+The rest of this README is the **developer / operator reference**: the build loop, repo
+structure, the full command surface, scheduling, and the result-envelope contract.
 
 ## Developer Loop
 
