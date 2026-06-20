@@ -80,26 +80,28 @@ See the [wiki](https://github.com/coo1white/cool-workflow/wiki).
 
 ## Can I Trust the Report?
 
-CW does not run the AI model — it keeps the books. The agent signs the token usage it reports
-(ed25519); you re-check that signature with nothing more than the public key. Every step is also
-written to a hash-chained record, so a careless or partial change to the record — or to the report
-CW renders from it — shows up offline, with no key needed. CW holds no private key, and the report
-text itself is not signed.
+CW does not run the AI model — it keeps the books. The agent signs its findings (ed25519), and
+`cw report verify-bundle` checks — offline, with nothing but the public key — that every signed
+finding is in the report **unaltered**: edit a finding, in the report or in the agent's own result,
+and the check fails. CW holds no private key — the agent signs, CW only verifies.
 
 ```bash
-cw demo tamper                              # proves the usage + ledger guard in 30s
+cw demo tamper                              # proves it in 30s — edits a signed result, watch it fail
 cw telemetry verify <run-id>                # checks a real run
 ```
 
 Give the report to another person — they need nothing but the file:
 
 ```bash
-cw -q "…" --bundle                           # seal into one portable file
-cw report verify-bundle report.cwrun.json   # they check it offline
+cw -q "…" --bundle                              # seal into one portable file
+cw report verify-bundle report.cwrun.json       # they check it offline
+cw report verify-bundle report.cwrun.json \
+  --require-signatures                          # …and insist the findings are signed
 ```
 
-For what these checks do and do not prove — and the honest limits — see the
-[Trust Model](plugins/cool-workflow/docs/trust-model.md).
+This attests the agent's **signed findings** — not that the report holds nothing else. CW has no key
+to sign the rendered report, so check the findings you act on against the signed results. For exactly
+what is and is not proven, see the [Trust Model](plugins/cool-workflow/docs/trust-model.md).
 
 ## Troubleshooting
 

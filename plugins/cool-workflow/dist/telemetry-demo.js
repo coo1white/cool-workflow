@@ -13,6 +13,10 @@
 //      record after it breaks the chain (cascade).
 //   B) SIGNATURE layer — inflate the reported tokens but keep the original ed25519
 //      signature -> verifyTelemetryAttestation rejects it ("signature does not match").
+//   C) RESULT layer — edit the agent's SIGNED FINDING after signing. The executor
+//      binds sha256(result.md) into the ed25519 payload; CW re-derives the digest
+//      from the result file at verify time, so an edited finding no longer joins the
+//      signature. This is the threat a usage-only signature never covered.
 //
 // No model, no network, no API key, no second repo — runs in a private tmpdir.
 var __importDefault = (this && this.__importDefault) || function (mod) {
@@ -160,6 +164,30 @@ function runTamperDemo(options = {}) {
         before: { verified: sigCleanCheck.status === "attested", detail: `signature verifies against the reported usage (${sigCleanCheck.algorithm || "ed25519"})` },
         after: { verified: sigCheck.status === "attested", detail: sigCheck.reason || sigCheck.status },
         failures: sigCheck.status === "attested" ? [] : [`signature: ${sigCheck.reason}`]
+    });
+    // 3c. RESULT layer — the REAL threat the result-bound signature closes: the agent's
+    //     signed FINDING is edited after signing. The executor binds sha256(result.md)
+    //     into the ed25519 payload (a 5-field, result-COVERING signature); CW re-derives
+    //     the digest from the result file at verify time. An edited finding hashes to a
+    //     different digest, so the signature joins neither the 5-field nor the 4-field
+    //     payload and the verify rejects it. A usage-only signature never covered this.
+    const findingSigned = "Finding: auth bypass in login() — severity HIGH";
+    const findingEdited = findingSigned.replace("HIGH", "LOW");
+    const resultCtx = { runId, taskId: target.hop.taskId, promptDigest: target.hop.promptDigest };
+    const resultSignature = (0, telemetry_attestation_1.signTelemetry)(target.hop.usage, privateKeyPem, { ...resultCtx, resultDigest: (0, execution_backend_1.sha256)(findingSigned) });
+    // Baseline: the signed finding verifies, and the signature actually COVERED the result.
+    const resultClean = (0, telemetry_attestation_1.verifyTelemetryAttestation)(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: (0, execution_backend_1.sha256)(findingSigned) });
+    // Tamper: CW re-derives the digest from the EDITED finding -> no longer the signed digest.
+    const resultCheck = (0, telemetry_attestation_1.verifyTelemetryAttestation)(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: (0, execution_backend_1.sha256)(findingEdited) });
+    layers.push({
+        layer: "result",
+        tamper: `edited the agent's signed finding "severity HIGH" -> "severity LOW" after it was signed`,
+        before: {
+            verified: resultClean.status === "attested" && resultClean.coversResult === true,
+            detail: `the signed finding verifies — ed25519 binds usage + sha256(result), result-covering`
+        },
+        after: { verified: resultCheck.status === "attested", detail: resultCheck.reason || resultCheck.status },
+        failures: resultCheck.status === "attested" ? [] : [`result: ${resultCheck.reason}`]
     });
     if (!options.keepDir && !options.dir)
         node_fs_1.default.rmSync(runDir, { recursive: true, force: true });

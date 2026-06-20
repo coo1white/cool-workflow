@@ -41,9 +41,9 @@ to trust or breach.
 
   npx cool-workflow demo tamper
 
-It builds a real signed ledger, forges it two ways (flip a verdict + re-seal its
-hash; inflate reported tokens + reuse the signature), and catches both offline with
-only the public key. On a real run, `cw telemetry verify <run>` re-proves the
+It builds a real signed ledger, forges it three ways (flip a verdict + re-seal its
+hash; inflate reported tokens + reuse the signature; edit a signed finding), and
+catches all three offline with only the public key. On a real run, `cw telemetry verify <run>` re-proves the
 recorded ledger on disk — recomputing the chain so any later edit to a verdict or
 usage digest is caught; add `--pubkey <public.pem>` to re-run each attested hop's
 signature check offline too. I keep an
@@ -111,9 +111,9 @@ npm: https://www.npmjs.com/package/cool-workflow
 > npx cool-workflow demo tamper
 > ```
 >
-> It builds a real signed ledger, forges it two ways (flip a verdict + re-seal its
-> hash; inflate reported tokens + reuse the signature), and catches both offline with
-> only the public key. On a real run, `cw telemetry verify <run>` re-proves the
+> It builds a real signed ledger, forges it three ways (flip a verdict + re-seal its
+> hash; inflate reported tokens + reuse the signature; edit a signed finding), and
+> catches all three offline with only the public key. On a real run, `cw telemetry verify <run>` re-proves the
 > recorded ledger on disk — recomputing the chain so any later edit to a verdict or
 > usage digest is caught; add `--pubkey <public.pem>` to re-run each attested hop's
 > signature check offline too. I keep an
@@ -142,9 +142,9 @@ npm: https://www.npmjs.com/package/cool-workflow
 1/ Your agent pipeline trusts what the model *says* it did. Cool Workflow proves
 it instead. `npx cool-workflow demo tamper` — 30s, no install:
 
-2/ It builds a real ed25519-signed telemetry ledger, forges it two ways, and
-catches both offline with only the public key. A control-plane that delegates
-model execution but can still prove the bill is real.
+2/ It builds a real ed25519-signed telemetry ledger, forges it three ways (incl.
+editing a signed finding), and catches all three offline with only the public key.
+A control-plane that delegates model execution but can still prove the bill is real.
 
 3/ Also: concurrent batches that don't deadlock when an agent hangs, schema-gated
 outputs, token budgets vs the host's recorded usage (attested-telemetry gate is
