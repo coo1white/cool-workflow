@@ -80,12 +80,14 @@ See the [wiki](https://github.com/coo1white/cool-workflow/wiki).
 
 ## Can I Trust the Report?
 
-CW does not run the AI model — it keeps the books. Every agent step is recorded, signed, and
-hash-chained. Change the report later? The chain breaks and the signature no longer matches.
-Anyone can check this offline, with only the public key:
+CW does not run the AI model — it keeps the books. The agent signs the token usage it reports
+(ed25519); you re-check that signature with nothing more than the public key. Every step is also
+written to a hash-chained record, so a careless or partial change to the record — or to the report
+CW renders from it — shows up offline, with no key needed. CW holds no private key, and the report
+text itself is not signed.
 
 ```bash
-cw demo tamper                              # proves it in 30s
+cw demo tamper                              # proves the usage + ledger guard in 30s
 cw telemetry verify <run-id>                # checks a real run
 ```
 
@@ -95,6 +97,9 @@ Give the report to another person — they need nothing but the file:
 cw -q "…" --bundle                           # seal into one portable file
 cw report verify-bundle report.cwrun.json   # they check it offline
 ```
+
+For what these checks do and do not prove — and the honest limits — see the
+[Trust Model](plugins/cool-workflow/docs/trust-model.md).
 
 ## Troubleshooting
 
