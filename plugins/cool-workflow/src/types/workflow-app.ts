@@ -95,9 +95,14 @@ export interface WorkflowLoopSpec {
   until: LoopUntil;
 }
 
-/** How a loop decides to stop. `predicate` names a registered pure predicate.
- *  (PR D extends this union with a `budget-target` arm.) */
-export type LoopUntil = { kind: "predicate"; ref: string };
+/** How a loop decides to stop. `predicate` names a registered pure predicate;
+ *  `budget-target` stops once RECORDED (attested-only) usage reaches a token target —
+ *  turning the fail-closed token-budget CAP into adaptive depth (spawn more rounds
+ *  while usage stays under the target). The cap (`limits.tokenBudget`) remains the
+ *  absolute backstop and can never be overshot. */
+export type LoopUntil =
+  | { kind: "predicate"; ref: string }
+  | { kind: "budget-target"; target: number };
 
 export interface WorkflowDefinition {
   id: string;

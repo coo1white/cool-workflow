@@ -454,10 +454,23 @@ function maybeExpandLoop(run) {
         const roundResults = ordered(roundTasks);
         const allLoopTasks = run.tasks.filter((t) => t.status === "completed" && loopPhases.some((p) => p.taskIds.includes(t.id)));
         const allResults = ordered(allLoopTasks);
-        const predicate = (0, loop_expansion_1.getLoopPredicate)(origin.loop.until.ref);
-        const decision = predicate
-            ? predicate({ round, roundResults, allResults, usageTotals: (0, observability_1.deriveUsageTotals)(run).totals, inputs: run.inputs })
-            : { done: true, reason: `loop predicate "${origin.loop.until.ref}" not registered — stopping fail-closed` };
+        const ctx = { round, roundResults, allResults, usageTotals: (0, observability_1.deriveUsageTotals)(run).totals, inputs: run.inputs };
+        const until = origin.loop.until;
+        let decision;
+        if (until.kind === "budget-target") {
+            // Budget-aware scaling: keep spawning rounds while RECORDED (attested-only) usage
+            // stays under the target. Composes with the fail-closed cap (limits.tokenBudget),
+            // which the drive enforces before each spawn and which remains the absolute
+            // backstop — whichever fires first wins, and the cap can never be overshot.
+            const spent = ctx.usageTotals.totalTokens;
+            decision = { done: spent >= until.target, reason: `budget-target: ${spent}/${until.target} recorded tokens` };
+        }
+        else {
+            const predicate = (0, loop_expansion_1.getLoopPredicate)(until.ref);
+            decision = predicate
+                ? predicate(ctx)
+                : { done: true, reason: `loop predicate "${until.ref}" not registered — stopping fail-closed` };
+        }
         const atCap = round >= origin.loop.maxRounds;
         const done = decision.done || atCap;
         // Record the decision under a deterministic id (the replay source of truth).
@@ -467,7 +480,7 @@ function maybeExpandLoop(run) {
             status: "completed",
             loopStage: "adjust",
             outputs: { round, done, atCap, reason: decision.reason },
-            metadata: { originPhaseId: originId, predicate: origin.loop.until.ref, round, done, atCap, reason: decision.reason }
+            metadata: { originPhaseId: originId, until: until.kind === "predicate" ? until.ref : `budget-target:${until.target}`, round, done, atCap, reason: decision.reason }
         }));
         if (done) {
             origin.loopDone = true;

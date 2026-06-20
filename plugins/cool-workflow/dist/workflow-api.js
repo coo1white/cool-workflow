@@ -56,10 +56,14 @@ function loop(name, tasks, spec, options = {}) {
     if (!spec || typeof spec.maxRounds !== "number" || spec.maxRounds < 1) {
         throw new Error(`loop ${name} requires a positive integer maxRounds`);
     }
-    if (!spec.until || spec.until.kind !== "predicate" || !spec.until.ref) {
-        throw new Error(`loop ${name} requires until: { kind: "predicate", ref: <name> }`);
+    const until = spec.until;
+    const valid = until
+        && ((until.kind === "predicate" && Boolean(until.ref))
+            || (until.kind === "budget-target" && typeof until.target === "number" && until.target > 0));
+    if (!valid) {
+        throw new Error(`loop ${name} requires until: { kind: "predicate", ref } or { kind: "budget-target", target }`);
     }
-    return phase(name, tasks, { loop: { maxRounds: Math.floor(spec.maxRounds), until: spec.until }, ...options });
+    return phase(name, tasks, { loop: { maxRounds: Math.floor(spec.maxRounds), until }, ...options });
 }
 function createWorkflowApi() {
     return {
