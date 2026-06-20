@@ -533,8 +533,12 @@ function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds) {
             if (typeof loop.maxRounds !== "number" || !Number.isInteger(loop.maxRounds) || loop.maxRounds < 1) {
                 issues.push(issue("workflow-phase-loop-maxrounds", "loop.maxRounds must be a positive integer", joinPath(pathName, "loop.maxRounds")));
             }
-            if (!isRecord(loop.until) || loop.until.kind !== "predicate" || !isNonEmptyString(loop.until.ref)) {
-                issues.push(issue("workflow-phase-loop-until", 'loop.until must be { kind: "predicate", ref: <name> }', joinPath(pathName, "loop.until")));
+            const until = loop.until;
+            const validUntil = isRecord(until)
+                && ((until.kind === "predicate" && isNonEmptyString(until.ref))
+                    || (until.kind === "budget-target" && typeof until.target === "number" && until.target > 0));
+            if (!validUntil) {
+                issues.push(issue("workflow-phase-loop-until", 'loop.until must be { kind: "predicate", ref } or { kind: "budget-target", target }', joinPath(pathName, "loop.until")));
             }
         }
     }
