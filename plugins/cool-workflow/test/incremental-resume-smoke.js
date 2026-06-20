@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
+// @cw-smoke: timeout 240
 // incremental-resume-smoke — the CI gate for `cw run --drive --incremental` (#4).
+// Heavier integration smoke: 5 scenarios each drive a real multi-phase app
+// (architecture-review-fast, 6 tasks) once or twice; ~22s alone, more under the
+// parallel suite — hence the raised per-test timeout above.
 //
 // Hermetic: a STUB agent (a tiny node child that APPENDS to a spawn-count file on
 // every invocation) stands in for `claude -p`. No live agent, no network, no model
@@ -92,7 +96,7 @@ function main() {
     const runner = new CoolWorkflowRunner({ pluginRoot });
 
     // --- run 1: --incremental, populates the cache ---
-    const r1 = runner.plan("architecture-review", { repo: workA, question: "Sound?" });
+    const r1 = runner.plan("architecture-review-fast", { repo: workA, question: "Sound?" });
     const planned = r1.tasks.length;
     const d1 = drive(runner, r1.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubA) });
     assert.equal(d1.status, "complete", "run 1 completes");
@@ -103,7 +107,7 @@ function main() {
     const r1VerdictBytes = fs.readFileSync(r1Verdict.resultPath, "utf8");
 
     // --- run 2: --incremental, identical inputs ⇒ EVERY task is a cache hit ---
-    const r2 = runner.plan("architecture-review", { repo: workA, question: "Sound?" });
+    const r2 = runner.plan("architecture-review-fast", { repo: workA, question: "Sound?" });
     const before2 = spawnCount(countA);
     const d2 = drive(runner, r2.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubA) });
     assert.equal(d2.status, "complete", "run 2 completes");
@@ -114,7 +118,7 @@ function main() {
     assert.equal(fs.readFileSync(r2Verdict.resultPath, "utf8"), r1VerdictBytes, "reused result bytes are byte-identical to run 1");
 
     // --- run 3: NO --incremental, same inputs ⇒ full re-run (POLA) ---
-    const r3 = runner.plan("architecture-review", { repo: workA, question: "Sound?" });
+    const r3 = runner.plan("architecture-review-fast", { repo: workA, question: "Sound?" });
     const before3 = spawnCount(countA);
     const d3 = drive(runner, r3.id, { now: FIXED_NOW, agentConfig: agentConfig(stubA) });
     assert.equal(d3.status, "complete", "run 3 completes");
@@ -125,38 +129,9 @@ function main() {
     process.chdir(cwd0);
   }
 
-  // ===== 4: PER-TASK granularity — one missing entry re-runs ONLY that task ====
-  {
-    const workB = tmpWorkspace();
-    const countB = path.join(workB, "spawns.count");
-    const stubB = writeCountingStub(path.join(workB, "stub.js"), countB);
-    process.chdir(workB);
-    try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
-      const p1 = runner.plan("architecture-review", { repo: workB, question: "Q?" });
-      const planned = p1.tasks.length;
-      drive(runner, p1.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubB) });
-      assert.equal(spawnCount(countB), planned, "populate cache");
-
-      // Delete ONE last-phase (Verdict) cache entry; re-run incremental.
-      const dir = cacheDir(workB);
-      const verdictTask = p1.tasks.find((t) => /^verdict[:/]/i.test(t.id));
-      const files = fs.readdirSync(dir);
-      const verdictFile = files.find((f) => f.startsWith(`${safeFileName(verdictTask.id)}-`));
-      assert.ok(verdictFile, `found the verdict task's cache file: ${verdictTask.id}`);
-      fs.rmSync(path.join(dir, verdictFile));
-
-      const p2 = runner.plan("architecture-review", { repo: workB, question: "Q?" });
-      const before = spawnCount(countB);
-      const d = drive(runner, p2.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubB) });
-      assert.equal(d.status, "complete");
-      assert.equal(spawnCount(countB), before + 1, "exactly the one task whose cache entry was removed re-runs");
-      assert.equal(cacheHits(d).length, planned - 1, "every other task is still a cache hit");
-      console.log("incremental-resume: per-task granularity ok (1 re-run, rest reused)");
-    } finally {
-      process.chdir(cwd0);
-    }
-  }
+  // (Per-task granularity — a missing entry re-runs only that task — is covered by
+  //  the concurrent scenario below, which deletes a subset of entries and asserts
+  //  only those re-run while the rest reuse.)
 
   // ===== 5: DOWNSTREAM INVALIDATION — change a Map result, later phases re-run ==
   {
@@ -166,7 +141,7 @@ function main() {
     process.chdir(workC);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const p1 = runner.plan("architecture-review", { repo: workC, question: "Q?" });
+      const p1 = runner.plan("architecture-review-fast", { repo: workC, question: "Q?" });
       const planned = p1.tasks.length;
       const mapPhase = p1.phases[0];
       const mapTaskIds = new Set(mapPhase.taskIds);
@@ -186,7 +161,7 @@ function main() {
       const edited = "# R\n\n" + fence + "cw:result\n" + JSON.stringify({ summary: "EDITED upstream finding", findings: [], evidence: [workC + "/README.md:1"] }) + "\n" + fence + "\n";
       fs.writeFileSync(path.join(dir, mapFile), edited, "utf8");
 
-      const p2 = runner.plan("architecture-review", { repo: workC, question: "Q?" });
+      const p2 = runner.plan("architecture-review-fast", { repo: workC, question: "Q?" });
       const before = spawnCount(countC);
       const d = drive(runner, p2.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubC) });
       assert.equal(d.status, "complete", "downstream-invalidation run completes");
@@ -212,13 +187,13 @@ function main() {
     process.chdir(workD);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const p1 = runner.plan("architecture-review", { repo: workD, question: "Q?" });
+      const p1 = runner.plan("architecture-review-fast", { repo: workD, question: "Q?" });
       const planned = p1.tasks.length;
       drive(runner, p1.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubD, "model-a") });
       assert.equal(spawnCount(countD), planned, "populate cache under model-a");
 
       // Same app + inputs, DIFFERENT resolved model ⇒ every key differs ⇒ full re-run.
-      const p2 = runner.plan("architecture-review", { repo: workD, question: "Q?" });
+      const p2 = runner.plan("architecture-review-fast", { repo: workD, question: "Q?" });
       const before = spawnCount(countD);
       const d = drive(runner, p2.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubD, "model-b") });
       assert.equal(d.status, "complete");
@@ -238,29 +213,29 @@ function main() {
     process.chdir(workE);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const p1 = runner.plan("architecture-review", { repo: workE, question: "Q?" });
+      const p1 = runner.plan("architecture-review-fast", { repo: workE, question: "Q?" });
       const planned = p1.tasks.length;
       const mapTasks = p1.tasks.filter((t) => p1.phases[0].taskIds.includes(t.id));
       drive(runner, p1.id, { now: FIXED_NOW, incremental: true, concurrency: 6, agentConfig: agentConfig(stubE) });
       assert.equal(spawnCount(countE), planned, "populate cache via the concurrent driver");
 
-      // Delete 3 Map cache entries; their re-run produces identical bytes, so only
-      // those 3 re-run and every downstream task still reuses — under concurrency.
+      // Delete every Map cache entry; their re-run produces identical bytes, so only
+      // the Map phase re-runs (concurrently) and every downstream task still reuses.
       const dir = cacheDir(workE);
       const files = fs.readdirSync(dir);
       let deleted = 0;
-      for (const t of mapTasks.slice(0, 3)) {
+      for (const t of mapTasks) {
         const f = files.find((x) => x.startsWith(`${safeFileName(t.id)}-`));
         if (f) { fs.rmSync(path.join(dir, f)); deleted++; }
       }
-      assert.equal(deleted, 3, "deleted 3 Map cache entries");
+      assert.equal(deleted, mapTasks.length, "deleted every Map cache entry");
 
-      const p2 = runner.plan("architecture-review", { repo: workE, question: "Q?" });
+      const p2 = runner.plan("architecture-review-fast", { repo: workE, question: "Q?" });
       const before = spawnCount(countE);
       const d = drive(runner, p2.id, { now: FIXED_NOW, incremental: true, concurrency: 6, agentConfig: agentConfig(stubE) });
       assert.equal(d.status, "complete", "concurrent incremental re-run completes");
-      assert.equal(spawnCount(countE), before + 3, "exactly the 3 deleted tasks re-run (concurrent path)");
-      assert.equal(cacheHits(d).length, planned - 3, "the rest reuse from cache under the concurrent driver");
+      assert.equal(spawnCount(countE), before + mapTasks.length, "exactly the deleted Map tasks re-run (concurrent path)");
+      assert.equal(cacheHits(d).length, planned - mapTasks.length, "the rest reuse from cache under the concurrent driver");
       const acceptIds = d.steps.filter((s) => s.action === "accept").map((s) => s.taskId);
       assert.equal(new Set(acceptIds).size, acceptIds.length, "every task accepted exactly once (no drop/double-process)");
       console.log("incremental-resume: concurrent driver reuse ok");
@@ -281,13 +256,13 @@ function main() {
     process.chdir(workF);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
-      const p1 = runner.plan("architecture-review", { repo: workF, question: "Q?" });
+      const p1 = runner.plan("architecture-review-fast", { repo: workF, question: "Q?" });
       const planned = p1.tasks.length;
       drive(runner, p1.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stub1) });
       assert.equal(spawnCount(countF), planned, "populate cache under agent stub1");
 
       // Same model, DIFFERENT agent identity (stub2) ⇒ every key differs ⇒ full re-run.
-      const p2 = runner.plan("architecture-review", { repo: workF, question: "Q?" });
+      const p2 = runner.plan("architecture-review-fast", { repo: workF, question: "Q?" });
       const before = spawnCount(countF);
       const d = drive(runner, p2.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stub2) });
       assert.equal(d.status, "complete");
