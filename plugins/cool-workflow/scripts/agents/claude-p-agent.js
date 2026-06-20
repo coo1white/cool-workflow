@@ -29,6 +29,11 @@
 
 const fs = require("node:fs");
 const { spawn, spawnSync } = require("node:child_process");
+// Share the ONE canonical result contract with the codex/gemini/opencode
+// wrappers instead of carrying a private copy. A drifted inline copy (ASCII
+// hyphens silently became em-dashes here) meant claude was sent a different
+// instruction text than the other providers for the same contract.
+const { buildPrompt } = require("./agent-adapter-core");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -37,38 +42,7 @@ if (!inputPath || !resultPath) {
   process.exit(2);
 }
 
-const CONTRACT = `
-=== HOW TO RETURN YOUR ANSWER (overrides any 'write to result.md' instruction above) ===
-You have NO file-write access. Do NOT attempt to write, create, or edit any file —
-result.md is persisted FOR YOU from your final message, so writing it yourself is
-neither needed nor possible. Use ONLY read-only tools (read files, grep, list).
-Respond with ONLY your FINAL answer as Markdown, and it MUST END WITH a fenced
-cw:result block that EXACTLY follows this schema:
-
-\`\`\`cw:result
-{
-  "summary": "one-paragraph direct answer",
-  "findings": [
-    {
-      "id": "unique-kebab-id",
-      "title": "short risk title",
-      "severity": "P0",
-      "classification": "real",
-      "evidence": ["path/to/file.ts:42"]
-    }
-  ],
-  "evidence": ["path/to/file.ts:42", "path/to/other.ts:10"]
-}
-\`\`\`
-
-HARD RULES (the result is REJECTED otherwise):
-- Every object in "findings" MUST have a unique "id" (non-empty string).
-- "classification", if present, MUST be one of: real, conditional, non-issue, unknown.
-- Any finding with "severity" P0, P1, or P2 MUST include a NON-EMPTY "evidence" array.
-- The top-level "evidence" array MUST be NON-EMPTY with REAL file:line locators from this repo.
-- If you have no structured findings, use "findings": [] (empty) — never omit a finding's id.`;
-
-const prompt = `${fs.readFileSync(inputPath, "utf8")}\n${CONTRACT}`;
+const prompt = buildPrompt(inputPath);
 const streamEnabled = process.env.CW_AGENT_STREAM !== "0" && process.env.CW_NO_STREAM !== "1";
 const traceEnabled = streamEnabled && Boolean(process.stderr.isTTY);
 

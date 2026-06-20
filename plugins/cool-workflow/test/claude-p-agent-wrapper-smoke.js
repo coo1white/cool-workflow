@@ -35,6 +35,9 @@ const path = require("node:path");
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
 const wrapper = path.join(pluginRoot, "scripts", "agents", "claude-p-agent.js");
+// The single canonical contract shared by every vendor wrapper. The claude
+// wrapper must send THIS verbatim — not a drifted private copy.
+const { RESULT_CONTRACT } = require("../scripts/agents/agent-adapter-core");
 
 function shimDir(behavior) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-claude-shim-"));
@@ -94,6 +97,10 @@ function main() {
     const prompt = argv[pIndex + 1];
     assert.ok(prompt.includes(INPUT_MARKER), "the worker's FULL input.md content reaches the prompt");
     assert.ok(prompt.includes("cw:result"), "the cw:result contract is appended to the prompt");
+    // No per-provider drift: claude must receive the SHARED canonical contract
+    // verbatim (the old inline copy had swapped ASCII hyphens for em-dashes, so
+    // this substring check failed against it).
+    assert.ok(prompt.includes(RESULT_CONTRACT), "claude receives the shared canonical contract (no provider drift)");
     const allowed = argv[argv.indexOf("--allowedTools") + 1];
     assert.ok(allowed && !/write/i.test(allowed), `claude stays READ-ONLY (no Write tool): ${allowed}`);
     assert.equal(argv[argv.indexOf("--output-format") + 1], "stream-json", "default wrapper uses stream-json mode by default");
