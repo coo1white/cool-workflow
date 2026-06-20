@@ -198,10 +198,18 @@ export function linkStateNodes(parent: StateNode, child: StateNode): [StateNode,
 }
 
 export function appendRunNode(run: WorkflowRun, node: StateNode): StateNode {
-  const nodes = run.nodes || [];
+  // Mutate run.nodes in place rather than rebuilding the whole array on every
+  // append. The old code did `nodes.map(...)` / `[...nodes, node]` per call, so a
+  // run that appends N nodes allocated arrays of size 1..N — O(N^2) churn + GC on
+  // a hot path (every dispatch/result/blackboard node). In place: O(1) per append
+  // for the common new-node case, and the resulting array — content AND order — is
+  // byte-identical to before (push appends at the end, replace keeps the slot), so
+  // the persisted state.json is unchanged. appendRunNode is the only writer of
+  // run.nodes, so the array reference stays stable across a run.
+  const nodes = run.nodes || (run.nodes = []);
   const index = nodes.findIndex((candidate) => candidate.id === node.id);
-  const nextNodes = index >= 0 ? nodes.map((candidate) => (candidate.id === node.id ? node : candidate)) : [...nodes, node];
-  run.nodes = nextNodes;
+  if (index >= 0) nodes[index] = node;
+  else nodes.push(node);
   writeRunNode(run, node);
   return node;
 }

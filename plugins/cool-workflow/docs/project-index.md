@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-20 by `npm run sync:projec
 - Source modules: `64`
 - Workflow apps: `7`
 - Docs: `52`
-- Smoke tests: `121`
+- Smoke tests: `122`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -189,6 +189,7 @@ multi-agent host -> topology -> blackboard/coordinator
 Smoke tests mirror the public contracts. The high-signal suites are:
 
 - [agent-delegation-drive-smoke.js](../test/agent-delegation-drive-smoke.js)
+- [append-run-node-no-realloc-smoke.js](../test/append-run-node-no-realloc-smoke.js)
 - [architecture-review-fast-automation-smoke.js](../test/architecture-review-fast-automation-smoke.js)
 - [architecture-review-fast-smoke.js](../test/architecture-review-fast-smoke.js)
 - [artifact-integrity-smoke.js](../test/artifact-integrity-smoke.js)
