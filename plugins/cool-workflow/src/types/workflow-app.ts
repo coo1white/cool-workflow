@@ -79,7 +79,25 @@ export interface WorkflowPhaseDefinition {
    *  the existing one-agent-at-a-time behavior; "parallel" lets the concurrent
    *  driver fulfill the phase's pending tasks as one deterministic batch. */
   mode?: "sequential" | "parallel";
+  /** Optional BOUNDED DYNAMIC LOOP. When set, the phase's tasks are a per-round
+   *  TEMPLATE: after each round completes, a registered pure predicate decides
+   *  whether to run another round (a fresh phase appended after this one with the
+   *  same tasks, round-suffixed ids) or stop. Hard-capped at `maxRounds`. */
+  loop?: WorkflowLoopSpec;
 }
+
+export interface WorkflowLoopSpec {
+  /** Hard cap on rounds — the loop NEVER runs more than this (fail-closed bound). */
+  maxRounds: number;
+  /** Termination predicate, evaluated after each round over RECORDED results. A
+   *  NAMED, registered PURE function (not an inline closure — closures can't be
+   *  serialized or re-evaluated byte-identically on replay). */
+  until: LoopUntil;
+}
+
+/** How a loop decides to stop. `predicate` names a registered pure predicate.
+ *  (PR D extends this union with a `budget-target` arm.) */
+export type LoopUntil = { kind: "predicate"; ref: string };
 
 export interface WorkflowDefinition {
   id: string;

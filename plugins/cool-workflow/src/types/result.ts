@@ -1,5 +1,6 @@
 import type { FindingClassification, PhaseStatus, Severity } from "./core";
 import type { EvidenceProvenance } from "./trust";
+import type { WorkflowLoopSpec } from "./workflow-app";
 
 export type EvidenceConfidence = "ungrounded" | "grounded" | "resolvable" | "verified";
 
@@ -34,6 +35,16 @@ export interface RunPhase {
    *  concurrently up to limits.maxConcurrentAgents through EVERY shipping
    *  surface (run --drive, quickstart). Absent ⇒ sequential. */
   mode?: "sequential" | "parallel";
+  /** Bounded dynamic loop (carried from WorkflowPhaseDefinition.loop) — present ONLY
+   *  on the ORIGIN phase (round 1). The expander reads maxRounds + the predicate. */
+  loop?: WorkflowLoopSpec;
+  /** The origin loop phase id, on round-2+ phases the expander appends. */
+  loopOrigin?: string;
+  /** 1-based round number, on every phase that is part of a loop (origin = 1). */
+  loopRound?: number;
+  /** Set true on the ORIGIN phase once the loop has terminated (predicate said done
+   *  or the round cap was hit) — so the expander never re-expands a finished loop. */
+  loopDone?: boolean;
 }
 
 export interface Finding {

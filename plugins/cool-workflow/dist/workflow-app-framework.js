@@ -522,6 +522,22 @@ function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds) {
     if (!Array.isArray(phaseValue.tasks) || !phaseValue.tasks.length) {
         issues.push(issue("workflow-phase-tasks", `Workflow phase ${String(phaseValue.id || phaseValue.name || "")} must have tasks`, joinPath(pathName, "tasks")));
     }
+    // Bounded dynamic loop spec (fail-closed shape check; the predicate ref need not be
+    // registered at validation time — the expander stops fail-closed if it is missing).
+    if (phaseValue.loop !== undefined) {
+        const loop = phaseValue.loop;
+        if (!isRecord(loop)) {
+            issues.push(issue("workflow-phase-loop", "Workflow phase loop must be an object", joinPath(pathName, "loop")));
+        }
+        else {
+            if (typeof loop.maxRounds !== "number" || !Number.isInteger(loop.maxRounds) || loop.maxRounds < 1) {
+                issues.push(issue("workflow-phase-loop-maxrounds", "loop.maxRounds must be a positive integer", joinPath(pathName, "loop.maxRounds")));
+            }
+            if (!isRecord(loop.until) || loop.until.kind !== "predicate" || !isNonEmptyString(loop.until.ref)) {
+                issues.push(issue("workflow-phase-loop-until", 'loop.until must be { kind: "predicate", ref: <name> }', joinPath(pathName, "loop.until")));
+            }
+        }
+    }
 }
 function validateTask(taskDefinition, issues, pathName, seenTaskIds, options) {
     if (!isRecord(taskDefinition)) {

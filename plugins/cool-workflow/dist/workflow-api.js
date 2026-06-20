@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.workflow = workflow;
 exports.phase = phase;
 exports.parallel = parallel;
+exports.loop = loop;
 exports.createWorkflowApi = createWorkflowApi;
 exports.agent = agent;
 exports.subWorkflow = subWorkflow;
@@ -47,11 +48,25 @@ function phase(name, tasks, options = {}) {
 function parallel(name, tasks, options = {}) {
     return phase(name, tasks, { mode: "parallel", ...options });
 }
+/** A BOUNDED DYNAMIC LOOP phase: `tasks` are a per-round template. After each round
+ *  completes, the registered `until` predicate decides whether to run another round
+ *  (a fresh appended phase with the same tasks, round-suffixed ids) or stop; capped
+ *  at `maxRounds`. Sugar over phase() that sets `loop`; plain phases are unaffected. */
+function loop(name, tasks, spec, options = {}) {
+    if (!spec || typeof spec.maxRounds !== "number" || spec.maxRounds < 1) {
+        throw new Error(`loop ${name} requires a positive integer maxRounds`);
+    }
+    if (!spec.until || spec.until.kind !== "predicate" || !spec.until.ref) {
+        throw new Error(`loop ${name} requires until: { kind: "predicate", ref: <name> }`);
+    }
+    return phase(name, tasks, { loop: { maxRounds: Math.floor(spec.maxRounds), until: spec.until }, ...options });
+}
 function createWorkflowApi() {
     return {
         workflow,
         phase,
         parallel,
+        loop,
         agent,
         artifact,
         subWorkflow,
