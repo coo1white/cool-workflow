@@ -111,9 +111,10 @@ portable run archive without bringing it in).
 
 ## Developer Loop
 
-Use the shortest check that fits the change:
+Use the shortest check that fits the change (from `plugins/cool-workflow/`):
 
 ```bash
+cd plugins/cool-workflow
 npm run build
 node test/<nearest-smoke>.js
 npm run test:fast

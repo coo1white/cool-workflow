@@ -159,6 +159,32 @@ function substitute(arg, map) {
   return arg.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in map ? String(map[k]) : m));
 }
 
+/** Extract verdict lines from agent stdout. Returns the verdict text (first line
+ *  must be APPROVED <sha> or REJECTED) or null if no valid verdict found.
+ *  Also logs failures to stderr so the operator can inspect. */
+function extractVerdictFromStdout(stdout, resultPath) {
+  const lines = stdout.split(/\r?\n/);
+  const approvedLine = lines.find((line) => /^APPROVED\s+\S+/.test(line.trim()));
+  if (approvedLine) {
+    const idx = lines.indexOf(approvedLine);
+    // Include the APPROVED line and any capability line that follows.
+    const capLine = (lines[idx + 1] || "").trim();
+    const verdict = capLine && !capLine.startsWith("#") && !/^(APPROVED|REJECTED)\s/.test(capLine)
+      ? [approvedLine.trim(), capLine].join("\n")
+      : approvedLine.trim();
+    say(`reviewer verdict captured from stdout → ${resultPath}`);
+    return verdict;
+  }
+  const rejectedLine = lines.find((line) => /^REJECTED/i.test(line.trim()));
+  if (rejectedLine) {
+    process.stderr.write(`reviewer REJECTED via stdout — full output:\n${stdout.trim()}\n`);
+    return rejectedLine.trim();
+  }
+  // Partial: print the last 20 lines to help the operator diagnose.
+  process.stderr.write(`reviewer stdout had no APPROVED/REJECTED line. Last 20 lines:\n${lines.slice(-20).join("\n").trim()}\n`);
+  return null;
+}
+
 function delegateReview(resultPath, inputPath) {
   // Reuse the canonical agent-config resolver (flags > env > file).
   let resolveAgentConfig;
@@ -194,16 +220,31 @@ function delegateReview(resultPath, inputPath) {
     say(`[2/3] reviewer — delegating to: ${cfg.command} ${(cfg.args || []).join(" ")} (model: ${cfg.model || "unreported"})`);
     // RED LINE: argv-style, shell:false. The agent runs the model in its own
     // process and inherits its own credentials; CW holds none.
+    // Capture stdout so agents that print verdicts (rather than writing the
+    // result file) are supported. Agents that DO write the file still work:
+    // the file takes precedence. stderr goes to the terminal for live output.
     const r = spawnSync(cfg.command, args, {
       cwd: repoRoot,
       env: { ...process.env },
       encoding: "utf8",
       timeout: cfg.timeoutMs || 600000,
       shell: false,
-      stdio: "inherit"
+      stdio: ["ignore", "pipe", "inherit"],
+      maxBuffer: 32 * 1024 * 1024
     });
     if (r.status !== 0) die(`reviewer agent exited ${r.status === null ? "(timeout/no-exit)" : r.status} — no verdict trusted.`);
-    return;
+    // If the agent already wrote the verdict file (backward compat), use it.
+    // Otherwise extract the verdict from stdout (headless agent path).
+    if (fs.existsSync(resultPath)) return;
+    const stdout = String(r.stdout || "").trim();
+    if (stdout) {
+      const verdictLines = extractVerdictFromStdout(stdout, resultPath);
+      if (verdictLines) {
+        fs.writeFileSync(resultPath, `${verdictLines}\n`);
+        return;
+      }
+    }
+    die("reviewer agent produced no verdict — stdout had no APPROVED <sha> or REJECTED line, and no verdict file was written. Ensure the agent writes the verdict to {{result}} or prints the verdict lines to stdout.");
   }
 
   // Endpoint mode (e.g. DeepSeek HTTP): POST the prompt, write the response as

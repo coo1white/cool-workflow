@@ -119,6 +119,32 @@ function runFlow(dir, { agentCmd } = {}) {
   assert.match(r.err, /no verdict|fail closed/i, "should explain the missing verdict");
 }
 
+// ---- Case 3b: stdout-only APPROVED agent (v0.1.88 — verdict-from-stdout) ----
+// A headless agent that CANNOT write files prints APPROVED to stdout.
+// The flow captures it and persists the verdict file itself.
+{
+  const dir = fixture();
+  const stub = path.join(dir, "stdout-stub.js");
+  fs.writeFileSync(stub, `process.stdout.write("APPROVED " + (process.env.STUB_SHA||"sha") + "\\nstdout: capability sentence.\\n"); process.exit(0);\n`);
+  const r = runFlow(dir, { agentCmd: `node ${stub}` });
+  assert.equal(r.code, 0, `stdout-only APPROVED stub should pass:\n${r.err}\n${r.out}`);
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const verdict = path.join(dir, ".cw-release", `review-${sha}.verdict`);
+  assert.ok(fs.existsSync(verdict), "verdict file must be written from stdout capture");
+  assert.match(fs.readFileSync(verdict, "utf8"), /^APPROVED /, "captured verdict must be APPROVED");
+  assert.match(r.out, /"verdict": "APPROVED"/, "summary should report APPROVED for stdout capture");
+}
+
+// ---- Case 3c: stdout-only REJECTED agent → fail closed ----
+{
+  const dir = fixture();
+  const stub = path.join(dir, "stdout-reject-stub.js");
+  fs.writeFileSync(stub, 'process.stdout.write("REJECTED\\n1. gate failure from stdout.\\n"); process.exit(0);\n');
+  const r = runFlow(dir, { agentCmd: `node ${stub}` });
+  assert.equal(r.code, 1, "stdout-only REJECTED must fail the flow");
+  assert.match(r.err, /not APPROVED|blocked/i, "should explain the block from stdout capture");
+}
+
 // ---- Case 4: no agent configured → fail closed with guidance ----
 {
   const dir = fixture();
