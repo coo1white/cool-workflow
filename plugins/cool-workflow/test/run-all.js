@@ -299,6 +299,19 @@ async function main() {
       if (failure.stdout && failure.stdout.trim()) {
         process.stdout.write(`[stdout]\n${failure.stdout.trimEnd()}\n`);
       }
+      // CI diagnostics: show who changed the failing smoke last and when.
+      if (process.env.CI) {
+        try {
+          const gitLog = require("node:child_process").spawnSync("git", [
+            "log", "-1", "--oneline", "--", path.join(testDir, failure.file)
+          ], { cwd: packageDir, encoding: "utf8" });
+          if (gitLog.stdout && gitLog.stdout.trim()) {
+            process.stdout.write(`[git log] ${gitLog.stdout.trim()}\n`);
+          }
+        } catch {
+          // git not available — silent, not a failure.
+        }
+      }
     }
   }
 
