@@ -426,3 +426,7 @@ No other change to this page in v0.1.84.
 ## 0.1.87 (v0.1.87)
 
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
+
+## 0.1.88 (v0.1.88)
+
+Security: archive import now refuses path-traversal run ids (`..`/absolute/separator-bearing ids) before any run dir is minted, closing a write-outside-the-registry vector; run resolution and the run-state schema are otherwise unchanged.

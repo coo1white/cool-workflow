@@ -85,7 +85,12 @@ Pick a vendor with `-claude`, `-codex`, or `-deepseek`. CW auto-detects your rep
 cw telemetry verify <run-id>                  # re-checks the hash-chained ledger
 cw telemetry verify <run-id> --pubkey pub.pem # also re-runs ed25519 signature checks
 cw audit verify <run-id>                      # re-proves the trust-audit hash chain
+cw report verify-bundle report.cwrun.json --require-signatures  # offline & self-contained
 ```
+
+The agent signs its findings (ed25519, result-bound); `cw report verify-bundle` checks
+offline, with only the public key, that every signed finding is present in the report
+unaltered. CW holds no private key — the agent signs, CW only verifies.
 
 **No agent? Here is what to do:**
 
@@ -186,6 +191,22 @@ node scripts/cw.js app validate end-to-end-golden-path
 node scripts/cw.js app package architecture-review
 node scripts/cw.js app init my-app --title "My App"
 ```
+
+Compose flows from smaller verified ones (app-authoring surface, `workflow-api.ts`):
+
+- **Sub-workflow nesting** — a task can run a whole child app instead of one agent:
+  `subWorkflow(id, appId, { inputs?, bindResult? })`. The drive plans and drives the
+  child, then binds its report (or verdict result) back as the task's result, so the
+  parent's verifier/schema gate consumes it like any other. Leaf work stays external-agent
+  delegation at every depth; recursion is depth- and cycle-bounded, fail-closed.
+- **Bounded dynamic loops** — converge without unbounded recursion:
+  `loop(name, tasks, { maxRounds, until })` is a per-round template. After each round a
+  named, registered pure predicate (`until: { kind: "predicate", ref }`) decides whether to
+  append another round or stop, hard-capped at `maxRounds`; built-ins `no-new-findings` and
+  `single-round`. Or scale by budget — `until: { kind: "budget-target", target }` keeps
+  going while recorded (attested-only) usage stays under `target`, with the fail-closed
+  `limits.tokenBudget` cap as the absolute backstop. Predicates are registry refs (not
+  closures), so runs replay byte-identically; an unregistered predicate stops fail-closed.
 
 Create a reusable workflow script:
 
@@ -323,6 +344,7 @@ node scripts/cw.js registry refresh --scope home
 node scripts/cw.js run search --app architecture-review --status failed
 node scripts/cw.js run show <run-id>
 node scripts/cw.js run resume <run-id>
+node scripts/cw.js run resume <run-id> --drive --incremental   # re-drive, reusing every step whose inputs are unchanged
 node scripts/cw.js run rerun <failed-run-id> --reason "retry"
 node scripts/cw.js run archive <run-id> --reason "old"
 node scripts/cw.js queue add --app release-cut --priority 10
@@ -426,7 +448,9 @@ Verification and synthesis tasks need a structured result block:
 ```
 ````
 
-v0.1.86
+## 0.1.88 (v0.1.88)
+
+Orchestration-parity for the agent drive — inline `subWorkflow()` nesting, bounded dynamic `loop()` phases (a `predicate` or a `budget-target` token `until`), and `cw run --drive --incremental` step-level resume; the agent now signs its findings (result-bound ed25519) and `cw report verify-bundle --require-signatures` proves offline that every signed finding is in the report unaltered; CLI simplified to 6 commands with agent streaming on by default; path-traversal run ids refused on archive import.
 
 ## 0.1.87 (v0.1.87)
 

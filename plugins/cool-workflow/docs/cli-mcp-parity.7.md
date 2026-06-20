@@ -513,3 +513,7 @@ No other change to this page in v0.1.84.
 ## 0.1.87 (v0.1.87)
 
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
+
+## 0.1.88 (v0.1.88)
+
+CLI surface simplified to 6 commands with agent stderr streaming on by default and vendor agent flags; the drive gains a `--incremental` flag (added to DRIVE_RUNTIME_KEYS so it never poisons run.inputs or the cache key). MCP tools stay the derived mirror of the same capabilities.

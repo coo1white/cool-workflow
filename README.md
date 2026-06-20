@@ -77,8 +77,10 @@ cw fix                            # show fix commands for setup issues
 | `research-synthesis` | Answer a question with fact-backed research |
 | `release-cut` | Run a gated, reviewed release |
 
-**Multi-agent, when you need it.** Fan work out across agents with built-in topologies —
-and re-run fast: `cw run <app> --drive --incremental` reuses every step whose inputs didn't change.
+**Multi-agent, when you need it.** Fan work out across agents with built-in topologies,
+compose flows (a task can run a whole child workflow with `subWorkflow`, or a `loop()` phase
+can keep iterating until a predicate or a token budget says stop) — and re-run fast:
+`cw run <app> --drive --incremental` reuses every step whose inputs didn't change.
 
 <div align="center">
 <img src="docs/assets/topologies.svg" alt="Built-in multi-agent topologies: map-reduce (fan out, fold in), debate (argue then draw a verdict), and judge-panel (N independent judges score one candidate)." width="92%">

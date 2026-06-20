@@ -309,3 +309,7 @@ No other change to this page in v0.1.84.
 ## 0.1.87 (v0.1.87)
 
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
+
+## 0.1.88 (v0.1.88)
+
+Orchestration-parity for the agent drive: `run --drive --incremental` step-level resume (unchanged-input tasks replay from a content-addressed cache, zero re-spawns), inline `subWorkflow()` nesting (a task runs a child app and binds its verified report back, bounded depth + cycle guard, no telemetry fabricated), bounded dynamic `loop()` phases that expand at runtime under a static replay-stable cap, and a `claude -p` wrapper now on the canonical result contract.
