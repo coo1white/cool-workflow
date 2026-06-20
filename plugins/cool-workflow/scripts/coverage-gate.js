@@ -67,6 +67,8 @@ function runSuite() {
     const args = [path.join(packageDir, "test", "run-all.js")];
     const concurrency = flagValue("--concurrency");
     if (concurrency) args.push("--concurrency", concurrency);
+    const sample = flagValue("--sample");
+    if (sample) args.push("--sample", sample);
     const child = spawn(process.execPath, args, {
       cwd: packageDir,
       stdio: "inherit",
