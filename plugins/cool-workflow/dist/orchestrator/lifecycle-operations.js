@@ -53,7 +53,13 @@ function plan(appRecord, options) {
             inputs[declared.name] = declared.default ?? "";
     }
     const cwd = node_path_1.default.resolve(String(inputs.cwd || inputs.repo || process.cwd()));
-    const runId = createRunId(workflow.id);
+    // A caller (e.g. an inline sub-workflow task) may inject a DETERMINISTIC run id so
+    // the child run id is reproducible across re-runs; otherwise mint one. `runId` is
+    // never a declared workflow input, so strip it from inputs to keep run.inputs (and
+    // the digests derived from it) clean — POLA for every normal plan.
+    const injectedRunId = typeof options.runId === "string" && options.runId.trim() ? options.runId.trim() : undefined;
+    delete inputs.runId;
+    const runId = injectedRunId || createRunId(workflow.id);
     const runDir = node_path_1.default.join(cwd, ".cw", "runs", runId);
     const paths = (0, state_1.createRunPaths)(runDir);
     (0, state_1.ensureRunDirs)(paths);
@@ -437,7 +443,8 @@ function flattenTasks(workflow, inputs) {
                 ...(task.label ? { label: task.label } : {}),
                 ...(task.model ? { model: task.model } : {}),
                 ...(task.agentType ? { agentType: task.agentType } : {}),
-                ...(task.resultCache ? { resultCache: task.resultCache } : {})
+                ...(task.resultCache ? { resultCache: task.resultCache } : {}),
+                ...(task.subWorkflow ? { subWorkflow: task.subWorkflow } : {})
             });
         }
     }

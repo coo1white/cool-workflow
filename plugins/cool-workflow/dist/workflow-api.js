@@ -5,6 +5,7 @@ exports.phase = phase;
 exports.parallel = parallel;
 exports.createWorkflowApi = createWorkflowApi;
 exports.agent = agent;
+exports.subWorkflow = subWorkflow;
 exports.artifact = artifact;
 exports.input = input;
 exports.slugify = slugify;
@@ -53,11 +54,24 @@ function createWorkflowApi() {
         parallel,
         agent,
         artifact,
+        subWorkflow,
         input
     };
 }
 function agent(id, prompt, options = {}) {
     return task("agent", id, prompt, options);
+}
+/** A task fulfilled by an inline SUB-WORKFLOW: instead of spawning an agent, the
+ *  drive plans + drives the child `appId` and binds its report back as this task's
+ *  result. The prompt is recorded for provenance but is not sent to an agent. */
+function subWorkflow(id, appId, options = {}) {
+    if (!appId)
+        throw new Error(`subWorkflow task ${id} requires an appId`);
+    const { inputs, bindResult, prompt, ...rest } = options;
+    return task("agent", id, prompt || `Delegate to sub-workflow app: ${appId}`, {
+        ...rest,
+        subWorkflow: { appId, ...(inputs ? { inputs } : {}), ...(bindResult ? { bindResult } : {}) }
+    });
 }
 function artifact(id, prompt, options = {}) {
     return task("artifact", id, prompt, options);
