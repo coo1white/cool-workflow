@@ -972,7 +972,8 @@ function auditVerify(runner, args) {
 }
 // ---- demo: tamper-evidence (the one-command proof) -------------------------
 // Hermetic, deterministic-shape: builds a real ed25519-signed telemetry ledger,
-// then forges it two ways and shows both tamper-evidence layers catch it. CLI-only
+// then forges it three ways and shows all three tamper-evidence layers (ledger,
+// signature, result) catch it. CLI-only
 // (a human-facing demonstration; the underlying verify is the telemetry.verify verb).
 function demoTamper(_runner, _args = {}) {
     return (0, telemetry_demo_1.runTamperDemo)();

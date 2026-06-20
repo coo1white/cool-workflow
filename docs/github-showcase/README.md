@@ -31,8 +31,9 @@ The first useful proof takes about 30 seconds and needs no agent:
 npx cool-workflow demo tamper
 ```
 
-That command builds a real signed telemetry ledger, forges it two ways, and
-catches both offline. Look for `VERDICT: tamper-evidence holds` in stdout.
+That command builds a real signed telemetry ledger, forges it three ways (incl.
+editing a signed finding), and catches all three offline. Look for `VERDICT:
+tamper-evidence holds` in stdout.
 
 ## Quick Start
 

@@ -27,15 +27,25 @@ const section = nextH2 >= 0 ? readme.slice(start, start + 1 + nextH2) : readme.s
 // view (the link assertion keeps the raw section).
 const flat = section.replace(/\s+/g, " ");
 
-// The overstated claims are gone: the signature never covered the report, and not
-// every step's content is signed.
-assert.doesNotMatch(flat, /signature no longer matches/i, "must not claim a signature covers the report");
+// The overstated claims are gone: the signature never covered the whole report, and
+// the report is not claimed exhaustively tamper-proof.
+assert.doesNotMatch(flat, /signature no longer matches/i, "must not claim a signature covers the whole report");
 assert.doesNotMatch(flat, /Every agent step is recorded, signed/i, "must not claim every step's content is signed");
+assert.doesNotMatch(flat, /the report (can ?not|can't) be (tampered|altered|forged|changed)/i, "must not overclaim the report is wholesale tamper-proof");
 
-// The honest scoping is present.
-assert.match(flat, /token usage/i, "scopes the signature to the agent's reported token usage");
-assert.match(flat, /report text itself is not signed/i, "states the report text is not signed");
+// The now-true FORWARD claim is present: findings are signed and verified unaltered.
+assert.match(flat, /signs its findings/i, "states the agent signs its findings");
+assert.match(flat, /verify-bundle/i, "names the verify-bundle check");
+assert.match(flat, /unaltered/i, "claims the signed findings are present unaltered");
 assert.match(flat, /no private key/i, "states CW holds no private key");
+// And the honest forward-scope caveat is present (not that the report holds nothing else).
+assert.match(flat, /not that the report holds nothing else|check the findings .* against the signed results/i, "keeps the honest forward-scope caveat");
+// The caveat must close BOTH directions. The forward check proves each *present*
+// signed finding is unaltered, but a re-chainer can OMIT a signed finding (the
+// dropped converse — see report-verifiable-bundle.7.md / run-export.ts scope note).
+// "every signed finding is in the report" must NOT read as a completeness guarantee,
+// so the section must also state the omission limit.
+assert.match(flat, /none were left out|left out|re-chainer can (drop|omit|leave)|drop a signed finding/i, "keeps the omission carve-out (a re-chainer can drop a signed finding — not a completeness guarantee)");
 assert.match(section, /\[Trust Model\]\(plugins\/cool-workflow\/docs\/trust-model\.md\)/, "links to the Trust Model doc");
 
 // And that linked doc exists.

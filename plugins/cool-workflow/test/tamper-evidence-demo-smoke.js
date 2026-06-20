@@ -14,7 +14,9 @@
 //   1. runTamperDemo(): clean ledger verifies + signatures valid; the LEDGER-layer
 //      forgery (verdict flip + re-sealed local hash) is caught by the chain
 //      (chain-link break); the SIGNATURE-layer forgery (inflated tokens, reused
-//      signature) is caught by ed25519 verify; proven === true overall.
+//      signature) is caught by ed25519 verify; the RESULT-layer forgery (edit a
+//      signed finding) is caught because CW re-derives sha256(result) and the
+//      signed 5-field payload no longer joins; proven === true overall.
 //   2. The demo leaves no tmp dir behind (default cleanup).
 //   3. telemetryVerify(): a clean real run verifies; flipping one byte in its
 //      telemetry.json on disk makes the SAME verb report verified:false with a
@@ -34,13 +36,13 @@ const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.
 const { appendTelemetryAttestation } = require(path.join(pluginRoot, "dist/telemetry-ledger.js"));
 
 function main() {
-  // ---- 1. the demo proves both layers ---------------------------------------
+  // ---- 1. the demo proves all three layers ----------------------------------
   const tmpBefore = fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("cw-tamper-demo-")).length;
   const demo = runTamperDemo();
   assert.equal(demo.proven, true, "tamper-evidence proof holds end to end");
   assert.equal(demo.baseline.ledgerVerified, true, "clean ledger verifies");
   assert.equal(demo.baseline.signaturesValid, 2, "both signed hops verify against the public key");
-  assert.equal(demo.layers.length, 2, "ledger + signature layers both demonstrated");
+  assert.equal(demo.layers.length, 3, "ledger + signature + result layers all demonstrated");
 
   const ledger = demo.layers.find((l) => l.layer === "ledger");
   assert.ok(ledger.before.verified && !ledger.after.verified, "ledger: verified before, detected after");
@@ -49,7 +51,16 @@ function main() {
   const sig = demo.layers.find((l) => l.layer === "signature");
   assert.ok(sig.before.verified && !sig.after.verified, "signature: valid before, rejected after");
   assert.ok(sig.failures.some((f) => /signature/.test(f)), "signature forgery caught by ed25519 verify");
-  console.log("tamper-demo: both layers catch the forgery, proof holds ok");
+
+  // The RESULT layer is the headline of this cycle: editing a SIGNED FINDING is now
+  // caught, because the executor binds sha256(result) into the ed25519 payload and CW
+  // re-derives the digest at verify time. before must be result-COVERING (a genuine
+  // 5-field signature), else the "edit a finding is detected" claim is vacuous.
+  const result = demo.layers.find((l) => l.layer === "result");
+  assert.ok(result, "result layer demonstrated");
+  assert.ok(result.before.verified && !result.after.verified, "result: signed finding verifies before, rejected after edit");
+  assert.ok(result.failures.some((f) => /result/.test(f)), "edited finding caught by the result-bound ed25519 verify");
+  console.log("tamper-demo: ledger + signature + result layers all catch the forgery, proof holds ok");
 
   // ---- 2. no tmpdir leak -----------------------------------------------------
   const tmpAfter = fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("cw-tamper-demo-")).length;
@@ -95,7 +106,7 @@ function main() {
     fs.rmSync(work, { recursive: true, force: true });
   }
 
-  console.log("tamper-evidence-demo-smoke: ok (demo proves both layers; telemetry verify is the operator-facing guarantee; self-guarding)");
+  console.log("tamper-evidence-demo-smoke: ok (demo proves all three layers; telemetry verify is the operator-facing guarantee; self-guarding)");
 }
 
 main();

@@ -5,13 +5,17 @@
 // Fully hermetic + deterministic: generates an EPHEMERAL ed25519 keypair, builds
 // a REAL telemetry ledger through the production append API (appendTelemetryAttestation
 // + signTelemetry — byte-identical to what a live attested run writes), then
-// demonstrates BOTH tamper-evidence layers catching a forgery:
+// demonstrates all THREE tamper-evidence layers catching a forgery:
 //   A) LEDGER layer — flip a recorded verdict on disk (unattested -> attested, the
 //      canonical "forge a green record" attack) -> verifyTelemetryLedger recomputes
 //      every hash independently, so the edited record's hash mismatches AND every
 //      record after it breaks the chain (cascade).
 //   B) SIGNATURE layer — inflate the reported tokens but keep the original ed25519
 //      signature -> verifyTelemetryAttestation rejects it ("signature does not match").
+//   C) RESULT layer — edit the agent's SIGNED FINDING after signing. The executor
+//      binds sha256(result.md) into the ed25519 payload; CW re-derives the digest
+//      from the result file at verify time, so an edited finding no longer joins the
+//      signature. This is the threat a usage-only signature never covered.
 //
 // No model, no network, no API key, no second repo — runs in a private tmpdir.
 
@@ -27,7 +31,7 @@ import { createRunPaths, ensureRunDirs, saveCheckpoint } from "./state";
 import { sha256 } from "./execution-backend";
 
 export interface TamperDemoLayer {
-  layer: "ledger" | "signature";
+  layer: "ledger" | "signature" | "result";
   /** What was edited, in plain words. */
   tamper: string;
   before: { verified: boolean; detail: string };
@@ -41,7 +45,7 @@ export interface TamperDemoResult {
   runId: string;
   workers: number;
   trustKey: "ephemeral-ed25519";
-  /** The clean baseline both layers start from. */
+  /** The clean baseline all three layers start from. */
   baseline: { ledgerVerified: boolean; signaturesValid: number; records: number };
   layers: TamperDemoLayer[];
   /** True iff the clean state verified AND every tamper was detected. */
@@ -220,6 +224,31 @@ export function runTamperDemo(options: { dir?: string; keepDir?: boolean } = {})
     before: { verified: sigCleanCheck.status === "attested", detail: `signature verifies against the reported usage (${sigCleanCheck.algorithm || "ed25519"})` },
     after: { verified: sigCheck.status === "attested", detail: sigCheck.reason || sigCheck.status },
     failures: sigCheck.status === "attested" ? [] : [`signature: ${sigCheck.reason}`]
+  });
+
+  // 3c. RESULT layer — the REAL threat the result-bound signature closes: the agent's
+  //     signed FINDING is edited after signing. The executor binds sha256(result.md)
+  //     into the ed25519 payload (a 5-field, result-COVERING signature); CW re-derives
+  //     the digest from the result file at verify time. An edited finding hashes to a
+  //     different digest, so the signature joins neither the 5-field nor the 4-field
+  //     payload and the verify rejects it. A usage-only signature never covered this.
+  const findingSigned = "Finding: auth bypass in login() — severity HIGH";
+  const findingEdited = findingSigned.replace("HIGH", "LOW");
+  const resultCtx = { runId, taskId: target.hop.taskId, promptDigest: target.hop.promptDigest };
+  const resultSignature = signTelemetry(target.hop.usage, privateKeyPem, { ...resultCtx, resultDigest: sha256(findingSigned) });
+  // Baseline: the signed finding verifies, and the signature actually COVERED the result.
+  const resultClean = verifyTelemetryAttestation(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: sha256(findingSigned) });
+  // Tamper: CW re-derives the digest from the EDITED finding -> no longer the signed digest.
+  const resultCheck = verifyTelemetryAttestation(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: sha256(findingEdited) });
+  layers.push({
+    layer: "result",
+    tamper: `edited the agent's signed finding "severity HIGH" -> "severity LOW" after it was signed`,
+    before: {
+      verified: resultClean.status === "attested" && resultClean.coversResult === true,
+      detail: `the signed finding verifies — ed25519 binds usage + sha256(result), result-covering`
+    },
+    after: { verified: resultCheck.status === "attested", detail: resultCheck.reason || resultCheck.status },
+    failures: resultCheck.status === "attested" ? [] : [`result: ${resultCheck.reason}`]
   });
 
   if (!options.keepDir && !options.dir) fs.rmSync(runDir, { recursive: true, force: true });
