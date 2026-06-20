@@ -38,6 +38,7 @@ const worker_isolation_1 = require("./worker-isolation");
 const agent_config_1 = require("./agent-config");
 const scheduling_1 = require("./scheduling");
 const observability_1 = require("./observability");
+const telemetry_attestation_1 = require("./telemetry-attestation");
 const state_1 = require("./state");
 const compare_1 = require("./compare");
 exports.DRIVE_SCHEMA_VERSION = 1;
@@ -204,7 +205,7 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
     // immediate activity instead of a long silence on the first worker. task.label
     // is the human-facing display name; the id stays the stable reference.
     const promptDigest = node_fs_1.default.existsSync(manifest.inputPath) ? (0, execution_backend_1.sha256)(node_fs_1.default.readFileSync(manifest.inputPath, "utf8")) : (0, execution_backend_1.sha256)(manifest.prompt || "");
-    const cachePath = resultCachePath(run, selected, (0, execution_backend_1.sha256)(selected.prompt));
+    const cachePath = resultCachePath(run, selected, (0, execution_backend_1.sha256)(selected.prompt), ctx.incremental, ctx.incremental ? incrementalDelegationDigest(selected, manifest, ctx.config) : "");
     if (cachePath && node_fs_1.default.existsSync(cachePath)) {
         emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
         try {
@@ -271,7 +272,63 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
         reportedModel
     });
 }
-function resultCachePath(run, task, promptDigest) {
+function cacheFilePath(run, task, digest) {
+    return node_path_1.default.join(run.cwd, ".cw", "cache", "worker-results", (0, state_1.safeFileName)(run.workflow.id), `${(0, state_1.safeFileName)(task.id)}-${digest.replace(/^sha256:/, "").slice(0, 32)}.md`);
+}
+/** Digest of the per-task DELEGATION config that determines a result but is NOT
+ *  carried by the prompt or run.inputs: the resolved model (task override OR the
+ *  global agent-config model), the agent IDENTITY (which binary/endpoint actually
+ *  produces the bytes — `command`/`args`/`endpoint`), the backend driver, and the
+ *  resolved sandbox PROFILE ID. All of these are operator flags/env (`--agent-model`,
+ *  `--agent-command`, `--agent-endpoint`, ...) stripped from run.inputs by
+ *  DRIVE_RUNTIME_KEYS, so they must be folded here or swapping the model/agent/
+ *  endpoint would serve a stale result (and attest the wrong producer). The sandbox
+ *  PROFILE ID (not the full resolved policy) is used because the policy's read/write
+ *  paths embed the per-run worker dir, so the full policy is NOT stable across runs
+ *  (it would defeat all reuse); the id is stable and changes on a profile swap. Args
+ *  are secret-stripped (no credential lands in the digest input). `config.args` is
+ *  the un-substituted template (e.g. `{{result}}`), so it is stable across runs.
+ *  Deterministic: stableStringify, no clock/random. */
+function incrementalDelegationDigest(task, manifest, config) {
+    return (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)({
+        model: task.model || config.model || "",
+        agentType: task.agentType || "agent",
+        sandboxProfileId: manifest.sandboxPolicy?.id || task.sandboxProfileId || "",
+        command: config.command || "",
+        args: config.args ? (0, execution_backend_1.stripSecretArgs)(config.args) : [],
+        endpoint: config.endpoint || ""
+    }));
+}
+function resultCachePath(run, task, promptDigest, incremental, delegationDigest) {
+    // Incremental resume (opt-in, run-level): EVERY task is keyed by content so a
+    // re-run reuses the longest unchanged prefix. The key folds the rendered prompt,
+    // the full run.inputs, the per-task DELEGATION config (model/backend/sandbox —
+    // result-determining but NOT carried by prompt/inputs, so editing the model must
+    // invalidate), and the UPSTREAM RESULT digests (not just prompts: a CW prompt is
+    // rendered from run.inputs and does NOT carry an upstream task's result bytes, so
+    // a changed/nondeterministic upstream result must invalidate downstream — which
+    // keying on upstream result bytes does). A changed prompt/input/model perturbs
+    // that task's key, and its changed result perturbs every downstream key, so the
+    // "first changed task and everything after" re-run falls out for free. The phase
+    // barrier guarantees every upstream task is `completed` before this task runs, so
+    // its result bytes are available to digest. schemaVersion:2 never collides with
+    // the opt-in schemaVersion:1 cache below.
+    if (incremental) {
+        const upstreamResultsDigest = previousPhaseResultsDigest(run, task);
+        if (upstreamResultsDigest === undefined)
+            return undefined;
+        const digest = (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)({
+            schemaVersion: 2,
+            workflowId: run.workflow.id,
+            taskId: task.id,
+            promptDigest,
+            runInputsDigest: (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)(run.inputs || {})),
+            delegationDigest,
+            upstreamResultsDigest
+        }));
+        return cacheFilePath(run, task, digest);
+    }
+    // Default: the per-task OPT-IN cache (unchanged — POLA).
     const policy = task.resultCache;
     if (!policy || policy.mode !== "read-write")
         return undefined;
@@ -290,12 +347,13 @@ function resultCachePath(run, task, promptDigest) {
         keyValue,
         promptDigest,
         completedResultsDigest
-    })).replace(/^sha256:/, "");
-    return node_path_1.default.join(run.cwd, ".cw", "cache", "worker-results", (0, state_1.safeFileName)(run.workflow.id), `${(0, state_1.safeFileName)(task.id)}-${digest.slice(0, 32)}.md`);
+    }));
+    return cacheFilePath(run, task, digest);
 }
-function completedResultsCacheDigest(run, task) {
-    if (task.resultCache?.includeCompletedResults !== "previous-phases")
-        return "";
+/** Digest of the result bytes of every task in strictly-earlier phases (deterministic
+ *  id order). `undefined` when any such task is not yet completed/readable — so a
+ *  caller never keys on partial upstream state. */
+function previousPhaseResultsDigest(run, task) {
     const phaseIndex = run.phases.findIndex((phase) => phase.name === task.phase || phase.id === task.phase);
     if (phaseIndex < 0)
         return undefined;
@@ -311,6 +369,11 @@ function completedResultsCacheDigest(run, task) {
     if (records.some((record) => record === undefined))
         return undefined;
     return (0, execution_backend_1.sha256)(JSON.stringify(records));
+}
+function completedResultsCacheDigest(run, task) {
+    if (task.resultCache?.includeCompletedResults !== "previous-phases")
+        return "";
+    return previousPhaseResultsDigest(run, task);
 }
 function writeResultCache(file, content) {
     node_fs_1.default.mkdirSync(node_path_1.default.dirname(file), { recursive: true });
@@ -395,7 +458,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
             continue;
         }
         const manifest = runner.showWorkerManifest(runId, workerId);
-        const cachePath = resultCachePath(run, task, (0, execution_backend_1.sha256)(task.prompt));
+        const cachePath = resultCachePath(run, task, (0, execution_backend_1.sha256)(task.prompt), ctx.incremental, ctx.incremental ? incrementalDelegationDigest(task, manifest, ctx.config) : "");
         if (cachePath && node_fs_1.default.existsSync(cachePath))
             continue;
         const job = (0, execution_backend_1.prepareAgentSpawn)(buildAgentRequest(ctx, run, task, manifest));
@@ -466,7 +529,7 @@ function drive(runner, runId, options = {}) {
     const now = options.now || new Date().toISOString();
     const policy = (0, scheduling_1.normalizeSchedulingPolicy)(options.policy || scheduling_1.DEFAULT_SCHEDULING_POLICY);
     const config = options.agentConfig || (0, agent_config_1.resolveAgentConfig)(options.args || {});
-    const ctx = { runner, runId, now, policy, config, attempts: new Map() };
+    const ctx = { runner, runId, now, policy, config, attempts: new Map(), incremental: Boolean(options.incremental) };
     const steps = [];
     const run0 = runner.loadRun(runId);
     const plannedWorkers = run0.tasks.length;

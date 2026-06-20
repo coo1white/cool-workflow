@@ -504,7 +504,8 @@ const DRIVE_RUNTIME_KEYS = [
   "agent-model",
   "agentTimeoutMs",
   "agent-timeout-ms",
-  "resume"
+  "resume",
+  "incremental"
 ];
 
 function planInputsFor(args: Record<string, unknown>): Record<string, unknown> {
@@ -537,6 +538,7 @@ export function runDrive(runner: CoolWorkflowRunner, args: Record<string, unknow
   return drive(runner.withBaseDir(target), driveRunId, {
     once: isTrue(args.once),
     now: optionalString(args.now),
+    incremental: isTrue(args.incremental),
     args
   });
 }
