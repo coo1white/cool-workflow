@@ -276,6 +276,27 @@ export function safeFileName(value: string): string {
   return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
 }
 
+/** Refuse a run id that is not a single safe path segment, so an id taken from
+ *  an untrusted source (an imported run archive / bundle) can never escape the
+ *  runs directory via a separator or a `..`/`.` component (path traversal). A
+ *  real run id is `${workflowId}-${stamp}-${suffix}` (createRunId), and a
+ *  workflow id is alnum-bounded [a-z0-9.-] (validateWorkflowId) — all within
+ *  [A-Za-z0-9._-]. Because the charset already forbids any separator, the whole
+ *  id is ONE path component, so the only values that could traverse are the
+ *  components `.` and `..` themselves; an embedded `..` (e.g. a workflow id like
+ *  `v1..2`) is a safe directory name and is allowed. A separator, an absolute
+ *  path, or an empty value is refused, fail-closed. Returns the id on success so
+ *  callers can use it inline. */
+export function assertSafeRunId(value: unknown, context = "run id"): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid ${context}: expected a non-empty string`);
+  }
+  if (!/^[A-Za-z0-9._-]+$/.test(value) || value === "." || value === "..") {
+    throw new Error(`Unsafe ${context}: ${JSON.stringify(value)} must be a single path segment ([A-Za-z0-9._-], not '.' or '..')`);
+  }
+  return value;
+}
+
 /** Compute and set SHA256 + sizeBytes on a StateArtifact from its file path
  *  (v0.1.73). Fails silently when the file doesn't exist — does not throw. */
 export function hashArtifactFile(artifact: StateArtifact): StateArtifact {
