@@ -204,6 +204,29 @@ const SERIAL_ONLY = new Set(serialEnv ? serialEnv.split(",").map((s) => s.trim()
 const pooledSmokes = eligibleSmokes.filter((file) => !SERIAL_ONLY.has(file));
 const serialSmokes = eligibleSmokes.filter((file) => SERIAL_ONLY.has(file));
 
+// Ambient agent/backend configuration must NEVER leak from the parent env into a
+// smoke child. CW_NO_AUTO_AGENT (set in makeSandbox) only blocks PATH
+// auto-detection; an explicit CW_AGENT_COMMAND/CW_AGENT_ENDPOINT exported into the
+// parent still resolves (flags > env > file, see src/agent-config.ts), so a
+// fail-closed / no-agent / blocked smoke would false-FAIL. That is exactly how
+// `release-flow.js --cut` rejected at the gate when the reviewer was configured
+// via the CW_AGENT_COMMAND *env var* (release-flow's own hint suggests it): the
+// var leaks into the gate's `npm test` child, yet `npm run release:check` — run
+// without it — passed. Strip the whole ambient set here so the sandbox is the
+// single guarantee the agent-config-sensitive smokes each used to hand-roll at
+// their own top. Keep in sync with the env layer of src/agent-config.ts
+// (agentConfigFromEnv) + CW_BACKEND (execution-backend selection).
+const AGENT_ENV_KEYS = [
+  "CW_AGENT_COMMAND",
+  "CW_AGENT_ENDPOINT",
+  "CW_AGENT_MODEL",
+  "CW_AGENT_TIMEOUT_MS",
+  "CW_AGENT_ATTEST_PUBKEY",
+  "CW_AGENT_ATTEST_PRIVKEY",
+  "CW_REQUIRE_ATTESTED_TELEMETRY",
+  "CW_BACKEND",
+];
+
 // Build a private, fully-isolated sandbox for one smoke child: a unique cwd plus
 // state-root env so the smoke's repo `.cw/` (cwd-derived) and home registry
 // (CW_HOME-derived, default ~/.local/state — shared otherwise) land in throwaway
@@ -216,6 +239,7 @@ function makeSandbox() {
   const tmp = path.join(root, "tmp");
   for (const dir of [cwd, home, tmp]) fs.mkdirSync(dir, { recursive: true });
   const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home, TMPDIR: tmp, CW_NO_AUTO_AGENT: "1" };
+  for (const key of AGENT_ENV_KEYS) delete env[key];
   return { root, cwd, env };
 }
 
