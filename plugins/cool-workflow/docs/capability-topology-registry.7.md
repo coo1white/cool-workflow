@@ -2,69 +2,92 @@
 
 ## Name
 
-`capability-dispatcher`, `registerCapabilityHandler`, `registerTopology` — open registries for agent-driven CW extension
+`capability-registry`, `registerTopology` — the declared capability contract and the open topology registry for agent-driven CW extension
 
 ## Description
 
-v0.1.53 adds two open registries. They let agents grow CW at runtime
-with no need to wire things by hand in many files. New capabilities put
-themselves in the registry and then work by themselves across CLI, MCP, and Workbench. New topologies put
-themselves in the registry too and then come up by themselves in `topology list`, `topology validate`, and `topology apply`.
+CW keeps two layers here. The **capability registry**
+(`src/capability-registry.ts`) is the one declared source of truth for every
+capability CW exposes; it is read at build/check time, not written to at
+runtime. The **topology registry** (`src/topology.ts`) is an open runtime
+registry: new topologies put themselves in it with `registerTopology()` and
+then come up by themselves in `topology list`, `topology validate`, and
+`topology apply`.
 
-BSD way: keep **mechanism** (Map / pipe) apart from **policy** (entries).
-Fail-closed on unknown ids.
+> History: v0.1.53 also shipped a dynamic *capability* dispatcher
+> (`capability-dispatcher.ts`, `registerCapabilityHandler`,
+> `dispatchCapability`, `resolveCliPath`, `resolveMcpTool`) meant to let
+> capabilities register handlers and be routed at runtime. It had zero call
+> sites — the handler map was always empty and every dispatch path was
+> unreachable — so it was removed as dead code in v0.1.81 (#131). Capabilities
+> are **declared**, not runtime-registered; see below. (The unrelated
+> `cw dispatch` command, which writes a subagent dispatch manifest, is a normal
+> declared capability, not that dispatcher.)
+
+BSD way: keep **mechanism** (the registry / the open Map) apart from **policy**
+(the entries). Fail-closed on unknown ids.
 
 ## Capability Registry
 
-### Interface
+The capability registry, `src/capability-registry.ts`, is the SINGLE declared
+source of truth for every capability CW exposes — and the contract both front
+doors (CLI and MCP) are checked against. It is a static, read-only array of
+descriptors, `CAPABILITY_REGISTRY`. There is no runtime "register a handler"
+seam and no dynamic dispatcher: capabilities are data here, not code that wires
+itself in.
+
+### Descriptor
 
 ```typescript
-interface CapabilityHandler {
-  descriptor: CapabilityDescriptor;
-  run(args: Record<string, unknown>, ctx: CapabilityContext): unknown | Promise<unknown>;
-}
-
-interface CapabilityContext {
-  runner: CoolWorkflowRunner;
-  cwd: string;
+interface CapabilityDescriptor {
+  capability: string;   // canonical dot-namespaced id, e.g. "worker.list"
+  summary: string;      // one-line description
+  entry: string;        // the ONE shared core entry both surfaces route through
+  surface: "both" | "cli-only" | "mcp-only";
+  cli?: { path: string[]; jsonMode: "default" | "flag" | "human" };
+  mcp?: { tool: string; requiredArgs?: string[] };
+  payloadIdentical?: boolean;  // CLI --json === MCP result (default true for "both")
+  reason?: string;             // required when surface !== "both" or payloadIdentical === false
 }
 ```
 
-### Registering a new capability
+### Adding a capability
+
+A capability is declared once, as data, in `CAPABILITY_REGISTRY`, against one
+shared core `entry`:
 
 ```typescript
-import { registerCapabilityHandler } from "./capability-registry";
-
-registerCapabilityHandler({
-  descriptor: {
-    capability: "my.new.tool",          // canonical dot-namespaced id
-    summary: "Does something useful.",   // one-line description
-    entry: "myNewTool",                  // core entry name
-    surface: "both",                     // "both" | "cli-only" | "mcp-only"
-    cli: { path: ["my", "new-tool"], jsonMode: "default" },
-    mcp: { tool: "cw_my_new_tool" }
-  },
-  run: async (args, ctx) => {
-    // ctx.runner exposes all orchestrator methods
-    return ctx.runner.listWorkflows();
-  }
-});
+{
+  capability: "my.new.tool",
+  summary: "Does something useful.",
+  entry: "myNewTool",
+  surface: "both",
+  cli: { path: ["my", "new-tool"], jsonMode: "default" },
+  mcp: { tool: "cw_my_new_tool" }
+}
 ```
+
+`cli.ts` and `mcp-server.ts` each route their surface to the shared `entry` with
+their own explicit `switch` routing (plus a few `if (action === …)` branches).
+The registry is what those switches are validated against, not something they
+call into — there is no fallback dynamic dispatch.
 
 ### How it works
 
-1. `registerCapabilityHandler()` keeps the handler in a `Map<string, CapabilityHandler>`
-2. CLI: `resolveCliPath(["my", "new-tool"])` turns the CLI path into the capability id
-3. MCP: `resolveMcpTool("cw_my_new_tool")` turns the tool name into the capability id
-4. `dispatchCapability(id, args, ctx)` calls `handler.run(args, ctx)`
-5. Both the CLI and MCP surfaces drop through to the dynamic dispatcher when
-   their hardcoded switch statements do not match an unknown command/tool
+1. `CAPABILITY_REGISTRY` declares every capability once — one row per capability.
+2. CLI: `cli.ts` matches the command in its explicit `switch` and calls the core `entry`.
+3. MCP: `mcp-server.ts` matches the tool name in its explicit `switch` and calls the same `entry`.
+4. The parity gate (`scripts/parity-check.js --check`) fails closed on any drift:
+   a CLI command or MCP tool live on one surface but absent on the other or
+   undeclared, an undeclared payload divergence, or a surface-specific capability
+   with no recorded `reason`.
 
-### Existing capabilities
+### How many capabilities
 
-All 182 capabilities that are there now keep working through their hardcoded switch
-cases in `cli.ts` and `mcp-server.ts`. The dynamic dispatch is a **fallback**
-— it turns on only for commands/tools not found in the old switches.
+Run `node plugins/cool-workflow/scripts/parity-check.js --check` and read
+`registrySize` for the live count (199 at the time of writing). The full
+CLI <-> MCP matrix lives in `docs/cli-mcp-parity.7.md`, which is generated from
+the same registry.
 
 ## Topology Registry
 
@@ -160,8 +183,8 @@ expansion. Now it reads `role.count` on each role spec:
 
 ## See Also
 
-- `capability-registry.ts` — the one true source for all capabilities
-- `capability-dispatcher.ts` — the thin Map-based dispatch pipe
+- `capability-registry.ts` — the one declared source for all capabilities
+- `capability-core.ts` — the shared core entries both surfaces route through
 - `topology.ts` — topology definitions and the registry
 - `types/topology.ts` — topology type definitions
 - `docs/cli-mcp-parity.7.md` — CLI <-> MCP parity gate
