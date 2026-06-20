@@ -187,6 +187,12 @@ export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): Docto
             reason: "Shows the core trust check without an agent or a repo."
           },
           {
+            id: "demo-bundle",
+            title: "Prove portable checks",
+            command: "cw demo bundle",
+            reason: "Shows the bundle proof in one step — create, check, forge, detect. No agent needed."
+          },
+          {
             id: "setup",
             title: "Check setup",
             command: "cw doctor --onramp",
@@ -215,6 +221,25 @@ export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): Docto
             title: "Check the bundle",
             command: "cw report verify-bundle report.cwrun.json",
             reason: "Checks the report bundle without the source repo or a .cw tree."
+          }
+        ]
+      },
+      {
+        id: "no-agent",
+        title: "No Agent?",
+        summary: "The demo steps above need no agent. A real report needs one. Pick and install one agent before the next step.",
+        actions: [
+          {
+            id: "agent-claude",
+            title: "Claude Code (npm)",
+            command: "npm install -g @anthropic-ai/claude-code",
+            reason: "First-party Claude Code tool; CW works with Claude Code, Codex, Gemini CLI, and OpenCode."
+          },
+          {
+            id: "agent-check",
+            title: "Check agent setup",
+            command: "cw doctor",
+            reason: "Doctor names missing agent or setup trouble and tells you what to fix."
           }
         ]
       },
