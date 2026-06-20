@@ -25,7 +25,7 @@
 //
 // Usage: node scripts/coverage-gate.js [--min 80] [--concurrency <n|auto>]
 
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -54,7 +54,7 @@ const covDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-coverage-"));
 // (parity with the `test` and `test:ci` package.json scripts).
 {
   const cli = path.join(packageDir, "dist", "cli.js");
-  const check = spawn(process.execPath, [cli, "version"], { cwd: packageDir, stdio: "pipe" });
+  const check = spawnSync(process.execPath, [cli, "version"], { cwd: packageDir, stdio: "pipe", encoding: "utf8" });
   const out = String(check.stdout || "").trim();
   if (check.status !== 0 || !out) {
     process.stderr.write(`${SELF}: dist/cli.js version failed (exit ${check.status}) — build may be stale. Run \`npm run build\` first.\n`);
