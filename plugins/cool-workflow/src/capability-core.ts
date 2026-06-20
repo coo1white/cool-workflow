@@ -327,7 +327,8 @@ export function reportBundle(runner: CoolWorkflowRunner, runId: string, args: Re
   const verification = verifyReportBundle(exported.path, {
     pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
     extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
-    strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)
+    strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
+    requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs)
   });
   return {
     schemaVersion: 1,
@@ -352,7 +353,8 @@ export function runVerifyReportBundle(_runner: CoolWorkflowRunner, args: Record<
   return verifyReportBundle(path.resolve(base, archive), {
     pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
     extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
-    strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)
+    strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
+    requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs)
   });
 }
 

@@ -225,6 +225,12 @@ export interface TelemetrySignatureVerification {
   reverified: number;
   /** Of those, how many FAILED (signature mismatch or no re-verifiable usage). */
   failed: number;
+  /** Records whose signature RE-VERIFIED and actually COVERED the result digest
+   *  (a genuine 5-field result-bound signature). Their resultDigest is therefore
+   *  signature-anchored — usable to bind the restored result file. A usage-only
+   *  (4-field) signature is excluded even if a resultDigest is present on the
+   *  record, so an injected digest cannot be trusted. */
+  resultBound: Array<{ taskId: string; resultDigest: string }>;
   checks: TelemetrySignatureCheck[];
 }
 
@@ -253,6 +259,7 @@ export function verifyTelemetrySignatures(
   trustPublicKeyPem: string | undefined
 ): TelemetrySignatureVerification {
   const checks: TelemetrySignatureCheck[] = [];
+  const resultBound: Array<{ taskId: string; resultDigest: string }> = [];
   let checked = 0;
   let reverified = 0;
   let failed = 0;
@@ -290,6 +297,12 @@ export function verifyTelemetrySignatures(
     if (result.status === "attested") {
       reverified += 1;
       checks.push({ name: `signature[${i}]`, pass: true });
+      // Only a signature that actually COVERED the result digest anchors it — a
+      // 4-field fallback (coversResult false) must not let an injected resultDigest
+      // be trusted downstream.
+      if (result.coversResult && record.resultDigest) {
+        resultBound.push({ taskId: record.taskId, resultDigest: record.resultDigest });
+      }
     } else {
       failed += 1;
       checks.push({
@@ -301,5 +314,5 @@ export function verifyTelemetrySignatures(
       });
     }
   }
-  return { keyProvided: Boolean(trustPublicKeyPem), checked, reverified, failed, checks };
+  return { keyProvided: Boolean(trustPublicKeyPem), checked, reverified, failed, resultBound, checks };
 }

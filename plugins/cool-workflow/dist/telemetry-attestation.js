@@ -174,6 +174,7 @@ function stableDigest(value) {
 }
 function verifyTelemetrySignatures(records, trustPublicKeyPem) {
     const checks = [];
+    const resultBound = [];
     let checked = 0;
     let reverified = 0;
     let failed = 0;
@@ -212,6 +213,12 @@ function verifyTelemetrySignatures(records, trustPublicKeyPem) {
         if (result.status === "attested") {
             reverified += 1;
             checks.push({ name: `signature[${i}]`, pass: true });
+            // Only a signature that actually COVERED the result digest anchors it — a
+            // 4-field fallback (coversResult false) must not let an injected resultDigest
+            // be trusted downstream.
+            if (result.coversResult && record.resultDigest) {
+                resultBound.push({ taskId: record.taskId, resultDigest: record.resultDigest });
+            }
         }
         else {
             failed += 1;
@@ -224,5 +231,5 @@ function verifyTelemetrySignatures(records, trustPublicKeyPem) {
             });
         }
     }
-    return { keyProvided: Boolean(trustPublicKeyPem), checked, reverified, failed, checks };
+    return { keyProvided: Boolean(trustPublicKeyPem), checked, reverified, failed, resultBound, checks };
 }

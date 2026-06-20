@@ -67,10 +67,42 @@ The POLICY is fail-closed and self-describing:
   with an embedded key verifies the same on any machine; the override/env only
   apply when the bundle omits a key.
 - `ok` is true only when the archive bytes, the telemetry chain, and the
-  trust-audit chain all verify AND no attested signature failed re-verification.
+  trust-audit chain all verify, no attested signature failed re-verification, AND
+  the report ⇄ result cross-check holds.
+- **Report ⇄ result ⇄ signature cross-check** (`reportFindingsVerified`) — the
+  FORWARD guarantee: every SIGNED finding is present in the report and unaltered.
+  Driven by the signature-verified, result-COVERING ledger records (not the archive's
+  `run.tasks` list, which is bound by nothing). For each such record: (1) its
+  `resultDigest` is anchored by the executor's ed25519 signature — a usage-only
+  (4-field) signature is excluded, so an injected digest is never trusted
+  (`coversResult` required); (2) the matching completed task's **restored result file
+  must hash to that signed digest** (`result-missing` / `result-digest-mismatch:<task>`
+  otherwise) — so an edited, missing, dropped, or substituted result is caught because
+  the signed digest does not move; (3) `report.md` embeds the result at the task's own
+  `### <taskId>` section, body-first (`report-result-mismatch:<task>` otherwise) — so
+  an edited report, or a decoy copy buried elsewhere, fails. Editing the report breaks
+  (3); editing the result breaks (2); editing **both** to one consistent lie still
+  breaks (2). Any failure ⇒ `report-findings`, `ok:false`.
+- **Scope (read this).** The guarantee is FORWARD only: each of the agent's *signed*
+  findings is in the report unaltered. It does **not** assert the report contains
+  *only* signed findings. CW holds no key to sign the rendered report (it delegates;
+  it never signs), and the telemetry ledger chain is self-recomputable, so the report
+  MAY carry additional **unsigned content** — prose, an executive summary, ordering,
+  or extra sections — and a determined local re-chainer can **omit** a signed finding
+  (a shorter, self-consistent history). Verify the findings you act on against the
+  signed results; do not read more into a green verdict than "the signed findings are
+  present and unaltered." Closing report-completeness fully needs an external
+  append-only anchor (declined by design here); see the [Trust Model](trust-model.md).
+- **Trust level** (`trustLevel`): `"signed"` means the agent's signed findings are
+  present and unaltered — at least one **result-covering** signature re-verified
+  against a key, none failed, and the forward cross-check held. A usage-only (4-field)
+  signature, an unverifiable one (no key), or a tampered signed finding all yield
+  `"unsigned"`. It attests the signed findings, **not** report exhaustiveness.
 - A bundle with attested telemetry but no available key DEGRADES by default
   (`signatureKeyProvided: false`, the intact chain still decides `ok`).
-  `--strict-signatures` refuses such a bundle instead.
+  `--strict-signatures` refuses such a bundle instead. `--require-signatures` is
+  stronger: it refuses any bundle whose `trustLevel` is `"unsigned"` (closing the
+  fail-open where an unsigned-but-intact bundle returned `ok: true`).
 - `--extract-report <path>` writes the bundle's `report.md` out for a human to
   read alongside the machine verdict. If extraction is requested but the bundle
   has no `report.md` (or the write fails), that is a failure, not a silent no-op:

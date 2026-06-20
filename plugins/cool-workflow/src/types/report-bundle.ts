@@ -22,6 +22,15 @@ export interface ReportBundleVerification {
   signaturesChecked: number;
   signaturesReverified: number;
   signaturesFailed: number;
+  /** "signed" when at least one attested signature re-verified and none failed;
+   *  otherwise "unsigned" — the archive bytes and chains are intact, but no key
+   *  attests the agent's usage/findings. Surfaced so a consumer can refuse an
+   *  unsigned bundle with requireSignatures instead of mistaking intact for signed. */
+  trustLevel: "signed" | "unsigned";
+  /** True when report.md's embedded findings still match each restored result, so
+   *  editing the report's findings — which then no longer match the result the agent
+   *  signed — is detected. */
+  reportFindingsVerified: boolean;
   reportExtractedTo?: string;
   failedChecks: Array<{ name: string; code?: string }>;
 }
