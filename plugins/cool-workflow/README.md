@@ -65,7 +65,7 @@ cw -q "What are the main risks?" -deepseek    # DeepSeek
 
 ```bash
 npx cool-workflow demo tamper
-# builds a signed ed25519 ledger, forges it 2 ways, both caught offline
+# builds a signed ed25519 ledger, forges it 3 ways (incl. editing a signed finding), all caught offline
 # -> VERDICT: tamper-evidence holds ✓
 ```
 

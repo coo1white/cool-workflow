@@ -1003,7 +1003,8 @@ export function auditVerify(runner: CoolWorkflowRunner, args: Record<string, unk
 
 // ---- demo: tamper-evidence (the one-command proof) -------------------------
 // Hermetic, deterministic-shape: builds a real ed25519-signed telemetry ledger,
-// then forges it two ways and shows both tamper-evidence layers catch it. CLI-only
+// then forges it three ways and shows all three tamper-evidence layers (ledger,
+// signature, result) catch it. CLI-only
 // (a human-facing demonstration; the underlying verify is the telemetry.verify verb).
 export function demoTamper(_runner: CoolWorkflowRunner, _args: Record<string, unknown> = {}): ReturnType<typeof runTamperDemo> {
   return runTamperDemo();

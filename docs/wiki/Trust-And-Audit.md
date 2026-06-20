@@ -10,12 +10,13 @@ self-report was true.
 npx cool-workflow demo tamper
 ```
 
-The demo builds a signed ledger and forges it in two ways:
+The demo builds a signed ledger and forges it in three ways:
 
 | Layer | Forgery | Expected result |
 | --- | --- | --- |
 | Ledger | Change a recorded verdict and recompute that record hash. | The downstream hash chain breaks. |
 | Signature | Inflate reported tokens and reuse the old ed25519 signature. | Signature verification fails. |
+| Result | Edit a signed finding (severity HIGH → LOW) after signing; CW re-derives sha256(result) so the signature no longer joins the payload. | Signature verification fails. |
 
 For automation:
 
@@ -23,7 +24,7 @@ For automation:
 npx cool-workflow demo tamper --json
 ```
 
-The JSON includes `proven: true` when both tamper cases are caught.
+The JSON includes `proven: true` when all three tamper cases are caught.
 
 ## Verify A Real Run
 

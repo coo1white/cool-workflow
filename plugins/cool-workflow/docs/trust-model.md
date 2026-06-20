@@ -249,10 +249,12 @@ than the math will back up.
   signature mismatches fail closed. Mirrored as `cw_telemetry_verify` on the MCP
   surface.
 - `cw demo tamper` — a sealed, offline, one-command proof: it builds a real
-  ed25519-signed ledger and then fakes it two ways — flips a recorded verdict and
-  works out the *local* record hash again (the chain still breaks), and uses a
-  signature again over blown-up tokens (ed25519 turns it down). Everything is checked with
-  the public key only. The `✗ DETECTED` lines are the point.
+  ed25519-signed ledger and then fakes it three ways — flips a recorded verdict and
+  works out the *local* record hash again (the chain still breaks), uses a
+  signature again over blown-up tokens (ed25519 turns it down), and edits a signed
+  finding after signing so the re-derived sha256(result) no longer joins the
+  signature (the verify turns it down). Everything is checked with the public key
+  only. The `✗ DETECTED` lines are the point.
 - Re-run either with **only the public key** on a machine we do not control. If it
   does not come out the same, our integrity claim is false — hold us to it.
 

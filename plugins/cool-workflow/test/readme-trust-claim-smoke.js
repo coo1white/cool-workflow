@@ -40,6 +40,12 @@ assert.match(flat, /unaltered/i, "claims the signed findings are present unalter
 assert.match(flat, /no private key/i, "states CW holds no private key");
 // And the honest forward-scope caveat is present (not that the report holds nothing else).
 assert.match(flat, /not that the report holds nothing else|check the findings .* against the signed results/i, "keeps the honest forward-scope caveat");
+// The caveat must close BOTH directions. The forward check proves each *present*
+// signed finding is unaltered, but a re-chainer can OMIT a signed finding (the
+// dropped converse — see report-verifiable-bundle.7.md / run-export.ts scope note).
+// "every signed finding is in the report" must NOT read as a completeness guarantee,
+// so the section must also state the omission limit.
+assert.match(flat, /none were left out|left out|re-chainer can (drop|omit|leave)|drop a signed finding/i, "keeps the omission carve-out (a re-chainer can drop a signed finding — not a completeness guarantee)");
 assert.match(section, /\[Trust Model\]\(plugins\/cool-workflow\/docs\/trust-model\.md\)/, "links to the Trust Model doc");
 
 // And that linked doc exists.

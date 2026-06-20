@@ -6,7 +6,7 @@
 // Fully hermetic + deterministic: generates an EPHEMERAL ed25519 keypair, builds
 // a REAL telemetry ledger through the production append API (appendTelemetryAttestation
 // + signTelemetry — byte-identical to what a live attested run writes), then
-// demonstrates BOTH tamper-evidence layers catching a forgery:
+// demonstrates all THREE tamper-evidence layers catching a forgery:
 //   A) LEDGER layer — flip a recorded verdict on disk (unattested -> attested, the
 //      canonical "forge a green record" attack) -> verifyTelemetryLedger recomputes
 //      every hash independently, so the edited record's hash mismatches AND every

@@ -99,8 +99,9 @@ cw report verify-bundle report.cwrun.json \
   --require-signatures                          # …and insist the findings are signed
 ```
 
-This attests the agent's **signed findings** — not that the report holds nothing else. CW has no key
-to sign the rendered report, so check the findings you act on against the signed results. For exactly
+This attests the agent's **signed findings** — not that the report holds nothing else, and not that
+none were left out. CW has no key to sign the rendered report, and a determined re-chainer can drop a
+signed finding entirely — so check the findings you act on against the signed results. For exactly
 what is and is not proven, see the [Trust Model](plugins/cool-workflow/docs/trust-model.md).
 
 ## Troubleshooting
