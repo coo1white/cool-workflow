@@ -28,6 +28,12 @@
 // Default is auto (cores-capped parallel). The tag-gate (release-gate.sh) forces
 // sequential via CW_TEST_CONCURRENCY=1 to stay deterministic. Override anytime:
 // CW_TEST_CONCURRENCY=4 or --concurrency.
+//
+// v0.1.88 additions (P3-stage1):
+//   --filter <regex> | CW_TEST_FILTER       — run only smokes matching pattern
+//   CW_TEST_TIMEOUT_MS (default 120000)      — per-test timeout
+//   --retry <n> | CW_TEST_RETRY              — retry failed tests up to n times
+//   stdout/stderr separated in captured output
 
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -72,7 +78,18 @@ function resolveConcurrency() {
 const concurrency = resolveConcurrency();
 const jsonSummaryPath = argValue("--json-summary");
 
-const smokes = fs
+// --filter <regex> | CW_TEST_FILTER — run only smokes whose filename matches.
+const filterRaw = argValue("--filter") ?? process.env.CW_TEST_FILTER;
+const filterPattern = filterRaw ? new RegExp(filterRaw) : null;
+
+// --retry <n> | CW_TEST_RETRY — retry a failed smoke up to n more times.
+const retryRaw = argValue("--retry") ?? process.env.CW_TEST_RETRY;
+const maxRetries = Math.max(0, Number(retryRaw) || 0);
+
+// Per-test timeout: CW_TEST_TIMEOUT_MS (default 120s).
+const PER_TEST_TIMEOUT_MS = Math.max(1000, Number(process.env.CW_TEST_TIMEOUT_MS) || 120000);
+
+let smokes = fs
   .readdirSync(testDir)
   .filter((file) => file.endsWith("-smoke.js"))
   .sort();
@@ -82,11 +99,23 @@ if (smokes.length === 0) {
   process.exit(1);
 }
 
-// Contention-sensitive smokes can be kept out of the parallel pool here. Keep
-// this list minimal and justified: it is not an escape hatch for races. It is
-// currently empty because the former timing smokes now prove concurrency from
-// child start/end intervals rather than whole-smoke wall-clock thresholds.
-const SERIAL_ONLY = new Set([]);
+// Apply filter before split so skipped smokes don't consume a serial-only slot.
+if (filterPattern) {
+  const before = smokes.length;
+  smokes = smokes.filter((file) => filterPattern.test(file));
+  if (smokes.length === 0) {
+    process.stderr.write(`${SELF}: filter "${filterRaw}" matched no smoke files (had ${before} total).\n`);
+    process.exit(1);
+  }
+}
+
+// Contention-sensitive smokes can be kept out of the parallel pool. Configurable
+// via CW_TEST_SERIAL_ONLY=file1.js,file2.js (env), or the hardcoded set.
+// The list is currently empty because the former timing smokes now prove
+// concurrency from child start/end intervals rather than whole-smoke wall-clock
+// thresholds.
+const serialEnv = (process.env.CW_TEST_SERIAL_ONLY || "").trim();
+const SERIAL_ONLY = new Set(serialEnv ? serialEnv.split(",").map((s) => s.trim()).filter(Boolean) : []);
 const pooledSmokes = smokes.filter((file) => !SERIAL_ONLY.has(file));
 const serialSmokes = smokes.filter((file) => SERIAL_ONLY.has(file));
 
@@ -114,10 +143,23 @@ function runSmoke(file) {
       env: sandbox.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    let output = "";
-    child.stdout.on("data", (chunk) => (output += chunk));
-    child.stderr.on("data", (chunk) => (output += chunk));
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+      // If still alive after 3s, SIGKILL.
+      setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch { /* already dead */ }
+      }, 3000).unref();
+    }, PER_TEST_TIMEOUT_MS);
+
     const finish = (result) => {
+      clearTimeout(timer);
       try {
         fs.rmSync(sandbox.root, { recursive: true, force: true });
       } catch {
@@ -127,19 +169,42 @@ function runSmoke(file) {
     };
     child.on("close", (code) => {
       const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
-      finish({ file, ok: code === 0, code, elapsedMs, output });
+      const output = [stdout, stderr].filter(Boolean).join("");
+      finish({ file, ok: code === 0 && !timedOut, code, elapsedMs, output, stdout, stderr, timedOut });
     });
     child.on("error", (error) => {
       const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
-      finish({ file, ok: false, code: null, elapsedMs, output: `${output}${error.message}\n` });
+      const output = [stdout, stderr, error.message].filter(Boolean).join("\n");
+      finish({ file, ok: false, code: null, elapsedMs, output, stdout, stderr, timedOut: false });
     });
   });
 }
 
+// Run one smoke with optional retries. Returns the final result. Each retry gets
+// a fresh sandbox. If all attempts fail, the LAST failure's output is preserved
+// for the failure report; the retry count is recorded in the result.
+async function runSmokeWithRetry(file) {
+  let lastResult = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const result = await runSmoke(file);
+    lastResult = result;
+    lastResult.retries = attempt;
+    if (result.ok) break;
+    // Don't retry timeout or crash failures (only assertion/semantic failures).
+    if (result.timedOut) break;
+  }
+  return lastResult;
+}
+
 async function main() {
   const wallStartedAt = process.hrtime.bigint();
+
+  const filterNote = filterPattern ? ` (filter: ${filterRaw})` : "";
+  const retryNote = maxRetries > 0 ? ` (max-retries: ${maxRetries})` : "";
   process.stdout.write(
     `Running ${smokes.length} smoke(s) — concurrency ${concurrency}` +
+      filterNote +
+      retryNote +
       (concurrency === 1
         ? " (sequential; set CW_TEST_CONCURRENCY to parallelize)"
         : serialSmokes.length
@@ -155,10 +220,12 @@ async function main() {
   async function worker() {
     while (next < pooledSmokes.length) {
       const file = pooledSmokes[next++];
-      const result = await runSmoke(file);
+      const result = await runSmokeWithRetry(file);
       results.push(result);
       const tag = result.ok ? "PASS" : "FAIL";
-      process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms)\n`);
+      const timedOutNote = result.timedOut ? " [TIMEOUT]" : "";
+      const retryNote = result.retries > 0 ? ` [retry ${result.retries}/${maxRetries}]` : "";
+      process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms)${timedOutNote}${retryNote}\n`);
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, pooledSmokes.length) }, worker));
@@ -166,10 +233,12 @@ async function main() {
   // Phase 2 — contention-sensitive timing benchmarks, run ALONE on the now-quiet
   // cpu so their wall-clock assertions measure CW, not co-tenant pool load.
   for (const file of serialSmokes) {
-    const result = await runSmoke(file);
+    const result = await runSmokeWithRetry(file);
     results.push(result);
     const tag = result.ok ? "PASS" : "FAIL";
-    process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms) [serial-only]\n`);
+    const timedOutNote = result.timedOut ? " [TIMEOUT]" : "";
+    const retryNote = result.retries > 0 ? ` [retry ${result.retries}/${maxRetries}]` : "";
+    process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms) [serial-only]${timedOutNote}${retryNote}\n`);
   }
 
   results.sort((a, b) => a.file.localeCompare(b.file));
@@ -178,9 +247,15 @@ async function main() {
   if (failures.length > 0) {
     process.stdout.write(`\n${"=".repeat(70)}\nFailures:\n`);
     for (const failure of failures) {
-      process.stdout.write(
-        `\n--- ${failure.file} (exit ${failure.code}) ---\n${failure.output.trimEnd()}\n`,
-      );
+      const why = failure.timedOut ? ` (TIMEOUT after ${PER_TEST_TIMEOUT_MS}ms)` : "";
+      const retryInfo = failure.retries > 0 ? ` [after ${failure.retries} retries]` : "";
+      process.stdout.write(`\n--- ${failure.file} (exit ${failure.code})${why}${retryInfo} ---\n`);
+      if (failure.stderr && failure.stderr.trim()) {
+        process.stdout.write(`[stderr]\n${failure.stderr.trimEnd()}\n`);
+      }
+      if (failure.stdout && failure.stdout.trim()) {
+        process.stdout.write(`[stdout]\n${failure.stdout.trimEnd()}\n`);
+      }
     }
   }
 
@@ -198,11 +273,16 @@ async function main() {
       concurrency,
       wallElapsedMs,
       sumChildElapsedMs: totalMs,
+      maxRetries,
+      perTestTimeoutMs: PER_TEST_TIMEOUT_MS,
+      filter: filterRaw || undefined,
       results: results.map((result) => ({
         file: result.file,
         ok: result.ok,
         code: result.code,
-        elapsedMs: result.elapsedMs
+        elapsedMs: result.elapsedMs,
+        ...(result.retries > 0 ? { retries: result.retries } : {}),
+        ...(result.timedOut ? { timedOut: result.timedOut } : {})
       })),
       slowest: [...results]
         .sort((a, b) => b.elapsedMs - a.elapsedMs)
@@ -211,7 +291,9 @@ async function main() {
           file: result.file,
           ok: result.ok,
           code: result.code,
-          elapsedMs: result.elapsedMs
+          elapsedMs: result.elapsedMs,
+          ...(result.retries > 0 ? { retries: result.retries } : {}),
+          ...(result.timedOut ? { timedOut: result.timedOut } : {})
         }))
     });
   }
