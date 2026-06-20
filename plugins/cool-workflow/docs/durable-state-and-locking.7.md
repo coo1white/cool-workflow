@@ -132,3 +132,7 @@ No other change to this page in v0.1.84.
 ## 0.1.87 (v0.1.87)
 
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
+
+## 0.1.88 (v0.1.88)
+
+_No behavioral change in v0.1.88 (atomic writes, fsync-durability for audit-essential state, and lock-serialized cross-process stores are unchanged; the in-place `appendRunNode` optimization keeps `writeRunNode` and the persisted bytes identical)._

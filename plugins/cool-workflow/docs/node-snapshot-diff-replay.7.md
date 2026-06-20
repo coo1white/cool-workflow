@@ -158,3 +158,7 @@ No other change to this page in v0.1.84.
 ## 0.1.87 (v0.1.87)
 
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
+
+## 0.1.88 (v0.1.88)
+
+A new `loop-control` StateNodeKind now flows through per-node snapshot/diff/replay (loop decisions are recorded as deterministic, replay-stable nodes); `appendRunNode` was optimized to mutate `run.nodes` in place (O(1) per append vs O(N^2) churn) with byte-identical persisted state, so snapshot/replay digests are unchanged.

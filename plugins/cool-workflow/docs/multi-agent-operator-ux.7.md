@@ -337,3 +337,7 @@ No other change to this page in v0.1.84.
 ## 0.1.87 (v0.1.87)
 
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
+
+## 0.1.88 (v0.1.88)
+
+_No behavioral change in v0.1.88 (no operator-view code changed; the new sub-workflow `subRunId`/`subRunDir` and `loopRound` run-state fields surface read-only through the existing derived graph/dependency/evidence views, which neither fabricate state nor guess success)._

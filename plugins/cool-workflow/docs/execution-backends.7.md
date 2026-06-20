@@ -323,3 +323,7 @@ No other change to this page in v0.1.84.
 ## 0.1.87 (v0.1.87)
 
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
+
+## 0.1.88 (v0.1.88)
+
+Agent stderr live-streaming is now on by default when stderr is a TTY (CW_AGENT_STREAM=0 / CW_NO_STREAM=1 force it off; CI and pipes stay silent); stdout is still always captured as data and the driver model / sandbox contract are unchanged.

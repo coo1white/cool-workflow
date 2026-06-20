@@ -149,3 +149,7 @@ No other change to this page in v0.1.84.
 ## 0.1.87 (v0.1.87)
 
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
+
+## 0.1.88 (v0.1.88)
+
+_No behavioral change in v0.1.88 (no schema-migration edge was added; the incremental result cache uses a self-contained schemaVersion:2 key that never collides with the opt-in v1 cache and is not a run-state or app-schema migration)._
