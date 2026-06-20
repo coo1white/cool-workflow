@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-20 by `npm run sync:projec
 - Source modules: `64`
 - Workflow apps: `7`
 - Docs: `52`
-- Smoke tests: `120`
+- Smoke tests: `121`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -281,6 +281,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-registry-control-plane-smoke.js](../test/run-registry-control-plane-smoke.js)
 - [run-resume-drive-smoke.js](../test/run-resume-drive-smoke.js)
 - [run-retention-reclamation-smoke.js](../test/run-retention-reclamation-smoke.js)
+- [sample-determinism-smoke.js](../test/sample-determinism-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)
 - [sched-policy-validation-smoke.js](../test/sched-policy-validation-smoke.js)
 - [schedule-routine-daemon-smoke.js](../test/schedule-routine-daemon-smoke.js)

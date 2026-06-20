@@ -127,6 +127,32 @@ function checkSkip(file) {
   return match ? match[1].trim() : null;
 }
 
+// Deterministic --sample selection. Kept INLINE (no sibling require) so the
+// runner stays a self-contained, copy-able script — the meta-smokes copy
+// run-all.js alone into a temp dir, and CW's tooling is node-only with zero
+// dependency. The subset must be reproducible (replay-determinism), so rank
+// files by a stable FNV-1a hash of the name instead of a per-run random shuffle.
+function sampleHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/** Pick `count` items from `files` deterministically: rank by file-name hash,
+ *  take the lowest N, return in alphabetical run order. A pure function of the
+ *  file SET (order-independent); count >= length returns all files sorted. */
+function deterministicSample(files, count) {
+  const n = Math.max(0, Math.min(Number(count) || 0, files.length));
+  if (n >= files.length) return [...files].sort();
+  return [...files]
+    .sort((a, b) => sampleHash(a) - sampleHash(b) || (a < b ? -1 : a > b ? 1 : 0))
+    .slice(0, n)
+    .sort();
+}
+
 let smokes = fs
   .readdirSync(testDir)
   .filter((file) => file.endsWith("-smoke.js"))
@@ -147,13 +173,13 @@ if (filterPattern) {
   }
 }
 
-// --sample <n>: pick a random subset (e.g. for fast coverage estimation). Applied
-// after filter but before skip, so skipped smokes are excluded from the sample.
+// --sample <n>: pick a deterministic subset (e.g. for fast coverage estimation).
+// Applied after filter but before skip, so skipped smokes are excluded from the
+// sample. The subset is reproducible for the same set of files — see the inline
+// deterministicSample() above (a stable file-name hash, not a per-run random
+// shuffle, which would vary every run and break the runner's replay-determinism).
 if (sampleCount && sampleCount < smokes.length) {
-  // Deterministic-but-arbitrary: sort by file hash to make the subset reproducible
-  // for the same set of files, not truly random (which would vary per run).
-  const shuffled = [...smokes].sort(() => Math.random() - 0.5);
-  smokes = shuffled.slice(0, sampleCount).sort();
+  smokes = deterministicSample(smokes, sampleCount);
 }
 
 // CW_SKIP convention: detect skipped smokes before splitting into pool/serial.
