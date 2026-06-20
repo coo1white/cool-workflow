@@ -66,8 +66,8 @@ function writeCountingStub(file, countFile) {
 function spawnCount(countFile) {
   return fs.existsSync(countFile) ? fs.readFileSync(countFile, "utf8").length : 0;
 }
-function agentConfig(stub) {
-  return { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], model: "op", source: "flag" };
+function agentConfig(stub, model) {
+  return { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], model: model || "op", source: "flag" };
 }
 function cacheDir(work) {
   const root = path.join(work, ".cw", "cache", "worker-results");
@@ -196,6 +196,74 @@ function main() {
       assert.equal(cacheHits(d).length, mapTaskIds.size, "ONLY the first-phase prefix is reused");
       assert.equal(spawnCount(countC), before + (planned - mapTaskIds.size), "every later-phase task re-runs (upstream result moved)");
       console.log(`incremental-resume: downstream invalidation ok (prefix ${mapTaskIds.size} reused, ${planned - mapTaskIds.size} re-ran)`);
+    } finally {
+      process.chdir(cwd0);
+    }
+  }
+
+  // ===== 6: MODEL SWAP — changing the resolved model invalidates (no false reuse) =
+  // The result-determining delegation config (model/backend/sandbox) is NOT carried
+  // by the prompt or run.inputs, so it must be folded into the key — else swapping
+  // the model would replay the OLD model's output and attest the wrong model.
+  {
+    const workD = tmpWorkspace();
+    const countD = path.join(workD, "spawns.count");
+    const stubD = writeCountingStub(path.join(workD, "stub.js"), countD);
+    process.chdir(workD);
+    try {
+      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const p1 = runner.plan("architecture-review", { repo: workD, question: "Q?" });
+      const planned = p1.tasks.length;
+      drive(runner, p1.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubD, "model-a") });
+      assert.equal(spawnCount(countD), planned, "populate cache under model-a");
+
+      // Same app + inputs, DIFFERENT resolved model ⇒ every key differs ⇒ full re-run.
+      const p2 = runner.plan("architecture-review", { repo: workD, question: "Q?" });
+      const before = spawnCount(countD);
+      const d = drive(runner, p2.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubD, "model-b") });
+      assert.equal(d.status, "complete");
+      assert.equal(cacheHits(d).length, 0, "changing the model invalidates EVERY entry (no false reuse)");
+      assert.equal(spawnCount(countD), before + planned, "every task re-runs under the new model");
+      console.log("incremental-resume: model swap invalidates (no false reuse) ok");
+    } finally {
+      process.chdir(cwd0);
+    }
+  }
+
+  // ===== 7: CONCURRENT driver — reuse works through the parallel batch path ======
+  {
+    const workE = tmpWorkspace();
+    const countE = path.join(workE, "spawns.count");
+    const stubE = writeCountingStub(path.join(workE, "stub.js"), countE);
+    process.chdir(workE);
+    try {
+      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const p1 = runner.plan("architecture-review", { repo: workE, question: "Q?" });
+      const planned = p1.tasks.length;
+      const mapTasks = p1.tasks.filter((t) => p1.phases[0].taskIds.includes(t.id));
+      drive(runner, p1.id, { now: FIXED_NOW, incremental: true, concurrency: 6, agentConfig: agentConfig(stubE) });
+      assert.equal(spawnCount(countE), planned, "populate cache via the concurrent driver");
+
+      // Delete 3 Map cache entries; their re-run produces identical bytes, so only
+      // those 3 re-run and every downstream task still reuses — under concurrency.
+      const dir = cacheDir(workE);
+      const files = fs.readdirSync(dir);
+      let deleted = 0;
+      for (const t of mapTasks.slice(0, 3)) {
+        const f = files.find((x) => x.startsWith(`${safeFileName(t.id)}-`));
+        if (f) { fs.rmSync(path.join(dir, f)); deleted++; }
+      }
+      assert.equal(deleted, 3, "deleted 3 Map cache entries");
+
+      const p2 = runner.plan("architecture-review", { repo: workE, question: "Q?" });
+      const before = spawnCount(countE);
+      const d = drive(runner, p2.id, { now: FIXED_NOW, incremental: true, concurrency: 6, agentConfig: agentConfig(stubE) });
+      assert.equal(d.status, "complete", "concurrent incremental re-run completes");
+      assert.equal(spawnCount(countE), before + 3, "exactly the 3 deleted tasks re-run (concurrent path)");
+      assert.equal(cacheHits(d).length, planned - 3, "the rest reuse from cache under the concurrent driver");
+      const acceptIds = d.steps.filter((s) => s.action === "accept").map((s) => s.taskId);
+      assert.equal(new Set(acceptIds).size, acceptIds.length, "every task accepted exactly once (no drop/double-process)");
+      console.log("incremental-resume: concurrent driver reuse ok");
     } finally {
       process.chdir(cwd0);
     }

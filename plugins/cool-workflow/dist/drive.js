@@ -205,7 +205,7 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
     // immediate activity instead of a long silence on the first worker. task.label
     // is the human-facing display name; the id stays the stable reference.
     const promptDigest = node_fs_1.default.existsSync(manifest.inputPath) ? (0, execution_backend_1.sha256)(node_fs_1.default.readFileSync(manifest.inputPath, "utf8")) : (0, execution_backend_1.sha256)(manifest.prompt || "");
-    const cachePath = resultCachePath(run, selected, (0, execution_backend_1.sha256)(selected.prompt), ctx.incremental);
+    const cachePath = resultCachePath(run, selected, (0, execution_backend_1.sha256)(selected.prompt), ctx.incremental, ctx.incremental ? incrementalDelegationDigest(selected, manifest, ctx.config) : "");
     if (cachePath && node_fs_1.default.existsSync(cachePath)) {
         emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
         try {
@@ -275,13 +275,31 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
 function cacheFilePath(run, task, digest) {
     return node_path_1.default.join(run.cwd, ".cw", "cache", "worker-results", (0, state_1.safeFileName)(run.workflow.id), `${(0, state_1.safeFileName)(task.id)}-${digest.replace(/^sha256:/, "").slice(0, 32)}.md`);
 }
-function resultCachePath(run, task, promptDigest, incremental) {
+/** Digest of the per-task DELEGATION config that determines a result but is NOT
+ *  carried by the prompt or run.inputs: the resolved model (task override OR the
+ *  global agent-config model — global --agent-model is stripped from run.inputs, so
+ *  it must be folded here or swapping it would false-reuse), the backend driver, and
+ *  the resolved sandbox PROFILE ID. The profile id (not the full resolved policy) is
+ *  used because the policy's read/write paths embed the per-run worker dir, so the
+ *  full policy is NOT stable across runs (it would defeat all reuse); the id is
+ *  stable and changes on a profile swap. (A same-id profile-DEFINITION change is out
+ *  of scope.) Deterministic: stableStringify, no clock/random. */
+function incrementalDelegationDigest(task, manifest, config) {
+    return (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)({
+        model: task.model || config.model || "",
+        agentType: task.agentType || "agent",
+        sandboxProfileId: manifest.sandboxPolicy?.id || task.sandboxProfileId || ""
+    }));
+}
+function resultCachePath(run, task, promptDigest, incremental, delegationDigest) {
     // Incremental resume (opt-in, run-level): EVERY task is keyed by content so a
     // re-run reuses the longest unchanged prefix. The key folds the rendered prompt,
-    // the full run.inputs, and the UPSTREAM RESULT digests (not just prompts: a CW
-    // prompt is rendered from run.inputs and does NOT carry an upstream task's result
-    // bytes, so a changed/nondeterministic upstream result must invalidate downstream
-    // — which keying on upstream result bytes does). A changed prompt/input perturbs
+    // the full run.inputs, the per-task DELEGATION config (model/backend/sandbox —
+    // result-determining but NOT carried by prompt/inputs, so editing the model must
+    // invalidate), and the UPSTREAM RESULT digests (not just prompts: a CW prompt is
+    // rendered from run.inputs and does NOT carry an upstream task's result bytes, so
+    // a changed/nondeterministic upstream result must invalidate downstream — which
+    // keying on upstream result bytes does). A changed prompt/input/model perturbs
     // that task's key, and its changed result perturbs every downstream key, so the
     // "first changed task and everything after" re-run falls out for free. The phase
     // barrier guarantees every upstream task is `completed` before this task runs, so
@@ -297,6 +315,7 @@ function resultCachePath(run, task, promptDigest, incremental) {
             taskId: task.id,
             promptDigest,
             runInputsDigest: (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)(run.inputs || {})),
+            delegationDigest,
             upstreamResultsDigest
         }));
         return cacheFilePath(run, task, digest);
@@ -431,7 +450,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
             continue;
         }
         const manifest = runner.showWorkerManifest(runId, workerId);
-        const cachePath = resultCachePath(run, task, (0, execution_backend_1.sha256)(task.prompt), ctx.incremental);
+        const cachePath = resultCachePath(run, task, (0, execution_backend_1.sha256)(task.prompt), ctx.incremental, ctx.incremental ? incrementalDelegationDigest(task, manifest, ctx.config) : "");
         if (cachePath && node_fs_1.default.existsSync(cachePath))
             continue;
         const job = (0, execution_backend_1.prepareAgentSpawn)(buildAgentRequest(ctx, run, task, manifest));
