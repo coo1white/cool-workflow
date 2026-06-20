@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 250" width="920" height="250" font-family="Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif" role="img" aria-labelledby="oi od">
+  <title id="oi">Built-in multi-agent topologies: map-reduce, debate, judge-panel</title>
+  <desc id="od">Three small node diagrams. Map-reduce: one source fans out to three mappers that fold into one reducer. Debate: two agents argue and a verdict is drawn. Judge-panel: one candidate is scored by three independent judges.</desc>
+  <defs>
+    <style>
+      .n{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1.5}
+      .key{fill:#ecfdf5;stroke:#34d399;stroke-width:1.5}
+      .e{stroke:#cbd5e1;stroke-width:1.5;fill:none}
+      .t{fill:#334155;font-size:12px;text-anchor:middle;font-weight:600}
+      .cap{fill:#0f172a;font-size:14px;text-anchor:middle;font-weight:700}
+      .sub{fill:#94a3b8;font-size:11.5px;text-anchor:middle}
+      .p{animation:pop 3s ease-in-out infinite}
+      .p2{animation-delay:.4s}.p3{animation-delay:.8s}
+      @keyframes pop{0%,55%,100%{stroke:#cbd5e1}70%,85%{stroke:#34d399}}
+      @media(prefers-reduced-motion:reduce){.p{animation:none}}
+    </style>
+  </defs>
+
+  <rect x="3" y="3" width="914" height="244" rx="16" fill="#ffffff" stroke="#e6e9ee"/>
+
+  <!-- map-reduce -->
+  <g>
+    <path class="e" d="M150 56 L100 104 M150 56 L150 104 M150 56 L200 104"/>
+    <path class="e" d="M100 134 L150 170 M150 134 L150 170 M200 134 L150 170"/>
+    <circle cx="150" cy="46" r="15" class="n"/><text class="t" x="150" y="50">ask</text>
+    <circle cx="100" cy="119" r="14" class="n p"/><circle cx="150" cy="119" r="14" class="n p p2"/><circle cx="200" cy="119" r="14" class="n p p3"/>
+    <circle cx="150" cy="185" r="15" class="key"/><text class="t" x="150" y="189" fill="#059669">∑</text>
+    <text class="cap" x="150" y="222">map-reduce</text>
+    <text class="sub" x="150" y="240">fan out, fold in</text>
+  </g>
+
+  <!-- debate -->
+  <g>
+    <path class="e p" d="M415 52 C 445 38, 475 38, 505 52" marker-end="url(#a)"/>
+    <path class="e p p2" d="M505 70 C 475 84, 445 84, 415 70" marker-end="url(#a)"/>
+    <path class="e" d="M412 70 L455 150 M508 70 L465 150"/>
+    <circle cx="408" cy="61" r="15" class="n"/><text class="t" x="408" y="65">A</text>
+    <circle cx="512" cy="61" r="15" class="n"/><text class="t" x="512" y="65">B</text>
+    <circle cx="460" cy="163" r="15" class="key"/><text class="t" x="460" y="167" fill="#059669">✓</text>
+    <text class="cap" x="460" y="222">debate</text>
+    <text class="sub" x="460" y="240">argue → verdict</text>
+  </g>
+
+  <!-- judge-panel -->
+  <g>
+    <path class="e" d="M770 56 L720 104 M770 56 L770 104 M770 56 L820 104"/>
+    <path class="e" d="M720 134 L770 170 M770 134 L770 170 M820 134 L770 170"/>
+    <circle cx="770" cy="46" r="15" class="n"/><text class="t" x="770" y="50">cand.</text>
+    <circle cx="720" cy="119" r="14" class="n p"/><circle cx="770" cy="119" r="14" class="n p p2"/><circle cx="820" cy="119" r="14" class="n p p3"/>
+    <circle cx="770" cy="185" r="15" class="key"/><text class="t" x="770" y="189" fill="#059669">★</text>
+    <text class="cap" x="770" y="222">judge-panel</text>
+    <text class="sub" x="770" y="240">N judges score</text>
+  </g>
+
+  <defs><marker id="a" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="#94a3b8"/></marker></defs>
+</svg>
