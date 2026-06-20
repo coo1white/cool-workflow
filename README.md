@@ -22,7 +22,7 @@ npm install -g cool-workflow
 ```
 
 What you need: **Node.js v18+** (`node --version`) and one AI agent CLI on your machine
-(`claude`, `codex`, or `gemini`). No agent? `cw demo` still works — CW never runs a model itself.
+(`claude`, `codex`, `gemini`, or `opencode`). No agent? `cw demo` still works — CW never runs a model itself.
 
 ## Quick Start (3 steps)
 
@@ -48,7 +48,9 @@ cw -q "What are the security risks?" -codex
 cw -q "What are the security risks?" -deepseek
 ```
 
-You will see live streaming output as the agent works — no env vars needed.
+`claude`, `codex`, `gemini`, and `opencode` are auto-detected on PATH (no flag needed);
+`-deepseek` picks the DeepSeek builtin. You will see live streaming output as the agent
+works — no env vars needed.
 
 ### 3. Open the report
 
@@ -116,9 +118,10 @@ what is and is not proven, see the [Trust Model](plugins/cool-workflow/docs/trus
 
 ## How It Works
 
-CW is a small TypeScript tool with zero runtime deps. It runs your agent over a repo in steps
-(*plan → dispatch → record → verify → commit → report*), saving every result to disk as
-inspectable, replayable files. It never imports a model SDK or stores an API key.
+CW is a small TypeScript tool with zero runtime deps. It drives your agent over a repo in
+saved, replayable stages — it plans the work, dispatches each task to your agent, records and
+verifies every result, then commits and renders the report — writing everything to disk as
+inspectable files. It never imports a model SDK or stores an API key.
 
 `ask simple → run simple → verify simple → resume simple`
 

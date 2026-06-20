@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — README sync to latest code (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Sync the root README to the merged code and declare the Node floor (audit found nothing factually wrong; three drift points). (a) AGENT LIST — Install listed only `claude, codex, gemini` but PATH auto-detect (`agent-config.ts:144`) also finds `opencode`, and Quick Start already offered `-deepseek`, so the two lists disagreed and both omitted supported agents; Install now lists the four auto-detected agents and Quick Start notes they auto-detect (no flag) while `-deepseek` picks the DeepSeek builtin (the only three shorthand flags wired are `-claude`/`-codex`/`-deepseek`, `command-surface.ts:114-116`). (b) HOW IT WORKS — reworded the `plan → dispatch → record → verify → commit → report` pipeline to read as the conceptual saved/replayable flow rather than literal lifecycle function names. (c) ENGINES — `package.json` gained `"engines": { "node": ">=18" }` matching the runtime check in `doctor.ts:89` so `npm install` warns on old Node. | README.md + plugins/cool-workflow/package.json + CHANGELOG.md + ITERATION_LOG.md | none required — docs + additive packaging field only; no runtime/app/script change (so onramp `runtime-smoke-required` / `iteration-log-required` do not trigger; this row is for completeness). README claims were already covered by existing CLI/agent smokes. | BUILD OK; dist:check OK; index:check OK; onramp:check OK; parity:check OK; validate:schema OK; version:sync OK; test:fast 123/123 | no (docs+packaging cycle; dev loop — review + PR, never tag) |
+
 ## Batch — README rewrite + CLI UX simplifications (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |
