@@ -69,13 +69,27 @@ process.exit(0);
 }
 
 function runFlow(dir, { agentCmd } = {}) {
-  const env = { ...process.env, CW_RELEASE_FLOW_GATE_CMD: "true", STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim() };
-  if (agentCmd === undefined) {
-    delete env.CW_AGENT_COMMAND;
-    delete env.CW_AGENT_ENDPOINT;
-  } else {
-    env.CW_AGENT_COMMAND = agentCmd;
-  }
+  // Self-hermetic env, correct whether this smoke runs bare (`node
+  // test/release-flow-smoke.js`) or under run-all.js's sandbox:
+  //   - CW_NO_AUTO_AGENT=1 stops resolveAgentConfig() from auto-detecting a real
+  //     agent CLI on PATH (claude/codex/gemini). Without it, the "no agent
+  //     configured" case (Case 4) would silently resolve builtin:<detected> and
+  //     spawn a real model instead of failing closed.
+  //   - CW_HOME/XDG_STATE_HOME point at a throwaway dir under the fixture so a
+  //     durable ~/.local/state/.../agent-config.json on the host can't configure
+  //     an agent either. The agent layers we want are flags/env ONLY.
+  const home = path.join(dir, ".cw-home");
+  const env = {
+    ...process.env,
+    CW_RELEASE_FLOW_GATE_CMD: "true",
+    STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
+    CW_NO_AUTO_AGENT: "1",
+    CW_HOME: home,
+    XDG_STATE_HOME: home
+  };
+  delete env.CW_AGENT_COMMAND;
+  delete env.CW_AGENT_ENDPOINT;
+  if (agentCmd !== undefined) env.CW_AGENT_COMMAND = agentCmd;
   return run("node", [FLOW, "--check"], dir, env);
 }
 
