@@ -277,18 +277,26 @@ function cacheFilePath(run, task, digest) {
 }
 /** Digest of the per-task DELEGATION config that determines a result but is NOT
  *  carried by the prompt or run.inputs: the resolved model (task override OR the
- *  global agent-config model — global --agent-model is stripped from run.inputs, so
- *  it must be folded here or swapping it would false-reuse), the backend driver, and
- *  the resolved sandbox PROFILE ID. The profile id (not the full resolved policy) is
- *  used because the policy's read/write paths embed the per-run worker dir, so the
- *  full policy is NOT stable across runs (it would defeat all reuse); the id is
- *  stable and changes on a profile swap. (A same-id profile-DEFINITION change is out
- *  of scope.) Deterministic: stableStringify, no clock/random. */
+ *  global agent-config model), the agent IDENTITY (which binary/endpoint actually
+ *  produces the bytes — `command`/`args`/`endpoint`), the backend driver, and the
+ *  resolved sandbox PROFILE ID. All of these are operator flags/env (`--agent-model`,
+ *  `--agent-command`, `--agent-endpoint`, ...) stripped from run.inputs by
+ *  DRIVE_RUNTIME_KEYS, so they must be folded here or swapping the model/agent/
+ *  endpoint would serve a stale result (and attest the wrong producer). The sandbox
+ *  PROFILE ID (not the full resolved policy) is used because the policy's read/write
+ *  paths embed the per-run worker dir, so the full policy is NOT stable across runs
+ *  (it would defeat all reuse); the id is stable and changes on a profile swap. Args
+ *  are secret-stripped (no credential lands in the digest input). `config.args` is
+ *  the un-substituted template (e.g. `{{result}}`), so it is stable across runs.
+ *  Deterministic: stableStringify, no clock/random. */
 function incrementalDelegationDigest(task, manifest, config) {
     return (0, execution_backend_1.sha256)((0, telemetry_attestation_1.stableStringify)({
         model: task.model || config.model || "",
         agentType: task.agentType || "agent",
-        sandboxProfileId: manifest.sandboxPolicy?.id || task.sandboxProfileId || ""
+        sandboxProfileId: manifest.sandboxPolicy?.id || task.sandboxProfileId || "",
+        command: config.command || "",
+        args: config.args ? (0, execution_backend_1.stripSecretArgs)(config.args) : [],
+        endpoint: config.endpoint || ""
     }));
 }
 function resultCachePath(run, task, promptDigest, incremental, delegationDigest) {

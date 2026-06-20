@@ -269,6 +269,36 @@ function main() {
     }
   }
 
+  // ===== 8: AGENT-IDENTITY SWAP — a different agent binary invalidates ==========
+  // command/args/endpoint select WHICH agent produces the bytes; they are operator
+  // flags stripped from run.inputs, so they must be in the key — else swapping the
+  // agent (model held constant) would serve a different agent's cached output.
+  {
+    const workF = tmpWorkspace();
+    const countF = path.join(workF, "spawns.count");
+    const stub1 = writeCountingStub(path.join(workF, "stub1.js"), countF);
+    const stub2 = writeCountingStub(path.join(workF, "stub2.js"), countF); // identical output, different path (≈ a different agent binary)
+    process.chdir(workF);
+    try {
+      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const p1 = runner.plan("architecture-review", { repo: workF, question: "Q?" });
+      const planned = p1.tasks.length;
+      drive(runner, p1.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stub1) });
+      assert.equal(spawnCount(countF), planned, "populate cache under agent stub1");
+
+      // Same model, DIFFERENT agent identity (stub2) ⇒ every key differs ⇒ full re-run.
+      const p2 = runner.plan("architecture-review", { repo: workF, question: "Q?" });
+      const before = spawnCount(countF);
+      const d = drive(runner, p2.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stub2) });
+      assert.equal(d.status, "complete");
+      assert.equal(cacheHits(d).length, 0, "swapping the agent binary invalidates EVERY entry (no false reuse)");
+      assert.equal(spawnCount(countF), before + planned, "every task re-runs under the new agent");
+      console.log("incremental-resume: agent-identity swap invalidates (no false reuse) ok");
+    } finally {
+      process.chdir(cwd0);
+    }
+  }
+
   for (const dir of cleanups) fs.rmSync(dir, { recursive: true, force: true });
   console.log("incremental-resume-smoke: ok");
 }
