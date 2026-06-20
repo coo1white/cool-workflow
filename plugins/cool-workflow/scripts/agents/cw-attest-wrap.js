@@ -120,10 +120,18 @@ function main() {
     if (report && report.usage && privateKey && manifest) {
       const inputPath = manifest.inputPath;
       const promptDigest = inputPath && fs.existsSync(inputPath) ? sha256(fs.readFileSync(inputPath, "utf8")) : sha256(manifest.prompt || "");
+      // Bind the agent's RESULT into the signature too, so editing the findings —
+      // not just the usage — is detected. The inner agent ran synchronously, so
+      // result.md is on disk now; CW digests the SAME bytes at intake (raw file,
+      // shared sha256). Absent/unreadable ⇒ sign without it (a 4-field signature
+      // CW still verifies — back-compat).
+      const resultPath = manifest.resultPath;
+      const resultDigest = resultPath && fs.existsSync(resultPath) ? sha256(fs.readFileSync(resultPath, "utf8")) : undefined;
       const signature = ta.signTelemetry(report.usage, privateKey, {
         runId: manifest.runId,
         taskId: manifest.taskId,
-        promptDigest
+        promptDigest,
+        ...(resultDigest ? { resultDigest } : {})
       });
       out = JSON.stringify({ ...report, usageSignature: signature });
     } else if (report) {

@@ -36,7 +36,11 @@ export function attestWorkerDelegation(accept: WorkerAcceptContext, deps: Worker
         options.agentDelegation.reportedUsage,
         options.agentDelegation.usageSignature,
         resolveTrustPublicKey(options.agentDelegation.usageTrustPublicKey),
-        { runId: run.id, taskId: task.id, promptDigest: options.agentDelegation.promptDigest }
+        // resultDigest binds the agent's findings into the signature: CW recomputes
+        // the digest from the accepted result (the SAME raw bytes the executor
+        // signed) so a result edited after signing fails verification. A signer
+        // that did not cover the result still verifies (verifier back-compat).
+        { runId: run.id, taskId: task.id, promptDigest: options.agentDelegation.promptDigest, resultDigest: sha256(rawResult) }
       )
     : undefined;
   // Track 1 fail-closed (Decision 2 — OPT-IN, off by default). When the operator
@@ -77,7 +81,7 @@ export function attestWorkerDelegation(accept: WorkerAcceptContext, deps: Worker
  *  event can cross-link the record hash), then emits the worker.agent-delegation
  *  audit event. No-op for non-agent hops. */
 export function recordWorkerDelegationLedger(accept: WorkerAcceptContext, delegation: WorkerDelegation): void {
-  const { agentDelegation } = delegation;
+  const { agentDelegation, telemetry } = delegation;
   // The agent-hop attestation event — hung off worker.output, alongside
   // worker.backend. Recorded in trust-audit/provenance, NEVER in node evidence.
   if (!agentDelegation) return;
@@ -93,6 +97,11 @@ export function recordWorkerDelegationLedger(accept: WorkerAcceptContext, delega
         promptDigest: agentDelegation.promptDigest,
         reportedUsage: agentDelegation.reportedUsage,
         usageSignature: agentDelegation.usageSignature,
+        // Store the signed result digest ONLY when the signature actually covered
+        // it, so the offline re-verifier (telemetry verify --pubkey / report verify)
+        // can reconstruct the 5-field payload. A usage-only signature stores none
+        // (its record stays byte-identical to a pre-result-coverage one).
+        resultDigest: telemetry?.coversResult ? agentDelegation.resultDigest : undefined,
         attestation: agentDelegation.usageAttestation,
         attestationReason: agentDelegation.usageAttestationReason
       })

@@ -32,6 +32,11 @@ export interface TelemetryAttestationContext {
   /** sha256 of the worker prompt CW handed the agent — binds the signature to
    *  THIS hop so it cannot be replayed onto a different task/run. */
   promptDigest: string;
+  /** sha256 of the agent's result.md. Optional, and included in the canonical
+   *  payload ONLY when present, so a signer/bundle that predates result coverage
+   *  (a 4-field signature) still verifies. When the executor signs it, editing
+   *  the result — the findings — is detected, not just the usage. */
+  resultDigest?: string;
 }
 
 export interface TelemetryVerification {
@@ -39,6 +44,9 @@ export interface TelemetryVerification {
   /** Why a result is `unattested`/`absent` — surfaced loudly, never swallowed. */
   reason?: string;
   algorithm?: "ed25519";
+  /** True when the verified signature covered the result digest (the findings),
+   *  not just the usage — i.e. the result-bound arm matched. */
+  coversResult?: boolean;
 }
 
 /** Deterministic, key-sorted JSON so signer and verifier hash byte-identical
@@ -61,7 +69,11 @@ export function canonicalTelemetryPayload(
     usage: usage ?? null,
     runId: ctx.runId,
     taskId: ctx.taskId,
-    promptDigest: ctx.promptDigest
+    promptDigest: ctx.promptDigest,
+    // Present ONLY when the signer covered the result. Omitting the key keeps the
+    // canonical bytes byte-identical to the original 4-field payload, so every
+    // pre-result-coverage signature still verifies (POLA / back-compat).
+    ...(ctx.resultDigest !== undefined ? { resultDigest: ctx.resultDigest } : {})
   });
 }
 
@@ -124,15 +136,25 @@ export function verifyTelemetryAttestation(
   } catch {
     return { status: "unattested", reason: "signature is not valid base64" };
   }
-  const payload = Buffer.from(canonicalTelemetryPayload(usage, ctx), "utf8");
+  const matches = (c: TelemetryAttestationContext): boolean =>
+    crypto.verify(null, Buffer.from(canonicalTelemetryPayload(usage, c), "utf8"), publicKey, signature);
   let ok = false;
+  let coversResult = false;
   try {
-    ok = crypto.verify(null, payload, publicKey, signature);
+    ok = matches(ctx);
+    // A match on the first arm (which carries resultDigest when CW has one) means
+    // the signature covered the result — the findings — not just the usage.
+    coversResult = ok && ctx.resultDigest !== undefined;
+    // Back-compat: a signer that predates result coverage signed only the 4-field
+    // payload, so on a miss retry WITHOUT resultDigest. A NEW signer who covered
+    // the result fails BOTH arms when the result is edited (its resultDigest no
+    // longer matches), so result tampering is still caught.
+    if (!ok && ctx.resultDigest !== undefined) ok = matches({ ...ctx, resultDigest: undefined });
   } catch (error) {
     return { status: "unattested", reason: `verification error: ${messageOf(error)}` };
   }
   return ok
-    ? { status: "attested", algorithm: "ed25519" }
+    ? { status: "attested", algorithm: "ed25519", ...(coversResult ? { coversResult: true } : {}) }
     : { status: "unattested", reason: "signature does not match reported usage (tampered, replayed, or wrong key)" };
 }
 
@@ -215,6 +237,9 @@ export interface ReverifiableRecord {
   promptDigest: string;
   reportedUsageDigest?: string;
   usageSignature?: string;
+  /** sha256 of the result the signature covered — needed to reconstruct the
+   *  signed payload offline. Absent for usage-only (4-field) signatures. */
+  resultDigest?: string;
   attestation: string;
   reportedUsage?: Record<string, unknown>;
 }
@@ -257,7 +282,10 @@ export function verifyTelemetrySignatures(
     const result = verifyTelemetryAttestation(record.reportedUsage, record.usageSignature, trustPublicKeyPem, {
       runId: record.runId,
       taskId: record.taskId,
-      promptDigest: record.promptDigest
+      promptDigest: record.promptDigest,
+      // Result-bound records carry the signed digest; verifyTelemetryAttestation
+      // reconstructs the 5-field payload (and falls back to 4-field for old records).
+      resultDigest: record.resultDigest
     });
     if (result.status === "attested") {
       reverified += 1;

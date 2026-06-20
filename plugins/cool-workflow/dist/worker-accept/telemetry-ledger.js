@@ -24,7 +24,12 @@ function attestWorkerDelegation(accept, deps) {
     // usage. Absent/invalid signature => `unattested`/`absent`, surfaced loudly,
     // NEVER silently recorded as trusted.
     const telemetry = options.agentDelegation
-        ? (0, telemetry_attestation_1.verifyTelemetryAttestation)(options.agentDelegation.reportedUsage, options.agentDelegation.usageSignature, (0, telemetry_attestation_1.resolveTrustPublicKey)(options.agentDelegation.usageTrustPublicKey), { runId: run.id, taskId: task.id, promptDigest: options.agentDelegation.promptDigest })
+        ? (0, telemetry_attestation_1.verifyTelemetryAttestation)(options.agentDelegation.reportedUsage, options.agentDelegation.usageSignature, (0, telemetry_attestation_1.resolveTrustPublicKey)(options.agentDelegation.usageTrustPublicKey), 
+        // resultDigest binds the agent's findings into the signature: CW recomputes
+        // the digest from the accepted result (the SAME raw bytes the executor
+        // signed) so a result edited after signing fails verification. A signer
+        // that did not cover the result still verifies (verifier back-compat).
+        { runId: run.id, taskId: task.id, promptDigest: options.agentDelegation.promptDigest, resultDigest: (0, execution_backend_1.sha256)(rawResult) })
         : undefined;
     // Track 1 fail-closed (Decision 2 — OPT-IN, off by default). When the operator
     // requires attested telemetry, a delegated hop whose verdict is not `attested`
@@ -59,7 +64,7 @@ function attestWorkerDelegation(accept, deps) {
  *  event can cross-link the record hash), then emits the worker.agent-delegation
  *  audit event. No-op for non-agent hops. */
 function recordWorkerDelegationLedger(accept, delegation) {
-    const { agentDelegation } = delegation;
+    const { agentDelegation, telemetry } = delegation;
     // The agent-hop attestation event — hung off worker.output, alongside
     // worker.backend. Recorded in trust-audit/provenance, NEVER in node evidence.
     if (!agentDelegation)
@@ -76,6 +81,11 @@ function recordWorkerDelegationLedger(accept, delegation) {
             promptDigest: agentDelegation.promptDigest,
             reportedUsage: agentDelegation.reportedUsage,
             usageSignature: agentDelegation.usageSignature,
+            // Store the signed result digest ONLY when the signature actually covered
+            // it, so the offline re-verifier (telemetry verify --pubkey / report verify)
+            // can reconstruct the 5-field payload. A usage-only signature stores none
+            // (its record stays byte-identical to a pre-result-coverage one).
+            resultDigest: telemetry?.coversResult ? agentDelegation.resultDigest : undefined,
             attestation: agentDelegation.usageAttestation,
             attestationReason: agentDelegation.usageAttestationReason
         })

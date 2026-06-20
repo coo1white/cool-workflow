@@ -47,6 +47,10 @@ export interface TelemetryAttestationRecord {
   reportedUsage?: Record<string, unknown>;
   /** The executor's base64 signature over the usage (the evidence verified). */
   usageSignature?: string;
+  /** sha256 of the agent's result.md when the signature was result-bound. Stored
+   *  (digest-bound + hash-chained) so the offline re-verifier can reconstruct the
+   *  exact signed payload. Absent for usage-only (4-field) signatures. */
+  resultDigest?: string;
   attestation: TelemetryAttestationStatus;
   attestationReason?: string;
   /** Prior record's recordHash; genesis = sha256("cw-telemetry-ledger:"+runId). */

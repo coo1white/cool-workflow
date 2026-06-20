@@ -139,6 +139,44 @@ function main() {
   assert.equal(v.status, "unattested", "no trust key ⇒ cannot attest, stays unattested");
   assert.ok(/no trust key/.test(v.reason || ""), `reason: ${v.reason}`);
 
+  // 6c. RESULT coverage: the executor binds a sha256 of the agent's result into the
+  //     signature, so editing the result (the findings) — not just the usage — is
+  //     detected. Behavioral fails-before: before result coverage,
+  //     canonicalTelemetryPayload ignored resultDigest, so a changed result still
+  //     verified `attested`.
+  const rctx = { ...ctx, resultDigest: "sha256:resultAAA" };
+  const rsig = ta.signTelemetry(usage, privatePem, rctx);
+  v = ta.verifyTelemetryAttestation(usage, rsig, publicPem, rctx);
+  assert.equal(v.status, "attested", "a result-bound signature verifies with the same result digest");
+  v = ta.verifyTelemetryAttestation(usage, rsig, publicPem, { ...ctx, resultDigest: "sha256:resultEDITED" });
+  assert.equal(v.status, "unattested", "an edited result (changed resultDigest) fails verification");
+
+  // 6d. Back-compat: a 4-field signature (a signer that predates result coverage)
+  //     still verifies `attested` even when CW now supplies a resultDigest — the
+  //     verifier retries without it. A NEW signer who covered the result fails BOTH
+  //     arms when the result is edited (6c), so tamper is still caught.
+  v = ta.verifyTelemetryAttestation(usage, sig, publicPem, { ...ctx, resultDigest: "sha256:resultAAA" });
+  assert.equal(v.status, "attested", "a pre-result-coverage 4-field signature still verifies (back-compat)");
+
+  // 6e. POLA byte-pin: with no resultDigest the canonical payload is the EXACT
+  //     pre-change 4-field string (sorted keys), so every old signature still
+  //     verifies; supplying a resultDigest changes the bytes.
+  assert.equal(
+    ta.canonicalTelemetryPayload(usage, ctx),
+    '{"promptDigest":"sha256:abc","runId":"run-1","taskId":"task-A","usage":{"input_tokens":10,"output_tokens":3}}',
+    "the 4-field canonical payload is byte-identical to before result coverage"
+  );
+  assert.equal(
+    ta.canonicalTelemetryPayload(usage, ctx),
+    ta.canonicalTelemetryPayload(usage, { ...ctx, resultDigest: undefined }),
+    "an undefined resultDigest is omitted from the payload entirely"
+  );
+  assert.notEqual(
+    ta.canonicalTelemetryPayload(usage, ctx),
+    ta.canonicalTelemetryPayload(usage, rctx),
+    "a present resultDigest changes the canonical payload"
+  );
+
   // 7. normalizeReportedUsage maps both casings
   const n1 = ta.normalizeReportedUsage({ input_tokens: 4, output_tokens: 2, cache_read_tokens: 1 });
   assert.deepEqual({ i: n1.inputTokens, o: n1.outputTokens, c: n1.cacheReadTokens }, { i: 4, o: 2, c: 1 }, "snake_case mapped");
