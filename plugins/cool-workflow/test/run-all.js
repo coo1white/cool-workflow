@@ -29,11 +29,13 @@
 // sequential via CW_TEST_CONCURRENCY=1 to stay deterministic. Override anytime:
 // CW_TEST_CONCURRENCY=4 or --concurrency.
 //
-// v0.1.88 additions (P3-stage1):
+// v0.1.88 additions (P3-stage1/P3-stage2):
 //   --filter <regex> | CW_TEST_FILTER       — run only smokes matching pattern
 //   CW_TEST_TIMEOUT_MS (default 120000)      — per-test timeout
 //   --retry <n> | CW_TEST_RETRY              — retry failed tests up to n times
 //   stdout/stderr separated in captured output
+//   --bail | CW_TEST_BAIL=1                  — stop after first failure
+//   // CW_SKIP: <reason>                     — skip convention, detected from file header
 
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -89,6 +91,18 @@ const maxRetries = Math.max(0, Number(retryRaw) || 0);
 // Per-test timeout: CW_TEST_TIMEOUT_MS (default 120s).
 const PER_TEST_TIMEOUT_MS = Math.max(1000, Number(process.env.CW_TEST_TIMEOUT_MS) || 120000);
 
+// --bail | CW_TEST_BAIL=1 — stop after first failure.
+const bail = process.argv.includes("--bail") || process.env.CW_TEST_BAIL === "1";
+
+// CW_SKIP convention: if a smoke's first 10 lines contain `// CW_SKIP: <reason>`,
+// it is skipped with the reason recorded. Use for temporarily disabling a smoke.
+function checkSkip(file) {
+  const content = fs.readFileSync(path.join(testDir, file), "utf8");
+  const firstLines = content.split("\n").slice(0, 10).join("\n");
+  const match = firstLines.match(/\/\/\s*CW_SKIP:\s*(.+)/);
+  return match ? match[1].trim() : null;
+}
+
 let smokes = fs
   .readdirSync(testDir)
   .filter((file) => file.endsWith("-smoke.js"))
@@ -109,6 +123,18 @@ if (filterPattern) {
   }
 }
 
+// CW_SKIP convention: detect skipped smokes before splitting into pool/serial.
+const skippedReasons = new Map();
+const eligibleSmokes = [];
+for (const file of smokes) {
+  const reason = checkSkip(file);
+  if (reason) {
+    skippedReasons.set(file, reason);
+  } else {
+    eligibleSmokes.push(file);
+  }
+}
+
 // Contention-sensitive smokes can be kept out of the parallel pool. Configurable
 // via CW_TEST_SERIAL_ONLY=file1.js,file2.js (env), or the hardcoded set.
 // The list is currently empty because the former timing smokes now prove
@@ -116,8 +142,8 @@ if (filterPattern) {
 // thresholds.
 const serialEnv = (process.env.CW_TEST_SERIAL_ONLY || "").trim();
 const SERIAL_ONLY = new Set(serialEnv ? serialEnv.split(",").map((s) => s.trim()).filter(Boolean) : []);
-const pooledSmokes = smokes.filter((file) => !SERIAL_ONLY.has(file));
-const serialSmokes = smokes.filter((file) => SERIAL_ONLY.has(file));
+const pooledSmokes = eligibleSmokes.filter((file) => !SERIAL_ONLY.has(file));
+const serialSmokes = eligibleSmokes.filter((file) => SERIAL_ONLY.has(file));
 
 // Build a private, fully-isolated sandbox for one smoke child: a unique cwd plus
 // state-root env so the smoke's repo `.cw/` (cwd-derived) and home registry
@@ -201,10 +227,14 @@ async function main() {
 
   const filterNote = filterPattern ? ` (filter: ${filterRaw})` : "";
   const retryNote = maxRetries > 0 ? ` (max-retries: ${maxRetries})` : "";
+  const skipNote = skippedReasons.size > 0 ? ` (${skippedReasons.size} skipped)` : "";
+  const bailNote = bail ? " (--bail)" : "";
   process.stdout.write(
-    `Running ${smokes.length} smoke(s) — concurrency ${concurrency}` +
+    `Running ${eligibleSmokes.length} smoke(s) — concurrency ${concurrency}` +
       filterNote +
       retryNote +
+      skipNote +
+      bailNote +
       (concurrency === 1
         ? " (sequential; set CW_TEST_CONCURRENCY to parallelize)"
         : serialSmokes.length
@@ -214,11 +244,12 @@ async function main() {
   );
 
   const results = [];
+  let bailed = false;
 
   // Phase 1 — the parallel pool: every state-isolated smoke, up to `concurrency`.
   let next = 0;
   async function worker() {
-    while (next < pooledSmokes.length) {
+    while (next < pooledSmokes.length && !bailed) {
       const file = pooledSmokes[next++];
       const result = await runSmokeWithRetry(file);
       results.push(result);
@@ -226,6 +257,7 @@ async function main() {
       const timedOutNote = result.timedOut ? " [TIMEOUT]" : "";
       const retryNote = result.retries > 0 ? ` [retry ${result.retries}/${maxRetries}]` : "";
       process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms)${timedOutNote}${retryNote}\n`);
+      if (!result.ok && bail) bailed = true;
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, pooledSmokes.length) }, worker));
@@ -233,19 +265,30 @@ async function main() {
   // Phase 2 — contention-sensitive timing benchmarks, run ALONE on the now-quiet
   // cpu so their wall-clock assertions measure CW, not co-tenant pool load.
   for (const file of serialSmokes) {
+    if (bailed) break;
     const result = await runSmokeWithRetry(file);
     results.push(result);
     const tag = result.ok ? "PASS" : "FAIL";
     const timedOutNote = result.timedOut ? " [TIMEOUT]" : "";
     const retryNote = result.retries > 0 ? ` [retry ${result.retries}/${maxRetries}]` : "";
     process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms) [serial-only]${timedOutNote}${retryNote}\n`);
+    if (!result.ok && bail) bailed = true;
   }
 
   results.sort((a, b) => a.file.localeCompare(b.file));
   const failures = results.filter((r) => !r.ok);
 
+  // Print skipped smokes first (they did not run).
+  if (skippedReasons.size > 0) {
+    process.stdout.write(`\n${"=".repeat(70)}\nSkipped (CW_SKIP):\n`);
+    for (const [file, reason] of skippedReasons) {
+      process.stdout.write(`  SKIP  ${file}  — ${reason}\n`);
+    }
+  }
+
   if (failures.length > 0) {
-    process.stdout.write(`\n${"=".repeat(70)}\nFailures:\n`);
+    const bailNote = bailed ? " [BAIL]" : "";
+    process.stdout.write(`\n${"=".repeat(70)}\nFailures:${bailNote}\n`);
     for (const failure of failures) {
       const why = failure.timedOut ? ` (TIMEOUT after ${PER_TEST_TIMEOUT_MS}ms)` : "";
       const retryInfo = failure.retries > 0 ? ` [after ${failure.retries} retries]` : "";
@@ -261,10 +304,12 @@ async function main() {
 
   const totalMs = results.reduce((sum, r) => sum + r.elapsedMs, 0);
   const wallElapsedMs = Number((process.hrtime.bigint() - wallStartedAt) / 1000000n);
+  const bailSuffix = bailed ? " (bailed)" : "";
+  const skipSuffix = skippedReasons.size > 0 ? ` (${skippedReasons.size} skipped)` : "";
   process.stdout.write(
     `\n${"=".repeat(70)}\n` +
       `${results.length - failures.length}/${results.length} passed` +
-      `, ${failures.length} failed — ${totalMs}ms total\n`,
+      `, ${failures.length} failed${bailSuffix}${skipSuffix} — ${totalMs}ms total\n`,
   );
 
   if (jsonSummaryPath) {
@@ -276,6 +321,8 @@ async function main() {
       maxRetries,
       perTestTimeoutMs: PER_TEST_TIMEOUT_MS,
       filter: filterRaw || undefined,
+      bail: bail || undefined,
+      skipped: skippedReasons.size > 0 ? [...skippedReasons.entries()].map(([file, reason]) => ({ file, reason })) : undefined,
       results: results.map((result) => ({
         file: result.file,
         ok: result.ok,

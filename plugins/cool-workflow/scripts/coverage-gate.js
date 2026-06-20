@@ -50,6 +50,18 @@ if (!Number.isFinite(floor) || floor < 0 || floor > 100) {
 
 const covDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-coverage-"));
 
+// Pre-check: ensure dist/ is built before entering the coverage merge phase
+// (parity with the `test` and `test:ci` package.json scripts).
+{
+  const cli = path.join(packageDir, "dist", "cli.js");
+  const check = spawn(process.execPath, [cli, "version"], { cwd: packageDir, stdio: "pipe" });
+  const out = String(check.stdout || "").trim();
+  if (check.status !== 0 || !out) {
+    process.stderr.write(`${SELF}: dist/cli.js version failed (exit ${check.status}) — build may be stale. Run \`npm run build\` first.\n`);
+    process.exit(1);
+  }
+}
+
 function runSuite() {
   return new Promise((resolve) => {
     const args = [path.join(packageDir, "test", "run-all.js")];

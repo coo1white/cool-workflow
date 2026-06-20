@@ -87,6 +87,24 @@ cw telemetry verify <run-id> --pubkey pub.pem # also re-runs ed25519 signature c
 cw audit verify <run-id>                      # re-proves the trust-audit hash chain
 ```
 
+**No agent? Here is what to do:**
+
+```bash
+cw demo tamper          # prove the trust check works (no agent needed)
+cw demo bundle           # prove portable bundles work (no agent needed)
+cw doctor                # names what is missing and how to fix it
+```
+
+`cw doctor` gives you the missing piece and tells you which agent binary to install
+(`npm install -g @anthropic-ai/claude-code` for Claude Code, or install `codex`,
+`gemini`, or `opencode`). After that, `cw -q "what risks?"` makes your first real
+report. Stop-and-resume with `cw -q "..." --resume`.
+
+**Status `blocked`?** That is CW failing closed — it never makes up a result.
+Run `cw doctor` to see the exact reason. Common fixes:
+- No agent binary → install the agent CLI, e.g. `npm install -g @anthropic-ai/claude-code`
+- Use `cw quickstart --check` for a zero-write preflight before any agent spawn
+
 More: `cw -q "..." --bundle` (sealed portable report), `cw run resume <run-id> --drive`
 (go on with a run that was stopped), `cw run inspect-archive <archive>` (integrity-check a
 portable run archive without bringing it in).
