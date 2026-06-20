@@ -29,13 +29,15 @@
 // sequential via CW_TEST_CONCURRENCY=1 to stay deterministic. Override anytime:
 // CW_TEST_CONCURRENCY=4 or --concurrency.
 //
-// v0.1.88 additions (P3-stage1/P3-stage2):
+// v0.1.88 additions (P3-stage1/P3-stage2/P3-stage3):
 //   --filter <regex> | CW_TEST_FILTER       — run only smokes matching pattern
 //   CW_TEST_TIMEOUT_MS (default 120000)      — per-test timeout
 //   --retry <n> | CW_TEST_RETRY              — retry failed tests up to n times
 //   stdout/stderr separated in captured output
 //   --bail | CW_TEST_BAIL=1                  — stop after first failure
 //   // CW_SKIP: <reason>                     — skip convention, detected from file header
+//   --sample <n>                             — random subset (coverage-gate fast estimation)
+//   // @cw-smoke: tags <a,b>                 — metadata from file header (tags, timeout, inline)
 
 const { spawn } = require("node:child_process");
 const fs = require("node:fs");
@@ -94,6 +96,28 @@ const PER_TEST_TIMEOUT_MS = Math.max(1000, Number(process.env.CW_TEST_TIMEOUT_MS
 // --bail | CW_TEST_BAIL=1 — stop after first failure.
 const bail = process.argv.includes("--bail") || process.env.CW_TEST_BAIL === "1";
 
+// --sample <n> — run a random subset of N smokes (used by coverage-gate --sample).
+const sampleRaw = argValue("--sample");
+const sampleCount = sampleRaw ? Math.max(1, Number(sampleRaw) || 0) : undefined;
+
+// Test metadata: parse @cw-smoke annotations from the first 20 lines.
+// Supported: @cw-smoke: timeout <seconds>, @cw-smoke: filter <tag>
+function parseMetadata(file) {
+  const content = fs.readFileSync(path.join(testDir, file), "utf8");
+  const firstLines = content.split("\n").slice(0, 20).join("\n");
+  const meta = {};
+  for (const match of firstLines.matchAll(/\/\/\s*@cw-smoke:\s*(\S+)(?:\s+(.+))?/g)) {
+    const key = match[1];
+    const value = (match[2] || "").trim();
+    if (key === "timeout" && /^\d+s?$/.test(value)) {
+      meta.timeoutMs = parseInt(value, 10) * 1000;
+    }
+    if (key === "tags") meta.tags = value.split(/,\s*/).filter(Boolean);
+    if (key === "inline") meta.inline = value !== "false" && value !== "0";
+  }
+  return meta;
+}
+
 // CW_SKIP convention: if a smoke's first 10 lines contain `// CW_SKIP: <reason>`,
 // it is skipped with the reason recorded. Use for temporarily disabling a smoke.
 function checkSkip(file) {
@@ -121,6 +145,15 @@ if (filterPattern) {
     process.stderr.write(`${SELF}: filter "${filterRaw}" matched no smoke files (had ${before} total).\n`);
     process.exit(1);
   }
+}
+
+// --sample <n>: pick a random subset (e.g. for fast coverage estimation). Applied
+// after filter but before skip, so skipped smokes are excluded from the sample.
+if (sampleCount && sampleCount < smokes.length) {
+  // Deterministic-but-arbitrary: sort by file hash to make the subset reproducible
+  // for the same set of files, not truly random (which would vary per run).
+  const shuffled = [...smokes].sort(() => Math.random() - 0.5);
+  smokes = shuffled.slice(0, sampleCount).sort();
 }
 
 // CW_SKIP convention: detect skipped smokes before splitting into pool/serial.
@@ -228,12 +261,14 @@ async function main() {
   const filterNote = filterPattern ? ` (filter: ${filterRaw})` : "";
   const retryNote = maxRetries > 0 ? ` (max-retries: ${maxRetries})` : "";
   const skipNote = skippedReasons.size > 0 ? ` (${skippedReasons.size} skipped)` : "";
+  const sampleNote = sampleCount && sampleCount < eligibleSmokes.length + skippedReasons.size ? ` (--sample ${sampleCount})` : "";
   const bailNote = bail ? " (--bail)" : "";
   process.stdout.write(
     `Running ${eligibleSmokes.length} smoke(s) — concurrency ${concurrency}` +
       filterNote +
       retryNote +
       skipNote +
+      sampleNote +
       bailNote +
       (concurrency === 1
         ? " (sequential; set CW_TEST_CONCURRENCY to parallelize)"
