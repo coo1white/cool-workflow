@@ -1,0 +1,2 @@
+APPROVED c72b6133ee2a89e4fc76f136ea5ec98341f3b466
+Users can now re-run a workflow with `cw run <app> --drive --incremental` so only tasks whose inputs changed re-execute (the unchanged prefix replays with zero agent spawns), compose large flows from verified child-app runs via subWorkflow()/bounded loop() phases, and prove offline with `cw report verify-bundle --require-signatures` that every signed finding in a report is present and unaltered.
