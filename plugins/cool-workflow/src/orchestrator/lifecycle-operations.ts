@@ -67,7 +67,13 @@ export function plan(appRecord: LoadedWorkflowApp, options: Record<string, unkno
   }
 
   const cwd = path.resolve(String(inputs.cwd || inputs.repo || process.cwd()));
-  const runId = createRunId(workflow.id);
+  // A caller (e.g. an inline sub-workflow task) may inject a DETERMINISTIC run id so
+  // the child run id is reproducible across re-runs; otherwise mint one. `runId` is
+  // never a declared workflow input, so strip it from inputs to keep run.inputs (and
+  // the digests derived from it) clean — POLA for every normal plan.
+  const injectedRunId = typeof options.runId === "string" && options.runId.trim() ? options.runId.trim() : undefined;
+  delete inputs.runId;
+  const runId = injectedRunId || createRunId(workflow.id);
   const runDir = path.join(cwd, ".cw", "runs", runId);
   const paths = createRunPaths(runDir);
   ensureRunDirs(paths);
@@ -471,7 +477,8 @@ function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unkno
         ...(task.label ? { label: task.label } : {}),
         ...(task.model ? { model: task.model } : {}),
         ...(task.agentType ? { agentType: task.agentType } : {}),
-        ...(task.resultCache ? { resultCache: task.resultCache } : {})
+        ...(task.resultCache ? { resultCache: task.resultCache } : {}),
+        ...(task.subWorkflow ? { subWorkflow: task.subWorkflow } : {})
       });
     }
   }

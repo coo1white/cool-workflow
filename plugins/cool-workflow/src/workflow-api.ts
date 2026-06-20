@@ -48,12 +48,29 @@ export function createWorkflowApi() {
     parallel,
     agent,
     artifact,
+    subWorkflow,
     input
   };
 }
 
 export function agent(id: string, prompt: string, options: Partial<WorkflowTaskDefinition> = {}): WorkflowTaskDefinition {
   return task("agent", id, prompt, options);
+}
+
+/** A task fulfilled by an inline SUB-WORKFLOW: instead of spawning an agent, the
+ *  drive plans + drives the child `appId` and binds its report back as this task's
+ *  result. The prompt is recorded for provenance but is not sent to an agent. */
+export function subWorkflow(
+  id: string,
+  appId: string,
+  options: Partial<WorkflowTaskDefinition> & { inputs?: Record<string, string>; bindResult?: "report" | "verdict-result"; prompt?: string } = {}
+): WorkflowTaskDefinition {
+  if (!appId) throw new Error(`subWorkflow task ${id} requires an appId`);
+  const { inputs, bindResult, prompt, ...rest } = options;
+  return task("agent", id, prompt || `Delegate to sub-workflow app: ${appId}`, {
+    ...rest,
+    subWorkflow: { appId, ...(inputs ? { inputs } : {}), ...(bindResult ? { bindResult } : {}) }
+  });
 }
 
 export function artifact(id: string, prompt: string, options: Partial<WorkflowTaskDefinition> = {}): WorkflowTaskDefinition {

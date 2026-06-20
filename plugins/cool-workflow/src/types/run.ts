@@ -13,7 +13,7 @@ import type { StateNode } from "./state-node";
 import type { TopologyState, WorkerMultiAgentMetadata } from "./topology";
 import type { WorkerScope } from "./worker";
 import type { WorkflowAppRunMetadata, WorkflowLimits } from "./workflow-app";
-import type { WorkflowTaskResultCache } from "./workflow-app";
+import type { WorkflowTaskResultCache, WorkflowSubWorkflowDefinition } from "./workflow-app";
 
 export interface RunTask {
   id: string;
@@ -65,6 +65,14 @@ export interface RunTask {
    *  drive may accept a previously validated result for the same cache input +
    *  prompt digest instead of spawning the external agent again. */
   resultCache?: WorkflowTaskResultCache;
+  /** Inline sub-workflow spec carried from the task definition. When present, the
+   *  drive fulfills this task by planning + driving a child run instead of spawning
+   *  an agent directly. Additive + optional. */
+  subWorkflow?: WorkflowSubWorkflowDefinition;
+  /** Set after a sub-workflow task completes: the child run id and its run dir, so
+   *  the parent state/report points an auditor at the nested child. */
+  subRunId?: string;
+  subRunDir?: string;
   /** Host-attested token usage for this task's result (v0.1.31). Additive +
    *  optional: absent means `unreported`, NEVER zero. CW records it verbatim as
    *  provenance on result intake and never synthesizes it. */

@@ -25,7 +25,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DRIVE_SCHEMA_VERSION = void 0;
+exports.MAX_SUB_WORKFLOW_DEPTH = exports.DRIVE_SCHEMA_VERSION = void 0;
 exports.driveStep = driveStep;
 exports.driveConcurrentRound = driveConcurrentRound;
 exports.drive = drive;
@@ -40,8 +40,11 @@ const scheduling_1 = require("./scheduling");
 const observability_1 = require("./observability");
 const telemetry_attestation_1 = require("./telemetry-attestation");
 const state_1 = require("./state");
+const trust_audit_1 = require("./trust-audit");
 const compare_1 = require("./compare");
 exports.DRIVE_SCHEMA_VERSION = 1;
+/** Hard cap on inline sub-workflow nesting depth (fail-closed bound on recursion). */
+exports.MAX_SUB_WORKFLOW_DEPTH = 4;
 /** The task the next drive step would advance: a RUNNING (already-dispatched,
  *  awaiting fulfillment / retry) task first, else the next PENDING task in the
  *  first runnable phase. Deterministic; honors the existing phase gate. */
@@ -222,6 +225,12 @@ function processSelectedTask(ctx, selected, preparedOutcome) {
             handleKind: "result-cache",
             reason: "result cache hit"
         });
+    }
+    // Sub-workflow fulfillment (alternative to the agent backend): plan + drive a
+    // CHILD run and bind its report back as this task's result. Leaf work is still
+    // external-agent delegation at every level; CW imports no model SDK here.
+    if (selected.subWorkflow) {
+        return runSubWorkflow(ctx, run, selected, workerId, manifest);
     }
     emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
     const envelope = (0, execution_backend_1.runBackend)(buildAgentRequest(ctx, run, selected, manifest, preparedOutcome));
@@ -523,13 +532,138 @@ function handleHop(ctx, task, workerId, reason) {
 function step(action, status, fields) {
     return { schemaVersion: 1, action, status, ...fields };
 }
+function errMessage(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/** Render a sub-workflow's input templates against the PARENT run's inputs, so the
+ *  child inputs are a pure function of recorded parent inputs (deterministic). */
+function renderSubInputs(spec, parentInputs) {
+    const out = {};
+    for (const [key, template] of Object.entries(spec.inputs || {})) {
+        out[key] = String(template).replace(/\{\{(\w+)\}\}/g, (_, name) => String(parentInputs[name] ?? ""));
+    }
+    return out;
+}
+/** Fulfill a sub-workflow task: plan + drive a CHILD run, then bind its report (or
+ *  verdict result) back as the parent task's result through the SAME accept path, so
+ *  the parent's verifier/schema/evidence gate and downstream tasks treat it like any
+ *  other result. Fail-closed: bounded recursion + cycle detection BEFORE any child
+ *  state is minted; a child that does not complete parks the parent hop. The child's
+ *  own telemetry/audit live in the child run; the parent records ONE honest
+ *  `worker.sub-workflow` cross-link (child run id + report digest + child audit
+ *  verdict) — nothing is summed or fabricated. */
+function runSubWorkflow(ctx, run, selected, workerId, manifest) {
+    const spec = selected.subWorkflow;
+    const parentApp = run.workflow.id;
+    // Fail-closed BEFORE planning a child (no child state minted when refused).
+    if (ctx.depth + 1 > exports.MAX_SUB_WORKFLOW_DEPTH) {
+        return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${exports.MAX_SUB_WORKFLOW_DEPTH})`);
+    }
+    // Include the CURRENT app on the path, so a direct self-cycle (A→A) is caught at
+    // depth 0 — before any child run dir is minted.
+    if ([...ctx.visitedAppIds, parentApp].includes(spec.appId)) {
+        return handleHop(ctx, selected, workerId, `sub-workflow cycle detected: ${[...ctx.visitedAppIds, parentApp, spec.appId].join(" -> ")}`);
+    }
+    // Deterministic child run id derived from the parent run + task (no clock/random).
+    const childRunId = `sub-${run.id}-${(0, state_1.safeFileName)(selected.id)}`;
+    const childInputs = {
+        repo: run.inputs.repo ?? run.cwd,
+        cwd: run.cwd,
+        question: run.inputs.question ?? "",
+        ...renderSubInputs(spec, run.inputs),
+        runId: childRunId
+    };
+    emitProgress(`⧉ ${selected.label || selected.id} (${selected.phase}) — sub-workflow ${spec.appId}…`);
+    let childRun;
+    try {
+        childRun = ctx.runner.plan(spec.appId, childInputs);
+    }
+    catch (error) {
+        return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`);
+    }
+    const childResult = drive(ctx.runner, childRun.id, {
+        now: ctx.now,
+        agentConfig: ctx.config,
+        policy: ctx.policy,
+        incremental: ctx.incremental,
+        depth: ctx.depth + 1,
+        visitedAppIds: [...ctx.visitedAppIds, parentApp]
+    });
+    if (childResult.status !== "complete") {
+        return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`);
+    }
+    // Bind the child's bytes: the rendered report (default) or the verdict result.
+    const finalChild = ctx.runner.loadRun(childRun.id);
+    let childBytes;
+    if (spec.bindResult === "verdict-result") {
+        const verdict = finalChild.tasks.find((t) => /^verdict[:/]|^synthesis[:/]/i.test(t.id) && t.status === "completed");
+        childBytes = verdict?.resultPath && node_fs_1.default.existsSync(verdict.resultPath) ? node_fs_1.default.readFileSync(verdict.resultPath, "utf8") : undefined;
+    }
+    else {
+        childBytes = node_fs_1.default.existsSync(finalChild.paths.report) ? node_fs_1.default.readFileSync(finalChild.paths.report, "utf8") : undefined;
+    }
+    if (childBytes === undefined) {
+        return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} produced no ${spec.bindResult || "report"}`);
+    }
+    // Accept through the SAME path as any other result (verifier/schema/evidence gate).
+    try {
+        node_fs_1.default.writeFileSync(manifest.resultPath, childBytes, "utf8");
+        ctx.runner.recordWorkerOutput(run.id, workerId, manifest.resultPath, {});
+    }
+    catch (error) {
+        return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`);
+    }
+    // Honest cross-link (provenance only — never fails the accepted hop): one
+    // worker.sub-workflow audit event on the parent pins the child run + report digest
+    // + the child's own audit-chain verdict, and the task points at the child run dir.
+    try {
+        const afterAccept = ctx.runner.loadRun(run.id);
+        const task = afterAccept.tasks.find((t) => t.id === selected.id);
+        const childAudit = (0, trust_audit_1.verifyTrustAudit)(finalChild);
+        (0, trust_audit_1.recordTrustAuditEvent)(afterAccept, {
+            kind: "worker.sub-workflow",
+            decision: "recorded",
+            source: "runtime-derived",
+            workerId,
+            taskId: selected.id,
+            nodeId: task?.resultNodeId,
+            metadata: {
+                subWorkflowAppId: spec.appId,
+                subRunId: childRun.id,
+                childReportDigest: (0, execution_backend_1.sha256)(childBytes),
+                childAuditVerified: childAudit.verified,
+                bindResult: spec.bindResult || "report"
+            }
+        });
+        if (task) {
+            task.subRunId = childRun.id;
+            task.subRunDir = finalChild.paths.runDir;
+        }
+        (0, state_1.saveCheckpoint)(afterAccept);
+    }
+    catch {
+        /* the cross-link is provenance; a failure here must not undo an accepted hop */
+    }
+    return step("accept", "ok", {
+        runId: run.id,
+        taskId: selected.id,
+        phase: selected.phase,
+        handleKind: "sub-workflow",
+        reason: `sub-workflow ${spec.appId} → ${childRun.id}`
+    });
+}
 /** Drive a run: `--once` advances exactly one step; otherwise run to completion,
  *  park, or a blocked stop. Composes the existing verbs + the agent backend only. */
 function drive(runner, runId, options = {}) {
     const now = options.now || new Date().toISOString();
     const policy = (0, scheduling_1.normalizeSchedulingPolicy)(options.policy || scheduling_1.DEFAULT_SCHEDULING_POLICY);
     const config = options.agentConfig || (0, agent_config_1.resolveAgentConfig)(options.args || {});
-    const ctx = { runner, runId, now, policy, config, attempts: new Map(), incremental: Boolean(options.incremental) };
+    const ctx = {
+        runner, runId, now, policy, config, attempts: new Map(),
+        incremental: Boolean(options.incremental),
+        depth: Math.max(0, Math.floor(options.depth || 0)),
+        visitedAppIds: options.visitedAppIds || []
+    };
     const steps = [];
     const run0 = runner.loadRun(runId);
     const plannedWorkers = run0.tasks.length;

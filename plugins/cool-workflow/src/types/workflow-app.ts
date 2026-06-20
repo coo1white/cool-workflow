@@ -41,6 +41,24 @@ export interface WorkflowTaskDefinition {
    *  rendered prompt digest match. Policy stays in the app; the drive loop only
    *  provides the mechanism. */
   resultCache?: WorkflowTaskResultCache;
+  /** Optional inline SUB-WORKFLOW. When set, this task is fulfilled by planning and
+   *  driving a CHILD app run (not by spawning an agent directly); the child's report
+   *  becomes this task's result, so the parent's verifier/schema gate and downstream
+   *  tasks consume it like any other result. Composition stays declarative; the leaf
+   *  work is still external-agent delegation at every nesting level. */
+  subWorkflow?: WorkflowSubWorkflowDefinition;
+}
+
+export interface WorkflowSubWorkflowDefinition {
+  /** Child app id to plan + drive. */
+  appId: string;
+  /** Child input templates, rendered against the PARENT run's inputs (so the child's
+   *  inputs are a pure function of recorded parent inputs — deterministic). When
+   *  omitted, the child inherits the parent's `repo`/`cwd` and `question`. */
+  inputs?: Record<string, string>;
+  /** Which child bytes become the parent result: the rendered `report` (default) or
+   *  the child's verdict/synthesis `result`. */
+  bindResult?: "report" | "verdict-result";
 }
 
 export interface WorkflowTaskResultCache {
