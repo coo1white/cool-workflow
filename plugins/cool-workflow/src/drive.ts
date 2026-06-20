@@ -30,6 +30,7 @@ import { recordWorkerRetryAttempt } from "./worker-isolation";
 import { resolveAgentConfig } from "./agent-config";
 import { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy, retryOrPark } from "./scheduling";
 import { deriveUsageTotals } from "./observability";
+import { stableStringify } from "./telemetry-attestation";
 import { safeFileName } from "./state";
 import { compareBytes } from "./compare";
 import {
@@ -58,6 +59,13 @@ export interface DriveOptions {
    *  concurrent batch driver (deterministic recording order). Default 1 = the
    *  original serial driver. Capped by the caller against limits.maxConcurrentAgents. */
   concurrency?: number;
+  /** Incremental resume (opt-in). When true, EVERY task is keyed into the
+   *  content-addressed result cache by {prompt + run.inputs + upstream result
+   *  digests}, so a re-run reuses the unchanged prefix and only re-runs the first
+   *  changed task and everything downstream of it. Default false ⇒ today's behavior
+   *  (only tasks that opted into resultCache are cached). POLA: a non-incremental
+   *  drive is byte-identical. */
+  incremental?: boolean;
 }
 
 /** The task the next drive step would advance: a RUNNING (already-dispatched,
@@ -98,6 +106,8 @@ interface DriveContext {
   config: AgentDelegationConfig;
   /** In-memory per-task attempt accounting for THIS drive() invocation. */
   attempts: Map<string, number>;
+  /** Opt-in incremental resume: cache + reuse every task by content (see DriveOptions). */
+  incremental: boolean;
 }
 
 function agentConfigured(config: AgentDelegationConfig): boolean {
@@ -250,7 +260,7 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
   // is the human-facing display name; the id stays the stable reference.
   const promptDigest = fs.existsSync(manifest.inputPath) ? sha256(fs.readFileSync(manifest.inputPath, "utf8")) : sha256(manifest.prompt || "");
 
-  const cachePath = resultCachePath(run, selected, sha256(selected.prompt));
+  const cachePath = resultCachePath(run, selected, sha256(selected.prompt), ctx.incremental);
   if (cachePath && fs.existsSync(cachePath)) {
     emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
     try {
@@ -322,7 +332,43 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
   });
 }
 
-function resultCachePath(run: WorkflowRun, task: RunTask, promptDigest: string): string | undefined {
+function cacheFilePath(run: WorkflowRun, task: RunTask, digest: string): string {
+  return path.join(
+    run.cwd,
+    ".cw",
+    "cache",
+    "worker-results",
+    safeFileName(run.workflow.id),
+    `${safeFileName(task.id)}-${digest.replace(/^sha256:/, "").slice(0, 32)}.md`
+  );
+}
+
+function resultCachePath(run: WorkflowRun, task: RunTask, promptDigest: string, incremental: boolean): string | undefined {
+  // Incremental resume (opt-in, run-level): EVERY task is keyed by content so a
+  // re-run reuses the longest unchanged prefix. The key folds the rendered prompt,
+  // the full run.inputs, and the UPSTREAM RESULT digests (not just prompts: a CW
+  // prompt is rendered from run.inputs and does NOT carry an upstream task's result
+  // bytes, so a changed/nondeterministic upstream result must invalidate downstream
+  // — which keying on upstream result bytes does). A changed prompt/input perturbs
+  // that task's key, and its changed result perturbs every downstream key, so the
+  // "first changed task and everything after" re-run falls out for free. The phase
+  // barrier guarantees every upstream task is `completed` before this task runs, so
+  // its result bytes are available to digest. schemaVersion:2 never collides with
+  // the opt-in schemaVersion:1 cache below.
+  if (incremental) {
+    const upstreamResultsDigest = previousPhaseResultsDigest(run, task);
+    if (upstreamResultsDigest === undefined) return undefined;
+    const digest = sha256(stableStringify({
+      schemaVersion: 2,
+      workflowId: run.workflow.id,
+      taskId: task.id,
+      promptDigest,
+      runInputsDigest: sha256(stableStringify(run.inputs || {})),
+      upstreamResultsDigest
+    }));
+    return cacheFilePath(run, task, digest);
+  }
+  // Default: the per-task OPT-IN cache (unchanged — POLA).
   const policy = task.resultCache;
   if (!policy || policy.mode !== "read-write") return undefined;
   const keyInput = policy.keyInput;
@@ -338,19 +384,14 @@ function resultCachePath(run: WorkflowRun, task: RunTask, promptDigest: string):
     keyValue,
     promptDigest,
     completedResultsDigest
-  })).replace(/^sha256:/, "");
-  return path.join(
-    run.cwd,
-    ".cw",
-    "cache",
-    "worker-results",
-    safeFileName(run.workflow.id),
-    `${safeFileName(task.id)}-${digest.slice(0, 32)}.md`
-  );
+  }));
+  return cacheFilePath(run, task, digest);
 }
 
-function completedResultsCacheDigest(run: WorkflowRun, task: RunTask): string | undefined {
-  if (task.resultCache?.includeCompletedResults !== "previous-phases") return "";
+/** Digest of the result bytes of every task in strictly-earlier phases (deterministic
+ *  id order). `undefined` when any such task is not yet completed/readable — so a
+ *  caller never keys on partial upstream state. */
+function previousPhaseResultsDigest(run: WorkflowRun, task: RunTask): string | undefined {
   const phaseIndex = run.phases.findIndex((phase) => phase.name === task.phase || phase.id === task.phase);
   if (phaseIndex < 0) return undefined;
   const previousTaskIds = new Set(run.phases.slice(0, phaseIndex).flatMap((phase) => phase.taskIds));
@@ -363,6 +404,11 @@ function completedResultsCacheDigest(run: WorkflowRun, task: RunTask): string | 
     });
   if (records.some((record) => record === undefined)) return undefined;
   return sha256(JSON.stringify(records));
+}
+
+function completedResultsCacheDigest(run: WorkflowRun, task: RunTask): string | undefined {
+  if (task.resultCache?.includeCompletedResults !== "previous-phases") return "";
+  return previousPhaseResultsDigest(run, task);
 }
 
 function writeResultCache(file: string, content: string): void {
@@ -454,7 +500,7 @@ function prepareConcurrentOutcomes(
       continue;
     }
     const manifest = runner.showWorkerManifest(runId, workerId);
-    const cachePath = resultCachePath(run, task, sha256(task.prompt));
+    const cachePath = resultCachePath(run, task, sha256(task.prompt), ctx.incremental);
     if (cachePath && fs.existsSync(cachePath)) continue;
     const job = prepareAgentSpawn(buildAgentRequest(ctx, run, task, manifest));
     if (job) {
@@ -529,7 +575,7 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
   const now = options.now || new Date().toISOString();
   const policy = normalizeSchedulingPolicy(options.policy || DEFAULT_SCHEDULING_POLICY);
   const config = options.agentConfig || resolveAgentConfig(options.args || {});
-  const ctx: DriveContext = { runner, runId, now, policy, config, attempts: new Map() };
+  const ctx: DriveContext = { runner, runId, now, policy, config, attempts: new Map(), incremental: Boolean(options.incremental) };
 
   const steps: DriveStep[] = [];
   const run0 = runner.loadRun(runId);

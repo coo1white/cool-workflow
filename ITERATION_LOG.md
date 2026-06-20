@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — orchestration capability parity (Unreleased)
+
+> Four capabilities ported from the harness Workflow tool into CW's engine, each its own dev-loop cycle, each additive + opt-in + replay-deterministic: (1) incremental resume, (2) inline sub-workflow nesting, (3) bounded dynamic control flow, (4) budget-aware scaling.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | `cw run --drive --incremental` — automatic step-level incremental resume. Generalizes the existing OPT-IN content-addressed result cache (`drive.ts resultCachePath`) into a run-level mode that keys EVERY task by `{rendered prompt + full run.inputs + upstream-result digests}` (`schemaVersion:2`, never colliding with the opt-in `schemaVersion:1`). The phase barrier guarantees upstream tasks are completed before a task runs, so their result bytes are digestible; a changed prompt/input perturbs that task's key and its changed result perturbs every downstream key → the longest unchanged prefix replays from cache (0 agent spawns) and the first changed task + everything downstream re-runs. Chose to key on upstream RESULT bytes (not the plan's prompt-only chain): a CW prompt is rendered from run.inputs and does NOT carry an upstream task's result, so a nondeterministic/edited upstream result must invalidate downstream — only result-byte keying does that. `--incremental` added to `DRIVE_RUNTIME_KEYS` so it never poisons `run.inputs`/the key. Honesty: a reused hop reuses the EXISTING cache-hit accept path (no fabricated usage; surfaced as `handleKind:"result-cache"`), matching the already-reviewed opt-in cache semantics. | src/drive.ts (incremental key + `previousPhaseResultsDigest` extract + branch + DriveOptions/DriveContext) + src/capability-core.ts (thread `incremental`, DRIVE_RUNTIME_KEYS) + src/cli/command-surface.ts (usage) + dist/* + test/incremental-resume-smoke.js + docs/project-index.md | new `incremental-resume-smoke`: reuse across runs (0 re-spawns, every accept `result-cache`), byte-identical reused bytes, NON-incremental re-runs everything (POLA), per-task granularity (delete 1 entry → only that task re-runs), downstream invalidation (edit a Map result → Map prefix reused, all later phases re-run), determinism. Fails-before confirmed (neuter the incremental branch → "run 2 spawns ZERO" fails). Opt-in-cache + determinism regression smokes green. | BUILD OK; index:check OK; (gates + full suite pending) | no (capability cycle; dev loop — review + PR, never tag) |
+
 ## Batch — README sync to latest code (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |
