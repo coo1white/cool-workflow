@@ -26,6 +26,7 @@ const version_1 = require("./version");
 const telemetry_ledger_1 = require("./telemetry-ledger");
 const telemetry_attestation_1 = require("./telemetry-attestation");
 const trust_audit_1 = require("./trust-audit");
+const execution_backend_1 = require("./execution-backend");
 const compare_1 = require("./compare");
 /** Export a run to a portable JSON archive with run-local bytes and digests. */
 function exportRun(run, outputPath, options = {}) {
@@ -306,6 +307,28 @@ function importManifestPath(run) {
  *
  *  Key precedence is bundle > argument > environment, so the artifact verifies the
  *  same on any machine; only when the bundle omits a key do the override/env apply. */
+/** True when report.md embeds `expected` (the trimmed result) at the task's OWN
+ *  section, exactly as orchestrator/report.ts renderResults emits it: a
+ *  `### <taskId>` heading, a `Result: <path>` line, then the result body — and the
+ *  body STARTS WITH `expected`. Anchoring to the section (not a whole-file substring)
+ *  means a decoy copy buried elsewhere does not satisfy it; matching from the heading
+ *  forward (rather than to the next heading) means a result body that itself contains
+ *  `###` cannot break the bound. The `Result:` path is matched loosely since it is
+ *  host-specific (rebased on import). */
+function reportSectionEmbedsResult(reportMd, taskId, expected) {
+    const needle = `### ${taskId}\n`;
+    // Walk EVERY `### <taskId>` occurrence — not just the first — so a stray heading
+    // inside an earlier task's result body (which is not followed by the `Result:`
+    // structure) is skipped rather than mis-anchoring the check (a false positive on a
+    // legitimate, fully-signed bundle whose findings contain markdown headings).
+    for (let from = reportMd.indexOf(needle); from >= 0; from = reportMd.indexOf(needle, from + 1)) {
+        const after = reportMd.slice(from);
+        const prefix = after.match(/^### [^\n]*\n\nResult: [^\n]*\n\n/);
+        if (prefix && after.slice(prefix[0].length).startsWith(expected))
+            return true;
+    }
+    return false;
+}
 function verifyReportBundle(archivePath, options = {}) {
     const inspect = inspectArchive(archivePath);
     const failedChecks = inspect.checks
@@ -324,6 +347,8 @@ function verifyReportBundle(archivePath, options = {}) {
         signaturesChecked: 0,
         signaturesReverified: 0,
         signaturesFailed: 0,
+        trustLevel: "unsigned",
+        reportFindingsVerified: false,
         failedChecks
     };
     // A bundle that is not even a supported archive cannot be restored — report the
@@ -360,6 +385,8 @@ function verifyReportBundle(archivePath, options = {}) {
     let signaturesChecked = 0;
     let signaturesReverified = 0;
     let signaturesFailed = 0;
+    let signaturesResultBound = 0;
+    let reportFindingsOk = true;
     let reportExtractedTo;
     try {
         // Restore into the throwaway tree. importRun digest-checks every file and throws
@@ -382,9 +409,48 @@ function verifyReportBundle(archivePath, options = {}) {
         signaturesChecked = sig.checked;
         signaturesReverified = sig.reverified;
         signaturesFailed = sig.failed;
+        signaturesResultBound = sig.resultBound.length;
         for (const check of sig.checks)
             if (!check.pass)
                 failedChecks.push({ name: check.name, code: check.code });
+        // Report ⇄ result ⇄ signature cross-check — three links so the agent's findings
+        // cannot be altered undetected on a signed bundle. CRUCIALLY this is driven by
+        // sig.resultBound (the records whose signature actually COVERED the result
+        // digest), NOT the run.tasks list — run.tasks is in the archive but bound by
+        // nothing (not the manifest digest, the chain, or the signature), so iterating it
+        // would let an attacker silence the check by dropping/un-completing a task. The
+        // obligation comes from the chained+signed ledger record instead:
+        //   1. each bound record's resultDigest is anchored by the executor signature
+        //      (coversResult re-verified above) — a 4-field signature is excluded, so an
+        //      injected resultDigest is never trusted;
+        //   2. the matching completed task's RESTORED result file must hash to that signed
+        //      digest (a missing/un-completed task or edited/empty result is a forgery);
+        //   3. report.md must embed that result at the task's own `### <taskId>` section.
+        // Editing the report breaks link 3; editing the result breaks link 2; editing both
+        // to one consistent lie still breaks link 2 (the signed digest does not move);
+        // dropping the task fails link 2 (the signed obligation remains).
+        const reportPath = imported.run.paths.report;
+        const reportMd = reportPath && node_fs_1.default.existsSync(reportPath) ? node_fs_1.default.readFileSync(reportPath, "utf8") : "";
+        const completedById = new Map(imported.run.tasks.filter((task) => task.status === "completed").map((task) => [task.id, task]));
+        for (const bound of sig.resultBound) {
+            const failBound = (code) => {
+                reportFindingsOk = false;
+                failedChecks.push({ name: "report-findings", code: `${code}:${bound.taskId}` });
+            };
+            const task = completedById.get(bound.taskId);
+            if (!task || !task.resultPath || !node_fs_1.default.existsSync(task.resultPath)) {
+                failBound("result-missing");
+                continue;
+            }
+            const resultRaw = node_fs_1.default.readFileSync(task.resultPath, "utf8");
+            if ((0, execution_backend_1.sha256)(resultRaw) !== bound.resultDigest) {
+                failBound("result-digest-mismatch");
+                continue;
+            }
+            if (!reportSectionEmbedsResult(reportMd, bound.taskId, resultRaw.trim())) {
+                failBound("report-result-mismatch");
+            }
+        }
         if (options.extractReportTo && reportContent !== undefined) {
             reportExtractedTo = node_path_1.default.resolve(options.extractReportTo);
             node_fs_1.default.writeFileSync(reportExtractedTo, reportContent);
@@ -401,6 +467,23 @@ function verifyReportBundle(archivePath, options = {}) {
     const strictShortfall = Boolean(options.strictSignatures) && signaturesChecked > 0 && !trustKey;
     if (strictShortfall)
         failedChecks.push({ name: "signatures", code: "signature-key-required" });
+    // Trust level + requireSignatures — closes the prior fail-open. "signed" means the
+    // agent's SIGNED findings are present and unaltered: at least one result-COVERING
+    // signature re-verified against a key, none failed, and each signed result is
+    // faithfully embedded in report.md (the forward cross-check held). A usage-only
+    // (4-field) signature, an unverifiable one (no key), or a tampered signed finding
+    // all yield "unsigned". requireSignatures refuses "unsigned".
+    //
+    // SCOPE (honest): "signed" attests the SIGNED findings, NOT that the report is
+    // exhaustively signed. CW holds no key to sign the rendered report and the ledger
+    // chain is self-recomputable, so the report MAY carry additional unsigned content
+    // (prose, or extra sections), and a determined re-chainer can OMIT a signed
+    // finding. Verify findings against the signed results; full report-completeness
+    // needs an external anchor. See report-verifiable-bundle.7.md / trust-model.md.
+    const trustLevel = signaturesResultBound > 0 && signaturesFailed === 0 && reportFindingsOk ? "signed" : "unsigned";
+    const unsignedShortfall = Boolean(options.requireSignatures) && trustLevel === "unsigned";
+    if (unsignedShortfall)
+        failedChecks.push({ name: "signatures", code: "signatures-required" });
     // Extraction was requested but could not be fulfilled (no report.md in the bundle,
     // or the write failed): fail closed rather than silently green a missing artifact —
     // otherwise `report bundle <run> --extract-report r.md && send r.md` would ship
@@ -413,7 +496,14 @@ function verifyReportBundle(archivePath, options = {}) {
         schemaVersion: 1,
         archivePath,
         runId: inspect.runId,
-        ok: inspect.ok && telemetryVerified && trustAuditVerified && signaturesFailed === 0 && !strictShortfall && !extractShortfall,
+        ok: inspect.ok &&
+            telemetryVerified &&
+            trustAuditVerified &&
+            signaturesFailed === 0 &&
+            reportFindingsOk &&
+            !strictShortfall &&
+            !extractShortfall &&
+            !unsignedShortfall,
         archiveOk: inspect.ok,
         telemetryVerified,
         trustAuditVerified,
@@ -422,6 +512,8 @@ function verifyReportBundle(archivePath, options = {}) {
         signaturesChecked,
         signaturesReverified,
         signaturesFailed,
+        trustLevel,
+        reportFindingsVerified: reportFindingsOk,
         reportExtractedTo,
         failedChecks
     };

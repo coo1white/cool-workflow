@@ -324,7 +324,8 @@ function reportBundle(runner, runId, args) {
     const verification = (0, run_export_1.verifyReportBundle)(exported.path, {
         pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
         extractReportTo: extractReportTo ? node_path_1.default.resolve(base, extractReportTo) : undefined,
-        strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)
+        strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
+        requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs)
     });
     return {
         schemaVersion: 1,
@@ -349,7 +350,8 @@ function runVerifyReportBundle(_runner, args) {
     return (0, run_export_1.verifyReportBundle)(node_path_1.default.resolve(base, archive), {
         pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
         extractReportTo: extractReportTo ? node_path_1.default.resolve(base, extractReportTo) : undefined,
-        strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs)
+        strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
+        requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs)
     });
 }
 function queueAdd(reg, args) {
