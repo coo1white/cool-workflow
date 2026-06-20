@@ -53,7 +53,11 @@ function canonicalTelemetryPayload(usage, ctx) {
         usage: usage ?? null,
         runId: ctx.runId,
         taskId: ctx.taskId,
-        promptDigest: ctx.promptDigest
+        promptDigest: ctx.promptDigest,
+        // Present ONLY when the signer covered the result. Omitting the key keeps the
+        // canonical bytes byte-identical to the original 4-field payload, so every
+        // pre-result-coverage signature still verifies (POLA / back-compat).
+        ...(ctx.resultDigest !== undefined ? { resultDigest: ctx.resultDigest } : {})
     });
 }
 function messageOf(error) {
@@ -110,16 +114,26 @@ function verifyTelemetryAttestation(usage, signatureB64, trustPublicKeyPem, ctx)
     catch {
         return { status: "unattested", reason: "signature is not valid base64" };
     }
-    const payload = Buffer.from(canonicalTelemetryPayload(usage, ctx), "utf8");
+    const matches = (c) => node_crypto_1.default.verify(null, Buffer.from(canonicalTelemetryPayload(usage, c), "utf8"), publicKey, signature);
     let ok = false;
+    let coversResult = false;
     try {
-        ok = node_crypto_1.default.verify(null, payload, publicKey, signature);
+        ok = matches(ctx);
+        // A match on the first arm (which carries resultDigest when CW has one) means
+        // the signature covered the result — the findings — not just the usage.
+        coversResult = ok && ctx.resultDigest !== undefined;
+        // Back-compat: a signer that predates result coverage signed only the 4-field
+        // payload, so on a miss retry WITHOUT resultDigest. A NEW signer who covered
+        // the result fails BOTH arms when the result is edited (its resultDigest no
+        // longer matches), so result tampering is still caught.
+        if (!ok && ctx.resultDigest !== undefined)
+            ok = matches({ ...ctx, resultDigest: undefined });
     }
     catch (error) {
         return { status: "unattested", reason: `verification error: ${messageOf(error)}` };
     }
     return ok
-        ? { status: "attested", algorithm: "ed25519" }
+        ? { status: "attested", algorithm: "ed25519", ...(coversResult ? { coversResult: true } : {}) }
         : { status: "unattested", reason: "signature does not match reported usage (tampered, replayed, or wrong key)" };
 }
 /** Resolve a trust key from a config value that is EITHER an inline PEM or a path
@@ -190,7 +204,10 @@ function verifyTelemetrySignatures(records, trustPublicKeyPem) {
         const result = verifyTelemetryAttestation(record.reportedUsage, record.usageSignature, trustPublicKeyPem, {
             runId: record.runId,
             taskId: record.taskId,
-            promptDigest: record.promptDigest
+            promptDigest: record.promptDigest,
+            // Result-bound records carry the signed digest; verifyTelemetryAttestation
+            // reconstructs the 5-field payload (and falls back to 4-field for old records).
+            resultDigest: record.resultDigest
         });
         if (result.status === "attested") {
             reverified += 1;

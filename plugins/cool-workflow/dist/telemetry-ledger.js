@@ -94,6 +94,9 @@ function recordHashInput(record) {
         reportedUsageDigest: record.reportedUsageDigest,
         ...(record.reportedUsage !== undefined ? { reportedUsage: record.reportedUsage } : {}),
         usageSignature: record.usageSignature || null,
+        // Chain-bind resultDigest only when present, so a usage-only record's hash is
+        // byte-identical to a pre-result-coverage one (back-compat with old ledgers).
+        ...(record.resultDigest !== undefined ? { resultDigest: record.resultDigest } : {}),
         attestation: record.attestation,
         attestationReason: record.attestationReason || null,
         prevHash: record.prevHash
@@ -131,6 +134,9 @@ function appendTelemetryAttestation(run, input) {
         // signature can be independently re-verified offline at `telemetry verify`.
         ...(input.reportedUsage ? { reportedUsage: input.reportedUsage } : {}),
         usageSignature: input.usageSignature,
+        // Present only for a result-bound signature, so usage-only records are
+        // byte-identical (and their recordHash unchanged) — back-compat.
+        ...(input.resultDigest ? { resultDigest: input.resultDigest } : {}),
         attestation: input.attestation,
         attestationReason: input.attestationReason,
         prevHash

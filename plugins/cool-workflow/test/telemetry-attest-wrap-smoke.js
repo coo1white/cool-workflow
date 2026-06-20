@@ -23,6 +23,7 @@ const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.
 const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
 const { writeReport } = require(path.join(pluginRoot, "dist/orchestrator/report.js"));
 const ledger = require(path.join(pluginRoot, "dist/telemetry-ledger.js"));
+const ta = require(path.join(pluginRoot, "dist/telemetry-attestation.js"));
 
 const WRAP = path.join(pluginRoot, "scripts/agents/cw-attest-wrap.js");
 const KEYGEN = path.join(pluginRoot, "scripts/agents/cw-attest-keygen.js");
@@ -99,6 +100,27 @@ function main() {
     assert.ok(usages.every((u) => u.inputTokens === 4 && u.outputTokens === 2), "token buckets recorded");
     const lv = ledger.verifyTelemetryLedger(final);
     assert.ok(lv.present && lv.verified && lv.attested === lv.records.length, "ledger verifies, all attested");
+    // The wrapper's signature is RESULT-BOUND (5-field), not usage-only: CW verified
+    // it `attested` above using the result digest. Prove it is not the 4-field
+    // back-compat fallback silently passing — re-verifying the SAME signature WITHOUT
+    // a resultDigest must fail (a usage-only signature would still pass). So editing
+    // the agent's findings — which changes the result digest — is detected.
+    const rec = lv.records.find((r) => r.usageSignature);
+    assert.ok(rec, "an attested record carries a signature");
+    const unbound = ta.verifyTelemetryAttestation(rec.reportedUsage, rec.usageSignature, pubPem, {
+      runId: rec.runId,
+      taskId: rec.taskId,
+      promptDigest: rec.promptDigest
+    });
+    assert.equal(unbound.status, "unattested", "the recorded signature covers the result (a 4-field verify must fail)");
+    // The INDEPENDENT re-verifier (behind `telemetry verify --pubkey` and `report
+    // verify`/restore) must ACCEPT a result-bound signature — it reconstructs the
+    // 5-field payload from the record's stored resultDigest. Regression guard: a
+    // verifier that ignored resultDigest rejected every legitimate signed run.
+    assert.ok(rec.resultDigest, "the ledger record stores the signed result digest");
+    const sigCheck = ta.verifyTelemetrySignatures(lv.records, pubPem);
+    assert.equal(sigCheck.failed, 0, "the independent re-verifier accepts result-bound signatures");
+    assert.ok(sigCheck.reverified >= 1, "at least one result-bound signature re-verified with the public key");
     const md = fs.readFileSync(writeReport(final), "utf8");
     assert.ok(!/UNATTESTED/.test(md), "no unattested warning when wrapper signs");
     assert.match(md, /Attestation ledger: \d+ records, chain verified/, "ledger chain verified in report");
