@@ -84,9 +84,21 @@ function importRun(exportPath, targetDir) {
     const archiveSha256 = sha256Bytes(node_fs_1.default.readFileSync(exportPath));
     const files = normalizeArchiveFiles(raw);
     verifyArchiveFileDigests(files, raw.integrity);
+    if (!raw.run || typeof raw.run !== "object") {
+        throw new Error("Invalid run export: missing run object");
+    }
+    // The run id from the archive becomes a directory name under the target's
+    // runs root; a crafted id like "../../etc" would otherwise escape it. Refuse
+    // any id that is not a single safe path segment, then assert containment as
+    // defense-in-depth (catches a symlinked runs root too) before any write.
+    const runId = (0, state_1.assertSafeRunId)(raw.run.id);
+    const runsRoot = node_path_1.default.join(targetDir, ".cw", "runs");
+    const runDir = node_path_1.default.join(runsRoot, runId);
+    if (!(0, state_1.isContainedPath)(runDir, runsRoot)) {
+        throw new Error(`Run id escapes the runs directory: ${JSON.stringify(raw.run.id)}`);
+    }
     const oldRunDir = raw.run.paths.runDir;
     const oldCwd = raw.run.cwd;
-    const runDir = node_path_1.default.join(targetDir, ".cw", "runs", raw.run.id);
     const paths = (0, state_1.createRunPaths)(runDir);
     (0, state_1.ensureRunDirs)(paths);
     for (const file of files) {

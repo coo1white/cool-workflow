@@ -276,6 +276,23 @@ export function safeFileName(value: string): string {
   return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
 }
 
+/** Refuse a run id that is not a single safe path segment, so an id taken from
+ *  an untrusted source (an imported run archive / bundle) can never escape the
+ *  runs directory via `..` or a separator (path traversal). A real run id is
+ *  minted by createRunId(): a lower-case slug + timestamp + pid + counter, all
+ *  within [A-Za-z0-9._-]. Anything outside that — a separator, a `..`, an
+ *  absolute path, an empty value — is refused, fail-closed. Returns the id on
+ *  success so callers can use it inline. */
+export function assertSafeRunId(value: unknown, context = "run id"): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid ${context}: expected a non-empty string`);
+  }
+  if (!/^[A-Za-z0-9._-]+$/.test(value) || value === "." || value === ".." || value.includes("..")) {
+    throw new Error(`Unsafe ${context}: ${JSON.stringify(value)} must be a single path segment ([A-Za-z0-9._-], no '..')`);
+  }
+  return value;
+}
+
 /** Compute and set SHA256 + sizeBytes on a StateArtifact from its file path
  *  (v0.1.73). Fails silently when the file doesn't exist — does not throw. */
 export function hashArtifactFile(artifact: StateArtifact): StateArtifact {

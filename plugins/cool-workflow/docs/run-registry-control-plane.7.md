@@ -177,6 +177,14 @@ whose top-level integrity block is *absent* — closing the legacy fail-open sea
 where a stripped-integrity archive imported unverified. Unset (the default) keeps
 legacy integrity-less archives byte-identical; the flag is mechanism, not policy.
 
+The archive's run id becomes a directory name under `DIR/.cw/runs/`, so import
+also refuses any run id that is not a single safe path segment (`[A-Za-z0-9._-]`,
+no separator and no `..`) and asserts the resolved run directory stays inside the
+target's runs root — both *before* the directory is made — so a crafted id such
+as `../../etc` can never write outside the runs tree. The same refusal protects
+`cw report verify-bundle`, which restores an untrusted bundle into a throwaway
+temporary directory.
+
 `run verify-import <run-id> [--cwd DIR]` reads the restore manifest again, works out
 every restored file digest again, checks the manifest digest, checks the telemetry
 ledger when one was restored, and proves the **trust-audit hash chain** again (the

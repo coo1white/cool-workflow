@@ -12,7 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { ReportBundleVerification, RunExport, TrustKeySource, WorkflowRun } from "./types";
-import { createRunPaths, ensureRunDirs, isContainedPath, readJson, saveCheckpoint, writeJson } from "./state";
+import { assertSafeRunId, createRunPaths, ensureRunDirs, isContainedPath, readJson, saveCheckpoint, writeJson } from "./state";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "./version";
 import { verifyTelemetryLedger } from "./telemetry-ledger";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "./telemetry-attestation";
@@ -161,9 +161,21 @@ export function importRun(exportPath: string, targetDir: string): ImportResult {
   const archiveSha256 = sha256Bytes(fs.readFileSync(exportPath));
   const files = normalizeArchiveFiles(raw);
   verifyArchiveFileDigests(files, raw.integrity);
+  if (!raw.run || typeof raw.run !== "object") {
+    throw new Error("Invalid run export: missing run object");
+  }
+  // The run id from the archive becomes a directory name under the target's
+  // runs root; a crafted id like "../../etc" would otherwise escape it. Refuse
+  // any id that is not a single safe path segment, then assert containment as
+  // defense-in-depth (catches a symlinked runs root too) before any write.
+  const runId = assertSafeRunId(raw.run.id);
+  const runsRoot = path.join(targetDir, ".cw", "runs");
+  const runDir = path.join(runsRoot, runId);
+  if (!isContainedPath(runDir, runsRoot)) {
+    throw new Error(`Run id escapes the runs directory: ${JSON.stringify(raw.run.id)}`);
+  }
   const oldRunDir = raw.run.paths.runDir;
   const oldCwd = raw.run.cwd;
-  const runDir = path.join(targetDir, ".cw", "runs", raw.run.id);
   const paths = createRunPaths(runDir);
   ensureRunDirs(paths);
 
