@@ -12,6 +12,7 @@ import {
   AgentDelegationInput,
   DispatchManifest,
   LoadedWorkflowApp,
+  RunPhase,
   RunSummary,
   RunTask,
   StateCommit,
@@ -30,7 +31,9 @@ import { isMissing, isSandboxProfileError, numberOption, stringOption } from "./
 import { writeTaskFiles } from "../harness";
 import { workflowAppRunMetadata } from "../workflow-app-framework";
 import { slugify } from "../workflow-api";
-import { parseUsageFromArgs } from "../observability";
+import { parseUsageFromArgs, deriveUsageTotals } from "../observability";
+import { compareBytes } from "../compare";
+import { getLoopPredicate } from "../loop-expansion";
 import { createDispatchManifest, updatePhaseStatuses } from "../dispatch";
 import { assertTaskCanComplete, parseResultEnvelope, validateResultEnvelope, validateRunGates } from "../verifier";
 import { ensureTrustAudit } from "../trust-audit";
@@ -100,7 +103,10 @@ export function plan(appRecord: LoadedWorkflowApp, options: Record<string, unkno
       status: "pending",
       taskIds: phase.tasks.map((task) => task.id),
       // parallel() DSL: the drive loop reads this to size its concurrent round.
-      ...(phase.mode ? { mode: phase.mode } : {})
+      ...(phase.mode ? { mode: phase.mode } : {}),
+      // loop() DSL: the ORIGIN phase carries the loop spec + round 1; the expander
+      // appends round-2+ phases after each round (loop-expansion / maybeExpandLoop).
+      ...(phase.loop ? { loop: phase.loop, loopRound: 1 } : {})
     })),
     tasks,
     dispatches: [],
@@ -350,6 +356,9 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     }
     run.loopStage = "observe";
     updatePhaseStatuses(run);
+    // Bounded dynamic loops: after a round's tasks complete, evaluate the predicate
+    // and either append the next round or mark the loop done (no-op for non-loop runs).
+    maybeExpandLoop(run);
     validateRunGates(run);
     commitState(run, `worker:${workerId}:result`);
     writeReport(run);
@@ -451,6 +460,110 @@ function validateInputs(workflow: WorkflowDefinition, inputs: Record<string, unk
   }
 }
 
+/** Bounded dynamic loop expansion. After a worker result is recorded: if the just-
+ *  completed phase is the LATEST round of a loop whose origin is not yet done, evaluate
+ *  the registered predicate over the round's recorded results and either append the
+ *  next round (clone the round-1 template tasks into a fresh phase, materialized like
+ *  plan() does) or mark the loop done. One deterministic `loop-control` node is recorded
+ *  per round boundary — the replay source of truth. No-op when the run has no loop
+ *  phases (POLA). Expands at most ONE loop boundary per call; the next accept handles
+ *  the next. Bounded: a loop never exceeds `maxRounds` (fail-closed); an unregistered
+ *  predicate stops the loop rather than spinning. */
+function maybeExpandLoop(run: WorkflowRun): void {
+  for (const phase of [...run.phases]) {
+    const originId = phase.loop ? phase.id : phase.loopOrigin;
+    if (!originId) continue;
+    const origin = run.phases.find((p) => p.id === originId);
+    if (!origin || !origin.loop || origin.loopDone) continue;
+    // Act only from the LATEST round phase of this loop.
+    const loopPhases = run.phases.filter((p) => p.id === originId || p.loopOrigin === originId);
+    const latest = loopPhases.reduce((a, b) => ((b.loopRound || 1) >= (a.loopRound || 1) ? b : a));
+    if (phase.id !== latest.id) continue;
+    const roundTasks = run.tasks.filter((t) => latest.taskIds.includes(t.id));
+    if (roundTasks.length === 0 || !roundTasks.every((t) => t.status === "completed")) continue;
+
+    const round = latest.loopRound || 1;
+    const ordered = (tasks: RunTask[]) => tasks.slice().sort((a, b) => compareBytes(a.id, b.id)).map((t) => t.result);
+    const roundResults = ordered(roundTasks);
+    const allLoopTasks = run.tasks.filter((t) => t.status === "completed" && loopPhases.some((p) => p.taskIds.includes(t.id)));
+    const allResults = ordered(allLoopTasks);
+
+    const predicate = getLoopPredicate(origin.loop.until.ref);
+    const decision = predicate
+      ? predicate({ round, roundResults, allResults, usageTotals: deriveUsageTotals(run).totals, inputs: run.inputs })
+      : { done: true, reason: `loop predicate "${origin.loop.until.ref}" not registered — stopping fail-closed` };
+    const atCap = round >= origin.loop.maxRounds;
+    const done = decision.done || atCap;
+
+    // Record the decision under a deterministic id (the replay source of truth).
+    appendRunNode(run, createStateNode({
+      id: `${run.id}:loop-control:${originId}:r${round}`,
+      kind: "loop-control",
+      status: "completed",
+      loopStage: "adjust",
+      outputs: { round, done, atCap, reason: decision.reason },
+      metadata: { originPhaseId: originId, predicate: origin.loop.until.ref, round, done, atCap, reason: decision.reason }
+    }));
+
+    if (done) {
+      origin.loopDone = true;
+      return;
+    }
+
+    // Expand: clone the ROUND-1 template tasks into a fresh phase appended right after.
+    const nextRound = round + 1;
+    const nextPhaseName = `${origin.name} (round ${nextRound})`;
+    const templateTasks = run.tasks.filter((t) => origin.taskIds.includes(t.id));
+    const newTasks: RunTask[] = templateTasks.map((t) => ({
+      id: `${t.id.replace(/@r\d+$/, "")}@r${nextRound}`,
+      kind: t.kind,
+      phase: nextPhaseName,
+      status: "pending",
+      requiresEvidence: t.requiresEvidence,
+      prompt: t.prompt,
+      taskPath: "",
+      resultPath: "",
+      loopStage: "interpret",
+      loopRound: nextRound,
+      ...(t.sandboxProfileId ? { sandboxProfileId: t.sandboxProfileId } : {}),
+      ...(t.label ? { label: t.label } : {}),
+      ...(t.model ? { model: t.model } : {}),
+      ...(t.agentType ? { agentType: t.agentType } : {}),
+      ...(t.schema ? { schema: t.schema } : {})
+    }));
+    const nextPhase: RunPhase = {
+      id: `${originId}@r${nextRound}`,
+      name: nextPhaseName,
+      status: "pending",
+      taskIds: newTasks.map((t) => t.id),
+      loopOrigin: originId,
+      loopRound: nextRound,
+      ...(origin.mode ? { mode: origin.mode } : {})
+    };
+    const insertAt = run.phases.findIndex((p) => p.id === latest.id);
+    run.phases.splice(insertAt + 1, 0, nextPhase);
+    run.tasks.push(...newTasks);
+
+    // Materialize: task files + a plan-stage contract node per new task (mirrors plan()).
+    writeTaskFiles(run);
+    const contractId = run.contracts && run.contracts[0] ? run.contracts[0].id : undefined;
+    const inputNodeId = `${run.id}:input`;
+    const pipeline = createPipelineRunner({ contractId, persist: false });
+    for (const t of newTasks) {
+      const result = pipeline.runPipelineStage(run, "plan", inputNodeId, {
+        outputNodeId: `${run.id}:task:${t.id}`,
+        outputStatus: "pending",
+        loopStage: "interpret",
+        artifacts: [{ id: "task", kind: "markdown", path: t.taskPath }],
+        metadata: { workflowId: run.workflow.id, taskId: t.id, phase: t.phase, taskKind: t.kind, requiresEvidence: t.requiresEvidence, sandboxProfileId: t.sandboxProfileId }
+      });
+      t.stateNodeId = result.outputNodeId;
+    }
+    updatePhaseStatuses(run);
+    return;
+  }
+}
+
 function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unknown>): RunTask[] {
   const seen = new Set<string>();
   const tasks: RunTask[] = [];
@@ -478,7 +591,9 @@ function flattenTasks(workflow: WorkflowDefinition, inputs: Record<string, unkno
         ...(task.model ? { model: task.model } : {}),
         ...(task.agentType ? { agentType: task.agentType } : {}),
         ...(task.resultCache ? { resultCache: task.resultCache } : {}),
-        ...(task.subWorkflow ? { subWorkflow: task.subWorkflow } : {})
+        ...(task.subWorkflow ? { subWorkflow: task.subWorkflow } : {}),
+        // A loop phase's tasks are round 1 of the loop; the expander clones them.
+        ...(phase.loop ? { loopRound: 1 } : {})
       });
     }
   }

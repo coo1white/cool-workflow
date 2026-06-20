@@ -30,6 +30,7 @@ export type StateNodeKind =
   | "report"
   | "schedule"
   | "trigger"
+  | "loop-control"
   | "error";
 export type StateNodeStatus =
   | "pending"

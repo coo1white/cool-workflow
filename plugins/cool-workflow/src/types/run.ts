@@ -73,6 +73,9 @@ export interface RunTask {
    *  the parent state/report points an auditor at the nested child. */
   subRunId?: string;
   subRunDir?: string;
+  /** 1-based loop round this task belongs to, when it is part of a bounded dynamic
+   *  loop phase (round 1 = the template; rounds 2+ are appended clones). */
+  loopRound?: number;
   /** Host-attested token usage for this task's result (v0.1.31). Additive +
    *  optional: absent means `unreported`, NEVER zero. CW records it verbatim as
    *  provenance on result intake and never synthesizes it. */

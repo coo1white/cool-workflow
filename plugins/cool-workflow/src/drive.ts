@@ -30,6 +30,7 @@ import { recordWorkerRetryAttempt } from "./worker-isolation";
 import { resolveAgentConfig } from "./agent-config";
 import { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy, retryOrPark } from "./scheduling";
 import { deriveUsageTotals } from "./observability";
+import { maxLoopExpansion } from "./loop-expansion";
 import { stableStringify } from "./telemetry-attestation";
 import { safeFileName, saveCheckpoint } from "./state";
 import { recordTrustAuditEvent, verifyTrustAudit } from "./trust-audit";
@@ -759,9 +760,15 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
   const steps: DriveStep[] = [];
   const run0 = runner.loadRun(runId);
   const plannedWorkers = run0.tasks.length;
-  // Safety bound: every worker, every retry, plus the terminal commit + slack.
-  // Each concurrent round retires >=1 worker, so this bounds rounds too.
-  const maxIterations = plannedWorkers * (policy.maxAttempts + 1) + 5;
+  // Safety bound: every worker, every retry, plus the terminal commit + slack. Each
+  // concurrent round retires >=1 worker, so this bounds rounds too. A bounded dynamic
+  // loop can append up to (maxRounds-1)×templateTasks MORE tasks at runtime, so the
+  // iteration bound (NOT plannedWorkers, which stays the initial count for status) adds
+  // the worst-case expansion derived STATICALLY from the declaration — a pure function
+  // of the workflow, never of runtime results — so the bound is replay-stable and the
+  // drive is provably terminating; it reduces to the original value when there are no
+  // loop phases.
+  const maxIterations = (plannedWorkers + maxLoopExpansion(run0)) * (policy.maxAttempts + 1) + 5;
   const concurrency = Math.max(1, Math.floor(options.concurrency || 1));
 
   // The parallel() on-ramp: a phase authored with mode "parallel" is fulfilled

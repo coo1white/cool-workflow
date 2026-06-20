@@ -38,6 +38,7 @@ const worker_isolation_1 = require("./worker-isolation");
 const agent_config_1 = require("./agent-config");
 const scheduling_1 = require("./scheduling");
 const observability_1 = require("./observability");
+const loop_expansion_1 = require("./loop-expansion");
 const telemetry_attestation_1 = require("./telemetry-attestation");
 const state_1 = require("./state");
 const trust_audit_1 = require("./trust-audit");
@@ -667,9 +668,15 @@ function drive(runner, runId, options = {}) {
     const steps = [];
     const run0 = runner.loadRun(runId);
     const plannedWorkers = run0.tasks.length;
-    // Safety bound: every worker, every retry, plus the terminal commit + slack.
-    // Each concurrent round retires >=1 worker, so this bounds rounds too.
-    const maxIterations = plannedWorkers * (policy.maxAttempts + 1) + 5;
+    // Safety bound: every worker, every retry, plus the terminal commit + slack. Each
+    // concurrent round retires >=1 worker, so this bounds rounds too. A bounded dynamic
+    // loop can append up to (maxRounds-1)×templateTasks MORE tasks at runtime, so the
+    // iteration bound (NOT plannedWorkers, which stays the initial count for status) adds
+    // the worst-case expansion derived STATICALLY from the declaration — a pure function
+    // of the workflow, never of runtime results — so the bound is replay-stable and the
+    // drive is provably terminating; it reduces to the original value when there are no
+    // loop phases.
+    const maxIterations = (plannedWorkers + (0, loop_expansion_1.maxLoopExpansion)(run0)) * (policy.maxAttempts + 1) + 5;
     const concurrency = Math.max(1, Math.floor(options.concurrency || 1));
     // The parallel() on-ramp: a phase authored with mode "parallel" is fulfilled
     // concurrently through EVERY shipping surface (run --drive, quickstart) — no
