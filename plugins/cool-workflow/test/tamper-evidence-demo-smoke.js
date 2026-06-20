@@ -36,7 +36,7 @@ const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.
 const { appendTelemetryAttestation } = require(path.join(pluginRoot, "dist/telemetry-ledger.js"));
 
 function main() {
-  // ---- 1. the demo proves both layers ---------------------------------------
+  // ---- 1. the demo proves all three layers ----------------------------------
   const tmpBefore = fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith("cw-tamper-demo-")).length;
   const demo = runTamperDemo();
   assert.equal(demo.proven, true, "tamper-evidence proof holds end to end");
@@ -106,7 +106,7 @@ function main() {
     fs.rmSync(work, { recursive: true, force: true });
   }
 
-  console.log("tamper-evidence-demo-smoke: ok (demo proves both layers; telemetry verify is the operator-facing guarantee; self-guarding)");
+  console.log("tamper-evidence-demo-smoke: ok (demo proves all three layers; telemetry verify is the operator-facing guarantee; self-guarding)");
 }
 
 main();

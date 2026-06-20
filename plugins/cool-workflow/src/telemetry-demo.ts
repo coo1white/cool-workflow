@@ -45,7 +45,7 @@ export interface TamperDemoResult {
   runId: string;
   workers: number;
   trustKey: "ephemeral-ed25519";
-  /** The clean baseline both layers start from. */
+  /** The clean baseline all three layers start from. */
   baseline: { ledgerVerified: boolean; signaturesValid: number; records: number };
   layers: TamperDemoLayer[];
   /** True iff the clean state verified AND every tamper was detected. */
