@@ -971,6 +971,12 @@ export function gcVerify(reg: RunRegistry, runId: string, args: Record<string, u
   return reg.gcVerify(runId, { scope: scopeOf(args, "home") });
 }
 
+// Remote-source clone cache (v0.1.91): list/reclaim the `~/.local/state/cool-workflow/clones`
+// checkouts that `--link`/URL reviews populate. Pure filesystem work; both CLI and MCP route
+// here so `cw clones …` and `cw_clones_…` are byte-identical.
+export { listClones, gcClones } from "./clones";
+export { ClonesListResult, ClonesGcResult, CloneEntry } from "./clones";
+
 export function runHistory(reg: RunRegistry, args: Record<string, unknown>): RunHistoryResult {
   return reg.history({
     scope: scopeOf(args, "home"),

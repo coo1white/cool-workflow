@@ -952,6 +952,11 @@ function toolDefinitions() {
             scope: stringSchema("home (default, cross-repo) or repo"),
             runId: stringSchema("Run id to verify")
         }),
+        capabilityTool("clones.list", "List the cached remote-source checkouts that `--link`/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only. Peer of `cw clones list`.", {}),
+        capabilityTool("clones.gc", "Reclaim cached remote-source checkouts: a TTL sweep (entries older than --older-than-days, default 30) or --all. Deletes only inside the clones cache. Peer of `cw clones gc`.", {
+            olderThanDays: numberSchema("Reclaim checkouts fetched more than N days ago (default 30; ignored with all)"),
+            all: booleanSchema("Reclaim every cached checkout")
+        }),
         capabilityTool("telemetry.verify", "Re-prove a run's telemetry attestation ledger offline: prevHash chain linkage + independent per-record hash recompute (never trusts the stored hash), and optionally re-run ed25519 checks with a public key. A forged or edited record fails it. Peer of `cw telemetry verify`.", {
             cwd: stringSchema("Repo workspace"),
             runId: stringSchema("Run id to verify"),

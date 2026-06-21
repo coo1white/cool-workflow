@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-06-21 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.89`
-- Source modules: `66`
+- Source modules: `67`
 - Workflow apps: `7`
-- Docs: `52`
-- Smoke tests: `135`
+- Docs: `53`
+- Smoke tests: `136`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -83,6 +83,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [agent-config.ts](../src/agent-config.ts)
 - [capability-core.ts](../src/capability-core.ts)
 - [capability-registry.ts](../src/capability-registry.ts)
+- [clones.ts](../src/clones.ts)
 - [collaboration.ts](../src/collaboration.ts)
 - [compare.ts](../src/compare.ts)
 - [contract-migration.ts](../src/contract-migration.ts)
@@ -167,6 +168,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Release And Migration Discipline](release-and-migration.7.md)
 - [Cool Workflow Release History](release-history.md)
 - [Release Tooling](release-tooling.7.md)
+- [Remote-Source Review (`--link`)](remote-source-review.7.md)
 - [Verifiable Report Bundle](report-verifiable-bundle.7.md)
 - [Routines](routines.md)
 - [Run Registry / Control Plane](run-registry-control-plane.7.md)
@@ -210,6 +212,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [cli-mcp-parity-smoke.js](../test/cli-mcp-parity-smoke.js)
 - [cli-progress-summary-smoke.js](../test/cli-progress-summary-smoke.js)
 - [cli-recoverable-errors-smoke.js](../test/cli-recoverable-errors-smoke.js)
+- [clones-gc-smoke.js](../test/clones-gc-smoke.js)
 - [codex-agent-wrapper-smoke.js](../test/codex-agent-wrapper-smoke.js)
 - [concurrency-default-smoke.js](../test/concurrency-default-smoke.js)
 - [concurrent-failure-semantics-smoke.js](../test/concurrent-failure-semantics-smoke.js)

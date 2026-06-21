@@ -42,6 +42,8 @@ import {
   gcPlan,
   gcRun,
   gcVerify,
+  listClones,
+  gcClones,
   telemetryVerify,
   auditVerify,
   runDrive,
@@ -449,6 +451,10 @@ export function callTool(name: string, args: Record<string, unknown>): unknown {
       return gcRun(runRegistryFor(args, runner), optionalString(args.runId), args);
     case "cw_gc_verify":
       return gcVerify(runRegistryFor(args, runner), String(args.runId || ""), args);
+    case "cw_clones_list":
+      return listClones(args);
+    case "cw_clones_gc":
+      return gcClones(args);
     case "cw_telemetry_verify":
       return telemetryVerify(runner, args);
     case "cw_history":

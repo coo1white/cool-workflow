@@ -427,6 +427,8 @@ const BUILTIN_CAPABILITIES = [
     { capability: "gc.plan", summary: "Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing.", entry: "gcPlan", surface: "both", cli: { path: ["gc", "plan"], caseTokens: ["gc", "plan"], jsonMode: "flag" }, mcp: { tool: "cw_gc_plan" } },
     { capability: "gc.run", summary: "Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free).", entry: "gcRun", surface: "both", cli: { path: ["gc", "run"], caseTokens: ["gc", "run"], jsonMode: "flag" }, mcp: { tool: "cw_gc_run" }, payloadIdentical: false, reason: "Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone." },
     { capability: "gc.verify", summary: "Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable.", entry: "gcVerify", surface: "both", cli: { path: ["gc", "verify"], caseTokens: ["gc", "verify"], jsonMode: "flag" }, mcp: { tool: "cw_gc_verify", requiredArgs: ["runId"] } },
+    { capability: "clones.list", summary: "List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only.", entry: "listClones", surface: "both", cli: { path: ["clones", "list"], caseTokens: ["clones", "list"], jsonMode: "flag" }, mcp: { tool: "cw_clones_list" } },
+    { capability: "clones.gc", summary: "Reclaim cached remote-source checkouts: a TTL sweep (--older-than-days, default 30) or --all. Deletes only inside the clones cache.", entry: "gcClones", surface: "both", cli: { path: ["clones", "gc"], caseTokens: ["clones", "gc"], jsonMode: "flag" }, mcp: { tool: "cw_clones_gc" }, payloadIdentical: false, reason: "Mutating: removes cache directories and reports now-derived freedBytes/removed; both surfaces perform the identical reclamation." },
     { capability: "telemetry.verify", summary: "Re-prove a run's telemetry attestation ledger offline: chain linkage + independent hash recompute, and (with --pubkey / CW_AGENT_ATTEST_PUBKEY) re-verify each attested hop's ed25519 signature against the public key.", entry: "telemetryVerify", surface: "both", cli: { path: ["telemetry", "verify"], caseTokens: ["telemetry"], jsonMode: "flag" }, mcp: { tool: "cw_telemetry_verify", requiredArgs: ["runId"] } },
     { capability: "demo.tamper", summary: "Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.", entry: "demoTamper", surface: "cli-only", cli: { path: ["demo", "tamper"], caseTokens: ["demo", "tamper"], jsonMode: "flag" }, reason: "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo." },
     { capability: "demo.bundle", summary: "Prove portable-bundle verification: export a sealed report bundle, forge it two ways, watch report verify-bundle catch both offline with only the embedded public key.", entry: "demoBundle", surface: "cli-only", cli: { path: ["demo", "bundle"], caseTokens: ["demo", "bundle"], jsonMode: "flag" }, reason: "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo." },
@@ -560,6 +562,10 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "init",
             "dispatch",
             "result",
+            // clones.list is payload-identical by construction (both surfaces call listClones), but it
+            // reads the external filesystem clone cache (absolute paths + per-entry bytes/timestamps),
+            // so it is not byte-probed by the deterministic bootstrap.
+            "clones.list",
             "app.init",
             "app.run",
             "migration.list",

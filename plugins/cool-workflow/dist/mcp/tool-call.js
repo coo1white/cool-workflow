@@ -402,6 +402,10 @@ function callTool(name, args) {
             return (0, capability_core_1.gcRun)((0, capability_core_1.runRegistryFor)(args, runner), (0, capability_core_1.optionalString)(args.runId), args);
         case "cw_gc_verify":
             return (0, capability_core_1.gcVerify)((0, capability_core_1.runRegistryFor)(args, runner), String(args.runId || ""), args);
+        case "cw_clones_list":
+            return (0, capability_core_1.listClones)(args);
+        case "cw_clones_gc":
+            return (0, capability_core_1.gcClones)(args);
         case "cw_telemetry_verify":
             return (0, capability_core_1.telemetryVerify)(runner, args);
         case "cw_history":
