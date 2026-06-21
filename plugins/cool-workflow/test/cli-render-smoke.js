@@ -20,7 +20,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const { createReporter } = require(path.join(pluginRoot, "dist", "reporter.js"));
 const term = require(path.join(pluginRoot, "dist", "term.js"));
-const { createRenderer, truncate: coreTruncate } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
+const { createRenderer, truncate: coreTruncate, toolLabel, summarizeToolResult } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
 
 const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
@@ -64,7 +64,23 @@ function testTruncateAndWidth() {
     assert.equal(coreTruncate(t, w), term.truncate(t, w),
       `core truncate(${JSON.stringify(t)},${w}) must equal term truncate (no drift)`);
   }
-  console.log("cli-render: truncate + visible-width + core/term parity OK");
+
+  // Claude-tree labels: file tools show the basename, patterns/commands stay (truncated).
+  assert.equal(toolLabel("Read", "/home/dev/src/foo.ts"), "Read(foo.ts)", "file tool -> basename");
+  assert.equal(toolLabel("Edit", "a/b/c.ts"), "Edit(c.ts)", "edit -> basename");
+  assert.equal(toolLabel("Glob", "**/*.ts"), "Glob(**/*.ts)", "glob pattern is NOT basenamed");
+  assert.equal(toolLabel("Grep", "spawnSync"), "Grep(spawnSync)", "grep pattern kept");
+  assert.equal(toolLabel("Bash", "x".repeat(60)).length <= "Bash()".length + 40, true, "long command truncated");
+  assert.equal(toolLabel("Read", ""), "Read", "no arg -> just the tool name");
+
+  // ⎿ result summaries (tool-aware, line-count based).
+  assert.equal(summarizeToolResult("Read", "a\nb\nc\n"), "3 lines", "Read -> N lines");
+  assert.equal(summarizeToolResult("Read", "only one"), "1 line", "singular line");
+  assert.equal(summarizeToolResult("Grep", "m1\nm2"), "2 matches", "Grep -> N matches");
+  assert.equal(summarizeToolResult("Glob", "a.ts\nb.ts\nc.ts"), "3 files", "Glob -> N files");
+  assert.equal(summarizeToolResult("Bash", "exit 0"), "exit 0", "Bash single line -> that line");
+  assert.equal(summarizeToolResult("Bash", "x", true), "error", "is_error -> error");
+  console.log("cli-render: truncate + visible-width + core/term parity + toolLabel + result-summary OK");
 }
 
 function testColorEnv() {
@@ -209,6 +225,98 @@ function testCursorHygiene() {
   console.log("cli-render: live-renderer cursor hygiene (hide on spinner, restore on stop) OK");
 }
 
+function testRollingWindowFold() {
+  // The fix for the 0.1.91 "wall": completed tools do NOT each leave a permanent line — they fold
+  // into a rolling window (current spinner + the last WINDOW=4 dimmed) that is REDRAWN in place, and
+  // the worker collapses to ONE summary line at the end. Drive 6 tools through a fake TTY stream.
+  const s = fakeStream(true);
+  s.columns = 80;
+  const render = createRenderer({ env: {}, stderr: s, label: "claude" });
+  try {
+    for (const t of ["Read(a.ts)", "Read(b.ts)", "Read(c.ts)", "Read(d.ts)", "Read(e.ts)", "Read(f.ts)"]) render.action(t);
+    // In-place redraw (NOT append-only): the block is erased (clear-to-end + cursor-up) each frame.
+    assert.ok(s.text.includes("\x1b[0J"), "the live block is erased + redrawn in place (clear-to-end)");
+    assert.ok(/\x1b\[\d+A/.test(s.text), "cursor moves up to redraw the rolling block (not a growing wall)");
+    // Claude-tree style: completed rows use ● bullets, the live row a ✶ sparkle — NOT the old ✓.
+    assert.ok(s.text.includes("●"), "completed tools use the ● action bullet (Claude-tree)");
+    assert.ok(/[✶✸✹✺]/.test(s.text), "the live row shows a sparkle 'thinking' glyph");
+    assert.ok(!plain(s.text).includes("✓"), "no generic ✓ spinner-list glyph remains");
+    // The FINAL rendered block = everything after the last erase. WINDOW=4, so the oldest folded away.
+    const lastBlock = s.text.split("\x1b[0J").pop();
+    assert.ok(!lastBlock.includes("a.ts"), "the oldest tool has folded OUT of the window");
+    for (const t of ["c.ts", "d.ts", "e.ts", "f.ts"]) {
+      assert.ok(lastBlock.includes(t), `the rolling window keeps the recent tool ${t}`);
+    }
+    assert.ok(lastBlock.split("\n").length <= 6, "the live region stays a compact few rows, never a wall");
+  } finally {
+    render.finishLive();
+  }
+  assert.match(plain(s.text), /● claude · 6 steps · /, "the worker collapses to a single ● summary line at the end");
+  console.log("cli-render: rolling-window fold + Claude-tree glyphs + collapse-to-summary OK");
+}
+
+function testResultTreeLines() {
+  // ⎿ tree lines: a tool's result folds in UNDER its ● bullet once the next action commits it.
+  const s = fakeStream(true);
+  s.columns = 80;
+  const render = createRenderer({ env: {}, stderr: s, label: "claude" });
+  try {
+    render.action("Read(AGENTS.md)");
+    render.result("245 lines");
+    render.action("Grep(spawnSync)"); // commits the Read -> its ⎿ now renders in the block
+    render.result("17 matches");
+    const block = s.text.split("\x1b[0J").pop();
+    assert.ok(block.includes("⎿"), "a ⎿ tree connector renders under a completed tool");
+    assert.ok(block.includes("245 lines"), "the result summary renders in the block");
+  } finally {
+    render.finishLive();
+  }
+  console.log("cli-render: ⎿ tool-result tree lines OK");
+}
+
+const stripAllEsc = (x) => x.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
+
+function testLiveWidthInvariant() {
+  // Every emitted row MUST stay within the terminal width — a wrapped row would make blockRows
+  // under-count the physical cursor movement and the in-place erase would corrupt/creep the block
+  // (the P1 the adversarial review caught: the elapsed string grows past the live-line budget at >1min).
+  const W = 40;
+  const s = fakeStream(true);
+  s.columns = W;
+  const render = createRenderer({ env: {}, stderr: s, label: "claude" });
+  try {
+    render.action("Read(" + "a".repeat(120) + ".ts)");
+    render.result("y".repeat(120));
+    render.action("Bash(" + "x".repeat(200) + ")"); // long phrase fills the live-line budget
+    const block = s.text.split("\x1b[0J").pop();
+    for (const line of block.split("\n")) {
+      const vis = [...stripAllEsc(line)].length;
+      assert.ok(vis <= W, `every live row stays within the ${W}-col terminal (got ${vis}): ${JSON.stringify(stripAllEsc(line))}`);
+    }
+  } finally {
+    render.finishLive();
+  }
+  console.log("cli-render: live rows never exceed terminal width (no wrap → no erase desync) OK");
+}
+
+function testBatchedResults() {
+  // A turn that dispatches several tools before their results arrive: each result must attach to ITS
+  // tool by id, so an earlier tool that already folded into the window keeps its ⎿ (the P2 fix).
+  const s = fakeStream(true);
+  s.columns = 80;
+  const render = createRenderer({ env: {}, stderr: s, label: "claude" });
+  try {
+    render.action("Read(a.ts)", "id-a");
+    render.action("Read(b.ts)", "id-b"); // commits A (id-a) into the window BEFORE its result arrives
+    render.result("11 lines", false, "id-a"); // must still attach to the now-folded A, not to B
+    const block = s.text.split("\x1b[0J").pop();
+    assert.ok(block.includes("11 lines"), "a batched tool keeps its ⎿ result even after it folded in (keyed by id)");
+  } finally {
+    render.finishLive();
+  }
+  console.log("cli-render: batched tool_results keep each tool's ⎿ (keyed by tool_use_id) OK");
+}
+
 function main() {
   testTruncateAndWidth();
   testColorEnv();
@@ -219,6 +327,10 @@ function main() {
   testProgressThinWrite();
   testFullAndBlocked();
   testCursorHygiene();
+  testRollingWindowFold();
+  testResultTreeLines();
+  testLiveWidthInvariant();
+  testBatchedResults();
   console.log("cli-render-smoke: ok");
 }
 

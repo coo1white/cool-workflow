@@ -42,7 +42,7 @@ try {
 }
 
 const prompt = buildPrompt(inputPath);
-const render = createRenderer({ env: process.env, stderr: process.stderr });
+const render = createRenderer({ env: process.env, stderr: process.stderr, label: "codex" });
 const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
 const state = { provider: "codex", buffer: "", model: undefined, usage: undefined, renderer: render };
 const capturedStdout = [];

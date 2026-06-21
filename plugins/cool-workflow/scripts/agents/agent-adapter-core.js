@@ -54,7 +54,8 @@ function trace(line, env = process.env, stderr = process.stderr) {
 // ---- live renderer (zero-dep, hand-rolled — kept self-contained so this wrapper stays a
 //      copyable "config", not a build-coupled dependency) -----------------------------------
 
-const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+// The live "thinking" glyph cycles a sparkle (Claude-Code feel), not a generic braille spinner.
+const SPARKLE = ["✶", "✸", "✹", "✺", "✹", "✸"];
 const ANSI = { reset: "\x1b[0m", dim: "\x1b[2m", green: "\x1b[32m", red: "\x1b[31m", cyan: "\x1b[36m", hideCursor: "\x1b[?25l", showCursor: "\x1b[?25h", clearLine: "\r\x1b[2K" };
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 
@@ -78,23 +79,34 @@ function fmtElapsed(ms) {
   return s < 60 ? `${s.toFixed(1)}s` : `${Math.floor(s / 60)}m${String(Math.round(s % 60)).padStart(2, "0")}s`;
 }
 
-/** A single live status line (interactive) or append-only lines (non-TTY), plus an always-on
- *  transcript buffer. `action(label)` commits the PREVIOUS action as ✓/✗ then makes `label` the
+/** A calm, FOLDING live view (interactive) or append-only lines (non-TTY), plus an always-on
+ *  transcript buffer. Interactive: a rolling window redrawn IN PLACE — the current action (spinner)
+ *  plus the last WINDOW completed tools (dimmed). Older tools fold away (the full trail is always in
+ *  the transcript), so the region stays a few rows and never grows into a wall; at the end it
+ *  collapses to ONE summary line. `action(label)` commits the PREVIOUS action then makes `label` the
  *  current spinning action — vendor-neutral folding without needing reliable start/end pairing. */
 function createRenderer(opts = {}) {
   const env = opts.env || process.env;
   const stderr = opts.stderr || process.stderr;
+  const label = String(opts.label || "agent"); // provider name, only for the end-of-run summary line
   const interactive = streamEnabled(env) && Boolean(stderr.isTTY);
   // Non-TTY default stays SILENT (CW's Rule of Silence). Plain append-only logging in non-TTY
   // is an explicit opt-in for CI debuggability — `CW_AGENT_STREAM=1`, mirroring CW_DRIVE_PROGRESS=1.
   const plain = streamEnabled(env) && !stderr.isTTY && env.CW_AGENT_STREAM === "1";
   const verbose = env.CW_VERBOSE === "1" || env.CW_VERBOSE === "true" || env.CW_OUTPUT === "full";
   const color = colorOn(env, stderr);
-  const width = Math.max(20, Math.min(120, Number(stderr.columns) || 80));
   const paint = (code, text) => (color ? `${code}${text}${ANSI.reset}` : text);
 
+  // How many completed tools stay visible above the spinner (the rolling window). Env-tunable.
+  const WINDOW = Math.max(0, Math.min(20, Number(env.CW_LIVE_ROWS) || 4));
+  const INDENT = "  ";
+  const cols = () => Math.max(20, Math.min(200, Number(stderr.columns) || 80));
+
   const transcript = [];
-  let live = "";        // current rendered live line (no trailing newline) when interactive
+  const recent = [];    // [{ label, ms, failed }] — last WINDOW completed actions (interactive)
+  let blockRows = 0;    // terminal rows the live block occupied last frame (for in-place erase)
+  let steps = 0;        // total completed actions (for the summary line)
+  const runStart = Date.now();
   let timer = null;
   let frame = 0;
   let cursorHidden = false;
@@ -111,49 +123,133 @@ function createRenderer(opts = {}) {
     process.once("SIGTERM", onSignal);
   }
 
-  const renderLive = () => {
-    if (!interactive || !current) return;
-    if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
-    const el = paint(ANSI.dim, fmtElapsed(Date.now() - current.startedAt));
-    const sp = paint(ANSI.cyan, SPINNER[frame % SPINNER.length]);
-    live = `${sp} ${truncate(current.label, width - 10)} ${el}`;
-    stderr.write(`${ANSI.clearLine}${live}`);
+  // One completed-tool row, Claude-tree style: `  ● Read(foo.ts)` — the bullet is green (red on
+  // failure), the tool name bold + its (arg) dimmed; no per-tool duration. Width-truncated.
+  const styledLabel = (label, width) => {
+    const text = truncate(label, width - 4);
+    const m = /^(\w+)\((.*)\)$/.exec(text);
+    if (m) return `${m[1]}${paint(ANSI.dim, `(${m[2]})`)}`;
+    return text;
   };
-  const clearLive = () => { if (interactive && live) { stderr.write(ANSI.clearLine); live = ""; } };
-  const ensureTimer = () => {
-    if (interactive && !timer) timer = setInterval(() => { frame++; renderLive(); }, 90);
+  const doneLine = (item, width) => {
+    const bullet = paint(item.failed ? ANSI.red : ANSI.green, "●");
+    return `${INDENT}${bullet} ${styledLabel(item.label, width)}`;
+  };
+  // The live "thinking" row, Claude-tree style: `  ✶ Reading foo.ts… (4s)` — a sparkle + a
+  // tool-derived verb phrase + dim elapsed. A non-tool status label is shown as-is (sans trailing …).
+  const livePhrase = () => {
+    const m = /^(\w+)\((.*)\)$/.exec(current.label);
+    if (m) return `${verbFor(m[1])} ${m[2]}`;
+    return current.label.replace(/…+$/, "");
+  };
+  const liveLine = (width) => {
+    const elapsed = `(${fmtElapsed(Date.now() - current.startedAt)})`;
+    const el = paint(ANSI.dim, elapsed);
+    const sp = paint(ANSI.cyan, SPARKLE[frame % SPARKLE.length]);
+    // Reserve EXACT room for the fixed decorations + the VARIABLE elapsed string (which grows from 6
+    // chars `(4.0s)` to 9 `(100m00s)`): indent(2) + sparkle+space(2) + ellipsis+space(2) + elapsed,
+    // minus 1 column of margin. A fixed `width - N` budget overflowed past 1 minute and wrapped.
+    const budget = width - 6 - elapsed.length - 1;
+    return `${INDENT}${sp} ${truncate(livePhrase(), budget)}${paint(ANSI.dim, "…")} ${el}`;
   };
 
+  // Erase the previously-drawn block in place: go to its first row, clear to end of screen.
+  const eraseBlock = () => {
+    if (!interactive || blockRows <= 0) return;
+    stderr.write("\r");
+    if (blockRows > 1) stderr.write(`\x1b[${blockRows - 1}A`);
+    stderr.write("\x1b[0J");
+    blockRows = 0;
+  };
+
+  // The `⎿ result` tree line under a completed tool (dimmed), e.g. `    ⎿ 245 lines`.
+  const resultLine = (result, width) => `${INDENT}  ${paint(ANSI.dim, `⎿ ${truncate(result, width - 6)}`)}`;
+
+  // Redraw the rolling window (recent ● rows + their ⎿ results + the live spinner) in place.
+  const renderBlock = () => {
+    if (!interactive) return;
+    if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
+    eraseBlock();
+    const width = cols();
+    const lines = [];
+    for (const item of recent.slice(-WINDOW)) {
+      lines.push(doneLine(item, width));
+      if (item.result) lines.push(resultLine(item.result, width));
+    }
+    if (current) lines.push(liveLine(width));
+    if (!lines.length) return;
+    // HARD GUARD: cap EVERY emitted line to the terminal width so none can wrap to a 2nd physical
+    // row. A wrapped row would make blockRows (logical count) under-count the real cursor movement,
+    // so eraseBlock's cursor-up would land a row short and corrupt/creep the block. This also closes
+    // the resize path: each frame caps to the CURRENT width, so a narrowed terminal can't desync.
+    const safe = lines.map((l) => truncate(l, width));
+    stderr.write(safe.join("\n"));
+    blockRows = safe.length;
+  };
+
+  const ensureTimer = () => {
+    if (interactive && !timer) timer = setInterval(() => { frame++; renderBlock(); }, 90);
+  };
+
+  // Commit the current action: record it to the transcript + roll it into the window (interactive)
+  // or append a plain line (CI). The interactive REDRAW happens in the caller (action/stop), so a
+  // commit never leaves a permanent per-tool line — that was the 0.1.91 "wall".
   const commit = () => {
     if (!current) return;
     const ms = Date.now() - current.startedAt;
-    const glyph = current.failed ? paint(ANSI.red, "✗") : paint(ANSI.green, "✓");
-    const doneLine = `${glyph} ${paint(ANSI.dim, `${truncate(current.label, width - 12)} (${fmtElapsed(ms)})`)}`;
     transcript.push(`- ${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})`);
-    if (interactive) { clearLive(); stderr.write(`${doneLine}\n`); }
-    else if (plain) stderr.write(`${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})\n`);
+    steps += 1;
+    if (interactive) {
+      recent.push({ label: current.label, id: current.id, result: current.result, failed: current.failed });
+      while (recent.length > WINDOW) recent.shift();
+    } else if (plain) {
+      stderr.write(`${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})\n`);
+    }
     current = null;
   };
 
   return {
-    /** Begin a new active action (commits + folds the previous one). */
-    action(label) {
+    /** Begin a new active action (folds the previous one into the rolling window). `id` (a vendor
+     *  tool_use id) lets a later result() attach to THIS tool even after it has folded — needed when
+     *  one assistant turn dispatches several tools before their results arrive. */
+    action(label, id) {
       commit();
-      current = { label: String(label || "working…"), startedAt: Date.now(), failed: false };
+      current = { label: String(label || "working…"), id, startedAt: Date.now(), failed: false };
       ensureTimer();
-      if (interactive) renderLive();
+      if (interactive) renderBlock();
       else if (plain) stderr.write(`→ ${current.label}\n`);
     },
-    /** Mark the current action as failed (it commits as ✗). */
+    /** Mark the current action as failed (it folds in as a red ●). */
     fail() { if (current) current.failed = true; },
-    /** Narration text from the model. Always to the transcript; inline only in --verbose. */
+    /** Attach a short result summary to a tool — rendered as a dim `⎿ summary` tree line. `id` keys
+     *  it to a SPECIFIC tool_use so a batch of tools dispatched in one turn each keep their own result
+     *  (without an id it falls back to the current tool). Always recorded to the transcript. */
+    result(summary, failed, id) {
+      const s = String(summary || "").replace(/\s+/g, " ").trim();
+      if (!s && !failed) return;
+      // Find the target: prefer the matching id (current, else the most-recent committed item with
+      // that id); otherwise the current tool. This keeps earlier batched tools' ⎿ from being lost.
+      let target = null;
+      if (id != null) {
+        if (current && current.id === id) target = current;
+        else for (let k = recent.length - 1; k >= 0; k -= 1) { if (recent[k].id === id) { target = recent[k]; break; } }
+      }
+      if (!target) target = current;
+      if (target) { if (s) target.result = s; if (failed) target.failed = true; }
+      if (s) transcript.push(`  ⎿ ${s}`);
+      if (plain && s) stderr.write(`  ⎿ ${s}\n`);
+      // A result attached to an ALREADY-folded item must redraw the block to show its new ⎿.
+      if (interactive && target && target !== current) renderBlock();
+    },
+    /** Narration text from the model. Always to the transcript; inline only in --verbose (printed
+     *  ABOVE the live window, which then redraws below it). */
     text(chunk) {
       const t = String(chunk || "").trim();
       if (!t) return;
       transcript.push(t);
       if (!verbose) return;
-      if (interactive) { clearLive(); stderr.write(`${paint(ANSI.dim, truncate(t, width))}\n`); renderLive(); }
-      else if (plain) stderr.write(`${truncate(t, width)}\n`);
+      if (interactive) { eraseBlock(); stderr.write(`${INDENT}${paint(ANSI.dim, truncate(t, cols() - 2))}\n`); renderBlock(); }
+      else if (plain) stderr.write(`${truncate(t, cols())}\n`);
     },
     /** A short status note (e.g. provider summary). Transcript always; inline in --verbose. */
     note(text) { this.text(text); },
@@ -166,10 +262,18 @@ function createRenderer(opts = {}) {
     isVerbose: () => verbose
   };
 
+  // Stop: fold the last action in, erase the live window, and collapse to ONE permanent summary
+  // line (`  ✓ <provider> — N steps · 2m41s`) so the worker leaves a single calm trace.
   function stop() {
     if (timer) { clearInterval(timer); timer = null; }
     commit();
-    clearLive();
+    if (interactive) {
+      eraseBlock();
+      if (steps > 0) {
+        const summary = `${paint(ANSI.green, "●")} ${paint(ANSI.dim, `${label} · ${steps} step${steps === 1 ? "" : "s"} · ${fmtElapsed(Date.now() - runStart)}`)}`;
+        stderr.write(`${INDENT}${summary}\n`);
+      }
+    }
     restoreCursor();
   }
 }
@@ -219,6 +323,52 @@ function toolArgFromEvent(ev) {
   return firstString(input.file_path, input.path, input.pattern, input.command, input.query, input.url, input.cmd) || "";
 }
 
+// ---- Claude-Code-style tool labels: `ToolName(compactArg)` -------------------------------------
+// File tools show the BASENAME (Read(foo.ts), not Read(/Users/…/foo.ts)); everything else (Bash
+// commands, Grep/Glob patterns) is collapsed + truncated. Shared by every wrapper so the look can't
+// drift per vendor.
+const FILE_TOOLS = /^(Read|Write|Edit|MultiEdit|NotebookEdit|NotebookRead)$/i;
+function compactToolArg(name, rawArg) {
+  const s = String(rawArg || "").replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  if (FILE_TOOLS.test(String(name || "")) && s.includes("/")) return s.split("/").filter(Boolean).pop() || s;
+  return s.length > 40 ? `${s.slice(0, 39)}…` : s;
+}
+function toolLabel(name, rawArg) {
+  const n = String(name || "").trim();
+  const arg = compactToolArg(n, rawArg);
+  return arg ? `${n}(${arg})` : n;
+}
+// The present-tense verb for the live "thinking" line, derived from the tool.
+function verbFor(name) {
+  const t = String(name || "").toLowerCase();
+  if (/read|cat|notebookread/.test(t)) return "Reading";
+  if (/write|edit/.test(t)) return "Editing";
+  if (/bash|shell|exec|run|command/.test(t)) return "Running";
+  if (/grep|glob|search|find|ls|list/.test(t)) return "Searching";
+  if (/fetch|web|http|download/.test(t)) return "Fetching";
+  if (/task|agent|sub/.test(t)) return "Delegating";
+  return "Working";
+}
+
+// A short result summary for the `⎿` tree line, derived from the tool + its raw output (Claude-Code
+// feel: `⎿ 245 lines` / `⎿ 12 matches` / `⎿ error`). Heuristic + tool-aware; never throws.
+function summarizeToolResult(name, text, isError) {
+  if (isError) return "error";
+  const raw = String(text || "");
+  const lines = raw.split("\n").filter((l) => l.trim().length).length;
+  const t = String(name || "").toLowerCase();
+  let s;
+  if (/read|cat/.test(t)) s = `${lines} line${lines === 1 ? "" : "s"}`;
+  else if (/glob|ls|find/.test(t)) s = `${lines} file${lines === 1 ? "" : "s"}`;
+  else if (/grep|search/.test(t)) s = `${lines} match${lines === 1 ? "" : "es"}`;
+  else if (/bash|shell|exec|run/.test(t)) {
+    const first = raw.split("\n").map((l) => l.trim()).find(Boolean) || "";
+    s = lines <= 1 && first ? first : `${lines} line${lines === 1 ? "" : "s"}`;
+  } else s = `${lines} line${lines === 1 ? "" : "s"}`;
+  return s.length > 40 ? `${s.slice(0, 39)}…` : s;
+}
+
 function textFromEvent(ev) {
   const delta = maybeObject(ev.delta);
   const msg = maybeObject(ev.message);
@@ -238,8 +388,7 @@ function renderJsonEvent(provider, ev, state) {
 
   const toolName = toolNameFromEvent(ev);
   if (toolName || /tool|command/i.test(type)) {
-    const arg = shortText(toolArgFromEvent(ev), 80);
-    const label = `${toolName || type}${arg ? ` ${arg}` : ""}`;
+    const label = toolLabel(toolName || type, toolArgFromEvent(ev));
     if (r) r.action(label);
     else trace(`  -> ${label}`);
     return;
@@ -307,6 +456,8 @@ module.exports = {
   trace,
   createRenderer,
   truncate, // exported only so cli-render-smoke can assert it stays identical to term.ts truncate()
+  toolLabel, // `ToolName(compactArg)` — shared by the claude wrapper so the label format can't drift
+  summarizeToolResult, // `⎿` result summary — shared so vendors derive it identically
   parseJsonLines,
   flushJsonLines,
   writeResult,

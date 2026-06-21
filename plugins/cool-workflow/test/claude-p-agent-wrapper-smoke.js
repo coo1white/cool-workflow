@@ -60,7 +60,8 @@ function shimDir(behavior) {
       "if (format !== 'stream-json') { process.stdout.write(JSON.stringify({ result: '# Analysis\\n\\nstub markdown answer', model: 'claude-shim-model', usage: { input_tokens: 11, output_tokens: 7 }, extra: 'legacy-verbatim' })); process.exit(0); }",
       "const emit = (o) => process.stdout.write(JSON.stringify(o) + '\\n');",
       "emit({ type: 'system', subtype: 'init', tools: ['Read'] });",
-      "emit({ type: 'assistant', message: { model: 'claude-shim-model', content: [ { type: 'tool_use', name: 'Read', input: { file_path: 'app.js' } }, { type: 'text', text: '# Analysis\\n\\nstub markdown answer' } ] } });",
+      "emit({ type: 'assistant', message: { model: 'claude-shim-model', content: [ { type: 'tool_use', id: 'tu_1', name: 'Read', input: { file_path: 'app.js' } }, { type: 'text', text: '# Analysis\\n\\nstub markdown answer' } ] } });",
+      "emit({ type: 'user', message: { content: [ { type: 'tool_result', tool_use_id: 'tu_1', is_error: false, content: 'line one\\nline two\\nline three' } ] } });",
       "emit({ type: 'system', subtype: 'post_turn_summary', status_detail: 'analyzed app.js' });",
       "emit({ type: 'result', subtype: 'success', is_error: false, result: '# Analysis\\n\\nstub markdown answer', usage: { input_tokens: 11, output_tokens: 7 } });"
     );
@@ -119,7 +120,8 @@ function main() {
     assert.ok(fs.existsSync(transcriptPath), "wrapper writes transcript.md next to result.md");
     const transcript = fs.readFileSync(transcriptPath, "utf8");
     assert.match(transcript, /# Agent transcript/, "transcript carries its header");
-    assert.ok(transcript.includes("Read app.js"), "transcript records the tool I/O even though the screen was silent");
+    assert.ok(transcript.includes("Read(app.js)"), "transcript records the tool I/O (Claude-tree label) even though the screen was silent");
+    assert.ok(transcript.includes("⎿ 3 lines"), "transcript records the ⎿ tool-result summary (Read -> 3 lines)");
     assert.ok(transcript.includes("stub markdown answer"), "transcript records the model narration even though the screen was silent");
     console.log("wrapper: default stream-json prompt delivery + read-only + result persistence + provenance + transcript-on-disk ok");
   }
@@ -136,7 +138,8 @@ function main() {
     // CW_AGENT_STREAM=1 opts non-TTY into a PLAIN append-only trace (CI debuggability): the live
     // events render as `→ …` / `✓ … (Xs)` lines with ZERO ANSI/cursor bytes (rich is TTY-only).
     assert.ok(!/\x1b\[/.test(child.stderr), "non-TTY trace carries NO ANSI/cursor escapes");
-    assert.match(child.stderr, /→ Read app\.js/, "the tool action is logged as a plain append-only line");
+    assert.match(child.stderr, /→ Read\(app\.js\)/, "the tool action is logged as a plain append-only line (Claude-tree label)");
+    assert.match(child.stderr, /⎿ 3 lines/, "the tool result folds into a ⎿ summary line in the plain trace");
     assert.match(child.stderr, /✓ .*\(\d/, "the action folds to a ✓ line with elapsed time");
     // Default verbosity is COMPACT: the live trace shows the current action + folded tool lines,
     // but HIDES the model's narration/reasoning (that stays in the on-disk transcript).
