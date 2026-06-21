@@ -66,7 +66,7 @@ function testTruncateAndWidth() {
   }
 
   // Claude-tree labels: file tools show the basename, patterns/commands stay (truncated).
-  assert.equal(toolLabel("Read", "/Users/nick/src/foo.ts"), "Read(foo.ts)", "file tool -> basename");
+  assert.equal(toolLabel("Read", "/home/dev/src/foo.ts"), "Read(foo.ts)", "file tool -> basename");
   assert.equal(toolLabel("Edit", "a/b/c.ts"), "Edit(c.ts)", "edit -> basename");
   assert.equal(toolLabel("Glob", "**/*.ts"), "Glob(**/*.ts)", "glob pattern is NOT basenamed");
   assert.equal(toolLabel("Grep", "spawnSync"), "Grep(spawnSync)", "grep pattern kept");
