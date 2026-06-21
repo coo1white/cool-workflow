@@ -1,0 +1,2 @@
+APPROVED ac97934acb2a5b7f4e7339e72be7e48a8cdc64e0
+Running cw -q / run --drive now shows a calm Claude-Code-style live view (in-place spinner + folding ✓/✗ tool lines, always-saved per-worker transcript.md) plus a compact end-of-run findings table, with --verbose/--full/--no-color, while stdout stays byte-exact.
