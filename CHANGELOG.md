@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.89
+
+- **Capability**: The headline command works again, and works from anywhere — like `brew`. `cw -q "your question"` now asks the question instead of failing `Workflow app not found`, it auto-detects the current directory as the repo (no `--repo`, no `cd` into a special path), and `cw help` renders clean (wrapped command list, proper newline) so it never merges with your shell prompt.
+- **Implementation**: Three CLI-surface fixes. `cli/command-surface.ts` consumes the `-q`/`--question` positional (it was copied into the question but left as `positionals[0]`, so the quickstart handler read it as the app id). `capability-core.ts` `quickstart()` defaults `repo` to `invocationCwd()` before the real run (the `--check` preflight already did; the live run did not, so it demanded `--repo`). `orchestrator.ts` `formatHelp` wraps the command list to <=76 cols (was one 415-char line), the help write sites add a trailing newline, and help/error color keys off the stream actually written to (`cli.ts`).
+- **Tests**: `headline-commands-smoke.js` (NEW) runs the DOCUMENTED commands a user types — `cw -q "…"`, the vendor flags, `demo`/`doctor`/`help`/`fix` — and asserts routing, repo auto-detect, and no ANSI escapes in piped stdout (the gap that let 0.1.88's regressions ship: the old smokes only called the internal `quickstart()` API). `npm-global-install-smoke.js` (NEW) packs the package, `npm install -g`s it into a temp prefix, and runs `cw` from an unrelated directory — the install-once-use-anywhere proof. Both are vendor-agnostic (a stub agent, never a live model). Full suite green incl. the 2 new smokes.
+- **Risk**: Low. CLI/UX-surface only; the orchestration engine and the delegation contract are unchanged. The new smokes make "the documented CLI a user types, as installed, renders correctly" a gated, fail-closed property, so this class of regression can no longer ship invisibly.
+
 ## 0.1.88
 
 - **Capability**: Inline sub-workflow nesting — a workflow task can be fulfilled by an entire child app run instead of a single agent, via `subWorkflow(id, appId, { inputs?, bindResult? })`. The drive plans and drives the child, then binds its report (or verdict result) back as the parent task's result, so the parent's verifier/schema/evidence gate consumes it like any other result and large flows compose from smaller verified ones.

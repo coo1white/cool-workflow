@@ -162,3 +162,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 A new `loop-control` StateNodeKind now flows through per-node snapshot/diff/replay (loop decisions are recorded as deterministic, replay-stable nodes); `appendRunNode` was optimized to mutate `run.nodes` in place (O(1) per append vs O(N^2) churn) with byte-identical persisted state, so snapshot/replay digests are unchanged.
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._

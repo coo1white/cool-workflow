@@ -221,3 +221,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 Attestation now signs the agent's RESULT, not just its usage: `TelemetryAttestationRecord.resultDigest` hash-binds sha256(result.md) into the ed25519-signed, hash-chained ledger so an offline re-verifier reconstructs the exact signed payload. Budget-aware loop scaling reads the SAME recorded usage total (`deriveUsageTotals`) the fail-closed cost cap reads, so a `until:{kind:"budget-target"}` loop stops on a token target while the cap stays the absolute backstop.
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._

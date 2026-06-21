@@ -242,3 +242,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 _No behavioral change in v0.1.88 (the five operator surfaces and the registry cross-run entry are unchanged; the Workbench still derives everything from state the CLI/MCP already expose)._
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._

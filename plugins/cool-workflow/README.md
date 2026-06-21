@@ -462,6 +462,10 @@ Verification and synthesis tasks need a structured result block:
 ```
 ````
 
+## 0.1.89 (v0.1.89)
+
+Headline golden-path fixes: `cw -q "question"` asks the question (was read as an app id), auto-detects the cwd as the repo (run anywhere, no `--repo`/`cd`), and `cw help` renders a clean wrapped command list with a trailing newline; plus a vendor-agnostic UI/UX prevention gate (a headline-command smoke + a real `npm install -g` run-from-anywhere smoke) so a CLI-surface regression can't ship invisibly again.
+
 ## 0.1.88 (v0.1.88)
 
 Orchestration-parity for the agent drive — inline `subWorkflow()` nesting, bounded dynamic `loop()` phases (a `predicate` or a `budget-target` token `until`), and `cw run --drive --incremental` step-level resume; the agent now signs its findings (result-bound ed25519) and `cw report verify-bundle --require-signatures` proves offline that every signed finding is in the report unaltered; CLI simplified to 6 commands with agent streaming on by default; path-traversal run ids refused on archive import.

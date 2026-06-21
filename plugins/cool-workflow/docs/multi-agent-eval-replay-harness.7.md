@@ -329,3 +329,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 _No change in behavior in v0.1.88 (no harness code changed; the new `loop-control` state node and loop result nodes replay byte-identically through the existing normalize/replay machinery, and pre-0.1.88 snapshots load unchanged)._
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._

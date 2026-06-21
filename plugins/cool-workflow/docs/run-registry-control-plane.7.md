@@ -430,3 +430,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 Security: archive import now refuses path-traversal run ids (`..`/absolute/separator-bearing ids) before any run dir is minted, closing a write-outside-the-registry vector; run resolution and the run-state schema are otherwise unchanged.
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._
