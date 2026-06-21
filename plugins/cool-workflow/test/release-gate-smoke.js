@@ -147,6 +147,24 @@ function seedReleaseWork(dir) {
   assert.match(r.out, /cadence/, "should name the cadence failure");
 }
 
+// ---- Case 6b: cadence bypass via a recorded HOTFIX line -> PASS ----
+// An urgent fix may ship inside the cadence window ONLY with an explicit, committed
+// "HOTFIX:" reason. Same <4-cycles / <24h setup as Case 6, but the bypass is recorded.
+{
+  const dir = freshRepo();
+  write(dir, "README.md", "init\n");
+  commitAll(dir, "init");
+  git(dir, ["tag", "v0.0.1"]); // tag timestamp is "now" => <24h
+  write(dir, "plugins/cool-workflow/src/feature.ts", "export const h = 4;\n");
+  write(dir, "plugins/cool-workflow/test/h-smoke.js", "//\n");
+  write(dir, "ITERATION_LOG.md",
+    "| 1 |\n| 2 |\nHOTFIX: live headline command broken on npm; ship inside 24h to stop user breakage\n");
+  commitAll(dir, "urgent hotfix");
+  const r = runGate(dir);
+  assert.equal(r.code, 0, `a recorded HOTFIX must bypass cadence within the window:\n${r.out}`);
+  assert.match(r.out, /cadence bypassed by recorded HOTFIX/, "must echo the bypass + reason (auditable, never silent)");
+}
+
 // ---- Case 7: version-number branch name -> REJECT ----
 {
   const dir = freshRepo();

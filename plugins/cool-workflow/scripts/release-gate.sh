@@ -51,7 +51,7 @@ if [[ -n "$PREV_TAG" ]]; then
   TESTS_CHANGED=$(git diff --name-only "$RANGE" | grep -cE '\.(test|spec)\.|/tests?/' || true)
   [[ "$TESTS_CHANGED" -gt 0 ]] || fail "zero test changes since $PREV_TAG"
 
-  # --- 4. Cadence: >=4 cycles logged OR >=24h since previous tag -------
+  # --- 4. Cadence: >=4 cycles logged OR >=24h since previous tag, or a recorded HOTFIX ---
   say "[5/6] cadence"
   CYCLES=0
   if [[ -f ITERATION_LOG.md && -n "$PREV_TAG" ]]; then
@@ -60,8 +60,17 @@ if [[ -n "$PREV_TAG" ]]; then
   PREV_TS=$(git log -1 --format=%ct "$PREV_TAG")
   NOW_TS=$(date +%s)
   HOURS=$(( (NOW_TS - PREV_TS) / 3600 ))
+  # Hotfix path: an urgent fix may ship inside the cadence window, but ONLY via an
+  # EXPLICIT, RECORDED declaration — a "HOTFIX:" line added to ITERATION_LOG.md in this
+  # release range, carrying a reason. It is committed (auditable in the tag's history)
+  # and echoed here, so the bypass is never silent and a reviewer sees the reason.
+  HOTFIX="$(git diff "$RANGE" -- ITERATION_LOG.md | grep -E '^\+.*HOTFIX:' | head -1 | sed -E 's/^\+[[:space:]]*//' || true)"
   if [[ "$CYCLES" -lt 4 && "$HOURS" -lt 24 ]]; then
-    fail "cadence: only $CYCLES cycles logged and ${HOURS}h since $PREV_TAG (need >=4 cycles or >=24h)"
+    if [[ -n "$HOTFIX" ]]; then
+      say "  cadence bypassed by recorded HOTFIX (${HOURS}h, ${CYCLES} cycle-lines): ${HOTFIX}"
+    else
+      fail "cadence: only $CYCLES cycles logged and ${HOURS}h since $PREV_TAG (need >=4 cycles, >=24h, or a recorded 'HOTFIX:' line in ITERATION_LOG.md)"
+    fi
   fi
 else
   say "[3-5/6] no previous tag; substance/evidence/cadence checks skipped"
