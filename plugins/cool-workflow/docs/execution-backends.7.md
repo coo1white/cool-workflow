@@ -333,3 +333,5 @@ Agent stderr live-streaming is now on by default when stderr is a TTY (CW_AGENT_
 _No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._
 
 0.1.90
+
+0.1.91

@@ -227,3 +227,5 @@ Attestation now signs the agent's RESULT, not just its usage: `TelemetryAttestat
 _No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._
 
 0.1.90
+
+0.1.91

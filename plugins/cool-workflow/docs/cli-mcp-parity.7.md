@@ -526,3 +526,5 @@ CLI surface simplified to 6 commands with agent stderr streaming on by default a
 CLI golden-path fixes: `cw -q "…"` routes the question (was read as an app id → "Workflow app not found"), auto-detects the cwd as the repo (run anywhere, no `--repo`), and `cw help` wraps its command list with a trailing newline; the CLI↔MCP parity contract and the help-token parser are unchanged.
 
 0.1.90
+
+0.1.91

@@ -29,7 +29,7 @@ const plan = runJson(
 
 let status = runText(["status", plan.runId], tmp);
 assert.match(status, new RegExp(`Run: ${plan.runId}`));
-assert.match(status, /Workflow: end-to-end-golden-path \(end-to-end-golden-path@0\.1\.90\)/);
+assert.match(status, /Workflow: end-to-end-golden-path \(end-to-end-golden-path@0\.1\.91\)/);
 assert.match(status, /Stage: interpret/);
 assert.match(status, /Phase: Golden Path/);
 assert.match(status, /Tasks: pending=1; total=1/);

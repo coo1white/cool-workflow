@@ -512,3 +512,5 @@ Orchestration-parity for the agent drive — inline `subWorkflow()` nesting, bou
 npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-style CLI UX (colors/did-you-mean/categorized help/error tips/cw info/cw search/cw man/doctor --fix), post-success summaries, agent execution timing
 
 v0.1.90
+
+v0.1.91

@@ -301,3 +301,5 @@ The host-facing surface tracks the CLI simplification to 6 commands (streaming o
 The host-facing surface tracks the CLI golden-path fixes (`cw -q` routing + repo auto-detect + clean help); the multi-agent verbs and their MCP-tool mirrors are unchanged.
 
 0.1.90
+
+0.1.91
