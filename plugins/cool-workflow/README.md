@@ -67,7 +67,9 @@ cw -q "What are the risks?" --link https://github.com/owner/repo
 cw -q "What are the risks?" --link git@gitlab.com:owner/repo.git --ref v1.2.0
 ```
 
-Works with GitHub, GitLab, Bitbucket, self-hosted git, `ssh://`, and `file://`. The clone is
+Works with GitHub, GitLab, Bitbucket, self-hosted git, `ssh://`, and `file://` — **and with
+downloadable archives** (`.tar.gz`/`.tgz`/`.tar`/`.zip`, e.g. a GitHub "Download ZIP" link),
+which are fetched, extracted, and snapshotted into a local repo before review. The clone is
 cached under `~/.local/state/cool-workflow/clones/` and reused on the next question (`--refresh`
 re-fetches; manage with `cw clones list` / `cw clones gc`). The report records the exact origin —
 `Source: <url>@<commit>` — and a tamper-evident `source.clone` event you can re-prove with
