@@ -1,0 +1,2 @@
+APPROVED 2302e84e7d59fb861016979f61452f05786e5f21
+A user can point CW at any local non-git folder of docs/notes/papers and get a saved, cited, verifiable report via 'cw quickstart research-synthesis --repo <folder> --question "..."' — its report labeled Source: rather than Repository:.
