@@ -923,8 +923,30 @@ function formatInfo(appId, data) {
     return lines.join("\n");
 }
 function formatHelp() {
+    // Help is written to stdout, so color must key off stdout (not the term default).
+    const out = process.stdout;
+    const moreCommands = ("list search info init plan status next dispatch result state commit report app " +
+        "sandbox backend contract node feedback worker audit candidate review loop schedule " +
+        "routine registry run queue history quickstart audit-run multi-agent topology summary " +
+        "blackboard coordinator metrics operator sched gc telemetry migration demo workbench " +
+        "approve reject comment handoff graph eval man version update fix").split(" ");
+    // Wrap the command list into clean, indented, pipe-joined lines (<=76 cols) instead of
+    // one 400-char line that wraps raggedly and merges with the next shell prompt. Pipe-joined
+    // (no internal spaces) keeps it parseable by the CLI/MCP parity help-token check.
+    const wrapped = [];
+    let line = "  ";
+    for (const cmd of moreCommands) {
+        const sep = line.length > 2 ? "|" : "";
+        if (line.length + sep.length + cmd.length > 76) {
+            wrapped.push(line);
+            line = "  ";
+        }
+        line += (line.length > 2 ? "|" : "") + cmd;
+    }
+    if (line.length > 2)
+        wrapped.push(line);
     return [
-        (0, term_1.bold)("Cool Workflow"),
+        (0, term_1.bold)("Cool Workflow", out),
         "",
         "  -q \"question\" [-claude|-codex|-deepseek]  Ask a question, get a report",
         "  version                                   Show version",
@@ -932,14 +954,15 @@ function formatHelp() {
         "  doctor                                    Check setup",
         "  fix                                       Show fix commands for setup issues",
         "",
-        (0, term_1.bold)("Flags"),
+        (0, term_1.bold)("Flags", out),
         "  -q, --question TEXT    The task or question to answer",
         "  -r, --repo PATH        Target repository path (default: .)",
         "  -claude                Use Claude agent",
         "  -codex                 Use Codex agent",
         "  -deepseek              Use DeepSeek (via opencode)",
         "",
-        "  list|search|info|init|plan|status|next|dispatch|result|state|commit|report|app|sandbox|backend|contract|node|feedback|worker|audit|candidate|review|loop|schedule|routine|registry|run|queue|history|quickstart|audit-run|multi-agent|topology|summary|blackboard|coordinator|metrics|operator|sched|gc|telemetry|migration|demo|workbench|approve|reject|comment|handoff|graph|eval|man|version|update|fix  More commands"
+        (0, term_1.bold)("More commands", out),
+        ...wrapped
     ].join("\n");
 }
 function appendOption(options, key, value) {
