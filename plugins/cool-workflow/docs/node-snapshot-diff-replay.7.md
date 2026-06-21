@@ -166,3 +166,5 @@ A new `loop-control` StateNodeKind now flows through per-node snapshot/diff/repl
 ## 0.1.89 (v0.1.89)
 
 _No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._
+
+0.1.90
