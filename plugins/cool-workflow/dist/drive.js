@@ -33,6 +33,7 @@ exports.drivePreview = drivePreview;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const term_1 = require("./term");
+const reporter_1 = require("./reporter");
 const dispatch_1 = require("./dispatch");
 const execution_backend_1 = require("./execution-backend");
 const worker_isolation_1 = require("./worker-isolation");
@@ -83,7 +84,7 @@ function emitProgress(message) {
     const forcedOff = process.env.CW_DRIVE_PROGRESS === "0";
     const forcedOn = process.env.CW_DRIVE_PROGRESS === "1";
     if ((Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn)
-        process.stderr.write(`[drive] ${message}\n`);
+        reporter_1.reporter.progress(`[drive] ${message}`);
 }
 /** Advance exactly ONE deterministic step. Pure-ish: all mutation is through the
  *  existing runner verbs + runBackend. */

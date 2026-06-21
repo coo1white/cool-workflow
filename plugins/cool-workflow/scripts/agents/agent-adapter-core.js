@@ -51,6 +51,124 @@ function trace(line, env = process.env, stderr = process.stderr) {
   stderr.write(`${line}\n`);
 }
 
+// ---- live renderer (zero-dep, hand-rolled — kept self-contained so this wrapper stays a
+//      copyable "config", not a build-coupled dependency) -----------------------------------
+
+const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const ANSI = { reset: "\x1b[0m", dim: "\x1b[2m", green: "\x1b[32m", red: "\x1b[31m", cyan: "\x1b[36m", hideCursor: "\x1b[?25l", showCursor: "\x1b[?25h", clearLine: "\r\x1b[2K" };
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
+function colorOn(env, stderr) {
+  if ((env.NO_COLOR ?? "") !== "" || (env.CW_NO_COLOR ?? "") !== "") return false;
+  if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0") return true;
+  return Boolean(stderr.isTTY);
+}
+function truncate(text, max) {
+  const chars = [...String(text).replace(ANSI_RE, "")];
+  if (chars.length <= max) return String(text).replace(ANSI_RE, "");
+  return max <= 1 ? "…" : `${chars.slice(0, max - 1).join("")}…`;
+}
+function fmtElapsed(ms) {
+  const s = ms / 1000;
+  return s < 60 ? `${s.toFixed(1)}s` : `${Math.floor(s / 60)}m${String(Math.round(s % 60)).padStart(2, "0")}s`;
+}
+
+/** A single live status line (interactive) or append-only lines (non-TTY), plus an always-on
+ *  transcript buffer. `action(label)` commits the PREVIOUS action as ✓/✗ then makes `label` the
+ *  current spinning action — vendor-neutral folding without needing reliable start/end pairing. */
+function createRenderer(opts = {}) {
+  const env = opts.env || process.env;
+  const stderr = opts.stderr || process.stderr;
+  const interactive = streamEnabled(env) && Boolean(stderr.isTTY);
+  // Non-TTY default stays SILENT (CW's Rule of Silence). Plain append-only logging in non-TTY
+  // is an explicit opt-in for CI debuggability — `CW_AGENT_STREAM=1`, mirroring CW_DRIVE_PROGRESS=1.
+  const plain = streamEnabled(env) && !stderr.isTTY && env.CW_AGENT_STREAM === "1";
+  const verbose = env.CW_VERBOSE === "1" || env.CW_VERBOSE === "true" || env.CW_OUTPUT === "full";
+  const color = colorOn(env, stderr);
+  const width = Math.max(20, Math.min(120, Number(stderr.columns) || 80));
+  const paint = (code, text) => (color ? `${code}${text}${ANSI.reset}` : text);
+
+  const transcript = [];
+  let live = "";        // current rendered live line (no trailing newline) when interactive
+  let timer = null;
+  let frame = 0;
+  let cursorHidden = false;
+  let current = null;   // { label, startedAt, failed }
+
+  const restoreCursor = () => {
+    if (cursorHidden) { try { stderr.write(ANSI.showCursor); } catch { /* noop */ } cursorHidden = false; }
+  };
+  // Cursor hygiene: ALWAYS restore on exit / Ctrl-C / kill, even on crash.
+  const onSignal = (sig) => { stop(); process.exit(sig === "SIGINT" ? 130 : 143); };
+  if (interactive) {
+    process.once("exit", restoreCursor);
+    process.once("SIGINT", onSignal);
+    process.once("SIGTERM", onSignal);
+  }
+
+  const renderLive = () => {
+    if (!interactive || !current) return;
+    if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
+    const el = paint(ANSI.dim, fmtElapsed(Date.now() - current.startedAt));
+    const sp = paint(ANSI.cyan, SPINNER[frame % SPINNER.length]);
+    live = `${sp} ${truncate(current.label, width - 10)} ${el}`;
+    stderr.write(`${ANSI.clearLine}${live}`);
+  };
+  const clearLive = () => { if (interactive && live) { stderr.write(ANSI.clearLine); live = ""; } };
+  const ensureTimer = () => {
+    if (interactive && !timer) timer = setInterval(() => { frame++; renderLive(); }, 90);
+  };
+
+  const commit = () => {
+    if (!current) return;
+    const ms = Date.now() - current.startedAt;
+    const glyph = current.failed ? paint(ANSI.red, "✗") : paint(ANSI.green, "✓");
+    const doneLine = `${glyph} ${paint(ANSI.dim, `${truncate(current.label, width - 12)} (${fmtElapsed(ms)})`)}`;
+    transcript.push(`- ${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})`);
+    if (interactive) { clearLive(); stderr.write(`${doneLine}\n`); }
+    else if (plain) stderr.write(`${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})\n`);
+    current = null;
+  };
+
+  return {
+    /** Begin a new active action (commits + folds the previous one). */
+    action(label) {
+      commit();
+      current = { label: String(label || "working…"), startedAt: Date.now(), failed: false };
+      ensureTimer();
+      if (interactive) renderLive();
+      else if (plain) stderr.write(`→ ${current.label}\n`);
+    },
+    /** Mark the current action as failed (it commits as ✗). */
+    fail() { if (current) current.failed = true; },
+    /** Narration text from the model. Always to the transcript; inline only in --verbose. */
+    text(chunk) {
+      const t = String(chunk || "").trim();
+      if (!t) return;
+      transcript.push(t);
+      if (!verbose) return;
+      if (interactive) { clearLive(); stderr.write(`${paint(ANSI.dim, truncate(t, width))}\n`); renderLive(); }
+      else if (plain) stderr.write(`${truncate(t, width)}\n`);
+    },
+    /** A short status note (e.g. provider summary). Transcript always; inline in --verbose. */
+    note(text) { this.text(text); },
+    /** Stop the spinner + restore the terminal. Idempotent. */
+    finishLive() { stop(); },
+    /** Persist the full transcript (narration + tool I/O) regardless of verbosity. */
+    writeTranscript(filePath) {
+      try { fs.writeFileSync(filePath, `# Agent transcript\n\n${transcript.join("\n")}\n`, "utf8"); } catch { /* advisory */ }
+    },
+    isVerbose: () => verbose
+  };
+
+  function stop() {
+    if (timer) { clearInterval(timer); timer = null; }
+    commit();
+    clearLive();
+    restoreCursor();
+  }
+}
+
 function shortText(value, max = 100) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
   if (!text) return "";
@@ -109,20 +227,29 @@ function renderJsonEvent(provider, ev, state) {
   const usage = usageFromEvent(ev);
   if (usage) state.usage = usage;
 
+  const r = state.renderer;
   const type = String(ev.type || ev.event || ev.kind || "");
+  if (ev.is_error === true && r) r.fail();
+
   const toolName = toolNameFromEvent(ev);
   if (toolName || /tool|command/i.test(type)) {
     const arg = shortText(toolArgFromEvent(ev), 80);
-    trace(`  -> ${toolName || type}${arg ? ` ${arg}` : ""}`);
+    const label = `${toolName || type}${arg ? ` ${arg}` : ""}`;
+    if (r) r.action(label);
+    else trace(`  -> ${label}`);
     return;
   }
 
   const text = textFromEvent(ev);
   if (text && /assistant|message|delta|text|response|output/i.test(type || "text")) {
-    trace(`  ${shortText(text, 240)}`);
+    if (r) r.text(text);
+    else trace(`  ${shortText(text, 240)}`);
   } else if (/turn|step|summary|status/i.test(type)) {
     const status = firstString(ev.status, ev.status_detail, ev.summary, ev.message);
-    if (status) trace(`  . ${provider}: ${shortText(status, 160)}`);
+    if (status) {
+      if (r) r.note(`${provider}: ${status}`);
+      else trace(`  . ${provider}: ${shortText(status, 160)}`);
+    }
   }
 }
 
@@ -173,6 +300,7 @@ module.exports = {
   streamEnabled,
   traceEnabled,
   trace,
+  createRenderer,
   parseJsonLines,
   flushJsonLines,
   writeResult,

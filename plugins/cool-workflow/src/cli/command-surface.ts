@@ -44,6 +44,7 @@ import {
   runDrive,
   runDrivePreview,
   quickstart,
+  collectRunFindings,
   backendAgentConfigShow,
   backendAgentConfigSet,
   telemetryVerify,
@@ -94,7 +95,7 @@ import { formatBlackboardDigest, formatCompactGraph, formatStateExplosionReport 
 import { formatEvidenceReasoningReport } from "../evidence-reasoning";
 import { runDoctor, formatDoctorReport, formatDoctorFixes } from "../doctor";
 import { formatInfo, formatSearchResults } from "../orchestrator";
-import { printSuccessSummary } from "../term";
+import { reporter } from "../reporter";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../version";
 
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<void> {
@@ -119,6 +120,16 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   // -dir / --dir / -d : an intuitive alias for --repo — the project folder to review,
   // so `cw -q "…" -dir /path` works from any directory (no cd). Explicit --repo wins.
   if (!args.options.repo && args.options.dir) args.options.repo = args.options.dir;
+
+  // Presentation flags — set BEFORE any drive spawn so the out-of-process agent wrapper
+  // inherits them via process.env (presentation-only; stdout/the cw:result fence are untouched):
+  //   --verbose   full agent narration inline (default is compact: current action + summary)
+  //   --no-color  disable ANSI everywhere (CW_NO_COLOR is honored by term.colorEnabled AND the
+  //               wrapper); complements NO_COLOR/FORCE_COLOR
+  //   --full      also stream full narration AND print the report inline at run end
+  if (args.options.verbose) process.env.CW_VERBOSE = "1";
+  if (args.options["no-color"]) process.env.CW_NO_COLOR = "1";
+  if (args.options.full) process.env.CW_OUTPUT = "full";
 
   // Bare -q / --question -> redirect to quickstart (auto-detect repo/agent/app).
   // CONSUME the positional (shift) so the question never survives as positionals[0]
@@ -255,15 +266,17 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       const qs = quickstart(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
       printJson(qs);
       const qr = qs as unknown as Record<string, unknown>;
-      // Clean human summary on stderr (TTY-gated). Suppressed under --json so machine
-      // mode emits ONLY the stdout payload — no stderr chrome to parse around. The
-      // type guard also skips --check/--preview results (no reportPath of their own).
+      // Clean human summary on stderr (TTY-gated, inside the reporter). Suppressed under --json so
+      // machine mode emits ONLY the stdout payload — no stderr chrome to parse around. The type
+      // guard also skips --check/--preview results (no reportPath of their own). The summary is the
+      // COMPACT findings table (re-parsed from each completed worker's cw:result), the report path,
+      // and where the per-worker transcripts live — NOT the full prose (that's report.md/--full).
       if (!wantsJson(args.options) && typeof qr.runId === "string" && typeof qr.reportPath === "string") {
-        printSuccessSummary({
+        emitRunSummary(runner, args.options, {
           runId: qr.runId as string,
           reportPath: qr.reportPath as string,
           status: String(qr.status || ""),
-          bundle: Boolean(args.options.bundle),
+          statePath: typeof qr.statePath === "string" ? (qr.statePath as string) : undefined,
           completedWorkers: typeof qr.completedWorkers === "number" ? (qr.completedWorkers as number) : undefined,
           plannedWorkers: typeof qr.plannedWorkers === "number" ? (qr.plannedWorkers as number) : undefined,
           agentConfigured: typeof qr.agentConfigured === "boolean" ? (qr.agentConfigured as boolean) : undefined
@@ -1197,10 +1210,11 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
         const dr = runDrive(runner, driveArgs);
         printJson(dr);
         if (!wantsJson(args.options)) {
-          printSuccessSummary({
+          emitRunSummary(runner, args.options, {
             runId: dr.runId,
             reportPath: dr.reportPath,
             status: dr.status,
+            statePath: dr.statePath,
             completedWorkers: dr.completedWorkers,
             plannedWorkers: dr.plannedWorkers,
             agentConfigured: dr.agentConfigured
@@ -1219,10 +1233,11 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
             const dr = runDrive(runner, driveArgs);
             printJson(dr);
             if (!wantsJson(args.options)) {
-              printSuccessSummary({
+              emitRunSummary(runner, args.options, {
                 runId: dr.runId,
                 reportPath: dr.reportPath,
                 status: dr.status,
+                statePath: dr.statePath,
                 completedWorkers: dr.completedWorkers,
                 plannedWorkers: dr.plannedWorkers,
                 agentConfigured: dr.agentConfigured
@@ -1498,6 +1513,47 @@ function required(value: string | undefined, label: string): string {
 
 function optionalArg(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/** Emit the calm end-of-run summary (stderr, TTY-gated inside the reporter): the COMPACT findings
+ *  table re-parsed from each completed worker's `cw:result`, the report path, where the per-worker
+ *  transcripts live, and — under `--full` — the report inline. Stderr/human-side ONLY: stdout (the
+ *  `--json` payload printed just before this) stays byte-exact. Shared by the quickstart and the
+ *  two `run --drive` paths so all three render an identical summary. */
+function emitRunSummary(
+  runner: CoolWorkflowRunner,
+  options: Record<string, unknown>,
+  fields: {
+    runId: string;
+    reportPath: string;
+    status: string;
+    statePath?: string;
+    completedWorkers?: number;
+    plannedWorkers?: number;
+    agentConfigured?: boolean;
+  }
+): void {
+  // Anchor run reads to the run's OWN repo (a drive/quickstart may run cross-directory): the run
+  // dir is <repo>/.cw/runs/<id>/, holding each worker's transcript.md next to its result.md.
+  const runDir = typeof fields.statePath === "string" ? path.dirname(fields.statePath) : undefined;
+  const baseDir = runDir ? path.resolve(runDir, "..", "..", "..") : undefined;
+  const findings = collectRunFindings(runner, fields.runId, baseDir);
+  // --full ALSO prints the report inline at run end (the compact table stays the default summary).
+  let fullReport: string | undefined;
+  if (options.full && fields.reportPath && fs.existsSync(fields.reportPath)) {
+    try { fullReport = fs.readFileSync(fields.reportPath, "utf8"); } catch { /* best-effort inline */ }
+  }
+  reporter.runSummary({
+    runId: fields.runId,
+    reportPath: fields.reportPath,
+    status: fields.status,
+    completedWorkers: fields.completedWorkers,
+    plannedWorkers: fields.plannedWorkers,
+    agentConfigured: fields.agentConfigured,
+    findings,
+    runDir,
+    fullReport
+  });
 }
 
 function printJson(value: unknown): void {

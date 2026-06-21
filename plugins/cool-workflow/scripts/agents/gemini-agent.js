@@ -14,13 +14,14 @@
 // stdout: one JSON object { model, usage, result } for CW provenance.
 // stderr: optional live trace when CW_AGENT_STREAM=1 and attached to a TTY.
 
+const path = require("node:path");
 const { spawn } = require("node:child_process");
 const {
   buildPrompt,
+  createRenderer,
   emitReport,
   flushJsonLines,
   parseJsonLines,
-  trace,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -32,7 +33,9 @@ if (!inputPath || !resultPath) {
 }
 
 const prompt = buildPrompt(inputPath);
-const state = { provider: "gemini", buffer: "", model: undefined, usage: undefined, textFragments: [], finalResult: undefined };
+const render = createRenderer({ env: process.env, stderr: process.stderr });
+const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
+const state = { provider: "gemini", buffer: "", model: undefined, usage: undefined, textFragments: [], finalResult: undefined, renderer: render };
 let childStderr = "";
 function recordJsonLine(line) {
   let ev;
@@ -51,7 +54,7 @@ function recordJsonLine(line) {
   }
 }
 
-trace("* gemini: reading the repo (read-only)...");
+render.action("gemini: reading the repo (read-only)…");
 
 const args = [
   "-p",
@@ -72,21 +75,22 @@ child.stdout.on("data", (chunk) => {
   parseJsonLines("gemini", chunk, state, recordJsonLine);
 });
 
+// Capture gemini's own stderr (do NOT inherit) so it can never corrupt the live region.
 child.stderr.setEncoding("utf8");
 child.stderr.on("data", (chunk) => {
-  childStderr += chunk;
-  if (process.env.CW_AGENT_STREAM !== "0" && process.env.CW_NO_STREAM !== "1" && process.stderr.isTTY) {
-    process.stderr.write(chunk);
-  }
+  if (childStderr.length < 1024 * 1024) childStderr += chunk;
 });
 
 child.on("error", (error) => {
+  render.finishLive();
   process.stderr.write(`gemini spawn failed: ${error.message}\n`);
   process.exit(1);
 });
 
 child.on("close", (code) => {
   flushJsonLines("gemini", state, recordJsonLine);
+  render.finishLive();
+  render.writeTranscript(transcriptPath);
   if (code !== 0) {
     const detail = childStderr.trim() || `gemini exited ${code === null ? "(timeout/killed)" : code}`;
     process.stderr.write(`${detail}\n`);
@@ -110,6 +114,5 @@ child.on("close", (code) => {
     process.exit(1);
   }
 
-  trace("* done - result captured");
   emitReport(state.model, state.usage, resultText);
 });

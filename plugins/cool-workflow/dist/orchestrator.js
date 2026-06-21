@@ -968,6 +968,9 @@ function formatHelp() {
         "  -claude                Use Claude agent",
         "  -codex                 Use Codex agent",
         "  -deepseek              Use DeepSeek (via opencode)",
+        "  --verbose              Show full agent narration live (default: compact)",
+        "  --full                 Verbose, plus the report printed inline at the end",
+        "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
         "",
         (0, term_1.bold)("More commands", out),
         ...wrapped

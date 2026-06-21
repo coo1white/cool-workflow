@@ -58,7 +58,7 @@ const state_explosion_1 = require("../state-explosion");
 const evidence_reasoning_1 = require("../evidence-reasoning");
 const doctor_1 = require("../doctor");
 const orchestrator_2 = require("../orchestrator");
-const term_1 = require("../term");
+const reporter_1 = require("../reporter");
 const version_1 = require("../version");
 async function runCli(argv = process.argv.slice(2)) {
     const args = (0, orchestrator_1.parseArgv)(argv);
@@ -84,6 +84,18 @@ async function runCli(argv = process.argv.slice(2)) {
     // so `cw -q "…" -dir /path` works from any directory (no cd). Explicit --repo wins.
     if (!args.options.repo && args.options.dir)
         args.options.repo = args.options.dir;
+    // Presentation flags — set BEFORE any drive spawn so the out-of-process agent wrapper
+    // inherits them via process.env (presentation-only; stdout/the cw:result fence are untouched):
+    //   --verbose   full agent narration inline (default is compact: current action + summary)
+    //   --no-color  disable ANSI everywhere (CW_NO_COLOR is honored by term.colorEnabled AND the
+    //               wrapper); complements NO_COLOR/FORCE_COLOR
+    //   --full      also stream full narration AND print the report inline at run end
+    if (args.options.verbose)
+        process.env.CW_VERBOSE = "1";
+    if (args.options["no-color"])
+        process.env.CW_NO_COLOR = "1";
+    if (args.options.full)
+        process.env.CW_OUTPUT = "full";
     // Bare -q / --question -> redirect to quickstart (auto-detect repo/agent/app).
     // CONSUME the positional (shift) so the question never survives as positionals[0]
     // — otherwise the quickstart handler reads it as the app id ("Workflow app not found").
@@ -240,15 +252,17 @@ async function runCli(argv = process.argv.slice(2)) {
             const qs = (0, capability_core_1.quickstart)(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
             printJson(qs);
             const qr = qs;
-            // Clean human summary on stderr (TTY-gated). Suppressed under --json so machine
-            // mode emits ONLY the stdout payload — no stderr chrome to parse around. The
-            // type guard also skips --check/--preview results (no reportPath of their own).
+            // Clean human summary on stderr (TTY-gated, inside the reporter). Suppressed under --json so
+            // machine mode emits ONLY the stdout payload — no stderr chrome to parse around. The type
+            // guard also skips --check/--preview results (no reportPath of their own). The summary is the
+            // COMPACT findings table (re-parsed from each completed worker's cw:result), the report path,
+            // and where the per-worker transcripts live — NOT the full prose (that's report.md/--full).
             if (!wantsJson(args.options) && typeof qr.runId === "string" && typeof qr.reportPath === "string") {
-                (0, term_1.printSuccessSummary)({
+                emitRunSummary(runner, args.options, {
                     runId: qr.runId,
                     reportPath: qr.reportPath,
                     status: String(qr.status || ""),
-                    bundle: Boolean(args.options.bundle),
+                    statePath: typeof qr.statePath === "string" ? qr.statePath : undefined,
                     completedWorkers: typeof qr.completedWorkers === "number" ? qr.completedWorkers : undefined,
                     plannedWorkers: typeof qr.plannedWorkers === "number" ? qr.plannedWorkers : undefined,
                     agentConfigured: typeof qr.agentConfigured === "boolean" ? qr.agentConfigured : undefined
@@ -1218,10 +1232,11 @@ async function runCli(argv = process.argv.slice(2)) {
                 const dr = (0, capability_core_1.runDrive)(runner, driveArgs);
                 printJson(dr);
                 if (!wantsJson(args.options)) {
-                    (0, term_1.printSuccessSummary)({
+                    emitRunSummary(runner, args.options, {
                         runId: dr.runId,
                         reportPath: dr.reportPath,
                         status: dr.status,
+                        statePath: dr.statePath,
                         completedWorkers: dr.completedWorkers,
                         plannedWorkers: dr.plannedWorkers,
                         agentConfigured: dr.agentConfigured
@@ -1241,10 +1256,11 @@ async function runCli(argv = process.argv.slice(2)) {
                         const dr = (0, capability_core_1.runDrive)(runner, driveArgs);
                         printJson(dr);
                         if (!wantsJson(args.options)) {
-                            (0, term_1.printSuccessSummary)({
+                            emitRunSummary(runner, args.options, {
                                 runId: dr.runId,
                                 reportPath: dr.reportPath,
                                 status: dr.status,
+                                statePath: dr.statePath,
                                 completedWorkers: dr.completedWorkers,
                                 plannedWorkers: dr.plannedWorkers,
                                 agentConfigured: dr.agentConfigured
@@ -1555,6 +1571,37 @@ function required(value, label) {
 }
 function optionalArg(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+/** Emit the calm end-of-run summary (stderr, TTY-gated inside the reporter): the COMPACT findings
+ *  table re-parsed from each completed worker's `cw:result`, the report path, where the per-worker
+ *  transcripts live, and — under `--full` — the report inline. Stderr/human-side ONLY: stdout (the
+ *  `--json` payload printed just before this) stays byte-exact. Shared by the quickstart and the
+ *  two `run --drive` paths so all three render an identical summary. */
+function emitRunSummary(runner, options, fields) {
+    // Anchor run reads to the run's OWN repo (a drive/quickstart may run cross-directory): the run
+    // dir is <repo>/.cw/runs/<id>/, holding each worker's transcript.md next to its result.md.
+    const runDir = typeof fields.statePath === "string" ? node_path_1.default.dirname(fields.statePath) : undefined;
+    const baseDir = runDir ? node_path_1.default.resolve(runDir, "..", "..", "..") : undefined;
+    const findings = (0, capability_core_1.collectRunFindings)(runner, fields.runId, baseDir);
+    // --full ALSO prints the report inline at run end (the compact table stays the default summary).
+    let fullReport;
+    if (options.full && fields.reportPath && node_fs_1.default.existsSync(fields.reportPath)) {
+        try {
+            fullReport = node_fs_1.default.readFileSync(fields.reportPath, "utf8");
+        }
+        catch { /* best-effort inline */ }
+    }
+    reporter_1.reporter.runSummary({
+        runId: fields.runId,
+        reportPath: fields.reportPath,
+        status: fields.status,
+        completedWorkers: fields.completedWorkers,
+        plannedWorkers: fields.plannedWorkers,
+        agentConfigured: fields.agentConfigured,
+        findings,
+        runDir,
+        fullReport
+    });
 }
 function printJson(value) {
     process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);

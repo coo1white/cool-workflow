@@ -25,6 +25,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CoolWorkflowRunner } from "./orchestrator";
 import { phaseProgressLine } from "./term";
+import { reporter } from "./reporter";
 import { firstRunnablePhase } from "./dispatch";
 import { prepareAgentSpawn, runAgentBatchOutcomes, runBackend, sha256, stripSecretArgs } from "./execution-backend";
 import { recordWorkerRetryAttempt } from "./worker-isolation";
@@ -135,7 +136,7 @@ function agentConfigured(config: AgentDelegationConfig): boolean {
 function emitProgress(message: string): void {
   const forcedOff = process.env.CW_DRIVE_PROGRESS === "0";
   const forcedOn = process.env.CW_DRIVE_PROGRESS === "1";
-  if ((Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn) process.stderr.write(`[drive] ${message}\n`);
+  if ((Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn) reporter.progress(`[drive] ${message}`);
 }
 
 /** Advance exactly ONE deterministic step. Pure-ish: all mutation is through the
