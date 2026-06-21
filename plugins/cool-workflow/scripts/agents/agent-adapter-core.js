@@ -157,13 +157,20 @@ function createRenderer(opts = {}) {
     blockRows = 0;
   };
 
-  // Redraw the rolling window (recent dimmed rows + the live spinner) in place.
+  // The `⎿ result` tree line under a completed tool (dimmed), e.g. `    ⎿ 245 lines`.
+  const resultLine = (result, width) => `${INDENT}  ${paint(ANSI.dim, `⎿ ${truncate(result, width - 6)}`)}`;
+
+  // Redraw the rolling window (recent ● rows + their ⎿ results + the live spinner) in place.
   const renderBlock = () => {
     if (!interactive) return;
     if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
     eraseBlock();
     const width = cols();
-    const lines = recent.slice(-WINDOW).map((item) => doneLine(item, width));
+    const lines = [];
+    for (const item of recent.slice(-WINDOW)) {
+      lines.push(doneLine(item, width));
+      if (item.result) lines.push(resultLine(item.result, width));
+    }
     if (current) lines.push(liveLine(width));
     if (!lines.length) return;
     stderr.write(lines.join("\n"));
@@ -183,7 +190,7 @@ function createRenderer(opts = {}) {
     transcript.push(`- ${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})`);
     steps += 1;
     if (interactive) {
-      recent.push({ label: current.label, ms, failed: current.failed });
+      recent.push({ label: current.label, result: current.result, failed: current.failed });
       while (recent.length > WINDOW) recent.shift();
     } else if (plain) {
       stderr.write(`${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})\n`);
@@ -200,8 +207,17 @@ function createRenderer(opts = {}) {
       if (interactive) renderBlock();
       else if (plain) stderr.write(`→ ${current.label}\n`);
     },
-    /** Mark the current action as failed (it folds in as ✗). */
+    /** Mark the current action as failed (it folds in as a red ●). */
     fail() { if (current) current.failed = true; },
+    /** Attach a short result summary to the current tool — rendered as a dim `⎿ summary` tree line
+     *  once it folds into the window (Claude-Code feel). Always recorded to the transcript. */
+    result(summary, failed) {
+      const s = String(summary || "").replace(/\s+/g, " ").trim();
+      if (!s && !failed) return;
+      if (current) { if (s) current.result = s; if (failed) current.failed = true; }
+      if (s) transcript.push(`  ⎿ ${s}`);
+      if (plain && s) stderr.write(`  ⎿ ${s}\n`);
+    },
     /** Narration text from the model. Always to the transcript; inline only in --verbose (printed
      *  ABOVE the live window, which then redraws below it). */
     text(chunk) {
@@ -312,6 +328,24 @@ function verbFor(name) {
   return "Working";
 }
 
+// A short result summary for the `⎿` tree line, derived from the tool + its raw output (Claude-Code
+// feel: `⎿ 245 lines` / `⎿ 12 matches` / `⎿ error`). Heuristic + tool-aware; never throws.
+function summarizeToolResult(name, text, isError) {
+  if (isError) return "error";
+  const raw = String(text || "");
+  const lines = raw.split("\n").filter((l) => l.trim().length).length;
+  const t = String(name || "").toLowerCase();
+  let s;
+  if (/read|cat/.test(t)) s = `${lines} line${lines === 1 ? "" : "s"}`;
+  else if (/glob|ls|find/.test(t)) s = `${lines} file${lines === 1 ? "" : "s"}`;
+  else if (/grep|search/.test(t)) s = `${lines} match${lines === 1 ? "" : "es"}`;
+  else if (/bash|shell|exec|run/.test(t)) {
+    const first = raw.split("\n").map((l) => l.trim()).find(Boolean) || "";
+    s = lines <= 1 && first ? first : `${lines} line${lines === 1 ? "" : "s"}`;
+  } else s = `${lines} line${lines === 1 ? "" : "s"}`;
+  return s.length > 40 ? `${s.slice(0, 39)}…` : s;
+}
+
 function textFromEvent(ev) {
   const delta = maybeObject(ev.delta);
   const msg = maybeObject(ev.message);
@@ -400,6 +434,7 @@ module.exports = {
   createRenderer,
   truncate, // exported only so cli-render-smoke can assert it stays identical to term.ts truncate()
   toolLabel, // `ToolName(compactArg)` — shared by the claude wrapper so the label format can't drift
+  summarizeToolResult, // `⎿` result summary — shared so vendors derive it identically
   parseJsonLines,
   flushJsonLines,
   writeResult,

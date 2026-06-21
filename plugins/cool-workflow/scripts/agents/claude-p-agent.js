@@ -34,7 +34,7 @@ const { spawn, spawnSync } = require("node:child_process");
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-const { buildPrompt, createRenderer, toolLabel } = require("./agent-adapter-core");
+const { buildPrompt, createRenderer, toolLabel, summarizeToolResult } = require("./agent-adapter-core");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -128,6 +128,13 @@ child.stdout.on("data", (chunk) => {
   }
 });
 
+const toolIds = new Map(); // tool_use id -> tool name, so a later tool_result can name its tool
+function toolResultText(content) {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((b) => (b && typeof b.text === "string" ? b.text : "")).join("\n");
+  return "";
+}
+
 function renderEvent(ev) {
   if (ev.type === "assistant" && ev.message) {
     if (!model && typeof ev.message.model === "string") model = ev.message.model;
@@ -135,7 +142,17 @@ function renderEvent(ev) {
       if (part.type === "text" && part.text && part.text.trim()) {
         render.text(part.text.trim());
       } else if (part.type === "tool_use") {
+        if (part.id) toolIds.set(part.id, part.name);
         render.action(toolLabel(part.name, pickInput(part.input)));
+      }
+    }
+  } else if (ev.type === "user" && ev.message) {
+    // claude runs the tools itself (headless -p) and echoes each result back as a tool_result block;
+    // summarize it into the `⎿` tree line for the tool it belongs to.
+    for (const part of ev.message.content || []) {
+      if (part && part.type === "tool_result") {
+        const name = toolIds.get(part.tool_use_id) || "";
+        render.result(summarizeToolResult(name, toolResultText(part.content), part.is_error), part.is_error);
       }
     }
   } else if (ev.type === "system" && ev.subtype === "post_turn_summary" && ev.status_detail) {

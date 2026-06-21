@@ -20,7 +20,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const { createReporter } = require(path.join(pluginRoot, "dist", "reporter.js"));
 const term = require(path.join(pluginRoot, "dist", "term.js"));
-const { createRenderer, truncate: coreTruncate, toolLabel } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
+const { createRenderer, truncate: coreTruncate, toolLabel, summarizeToolResult } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
 
 const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
@@ -72,7 +72,15 @@ function testTruncateAndWidth() {
   assert.equal(toolLabel("Grep", "spawnSync"), "Grep(spawnSync)", "grep pattern kept");
   assert.equal(toolLabel("Bash", "x".repeat(60)).length <= "Bash()".length + 40, true, "long command truncated");
   assert.equal(toolLabel("Read", ""), "Read", "no arg -> just the tool name");
-  console.log("cli-render: truncate + visible-width + core/term parity + toolLabel OK");
+
+  // ⎿ result summaries (tool-aware, line-count based).
+  assert.equal(summarizeToolResult("Read", "a\nb\nc\n"), "3 lines", "Read -> N lines");
+  assert.equal(summarizeToolResult("Read", "only one"), "1 line", "singular line");
+  assert.equal(summarizeToolResult("Grep", "m1\nm2"), "2 matches", "Grep -> N matches");
+  assert.equal(summarizeToolResult("Glob", "a.ts\nb.ts\nc.ts"), "3 files", "Glob -> N files");
+  assert.equal(summarizeToolResult("Bash", "exit 0"), "exit 0", "Bash single line -> that line");
+  assert.equal(summarizeToolResult("Bash", "x", true), "error", "is_error -> error");
+  console.log("cli-render: truncate + visible-width + core/term parity + toolLabel + result-summary OK");
 }
 
 function testColorEnv() {
@@ -247,6 +255,25 @@ function testRollingWindowFold() {
   console.log("cli-render: rolling-window fold + Claude-tree glyphs + collapse-to-summary OK");
 }
 
+function testResultTreeLines() {
+  // ⎿ tree lines: a tool's result folds in UNDER its ● bullet once the next action commits it.
+  const s = fakeStream(true);
+  s.columns = 80;
+  const render = createRenderer({ env: {}, stderr: s, label: "claude" });
+  try {
+    render.action("Read(AGENTS.md)");
+    render.result("245 lines");
+    render.action("Grep(spawnSync)"); // commits the Read -> its ⎿ now renders in the block
+    render.result("17 matches");
+    const block = s.text.split("\x1b[0J").pop();
+    assert.ok(block.includes("⎿"), "a ⎿ tree connector renders under a completed tool");
+    assert.ok(block.includes("245 lines"), "the result summary renders in the block");
+  } finally {
+    render.finishLive();
+  }
+  console.log("cli-render: ⎿ tool-result tree lines OK");
+}
+
 function main() {
   testTruncateAndWidth();
   testColorEnv();
@@ -258,6 +285,7 @@ function main() {
   testFullAndBlocked();
   testCursorHygiene();
   testRollingWindowFold();
+  testResultTreeLines();
   console.log("cli-render-smoke: ok");
 }
 
