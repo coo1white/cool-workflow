@@ -179,6 +179,7 @@ export function formatDoctorReport(report: DoctorReport): string {
     lines.push("  1. cw demo tamper        — prove trust checks work (30s)");
     lines.push("  2. cw demo bundle         — prove portable bundles (30s)");
     lines.push('  3. cw -q "what risks?"     — your first real report (needs an agent)');
+    lines.push('     cw quickstart research-synthesis --repo <folder> --question "..."  — cited report over a docs/papers folder, not only code');
     lines.push("");
     lines.push("Onramp");
     lines.push(`  ${report.onramp.summary}`);
