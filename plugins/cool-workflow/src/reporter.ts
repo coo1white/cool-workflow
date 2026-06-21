@@ -4,8 +4,11 @@
 // orchestrator emits events (progress lines, the end-of-run summary) and the Reporter decides how
 // to draw them. The live AGENT view (spinner / streamed tokens / folding tool lines) is rendered
 // by the async agent wrapper — cw is blocked in spawnSync during a run, so cw only renders the
-// calm orchestration BETWEEN agents plus the final summary. Everything goes to STDERR (stdout
-// stays the byte-exact data channel); TTY-gated; honors NO_COLOR/FORCE_COLOR/--no-color via term.
+// calm orchestration BETWEEN agents plus the final summary. Everything here goes to STDERR; the
+// MACHINE payloads on stdout (the cw:result fence + cw's --json via printJson) carry NO term
+// styling, so they stay byte-exact under any color env. Color is TTY-gated and honors
+// NO_COLOR/CW_NO_COLOR(--no-color)/FORCE_COLOR via term — FORCE_COLOR may color human-readable
+// output (its purpose) but never the machine payloads, which use no styling at all.
 
 import { dim, green, yellow, nextHint, tryHint, formatFindingsSummary, FindingRow } from "./term";
 

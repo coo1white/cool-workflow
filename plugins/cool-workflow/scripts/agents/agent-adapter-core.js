@@ -63,9 +63,14 @@ function colorOn(env, stderr) {
   if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0") return true;
   return Boolean(stderr.isTTY);
 }
+// Behaviorally IDENTICAL to src/term.ts truncate() — the two copies exist only because the wrapper
+// is a self-contained plain-JS "config" (no import of the TS build). cli-render-smoke cross-checks
+// them on shared cases so this invariant cannot silently drift: maxWidth<=0 → ""; a string that fits
+// returns the ORIGINAL text (ANSI intact); otherwise stripped + sliced + "…".
 function truncate(text, max) {
+  if (max <= 0) return "";
   const chars = [...String(text).replace(ANSI_RE, "")];
-  if (chars.length <= max) return String(text).replace(ANSI_RE, "");
+  if (chars.length <= max) return String(text);
   return max <= 1 ? "…" : `${chars.slice(0, max - 1).join("")}…`;
 }
 function fmtElapsed(ms) {
@@ -301,6 +306,7 @@ module.exports = {
   traceEnabled,
   trace,
   createRenderer,
+  truncate, // exported only so cli-render-smoke can assert it stays identical to term.ts truncate()
   parseJsonLines,
   flushJsonLines,
   writeResult,

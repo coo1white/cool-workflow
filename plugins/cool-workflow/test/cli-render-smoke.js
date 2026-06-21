@@ -13,12 +13,14 @@
 //     flag sets CW_NO_COLOR), independent of isTTY.
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
+const cli = path.join(pluginRoot, "dist", "cli.js");
 const { createReporter } = require(path.join(pluginRoot, "dist", "reporter.js"));
 const term = require(path.join(pluginRoot, "dist", "term.js"));
-const { createRenderer } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
+const { createRenderer, truncate: coreTruncate } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
 
 const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
@@ -52,7 +54,17 @@ function testTruncateAndWidth() {
   assert.equal(term.truncate("anything", 0), "", "truncate to width 0 is empty");
   assert.equal(term.visibleWidth("\x1b[2mhi\x1b[0m"), 2, "visibleWidth ignores ANSI");
   assert.ok(!ANSI.test(term.stripAnsi("\x1b[32mok\x1b[0m")), "stripAnsi removes escapes");
-  console.log("cli-render: truncate + visible-width OK");
+
+  // The wrapper-core carries its OWN truncate copy (it's a plain-JS config, can't import the TS
+  // build). They MUST behave identically — assert it directly so the "can't drift" invariant is
+  // real, not aspirational. Covers the edge cases the two copies historically diverged on.
+  const cases = [["abcdefghij", 5], ["abc", 10], ["xy", 1], ["anything", 0], ["x", 0], ["hello", 1],
+    ["\x1b[32mhi\x1b[0m", 5], ["\x1b[32mhello world\x1b[0m", 4], ["exact", 5], ["", 3]];
+  for (const [t, w] of cases) {
+    assert.equal(coreTruncate(t, w), term.truncate(t, w),
+      `core truncate(${JSON.stringify(t)},${w}) must equal term truncate (no drift)`);
+  }
+  console.log("cli-render: truncate + visible-width + core/term parity OK");
 }
 
 function testColorEnv() {
@@ -64,12 +76,26 @@ function testColorEnv() {
     assert.equal(term.green("x", { isTTY: true }), "x", "CW_NO_COLOR (the --no-color flag) disables color");
   });
   withEnv({ NO_COLOR: undefined, CW_NO_COLOR: undefined, FORCE_COLOR: "1" }, () => {
-    assert.ok(/\x1b\[32m/.test(term.green("x", { isTTY: false })), "FORCE_COLOR forces color when piped");
+    assert.ok(/\x1b\[32m/.test(term.green("x", { isTTY: false })), "FORCE_COLOR forces color when piped (human surfaces)");
   });
   withEnv({ NO_COLOR: undefined, CW_NO_COLOR: undefined, FORCE_COLOR: undefined }, () => {
     assert.ok(!ANSI.test(term.green("x", { isTTY: false })), "default: no color when piped");
   });
   console.log("cli-render: color honors NO_COLOR / CW_NO_COLOR / FORCE_COLOR OK");
+}
+
+function testMachineChannelByteExactUnderForceColor() {
+  // The CONTRACT that actually matters: FORCE_COLOR may color HUMAN output, but the MACHINE/data
+  // surfaces (--json via printJson, and the cw:result fence) must stay byte-exact — never ANSI.
+  // printJson uses no term styling today; this guard catches any future regression that styles it.
+  const r = spawnSync(process.execPath, [cli, "list", "--json"], {
+    encoding: "utf8",
+    env: { ...process.env, FORCE_COLOR: "1", NO_COLOR: "", CW_NO_COLOR: "" }
+  });
+  assert.equal(r.status, 0, `list --json exits 0 under FORCE_COLOR (stderr: ${r.stderr})`);
+  assert.ok(!ANSI.test(r.stdout), "the --json machine channel carries ZERO ANSI even when FORCE_COLOR is set");
+  JSON.parse(r.stdout); // throws if any chrome leaked into the data channel
+  console.log("cli-render: --json machine channel stays byte-exact under FORCE_COLOR OK");
 }
 
 function testFindingsTable() {
@@ -186,6 +212,7 @@ function testCursorHygiene() {
 function main() {
   testTruncateAndWidth();
   testColorEnv();
+  testMachineChannelByteExactUnderForceColor();
   testFindingsTable();
   testReporterTty();
   testReporterNonTtySilent();
