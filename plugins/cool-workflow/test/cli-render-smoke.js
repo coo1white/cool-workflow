@@ -20,7 +20,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const { createReporter } = require(path.join(pluginRoot, "dist", "reporter.js"));
 const term = require(path.join(pluginRoot, "dist", "term.js"));
-const { createRenderer, truncate: coreTruncate } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
+const { createRenderer, truncate: coreTruncate, toolLabel } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
 
 const HIDE_CURSOR = "\x1b[?25l";
 const SHOW_CURSOR = "\x1b[?25h";
@@ -64,7 +64,15 @@ function testTruncateAndWidth() {
     assert.equal(coreTruncate(t, w), term.truncate(t, w),
       `core truncate(${JSON.stringify(t)},${w}) must equal term truncate (no drift)`);
   }
-  console.log("cli-render: truncate + visible-width + core/term parity OK");
+
+  // Claude-tree labels: file tools show the basename, patterns/commands stay (truncated).
+  assert.equal(toolLabel("Read", "/Users/nick/src/foo.ts"), "Read(foo.ts)", "file tool -> basename");
+  assert.equal(toolLabel("Edit", "a/b/c.ts"), "Edit(c.ts)", "edit -> basename");
+  assert.equal(toolLabel("Glob", "**/*.ts"), "Glob(**/*.ts)", "glob pattern is NOT basenamed");
+  assert.equal(toolLabel("Grep", "spawnSync"), "Grep(spawnSync)", "grep pattern kept");
+  assert.equal(toolLabel("Bash", "x".repeat(60)).length <= "Bash()".length + 40, true, "long command truncated");
+  assert.equal(toolLabel("Read", ""), "Read", "no arg -> just the tool name");
+  console.log("cli-render: truncate + visible-width + core/term parity + toolLabel OK");
 }
 
 function testColorEnv() {
@@ -217,22 +225,26 @@ function testRollingWindowFold() {
   s.columns = 80;
   const render = createRenderer({ env: {}, stderr: s, label: "claude" });
   try {
-    for (const t of ["ToolA", "ToolB", "ToolC", "ToolD", "ToolE", "ToolF"]) render.action(t);
+    for (const t of ["Read(a.ts)", "Read(b.ts)", "Read(c.ts)", "Read(d.ts)", "Read(e.ts)", "Read(f.ts)"]) render.action(t);
     // In-place redraw (NOT append-only): the block is erased (clear-to-end + cursor-up) each frame.
     assert.ok(s.text.includes("\x1b[0J"), "the live block is erased + redrawn in place (clear-to-end)");
     assert.ok(/\x1b\[\d+A/.test(s.text), "cursor moves up to redraw the rolling block (not a growing wall)");
+    // Claude-tree style: completed rows use ● bullets, the live row a ✶ sparkle — NOT the old ✓.
+    assert.ok(s.text.includes("●"), "completed tools use the ● action bullet (Claude-tree)");
+    assert.ok(/[✶✸✹✺]/.test(s.text), "the live row shows a sparkle 'thinking' glyph");
+    assert.ok(!plain(s.text).includes("✓"), "no generic ✓ spinner-list glyph remains");
     // The FINAL rendered block = everything after the last erase. WINDOW=4, so the oldest folded away.
     const lastBlock = s.text.split("\x1b[0J").pop();
-    assert.ok(!lastBlock.includes("ToolA"), "the oldest tool has folded OUT of the window");
-    for (const t of ["ToolC", "ToolD", "ToolE", "ToolF"]) {
+    assert.ok(!lastBlock.includes("a.ts"), "the oldest tool has folded OUT of the window");
+    for (const t of ["c.ts", "d.ts", "e.ts", "f.ts"]) {
       assert.ok(lastBlock.includes(t), `the rolling window keeps the recent tool ${t}`);
     }
     assert.ok(lastBlock.split("\n").length <= 6, "the live region stays a compact few rows, never a wall");
   } finally {
     render.finishLive();
   }
-  assert.match(plain(s.text), /✓ claude — 6 steps · /, "the worker collapses to a single summary line at the end");
-  console.log("cli-render: rolling-window fold + collapse-to-summary OK");
+  assert.match(plain(s.text), /● claude · 6 steps · /, "the worker collapses to a single ● summary line at the end");
+  console.log("cli-render: rolling-window fold + Claude-tree glyphs + collapse-to-summary OK");
 }
 
 function main() {

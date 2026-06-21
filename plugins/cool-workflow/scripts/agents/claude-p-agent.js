@@ -34,7 +34,7 @@ const { spawn, spawnSync } = require("node:child_process");
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-const { buildPrompt, createRenderer } = require("./agent-adapter-core");
+const { buildPrompt, createRenderer, toolLabel } = require("./agent-adapter-core");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -78,11 +78,11 @@ if (!streamEnabled) {
   process.exit(0);
 }
 
-function shortInput(tool, input) {
+// The shared `toolLabel` (from the core) renders `ToolName(basename)` — the Claude-tree label format
+// every vendor uses, so the look can't drift between wrappers.
+function pickInput(input) {
   if (!input || typeof input !== "object") return "";
-  const v = input.file_path || input.path || input.pattern || input.command || input.query || input.url || "";
-  const s = String(v).replace(/\s+/g, " ").trim();
-  return s ? ` ${s.length > 80 ? s.slice(0, 77) + "…" : s}` : "";
+  return input.file_path || input.path || input.pattern || input.command || input.query || input.url || "";
 }
 
 // The live view (spinner + folding actions on a TTY, plain append-only when piped, silent when
@@ -135,7 +135,7 @@ function renderEvent(ev) {
       if (part.type === "text" && part.text && part.text.trim()) {
         render.text(part.text.trim());
       } else if (part.type === "tool_use") {
-        render.action(`${part.name}${shortInput(part.name, part.input)}`);
+        render.action(toolLabel(part.name, pickInput(part.input)));
       }
     }
   } else if (ev.type === "system" && ev.subtype === "post_turn_summary" && ev.status_detail) {

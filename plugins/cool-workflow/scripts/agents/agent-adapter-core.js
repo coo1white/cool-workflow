@@ -54,7 +54,8 @@ function trace(line, env = process.env, stderr = process.stderr) {
 // ---- live renderer (zero-dep, hand-rolled — kept self-contained so this wrapper stays a
 //      copyable "config", not a build-coupled dependency) -----------------------------------
 
-const SPINNER = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+// The live "thinking" glyph cycles a sparkle (Claude-Code feel), not a generic braille spinner.
+const SPARKLE = ["✶", "✸", "✹", "✺", "✹", "✸"];
 const ANSI = { reset: "\x1b[0m", dim: "\x1b[2m", green: "\x1b[32m", red: "\x1b[31m", cyan: "\x1b[36m", hideCursor: "\x1b[?25l", showCursor: "\x1b[?25h", clearLine: "\r\x1b[2K" };
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 
@@ -122,16 +123,29 @@ function createRenderer(opts = {}) {
     process.once("SIGTERM", onSignal);
   }
 
-  // One completed-tool row: `  ✓ label (1.2s)` (dimmed), width-truncated so it never wraps.
-  const doneLine = (item, width) => {
-    const glyph = item.failed ? paint(ANSI.red, "✗") : paint(ANSI.green, "✓");
-    return `${INDENT}${glyph} ${paint(ANSI.dim, `${truncate(item.label, width - 12)} (${fmtElapsed(item.ms)})`)}`;
+  // One completed-tool row, Claude-tree style: `  ● Read(foo.ts)` — the bullet is green (red on
+  // failure), the tool name bold + its (arg) dimmed; no per-tool duration. Width-truncated.
+  const styledLabel = (label, width) => {
+    const text = truncate(label, width - 4);
+    const m = /^(\w+)\((.*)\)$/.exec(text);
+    if (m) return `${m[1]}${paint(ANSI.dim, `(${m[2]})`)}`;
+    return text;
   };
-  // The live spinner row: `  ⠋ label  4.2s`.
+  const doneLine = (item, width) => {
+    const bullet = paint(item.failed ? ANSI.red : ANSI.green, "●");
+    return `${INDENT}${bullet} ${styledLabel(item.label, width)}`;
+  };
+  // The live "thinking" row, Claude-tree style: `  ✶ Reading foo.ts… (4s)` — a sparkle + a
+  // tool-derived verb phrase + dim elapsed. A non-tool status label is shown as-is (sans trailing …).
+  const livePhrase = () => {
+    const m = /^(\w+)\((.*)\)$/.exec(current.label);
+    if (m) return `${verbFor(m[1])} ${m[2]}`;
+    return current.label.replace(/…+$/, "");
+  };
   const liveLine = (width) => {
-    const el = paint(ANSI.dim, fmtElapsed(Date.now() - current.startedAt));
-    const sp = paint(ANSI.cyan, SPINNER[frame % SPINNER.length]);
-    return `${INDENT}${sp} ${truncate(current.label, width - 14)} ${el}`;
+    const el = paint(ANSI.dim, `(${fmtElapsed(Date.now() - current.startedAt)})`);
+    const sp = paint(ANSI.cyan, SPARKLE[frame % SPARKLE.length]);
+    return `${INDENT}${sp} ${truncate(livePhrase(), width - 12)}${paint(ANSI.dim, "…")} ${el}`;
   };
 
   // Erase the previously-drawn block in place: go to its first row, clear to end of screen.
@@ -217,7 +231,7 @@ function createRenderer(opts = {}) {
     if (interactive) {
       eraseBlock();
       if (steps > 0) {
-        const summary = `${paint(ANSI.green, "✓")} ${paint(ANSI.dim, `${label} — ${steps} step${steps === 1 ? "" : "s"} · ${fmtElapsed(Date.now() - runStart)}`)}`;
+        const summary = `${paint(ANSI.green, "●")} ${paint(ANSI.dim, `${label} · ${steps} step${steps === 1 ? "" : "s"} · ${fmtElapsed(Date.now() - runStart)}`)}`;
         stderr.write(`${INDENT}${summary}\n`);
       }
     }
@@ -270,6 +284,34 @@ function toolArgFromEvent(ev) {
   return firstString(input.file_path, input.path, input.pattern, input.command, input.query, input.url, input.cmd) || "";
 }
 
+// ---- Claude-Code-style tool labels: `ToolName(compactArg)` -------------------------------------
+// File tools show the BASENAME (Read(foo.ts), not Read(/Users/…/foo.ts)); everything else (Bash
+// commands, Grep/Glob patterns) is collapsed + truncated. Shared by every wrapper so the look can't
+// drift per vendor.
+const FILE_TOOLS = /^(Read|Write|Edit|MultiEdit|NotebookEdit|NotebookRead)$/i;
+function compactToolArg(name, rawArg) {
+  const s = String(rawArg || "").replace(/\s+/g, " ").trim();
+  if (!s) return "";
+  if (FILE_TOOLS.test(String(name || "")) && s.includes("/")) return s.split("/").filter(Boolean).pop() || s;
+  return s.length > 40 ? `${s.slice(0, 39)}…` : s;
+}
+function toolLabel(name, rawArg) {
+  const n = String(name || "").trim();
+  const arg = compactToolArg(n, rawArg);
+  return arg ? `${n}(${arg})` : n;
+}
+// The present-tense verb for the live "thinking" line, derived from the tool.
+function verbFor(name) {
+  const t = String(name || "").toLowerCase();
+  if (/read|cat|notebookread/.test(t)) return "Reading";
+  if (/write|edit/.test(t)) return "Editing";
+  if (/bash|shell|exec|run|command/.test(t)) return "Running";
+  if (/grep|glob|search|find|ls|list/.test(t)) return "Searching";
+  if (/fetch|web|http|download/.test(t)) return "Fetching";
+  if (/task|agent|sub/.test(t)) return "Delegating";
+  return "Working";
+}
+
 function textFromEvent(ev) {
   const delta = maybeObject(ev.delta);
   const msg = maybeObject(ev.message);
@@ -289,8 +331,7 @@ function renderJsonEvent(provider, ev, state) {
 
   const toolName = toolNameFromEvent(ev);
   if (toolName || /tool|command/i.test(type)) {
-    const arg = shortText(toolArgFromEvent(ev), 80);
-    const label = `${toolName || type}${arg ? ` ${arg}` : ""}`;
+    const label = toolLabel(toolName || type, toolArgFromEvent(ev));
     if (r) r.action(label);
     else trace(`  -> ${label}`);
     return;
@@ -358,6 +399,7 @@ module.exports = {
   trace,
   createRenderer,
   truncate, // exported only so cli-render-smoke can assert it stays identical to term.ts truncate()
+  toolLabel, // `ToolName(compactArg)` — shared by the claude wrapper so the label format can't drift
   parseJsonLines,
   flushJsonLines,
   writeResult,

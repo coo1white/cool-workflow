@@ -119,7 +119,7 @@ function main() {
     assert.ok(fs.existsSync(transcriptPath), "wrapper writes transcript.md next to result.md");
     const transcript = fs.readFileSync(transcriptPath, "utf8");
     assert.match(transcript, /# Agent transcript/, "transcript carries its header");
-    assert.ok(transcript.includes("Read app.js"), "transcript records the tool I/O even though the screen was silent");
+    assert.ok(transcript.includes("Read(app.js)"), "transcript records the tool I/O (Claude-tree label) even though the screen was silent");
     assert.ok(transcript.includes("stub markdown answer"), "transcript records the model narration even though the screen was silent");
     console.log("wrapper: default stream-json prompt delivery + read-only + result persistence + provenance + transcript-on-disk ok");
   }
@@ -136,7 +136,7 @@ function main() {
     // CW_AGENT_STREAM=1 opts non-TTY into a PLAIN append-only trace (CI debuggability): the live
     // events render as `→ …` / `✓ … (Xs)` lines with ZERO ANSI/cursor bytes (rich is TTY-only).
     assert.ok(!/\x1b\[/.test(child.stderr), "non-TTY trace carries NO ANSI/cursor escapes");
-    assert.match(child.stderr, /→ Read app\.js/, "the tool action is logged as a plain append-only line");
+    assert.match(child.stderr, /→ Read\(app\.js\)/, "the tool action is logged as a plain append-only line (Claude-tree label)");
     assert.match(child.stderr, /✓ .*\(\d/, "the action folds to a ✓ line with elapsed time");
     // Default verbosity is COMPACT: the live trace shows the current action + folded tool lines,
     // but HIDES the model's narration/reasoning (that stays in the on-disk transcript).
