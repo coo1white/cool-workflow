@@ -67,7 +67,8 @@ cw -q "What are the risks?" --link https://github.com/owner/repo
 cw -q "What are the risks?" --link git@gitlab.com:owner/repo.git --ref v1.2.0
 ```
 
-GitHub, GitLab, Bitbucket, self-hosted git, `ssh://`, and `file://` all work. The clone is cached
+GitHub, GitLab, Bitbucket, self-hosted git, `ssh://`, and `file://` all work — as do downloadable
+archives (`.tar.gz`/`.tgz`/`.tar`/`.zip`), fetched + extracted + snapshotted before review. The clone is cached
 under `~/.local/state/cool-workflow/clones/` and reused next time (`--refresh` re-fetches; `cw clones
 list`/`gc` manage it). The report records `Source: <url>@<commit>` plus a tamper-evident
 `source.clone` event (`cw audit verify`). A credential-less private repo **fails closed** — it never

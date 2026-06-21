@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-21 by `npm run sync:projec
 - Source modules: `66`
 - Workflow apps: `7`
 - Docs: `52`
-- Smoke tests: `134`
+- Smoke tests: `135`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -276,6 +276,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [release-flow-smoke.js](../test/release-flow-smoke.js)
 - [release-gate-smoke.js](../test/release-gate-smoke.js)
 - [release-tooling-smoke.js](../test/release-tooling-smoke.js)
+- [remote-link-archive-smoke.js](../test/remote-link-archive-smoke.js)
 - [remote-link-git-smoke.js](../test/remote-link-git-smoke.js)
 - [report-bundle-smoke.js](../test/report-bundle-smoke.js)
 - [report-verify-bundle-smoke.js](../test/report-verify-bundle-smoke.js)
