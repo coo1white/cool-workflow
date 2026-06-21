@@ -97,6 +97,18 @@ export interface QuickstartResult {
    *  on every other path (no `--bundle`, or status != complete), so default quickstart
    *  output stays byte-identical. `bundle.ok === false` means do not ship it. */
   bundle?: ReportBundleResult;
+  /** Present ONLY when the review targeted a remote source (`--link`/URL): the sanitized
+   *  origin URL + resolved commit (git SHA, or archive content sha256) + kind, and whether a
+   *  cached checkout was reused. Absent for a local-repo run, so default output stays
+   *  byte-identical. The same origin is recorded in run.inputs, report.md, and the trust-audit
+   *  chain (a `source.clone`/`source.download` event). */
+  remote?: {
+    url: string;
+    commit: string;
+    kind: "git" | "archive";
+    cached: boolean;
+    ref?: string;
+  };
 }
 
 export type QuickstartCheckStatus = "ok" | "warn" | "blocked";

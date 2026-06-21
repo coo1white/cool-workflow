@@ -79,6 +79,7 @@ const observability_1 = require("./observability");
 const telemetry_ledger_1 = require("./telemetry-ledger");
 const telemetry_attestation_1 = require("./telemetry-attestation");
 const trust_audit_1 = require("./trust-audit");
+const remote_source_1 = require("./remote-source");
 const telemetry_demo_1 = require("./telemetry-demo");
 const state_1 = require("./state");
 const run_export_1 = require("./run-export");
@@ -497,7 +498,13 @@ const DRIVE_RUNTIME_KEYS = [
     "agentTimeoutMs",
     "agent-timeout-ms",
     "resume",
-    "incremental"
+    "incremental",
+    // Remote-source flags (v0.1.91): materialized into a local checkout in the capability
+    // layer, never passed to plan as inputs (the resolved sourceUrl/sourceCommit ARE inputs).
+    "link",
+    "ref",
+    "branch",
+    "refresh"
 ];
 function planInputsFor(args) {
     const copy = withoutRuntimeKeys(args);
@@ -548,16 +555,41 @@ exports.QUICKSTART_DEFAULT_APP = "architecture-review";
  *  the drive fails closed (status=blocked) and we never fabricate a completion. */
 function quickstart(runner, args) {
     const appId = String(args.appId || args.app || args.workflowId || exports.QUICKSTART_DEFAULT_APP);
+    // Remote source (v0.1.91): a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
+    // materialized to a LOCAL checkout in the capability layer (below). Cloning is
+    // non-deterministic network I/O and must never enter the replay-deterministic core, so we
+    // rewrite `args.repo` to the local path here; everything downstream is a normal local run.
+    const linkArg = optionalString(args.link);
+    const repoArgRaw = optionalString(args.repo);
+    const remoteCandidate = linkArg || (repoArgRaw && (0, remote_source_1.isRemoteUrl)(repoArgRaw) ? repoArgRaw : undefined);
     // Run anywhere (like brew): default the repo-under-review to the caller's cwd when no
-    // --repo/--cwd is given, mirroring quickstartCheck — so `cw -q "…"` works from any
-    // project directory without a flag, instead of failing validateInputs with "Missing
-    // required input --repo".
-    if (!optionalString(args.repo) && !optionalString(args.cwd)) {
+    // --repo/--cwd/--link is given. A remote candidate is materialized below, so it must NOT
+    // fall through to the cwd default here.
+    if (!remoteCandidate && !optionalString(args.repo) && !optionalString(args.cwd)) {
         args.repo = invocationCwd(args);
     }
     const agentConfigured = Boolean((0, agent_config_1.resolveAgentConfig)(args).command || (0, agent_config_1.resolveAgentConfig)(args).endpoint);
-    if (isTrue(args.check))
-        return quickstartCheck(runner, appId, args, agentConfigured);
+    if (isTrue(args.check)) {
+        return remoteCandidate
+            ? remoteQuickstartCheck(runner, appId, args, agentConfigured, remoteCandidate)
+            : quickstartCheck(runner, appId, args, agentConfigured);
+    }
+    // Materialize the remote NOW — after `--check` (which never fetches) and before any
+    // plan/preview/drive — so the orchestrator only ever sees the local checkout. Fails closed:
+    // a bad URL / blocked scheme / network / auth failure throws here, before any run is planned.
+    let remoteSource;
+    if (remoteCandidate) {
+        remoteSource = (0, remote_source_1.materializeRemote)(remoteCandidate, {
+            ref: optionalString(args.ref || args.branch),
+            refresh: isTrue(args.refresh)
+        });
+        args.repo = remoteSource.localPath;
+        // Record the origin as plan INPUTS so it rides into run.inputs → the report header.
+        args.sourceUrl = remoteSource.url;
+        args.sourceCommit = remoteSource.commit;
+        if (remoteSource.ref)
+            args.sourceRef = remoteSource.ref;
+    }
     // `--resume`: a discoverability flag over the existing continuation. With no
     // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
     // copy-pasteable continue line; with `--run <id>`, continue that run to
@@ -596,6 +628,25 @@ function quickstart(runner, args) {
     const runRepoCwd = node_path_1.default.resolve(node_path_1.default.dirname(result.statePath), "..", "..", "..");
     const reportTarget = node_fs_1.default.existsSync(runRepoCwd) ? runRepoCwd : undefined;
     const reportPath = runner.withBaseDir(reportTarget).report(result.runId).path;
+    // Tamper-evident provenance: bind the remote origin (url@sha) into the run's hash-chained
+    // trust-audit log so `cw audit verify` re-proves where the code came from. metadata is
+    // auto-scrubbed of credentials by recordTrustAuditEvent → scrubMetadata. Best-effort: the
+    // origin is already in run.inputs/report/the result, so a recording hiccup never fails the
+    // review (additive trust evidence, not a gate).
+    if (remoteSource) {
+        try {
+            const provRun = runner.withBaseDir(reportTarget).loadRun(result.runId);
+            (0, trust_audit_1.recordTrustAuditEvent)(provRun, {
+                kind: remoteSource.kind === "archive" ? "source.download" : "source.clone",
+                decision: "recorded",
+                source: "operator-recorded",
+                metadata: { url: remoteSource.url, commit: remoteSource.commit, ref: remoteSource.ref || null, kind: remoteSource.kind, depth: 1 }
+            });
+        }
+        catch {
+            /* provenance is additive; never fail a completed review over an audit-log hiccup */
+        }
+    }
     // --bundle: after a COMPLETE drive, seal the run into a portable, self-verified
     // bundle so the one command yields a client-verifiable artifact. Pure composition
     // of reportBundle() (export sealed + offline self-verify); spawns nothing. Gated on
@@ -665,7 +716,12 @@ function quickstart(runner, args) {
         ...(resumeRunId ? { resumedFrom: resumeRunId } : {}),
         // Same conditional-spread discipline: `bundle` is present only when --bundle ran
         // on a completed drive, so the default (no --bundle) payload is byte-identical.
-        ...(bundle ? { bundle } : {})
+        ...(bundle ? { bundle } : {}),
+        // `remote` is present only when the review targeted a --link/URL source, so a local-repo
+        // run stays byte-identical. Carries the sanitized origin + resolved commit for provenance.
+        ...(remoteSource
+            ? { remote: { url: remoteSource.url, commit: remoteSource.commit, kind: remoteSource.kind, cached: remoteSource.cached, ...(remoteSource.ref ? { ref: remoteSource.ref } : {}) } }
+            : {})
     };
 }
 function quickstartCheck(runner, appId, args, agentConfigured) {
@@ -770,6 +826,55 @@ function quickstartCheck(runner, appId, args, agentConfigured) {
         repo,
         checks,
         nextCommand: quickstartNextCommand(appId, repo, args)
+    };
+}
+/** Preflight for a `--link`/URL review: validate the URL SHAPE + tooling WITHOUT fetching
+ *  (a clone is heavy and side-effecting; --check stays read-only). Mirrors quickstartCheck's
+ *  app/question/agent sub-checks but swaps the local-repo readability checks for link+tooling.
+ *  `repo` carries the sanitized URL so the result reports what would be reviewed. */
+function remoteQuickstartCheck(runner, appId, args, agentConfigured, candidate) {
+    const validation = (0, remote_source_1.validateRemoteUrl)(candidate);
+    const checks = [];
+    try {
+        runner.showApp(appId);
+        checks.push({ name: "app", status: "ok", detail: `Workflow app ${appId} is available.` });
+    }
+    catch (error) {
+        checks.push({ name: "app", status: "blocked", detail: `Workflow app ${appId} is not available.`, fix: "Run `cw app list` and choose one of the listed app ids." });
+    }
+    if (validation.ok) {
+        checks.push({ name: "link", status: "ok", detail: `Remote source is a valid ${validation.kind} URL (${validation.url}).` });
+    }
+    else {
+        checks.push({ name: "link", status: "blocked", detail: `Remote source is not usable: ${validation.reason}.`, fix: "Pass a git URL (https/ssh/git/file or git@host:repo)." });
+    }
+    if ((0, remote_source_1.gitAvailable)()) {
+        checks.push({ name: "tooling", status: "ok", detail: "git is available to clone the remote." });
+    }
+    else {
+        checks.push({ name: "tooling", status: "blocked", detail: "git was not found on PATH.", fix: "Install git, then re-run." });
+    }
+    if (optionalString(args.question)) {
+        checks.push({ name: "question", status: "ok", detail: "Question is set." });
+    }
+    else {
+        checks.push({ name: "question", status: "blocked", detail: "Question is missing.", fix: "Pass --question TEXT." });
+    }
+    if (agentConfigured) {
+        checks.push({ name: "agent", status: "ok", detail: "Agent backend is configured." });
+    }
+    else {
+        checks.push({ name: "agent", status: "blocked", detail: "No agent backend is configured.", fix: "Pass --agent-command \"claude -p\", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude." });
+    }
+    const ok = checks.every((check) => check.status !== "blocked");
+    return {
+        schemaVersion: 1,
+        mode: "check",
+        ok,
+        appId,
+        repo: validation.url,
+        checks,
+        nextCommand: `cw quickstart ${shellWord(appId)} --link ${shellWord(validation.url)}${optionalString(args.question) ? ` --question ${shellWord(String(args.question))}` : ""}`
     };
 }
 function quickstartNextCommand(appId, repo, args) {

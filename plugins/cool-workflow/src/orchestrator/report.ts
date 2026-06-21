@@ -39,6 +39,12 @@ export function writeReport(run: WorkflowRun): string {
     `- Created: ${run.createdAt}`,
     `- Updated: ${run.updatedAt}`,
     `- Repository: ${String(run.inputs.repo || run.cwd)}`,
+    // Remote provenance (v0.1.91): when the repo was materialized from a --link/URL, record
+    // the sanitized origin + resolved commit so the report itself says where the code came
+    // from. Conditional — absent for a local-repo run, so existing reports stay byte-identical.
+    ...(run.inputs.sourceUrl
+      ? [`- Source: ${String(run.inputs.sourceUrl)}${run.inputs.sourceCommit ? `@${String(run.inputs.sourceCommit)}` : ""}`]
+      : []),
     `- Question: ${String(run.inputs.question || "")}`,
     `- Invariants: ${formatInputList(run.inputs.invariant)}`,
     `- Loop Stage: ${run.loopStage}`,

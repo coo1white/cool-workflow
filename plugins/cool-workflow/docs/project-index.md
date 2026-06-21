@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-06-21 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.89`
-- Source modules: `65`
+- Source modules: `66`
 - Workflow apps: `7`
 - Docs: `52`
-- Smoke tests: `133`
+- Smoke tests: `134`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -102,6 +102,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [observability.ts](../src/observability.ts)
 - [onramp.ts](../src/onramp.ts)
 - [reclamation.ts](../src/reclamation.ts)
+- [remote-source.ts](../src/remote-source.ts)
 - [result-normalize.ts](../src/result-normalize.ts)
 - [run-export.ts](../src/run-export.ts)
 - [run-registry.ts](../src/run-registry.ts)
@@ -275,6 +276,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [release-flow-smoke.js](../test/release-flow-smoke.js)
 - [release-gate-smoke.js](../test/release-gate-smoke.js)
 - [release-tooling-smoke.js](../test/release-tooling-smoke.js)
+- [remote-link-git-smoke.js](../test/remote-link-git-smoke.js)
 - [report-bundle-smoke.js](../test/report-bundle-smoke.js)
 - [report-verify-bundle-smoke.js](../test/report-verify-bundle-smoke.js)
 - [result-normalize-smoke.js](../test/result-normalize-smoke.js)

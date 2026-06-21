@@ -59,6 +59,20 @@ Review a project **from any directory** — no `cd` needed — by pointing at it
 cw -q "What are the risks?" -dir /path/to/project
 ```
 
+Or review a **remote repo by URL** — CW clones it, then reviews the checkout (`-l` / `--link`,
+or pass the URL straight to `-dir`/`--repo`):
+
+```bash
+cw -q "What are the risks?" --link https://github.com/owner/repo
+cw -q "What are the risks?" --link git@gitlab.com:owner/repo.git --ref v1.2.0
+```
+
+GitHub, GitLab, Bitbucket, self-hosted git, `ssh://`, and `file://` all work. The clone is cached
+under `~/.local/state/cool-workflow/clones/` and reused next time (`--refresh` re-fetches; `cw clones
+list`/`gc` manage it). The report records `Source: <url>@<commit>` plus a tamper-evident
+`source.clone` event (`cw audit verify`). A credential-less private repo **fails closed** — it never
+hangs on a prompt. Preview without fetching: `cw -q "…" --link <url> --check`.
+
 CW's own phases tick by as it runs, then it prints a clean summary:
 
 ```text
