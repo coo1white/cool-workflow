@@ -1,0 +1,2 @@
+APPROVED bd9d8bef889ccad2929991d0087444f050b47f34
+Users can run `cw -q "your question"` from any project directory and get a report again — the headline command no longer fails with "Workflow app not found" and auto-detects the current directory as the repo (no --repo flag, brew-style run-anywhere).
