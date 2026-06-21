@@ -74,7 +74,11 @@ const checks = [
   // drifted from a fresh source scan. The teeth-on-the-gate live in
   // test/project-index-sync-smoke.js (run by `npm test`); this entry gives the
   // real-doc check its own visible PASS/FAIL line in the release summary.
-  { name: "project index sync", command: ["npm", "run", "index:check"] }
+  { name: "project index sync", command: ["npm", "run", "index:check"] },
+  // Fail closed if the npm README (plugins/cool-workflow/README.md) has drifted
+  // from the GitHub README.md it is generated from. Keeps the two pages identical
+  // by construction; teeth live in test/readme-sync-smoke.js (run by `npm test`).
+  { name: "readme sync", command: ["npm", "run", "readme:check"] }
 ];
 
 function main() {

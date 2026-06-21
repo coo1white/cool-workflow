@@ -92,7 +92,11 @@ function main() {
   checkIncludes("plugins/cool-workflow/dist/mcp-server.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
   checkIncludes("plugins/cool-workflow/dist/workflow-app-framework.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
 
-  checkIncludes("plugins/cool-workflow/README.md", `v${VERSION}`, checks);
+  // The npm package README (plugins/cool-workflow/README.md) is GENERATED from the GitHub
+  // README.md (scripts/sync-readme.js) and conveys the version via the live npm/release shields
+  // badges — not a hand-maintained literal — exactly like the GitHub page. It is no longer
+  // version-pinned here; readme:check guards that the two pages stay identical, and the surfaces
+  // above (version.ts/dist/package.json/manifests/docs) still pin the release.
   checkIncludes("plugins/cool-workflow/docs/index.md", "release and migration", checks);
   checkIncludes("plugins/cool-workflow/docs/multi-agent-topologies.7.md", "Multi-Agent Topologies", checks);
   checkIncludes("plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md", VERSION, checks);
