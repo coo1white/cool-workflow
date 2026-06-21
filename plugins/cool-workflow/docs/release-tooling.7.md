@@ -247,3 +247,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 The release flow now captures the reviewer's verdict from agent stdout (`release-flow.js`), so the cut records the gate decision deterministically instead of relying on a hand-entered verdict; the kernel runtime stays untouched.
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._

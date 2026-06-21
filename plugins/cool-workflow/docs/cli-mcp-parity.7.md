@@ -517,3 +517,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 CLI surface simplified to 6 commands with agent stderr streaming on by default and vendor agent flags; the drive gains a `--incremental` flag (added to DRIVE_RUNTIME_KEYS so it never poisons run.inputs or the cache key). MCP tools stay the derived mirror of the same capabilities.
+
+## 0.1.89 (v0.1.89)
+
+CLI golden-path fixes: `cw -q "…"` routes the question (was read as an app id → "Workflow app not found"), auto-detects the cwd as the repo (run anywhere, no `--repo`), and `cw help` wraps its command list with a trailing newline; the CLI↔MCP parity contract and the help-token parser are unchanged.

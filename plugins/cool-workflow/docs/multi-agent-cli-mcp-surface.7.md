@@ -295,3 +295,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 The host-facing surface tracks the CLI simplification to 6 commands (streaming on by default, vendor agent flags); the multi-agent control loop verbs and their MCP-tool mirrors are otherwise unchanged.
+
+## 0.1.89 (v0.1.89)
+
+The host-facing surface tracks the CLI golden-path fixes (`cw -q` routing + repo auto-detect + clean help); the multi-agent verbs and their MCP-tool mirrors are unchanged.

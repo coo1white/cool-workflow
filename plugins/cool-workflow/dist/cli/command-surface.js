@@ -69,7 +69,7 @@ async function runCli(argv = process.argv.slice(2)) {
             return;
         }
         if (!args.command || args.command === "--help" || args.command === "-h" || args.options.h || args.options.help) {
-            process.stdout.write((0, orchestrator_1.formatHelp)());
+            process.stdout.write((0, orchestrator_1.formatHelp)() + "\n");
             return;
         }
     }
@@ -81,9 +81,11 @@ async function runCli(argv = process.argv.slice(2)) {
     if (args.options.deepseek)
         args.options["agent-command"] = "builtin:deepseek";
     // Bare -q / --question -> redirect to quickstart (auto-detect repo/agent/app).
+    // CONSUME the positional (shift) so the question never survives as positionals[0]
+    // — otherwise the quickstart handler reads it as the app id ("Workflow app not found").
     if (args.command === "-q" || args.command === "--question") {
         if (!args.options.question && args.positionals[0])
-            args.options.question = args.positionals[0];
+            args.options.question = args.positionals.shift();
         args.command = "quickstart";
     }
     else if (!args.command && typeof args.options.question === "string") {
@@ -97,7 +99,7 @@ async function runCli(argv = process.argv.slice(2)) {
     switch (args.command) {
         case "help":
         case undefined:
-            process.stdout.write((0, orchestrator_1.formatHelp)());
+            process.stdout.write((0, orchestrator_1.formatHelp)() + "\n");
             return;
         case "version":
             process.stdout.write(`${version_1.CURRENT_COOL_WORKFLOW_VERSION}\n`);

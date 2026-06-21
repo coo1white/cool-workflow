@@ -309,3 +309,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 _No behavioral change in v0.1.88 (`release:check` and the durable run-state compatibility/`state check` path are unchanged; this release's release-flow verdict-capture work lives in the Release Tooling scripts, not in the release-check or migration discipline)._
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._

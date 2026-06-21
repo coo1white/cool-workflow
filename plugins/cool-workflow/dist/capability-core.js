@@ -548,6 +548,13 @@ exports.QUICKSTART_DEFAULT_APP = "architecture-review";
  *  the drive fails closed (status=blocked) and we never fabricate a completion. */
 function quickstart(runner, args) {
     const appId = String(args.appId || args.app || args.workflowId || exports.QUICKSTART_DEFAULT_APP);
+    // Run anywhere (like brew): default the repo-under-review to the caller's cwd when no
+    // --repo/--cwd is given, mirroring quickstartCheck — so `cw -q "…"` works from any
+    // project directory without a flag, instead of failing validateInputs with "Missing
+    // required input --repo".
+    if (!optionalString(args.repo) && !optionalString(args.cwd)) {
+        args.repo = invocationCwd(args);
+    }
     const agentConfigured = Boolean((0, agent_config_1.resolveAgentConfig)(args).command || (0, agent_config_1.resolveAgentConfig)(args).endpoint);
     if (isTrue(args.check))
         return quickstartCheck(runner, appId, args, agentConfigured);

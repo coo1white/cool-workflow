@@ -136,3 +136,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 _No behavioral change in v0.1.88 (atomic writes, fsync-durability for audit-essential state, and lock-serialized cross-process stores are unchanged; the in-place `appendRunNode` optimization keeps `writeRunNode` and the persisted bytes identical)._
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._

@@ -327,3 +327,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 ## 0.1.88 (v0.1.88)
 
 Agent stderr live-streaming is now on by default when stderr is a TTY (CW_AGENT_STREAM=0 / CW_NO_STREAM=1 force it off; CI and pipes stay silent); stdout is still always captured as data and the driver model / sandbox contract are unchanged.
+
+## 0.1.89 (v0.1.89)
+
+_No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes only; this subsystem is unchanged)._

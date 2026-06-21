@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-20 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-21 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-20 by `npm run sync:projec
 - Source modules: `65`
 - Workflow apps: `7`
 - Docs: `52`
-- Smoke tests: `128`
+- Smoke tests: `130`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -231,6 +231,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [freebsd-audit-fixes-smoke.js](../test/freebsd-audit-fixes-smoke.js)
 - [gemini-agent-wrapper-smoke.js](../test/gemini-agent-wrapper-smoke.js)
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
+- [headline-commands-smoke.js](../test/headline-commands-smoke.js)
 - [incremental-resume-smoke.js](../test/incremental-resume-smoke.js)
 - [loop-bounded-expansion-smoke.js](../test/loop-bounded-expansion-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
@@ -247,6 +248,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [multi-agent-trust-policy-audit-smoke.js](../test/multi-agent-trust-policy-audit-smoke.js)
 - [no-false-green-smoke.js](../test/no-false-green-smoke.js)
 - [node-snapshot-diff-replay-smoke.js](../test/node-snapshot-diff-replay-smoke.js)
+- [npm-global-install-smoke.js](../test/npm-global-install-smoke.js)
 - [npm-trusted-publish-smoke.js](../test/npm-trusted-publish-smoke.js)
 - [observability-cost-accounting-smoke.js](../test/observability-cost-accounting-smoke.js)
 - [one-way-boundary-smoke.js](../test/one-way-boundary-smoke.js)
