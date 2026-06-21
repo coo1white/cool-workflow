@@ -167,7 +167,10 @@ function contentSurfaceFiles(next) {
   // All files the version-sync-check script validates for VERSION or vX.Y.Z.
   // Keep in sync with scripts/version-sync-check.js.
   return [
-    { path: "plugins/cool-workflow/README.md", needle: `v${next}`,          desc: "README version tag" },
+    // The npm package README (plugins/cool-workflow/README.md) is GENERATED from the GitHub
+    // README.md by scripts/sync-readme.js and shows the version via the live npm/release shields
+    // badges, not a hand-maintained literal — so it is NOT a version-bump surface. After a bump,
+    // `npm run sync:readme` keeps it byte-identical to the GitHub README (guarded by readme:check).
     { path: "plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md",   needle: next, desc: "multi-agent CLI/MCP surface doc" },
     { path: "plugins/cool-workflow/docs/multi-agent-operator-ux.7.md",       needle: next, desc: "multi-agent operator UX doc" },
     { path: "plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md", needle: next, desc: "multi-agent eval/replay doc" },

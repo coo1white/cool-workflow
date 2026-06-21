@@ -33,7 +33,7 @@ cw demo tamper
 # → VERDICT: tamper-evidence holds ✓
 ```
 
-### 2. Run a review on your code — one command
+### 2. Ask a question — your code, or any folder — one command
 
 ```bash
 cw -q "What are the main risks here?"
@@ -50,6 +50,14 @@ cw -q "What are the security risks?" -deepseek
 
 `claude`, `codex`, `gemini`, and `opencode` are auto-detected on PATH (no flag needed);
 `-deepseek` picks the DeepSeek builtin — no env vars needed.
+
+**Not just code.** Point CW at a folder of docs, notes, or papers and it reads the files
+there as sources, then gives you the same saved, cited report:
+
+```bash
+cw quickstart research-synthesis --repo /path/to/papers \
+  --question "What do these papers conclude?"
+```
 
 As the agent works you get a **calm, Claude-Code-style live view** — a compact rolling window that
 updates in place instead of an endless wall:
@@ -132,7 +140,7 @@ cw fix                            # show fix commands for setup issues
 |---|---|
 | `architecture-review` | Map a repo, rank risks, back every claim with evidence |
 | `pr-review-fix-ci` | Review a pull request, suggest fixes, verify CI |
-| `research-synthesis` | Answer a question with fact-backed research |
+| `research-synthesis` | Answer a question over a local folder of files — your own docs, notes, or papers, not only code |
 | `release-cut` | Run a gated, reviewed release |
 
 **Multi-agent, when you need it.** Fan work out across agents with built-in topologies,
@@ -186,8 +194,8 @@ what is and is not proven, see the [Trust Model](plugins/cool-workflow/docs/trus
 
 ## How It Works
 
-CW is a small TypeScript tool with zero runtime deps. It drives your agent over a repo in
-saved, replayable stages — it plans the work, dispatches each task to your agent, records and
+CW is a small TypeScript tool with zero runtime deps. It drives your agent over a repo, or any
+folder of files, in saved, replayable stages — it plans the work, dispatches each task to your agent, records and
 verifies every result, then commits and renders the report — writing everything to disk as
 inspectable files. It never imports a model SDK or stores an API key.
 

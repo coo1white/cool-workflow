@@ -115,7 +115,12 @@ try {
   const report = fs.readFileSync(payload.reportPath, "utf8");
   assert.match(report, /notes\.md/, "the report cites the local corpus file (notes.md)");
 
-  process.stdout.write("quickstart-corpus-smoke: ok (advertised CLI command reads a non-git local corpus + commits a cited report)\n");
+  // ---- 5. a research-domain report labels the source line "Source:", not "Repository:" --
+  //         (FAILS before the report.ts domain-gated label change; code apps keep "Repository:").
+  assert.match(report, /^- Source: /m, "research report labels the source line 'Source:'");
+  assert.doesNotMatch(report, /^- Repository: /m, "research report does NOT use the code-only 'Repository:' label");
+
+  process.stdout.write("quickstart-corpus-smoke: ok (advertised CLI command reads a non-git local corpus + cites it under Source:)\n");
 } finally {
   for (const dir of cleanups) fs.rmSync(dir, { recursive: true, force: true });
 }

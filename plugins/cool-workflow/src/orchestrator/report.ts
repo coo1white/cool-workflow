@@ -25,6 +25,12 @@ export function writeReport(run: WorkflowRun): string {
   updatePhaseStatuses(run);
   const workerSummary = summarizeWorkers(run);
   const candidateSummary = summarizeCandidates(run);
+  // A research run reads a local folder of files, not a code repo — label its source line
+  // "Source". Skip the relabel when the run ALSO carries a remote-provenance "- Source: <url>"
+  // line below (run.inputs.sourceUrl set by a --link/URL), so a report never shows two
+  // "- Source:" lines. Every other app keeps the byte-identical "Repository:" (POLA).
+  const sourceLabel =
+    run.workflow.app?.metadata?.domain === "research" && !run.inputs.sourceUrl ? "Source" : "Repository";
   const report = [
     `# ${run.workflow.title}`,
     "",
@@ -38,7 +44,7 @@ export function writeReport(run: WorkflowRun): string {
       : []),
     `- Created: ${run.createdAt}`,
     `- Updated: ${run.updatedAt}`,
-    `- Repository: ${String(run.inputs.repo || run.cwd)}`,
+    `- ${sourceLabel}: ${String(run.inputs.repo || run.cwd)}`,
     // Remote provenance (v0.1.91): when the repo was materialized from a --link/URL, record
     // the sanitized origin + resolved commit so the report itself says where the code came
     // from. Conditional — absent for a local-repo run, so existing reports stay byte-identical.

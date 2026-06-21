@@ -62,6 +62,15 @@ keeps full coverage while cutting the doubled wall time. The steps that stay
 are the ones NOT covered by `npm test`: build, type check, `npm test`,
 canonical-apps, golden-path, parity, vendor-manifest drift, and `version:sync`.
 
+The drift gates `index:check` (`docs/project-index.md`) and `readme:check`
+(`plugins/cool-workflow/README.md`) also run here. The npm package README is
+GENERATED from the repo-root `README.md` by `scripts/sync-readme.js` — it changes
+only the relative image/link URLs npm cannot render (`docs/assets/*` to
+`raw.githubusercontent.com`, `](LICENSE)`/`](plugins/...)` to `.../blob/main/...`),
+so the npm page and the GitHub page stay identical. Edit the GitHub `README.md`,
+then run `npm run sync:readme`; `readme:check` fails the gate if they drift. The
+teeth live in `test/readme-sync-smoke.js`.
+
 For timing work, the smoke runner can write a JSON timing report without changing
 the normal output:
 
