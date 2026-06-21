@@ -78,23 +78,34 @@ function fmtElapsed(ms) {
   return s < 60 ? `${s.toFixed(1)}s` : `${Math.floor(s / 60)}m${String(Math.round(s % 60)).padStart(2, "0")}s`;
 }
 
-/** A single live status line (interactive) or append-only lines (non-TTY), plus an always-on
- *  transcript buffer. `action(label)` commits the PREVIOUS action as ✓/✗ then makes `label` the
+/** A calm, FOLDING live view (interactive) or append-only lines (non-TTY), plus an always-on
+ *  transcript buffer. Interactive: a rolling window redrawn IN PLACE — the current action (spinner)
+ *  plus the last WINDOW completed tools (dimmed). Older tools fold away (the full trail is always in
+ *  the transcript), so the region stays a few rows and never grows into a wall; at the end it
+ *  collapses to ONE summary line. `action(label)` commits the PREVIOUS action then makes `label` the
  *  current spinning action — vendor-neutral folding without needing reliable start/end pairing. */
 function createRenderer(opts = {}) {
   const env = opts.env || process.env;
   const stderr = opts.stderr || process.stderr;
+  const label = String(opts.label || "agent"); // provider name, only for the end-of-run summary line
   const interactive = streamEnabled(env) && Boolean(stderr.isTTY);
   // Non-TTY default stays SILENT (CW's Rule of Silence). Plain append-only logging in non-TTY
   // is an explicit opt-in for CI debuggability — `CW_AGENT_STREAM=1`, mirroring CW_DRIVE_PROGRESS=1.
   const plain = streamEnabled(env) && !stderr.isTTY && env.CW_AGENT_STREAM === "1";
   const verbose = env.CW_VERBOSE === "1" || env.CW_VERBOSE === "true" || env.CW_OUTPUT === "full";
   const color = colorOn(env, stderr);
-  const width = Math.max(20, Math.min(120, Number(stderr.columns) || 80));
   const paint = (code, text) => (color ? `${code}${text}${ANSI.reset}` : text);
 
+  // How many completed tools stay visible above the spinner (the rolling window). Env-tunable.
+  const WINDOW = Math.max(0, Math.min(20, Number(env.CW_LIVE_ROWS) || 4));
+  const INDENT = "  ";
+  const cols = () => Math.max(20, Math.min(200, Number(stderr.columns) || 80));
+
   const transcript = [];
-  let live = "";        // current rendered live line (no trailing newline) when interactive
+  const recent = [];    // [{ label, ms, failed }] — last WINDOW completed actions (interactive)
+  let blockRows = 0;    // terminal rows the live block occupied last frame (for in-place erase)
+  let steps = 0;        // total completed actions (for the summary line)
+  const runStart = Date.now();
   let timer = null;
   let frame = 0;
   let cursorHidden = false;
@@ -111,49 +122,81 @@ function createRenderer(opts = {}) {
     process.once("SIGTERM", onSignal);
   }
 
-  const renderLive = () => {
-    if (!interactive || !current) return;
-    if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
+  // One completed-tool row: `  ✓ label (1.2s)` (dimmed), width-truncated so it never wraps.
+  const doneLine = (item, width) => {
+    const glyph = item.failed ? paint(ANSI.red, "✗") : paint(ANSI.green, "✓");
+    return `${INDENT}${glyph} ${paint(ANSI.dim, `${truncate(item.label, width - 12)} (${fmtElapsed(item.ms)})`)}`;
+  };
+  // The live spinner row: `  ⠋ label  4.2s`.
+  const liveLine = (width) => {
     const el = paint(ANSI.dim, fmtElapsed(Date.now() - current.startedAt));
     const sp = paint(ANSI.cyan, SPINNER[frame % SPINNER.length]);
-    live = `${sp} ${truncate(current.label, width - 10)} ${el}`;
-    stderr.write(`${ANSI.clearLine}${live}`);
-  };
-  const clearLive = () => { if (interactive && live) { stderr.write(ANSI.clearLine); live = ""; } };
-  const ensureTimer = () => {
-    if (interactive && !timer) timer = setInterval(() => { frame++; renderLive(); }, 90);
+    return `${INDENT}${sp} ${truncate(current.label, width - 14)} ${el}`;
   };
 
+  // Erase the previously-drawn block in place: go to its first row, clear to end of screen.
+  const eraseBlock = () => {
+    if (!interactive || blockRows <= 0) return;
+    stderr.write("\r");
+    if (blockRows > 1) stderr.write(`\x1b[${blockRows - 1}A`);
+    stderr.write("\x1b[0J");
+    blockRows = 0;
+  };
+
+  // Redraw the rolling window (recent dimmed rows + the live spinner) in place.
+  const renderBlock = () => {
+    if (!interactive) return;
+    if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
+    eraseBlock();
+    const width = cols();
+    const lines = recent.slice(-WINDOW).map((item) => doneLine(item, width));
+    if (current) lines.push(liveLine(width));
+    if (!lines.length) return;
+    stderr.write(lines.join("\n"));
+    blockRows = lines.length;
+  };
+
+  const ensureTimer = () => {
+    if (interactive && !timer) timer = setInterval(() => { frame++; renderBlock(); }, 90);
+  };
+
+  // Commit the current action: record it to the transcript + roll it into the window (interactive)
+  // or append a plain line (CI). The interactive REDRAW happens in the caller (action/stop), so a
+  // commit never leaves a permanent per-tool line — that was the 0.1.91 "wall".
   const commit = () => {
     if (!current) return;
     const ms = Date.now() - current.startedAt;
-    const glyph = current.failed ? paint(ANSI.red, "✗") : paint(ANSI.green, "✓");
-    const doneLine = `${glyph} ${paint(ANSI.dim, `${truncate(current.label, width - 12)} (${fmtElapsed(ms)})`)}`;
     transcript.push(`- ${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})`);
-    if (interactive) { clearLive(); stderr.write(`${doneLine}\n`); }
-    else if (plain) stderr.write(`${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})\n`);
+    steps += 1;
+    if (interactive) {
+      recent.push({ label: current.label, ms, failed: current.failed });
+      while (recent.length > WINDOW) recent.shift();
+    } else if (plain) {
+      stderr.write(`${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})\n`);
+    }
     current = null;
   };
 
   return {
-    /** Begin a new active action (commits + folds the previous one). */
+    /** Begin a new active action (folds the previous one into the rolling window). */
     action(label) {
       commit();
       current = { label: String(label || "working…"), startedAt: Date.now(), failed: false };
       ensureTimer();
-      if (interactive) renderLive();
+      if (interactive) renderBlock();
       else if (plain) stderr.write(`→ ${current.label}\n`);
     },
-    /** Mark the current action as failed (it commits as ✗). */
+    /** Mark the current action as failed (it folds in as ✗). */
     fail() { if (current) current.failed = true; },
-    /** Narration text from the model. Always to the transcript; inline only in --verbose. */
+    /** Narration text from the model. Always to the transcript; inline only in --verbose (printed
+     *  ABOVE the live window, which then redraws below it). */
     text(chunk) {
       const t = String(chunk || "").trim();
       if (!t) return;
       transcript.push(t);
       if (!verbose) return;
-      if (interactive) { clearLive(); stderr.write(`${paint(ANSI.dim, truncate(t, width))}\n`); renderLive(); }
-      else if (plain) stderr.write(`${truncate(t, width)}\n`);
+      if (interactive) { eraseBlock(); stderr.write(`${INDENT}${paint(ANSI.dim, truncate(t, cols() - 2))}\n`); renderBlock(); }
+      else if (plain) stderr.write(`${truncate(t, cols())}\n`);
     },
     /** A short status note (e.g. provider summary). Transcript always; inline in --verbose. */
     note(text) { this.text(text); },
@@ -166,10 +209,18 @@ function createRenderer(opts = {}) {
     isVerbose: () => verbose
   };
 
+  // Stop: fold the last action in, erase the live window, and collapse to ONE permanent summary
+  // line (`  ✓ <provider> — N steps · 2m41s`) so the worker leaves a single calm trace.
   function stop() {
     if (timer) { clearInterval(timer); timer = null; }
     commit();
-    clearLive();
+    if (interactive) {
+      eraseBlock();
+      if (steps > 0) {
+        const summary = `${paint(ANSI.green, "✓")} ${paint(ANSI.dim, `${label} — ${steps} step${steps === 1 ? "" : "s"} · ${fmtElapsed(Date.now() - runStart)}`)}`;
+        stderr.write(`${INDENT}${summary}\n`);
+      }
+    }
     restoreCursor();
   }
 }

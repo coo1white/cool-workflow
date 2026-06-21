@@ -88,7 +88,7 @@ function shortInput(tool, input) {
 // The live view (spinner + folding actions on a TTY, plain append-only when piped, silent when
 // CW_AGENT_STREAM=0) + cursor hygiene + an always-on-disk transcript live in the shared core.
 void traceEnabled; // superseded by the renderer (which does its own TTY/stream gating)
-const render = createRenderer({ env: process.env, stderr: process.stderr });
+const render = createRenderer({ env: process.env, stderr: process.stderr, label: "claude" });
 const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
 
 // stream-json so claude emits incremental NDJSON events we render live. We CAPTURE claude's

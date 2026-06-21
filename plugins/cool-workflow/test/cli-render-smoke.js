@@ -209,6 +209,32 @@ function testCursorHygiene() {
   console.log("cli-render: live-renderer cursor hygiene (hide on spinner, restore on stop) OK");
 }
 
+function testRollingWindowFold() {
+  // The fix for the 0.1.91 "wall": completed tools do NOT each leave a permanent line — they fold
+  // into a rolling window (current spinner + the last WINDOW=4 dimmed) that is REDRAWN in place, and
+  // the worker collapses to ONE summary line at the end. Drive 6 tools through a fake TTY stream.
+  const s = fakeStream(true);
+  s.columns = 80;
+  const render = createRenderer({ env: {}, stderr: s, label: "claude" });
+  try {
+    for (const t of ["ToolA", "ToolB", "ToolC", "ToolD", "ToolE", "ToolF"]) render.action(t);
+    // In-place redraw (NOT append-only): the block is erased (clear-to-end + cursor-up) each frame.
+    assert.ok(s.text.includes("\x1b[0J"), "the live block is erased + redrawn in place (clear-to-end)");
+    assert.ok(/\x1b\[\d+A/.test(s.text), "cursor moves up to redraw the rolling block (not a growing wall)");
+    // The FINAL rendered block = everything after the last erase. WINDOW=4, so the oldest folded away.
+    const lastBlock = s.text.split("\x1b[0J").pop();
+    assert.ok(!lastBlock.includes("ToolA"), "the oldest tool has folded OUT of the window");
+    for (const t of ["ToolC", "ToolD", "ToolE", "ToolF"]) {
+      assert.ok(lastBlock.includes(t), `the rolling window keeps the recent tool ${t}`);
+    }
+    assert.ok(lastBlock.split("\n").length <= 6, "the live region stays a compact few rows, never a wall");
+  } finally {
+    render.finishLive();
+  }
+  assert.match(plain(s.text), /✓ claude — 6 steps · /, "the worker collapses to a single summary line at the end");
+  console.log("cli-render: rolling-window fold + collapse-to-summary OK");
+}
+
 function main() {
   testTruncateAndWidth();
   testColorEnv();
@@ -219,6 +245,7 @@ function main() {
   testProgressThinWrite();
   testFullAndBlocked();
   testCursorHygiene();
+  testRollingWindowFold();
   console.log("cli-render-smoke: ok");
 }
 

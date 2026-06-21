@@ -38,7 +38,7 @@ if (!inputPath || !resultPath) {
 }
 
 const prompt = buildPrompt(inputPath);
-const render = createRenderer({ env: process.env, stderr: process.stderr });
+const render = createRenderer({ env: process.env, stderr: process.stderr, label: "opencode" });
 const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
 const state = { provider: "opencode", buffer: "", model: undefined, usage: undefined, textFragments: [], finalResult: undefined, renderer: render };
 let childStderr = "";
