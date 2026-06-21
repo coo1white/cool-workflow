@@ -1,0 +1,2 @@
+APPROVED da4f0ac435bbb2261100ee88a312ad92369f66c8
+A user can review any remote repository by URL — `cw -q "…" --link <git-url-or-archive>` clones/downloads it into a fail-closed, content-addressed cache (manageable via `cw clones list/gc`) and runs the existing review against the checkout, with tamper-evident `Source: url@commit` provenance.
