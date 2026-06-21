@@ -528,3 +528,5 @@ CLI golden-path fixes: `cw -q "…"` routes the question (was read as an app id 
 0.1.90
 
 0.1.91
+
+0.1.92
