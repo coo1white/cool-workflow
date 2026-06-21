@@ -51,12 +51,23 @@ cw -q "What are the security risks?" -deepseek
 `claude`, `codex`, `gemini`, and `opencode` are auto-detected on PATH (no flag needed);
 `-deepseek` picks the DeepSeek builtin — no env vars needed.
 
-As the agent works you get a **calm, Claude-Code-style live view**: one in-place status line
-(spinner + current action + elapsed) with each tool call folding to a single `✓ Read app.js (0.3s)`
-/ `✗ Bash (1.1s)` line. It stays compact by default (reasoning hidden) — add `--verbose` for the full
-narration, `--full` to also print the report inline, or `--no-color` to drop ANSI (`NO_COLOR` /
-`FORCE_COLOR` are honored too). The complete narration + tool I/O is always saved to a per-worker
-`transcript.md` next to the result, and the cursor is restored cleanly on Ctrl-C.
+As the agent works you get a **calm, Claude-Code-style live view** — a compact rolling window that
+updates in place instead of an endless wall:
+
+```text
+● Read(execution-backend.ts)
+  ⎿ 910 lines
+● Grep(spawnSync)
+  ⎿ 17 matches
+✶ Searching worker-isolation.ts… (3s)
+```
+
+Each tool folds to a `● ToolName(arg)` line with a dim `⎿` result summary; older steps fold away (the
+window stays a few rows) and the worker collapses to one line when done. It's compact by default
+(reasoning hidden) — add `--verbose` for the full narration, `--full` to also print the report inline,
+or `--no-color` to drop ANSI (`NO_COLOR` / `FORCE_COLOR` are honored too). The complete narration +
+tool I/O is always saved to a per-worker `transcript.md` next to the result, and the cursor is
+restored cleanly on Ctrl-C.
 
 Review a project **from any directory** — no `cd` needed — by pointing at its folder
 (`-d` / `--dir` / `--repo` are equivalent):

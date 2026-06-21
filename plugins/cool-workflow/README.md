@@ -76,13 +76,23 @@ re-fetches; manage with `cw clones list` / `cw clones gc`). The report records t
 `cw audit verify`. A private repo with no credentials **fails closed** (it never hangs on a
 prompt). Validate without fetching: `cw -q "…" --link <url> --check`.
 
-As it runs you get a **calm, Claude-Code-style live view** — one in-place status line (spinner +
-current action + elapsed) with each tool call folding to a single `✓ Read app.js (0.3s)` /
-`✗ Bash (1.1s)` line. It's compact by default (reasoning hidden); add `--verbose` for the full
-narration, `--full` to also print the report inline, or `--no-color` to drop ANSI (`NO_COLOR` /
-`FORCE_COLOR` are honored). The complete narration + tool I/O is always saved to a per-worker
-`transcript.md`, and the cursor is restored cleanly on Ctrl-C. Then CW prints a clean summary — a
-**compact findings table** (id / severity / classification) plus the report path and the run dir:
+As it runs you get a **calm, Claude-Code-style live view** — a compact rolling window that updates in
+place (`● ToolName(arg)` with a dim `⎿` result summary under each, a `✶` sparkle for the current
+step), so older tools fold away instead of piling into a wall:
+
+```text
+● Read(execution-backend.ts)
+  ⎿ 910 lines
+● Grep(spawnSync)
+  ⎿ 17 matches
+✶ Searching worker-isolation.ts… (3s)
+```
+
+It's compact by default (reasoning hidden); add `--verbose` for the full narration, `--full` to also
+print the report inline, or `--no-color` to drop ANSI (`NO_COLOR` / `FORCE_COLOR` are honored). The
+complete narration + tool I/O is always saved to a per-worker `transcript.md`, and the cursor is
+restored cleanly on Ctrl-C. Then CW prints a clean summary — a **compact findings table** (id /
+severity / classification) plus the report path and the run dir:
 
 ```text
 ==> Map ✓ (6/6)
