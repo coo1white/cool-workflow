@@ -114,6 +114,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   if (args.options.claude) args.options["agent-command"] = "builtin:claude";
   if (args.options.codex) args.options["agent-command"] = "builtin:codex";
   if (args.options.deepseek) args.options["agent-command"] = "builtin:deepseek";
+  // -dir / --dir / -d : an intuitive alias for --repo — the project folder to review,
+  // so `cw -q "…" -dir /path` works from any directory (no cd). Explicit --repo wins.
+  if (!args.options.repo && args.options.dir) args.options.repo = args.options.dir;
 
   // Bare -q / --question -> redirect to quickstart (auto-detect repo/agent/app).
   // CONSUME the positional (shift) so the question never survives as positionals[0]
@@ -250,12 +253,18 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       const qs = quickstart(runner, { ...args.options, ...(appId ? { appId } : {}), ...(runId ? { runId } : {}) });
       printJson(qs);
       const qr = qs as unknown as Record<string, unknown>;
-      if (typeof qr.runId === "string" && typeof qr.reportPath === "string") {
+      // Clean human summary on stderr (TTY-gated). Suppressed under --json so machine
+      // mode emits ONLY the stdout payload — no stderr chrome to parse around. The
+      // type guard also skips --check/--preview results (no reportPath of their own).
+      if (!wantsJson(args.options) && typeof qr.runId === "string" && typeof qr.reportPath === "string") {
         printSuccessSummary({
           runId: qr.runId as string,
           reportPath: qr.reportPath as string,
           status: String(qr.status || ""),
-          bundle: Boolean(args.options.bundle)
+          bundle: Boolean(args.options.bundle),
+          completedWorkers: typeof qr.completedWorkers === "number" ? (qr.completedWorkers as number) : undefined,
+          plannedWorkers: typeof qr.plannedWorkers === "number" ? (qr.plannedWorkers as number) : undefined,
+          agentConfigured: typeof qr.agentConfigured === "boolean" ? (qr.agentConfigured as boolean) : undefined
         });
       }
       if ((qs as { mode?: string; ok?: boolean }).mode === "check" && (qs as { ok?: boolean }).ok === false) {
@@ -1185,7 +1194,16 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
         else driveArgs.appId = target;
         const dr = runDrive(runner, driveArgs);
         printJson(dr);
-        printSuccessSummary({ runId: dr.runId, reportPath: dr.reportPath, status: dr.status });
+        if (!wantsJson(args.options)) {
+          printSuccessSummary({
+            runId: dr.runId,
+            reportPath: dr.reportPath,
+            status: dr.status,
+            completedWorkers: dr.completedWorkers,
+            plannedWorkers: dr.plannedWorkers,
+            agentConfigured: dr.agentConfigured
+          });
+        }
         return;
       }
       const registry = runRegistryFor(args.options, runner);
@@ -1198,7 +1216,16 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
             if (id) driveArgs.runId = id;
             const dr = runDrive(runner, driveArgs);
             printJson(dr);
-            printSuccessSummary({ runId: dr.runId, reportPath: dr.reportPath, status: dr.status });
+            if (!wantsJson(args.options)) {
+              printSuccessSummary({
+                runId: dr.runId,
+                reportPath: dr.reportPath,
+                status: dr.status,
+                completedWorkers: dr.completedWorkers,
+                plannedWorkers: dr.plannedWorkers,
+                agentConfigured: dr.agentConfigured
+              });
+            }
             return;
           }
           printJson(runDrivePreview(runner, { ...args.options, runId: required(id, "run id") }));

@@ -24,6 +24,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CoolWorkflowRunner } from "./orchestrator";
+import { phaseProgressLine } from "./term";
 import { firstRunnablePhase } from "./dispatch";
 import { prepareAgentSpawn, runAgentBatchOutcomes, runBackend, sha256, stripSecretArgs } from "./execution-backend";
 import { recordWorkerRetryAttempt } from "./worker-isolation";
@@ -783,6 +784,34 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
     return Math.max(1, Math.min(cap, phase.taskIds.length));
   };
 
+  // Phase-boundary progress (brew-style): announce each phase when it becomes active
+  // and when it finishes — `==> Map ✓ (6/6)` / `==> Assess … (3/6)`. Describes CW's OWN
+  // phases (vendor-neutral); goes to stderr via emitProgress so stdout stays clean data.
+  const announcedPhaseComplete = new Set<string>();
+  let activePhaseId: string | undefined;
+  const titleCase = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const emitPhaseProgress = (run: WorkflowRun): void => {
+    for (const ph of run.phases || []) {
+      const phaseTasks = run.tasks.filter((task) => ph.taskIds.includes(task.id));
+      const total = phaseTasks.length;
+      if (total === 0) continue;
+      const done = phaseTasks.filter((task) => task.status === "completed").length;
+      const label = titleCase(ph.name || ph.id);
+      if (done >= total) {
+        if (!announcedPhaseComplete.has(ph.id)) {
+          announcedPhaseComplete.add(ph.id);
+          emitProgress(phaseProgressLine(label, done, total, ph.mode, process.stderr));
+        }
+        continue;
+      }
+      if (ph.id !== activePhaseId) {
+        activePhaseId = ph.id;
+        emitProgress(phaseProgressLine(label, done, total, ph.mode, process.stderr));
+      }
+      return; // only the first not-yet-complete phase is "active"
+    }
+  };
+
   for (let i = 0; i < maxIterations; i++) {
     const width = concurrency > 1 ? concurrency : autoWidth(runner.loadRun(runId));
     const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
@@ -801,6 +830,10 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
           .join(" ")
       );
     }
+    // Brew-style phase boundaries: after each round, announce a newly-active phase and
+    // any phase that just finished (`==> Map ✓ (6/6)` / `==> Assess … (3/6)`). Cheap —
+    // reuses the run we just advanced; goes to stderr via emitProgress so stdout is clean.
+    emitPhaseProgress(runner.loadRun(runId));
     const last = roundSteps[roundSteps.length - 1];
     if (options.once) break;
     if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) break;
@@ -834,7 +867,8 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
     parkedWorkers,
     commitId: committed?.id,
     reportPath: run.paths.report,
-    statePath: run.paths.state
+    statePath: run.paths.state,
+    agentConfigured: agentConfigured(config)
   };
 }
 

@@ -116,5 +116,24 @@ console.log("headline: vendor flags -claude/-codex/-deepseek route ok");
   console.log("headline: output hygiene (no piped escapes) + clean wrapped help ok");
 }
 
+// ===== 7. -dir/--dir/-d target a project folder from ANY cwd (alias for --repo) =====
+// The complement to section 1's cwd auto-detect: a user in some unrelated directory can
+// point cw at a project WITHOUT cd-ing in. The flag — not the invocation cwd — decides
+// the analyzed repo. This is the "install once, run anywhere" parity with brew.
+{
+  const elsewhere = tmpRepo(); // where the user happens to be standing
+  const target = tmpRepo();    // the project they want reviewed
+  for (const flag of ["-dir", "--dir", "-d"]) {
+    const r = run(["-q", "what are the risks?", flag, target, "--check", "--agent-command", FAKE_AGENT], elsewhere);
+    assert.doesNotMatch(r.stdout + r.stderr, NOT_FOUND, `${flag} must still route the question`);
+    const p = JSON.parse(r.stdout);
+    assert.equal(p.repo, target, `${flag} <path> targets that folder from any cwd (not the invocation cwd)`);
+  }
+  // Explicit --repo wins when both are present — the alias never overrides the real flag.
+  const r2 = run(["-q", "risks?", "-dir", elsewhere, "--repo", target, "--check", "--agent-command", FAKE_AGENT], elsewhere);
+  assert.equal(JSON.parse(r2.stdout).repo, target, "explicit --repo takes precedence over the -dir alias");
+  console.log("headline: -dir/--dir/-d target a folder from any cwd (alias for --repo) ok");
+}
+
 for (const d of cleanups) fs.rmSync(d, { recursive: true, force: true });
 console.log("headline-commands-smoke: ok");
