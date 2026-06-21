@@ -13,6 +13,15 @@ function isTTY(stream: NodeJS.WriteStream = process.stderr): boolean {
   return Boolean(stream.isTTY);
 }
 
+/** Whether to emit ANSI color on a stream, honoring the de-facto env standards:
+ *  NO_COLOR / CW_NO_COLOR (any non-empty value) disable; FORCE_COLOR (non-"0") forces on
+ *  even when piped; otherwise fall back to isTTY. The `--no-color` flag sets CW_NO_COLOR. */
+function colorEnabled(stream?: NodeJS.WriteStream, env: NodeJS.ProcessEnv = process.env): boolean {
+  if ((env.NO_COLOR ?? "") !== "" || (env.CW_NO_COLOR ?? "") !== "") return false;
+  if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0") return true;
+  return isTTY(stream);
+}
+
 // ---- ansi codes ----
 
 const ansi = {
@@ -28,7 +37,7 @@ const ansi = {
 // ---- styled text ----
 
 function style(code: string, text: string, stream?: NodeJS.WriteStream): string {
-  if (!isTTY(stream)) return text;
+  if (!colorEnabled(stream)) return text;
   return `${code}${text}${ansi.reset}`;
 }
 
@@ -147,4 +156,71 @@ export function printSuccessSummary(
     if (fields.agentConfigured === false) s.write(`  ${tryHint("cw doctor", s)}\n`);
     else s.write(`  ${nextHint(`cw status ${fields.runId}`, s)}\n`);
   }
+}
+
+// ---- width-aware truncation (zero-dep) ----
+
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
+/** Strip ANSI SGR codes (for measuring visible width). */
+export function stripAnsi(text: string): string {
+  return text.replace(ANSI_RE, "");
+}
+
+/** Visible width of a string, ignoring ANSI. Counts each code point as width 1 — a known
+ *  minor caveat for wide (CJK/emoji) glyphs, acceptable for one-line status truncation. */
+export function visibleWidth(text: string): number {
+  return [...stripAnsi(text)].length;
+}
+
+/** Truncate a (possibly styled) string to `maxWidth` visible columns, appending `…` when cut.
+ *  Operates on the PLAIN text (callers truncate before styling), so no ANSI is split. */
+export function truncate(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return "";
+  const chars = [...stripAnsi(text)];
+  if (chars.length <= maxWidth) return text;
+  if (maxWidth === 1) return "…";
+  return `${chars.slice(0, maxWidth - 1).join("")}…`;
+}
+
+// ---- findings summary table (end-of-run, compact) ----
+
+/** Severity order for sorting + counting (most severe first). */
+const SEVERITY_ORDER = ["P0", "P1", "P2", "P3", "none"];
+
+export interface FindingRow {
+  id: string;
+  severity: string;
+  classification: string;
+}
+
+/** Render a compact findings summary assembled from the run's `cw:result` blocks: a one-line
+ *  count headline (e.g. `Findings: 3 — 2×P1, 1×P2`) plus a small id/severity/class table. This
+ *  is the end-of-run summary — NOT the full prose (that stays in report.md + the transcript).
+ *  Returns "" when there are no findings (caller prints nothing). */
+export function formatFindingsSummary(findings: FindingRow[], stream?: NodeJS.WriteStream): string {
+  if (!findings.length) return "";
+  const bySev = new Map<string, number>();
+  for (const f of findings) bySev.set(f.severity || "none", (bySev.get(f.severity || "none") || 0) + 1);
+  const order = (s: string) => {
+    const i = SEVERITY_ORDER.indexOf(s);
+    return i === -1 ? SEVERITY_ORDER.length : i;
+  };
+  const counts = [...bySev.entries()]
+    .sort((a, b) => order(a[0]) - order(b[0]))
+    .map(([sev, n]) => `${n}×${sev}`)
+    .join(", ");
+  const rows = [...findings].sort((a, b) => order(a.severity) - order(b.severity));
+  const sevW = Math.max(8, ...rows.map((r) => (r.severity || "none").length));
+  const clsW = Math.max(5, ...rows.map((r) => (r.classification || "unknown").length));
+  const lines = [
+    `${bold("Findings:", stream)} ${findings.length} — ${counts}`,
+    dim(`  ${"SEVERITY".padEnd(sevW)}  ${"CLASS".padEnd(clsW)}  ID`, stream)
+  ];
+  for (const r of rows) {
+    const sev = (r.severity || "none").padEnd(sevW);
+    const cls = (r.classification || "unknown").padEnd(clsW);
+    lines.push(`  ${sev}  ${cls}  ${truncate(r.id || "(unnamed)", 60)}`);
+  }
+  return lines.join("\n");
 }

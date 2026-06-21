@@ -111,7 +111,8 @@ function main() {
     const dir = shimDir("ok");
     const child = runWrapper(dir, inputPath, resultPath, { CW_AGENT_STREAM: "1" });
     assert.equal(child.status, 0, `stream gemini wrapper exits 0 (stderr: ${child.stderr})`);
-    assert.equal(child.stderr, "", "piped stream success remains silent unless stderr is a TTY");
+    assert.ok(!/\x1b\[/.test(child.stderr), "non-TTY trace carries NO ANSI/cursor escapes");
+    assert.match(child.stderr, /→ gemini: reading/, "CW_AGENT_STREAM=1 opts non-TTY into a plain append-only trace");
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "stream path persists final message");
     console.log("gemini: CW_AGENT_STREAM=1 piped success OK");
   }

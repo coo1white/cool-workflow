@@ -198,28 +198,43 @@ string). Each verb is declared once in `capability-registry.ts`, so `cw <cmd>
 --json` is byte-identical to the matching `cw_<tool>` MCP tool for the read-only
 preview/config-show verbs.
 
-## Live output — opt-in stderr passthrough (Unix-clean)
+## Live output — a calm live view, on stderr, Unix-clean
 
-A drive can show the agent's activity live, without touching the evidence
-contract, when the operator opts in with `CW_AGENT_STREAM=1`:
+A drive shows the agent's activity live without ever touching the evidence
+contract. The async per-vendor wrapper owns the live region (it parses
+`--output-format stream-json` and its event loop is free); cw renders the calm
+orchestration between agents plus the end-of-run summary. **Everything goes to
+stderr — stdout stays the byte-exact data channel** (the `cw:result` fence, the
+wrapper's `{model, usage, result}` JSON, cw's `--json` payload), so a pipe is
+never polluted.
 
-- **Default stays buffered.** Without `CW_AGENT_STREAM=1`, the bundled wrapper
-  keeps the buffered path and writes one JSON report to stdout after writing
-  `result.md`.
-- **The opt-in wrapper renders; stderr only.** With `CW_AGENT_STREAM=1`, the
-  bundled Claude wrapper runs claude in `--output-format stream-json`, and the
-  bundled Codex wrapper runs `codex exec --json --output-last-message`.
-  Each wrapper renders a short human trace (tool uses, assistant text, per-turn
-  summaries where present) to its **stderr** — diagnostics, never data. It builds
-  the single `{model, usage, result}` object for stdout after the final answer is
-  captured.
-- **Core forwards, never parses.** `runAgentProcess` passes the agent child's
-  stderr straight through to the operator's terminal (`stdio` inherit) only when
-  `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set.
-  Piped / CI runs stay quiet (the Rule of Silence). Vendor-specific rendering
-  lives in the wrapper (policy), not the kernel (mechanism).
-- **Determinism intact.** The backend evidence triple hashes stdout only, so
-  the live stderr stream never changes recorded evidence or replay.
+- **Interactive (TTY).** The wrapper renders ONE in-place status line: a Braille
+  spinner + the current action + elapsed (e.g. `⠹ Read app.js 1.2s`). Tool calls
+  fold to a single line each — spinning while running, then resolving to
+  `✓ Read app.js (0.3s)` / `✗ Bash (1.1s)` (dimmed, args width-truncated). The
+  cursor is hidden while the spinner runs and **ALWAYS restored** on exit /
+  Ctrl-C / SIGTERM (Ctrl-C exits non-zero, leaving a clean terminal).
+- **Non-TTY stays SILENT by default** (the Rule of Silence). `CW_AGENT_STREAM=1`
+  opts a CI/piped run into a **plain append-only** trace (`→ …` / `✓ … (Xs)`
+  lines, zero ANSI/cursor bytes) for debuggability — mirroring `CW_DRIVE_PROGRESS=1`.
+- **Verbosity.** Default is compact: the current action + folded tool lines, with
+  the model's narration/reasoning HIDDEN. `--verbose` (sets `CW_VERBOSE=1`)
+  surfaces the full narration inline; `--full` (sets `CW_OUTPUT=full`) implies
+  verbose AND prints the report inline at run end.
+- **Transcript always on disk.** Regardless of verbosity — even when the screen
+  view is silent or compact — the wrapper writes the COMPLETE narration + tool I/O
+  to `transcript.md` next to that worker's `result.md`. The end-of-run summary
+  prints the run dir where the transcripts live, so nothing is ever lost to a
+  compact view.
+- **Color control.** `NO_COLOR` / `CW_NO_COLOR` (the `--no-color` flag sets the
+  latter) disable ANSI; `FORCE_COLOR` forces it even when piped; otherwise color
+  follows isTTY. Honored identically by cw (`term.ts`) and every wrapper.
+- **End-of-run summary (cw side).** A COMPACT findings table — id / severity /
+  classification + counts, re-parsed from each completed worker's `cw:result` —
+  plus the report path, status, and run dir. NOT the full prose (that stays in
+  `report.md` + the transcript); `--full` also prints the report inline.
+- **Determinism intact.** The backend evidence triple hashes stdout only, so the
+  live stderr view never changes recorded evidence or replay.
 
 The built-in templates are:
 

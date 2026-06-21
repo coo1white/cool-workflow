@@ -28,12 +28,13 @@
 //   CW_AGENT_COMMAND="node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
 
 const fs = require("node:fs");
+const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 // Share the ONE canonical result contract with the codex/gemini/opencode
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-const { buildPrompt } = require("./agent-adapter-core");
+const { buildPrompt, createRenderer } = require("./agent-adapter-core");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -77,11 +78,6 @@ if (!streamEnabled) {
   process.exit(0);
 }
 
-// Live trace → stderr only. Concise; one line per meaningful event.
-function trace(line) {
-  if (!traceEnabled) return;
-  process.stderr.write(`${line}\n`);
-}
 function shortInput(tool, input) {
   if (!input || typeof input !== "object") return "";
   const v = input.file_path || input.path || input.pattern || input.command || input.query || input.url || "";
@@ -89,20 +85,30 @@ function shortInput(tool, input) {
   return s ? ` ${s.length > 80 ? s.slice(0, 77) + "…" : s}` : "";
 }
 
-// stream-json so claude emits incremental NDJSON events we can render live, while
-// we reconstruct the single {model, usage, result} object CW consumes on stdout.
+// The live view (spinner + folding actions on a TTY, plain append-only when piped, silent when
+// CW_AGENT_STREAM=0) + cursor hygiene + an always-on-disk transcript live in the shared core.
+void traceEnabled; // superseded by the renderer (which does its own TTY/stream gating)
+const render = createRenderer({ env: process.env, stderr: process.stderr });
+const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
+
+// stream-json so claude emits incremental NDJSON events we render live. We CAPTURE claude's
+// own stderr (do NOT inherit) so it can never corrupt the live region; it's surfaced only on a
+// non-zero exit.
 const child = spawn(
   "claude",
   ["-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", "Read,Grep,Glob,Bash"],
-  { stdio: ["ignore", "pipe", "inherit"] } // claude's own stderr → straight through
+  { stdio: ["ignore", "pipe", "pipe"] }
 );
 
 let model;
 let usage;
 let resultText;
 let buf = "";
+let childStderr = "";
+child.stderr.setEncoding("utf8");
+child.stderr.on("data", (d) => { if (childStderr.length < 1024 * 1024) childStderr += d; });
 
-trace("● claude: reading the repo (read-only)…");
+render.action("claude: reading the repo (read-only)…");
 
 child.stdout.setEncoding("utf8");
 child.stdout.on("data", (chunk) => {
@@ -127,27 +133,31 @@ function renderEvent(ev) {
     if (!model && typeof ev.message.model === "string") model = ev.message.model;
     for (const part of ev.message.content || []) {
       if (part.type === "text" && part.text && part.text.trim()) {
-        trace(`  ${part.text.trim().replace(/\n+/g, "\n  ")}`);
+        render.text(part.text.trim());
       } else if (part.type === "tool_use") {
-        trace(`  → ${part.name}${shortInput(part.name, part.input)}`);
+        render.action(`${part.name}${shortInput(part.name, part.input)}`);
       }
     }
   } else if (ev.type === "system" && ev.subtype === "post_turn_summary" && ev.status_detail) {
-    trace(`  · ${ev.status_detail}`);
+    render.note(ev.status_detail);
   } else if (ev.type === "result") {
     if (typeof ev.result === "string") resultText = ev.result;
     if (ev.usage && typeof ev.usage === "object") usage = ev.usage;
-    if (ev.is_error) trace("  ✗ claude reported an error result");
+    if (ev.is_error) render.fail();
   }
 }
 
 child.on("error", (err) => {
+  render.finishLive(); // restore the terminal before exiting
   process.stderr.write(`claude spawn failed: ${err.message}\n`);
   process.exit(1);
 });
 
 child.on("close", (code) => {
+  render.finishLive(); // stop the spinner + restore the cursor BEFORE any further output
+  render.writeTranscript(transcriptPath); // full narration + tool I/O always saved
   if (code !== 0) {
+    if (childStderr.trim()) process.stderr.write(`${childStderr.trim()}\n`);
     process.stderr.write(`claude exited ${code === null ? "(timeout/killed)" : code}\n`);
     process.exit(code === null ? 1 : code);
   }
@@ -158,7 +168,6 @@ child.on("close", (code) => {
   }
   // Persist the AGENT's final markdown to the worker's result.md (CW is transport).
   fs.writeFileSync(resultPath, resultText, "utf8");
-  trace("● done — result captured");
   // The single JSON CW consumes on STDOUT (data channel): model + usage + result.
   process.stdout.write(JSON.stringify({ model, usage, result: resultText }));
 });

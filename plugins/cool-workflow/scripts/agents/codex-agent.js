@@ -20,10 +20,10 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const {
   buildPrompt,
+  createRenderer,
   emitReport,
   flushJsonLines,
   parseJsonLines,
-  trace,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -42,7 +42,9 @@ try {
 }
 
 const prompt = buildPrompt(inputPath);
-const state = { provider: "codex", buffer: "", model: undefined, usage: undefined };
+const render = createRenderer({ env: process.env, stderr: process.stderr });
+const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
+const state = { provider: "codex", buffer: "", model: undefined, usage: undefined, renderer: render };
 const capturedStdout = [];
 let childStderr = "";
 function recordJsonLine(line) {
@@ -54,7 +56,7 @@ function recordJsonLine(line) {
   }
 }
 
-trace("* codex: reading the repo (read-only)...");
+render.action("codex: reading the repo (read-only)…");
 
 const args = [
   "exec",
@@ -83,21 +85,23 @@ child.stdout.on("data", (chunk) => {
   parseJsonLines("codex", chunk, state, recordJsonLine);
 });
 
+// Capture codex's own stderr (do NOT inherit) so it can never corrupt the live region; it's
+// surfaced only on a non-zero exit.
 child.stderr.setEncoding("utf8");
 child.stderr.on("data", (chunk) => {
-  childStderr += chunk;
-  if (process.env.CW_AGENT_STREAM !== "0" && process.env.CW_NO_STREAM !== "1" && process.stderr.isTTY) {
-    process.stderr.write(chunk);
-  }
+  if (childStderr.length < 1024 * 1024) childStderr += chunk;
 });
 
 child.on("error", (error) => {
+  render.finishLive();
   process.stderr.write(`codex spawn failed: ${error.message}\n`);
   process.exit(1);
 });
 
 child.on("close", (code) => {
   flushJsonLines("codex", state, recordJsonLine);
+  render.finishLive();
+  render.writeTranscript(transcriptPath);
   if (code !== 0) {
     const detail = childStderr.trim() || `codex exited ${code === null ? "(timeout/killed)" : code}`;
     process.stderr.write(`${detail}\n`);
@@ -129,6 +133,5 @@ child.on("close", (code) => {
     process.exit(1);
   }
 
-  trace("* done - result captured");
   emitReport(state.model, state.usage, resultText);
 });

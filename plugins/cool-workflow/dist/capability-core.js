@@ -56,6 +56,7 @@ exports.schedPolicyShow = schedPolicyShow;
 exports.schedPolicySet = schedPolicySet;
 exports.runDrivePreview = runDrivePreview;
 exports.runDrive = runDrive;
+exports.collectRunFindings = collectRunFindings;
 exports.quickstart = quickstart;
 exports.backendAgentConfigShow = backendAgentConfigShow;
 exports.backendAgentConfigSet = backendAgentConfigSet;
@@ -83,6 +84,7 @@ const remote_source_1 = require("./remote-source");
 const telemetry_demo_1 = require("./telemetry-demo");
 const state_1 = require("./state");
 const run_export_1 = require("./run-export");
+const result_normalize_1 = require("./result-normalize");
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const scheduling_1 = require("./scheduling");
@@ -553,6 +555,35 @@ exports.QUICKSTART_DEFAULT_APP = "architecture-review";
  *  RED LINE (DIRECTION.md): worker execution still DELEGATES to the operator's own
  *  agent backend (claude -p / codex exec / HTTP endpoint). With no agent configured
  *  the drive fails closed (status=blocked) and we never fabricate a completion. */
+/** Collect a COMPACT findings list for the end-of-run summary by re-parsing each completed
+ *  worker's `result.md` `cw:result` block (the schema source of truth — `normalizeResultEnvelope`).
+ *  Stderr/human-side ONLY: this NEVER touches the byte-exact stdout payload, so it cannot perturb
+ *  `--json` or the `cw:result` fence. `baseDir` anchors to the run's OWN repo (quickstart may run
+ *  cross-directory). Best-effort: a missing/garbled result.md or an unloadable run is skipped, not
+ *  fatal — the full prose still lives in report.md + each worker transcript. */
+function collectRunFindings(runner, runId, baseDir) {
+    const rows = [];
+    try {
+        const run = runner.withBaseDir(baseDir).loadRun(runId);
+        for (const task of run.tasks) {
+            if (task.status !== "completed" || !task.resultPath || !node_fs_1.default.existsSync(task.resultPath))
+                continue;
+            try {
+                const envelope = (0, result_normalize_1.normalizeResultEnvelope)(node_fs_1.default.readFileSync(task.resultPath, "utf8"));
+                for (const f of envelope.findings) {
+                    rows.push({ id: f.id, severity: f.severity || "none", classification: f.classification || "unknown" });
+                }
+            }
+            catch {
+                /* skip a garbled result.md — the transcript still holds the full record */
+            }
+        }
+    }
+    catch {
+        /* run not loadable on this host — the summary degrades to no findings table */
+    }
+    return rows;
+}
 function quickstart(runner, args) {
     const appId = String(args.appId || args.app || args.workflowId || exports.QUICKSTART_DEFAULT_APP);
     // Remote source (v0.1.91): a `--link <url>` — or a URL passed to `--repo`/`-dir` — is

@@ -31,6 +31,8 @@ import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable, Remote
 import { runTamperDemo, runBundleDemo, TelemetryVerifyResult } from "./telemetry-demo";
 import { loadRunStateFile, readJson, writeJson } from "./state";
 import { ArchiveInspectResult, exportRun, importRun, inspectArchive, verifyImportedRun, verifyReportBundle } from "./run-export";
+import { normalizeResultEnvelope } from "./result-normalize";
+import { FindingRow } from "./term";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -563,6 +565,33 @@ export const QUICKSTART_DEFAULT_APP = "architecture-review";
  *  RED LINE (DIRECTION.md): worker execution still DELEGATES to the operator's own
  *  agent backend (claude -p / codex exec / HTTP endpoint). With no agent configured
  *  the drive fails closed (status=blocked) and we never fabricate a completion. */
+/** Collect a COMPACT findings list for the end-of-run summary by re-parsing each completed
+ *  worker's `result.md` `cw:result` block (the schema source of truth — `normalizeResultEnvelope`).
+ *  Stderr/human-side ONLY: this NEVER touches the byte-exact stdout payload, so it cannot perturb
+ *  `--json` or the `cw:result` fence. `baseDir` anchors to the run's OWN repo (quickstart may run
+ *  cross-directory). Best-effort: a missing/garbled result.md or an unloadable run is skipped, not
+ *  fatal — the full prose still lives in report.md + each worker transcript. */
+export function collectRunFindings(runner: CoolWorkflowRunner, runId: string, baseDir?: string): FindingRow[] {
+  const rows: FindingRow[] = [];
+  try {
+    const run = runner.withBaseDir(baseDir).loadRun(runId);
+    for (const task of run.tasks) {
+      if (task.status !== "completed" || !task.resultPath || !fs.existsSync(task.resultPath)) continue;
+      try {
+        const envelope = normalizeResultEnvelope(fs.readFileSync(task.resultPath, "utf8"));
+        for (const f of envelope.findings) {
+          rows.push({ id: f.id, severity: f.severity || "none", classification: f.classification || "unknown" });
+        }
+      } catch {
+        /* skip a garbled result.md — the transcript still holds the full record */
+      }
+    }
+  } catch {
+    /* run not loadable on this host — the summary degrades to no findings table */
+  }
+  return rows;
+}
+
 export function quickstart(runner: CoolWorkflowRunner, args: Record<string, unknown>): QuickstartResult | DrivePreview | QuickstartCheckResult {
   const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
   // Remote source (v0.1.91): a `--link <url>` — or a URL passed to `--repo`/`-dir` — is

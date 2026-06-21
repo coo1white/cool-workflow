@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-06-21 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.90`
-- Source modules: `67`
+- Source modules: `68`
 - Workflow apps: `7`
 - Docs: `53`
-- Smoke tests: `136`
+- Smoke tests: `137`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -104,6 +104,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [onramp.ts](../src/onramp.ts)
 - [reclamation.ts](../src/reclamation.ts)
 - [remote-source.ts](../src/remote-source.ts)
+- [reporter.ts](../src/reporter.ts)
 - [result-normalize.ts](../src/result-normalize.ts)
 - [run-export.ts](../src/run-export.ts)
 - [run-registry.ts](../src/run-registry.ts)
@@ -212,6 +213,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [cli-mcp-parity-smoke.js](../test/cli-mcp-parity-smoke.js)
 - [cli-progress-summary-smoke.js](../test/cli-progress-summary-smoke.js)
 - [cli-recoverable-errors-smoke.js](../test/cli-recoverable-errors-smoke.js)
+- [cli-render-smoke.js](../test/cli-render-smoke.js)
 - [clones-gc-smoke.js](../test/clones-gc-smoke.js)
 - [codex-agent-wrapper-smoke.js](../test/codex-agent-wrapper-smoke.js)
 - [concurrency-default-smoke.js](../test/concurrency-default-smoke.js)

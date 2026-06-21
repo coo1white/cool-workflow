@@ -19,8 +19,8 @@
 //   2. claude's `result` markdown is persisted to the worker's result.md and
 //      claude's JSON (model + usage) is forwarded verbatim on stdout — so CW
 //      records the agent-reported model/usage as provenance;
-//   3. CW_AGENT_STREAM=1 is an opt-in stream-json path; default piped success is
-//      silent on stderr (Rule of Silence);
+//   3. default piped success is silent on stderr (Rule of Silence); CW_AGENT_STREAM=1
+//      opts non-TTY into a PLAIN append-only trace (→/✓ lines, zero ANSI) for CI;
 //   4. FAIL CLOSED: a crashing claude ⇒ nonzero exit + NO result.md (CW counts a
 //      failed hop); non-JSON claude output ⇒ the same;
 //   5. doc-drift guard: the README quickstart references the wrapper and no doc
@@ -111,7 +111,17 @@ function main() {
     assert.equal(forwarded.model, "claude-shim-model", "claude's JSON carries the attested model");
     assert.equal(forwarded.usage.input_tokens, 11, "usage tokens forwarded for provenance");
     assert.equal(forwarded.result, "# Analysis\n\nstub markdown answer", "stream result reconstructed for CW");
-    console.log("wrapper: default stream-json prompt delivery + read-only + result persistence + provenance ok");
+
+    // Transcript ALWAYS on disk (Step-2/3 spec): even though the default screen view is SILENT
+    // (Rule of Silence, asserted above), the wrapper writes the FULL narration + tool I/O to a
+    // transcript.md next to result.md — the complete record is NEVER lost to a compact/silent view.
+    const transcriptPath = path.join(work, "transcript.md");
+    assert.ok(fs.existsSync(transcriptPath), "wrapper writes transcript.md next to result.md");
+    const transcript = fs.readFileSync(transcriptPath, "utf8");
+    assert.match(transcript, /# Agent transcript/, "transcript carries its header");
+    assert.ok(transcript.includes("Read app.js"), "transcript records the tool I/O even though the screen was silent");
+    assert.ok(transcript.includes("stub markdown answer"), "transcript records the model narration even though the screen was silent");
+    console.log("wrapper: default stream-json prompt delivery + read-only + result persistence + provenance + transcript-on-disk ok");
   }
 
   // ---- 3: opt-in stream-json path ------------------------------------------
@@ -123,12 +133,30 @@ function main() {
     const argv = JSON.parse(fs.readFileSync(path.join(dir, "invocation.json"), "utf8"));
     assert.equal(argv[argv.indexOf("--output-format") + 1], "stream-json", "CW_AGENT_STREAM=1 opts into stream-json mode");
     assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "stream result text persisted to result.md");
-    assert.equal(child.stderr, "", "piped stream success remains silent on stderr by default");
+    // CW_AGENT_STREAM=1 opts non-TTY into a PLAIN append-only trace (CI debuggability): the live
+    // events render as `→ …` / `✓ … (Xs)` lines with ZERO ANSI/cursor bytes (rich is TTY-only).
+    assert.ok(!/\x1b\[/.test(child.stderr), "non-TTY trace carries NO ANSI/cursor escapes");
+    assert.match(child.stderr, /→ Read app\.js/, "the tool action is logged as a plain append-only line");
+    assert.match(child.stderr, /✓ .*\(\d/, "the action folds to a ✓ line with elapsed time");
+    // Default verbosity is COMPACT: the live trace shows the current action + folded tool lines,
+    // but HIDES the model's narration/reasoning (that stays in the on-disk transcript).
+    assert.ok(!child.stderr.includes("stub markdown answer"), "compact (non-verbose) trace hides the model narration");
     const forwarded = JSON.parse(child.stdout);
     assert.equal(forwarded.model, "claude-shim-model", "stream model reconstructed from assistant event");
     assert.equal(forwarded.usage.input_tokens, 11, "stream usage reconstructed from result event");
     assert.equal(forwarded.result, "# Analysis\n\nstub markdown answer", "stream result reconstructed for CW");
     console.log("wrapper: opt-in stream-json reconstruction ok");
+  }
+
+  // ---- 3b: --verbose surfaces the model narration inline; default hides it ----
+  {
+    fs.rmSync(resultPath, { force: true });
+    const dir = shimDir("ok");
+    const child = runWrapper(dir, inputPath, resultPath, { CW_AGENT_STREAM: "1", CW_VERBOSE: "1" });
+    assert.equal(child.status, 0, `verbose wrapper exits 0 (stderr: ${child.stderr})`);
+    assert.ok(!/\x1b\[/.test(child.stderr), "verbose non-TTY trace still carries NO ANSI/cursor escapes");
+    assert.ok(child.stderr.includes("stub markdown answer"), "CW_VERBOSE=1 surfaces the full model narration inline");
+    console.log("wrapper: --verbose surfaces narration; default compact hides it ok");
   }
 
   // ---- 4: fail closed --------------------------------------------------------
