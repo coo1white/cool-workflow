@@ -41,7 +41,7 @@ module.exports = ({ workflow, phase, agent, artifact, input }) => {
       phase("Investigate", [
         agent(
           "investigate:primary-sources",
-          "Investigate primary or official sources first from {{source}} for {{question}}. Return source titles, dates, authors or publishers, durable locators, key claims, and uncertainty. Mark missing retrieval needs explicitly.",
+          "Investigate primary or official sources first from {{source}} for {{question}}. The local files in your working directory are also possible primary sources: list them first, then read the ones that help and cite their paths. Return source titles, dates, authors or publishers, durable locators (a local file path with optional :line, or a URL), key claims, and uncertainty. Mark missing retrieval needs explicitly.",
           { sandboxProfileId: "readonly" }
         ),
         agent(

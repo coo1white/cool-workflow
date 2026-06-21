@@ -98,6 +98,11 @@ node scripts/cw.js plan release-cut \
 Break a research question into claims, look into sources, cross-check
 the evidence, check the claims, and put together a short answer.
 
+When you point it at a folder, it reads the local files there as primary
+sources. So this app works over any corpus — your own docs, notes, or
+papers — not only a git code repo. The working directory is the corpus,
+so the agent can back its answer with your own files.
+
 ```bash
 node scripts/cw.js plan research-synthesis \
   --cwd /tmp/research-run \
@@ -105,6 +110,13 @@ node scripts/cw.js plan research-synthesis \
   --source "official-docs" \
   --scope "local sources first" \
   --freshness "as of today"
+```
+
+Over a local corpus folder, point `--repo` at it:
+
+```bash
+cw quickstart research-synthesis --repo /path/to/papers \
+  --question "What do these papers conclude?"
 ```
 
 ## Validation Matrix
