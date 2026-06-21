@@ -39,6 +39,8 @@ import {
   gcPlan,
   gcRun,
   gcVerify,
+  listClones,
+  gcClones,
   runDrive,
   runDrivePreview,
   quickstart,
@@ -1346,6 +1348,28 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
       }
     }
+    case "clones": {
+      // Remote-source clone cache (v0.1.91): `list` inspects the ~/.local/state/cool-workflow
+      // /clones checkouts that `--link`/URL reviews populate; `gc` reclaims them (a TTL sweep,
+      // or --all). Pure filesystem work — no network, no run registry.
+      const [subcommand] = args.positionals;
+      switch (subcommand) {
+        case "list": {
+          const result = listClones(args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatClonesList(result)}\n`);
+          return;
+        }
+        case "gc": {
+          const result = gcClones(args.options);
+          if (wantsJson(args.options)) printJson(result);
+          else process.stdout.write(`${formatClonesGc(result)}\n`);
+          return;
+        }
+        default:
+          throw new Error("Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
+      }
+    }
     case "gc": {
       // Run Retention & Provable Reclamation (v0.1.39). `plan` is a pure dry-run
       // (frees nothing); `run` executes the write-ahead reclamation transaction;
@@ -1478,6 +1502,42 @@ function optionalArg(value: unknown): string | undefined {
 
 function printJson(value: unknown): void {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function humanBytes(n: number): string {
+  if (n < 1024) return `${n}B`;
+  const units = ["KiB", "MiB", "GiB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(1)}${units[i]}`;
+}
+
+function formatClonesList(result: ReturnType<typeof listClones>): string {
+  if (result.count === 0) return `No cached remote checkouts in ${result.clonesDir}.`;
+  const rows = result.entries.map((e) => {
+    const when = e.fetchedAt ? e.fetchedAt.replace("T", " ").replace(/\..*$/, "Z") : "unknown";
+    return `  ${e.kind.padEnd(7)} ${humanBytes(e.bytes).padStart(8)}  ${when}  ${e.url}${e.ref ? `@${e.ref}` : ""}`;
+  });
+  return [
+    `${result.count} cached checkout${result.count === 1 ? "" : "s"} — ${humanBytes(result.totalBytes)} in ${result.clonesDir}`,
+    "  KIND       SIZE  FETCHED               SOURCE",
+    ...rows,
+    `\nReclaim with: cw clones gc --older-than-days 30   (or --all)`
+  ].join("\n");
+}
+
+function formatClonesGc(result: ReturnType<typeof gcClones>): string {
+  const scope = result.all ? "all entries" : `entries older than ${result.olderThanDays} day(s)`;
+  if (result.removed.length === 0) return `Nothing to reclaim (${scope}); ${result.keptCount} kept in ${result.clonesDir}.`;
+  const rows = result.removed.map((r) => `  ${humanBytes(r.bytes).padStart(8)}  ${r.url}`);
+  return [
+    `Reclaimed ${result.removed.length} checkout${result.removed.length === 1 ? "" : "s"} (${scope}) — freed ${humanBytes(result.freedBytes)}; ${result.keptCount} kept`,
+    ...rows
+  ].join("\n");
 }
 
 function wantsJson(options: Record<string, unknown>): boolean {

@@ -21,7 +21,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QUICKSTART_DEFAULT_APP = void 0;
+exports.gcClones = exports.listClones = exports.QUICKSTART_DEFAULT_APP = void 0;
 exports.planSummary = planSummary;
 exports.appRun = appRun;
 exports.sandboxChoose = sandboxChoose;
@@ -950,6 +950,12 @@ function gcRun(reg, runId, args) {
 function gcVerify(reg, runId, args) {
     return reg.gcVerify(runId, { scope: scopeOf(args, "home") });
 }
+// Remote-source clone cache (v0.1.91): list/reclaim the `~/.local/state/cool-workflow/clones`
+// checkouts that `--link`/URL reviews populate. Pure filesystem work; both CLI and MCP route
+// here so `cw clones …` and `cw_clones_…` are byte-identical.
+var clones_1 = require("./clones");
+Object.defineProperty(exports, "listClones", { enumerable: true, get: function () { return clones_1.listClones; } });
+Object.defineProperty(exports, "gcClones", { enumerable: true, get: function () { return clones_1.gcClones; } });
 function runHistory(reg, args) {
     return reg.history({
         scope: scopeOf(args, "home"),

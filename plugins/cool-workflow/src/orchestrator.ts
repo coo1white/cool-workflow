@@ -953,7 +953,7 @@ export const KNOWN_COMMANDS = new Set([
   "help", "list", "doctor", "info", "search", "man", "init", "quickstart", "plan", "status", "next",
   "dispatch", "result", "state", "commit", "report", "app", "sandbox",
   "backend", "contract", "node", "feedback", "worker", "audit", "candidate",
-  "review", "loop", "schedule", "routine", "registry", "run", "queue",
+  "review", "loop", "schedule", "routine", "registry", "run", "queue", "clones",
   "history", "audit-run", "multi-agent", "topology", "summary", "blackboard",
   "coordinator", "metrics", "operator", "sched", "gc", "telemetry",
   "migration", "demo", "workbench", "approve", "reject", "comment", "handoff",
@@ -1044,7 +1044,7 @@ export function formatHelp(): string {
   const moreCommands = (
     "list search info init plan status next dispatch result state commit report app " +
     "sandbox backend contract node feedback worker audit candidate review loop schedule " +
-    "routine registry run queue history quickstart audit-run multi-agent topology summary " +
+    "routine registry run queue clones history quickstart audit-run multi-agent topology summary " +
     "blackboard coordinator metrics operator sched gc telemetry migration demo workbench " +
     "approve reject comment handoff graph eval man version update fix"
   ).split(" ");

@@ -82,7 +82,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 199 capabilities, 186 MCP tools.
+machine-complete by design: 201 capabilities, 188 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -272,6 +272,8 @@ machine-complete by design: 199 capabilities, 186 MCP tools.
 | `gc.plan` | `cw gc plan` | `cw_gc_plan` | `gcPlan` | both | identical |
 | `gc.run` | `cw gc run` | `cw_gc_run` | `gcRun` | both | projected |
 | `gc.verify` | `cw gc verify` | `cw_gc_verify` | `gcVerify` | both | identical |
+| `clones.list` | `cw clones list` | `cw_clones_list` | `listClones` | both | identical |
+| `clones.gc` | `cw clones gc` | `cw_clones_gc` | `gcClones` | both | projected |
 | `telemetry.verify` | `cw telemetry verify` | `cw_telemetry_verify` | `telemetryVerify` | both | identical |
 | `demo.tamper` | `cw demo tamper` | `—` | `demoTamper` | cli-only | cli-only |
 | `demo.bundle` | `cw demo bundle` | `—` | `demoBundle` | cli-only | cli-only |
@@ -319,12 +321,13 @@ carry a recorded reason in the registry.
 <!-- /gen:parity:cliOnly -->
 
 <!-- gen:parity:projected -->
-Five capabilities are payload-divergent on purpose (`projected`):
+Six capabilities are payload-divergent on purpose (`projected`):
 
 - `commit` — Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate, commit.acceptanceRationale); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection via capability-core.commitEnvelope, not drift.
 - `backend.agent.config.set` — Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe.
 - `run.drive.step` — Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core.
 - `gc.run` — Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone.
+- `clones.gc` — Mutating: removes cache directories and reports now-derived freedBytes/removed; both surfaces perform the identical reclamation.
 - `workbench.serve` — Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host (like `schedule daemon`), which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.
 <!-- /gen:parity:projected -->
 
