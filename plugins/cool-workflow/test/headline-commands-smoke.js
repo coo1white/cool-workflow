@@ -135,5 +135,27 @@ console.log("headline: vendor flags -claude/-codex/-deepseek route ok");
   console.log("headline: -dir/--dir/-d target a folder from any cwd (alias for --repo) ok");
 }
 
+// ===== 8. the alias decides where a REAL run PERSISTS, not just the --check field =====
+// Section 7 proves --check RESOLVES repo=target; this proves a PLANNED run's state.json
+// actually LANDS under the target from a foreign cwd — the precise failure the flag was
+// born to fix: state created under the invocation cwd's .cw (orphaned run) when a user
+// followed the README's "-d / --dir / --repo are equivalent" line from outside the
+// project. `cw plan` writes state without spawning an agent, so it is deterministic and
+// vendor-free; all four documented forms must be byte-for-byte equivalent at this layer.
+{
+  for (const flag of ["-d", "-dir", "--dir", "--repo"]) {
+    const elsewhere = tmpRepo(); // where the user happens to be standing
+    const target = tmpRepo();    // the project they want reviewed
+    const r = run(["plan", "research-synthesis", flag, target, "--question", "what are the risks?", "--json"], elsewhere);
+    assert.equal(r.status, 0, `cw plan via ${flag} exits 0 (stderr: ${String(r.stderr).slice(0, 200)})`);
+    const p = JSON.parse(r.stdout);
+    assert.ok(p.statePath.startsWith(target), `${flag}: run state.json persists under the TARGET, not the cwd`);
+    const state = JSON.parse(fs.readFileSync(p.statePath, "utf8"));
+    assert.equal(state.cwd, target, `${flag}: run.cwd === the target folder (not the invocation cwd)`);
+    assert.ok(!fs.existsSync(path.join(elsewhere, ".cw")), `${flag}: no orphaned run under the invocation cwd`);
+  }
+  console.log("headline: -d/-dir/--dir/--repo persist a real run's cwd under the target (no cwd orphan) ok");
+}
+
 for (const d of cleanups) fs.rmSync(d, { recursive: true, force: true });
 console.log("headline-commands-smoke: ok");
