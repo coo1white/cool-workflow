@@ -143,9 +143,14 @@ function createRenderer(opts = {}) {
     return current.label.replace(/…+$/, "");
   };
   const liveLine = (width) => {
-    const el = paint(ANSI.dim, `(${fmtElapsed(Date.now() - current.startedAt)})`);
+    const elapsed = `(${fmtElapsed(Date.now() - current.startedAt)})`;
+    const el = paint(ANSI.dim, elapsed);
     const sp = paint(ANSI.cyan, SPARKLE[frame % SPARKLE.length]);
-    return `${INDENT}${sp} ${truncate(livePhrase(), width - 12)}${paint(ANSI.dim, "…")} ${el}`;
+    // Reserve EXACT room for the fixed decorations + the VARIABLE elapsed string (which grows from 6
+    // chars `(4.0s)` to 9 `(100m00s)`): indent(2) + sparkle+space(2) + ellipsis+space(2) + elapsed,
+    // minus 1 column of margin. A fixed `width - N` budget overflowed past 1 minute and wrapped.
+    const budget = width - 6 - elapsed.length - 1;
+    return `${INDENT}${sp} ${truncate(livePhrase(), budget)}${paint(ANSI.dim, "…")} ${el}`;
   };
 
   // Erase the previously-drawn block in place: go to its first row, clear to end of screen.
@@ -173,8 +178,13 @@ function createRenderer(opts = {}) {
     }
     if (current) lines.push(liveLine(width));
     if (!lines.length) return;
-    stderr.write(lines.join("\n"));
-    blockRows = lines.length;
+    // HARD GUARD: cap EVERY emitted line to the terminal width so none can wrap to a 2nd physical
+    // row. A wrapped row would make blockRows (logical count) under-count the real cursor movement,
+    // so eraseBlock's cursor-up would land a row short and corrupt/creep the block. This also closes
+    // the resize path: each frame caps to the CURRENT width, so a narrowed terminal can't desync.
+    const safe = lines.map((l) => truncate(l, width));
+    stderr.write(safe.join("\n"));
+    blockRows = safe.length;
   };
 
   const ensureTimer = () => {
@@ -190,7 +200,7 @@ function createRenderer(opts = {}) {
     transcript.push(`- ${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})`);
     steps += 1;
     if (interactive) {
-      recent.push({ label: current.label, result: current.result, failed: current.failed });
+      recent.push({ label: current.label, id: current.id, result: current.result, failed: current.failed });
       while (recent.length > WINDOW) recent.shift();
     } else if (plain) {
       stderr.write(`${current.failed ? "✗" : "✓"} ${current.label} (${fmtElapsed(ms)})\n`);
@@ -199,24 +209,37 @@ function createRenderer(opts = {}) {
   };
 
   return {
-    /** Begin a new active action (folds the previous one into the rolling window). */
-    action(label) {
+    /** Begin a new active action (folds the previous one into the rolling window). `id` (a vendor
+     *  tool_use id) lets a later result() attach to THIS tool even after it has folded — needed when
+     *  one assistant turn dispatches several tools before their results arrive. */
+    action(label, id) {
       commit();
-      current = { label: String(label || "working…"), startedAt: Date.now(), failed: false };
+      current = { label: String(label || "working…"), id, startedAt: Date.now(), failed: false };
       ensureTimer();
       if (interactive) renderBlock();
       else if (plain) stderr.write(`→ ${current.label}\n`);
     },
     /** Mark the current action as failed (it folds in as a red ●). */
     fail() { if (current) current.failed = true; },
-    /** Attach a short result summary to the current tool — rendered as a dim `⎿ summary` tree line
-     *  once it folds into the window (Claude-Code feel). Always recorded to the transcript. */
-    result(summary, failed) {
+    /** Attach a short result summary to a tool — rendered as a dim `⎿ summary` tree line. `id` keys
+     *  it to a SPECIFIC tool_use so a batch of tools dispatched in one turn each keep their own result
+     *  (without an id it falls back to the current tool). Always recorded to the transcript. */
+    result(summary, failed, id) {
       const s = String(summary || "").replace(/\s+/g, " ").trim();
       if (!s && !failed) return;
-      if (current) { if (s) current.result = s; if (failed) current.failed = true; }
+      // Find the target: prefer the matching id (current, else the most-recent committed item with
+      // that id); otherwise the current tool. This keeps earlier batched tools' ⎿ from being lost.
+      let target = null;
+      if (id != null) {
+        if (current && current.id === id) target = current;
+        else for (let k = recent.length - 1; k >= 0; k -= 1) { if (recent[k].id === id) { target = recent[k]; break; } }
+      }
+      if (!target) target = current;
+      if (target) { if (s) target.result = s; if (failed) target.failed = true; }
       if (s) transcript.push(`  ⎿ ${s}`);
       if (plain && s) stderr.write(`  ⎿ ${s}\n`);
+      // A result attached to an ALREADY-folded item must redraw the block to show its new ⎿.
+      if (interactive && target && target !== current) renderBlock();
     },
     /** Narration text from the model. Always to the transcript; inline only in --verbose (printed
      *  ABOVE the live window, which then redraws below it). */

@@ -143,7 +143,7 @@ function renderEvent(ev) {
         render.text(part.text.trim());
       } else if (part.type === "tool_use") {
         if (part.id) toolIds.set(part.id, part.name);
-        render.action(toolLabel(part.name, pickInput(part.input)));
+        render.action(toolLabel(part.name, pickInput(part.input)), part.id);
       }
     }
   } else if (ev.type === "user" && ev.message) {
@@ -152,7 +152,7 @@ function renderEvent(ev) {
     for (const part of ev.message.content || []) {
       if (part && part.type === "tool_result") {
         const name = toolIds.get(part.tool_use_id) || "";
-        render.result(summarizeToolResult(name, toolResultText(part.content), part.is_error), part.is_error);
+        render.result(summarizeToolResult(name, toolResultText(part.content), part.is_error), part.is_error, part.tool_use_id);
       }
     }
   } else if (ev.type === "system" && ev.subtype === "post_turn_summary" && ev.status_detail) {

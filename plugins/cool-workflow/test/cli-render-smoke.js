@@ -274,6 +274,49 @@ function testResultTreeLines() {
   console.log("cli-render: ⎿ tool-result tree lines OK");
 }
 
+const stripAllEsc = (x) => x.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
+
+function testLiveWidthInvariant() {
+  // Every emitted row MUST stay within the terminal width — a wrapped row would make blockRows
+  // under-count the physical cursor movement and the in-place erase would corrupt/creep the block
+  // (the P1 the adversarial review caught: the elapsed string grows past the live-line budget at >1min).
+  const W = 40;
+  const s = fakeStream(true);
+  s.columns = W;
+  const render = createRenderer({ env: {}, stderr: s, label: "claude" });
+  try {
+    render.action("Read(" + "a".repeat(120) + ".ts)");
+    render.result("y".repeat(120));
+    render.action("Bash(" + "x".repeat(200) + ")"); // long phrase fills the live-line budget
+    const block = s.text.split("\x1b[0J").pop();
+    for (const line of block.split("\n")) {
+      const vis = [...stripAllEsc(line)].length;
+      assert.ok(vis <= W, `every live row stays within the ${W}-col terminal (got ${vis}): ${JSON.stringify(stripAllEsc(line))}`);
+    }
+  } finally {
+    render.finishLive();
+  }
+  console.log("cli-render: live rows never exceed terminal width (no wrap → no erase desync) OK");
+}
+
+function testBatchedResults() {
+  // A turn that dispatches several tools before their results arrive: each result must attach to ITS
+  // tool by id, so an earlier tool that already folded into the window keeps its ⎿ (the P2 fix).
+  const s = fakeStream(true);
+  s.columns = 80;
+  const render = createRenderer({ env: {}, stderr: s, label: "claude" });
+  try {
+    render.action("Read(a.ts)", "id-a");
+    render.action("Read(b.ts)", "id-b"); // commits A (id-a) into the window BEFORE its result arrives
+    render.result("11 lines", false, "id-a"); // must still attach to the now-folded A, not to B
+    const block = s.text.split("\x1b[0J").pop();
+    assert.ok(block.includes("11 lines"), "a batched tool keeps its ⎿ result even after it folded in (keyed by id)");
+  } finally {
+    render.finishLive();
+  }
+  console.log("cli-render: batched tool_results keep each tool's ⎿ (keyed by tool_use_id) OK");
+}
+
 function main() {
   testTruncateAndWidth();
   testColorEnv();
@@ -286,6 +329,8 @@ function main() {
   testCursorHygiene();
   testRollingWindowFold();
   testResultTreeLines();
+  testLiveWidthInvariant();
+  testBatchedResults();
   console.log("cli-render-smoke: ok");
 }
 
