@@ -76,15 +76,24 @@ re-fetches; manage with `cw clones list` / `cw clones gc`). The report records t
 `cw audit verify`. A private repo with no credentials **fails closed** (it never hangs on a
 prompt). Validate without fetching: `cw -q "…" --link <url> --check`.
 
-As it runs you see CW's own phases tick by, then a clean summary — no env vars needed:
+As it runs you get a **calm, Claude-Code-style live view** — one in-place status line (spinner +
+current action + elapsed) with each tool call folding to a single `✓ Read app.js (0.3s)` /
+`✗ Bash (1.1s)` line. It's compact by default (reasoning hidden); add `--verbose` for the full
+narration, `--full` to also print the report inline, or `--no-color` to drop ANSI (`NO_COLOR` /
+`FORCE_COLOR` are honored). The complete narration + tool I/O is always saved to a per-worker
+`transcript.md`, and the cursor is restored cleanly on Ctrl-C. Then CW prints a clean summary — a
+**compact findings table** (id / severity / classification) plus the report path and the run dir:
 
 ```text
 ==> Map ✓ (6/6)
 ==> Assess ✓ (6/6)
 ==> Verdict ✓
 
+Findings: 3 — 2×P1, 1×P2
+
 ✓ Report: /path/to/project/.cw/runs/<run-id>/report.md
   ✓ Status: complete — 14/14
+  Transcript: /path/to/project/.cw/runs/<run-id>/
   Next: cw report <run-id> --show
 ```
 

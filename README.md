@@ -49,8 +49,14 @@ cw -q "What are the security risks?" -deepseek
 ```
 
 `claude`, `codex`, `gemini`, and `opencode` are auto-detected on PATH (no flag needed);
-`-deepseek` picks the DeepSeek builtin. You will see live streaming output as the agent
-works — no env vars needed.
+`-deepseek` picks the DeepSeek builtin — no env vars needed.
+
+As the agent works you get a **calm, Claude-Code-style live view**: one in-place status line
+(spinner + current action + elapsed) with each tool call folding to a single `✓ Read app.js (0.3s)`
+/ `✗ Bash (1.1s)` line. It stays compact by default (reasoning hidden) — add `--verbose` for the full
+narration, `--full` to also print the report inline, or `--no-color` to drop ANSI (`NO_COLOR` /
+`FORCE_COLOR` are honored too). The complete narration + tool I/O is always saved to a per-worker
+`transcript.md` next to the result, and the cursor is restored cleanly on Ctrl-C.
 
 Review a project **from any directory** — no `cd` needed — by pointing at its folder
 (`-d` / `--dir` / `--repo` are equivalent):
@@ -74,14 +80,19 @@ list`/`gc` manage it). The report records `Source: <url>@<commit>` plus a tamper
 `source.clone` event (`cw audit verify`). A credential-less private repo **fails closed** — it never
 hangs on a prompt. Preview without fetching: `cw -q "…" --link <url> --check`.
 
-CW's own phases tick by as it runs, then it prints a clean summary:
+CW's own phases tick by as it runs, then it prints a clean summary — a **compact findings table**
+(id / severity / classification, not the full prose), the report path, and where the per-worker
+transcripts live:
 
 ```text
 ==> Map ✓ (6/6)
 ==> Verdict ✓
 
+Findings: 3 — 2×P1, 1×P2
+
 ✓ Report: /path/to/project/.cw/runs/<run-id>/report.md
   ✓ Status: complete — 14/14
+  Transcript: /path/to/project/.cw/runs/<run-id>/
   Next: cw report <run-id> --show
 ```
 
