@@ -55,6 +55,10 @@ export interface DriveResult {
   commitId?: string;
   reportPath: string;
   statePath: string;
+  /** True iff an agent command-template/endpoint was configured. When false a blocked
+   *  drive is the fail-closed no-agent stop — surfaced so the CLI/MCP can offer the right
+   *  recovery (`cw doctor`) instead of a generic status hint. Mirrors DrivePreview. */
+  agentConfigured: boolean;
 }
 
 /** The result of the one-command `quickstart` wrapper: plan(app) -> run --drive ->

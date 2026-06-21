@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-21 by `npm run sync:projec
 - Source modules: `65`
 - Workflow apps: `7`
 - Docs: `52`
-- Smoke tests: `130`
+- Smoke tests: `133`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -203,9 +203,12 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [candidate-scoring-smoke.js](../test/candidate-scoring-smoke.js)
 - [canonical-workflow-apps-smoke.js](../test/canonical-workflow-apps-smoke.js)
 - [claude-p-agent-wrapper-smoke.js](../test/claude-p-agent-wrapper-smoke.js)
+- [cli-arg-parsing-smoke.js](../test/cli-arg-parsing-smoke.js)
 - [cli-command-surface-smoke.js](../test/cli-command-surface-smoke.js)
 - [cli-jsonmode-parity-smoke.js](../test/cli-jsonmode-parity-smoke.js)
 - [cli-mcp-parity-smoke.js](../test/cli-mcp-parity-smoke.js)
+- [cli-progress-summary-smoke.js](../test/cli-progress-summary-smoke.js)
+- [cli-recoverable-errors-smoke.js](../test/cli-recoverable-errors-smoke.js)
 - [codex-agent-wrapper-smoke.js](../test/codex-agent-wrapper-smoke.js)
 - [concurrency-default-smoke.js](../test/concurrency-default-smoke.js)
 - [concurrent-failure-semantics-smoke.js](../test/concurrent-failure-semantics-smoke.js)

@@ -32,6 +32,7 @@ exports.drive = drive;
 exports.drivePreview = drivePreview;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const term_1 = require("./term");
 const dispatch_1 = require("./dispatch");
 const execution_backend_1 = require("./execution-backend");
 const worker_isolation_1 = require("./worker-isolation");
@@ -690,6 +691,34 @@ function drive(runner, runId, options = {}) {
         const cap = Math.max(1, Math.floor(run.workflow.limits?.maxConcurrentAgents || 1));
         return Math.max(1, Math.min(cap, phase.taskIds.length));
     };
+    // Phase-boundary progress (brew-style): announce each phase when it becomes active
+    // and when it finishes — `==> Map ✓ (6/6)` / `==> Assess … (3/6)`. Describes CW's OWN
+    // phases (vendor-neutral); goes to stderr via emitProgress so stdout stays clean data.
+    const announcedPhaseComplete = new Set();
+    let activePhaseId;
+    const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+    const emitPhaseProgress = (run) => {
+        for (const ph of run.phases || []) {
+            const phaseTasks = run.tasks.filter((task) => ph.taskIds.includes(task.id));
+            const total = phaseTasks.length;
+            if (total === 0)
+                continue;
+            const done = phaseTasks.filter((task) => task.status === "completed").length;
+            const label = titleCase(ph.name || ph.id);
+            if (done >= total) {
+                if (!announcedPhaseComplete.has(ph.id)) {
+                    announcedPhaseComplete.add(ph.id);
+                    emitProgress((0, term_1.phaseProgressLine)(label, done, total, ph.mode, process.stderr));
+                }
+                continue;
+            }
+            if (ph.id !== activePhaseId) {
+                activePhaseId = ph.id;
+                emitProgress((0, term_1.phaseProgressLine)(label, done, total, ph.mode, process.stderr));
+            }
+            return; // only the first not-yet-complete phase is "active"
+        }
+    };
     for (let i = 0; i < maxIterations; i++) {
         const width = concurrency > 1 ? concurrency : autoWidth(runner.loadRun(runId));
         const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
@@ -706,6 +735,10 @@ function drive(runner, runId, options = {}) {
                 .filter(Boolean)
                 .join(" "));
         }
+        // Brew-style phase boundaries: after each round, announce a newly-active phase and
+        // any phase that just finished (`==> Map ✓ (6/6)` / `==> Assess … (3/6)`). Cheap —
+        // reuses the run we just advanced; goes to stderr via emitProgress so stdout is clean.
+        emitPhaseProgress(runner.loadRun(runId));
         const last = roundSteps[roundSteps.length - 1];
         if (options.once)
             break;
@@ -739,7 +772,8 @@ function drive(runner, runId, options = {}) {
         parkedWorkers,
         commitId: committed?.id,
         reportPath: run.paths.report,
-        statePath: run.paths.state
+        statePath: run.paths.state,
+        agentConfigured: agentConfigured(config)
     };
 }
 /** Read-only, deterministic preview of the NEXT drive step for a run — no mutation,

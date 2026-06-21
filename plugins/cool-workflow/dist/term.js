@@ -16,6 +16,11 @@ exports.cyan = cyan;
 exports.doctorGlyph = doctorGlyph;
 exports.cwLabel = cwLabel;
 exports.indent = indent;
+exports.nextHint = nextHint;
+exports.tryHint = tryHint;
+exports.sectionHeader = sectionHeader;
+exports.phaseProgressLine = phaseProgressLine;
+exports.formatDuration = formatDuration;
 exports.printSuccessSummary = printSuccessSummary;
 function isTTY(stream = process.stderr) {
     return Boolean(stream.isTTY);
@@ -74,20 +79,61 @@ function indent(text, spaces = 2) {
     const prefix = " ".repeat(spaces);
     return text.split("\n").map((line) => `${prefix}${line}`).join("\n");
 }
-/** Print a success summary to stderr (TTY-gated). Shows the report path and a
- *  suggested next command. Pipe-friendly: silent when stderr is not a TTY. */
+/** A `Next: <cmd>` hint line (the command stays plain so it is copy-pasteable). */
+function nextHint(cmd, stream) {
+    return `${dim("Next:", stream)} ${cmd}`;
+}
+/** A `Try: <cmd>` recovery hint (brew-style; the command stays plain to copy). */
+function tryHint(cmd, stream) {
+    return `${dim("Try:", stream)} ${cmd}`;
+}
+/** A `==> Title` section header (brew-style). */
+function sectionHeader(title, stream) {
+    return `${bold("==>", stream)} ${title}`;
+}
+/** A phase-progress line: `==> Map ✓ (6/6)` / `==> Assess … (3/6)`. Parallel phases
+ *  use ⇉, sequential use …; a finished phase uses a green ✓. */
+function phaseProgressLine(name, done, total, mode, stream) {
+    const complete = total > 0 && done >= total;
+    const glyph = complete ? green("✓", stream) : (mode === "parallel" ? "⇉" : "…");
+    const count = total > 0 ? ` (${done}/${total})` : "";
+    return `${sectionHeader(name, stream)} ${glyph}${count}`;
+}
+/** Format a DURATION in ms as `850ms` / `5.2s` / `1m02s`. Pure (no clock) — the
+ *  caller measures elapsed via process.hrtime, so this never reads wall-clock time. */
+function formatDuration(ms) {
+    if (ms < 1000)
+        return `${Math.max(0, Math.round(ms))}ms`;
+    const s = Math.round(ms / 100) / 10;
+    if (s < 60)
+        return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rem = Math.round(s % 60);
+    return `${m}m${String(rem).padStart(2, "0")}s`;
+}
+/** Print a success summary to stderr (TTY-gated). Shows the report path, a one-line
+ *  status (with N/N worker counts when known), and a copy-pasteable next/recovery
+ *  command. Pipe-friendly: silent when stderr is not a TTY, so it never pollutes
+ *  piped/`--json` stdout. A non-complete run with no agent configured gets a brew-style
+ *  `Try: cw doctor` recovery line; otherwise `Next: cw status <id>` to inspect. */
 function printSuccessSummary(fields, stream) {
     if (!isTTY(stream))
         return;
     const s = stream || process.stderr;
-    s.write(`\n${green("✓")} Report: ${fields.reportPath}\n`);
+    const counts = (typeof fields.completedWorkers === "number" && typeof fields.plannedWorkers === "number")
+        ? ` — ${fields.completedWorkers}/${fields.plannedWorkers}` : "";
+    s.write(`\n${green("✓", s)} Report: ${fields.reportPath}\n`);
     if (fields.status === "complete") {
-        s.write(`  Next: cw status ${fields.runId} --brief\n`);
-        if (fields.bundle !== false) {
-            s.write(`  Bundle: cw report bundle ${fields.runId}\n`);
-        }
+        s.write(`  ${green("✓", s)} Status: complete${counts}\n`);
+        s.write(`  ${nextHint(`cw report ${fields.runId} --show`, s)}\n`);
     }
     else {
-        s.write(`  ${yellow("!")} Status: ${fields.status}. Next: cw status ${fields.runId}\n`);
+        s.write(`  ${yellow("!", s)} Status: ${fields.status}${counts}\n`);
+        // No agent backend is the #1 first-run blocker — point at the one command that
+        // diagnoses and prints the fix, brew-style. Otherwise inspect the run's state.
+        if (fields.agentConfigured === false)
+            s.write(`  ${tryHint("cw doctor", s)}\n`);
+        else
+            s.write(`  ${nextHint(`cw status ${fields.runId}`, s)}\n`);
     }
 }

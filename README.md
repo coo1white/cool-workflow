@@ -52,6 +52,27 @@ cw -q "What are the security risks?" -deepseek
 `-deepseek` picks the DeepSeek builtin. You will see live streaming output as the agent
 works — no env vars needed.
 
+Review a project **from any directory** — no `cd` needed — by pointing at its folder
+(`-d` / `--dir` / `--repo` are equivalent):
+
+```bash
+cw -q "What are the risks?" -dir /path/to/project
+```
+
+CW's own phases tick by as it runs, then it prints a clean summary:
+
+```text
+==> Map ✓ (6/6)
+==> Verdict ✓
+
+✓ Report: /path/to/project/.cw/runs/<run-id>/report.md
+  ✓ Status: complete — 14/14
+  Next: cw report <run-id> --show
+```
+
+If something is off, the error names the next move (e.g. `Try: cw doctor`). With `--json`,
+stdout is pure data — all of this chrome goes to stderr (TTY only).
+
 ### 3. Open the report
 
 The command prints the report path. For example:

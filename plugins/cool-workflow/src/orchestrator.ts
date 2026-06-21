@@ -918,7 +918,7 @@ export function parseArgv(argv: string[]): {
     }
     if (!token.startsWith("--")) {
       // Single-dash short flag aliases: -q → question, -r → repo, -a → agent-command, -h → help, -v → version
-      const shortMap: Record<string, string> = { q: "question", r: "repo", a: "agent-command", h: "help", v: "version" };
+      const shortMap: Record<string, string> = { q: "question", r: "repo", d: "dir", a: "agent-command", h: "help", v: "version" };
       const flag = token.slice(1);
       // Handle combined short flags like -qr (not common but safe to ignore)
       const key = shortMap[flag] || flag;
@@ -935,7 +935,13 @@ export function parseArgv(argv: string[]): {
       value = withoutPrefix.slice(equalsIndex + 1);
     } else {
       key = withoutPrefix;
-      value = rest[index + 1] && !rest[index + 1].startsWith("--") ? rest[++index] : true;
+      // A flag's value is never ANOTHER flag: reject a next token starting with `-`
+      // (single OR double dash), matching the single-dash branch above. Without this, a
+      // valueless `--flag` greedily swallowed the following single-dash flag — e.g.
+      // `run app --drive -dir /p` made `drive="-dir"` and dropped `-dir` entirely. A
+      // value that legitimately starts with `-` still goes through `--key=-value` or
+      // after a `--` end-of-options marker (both handled above).
+      value = rest[index + 1] && !rest[index + 1].startsWith("-") ? rest[++index] : true;
     }
     appendOption(options, key, value);
   }
@@ -1065,6 +1071,7 @@ export function formatHelp(): string {
     bold("Flags", out),
     "  -q, --question TEXT    The task or question to answer",
     "  -r, --repo PATH        Target repository path (default: .)",
+    "  -d, --dir PATH         Project folder to review (alias for --repo)",
     "  -claude                Use Claude agent",
     "  -codex                 Use Codex agent",
     "  -deepseek              Use DeepSeek (via opencode)",

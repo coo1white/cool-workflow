@@ -53,7 +53,27 @@ cw -q "What are the security risks?" -codex
 cw -q "What are the security risks?" -deepseek
 ```
 
-You will see live streaming output as the agent works — no env vars needed.
+Review a project **from any directory** — no `cd` needed — by pointing at its folder:
+
+```bash
+cw -q "What are the risks?" -dir /path/to/project   # -d / --dir / --repo are equivalent
+```
+
+As it runs you see CW's own phases tick by, then a clean summary — no env vars needed:
+
+```text
+==> Map ✓ (6/6)
+==> Assess ✓ (6/6)
+==> Verdict ✓
+
+✓ Report: /path/to/project/.cw/runs/<run-id>/report.md
+  ✓ Status: complete — 14/14
+  Next: cw report <run-id> --show
+```
+
+If something is off, the error hands you the next move — e.g. `Try: cw doctor` when no
+agent is configured. Pipe-clean: with `--json`, stdout is pure data and all of this chrome
+goes to stderr (TTY only).
 
 ### 3. Open the report
 
