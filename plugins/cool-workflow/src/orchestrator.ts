@@ -918,7 +918,7 @@ export function parseArgv(argv: string[]): {
     }
     if (!token.startsWith("--")) {
       // Single-dash short flag aliases: -q → question, -r → repo, -a → agent-command, -h → help, -v → version
-      const shortMap: Record<string, string> = { q: "question", r: "repo", d: "dir", a: "agent-command", h: "help", v: "version" };
+      const shortMap: Record<string, string> = { q: "question", r: "repo", d: "dir", l: "link", a: "agent-command", h: "help", v: "version" };
       const flag = token.slice(1);
       // Handle combined short flags like -qr (not common but safe to ignore)
       const key = shortMap[flag] || flag;
@@ -1063,6 +1063,7 @@ export function formatHelp(): string {
     bold("Cool Workflow", out),
     "",
     "  -q \"question\" [-claude|-codex|-deepseek]  Ask a question, get a report",
+    "  -q \"question\" --link <url>                 Review a remote repo by URL",
     "  version                                   Show version",
     "  update                                    Update to latest release",
     "  doctor                                    Check setup",
