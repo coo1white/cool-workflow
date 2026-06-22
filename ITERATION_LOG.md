@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — carve the operator-read commands into a cli/handlers module (Unreleased)
+
+> Seventh decomposition cycle (3rd bundle). The operator-surface read family — `cw report`, `operator`, `graph`, `topology`, `summary` — moves into `src/cli/handlers/operator.ts`. command-surface crosses below 1200 LOC.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Carve 5 operator-read verbs (`report` incl. bundle export/verify, `operator status\|report`, `graph`, `topology list\|show\|validate\|apply\|summary\|graph`, `summary refresh\|show`) out of `command-surface.ts` into `src/cli/handlers/operator.ts` (`handleReport`/`handleOperator`/`handleGraph`/`handleTopology`/`handleSummary`). Behaviour-identical — fail-closed exit codes on report-bundle verify + topology validate preserved. command-surface drops 4 now-unused imports (`runVerifyReportBundle`/`reportBundle` from capability-core; `formatOperatorReport`/`formatTopologySummary` from operator-ux); the other operator-ux/state-explosion formatters STAY (used by multi-agent/other cases). 1263→1164 LOC (1641→1164 overall, −29%). | plugins/cool-workflow/src/cli/handlers/operator.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/docs/cli-mcp-parity.7.md (carved list) + plugins/cool-workflow/test/operator-ux-smoke.js (extended) + regenerated plugins/cool-workflow/dist/** + ITERATION_LOG.md | `operator-ux-smoke` already drives `cw graph`/`operator`/etc. through the CLI end-to-end; EXTENDED with bare-verb routing assertions for all 5 carved verbs (each fails closed with a handler-originated message). `cli-mcp-parity-smoke` + `report-bundle-smoke` green. | BUILD OK; check OK; parity:check GREEN; version:sync GREEN; onramp:check GREEN (src change + smoke + doc + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — carve the registry/queue/history commands into a cli/handlers module (Unreleased)
 
 > Sixth decomposition cycle (2nd bundle). The run-registry read family — `cw registry`, `cw queue`, `cw history` — moves into `src/cli/handlers/registry.ts`. `cw run` (120-line drive path) is left for its own PR.

@@ -160,6 +160,26 @@ assert.match(commitSummary, /verifier-gated=1/);
 assert.match(commitSummary, /checkpoints=/);
 assert.equal(runJson(["commit", "summary", plan.runId, "--json"], tmp).verifierGated, 1);
 
+// report/operator/graph/topology/summary are dispatched into src/cli/handlers/operator.ts —
+// each bare verb fails closed (no run-id / no subcommand) with a handler-originated message,
+// proving the dispatcher routes to the carved handler.
+for (const [verb, re] of [
+  ["report", /Missing run id/],
+  ["operator", /operator status\|report/],
+  ["graph", /Missing run id/],
+  ["topology", /topology list\|show/],
+  ["summary", /summary refresh\|show/]
+]) {
+  let stderr = "";
+  try {
+    execFileSync(node, [cli, verb], { cwd: tmp, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    assert.fail(`bare cw ${verb} should exit non-zero`);
+  } catch (e) {
+    stderr = String(e.stderr || "");
+  }
+  assert.match(stderr, re, `cw ${verb} routes through the carved handler`);
+}
+
 process.stdout.write("operator-ux-smoke: ok\n");
 
 function writeWorkerResult(resultPath, locator) {
