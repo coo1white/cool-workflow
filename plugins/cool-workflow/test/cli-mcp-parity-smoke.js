@@ -43,7 +43,13 @@ function cliDispatchTokens() {
 }
 
 function cliDispatchSources() {
-  return [cli, path.join(pluginRoot, "dist", "cli", "command-surface.js")].filter((file) => fs.existsSync(file));
+  // Scan the dispatcher + every per-command handler module (cli/handlers/*) so a
+  // subcommand `case` carved out of the god-dispatch is not seen as "missing".
+  const handlersDir = path.join(pluginRoot, "dist", "cli", "handlers");
+  const handlerFiles = fs.existsSync(handlersDir)
+    ? fs.readdirSync(handlersDir).filter((name) => name.endsWith(".js")).map((name) => path.join(handlersDir, name))
+    : [];
+  return [cli, path.join(pluginRoot, "dist", "cli", "command-surface.js"), ...handlerFiles].filter((file) => fs.existsSync(file));
 }
 
 function cliHelpTokens() {

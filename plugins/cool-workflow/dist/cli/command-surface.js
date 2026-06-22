@@ -49,10 +49,9 @@ const run_registry_1 = require("../run-registry");
 const daemon_1 = require("../daemon");
 const scheduler_1 = require("../scheduler");
 const triggers_1 = require("../triggers");
-const workbench_1 = require("../workbench");
 const format_1 = require("./format");
 const io_1 = require("./io");
-const workbench_host_1 = require("../workbench-host");
+const workbench_1 = require("./handlers/workbench");
 const operator_ux_1 = require("../operator-ux");
 const multi_agent_operator_ux_1 = require("../multi-agent-operator-ux");
 const multi_agent_eval_1 = require("../multi-agent-eval");
@@ -1541,38 +1540,9 @@ async function runCli(argv = process.argv.slice(2)) {
                     throw new Error("Usage: cw.js demo tamper|bundle [--json]");
             }
         }
-        case "workbench": {
-            const [subcommand, runId] = args.positionals;
-            switch (subcommand) {
-                case "view": {
-                    // Read-only five-panel view of one run. Same core entry as cw_workbench_view.
-                    const view = (0, workbench_1.buildWorkbenchRunView)(runner, (0, io_1.required)(runId, "run id"));
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(view);
-                    else
-                        process.stdout.write(`${(0, format_1.formatWorkbenchView)(view)}\n`);
-                    return;
-                }
-                case "serve": {
-                    // The OPTIONAL localhost host. `--once`/`--json` emit the descriptor only
-                    // (no server); the default starts the read-only, localhost-only host.
-                    if (args.options.once || (0, io_1.wantsJson)(args.options)) {
-                        (0, io_1.printJson)((0, workbench_1.buildWorkbenchServeDescriptor)(runner, { ...args.options, once: true }));
-                        return;
-                    }
-                    const host = new workbench_host_1.WorkbenchHost({
-                        runner,
-                        cwd: String(args.options.cwd || process.cwd()),
-                        port: Number(args.options.port) || undefined,
-                        scope: args.options.scope === "repo" ? "repo" : "home"
-                    });
-                    await host.run();
-                    return;
-                }
-                default:
-                    throw new Error("Usage: cw.js workbench serve [--port N] [--once] | view <run-id> [--json]");
-            }
-        }
+        case "workbench":
+            await (0, workbench_1.handleWorkbench)(args, runner);
+            return;
         default:
             throw new Error(`Unknown command: ${args.command}${((0, orchestrator_1.suggestCommand)(String(args.command || "")) ? `. Did you mean: ${(0, orchestrator_1.suggestCommand)(String(args.command))}?` : "")}`);
     }
