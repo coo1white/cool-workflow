@@ -130,10 +130,6 @@ export function runPipelineStage(
   try {
     assertNodeSatisfiesContract(inputNode, contract, stageId);
     const targetStatus = options.outputStatus || defaultOutputStatus(stage);
-    const commitMessage =
-      stage.producedOutputKind === "commit" && contract.commitMessageTemplate
-        ? renderCommitMessage(contract.commitMessageTemplate, run)
-        : undefined;
     const outputNode = createStateNode({
       id: options.outputNodeId,
       kind: stage.producedOutputKind,
@@ -150,8 +146,7 @@ export function runPipelineStage(
       contractId: contract.id,
       metadata: {
         ...(options.metadata || {}),
-        pipelineStage: stage.id,
-        ...(commitMessage ? { commitMessage } : {})
+        pipelineStage: stage.id
       }
     });
     const transitioned = transitionStateNode(outputNode, {
@@ -174,8 +169,7 @@ export function runPipelineStage(
       outputNodeId: linkedOutput.id,
       status: "advanced",
       artifacts: linkedOutput.artifacts,
-      evidence: linkedOutput.evidence,
-      commitMessage
+      evidence: linkedOutput.evidence
     };
   } catch (error) {
     if (!isStructuredPipelineError(error)) throw error;
@@ -253,19 +247,6 @@ export function failPipelineStage(
     artifacts: failedNode.artifacts,
     evidence: failedNode.evidence
   };
-}
-
-/** Render a contract's commit-message template, substituting the run-derived
- *  placeholders. Unknown `{{…}}` tokens are left untouched. */
-function renderCommitMessage(template: string, run: WorkflowRun): string {
-  const tasks = run.tasks || [];
-  const completedTasks = tasks.filter((task) => task.status === "completed").length;
-  const values: Record<string, string> = {
-    runId: run.id,
-    completedTasks: String(completedTasks),
-    totalTasks: String(tasks.length)
-  };
-  return template.replace(/\{\{(runId|completedTasks|totalTasks)\}\}/g, (_match, key) => values[key]);
 }
 
 function getContractStage(contract: PipelineContract, stageId: string): PipelineStageContract {

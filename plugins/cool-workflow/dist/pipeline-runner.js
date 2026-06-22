@@ -104,9 +104,6 @@ function runPipelineStage(run, stageId, inputNodeId, options = {}) {
     try {
         (0, state_node_1.assertNodeSatisfiesContract)(inputNode, contract, stageId);
         const targetStatus = options.outputStatus || defaultOutputStatus(stage);
-        const commitMessage = stage.producedOutputKind === "commit" && contract.commitMessageTemplate
-            ? renderCommitMessage(contract.commitMessageTemplate, run)
-            : undefined;
         const outputNode = (0, state_node_1.createStateNode)({
             id: options.outputNodeId,
             kind: stage.producedOutputKind,
@@ -123,8 +120,7 @@ function runPipelineStage(run, stageId, inputNodeId, options = {}) {
             contractId: contract.id,
             metadata: {
                 ...(options.metadata || {}),
-                pipelineStage: stage.id,
-                ...(commitMessage ? { commitMessage } : {})
+                pipelineStage: stage.id
             }
         });
         const transitioned = (0, state_node_1.transitionStateNode)(outputNode, {
@@ -148,8 +144,7 @@ function runPipelineStage(run, stageId, inputNodeId, options = {}) {
             outputNodeId: linkedOutput.id,
             status: "advanced",
             artifacts: linkedOutput.artifacts,
-            evidence: linkedOutput.evidence,
-            commitMessage
+            evidence: linkedOutput.evidence
         };
     }
     catch (error) {
@@ -219,18 +214,6 @@ function failPipelineStage(run, stageId, inputNode, error, options = {}) {
         artifacts: failedNode.artifacts,
         evidence: failedNode.evidence
     };
-}
-/** Render a contract's commit-message template, substituting the run-derived
- *  placeholders. Unknown `{{…}}` tokens are left untouched. */
-function renderCommitMessage(template, run) {
-    const tasks = run.tasks || [];
-    const completedTasks = tasks.filter((task) => task.status === "completed").length;
-    const values = {
-        runId: run.id,
-        completedTasks: String(completedTasks),
-        totalTasks: String(tasks.length)
-    };
-    return template.replace(/\{\{(runId|completedTasks|totalTasks)\}\}/g, (_match, key) => values[key]);
 }
 function getContractStage(contract, stageId) {
     (0, state_node_1.validatePipelineContract)(contract);
