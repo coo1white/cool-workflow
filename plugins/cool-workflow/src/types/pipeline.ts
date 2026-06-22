@@ -71,8 +71,9 @@ export interface PipelineContract {
   evidencePolicy?: PipelineEvidencePolicy;
   failurePolicy?: PipelineFailurePolicy;
   commitPolicy?: PipelineCommitPolicy;
-  /** Optional template for auto-generated commit messages (v0.1.68).
-   *  Supports {{runId}}, {{completedTasks}}, {{totalTasks}} placeholders. */
+  /** PARKED spec-debt: declared v0.1.68 for auto-generated commit messages but
+   *  never wired to a consumer. #258 added a renderer with no reader (orphaned)
+   *  and was reverted. Do NOT implement without a real caller; see docs/BACKLOG.md. */
   commitMessageTemplate?: string;
   compatibility: PipelineCompatibility;
 }

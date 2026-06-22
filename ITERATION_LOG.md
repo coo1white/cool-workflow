@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — revert orphaned commitMessage feature (Unreleased)
+
+> #258 implemented a commit-message renderer that no caller consumes — an orphaned surface shipped only to satisfy a delete-blocking gate. It is reverted; `commitMessageTemplate` is honestly parked instead of dressed up as a live feature.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Revert #258. A global step-back (verified against source) found its `commitMessage` output is produced by `pipeline-runner.ts` but READ BY NO PRODUCTION CALLER (`git grep commitMessage` → only the producer + type decl; no CLI/MCP/report/orchestrator consumer). It was shipped only because the onramp `types-without-runtime` gate blocked deleting the dead `commitMessageTemplate` field — trading one unread type field for an unread output field + ~50 lines + a smoke, the parsimony violation AGENTS.md forbids. `git revert` of the #258 squash reverses the renderer, the `PipelineStageRunResult.commitMessage` field, and the smoke assertions. `commitMessageTemplate` is left in place but re-marked PARKED (doc comment + a docs/BACKLOG.md row): do not implement without a real consumer; if cleaning, fix the gate to allow type-only deletion of acknowledged dead fields rather than ship a fake feature. | plugins/cool-workflow/src/pipeline-runner.ts + plugins/cool-workflow/src/types/pipeline.ts (parked doc) + plugins/cool-workflow/test/pipeline-runner-smoke.js + regenerated plugins/cool-workflow/dist/pipeline-runner.js + docs/BACKLOG.md + ITERATION_LOG.md | `pipeline-runner-smoke` + `pipeline-auto-advance-smoke` green at the pre-#258 behavior; `git grep commitMessage` in src/ shows only the parked `commitMessageTemplate` field (orphaned `commitMessage` gone); `check`/`build` clean; full suite green. | BUILD OK; check OK; version:sync GREEN; onramp:check GREEN (revert touches runtime pipeline-runner.ts + smoke, log row) | no (dev loop — review + PR, never tag) |
+
 ## Batch — drop unread StateCommit spec-debt (Unreleased)
 
 > `StateCommit` carried three fields that no module ever read, the exact spec accretion `AGENTS.md` forbids. They are now gone, so the type matches the runtime and there is no unread metadata pretending to be a feature.
