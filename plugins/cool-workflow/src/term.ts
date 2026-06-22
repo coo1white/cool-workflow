@@ -78,11 +78,6 @@ export function doctorGlyph(status: TermSeverity, stream?: NodeJS.WriteStream): 
   return color[status](`${glyph[status]}`, stream);
 }
 
-/** "cw:" prefix with bold and optional color. */
-export function cwLabel(stream?: NodeJS.WriteStream): string {
-  return bold("cw:", stream);
-}
-
 /** Render a multi-line block with consistent 2-space indentation. */
 export function indent(text: string, spaces = 2): string {
   const prefix = " ".repeat(spaces);
@@ -111,17 +106,6 @@ export function phaseProgressLine(name: string, done: number, total: number, mod
   const glyph = complete ? green("✓", stream) : (mode === "parallel" ? "⇉" : "…");
   const count = total > 0 ? ` (${done}/${total})` : "";
   return `${sectionHeader(name, stream)} ${glyph}${count}`;
-}
-
-/** Format a DURATION in ms as `850ms` / `5.2s` / `1m02s`. Pure (no clock) — the
- *  caller measures elapsed via process.hrtime, so this never reads wall-clock time. */
-export function formatDuration(ms: number): string {
-  if (ms < 1000) return `${Math.max(0, Math.round(ms))}ms`;
-  const s = Math.round(ms / 100) / 10;
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const rem = Math.round(s % 60);
-  return `${m}m${String(rem).padStart(2, "0")}s`;
 }
 
 /** Print a success summary to stderr (TTY-gated). Shows the report path, a one-line
