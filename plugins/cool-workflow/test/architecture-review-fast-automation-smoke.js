@@ -161,8 +161,36 @@ function main() {
   assert.ok(second.metrics.fastReview.taskMetrics.every((task) => task.resultCacheHit && !task.agentSpawned), "warm metrics mark cache hits without agent spawns");
   assert.equal(spawnLines(countFile), 2, "result cache avoids spawning Map workers again");
 
+  // --changed-from incremental overlay: a second commit changes only src/app.js;
+  // the overlay must scope the exported context to the changed file, record the
+  // base, and tell the scheduled full review to still do a complete audit.
+  fs.writeFileSync(path.join(repo, "src", "app.js"), "module.exports = () => 'ok2';\n", "utf8");
+  git(repo, ["add", "."]);
+  git(repo, ["-c", "user.name=CW", "-c", "user.email=cw@example.invalid", "commit", "-m", "change app"]);
+
+  const incremental = runJson([
+    "--repo", repo,
+    "--question", "What changed?",
+    "--profile", "smoke",
+    "--profile-file", profileFile,
+    "--ref", "HEAD",
+    "--changed-from", "HEAD~1",
+    "--agent-command", agentCommand,
+    "--once",
+    "--schedule-full",
+    "--full-delay-minutes", "10",
+    "--metrics"
+  ]);
+  assert.equal(incremental.sourceContext.changedFrom, "HEAD~1", "wrapper records the incremental overlay base");
+  assert.equal(incremental.metrics.sourceContext.changedFrom, "HEAD~1", "metrics record the overlay base");
+  const incrementalRecords = readJsonl(incremental.sourceContext.path);
+  assert.ok(incrementalRecords.some((record) => record.path === "src/app.js"), "overlay includes the changed file");
+  assert.ok(!incrementalRecords.some((record) => record.path === "README.md"), "overlay excludes files unchanged since the base");
+  assert.match(incremental.fullReviewSchedule.prompt, /incremental overlay \(changed-from HEAD~1\)/, "full schedule prompt notes the overlay so the background review audits the complete source");
+  assert.match(incremental.fullReviewSchedule.prompt, /audit the complete source, not only the changed files/, "full schedule prompt requires a complete audit");
+
   fs.rmSync(tmp, { recursive: true, force: true });
-  process.stdout.write("architecture-review-fast-automation-smoke: ok (context export, fast once, result cache, full schedule)\n");
+  process.stdout.write("architecture-review-fast-automation-smoke: ok (context export, fast once, result cache, full schedule, changed-from overlay)\n");
 }
 
 function runJson(args) {

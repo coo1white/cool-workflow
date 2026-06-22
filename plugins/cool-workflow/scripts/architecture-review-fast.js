@@ -38,13 +38,20 @@ function main() {
   const fastModel = stringArg(args.fastModel || args["fast-model"]);
   const strongModel = stringArg(args.strongModel || args["strong-model"]);
   const modelEnv = modelPolicyEnv(fastModel, strongModel);
+  // Opt-in incremental overlay: scope the exported source context to files
+  // changed since REF (e.g. origin/main). The source-context export resolves
+  // the ref, keys its cache separately, and records the base. The fast review
+  // then runs over the narrower context; the scheduled full review stays a
+  // complete audit (see scheduleFullReview).
+  const changedFrom = stringArg(args.changedFrom || args["changed-from"]);
 
   const contextExport = timed(() => exportSourceContext({
     repo,
     profile,
     ref,
     profileFile,
-    cacheDir
+    cacheDir,
+    changedFrom
   }));
   const contextText = contextExport.value;
   assertNonEmptySourceContext(contextText, profile, repo);
@@ -87,7 +94,8 @@ function main() {
     digest,
     profile,
     ref,
-    cacheDir
+    cacheDir,
+    ...(changedFrom ? { changedFrom } : {})
   };
   const fullReviewScheduleRun = truthy(args.scheduleFull || args["schedule-full"])
     ? timed(() => scheduleFullReview(repo, question, args, fastReview, sourceContextMeta))
@@ -101,7 +109,7 @@ function main() {
     fastReview,
     ...(fastModel || strongModel ? { modelPolicy: { ...(fastModel ? { fastModel } : {}), ...(strongModel ? { strongModel } : {}) } } : {}),
     ...(fullReviewSchedule ? { fullReviewSchedule } : {}),
-    ...(includeMetrics ? { metrics: buildMetrics(started, contextText, contextExport.elapsedMs, fastReview, fastReviewRun.elapsedMs, fullReviewScheduleRun?.elapsedMs) } : {})
+    ...(includeMetrics ? { metrics: buildMetrics(started, contextText, contextExport.elapsedMs, fastReview, fastReviewRun.elapsedMs, fullReviewScheduleRun?.elapsedMs, changedFrom) } : {})
   });
 }
 
@@ -119,6 +127,7 @@ function exportSourceContext(options) {
     options.cacheDir
   ];
   if (options.profileFile) argv.push("--profile-file", path.resolve(options.profileFile));
+  if (options.changedFrom) argv.push("--changed-from", options.changedFrom);
   const result = spawnSync(node, argv, {
     cwd: repoRoot,
     encoding: "utf8",
@@ -194,6 +203,9 @@ function scheduleFullReview(repo, question, args, fastReview, sourceContextMeta)
     fastReview?.reportPath ? `Fast review report: ${fastReview.reportPath}.` : "",
     `Fast review status: ${fastReview?.status || "unknown"} (${fastReview?.completedWorkers || 0}/${fastReview?.plannedWorkers || 0} workers completed).`,
     `Source context: ${sourceContextMeta.path} (${sourceContextMeta.digest}, profile ${sourceContextMeta.profile}, ref ${sourceContextMeta.ref}).`,
+    sourceContextMeta.changedFrom
+      ? `Fast review used an incremental overlay (changed-from ${sourceContextMeta.changedFrom}); this full review must audit the complete source, not only the changed files.`
+      : "",
     "Use the completed architecture-review-fast report as the foreground triage result; write the full review report path and digest when the background review finishes."
   ].filter(Boolean).join(" ");
   return runCwJson([
@@ -304,7 +316,7 @@ function timed(fn) {
   return { value, elapsedMs: elapsedMs(started) };
 }
 
-function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, fastReviewElapsedMs, fullReviewScheduleElapsedMs) {
+function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, fastReviewElapsedMs, fullReviewScheduleElapsedMs, changedFrom) {
   const steps = Array.isArray(fastReview?.steps) ? fastReview.steps : [];
   const handleKinds = countBy(steps.map((step) => step && step.handleKind).filter(Boolean));
   const actions = countBy(steps.map((step) => step && step.action).filter(Boolean));
@@ -314,7 +326,8 @@ function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, 
     sourceContext: {
       elapsedMs: sourceContextElapsedMs,
       bytes: Buffer.byteLength(contextText, "utf8"),
-      digest: `sha256:${crypto.createHash("sha256").update(contextText, "utf8").digest("hex")}`
+      digest: `sha256:${crypto.createHash("sha256").update(contextText, "utf8").digest("hex")}`,
+      ...(changedFrom ? { changedFrom } : {})
     },
     fastReview: {
       elapsedMs: fastReviewElapsedMs,
@@ -388,6 +401,7 @@ function usage(code) {
     "",
     "options:",
     "  --profile core --ref HEAD --profile-file PATH --cache-dir DIR --context-out PATH",
+    "  --changed-from REF   (incremental overlay: scope context to files changed since REF)",
     "  --fast-model MODEL --strong-model MODEL",
     "  --invariant TEXT --focus TEXT --preview --once",
     "  --schedule-full [--full-delay-minutes N]",
