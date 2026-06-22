@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — cache Verify + Verdict phases of fast review (Unreleased)
+
+> CW's dogfood audit measured the fast review's foreground phases: Verify ~146s and Verdict ~294s were the two most expensive AND the only ones not result-cached. They now cache like Map/Assess, so a warm re-run over an unchanged repo is near-instant instead of paying ~440s again.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Add `resultCache: sourceContextResultCache({ includeCompletedResults: "previous-phases" })` to the Verify (`verify:p0-p2-risks`) and Verdict (`verdict:fast-synthesis`) tasks of `apps/architecture-review-fast/workflow.js` (runtime P1, dogfood-audit + PROJECT_MEMORY "Next Run"). Live metrics from the self-audit: Map 270s, Assess 298s, **Verify 146s, Verdict 294s** — the latter two were uncached, so a re-run paid them in full. The cache key includes the source digest AND every upstream phase's result digest, so a hit only when source + all Map/Assess(/Verify) outputs are byte-identical; it busts on any upstream change and the cached result still passes worker-output validation (`requiresEvidence` stays enforced). This is the integrity-safe pattern (unlike the registry mtime fast-path the audit flagged, which is deliberately rejected to preserve tamper-evidence). | plugins/cool-workflow/apps/architecture-review-fast/workflow.js + plugins/cool-workflow/test/architecture-review-fast-phase-cache-smoke.js (new) + plugins/cool-workflow/test/architecture-review-fast-smoke.js (contract flip) + docs/project-index.md + ITERATION_LOG.md | New `architecture-review-fast-phase-cache-smoke` drives the FULL pipeline twice with a stub agent: cold run spawns every phase; warm run serves EVERY phase incl. Verify + Verdict from the result cache (no agent spawn). `architecture-review-fast-smoke` updated: Verify/Verdict now assert the cache config instead of "stays uncached". All 3 fast-review smokes green. | BUILD n/a (app JS, no dist); version:sync GREEN; onramp:check GREEN (apps change + smokes + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — changed-from incremental overlay for fast review (Unreleased)
 
 > `architecture-review-fast` can now scope its source context to files changed since a ref (e.g. `origin/main`) — the common "review my changes" path gets a smaller context and a faster first result, while the scheduled full review still audits everything.

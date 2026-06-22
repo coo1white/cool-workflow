@@ -100,7 +100,14 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
             "Confirm real risks, downgrade unsupported claims, and list exact file paths, commands, logs, or unknowns.",
             "The cw:result evidence array must cite durable locators."
           ].join(" "),
-          strongOptions("Evidence verifier", { requiresEvidence: true })
+          strongOptions("Evidence verifier", {
+            requiresEvidence: true,
+            // Cache the (expensive, ~146s live) verification by source digest +
+            // ALL upstream phase result digests. A hit only when source AND every
+            // Map/Assess output are byte-identical; the cached result still passes
+            // worker-output validation (requiresEvidence stays enforced).
+            resultCache: sourceContextResultCache({ includeCompletedResults: "previous-phases" })
+          })
         )
       ]),
       phase("Verdict", [
@@ -113,7 +120,13 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
             "State when the full architecture-review app should be scheduled as a background routine.",
             "The cw:result evidence array must support the final verdict."
           ].join(" "),
-          strongOptions("Fast verdict synthesizer", { requiresEvidence: true })
+          strongOptions("Fast verdict synthesizer", {
+            requiresEvidence: true,
+            // Cache the (~294s live, largest phase) synthesis by source digest +
+            // all upstream (Map/Assess/Verify) result digests. Busts on any
+            // upstream change; cached verdict re-passes evidence validation.
+            resultCache: sourceContextResultCache({ includeCompletedResults: "previous-phases" })
+          })
         )
       ])
     ]
