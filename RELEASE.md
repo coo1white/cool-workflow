@@ -31,7 +31,10 @@ logs, and release verdict.
    migration compatibility and cases that are not supported.
 3. Make sure `node scripts/cw.js state check <run-id>` reports the looked-for migration
    status for any release-candidate run state you have a mind to keep.
-4. Make sure `npm run version:sync` passes after `npm run build`.
+4. Make sure `npm run version:sync` passes after `npm run build`. This now also
+   gates `Formula/cool-workflow.rb` (the Homebrew formula): `bump-version.js`
+   auto-moves its `tag:`/`version` to the target, so no manual edit or checksum
+   step is needed — it is a git-tag formula with no sha256.
 5. Make sure generated `plugins/cool-workflow/dist/` output is committed.
 6. Make sure topology docs and smoke coverage are present:
    `docs/multi-agent-topologies.7.md` and

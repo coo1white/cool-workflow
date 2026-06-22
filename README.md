@@ -21,6 +21,15 @@
 npm install -g cool-workflow
 ```
 
+Or with **Homebrew** (one tap of this repo — there is no separate tap repo):
+
+```bash
+brew tap coo1white/cool-workflow https://github.com/coo1white/cool-workflow
+brew install coo1white/cool-workflow/cool-workflow
+```
+
+Already tapped before a new release? `brew update && brew upgrade cool-workflow`.
+
 What you need: **Node.js v18+** (`node --version`) and one AI agent CLI on your machine
 (`claude`, `codex`, `gemini`, or `opencode`). No agent? `cw demo` still works — CW never runs a model itself.
 

@@ -196,6 +196,11 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/release-and-migration.7.md", VERSION, checks);
   checkIncludes("CHANGELOG.md", `## ${VERSION}`, checks);
   checkIncludes("RELEASE.md", VERSION, checks);
+  // Homebrew formula (repo root): git-tag formula. Homebrew scans the version
+  // from the tag, so the tag is the single version surface to gate (an explicit
+  // `version` line would be redundant and brew audit rejects it). bump-version.js
+  // moves this tag.
+  checkIncludes("Formula/cool-workflow.rb", `tag: "v${VERSION}"`, checks);
   checkIncludes("plugins/cool-workflow/skills/cool-workflow/SKILL.md", "release:check", checks);
 
   process.stdout.write(
