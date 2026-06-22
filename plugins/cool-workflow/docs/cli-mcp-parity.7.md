@@ -357,7 +357,8 @@ The CLI dispatcher (`src/cli/command-surface.ts`) is being decomposed out of one
 large `switch` into per-command handler modules under `src/cli/handlers/`
 (`handle<Group>(args, runner)`), with `command-surface.ts` left as the thin
 router; shared helpers live in `src/cli/io.ts` (arg/JSON) and `src/cli/format.ts`
-(render). Carved so far: `workbench`, `clones`, `audit`, `worker`. This is a pure code-move
+(render). Carved so far: `workbench`, `clones`, `audit`, `worker`, `schedule`, `routine`,
+`sched`. This is a pure code-move
 — the command surface is unchanged — and the parity scanner reads
 `dist/cli/handlers/*` so a subcommand `case` in a handler module still counts as a
 live CLI token.

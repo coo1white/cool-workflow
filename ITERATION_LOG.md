@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — carve the scheduling commands into a cli/handlers module (Unreleased)
+
+> Fifth decomposition cycle — first BUNDLE of related groups to burn down the tail faster. `cw schedule`, `cw routine`, and `cw sched` (the whole scheduling family) move together into `src/cli/handlers/scheduling.ts`.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Carve the three scheduling verbs out of `command-surface.ts` into one cohesive `src/cli/handlers/scheduling.ts`: `handleSchedule(args, scheduler)` (desktop scheduler + `DesktopSchedulerDaemon`), `handleRoutine(args, triggers)` (routine triggers), `handleSched(args, runner)` (durable run-queue via `runRegistryFor` + `sched*`). Behaviour-identical. command-surface drops the now-unused `DesktopSchedulerDaemon` import + the 8 `sched*` imports (`runRegistryFor` STAYS — used by registry/run/queue), shrinking 1418→1313 LOC. First multi-group bundle (3 verbs, 1 PR) now that the pattern is proven — faster tail burn-down. | plugins/cool-workflow/src/cli/handlers/scheduling.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/docs/cli-mcp-parity.7.md (carved list) + plugins/cool-workflow/test/schedule-routine-daemon-smoke.js (extended) + regenerated plugins/cool-workflow/dist/** + ITERATION_LOG.md | `schedule-routine-daemon-smoke` already drives `cw schedule`/`routine` through the CLI; EXTENDED with bare-verb routing assertions for all three (`schedule`/`routine`/`sched` → carved handler usage). `sched-policy-validation-smoke` exercises `cw sched`. `cli-mcp-parity-smoke` green. | BUILD OK; check OK; parity:check GREEN; version:sync GREEN; onramp:check GREEN (src change + smoke + doc + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — carve the worker command into a cli/handlers module (Unreleased)
 
 > Fourth per-command handler out of the god-dispatch. `cw worker` (list/summary/show/manifest/output/fail/validate) now lives in `src/cli/handlers/worker.ts`. Churn-free recipe: clean off `main`, extend an existing smoke, update the carved-groups doc.
