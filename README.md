@@ -26,9 +26,12 @@ Or with **Homebrew** (one tap of this repo — there is no separate tap repo):
 ```bash
 brew tap coo1white/cool-workflow https://github.com/coo1white/cool-workflow
 brew install coo1white/cool-workflow/cool-workflow
+cw version   # prints the installed release
 ```
 
-Already tapped before a new release? `brew update && brew upgrade cool-workflow`.
+Upgrade later with `brew update && brew upgrade cool-workflow`. If you also have an
+npm-global `cw`, the one earlier in your PATH wins; run the Homebrew build by full
+path to be sure: `"$(brew --prefix)/bin/cw" version`.
 
 What you need: **Node.js v18+** (`node --version`) and one AI agent CLI on your machine
 (`claude`, `codex`, `gemini`, or `opencode`). No agent? `cw demo` still works — CW never runs a model itself.
