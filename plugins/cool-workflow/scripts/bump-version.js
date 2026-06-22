@@ -143,6 +143,22 @@ function main() {
     note(rel);
   }
 
+  // 5c. Homebrew formula (repo root, not under pluginRoot). Structured surface:
+  //     a git-tag formula with no sha256. Homebrew reads the version from the
+  //     tag, so the ONLY literal that moves is `tag: "v<version>"` (an explicit
+  //     `version` line would be redundant and brew audit rejects it). A targeted
+  //     exact-string swap keeps the file byte-formatting intact;
+  //     version-sync-check.js asserts the tag at HEAD, so it can never drift.
+  const formula = path.join(repoRoot, "Formula", "cool-workflow.rb");
+  if (fs.existsSync(formula)) {
+    const text = fs.readFileSync(formula, "utf8");
+    const updated = text.split(`tag: "v${current}"`).join(`tag: "v${next}"`);
+    if (updated !== text) {
+      fs.writeFileSync(formula, updated);
+      note("Formula/cool-workflow.rb");
+    }
+  }
+
   process.stdout.write(`bump:version ${current} -> ${next}\n`);
   for (const rel of touched) process.stdout.write(`  updated  ${rel}\n`);
 
