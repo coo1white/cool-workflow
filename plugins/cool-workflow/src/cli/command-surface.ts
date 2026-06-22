@@ -70,6 +70,7 @@ import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
 import { buildWorkbenchRunView, buildWorkbenchServeDescriptor } from "../workbench";
 import { formatClonesGc, formatClonesList, formatWorkbenchView } from "./format";
+import { optionalArg, printJson, required, wantsJson } from "./io";
 import { WorkbenchHost } from "../workbench-host";
 import {
   adviseNoRun,
@@ -1519,15 +1520,6 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   }
 }
 
-function required(value: string | undefined, label: string): string {
-  if (!value) throw new Error(`Missing ${label}.\n  Tip: find run ids with "cw run list" or create one with "cw quickstart"`);
-  return value;
-}
-
-function optionalArg(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
 /** Emit the calm end-of-run summary (stderr, TTY-gated inside the reporter): the COMPACT findings
  *  table re-parsed from each completed worker's `cw:result`, the report path, where the per-worker
  *  transcripts live, and — under `--full` — the report inline. Stderr/human-side ONLY: stdout (the
@@ -1567,14 +1559,6 @@ function emitRunSummary(
     runDir,
     fullReport
   });
-}
-
-function printJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
-}
-
-function wantsJson(options: Record<string, unknown>): boolean {
-  return Boolean(options.json || options.format === "json");
 }
 
 /** Prompt the user for a question interactively when --question is missing on a TTY. */
