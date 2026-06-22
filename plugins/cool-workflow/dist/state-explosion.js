@@ -7,7 +7,6 @@ exports.stateExplosionReportLines = exports.formatBlackboardDigest = exports.for
 exports.computeStateSize = computeStateSize;
 exports.summarizeBlackboardDigest = summarizeBlackboardDigest;
 exports.buildCompactGraph = buildCompactGraph;
-exports.buildOperatorDigest = buildOperatorDigest;
 exports.buildStateExplosionReport = buildStateExplosionReport;
 exports.maybeCompactRun = maybeCompactRun;
 exports.refreshStateExplosionSummaries = refreshStateExplosionSummaries;
@@ -731,12 +730,6 @@ function expansionCommandFor(run, view, key) {
     if (key.startsWith("memberships"))
         return `node scripts/cw.js multi-agent graph ${run.id} --view full --json`;
     return `node scripts/cw.js multi-agent graph ${run.id} --view full --focus ${key} --json`;
-}
-// ---------------------------------------------------------------------------
-// Operator digest
-// ---------------------------------------------------------------------------
-function buildOperatorDigest(run, thresholds = exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS) {
-    return buildOperatorDigestWithContext(run, thresholds, createStateExplosionBuildContext());
 }
 function buildOperatorDigestWithContext(run, thresholds, context) {
     const stateSize = stateSizeFor(run, thresholds, context);

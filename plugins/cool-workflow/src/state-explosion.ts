@@ -1024,14 +1024,6 @@ function expansionCommandFor(run: WorkflowRun, view: GraphView, key: string): st
   return `node scripts/cw.js multi-agent graph ${run.id} --view full --focus ${key} --json`;
 }
 
-// ---------------------------------------------------------------------------
-// Operator digest
-// ---------------------------------------------------------------------------
-
-export function buildOperatorDigest(run: WorkflowRun, thresholds = DEFAULT_STATE_EXPLOSION_THRESHOLDS): OperatorDigest {
-  return buildOperatorDigestWithContext(run, thresholds, createStateExplosionBuildContext());
-}
-
 function buildOperatorDigestWithContext(
   run: WorkflowRun,
   thresholds: StateExplosionThresholds,

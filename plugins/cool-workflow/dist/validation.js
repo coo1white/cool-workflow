@@ -19,15 +19,11 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.RecordValidationError = void 0;
 exports.validateWorkerScope = validateWorkerScope;
-exports.tryValidateWorkerScope = tryValidateWorkerScope;
 exports.validateNodeSnapshot = validateNodeSnapshot;
-exports.tryValidateNodeSnapshot = tryValidateNodeSnapshot;
 exports.validateNodeReplayRun = validateNodeReplayRun;
-exports.tryValidateNodeReplayRun = tryValidateNodeReplayRun;
 exports.validateCandidateScore = validateCandidateScore;
 exports.tryValidateCandidateScore = tryValidateCandidateScore;
 exports.validateCandidateRecord = validateCandidateRecord;
-exports.tryValidateCandidateRecord = tryValidateCandidateRecord;
 // ---------------------------------------------------------------------------
 // Primitive predicates — small, total, never throw.
 // ---------------------------------------------------------------------------
@@ -126,10 +122,6 @@ function validateWorkerScope(value) {
         throw new RecordValidationError("WorkerScope", problem.reason, problem.field);
     return value;
 }
-/** Best-effort variant: returns null on mismatch (caller skips the record). */
-function tryValidateWorkerScope(value) {
-    return workerScopeReason(value) ? null : value;
-}
 // ---------------------------------------------------------------------------
 // NodeSnapshotBody — shared by NodeSnapshot.body and NodeReplayRun.body.
 // Required (per src/types/state-node.ts): id, kind, status, loopStage strings;
@@ -184,10 +176,6 @@ function validateNodeSnapshot(value) {
         throw new RecordValidationError("NodeSnapshot", problem.reason, problem.field);
     return value;
 }
-/** Best-effort variant: returns null on mismatch. */
-function tryValidateNodeSnapshot(value) {
-    return nodeSnapshotReason(value) ? null : value;
-}
 // ---------------------------------------------------------------------------
 // NodeReplayRun — node-snapshot.ts:133
 // Required: schemaVersion===1, replayId, runId, nodeId, snapshotId, replayedAt,
@@ -225,10 +213,6 @@ function validateNodeReplayRun(value) {
     if (problem)
         throw new RecordValidationError("NodeReplayRun", problem.reason, problem.field);
     return value;
-}
-/** Best-effort variant: returns null on mismatch. */
-function tryValidateNodeReplayRun(value) {
-    return nodeReplayRunReason(value) ? null : value;
 }
 // ---------------------------------------------------------------------------
 // CandidateScore — multi-agent-operator-ux.ts:502 / evidence-reasoning.ts:750
@@ -320,9 +304,4 @@ function validateCandidateRecord(value) {
     if (problem)
         throw new RecordValidationError("CandidateRecord", problem.reason, problem.field);
     return value;
-}
-/** Best-effort variant: returns null on mismatch (caller skips the record so the
- *  downstream selection gate fails closed on its absence). */
-function tryValidateCandidateRecord(value) {
-    return candidateRecordReason(value) ? null : value;
 }

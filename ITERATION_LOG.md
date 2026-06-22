@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — remove dead production exports (deep-audit dead-surface trace) (Unreleased)
+
+> The deep dogfood `architecture-review` ran a complete dead/unread-surface trace and flagged ~32 fully-dead production exports. This removes the 10 I independently re-verified at 0 external references — including `term.ts` leftovers (`cwLabel`/`formatDuration`) orphaned by the earlier cli/format.ts + cli/io.ts extractions.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Delete 10 exported-but-unread functions surfaced by the deep audit's dead-surface trace and INDEPENDENTLY re-verified at exactly 0 external refs (grep across src/test/scripts, excl dist + own file): `term.ts` `cwLabel`/`formatDuration`; `validation.ts` `tryValidateWorkerScope`/`tryValidateNodeSnapshot`/`tryValidateNodeReplayRun`/`tryValidateCandidateRecord`; `execution-backend.ts` `backendSelectionFrom`/`clearProbeCache`/`listExecutionBackends`; `state-explosion.ts` `buildOperatorDigest`. VERIFY caught two the audit over-generalized as dead — `tryValidateCandidateScore` (2 refs in evidence-reasoning.ts) and `resolveBackendSelection` (4 refs in dispatch.ts/worker-isolation.ts) — both KEPT. Deleting a dead exported function is a real runtime change (removes code), so it clears the `types-without-runtime` gate; the shared `*Reason` helpers + throw-variant `validate*` stay (still used). Schema-version consts and the bigger god-module/handler decomposition are deferred to later cycles (the conditional/by-design items the audit flagged). | plugins/cool-workflow/src/term.ts + src/validation.ts + src/execution-backend.ts + src/state-explosion.ts + plugins/cool-workflow/test/dead-export-removal-guard-smoke.js (new) + regenerated plugins/cool-workflow/dist/** + docs/project-index.md + ITERATION_LOG.md | New `dead-export-removal-guard-smoke` asserts each of the 10 dead exports is now `undefined` on its dist module AND the live exports beside them (incl. the KEPT `tryValidateCandidateScore`/`resolveBackendSelection`) remain functions — guards re-growth and proves the cut was surgical. `check`/`build` clean (no orphaned imports); residual grep = 0; full suite green. | BUILD OK; check OK; version:sync GREEN; onramp:check GREEN (src change + smoke + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — extract shared CLI io helpers from the command-surface god-object (Unreleased)
 
 > Second decomposition slice of the 1.6k-LOC command-surface god-object (after the render-helper extraction). The shared arg/JSON helpers now live in `src/cli/io.ts` — one copy the dispatcher and future per-command handler modules import, instead of carrying them in the switch.

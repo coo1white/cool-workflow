@@ -14,13 +14,11 @@ exports.yellow = yellow;
 exports.red = red;
 exports.cyan = cyan;
 exports.doctorGlyph = doctorGlyph;
-exports.cwLabel = cwLabel;
 exports.indent = indent;
 exports.nextHint = nextHint;
 exports.tryHint = tryHint;
 exports.sectionHeader = sectionHeader;
 exports.phaseProgressLine = phaseProgressLine;
-exports.formatDuration = formatDuration;
 exports.printSuccessSummary = printSuccessSummary;
 exports.stripAnsi = stripAnsi;
 exports.visibleWidth = visibleWidth;
@@ -84,10 +82,6 @@ function doctorGlyph(status, stream) {
     };
     return color[status](`${glyph[status]}`, stream);
 }
-/** "cw:" prefix with bold and optional color. */
-function cwLabel(stream) {
-    return bold("cw:", stream);
-}
 /** Render a multi-line block with consistent 2-space indentation. */
 function indent(text, spaces = 2) {
     const prefix = " ".repeat(spaces);
@@ -112,18 +106,6 @@ function phaseProgressLine(name, done, total, mode, stream) {
     const glyph = complete ? green("✓", stream) : (mode === "parallel" ? "⇉" : "…");
     const count = total > 0 ? ` (${done}/${total})` : "";
     return `${sectionHeader(name, stream)} ${glyph}${count}`;
-}
-/** Format a DURATION in ms as `850ms` / `5.2s` / `1m02s`. Pure (no clock) — the
- *  caller measures elapsed via process.hrtime, so this never reads wall-clock time. */
-function formatDuration(ms) {
-    if (ms < 1000)
-        return `${Math.max(0, Math.round(ms))}ms`;
-    const s = Math.round(ms / 100) / 10;
-    if (s < 60)
-        return `${s}s`;
-    const m = Math.floor(s / 60);
-    const rem = Math.round(s % 60);
-    return `${m}m${String(rem).padStart(2, "0")}s`;
 }
 /** Print a success summary to stderr (TTY-gated). Shows the report path, a one-line
  *  status (with N/N worker counts when known), and a copy-pasteable next/recovery
