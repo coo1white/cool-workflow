@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-22 by `npm run sync:projec
 - Source modules: `68`
 - Workflow apps: `7`
 - Docs: `53`
-- Smoke tests: `144`
+- Smoke tests: `145`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
