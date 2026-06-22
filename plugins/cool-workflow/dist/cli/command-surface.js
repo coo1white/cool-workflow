@@ -96,6 +96,13 @@ async function runCli(argv = process.argv.slice(2)) {
         process.env.CW_NO_COLOR = "1";
     if (args.options.full)
         process.env.CW_OUTPUT = "full";
+    // `cw <verb> --help` / `-h` -> per-command help (the verb's subcommands +
+    // one-line summaries), derived from the capability registry. Additive: the
+    // bare `cw` / `cw --help` top-level help is handled above.
+    if ((args.options.help || args.options.h) && args.command && !args.command.startsWith("-")) {
+        process.stdout.write((0, orchestrator_1.formatCommandHelp)(args.command) + "\n");
+        return;
+    }
     // Bare -q / --question -> redirect to quickstart (auto-detect repo/agent/app).
     // CONSUME the positional (shift) so the question never survives as positionals[0]
     // — otherwise the quickstart handler reads it as the app id ("Workflow app not found").
@@ -113,7 +120,11 @@ async function runCli(argv = process.argv.slice(2)) {
     const scheduler = new scheduler_1.Scheduler(String(args.options.cwd || process.cwd()));
     const triggers = new triggers_1.RoutineTriggerBridge(String(args.options.cwd || process.cwd()));
     switch (args.command) {
-        case "help":
+        case "help": {
+            const [topic] = args.positionals;
+            process.stdout.write((topic ? (0, orchestrator_1.formatCommandHelp)(topic) : (0, orchestrator_1.formatHelp)()) + "\n");
+            return;
+        }
         case undefined:
             process.stdout.write((0, orchestrator_1.formatHelp)() + "\n");
             return;

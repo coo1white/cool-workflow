@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { CommentRecord, DispatchManifest, LoadedWorkflowApp, MetricsReport, ReviewStatusReport, RunSummary, WorkflowAppSummary, WorkflowAppValidationResult, WorkflowRun } from "./types";
 import { slugify } from "./workflow-api";
+import { CAPABILITY_REGISTRY } from "./capability-registry";
 import { WorkflowAppValidationError, loadWorkflowAppFromEntrypoint, loadWorkflowAppFromManifest, renderWorkflowAppEntrypointTemplate, renderWorkflowAppManifestTemplate, renderWorkflowAppTemplate, summarizeWorkflowApp, validateWorkflowApp, workflowAppRunMetadata } from "./workflow-app-framework";
 import { nextDispatchTasks } from "./dispatch";
 
@@ -1081,7 +1082,37 @@ export function formatHelp(): string {
     "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
     "",
     bold("More commands", out),
-    ...wrapped
+    ...wrapped,
+    "",
+    // 4-space indent on purpose: the CLI/MCP parity help-token check only parses
+    // 2-space command lines, so this note never registers as a bogus token.
+    "    Run  cw help <command>  for one command's subcommands and descriptions."
+  ].join("\n");
+}
+
+/** Per-command help: `cw help <verb>` (and `cw <verb> --help`) lists that verb's
+ *  CLI subcommands with one-line summaries, derived from CAPABILITY_REGISTRY — the
+ *  SAME table the dispatcher and the CLI/MCP parity check use, so there is no
+ *  second source to drift. Additive: formatHelp()'s parity-checked token list is
+ *  untouched. */
+export function formatCommandHelp(verb: string): string {
+  const out = process.stdout;
+  const matches = CAPABILITY_REGISTRY.filter((cap) => cap.cli && cap.cli.path[0] === verb);
+  if (matches.length === 0) {
+    const lines = [`Unknown command: ${verb}`];
+    const hint = suggestCommand(verb);
+    if (hint) lines.push(`  Did you mean:  cw ${hint}`);
+    lines.push("  Try:  cw help   (list all commands)");
+    return lines.join("\n");
+  }
+  const rows = matches
+    .map((cap) => ({ cmd: `cw ${cap.cli!.path.join(" ")}`, summary: cap.summary }))
+    .sort((a, b) => (a.cmd < b.cmd ? -1 : a.cmd > b.cmd ? 1 : 0));
+  const width = Math.min(40, rows.reduce((max, row) => Math.max(max, row.cmd.length), 0));
+  return [
+    bold(`cw ${verb}`, out),
+    "",
+    ...rows.map((row) => `  ${row.cmd.padEnd(width)}  ${row.summary}`)
   ].join("\n");
 }
 
