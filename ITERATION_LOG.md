@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — extract shared CLI io helpers from the command-surface god-object (Unreleased)
+
+> Second decomposition slice of the 1.6k-LOC command-surface god-object (after the render-helper extraction). The shared arg/JSON helpers now live in `src/cli/io.ts` — one copy the dispatcher and future per-command handler modules import, instead of carrying them in the switch.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Extract the four pure, shared CLI helpers (`required`, `optionalArg`, `printJson`, `wantsJson`) out of `src/cli/command-surface.ts` into a new sibling `src/cli/io.ts` (maintainability; continues the dogfood-audit god-object decomposition #263). Behaviour-preserving move — same names, command-surface imports them from `./io`; the call sites (hundreds) are unchanged. command-surface.ts shrinks 1592→1576 LOC, and the extraction gives per-command handler modules a single shared io source to import (the next decomposition step). `emitRunSummary` (reporter-bound) and `promptQuestion` (stdin) stay in command-surface — they are not pure shared helpers. | plugins/cool-workflow/src/cli/io.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/test/cli-io-smoke.js (new) + regenerated plugins/cool-workflow/dist/** + docs/project-index.md + ITERATION_LOG.md | New `cli-io-smoke` pins each helper (required passthrough/fail-with-tip, optionalArg trim/undefined, wantsJson --json/--format, printJson 2-space JSON + newline to stdout). `cli-format-smoke` + `headline-commands-smoke` still green; the whole CLI smoke suite exercises these helpers through real dispatch → behaviour unchanged. | BUILD OK; check OK; version:sync GREEN; onramp:check GREEN (src change + smoke + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — extract CLI render helpers from the command-surface god-object (Unreleased)
 
 > The dogfood audit's P2 maintainability finding: the 1,629-LOC `command-surface.ts` dispatcher also held render helpers. The `cw clones` / `cw workbench` formatters now live in a sibling `src/cli/format.ts` — the dispatcher routes, the format module renders.
