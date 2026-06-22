@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — extract CLI render helpers from the command-surface god-object (Unreleased)
+
+> The dogfood audit's P2 maintainability finding: the 1,629-LOC `command-surface.ts` dispatcher also held render helpers. The `cw clones` / `cw workbench` formatters now live in a sibling `src/cli/format.ts` — the dispatcher routes, the format module renders.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Extract the pure render helpers (`humanBytes`, `formatClonesList`, `formatClonesGc`, `formatWorkbenchView`) out of `src/cli/command-surface.ts` into a new sibling `src/cli/format.ts` (maintainability P2 from the dogfood self-audit: "the dispatcher mixes routing and render helpers"). Behaviour-preserving MOVE: the functions are byte-identical, command-surface.ts imports them from `./format` and shrinks 1641→1592 LOC. A clean low-risk slice of the god-object — NOT the full per-group split (deferred to the scheduled full review). `humanBytes` was used only by the clones formatters, so it moves wholesale; `buildWorkbenchRunView`/`listClones`/`gcClones` imports stay in command-surface (still used at the call sites). | plugins/cool-workflow/src/cli/format.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/test/cli-format-smoke.js (new) + regenerated plugins/cool-workflow/dist/** + docs/project-index.md + ITERATION_LOG.md | New `cli-format-smoke` pins each formatter's output (humanBytes scales, clones list/gc empty+populated, workbench present/absent panels). Existing `clones-gc-smoke` + `web-desktop-workbench-smoke` still green (they drive the formatters through the CLI → behaviour unchanged). | BUILD OK; check OK; version:sync GREEN; onramp:check GREEN (src change + smoke + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — cache Verify + Verdict phases of fast review (Unreleased)
 
 > CW's dogfood audit measured the fast review's foreground phases: Verify ~146s and Verdict ~294s were the two most expensive AND the only ones not result-cached. They now cache like Map/Assess, so a warm re-run over an unchanged repo is near-instant instead of paying ~440s again.

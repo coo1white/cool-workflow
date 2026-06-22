@@ -50,6 +50,7 @@ const daemon_1 = require("../daemon");
 const scheduler_1 = require("../scheduler");
 const triggers_1 = require("../triggers");
 const workbench_1 = require("../workbench");
+const format_1 = require("./format");
 const workbench_host_1 = require("../workbench-host");
 const operator_ux_1 = require("../operator-ux");
 const multi_agent_operator_ux_1 = require("../multi-agent-operator-ux");
@@ -1420,7 +1421,7 @@ async function runCli(argv = process.argv.slice(2)) {
                     if (wantsJson(args.options))
                         printJson(result);
                     else
-                        process.stdout.write(`${formatClonesList(result)}\n`);
+                        process.stdout.write(`${(0, format_1.formatClonesList)(result)}\n`);
                     return;
                 }
                 case "gc": {
@@ -1428,7 +1429,7 @@ async function runCli(argv = process.argv.slice(2)) {
                     if (wantsJson(args.options))
                         printJson(result);
                     else
-                        process.stdout.write(`${formatClonesGc(result)}\n`);
+                        process.stdout.write(`${(0, format_1.formatClonesGc)(result)}\n`);
                     return;
                 }
                 default:
@@ -1548,7 +1549,7 @@ async function runCli(argv = process.argv.slice(2)) {
                     if (wantsJson(args.options))
                         printJson(view);
                     else
-                        process.stdout.write(`${formatWorkbenchView(view)}\n`);
+                        process.stdout.write(`${(0, format_1.formatWorkbenchView)(view)}\n`);
                     return;
                 }
                 case "serve": {
@@ -1617,42 +1618,6 @@ function emitRunSummary(runner, options, fields) {
 function printJson(value) {
     process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
-function humanBytes(n) {
-    if (n < 1024)
-        return `${n}B`;
-    const units = ["KiB", "MiB", "GiB"];
-    let v = n / 1024;
-    let i = 0;
-    while (v >= 1024 && i < units.length - 1) {
-        v /= 1024;
-        i += 1;
-    }
-    return `${v.toFixed(1)}${units[i]}`;
-}
-function formatClonesList(result) {
-    if (result.count === 0)
-        return `No cached remote checkouts in ${result.clonesDir}.`;
-    const rows = result.entries.map((e) => {
-        const when = e.fetchedAt ? e.fetchedAt.replace("T", " ").replace(/\..*$/, "Z") : "unknown";
-        return `  ${e.kind.padEnd(7)} ${humanBytes(e.bytes).padStart(8)}  ${when}  ${e.url}${e.ref ? `@${e.ref}` : ""}`;
-    });
-    return [
-        `${result.count} cached checkout${result.count === 1 ? "" : "s"} — ${humanBytes(result.totalBytes)} in ${result.clonesDir}`,
-        "  KIND       SIZE  FETCHED               SOURCE",
-        ...rows,
-        `\nReclaim with: cw clones gc --older-than-days 30   (or --all)`
-    ].join("\n");
-}
-function formatClonesGc(result) {
-    const scope = result.all ? "all entries" : `entries older than ${result.olderThanDays} day(s)`;
-    if (result.removed.length === 0)
-        return `Nothing to reclaim (${scope}); ${result.keptCount} kept in ${result.clonesDir}.`;
-    const rows = result.removed.map((r) => `  ${humanBytes(r.bytes).padStart(8)}  ${r.url}`);
-    return [
-        `Reclaimed ${result.removed.length} checkout${result.removed.length === 1 ? "" : "s"} (${scope}) — freed ${humanBytes(result.freedBytes)}; ${result.keptCount} kept`,
-        ...rows
-    ].join("\n");
-}
 function wantsJson(options) {
     return Boolean(options.json || options.format === "json");
 }
@@ -1669,18 +1634,4 @@ async function promptQuestion(options) {
             resolve();
         });
     });
-}
-function formatWorkbenchView(view) {
-    const lines = [
-        `Workbench view ${view.runId} (${view.resolved ? "resolved" : "UNRESOLVED"})`,
-        view.error ? `  error: ${view.error}` : ""
-    ].filter(Boolean);
-    for (const [group, panels] of Object.entries(view.panels)) {
-        lines.push(`  ${group}:`);
-        for (const [name, panel] of Object.entries(panels)) {
-            const note = panel.status === "present" ? panel.capability : `absent (${panel.error || "unreadable"})`;
-            lines.push(`    ${name}: ${panel.status} — ${note}`);
-        }
-    }
-    return lines.join("\n");
 }
