@@ -127,6 +127,12 @@ assert.equal(resultCommit.verifierGated, true);
 assert.equal(resultCommit.checkpoint, false);
 assert.equal(resultCommit.verifierNodeId, "commit-smoke:verifier:task-one");
 assert.equal(resultCommit.evidence.length, 1);
+// Regression guard: StateCommit must not carry the dropped spec-debt fields.
+// `partial` / `partialTaskIds` / `parentCommitId` were defined but never read,
+// so they were removed; a commit must not re-grow them.
+assert.ok(!("partial" in resultCommit), "StateCommit must not carry the dropped `partial` field");
+assert.ok(!("partialTaskIds" in resultCommit), "StateCommit must not carry the dropped `partialTaskIds` field");
+assert.ok(!("parentCommitId" in resultCommit), "StateCommit must not carry the dropped `parentCommitId` field");
 const resultCommitNode = run.nodes.find((node) => node.id === resultCommit.stateNodeId);
 assert.equal(resultCommitNode.status, "committed");
 assert.equal(resultCommitNode.metadata.verifierGated, true);

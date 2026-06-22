@@ -172,12 +172,6 @@ export interface StateCommit {
   /** Who approved the artifact this commit shipped, when a review gate applied
    *  (provenance link, recorded only on a gate-satisfied commit). */
   review?: CommitReviewProvenance;
-  /** True when only a subset of tasks were committed (partial commit, v0.1.59). */
-  partial?: boolean;
-  /** The task ids that were committed in this partial commit. */
-  partialTaskIds?: string[];
-  /** Parent commit id forming an append-only provenance chain (v0.1.60). */
-  parentCommitId?: string;
   metadata?: Record<string, unknown>;
 }
 
