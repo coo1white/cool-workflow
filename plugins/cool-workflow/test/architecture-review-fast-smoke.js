@@ -106,8 +106,16 @@ function main() {
     assert.match(byTask.get("map:runtime-surface").prompt, /sha256:smoke/, "map prompt carries sourceContextDigest");
     assert.match(byTask.get("verify:p0-p2-risks").prompt, new RegExp(escapeRegExp(sourceContext)), "verify prompt carries sourceContext");
     assert.match(byTask.get("verdict:fast-synthesis").prompt, new RegExp(escapeRegExp(sourceContext)), "verdict prompt carries sourceContext");
-    assert.equal(byTask.get("verify:p0-p2-risks").resultCache, undefined, "Verify stays uncached");
-    assert.equal(byTask.get("verdict:fast-synthesis").resultCache, undefined, "Verdict stays uncached");
+    assert.deepEqual(byTask.get("verify:p0-p2-risks").resultCache, {
+      mode: "read-write",
+      keyInput: "sourceContextDigest",
+      includeCompletedResults: "previous-phases"
+    }, "Verify caches by source + all upstream result digests");
+    assert.deepEqual(byTask.get("verdict:fast-synthesis").resultCache, {
+      mode: "read-write",
+      keyInput: "sourceContextDigest",
+      includeCompletedResults: "previous-phases"
+    }, "Verdict caches by source + all upstream result digests");
 
     const once = drive(runner, fast.id, { once: true, now: FIXED_NOW, agentConfig: agentConfig(stub, spawnCount) });
     assert.equal(once.status, "in-progress");
