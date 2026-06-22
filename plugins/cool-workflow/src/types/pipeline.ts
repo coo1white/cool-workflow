@@ -71,10 +71,8 @@ export interface PipelineContract {
   evidencePolicy?: PipelineEvidencePolicy;
   failurePolicy?: PipelineFailurePolicy;
   commitPolicy?: PipelineCommitPolicy;
-  /** Optional template the pipeline runner renders into a commit message when a
-   *  commit stage advances. Supports `{{runId}}`, `{{completedTasks}}`, and
-   *  `{{totalTasks}}` placeholders; the result is surfaced on
-   *  `PipelineStageRunResult.commitMessage` and the commit node's metadata. */
+  /** Optional template for auto-generated commit messages (v0.1.68).
+   *  Supports {{runId}}, {{completedTasks}}, {{totalTasks}} placeholders. */
   commitMessageTemplate?: string;
   compatibility: PipelineCompatibility;
 }
@@ -127,10 +125,6 @@ export interface PipelineStageRunResult {
   error?: StateNodeError;
   artifacts?: StateArtifact[];
   evidence?: StateEvidence[];
-  /** Commit message rendered from the contract's `commitMessageTemplate` when a
-   *  commit stage advances (placeholders substituted). Absent when the stage is
-   *  not a commit or the contract sets no template. */
-  commitMessage?: string;
 }
 
 export interface PipelineAdvanceResult {

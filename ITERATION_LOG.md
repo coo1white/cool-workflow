@@ -1,13 +1,5 @@
 # CW Iteration Log
 
-## Batch — implement commitMessageTemplate (Unreleased)
-
-> `PipelineContract.commitMessageTemplate` was a declared-but-never-built promise. The pipeline runner now renders it into a real commit message when a commit stage advances, so the field finally drives behavior instead of rotting as spec-debt.
-
-| cycle | goal | files | tests | gate | tagged |
-|-------|------|-------|-------|------|--------|
-| 1 | Implement `PipelineContract.commitMessageTemplate` instead of deleting it (Tier-2 spec-debt: the gate forbids a type-only delete cycle — `onramp` `types-without-runtime` — and the v0.1.68 doc-comment promised a feature that was never built). The pipeline runner now renders the template into a commit message when a commit stage advances: `renderCommitMessage()` substitutes `{{runId}}` / `{{completedTasks}}` (run tasks with `status === "completed"`) / `{{totalTasks}}`, leaving unknown tokens untouched. The rendered message is surfaced on the new `PipelineStageRunResult.commitMessage` field AND stored on the commit node's `metadata.commitMessage` — so the type now has a real reader. Non-commit stages and contracts without a template carry no message. | plugins/cool-workflow/src/pipeline-runner.ts (renderer + wire-in) + plugins/cool-workflow/src/types/pipeline.ts (result.commitMessage field + accurate doc) + plugins/cool-workflow/test/pipeline-runner-smoke.js + regenerated plugins/cool-workflow/dist/** + ITERATION_LOG.md | `pipeline-runner-smoke` extended: a commit stage with `commitMessageTemplate` set and `tasks=[completed, active]` yields `commit.commitMessage === "Run runner-smoke: committed 1/2 tasks"`, the commit node's `metadata.commitMessage` matches, and a non-commit stage (`plan`) has `commitMessage === undefined`. `pipeline-auto-advance-smoke` still green (no regression). `check`/`build` clean. | BUILD OK; check OK; version:sync GREEN; onramp:check GREEN (runtime + smoke change, log row) | no (dev loop — review + PR, never tag) |
-
 ## Batch — drop unread StateCommit spec-debt (Unreleased)
 
 > `StateCommit` carried three fields that no module ever read, the exact spec accretion `AGENTS.md` forbids. They are now gone, so the type matches the runtime and there is no unread metadata pretending to be a feature.
