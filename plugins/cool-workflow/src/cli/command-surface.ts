@@ -68,10 +68,9 @@ import {
 import { DesktopSchedulerDaemon } from "../daemon";
 import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
-import { buildWorkbenchRunView, buildWorkbenchServeDescriptor } from "../workbench";
-import { formatClonesGc, formatClonesList, formatWorkbenchView } from "./format";
+import { formatClonesGc, formatClonesList } from "./format";
 import { optionalArg, printJson, required, wantsJson } from "./io";
-import { WorkbenchHost } from "../workbench-host";
+import { handleWorkbench } from "./handlers/workbench";
 import {
   adviseNoRun,
   formatCandidateSummary,
@@ -1485,36 +1484,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           throw new Error("Usage: cw.js demo tamper|bundle [--json]");
       }
     }
-    case "workbench": {
-      const [subcommand, runId] = args.positionals;
-      switch (subcommand) {
-        case "view": {
-          // Read-only five-panel view of one run. Same core entry as cw_workbench_view.
-          const view = buildWorkbenchRunView(runner, required(runId, "run id"));
-          if (wantsJson(args.options)) printJson(view);
-          else process.stdout.write(`${formatWorkbenchView(view)}\n`);
-          return;
-        }
-        case "serve": {
-          // The OPTIONAL localhost host. `--once`/`--json` emit the descriptor only
-          // (no server); the default starts the read-only, localhost-only host.
-          if (args.options.once || wantsJson(args.options)) {
-            printJson(buildWorkbenchServeDescriptor(runner, { ...args.options, once: true }));
-            return;
-          }
-          const host = new WorkbenchHost({
-            runner,
-            cwd: String(args.options.cwd || process.cwd()),
-            port: Number(args.options.port) || undefined,
-            scope: args.options.scope === "repo" ? "repo" : "home"
-          });
-          await host.run();
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js workbench serve [--port N] [--once] | view <run-id> [--json]");
-      }
-    }
+    case "workbench":
+      await handleWorkbench(args, runner);
+      return;
     default:
       throw new Error(`Unknown command: ${args.command}${(suggestCommand(String(args.command || "")) ? `. Did you mean: ${suggestCommand(String(args.command))}?` : "")}`);
   }

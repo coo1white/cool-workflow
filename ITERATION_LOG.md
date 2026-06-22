@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — carve the workbench command into a cli/handlers module (Unreleased)
+
+> First per-command handler carved out of the command-surface god-dispatch (the deep audit's P1: runCli is one ~1.5k-LOC switch). `cw workbench` now lives in `src/cli/handlers/workbench.ts`; the dispatcher just routes to it. Proves the handlers/* pattern the format.ts + io.ts extractions set up.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Move the `cw workbench serve\|view` case body out of `command-surface.ts` into `src/cli/handlers/workbench.ts` (`handleWorkbench(args, runner)`, typed via `ReturnType<typeof parseArgv>`); the dispatcher's `case "workbench"` just calls it. Behaviour-identical. The handler imports the shared `cli/io` (required/printJson/wantsJson) + `cli/format` (formatWorkbenchView) helpers extracted in #263/#264 — exactly what the earlier extractions enabled. Drop the now-unused `../workbench`, `../workbench-host`, and `formatWorkbenchView` imports from command-surface (1576→1548 LOC). The CLI/MCP parity scanner (`scripts/parity-check.js`) + its smoke (`test/cli-mcp-parity-smoke.js`) now ALSO scan `dist/cli/handlers/*.js`, so subcommand `case`s carved into handler modules are not seen as "missing from dist/cli.js" — forward-compatible for every future handler. | plugins/cool-workflow/src/cli/handlers/workbench.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/scripts/parity-check.js + plugins/cool-workflow/test/cli-mcp-parity-smoke.js + plugins/cool-workflow/test/cli-handler-workbench-smoke.js (new) + regenerated plugins/cool-workflow/dist/** + docs/project-index.md + ITERATION_LOG.md | New `cli-handler-workbench-smoke`: `cw workbench serve --once` returns the descriptor via the handler; no/unknown subcommand exits 1 with the handler's usage string. `web-desktop-workbench-smoke` still green (behaviour unchanged). `parity:check` GREEN after teaching the scanner about `cli/handlers/*`; `cli-mcp-parity-smoke` GREEN. | BUILD OK; check OK; parity:check GREEN; version:sync GREEN; onramp:check GREEN (src+script change + smokes + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — extract shared CLI io helpers from the command-surface god-object (Unreleased)
 
 > Second decomposition slice of the 1.6k-LOC command-surface god-object (after the render-helper extraction). The shared arg/JSON helpers now live in `src/cli/io.ts` — one copy the dispatcher and future per-command handler modules import, instead of carrying them in the switch.
