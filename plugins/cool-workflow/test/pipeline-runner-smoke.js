@@ -107,6 +107,15 @@ const verify = runner.runPipelineStage(run, "verify", resultNode.id, {
 });
 assert.equal(verify.status, "advanced");
 
+// commitMessageTemplate: the runner renders it into a commit message (with
+// {{runId}}/{{completedTasks}}/{{totalTasks}} substituted) when a commit stage
+// advances, surfacing it on the result and the commit node's metadata.
+contract.commitMessageTemplate = "Run {{runId}}: committed {{completedTasks}}/{{totalTasks}} tasks";
+run.tasks = [
+  { id: "t1", status: "completed" },
+  { id: "t2", status: "active" }
+];
+
 const verifierNode = runner.getRunNode(run, "runner-smoke:verifier");
 const commit = runner.runPipelineStage(run, "commit", verifierNode.id, {
   outputNodeId: "runner-smoke:commit",
@@ -116,5 +125,13 @@ const commit = runner.runPipelineStage(run, "commit", verifierNode.id, {
 });
 assert.equal(commit.status, "advanced");
 assert.equal(runner.getRunNode(run, "runner-smoke:commit").status, "committed");
+assert.equal(commit.commitMessage, "Run runner-smoke: committed 1/2 tasks");
+assert.equal(
+  runner.getRunNode(run, "runner-smoke:commit").metadata.commitMessage,
+  "Run runner-smoke: committed 1/2 tasks"
+);
+
+// A non-commit stage never carries a rendered commit message.
+assert.equal(plan.commitMessage, undefined);
 
 process.stdout.write("pipeline-runner-smoke: ok\n");
