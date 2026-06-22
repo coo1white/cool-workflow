@@ -51,6 +51,7 @@ const scheduler_1 = require("../scheduler");
 const triggers_1 = require("../triggers");
 const io_1 = require("./io");
 const audit_1 = require("./handlers/audit");
+const worker_1 = require("./handlers/worker");
 const clones_1 = require("./handlers/clones");
 const workbench_1 = require("./handlers/workbench");
 const operator_ux_1 = require("../operator-ux");
@@ -895,45 +896,9 @@ async function runCli(argv = process.argv.slice(2)) {
                     throw new Error("Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
             }
         }
-        case "worker": {
-            const [subcommand, runId, workerId, resultPath] = args.positionals;
-            switch (subcommand) {
-                case "list":
-                    (0, io_1.printJson)(runner.listWorkers((0, io_1.required)(runId, "run id"), args.options));
-                    return;
-                case "summary": {
-                    const summary = runner.summarizeWorkerRecords((0, io_1.required)(runId, "run id"));
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(summary);
-                    else
-                        process.stdout.write(`${(0, operator_ux_1.formatWorkerSummary)(summary)}\n`);
-                    return;
-                }
-                case "show":
-                    (0, io_1.printJson)(runner.showWorker((0, io_1.required)(runId, "run id"), (0, io_1.required)(workerId, "worker id")));
-                    return;
-                case "manifest":
-                    (0, io_1.printJson)(runner.showWorkerManifest((0, io_1.required)(runId, "run id"), (0, io_1.required)(workerId, "worker id")));
-                    return;
-                case "output":
-                    (0, io_1.printJson)(runner.recordWorkerOutput((0, io_1.required)(runId, "run id"), (0, io_1.required)(workerId, "worker id"), (0, io_1.required)(resultPath, "result file"), args.options));
-                    return;
-                case "fail":
-                    (0, io_1.printJson)(runner.recordWorkerFailure((0, io_1.required)(runId, "run id"), (0, io_1.required)(workerId, "worker id"), String(args.options.message || (0, io_1.required)(resultPath, "failure message")), args.options));
-                    return;
-                case "validate": {
-                    // Non-null = a boundary violation: a validate verb must report an invalid
-                    // verdict through its exit code, not just print it and exit 0.
-                    const violation = runner.validateWorker((0, io_1.required)(runId, "run id"), (0, io_1.required)(workerId, "worker id"), resultPath);
-                    (0, io_1.printJson)(violation);
-                    if (violation)
-                        process.exitCode = 1;
-                    return;
-                }
-                default:
-                    throw new Error("Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
-            }
-        }
+        case "worker":
+            (0, worker_1.handleWorker)(args, runner);
+            return;
         case "audit":
             (0, audit_1.handleAudit)(args, runner);
             return;

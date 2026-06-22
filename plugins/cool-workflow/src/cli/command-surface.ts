@@ -67,6 +67,7 @@ import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
 import { optionalArg, printJson, required, wantsJson } from "./io";
 import { handleAudit } from "./handlers/audit";
+import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
 import { handleWorkbench } from "./handlers/workbench";
 import {
@@ -79,8 +80,7 @@ import {
   formatOperatorReport,
   formatOperatorStatus,
   formatOperatorSummary,
-  formatTopologySummary,
-  formatWorkerSummary
+  formatTopologySummary
 } from "../operator-ux";
 import {
   formatMultiAgentDependencies,
@@ -853,56 +853,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           throw new Error("Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
       }
     }
-    case "worker": {
-      const [subcommand, runId, workerId, resultPath] = args.positionals;
-      switch (subcommand) {
-        case "list":
-          printJson(runner.listWorkers(required(runId, "run id"), args.options));
-          return;
-        case "summary": {
-          const summary = runner.summarizeWorkerRecords(required(runId, "run id"));
-          if (wantsJson(args.options)) printJson(summary);
-          else process.stdout.write(`${formatWorkerSummary(summary)}\n`);
-          return;
-        }
-        case "show":
-          printJson(runner.showWorker(required(runId, "run id"), required(workerId, "worker id")));
-          return;
-        case "manifest":
-          printJson(runner.showWorkerManifest(required(runId, "run id"), required(workerId, "worker id")));
-          return;
-        case "output":
-          printJson(
-            runner.recordWorkerOutput(
-              required(runId, "run id"),
-              required(workerId, "worker id"),
-              required(resultPath, "result file"),
-              args.options
-            )
-          );
-          return;
-        case "fail":
-          printJson(
-            runner.recordWorkerFailure(
-              required(runId, "run id"),
-              required(workerId, "worker id"),
-              String(args.options.message || required(resultPath, "failure message")),
-              args.options
-            )
-          );
-          return;
-        case "validate": {
-          // Non-null = a boundary violation: a validate verb must report an invalid
-          // verdict through its exit code, not just print it and exit 0.
-          const violation = runner.validateWorker(required(runId, "run id"), required(workerId, "worker id"), resultPath);
-          printJson(violation);
-          if (violation) process.exitCode = 1;
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
-      }
-    }
+    case "worker":
+      handleWorker(args, runner);
+      return;
     case "audit":
       handleAudit(args, runner);
       return;

@@ -172,6 +172,17 @@ const cliValidate = execFileSync("node", [path.join(__dirname, "../dist/cli.js")
 }).trim();
 assert.equal(cliValidate, "null");
 
+// `cw worker` is dispatched into src/cli/handlers/worker.ts — a bare verb (no
+// subcommand) fails closed with the carved handler's usage string.
+let workerUsageErr = "";
+try {
+  execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "worker"], { cwd: tmp, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  assert.fail("bare `cw worker` should exit non-zero");
+} catch (e) {
+  workerUsageErr = String(e.stderr || "");
+}
+assert.match(workerUsageErr, /worker list\|summary\|show\|manifest/, "cw worker routes through the carved handler");
+
 const nodeList = JSON.parse(execFileSync("node", [path.join(__dirname, "../dist/cli.js"), "node", "list", "worker-smoke"], {
   cwd: tmp,
   encoding: "utf8"

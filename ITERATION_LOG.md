@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — carve the worker command into a cli/handlers module (Unreleased)
+
+> Fourth per-command handler out of the god-dispatch. `cw worker` (list/summary/show/manifest/output/fail/validate) now lives in `src/cli/handlers/worker.ts`. Churn-free recipe: clean off `main`, extend an existing smoke, update the carved-groups doc.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Move the `cw worker list\|summary\|show\|manifest\|output\|fail\|validate` case out of `command-surface.ts` into `src/cli/handlers/worker.ts` (`handleWorker(args, runner)`). Behaviour-identical — thin routes to `runner.worker*` methods (`fail`/`validate` keep their exit-code-on-violation semantics); the handler owns `formatWorkerSummary` (operator-ux), now removed from command-surface as worker-only (1465→1418 LOC). Off clean `main` (one PR at a time). Applies the full churn-free recipe: extend an existing smoke (no index churn) + update `docs/cli-mcp-parity.7.md` carved-groups list (satisfies onramp `surface-docs-required`). | plugins/cool-workflow/src/cli/handlers/worker.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/docs/cli-mcp-parity.7.md (carved list) + plugins/cool-workflow/test/worker-isolation-smoke.js (extended) + regenerated plugins/cool-workflow/dist/** + ITERATION_LOG.md | `worker-isolation-smoke` already drives `cw worker list/show/manifest/validate` through the CLI end-to-end; EXTENDED with a bare-`cw worker` no-subcommand assertion proving dispatcher→handler routing. `cli-mcp-parity-smoke` green. | BUILD OK; check OK; parity:check GREEN; version:sync GREEN; onramp:check GREEN (src change + smoke + doc + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — carve the audit command into a cli/handlers module (Unreleased)
 
 > Third per-command handler out of the god-dispatch. `cw audit` (11 read-only trust-audit verbs) now lives in `src/cli/handlers/audit.ts`. Re-applied off clean `main` (no stacking) — extends an existing smoke (no index-count churn).
