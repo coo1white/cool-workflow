@@ -39,8 +39,6 @@ import {
   gcPlan,
   gcRun,
   gcVerify,
-  listClones,
-  gcClones,
   runDrive,
   runDrivePreview,
   quickstart,
@@ -68,8 +66,8 @@ import {
 import { DesktopSchedulerDaemon } from "../daemon";
 import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
-import { formatClonesGc, formatClonesList } from "./format";
 import { optionalArg, printJson, required, wantsJson } from "./io";
+import { handleClones } from "./handlers/clones";
 import { handleWorkbench } from "./handlers/workbench";
 import {
   adviseNoRun,
@@ -1376,28 +1374,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
       }
     }
-    case "clones": {
-      // Remote-source clone cache (v0.1.91): `list` inspects the ~/.local/state/cool-workflow
-      // /clones checkouts that `--link`/URL reviews populate; `gc` reclaims them (a TTL sweep,
-      // or --all). Pure filesystem work — no network, no run registry.
-      const [subcommand] = args.positionals;
-      switch (subcommand) {
-        case "list": {
-          const result = listClones(args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatClonesList(result)}\n`);
-          return;
-        }
-        case "gc": {
-          const result = gcClones(args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatClonesGc(result)}\n`);
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
-      }
-    }
+    case "clones":
+      handleClones(args);
+      return;
     case "gc": {
       // Run Retention & Provable Reclamation (v0.1.39). `plan` is a pure dry-run
       // (frees nothing); `run` executes the write-ahead reclamation transaction;

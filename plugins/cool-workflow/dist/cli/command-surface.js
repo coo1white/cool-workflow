@@ -49,8 +49,8 @@ const run_registry_1 = require("../run-registry");
 const daemon_1 = require("../daemon");
 const scheduler_1 = require("../scheduler");
 const triggers_1 = require("../triggers");
-const format_1 = require("./format");
 const io_1 = require("./io");
+const clones_1 = require("./handlers/clones");
 const workbench_1 = require("./handlers/workbench");
 const operator_ux_1 = require("../operator-ux");
 const multi_agent_operator_ux_1 = require("../multi-agent-operator-ux");
@@ -1410,32 +1410,9 @@ async function runCli(argv = process.argv.slice(2)) {
                     throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
             }
         }
-        case "clones": {
-            // Remote-source clone cache (v0.1.91): `list` inspects the ~/.local/state/cool-workflow
-            // /clones checkouts that `--link`/URL reviews populate; `gc` reclaims them (a TTL sweep,
-            // or --all). Pure filesystem work — no network, no run registry.
-            const [subcommand] = args.positionals;
-            switch (subcommand) {
-                case "list": {
-                    const result = (0, capability_core_1.listClones)(args.options);
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(result);
-                    else
-                        process.stdout.write(`${(0, format_1.formatClonesList)(result)}\n`);
-                    return;
-                }
-                case "gc": {
-                    const result = (0, capability_core_1.gcClones)(args.options);
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(result);
-                    else
-                        process.stdout.write(`${(0, format_1.formatClonesGc)(result)}\n`);
-                    return;
-                }
-                default:
-                    throw new Error("Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
-            }
-        }
+        case "clones":
+            (0, clones_1.handleClones)(args);
+            return;
         case "gc": {
             // Run Retention & Provable Reclamation (v0.1.39). `plan` is a pure dry-run
             // (frees nothing); `run` executes the write-ahead reclamation transaction;

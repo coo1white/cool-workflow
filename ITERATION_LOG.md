@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — carve the clones command into a cli/handlers module (Unreleased)
+
+> Second per-command handler out of the god-dispatch (after workbench). `cw clones list|gc` now lives in `src/cli/handlers/clones.ts`. Stacked on the workbench-handler branch (shares the parity-scanner fix); rebases cleanly once that merges.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Move the `cw clones list\|gc` case body out of `command-surface.ts` into `src/cli/handlers/clones.ts` (`handleClones(args)` — no runner; clones is pure filesystem via `listClones`/`gcClones` on `args.options`). Behaviour-identical. The handler imports `cli/format` (`formatClonesList`/`formatClonesGc`) + `cli/io` (`printJson`/`wantsJson`); command-surface drops the now-unused `./format` import entirely and the `listClones`/`gcClones` entries from the capability-core import (1548→1527 LOC). Parity stays green for free — the scanner already reads `dist/cli/handlers/*` (workbench cycle). | plugins/cool-workflow/src/cli/handlers/clones.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/test/cli-handler-clones-smoke.js (new) + regenerated plugins/cool-workflow/dist/** + docs/project-index.md + ITERATION_LOG.md | New `cli-handler-clones-smoke` (private CW_HOME): `clones list --json` / `gc --json` route through the handler and return the structured shape; no/unknown subcommand exits 1 with the handler usage. `clones-gc-smoke` still green; `parity:check` GREEN. | BUILD OK; check OK; parity:check GREEN; version:sync GREEN; onramp:check GREEN (src change + smoke + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — carve the workbench command into a cli/handlers module (Unreleased)
 
 > First per-command handler carved out of the command-surface god-dispatch (the deep audit's P1: runCli is one ~1.5k-LOC switch). `cw workbench` now lives in `src/cli/handlers/workbench.ts`; the dispatcher just routes to it. Proves the handlers/* pattern the format.ts + io.ts extractions set up.
