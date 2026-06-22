@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — carve the registry/queue/history commands into a cli/handlers module (Unreleased)
+
+> Sixth decomposition cycle (2nd bundle). The run-registry read family — `cw registry`, `cw queue`, `cw history` — moves into `src/cli/handlers/registry.ts`. `cw run` (120-line drive path) is left for its own PR.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Carve `cw registry refresh\|show`, `cw queue add\|list\|drain\|show`, and `cw history` out of `command-surface.ts` into `src/cli/handlers/registry.ts` (`handleRegistry`/`handleQueue`/`handleHistory`, each resolving `runRegistryFor(args.options, runner)` then routing to a capability-core fn + run-registry formatter). Behaviour-identical. command-surface drops 7 now-unused capability-core imports (`runRegistryRefresh`/`runRegistryShow`/`runHistory`/`queue{Add,List,Drain,Show}`) + 3 run-registry formatters (`formatRegistryReport`/`formatQueueList`/`formatHistory`); `runRegistryFor` STAYS (used by `run`). 1313→1263 LOC. | plugins/cool-workflow/src/cli/handlers/registry.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/docs/cli-mcp-parity.7.md (carved list) + plugins/cool-workflow/test/run-registry-control-plane-smoke.js (extended) + regenerated plugins/cool-workflow/dist/** + ITERATION_LOG.md | `run-registry-control-plane-smoke` already drives `cw registry`/`history`/`queue` (and the CLI⇄MCP `--json` parity loop) end-to-end; EXTENDED with bare-verb routing assertions (`registry`/`queue` → carved handler usage). `cli-mcp-parity-smoke` green. | BUILD OK; check OK; parity:check GREEN; version:sync GREEN; onramp:check GREEN (src change + smoke + doc + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — carve the scheduling commands into a cli/handlers module (Unreleased)
 
 > Fifth decomposition cycle — first BUNDLE of related groups to burn down the tail faster. `cw schedule`, `cw routine`, and `cw sched` (the whole scheduling family) move together into `src/cli/handlers/scheduling.ts`.
