@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — per-command help (cw help <command>) (Unreleased)
+
+> The #1 finding of CW's own dogfood UI/UX audit: ~60 verbs surfaced only as a description-less token dump, no per-command help. `cw help <command>` (and `cw <command> --help`) now lists a verb's subcommands + one-line summaries, derived from the capability registry — the same table the dispatcher and the CLI/MCP parity check already use.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Add `cw help <command>` + `cw <command> --help` (UI/UX P1 from the dogfood self-audit). `formatCommandHelp(verb)` (orchestrator.ts) filters CAPABILITY_REGISTRY by `cli.path[0]===verb` and renders each subcommand path + its `summary` — single source, no drift (the parity check already reconciles registry/CLI/help tokens). Additive: `formatHelp()`'s parity-checked 2-space token list is untouched; the only addition is a 4-space discoverability note that the help-token extractor deliberately skips. Unknown verb fails SOFT (exit 0) with a `cw help` hint + did-you-mean. command-surface.ts wires the `help <verb>` positional and a pre-dispatch `<verb> --help` intercept (returns before runner construction). | plugins/cool-workflow/src/orchestrator.ts + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/test/cw-help-per-command-smoke.js + regenerated plugins/cool-workflow/dist/** + docs/project-index.md + ITERATION_LOG.md | New `cw-help-per-command-smoke`: `cw help commit` lists `cw commit summary` + registry summaries; `cw worker --help` === `cw help worker`; unknown verb → "Unknown command" soft-fail; bare `cw help` still renders + advertises per-command help. `parity:check` GREEN (the 4-space note is not parsed as a token). | BUILD OK; check OK; parity:check GREEN; version:sync GREEN; onramp:check GREEN (runtime change + smoke + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — revert orphaned commitMessage feature (Unreleased)
 
 > #258 implemented a commit-message renderer that no caller consumes — an orphaned surface shipped only to satisfy a delete-blocking gate. It is reverted; `commitMessageTemplate` is honestly parked instead of dressed up as a live feature.
