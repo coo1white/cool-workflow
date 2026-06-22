@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — carve the audit command into a cli/handlers module (Unreleased)
+
+> Third per-command handler out of the god-dispatch. `cw audit` (11 read-only trust-audit verbs) now lives in `src/cli/handlers/audit.ts`. Re-applied off clean `main` (no stacking) — extends an existing smoke (no index-count churn).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Move the `cw audit summary\|verify\|worker\|provenance\|multi-agent\|policy\|role\|blackboard\|judge\|attest\|decision` case (~60 lines, 11 subcommands) out of `command-surface.ts` into `src/cli/handlers/audit.ts` (`handleAudit(args, runner)`). Behaviour-identical — mostly thin routes to `runner.*` audit methods; the handler imports the two standalone deps (`auditVerify` from capability-core, `formatMultiAgentTrustAudit` from operator-ux) + `cli/io` helpers, both now removed from command-surface as audit-only (1465 LOC). Done off clean `main` (one PR at a time — no stacking, after the workbench/clones churn). | plugins/cool-workflow/src/cli/handlers/audit.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/test/multi-agent-trust-policy-audit-smoke.js (extended, not new) + regenerated plugins/cool-workflow/dist/** + ITERATION_LOG.md | `multi-agent-trust-policy-audit-smoke` EXTENDED (no new file → no index-count churn): a bare `cw audit` fails closed with the carved handler's usage string, proving dispatcher→handler routing; the existing audit policy/role/blackboard/judge assertions still pass. `cli-mcp-parity-smoke` green. | BUILD OK; check OK; parity:check GREEN; version:sync GREEN; onramp:check GREEN (src change + smoke + log row); index:check GREEN | no (dev loop — review + PR, never tag) |
+
 ## Batch — carve the clones command into a cli/handlers module (Unreleased)
 
 > Second per-command handler out of the god-dispatch (after workbench). `cw clones list|gc` now lives in `src/cli/handlers/clones.ts`. Stacked on the workbench-handler branch (shares the parity-scanner fix); rebases cleanly once that merges.
