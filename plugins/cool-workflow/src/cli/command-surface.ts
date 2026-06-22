@@ -7,16 +7,9 @@ import {
   appRun,
   metricsSummary,
   planSummary,
-  queueAdd,
-  queueDrain,
-  queueList,
-  queueShow,
   runArchive,
-  runHistory,
   runList,
   runRegistryFor,
-  runRegistryRefresh,
-  runRegistryShow,
   runRerun,
   runResume,
   runSearch,
@@ -47,9 +40,6 @@ import {
   formatGcPlan,
   formatGcRun,
   formatGcVerify,
-  formatHistory,
-  formatQueueList,
-  formatRegistryReport,
   formatResume,
   formatRunSearch,
   formatRunShow
@@ -58,6 +48,7 @@ import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
 import { optionalArg, printJson, required, wantsJson } from "./io";
 import { handleAudit } from "./handlers/audit";
+import { handleHistory, handleQueue, handleRegistry } from "./handlers/registry";
 import { handleRoutine, handleSched, handleSchedule } from "./handlers/scheduling";
 import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
@@ -972,26 +963,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "routine":
       handleRoutine(args, triggers);
       return;
-    case "registry": {
-      const registry = runRegistryFor(args.options, runner);
-      const [subcommand] = args.positionals;
-      switch (subcommand) {
-        case "refresh": {
-          const report = runRegistryRefresh(registry, args.options);
-          if (wantsJson(args.options)) printJson(report);
-          else process.stdout.write(`${formatRegistryReport(report)}\n`);
-          return;
-        }
-        case "show": {
-          const report = runRegistryShow(registry, args.options);
-          if (wantsJson(args.options)) printJson(report);
-          else process.stdout.write(`${formatRegistryReport(report)}\n`);
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
-      }
-    }
+    case "registry":
+      handleRegistry(args, runner);
+      return;
     case "metrics": {
       const [subcommand, runId] = args.positionals;
       switch (subcommand) {
@@ -1134,29 +1108,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]");
       }
     }
-    case "queue": {
-      const registry = runRegistryFor(args.options, runner);
-      const [subcommand, id] = args.positionals;
-      switch (subcommand) {
-        case "add":
-          printJson(queueAdd(registry, args.options));
-          return;
-        case "list": {
-          const result = queueList(registry, args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatQueueList(result)}\n`);
-          return;
-        }
-        case "drain":
-          printJson(queueDrain(registry, args.options));
-          return;
-        case "show":
-          printJson(queueShow(registry, required(id, "queue id")));
-          return;
-        default:
-          throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
-      }
-    }
+    case "queue":
+      handleQueue(args, runner);
+      return;
     case "sched":
       handleSched(args, runner);
       return;
@@ -1200,13 +1154,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           throw new Error("Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
       }
     }
-    case "history": {
-      const registry = runRegistryFor(args.options, runner);
-      const result = runHistory(registry, args.options);
-      if (wantsJson(args.options)) printJson(result);
-      else process.stdout.write(`${formatHistory(result)}\n`);
+    case "history":
+      handleHistory(args, runner);
       return;
-    }
     case "telemetry": {
       const [subcommand, id] = args.positionals;
       switch (subcommand) {
