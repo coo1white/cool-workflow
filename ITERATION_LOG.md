@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — changed-from incremental overlay for fast review (Unreleased)
+
+> `architecture-review-fast` can now scope its source context to files changed since a ref (e.g. `origin/main`) — the common "review my changes" path gets a smaller context and a faster first result, while the scheduled full review still audits everything.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Wire `--changed-from REF` through `scripts/architecture-review-fast.js` (Track A acceleration; PROJECT_MEMORY "Next Run" — "prefer `--changed-from origin/main` plus a narrow profile" for incremental review). The `source-context export --changed-from` primitive already exists (resolves the ref, scopes to changed paths, separate cache key, records the base); this threads the flag through the wrapper: `exportSourceContext` passes `--changed-from`, the base is recorded on `sourceContext.changedFrom` + the `--metrics` block, and the `--schedule-full` handoff prompt notes the overlay so the BACKGROUND full review still audits the complete source (overlay ≠ replacement). Usage line updated. No `src/` change — the wrapper is a standalone script — so `dist/` is untouched. | plugins/cool-workflow/scripts/architecture-review-fast.js + plugins/cool-workflow/test/architecture-review-fast-automation-smoke.js + ITERATION_LOG.md | `architecture-review-fast-automation-smoke` extended: a 2nd commit changes only `src/app.js`, then `--changed-from HEAD~1` exports a context that INCLUDES `src/app.js` and EXCLUDES the unchanged `README.md`, records `sourceContext.changedFrom === "HEAD~1"` (and in `--metrics`), and the full-schedule prompt carries "incremental overlay (changed-from HEAD~1)" + "audit the complete source". Both fast-review smokes green. | BUILD n/a (script-only); version:sync GREEN; onramp:check GREEN (scripts change + smoke + log row) | no (dev loop — review + PR, never tag) |
+
 ## Batch — revert orphaned commitMessage feature (Unreleased)
 
 > #258 implemented a commit-message renderer that no caller consumes — an orphaned surface shipped only to satisfy a delete-blocking gate. It is reverted; `commitMessageTemplate` is honestly parked instead of dressed up as a live feature.
