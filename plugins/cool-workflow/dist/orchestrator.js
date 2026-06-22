@@ -42,9 +42,11 @@ exports.suggestCommand = suggestCommand;
 exports.formatSearchResults = formatSearchResults;
 exports.formatInfo = formatInfo;
 exports.formatHelp = formatHelp;
+exports.formatCommandHelp = formatCommandHelp;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const workflow_api_1 = require("./workflow-api");
+const capability_registry_1 = require("./capability-registry");
 const workflow_app_framework_1 = require("./workflow-app-framework");
 const dispatch_1 = require("./dispatch");
 const state_1 = require("./state");
@@ -973,7 +975,37 @@ function formatHelp() {
         "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
         "",
         (0, term_1.bold)("More commands", out),
-        ...wrapped
+        ...wrapped,
+        "",
+        // 4-space indent on purpose: the CLI/MCP parity help-token check only parses
+        // 2-space command lines, so this note never registers as a bogus token.
+        "    Run  cw help <command>  for one command's subcommands and descriptions."
+    ].join("\n");
+}
+/** Per-command help: `cw help <verb>` (and `cw <verb> --help`) lists that verb's
+ *  CLI subcommands with one-line summaries, derived from CAPABILITY_REGISTRY — the
+ *  SAME table the dispatcher and the CLI/MCP parity check use, so there is no
+ *  second source to drift. Additive: formatHelp()'s parity-checked token list is
+ *  untouched. */
+function formatCommandHelp(verb) {
+    const out = process.stdout;
+    const matches = capability_registry_1.CAPABILITY_REGISTRY.filter((cap) => cap.cli && cap.cli.path[0] === verb);
+    if (matches.length === 0) {
+        const lines = [`Unknown command: ${verb}`];
+        const hint = suggestCommand(verb);
+        if (hint)
+            lines.push(`  Did you mean:  cw ${hint}`);
+        lines.push("  Try:  cw help   (list all commands)");
+        return lines.join("\n");
+    }
+    const rows = matches
+        .map((cap) => ({ cmd: `cw ${cap.cli.path.join(" ")}`, summary: cap.summary }))
+        .sort((a, b) => (a.cmd < b.cmd ? -1 : a.cmd > b.cmd ? 1 : 0));
+    const width = Math.min(40, rows.reduce((max, row) => Math.max(max, row.cmd.length), 0));
+    return [
+        (0, term_1.bold)(`cw ${verb}`, out),
+        "",
+        ...rows.map((row) => `  ${row.cmd.padEnd(width)}  ${row.summary}`)
     ].join("\n");
 }
 function appendOption(options, key, value) {
