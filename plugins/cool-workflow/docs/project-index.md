@@ -227,6 +227,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [control-plane-scheduling-smoke.js](../test/control-plane-scheduling-smoke.js)
 - [coordinator-blackboard-smoke.js](../test/coordinator-blackboard-smoke.js)
 - [cw-help-per-command-smoke.js](../test/cw-help-per-command-smoke.js)
+- [dead-export-removal-guard-smoke.js](../test/dead-export-removal-guard-smoke.js)
 - [demo-bundle-smoke.js](../test/demo-bundle-smoke.js)
 - [det-ids-b-smoke.js](../test/det-ids-b-smoke.js)
 - [doctor-smoke.js](../test/doctor-smoke.js)

@@ -34,18 +34,15 @@ exports.backendIds = backendIds;
 exports.isBackendId = isBackendId;
 exports.getBackendDescriptor = getBackendDescriptor;
 exports.resolveBackendSelection = resolveBackendSelection;
-exports.backendSelectionFrom = backendSelectionFrom;
 exports.requiredSandboxDimensions = requiredSandboxDimensions;
 exports.attestSandbox = attestSandbox;
 exports.probeBackend = probeBackend;
 exports.runBackend = runBackend;
 exports.createExecutionBackend = createExecutionBackend;
-exports.listExecutionBackends = listExecutionBackends;
 exports.backendListPayload = backendListPayload;
 exports.backendShowPayload = backendShowPayload;
 exports.backendProbePayload = backendProbePayload;
 exports.buildChildEnv = buildChildEnv;
-exports.clearProbeCache = clearProbeCache;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const node_child_process_1 = require("node:child_process");
@@ -264,10 +261,6 @@ function resolveBackendSelection(requested, env = process.env) {
         return { backendId: envBackend, source: "env", requested: envBackend };
     }
     return { backendId: exports.DEFAULT_BACKEND_ID, source: "default" };
-}
-function backendSelectionFrom(args, env = process.env) {
-    const requested = (0, util_1.firstString)(args.backend, args.backendId, args.executionBackend);
-    return resolveBackendSelection(requested, env);
 }
 // ---------------------------------------------------------------------------
 // Sandbox dimension mapping + attestation. The sandbox profile is the contract.
@@ -852,9 +845,6 @@ function createExecutionBackend(id) {
         run: (request) => runBackend({ ...request, backendId: id })
     };
 }
-function listExecutionBackends() {
-    return backendIds().map(createExecutionBackend);
-}
 // ---- inspection payloads (shared by CLI + MCP via the orchestrator) --------
 function backendListPayload() {
     return { schemaVersion: 1, default: exports.DEFAULT_BACKEND_ID, backends: listBackendDescriptors() };
@@ -916,4 +906,3 @@ function cachedProbeBackend(id, context) {
     _probeCache.set(key, { result, at: Date.now() });
     return result;
 }
-function clearProbeCache() { _probeCache.clear(); }

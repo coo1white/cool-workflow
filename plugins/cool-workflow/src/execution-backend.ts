@@ -383,14 +383,6 @@ export function resolveBackendSelection(
   return { backendId: DEFAULT_BACKEND_ID, source: "default" };
 }
 
-export function backendSelectionFrom(
-  args: Record<string, unknown>,
-  env: NodeJS.ProcessEnv = process.env
-): BackendSelection {
-  const requested = firstString(args.backend, args.backendId, args.executionBackend);
-  return resolveBackendSelection(requested, env);
-}
-
 // ---------------------------------------------------------------------------
 // Sandbox dimension mapping + attestation. The sandbox profile is the contract.
 // ---------------------------------------------------------------------------
@@ -1096,10 +1088,6 @@ export function createExecutionBackend(id: string): ExecutionBackend {
   };
 }
 
-export function listExecutionBackends(): ExecutionBackend[] {
-  return backendIds().map(createExecutionBackend);
-}
-
 // ---- inspection payloads (shared by CLI + MCP via the orchestrator) --------
 
 export function backendListPayload(): {
@@ -1170,5 +1158,3 @@ function cachedProbeBackend(id: string, context: { cwd?: string }): ReturnType<t
   _probeCache.set(key, { result, at: Date.now() });
   return result;
 }
-
-export function clearProbeCache(): void { _probeCache.clear(); }

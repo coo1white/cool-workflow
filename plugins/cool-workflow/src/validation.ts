@@ -125,11 +125,6 @@ export function validateWorkerScope(value: unknown): WorkerScope {
   return value as WorkerScope;
 }
 
-/** Best-effort variant: returns null on mismatch (caller skips the record). */
-export function tryValidateWorkerScope(value: unknown): WorkerScope | null {
-  return workerScopeReason(value) ? null : (value as WorkerScope);
-}
-
 // ---------------------------------------------------------------------------
 // NodeSnapshotBody — shared by NodeSnapshot.body and NodeReplayRun.body.
 // Required (per src/types/state-node.ts): id, kind, status, loopStage strings;
@@ -176,11 +171,6 @@ export function validateNodeSnapshot(value: unknown): NodeSnapshot {
   return value as NodeSnapshot;
 }
 
-/** Best-effort variant: returns null on mismatch. */
-export function tryValidateNodeSnapshot(value: unknown): NodeSnapshot | null {
-  return nodeSnapshotReason(value) ? null : (value as NodeSnapshot);
-}
-
 // ---------------------------------------------------------------------------
 // NodeReplayRun — node-snapshot.ts:133
 // Required: schemaVersion===1, replayId, runId, nodeId, snapshotId, replayedAt,
@@ -216,11 +206,6 @@ export function validateNodeReplayRun(value: unknown): NodeReplayRun {
   const problem = nodeReplayRunReason(value);
   if (problem) throw new RecordValidationError("NodeReplayRun", problem.reason, problem.field);
   return value as NodeReplayRun;
-}
-
-/** Best-effort variant: returns null on mismatch. */
-export function tryValidateNodeReplayRun(value: unknown): NodeReplayRun | null {
-  return nodeReplayRunReason(value) ? null : (value as NodeReplayRun);
 }
 
 // ---------------------------------------------------------------------------
@@ -302,10 +287,4 @@ export function validateCandidateRecord(value: unknown): CandidateRecord {
   const problem = candidateRecordReason(value);
   if (problem) throw new RecordValidationError("CandidateRecord", problem.reason, problem.field);
   return value as CandidateRecord;
-}
-
-/** Best-effort variant: returns null on mismatch (caller skips the record so the
- *  downstream selection gate fails closed on its absence). */
-export function tryValidateCandidateRecord(value: unknown): CandidateRecord | null {
-  return candidateRecordReason(value) ? null : (value as CandidateRecord);
 }
