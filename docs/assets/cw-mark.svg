@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Cool Workflow">
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#EC6516"></rect>
+  <path d="M17 25 H35" stroke="#15171C" stroke-width="4.2" stroke-linecap="round"></path>
+  <path d="M17 34 H29" stroke="#15171C" stroke-width="4.2" stroke-linecap="round" opacity="0.5"></path>
+  <path d="M29 35.5 l6.6 7 L50 25.5" stroke="#15171C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>
+</svg>
