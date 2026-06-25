@@ -55,6 +55,7 @@ const operator_1 = require("./handlers/operator");
 const registry_1 = require("./handlers/registry");
 const multi_agent_1 = require("./handlers/multi-agent");
 const run_1 = require("./handlers/run");
+const collaboration_1 = require("./handlers/collaboration");
 const scheduling_1 = require("./handlers/scheduling");
 const worker_1 = require("./handlers/worker");
 const clones_1 = require("./handlers/clones");
@@ -669,57 +670,21 @@ async function runCli(argv = process.argv.slice(2)) {
             }
         }
         // ---- Team Collaboration (v0.1.32) ------------------------------------
-        case "approve": {
-            const [targetKind, runId, targetId] = args.positionals;
-            (0, io_1.printJson)(runner.collaborationApprove((0, io_1.required)(runId, "run id"), (0, io_1.required)(targetKind, "target kind (candidate|commit|selection|run|task|node)"), (0, io_1.required)(targetId, "target id"), args.options));
+        case "approve":
+            (0, collaboration_1.handleApprove)(args, runner);
             return;
-        }
-        case "reject": {
-            const [targetKind, runId, targetId] = args.positionals;
-            (0, io_1.printJson)(runner.collaborationReject((0, io_1.required)(runId, "run id"), (0, io_1.required)(targetKind, "target kind (candidate|commit|selection|run|task|node)"), (0, io_1.required)(targetId, "target id"), args.options));
+        case "reject":
+            (0, collaboration_1.handleReject)(args, runner);
             return;
-        }
-        case "comment": {
-            const [subcommand, ...rest] = args.positionals;
-            if (subcommand === "add") {
-                const [targetKind, runId, targetId] = rest;
-                (0, io_1.printJson)(runner.collaborationComment((0, io_1.required)(runId, "run id"), (0, io_1.required)(targetKind, "target kind"), (0, io_1.required)(targetId, "target id"), args.options));
-                return;
-            }
-            if (subcommand === "list") {
-                const result = runner.collaborationCommentList((0, io_1.required)(rest[0], "run id"), args.options);
-                if ((0, io_1.wantsJson)(args.options))
-                    (0, io_1.printJson)(result);
-                else
-                    process.stdout.write(`${runner.formatCommentList(result.comments)}\n`);
-                return;
-            }
-            throw new Error("Usage: cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]");
-        }
-        case "handoff": {
-            const [targetKind, runId, targetIdRaw] = args.positionals;
-            const kind = (0, io_1.required)(targetKind, "target kind (run|task|candidate|commit|node)");
-            const rid = (0, io_1.required)(runId, "run id");
-            const targetId = targetIdRaw || (kind === "run" ? rid : undefined);
-            (0, io_1.printJson)(runner.collaborationHandoff(rid, kind, (0, io_1.required)(targetId, "target id"), args.options));
+        case "comment":
+            (0, collaboration_1.handleComment)(args, runner);
             return;
-        }
-        case "review": {
-            const [subcommand, runId] = args.positionals;
-            if (subcommand === "status") {
-                const report = runner.reviewStatus((0, io_1.required)(runId, "run id"), args.options);
-                if ((0, io_1.wantsJson)(args.options))
-                    (0, io_1.printJson)(report);
-                else
-                    process.stdout.write(`${runner.formatReviewStatus(report)}\n`);
-                return;
-            }
-            if (subcommand === "policy") {
-                (0, io_1.printJson)(runner.reviewPolicy((0, io_1.required)(runId, "run id"), args.options));
-                return;
-            }
-            throw new Error("Usage: cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection");
-        }
+        case "handoff":
+            (0, collaboration_1.handleHandoff)(args, runner);
+            return;
+        case "review":
+            (0, collaboration_1.handleReview)(args, runner);
+            return;
         case "loop": {
             (0, io_1.printJson)(scheduler.create({ ...args.options, kind: "loop" }));
             return;

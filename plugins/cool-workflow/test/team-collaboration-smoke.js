@@ -340,4 +340,24 @@ const reloaded = loadRunFromCwd("collab-smoke", tmp);
 assert.equal(reloaded.collaboration.approvals.length, run.collaboration.approvals.length, "collaboration state round-trips through state.json");
 assert.ok(reloaded.commits.find((c) => c.id === goodCommit.id).review.approvers.includes("dave"), "shipped commit's approver persists");
 
+// ---- 11. BARE-VERB ROUTING: each carved verb still reaches its real handler --
+// After carving approve/reject/comment/handoff/review into
+// src/cli/handlers/collaboration.ts, a bare invocation must FAIL CLOSED with the
+// SAME error the in-handler throw site raises (byte-identical behavior). Each
+// regex is reasoned from the real throw string in the source — never weakened.
+function expectFail(args, re, why) {
+  const out = spawnSync("node", [CLI, ...args], { cwd: tmp, encoding: "utf8" });
+  assert.notEqual(out.status, 0, `${why}: bare \`cw ${args.join(" ")}\` must exit non-zero`);
+  assert.match(out.stderr, re, `${why}: stderr must match ${re}`);
+}
+// approve/reject: first required() is on the run id positional → "Missing run id".
+expectFail(["approve"], /Missing run id/, "approve no-args -> required(run id)");
+expectFail(["reject"], /Missing run id/, "reject no-args -> required(run id)");
+// comment with no subcommand falls past add/list to the Usage throw (NOT required).
+expectFail(["comment"], /Usage: cw\.js comment add/, "comment no-subcommand -> Usage throw");
+// handoff: first required() is on the target-kind positional → "Missing target kind".
+expectFail(["handoff"], /Missing target kind/, "handoff no-args -> required(target kind)");
+// review with no subcommand falls past status/policy to the Usage throw (NOT required).
+expectFail(["review"], /Usage: cw\.js review status/, "review no-subcommand -> Usage throw");
+
 process.stdout.write("team-collaboration-smoke: ok\n");
