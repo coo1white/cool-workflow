@@ -3,13 +3,14 @@
 //   - `cw run <app> --drive [--once]` drives a run end-to-end by delegating each
 //     worker to the agent backend (`--preview` = the read-only next-step preview).
 //   - the run-REGISTRY verbs: drive/search/list/show/resume/archive/rerun/export/
-//     import/verify-import/inspect-archive over the saved run registry.
+//     import/verify-import/inspect-archive/restore over the saved run registry.
 // A registry keyword carrying its own `--drive` flag (e.g. `run resume <id>
 // --drive`) is NOT hijacked by the `<app> --drive` intercept — the guard Set
-// below keeps that contract. Fail-closed exits preserved byte-for-byte:
-// verify-import (only under --strict) and inspect-archive (unconditional).
+// below keeps that contract. Fail-closed exits: verify-import (only under
+// --strict), inspect-archive (unconditional), and restore (unconditional —
+// integrity-inspect then verify; ok:false on either exits 1).
 import { CoolWorkflowRunner, parseArgv } from "../../orchestrator";
-import { runArchive, runDrive, runDrivePreview, runExportArchive, runImportArchive, runInspectArchive, runList, runRegistryFor, runRerun, runResume, runSearch, runShow, runVerifyImport } from "../../capability-core";
+import { runArchive, runDrive, runDrivePreview, runExportArchive, runImportArchive, runInspectArchive, runList, runRegistryFor, runRerun, runResume, runRestoreArchive, runSearch, runShow, runVerifyImport } from "../../capability-core";
 import { formatResume, formatRunSearch, formatRunShow } from "../../run-registry";
 import { emitRunSummary } from "../run-summary";
 import { optionalArg, printJson, required, wantsJson } from "../io";
@@ -17,7 +18,7 @@ import { optionalArg, printJson, required, wantsJson } from "../io";
 type ParsedArgs = ReturnType<typeof parseArgv>;
 
 /** `cw run <app> --drive [--once]` (Agent Delegation Drive) + the run-registry verbs
- *  (drive/search/list/show/resume/archive/rerun/export/import/verify-import/inspect-archive). */
+ *  (drive/search/list/show/resume/archive/rerun/export/import/verify-import/inspect-archive/restore). */
 export function handleRun(args: ParsedArgs, runner: CoolWorkflowRunner): void {
   // Agent Delegation Drive (v0.1.38): `cw run <app> --drive [--once]` drives a
   // run end-to-end by delegating each worker to the agent backend. Distinct from
@@ -29,7 +30,7 @@ export function handleRun(args: ParsedArgs, runner: CoolWorkflowRunner): void {
   // `run resume <id> --drive` is the resume verb's opt-in continuation, not
   // `run <app=resume> --drive`. Fall through to the switch for those keywords.
   const runRegistrySubcommand = new Set([
-    "drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive"
+    "drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive", "restore"
   ]);
   if (args.options.drive && !runRegistrySubcommand.has(String(args.positionals[0] || ""))) {
     const target = args.positionals[0];
@@ -135,7 +136,16 @@ export function handleRun(args: ParsedArgs, runner: CoolWorkflowRunner): void {
       if (!(result as { ok?: boolean }).ok) process.exitCode = 1;
       return;
     }
+    case "restore": {
+      const result = runRestoreArchive(runner, { ...args.options, archive: id || args.options.archive || args.options.path });
+      printJson(result);
+      // Fail-closed: exit 1 when inspect OR verify failed, so a tampered or
+      // unverifiable archive never reports a made-up success (mirrors the
+      // inspect-archive exit-1 pattern).
+      if (!(result as { ok?: boolean }).ok) process.exitCode = 1;
+      return;
+    }
     default:
-      throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]");
+      throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]");
   }
 }

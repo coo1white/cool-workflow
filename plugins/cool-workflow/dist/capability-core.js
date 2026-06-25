@@ -40,6 +40,7 @@ exports.runExportArchive = runExportArchive;
 exports.runImportArchive = runImportArchive;
 exports.runInspectArchive = runInspectArchive;
 exports.runVerifyImport = runVerifyImport;
+exports.runRestoreArchive = runRestoreArchive;
 exports.reportBundle = reportBundle;
 exports.runVerifyReportBundle = runVerifyReportBundle;
 exports.queueAdd = queueAdd;
@@ -312,6 +313,44 @@ function runInspectArchive(_runner, args) {
 }
 function runVerifyImport(runner, runId, args) {
     return (0, run_export_1.verifyImportedRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId));
+}
+// Fail-closed atomic restore of a portable run archive. `run import` does NOT
+// verify (verification is a separate `run verify-import` step), so a tampered run
+// can be imported silently. `run restore` closes that gap in ONE step: it
+// integrity-INSPECTS the archive FIRST (writing nothing), refuses a bad bundle
+// before any import, then IMPORTS and VERIFIES the restored run — and reports
+// ok:true ONLY when BOTH inspect AND verify pass. Pure composition of the three
+// existing functions (inspectArchive + importRun + verifyImportedRun); no new
+// crypto or IO logic. The CLI/MCP surfaces map ok:false to exit 1.
+function runRestoreArchive(runner, args) {
+    const base = invocationCwd(args);
+    const archive = optionalString(args.archive || args.path || args.file);
+    if (!archive)
+        throw new Error("run restore requires an archive path (positional, --archive, --path, or --file)");
+    const resolvedArchive = node_path_1.default.resolve(base, archive);
+    const target = node_path_1.default.resolve(base, optionalString(args.target || args.repo || args.cwd) || base);
+    // (1) Integrity-inspect FIRST — read-only, writes nothing. A bad bundle is
+    // refused here, before any import touches the target tree (no partial restore).
+    const inspect = (0, run_export_1.inspectArchive)(resolvedArchive);
+    if (!inspect.ok) {
+        return { schemaVersion: 1, ok: false, target, inspect, imported: null, verify: null, registry: null };
+    }
+    // (2) Intact: import + refresh the target registry (mirrors runImportArchive).
+    const imported = (0, run_export_1.importRun)(resolvedArchive, target);
+    const registry = new run_registry_1.RunRegistry(target, runner.withBaseDir(target));
+    const registryReport = registry.refresh({ scope: "repo" });
+    // (3) Verify the imported run the way `run verify-import` would (mirrors
+    // runVerifyImport — load the freshly-imported run from the target and verify).
+    const verify = (0, run_export_1.verifyImportedRun)(runner.withBaseDir(target).loadRun(imported.run.id));
+    return {
+        schemaVersion: 1,
+        ok: inspect.ok && verify.ok,
+        target,
+        inspect,
+        imported: { ...imported, registry: registryReport },
+        verify,
+        registry: registryReport
+    };
 }
 // Produce-and-prove: export a run to a portable bundle sealed with the operator's
 // trust key (defaulting to CW_AGENT_ATTEST_PUBKEY, same as `run export`), then

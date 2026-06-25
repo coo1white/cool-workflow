@@ -82,7 +82,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 201 capabilities, 188 MCP tools.
+machine-complete by design: 202 capabilities, 189 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -252,6 +252,7 @@ machine-complete by design: 201 capabilities, 188 MCP tools.
 | `run.import` | `cw run import` | `cw_run_import` | `runImportArchive` | both | identical |
 | `run.verify-import` | `cw run verify-import` | `cw_run_verify_import` | `runVerifyImport` | both | identical |
 | `run.inspect-archive` | `cw run inspect-archive` | `cw_run_inspect_archive` | `runInspectArchive` | both | identical |
+| `run.restore` | `cw run restore` | `cw_run_restore` | `runRestoreArchive` | both | identical |
 | `report.verify-bundle` | `cw report verify-bundle` | `cw_report_verify_bundle` | `runVerifyReportBundle` | both | identical |
 | `report.bundle` | `cw report bundle` | `cw_report_bundle` | `reportBundle` | both | identical |
 | `run.drive` | `cw run drive` | `cw_run_drive` | `runDrivePreview` | both | identical |

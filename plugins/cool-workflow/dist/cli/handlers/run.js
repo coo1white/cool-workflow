@@ -6,7 +6,7 @@ const run_registry_1 = require("../../run-registry");
 const run_summary_1 = require("../run-summary");
 const io_1 = require("../io");
 /** `cw run <app> --drive [--once]` (Agent Delegation Drive) + the run-registry verbs
- *  (drive/search/list/show/resume/archive/rerun/export/import/verify-import/inspect-archive). */
+ *  (drive/search/list/show/resume/archive/rerun/export/import/verify-import/inspect-archive/restore). */
 function handleRun(args, runner) {
     // Agent Delegation Drive (v0.1.38): `cw run <app> --drive [--once]` drives a
     // run end-to-end by delegating each worker to the agent backend. Distinct from
@@ -18,7 +18,7 @@ function handleRun(args, runner) {
     // `run resume <id> --drive` is the resume verb's opt-in continuation, not
     // `run <app=resume> --drive`. Fall through to the switch for those keywords.
     const runRegistrySubcommand = new Set([
-        "drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive"
+        "drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive", "restore"
     ]);
     if (args.options.drive && !runRegistrySubcommand.has(String(args.positionals[0] || ""))) {
         const target = args.positionals[0];
@@ -137,7 +137,17 @@ function handleRun(args, runner) {
                 process.exitCode = 1;
             return;
         }
+        case "restore": {
+            const result = (0, capability_core_1.runRestoreArchive)(runner, { ...args.options, archive: id || args.options.archive || args.options.path });
+            (0, io_1.printJson)(result);
+            // Fail-closed: exit 1 when inspect OR verify failed, so a tampered or
+            // unverifiable archive never reports a made-up success (mirrors the
+            // inspect-archive exit-1 pattern).
+            if (!result.ok)
+                process.exitCode = 1;
+            return;
+        }
         default:
-            throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]");
+            throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]");
     }
 }
