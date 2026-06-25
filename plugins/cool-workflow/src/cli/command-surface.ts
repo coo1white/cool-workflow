@@ -35,6 +35,7 @@ import { handleGraph, handleOperator, handleReport, handleSummary, handleTopolog
 import { handleHistory, handleQueue, handleRegistry } from "./handlers/registry";
 import { handleMultiAgent } from "./handlers/multi-agent";
 import { handleRun } from "./handlers/run";
+import { handleApprove, handleComment, handleHandoff, handleReject, handleReview } from "./handlers/collaboration";
 import { handleRoutine, handleSched, handleSchedule } from "./handlers/scheduling";
 import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
@@ -631,76 +632,21 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     }
 
     // ---- Team Collaboration (v0.1.32) ------------------------------------
-    case "approve": {
-      const [targetKind, runId, targetId] = args.positionals;
-      printJson(
-        runner.collaborationApprove(
-          required(runId, "run id"),
-          required(targetKind, "target kind (candidate|commit|selection|run|task|node)"),
-          required(targetId, "target id"),
-          args.options
-        )
-      );
+    case "approve":
+      handleApprove(args, runner);
       return;
-    }
-    case "reject": {
-      const [targetKind, runId, targetId] = args.positionals;
-      printJson(
-        runner.collaborationReject(
-          required(runId, "run id"),
-          required(targetKind, "target kind (candidate|commit|selection|run|task|node)"),
-          required(targetId, "target id"),
-          args.options
-        )
-      );
+    case "reject":
+      handleReject(args, runner);
       return;
-    }
-    case "comment": {
-      const [subcommand, ...rest] = args.positionals;
-      if (subcommand === "add") {
-        const [targetKind, runId, targetId] = rest;
-        printJson(
-          runner.collaborationComment(
-            required(runId, "run id"),
-            required(targetKind, "target kind"),
-            required(targetId, "target id"),
-            args.options
-          )
-        );
-        return;
-      }
-      if (subcommand === "list") {
-        const result = runner.collaborationCommentList(required(rest[0], "run id"), args.options);
-        if (wantsJson(args.options)) printJson(result);
-        else process.stdout.write(`${runner.formatCommentList(result.comments)}\n`);
-        return;
-      }
-      throw new Error("Usage: cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]");
-    }
-    case "handoff": {
-      const [targetKind, runId, targetIdRaw] = args.positionals;
-      const kind = required(targetKind, "target kind (run|task|candidate|commit|node)");
-      const rid = required(runId, "run id");
-      const targetId = targetIdRaw || (kind === "run" ? rid : undefined);
-      printJson(runner.collaborationHandoff(rid, kind, required(targetId, "target id"), args.options));
+    case "comment":
+      handleComment(args, runner);
       return;
-    }
-    case "review": {
-      const [subcommand, runId] = args.positionals;
-      if (subcommand === "status") {
-        const report = runner.reviewStatus(required(runId, "run id"), args.options);
-        if (wantsJson(args.options)) printJson(report);
-        else process.stdout.write(`${runner.formatReviewStatus(report)}\n`);
-        return;
-      }
-      if (subcommand === "policy") {
-        printJson(runner.reviewPolicy(required(runId, "run id"), args.options));
-        return;
-      }
-      throw new Error(
-        "Usage: cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection"
-      );
-    }
+    case "handoff":
+      handleHandoff(args, runner);
+      return;
+    case "review":
+      handleReview(args, runner);
+      return;
 
     case "loop": {
       printJson(scheduler.create({ ...args.options, kind: "loop" }));
