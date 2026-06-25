@@ -37,6 +37,8 @@ import { handleMultiAgent } from "./handlers/multi-agent";
 import { handleRun } from "./handlers/run";
 import { handleApprove, handleComment, handleHandoff, handleReject, handleReview } from "./handlers/collaboration";
 import { handleBlackboard, handleCoordinator } from "./handlers/blackboard";
+import { handleEval } from "./handlers/eval";
+import { handleNode } from "./handlers/node";
 import { handleRoutine, handleSched, handleSchedule } from "./handlers/scheduling";
 import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
@@ -46,11 +48,9 @@ import {
   formatCandidateSummary,
   formatCommitSummary,
   formatFeedbackSummary,
-  formatOperatorGraph,
   formatOperatorStatus,
   formatOperatorSummary
 } from "../operator-ux";
-import { formatMultiAgentEval } from "../multi-agent-eval";
 import { runDoctor, formatDoctorReport, formatDoctorFixes } from "../doctor";
 import { formatInfo, formatSearchResults } from "../orchestrator";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../version";
@@ -337,37 +337,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "multi-agent":
       handleMultiAgent(args, runner);
       return;
-    case "eval": {
-      const [subcommand, first, second] = args.positionals;
-      let result: unknown;
-      switch (subcommand) {
-        case "snapshot":
-          result = runner.evalSnapshot(required(first, "run id"), args.options);
-          break;
-        case "replay":
-          result = runner.evalReplay(required(first, "snapshot id or path"), args.options);
-          break;
-        case "compare":
-          result = runner.evalCompare(required(first, "baseline id or path"), required(second, "replay id or path"));
-          break;
-        case "score":
-          result = runner.evalScore(required(first, "replay id or path"));
-          break;
-        case "gate":
-          result = runner.evalGate(required(first, "suite id or path"));
-          if (!wantsJson(args.options) && (result as { status?: string }).status === "fail") process.exitCode = 1;
-          break;
-        case "report":
-          result = runner.evalReport(required(first, "replay id or path"));
-          break;
-          default:
-            throw new Error("Usage: cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>");
-      }
-      if (wantsJson(args.options)) printJson(result);
-      else process.stdout.write(`${formatMultiAgentEval(result)}\n`);
-      if (subcommand === "gate" && (result as { status?: string }).status === "fail") process.exitCode = 1;
+    case "eval":
+      handleEval(args, runner);
       return;
-    }
     case "blackboard":
       handleBlackboard(args, runner);
       return;
@@ -433,44 +405,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
             throw new Error("Usage: cw.js contract show <run-id> [contract-id]");
       }
     }
-    case "node": {
-      const [subcommand, runId, nodeId] = args.positionals;
-      switch (subcommand) {
-        case "list":
-          printJson(runner.listNodes(required(runId, "run id")));
-          return;
-        case "show":
-          printJson(runner.showNode(required(runId, "run id"), required(nodeId, "node id")));
-          return;
-        case "graph":
-          if (wantsJson(args.options)) printJson(runner.graphNodes(required(runId, "run id")));
-          else process.stdout.write(`${formatOperatorGraph(runner.operatorGraph(required(runId, "run id")))}\n`);
-          return;
-        case "snapshot":
-          printJson(runner.nodeSnapshot(required(runId, "run id"), required(nodeId, "node id")));
-          return;
-        case "diff":
-          printJson(
-            runner.nodeDiff(
-              required(runId, "run id"),
-              required(nodeId, "baseline snapshot id"),
-              required(args.positionals[3], "candidate snapshot id")
-            )
-          );
-          return;
-        case "replay":
-          printJson(runner.nodeReplay(required(runId, "run id"), required(nodeId, "snapshot id")));
-          return;
-        case "verify": {
-          const verdict = runner.nodeReplayVerify(required(runId, "run id"), required(nodeId, "replay id"));
-          printJson(verdict);
-          if (!verdict.pass) process.exitCode = 1;
-          return;
-        }
-          default:
-            throw new Error("Usage: cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
-      }
-    }
+    case "node":
+      handleNode(args, runner);
+      return;
     case "migration": {
       const [subcommand, target] = args.positionals;
       switch (subcommand) {
