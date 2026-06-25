@@ -56,13 +56,13 @@ const registry_1 = require("./handlers/registry");
 const multi_agent_1 = require("./handlers/multi-agent");
 const run_1 = require("./handlers/run");
 const collaboration_1 = require("./handlers/collaboration");
+const blackboard_1 = require("./handlers/blackboard");
 const scheduling_1 = require("./handlers/scheduling");
 const worker_1 = require("./handlers/worker");
 const clones_1 = require("./handlers/clones");
 const workbench_1 = require("./handlers/workbench");
 const operator_ux_1 = require("../operator-ux");
 const multi_agent_eval_1 = require("../multi-agent-eval");
-const state_explosion_1 = require("../state-explosion");
 const doctor_1 = require("../doctor");
 const orchestrator_2 = require("../orchestrator");
 const version_1 = require("../version");
@@ -407,79 +407,12 @@ async function runCli(argv = process.argv.slice(2)) {
                 process.exitCode = 1;
             return;
         }
-        case "blackboard": {
-            const [subcommand, action, runId] = args.positionals;
-            switch (subcommand) {
-                case "summary":
-                    (0, io_1.printJson)(runner.blackboardSummary((0, io_1.required)(action, "run id"), args.options));
-                    return;
-                case "summarize": {
-                    const digest = runner.blackboardSummarize((0, io_1.required)(action, "run id"), args.options);
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(digest);
-                    else
-                        process.stdout.write(`${(0, state_explosion_1.formatBlackboardDigest)(digest)}\n`);
-                    return;
-                }
-                case "graph":
-                    (0, io_1.printJson)(runner.blackboardGraph((0, io_1.required)(action, "run id")));
-                    return;
-                case "resolve":
-                    (0, io_1.printJson)(runner.resolveRunBlackboard((0, io_1.required)(action, "run id"), args.options));
-                    return;
-                case "topic":
-                    if (action === "create") {
-                        (0, io_1.printJson)(runner.createBlackboardTopic((0, io_1.required)(runId, "run id"), args.options));
-                        return;
-                    }
-                    break;
-                case "message":
-                    if (action === "post") {
-                        (0, io_1.printJson)(runner.postBlackboardMessage((0, io_1.required)(runId, "run id"), args.options));
-                        return;
-                    }
-                    if (action === "list") {
-                        (0, io_1.printJson)(runner.listBlackboardMessages((0, io_1.required)(runId, "run id"), args.options));
-                        return;
-                    }
-                    break;
-                case "context":
-                    if (action === "put") {
-                        (0, io_1.printJson)(runner.putBlackboardContext((0, io_1.required)(runId, "run id"), args.options));
-                        return;
-                    }
-                    break;
-                case "artifact":
-                    if (action === "add") {
-                        (0, io_1.printJson)(runner.addBlackboardArtifact((0, io_1.required)(runId, "run id"), args.options));
-                        return;
-                    }
-                    if (action === "list") {
-                        (0, io_1.printJson)(runner.listBlackboardArtifacts((0, io_1.required)(runId, "run id"), args.options));
-                        return;
-                    }
-                    break;
-                case "snapshot":
-                    (0, io_1.printJson)(runner.snapshotBlackboard((0, io_1.required)(action, "run id"), args.options));
-                    return;
-                default:
-                    break;
-            }
-            throw new Error("Usage: cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
-        }
-        case "coordinator": {
-            const [subcommand, runId] = args.positionals;
-            switch (subcommand) {
-                case "summary":
-                    (0, io_1.printJson)(runner.coordinatorSummary((0, io_1.required)(runId, "run id"), args.options));
-                    return;
-                case "decision":
-                    (0, io_1.printJson)(runner.recordCoordinatorDecision((0, io_1.required)(runId, "run id"), args.options));
-                    return;
-                default:
-                    throw new Error("Usage: cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT");
-            }
-        }
+        case "blackboard":
+            (0, blackboard_1.handleBlackboard)(args, runner);
+            return;
+        case "coordinator":
+            (0, blackboard_1.handleCoordinator)(args, runner);
+            return;
         case "sandbox": {
             const [subcommand, profileIdOrFile] = args.positionals;
             switch (subcommand) {

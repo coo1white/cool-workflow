@@ -2,7 +2,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const { execFileSync, spawn } = require("node:child_process");
+const { execFileSync, spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -291,6 +291,32 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "blackboard", "messages.jsonl")));
   assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "blackboard", "artifacts", `${artifact.id}.json`)));
 
+  // Bare-verb routing — proves the carved handlers/blackboard.ts throws the same
+  // way the god-dispatch did. A thrown error → exit 1 → stderr `cw: <message>`.
+  // `required` throws "Missing <label>."; the inner default + topic/message/
+  // context/artifact fall-through hit the trailing "Usage: cw.js blackboard …".
+  for (const verb of ["summary", "summarize", "graph", "resolve", "snapshot"]) {
+    const fail = runFail(["blackboard", verb]);
+    assert.notEqual(fail.status, 0);
+    assert.match(fail.stderr, /Missing run id/);
+  }
+  // `topic` with no `create` action falls through to the trailing Usage throw.
+  const topicFail = runFail(["blackboard", "topic"]);
+  assert.notEqual(topicFail.status, 0);
+  assert.match(topicFail.stderr, /Usage: cw\.js blackboard /);
+  // An unknown subcommand hits the inner switch default → trailing Usage throw.
+  const bogusFail = runFail(["blackboard", "bogusverb"]);
+  assert.notEqual(bogusFail.status, 0);
+  assert.match(bogusFail.stderr, /Usage: cw\.js blackboard /);
+  for (const verb of ["summary", "decision"]) {
+    const fail = runFail(["coordinator", verb]);
+    assert.notEqual(fail.status, 0);
+    assert.match(fail.stderr, /Missing run id/);
+  }
+  const coordBogus = runFail(["coordinator", "bogusverb"]);
+  assert.notEqual(coordBogus.status, 0);
+  assert.match(coordBogus.stderr, /Usage: cw\.js coordinator /);
+
   process.stdout.write("coordinator-blackboard-smoke: ok\n");
 })().catch((error) => {
   console.error(error);
@@ -328,6 +354,16 @@ function runText(args) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"]
   });
+}
+
+// Run a verb expected to fail; capture exit status + stderr instead of throwing.
+function runFail(args) {
+  const result = spawnSync(node, [cli, ...args], {
+    cwd: tmp,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  return { status: result.status, stderr: result.stderr };
 }
 
 function readMcp(runId) {
