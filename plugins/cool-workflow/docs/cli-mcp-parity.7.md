@@ -360,7 +360,7 @@ router; shared helpers live in `src/cli/io.ts` (arg/JSON) and `src/cli/format.ts
 (render). Carved so far: `workbench`, `clones`, `audit`, `worker`, `schedule`, `routine`,
 `sched`, `registry`, `queue`, `history`, `report`, `operator`, `graph`,
 `topology`, `summary`, `multi-agent`, `run`, `approve`, `reject`, `comment`,
-`handoff`, `review`. This is a pure code-move
+`handoff`, `review`, `blackboard`, `coordinator`. This is a pure code-move
 — the command surface is unchanged — and the parity scanner reads
 `dist/cli/handlers/*` so a subcommand `case` in a handler module still counts as a
 live CLI token.

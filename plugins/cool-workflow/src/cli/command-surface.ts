@@ -36,6 +36,7 @@ import { handleHistory, handleQueue, handleRegistry } from "./handlers/registry"
 import { handleMultiAgent } from "./handlers/multi-agent";
 import { handleRun } from "./handlers/run";
 import { handleApprove, handleComment, handleHandoff, handleReject, handleReview } from "./handlers/collaboration";
+import { handleBlackboard, handleCoordinator } from "./handlers/blackboard";
 import { handleRoutine, handleSched, handleSchedule } from "./handlers/scheduling";
 import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
@@ -50,7 +51,6 @@ import {
   formatOperatorSummary
 } from "../operator-ux";
 import { formatMultiAgentEval } from "../multi-agent-eval";
-import { formatBlackboardDigest } from "../state-explosion";
 import { runDoctor, formatDoctorReport, formatDoctorFixes } from "../doctor";
 import { formatInfo, formatSearchResults } from "../orchestrator";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../version";
@@ -368,77 +368,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       if (subcommand === "gate" && (result as { status?: string }).status === "fail") process.exitCode = 1;
       return;
     }
-    case "blackboard": {
-      const [subcommand, action, runId] = args.positionals;
-      switch (subcommand) {
-        case "summary":
-          printJson(runner.blackboardSummary(required(action, "run id"), args.options));
-          return;
-        case "summarize": {
-          const digest = runner.blackboardSummarize(required(action, "run id"), args.options);
-          if (wantsJson(args.options)) printJson(digest);
-          else process.stdout.write(`${formatBlackboardDigest(digest)}\n`);
-          return;
-        }
-        case "graph":
-          printJson(runner.blackboardGraph(required(action, "run id")));
-          return;
-        case "resolve":
-          printJson(runner.resolveRunBlackboard(required(action, "run id"), args.options));
-          return;
-        case "topic":
-          if (action === "create") {
-            printJson(runner.createBlackboardTopic(required(runId, "run id"), args.options));
-            return;
-          }
-          break;
-        case "message":
-          if (action === "post") {
-            printJson(runner.postBlackboardMessage(required(runId, "run id"), args.options));
-            return;
-          }
-          if (action === "list") {
-            printJson(runner.listBlackboardMessages(required(runId, "run id"), args.options));
-            return;
-          }
-          break;
-        case "context":
-          if (action === "put") {
-            printJson(runner.putBlackboardContext(required(runId, "run id"), args.options));
-            return;
-          }
-          break;
-        case "artifact":
-          if (action === "add") {
-            printJson(runner.addBlackboardArtifact(required(runId, "run id"), args.options));
-            return;
-          }
-          if (action === "list") {
-            printJson(runner.listBlackboardArtifacts(required(runId, "run id"), args.options));
-            return;
-          }
-          break;
-        case "snapshot":
-          printJson(runner.snapshotBlackboard(required(action, "run id"), args.options));
-          return;
-        default:
-          break;
-      }
-      throw new Error("Usage: cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
-    }
-    case "coordinator": {
-      const [subcommand, runId] = args.positionals;
-      switch (subcommand) {
-        case "summary":
-          printJson(runner.coordinatorSummary(required(runId, "run id"), args.options));
-          return;
-        case "decision":
-          printJson(runner.recordCoordinatorDecision(required(runId, "run id"), args.options));
-          return;
-        default:
-          throw new Error("Usage: cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT");
-      }
-    }
+    case "blackboard":
+      handleBlackboard(args, runner);
+      return;
+    case "coordinator":
+      handleCoordinator(args, runner);
+      return;
     case "sandbox": {
       const [subcommand, profileIdOrFile] = args.positionals;
       switch (subcommand) {
