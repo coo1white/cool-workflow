@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 "use strict";
-// readme-trust-claim-smoke — the root README "Can I Trust the Report?" section must
+// readme-trust-claim-smoke — the root README "Can You Trust the Report?" section must
 // state the tamper-evidence guarantee HONESTLY. Before this, it overstated the
 // guarantee: "Every agent step is recorded, signed ... Change the report later?
 // The chain breaks and the signature no longer matches." The ed25519 signature
@@ -17,8 +17,8 @@ const path = require("node:path");
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const readme = fs.readFileSync(path.join(repoRoot, "README.md"), "utf8");
 
-const start = readme.indexOf("## Can I Trust the Report?");
-assert.ok(start >= 0, "README has a 'Can I Trust the Report?' section");
+const start = readme.indexOf("## Can You Trust the Report?");
+assert.ok(start >= 0, "README has a 'Can You Trust the Report?' section");
 // Bound the section at the NEXT H2 (robust to the following heading being renamed).
 const rest = readme.slice(start + 1);
 const nextH2 = rest.indexOf("\n## ");
@@ -39,7 +39,7 @@ assert.match(flat, /verify-bundle/i, "names the verify-bundle check");
 assert.match(flat, /unaltered/i, "claims the signed findings are present unaltered");
 assert.match(flat, /no private key/i, "states CW holds no private key");
 // And the honest forward-scope caveat is present (not that the report holds nothing else).
-assert.match(flat, /not that the report holds nothing else|check the findings .* against the signed results/i, "keeps the honest forward-scope caveat");
+assert.match(flat, /not that the report holds nothing else|not that nothing else was added|check the findings .* against the signed results/i, "keeps the honest forward-scope caveat");
 // The caveat must close BOTH directions. The forward check proves each *present*
 // signed finding is unaltered, but a re-chainer can OMIT a signed finding (the
 // dropped converse — see report-verifiable-bundle.7.md / run-export.ts scope note).
