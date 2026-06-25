@@ -362,7 +362,7 @@ router; shared helpers live in `src/cli/io.ts` (arg/JSON) and `src/cli/format.ts
 `topology`, `summary`, `multi-agent`, `run`, `approve`, `reject`, `comment`,
 `handoff`, `review`, `blackboard`, `coordinator`, `eval`, `node`, `gc`,
 `telemetry`, `demo`, `feedback`, `metrics`, `migration`, `sandbox`, `backend`,
-`contract`. This is a pure code-move
+`contract`, `candidate`. This is a pure code-move
 — the command surface is unchanged — and the parity scanner reads
 `dist/cli/handlers/*` so a subcommand `case` in a handler module still counts as a
 live CLI token.

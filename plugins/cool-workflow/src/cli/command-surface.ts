@@ -13,6 +13,7 @@ import { RoutineTriggerBridge } from "../triggers";
 import { optionalArg, printJson, required, wantsJson } from "./io";
 import { emitRunSummary } from "./run-summary";
 import { handleAudit } from "./handlers/audit";
+import { handleCandidate } from "./handlers/candidate";
 import { handleGraph, handleOperator, handleReport, handleSummary, handleTopology } from "./handlers/operator";
 import { handleHistory, handleQueue, handleRegistry } from "./handlers/registry";
 import { handleMultiAgent } from "./handlers/multi-agent";
@@ -29,7 +30,6 @@ import { handleClones } from "./handlers/clones";
 import { handleWorkbench } from "./handlers/workbench";
 import {
   adviseNoRun,
-  formatCandidateSummary,
   formatCommitSummary,
   formatOperatorStatus,
   formatOperatorSummary
@@ -353,44 +353,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "audit":
       handleAudit(args, runner);
       return;
-    case "candidate": {
-      const [subcommand, runId, candidateId, reason] = args.positionals;
-      switch (subcommand) {
-        case "list":
-          printJson(runner.listCandidates(required(runId, "run id"), args.options));
-          return;
-        case "show":
-          printJson(runner.showCandidate(required(runId, "run id"), required(candidateId, "candidate id")));
-          return;
-        case "register":
-          printJson(runner.registerCandidate(required(runId, "run id"), args.options));
-          return;
-        case "score":
-          printJson(runner.scoreCandidate(required(runId, "run id"), required(candidateId, "candidate id"), args.options));
-          return;
-        case "rank":
-          printJson(runner.rankCandidates(required(runId, "run id"), args.options));
-          return;
-        case "select":
-          printJson(runner.selectCandidate(required(runId, "run id"), required(candidateId, "candidate id"), args.options));
-          return;
-        case "reject":
-          printJson(
-            runner.rejectCandidate(
-              required(runId, "run id"),
-              required(candidateId, "candidate id"),
-              String(args.options.reason || args.options.message || reason || "rejected")
-            )
-          );
-          return;
-        case "summary":
-          if (wantsJson(args.options)) printJson(runner.summarizeCandidateOperatorRecords(required(runId, "run id")));
-          else process.stdout.write(`${formatCandidateSummary(runner.summarizeCandidateOperatorRecords(required(runId, "run id")))}\n`);
-          return;
-        default:
-          throw new Error("Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
-      }
-    }
+    case "candidate":
+      handleCandidate(args, runner);
+      return;
 
     // ---- Team Collaboration (v0.1.32) ------------------------------------
     case "approve":
