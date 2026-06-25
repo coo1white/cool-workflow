@@ -26,12 +26,17 @@ assert.match(commandSurface, /parseArgv\(/, "command surface must preserve parse
 // were carved into src/cli/handlers/operational.ts. Each verb must now be a thin
 // delegation in the surface, not an inline switch — a guard against regressing the
 // carve back into the god-dispatch.
-for (const v of ["feedback", "metrics", "migration", "sandbox", "backend", "contract"]) {
+// "candidate" (cycle 8) was the LAST inline command-family carved out, into
+// src/cli/handlers/candidate.ts, so it joins the delegation-guard loop.
+for (const v of ["feedback", "metrics", "migration", "sandbox", "backend", "contract", "candidate"]) {
   assert.match(commandSurface, new RegExp('case "' + v + '":\\s*\\n\\s*handle\\w+\\(args, runner\\);'), v + " delegates");
 }
 // The pruned imports must stay gone: ../observability had no surviving user, and
 // runRegistryFor's last command-surface caller (metrics summary) moved with it.
 assert.doesNotMatch(commandSurface, /from "\.\.\/observability"/, "observability import removed");
 assert.doesNotMatch(commandSurface, /\brunRegistryFor\b/, "runRegistryFor no longer imported in command-surface");
+// formatCandidateSummary moved with the candidate family — `candidate summary`
+// was its last command-surface user, so its import must be gone from the surface.
+assert.doesNotMatch(commandSurface, /\bformatCandidateSummary\b/, "formatCandidateSummary moved to handlers/candidate.ts");
 
 process.stdout.write(`cli-command-surface-smoke: ok (${entrypointLines.length} entrypoint lines)\n`);

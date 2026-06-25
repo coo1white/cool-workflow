@@ -48,6 +48,7 @@ const triggers_1 = require("../triggers");
 const io_1 = require("./io");
 const run_summary_1 = require("./run-summary");
 const audit_1 = require("./handlers/audit");
+const candidate_1 = require("./handlers/candidate");
 const operator_1 = require("./handlers/operator");
 const registry_1 = require("./handlers/registry");
 const multi_agent_1 = require("./handlers/multi-agent");
@@ -405,40 +406,9 @@ async function runCli(argv = process.argv.slice(2)) {
         case "audit":
             (0, audit_1.handleAudit)(args, runner);
             return;
-        case "candidate": {
-            const [subcommand, runId, candidateId, reason] = args.positionals;
-            switch (subcommand) {
-                case "list":
-                    (0, io_1.printJson)(runner.listCandidates((0, io_1.required)(runId, "run id"), args.options));
-                    return;
-                case "show":
-                    (0, io_1.printJson)(runner.showCandidate((0, io_1.required)(runId, "run id"), (0, io_1.required)(candidateId, "candidate id")));
-                    return;
-                case "register":
-                    (0, io_1.printJson)(runner.registerCandidate((0, io_1.required)(runId, "run id"), args.options));
-                    return;
-                case "score":
-                    (0, io_1.printJson)(runner.scoreCandidate((0, io_1.required)(runId, "run id"), (0, io_1.required)(candidateId, "candidate id"), args.options));
-                    return;
-                case "rank":
-                    (0, io_1.printJson)(runner.rankCandidates((0, io_1.required)(runId, "run id"), args.options));
-                    return;
-                case "select":
-                    (0, io_1.printJson)(runner.selectCandidate((0, io_1.required)(runId, "run id"), (0, io_1.required)(candidateId, "candidate id"), args.options));
-                    return;
-                case "reject":
-                    (0, io_1.printJson)(runner.rejectCandidate((0, io_1.required)(runId, "run id"), (0, io_1.required)(candidateId, "candidate id"), String(args.options.reason || args.options.message || reason || "rejected")));
-                    return;
-                case "summary":
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(runner.summarizeCandidateOperatorRecords((0, io_1.required)(runId, "run id")));
-                    else
-                        process.stdout.write(`${(0, operator_ux_1.formatCandidateSummary)(runner.summarizeCandidateOperatorRecords((0, io_1.required)(runId, "run id")))}\n`);
-                    return;
-                default:
-                    throw new Error("Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
-            }
-        }
+        case "candidate":
+            (0, candidate_1.handleCandidate)(args, runner);
+            return;
         // ---- Team Collaboration (v0.1.32) ------------------------------------
         case "approve":
             (0, collaboration_1.handleApprove)(args, runner);
