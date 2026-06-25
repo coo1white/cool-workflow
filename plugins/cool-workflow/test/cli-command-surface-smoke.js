@@ -22,4 +22,16 @@ const commandSurface = fs.readFileSync(srcCommandSurface, "utf8");
 assert.match(commandSurface, /export async function runCli\b/, "command surface must export runCli");
 assert.match(commandSurface, /parseArgv\(/, "command surface must preserve parseArgv-based CLI parsing");
 
+// The operational families (feedback/metrics/migration/sandbox/backend/contract)
+// were carved into src/cli/handlers/operational.ts. Each verb must now be a thin
+// delegation in the surface, not an inline switch — a guard against regressing the
+// carve back into the god-dispatch.
+for (const v of ["feedback", "metrics", "migration", "sandbox", "backend", "contract"]) {
+  assert.match(commandSurface, new RegExp('case "' + v + '":\\s*\\n\\s*handle\\w+\\(args, runner\\);'), v + " delegates");
+}
+// The pruned imports must stay gone: ../observability had no surviving user, and
+// runRegistryFor's last command-surface caller (metrics summary) moved with it.
+assert.doesNotMatch(commandSurface, /from "\.\.\/observability"/, "observability import removed");
+assert.doesNotMatch(commandSurface, /\brunRegistryFor\b/, "runRegistryFor no longer imported in command-surface");
+
 process.stdout.write(`cli-command-surface-smoke: ok (${entrypointLines.length} entrypoint lines)\n`);
