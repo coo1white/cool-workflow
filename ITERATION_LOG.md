@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — carve the multi-agent command family into a cli/handlers module (Unreleased)
+
+> Eighth decomposition cycle. The whole `cw multi-agent` family (19 subcommands — run/status/step, blackboard/score/select, the operator read views, and the role/group/membership/fanout/fanin shape) moves into `src/cli/handlers/multi-agent.ts`. command-surface drops below 1050 LOC.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Carve the 19-subcommand `cw multi-agent` family out of `command-surface.ts` into `src/cli/handlers/multi-agent.ts` (`handleMultiAgent(args, runner)`). Behaviour-identical — VERBATIM move of the inner `switch (subcommand)` (status/step/blackboard/score/select/summary/summarize/graph/dependencies/failures/evidence/reasoning/run/show/role/group/membership/fanout/fanin + the `default:` usage throw), same `runner.*` calls, same fail-closed `required(runId, "run id")` exits. Import pruning with care: `formatMultiAgentSummary` dropped from the `../operator-ux` group (the rest STAY — used by other cases); the whole `../multi-agent-operator-ux` block + the `../evidence-reasoning` line moved out; the `../state-explosion` import SPLIT (`formatCompactGraph`/`formatStateExplosionReport` move; `formatBlackboardDigest` STAYS for the `blackboard` case); the `formatMultiAgentEval` import is a DECOY (used by the `eval` case) and is KEPT. 1163→1027 LOC (−136). | plugins/cool-workflow/src/cli/handlers/multi-agent.ts (new) + plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/docs/cli-mcp-parity.7.md (carved list) + plugins/cool-workflow/test/multi-agent-operator-ux-smoke.js (extended) + regenerated plugins/cool-workflow/dist/** + ITERATION_LOG.md | `multi-agent-operator-ux-smoke` already drives the whole `cw multi-agent` family through the CLI end-to-end; EXTENDED with bare-verb routing assertions (`multi-agent` no-subcommand → handler usage throw; `status`/`graph`/`dependencies`/`failures`/`evidence`/`summary`/`reasoning`/`step`/`show` with no run-id → `Missing run id` from the carved handler), proving dispatcher→handler routing. `cli-mcp-parity-smoke` green. | BUILD OK; check OK; onramp:check OK; parity:check OK; smoke OK | no (dev loop — review + PR, never tag) |
+
 ## Batch — carve the operator-read commands into a cli/handlers module (Unreleased)
 
 > Seventh decomposition cycle (3rd bundle). The operator-surface read family — `cw report`, `operator`, `graph`, `topology`, `summary` — moves into `src/cli/handlers/operator.ts`. command-surface crosses below 1200 LOC.
