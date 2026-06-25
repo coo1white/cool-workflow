@@ -9,23 +9,11 @@ import {
   planSummary,
   runRegistryFor,
   sandboxChoose,
-  gcPlan,
-  gcRun,
-  gcVerify,
   quickstart,
   backendAgentConfigShow,
-  backendAgentConfigSet,
-  telemetryVerify,
-  demoTamper,
-  demoBundle
+  backendAgentConfigSet
 } from "../capability-core";
 import { formatMetricsReport, formatMetricsSummary } from "../observability";
-import { formatTelemetryVerify, formatTamperDemo, formatBundleDemo } from "../telemetry-demo";
-import {
-  formatGcPlan,
-  formatGcRun,
-  formatGcVerify
-} from "../run-registry";
 import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
 import { optionalArg, printJson, required, wantsJson } from "./io";
@@ -39,6 +27,7 @@ import { handleApprove, handleComment, handleHandoff, handleReject, handleReview
 import { handleBlackboard, handleCoordinator } from "./handlers/blackboard";
 import { handleEval } from "./handlers/eval";
 import { handleNode } from "./handlers/node";
+import { handleGc, handleTelemetry, handleDemo } from "./handlers/maintenance";
 import { handleRoutine, handleSched, handleSchedule } from "./handlers/scheduling";
 import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
@@ -566,88 +555,18 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "clones":
       handleClones(args);
       return;
-    case "gc": {
-      // Run Retention & Provable Reclamation (v0.1.39). `plan` is a pure dry-run
-      // (frees nothing); `run` executes the write-ahead reclamation transaction;
-      // `verify` re-proves a reclaimed run. CW never reclaims by default.
-      const registry = runRegistryFor(args.options, runner);
-      const [subcommand, id] = args.positionals;
-      switch (subcommand) {
-        case "plan": {
-          const result = gcPlan(registry, id, args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatGcPlan(result)}\n`);
-          return;
-        }
-        case "run": {
-          const result = gcRun(registry, id, args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatGcRun(result)}\n`);
-          return;
-        }
-        case "verify": {
-          const result = gcVerify(registry, required(id, "run id"), args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatGcVerify(result)}\n`);
-          // Fail closed ONLY on a real integrity failure: a run that WAS reclaimed
-          // but no longer re-proves. A not-reclaimed run has nothing to verify
-          // (reclaimed:false/verified:false) and must not be treated as a failure.
-          // LIMIT (honest): a DELETED reclaimed.json reads as reclaimed:false, so
-          // proof-deletion is indistinguishable from never-reclaimed here without
-          // an independent witness (e.g. a trust-audit reclamation event) — a
-          // follow-up. This guard is still strictly better than the prior exit-0.
-          if (result.reclaimed && !result.verified) process.exitCode = 1;
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
-      }
-    }
+    case "gc":
+      handleGc(args, runner);
+      return;
     case "history":
       handleHistory(args, runner);
       return;
-    case "telemetry": {
-      const [subcommand, id] = args.positionals;
-      switch (subcommand) {
-        case "verify": {
-          const result = telemetryVerify(runner, { ...args.options, runId: id || args.options.runId || args.options.run });
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatTelemetryVerify(result)}\n`);
-          // Fail closed: a forged/edited/corrupt ledger verifies false — report it
-          // through the exit code so `cw telemetry verify <run> && deploy` cannot
-          // pass on a lie. (Absent ledger = present:false/verified:true -> exit 0.)
-          if (!result.verified) process.exitCode = 1;
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]");
-      }
-    }
-    case "demo": {
-      const [subcommand] = args.positionals;
-      switch (subcommand) {
-        case "tamper": {
-          const result = demoTamper(runner, args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatTamperDemo(result)}\n`);
-          // Fail closed: if the proof did not hold (a tamper went undetected),
-          // exit nonzero so the demo can never green a broken guarantee.
-          if (!result.proven) process.exitCode = 1;
-          return;
-        }
-        case "bundle": {
-          const result = demoBundle(runner, args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatBundleDemo(result)}\n`);
-          // Fail closed: a forged bundle that verified would be a regression in the
-          // bundle guarantee — exit nonzero so the demo can never green it.
-          if (!result.proven) process.exitCode = 1;
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js demo tamper|bundle [--json]");
-      }
-    }
+    case "telemetry":
+      handleTelemetry(args, runner);
+      return;
+    case "demo":
+      handleDemo(args, runner);
+      return;
     case "workbench":
       await handleWorkbench(args, runner);
       return;

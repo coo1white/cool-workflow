@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-25 by `npm run sync:projec
 - Source modules: `68`
 - Workflow apps: `7`
 - Docs: `53`
-- Smoke tests: `147`
+- Smoke tests: `148`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -213,6 +213,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [cli-format-smoke.js](../test/cli-format-smoke.js)
 - [cli-handler-clones-smoke.js](../test/cli-handler-clones-smoke.js)
 - [cli-handler-eval-node-smoke.js](../test/cli-handler-eval-node-smoke.js)
+- [cli-handler-maintenance-smoke.js](../test/cli-handler-maintenance-smoke.js)
 - [cli-handler-workbench-smoke.js](../test/cli-handler-workbench-smoke.js)
 - [cli-io-smoke.js](../test/cli-io-smoke.js)
 - [cli-jsonmode-parity-smoke.js](../test/cli-jsonmode-parity-smoke.js)
