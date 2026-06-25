@@ -204,6 +204,26 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.ok(mcp.failures.some((entry) => entry.kind === "worker"));
   assert.ok(mcp.evidence.some((entry) => entry.status === "adopted"));
 
+  // The multi-agent verb family is dispatched into src/cli/handlers/multi-agent.ts —
+  // each bare verb fails closed (no run-id / no subcommand) with a handler-originated
+  // message, proving the dispatcher routes to the carved handler.
+  const cases = [
+    [["multi-agent"], /multi-agent run\|status\|step/],
+    [["multi-agent", "status"], /Missing run id/],
+    [["multi-agent", "graph"], /Missing run id/],
+    [["multi-agent", "dependencies"], /Missing run id/],
+    [["multi-agent", "failures"], /Missing run id/],
+    [["multi-agent", "evidence"], /Missing run id/],
+    [["multi-agent", "summary"], /Missing run id/],
+    [["multi-agent", "reasoning"], /Missing run id/],
+    [["multi-agent", "step"], /Missing run id/],
+    [["multi-agent", "show"], /Missing run id/]
+  ];
+  for (const [argv, re] of cases) {
+    const result = runFail(argv);
+    assert.match(result.stderr, re, `cw ${argv.join(" ")} routes through the carved handler`);
+  }
+
   process.stdout.write("multi-agent-operator-ux-smoke: ok\n");
 })().catch((error) => {
   console.error(error);
