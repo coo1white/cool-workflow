@@ -314,14 +314,16 @@ function runInspectArchive(_runner, args) {
 function runVerifyImport(runner, runId, args) {
     return (0, run_export_1.verifyImportedRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId));
 }
-// Fail-closed atomic restore of a portable run archive. `run import` does NOT
-// verify (verification is a separate `run verify-import` step), so a tampered run
-// can be imported silently. `run restore` closes that gap in ONE step: it
-// integrity-INSPECTS the archive FIRST (writing nothing), refuses a bad bundle
-// before any import, then IMPORTS and VERIFIES the restored run — and reports
-// ok:true ONLY when BOTH inspect AND verify pass. Pure composition of the three
-// existing functions (inspectArchive + importRun + verifyImportedRun); no new
-// crypto or IO logic. The CLI/MCP surfaces map ok:false to exit 1.
+// Fail-closed atomic restore of a portable run archive. `run import` runs a
+// verification (importRun returns it as ImportResult.verification) but does NOT
+// fail on it — it exits 0 even when the telemetry-ledger or trust-audit hash chain
+// does not verify, so a chain-tampered run imports with a fabricated success.
+// `run restore` closes that gap in ONE step: it integrity-INSPECTS the archive
+// FIRST (writing nothing), refuses a bad bundle before any import, then IMPORTS
+// and REUSES importRun's verification verdict — reporting ok:true ONLY when verify
+// passes. Pure composition of the existing functions (inspectArchive + importRun,
+// whose own verification we reuse); no new crypto or IO logic, and no second
+// re-hash. The CLI/MCP surfaces map ok:false to exit 1.
 function runRestoreArchive(runner, args) {
     const base = invocationCwd(args);
     const archive = optionalString(args.archive || args.path || args.file);
@@ -339,12 +341,18 @@ function runRestoreArchive(runner, args) {
     const imported = (0, run_export_1.importRun)(resolvedArchive, target);
     const registry = new run_registry_1.RunRegistry(target, runner.withBaseDir(target));
     const registryReport = registry.refresh({ scope: "repo" });
-    // (3) Verify the imported run the way `run verify-import` would (mirrors
-    // runVerifyImport — load the freshly-imported run from the target and verify).
-    const verify = (0, run_export_1.verifyImportedRun)(runner.withBaseDir(target).loadRun(imported.run.id));
+    // (3) REUSE the verification importRun already ran — it re-proves the same
+    // restored files PLUS the telemetry-ledger and trust-audit hash chains, but
+    // returns the verdict WITHOUT throwing. We do NOT re-run verifyImportedRun (that
+    // would re-hash every file a second time for no new information). The gap restore
+    // closes is exactly that `run import` ships this verdict and exits 0 even when it
+    // is false — restore fails-closed on it below (CLI maps ok:false → exit 1).
+    const verify = imported.verification;
     return {
         schemaVersion: 1,
-        ok: inspect.ok && verify.ok,
+        // inspect.ok is guaranteed true here — the corrupt-archive case early-returned
+        // above — so the verdict is purely verify.ok (the telemetry/trust-audit chain).
+        ok: verify.ok,
         target,
         inspect,
         imported: { ...imported, registry: registryReport },
