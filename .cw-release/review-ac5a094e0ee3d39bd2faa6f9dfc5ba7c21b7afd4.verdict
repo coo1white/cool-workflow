@@ -1,0 +1,2 @@
+APPROVED ac5a094e0ee3d39bd2faa6f9dfc5ba7c21b7afd4
+Users can now run 'cw run restore <archive>' (and MCP cw_run_restore) to restore an exported run on another machine in one fail-closed step that integrity-inspects, imports, and verifies — refusing with exit 1 any tampered or unverifiable run that 'cw run import' would have imported with a silent success.
