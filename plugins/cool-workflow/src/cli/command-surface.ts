@@ -7,25 +7,12 @@ import {
   appRun,
   metricsSummary,
   planSummary,
-  runArchive,
-  runList,
   runRegistryFor,
-  runRerun,
-  runResume,
-  runSearch,
-  runShow,
-  runExportArchive,
-  runImportArchive,
-  runVerifyImport,
-  runInspectArchive,
   sandboxChoose,
   gcPlan,
   gcRun,
   gcVerify,
-  runDrive,
-  runDrivePreview,
   quickstart,
-  collectRunFindings,
   backendAgentConfigShow,
   backendAgentConfigSet,
   telemetryVerify,
@@ -37,18 +24,17 @@ import { formatTelemetryVerify, formatTamperDemo, formatBundleDemo } from "../te
 import {
   formatGcPlan,
   formatGcRun,
-  formatGcVerify,
-  formatResume,
-  formatRunSearch,
-  formatRunShow
+  formatGcVerify
 } from "../run-registry";
 import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
 import { optionalArg, printJson, required, wantsJson } from "./io";
+import { emitRunSummary } from "./run-summary";
 import { handleAudit } from "./handlers/audit";
 import { handleGraph, handleOperator, handleReport, handleSummary, handleTopology } from "./handlers/operator";
 import { handleHistory, handleQueue, handleRegistry } from "./handlers/registry";
 import { handleMultiAgent } from "./handlers/multi-agent";
+import { handleRun } from "./handlers/run";
 import { handleRoutine, handleSched, handleSchedule } from "./handlers/scheduling";
 import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
@@ -66,7 +52,6 @@ import { formatMultiAgentEval } from "../multi-agent-eval";
 import { formatBlackboardDigest } from "../state-explosion";
 import { runDoctor, formatDoctorReport, formatDoctorFixes } from "../doctor";
 import { formatInfo, formatSearchResults } from "../orchestrator";
-import { reporter } from "../reporter";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../version";
 
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<void> {
@@ -751,127 +736,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
           );
       }
     }
-    case "run": {
-      // Agent Delegation Drive (v0.1.38): `cw run <app> --drive [--once]` drives a
-      // run end-to-end by delegating each worker to the agent backend. Distinct from
-      // the run-REGISTRY verbs below. `--preview` (or the `run drive <run-id>` form)
-      // is the read-only, deterministic next-step preview.
-      //
-      // A run-REGISTRY subcommand keyword (resume/show/...) must NOT be intercepted
-      // here just because it carries a --drive flag of its own — e.g.
-      // `run resume <id> --drive` is the resume verb's opt-in continuation, not
-      // `run <app=resume> --drive`. Fall through to the switch for those keywords.
-      const runRegistrySubcommand = new Set([
-        "drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive"
-      ]);
-      if (args.options.drive && !runRegistrySubcommand.has(String(args.positionals[0] || ""))) {
-        const target = args.positionals[0];
-        const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
-        if (args.options.preview) {
-          printJson(runDrivePreview(runner, { ...args.options, runId: runId || target }));
-          return;
-        }
-        const driveArgs = { ...args.options } as Record<string, unknown>;
-        if (runId) driveArgs.runId = runId;
-        else driveArgs.appId = target;
-        const dr = runDrive(runner, driveArgs);
-        printJson(dr);
-        if (!wantsJson(args.options)) {
-          emitRunSummary(runner, args.options, {
-            runId: dr.runId,
-            reportPath: dr.reportPath,
-            status: dr.status,
-            statePath: dr.statePath,
-            completedWorkers: dr.completedWorkers,
-            plannedWorkers: dr.plannedWorkers,
-            agentConfigured: dr.agentConfigured
-          });
-        }
-        return;
-      }
-      const registry = runRegistryFor(args.options, runner);
-      const [subcommand, id] = args.positionals;
-      switch (subcommand) {
-        case "drive": {
-          // `run drive <run-id>` = read-only preview; `--step [--once]` = mutating drive.
-          if (args.options.step) {
-            const driveArgs = { ...args.options } as Record<string, unknown>;
-            if (id) driveArgs.runId = id;
-            const dr = runDrive(runner, driveArgs);
-            printJson(dr);
-            if (!wantsJson(args.options)) {
-              emitRunSummary(runner, args.options, {
-                runId: dr.runId,
-                reportPath: dr.reportPath,
-                status: dr.status,
-                statePath: dr.statePath,
-                completedWorkers: dr.completedWorkers,
-                plannedWorkers: dr.plannedWorkers,
-                agentConfigured: dr.agentConfigured
-              });
-            }
-            return;
-          }
-          printJson(runDrivePreview(runner, { ...args.options, runId: required(id, "run id") }));
-          return;
-        }
-        case "search": {
-          const result = runSearch(registry, args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatRunSearch(result)}\n`);
-          return;
-        }
-        case "list": {
-          const result = runList(registry, args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatRunSearch(result)}\n`);
-          return;
-        }
-        case "show": {
-          const result = runShow(registry, required(id, "run id"), args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatRunShow(result)}\n`);
-          return;
-        }
-        case "resume": {
-          const result = runResume(registry, runner, required(id, "run id"), args.options);
-          if (wantsJson(args.options)) printJson(result);
-          else process.stdout.write(`${formatResume(result)}\n`);
-          return;
-        }
-        case "archive":
-          printJson(runArchive(registry, id, args.options));
-          return;
-        case "rerun":
-          printJson(runRerun(registry, required(id, "run id"), args.options));
-          return;
-        case "export":
-          printJson(runExportArchive(runner, required(id || optionalArg(args.options.runId || args.options.run), "run id"), args.options));
-          return;
-        case "import":
-          printJson(runImportArchive(runner, { ...args.options, archive: id || args.options.archive || args.options.path }));
-          return;
-        case "verify-import": {
-          const result = runVerifyImport(runner, required(id || optionalArg(args.options.runId || args.options.run), "run id"), args.options);
-          printJson(result);
-          // Fail-closed ONLY behind --strict, so the default exit stays 0
-          // (byte-identical). With --strict, any failed restore check — including
-          // the new trust-audit row — exits 1 for `verify-import && restore`.
-          if (Boolean(args.options.strict) && !(result as { ok?: boolean }).ok) process.exitCode = 1;
-          return;
-        }
-        case "inspect-archive": {
-          const result = runInspectArchive(runner, { ...args.options, archive: id || args.options.archive || args.options.path });
-          printJson(result);
-          // Read-only diagnostic: exit 1 when the archive fails any integrity check,
-          // so `cw run inspect-archive <path> && restore` stops on a bad archive.
-          if (!(result as { ok?: boolean }).ok) process.exitCode = 1;
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]");
-      }
-    }
+    case "run":
+      handleRun(args, runner);
+      return;
     case "queue":
       handleQueue(args, runner);
       return;
@@ -969,47 +836,6 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     default:
       throw new Error(`Unknown command: ${args.command}${(suggestCommand(String(args.command || "")) ? `. Did you mean: ${suggestCommand(String(args.command))}?` : "")}`);
   }
-}
-
-/** Emit the calm end-of-run summary (stderr, TTY-gated inside the reporter): the COMPACT findings
- *  table re-parsed from each completed worker's `cw:result`, the report path, where the per-worker
- *  transcripts live, and — under `--full` — the report inline. Stderr/human-side ONLY: stdout (the
- *  `--json` payload printed just before this) stays byte-exact. Shared by the quickstart and the
- *  two `run --drive` paths so all three render an identical summary. */
-function emitRunSummary(
-  runner: CoolWorkflowRunner,
-  options: Record<string, unknown>,
-  fields: {
-    runId: string;
-    reportPath: string;
-    status: string;
-    statePath?: string;
-    completedWorkers?: number;
-    plannedWorkers?: number;
-    agentConfigured?: boolean;
-  }
-): void {
-  // Anchor run reads to the run's OWN repo (a drive/quickstart may run cross-directory): the run
-  // dir is <repo>/.cw/runs/<id>/, holding each worker's transcript.md next to its result.md.
-  const runDir = typeof fields.statePath === "string" ? path.dirname(fields.statePath) : undefined;
-  const baseDir = runDir ? path.resolve(runDir, "..", "..", "..") : undefined;
-  const findings = collectRunFindings(runner, fields.runId, baseDir);
-  // --full ALSO prints the report inline at run end (the compact table stays the default summary).
-  let fullReport: string | undefined;
-  if (options.full && fields.reportPath && fs.existsSync(fields.reportPath)) {
-    try { fullReport = fs.readFileSync(fields.reportPath, "utf8"); } catch { /* best-effort inline */ }
-  }
-  reporter.runSummary({
-    runId: fields.runId,
-    reportPath: fields.reportPath,
-    status: fields.status,
-    completedWorkers: fields.completedWorkers,
-    plannedWorkers: fields.plannedWorkers,
-    agentConfigured: fields.agentConfigured,
-    findings,
-    runDir,
-    fullReport
-  });
 }
 
 /** Prompt the user for a question interactively when --question is missing on a TTY. */

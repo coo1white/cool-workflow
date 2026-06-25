@@ -128,4 +128,27 @@ function writeCopy(tag, mutate) {
   }
 }
 
-process.stdout.write("run-inspect-archive-smoke: ok (clean / digest / schema / unreadable / integrity-env, read-only, import regression intact)\n");
+// (g) handler routing: the `cw run …` family now lives in src/cli/handlers/run.ts
+// (carved out of the command-surface god-dispatch). Prove the dispatcher routes to
+// it and the fail-closed `required()` guards + the inner default Usage throw survived
+// the move byte-for-byte. Only assert verbs that GENUINELY fail closed via required():
+// show/resume/rerun/export/verify-import with no id -> exit≠0 + "Missing run id".
+{
+  for (const verb of ["show", "resume", "rerun", "export", "verify-import"]) {
+    const r = spawnSync(node, [cli, "run", verb], { cwd: src, encoding: "utf8" });
+    assert.notEqual(r.status, 0, `run ${verb} with no id exits non-zero`);
+    assert.match(r.stderr, /Missing run id/, `run ${verb} fails closed via required("run id")`);
+  }
+  // An unknown subcommand throws the inner default Usage string (the carved switch's default).
+  const bogus = spawnSync(node, [cli, "run", "bogusverb"], { cwd: src, encoding: "utf8" });
+  assert.notEqual(bogus.status, 0, "run <bogusverb> exits non-zero");
+  assert.match(bogus.stderr, /Usage: cw\.js run search\|list\|show\|resume\|archive\|rerun\|drive\|export\|import\|verify-import\|inspect-archive/, "run <bogusverb> throws the inner default Usage string");
+  // A non-required verb still works through the handler: `run list` succeeds (exit 0)
+  // and returns the registry result whose `records` is an array — proving the route
+  // isn't only exercised on the error path.
+  const list = spawnSync(node, [cli, "run", "list", "--json"], { cwd: src, encoding: "utf8" });
+  assert.equal(list.status, 0, "run list exits 0 (non-required verb routes through the handler)");
+  assert.ok(Array.isArray(JSON.parse(list.stdout).records), "run list returns a result with a records array");
+}
+
+process.stdout.write("run-inspect-archive-smoke: ok (clean / digest / schema / unreadable / integrity-env, read-only, import regression intact, handler routing)\n");
