@@ -837,6 +837,14 @@ function toolDefinitions() {
             file: stringSchema("Alias for archive"),
             cwd: stringSchema("Invocation workspace")
         }),
+        capabilityTool("run.restore", "Fail-closed restore of a portable run archive in one step: integrity-inspect the bundle first (writes nothing), import it, then verify the imported run. Reports ok:true only when both inspect and verify pass; refuses (ok:false, exit 1) a tampered or unverifiable bundle, importing nothing. Peer of `cw run restore`.", {
+            archive: stringSchema("Archive path"),
+            path: stringSchema("Alias for archive"),
+            file: stringSchema("Alias for archive"),
+            target: stringSchema("Restore target repo directory"),
+            repo: stringSchema("Alias for target"),
+            cwd: stringSchema("Invocation workspace")
+        }),
         capabilityTool("report.verify-bundle", "Offline, self-contained verify of a portable run bundle: proves the archive bytes, the telemetry hash chain, the trust-audit chain, and (with the bundle's embedded public key) the ed25519 signatures — no source repo, no pre-existing .cw tree, no out-of-band key. Restores into a throwaway tmpdir and writes nothing. A forged or edited bundle fails it. Peer of `cw report verify-bundle`.", {
             archive: stringSchema("Bundle (.cwrun.json) path"),
             path: stringSchema("Alias for archive"),

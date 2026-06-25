@@ -364,6 +364,8 @@ function callTool(name, args) {
             return (0, capability_core_1.runVerifyImport)(runner, String(args.runId || ""), args);
         case "cw_run_inspect_archive":
             return (0, capability_core_1.runInspectArchive)(runner, args);
+        case "cw_run_restore":
+            return (0, capability_core_1.runRestoreArchive)(runner, args);
         case "cw_report_verify_bundle":
             return (0, capability_core_1.runVerifyReportBundle)(runner, args);
         case "cw_report_bundle":

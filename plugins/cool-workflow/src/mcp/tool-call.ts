@@ -28,6 +28,7 @@ import {
   runImportArchive,
   runVerifyImport,
   runInspectArchive,
+  runRestoreArchive,
   runVerifyReportBundle,
   reportBundle,
   sandboxChoose,
@@ -413,6 +414,8 @@ export function callTool(name: string, args: Record<string, unknown>): unknown {
       return runVerifyImport(runner, String(args.runId || ""), args);
     case "cw_run_inspect_archive":
       return runInspectArchive(runner, args);
+    case "cw_run_restore":
+      return runRestoreArchive(runner, args);
     case "cw_report_verify_bundle":
       return runVerifyReportBundle(runner, args);
     case "cw_report_bundle":

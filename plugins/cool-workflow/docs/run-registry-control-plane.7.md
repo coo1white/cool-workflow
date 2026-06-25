@@ -216,9 +216,26 @@ before importing a bad archive. It is a true preview of import: under
 turn away) also inspects as `ok:false`; with the env unset (default) an absent integrity
 block is only reported, not failed.
 
+**Restore in one fail-closed step.** `run restore PATH --target DIR [--json]`
+does the whole move-a-run-to-another-machine flow as ONE atomic, fail-closed
+step: it integrity-**inspects** the bundle first (writing nothing), **imports**
+it, then **verifies** the imported run — and reports `ok:true` ONLY when both
+the inspect and the verify pass. This closes the gap that `run import` alone does
+not verify (verification is the separate `run verify-import` step), so a tampered
+run could be imported silently. A bundle that fails the up-front integrity
+inspect is refused **before any import**, so nothing is written and the run is
+never left part-restored; the result carries `imported:null` and `verify:null`.
+A bundle that imports but fails post-import verification is reported with
+`ok:false` too. It exits `1` whenever `ok:false`, so `cw run restore <path>` is a
+single command that either lands a fully-proven run or refuses with a non-zero
+exit — never a made-up success. The result is structured
+(`{ schemaVersion, ok, target, inspect, imported, verify, registry }`) so it is
+scriptable. `run import` and `run inspect-archive` are unchanged; restore is a
+thin composition of the same three runtime functions.
+
 MCP gives the same mechanisms as `cw_run_export`, `cw_run_import`,
-`cw_run_verify_import`, and `cw_run_inspect_archive`; the CLI and MCP paths share
-the same runtime functions.
+`cw_run_verify_import`, `cw_run_inspect_archive`, and `cw_run_restore`; the CLI
+and MCP paths share the same runtime functions.
 
 ## Cross-repo history
 
@@ -243,6 +260,7 @@ node scripts/cw.js run export <run-id> --output PATH
 node scripts/cw.js run import PATH --target DIR
 node scripts/cw.js run verify-import <run-id> [--cwd DIR]
 node scripts/cw.js run inspect-archive PATH [--json]
+node scripts/cw.js run restore PATH --target DIR [--json]
 node scripts/cw.js queue add [--app ID|--workflow ID|--runId ID] [--repo PATH] [--priority N] [--note TEXT]
 node scripts/cw.js queue list [--status STATE] [--repo PATH] [--json]
 node scripts/cw.js queue show <queue-id>
