@@ -43,7 +43,6 @@ const node_child_process_1 = require("node:child_process");
 const readline = __importStar(require("node:readline"));
 const orchestrator_1 = require("../orchestrator");
 const capability_core_1 = require("../capability-core");
-const observability_1 = require("../observability");
 const scheduler_1 = require("../scheduler");
 const triggers_1 = require("../triggers");
 const io_1 = require("./io");
@@ -58,6 +57,7 @@ const blackboard_1 = require("./handlers/blackboard");
 const eval_1 = require("./handlers/eval");
 const node_1 = require("./handlers/node");
 const maintenance_1 = require("./handlers/maintenance");
+const operational_1 = require("./handlers/operational");
 const scheduling_1 = require("./handlers/scheduling");
 const worker_1 = require("./handlers/worker");
 const clones_1 = require("./handlers/clones");
@@ -381,123 +381,24 @@ async function runCli(argv = process.argv.slice(2)) {
         case "coordinator":
             (0, blackboard_1.handleCoordinator)(args, runner);
             return;
-        case "sandbox": {
-            const [subcommand, profileIdOrFile] = args.positionals;
-            switch (subcommand) {
-                case "list":
-                    (0, io_1.printJson)(runner.listSandboxProfiles(args.options));
-                    return;
-                case "show":
-                    (0, io_1.printJson)(runner.showSandboxProfile((0, io_1.required)(profileIdOrFile, "profile id"), args.options));
-                    return;
-                case "validate": {
-                    const result = runner.validateSandboxProfile((0, io_1.required)(profileIdOrFile, "profile file"), args.options);
-                    (0, io_1.printJson)(result);
-                    if (!result.valid)
-                        process.exitCode = 1;
-                    return;
-                }
-                case "choose":
-                case "resolve":
-                    (0, io_1.printJson)((0, capability_core_1.sandboxChoose)(runner, { ...args.options, profileId: profileIdOrFile || args.options.profileId }));
-                    return;
-                default:
-                    throw new Error("Usage: cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
-            }
-        }
-        case "backend": {
-            const [subcommand, backendId] = args.positionals;
-            switch (subcommand) {
-                case "list":
-                    (0, io_1.printJson)(runner.listBackends(args.options));
-                    return;
-                case "show":
-                    (0, io_1.printJson)(runner.showBackend((0, io_1.required)(backendId, "backend id"), args.options));
-                    return;
-                case "probe":
-                    (0, io_1.printJson)(runner.probeBackend(backendId, args.options));
-                    return;
-                case "agent": {
-                    // `backend agent config [show]` = read-only; `backend agent config set ...` = mutating.
-                    const [, , action] = args.positionals;
-                    if (action === "set") {
-                        (0, io_1.printJson)((0, capability_core_1.backendAgentConfigSet)(args.options));
-                        return;
-                    }
-                    (0, io_1.printJson)((0, capability_core_1.backendAgentConfigShow)(args.options));
-                    return;
-                }
-                default:
-                    throw new Error("Usage: cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]");
-            }
-        }
-        case "contract": {
-            const [subcommand, runId, contractId] = args.positionals;
-            switch (subcommand) {
-                case "show":
-                    (0, io_1.printJson)(runner.showContract((0, io_1.required)(runId, "run id"), contractId));
-                    return;
-                default:
-                    throw new Error("Usage: cw.js contract show <run-id> [contract-id]");
-            }
-        }
+        case "sandbox":
+            (0, operational_1.handleSandbox)(args, runner);
+            return;
+        case "backend":
+            (0, operational_1.handleBackend)(args, runner);
+            return;
+        case "contract":
+            (0, operational_1.handleContract)(args, runner);
+            return;
         case "node":
             (0, node_1.handleNode)(args, runner);
             return;
-        case "migration": {
-            const [subcommand, target] = args.positionals;
-            switch (subcommand) {
-                case "list":
-                    (0, io_1.printJson)(runner.migrationList());
-                    return;
-                case "check": {
-                    const report = runner.migrationCheck((0, io_1.required)(target, "target (run-id or state/app file)"), args.options);
-                    (0, io_1.printJson)(report);
-                    if (report.status === "unsupported")
-                        process.exitCode = 1;
-                    return;
-                }
-                case "prove": {
-                    const proof = runner.migrationProve((0, io_1.required)(target, "target (run-id or state/app file)"), args.options);
-                    (0, io_1.printJson)(proof);
-                    if (!proof.pass)
-                        process.exitCode = 1;
-                    return;
-                }
-                default:
-                    throw new Error("Usage: cw.js migration list|check|prove [target] [--contract run-state|workflow-app]");
-            }
-        }
-        case "feedback": {
-            const [subcommand, runId, feedbackId] = args.positionals;
-            switch (subcommand) {
-                case "list":
-                    (0, io_1.printJson)(runner.listFeedback((0, io_1.required)(runId, "run id"), args.options));
-                    return;
-                case "show":
-                    (0, io_1.printJson)(runner.showFeedback((0, io_1.required)(runId, "run id"), (0, io_1.required)(feedbackId, "feedback id")));
-                    return;
-                case "collect":
-                    (0, io_1.printJson)(runner.collectFeedback((0, io_1.required)(runId, "run id")));
-                    return;
-                case "summary": {
-                    const summary = runner.summarizeFeedbackRecords((0, io_1.required)(runId, "run id"));
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(summary);
-                    else
-                        process.stdout.write(`${(0, operator_ux_1.formatFeedbackSummary)(summary)}\n`);
-                    return;
-                }
-                case "task":
-                    (0, io_1.printJson)(runner.createFeedbackTask((0, io_1.required)(runId, "run id"), (0, io_1.required)(feedbackId, "feedback id"), args.options));
-                    return;
-                case "resolve":
-                    (0, io_1.printJson)(runner.resolveFeedback((0, io_1.required)(runId, "run id"), (0, io_1.required)(feedbackId, "feedback id"), args.options));
-                    return;
-                default:
-                    throw new Error("Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
-            }
-        }
+        case "migration":
+            (0, operational_1.handleMigration)(args, runner);
+            return;
+        case "feedback":
+            (0, operational_1.handleFeedback)(args, runner);
+            return;
         case "worker":
             (0, worker_1.handleWorker)(args, runner);
             return;
@@ -567,29 +468,9 @@ async function runCli(argv = process.argv.slice(2)) {
         case "registry":
             (0, registry_1.handleRegistry)(args, runner);
             return;
-        case "metrics": {
-            const [subcommand, runId] = args.positionals;
-            switch (subcommand) {
-                case "show": {
-                    const report = runner.metricsShow((0, io_1.required)(runId, "run id"), args.options);
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(report);
-                    else
-                        process.stdout.write(`${(0, observability_1.formatMetricsReport)(report)}\n`);
-                    return;
-                }
-                case "summary": {
-                    const report = (0, capability_core_1.metricsSummary)((0, capability_core_1.runRegistryFor)(args.options, runner), runner, args.options);
-                    if ((0, io_1.wantsJson)(args.options))
-                        (0, io_1.printJson)(report);
-                    else
-                        process.stdout.write(`${(0, observability_1.formatMetricsSummary)(report)}\n`);
-                    return;
-                }
-                default:
-                    throw new Error("Usage: cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]");
-            }
-        }
+        case "metrics":
+            (0, operational_1.handleMetrics)(args, runner);
+            return;
         case "run":
             (0, run_1.handleRun)(args, runner);
             return;

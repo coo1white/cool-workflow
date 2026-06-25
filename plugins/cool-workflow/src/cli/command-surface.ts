@@ -5,15 +5,9 @@ import * as readline from "node:readline";
 import { CoolWorkflowRunner, formatCommandHelp, formatHelp, parseArgv, suggestCommand } from "../orchestrator";
 import {
   appRun,
-  metricsSummary,
   planSummary,
-  runRegistryFor,
-  sandboxChoose,
-  quickstart,
-  backendAgentConfigShow,
-  backendAgentConfigSet
+  quickstart
 } from "../capability-core";
-import { formatMetricsReport, formatMetricsSummary } from "../observability";
 import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
 import { optionalArg, printJson, required, wantsJson } from "./io";
@@ -28,6 +22,7 @@ import { handleBlackboard, handleCoordinator } from "./handlers/blackboard";
 import { handleEval } from "./handlers/eval";
 import { handleNode } from "./handlers/node";
 import { handleGc, handleTelemetry, handleDemo } from "./handlers/maintenance";
+import { handleBackend, handleContract, handleFeedback, handleMetrics, handleMigration, handleSandbox } from "./handlers/operational";
 import { handleRoutine, handleSched, handleSchedule } from "./handlers/scheduling";
 import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
@@ -36,7 +31,6 @@ import {
   adviseNoRun,
   formatCandidateSummary,
   formatCommitSummary,
-  formatFeedbackSummary,
   formatOperatorStatus,
   formatOperatorSummary
 } from "../operator-ux";
@@ -335,118 +329,24 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "coordinator":
       handleCoordinator(args, runner);
       return;
-    case "sandbox": {
-      const [subcommand, profileIdOrFile] = args.positionals;
-      switch (subcommand) {
-        case "list":
-          printJson(runner.listSandboxProfiles(args.options));
-          return;
-        case "show":
-          printJson(runner.showSandboxProfile(required(profileIdOrFile, "profile id"), args.options));
-          return;
-        case "validate": {
-          const result = runner.validateSandboxProfile(required(profileIdOrFile, "profile file"), args.options);
-          printJson(result);
-          if (!result.valid) process.exitCode = 1;
-          return;
-        }
-        case "choose":
-        case "resolve":
-          printJson(sandboxChoose(runner, { ...args.options, profileId: profileIdOrFile || args.options.profileId }));
-          return;
-          default:
-            throw new Error("Usage: cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
-      }
-    }
-    case "backend": {
-      const [subcommand, backendId] = args.positionals;
-      switch (subcommand) {
-        case "list":
-          printJson(runner.listBackends(args.options));
-          return;
-        case "show":
-          printJson(runner.showBackend(required(backendId, "backend id"), args.options));
-          return;
-        case "probe":
-          printJson(runner.probeBackend(backendId, args.options));
-          return;
-        case "agent": {
-          // `backend agent config [show]` = read-only; `backend agent config set ...` = mutating.
-          const [, , action] = args.positionals;
-          if (action === "set") {
-            printJson(backendAgentConfigSet(args.options));
-            return;
-          }
-          printJson(backendAgentConfigShow(args.options));
-          return;
-        }
-          default:
-            throw new Error("Usage: cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]");
-      }
-    }
-    case "contract": {
-      const [subcommand, runId, contractId] = args.positionals;
-      switch (subcommand) {
-        case "show":
-          printJson(runner.showContract(required(runId, "run id"), contractId));
-          return;
-          default:
-            throw new Error("Usage: cw.js contract show <run-id> [contract-id]");
-      }
-    }
+    case "sandbox":
+      handleSandbox(args, runner);
+      return;
+    case "backend":
+      handleBackend(args, runner);
+      return;
+    case "contract":
+      handleContract(args, runner);
+      return;
     case "node":
       handleNode(args, runner);
       return;
-    case "migration": {
-      const [subcommand, target] = args.positionals;
-      switch (subcommand) {
-        case "list":
-          printJson(runner.migrationList());
-          return;
-        case "check": {
-          const report = runner.migrationCheck(required(target, "target (run-id or state/app file)"), args.options);
-          printJson(report);
-          if (report.status === "unsupported") process.exitCode = 1;
-          return;
-        }
-        case "prove": {
-          const proof = runner.migrationProve(required(target, "target (run-id or state/app file)"), args.options);
-          printJson(proof);
-          if (!proof.pass) process.exitCode = 1;
-          return;
-        }
-        default:
-          throw new Error("Usage: cw.js migration list|check|prove [target] [--contract run-state|workflow-app]");
-      }
-    }
-    case "feedback": {
-      const [subcommand, runId, feedbackId] = args.positionals;
-      switch (subcommand) {
-        case "list":
-          printJson(runner.listFeedback(required(runId, "run id"), args.options));
-          return;
-        case "show":
-          printJson(runner.showFeedback(required(runId, "run id"), required(feedbackId, "feedback id")));
-          return;
-        case "collect":
-          printJson(runner.collectFeedback(required(runId, "run id")));
-          return;
-        case "summary": {
-          const summary = runner.summarizeFeedbackRecords(required(runId, "run id"));
-          if (wantsJson(args.options)) printJson(summary);
-          else process.stdout.write(`${formatFeedbackSummary(summary)}\n`);
-          return;
-        }
-        case "task":
-          printJson(runner.createFeedbackTask(required(runId, "run id"), required(feedbackId, "feedback id"), args.options));
-          return;
-        case "resolve":
-          printJson(runner.resolveFeedback(required(runId, "run id"), required(feedbackId, "feedback id"), args.options));
-          return;
-        default:
-          throw new Error("Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
-      }
-    }
+    case "migration":
+      handleMigration(args, runner);
+      return;
+    case "feedback":
+      handleFeedback(args, runner);
+      return;
     case "worker":
       handleWorker(args, runner);
       return;
@@ -522,27 +422,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     case "registry":
       handleRegistry(args, runner);
       return;
-    case "metrics": {
-      const [subcommand, runId] = args.positionals;
-      switch (subcommand) {
-        case "show": {
-          const report = runner.metricsShow(required(runId, "run id"), args.options);
-          if (wantsJson(args.options)) printJson(report);
-          else process.stdout.write(`${formatMetricsReport(report)}\n`);
-          return;
-        }
-        case "summary": {
-          const report = metricsSummary(runRegistryFor(args.options, runner), runner, args.options);
-          if (wantsJson(args.options)) printJson(report);
-          else process.stdout.write(`${formatMetricsSummary(report)}\n`);
-          return;
-        }
-        default:
-          throw new Error(
-            "Usage: cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]"
-          );
-      }
-    }
+    case "metrics":
+      handleMetrics(args, runner);
+      return;
     case "run":
       handleRun(args, runner);
       return;
