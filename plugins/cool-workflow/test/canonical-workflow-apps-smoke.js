@@ -148,6 +148,24 @@ for (const app of canonicalApps) {
 const matrix = run(["app", "list"]);
 assertUniqueIds(matrix, "post-plan app list");
 
+// initApp end-to-end (the riskiest callback wiring: resolveFromBase + validateApp
+// are passed into app-operations as callbacks). Scaffold a fresh app into a tmp
+// dir, assert the returned shape + on-disk manifest, then validate it.
+{
+  const initDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-app-init-smoke-"));
+  const initId = "smoke-init-app";
+  const created = run(["app", "init", initId, "--directory", initDir]);
+  assert.equal(created.id, initId, "initApp must echo the slugified id");
+  assert.equal(created.manifestPath, path.join(initDir, "app.json"), "initApp manifestPath");
+  assert.equal(created.entrypointPath, path.join(initDir, "workflow.js"), "initApp entrypointPath");
+  assert.ok(fs.existsSync(created.manifestPath), "initApp must write the manifest to disk");
+  assert.ok(fs.existsSync(created.entrypointPath), "initApp must write the entrypoint to disk");
+
+  const initValidation = run(["app", "validate", created.manifestPath]);
+  assert.equal(initValidation.valid, true, "scaffolded app must validate");
+  assert.equal(initValidation.summary.id, initId, "validated scaffold id");
+}
+
 process.stdout.write("canonical-workflow-apps-smoke: ok\n");
 
 function run(args) {
