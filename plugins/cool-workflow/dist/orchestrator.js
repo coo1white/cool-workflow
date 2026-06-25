@@ -64,6 +64,7 @@ const state_explosion_1 = require("./state-explosion");
 const evidence_reasoning_1 = require("./evidence-reasoning");
 const report_1 = require("./orchestrator/report");
 const cli_options_1 = require("./orchestrator/cli-options");
+const appOps = __importStar(require("./orchestrator/app-operations"));
 const auditOps = __importStar(require("./orchestrator/audit-operations"));
 const candidateOps = __importStar(require("./orchestrator/candidate-operations"));
 const collaborationOps = __importStar(require("./orchestrator/collaboration-operations"));
@@ -116,110 +117,22 @@ class CoolWorkflowRunner {
         return new CoolWorkflowRunner({ pluginRoot: this.pluginRoot, baseDir: resolved });
     }
     listWorkflows() {
-        return this.loadWorkflowApps().map((record) => {
-            const summary = (0, workflow_app_framework_1.summarizeWorkflowApp)(record);
-            return {
-                id: summary.id,
-                title: summary.title,
-                summary: summary.summary,
-                file: summary.file
-            };
-        });
+        return appOps.listWorkflows(this.workflowsDir, this.appsDir);
     }
     listApps() {
-        return this.loadWorkflowApps().map((record) => (0, workflow_app_framework_1.summarizeWorkflowApp)(record));
+        return appOps.listApps(this.workflowsDir, this.appsDir);
     }
     showApp(appId) {
-        const record = this.loadWorkflowAppById(appId);
-        const summary = (0, workflow_app_framework_1.summarizeWorkflowApp)(record);
-        return {
-            ...summary,
-            source: record.source,
-            app: {
-                schemaVersion: record.app.schemaVersion,
-                id: record.app.id,
-                title: record.app.title,
-                summary: record.app.summary || "",
-                version: record.app.version,
-                author: record.app.author,
-                inputs: record.app.inputs || record.app.workflow.inputs,
-                sandboxProfiles: record.app.sandboxProfiles || record.app.workflow.sandboxProfiles || [],
-                compatibility: record.app.compatibility,
-                metadata: record.app.metadata || {}
-            },
-            workflow: {
-                id: record.app.workflow.id,
-                title: record.app.workflow.title,
-                summary: record.app.workflow.summary || "",
-                limits: record.app.workflow.limits,
-                inputs: record.app.workflow.inputs,
-                sandboxProfiles: record.app.workflow.sandboxProfiles || [],
-                phases: record.app.workflow.phases.map((phase) => ({
-                    id: phase.id,
-                    name: phase.name,
-                    status: phase.status,
-                    tasks: phase.tasks.map((task) => ({
-                        id: task.id,
-                        kind: task.kind,
-                        requiresEvidence: Boolean(task.requiresEvidence),
-                        sandboxProfileId: task.sandboxProfileId
-                    }))
-                }))
-            }
-        };
+        return appOps.showApp(this.workflowsDir, this.appsDir, appId);
     }
     validateApp(target) {
-        try {
-            const record = this.loadWorkflowAppTarget(target);
-            const result = (0, workflow_app_framework_1.validateWorkflowApp)(record.app, {
-                appPath: record.source.manifestPath || record.source.entrypointPath || record.source.path
-            });
-            return {
-                ...result,
-                summary: (0, workflow_app_framework_1.summarizeWorkflowApp)(record)
-            };
-        }
-        catch (error) {
-            const issues = (0, cli_options_1.validationIssuesFromError)(error);
-            return {
-                valid: false,
-                appId: target,
-                appPath: this.resolveFromBase(target),
-                issues
-            };
-        }
+        return appOps.validateApp(this.workflowsDir, this.appsDir, target, this.resolveFromBase(target));
     }
     initApp(appId, options) {
-        const id = (0, workflow_api_1.slugify)(appId);
-        if (!id)
-            throw new Error("App id must include at least one letter or digit");
-        const title = String(options.title || titleize(id));
-        const destinationDir = this.resolveFromBase(String(options.directory || options.output || node_path_1.default.join(this.appsDir, id)));
-        const manifestPath = node_path_1.default.join(destinationDir, "app.json");
-        const entrypointPath = node_path_1.default.join(destinationDir, "workflow.js");
-        if (!options.force && (node_fs_1.default.existsSync(manifestPath) || node_fs_1.default.existsSync(entrypointPath))) {
-            throw new Error(`Refusing to overwrite existing workflow app: ${destinationDir}`);
-        }
-        node_fs_1.default.mkdirSync(destinationDir, { recursive: true });
-        node_fs_1.default.writeFileSync(manifestPath, (0, workflow_app_framework_1.renderWorkflowAppManifestTemplate)(id, title), "utf8");
-        node_fs_1.default.writeFileSync(entrypointPath, (0, workflow_app_framework_1.renderWorkflowAppEntrypointTemplate)(id, title), "utf8");
-        const validation = this.validateApp(manifestPath);
-        if (!validation.valid) {
-            throw new workflow_app_framework_1.WorkflowAppValidationError("Generated workflow app is invalid", validation.issues);
-        }
-        return { id, manifestPath, entrypointPath };
+        return appOps.initApp(this.appsDir, appId, options, (t) => this.resolveFromBase(t), (m) => this.validateApp(m));
     }
     packageApp(appId, options = {}) {
-        const record = this.loadWorkflowAppById(appId);
-        const destination = this.resolveFromBase(String(options.output || node_path_1.default.join(".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
-        node_fs_1.default.mkdirSync(node_path_1.default.dirname(destination), { recursive: true });
-        (0, state_1.writeJson)(destination, {
-            schemaVersion: 1,
-            app: (0, workflow_app_framework_1.workflowAppRunMetadata)(record),
-            workflow: record.app.workflow,
-            packagedAt: new Date().toISOString()
-        });
-        return { id: record.app.id, version: record.app.version, path: destination };
+        return appOps.packageApp(this.workflowsDir, this.appsDir, appId, options, (t) => this.resolveFromBase(t));
     }
     init(workflowId, options) {
         const id = (0, workflow_api_1.slugify)(workflowId);
@@ -728,64 +641,7 @@ class CoolWorkflowRunner {
         return node_path_1.default.resolve(this.invocationCwd(), target);
     }
     loadWorkflowAppById(appId) {
-        const record = this.loadWorkflowApps().find((candidate) => candidate.app.id === appId);
-        if (!record)
-            throw new Error(`Workflow app not found: ${appId}`);
-        return record;
-    }
-    loadWorkflowAppTarget(target) {
-        if (!target)
-            throw new Error("Missing workflow app path or id");
-        const resolved = this.resolveFromBase(target);
-        if (node_fs_1.default.existsSync(resolved)) {
-            const stat = node_fs_1.default.statSync(resolved);
-            if (stat.isDirectory())
-                return (0, workflow_app_framework_1.loadWorkflowAppFromManifest)(node_path_1.default.join(resolved, "app.json"));
-            if (node_path_1.default.basename(resolved) === "app.json" || resolved.endsWith(".json"))
-                return (0, workflow_app_framework_1.loadWorkflowAppFromManifest)(resolved);
-            return (0, workflow_app_framework_1.loadWorkflowAppFromEntrypoint)(resolved);
-        }
-        return this.loadWorkflowAppById(target);
-    }
-    loadWorkflowApps() {
-        const records = [
-            ...this.loadWorkflowFiles().map((file) => (0, workflow_app_framework_1.loadWorkflowAppFromEntrypoint)(file)),
-            ...this.loadAppManifestFiles().map((file) => (0, workflow_app_framework_1.loadWorkflowAppFromManifest)(file))
-        ].sort((left, right) => {
-            const byId = left.app.id.localeCompare(right.app.id);
-            if (byId)
-                return byId;
-            return (left.source.manifestPath || left.source.entrypointPath || left.source.path)
-                .localeCompare(right.source.manifestPath || right.source.entrypointPath || right.source.path);
-        });
-        const seen = new Map();
-        for (const record of records) {
-            const previous = seen.get(record.app.id);
-            if (previous) {
-                throw new Error(`Duplicate workflow app id ${record.app.id}: ${previous.source.manifestPath || previous.source.entrypointPath || previous.source.path} and ${record.source.manifestPath || record.source.entrypointPath || record.source.path}`);
-            }
-            seen.set(record.app.id, record);
-        }
-        return records;
-    }
-    loadWorkflowFiles() {
-        if (!node_fs_1.default.existsSync(this.workflowsDir))
-            return [];
-        return node_fs_1.default
-            .readdirSync(this.workflowsDir)
-            .filter((file) => file.endsWith(".workflow.js"))
-            .sort()
-            .map((file) => node_path_1.default.join(this.workflowsDir, file));
-    }
-    loadAppManifestFiles() {
-        if (!node_fs_1.default.existsSync(this.appsDir))
-            return [];
-        return node_fs_1.default
-            .readdirSync(this.appsDir, { withFileTypes: true })
-            .filter((entry) => entry.isDirectory())
-            .map((entry) => node_path_1.default.join(this.appsDir, entry.name, "app.json"))
-            .filter((file) => node_fs_1.default.existsSync(file))
-            .sort();
+        return appOps.loadWorkflowAppById(this.workflowsDir, this.appsDir, appId);
     }
 }
 exports.CoolWorkflowRunner = CoolWorkflowRunner;

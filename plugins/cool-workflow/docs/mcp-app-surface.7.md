@@ -232,4 +232,16 @@ The CLI is still the easiest way for people to drive a run. MCP is the steady
 tool surface for agent hosts. New runtime powers should come up in both
 surfaces, keep old names as aliases or wrappers, and use clear JSON
 contracts in place of host-specific policy hidden in the bridge.
+
+## Implementation
+
+The app-management surface (`listWorkflows`, `listApps`, `showApp`,
+`validateApp`, `initApp`, `packageApp`) lives on the `CoolWorkflowRunner`
+facade as thin delegators with no logic of their own. Their bodies sit in
+`src/orchestrator/app-operations.ts` as pure functions — the same v0.1.40
+router pattern used by the other `src/orchestrator/*-operations.ts` modules.
+The runner-owned calls (`resolveFromBase`, `validateApp`) are passed in as
+callbacks so the moved bodies stay byte-for-byte the same. The public method
+names, signatures, and return types do not change, so the CLI/MCP parity gate
+stays green.
 0.1.51
