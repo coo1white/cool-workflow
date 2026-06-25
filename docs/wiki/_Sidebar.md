@@ -1,7 +1,15 @@
 # Cool Workflow
 
+**Start here**
+
 - [Home](Home.md)
+- [Getting Started](Getting-Started.md)
+- [Mental Model](Mental-Model.md)
+- [Glossary](Glossary.md)
 - [Quickstart](Quickstart.md)
+
+**Go deeper**
+
 - [Workflow Apps](Workflow-Apps.md)
 - [Architecture](Architecture.md)
 - [Trust And Audit](Trust-And-Audit.md)
@@ -11,9 +19,8 @@
 - [Operations](Operations.md)
 - [FAQ](FAQ.md)
 
-## Source Docs
+**Source docs**
 
 - [Root README](https://github.com/coo1white/cool-workflow/blob/main/README.md)
-- [Plugin Docs](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/index.md)
 - [Trust Model](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/trust-model.md)
 - [Project Index](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/project-index.md)
