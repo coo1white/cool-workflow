@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — bump version surfaces to 0.1.93 (release prep) (Unreleased)
+
+> Release-prep for v0.1.93: deterministically bump the structured version surfaces and the content-doc / RELEASE.md trailing-version markers from 0.1.92 to 0.1.93 via the GATE-mode `bump:version` (the trailing-version line in each `*.7.md` + `RELEASE.md` is replaced, not appended, to avoid version-marker accretion). No behavior change. Committing the bump makes the eventual `release-flow --cut` bump idempotent and lets `version:sync` read a consistent HEAD (it validates the committed blob, and the gitignored `package-lock.json` from the working tree — the source of the earlier skew when the bump was left uncommitted).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Bump every version surface (`package.json`, `src/version.ts`, manifests + vendor plugin.json, the six canonical `apps/*/app.json`, the targeted scripts/tests, `Formula/cool-workflow.rb`, regenerated `dist/`) and the trailing-version markers in the 20 content `*.7.md` docs + `RELEASE.md` from 0.1.92 to 0.1.93. CHANGELOG `## 0.1.93` already on main (#287). Version-string-only; no runtime/behaviour change. | plugins/cool-workflow/{package.json, src/version.ts, manifest/**, .*-plugin/**, apps/*/app.json, scripts/{golden-path,canonical-apps,dogfood-release}.js, test/*-smoke.js (version refs), docs/*.7.md, docs/project-index.md, dist/**} + Formula/cool-workflow.rb + RELEASE.md + ITERATION_LOG.md | none required — version-string-only release prep, no behaviour change (the run-restore + decomposition cycles already shipped their smokes) | check OK; parity:check OK; readme:check OK; dist:check OK; index:check OK; version:sync OK (0.1.93, consistent HEAD); onramp:check OK | no (release prep — `release-flow --cut` tags v0.1.93) |
+
 ## Batch — extract the app-management method bodies into src/orchestrator/app-operations.ts (Unreleased)
 
 > Phase 2a of the orchestrator decomposition: complete the v0.1.40 router pattern for the app-management surface. The six public app methods on `CoolWorkflowRunner` (`listWorkflows`/`listApps`/`showApp`/`validateApp`/`initApp`/`packageApp`) keep their exact public signatures but become thin delegators; their bodies — plus the four now-unused private loaders — move into `src/orchestrator/app-operations.ts` as pure exported functions, mirroring the existing `src/orchestrator/migration-operations.ts` style. This RELOCATES code, it does not change the facade surface: the CLI/MCP parity gate stays `ok:true` because every public name, signature, and return type is byte-identical.
