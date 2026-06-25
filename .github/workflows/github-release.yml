@@ -22,10 +22,18 @@ jobs:
           fetch-depth: 0
 
       - name: Create GitHub Release
+        # Idempotent: the gated release-flow may have already created this
+        # Release (with changelog notes) before the tag push reached CI. If so,
+        # skip — making it again is an HTTP 422 "tag_name already exists" and a
+        # false red run. Only create when no Release exists for this tag yet.
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
-            --generate-notes \
-            --verify-tag
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            echo "Release ${{ github.ref_name }} already exists — nothing to do."
+          else
+            gh release create "${{ github.ref_name }}" \
+              --title "${{ github.ref_name }}" \
+              --generate-notes \
+              --verify-tag
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
