@@ -4,8 +4,9 @@
   "templates": {
     "claude": "claude-p-agent.js",
     "codex": "codex-agent.js",
-    "gemini": "gemini-agent.js",
+    "gemini": "gemini-opencode-agent.js",
+    "gemini-cli": "gemini-agent.js",
     "opencode": "opencode-agent.js",
-    "deepseek": "opencode-agent.js"
+    "deepseek": "deepseek-agent.js"
   }
 }

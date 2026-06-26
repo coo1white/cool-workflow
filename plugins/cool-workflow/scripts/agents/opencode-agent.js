@@ -37,11 +37,35 @@ if (!inputPath || !resultPath) {
   process.exit(2);
 }
 
+// Same runner serves both `opencode` (provider default model) and `deepseek`
+// (DeepSeek via opencode). The variant sets CW_OPENCODE_LABEL + CW_OPENCODE_MODEL;
+// see deepseek-agent.js. Unset = plain opencode, unchanged behavior.
+const label = process.env.CW_OPENCODE_LABEL || "opencode";
+const requestedModel = process.env.CW_OPENCODE_MODEL || "";
+
 const prompt = buildPrompt(inputPath);
-const render = createRenderer({ env: process.env, stderr: process.stderr, label: "opencode" });
+const render = createRenderer({ env: process.env, stderr: process.stderr, label });
 const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
-const state = { provider: "opencode", buffer: "", model: undefined, usage: undefined, textFragments: [], finalResult: undefined, renderer: render };
+const state = {
+  provider: label,
+  buffer: "",
+  // opencode --format json carries NO model field; record the model we asked for.
+  model: requestedModel || undefined,
+  usage: undefined,
+  textFragments: [],
+  finalResult: undefined,
+  lastMessageId: undefined,
+  lastMessageText: "",
+  renderer: render
+};
 let childStderr = "";
+
+// opencode (>=1.x) --format json emits JSONL events of shape { type, part }:
+//   type:"text"        -> part.text         assistant text, grouped by part.messageID
+//   type:"step_finish" -> part.tokens       { input, output, ... } per step
+// The final answer is the LAST message's text (earlier "text" parts are mid-run
+// narration). Older opencode shapes (ev.result / ev.text / ev.delta) are still
+// accepted as a fallback so the wrapper is not pinned to one CLI version.
 function recordJsonLine(line) {
   let ev;
   try {
@@ -50,22 +74,47 @@ function recordJsonLine(line) {
     state.invalidJson = true;
     return;
   }
+  const part = ev && typeof ev.part === "object" && ev.part ? ev.part : {};
+
+  if (ev.type === "text" && typeof part.text === "string") {
+    const mid = typeof part.messageID === "string" ? part.messageID : "";
+    if (mid !== state.lastMessageId) {
+      state.lastMessageId = mid;
+      state.lastMessageText = "";
+    }
+    state.lastMessageText += (state.lastMessageText ? "\n" : "") + part.text;
+    if (part.text.trim()) state.textFragments.push(part.text);
+    return;
+  }
+
+  if (ev.type === "step_finish" && part.tokens && typeof part.tokens === "object") {
+    state.usage = state.usage || { input_tokens: 0, output_tokens: 0 };
+    state.usage.input_tokens += Number(part.tokens.input) || 0;
+    state.usage.output_tokens += Number(part.tokens.output) || 0;
+    return;
+  }
+
+  // Fallback: older opencode JSON shapes (single result object / delta stream).
   if (ev.result && typeof ev.result === "string") {
     state.finalResult = ev.result;
-  } else {
-    const text = typeof ev.text === "string" ? ev.text : (ev.delta ? (typeof ev.delta === "string" ? ev.delta : ev.delta.text) : undefined);
-    if (typeof text === "string" && text.trim()) state.textFragments.push(text);
+    return;
   }
+  const legacy = typeof ev.text === "string" ? ev.text : (ev.delta ? (typeof ev.delta === "string" ? ev.delta : ev.delta.text) : undefined);
+  if (typeof legacy === "string" && legacy.trim()) state.textFragments.push(legacy);
 }
 
-render.action("opencode: reading the repo…");
+render.action(`${label}: reading the repo…`);
 
+// `opencode run` takes the message as a POSITIONAL arg ("opencode run [message..]");
+// there is no --prompt flag. Pass the prompt last, as the positional message.
+// --model (provider/model, e.g. deepseek/deepseek-chat) is added only when a
+// variant requests it; otherwise opencode uses its configured default model.
 const args = [
   "run",
   "--format",
   "json",
   "--dangerously-skip-permissions",
-  "--prompt",
+  ...(requestedModel ? ["--model", requestedModel] : []),
   prompt
 ];
 
@@ -105,7 +154,7 @@ child.on("close", (code) => {
     process.exit(1);
   }
 
-  const resultText = state.finalResult || state.textFragments.join("\n\n");
+  const resultText = state.finalResult || state.lastMessageText || state.textFragments.join("\n\n");
   if (!resultText.trim()) {
     process.stderr.write("opencode produced no result text - refusing to fabricate a result\n");
     process.exit(1);

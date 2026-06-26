@@ -49,9 +49,11 @@ process.stdin.on("end", () => {
     process.stdout.write("not-json\\n");
     process.exit(0);
   }
-  process.stdout.write(JSON.stringify({ type: "session.started", model: "codex-shim-model" }) + "\\n");
-  process.stdout.write(JSON.stringify({ type: "tool_call", name: "Read", input: { file_path: "README.md" } }) + "\\n");
-  process.stdout.write(JSON.stringify({ type: "turn.completed", usage: { input_tokens: 13, output_tokens: 8 }, status: "done" }) + "\\n");
+  // Real codex exec --json (>=0.139) schema: thread/turn events + usage, NO model field.
+  process.stdout.write(JSON.stringify({ type: "thread.started", thread_id: "thr_shim" }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "turn.started" }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "item.completed", item: { type: "tool_call", name: "Read", input: { file_path: "README.md" } } }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "turn.completed", usage: { input_tokens: 13, output_tokens: 8 } }) + "\\n");
   if (${JSON.stringify(behavior)} !== "nofinal") fs.writeFileSync(finalPath, ${JSON.stringify(RESULT)});
   process.exit(0);
 });
@@ -61,10 +63,19 @@ process.stdin.on("end", () => {
   return dir;
 }
 
+// A throwaway CODEX_HOME with a known configured model, so the wrapper's config
+// fallback (real codex emits no model in its JSONL) is exercised deterministically.
+let codexHome;
+function makeCodexHome() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-codex-home-"));
+  fs.writeFileSync(path.join(dir, "config.toml"), 'model = "codex-config-model"\n', "utf8");
+  return dir;
+}
+
 function runWrapper(dir, inputPath, resultPath, extraEnv = {}) {
   return spawnSync(process.execPath, [wrapper, inputPath, resultPath], {
     encoding: "utf8",
-    env: { ...process.env, ...extraEnv, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
+    env: { ...process.env, CODEX_HOME: codexHome, ...extraEnv, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
     timeout: 30000
   });
 }
@@ -74,6 +85,7 @@ function readInvocation(dir) {
 }
 
 function main() {
+  codexHome = makeCodexHome();
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-codex-wrapper-smoke-"));
   const inputPath = path.join(work, "input.md");
   const resultPath = path.join(work, "result.md");
@@ -88,15 +100,17 @@ function main() {
     assert.deepEqual(invocation.args.slice(0, 2), ["exec", "--json"], "codex runs in exec JSONL mode");
     assert.ok(invocation.args.includes("--output-last-message"), "codex final response is written to a file");
     assert.deepEqual(invocation.args.slice(invocation.args.indexOf("--sandbox"), invocation.args.indexOf("--sandbox") + 2), ["--sandbox", "read-only"]);
-    assert.deepEqual(invocation.args.slice(invocation.args.indexOf("--ask-for-approval"), invocation.args.indexOf("--ask-for-approval") + 2), ["--ask-for-approval", "never"]);
+    // codex exec is non-interactive and never prompts; it has no --ask-for-approval flag.
+    // Passing one makes `codex exec` exit 2 ("unexpected argument"). Keep it absent.
+    assert.ok(!invocation.args.includes("--ask-for-approval"), "codex exec must NOT receive --ask-for-approval (rejected by codex >=0.139)");
     assert.equal(invocation.args[invocation.args.length - 1], "-", "prompt is fed on stdin");
     assert.ok(invocation.input.includes(marker), "worker input reaches codex stdin");
     assert.ok(invocation.input.includes("cw:result"), "cw result contract is appended");
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "final message is persisted to result.md");
     assert.equal(child.stderr, "", "default piped success is silent on stderr");
     const report = JSON.parse(child.stdout);
-    assert.equal(report.model, "codex-shim-model", "model comes from codex JSONL");
-    assert.equal(report.usage.input_tokens, 13, "usage comes from codex JSONL");
+    assert.equal(report.model, "codex-config-model", "model falls back to CODEX_HOME/config.toml (codex JSONL carries none)");
+    assert.equal(report.usage.input_tokens, 13, "usage comes from codex turn.completed");
     assert.equal(report.result, RESULT, "stdout report carries final result for CW provenance");
   }
 

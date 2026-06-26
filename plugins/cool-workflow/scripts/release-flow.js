@@ -119,6 +119,40 @@ function runGate() {
   if (r.status !== 0) die("deterministic gate FAILED — fix findings in normal cycles, do not retry the release here.");
 }
 
+// ---- 1b. vendor liveness preflight (cut only) ------------------------------
+// CW promises claude/codex/gemini/deepseek all work; this proves it before a cut.
+// LIVE: spends real tokens on each vendor, so it runs on --cut (release machine
+// has the keys), not on --check. HARD-BLOCK: any vendor not green stops the cut.
+// Escape hatch CW_SKIP_VENDOR_PREFLIGHT=1 (emergencies/offline). Test seam
+// CW_RELEASE_FLOW_PREFLIGHT_CMD overrides the command (smoke stubs it).
+function runVendorPreflight() {
+  if (!MODE_CUT) {
+    say("[1b/3] vendor preflight — skipped (check mode; live vendor calls run on --cut)");
+    return;
+  }
+  if (process.env.CW_SKIP_VENDOR_PREFLIGHT === "1") {
+    say("[1b/3] vendor preflight — SKIPPED via CW_SKIP_VENDOR_PREFLIGHT=1 (operator override)");
+    return;
+  }
+  const vendors = (process.env.CW_PREFLIGHT_VENDORS || "claude,codex,gemini,deepseek").trim();
+  const override = (process.env.CW_RELEASE_FLOW_PREFLIGHT_CMD || "").trim();
+  say(`[1b/3] vendor preflight — live liveness check: ${vendors}`);
+  let r;
+  if (override) {
+    // Test/override seam — shell:true, smoke/operator only, never the delegated agent.
+    r = spawnSync(override, { cwd: repoRoot, encoding: "utf8", shell: true, stdio: "inherit" });
+  } else {
+    r = spawnSync(process.execPath, [path.join(scriptsDir, "vendor-preflight.js"), "--vendors", vendors], {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: "inherit"
+    });
+  }
+  if (r.status !== 0) {
+    die("vendor preflight FAILED — a promised vendor is not live (missing CLI/key or broken). Users must not be limited to one vendor; fix before cutting, or set CW_SKIP_VENDOR_PREFLIGHT=1 to override.");
+  }
+}
+
 // ---- 2. independent reviewer, delegated to the configured agent -------------
 function reviewerPromptBody() {
   // Reuse the committed reviewer spec as the prompt; strip YAML frontmatter.
@@ -476,6 +510,7 @@ function main() {
   const inputPath = path.join(markerDir, `review-input-${HEAD}.md`);
 
   runGate();
+  runVendorPreflight();
   fs.writeFileSync(inputPath, buildReviewerInput(resultPath));
   delegateReview(resultPath, inputPath);
   const capability = verifyVerdict(resultPath);

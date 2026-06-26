@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-25 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-26 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-25 by `npm run sync:projec
 - Source modules: `68`
 - Workflow apps: `7`
 - Docs: `53`
-- Smoke tests: `149`
+- Smoke tests: `152`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -231,6 +231,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [coordinator-blackboard-smoke.js](../test/coordinator-blackboard-smoke.js)
 - [cw-help-per-command-smoke.js](../test/cw-help-per-command-smoke.js)
 - [dead-export-removal-guard-smoke.js](../test/dead-export-removal-guard-smoke.js)
+- [deepseek-agent-wrapper-smoke.js](../test/deepseek-agent-wrapper-smoke.js)
 - [demo-bundle-smoke.js](../test/demo-bundle-smoke.js)
 - [det-ids-b-smoke.js](../test/det-ids-b-smoke.js)
 - [doctor-smoke.js](../test/doctor-smoke.js)
@@ -248,6 +249,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [execution-backends-smoke.js](../test/execution-backends-smoke.js)
 - [freebsd-audit-fixes-smoke.js](../test/freebsd-audit-fixes-smoke.js)
 - [gemini-agent-wrapper-smoke.js](../test/gemini-agent-wrapper-smoke.js)
+- [gemini-opencode-agent-wrapper-smoke.js](../test/gemini-opencode-agent-wrapper-smoke.js)
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
 - [headline-commands-smoke.js](../test/headline-commands-smoke.js)
 - [incremental-resume-smoke.js](../test/incremental-resume-smoke.js)
@@ -335,6 +337,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [telemetry-verify-signatures-smoke.js](../test/telemetry-verify-signatures-smoke.js)
 - [token-budget-enforcement-smoke.js](../test/token-budget-enforcement-smoke.js)
 - [vendor-manifest-load-smoke.js](../test/vendor-manifest-load-smoke.js)
+- [vendor-preflight-smoke.js](../test/vendor-preflight-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)
 - [verify-import-audit-chain-smoke.js](../test/verify-import-audit-chain-smoke.js)
 - [web-desktop-workbench-smoke.js](../test/web-desktop-workbench-smoke.js)
