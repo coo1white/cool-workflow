@@ -80,11 +80,13 @@ async function runCli(argv = process.argv.slice(2)) {
             return;
         }
     }
-    // Map vendor shorthand flags (-claude, -codex, -deepseek) to --agent-command.
+    // Map vendor shorthand flags (-claude, -codex, -gemini, -deepseek) to --agent-command.
     if (args.options.claude)
         args.options["agent-command"] = "builtin:claude";
     if (args.options.codex)
         args.options["agent-command"] = "builtin:codex";
+    if (args.options.gemini)
+        args.options["agent-command"] = "builtin:gemini";
     if (args.options.deepseek)
         args.options["agent-command"] = "builtin:deepseek";
     // -dir / --dir / -d : an intuitive alias for --repo — the project folder to review,

@@ -920,7 +920,7 @@ export function formatHelp(): string {
   return [
     bold("Cool Workflow", out),
     "",
-    "  -q \"question\" [-claude|-codex|-deepseek]  Ask a question, get a report",
+    "  -q \"question\" [-claude|-codex|-gemini|-deepseek]  Ask a question, get a report",
     "  -q \"question\" --link <url>                 Review a remote repo by URL",
     "  version                                   Show version",
     "  update                                    Update to latest release",
@@ -933,6 +933,7 @@ export function formatHelp(): string {
     "  -d, --dir PATH         Project folder to review (alias for --repo)",
     "  -claude                Use Claude agent",
     "  -codex                 Use Codex agent",
+    "  -gemini                Use Gemini (via opencode)",
     "  -deepseek              Use DeepSeek (via opencode)",
     "  --verbose              Show full agent narration live (default: compact)",
     "  --full                 Verbose, plus the report printed inline at the end",

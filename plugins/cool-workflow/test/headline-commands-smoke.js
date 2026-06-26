@@ -74,7 +74,7 @@ console.log("headline: --question long form + flag-like questions route ok");
 }
 
 // ===== 4. vendor flags select an external interface and still route (vendor-agnostic) =====
-for (const vendor of ["-claude", "-codex", "-deepseek"]) {
+for (const vendor of ["-claude", "-codex", "-gemini", "-deepseek"]) {
   const work = tmpRepo();
   const r = run(["-q", "any risks?", vendor, "--check"], work);
   assert.doesNotMatch(r.stdout + r.stderr, NOT_FOUND, `${vendor} path must still route the question`);
@@ -82,7 +82,7 @@ for (const vendor of ["-claude", "-codex", "-deepseek"]) {
   assert.equal(p.appId, "architecture-review", `${vendor} keeps the default app`);
   assert.equal(p.checks.find((c) => c.name === "agent").status, "ok", `${vendor} configures an agent interface`);
 }
-console.log("headline: vendor flags -claude/-codex/-deepseek route ok");
+console.log("headline: vendor flags -claude/-codex/-gemini/-deepseek route ok");
 
 // ===== 5. no-agent commands work from anywhere, exit 0 =====
 {
