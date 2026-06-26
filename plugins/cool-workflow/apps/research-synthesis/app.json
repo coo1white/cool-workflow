@@ -3,7 +3,7 @@
   "id": "research-synthesis",
   "title": "Research Synthesis",
   "summary": "Split a research question into claims, investigate sources, cross-check evidence, verify claims, and synthesize a concise answer.",
-  "version": "0.1.93",
+  "version": "0.1.94",
   "author": "COOLWHITE LLC",
   "inputs": [
     {
