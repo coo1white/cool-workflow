@@ -12,12 +12,12 @@
 // worker's result.md ({{result}}), and forward claude's JSON on STDOUT so CW
 // records the agent-reported provenance.
 //
-// LIVE OUTPUT (Unix discipline): default output is the legacy `--output-format
-// json` contract, forwarded verbatim on stdout. Set CW_AGENT_STREAM=1 to opt in
-// to claude `stream-json`; only then does this wrapper render a human-readable
-// trace to stderr, and only when stderr is a TTY. Diagnostics stay off stdout,
-// and vendor-specific stream parsing lives HERE in the wrapper (policy), not in
-// CW's core (which only forwards, never parses).
+// LIVE OUTPUT (Unix discipline): the DEFAULT is claude `stream-json` — this
+// wrapper renders a human-readable trace to stderr (only when stderr is a TTY).
+// Set CW_AGENT_STREAM=0 (or CW_NO_STREAM=1) to fall back to the legacy
+// `--output-format json` contract, forwarded verbatim on stdout. Either way
+// diagnostics stay off stdout, and vendor-specific stream parsing lives HERE in
+// the wrapper (policy), not in CW's core (which only forwards, never parses).
 //
 // READ-ONLY by design: claude gets NO Write tool; the architecture-review app
 // declares the `readonly` sandbox profile. This wrapper (the transport) writes

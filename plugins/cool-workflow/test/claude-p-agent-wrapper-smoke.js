@@ -72,9 +72,18 @@ function shimDir(behavior) {
 }
 
 function runWrapper(dir, inputPath, resultPath, extraEnv = {}) {
+  // Hermetic: the wrapper's default output mode is governed by CW_AGENT_STREAM /
+  // CW_NO_STREAM (claude-p-agent.js). Scrub them from the inherited env so the
+  // "default mode" case tests the REAL default (stream-json) and each stream case
+  // sets the toggle explicitly via extraEnv. Without this, an ambient
+  // CW_AGENT_STREAM=0 (e.g. the release machine) flips the default to the legacy
+  // json path and breaks the default-mode assertion — a false-red release gate.
+  const baseEnv = { ...process.env };
+  delete baseEnv.CW_AGENT_STREAM;
+  delete baseEnv.CW_NO_STREAM;
   return spawnSync(process.execPath, [wrapper, inputPath, resultPath], {
     encoding: "utf8",
-    env: { ...process.env, ...extraEnv, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
+    env: { ...baseEnv, ...extraEnv, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
     timeout: 30000
   });
 }
