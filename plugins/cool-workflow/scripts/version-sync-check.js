@@ -60,6 +60,8 @@ function main() {
   // uses `npm install --no-package-lock`), so only validate it when present.
   checkJsonIfPresent("plugins/cool-workflow/package-lock.json", "version", VERSION, checks);
   checkJson("plugins/cool-workflow/.codex-plugin/plugin.json", "version", VERSION, checks);
+  checkJson("plugins/cool-workflow/server.json", "version", VERSION, checks);
+  checkNestedJson("plugins/cool-workflow/server.json", ["packages", 0, "version"], VERSION, checks);
   checkNestedJson("plugins/cool-workflow/manifest/plugin.manifest.json", ["identity", "version"], VERSION, checks);
   checkJson("plugins/cool-workflow/.claude-plugin/plugin.json", "version", VERSION, checks);
   checkJson("plugins/cool-workflow/.gemini-plugin/plugin.json", "version", VERSION, checks);

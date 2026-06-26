@@ -81,6 +81,7 @@ for (const vendor of ["-claude", "-codex", "-gemini", "-deepseek"]) {
   const p = JSON.parse(r.stdout);
   assert.equal(p.appId, "architecture-review", `${vendor} keeps the default app`);
   assert.equal(p.checks.find((c) => c.name === "agent").status, "ok", `${vendor} configures an agent interface`);
+  assert.match(p.nextCommand, new RegExp(`--agent-command builtin:${vendor.slice(1)}\\b`), `${vendor} chooses builtin:${vendor.slice(1)}`);
 }
 console.log("headline: vendor flags -claude/-codex/-gemini/-deepseek route ok");
 

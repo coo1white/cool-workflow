@@ -6,12 +6,12 @@
     "url": "https://github.com/coo1white/cool-workflow",
     "source": "github"
   },
-  "version": "0.1.94",
+  "version": "0.1.95",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "cool-workflow",
-      "version": "0.1.94",
+      "version": "0.1.95",
       "transport": {
         "type": "stdio"
       },

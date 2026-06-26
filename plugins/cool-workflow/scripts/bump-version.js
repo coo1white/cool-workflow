@@ -79,6 +79,16 @@ function main() {
   const lock = path.join(pluginRoot, "package-lock.json");
   if (fs.existsSync(lock) && replaceFirstVersionField(lock, next)) note("package-lock.json");
 
+  // 2b. Official MCP Registry server metadata (top-level server version + npm package version).
+  const serverJson = path.join(pluginRoot, "server.json");
+  if (fs.existsSync(serverJson)) {
+    const json = JSON.parse(fs.readFileSync(serverJson, "utf8"));
+    json.version = next;
+    if (json.packages && json.packages[0]) json.packages[0].version = next;
+    fs.writeFileSync(serverJson, `${JSON.stringify(json, null, 2)}\n`);
+    note("server.json");
+  }
+
   // 3. src/version.ts runtime constant
   const versionTs = path.join(pluginRoot, "src", "version.ts");
   const vtsText = fs.readFileSync(versionTs, "utf8");

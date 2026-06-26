@@ -52,7 +52,7 @@ function run(bin, args, cwd, env) {
 }
 
 // A stub "agent": node script that writes a chosen verdict to {{result}}.
-// verdict arg: APPROVED | REJECTED | MIXED | NONE (writes nothing).
+// verdict arg: APPROVED | MARKDOWN | REJECTED | MIXED | NONE (writes nothing).
 function writeStub(dir) {
   const stub = path.join(dir, "stub-agent.js");
   fs.writeFileSync(stub, `
@@ -60,6 +60,7 @@ const fs = require("node:fs");
 const resultPath = process.argv[2];
 const kind = process.argv[3];
 if (kind === "APPROVED") fs.writeFileSync(resultPath, "APPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
+else if (kind === "MARKDOWN") fs.writeFileSync(resultPath, "review notes\\n\\nAPPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. stub gate failure.\\n");
 else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\n1. hard failure\\nAPPROVED wrongsha\\nshould not pass\\n");
 // NONE: write nothing (simulate an agent that produced no verdict)
@@ -138,6 +139,20 @@ function runFlow(dir, { agentCmd, fileCommand } = {}) {
   // The binary must be split out as `node`, NOT the whole command string.
   assert.match(r.out, /\[2\/3\] reviewer — delegating to: node /, "log shows the binary split out as 'node'");
   assert.match(r.out, /"verdict": "APPROVED"/, "summary should report APPROVED for the builtin-style spawn");
+}
+
+// ---- Case 1c: markdown-wrapped APPROVED file is normalized -----------------
+// Some reviewer agents persist their full response to {{result}} even when the
+// exact APPROVED line appears later. Normalize that strict line instead of
+// forcing the operator to hand-write the verdict.
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} MARKDOWN` });
+  assert.equal(r.code, 0, `markdown-wrapped APPROVED verdict should pass:\n${r.err}\n${r.out}`);
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const verdict = path.join(dir, ".cw-release", `review-${sha}.verdict`);
+  assert.equal(fs.readFileSync(verdict, "utf8").split(/\r?\n/)[0], `APPROVED ${sha}`, "verdict file is normalized to strict first-line APPROVED");
 }
 
 // ---- Case 2: stub REJECTS → fail closed ----

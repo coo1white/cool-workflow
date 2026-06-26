@@ -185,6 +185,11 @@ function buildReviewerInput(resultPath) {
     "or:",
     "  REJECTED",
     "  <numbered gate failures with file:line references>",
+    "",
+    "If your host wrapper asks for Markdown, JSON, or a fenced result block, still put",
+    "the exact APPROVED/REJECTED verdict line above as a standalone line outside any",
+    "prose or code fence. The release tool extracts only strict standalone verdict",
+    "lines; prose such as 'Verdict: APPROVED' is not trusted.",
     ""
   ].join("\n");
 }
@@ -334,6 +339,14 @@ function verifyVerdict(resultPath) {
   const lines = text.split(/\r?\n/);
   const firstLine = lines[0] || "";
   if (firstLine !== `APPROVED ${HEAD}`) {
+    if (firstLine.toUpperCase() !== "REJECTED") {
+      const normalized = extractVerdictFromStdout(text, resultPath);
+      if (normalized && normalized.split(/\r?\n/)[0] === `APPROVED ${HEAD}`) {
+        fs.writeFileSync(resultPath, `${normalized}\n`);
+        const normalizedLines = normalized.split(/\r?\n/);
+        return (normalizedLines[1] || "").trim();
+      }
+    }
     die(`verdict first line must be exactly "APPROVED ${HEAD}" — release blocked.`, text.trim());
   }
   const cap = (lines[1] || "").trim();

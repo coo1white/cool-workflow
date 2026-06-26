@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.95
+
+- **Capability**: The headline command now has the promised Gemini short flag: `cw -q "..." -gemini` uses the existing `builtin:gemini` agent path. The package also now includes the PDCA blackboard loop app and the official MCP Registry metadata, so a published npm package can be accepted by the Registry.
+- **Implementation**: The `-gemini` flag maps to the same `builtin:gemini` wrapper as the long form; no new agent path or runtime dependency was added. `pdca-blackboard-loop` is a normal workflow app that uses the existing worker, verifier, MCP, CLI, and blackboard surfaces. `server.json` and `mcpName` are shipped with the npm package metadata.
+- **Tests**: PR #294 ran build, `headline-commands-smoke`, `gemini-opencode-agent-wrapper-smoke`, full `npm test` (153/153), manifest check, and whitespace check. PR #295 ran build, app validation, index/version/parity/manifest checks, and full `npm test` (153/153). The release cut re-runs the deterministic gate and independent reviewer before tagging.
+- **Risk**: Low. The CLI shortcut, workflow app, README media, and package metadata are additive; the existing machine output, signing, state format, and public TypeScript API are unchanged. Zero new runtime dependencies.
+
 ## 0.1.94
 
 - **Capability**: All four agent vendors — **claude, codex, gemini, and deepseek** — run again. 0.1.93 shipped with only `claude` working: the codex, opencode, and deepseek wrappers were broken against the installed CLIs, and gemini needs the operator's opencode key. `cw -q "…" -codex` (and `-deepseek`, plus `--agent-command builtin:gemini`) now complete a real run instead of parking. A new pre-release gate makes one live call per vendor and **hard-blocks** a `release-flow --cut` if any promised vendor is not live, so a release can no longer ship with a dead vendor.
