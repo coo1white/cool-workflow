@@ -13,6 +13,10 @@
 
 ### Get a saved, cited report from your AI agent — not a chat message you lose.
 
+<br>
+
+<img src="docs/assets/demo.gif" alt="cw demo tamper — builds a signed ledger, forges it three ways, catches all three" width="100%">
+
 </div>
 
 Point an AI coding agent at a repo (or any folder of docs) and Cool Workflow turns the run into a
