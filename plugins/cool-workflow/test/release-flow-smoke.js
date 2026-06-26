@@ -68,7 +68,7 @@ process.exit(0);
   return stub;
 }
 
-function runFlow(dir, { agentCmd } = {}) {
+function runFlow(dir, { agentCmd, fileCommand } = {}) {
   // Self-hermetic env, correct whether this smoke runs bare (`node
   // test/release-flow-smoke.js`) or under run-all.js's sandbox:
   //   - CW_NO_AUTO_AGENT=1 stops resolveAgentConfig() from auto-detecting a real
@@ -90,6 +90,16 @@ function runFlow(dir, { agentCmd } = {}) {
   delete env.CW_AGENT_COMMAND;
   delete env.CW_AGENT_ENDPOINT;
   if (agentCmd !== undefined) env.CW_AGENT_COMMAND = agentCmd;
+  if (fileCommand !== undefined) {
+    // Write the durable agent-config.json the way a builtin: expansion (or a
+    // hand-written file) leaves it: a SINGLE multi-token `command` string with NO
+    // separate `args` array. resolveAgentConfig reads this verbatim (it does NOT
+    // re-split a file command), so it reaches delegateReview unsplit — the exact
+    // shape that broke builtin: reviewers. Flags/env stay unset so the file wins.
+    fs.mkdirSync(home, { recursive: true });
+    fs.writeFileSync(path.join(home, "agent-config.json"),
+      `${JSON.stringify({ schemaVersion: 1, command: fileCommand }, null, 2)}\n`);
+  }
   return run("node", [FLOW, "--check"], dir, env);
 }
 
@@ -106,6 +116,28 @@ function runFlow(dir, { agentCmd } = {}) {
   assert.match(r.out, /"verdict": "APPROVED"/, "summary should report APPROVED");
   // --check skips the live vendor preflight (no keys spent on a dry gate).
   assert.match(r.out, /vendor preflight — skipped/, "check mode skips the live vendor preflight");
+}
+
+// ---- Case 1b: a builtin-style (unsplit, multi-token) command spawns correctly
+// Regression for the builtin: reviewer bug (v0.1.94). CW_AGENT_COMMAND=builtin:<v>
+// expands to "node /abs/wrapper.js {{input}} {{result}}" — ONE unsplit string with
+// no args array (the same shape a durable agent-config.json command leaves). The
+// old delegateReview ran spawnSync(cfg.command, []) and tried to exec a binary
+// literally named "node /abs/... {{input}}" → instant ENOENT, mislabeled as a
+// timeout, so the reviewer NEVER ran when configured via builtin:. delegateReview
+// must split it into bin + argv (like the orchestrator) and spawn the real binary.
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const r = runFlow(dir, { fileCommand: `node ${stub} {{result}} APPROVED` });
+  assert.equal(r.code, 0, `builtin-style unsplit command must spawn + APPROVE:\n${r.err}\n${r.out}`);
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const verdict = path.join(dir, ".cw-release", `review-${sha}.verdict`);
+  assert.ok(fs.existsSync(verdict), "verdict file must be written from the builtin-style spawn");
+  assert.match(fs.readFileSync(verdict, "utf8"), /^APPROVED /, "builtin-style command must produce an APPROVED verdict");
+  // The binary must be split out as `node`, NOT the whole command string.
+  assert.match(r.out, /\[2\/3\] reviewer — delegating to: node /, "log shows the binary split out as 'node'");
+  assert.match(r.out, /"verdict": "APPROVED"/, "summary should report APPROVED for the builtin-style spawn");
 }
 
 // ---- Case 2: stub REJECTS → fail closed ----
