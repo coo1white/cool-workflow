@@ -239,14 +239,18 @@ never polluted.
 The built-in templates are:
 
 ```text
---agent-command builtin:claude
---agent-command builtin:codex
+--agent-command builtin:claude       # claude -p (native)
+--agent-command builtin:codex        # codex exec (native)
+--agent-command builtin:gemini       # Gemini via opencode (google/gemini-3.5-flash)
+--agent-command builtin:gemini-cli   # native gemini CLI (needs GEMINI_API_KEY)
+--agent-command builtin:opencode     # opencode (its configured default model)
+--agent-command builtin:deepseek     # DeepSeek via opencode (deepseek/deepseek-chat)
 ```
 
-Gemini, OpenCode, DeepSeek, and GLM stay as external agent commands or HTTP
-endpoints until their stream format is proven by a local, deterministic wrapper
-smoke. DeepSeek and GLM are best reached through OpenCode or an HTTP agent
-adapter first; CW still imports no model SDK.
+claude and codex run their own CLIs; gemini and deepseek route through opencode
+(where their keys live), each proven by a local, deterministic wrapper smoke
+(override the model with CW_GEMINI_MODEL / CW_DEEPSEEK_MODEL). GLM stays an
+external agent command or HTTP endpoint. CW still imports no model SDK.
 
 ## Compatibility
 
