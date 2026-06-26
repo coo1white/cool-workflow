@@ -7,6 +7,7 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
+const skipTests = process.argv.includes("--skip-tests") || process.env.CW_RELEASE_CHECK_SKIP_TESTS === "1";
 const checks = [
   {
     name: "docs presence",
@@ -87,6 +88,11 @@ function main() {
     process.stdout.write(`release:check ${check.name} ... `);
     const started = Date.now();
     try {
+      if (skipTests && check.name === "tests") {
+        results.push({ name: check.name, ok: true, skipped: true, elapsedMs: 0 });
+        process.stdout.write("skipped\n");
+        continue;
+      }
       if (check.run) check.run();
       else runCommand(check.command);
       const elapsedMs = Date.now() - started;
@@ -103,7 +109,7 @@ function main() {
   const failed = results.filter((entry) => !entry.ok);
   process.stdout.write("\nRelease Check Summary\n");
   for (const result of results) {
-    process.stdout.write(`- ${result.ok ? "PASS" : "FAIL"} ${result.name}\n`);
+    process.stdout.write(`- ${result.skipped ? "SKIP" : result.ok ? "PASS" : "FAIL"} ${result.name}\n`);
   }
   process.stdout.write(`\nDry-run only: no tag, push, publish, or fixture mutation was requested.\n`);
   if (failed.length > 0) {
