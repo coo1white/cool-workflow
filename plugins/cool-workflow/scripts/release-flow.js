@@ -250,14 +250,28 @@ function delegateReview(resultPath, inputPath) {
   };
 
   if (cfg.command) {
-    const args = (cfg.args || []).map((a) => substitute(a, subMap));
-    say(`[2/3] reviewer — delegating to: ${cfg.command} ${(cfg.args || []).join(" ")} (model: ${cfg.model || "unreported"})`);
+    // cfg.command can arrive as a SINGLE unsplit multi-token string. A
+    // builtin:<vendor> template (CW_AGENT_COMMAND=builtin:claude) expands to
+    // "node /abs/claude-p-agent.js {{input}} {{result}}" with cfg.args undefined,
+    // and a durable agent-config.json command field is read verbatim (no split).
+    // Split it on whitespace into binary + inline args — the SAME way the
+    // orchestrator does (src/execution-backend/agent.ts resolveAgentInvocation) —
+    // so we spawn the real binary, never one literally named
+    // "node /abs/... {{input}}" (an instant ENOENT the old code mislabeled as a
+    // timeout). An explicit cfg.args array still follows the inline args. A plain
+    // CW_AGENT_COMMAND="claude -p {{input}}" is already pre-split by
+    // resolveAgentConfig, so this leaves it unchanged (no inline args).
+    const parts = cfg.command.split(/\s+/).filter(Boolean);
+    const bin = parts[0];
+    const argTemplate = [...parts.slice(1), ...(cfg.args || [])];
+    const args = argTemplate.map((a) => substitute(a, subMap));
+    say(`[2/3] reviewer — delegating to: ${bin} ${argTemplate.join(" ")} (model: ${cfg.model || "unreported"})`);
     // RED LINE: argv-style, shell:false. The agent runs the model in its own
     // process and inherits its own credentials; CW holds none.
     // Capture stdout so agents that print verdicts (rather than writing the
     // result file) are supported. Agents that DO write the file still work:
     // the file takes precedence. stderr goes to the terminal for live output.
-    const r = spawnSync(cfg.command, args, {
+    const r = spawnSync(bin, args, {
       cwd: repoRoot,
       env: { ...process.env },
       encoding: "utf8",
@@ -266,6 +280,10 @@ function delegateReview(resultPath, inputPath) {
       stdio: ["ignore", "pipe", "inherit"],
       maxBuffer: 32 * 1024 * 1024
     });
+    // A spawn that never started (ENOENT for a missing binary, ETIMEDOUT on the
+    // deadline) sets r.error — surface its real message instead of the old
+    // catch-all "(timeout/no-exit)" that hid the builtin: ENOENT for so long.
+    if (r.error) die(`reviewer agent could not be spawned (${bin}): ${r.error.message} — no verdict trusted.`);
     if (r.status !== 0) die(`reviewer agent exited ${r.status === null ? "(timeout/no-exit)" : r.status} — no verdict trusted.`);
     // If the agent already wrote the verdict file (backward compat), use it.
     // Otherwise extract the verdict from stdout (headless agent path).
