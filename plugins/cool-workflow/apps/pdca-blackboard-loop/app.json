@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "pdca-blackboard-loop",
+  "title": "PDCA Blackboard Loop",
+  "summary": "Three agents use one blackboard to plan, build, check, and choose the next step.",
+  "version": "0.1.0",
+  "author": "COOLWHITE LLC",
+  "inputs": [
+    {
+      "name": "goal",
+      "type": "string",
+      "required": true,
+      "description": "Work goal for the PDCA loop."
+    },
+    {
+      "name": "repo",
+      "type": "string",
+      "description": "Optional repo or folder path."
+    },
+    {
+      "name": "acceptance",
+      "type": "string",
+      "description": "Optional checks that say the work is done."
+    }
+  ],
+  "sandboxProfiles": [
+    "readonly",
+    "workspace-write"
+  ],
+  "compatibility": {
+    "minVersion": "0.1.30"
+  },
+  "metadata": {
+    "example": true,
+    "domain": "coordination",
+    "uses": [
+      "blackboard",
+      "mcp",
+      "pdca"
+    ]
+  },
+  "workflow": {
+    "entrypoint": "workflow.js"
+  }
+}

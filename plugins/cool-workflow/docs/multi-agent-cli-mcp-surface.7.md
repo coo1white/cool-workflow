@@ -129,6 +129,14 @@ The host surface fails closed when:
 - selection is missing a score or verifier readiness
 - a verifier-gated commit is not ready
 
+## PDCA Blackboard Loop
+
+`pdca-blackboard-loop` is a small workflow app for three-role work over one
+blackboard: planner, builder, and auditor. The host can plan the app, post each
+role result to one board topic through MCP, snapshot after the check step, and
+snapshot again after the next action. Builder, auditor, and next-action tasks
+require grounded evidence, so a verdict with no builder evidence is refused.
+
 ## Smoke Coverage
 
 `test/multi-agent-cli-mcp-surface-smoke.js` covers the full host loop over the
