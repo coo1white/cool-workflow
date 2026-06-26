@@ -7,9 +7,9 @@ Generated from the current repository code on 2026-06-26 by `npm run sync:projec
 - Package: `cool-workflow`
 - Version: `0.1.94`
 - Source modules: `68`
-- Workflow apps: `7`
+- Workflow apps: `8`
 - Docs: `53`
-- Smoke tests: `152`
+- Smoke tests: `153`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -128,6 +128,7 @@ multi-agent host -> topology -> blackboard/coordinator
 | `architecture-review` - Map a repository architecture, assess risks, verify important findings, and synthesize an evidence-backed verdict. | canonical | `repo`, `question`, `invariant`, `focus` | `readonly` | [manifest](../apps/architecture-review/app.json) / [workflow](../apps/architecture-review/workflow.js) |
 | `architecture-review-fast` - Run a shorter architecture review with parallel map and assess phases for faster first results. | canonical | `repo`, `question`, `invariant`, `focus`, `sourceContext`, `sourceContextDigest` | `readonly` | [manifest](../apps/architecture-review-fast/app.json) / [workflow](../apps/architecture-review-fast/workflow.js) |
 | `end-to-end-golden-path` - Deterministic one-worker workflow app for proving the CW integration chain. | userland | `question` | `readonly` | [manifest](../apps/end-to-end-golden-path/app.json) / [workflow](../apps/end-to-end-golden-path/workflow.js) |
+| `pdca-blackboard-loop` - Three agents use one blackboard to plan, build, check, and choose the next step. | example | `goal`, `repo`, `acceptance` | `readonly`, `workspace-write` | [manifest](../apps/pdca-blackboard-loop/app.json) / [workflow](../apps/pdca-blackboard-loop/workflow.js) |
 | `pr-review-fix-ci` - Review a pull request or branch, inspect CI failures, diagnose actionable issues, optionally patch, verify, and summarize with evidence. | canonical | `repo`, `pr`, `branch`, `base`, `ci`, `mode` | `readonly`, `workspace-write` | [manifest](../apps/pr-review-fix-ci/app.json) / [workflow](../apps/pr-review-fix-ci/workflow.js) |
 | `release-cut` - Prepare a release with checklist discipline: version checks, changelog, tests, packaging, release notes, and final verification. | canonical | `repo`, `version`, `previousVersion`, `releaseBranch`, `dryRun` | `readonly`, `workspace-write` | [manifest](../apps/release-cut/app.json) / [workflow](../apps/release-cut/workflow.js) |
 | `research-synthesis` - Split a research question into claims, investigate sources, cross-check evidence, verify claims, and synthesize a concise answer. | canonical | `question`, `source`, `scope`, `freshness` | `readonly`, `locked-down` | [manifest](../apps/research-synthesis/app.json) / [workflow](../apps/research-synthesis/workflow.js) |
@@ -277,6 +278,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [operator-ux-smoke.js](../test/operator-ux-smoke.js)
 - [parallel-onramp-smoke.js](../test/parallel-onramp-smoke.js)
 - [parity-doc-sync-smoke.js](../test/parity-doc-sync-smoke.js)
+- [pdca-blackboard-loop-smoke.js](../test/pdca-blackboard-loop-smoke.js)
 - [pii-redaction-smoke.js](../test/pii-redaction-smoke.js)
 - [pipeline-auto-advance-smoke.js](../test/pipeline-auto-advance-smoke.js)
 - [pipeline-runner-smoke.js](../test/pipeline-runner-smoke.js)
