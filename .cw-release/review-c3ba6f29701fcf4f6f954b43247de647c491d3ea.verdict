@@ -1,0 +1,59 @@
+APPROVED c3ba6f29701fcf4f6f954b43247de647c491d3ea
+All four agent vendors — claude, codex, gemini, and deepseek — now complete a real delegated run, and a cut-only live vendor-preflight hard-blocks any release that would ship with a dead vendor.
+
+--- Independent release-reviewer verdict (claude, json reviewer path) ---
+The gate **PASSED** in a single run (exit 0). All my independent judgment checks confirm the candidate:
+
+## Independent review — v0.1.94 (c3ba6f2)
+
+**Ground truth** — re-derived: HEAD `c3ba6f2`, prev tag `v0.1.93`, 66 files / +913−98. Four commits: #289 (CI idempotency), #290 (vendor fixes + preflight gate — the substance), #291 (version bump), #292 (hermetic smoke).
+
+**Deterministic gate** — ran `release-gate.sh` once: all 6 steps PASSED (build, tests, substance, test evidence, cadence, branch naming).
+
+**Spec accretion** — only `src/` change is the `version.ts` string bump. No new TS fields, so nothing declared-but-unread.
+
+**Test quality (would fail if reverted)** — discriminating, not trivial:
+- `vendor-preflight-smoke`: all-green→0, any-fail→1, exit-0-but-empty→FAIL, `--vendors` filter, unknown→2.
+- `deepseek`/`gemini-opencode` smokes assert the *model is actually selected* (`--model deepseek/deepseek-chat`) and the prompt is positional — the exact bugs fixed.
+- `codex` smoke asserts `--ask-for-approval` is **absent** (codex ≥0.139 exits 2 on it) and model falls back to `CODEX_HOME/config.toml`.
+- `release-flow-smoke` adds cut-mode cases: hard-block before reviewer, green-proceed, escape-hatch. ITERATION_LOG even records a mutation test for the prior cycle and the `CW_AGENT_STREAM=0` RED→GREEN proof behind #292.
+
+**Direction** — squarely North Star track C (manifests/agents driven by ≥2 real LLM clients): goes from 1 working vendor (claude) to 4 (claude/codex/gemini/deepseek), with a live release gate enforcing it. Not "infrastructure for future work" — a user-visible capability today.
+
+**FreeBSD discipline** — clean:
+- *POLA*: the `claude-p-agent.js` change is **comment-only** (verified: zero non-comment lines changed; the stream default already existed at v0.1.93). The codex/opencode changes fix paths that were *broken* (parking, never producing output), so no existing-output regression.
+- *Mechanism-not-policy*: vendor parsing/model-selection lives in wrappers (`deepseek`/`gemini` shims, opencode parser); core only forwards.
+- *Rule of Silence*: `vendor-preflight` stdout is the matrix (data), diagnostics on stderr; preflight is cut-only.
+- *Fail-closed*: hard-block on any dead vendor, wrappers refuse to fabricate empty results, escape hatch is explicit.
+- *Man-page sync*: `agent-delegation-drive.7.md` updated to the new builtin list in the same diff.
+
+**Anti-gaming** — this HEAD lineage was rejected once before (a prior reviewer's P0: gate RED under `CW_AGENT_STREAM=0`). The resubmission carries a *real* fix (#292 hermetic smoke), not cosmetics. I have not personally rejected this HEAD; approval is valid.
+
+Verdict: **APPROVED**. (Note: I have no file-write access; the verdict is recorded via this final message.)
+
+```
+APPROVED c3ba6f29701fcf4f6f954b43247de647c491d3ea
+All four agent vendors — claude, codex, gemini, and deepseek — now complete a real delegated run, and a cut-only live vendor-preflight hard-blocks any release that would ship with a dead vendor.
+```
+
+```cw:result
+{
+  "summary": "APPROVED v0.1.94 (c3ba6f2). Re-derived ground truth from git and ran release-gate.sh exactly once — all six steps PASSED. The substance (#290) makes all four agent vendors actually run: codex 0.139 dropped exec --ask-for-approval (passing it forced exit 2), opencode 1.x takes a positional message (no --prompt) and emits {type,part} JSONL — both were broken paths now fixed; gemini+deepseek route through opencode where the keys live; codex model provenance falls back to CODEX_HOME/config.toml. A new cut-only, live vendor-preflight.js hard-blocks a release if any promised vendor is not live. Tests are discriminating (model-selection, positional-prompt, hard-block exit codes, empty→FAIL) and would fail if reverted. Only src/ change is the version string. POLA holds: the claude-p-agent change is comment-only (stream default already existed at v0.1.93); the other wrappers fixed non-working paths, not existing outputs. Mechanism-not-policy, Rule of Silence, fail-closed, and man-page sync (agent-delegation-drive.7.md) all satisfied. Resubmission of a previously-rejected lineage carries a real fix (#292 hermetic smoke), not gaming. Capability: claude/codex/gemini/deepseek now complete real delegated runs, enforced by a release gate.",
+  "findings": [],
+  "evidence": [
+    "plugins/cool-workflow/scripts/agents/codex-agent.js:84",
+    "plugins/cool-workflow/scripts/agents/opencode-agent.js:74",
+    "plugins/cool-workflow/scripts/agents/deepseek-agent.js:21",
+    "plugins/cool-workflow/scripts/agents/gemini-opencode-agent.js:23",
+    "plugins/cool-workflow/scripts/agents/builtin-templates.json:5",
+    "plugins/cool-workflow/scripts/vendor-preflight.js:1",
+    "plugins/cool-workflow/scripts/release-flow.js:122",
+    "plugins/cool-workflow/test/vendor-preflight-smoke.js:60",
+    "plugins/cool-workflow/test/deepseek-agent-wrapper-smoke.js:99",
+    "plugins/cool-workflow/test/codex-agent-wrapper-smoke.js:103",
+    "plugins/cool-workflow/test/release-flow-smoke.js:393",
+    "plugins/cool-workflow/docs/agent-delegation-drive.7.md:242",
+    "plugins/cool-workflow/src/version.ts:1"
+  ]
+}
+```

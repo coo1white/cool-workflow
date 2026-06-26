@@ -1,0 +1,79 @@
+Confirmed the exact causation:
+- `CW_AGENT_STREAM` **unset** → test passes.
+- `CW_AGENT_STREAM=0` (the ambient state the gate ran under) → test fails at line 107.
+
+I now have everything needed for a verdict.
+
+---
+
+# REJECTED — release v0.1.94
+
+## Verdict
+The deterministic release gate **FAILS** in this release environment. I ran `bash plugins/cool-workflow/scripts/release-gate.sh` exactly once: it exited **1** at step `[2/6] tests` (`GATE FAIL: tests failed`). A release whose own gate is RED cannot be certified, regardless of how good the vendor work is.
+
+## What the release contains (verified, and it is genuinely substantive)
+This is *not* a thin release. Across `v0.1.93..HEAD` (3 commits, +879/−85) it:
+- Fixes `codex-agent.js` against codex 0.139 (drops the removed `exec --ask-for-approval`, reads model from `$CODEX_HOME/config.toml`).
+- Rewrites the `opencode-agent.js` JSON parser for the new `{type,part}` event shape and positional message arg; routes deepseek + gemini through it via thin `deepseek-agent.js` / `gemini-opencode-agent.js` shims.
+- Adds `vendor-preflight.js`, a live hard-block gate wired into `release-flow.js` as step `[1b/3]`.
+- The new tests (`vendor-preflight-smoke.js`, `deepseek-agent-wrapper-smoke.js`, `release-flow-smoke.js` cut cases) are real discriminators — they assert exit codes, model selection, and "blocks BEFORE the reviewer"; they would fail if the implementation were reverted. No dead spec fields (`lastMessageId`/`lastMessageText` are read at `opencode-agent.js:157`). Direction is squarely on North-Star Track C (multiple live LLM clients).
+
+So the rejection is **not** about substance. It is about a red gate.
+
+## The blocking failure (root cause, fully isolated)
+
+1. **`claude-p-agent-wrapper-smoke.js:107`** asserts the default wrapper uses `stream-json`:
+   `assert.equal(argv[argv.indexOf("--output-format") + 1], "stream-json", ...)` → **actual `json`**.
+
+2. **Root cause — a non-hermetic test, not a code defect.** `claude-p-agent.js:47` sets `streamEnabled = process.env.CW_AGENT_STREAM !== "0" && process.env.CW_NO_STREAM !== "1"`. The test's `runWrapper` (`claude-p-agent-wrapper-smoke.js:77`) spawns with `env: { ...process.env, ...extraEnv, ... }` — it inherits the ambient environment **without scrubbing `CW_AGENT_STREAM`**. The release machine has `CW_AGENT_STREAM=0` exported, so the wrapper takes the legacy `--output-format json` branch (`claude-p-agent.js:53`) and the line-107 default-mode assertion breaks.
+
+3. **Proven by isolation:** `env -u CW_AGENT_STREAM node …claude-p-agent-wrapper-smoke.js` → `ok` (exit 0). `CW_AGENT_STREAM=0 node …` → fails at line 107. Nothing in `v0.1.93..HEAD` touches `claude-p-agent.js` or this test — the failure is purely the ambient toggle leaking into a test that should control it explicitly.
+
+This is exactly the fragility this release should have closed: it is all about `CW_AGENT_STREAM` semantics (the new `vendor-preflight.js` itself sets `CW_AGENT_STREAM: "0"` per call), yet a smoke that asserts the *default* stream mode is not hermetic against that very variable.
+
+## Required fix (small, in-scope — make the gate green; do NOT cut another release for this)
+1. Make `claude-p-agent-wrapper-smoke.js` hermetic. In `runWrapper` (line ~74-78), build the spawn env and **`delete env.CW_AGENT_STREAM; delete env.CW_NO_STREAM;`** before applying `extraEnv`, so the "default mode" case at line 107 tests the real default and each stream case sets the toggle explicitly. (Mirror the explicit-env discipline the new `vendor-preflight-smoke.js` already follows.)
+2. Re-run `bash plugins/cool-workflow/scripts/release-gate.sh` and confirm it exits 0 with all 152 smokes green **with `CW_AGENT_STREAM=0` exported** (the real release-machine condition), not just with it unset.
+
+## Secondary observations (not blocking, but fix in the same change)
+- **Comment drift, `claude-p-agent.js:15-17`** says "default output is the legacy `--output-format json` … Set `CW_AGENT_STREAM=1` to opt in to stream-json," which contradicts the code at line 47 (stream is the default unless explicitly `"0"`) and the test's own expectation. Reconcile the comment with the actual default while you are in this file.
+- **Man-page sync (verify):** the vendor routing changed shipped behavior (`gemini` now → opencode, new `builtin:gemini-cli` alias, deepseek model selection), but `docs/agent-delegation-drive.7.md` got only a trailing-version bump (+2). Confirm the documented builtin-vendor list still matches `builtin-templates.json`; update it in the same diff if it now lists the old routing.
+
+This is the first review of this HEAD lineage; no gaming. Re-run the gate to green and resubmit — the substance already clears the bar; only the red gate stands in the way.
+
+```cw:result
+{
+  "summary": "REJECTED for tag v0.1.94. The deterministic release-gate.sh fails (exit 1) at the test step: claude-p-agent-wrapper-smoke.js:107 asserts the default claude wrapper uses --output-format stream-json but gets json. Root cause is a non-hermetic test, not a shipped-code defect: runWrapper (test line 77) inherits the ambient environment, and the release machine exports CW_AGENT_STREAM=0, which claude-p-agent.js:47 reads to flip the default to the legacy json path. Proven by isolation — env -u CW_AGENT_STREAM passes, CW_AGENT_STREAM=0 fails — and neither file changed in v0.1.93..HEAD. The vendor-fix substance (codex/opencode/deepseek/gemini live + vendor-preflight gate) is genuine and on Track C, with real discriminating tests, so the fix is to make the smoke hermetic (scrub CW_AGENT_STREAM/CW_NO_STREAM in runWrapper) and re-green the gate under CW_AGENT_STREAM=0 — not to split or re-cut. Secondary: comment drift at claude-p-agent.js:15-17 contradicts the code default, and agent-delegation-drive.7.md may be stale on the new gemini routing.",
+  "findings": [
+    {
+      "id": "release-gate-red-tests-step",
+      "title": "Deterministic release gate FAILS at the tests step (exit 1)",
+      "severity": "P0",
+      "classification": "real",
+      "evidence": ["plugins/cool-workflow/scripts/release-gate.sh:1", "plugins/cool-workflow/test/claude-p-agent-wrapper-smoke.js:107"]
+    },
+    {
+      "id": "claude-smoke-non-hermetic-env-leak",
+      "title": "claude-p-agent-wrapper-smoke leaks ambient CW_AGENT_STREAM=0 into the wrapper, flipping the default output-format and breaking the line-107 assertion",
+      "severity": "P0",
+      "classification": "real",
+      "evidence": ["plugins/cool-workflow/test/claude-p-agent-wrapper-smoke.js:77", "plugins/cool-workflow/test/claude-p-agent-wrapper-smoke.js:107", "plugins/cool-workflow/scripts/agents/claude-p-agent.js:47"]
+    },
+    {
+      "id": "claude-agent-comment-drift",
+      "title": "Header comment claims json is the default and stream is opt-in, contradicting the code default",
+      "severity": "P3",
+      "classification": "real",
+      "evidence": ["plugins/cool-workflow/scripts/agents/claude-p-agent.js:15", "plugins/cool-workflow/scripts/agents/claude-p-agent.js:47"]
+    },
+    {
+      "id": "man-page-vendor-routing-sync",
+      "title": "Vendor routing changed (gemini->opencode, builtin:gemini-cli, deepseek model) but agent-delegation man page got only a version bump — verify it is not stale",
+      "severity": "P3",
+      "classification": "unknown",
+      "evidence": ["plugins/cool-workflow/scripts/agents/builtin-templates.json:5", "plugins/cool-workflow/docs/agent-delegation-drive.7.md:1"]
+    }
+  ],
+  "evidence": ["plugins/cool-workflow/test/claude-p-agent-wrapper-smoke.js:107", "plugins/cool-workflow/test/claude-p-agent-wrapper-smoke.js:77", "plugins/cool-workflow/scripts/agents/claude-p-agent.js:47", "plugins/cool-workflow/scripts/agents/claude-p-agent.js:53", "plugins/cool-workflow/scripts/release-gate.sh:1", "plugins/cool-workflow/scripts/vendor-preflight.js:1", "plugins/cool-workflow/scripts/release-flow.js:122"]
+}
+```
