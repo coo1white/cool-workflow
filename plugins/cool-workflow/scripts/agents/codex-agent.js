@@ -16,6 +16,7 @@
 // stderr: optional live trace when CW_AGENT_STREAM=1 and attached to a TTY.
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const {
@@ -26,6 +27,21 @@ const {
   parseJsonLines,
   writeResult
 } = require("./agent-adapter-core");
+
+// codex exec --json (>=0.139) emits NO model field in its JSONL (only thread/turn
+// events + usage). For provenance, fall back to the model codex is configured to
+// use: $CODEX_HOME/config.toml (or ~/.codex/config.toml), key `model`. Best effort
+// — a stream model field (older/newer codex) still wins.
+function detectCodexModel() {
+  try {
+    const home = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
+    const cfg = fs.readFileSync(path.join(home, "config.toml"), "utf8");
+    const m = cfg.match(/^\s*model\s*=\s*["']([^"']+)["']/m);
+    return m ? m[1] : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -65,8 +81,6 @@ const args = [
   finalPath,
   "--sandbox",
   "read-only",
-  "--ask-for-approval",
-  "never",
   "--color",
   "never",
   "-"
@@ -133,5 +147,5 @@ child.on("close", (code) => {
     process.exit(1);
   }
 
-  emitReport(state.model, state.usage, resultText);
+  emitReport(state.model || detectCodexModel(), state.usage, resultText);
 });

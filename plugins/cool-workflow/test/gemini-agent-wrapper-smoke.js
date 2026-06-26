@@ -130,11 +130,13 @@ function main() {
 
   {
     const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "agent-config.js"));
-    const cfg = resolveAgentConfig({ "agent-command": "builtin:gemini" }, {});
-    assert.ok(cfg.command && cfg.command.includes("gemini-agent.js"), "builtin:gemini expands to the packaged wrapper");
+    // builtin:gemini now routes through opencode (where the user's key lives);
+    // the native Gemini CLI wrapper is preserved as builtin:gemini-cli.
+    const cfg = resolveAgentConfig({ "agent-command": "builtin:gemini-cli" }, {});
+    assert.ok(cfg.command && cfg.command.includes("gemini-agent.js"), "builtin:gemini-cli expands to the native Gemini CLI wrapper");
     assert.ok(cfg.command.includes("{{input}}") && cfg.command.includes("{{result}}"), "expanded template carries worker substitutions");
     assert.throws(() => resolveAgentConfig({ "agent-command": "builtin:nope" }, {}), /Unknown builtin agent template/, "unknown builtin fails closed");
-    console.log("gemini: builtin:gemini alias resolution OK");
+    console.log("gemini: builtin:gemini-cli alias resolution OK");
   }
 
   fs.rmSync(work, { recursive: true, force: true });

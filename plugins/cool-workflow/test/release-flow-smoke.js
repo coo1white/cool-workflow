@@ -104,6 +104,8 @@ function runFlow(dir, { agentCmd } = {}) {
   assert.ok(fs.existsSync(verdict), "verdict file must be written");
   assert.match(fs.readFileSync(verdict, "utf8"), /^APPROVED /, "verdict must be APPROVED");
   assert.match(r.out, /"verdict": "APPROVED"/, "summary should report APPROVED");
+  // --check skips the live vendor preflight (no keys spent on a dry gate).
+  assert.match(r.out, /vendor preflight — skipped/, "check mode skips the live vendor preflight");
 }
 
 // ---- Case 2: stub REJECTS → fail closed ----
@@ -386,6 +388,64 @@ function releaseFixture() {
   assert.ok(!/Released through the gated flow/.test(notes), "must NOT claim the gated flow without a verdict");
   assert.match(notes, /Backfilled Release: no committed reviewer verdict/, "emits the honest caveat instead");
   assert.match(notes, /Ungated body/, "still carries the CHANGELOG body");
+}
+
+// ---- Case: --cut runs the live vendor preflight and HARD-BLOCKS on failure ----
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const home = path.join(dir, ".cw-home");
+  const env = {
+    ...process.env,
+    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // stub: a promised vendor is not live
+    STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
+    CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
+    CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`
+  };
+  const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, env);
+  assert.equal(r.code, 1, "a failing vendor preflight blocks the cut");
+  assert.match(r.err, /vendor preflight FAILED/, "operator is told which step blocked");
+  assert.match(r.out, /\[1b\/3\] vendor preflight — live/, "preflight runs in cut mode");
+  assert.doesNotMatch(r.out, /\[2\/3\] reviewer/, "blocks BEFORE the reviewer step");
+}
+
+// ---- Case: --cut with a green preflight proceeds past it to the reviewer ----
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const home = path.join(dir, ".cw-home");
+  const env = {
+    ...process.env,
+    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_PREFLIGHT_CMD: "true", // stub: all vendors live
+    STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
+    CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
+    CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`
+  };
+  const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, env);
+  assert.equal(r.code, 0, `green preflight + APPROVED proceeds:\n${r.err}\n${r.out}`);
+  assert.match(r.out, /\[1b\/3\] vendor preflight — live/, "preflight runs in cut mode");
+  assert.match(r.out, /"verdict": "APPROVED"/, "flow completes through the reviewer");
+}
+
+// ---- Case: CW_SKIP_VENDOR_PREFLIGHT=1 overrides the live check on --cut ----
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const home = path.join(dir, ".cw-home");
+  const env = {
+    ...process.env,
+    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // would fail, but the skip wins
+    CW_SKIP_VENDOR_PREFLIGHT: "1",
+    STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
+    CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
+    CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`
+  };
+  const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, env);
+  assert.equal(r.code, 0, `escape hatch lets the cut proceed:\n${r.err}\n${r.out}`);
+  assert.match(r.out, /vendor preflight — SKIPPED via CW_SKIP_VENDOR_PREFLIGHT/, "escape hatch is reported");
 }
 
 process.stdout.write("release-flow-smoke: ok\n");
