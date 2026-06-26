@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — wire the `-gemini` headline shortcut (Unreleased)
+
+> The README promises `cw -q "..." -gemini`, and `builtin:gemini` already exists, but the headline CLI only mapped `-claude`, `-codex`, and `-deepseek`. This cycle wires the missing shortcut and updates help/test coverage. A Figma draft file for the CLI recovery docs was created first; further Figma page population was blocked by the Starter-plan MCP tool limit, so no repo-facing Figma URL is recorded here.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Map `-gemini` to the existing `builtin:gemini` agent command and show it in top-level help, matching the README and bundled Gemini-opencode wrapper. Keep the fix to the headline CLI surface: no new types, no new runtime dependency, no public API change. | plugins/cool-workflow/src/cli/command-surface.ts + plugins/cool-workflow/src/orchestrator.ts + plugins/cool-workflow/test/headline-commands-smoke.js + regenerated plugins/cool-workflow/dist/** + ITERATION_LOG.md | Extended the existing `headline-commands-smoke` vendor loop to include `-gemini`; `gemini-opencode-agent-wrapper-smoke` already proves `builtin:gemini` resolves to the wrapper. | BUILD OK; headline-commands-smoke OK; gemini-opencode-agent-wrapper-smoke OK; npm test 152/152; gen:manifests -- --check OK; no new task-marker comments | no (single small fix cycle; no release tag) |
+
 ## Batch — split the builtin: reviewer command in release-flow delegateReview (no ENOENT) (Unreleased)
 
 > Found while cutting v0.1.94: a `release-flow --cut` with a builtin reviewer never ran the reviewer. When `CW_AGENT_COMMAND=builtin:claude` (or any `builtin:<vendor>`), `resolveAgentConfig` expands it to a SINGLE unsplit string `cfg.command = "node /abs/claude-p-agent.js {{input}} {{result}}"` with `cfg.args` undefined. `delegateReview` then called `spawnSync(cfg.command, [], { shell: false })`, which tried to exec a binary literally named `"node /abs/... {{input}} {{result}}"` → instant ENOENT, which the code mislabeled as "reviewer agent exited (timeout/no-exit)", and the `{{input}}/{{result}}` placeholders never got substituted. A plain `CW_AGENT_COMMAND="claude -p {{input}}"` worked because `resolveAgentConfig` splits env/flag commands — but a builtin-expanded (or durable-file) command is one unsplit string that bypasses that split. The orchestrator already handles this (src/execution-backend/agent.ts `resolveAgentInvocation` splits a whitespace command into binary + argv); `delegateReview` did not. Release-tooling only — no user-facing surface.
