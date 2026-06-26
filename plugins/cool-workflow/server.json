@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.coo1white/cool-workflow",
+  "description": "Signed, cited, replayable workflows for Claude, Codex, Gemini, DeepSeek, and other agents.",
+  "repository": {
+    "url": "https://github.com/coo1white/cool-workflow",
+    "source": "github"
+  },
+  "version": "0.1.94",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "cool-workflow",
+      "version": "0.1.94",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": []
+    }
+  ]
+}
