@@ -1,0 +1,2 @@
+APPROVED 5f144ca05fd7948909d7d9d0a57dee79c707accc
+Users can now run `cw -q "…" -gemini` to route a question to the Gemini agent, and cool-workflow ships official MCP Registry metadata (server.json + mcpName) so the npm package can be published to and discovered through the MCP Registry.
