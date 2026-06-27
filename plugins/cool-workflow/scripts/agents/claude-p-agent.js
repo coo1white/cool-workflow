@@ -34,7 +34,7 @@ const { spawn, spawnSync } = require("node:child_process");
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-const { buildPrompt, createRenderer, toolLabel, summarizeToolResult } = require("./agent-adapter-core");
+const { buildPrompt, createRenderer, persistStderr, toolLabel, summarizeToolResult } = require("./agent-adapter-core");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -56,11 +56,14 @@ if (!streamEnabled) {
     shell: false
   });
   if (child.error) {
+    persistStderr(resultPath, `claude spawn failed: ${child.error.message}`);
     process.stderr.write(`claude spawn failed: ${child.error.message}\n`);
     process.exit(1);
   }
   if (child.status !== 0) {
-    process.stderr.write(String(child.stderr || `claude exited ${child.status}`));
+    const detail = String(child.stderr || `claude exited ${child.status}`);
+    persistStderr(resultPath, detail);
+    process.stderr.write(detail);
     process.exit(child.status === null ? 1 : child.status);
   }
 
@@ -69,6 +72,7 @@ if (!streamEnabled) {
   try {
     parsed = JSON.parse(out);
   } catch (error) {
+    persistStderr(resultPath, `claude output was not JSON: ${error.message}`);
     process.stderr.write(`claude output was not JSON: ${error.message}\n`);
     process.exit(1);
   }
@@ -166,6 +170,7 @@ function renderEvent(ev) {
 
 child.on("error", (err) => {
   render.finishLive(); // restore the terminal before exiting
+  persistStderr(resultPath, `claude spawn failed: ${err.message}`);
   process.stderr.write(`claude spawn failed: ${err.message}\n`);
   process.exit(1);
 });
@@ -174,12 +179,15 @@ child.on("close", (code) => {
   render.finishLive(); // stop the spinner + restore the cursor BEFORE any further output
   render.writeTranscript(transcriptPath); // full narration + tool I/O always saved
   if (code !== 0) {
+    const detail = childStderr.trim() || `claude exited ${code === null ? "(timeout/killed)" : code}`;
+    persistStderr(resultPath, detail);
     if (childStderr.trim()) process.stderr.write(`${childStderr.trim()}\n`);
     process.stderr.write(`claude exited ${code === null ? "(timeout/killed)" : code}\n`);
     process.exit(code === null ? 1 : code);
   }
   if (typeof resultText !== "string") {
     // Fail closed: no result event ⇒ no result.md ⇒ CW records a failed hop.
+    persistStderr(resultPath, childStderr.trim() || "claude produced no result event — refusing to fabricate a result");
     process.stderr.write("claude produced no result event — refusing to fabricate a result\n");
     process.exit(1);
   }

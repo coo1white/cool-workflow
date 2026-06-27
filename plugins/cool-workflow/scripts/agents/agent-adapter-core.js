@@ -2,6 +2,7 @@
 "use strict";
 
 const fs = require("node:fs");
+const path = require("node:path");
 
 const RESULT_CONTRACT = `
 === HOW TO RETURN YOUR ANSWER (overrides any 'write to result.md' instruction above) ===
@@ -448,6 +449,25 @@ function emitReport(model, usage, resultText) {
   process.stdout.write(JSON.stringify({ model, usage, result: resultText }));
 }
 
+// Drop the failed agent's stderr beside the worker's result.md so a `failed (exit
+// 1)` is readable AFTER the fact. CW core keeps only the child's stdout + exit
+// code (byte-stable evidence), so without this the real reason — a relay 5xx, an
+// auth error, a killed run — is lost. The worker dir already has a `logs/` folder
+// (src/worker-isolation.ts); resultPath is `<workerDir>/result.md`, so its
+// `logs/agent-stderr.log` sibling is the natural home. Advisory only: never throws,
+// never changes the exit code or the recorded evidence.
+function persistStderr(resultPath, text) {
+  const t = String(text || "").trim();
+  if (!t || !resultPath) return;
+  try {
+    const dir = path.join(path.dirname(resultPath), "logs");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "agent-stderr.log"), `${t}\n`, "utf8");
+  } catch {
+    /* advisory only — diagnostics must never break the run */
+  }
+}
+
 module.exports = {
   RESULT_CONTRACT,
   buildPrompt,
@@ -461,5 +481,6 @@ module.exports = {
   parseJsonLines,
   flushJsonLines,
   writeResult,
-  emitReport
+  emitReport,
+  persistStderr // save a failed agent's stderr to <workerDir>/logs/agent-stderr.log (shared by all wrappers)
 };

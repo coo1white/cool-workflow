@@ -27,6 +27,52 @@ HTTP API. Any API key comes from the agent's *own* inherited env; CW never reads
 or keeps a record of it. Adding a provider SDK to `package.json` would lose the
 neutral-audit moat and is the red line.
 
+## Architecture — the boundary (core ↔ agent backend ↔ wrappers)
+
+The core gives only an INTERFACE: the `agent` execution backend plus a small
+text/process contract. The four vendors (claude / codex / gemini / deepseek)
+live OUTSIDE the core as out-of-process wrapper scripts in `scripts/agents/` —
+pure config, never imported by `src/`, behind the same seam.
+
+```text
+                       user
+                       │  cw -q "…" -codex   (headline shortcut; also -claude/-gemini/-deepseek)
+                       ▼
+┌──────────── CW core  (src/ — zero runtime deps, imports NO model SDK, holds NO key) ───────────┐
+│                                                                                                │
+│  command-surface.ts        agent-config.ts                 execution-backend  ("agent" driver) │
+│  -codex → builtin:codex ─► builtin:<name> ─►               runAgentProcess:                     │
+│                            node <dir>/<name>-agent.js       spawnSync(binary, args, shell:false)│
+│                            {{input}} {{result}}            · inherits env  · captures stdout    │
+│                            (builtin-templates.json: DATA)  · records handle{process}+attestation│
+└───────────────────────────────────────┬───────────────────────────────────────────────────────┘
+     THE SEAM  (text / process contract) │
+       in : argv  {{input}}=worker input.md   {{result}}=worker result.md
+       out: wrapper writes result.md + ONE stdout JSON line {model,usage,result} → parseAgentReport
+                                         │
+   ── red line ──  core never reads a key; each wrapper resolves its OWN key from inherited env
+                                         │
+┌──────── external wrappers  (scripts/agents/*.js — "CONFIG, not a CW runtime dependency") ───────┐
+│   claude-p-agent.js     codex-agent.js      gemini-opencode-agent.js    deepseek-agent.js       │
+│        │                     │                        └──────────┬──────────────┘              │
+│        ▼                     ▼                                   ▼  (3-line shims)              │
+│   claude -p            codex exec                          opencode-agent.js                    │
+│   (Anthropic CLI)      (-c effort, sandbox)               opencode run --model …                │
+│                                                           (deepseek + gemini keys live here)    │
+└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+   Add a vendor = drop a wrapper script + one line in builtin-templates.json — NO core edit.
+```
+
+Each box maps to one source seam: the flag map lives in `command-surface.ts`
+(`-codex` → `builtin:codex`); `agent-config.ts` expands `builtin:<name>` into
+`node <dir>/<name>-agent.js {{input}} {{result}}` by reading
+`builtin-templates.json` (the registry is DATA, not a kernel literal); the
+`agent` driver's `runAgentProcess` does the `spawnSync` and reads back the one
+stdout JSON line via `parseAgentReport`. So the four vendors are **delegated
+agent wrappers, not an event-"hook" system**. The seam is generic: any
+`CW_AGENT_COMMAND="node my-agent.js {{input}} {{result}}"` or a configured HTTP
+endpoint plugs in the same way — the four builtins are just bundled examples.
+
 ## Operator-chosen model is policy; agent-reported model is the attestation
 
 Any model id CW passes **into** the agent invocation (`CW_AGENT_MODEL`
@@ -250,7 +296,22 @@ The built-in templates are:
 claude and codex run their own CLIs; gemini and deepseek route through opencode
 (where their keys live), each proven by a local, deterministic wrapper smoke
 (override the model with CW_GEMINI_MODEL / CW_DEEPSEEK_MODEL). GLM stays an
-external agent command or HTTP endpoint. CW still imports no model SDK.
+external agent command or HTTP endpoint. CW still imports no model SDK. The same
+headline shortcuts pick these builtins on the top-level CLI: `cw -q "..."
+-claude` / `-codex` / `-gemini` / `-deepseek`.
+
+The codex wrapper caps codex's reasoning effort for CW runs so a heavy
+`model_reasoning_effort = "high"` in the user's `~/.codex/config.toml` does not
+make every read/grep turn slow. It passes `codex exec -c
+model_reasoning_effort=<effort>` (default `low`) for THAT run only — the user's
+interactive codex is untouched. Raise it with `CW_CODEX_REASONING_EFFORT`
+(`low` | `medium` | `high`).
+
+When an agent hop fails, CW core keeps only the child's stdout + exit code, so a
+bare `failed (exit 1)` hid the real cause (a relay 5xx, an auth error, a killed
+run). Each wrapper now also drops the failed child's stderr to
+`<run>/workers/<worker>/logs/agent-stderr.log`, so the reason is readable after
+the fact without changing the recorded, byte-stable evidence.
 
 ## Compatibility
 
