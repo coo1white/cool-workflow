@@ -7,6 +7,13 @@ on:
       - master
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cool-workflow:
     runs-on: ubuntu-latest
@@ -35,11 +42,8 @@ jobs:
       - run: npm run check
       - run: node scripts/cw.js list
       - run: node scripts/cw.js schedule list
-      # Enforce the full suite and release gates on every push/PR — not just the
-      # lightweight build/check/list above. `test:coverage` runs all smokes
-      # (including the CLI <-> MCP parity smoke) once under V8 coverage and
-      # fails closed if dist/ line coverage drops below the floor (see
-      # scripts/coverage-gate.js); `release:check` adds the parity, vendor
-      # manifest, version-sync, golden-path, canonical-apps, and eval gates.
+      # `test:coverage` already runs the full smoke suite; keep release:check for
+      # the remaining parity, manifest, version-sync, golden-path, canonical-apps,
+      # and eval gates without running the same suite a second time.
       - run: npm run test:coverage
-      - run: npm run release:check
+      - run: npm run release:check -- --skip-tests
