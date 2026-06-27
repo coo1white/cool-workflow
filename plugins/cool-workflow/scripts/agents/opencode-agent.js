@@ -27,6 +27,7 @@ const {
   emitReport,
   flushJsonLines,
   parseJsonLines,
+  persistStderr,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -136,6 +137,7 @@ child.stderr.on("data", (chunk) => {
 
 child.on("error", (error) => {
   render.finishLive();
+  persistStderr(resultPath, `opencode spawn failed: ${error.message}`);
   process.stderr.write(`opencode spawn failed: ${error.message}\n`);
   process.exit(1);
 });
@@ -146,23 +148,29 @@ child.on("close", (code) => {
   render.writeTranscript(transcriptPath);
   if (code !== 0) {
     const detail = childStderr.trim() || `opencode exited ${code === null ? "(timeout/killed)" : code}`;
+    persistStderr(resultPath, detail);
     process.stderr.write(`${detail}\n`);
     process.exit(code === null ? 1 : code);
   }
   if (state.invalidJson) {
-    process.stderr.write("opencode --format json produced a non-JSONL stdout line - refusing to trust the result\n");
+    const detail = "opencode --format json produced a non-JSONL stdout line - refusing to trust the result";
+    persistStderr(resultPath, childStderr.trim() || detail);
+    process.stderr.write(`${detail}\n`);
     process.exit(1);
   }
 
   const resultText = state.finalResult || state.lastMessageText || state.textFragments.join("\n\n");
   if (!resultText.trim()) {
-    process.stderr.write("opencode produced no result text - refusing to fabricate a result\n");
+    const detail = "opencode produced no result text - refusing to fabricate a result";
+    persistStderr(resultPath, childStderr.trim() || detail);
+    process.stderr.write(`${detail}\n`);
     process.exit(1);
   }
 
   try {
     writeResult(resultPath, resultText);
   } catch (error) {
+    persistStderr(resultPath, `opencode produced no final result: ${error.message}`);
     process.stderr.write(`opencode produced no final result: ${error.message}\n`);
     process.exit(1);
   }

@@ -14,6 +14,13 @@
 //
 // stdout: one JSON object { model, usage, result } for CW provenance.
 // stderr: optional live trace when CW_AGENT_STREAM=1 and attached to a TTY.
+//
+// SPEED: codex `exec` inherits the user's ~/.codex/config.toml, including a heavy
+// `model_reasoning_effort` (e.g. "high"), which makes every read/grep turn slow.
+// CW caps it for ITS runs only via `-c model_reasoning_effort=<effort>` — a
+// per-run override that does NOT touch the user's interactive codex. Tune with
+// CW_CODEX_REASONING_EFFORT (default "low"); set it to "medium"/"high" to opt back
+// into more thinking.
 
 const fs = require("node:fs");
 const os = require("node:os");
@@ -25,6 +32,7 @@ const {
   emitReport,
   flushJsonLines,
   parseJsonLines,
+  persistStderr,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -74,9 +82,14 @@ function recordJsonLine(line) {
 
 render.action("codex: reading the repo (read-only)…");
 
+// Cap codex's reasoning effort for CW runs (speed) — overrides config.toml for
+// THIS invocation only. Default "low"; CW_CODEX_REASONING_EFFORT opts back up.
+const effort = process.env.CW_CODEX_REASONING_EFFORT || "low";
 const args = [
   "exec",
   "--json",
+  "-c",
+  `model_reasoning_effort=${effort}`,
   "--output-last-message",
   finalPath,
   "--sandbox",
@@ -108,6 +121,7 @@ child.stderr.on("data", (chunk) => {
 
 child.on("error", (error) => {
   render.finishLive();
+  persistStderr(resultPath, `codex spawn failed: ${error.message}`);
   process.stderr.write(`codex spawn failed: ${error.message}\n`);
   process.exit(1);
 });
@@ -118,11 +132,14 @@ child.on("close", (code) => {
   render.writeTranscript(transcriptPath);
   if (code !== 0) {
     const detail = childStderr.trim() || `codex exited ${code === null ? "(timeout/killed)" : code}`;
+    persistStderr(resultPath, detail);
     process.stderr.write(`${detail}\n`);
     process.exit(code === null ? 1 : code);
   }
   if (state.invalidJson) {
-    process.stderr.write("codex --json produced a non-JSONL stdout line - refusing to trust the result\n");
+    const detail = "codex --json produced a non-JSONL stdout line - refusing to trust the result";
+    persistStderr(resultPath, childStderr.trim() || detail);
+    process.stderr.write(`${detail}\n`);
     process.exit(1);
   }
 
@@ -130,7 +147,9 @@ child.on("close", (code) => {
   try {
     resultText = fs.readFileSync(finalPath, "utf8");
   } catch {
-    process.stderr.write("codex produced no final output file - refusing to fabricate a result\n");
+    const detail = "codex produced no final output file - refusing to fabricate a result";
+    persistStderr(resultPath, childStderr.trim() || detail);
+    process.stderr.write(`${detail}\n`);
     process.exit(1);
   } finally {
     try {
@@ -143,6 +162,7 @@ child.on("close", (code) => {
   try {
     writeResult(resultPath, resultText);
   } catch (error) {
+    persistStderr(resultPath, `codex produced no final result: ${error.message}`);
     process.stderr.write(`codex produced no final result: ${error.message}\n`);
     process.exit(1);
   }
