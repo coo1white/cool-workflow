@@ -1,0 +1,2 @@
+APPROVED 9771d991cf12bce2ce6f8aeb946c8e78ea0d55bc
+`cw -q "..." -codex` now returns in ~23s instead of ~4min and every failed agent run leaves its real stderr at `<worker>/logs/agent-stderr.log`.
