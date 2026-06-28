@@ -109,7 +109,7 @@ async function main() {
   assert.equal(view.surface, "workbench");
   assert.equal(view.runId, runId);
   assert.equal(view.resolved, true, "the bootstrapped run resolves");
-  for (const group of ["graph", "blackboard", "worker", "candidate", "audit"]) {
+  for (const group of ["graph", "blackboard", "worker", "candidate", "audit", "metrics", "collaboration"]) {
     assert.ok(view.panels[group], `panel group ${group} present`);
   }
 
@@ -129,7 +129,10 @@ async function main() {
     [view.panels.audit.summary, ["audit", "summary", runId]],
     [view.panels.audit.multiAgent, ["audit", "multi-agent", runId, "--json"]],
     [view.panels.audit.policy, ["audit", "policy", runId, "--json"]],
-    [view.panels.audit.judge, ["audit", "judge", runId, "--json"]]
+    [view.panels.audit.judge, ["audit", "judge", runId, "--json"]],
+    [view.panels.metrics.report, ["metrics", "show", runId, "--json"]],
+    [view.panels.collaboration.review, ["review", "status", runId, "--json"]],
+    [view.panels.collaboration.comments, ["comment", "list", runId, "--json"]]
   ];
   for (const [panel, argv] of panelCliParity) {
     assert.equal(panel.status, "present", `panel ${panel.capability} present on a fresh run`);
@@ -142,6 +145,19 @@ async function main() {
   }
 
   // ---- 2. CLI <-> MCP parity for the new capabilities ----------------------
+  // Label drift gate: every panel capability must exist in the registry,
+  // and the CLI label must reference the registered verb path.
+  const { CAPABILITY_REGISTRY } = require("../dist/capability-registry");
+  for (const [panel] of panelCliParity) {
+    const reg = Object.values(CAPABILITY_REGISTRY).find((e) => e.capability === panel.capability);
+    assert.ok(reg, `panel capability ${panel.capability} must be registered in CAPABILITY_REGISTRY`);
+    const cliPath = reg.cli?.path?.filter((s) => s !== "--json").join(" ") || "";
+    assert.ok(
+      panel.cli.includes(cliPath) || panel.capability.startsWith("multi-agent"),
+      `panel ${panel.capability} CLI label "${panel.cli}" must reference registry path ${cliPath}`
+    );
+  }
+
   const cliView = cwJson(["workbench", "view", runId, "--json"]);
   const cliServe = cwJson(["workbench", "serve", "--once", "--json", "--cwd", workspace]);
   const mcp = openMcp();

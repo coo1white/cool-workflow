@@ -19,6 +19,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, ubuntu-24.04-arm]
+        node-version: ["18", "22"]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -29,7 +30,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
-          node-version: "22"
+          node-version: ${{ matrix.node-version }}
       - run: npm install --no-package-lock
       - run: npm run build
       # Committed dist/ must equal a fresh build of src/ (fail closed on drift).

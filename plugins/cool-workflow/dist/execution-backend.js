@@ -696,9 +696,17 @@ function runAgentProcess(descriptor, policy, request, label, handle, attestation
             // captured as data. CI/pipes stay silent. CW_AGENT_STREAM=0 or
             // CW_NO_STREAM=1 forces off; CW_AGENT_STREAM=1 forces on.
             const streamStderr = process.env.CW_AGENT_STREAM !== "0" && Boolean(process.stderr.isTTY) && process.env.CW_NO_STREAM !== "1";
+            // Build child env from sandbox policy as baseline (respects env.inherit/expose/deny),
+            // then re-allow CW_* + well-known API key env vars the agent needs.
+            const childEnv = buildChildEnv(policy);
+            for (const key of Object.keys(process.env)) {
+                if (/^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i.test(key)) {
+                    childEnv[key] = process.env[key];
+                }
+            }
             const child = (0, node_child_process_1.spawnSync)(resolved.binary, realArgs, {
                 cwd: request.cwd,
-                env: { ...process.env },
+                env: childEnv,
                 encoding: "utf8",
                 timeout: resolved.timeoutMs || 600000,
                 maxBuffer: 32 * 1024 * 1024,
