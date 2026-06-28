@@ -26,6 +26,21 @@ normalization, worker result acceptance, and durable feedback for denied worker
 output. The agent host has to do OS-level file access, process execution,
 network access, and environment filtering.
 
+**IMPORTANT**: Under the default `node` backend, a sandbox profile's
+`execute`, `network`, and `env` policy is **attested, not enforced**. CW
+validates the policy, records it in the worker manifest, and attests that
+these limits were declared — but the actual enforcement of command execution
+restrictions, network isolation, and environment variable filtering is
+DELEGATED to the host runtime. For full enforcement, use the `container`
+backend (`--backend container`) with Docker/Podman, or apply OS-level
+sandboxing to the agent process. Without OS enforcement, a worker under a
+`locked-down` profile can still run arbitrary commands and access the network.
+
+CW also now (v0.1.95) applies `buildChildEnv(policy)` as a baseline for agent
+spawns — only `PATH`, `HOME`, explicit `expose` entries, and well-known
+`CW_*` + LLM provider API key environment variables pass through. The
+operator's other process environment is not inherited by default.
+
 The design goal is simple:
 
 ```text

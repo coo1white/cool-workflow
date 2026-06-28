@@ -12,9 +12,9 @@ name: npm-publish
 # for a hand-published tarball. No long-lived npm publish token is needed.
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_run:
+    workflows: ["release-gate"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       ref:
@@ -32,9 +32,17 @@ jobs:
       run:
         working-directory: plugins/cool-workflow
     steps:
+      - name: Gate — refuse if release-gate did not pass
+        if: github.event_name == 'workflow_run'
+        run: |
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "::error::release-gate did not pass (conclusion=${{ github.event.workflow_run.conclusion }}). Refusing to publish."
+            exit 1
+          fi
+          echo "release-gate passed — proceeding to publish"
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.inputs.ref || github.ref }}
+          ref: ${{ github.event.inputs.ref || github.event.workflow_run.head_sha || github.ref }}
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
@@ -43,13 +51,24 @@ jobs:
       - name: Verify the tag matches the committed package version
         run: |
           PKG="$(node -p "require('./package.json').version")"
-          REF="${{ github.event.inputs.ref || github.ref_name }}"
+          REF="${{ github.event.inputs.ref || github.event.workflow_run.head_branch || github.ref_name }}"
           TAG="${REF#v}"
           echo "tag=$TAG package=$PKG"
           if [ "$TAG" != "$PKG" ]; then
             echo "::error::tag v$TAG does not match package version $PKG — refusing to publish a mismatched artifact"
             exit 1
           fi
+      - name: Verify committed dist/ matches source (fail closed on drift)
+        run: |
+          npm install --no-package-lock
+          npm run build
+          drift="$(git status --porcelain -- dist)"
+          if [ -n "$drift" ]; then
+            echo "::error::committed dist/ is stale — rebuild with 'npm run build' and commit:"
+            echo "$drift"
+            exit 1
+          fi
+          echo "dist/ is fresh — proceeding to publish"
       - name: Skip if this version is already published (idempotent re-run)
         id: published
         run: |

@@ -249,6 +249,12 @@ function isContainedPath(candidate, allowed) {
 // per-run reclamation chain) so a concurrent writer can never lose a record.
 // O_EXCL (`wx`) is portable (no native flock); a stale holder is stolen so a
 // crashed process can never wedge the store forever.
+//
+// v0.1.95: the lock mtime is refreshed immediately before fn() runs, and
+// verified AFTER fn() returns — if another process stole the lock mid-operation
+// (the stale check fired and it overwrote our lock), the holder refuses to
+// release and throws. This guards long-running RMW operations (e.g. GC over a
+// large run) against mid-operation theft.
 // ---------------------------------------------------------------------------
 const FILE_LOCK_STALE_MS = 30_000;
 function sleepSync(ms) {
@@ -258,11 +264,12 @@ function sleepSync(ms) {
 function withFileLock(targetPath, fn) {
     const lock = `${targetPath}.lock`;
     node_fs_1.default.mkdirSync(node_path_1.default.dirname(lock), { recursive: true });
+    const pid = String(process.pid);
     let acquired = false;
     for (let attempt = 0; attempt < 240 && !acquired; attempt++) {
         try {
             const fd = node_fs_1.default.openSync(lock, "wx");
-            node_fs_1.default.writeFileSync(fd, `${process.pid}@${new Date().toISOString()}\n`, "utf8");
+            node_fs_1.default.writeFileSync(fd, `${pid}@${new Date().toISOString()}\n`, "utf8");
             node_fs_1.default.closeSync(fd);
             acquired = true;
         }
@@ -276,19 +283,45 @@ function withFileLock(targetPath, fn) {
                 }
             }
             catch {
-                continue; // lock vanished between open and stat — retry immediately
+                continue;
             }
             sleepSync(25);
         }
     }
     if (!acquired)
         throw new Error(`could not acquire file lock for ${targetPath}`);
+    // Refresh mtime right before the critical section
     try {
-        return fn();
+        node_fs_1.default.utimesSync(lock, new Date(), new Date());
+    }
+    catch { /* best-effort */ }
+    try {
+        const result = fn();
+        // Verify lock was not stolen during fn(). The lock content may have changed
+        // if another process opened it with wx after stealing it. If our PID is not
+        // in the lock file, the lock was stolen — do NOT release the stolen lock
+        // (the thief owns it now, and releasing would corrupt its operation).
+        try {
+            const current = node_fs_1.default.readFileSync(lock, "utf8");
+            if (!current.startsWith(pid + "@")) {
+                throw new Error(`File lock for ${targetPath} was stolen during the critical section ` +
+                    `(lock now owned by another process). The operation may have lost ` +
+                    `cross-process isolation — increase FILE_LOCK_STALE_MS or split the work.`);
+            }
+        }
+        catch (checkError) {
+            if (checkError instanceof Error && checkError.message.includes("stolen"))
+                throw checkError;
+            /* lock vanished — another process already released it, nothing to clean up */
+        }
+        return result;
     }
     finally {
         try {
-            node_fs_1.default.rmSync(lock, { force: true });
+            // Only release if we still own the lock
+            const current = node_fs_1.default.readFileSync(lock, "utf8");
+            if (current.startsWith(pid + "@"))
+                node_fs_1.default.rmSync(lock, { force: true });
         }
         catch {
             /* releasing a missing lock is fine */
