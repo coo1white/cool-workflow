@@ -1,0 +1,2 @@
+APPROVED 036bc0ec4aaac7c71b4218f7b4598d4e54964a57
+codex vendor runs now return in ~23s instead of ~4min via a per-run reasoning-effort cap, and every failed vendor-agent run leaves its real stderr at `<worker>/logs/agent-stderr.log`.
