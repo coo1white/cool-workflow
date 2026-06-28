@@ -5,11 +5,11 @@ Generated from the current repository code on 2026-06-28 by `npm run sync:projec
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.1.94`
+- Version: `0.1.95`
 - Source modules: `68`
 - Workflow apps: `8`
 - Docs: `53`
-- Smoke tests: `154`
+- Smoke tests: `158`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -225,6 +225,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [cli-render-smoke.js](../test/cli-render-smoke.js)
 - [clones-gc-smoke.js](../test/clones-gc-smoke.js)
 - [codex-agent-wrapper-smoke.js](../test/codex-agent-wrapper-smoke.js)
+- [collaboration-ops-unit-smoke.js](../test/collaboration-ops-unit-smoke.js)
 - [concurrency-default-smoke.js](../test/concurrency-default-smoke.js)
 - [concurrent-failure-semantics-smoke.js](../test/concurrent-failure-semantics-smoke.js)
 - [concurrent-workflow-dsl-smoke.js](../test/concurrent-workflow-dsl-smoke.js)
@@ -249,6 +250,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [execution-backend-agent-smoke.js](../test/execution-backend-agent-smoke.js)
 - [execution-backend-ci-smoke.js](../test/execution-backend-ci-smoke.js)
 - [execution-backends-smoke.js](../test/execution-backends-smoke.js)
+- [feedback-ops-unit-smoke.js](../test/feedback-ops-unit-smoke.js)
 - [freebsd-audit-fixes-smoke.js](../test/freebsd-audit-fixes-smoke.js)
 - [gemini-agent-wrapper-smoke.js](../test/gemini-agent-wrapper-smoke.js)
 - [gemini-opencode-agent-wrapper-smoke.js](../test/gemini-opencode-agent-wrapper-smoke.js)
@@ -258,6 +260,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [loop-bounded-expansion-smoke.js](../test/loop-bounded-expansion-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
 - [mcp-surface-registry-smoke.js](../test/mcp-surface-registry-smoke.js)
+- [mcp-tool-call-coverage-smoke.js](../test/mcp-tool-call-coverage-smoke.js)
 - [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
 - [multi-agent-eval-determinism-regression-smoke.js](../test/multi-agent-eval-determinism-regression-smoke.js)
 - [multi-agent-eval-replay-harness-smoke.js](../test/multi-agent-eval-replay-harness-smoke.js)
@@ -294,6 +297,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [readme-trust-claim-smoke.js](../test/readme-trust-claim-smoke.js)
 - [real-execution-backends-smoke.js](../test/real-execution-backends-smoke.js)
 - [registry-corrupt-fail-closed-smoke.js](../test/registry-corrupt-fail-closed-smoke.js)
+- [release-check-skip-smoke.js](../test/release-check-skip-smoke.js)
 - [release-flow-smoke.js](../test/release-flow-smoke.js)
 - [release-gate-smoke.js](../test/release-gate-smoke.js)
 - [release-tooling-smoke.js](../test/release-tooling-smoke.js)
