@@ -148,4 +148,47 @@ assert.equal(afterDenied.feedback[0].code, "sandbox-write-denied");
 assert.equal(afterDenied.feedback[0].classification, "sandbox-policy");
 assert.equal(afterDenied.sandboxProfiles[0].id, "readonly");
 
+// --- Custom profile id collision ---
+// Two different profile files with the same logical id must be rejected.
+const collisionId = `collision-test-${Date.now()}`;
+const profileA = path.join(tmp, "profile-a.json");
+const profileB = path.join(tmp, "profile-b.json");
+fs.writeFileSync(profileA, JSON.stringify({ schemaVersion: 1, id: collisionId, title: "A", writePaths: ["out-a"], workerOutput: { result: true }, execute: { mode: "none" }, network: { mode: "none" }, env: { inherit: false } }), "utf8");
+fs.writeFileSync(profileB, JSON.stringify({ schemaVersion: 1, id: collisionId, title: "B", writePaths: ["out-b"], workerOutput: { result: true }, execute: { mode: "none" }, network: { mode: "none" }, env: { inherit: false } }), "utf8");
+
+// First dispatch with profile A — succeeds and persists the definition.
+const collisionRunId = "collision-smoke";
+const collisionDir = path.join(tmp, ".cw", "runs", collisionRunId);
+const colPaths = createRunPaths(collisionDir);
+ensureRunDirs(colPaths);
+const colTaskPath = path.join(colPaths.tasksDir, "task.md");
+fs.writeFileSync(colTaskPath, "collision test\n", "utf8");
+const colRun = {
+  schemaVersion: 1, id: collisionRunId,
+  createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  cwd: tmp,
+  workflow: { id: "col-wf", title: "Collision", summary: "", limits: { maxAgents: 2, maxConcurrentAgents: 1 } },
+  inputs: {},
+  loopStage: "interpret",
+  phases: [{ id: "map", name: "Map", status: "pending", taskIds: ["map:col"] }],
+  tasks: [{ id: "map:col", kind: "agent", phase: "Map", status: "pending", requiresEvidence: false, prompt: "test", taskPath: colTaskPath, resultPath: "", loopStage: "interpret", stateNodeId: `${collisionRunId}:task:map:col` }],
+  dispatches: [], commits: [], paths: colPaths, nodes: [], contracts: [], feedback: [], workers: [], sandboxProfiles: [], candidates: [], candidateSelections: []
+};
+saveCheckpoint(colRun);
+
+// Dispatch with profile A — should succeed.
+const d1 = JSON.parse(execFileSync("node", [cli, "dispatch", collisionRunId, "--limit", "1", "--sandbox", profileA], { cwd: tmp, encoding: "utf8" }));
+assert.equal(d1.tasks.length, 1);
+
+// Dispatch with profile B (same logical id, different file) — should fail.
+let collisionError = null;
+try {
+  execFileSync("node", [cli, "dispatch", collisionRunId, "--limit", "1", "--sandbox", profileB], { cwd: tmp, encoding: "utf8", stdio: "pipe" });
+} catch (error) {
+  collisionError = error;
+}
+assert.ok(collisionError, "dispatch with a colliding profile id must fail");
+const stderr = collisionError.stderr || "";
+assert.match(stderr, /collision|already defined/, "error must mention the id collision");
+
 process.stdout.write("sandbox-profile-smoke: ok\n");

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+// @cw-smoke: tags slow
 // remote-link-git-smoke — review a REMOTE git repo by URL (`cw -q "…" --link <url>`).
 // Fully hermetic + offline: the "remote" is a local bare repo addressed via a `file://`
 // URL, and the agent is a deterministic stub — no network, no live model. Asserts the

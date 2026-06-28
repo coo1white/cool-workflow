@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+// @cw-smoke: tags slow
 // concurrent-workflow-dsl-smoke — Phase 0 of the Workflow-tool DSL migration.
 //
 // Proves three additive capabilities, each with teeth, WITHOUT crossing CW's red

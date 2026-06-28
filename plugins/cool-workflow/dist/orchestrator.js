@@ -56,6 +56,7 @@ const worker_isolation_1 = require("./worker-isolation");
 const sandbox_profile_1 = require("./sandbox-profile");
 const execution_backend_1 = require("./execution-backend");
 const operator_ux_1 = require("./operator-ux");
+const trust_audit_1 = require("./trust-audit");
 const multi_agent_1 = require("./multi-agent");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const multi_agent_eval_1 = require("./multi-agent-eval");
@@ -102,11 +103,28 @@ class CoolWorkflowRunner {
     // reads runs from disk per call (no in-memory run state), so withBaseDir hands back
     // a cheap scoped clone instead of mutating the global process cwd.
     baseDir;
+    // Per-request cache (v0.1.95): when set, loadRun memoizes by runId so the 17
+    // workbench sub-panels that each call loadRun independently share one read.
+    _requestCache;
     constructor({ pluginRoot, baseDir }) {
         this.pluginRoot = resolvePluginRoot(pluginRoot);
         this.workflowsDir = node_path_1.default.join(this.pluginRoot, "workflows");
         this.appsDir = node_path_1.default.join(this.pluginRoot, "apps");
         this.baseDir = baseDir ? node_path_1.default.resolve(baseDir) : undefined;
+    }
+    /** Run fn with a per-request loadRun cache. All loadRun calls inside fn share
+     *  the same cached run state, collapsing 18 reads into 1. Returns fn's result
+     *  and clears the cache afterwards (never leaks between requests). */
+    loadWithCache(fn) {
+        this._requestCache = new Map();
+        (0, trust_audit_1.setAuditEventCache)(new Map());
+        try {
+            return fn(this);
+        }
+        finally {
+            this._requestCache = undefined;
+            (0, trust_audit_1.clearAuditEventCache)();
+        }
     }
     /** Return a runner that resolves runs against `dir` instead of process.cwd(),
      *  WITHOUT chdir-ing the process (F7). Same instance when the dir is unchanged. */
@@ -632,7 +650,14 @@ class CoolWorkflowRunner {
         return feedbackOps.resolveFeedback(this.loadRun(runId), feedbackId, options);
     }
     loadRun(runId) {
-        return (0, state_1.loadRunFromCwd)(runId, this.baseDir);
+        if (this._requestCache) {
+            const cached = this._requestCache.get(runId);
+            if (cached)
+                return cached;
+        }
+        const run = (0, state_1.loadRunFromCwd)(runId, this.baseDir);
+        this._requestCache?.set(runId, run);
+        return run;
     }
     invocationCwd() {
         return this.baseDir || process.cwd();

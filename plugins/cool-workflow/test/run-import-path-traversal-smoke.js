@@ -16,7 +16,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint, readJson, writeJson, assertSafeRunId } = require("../dist/state");
+const { createRunPaths, ensureRunDirs, saveCheckpoint, readJson, writeJson, assertSafeRunId, loadRunFromCwd } = require("../dist/state");
 const { exportRun, importRun, verifyReportBundle } = require("../dist/run-export");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-import-traversal-"));
@@ -136,9 +136,27 @@ for (const good of [
   "A_b.c-1",
   "v1.2.3",            // dotted single segment
   "v1..2",             // embedded `..` — legal workflow id, safe segment
-  "v1..2-20260620T101500Z-abc123" // realistic run id minted from such a workflow id
+  "v1..2-20260620T101500Z-abc123", // realistic run id minted from such a workflow id
+  "delegate:child",    // colon (sub-workflow task ids)
+  "map:server-api"     // colon (standard task id)
 ]) {
   assert.equal(assertSafeRunId(good), good, `assertSafeRunId must accept ${JSON.stringify(good)}`);
 }
+
+// --- loadRunFromCwd must also reject traversal run ids ---
+for (const bad of ["../evil", "..", ".", "a/b", "a\\b", "/abs", ""]) {
+  assert.throws(() => loadRunFromCwd(bad, tmp), /Missing run id|Invalid run id|Unsafe run id/, `loadRunFromCwd must reject ${JSON.stringify(bad)}`);
+}
+// Accept: a safe single segment run id works.
+const safeDir = path.join(tmp, ".cw", "runs", "load-safe");
+fs.mkdirSync(safeDir, { recursive: true });
+writeJson(path.join(safeDir, "state.json"), {
+  schemaVersion: 1, id: "load-safe", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  cwd: tmp, workflow: { id: "test", title: "Test", summary: "", limits: { maxAgents: 1, maxConcurrentAgents: 1 } },
+  inputs: {}, loopStage: "interpret", phases: [], tasks: [], dispatches: [], commits: [],
+  paths: createRunPaths(safeDir), nodes: [], contracts: []
+});
+const loaded = loadRunFromCwd("load-safe", tmp);
+assert.equal(loaded.id, "load-safe", "loadRunFromCwd must accept a safe single-segment run id");
 
 process.stdout.write("run-import-path-traversal-smoke: ok\n");

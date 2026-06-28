@@ -218,15 +218,16 @@ export function formatDispatchTask(task: RunTask): DispatchTask {
 }
 
 // Deterministic dispatch id (replay-determinism self-audit): the wall-clock stamp
-// is an edge timestamp (stripped on replay), but the former Math.random() suffix
-// made every dispatch mint a non-reproducible id. The suffix is now a per-run
-// sequence — the count of dispatches already allocated on this run — so re-running
-// the same workflow yields byte-identical dispatch ids while each dispatch within a
-// run still gets a distinct, monotonically increasing id. Mirrors the de-clock done
-// for worker ids in src/worker-isolation/paths.ts.
+// is an edge timestamp for human readability. Set CW_DETERMINISTIC_RUN_IDS=1 to
+// use a content-hash-based id without wall-clock, so re-running the same workflow
+// yields byte-identical dispatch ids. The suffix is a per-run sequence, so each
+// dispatch still gets a distinct, monotonically increasing id.
 function createDispatchId(run: WorkflowRun): string {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
   const seq = (run.dispatches?.length || 0) + 1;
+  if (/^(1|true|yes|on)$/i.test(process.env.CW_DETERMINISTIC_RUN_IDS || "")) {
+    return `dispatch-${String(seq).padStart(4, "0")}`;
+  }
   return `dispatch-${stamp}-${String(seq).padStart(4, "0")}`;
 }
 
@@ -252,5 +253,12 @@ function persistCustomSandboxProfile(run: WorkflowRun, requested: string): void 
   }
   if (!definition || typeof definition !== "object" || typeof definition.id !== "string" || !definition.id) return;
   run.customSandboxProfiles = run.customSandboxProfiles || {};
+  const previous = run.customSandboxProfiles[definition.id];
+  if (previous && JSON.stringify(previous) !== JSON.stringify(definition)) {
+    throw new Error(
+      `Sandbox profile id collision: "${definition.id}" is already defined by a different custom profile ` +
+      `(source: ${absolute}). Use a unique id in each custom profile file.`
+    );
+  }
   run.customSandboxProfiles[definition.id] = definition;
 }

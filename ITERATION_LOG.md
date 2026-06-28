@@ -786,6 +786,7 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 |-------|------|-------|-------|------|--------|
 | 1 | Add `pdca-blackboard-loop` as an example workflow app with four serial phases: Plan (`planner:plan`), Do (`builder:build`), Check (`auditor:audit`), Act (`planner:next`). Builder, auditor, and next-action tasks require grounded evidence, so missing evidence is refused by the existing worker verifier. The smoke drives real workflow workers through the CLI and uses existing MCP blackboard tools to resolve one board, create one topic, post role messages, add worker-result artifacts, and create snapshots after Check and Act. CLI and MCP blackboard reads are compared for the same run. | `plugins/cool-workflow/apps/pdca-blackboard-loop/` + `plugins/cool-workflow/test/pdca-blackboard-loop-smoke.js` + `plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md` + `plugins/cool-workflow/docs/project-index.md` + `ITERATION_LOG.md` | New `pdca-blackboard-loop-smoke`: happy path plans the app, completes planner/builder/auditor/next workers, posts all four role messages to one blackboard through MCP, indexes each result as an artifact, creates two snapshots, verifies CLI/MCP blackboard parity, and proves fail-closed auditor behavior by submitting an evidence-required audit result with empty evidence and asserting refusal. | BUILD OK; app validate OK; index:check OK; version:sync OK; parity:check OK; gen:manifests OK; npm test OK (`153/153 passed, 0 failed`) | no (one proof cycle; not a release batch) |
 
+<<<<<<< HEAD
 ## Batch — cut duplicate CI release-check tests (Unreleased)
 
 > CI was running the full smoke suite once under coverage and then running it again through `release:check`. The workflow now keeps coverage as the one test pass and runs the rest of `release:check` with an explicit tests skip.
@@ -793,3 +794,18 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Add an opt-in `release-check` tests skip for CI after `test:coverage`, so the PR/push hot path does not run the same smoke suite twice. The default `release:check` still runs tests. Also add read-only workflow permissions and cancel stale CI runs for the same ref. | `.github/workflows/ci.yml` + `.github/workflows/release-gate.yml` + `plugins/cool-workflow/scripts/release-check.js` + `plugins/cool-workflow/test/release-check-skip-smoke.js` + `plugins/cool-workflow/docs/project-index.md` + `ITERATION_LOG.md` | New `release-check-skip-smoke`: shims `npm`/`node`, runs `release-check.js --skip-tests`, proves the tests row is `SKIP`, proves `npm run test:ci` is not spawned, and proves other release gates still run. Project index regenerated for smoke count `154`. | BUILD OK; gen:manifests OK; `release:check --skip-tests` OK; npm test OK (`154/154 passed, 0 failed`) | no (CI hot-path fix; not a release) |
+
+## Batch — fix architecture review audit findings + perf improvements (Unreleased)
+
+> 16 P1/P2 risk findings from the architecture-review run were fixed across 3 waves.
+> Additionally: workbench request caching, parallel architecture-review phases, fast test mode.
+> Each finding had a test that failed before and passed after.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | W1-1..W1-4 (safety/data): atomic config write, safe runId, sandbox profile collision guard, evidence resolution default on | `agent-config.ts`, `state.ts`, `dispatch.ts`, `evidence-grounding.ts`, `run-all.js` | 4 tests (new + extended) | BUILD OK; test OK | — |
+| 2 | W2-5..W2-10 (sandbox/backend): audit event, shell injection guard, delegate script probe, reclamation type guard, schema diagnostics, probe cache TTL | `worker-isolation.ts`, `execution-backend.ts`, `probes.ts`, `reclamation.ts`, `derive.ts`, `schema-validate.ts` | 4 tests (extended) | BUILD OK; test OK | — |
+| 3 | W3-11..W3-16 (architecture/perf): deterministic IDs, file lock, workbench token, state-explosion split, fingerprint extraction, unit test | `lifecycle-operations.ts`, `state.ts`, `workbench-host.ts`, `state-explosion.ts`, `helpers.ts`, `node-snapshot.ts` | 1 test (new, 4 unit cases) | BUILD OK; test OK | — |
+| 4 | perf: workbench request caching (loadRun 18→1, event log 5→1), architecture-review parallel phases (Map+Assess 6-wide), test scripts (fast 35, full 55, gate 154) | `orchestrator.ts`, `trust-audit.ts`, `workbench.ts`, `workflow.js`, `package.json`, `release-gate.sh`, `run-all.js`, 8 slow test headers | — | BUILD OK; 154/154 test pass; gen:manifests OK | — |
+
+**Gate summary:** `npm run build` OK; `npm test` 154/154 pass; `gen:manifests` OK; no TODO/FIXME introduced; project-index synced.

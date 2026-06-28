@@ -1,11 +1,11 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-27 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-06-28 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.1.95`
+- Version: `0.1.94`
 - Source modules: `68`
 - Workflow apps: `8`
 - Docs: `53`
@@ -194,6 +194,7 @@ multi-agent host -> topology -> blackboard/coordinator
 
 Smoke tests mirror the public contracts. The high-signal suites are:
 
+- [agent-config-atomic-write-smoke.js](../test/agent-config-atomic-write-smoke.js)
 - [agent-delegation-drive-smoke.js](../test/agent-delegation-drive-smoke.js)
 - [append-run-node-no-realloc-smoke.js](../test/append-run-node-no-realloc-smoke.js)
 - [architecture-review-fast-automation-smoke.js](../test/architecture-review-fast-automation-smoke.js)
@@ -293,7 +294,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [readme-trust-claim-smoke.js](../test/readme-trust-claim-smoke.js)
 - [real-execution-backends-smoke.js](../test/real-execution-backends-smoke.js)
 - [registry-corrupt-fail-closed-smoke.js](../test/registry-corrupt-fail-closed-smoke.js)
-- [release-check-skip-smoke.js](../test/release-check-skip-smoke.js)
 - [release-flow-smoke.js](../test/release-flow-smoke.js)
 - [release-gate-smoke.js](../test/release-gate-smoke.js)
 - [release-tooling-smoke.js](../test/release-tooling-smoke.js)

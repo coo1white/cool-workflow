@@ -7,6 +7,7 @@ const { execFileSync } = require("node:child_process");
 
 const { createDispatchManifest } = require("../dist/dispatch");
 const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
+const { workerTrustAudit } = require("../dist/trust-audit");
 const {
   allocateWorkerScope,
   getWorkerScope,
@@ -123,6 +124,16 @@ const output = recordWorkerOutput(run, manual.id, manual.resultPath, { persist: 
 assert.equal(output.workerId, manual.id);
 assert.equal(run.tasks[0].status, "completed");
 assert.equal(getWorkerScope(run, manual.id).status, "verified");
+// Sandbox boundary audit: a successful write-path check must record that
+// command/network limits are delegated to the host.
+const workerEvents = workerTrustAudit(run, manual.id);
+const boundaryEvent = workerEvents.events.find((e) => e.kind === "worker.sandbox-boundary");
+assert.ok(boundaryEvent, "a worker.sandbox-boundary audit event must be recorded");
+assert.equal(boundaryEvent.decision, "allowed");
+assert.equal(boundaryEvent.source, "cw-validated");
+assert.ok(boundaryEvent.metadata, "boundary event must carry metadata");
+assert.ok(boundaryEvent.metadata.enforced_by_cw, "metadata must show what CW enforced");
+assert.ok(boundaryEvent.metadata.delegated_to_host, "metadata must show what was delegated to host");
 
 const dispatch = createDispatchManifest(run, 1);
 assert.equal(dispatch.tasks.length, 1);

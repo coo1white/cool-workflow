@@ -3,8 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stateExplosionReportLines = exports.formatBlackboardDigest = exports.formatCompactGraph = exports.formatStateExplosionReport = exports.fingerprintStrings = exports.GRAPH_VIEWS = exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS = exports.STATE_EXPLOSION_SCHEMA_VERSION = void 0;
-exports.computeStateSize = computeStateSize;
+exports.stateExplosionReportLines = exports.formatBlackboardDigest = exports.formatCompactGraph = exports.formatStateExplosionReport = exports.fingerprintStrings = exports.GRAPH_VIEWS = exports.STATE_EXPLOSION_SCHEMA_VERSION = exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS = exports.computeStateSizeWithGraph = exports.computeStateSize = void 0;
 exports.summarizeBlackboardDigest = summarizeBlackboardDigest;
 exports.buildCompactGraph = buildCompactGraph;
 exports.buildStateExplosionReport = buildStateExplosionReport;
@@ -21,15 +20,11 @@ const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const trust_audit_1 = require("./trust-audit");
 const evidence_reasoning_1 = require("./evidence-reasoning");
 const helpers_1 = require("./state-explosion/helpers");
-exports.STATE_EXPLOSION_SCHEMA_VERSION = 1;
-exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS = {
-    graphNodes: 40,
-    graphEdges: 60,
-    blackboardMessages: 25,
-    blackboardRecords: 40,
-    collapseBucket: 6,
-    totalRecords: 80
-};
+const size_1 = require("./state-explosion/size");
+Object.defineProperty(exports, "computeStateSize", { enumerable: true, get: function () { return size_1.computeStateSize; } });
+Object.defineProperty(exports, "computeStateSizeWithGraph", { enumerable: true, get: function () { return size_1.computeStateSizeWithGraph; } });
+Object.defineProperty(exports, "DEFAULT_STATE_EXPLOSION_THRESHOLDS", { enumerable: true, get: function () { return size_1.DEFAULT_STATE_EXPLOSION_THRESHOLDS; } });
+Object.defineProperty(exports, "STATE_EXPLOSION_SCHEMA_VERSION", { enumerable: true, get: function () { return size_1.STATE_EXPLOSION_SCHEMA_VERSION; } });
 exports.GRAPH_VIEWS = [
     "full",
     "compact",
@@ -79,65 +74,17 @@ function graphKey(view, options) {
         view,
         options.focus || "",
         options.depth === undefined ? "" : String(options.depth),
-        thresholdsKey(options.thresholds || exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS)
+        thresholdsKey(options.thresholds || size_1.DEFAULT_STATE_EXPLOSION_THRESHOLDS)
     ].join("\0");
 }
 // ---------------------------------------------------------------------------
-// State size
+// State size (implementation in state-explosion/size.ts)
 // ---------------------------------------------------------------------------
-function computeStateSize(run, thresholds = exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS) {
-    return computeStateSizeWithGraph(run, thresholds, (0, multi_agent_operator_ux_1.buildMultiAgentOperatorGraph)(run));
-}
-function computeStateSizeWithGraph(run, thresholds, graph) {
-    const ma = run.multiAgent || { runs: [], roles: [], groups: [], memberships: [], fanouts: [], fanins: [] };
-    const bb = run.blackboard || { topics: [], messages: [], contexts: [], artifacts: [], snapshots: [], decisions: [] };
-    const counts = {
-        multiAgentRuns: (ma.runs || []).length,
-        roles: (ma.roles || []).length,
-        groups: (ma.groups || []).length,
-        memberships: (ma.memberships || []).length,
-        fanouts: (ma.fanouts || []).length,
-        fanins: (ma.fanins || []).length,
-        topics: (bb.topics || []).length,
-        messages: (bb.messages || []).length,
-        contexts: (bb.contexts || []).length,
-        artifacts: (bb.artifacts || []).length,
-        snapshots: (bb.snapshots || []).length,
-        decisions: (bb.decisions || []).length,
-        graphNodes: graph.nodes.length,
-        graphEdges: graph.edges.length
-    };
-    const total = counts.multiAgentRuns +
-        counts.roles +
-        counts.groups +
-        counts.memberships +
-        counts.fanouts +
-        counts.fanins +
-        counts.topics +
-        counts.messages +
-        counts.contexts +
-        counts.artifacts +
-        counts.snapshots +
-        counts.decisions;
-    const reasons = [];
-    if (counts.graphNodes > thresholds.graphNodes)
-        reasons.push(`graph has ${counts.graphNodes} nodes (> ${thresholds.graphNodes})`);
-    if (counts.graphEdges > thresholds.graphEdges)
-        reasons.push(`graph has ${counts.graphEdges} edges (> ${thresholds.graphEdges})`);
-    if (counts.messages > thresholds.blackboardMessages)
-        reasons.push(`blackboard has ${counts.messages} messages (> ${thresholds.blackboardMessages})`);
-    const bbRecords = counts.topics + counts.messages + counts.contexts + counts.artifacts + counts.snapshots + counts.decisions;
-    if (bbRecords > thresholds.blackboardRecords)
-        reasons.push(`blackboard has ${bbRecords} records (> ${thresholds.blackboardRecords})`);
-    if (total > thresholds.totalRecords)
-        reasons.push(`run has ${total} multi-agent records (> ${thresholds.totalRecords})`);
-    return { ...counts, total, compactionRecommended: reasons.length > 0, reasons: reasons.sort() };
-}
 function stateSizeFor(run, thresholds, context) {
     const key = thresholdsKey(thresholds);
     let size = context.stateSizes.get(key);
     if (!size) {
-        size = computeStateSizeWithGraph(run, thresholds, fullGraphFor(run, context));
+        size = (0, size_1.computeStateSizeWithGraph)(run, thresholds, fullGraphFor(run, context));
         context.stateSizes.set(key, size);
     }
     return size;
@@ -321,7 +268,7 @@ function summarizeBlackboardDigest(run, blackboardId) {
     ]);
     const fingerprint = (0, helpers_1.fingerprintRecords)([...topics, ...messages, ...contexts, ...artifacts, ...decisions]);
     return {
-        schemaVersion: exports.STATE_EXPLOSION_SCHEMA_VERSION,
+        schemaVersion: size_1.STATE_EXPLOSION_SCHEMA_VERSION,
         runId: run.id,
         id: `blackboard-digest${boardId ? `:${boardId}` : ""}`,
         scope: "blackboard",
@@ -368,7 +315,7 @@ function buildCompactGraph(run, view = "compact", options = {}) {
     return buildCompactGraphWithContext(run, view, options, createStateExplosionBuildContext());
 }
 function buildCompactGraphWithContext(run, view, options, context) {
-    const thresholds = options.thresholds || exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
+    const thresholds = options.thresholds || size_1.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
     const key = graphKey(view, { ...options, thresholds });
     const cached = context.graphRecords.get(key);
     if (cached)
@@ -517,7 +464,7 @@ function finalizeGraphRecord(run, view, options, full, built) {
         ...built.syntheticNodes.filter((s) => s.blockedReason).map((s) => s.blockedReason)
     ]);
     return {
-        schemaVersion: exports.STATE_EXPLOSION_SCHEMA_VERSION,
+        schemaVersion: size_1.STATE_EXPLOSION_SCHEMA_VERSION,
         runId: run.id,
         id: `graph-${view}${options.focus ? `:focus:${(0, helpers_1.slug)(options.focus)}` : ""}`,
         scope: "run",
@@ -754,7 +701,7 @@ function buildOperatorDigestWithContext(run, thresholds, context) {
         ...compact.syntheticNodes.map((syn) => syn.expansionCommand)
     ]);
     return {
-        schemaVersion: exports.STATE_EXPLOSION_SCHEMA_VERSION,
+        schemaVersion: size_1.STATE_EXPLOSION_SCHEMA_VERSION,
         runId: run.id,
         id: "operator-digest",
         scope: "run",
@@ -817,7 +764,7 @@ function buildStateExplosionReport(run, options = {}) {
     return buildStateExplosionReportWithContext(run, options, createStateExplosionBuildContext());
 }
 function buildStateExplosionReportWithContext(run, options, context) {
-    const thresholds = options.thresholds || exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
+    const thresholds = options.thresholds || size_1.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
     const stateSize = stateSizeFor(run, thresholds, context);
     const compactGraph = buildCompactGraphWithContext(run, "compact", { thresholds }, context);
     const criticalPathGraph = buildCompactGraphWithContext(run, "critical-path", { thresholds }, context);
@@ -847,7 +794,7 @@ function buildStateExplosionReportWithContext(run, options, context) {
         ? `node scripts/cw.js summary refresh ${run.id}`
         : operatorDigest.nextAction;
     return {
-        schemaVersion: exports.STATE_EXPLOSION_SCHEMA_VERSION,
+        schemaVersion: size_1.STATE_EXPLOSION_SCHEMA_VERSION,
         runId: run.id,
         generatedAt: new Date().toISOString(),
         stateSize,
@@ -887,7 +834,7 @@ function currentEntryFingerprint(run, entry, records) {
  *  BSD: mechanism (check + refresh); policy (when to call) is at the call site. */
 function maybeCompactRun(run) {
     try {
-        const size = computeStateSize(run);
+        const size = (0, size_1.computeStateSize)(run);
         if (size.compactionRecommended) {
             refreshStateExplosionSummaries(run);
         }
@@ -900,7 +847,7 @@ function summariesDir(run) {
     return node_path_1.default.join(run.paths.runDir, "summaries");
 }
 function refreshStateExplosionSummaries(run, options = {}) {
-    const thresholds = options.thresholds || exports.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
+    const thresholds = options.thresholds || size_1.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
     const context = createStateExplosionBuildContext();
     const dir = summariesDir(run);
     node_fs_1.default.mkdirSync(dir, { recursive: true });
@@ -923,7 +870,7 @@ function refreshStateExplosionSummaries(run, options = {}) {
     const compactGraph = buildCompactGraphWithContext(run, "compact", { thresholds }, context);
     const reportPath = node_path_1.default.join(dir, "state-explosion-report.json");
     const index = {
-        schemaVersion: exports.STATE_EXPLOSION_SCHEMA_VERSION,
+        schemaVersion: size_1.STATE_EXPLOSION_SCHEMA_VERSION,
         runId: run.id,
         id: "multi-agent-summary-index",
         scope: "run",

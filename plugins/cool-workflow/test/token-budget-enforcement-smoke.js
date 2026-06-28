@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+// @cw-smoke: tags slow
 // token-budget-enforcement-smoke (Track 3) — `limits.tokenBudget` is ENFORCED by
 // the drive loop against RECORDED usage (the same deriveUsageTotals aggregation
 // MetricsReport shows; CW never measures usage itself). Proves:
@@ -52,6 +53,10 @@ function writeStub(file) {
 function setTokenBudget(run, budget) {
   const state = JSON.parse(fs.readFileSync(run.paths.state, "utf8"));
   state.workflow.limits.tokenBudget = budget;
+  // Budget tests rely on sequential execution to observe mid-run blocking.
+  // With parallel phases, concurrent dispatch would complete all Map tasks
+  // before the budget gate fires — collapse to 1-wide for this test.
+  state.workflow.limits.maxConcurrentAgents = 1;
   fs.writeFileSync(run.paths.state, JSON.stringify(state, null, 2), "utf8");
 }
 

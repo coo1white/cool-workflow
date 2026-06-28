@@ -22,6 +22,7 @@ exports.probeAgentBackend = probeAgentBackend;
 //
 // Readiness probe. Deterministic given the host (PATH + configured env).
 const node_fs_1 = __importDefault(require("node:fs"));
+const node_path_1 = __importDefault(require("node:path"));
 const util_1 = require("./util");
 function probeNodeBackend() {
     const ok = (0, util_1.hasExecutable)("node");
@@ -63,20 +64,35 @@ function probeContainerBackend() {
         reason: docker || podman ? undefined : "no container runtime (docker/podman) found; supply --image to delegate explicitly"
     };
 }
+function delegateChildExists() {
+    return node_fs_1.default.existsSync(node_path_1.default.resolve(__dirname, "..", "..", "scripts", "children", "http-delegate-child.js"));
+}
 function probeRemoteBackend() {
     const endpoint = (process.env.CW_REMOTE_ENDPOINT || "").trim();
+    const scriptOk = delegateChildExists();
+    const checks = [
+        { name: "endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_REMOTE_ENDPOINT configured" : "CW_REMOTE_ENDPOINT not set" },
+        { name: "delegate-child-script", ok: scriptOk, detail: scriptOk ? "http-delegate-child.js found" : "http-delegate-child.js missing — reinstall cool-workflow" }
+    ];
+    const readiness = !endpoint ? "unverified" : !scriptOk ? "unavailable" : "ready";
     return {
-        checks: [{ name: "endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_REMOTE_ENDPOINT configured" : "CW_REMOTE_ENDPOINT not set" }],
-        readiness: endpoint ? "ready" : "unverified",
-        reason: endpoint ? undefined : "no remote endpoint configured (set CW_REMOTE_ENDPOINT or pass --endpoint)"
+        checks,
+        readiness,
+        reason: readiness === "ready" ? undefined : !endpoint ? "no remote endpoint configured (set CW_REMOTE_ENDPOINT or pass --endpoint)" : "delegate child script is missing"
     };
 }
 function probeCiBackend() {
     const endpoint = (process.env.CW_CI_ENDPOINT || "").trim();
+    const scriptOk = delegateChildExists();
+    const checks = [
+        { name: "ci-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_CI_ENDPOINT configured" : "CW_CI_ENDPOINT not set" },
+        { name: "delegate-child-script", ok: scriptOk, detail: scriptOk ? "http-delegate-child.js found" : "http-delegate-child.js missing — reinstall cool-workflow" }
+    ];
+    const readiness = !endpoint ? "unverified" : !scriptOk ? "unavailable" : "ready";
     return {
-        checks: [{ name: "ci-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_CI_ENDPOINT configured" : "CW_CI_ENDPOINT not set" }],
-        readiness: endpoint ? "ready" : "unverified",
-        reason: endpoint ? undefined : "no CI job target configured (set CW_CI_ENDPOINT or pass --job)"
+        checks,
+        readiness,
+        reason: readiness === "ready" ? undefined : !endpoint ? "no CI job target configured (set CW_CI_ENDPOINT or pass --job)" : "delegate child script is missing"
     };
 }
 function probeAgentBackend() {

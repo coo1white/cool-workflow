@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+// @cw-smoke: tags slow
 // telemetry-attest-wrap-smoke (Track 1) — the EXECUTOR signing wrapper flips a
 // real (unsigned) agent's telemetry to `attested` end-to-end, with NO signing
 // logic in the agent itself. Proves:

@@ -132,6 +132,24 @@ assert.equal(deniedCommand.provenance.attestation.status, "refused");
 assert.ok(deniedCommand.evidence.some((e) => e.startsWith("refused:")), "refusal is recorded as evidence");
 assert.ok(!deniedCommand.evidence.some((e) => e.startsWith("stdoutSha256:")), "a refused command never produced output (no execution)");
 
+// (a2) Shell backend refuses args containing injection characters.
+let injectionError = null;
+try {
+  runBackend({
+    schemaVersion: 1,
+    backendId: "shell",
+    command,
+    args: ["list", "; echo injected"],
+    cwd: pluginRoot,
+    sandboxPolicy: policy,
+    label: "injection-test"
+  });
+} catch (e) {
+  injectionError = e;
+}
+assert.ok(injectionError, "shell backend must refuse args with shell injection characters");
+assert.match(injectionError.message, /shell.*refused|shell.*control/i, "error must mention shell injection guard");
+
 // (b) A delegating backend with no delegation target refuses (never runs unsandboxed).
 const remoteRefused = runBackend({
   schemaVersion: 1,

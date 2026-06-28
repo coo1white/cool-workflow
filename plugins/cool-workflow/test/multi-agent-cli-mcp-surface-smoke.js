@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 "use strict";
 
+// @cw-smoke: tags slow
+
 const assert = require("node:assert/strict");
 const { execFileSync, spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");

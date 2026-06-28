@@ -85,6 +85,22 @@ The dogfood release smoke and the architecture-review dogfood smoke are separate
 test files. The split keeps the same release and agent-drive proof, but lets
 `test:ci` schedule the two long checks in parallel.
 
+## PR CI Merge Notes
+
+When a PR is ready, list open PRs by creation time and merge the oldest ready
+one first. After each merge, check the next PR again; a new main commit may make
+it need a rebase.
+
+If main moved after the PR branch was made, replay the PR commits on top of the
+new main in a clean worktree. Keep local unrelated changes out of the rebase and
+out of the PR.
+
+Treat CI as the source of truth for what blocks the merge. Read the failed step
+first, fix only that drift, then push again. A common drift is the npm README:
+when `readme-sync-smoke.js` says the package README is stale, run
+`npm run sync:readme`, add only `plugins/cool-workflow/README.md`, and let CI run
+again.
+
 ## Boundary
 
 Release Tooling touches only the build/release surfaces. It adds no runtime

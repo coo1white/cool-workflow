@@ -143,22 +143,24 @@ function buildPanels(runner: CoolWorkflowRunner, runId: string): WorkbenchRunPan
  *  never fabricated. */
 export function buildWorkbenchRunView(runner: CoolWorkflowRunner, runId: string): WorkbenchRunView {
   const id = String(runId || "");
-  let resolved = true;
-  let error: string | undefined;
-  try {
-    runner.loadRun(id);
-  } catch (caught) {
-    resolved = false;
-    error = caught instanceof Error ? caught.message : String(caught);
-  }
-  return {
-    schemaVersion: 1,
-    surface: "workbench",
-    runId: id,
-    resolved,
-    ...(error ? { error } : {}),
-    panels: buildPanels(runner, id)
-  };
+  return runner.loadWithCache((r) => {
+    let resolved = true;
+    let error: string | undefined;
+    try {
+      r.loadRun(id);
+    } catch (caught) {
+      resolved = false;
+      error = caught instanceof Error ? caught.message : String(caught);
+    }
+    return {
+      schemaVersion: 1,
+      surface: "workbench",
+      runId: id,
+      resolved,
+      ...(error ? { error } : {}),
+      panels: buildPanels(r, id)
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -1,12 +1,14 @@
 // Pure, stateless helpers for the state-explosion derived-index layer —
-// status priority, fingerprinting, deterministic key-sorting, id/string
-// utilities. Carved out of state-explosion.ts (FreeBSD-audit god-module carve)
-// so the report/graph/digest builders no longer bundle the primitive helper
-// layer. Nothing here touches run state beyond its arguments; every function is
-// pure (`fingerprintStrings` is re-exported from state-explosion.ts to keep the
-// public surface byte-identical for importers).
+// status priority, deterministic key-sorting, id/string utilities. Carved
+// out of state-explosion.ts (FreeBSD-audit god-module carve). Nothing here
+// touches run state beyond its arguments; every function is pure.
+// fingerprintStrings is re-exported from util/fingerprint.ts so every
+// importer gets the single canonical implementation.
 import crypto from "node:crypto";
 import { WorkflowRun } from "../types";
+import { fingerprintRecords, fingerprintStrings } from "../util/fingerprint";
+
+export { fingerprintRecords, fingerprintStrings };
 
 export function isProtectedStatus(status: string): boolean {
   return ["failed", "blocked", "rejected", "conflicting"].includes(status);
@@ -25,16 +27,6 @@ export function parentMap(edges: Array<{ from: string; to: string }>): Map<strin
     if (!parents.has(edge.to)) parents.set(edge.to, edge.from);
   }
   return parents;
-}
-
-export function fingerprintRecords(records: Array<{ id: string; status?: string; updatedAt?: string }>): string {
-  return fingerprintStrings(records.map((r) => `${r.id}:${r.status || ""}`).sort());
-}
-
-export function fingerprintStrings(values: string[]): string {
-  const hash = crypto.createHash("sha256");
-  hash.update(JSON.stringify([...values].sort()));
-  return `sha256:${hash.digest("hex").slice(0, 32)}`;
 }
 
 export function stableLine(value: unknown): string {

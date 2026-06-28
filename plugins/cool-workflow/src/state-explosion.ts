@@ -25,29 +25,22 @@ import {
   truncate,
   slug
 } from "./state-explosion/helpers";
+import {
+  computeStateSize,
+  computeStateSizeWithGraph,
+  DEFAULT_STATE_EXPLOSION_THRESHOLDS,
+  STATE_EXPLOSION_SCHEMA_VERSION,
+  type StateExplosionThresholds,
+  type StateSize
+} from "./state-explosion/size";
 
-export const STATE_EXPLOSION_SCHEMA_VERSION = 1;
-
-// Thresholds describe when a derived userland index should be presented in place
-// of raw state. They never delete raw records; they only decide what the default
-// human view collapses. Defaults are stable so output is deterministic.
-export interface StateExplosionThresholds {
-  graphNodes: number;
-  graphEdges: number;
-  blackboardMessages: number;
-  blackboardRecords: number;
-  collapseBucket: number;
-  totalRecords: number;
-}
-
-export const DEFAULT_STATE_EXPLOSION_THRESHOLDS: StateExplosionThresholds = {
-  graphNodes: 40,
-  graphEdges: 60,
-  blackboardMessages: 25,
-  blackboardRecords: 40,
-  collapseBucket: 6,
-  totalRecords: 80
+export {
+  computeStateSize,
+  computeStateSizeWithGraph,
+  DEFAULT_STATE_EXPLOSION_THRESHOLDS,
+  STATE_EXPLOSION_SCHEMA_VERSION
 };
+export type { StateExplosionThresholds, StateSize };
 
 export type StateExplosionScope =
   | "run"
@@ -107,26 +100,6 @@ export interface SummaryRecordBase {
   status: SummaryStatus;
   deterministic: boolean;
   nextAction: string;
-}
-
-export interface StateSize {
-  multiAgentRuns: number;
-  roles: number;
-  groups: number;
-  memberships: number;
-  fanouts: number;
-  fanins: number;
-  topics: number;
-  messages: number;
-  contexts: number;
-  artifacts: number;
-  snapshots: number;
-  decisions: number;
-  graphNodes: number;
-  graphEdges: number;
-  total: number;
-  compactionRecommended: boolean;
-  reasons: string[];
 }
 
 export interface BlackboardDigestEntry {
@@ -309,58 +282,8 @@ function graphKey(view: GraphView, options: { focus?: string; depth?: number; th
 }
 
 // ---------------------------------------------------------------------------
-// State size
+// State size (implementation in state-explosion/size.ts)
 // ---------------------------------------------------------------------------
-
-export function computeStateSize(run: WorkflowRun, thresholds = DEFAULT_STATE_EXPLOSION_THRESHOLDS): StateSize {
-  return computeStateSizeWithGraph(run, thresholds, buildMultiAgentOperatorGraph(run));
-}
-
-function computeStateSizeWithGraph(
-  run: WorkflowRun,
-  thresholds: StateExplosionThresholds,
-  graph: ReturnType<typeof buildMultiAgentOperatorGraph>
-): StateSize {
-  const ma = run.multiAgent || { runs: [], roles: [], groups: [], memberships: [], fanouts: [], fanins: [] };
-  const bb = run.blackboard || { topics: [], messages: [], contexts: [], artifacts: [], snapshots: [], decisions: [] };
-  const counts = {
-    multiAgentRuns: (ma.runs || []).length,
-    roles: (ma.roles || []).length,
-    groups: (ma.groups || []).length,
-    memberships: (ma.memberships || []).length,
-    fanouts: (ma.fanouts || []).length,
-    fanins: (ma.fanins || []).length,
-    topics: (bb.topics || []).length,
-    messages: (bb.messages || []).length,
-    contexts: (bb.contexts || []).length,
-    artifacts: (bb.artifacts || []).length,
-    snapshots: (bb.snapshots || []).length,
-    decisions: (bb.decisions || []).length,
-    graphNodes: graph.nodes.length,
-    graphEdges: graph.edges.length
-  };
-  const total =
-    counts.multiAgentRuns +
-    counts.roles +
-    counts.groups +
-    counts.memberships +
-    counts.fanouts +
-    counts.fanins +
-    counts.topics +
-    counts.messages +
-    counts.contexts +
-    counts.artifacts +
-    counts.snapshots +
-    counts.decisions;
-  const reasons: string[] = [];
-  if (counts.graphNodes > thresholds.graphNodes) reasons.push(`graph has ${counts.graphNodes} nodes (> ${thresholds.graphNodes})`);
-  if (counts.graphEdges > thresholds.graphEdges) reasons.push(`graph has ${counts.graphEdges} edges (> ${thresholds.graphEdges})`);
-  if (counts.messages > thresholds.blackboardMessages) reasons.push(`blackboard has ${counts.messages} messages (> ${thresholds.blackboardMessages})`);
-  const bbRecords = counts.topics + counts.messages + counts.contexts + counts.artifacts + counts.snapshots + counts.decisions;
-  if (bbRecords > thresholds.blackboardRecords) reasons.push(`blackboard has ${bbRecords} records (> ${thresholds.blackboardRecords})`);
-  if (total > thresholds.totalRecords) reasons.push(`run has ${total} multi-agent records (> ${thresholds.totalRecords})`);
-  return { ...counts, total, compactionRecommended: reasons.length > 0, reasons: reasons.sort() };
-}
 
 function stateSizeFor(run: WorkflowRun, thresholds: StateExplosionThresholds, context: StateExplosionBuildContext): StateSize {
   const key = thresholdsKey(thresholds);

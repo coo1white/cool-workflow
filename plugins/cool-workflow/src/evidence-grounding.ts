@@ -14,15 +14,14 @@ import type { EvidenceConfidence } from "./types";
 // are all legitimate — so we cannot require "must be a file that exists" by
 // default without breaking cross-repo, URL, and runtime-token evidence. Instead:
 //
-//  1. DEFAULT (pure, deterministic): require evidence to be GROUNDED — a URL, a
-//     path-like locator, or a `namespace:value` token. This rejects bare prose
-//     ("x", "anything", "HIGH severity") while accepting every shape CW itself
-//     emits. Being a pure function of the string, it is replay-safe.
+//  1. DEFAULT: require evidence to be GROUNDED — a URL, a path-like locator, or
+//     a `namespace:value` token. This rejects bare prose ("x", "anything",
+//     "HIGH severity") while accepting every shape CW itself emits. Being a pure
+//     function of the string, it is replay-safe.
 //
-//  2. OPT-IN (CW_REQUIRE_RESOLVABLE_EVIDENCE=1): additionally resolve path-like
-//     locators against the run's base dirs and fail closed if a file locator does
-//     not exist on disk. Off by default because the resolving cwd is context-
-//     dependent; on for self-audit / compliance where evidence MUST be checkable.
+//  2. DEFAULT (v0.1.95): file-style evidence locators MUST also exist on disk.
+//     CW_REQUIRE_RESOLVABLE_EVIDENCE=0 restores the prior shape-only behavior.
+//     CW_REQUIRE_RESOLVABLE_EVIDENCE=url additionally requires URL reachability.
 // ---------------------------------------------------------------------------
 
 const URL_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
@@ -51,15 +50,19 @@ export function hasGroundedEvidence(evidence: unknown): boolean {
 }
 
 /** Whether opt-in strict resolution is requested via the environment.
- *  Set CW_REQUIRE_RESOLVABLE_EVIDENCE=1 for file resolution, =url for
- *  URL reachability checks too (v0.1.63). */
+ *  Enabled by DEFAULT (v0.1.95): file-style evidence locators MUST exist on disk.
+ *  Set CW_REQUIRE_RESOLVABLE_EVIDENCE=0 to restore the prior shape-only check.
+ *  Set CW_REQUIRE_RESOLVABLE_EVIDENCE=url for URL reachability checks too. */
 export function requireResolvableEvidence(): boolean {
-  return /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE || "");
+  const raw = process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE;
+  if (raw === undefined || raw === null || raw === "") return true;
+  if (/^(0|false|no|off)$/i.test(raw)) return false;
+  return true;
 }
 
-/** Whether URL reachability checks are enabled in strict mode (v0.1.63). */
+/** Whether URL reachability checks are enabled (v0.1.63). Always opt-in. */
 export function requireUrlReachability(): boolean {
-  return requireResolvableEvidence() || /url/i.test(process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE || "");
+  return /url/i.test(process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE || "");
 }
 
 interface LocatorShape {

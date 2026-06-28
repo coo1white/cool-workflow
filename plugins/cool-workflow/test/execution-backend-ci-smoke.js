@@ -38,6 +38,7 @@ async function main() {
     const probe = probeBackend("ci");
     assert.equal(probe.readiness, "unverified", "ci probe is unverified when CW_CI_ENDPOINT is not set");
     assert.ok(probe.checks.some((c) => c.name === "ci-endpoint" && !c.ok), "ci-endpoint check is not ok when unset");
+    assert.ok(probe.checks.some((c) => c.name === "delegate-child-script"), "delegate-child-script check exists in ci probe");
   }
 
   // ---- 3. SUCCESS PATH via a fake local CI runner (separate process) -----------
@@ -66,6 +67,7 @@ async function main() {
     const probe = probeBackend("ci");
     assert.equal(probe.readiness, "ready", "ci probe is ready when CW_CI_ENDPOINT is set");
     assert.ok(probe.checks.some((c) => c.name === "ci-endpoint" && c.ok), "ci-endpoint check is ok when set");
+    assert.ok(probe.checks.some((c) => c.name === "delegate-child-script" && c.ok), "delegate-child-script check is ok when script exists");
 
     // (b) runBackend -> completed, canonical evidence, handle in provenance
     const ci = runBackend({

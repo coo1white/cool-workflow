@@ -9,6 +9,7 @@ import path from "node:path";
 import { compareBytes } from "../compare";
 import {
   ReclaimedOverlay,
+  ReclamationTombstone,
   RunLifecycleState,
   RunQueueEntry,
   RunRecord,
@@ -151,8 +152,11 @@ export function loadReclaimedFromDir(runDir: string): ReclaimedOverlay {
   const file = path.join(runDir, "reclaimed.json");
   if (!fs.existsSync(file)) return { schemaVersion: 1, runId: "", tombstones: [] };
   try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as ReclaimedOverlay;
-    return { schemaVersion: 1, runId: parsed.runId || "", tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [] };
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== 1 || !Array.isArray(parsed.tombstones)) {
+      return { schemaVersion: 1, runId: "", tombstones: [] };
+    }
+    return { schemaVersion: 1, runId: String(parsed.runId || ""), tombstones: parsed.tombstones as ReclamationTombstone[] };
   } catch {
     return { schemaVersion: 1, runId: "", tombstones: [] };
   }

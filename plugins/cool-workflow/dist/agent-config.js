@@ -31,6 +31,7 @@ const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const run_registry_1 = require("./run-registry");
 const execution_backend_1 = require("./execution-backend");
+const state_1 = require("./state");
 exports.AGENT_CONFIG_SCHEMA_VERSION = 1;
 function agentConfigPath(env = process.env) {
     return node_path_1.default.join((0, run_registry_1.resolveCwHome)(env), "agent-config.json");
@@ -260,7 +261,7 @@ function setAgentConfigFile(patch, env = process.env) {
     const stored = redacted(merged);
     const file = agentConfigPath(env);
     node_fs_1.default.mkdirSync(node_path_1.default.dirname(file), { recursive: true });
-    node_fs_1.default.writeFileSync(file, `${JSON.stringify(stored, null, 2)}\n`, "utf8");
+    (0, state_1.writeJson)(file, stored);
     return stored;
 }
 /** Read-only, deterministic projection of the effective config (secret-stripped).
