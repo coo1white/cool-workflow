@@ -16,6 +16,9 @@ bun.lockb
 .cw-release/release-notes-*.md
 # Reviewer prompt inputs may include local checkout details and are regenerated.
 .cw-release/review-input-*.md
+# Reviewer agent narration transcript — written per-cut, may carry local paths
+# (e.g. the operator's home dir), so it must never ride into the tag commit.
+.cw-release/transcript*.md
 coverage/
 .nyc_output/
 .turbo/

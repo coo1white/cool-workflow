@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — stop the reviewer transcript from riding into the tag commit (Unreleased)
+
+> The v0.1.96 cut tagged and pushed, but `release-gate.yml` red-failed on the tag and `npm-publish` never ran. Root cause: `release-flow.js` `cut()` stages the verdict commit with `git add -A`, which swept `.cw-release/transcript.md` — the reviewer agent's narration (`claude-p-agent.js` writes it next to the verdict) — into the immutable tag commit. That transcript carries the operator's local path (`/Users/<user>/...`), so `pii-redaction-smoke` (scans every tracked file for blocked personal markers) failed, failing `test:gate`. `.gitignore` already drops the other ephemeral `.cw-release/` artifacts (`gate-*.ok`, `release-notes-*.md`, `review-input-*.md`) but missed `transcript*.md`; this only surfaced now because the always-on-disk reviewer transcript is recent — the prior 27 committed verdicts carried none.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Stop committing the reviewer transcript into the tag: gitignore `.cw-release/transcript*.md`, untrack the leaked `.cw-release/transcript.md`, and add a belt-and-suspenders sweep in `release-flow.js` `cut()` that removes any `.cw-release/transcript*.md` immediately before `git add -A` so it can never re-enter a tag even if tracked. Also fix one cosmetic CHANGELOG 0.1.96 attribution (`CW_PROBE_CACHE_TTL_MS` lives in `execution-backend.ts`, not `probes.ts`). Scripts/docs/ignore only; no CW core, TS surface, or verdict-contract change. | .gitignore + plugins/cool-workflow/scripts/release-flow.js + CHANGELOG.md + .cw-release/transcript.md (removed) + ITERATION_LOG.md | `pii-redaction-smoke` OK (755 tracked files, marker gone); full `CW_TEST_CONCURRENCY=1 npm run test:gate` rerun green; `ci.yml` 4-way matrix green on the PR | BUILD OK; onramp:check OK; pii-redaction-smoke OK | no (dev loop — fix-forward; the clean `release-flow --cut --version 0.1.96 --push` re-creates the tag after this lands) |
+
 ## Batch — bump version surfaces to 0.1.95 for MCP Registry release (Unreleased)
 
 > Release-prep for v0.1.95: ship the already-merged `-gemini` headline shortcut, PDCA blackboard loop app, README demo GIF, and MCP Registry metadata in one patch release. The npm package must carry `mcpName`, so the official Registry can validate the published package instead of the GitHub tree.

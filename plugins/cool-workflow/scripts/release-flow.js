@@ -503,6 +503,16 @@ function cut(resultPath, capability) {
   if (bump.status !== 0) die("bump:version failed");
   // Regenerate the gated project index after the version bump (PR #87 gate).
   spawnSync("npm", ["run", "sync:project-index", "--", "--repo-only"], { cwd: pluginRoot, stdio: "inherit" });
+  // Belt-and-suspenders: the reviewer agent writes a narration transcript into
+  // .cw-release/ that may carry local paths (the operator's home dir). It is
+  // .gitignored, but `git add -A` would still stage it if it were ever tracked,
+  // and a tracked transcript leaks PII into the immutable tag commit (it tripped
+  // pii-redaction-smoke and red-failed release-gate for v0.1.96). Remove any
+  // transcript before staging so it can never ride into the tag.
+  const releaseDir = path.join(repoRoot, ".cw-release");
+  for (const f of fs.existsSync(releaseDir) ? fs.readdirSync(releaseDir) : []) {
+    if (/^transcript.*\.md$/.test(f)) fs.rmSync(path.join(releaseDir, f), { force: true });
+  }
   git(["add", "-A"]);
   const commit = git(["commit", "-m", `chore(release): record APPROVED reviewer verdict for v${cutVersion}`]);
   if (commit.code !== 0) die("verdict commit failed", commit.err);
