@@ -170,3 +170,5 @@ blocked local user markers before release.
 0.1.94
 
 0.1.95
+
+0.1.96
