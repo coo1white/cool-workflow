@@ -119,8 +119,11 @@ export function loadReclamationLog(run: WorkflowRun): ReclaimedOverlay {
   const file = reclaimedLogPath(run);
   if (!fs.existsSync(file)) return { schemaVersion: 1, runId: run.id, tombstones: [] };
   try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as ReclaimedOverlay;
-    return { schemaVersion: 1, runId: run.id, tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [] };
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== 1 || !Array.isArray(parsed.tombstones)) {
+      return { schemaVersion: 1, runId: run.id, tombstones: [] };
+    }
+    return { schemaVersion: 1, runId: run.id, tombstones: parsed.tombstones as ReclamationTombstone[] };
   } catch {
     // A malformed overlay must NOT brick the run — fail closed to an empty chain.
     return { schemaVersion: 1, runId: run.id, tombstones: [] };
@@ -419,13 +422,15 @@ export function planReclamation(run: WorkflowRun, policy: ReclamationPolicyInput
         for (const file of fs.readdirSync(nodeDir, { withFileTypes: true })) {
           if (!file.isFile() || !file.name.endsWith(".json")) continue;
           const snapFile = path.join(nodeDir, file.name);
-          let snap: { nodeId?: string };
+          let snap: unknown;
           try {
-            snap = JSON.parse(fs.readFileSync(snapFile, "utf8")) as { nodeId?: string };
+            snap = JSON.parse(fs.readFileSync(snapFile, "utf8"));
           } catch {
             continue; // unreadable snapshot → retain (fail closed)
           }
-          const node = (run.nodes || []).find((n) => n.id === snap.nodeId);
+          if (!snap || typeof snap !== "object" || typeof (snap as Record<string, unknown>).nodeId !== "string") continue;
+          const nodeId = (snap as Record<string, unknown>).nodeId as string;
+          const node = (run.nodes || []).find((n) => n.id === nodeId);
           if (!node) continue; // source node gone → cannot reconstruct → retain
           if (repointNodeIds.has(node.id)) continue; // body will be re-pointed → retain
           const bytes = dirBytes(snapFile);

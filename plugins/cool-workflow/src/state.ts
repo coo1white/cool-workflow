@@ -51,6 +51,7 @@ export function ensureRunDirs(paths: RunPaths): void {
 
 export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun {
   if (!runId) throw new Error("Missing run id");
+  assertSafeRunId(runId);
   const statePath = path.join(cwd, ".cw", "runs", runId, "state.json");
   const result = loadRunStateFile(statePath, { dryRun: true });
   if (result.report.status === "unsupported") {
@@ -82,8 +83,11 @@ export function migrateRunStateFile(statePath: string, options: { write?: boolea
 
 export function saveCheckpoint(run: WorkflowRun): void {
   run.updatedAt = new Date().toISOString();
-  // state.json is the single source of truth — write it DURABLY (v0.1.40).
-  writeJson(run.paths.state, run, { durable: true });
+  // state.json is the single source of truth — write it DURABLY with a lock
+  // so concurrent processes never lose an update (v0.1.95).
+  withFileLock(run.paths.state, () => {
+    writeJson(run.paths.state, run, { durable: true });
+  });
 }
 
 /** Compact a run checkpoint by stripping empty optional arrays and null values
@@ -281,7 +285,8 @@ export function safeFileName(value: string): string {
  *  runs directory via a separator or a `..`/`.` component (path traversal). A
  *  real run id is `${workflowId}-${stamp}-${suffix}` (createRunId), and a
  *  workflow id is alnum-bounded [a-z0-9.-] (validateWorkflowId) — all within
- *  [A-Za-z0-9._-]. Because the charset already forbids any separator, the whole
+ *  [A-Za-z0-9._:-]. Sub-workflow ids also include `:` from the task id prefix.
+ *  Because the charset already forbids any separator, the whole
  *  id is ONE path component, so the only values that could traverse are the
  *  components `.` and `..` themselves; an embedded `..` (e.g. a workflow id like
  *  `v1..2`) is a safe directory name and is allowed. A separator, an absolute
@@ -291,8 +296,8 @@ export function assertSafeRunId(value: unknown, context = "run id"): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Invalid ${context}: expected a non-empty string`);
   }
-  if (!/^[A-Za-z0-9._-]+$/.test(value) || value === "." || value === "..") {
-    throw new Error(`Unsafe ${context}: ${JSON.stringify(value)} must be a single path segment ([A-Za-z0-9._-], not '.' or '..')`);
+  if (!/^[A-Za-z0-9._:-]+$/.test(value) || value === "." || value === "..") {
+    throw new Error(`Unsafe ${context}: ${JSON.stringify(value)} must be a single path segment ([A-Za-z0-9._:-], not '.' or '..')`);
   }
   return value;
 }

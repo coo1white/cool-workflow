@@ -21,6 +21,7 @@ import path from "node:path";
 import { AgentDelegationConfig } from "./types";
 import { resolveCwHome } from "./run-registry";
 import { stripSecretArgs } from "./execution-backend";
+import { writeJson } from "./state";
 
 export const AGENT_CONFIG_SCHEMA_VERSION = 1;
 
@@ -254,7 +255,7 @@ export function setAgentConfigFile(patch: Record<string, unknown>, env: NodeJS.P
   const stored = redacted(merged);
   const file = agentConfigPath(env);
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, `${JSON.stringify(stored, null, 2)}\n`, "utf8");
+  writeJson(file, stored);
   return stored;
 }
 

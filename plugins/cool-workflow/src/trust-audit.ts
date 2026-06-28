@@ -373,9 +373,27 @@ export function recordHostAttestation(
   });
 }
 
+// Per-request event log cache (v0.1.95). When set, readEvents returns
+// memoized results keyed by event log path. Clears after each request.
+let _eventLogCache: Map<string, TrustAuditEvent[]> | null = null;
+
+export function setAuditEventCache(cache: Map<string, TrustAuditEvent[]>): void {
+  _eventLogCache = cache;
+}
+
+export function clearAuditEventCache(): void {
+  _eventLogCache = null;
+}
+
 export function listTrustAuditEvents(run: WorkflowRun): TrustAuditEvent[] {
   const audit = ensureTrustAudit(run);
-  return readEventsRaw(audit.eventLogPath).events.sort(compareEvents);
+  if (_eventLogCache) {
+    const cached = _eventLogCache.get(audit.eventLogPath);
+    if (cached) return cached;
+  }
+  const events = readEventsRaw(audit.eventLogPath).events.sort(compareEvents);
+  _eventLogCache?.set(audit.eventLogPath, events);
+  return events;
 }
 
 /** Search audit events by kind, worker, or candidate (v0.1.65).
@@ -597,7 +615,13 @@ function auditRoot(run: WorkflowRun): string {
 }
 
 function readEvents(eventLogPath: string): TrustAuditEvent[] {
-  return readEventsRaw(eventLogPath).events.sort(compareEvents);
+  if (_eventLogCache) {
+    const cached = _eventLogCache.get(eventLogPath);
+    if (cached) return cached;
+  }
+  const events = readEventsRaw(eventLogPath).events.sort(compareEvents);
+  _eventLogCache?.set(eventLogPath, events);
+  return events;
 }
 
 function workerRows(events: TrustAuditEvent[], run: WorkflowRun): TrustAuditSummary["workers"] {

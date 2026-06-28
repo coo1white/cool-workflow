@@ -101,7 +101,19 @@ export class WorkbenchHost {
       if ((req.method || "GET").toUpperCase() !== "GET") {
         return this.send(res, 405, { error: "read-only: only GET is permitted" }, { Allow: "GET" });
       }
+
+      // Optional token auth (CW_WORKBENCH_TOKEN). When set, every request must
+      // carry the token as an Authorization: Bearer header or ?token= query param.
+      // Off by default — single-user loopback is already gated by the OS boundary.
       const url = new URL(req.url || "/", `http://${this.host}`);
+      const requiredToken = (process.env.CW_WORKBENCH_TOKEN || "").trim();
+      if (requiredToken) {
+        const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
+        const queryToken = url.searchParams.get("token") || "";
+        if (bearer !== requiredToken && queryToken !== requiredToken) {
+          return this.send(res, 401, { error: "unauthorized: token mismatch" });
+        }
+      }
       const route = decodeURIComponent(url.pathname);
 
       if (route === "/" || route === "/index.html") return this.sendAsset(res, "index.html");

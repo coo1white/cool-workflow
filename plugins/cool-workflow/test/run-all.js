@@ -75,7 +75,7 @@ function resolveConcurrency() {
   const raw = argConcurrency() ?? process.env.CW_TEST_CONCURRENCY;
   if (raw === "auto" || raw === undefined) {
     const cores = (typeof os.availableParallelism === "function" ? os.availableParallelism() : 0) || os.cpus().length || 4;
-    return Math.min(8, Math.max(2, cores - 1));
+    return Math.min(16, Math.max(2, cores - 1));
   }
   return Math.max(1, Number(raw) || 1);
 }
@@ -100,6 +100,9 @@ const bail = process.argv.includes("--bail") || process.env.CW_TEST_BAIL === "1"
 const sampleRaw = argValue("--sample");
 const sampleCount = sampleRaw ? Math.max(1, Number(sampleRaw) || 0) : undefined;
 
+// --fast | CW_TEST_FAST=1 — skip smokes tagged "slow" (@cw-smoke: tags slow).
+const fastMode = process.argv.includes("--fast") || process.env.CW_TEST_FAST === "1";
+
 // Test metadata: parse @cw-smoke annotations from the first 20 lines.
 // Supported: @cw-smoke: timeout <seconds>, @cw-smoke: filter <tag>
 function parseMetadata(file) {
@@ -114,6 +117,11 @@ function parseMetadata(file) {
     }
     if (key === "tags") meta.tags = value.split(/,\s*/).filter(Boolean);
     if (key === "inline") meta.inline = value !== "false" && value !== "0";
+    // Allow tags embedded in another key's value (e.g. "timeout 240 tags slow")
+    const tagsMatch = value.match(/\btags\s+([a-z,]+)/i);
+    if (tagsMatch) {
+      meta.tags = (meta.tags || []).concat(tagsMatch[1].split(/,\s*/).filter(Boolean));
+    }
   }
   return meta;
 }
@@ -184,14 +192,19 @@ if (sampleCount && sampleCount < smokes.length) {
 
 // CW_SKIP convention: detect skipped smokes before splitting into pool/serial.
 const skippedReasons = new Map();
+const fastSkipped = [];
 const eligibleSmokes = [];
 for (const file of smokes) {
   const reason = checkSkip(file);
   if (reason) {
     skippedReasons.set(file, reason);
-  } else {
-    eligibleSmokes.push(file);
+    continue;
   }
+  if (fastMode && (parseMetadata(file).tags || []).includes("slow")) {
+    fastSkipped.push(file);
+    continue;
+  }
+  eligibleSmokes.push(file);
 }
 
 // Contention-sensitive smokes can be kept out of the parallel pool. Configurable
@@ -238,7 +251,7 @@ function makeSandbox() {
   const home = path.join(root, "home");
   const tmp = path.join(root, "tmp");
   for (const dir of [cwd, home, tmp]) fs.mkdirSync(dir, { recursive: true });
-  const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home, TMPDIR: tmp, CW_NO_AUTO_AGENT: "1" };
+  const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home, TMPDIR: tmp, CW_NO_AUTO_AGENT: "1", CW_REQUIRE_RESOLVABLE_EVIDENCE: "0" };
   for (const key of AGENT_ENV_KEYS) delete env[key];
   return { root, cwd, env };
 }
@@ -313,12 +326,14 @@ async function main() {
   const skipNote = skippedReasons.size > 0 ? ` (${skippedReasons.size} skipped)` : "";
   const sampleNote = sampleCount && sampleCount < eligibleSmokes.length + skippedReasons.size ? ` (--sample ${sampleCount})` : "";
   const bailNote = bail ? " (--bail)" : "";
+  const fastNote = fastMode ? ` (${fastSkipped.length} fast-skipped)` : "";
   process.stdout.write(
     `Running ${eligibleSmokes.length} smoke(s) — concurrency ${concurrency}` +
       filterNote +
       retryNote +
       skipNote +
       sampleNote +
+      fastNote +
       bailNote +
       (concurrency === 1
         ? " (sequential; set CW_TEST_CONCURRENCY to parallelize)"
@@ -370,6 +385,12 @@ async function main() {
       process.stdout.write(`  SKIP  ${file}  — ${reason}\n`);
     }
   }
+  if (fastSkipped.length > 0) {
+    process.stdout.write(`\nFast-skipped (tags slow; remove @cw-smoke: tags slow or unset CW_TEST_FAST to include):\n`);
+    for (const file of fastSkipped) {
+      process.stdout.write(`  ${file}\n`);
+    }
+  }
 
   if (failures.length > 0) {
     const bailNote = bailed ? " [BAIL]" : "";
@@ -403,7 +424,7 @@ async function main() {
   const totalMs = results.reduce((sum, r) => sum + r.elapsedMs, 0);
   const wallElapsedMs = Number((process.hrtime.bigint() - wallStartedAt) / 1000000n);
   const bailSuffix = bailed ? " (bailed)" : "";
-  const skipSuffix = skippedReasons.size > 0 ? ` (${skippedReasons.size} skipped)` : "";
+  const skipSuffix = (skippedReasons.size > 0 || fastSkipped.length > 0) ? ` (${skippedReasons.size + fastSkipped.length} skipped)` : "";
   process.stdout.write(
     `\n${"=".repeat(70)}\n` +
       `${results.length - failures.length}/${results.length} passed` +

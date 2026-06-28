@@ -38,6 +38,7 @@ exports.requiredSandboxDimensions = requiredSandboxDimensions;
 exports.attestSandbox = attestSandbox;
 exports.probeBackend = probeBackend;
 exports.runBackend = runBackend;
+exports.delegateChildScript = delegateChildScript;
 exports.createExecutionBackend = createExecutionBackend;
 exports.backendListPayload = backendListPayload;
 exports.backendShowPayload = backendShowPayload;
@@ -404,12 +405,22 @@ function executeLocal(descriptor, policy, request, label, attestation) {
     // shell backend runs via /bin/sh -c; node/bun run the command directly
     // (bun is Node-compatible by default so evidence stays byte-stable with node).
     // spawnStyle comes from the registered driver, not a hardcoded id check.
+    const spawnStyle = getBackendDriver(descriptor.id)?.spawnStyle;
+    if (spawnStyle === "shell") {
+        // Shell injection guard: reject args that contain shell control characters
+        // (beyond template placeholders). The command itself is operator-configured.
+        const shellArg = [command, ...args].join(" ").replace(/\{\{[a-zA-Z0-9_.-]+\}\}/g, "");
+        if (/[;&|`$(){}<>!\n\r]/.test(shellArg)) {
+            throw new Error(`Shell backend refused: args contain shell control characters. ` +
+                `Use the node, bun, or agent backend instead for untrusted inputs.`);
+        }
+    }
     const isTTY = process.stderr.isTTY;
     const shortLabel = command.split("/").pop() || command;
     if (isTTY)
         process.stderr.write(`● Running ${shortLabel}...\n`);
     const startedAt = process.hrtime.bigint();
-    const result = getBackendDriver(descriptor.id)?.spawnStyle === "shell"
+    const result = spawnStyle === "shell"
         ? (0, node_child_process_1.spawnSync)([command, ...args].join(" "), { ...options, shell: true })
         : (0, node_child_process_1.spawnSync)(command, args, { ...options, shell: false });
     const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
@@ -587,7 +598,17 @@ function runContainer(descriptor, policy, request, label, handle, attestation) {
 // portable and synchronous from CW's view. We spawn it BY PATH (shell:false). The
 // path is resolved from this compiled module (dist/execution-backend.js) up to the
 // package's `scripts/children/` dir, which package.json ships in "files".
-const HTTP_DELEGATE_CHILD_SCRIPT = node_path_1.default.resolve(__dirname, "..", "scripts", "children", "http-delegate-child.js");
+function delegateChildScript() {
+    const resolved = node_path_1.default.resolve(__dirname, "..", "scripts", "children", "http-delegate-child.js");
+    if (!node_fs_1.default.existsSync(resolved)) {
+        throw new Error(`Delegate child script not found at ${resolved}. ` +
+            `This indicates a broken installation — reinstall cool-workflow or ensure ` +
+            `"scripts/children/http-delegate-child.js" is shipped in the package.`);
+    }
+    return resolved;
+}
+/** The shared HTTP delegation child script path (resolved at import time). */
+const HTTP_DELEGATE_CHILD_SCRIPT = delegateChildScript();
 /** remote / ci — real HTTP delegation. POSTs the job to the configured endpoint
  *  (and polls a returned jobId) via a Node child, then records the runner's exit +
  *  stdout digest as canonical evidence. Fails closed when the endpoint is missing,
@@ -896,7 +917,11 @@ function runtimeNote(descriptor) {
 }
 // ---- Probe cache (v0.1.60) — mechanism, not policy -----------------------
 const _probeCache = new Map();
-const PROBE_CACHE_TTL_MS = 60_000; // 60s
+const PROBE_CACHE_TTL_MS = (() => {
+    const raw = process.env.CW_PROBE_CACHE_TTL_MS;
+    const n = raw ? parseInt(raw, 10) : 60_000;
+    return Number.isFinite(n) && n >= 0 ? n : 60_000;
+})(); // default 60s; set CW_PROBE_CACHE_TTL_MS=0 to disable
 function cachedProbeBackend(id, context) {
     const key = `${id}:${context.cwd || ''}`;
     const cached = _probeCache.get(key);

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+// @cw-smoke: tags slow
 // telemetry-attestation-smoke (Track 1) — make "auditable" a FACT, not a claim.
 //
 // Hermetic: a STUB agent that SIGNS its self-reported usage with an ed25519 key

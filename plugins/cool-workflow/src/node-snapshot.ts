@@ -26,7 +26,7 @@ import { getRunNode } from "./pipeline-runner";
 import { writeJson, safeFileName } from "./state";
 import { normalizeValue, replayStableStringify } from "./multi-agent-eval";
 import { projectNodeBody } from "./node-projection";
-import { fingerprintStrings } from "./state-explosion";
+import { fingerprintStrings } from "./util/fingerprint";
 import {
   NodeReplayRun,
   NodeReplayVerdict,

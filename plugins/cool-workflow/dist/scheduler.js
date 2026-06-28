@@ -274,21 +274,19 @@ function addJitter(date, jitterSeconds) {
     return new Date(date.getTime() + seconds * 1000);
 }
 // Deterministic schedule id (replay-determinism self-audit): the stamp is an edge
-// timestamp (recorded once), but the former Math.random() suffix made each
-// persisted schedule id non-reproducible. The suffix is now a content hash of the
-// schedule's deterministic identity (kind + the recorded stamp), so re-deriving the
-// id for a recorded schedule yields the byte-identical value while schedules created
-// at distinct instants still get distinct ids. Mirrors src/worker-isolation/paths.ts.
+// timestamp (recorded once). Set CW_DETERMINISTIC_RUN_IDS=1 to use a
+// content-hash-based id without wall-clock, so re-deriving the id for a recorded
+// schedule yields the byte-identical value. Distinct instants still get distinct
+// ids via the monotonic counter.
 let scheduleIdSequence = 0;
 function createScheduleId(kind) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    // Second-resolution stamp: two schedules of the same kind created within one
-    // second would otherwise collide on an identical id. process.pid + a monotonic
-    // counter break the tie across concurrent processes and within one process,
-    // deterministically (not a PRNG).
     scheduleIdSequence += 1;
-    const suffix = node_crypto_1.default.createHash("sha256").update(`${kind}:${stamp}:${process.pid}:${scheduleIdSequence}`).digest("hex").slice(0, 6);
-    return `${kind}-${stamp}-${suffix}`;
+    const deterministic = /^(1|true|yes|on)$/i.test(process.env.CW_DETERMINISTIC_RUN_IDS || "");
+    const suffix = node_crypto_1.default.createHash("sha256")
+        .update(deterministic ? `${kind}:${process.pid}:${scheduleIdSequence}` : `${kind}:${stamp}:${process.pid}:${scheduleIdSequence}`)
+        .digest("hex").slice(0, 6);
+    return deterministic ? `${kind}-${suffix}` : `${kind}-${stamp}-${suffix}`;
 }
 // Deterministic schedule-run (history) id — same rationale as createScheduleId. The
 // history record stamp differs from the owning schedule's, so the hashed identity
@@ -297,10 +295,12 @@ function createScheduleId(kind) {
 let scheduleRunIdSequence = 0;
 function createScheduleRunId(kind) {
     const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-    // pid + counter break same-kind/same-second collisions (see createScheduleId).
     scheduleRunIdSequence += 1;
-    const suffix = node_crypto_1.default.createHash("sha256").update(`run:${kind}:${stamp}:${process.pid}:${scheduleRunIdSequence}`).digest("hex").slice(0, 6);
-    return `run-${kind}-${stamp}-${suffix}`;
+    const deterministic = /^(1|true|yes|on)$/i.test(process.env.CW_DETERMINISTIC_RUN_IDS || "");
+    const suffix = node_crypto_1.default.createHash("sha256")
+        .update(deterministic ? `run:${kind}:${process.pid}:${scheduleRunIdSequence}` : `run:${kind}:${stamp}:${process.pid}:${scheduleRunIdSequence}`)
+        .digest("hex").slice(0, 6);
+    return deterministic ? `run-${kind}-${suffix}` : `run-${kind}-${stamp}-${suffix}`;
 }
 function requiredString(value, name) {
     const text = stringOption(value);

@@ -33,7 +33,7 @@ function freshRepo() {
   const pkgDir = path.join(dir, "plugins", "cool-workflow");
   fs.mkdirSync(pkgDir, { recursive: true });
   write(dir, "plugins/cool-workflow/package.json", JSON.stringify({
-    name: "fixture", version: "0.0.0", scripts: { build: "true", test: "true" }
+    name: "fixture", version: "0.0.0", scripts: { build: "true", test: "true", "test:gate": "true" }
   }));
   return dir;
 }

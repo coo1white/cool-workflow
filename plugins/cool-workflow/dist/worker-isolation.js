@@ -393,7 +393,31 @@ function recordWorkerRetryAttempt(run, workerId, attempts, reason, options = {})
 function validateWorkerBoundary(run, workerId, options = {}) {
     const scope = requireWorkerScope(run, workerId);
     const rawPath = String(options.path || scope.resultPath);
-    return (0, sandbox_profile_1.validateSandboxWrite)(sandboxPolicyForBoundary(run, scope, options), rawPath, workerId);
+    const policy = sandboxPolicyForBoundary(run, scope, options);
+    const violation = (0, sandbox_profile_1.validateSandboxWrite)(policy, rawPath, workerId);
+    if (!violation) {
+        // Write paths are enforced by CW at this boundary. Command and network limits
+        // are declared in the sandbox policy but enforced by the execution backend
+        // (the host/container runtime). Record the policy split transparently so the
+        // audit trail shows what CW checked vs what was delegated to the host.
+        (0, trust_audit_1.recordTrustAuditEvent)(run, {
+            kind: "worker.sandbox-boundary",
+            decision: "allowed",
+            source: "cw-validated",
+            workerId,
+            taskId: scope.taskId,
+            sandboxProfileId: policy.id,
+            policyRef: `execute=${policy.execute.mode} network=${policy.network.mode} env.inherit=${policy.env.inherit}`,
+            command: policy.execute.mode,
+            networkTarget: policy.network.mode,
+            metadata: {
+                enforced_by_cw: ["write-paths"],
+                delegated_to_host: ["execute", "network", "env"],
+                env_inherit: policy.env.inherit
+            }
+        });
+    }
+    return violation;
 }
 function summarizeWorkers(run) {
     const workers = listWorkerScopes(run);

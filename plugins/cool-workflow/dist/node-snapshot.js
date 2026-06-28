@@ -38,7 +38,7 @@ const pipeline_runner_1 = require("./pipeline-runner");
 const state_1 = require("./state");
 const multi_agent_eval_1 = require("./multi-agent-eval");
 const node_projection_1 = require("./node-projection");
-const state_explosion_1 = require("./state-explosion");
+const fingerprint_1 = require("./util/fingerprint");
 const validation_1 = require("./validation");
 exports.NODE_SNAPSHOT_SCHEMA_VERSION = 1;
 /** Structured fail-closed error (mirrors the PipelineContractError shape). */
@@ -75,7 +75,7 @@ function snapshotBody(node) {
 /** RAW fingerprint (NOT normalized): any transition (updatedAt/status) or
  *  artifact/evidence change flips it, which is how drift is detected. */
 function sourceFingerprint(node) {
-    return (0, state_explosion_1.fingerprintStrings)([
+    return (0, fingerprint_1.fingerprintStrings)([
         `node:${node.id}:${node.status}:${node.updatedAt}`,
         ...node.artifacts.map((artifact) => `artifact:${artifact.id}:${artifact.path}`),
         ...node.evidence.map((evidence) => `evidence:${evidence.id}:${evidence.path || ""}`)
@@ -203,7 +203,7 @@ function replayNodeSnapshot(run, snapshot, options = {}) {
         throw new NodeSnapshotError(freshness === "stale" ? "snapshot-stale" : "snapshot-absent", reason || `cannot replay a ${freshness} snapshot of node ${snapshot.nodeId}`, { freshness, details: { runId: run.id, nodeId: snapshot.nodeId } });
     }
     const body = (0, multi_agent_eval_1.normalizeValue)(snapshot.body);
-    const outputFingerprint = (0, state_explosion_1.fingerprintStrings)([(0, multi_agent_eval_1.replayStableStringify)(body)]);
+    const outputFingerprint = (0, fingerprint_1.fingerprintStrings)([(0, multi_agent_eval_1.replayStableStringify)(body)]);
     const replay = {
         schemaVersion: 1,
         replayId: `replay-${snapshot.snapshotId}-${outputFingerprint.replace("sha256:", "").slice(0, 8)}`,

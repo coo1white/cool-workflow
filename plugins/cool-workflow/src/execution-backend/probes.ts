@@ -10,6 +10,7 @@
 //
 // Readiness probe. Deterministic given the host (PATH + configured env).
 import fs from "node:fs";
+import path from "node:path";
 import type { BackendProbeBody } from "../execution-backend";
 import { hasExecutable } from "./util";
 
@@ -57,21 +58,37 @@ export function probeContainerBackend(): BackendProbeBody {
   };
 }
 
+function delegateChildExists(): boolean {
+  return fs.existsSync(path.resolve(__dirname, "..", "..", "scripts", "children", "http-delegate-child.js"));
+}
+
 export function probeRemoteBackend(): BackendProbeBody {
   const endpoint = (process.env.CW_REMOTE_ENDPOINT || "").trim();
+  const scriptOk = delegateChildExists();
+  const checks = [
+    { name: "endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_REMOTE_ENDPOINT configured" : "CW_REMOTE_ENDPOINT not set" },
+    { name: "delegate-child-script", ok: scriptOk, detail: scriptOk ? "http-delegate-child.js found" : "http-delegate-child.js missing — reinstall cool-workflow" }
+  ];
+  const readiness = !endpoint ? "unverified" : !scriptOk ? "unavailable" : "ready";
   return {
-    checks: [{ name: "endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_REMOTE_ENDPOINT configured" : "CW_REMOTE_ENDPOINT not set" }],
-    readiness: endpoint ? "ready" : "unverified",
-    reason: endpoint ? undefined : "no remote endpoint configured (set CW_REMOTE_ENDPOINT or pass --endpoint)"
+    checks,
+    readiness,
+    reason: readiness === "ready" ? undefined : !endpoint ? "no remote endpoint configured (set CW_REMOTE_ENDPOINT or pass --endpoint)" : "delegate child script is missing"
   };
 }
 
 export function probeCiBackend(): BackendProbeBody {
   const endpoint = (process.env.CW_CI_ENDPOINT || "").trim();
+  const scriptOk = delegateChildExists();
+  const checks = [
+    { name: "ci-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_CI_ENDPOINT configured" : "CW_CI_ENDPOINT not set" },
+    { name: "delegate-child-script", ok: scriptOk, detail: scriptOk ? "http-delegate-child.js found" : "http-delegate-child.js missing — reinstall cool-workflow" }
+  ];
+  const readiness = !endpoint ? "unverified" : !scriptOk ? "unavailable" : "ready";
   return {
-    checks: [{ name: "ci-endpoint", ok: Boolean(endpoint), detail: endpoint ? "CW_CI_ENDPOINT configured" : "CW_CI_ENDPOINT not set" }],
-    readiness: endpoint ? "ready" : "unverified",
-    reason: endpoint ? undefined : "no CI job target configured (set CW_CI_ENDPOINT or pass --job)"
+    checks,
+    readiness,
+    reason: readiness === "ready" ? undefined : !endpoint ? "no CI job target configured (set CW_CI_ENDPOINT or pass --job)" : "delegate child script is missing"
   };
 }
 

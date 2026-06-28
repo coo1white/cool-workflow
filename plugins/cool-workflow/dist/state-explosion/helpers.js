@@ -1,13 +1,9 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.fingerprintStrings = exports.fingerprintRecords = void 0;
 exports.isProtectedStatus = isProtectedStatus;
 exports.dominantStatus = dominantStatus;
 exports.parentMap = parentMap;
-exports.fingerprintRecords = fingerprintRecords;
-exports.fingerprintStrings = fingerprintStrings;
 exports.stableLine = stableLine;
 exports.sortKeys = sortKeys;
 exports.stripRunId = stripRunId;
@@ -15,14 +11,9 @@ exports.unique = unique;
 exports.byId = byId;
 exports.truncate = truncate;
 exports.slug = slug;
-// Pure, stateless helpers for the state-explosion derived-index layer —
-// status priority, fingerprinting, deterministic key-sorting, id/string
-// utilities. Carved out of state-explosion.ts (FreeBSD-audit god-module carve)
-// so the report/graph/digest builders no longer bundle the primitive helper
-// layer. Nothing here touches run state beyond its arguments; every function is
-// pure (`fingerprintStrings` is re-exported from state-explosion.ts to keep the
-// public surface byte-identical for importers).
-const node_crypto_1 = __importDefault(require("node:crypto"));
+const fingerprint_1 = require("../util/fingerprint");
+Object.defineProperty(exports, "fingerprintRecords", { enumerable: true, get: function () { return fingerprint_1.fingerprintRecords; } });
+Object.defineProperty(exports, "fingerprintStrings", { enumerable: true, get: function () { return fingerprint_1.fingerprintStrings; } });
 function isProtectedStatus(status) {
     return ["failed", "blocked", "rejected", "conflicting"].includes(status);
 }
@@ -40,14 +31,6 @@ function parentMap(edges) {
             parents.set(edge.to, edge.from);
     }
     return parents;
-}
-function fingerprintRecords(records) {
-    return fingerprintStrings(records.map((r) => `${r.id}:${r.status || ""}`).sort());
-}
-function fingerprintStrings(values) {
-    const hash = node_crypto_1.default.createHash("sha256");
-    hash.update(JSON.stringify([...values].sort()));
-    return `sha256:${hash.digest("hex").slice(0, 32)}`;
 }
 function stableLine(value) {
     return JSON.stringify(sortKeys(value));

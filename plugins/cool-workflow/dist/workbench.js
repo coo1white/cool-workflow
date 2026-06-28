@@ -110,23 +110,25 @@ function buildPanels(runner, runId) {
  *  never fabricated. */
 function buildWorkbenchRunView(runner, runId) {
     const id = String(runId || "");
-    let resolved = true;
-    let error;
-    try {
-        runner.loadRun(id);
-    }
-    catch (caught) {
-        resolved = false;
-        error = caught instanceof Error ? caught.message : String(caught);
-    }
-    return {
-        schemaVersion: 1,
-        surface: "workbench",
-        runId: id,
-        resolved,
-        ...(error ? { error } : {}),
-        panels: buildPanels(runner, id)
-    };
+    return runner.loadWithCache((r) => {
+        let resolved = true;
+        let error;
+        try {
+            r.loadRun(id);
+        }
+        catch (caught) {
+            resolved = false;
+            error = caught instanceof Error ? caught.message : String(caught);
+        }
+        return {
+            schemaVersion: 1,
+            surface: "workbench",
+            runId: id,
+            resolved,
+            ...(error ? { error } : {}),
+            panels: buildPanels(r, id)
+        };
+    });
 }
 // ---------------------------------------------------------------------------
 // Cross-run entry (v0.1.28 Run Registry) — composed from already-declared

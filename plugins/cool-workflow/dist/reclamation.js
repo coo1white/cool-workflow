@@ -121,7 +121,10 @@ function loadReclamationLog(run) {
         return { schemaVersion: 1, runId: run.id, tombstones: [] };
     try {
         const parsed = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
-        return { schemaVersion: 1, runId: run.id, tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [] };
+        if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== 1 || !Array.isArray(parsed.tombstones)) {
+            return { schemaVersion: 1, runId: run.id, tombstones: [] };
+        }
+        return { schemaVersion: 1, runId: run.id, tombstones: parsed.tombstones };
     }
     catch {
         // A malformed overlay must NOT brick the run — fail closed to an empty chain.
@@ -420,7 +423,10 @@ function planReclamation(run, policy = {}) {
                     catch {
                         continue; // unreadable snapshot → retain (fail closed)
                     }
-                    const node = (run.nodes || []).find((n) => n.id === snap.nodeId);
+                    if (!snap || typeof snap !== "object" || typeof snap.nodeId !== "string")
+                        continue;
+                    const nodeId = snap.nodeId;
+                    const node = (run.nodes || []).find((n) => n.id === nodeId);
                     if (!node)
                         continue; // source node gone → cannot reconstruct → retain
                     if (repointNodeIds.has(node.id))

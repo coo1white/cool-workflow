@@ -565,12 +565,24 @@ function executeLocal(
   // shell backend runs via /bin/sh -c; node/bun run the command directly
   // (bun is Node-compatible by default so evidence stays byte-stable with node).
   // spawnStyle comes from the registered driver, not a hardcoded id check.
+  const spawnStyle = getBackendDriver(descriptor.id)?.spawnStyle;
+  if (spawnStyle === "shell") {
+    // Shell injection guard: reject args that contain shell control characters
+    // (beyond template placeholders). The command itself is operator-configured.
+    const shellArg = [command, ...args].join(" ").replace(/\{\{[a-zA-Z0-9_.-]+\}\}/g, "");
+    if (/[;&|`$(){}<>!\n\r]/.test(shellArg)) {
+      throw new Error(
+        `Shell backend refused: args contain shell control characters. ` +
+        `Use the node, bun, or agent backend instead for untrusted inputs.`
+      );
+    }
+  }
   const isTTY = process.stderr.isTTY;
   const shortLabel = command.split("/").pop() || command;
   if (isTTY) process.stderr.write(`● Running ${shortLabel}...\n`);
   const startedAt = process.hrtime.bigint();
   const result =
-    getBackendDriver(descriptor.id)?.spawnStyle === "shell"
+    spawnStyle === "shell"
       ? spawnSync([command, ...args].join(" "), { ...options, shell: true })
       : spawnSync(command, args, { ...options, shell: false });
   const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
@@ -786,7 +798,20 @@ function runContainer(
 // portable and synchronous from CW's view. We spawn it BY PATH (shell:false). The
 // path is resolved from this compiled module (dist/execution-backend.js) up to the
 // package's `scripts/children/` dir, which package.json ships in "files".
-const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "scripts", "children", "http-delegate-child.js");
+export function delegateChildScript(): string {
+  const resolved = path.resolve(__dirname, "..", "scripts", "children", "http-delegate-child.js");
+  if (!fs.existsSync(resolved)) {
+    throw new Error(
+      `Delegate child script not found at ${resolved}. ` +
+      `This indicates a broken installation — reinstall cool-workflow or ensure ` +
+      `"scripts/children/http-delegate-child.js" is shipped in the package.`
+    );
+  }
+  return resolved;
+}
+
+/** The shared HTTP delegation child script path (resolved at import time). */
+const HTTP_DELEGATE_CHILD_SCRIPT = delegateChildScript();
 
 /** remote / ci — real HTTP delegation. POSTs the job to the configured endpoint
  *  (and polls a returned jobId) via a Node child, then records the runner's exit +
@@ -1148,7 +1173,11 @@ function runtimeNote(descriptor: BackendDescriptor): string {
 
 // ---- Probe cache (v0.1.60) — mechanism, not policy -----------------------
 const _probeCache = new Map<string, { result: ReturnType<typeof probeBackend>; at: number }>();
-const PROBE_CACHE_TTL_MS = 60_000; // 60s
+const PROBE_CACHE_TTL_MS = (() => {
+  const raw = process.env.CW_PROBE_CACHE_TTL_MS;
+  const n = raw ? parseInt(raw, 10) : 60_000;
+  return Number.isFinite(n) && n >= 0 ? n : 60_000;
+})(); // default 60s; set CW_PROBE_CACHE_TTL_MS=0 to disable
 
 function cachedProbeBackend(id: string, context: { cwd?: string }): ReturnType<typeof probeBackend> {
   const key = `${id}:${context.cwd || ''}`;

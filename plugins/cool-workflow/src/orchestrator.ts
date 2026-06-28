@@ -15,7 +15,7 @@ import { getWorkerScope, listWorkerScopes, reclaimOrphans, validateWorkerBoundar
 import { listBundledSandboxProfiles, sandboxContextForValidation, showBundledSandboxProfile, validateSandboxProfileFile } from "./sandbox-profile";
 import { backendListPayload, backendProbePayload, backendShowPayload } from "./execution-backend";
 import { buildOperatorGraph, summarizeOperatorCandidates, summarizeOperatorCommits, summarizeOperatorFeedback, summarizeOperatorRun, summarizeOperatorWorkers } from "./operator-ux";
-import { evidenceProvenance, recordHostAttestation, recordSandboxPolicyDecision, summarizeTrustAudit, workerTrustAudit } from "./trust-audit";
+import { evidenceProvenance, recordHostAttestation, recordSandboxPolicyDecision, setAuditEventCache, clearAuditEventCache, summarizeTrustAudit, workerTrustAudit } from "./trust-audit";
 import { summarizeMultiAgentTrust } from "./multi-agent-trust";
 import { buildMultiAgentGraph, summarizeMultiAgent } from "./multi-agent";
 
@@ -67,11 +67,29 @@ export class CoolWorkflowRunner {
   // a cheap scoped clone instead of mutating the global process cwd.
   readonly baseDir?: string;
 
+  // Per-request cache (v0.1.95): when set, loadRun memoizes by runId so the 17
+  // workbench sub-panels that each call loadRun independently share one read.
+  private _requestCache?: Map<string, WorkflowRun>;
+
   constructor({ pluginRoot, baseDir }: { pluginRoot: string; baseDir?: string }) {
     this.pluginRoot = resolvePluginRoot(pluginRoot);
     this.workflowsDir = path.join(this.pluginRoot, "workflows");
     this.appsDir = path.join(this.pluginRoot, "apps");
     this.baseDir = baseDir ? path.resolve(baseDir) : undefined;
+  }
+
+  /** Run fn with a per-request loadRun cache. All loadRun calls inside fn share
+   *  the same cached run state, collapsing 18 reads into 1. Returns fn's result
+   *  and clears the cache afterwards (never leaks between requests). */
+  loadWithCache<T>(fn: (runner: CoolWorkflowRunner) => T): T {
+    this._requestCache = new Map();
+    setAuditEventCache(new Map());
+    try {
+      return fn(this);
+    } finally {
+      this._requestCache = undefined;
+      clearAuditEventCache();
+    }
   }
 
   /** Return a runner that resolves runs against `dir` instead of process.cwd(),
@@ -738,7 +756,13 @@ export class CoolWorkflowRunner {
   }
 
   loadRun(runId: string): WorkflowRun {
-    return loadRunFromCwd(runId, this.baseDir);
+    if (this._requestCache) {
+      const cached = this._requestCache.get(runId);
+      if (cached) return cached;
+    }
+    const run = loadRunFromCwd(runId, this.baseDir);
+    this._requestCache?.set(runId, run);
+    return run;
   }
 
   private invocationCwd(): string {

@@ -2,6 +2,7 @@
 "use strict";
 
 // @cw-smoke: timeout 240
+// @cw-smoke: tags slow
 // incremental-resume-smoke — the CI gate for `cw run --drive --incremental` (#4).
 // Heavier integration smoke: 5 scenarios each drive a real multi-phase app
 // (architecture-review-fast, 6 tasks) once or twice; ~22s alone, more under the

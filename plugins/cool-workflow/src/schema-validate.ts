@@ -11,8 +11,8 @@
 //   type (object|array|string|number|integer|boolean|null, or an array of them),
 //   enum, const, required, properties, additionalProperties (false), items.
 // Unsupported keywords ($ref, allOf/anyOf/oneOf, pattern, formats, numeric
-// bounds) are IGNORED — never silently "passed" as a constraint that wasn't
-// checked; a schema relying on them simply isn't enforced for those keywords.
+// bounds) are surfaced as WARNINGS (a constraint that wasn't checked), so the
+// operator can see their schema reliance is incomplete.
 // (If full JSON Schema is needed later, swap this module's impl for ajv behind
 // the same signature.)
 
@@ -51,6 +51,13 @@ function matchesType(value: unknown, type: string): boolean {
 export function validateAgainstSchema(value: unknown, schema: JsonSchema, path = "$"): string[] {
   const errors: string[] = [];
   if (!schema || typeof schema !== "object") return errors;
+
+  // Unsupported keywords — surface as diagnostics (Rule of Silence: stderr)
+  const UNSUPPORTED = new Set(["$ref", "allOf", "anyOf", "oneOf", "not", "pattern", "format", "minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems", "uniqueItems", "contains", "if", "then", "else"]);
+  const unsupported = Object.keys(schema).filter((k) => UNSUPPORTED.has(k));
+  if (unsupported.length && process.stderr.isTTY) {
+    process.stderr.write(`[cw] schema at ${path}: unsupported keywords ignored: ${unsupported.join(", ")}\n`);
+  }
 
   // type
   if (schema.type !== undefined) {

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
+// @cw-smoke: tags slow
 // remote-link-archive-smoke — review a remote repo delivered as a downloadable ARCHIVE
 // (.tar.gz / .zip), e.g. a GitHub "Download ZIP"/codeload tarball. Fully hermetic + offline:
 // archives are built locally and addressed via `file://` URLs, the agent is a stub. Asserts:

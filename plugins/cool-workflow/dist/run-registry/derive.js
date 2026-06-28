@@ -164,7 +164,10 @@ function loadReclaimedFromDir(runDir) {
         return { schemaVersion: 1, runId: "", tombstones: [] };
     try {
         const parsed = JSON.parse(node_fs_1.default.readFileSync(file, "utf8"));
-        return { schemaVersion: 1, runId: parsed.runId || "", tombstones: Array.isArray(parsed.tombstones) ? parsed.tombstones : [] };
+        if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== 1 || !Array.isArray(parsed.tombstones)) {
+            return { schemaVersion: 1, runId: "", tombstones: [] };
+        }
+        return { schemaVersion: 1, runId: String(parsed.runId || ""), tombstones: parsed.tombstones };
     }
     catch {
         return { schemaVersion: 1, runId: "", tombstones: [] };

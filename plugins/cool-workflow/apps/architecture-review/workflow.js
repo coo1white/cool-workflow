@@ -1,4 +1,4 @@
-module.exports = ({ workflow, phase, agent, artifact, input }) => {
+module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
   const inputs = [
     input("repo", {
       type: "path",
@@ -33,7 +33,7 @@ module.exports = ({ workflow, phase, agent, artifact, input }) => {
     inputs,
     sandboxProfiles: ["readonly"],
     phases: [
-      phase("Map", [
+      parallel("Map", [
         agent(
           "map:server-api",
           "Map server/API entrypoints, request flows, service boundaries, auth surfaces, and owned state in {{repo}} for {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return inspected files, dependencies, invariants, and candidate risks.",
@@ -65,7 +65,7 @@ module.exports = ({ workflow, phase, agent, artifact, input }) => {
           { sandboxProfileId: "readonly" }
         )
       ]),
-      phase("Assess", [
+      parallel("Assess", [
         agent(
           "assess:security",
           "Assess mapper findings through a security lens. Separate real, conditional, non-issue, and unknown risks with evidence, falsifiers, and exact files or config keys.",

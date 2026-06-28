@@ -11,6 +11,8 @@ exports.recordTrustAuditEvent = recordTrustAuditEvent;
 exports.recordSandboxPathDecision = recordSandboxPathDecision;
 exports.recordSandboxPolicyDecision = recordSandboxPolicyDecision;
 exports.recordHostAttestation = recordHostAttestation;
+exports.setAuditEventCache = setAuditEventCache;
+exports.clearAuditEventCache = clearAuditEventCache;
 exports.listTrustAuditEvents = listTrustAuditEvents;
 exports.searchAuditEvents = searchAuditEvents;
 exports.summarizeTrustAudit = summarizeTrustAudit;
@@ -300,9 +302,25 @@ function recordHostAttestation(run, input) {
         source: "host-attested"
     });
 }
+// Per-request event log cache (v0.1.95). When set, readEvents returns
+// memoized results keyed by event log path. Clears after each request.
+let _eventLogCache = null;
+function setAuditEventCache(cache) {
+    _eventLogCache = cache;
+}
+function clearAuditEventCache() {
+    _eventLogCache = null;
+}
 function listTrustAuditEvents(run) {
     const audit = ensureTrustAudit(run);
-    return readEventsRaw(audit.eventLogPath).events.sort(compareEvents);
+    if (_eventLogCache) {
+        const cached = _eventLogCache.get(audit.eventLogPath);
+        if (cached)
+            return cached;
+    }
+    const events = readEventsRaw(audit.eventLogPath).events.sort(compareEvents);
+    _eventLogCache?.set(audit.eventLogPath, events);
+    return events;
 }
 /** Search audit events by kind, worker, or candidate (v0.1.65).
  *  Filters are AND-ed; empty filters match all. */
@@ -515,7 +533,14 @@ function auditRoot(run) {
     return run.paths.auditDir || node_path_1.default.join(run.paths.runDir, "audit");
 }
 function readEvents(eventLogPath) {
-    return readEventsRaw(eventLogPath).events.sort(compareEvents);
+    if (_eventLogCache) {
+        const cached = _eventLogCache.get(eventLogPath);
+        if (cached)
+            return cached;
+    }
+    const events = readEventsRaw(eventLogPath).events.sort(compareEvents);
+    _eventLogCache?.set(eventLogPath, events);
+    return events;
 }
 function workerRows(events, run) {
     const workerIds = unique([...(run.workers || []).map((worker) => worker.id), ...events.map((event) => event.workerId || "")]).sort();

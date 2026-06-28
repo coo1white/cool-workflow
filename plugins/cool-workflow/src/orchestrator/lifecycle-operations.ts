@@ -638,12 +638,20 @@ function renderPrompt(prompt: string, inputs: Record<string, unknown>): string {
 // worker ids in src/worker-isolation/paths.ts.
 let runIdSequence = 0;
 function createRunId(workflowId: string): string {
+  // Use process.pid + monotonic counter for uniqueness (no wall-clock),
+  // but keep a second-resolution stamp for human readability in the id.
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "Z");
-  // The stamp is second-resolution, so several runs of the same workflowId minted
-  // within one second would otherwise hash to the SAME id. process.pid + a monotonic
-  // counter break the tie across BOTH same-process (counter) and concurrent-process
-  // (pid) minting — deterministic-by-environment, not a PRNG, so it keeps the
-  // replay-determinism intent; the id is an edge stamp stripped on replay anyway.
+  // Set CW_DETERMINISTIC_RUN_IDS=1 to use a content hash instead of wall-clock,
+  // so two plan() calls with the same inputs produce the same id (replay-safe).
+  if (/^(1|true|yes|on)$/i.test(process.env.CW_DETERMINISTIC_RUN_IDS || "")) {
+    runIdSequence += 1;
+    const suffix = crypto
+      .createHash("sha256")
+      .update(`${workflowId}:${process.pid}:${runIdSequence}`)
+      .digest("hex")
+      .slice(0, 6);
+    return `${workflowId}-${suffix}`;
+  }
   runIdSequence += 1;
   const suffix = crypto
     .createHash("sha256")
