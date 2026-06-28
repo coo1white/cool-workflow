@@ -46,6 +46,7 @@ function tmpWorkspace() {
 }
 function clearAgentEnv() {
   for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+  process.env.CW_NO_AUTO_AGENT = "1";
 }
 
 // A stub agent: argv[2]=resultPath. Writes a valid evidence-gated result.md and
