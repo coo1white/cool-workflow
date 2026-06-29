@@ -23,14 +23,26 @@ npm run canonical-apps
 
 ## Shipped Apps
 
+Eight apps ship in `apps/`. Five are canonical (the lanes the docs support); three
+are examples or an internal proof. List them all with `cw app list`.
+
+### Canonical
+
 | App | Use it when | Notes |
 | --- | --- | --- |
 | `architecture-review` | You want the full repository architecture and risk review. | 14 tasks across Map, Assess, Verify, and Verdict; readonly sandbox. |
 | `architecture-review-fast` | You want faster first results before a deeper background review. | 6 tasks; supports source-context inputs; readonly sandbox. |
-| `pr-review-fix-ci` | You want PR review and CI diagnosis. | Can use readonly or workspace-write profiles depending on mode. |
-| `research-synthesis` | You want evidence-backed synthesis from sources. | Uses readonly and locked-down profiles. |
-| `release-cut` | You want release preparation with checklist discipline. | Uses readonly and workspace-write profiles. |
-| `workflow-app-framework-demo` | You want a small example app contract. | Demonstrates inputs, phases, evidence gates, and sandbox hints. |
+| `pr-review-fix-ci` | You want PR review and CI diagnosis. | 7 tasks; can use readonly or workspace-write profiles depending on mode. |
+| `research-synthesis` | You want evidence-backed synthesis from sources. | 6 tasks; uses readonly and locked-down profiles. |
+| `release-cut` | You want release preparation with checklist discipline. | 6 tasks; uses readonly and workspace-write profiles. |
+
+### Examples and internal proof
+
+| App | Use it when | Notes |
+| --- | --- | --- |
+| `pdca-blackboard-loop` | You want a small multi-agent example. | 4 tasks; three agents share one blackboard to plan, do, check, and act. |
+| `workflow-app-framework-demo` | You want a small example app contract. | 3 tasks; shows inputs, phases, evidence gates, and sandbox hints. |
+| `end-to-end-golden-path` | You want the deterministic integration proof. | 1 task; the one-worker app behind `npm run golden-path`. |
 
 ## Full Review vs Fast Review
 
