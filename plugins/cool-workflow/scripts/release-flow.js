@@ -154,6 +154,11 @@ function runVendorPreflight() {
 }
 
 // ---- 2. independent reviewer, delegated to the configured agent -------------
+// Default reviewer deadline. The zero-trust reviewer re-runs release-gate.sh,
+// whose sequential test suite alone is ~12 min, then reads + reasons over the
+// diff — so a 10-min default guaranteed a timeout on a real release. 30 min gives
+// headroom; override with CW_AGENT_TIMEOUT_MS (or --agent-timeout-ms).
+const REVIEWER_TIMEOUT_MS = 1800000;
 function reviewerPromptBody() {
   // Reuse the committed reviewer spec as the prompt; strip YAML frontmatter.
   const specPath = path.join(pluginRoot, "agents", "release-reviewer.md");
@@ -280,7 +285,7 @@ function delegateReview(resultPath, inputPath) {
       cwd: repoRoot,
       env: { ...process.env },
       encoding: "utf8",
-      timeout: cfg.timeoutMs || 600000,
+      timeout: cfg.timeoutMs || REVIEWER_TIMEOUT_MS,
       shell: false,
       stdio: ["ignore", "pipe", "inherit"],
       maxBuffer: 32 * 1024 * 1024
@@ -310,7 +315,7 @@ function delegateReview(resultPath, inputPath) {
   say(`[2/3] reviewer — POSTing to endpoint ${cfg.endpoint} (model: ${cfg.model || "unreported"})`);
   const body = JSON.stringify({ prompt: subMap.prompt, model: cfg.model, sha: HEAD });
   const lib = cfg.endpoint.startsWith("https:") ? https : http;
-  const text = postSync(lib, cfg.endpoint, body, cfg.timeoutMs || 600000);
+  const text = postSync(lib, cfg.endpoint, body, cfg.timeoutMs || REVIEWER_TIMEOUT_MS);
   if (text === null) die("reviewer endpoint call failed — no verdict trusted.");
   fs.writeFileSync(resultPath, text.endsWith("\n") ? text : `${text}\n`);
 }
@@ -502,15 +507,28 @@ function cut(resultPath, capability) {
   const bump = spawnSync("npm", ["run", "bump:version", "--", cutVersion], { cwd: pluginRoot, encoding: "utf8", stdio: "inherit" });
   if (bump.status !== 0) die("bump:version failed");
   // Regenerate the gated project index after the version bump (PR #87 gate).
-  spawnSync("npm", ["run", "sync:project-index", "--", "--repo-only"], { cwd: pluginRoot, stdio: "inherit" });
-  git(["add", "-A"]);
+  // Fail closed: a failed regen must not bake a stale index into the immutable tag.
+  const sync = spawnSync("npm", ["run", "sync:project-index", "--", "--repo-only"], { cwd: pluginRoot, encoding: "utf8", stdio: "inherit" });
+  if (sync.status !== 0) die("sync:project-index failed — refusing to cut with a stale project index");
+  // Stage ONLY tracked-file modifications (the bump surfaces, project-index, dist)
+  // plus the ONE intended new file: the reviewer verdict. NEVER `git add -A` — an
+  // untracked stray (e.g. the reviewer's narration transcript, which carries the
+  // operator's local home path) must never ride into the immutable tag commit
+  // (that tripped pii-redaction-smoke and red-failed release-gate for v0.1.96).
+  // `git add -u` touches tracked files only, so no untracked file can be swept in;
+  // the verdict is the single new path the cut is allowed to add.
+  git(["add", "-u"]);
+  git(["add", "--", path.relative(repoRoot, resultPath)]);
   const commit = git(["commit", "-m", `chore(release): record APPROVED reviewer verdict for v${cutVersion}`]);
   if (commit.code !== 0) die("verdict commit failed", commit.err);
   const tag = git(["tag", "-a", `v${cutVersion}`, "-m", `v${cutVersion}: ${capability || "release"}`]);
   if (tag.code !== 0) die("git tag failed", tag.err);
   if (PUSH) {
-    git(["push", "origin", "HEAD"]);
-    git(["push", "origin", `v${cutVersion}`]);
+    // Atomic: the verdict commit on HEAD and the tag land together or not at all.
+    // A non-atomic two-push could leave main advanced with no tag, so CI's
+    // release-gate (which fires on the tag) never runs and the release silently stalls.
+    const push = git(["push", "--atomic", "origin", "HEAD", `v${cutVersion}`]);
+    if (push.code !== 0) die("atomic push of HEAD + tag failed (nothing partially pushed)", push.err);
   }
   say(`tagged v${cutVersion}${PUSH ? " and pushed" : " (local only; push when ready)"}`);
   // Finishing step: create the GitHub Release for the just-pushed tag. Only when

@@ -5,7 +5,7 @@ class CoolWorkflow < Formula
   # post-publish checksum step. Homebrew reads the version FROM the tag, so the
   # tag is the one version surface — auto-bumped by
   # plugins/cool-workflow/scripts/bump-version.js and gated by version:sync.
-  url "https://github.com/coo1white/cool-workflow.git", tag: "v0.1.95"
+  url "https://github.com/coo1white/cool-workflow.git", tag: "v0.1.96"
   license "BSD-2-Clause"
 
   depends_on "node"
