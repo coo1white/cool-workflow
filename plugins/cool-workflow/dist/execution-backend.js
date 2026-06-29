@@ -410,7 +410,7 @@ function executeLocal(descriptor, policy, request, label, attestation) {
         // Shell injection guard: reject args that contain shell control characters
         // (beyond template placeholders). The command itself is operator-configured.
         const shellArg = [command, ...args].join(" ").replace(/\{\{[a-zA-Z0-9_.-]+\}\}/g, "");
-        if (/[;&|`$(){}<>!\n\r]/.test(shellArg)) {
+        if (/[;&|`$(){}<>!\n\r#*?~]/.test(shellArg)) {
             throw new Error(`Shell backend refused: args contain shell control characters. ` +
                 `Use the node, bun, or agent backend instead for untrusted inputs.`);
         }

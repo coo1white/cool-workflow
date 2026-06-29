@@ -154,7 +154,12 @@ function renderPrompt(trigger: RoutineTrigger, payload: unknown): string {
 function parseJsonObject(value: unknown): Record<string, unknown> | undefined {
   if (!value || value === true) return undefined;
   if (typeof value === "object") return value as Record<string, unknown>;
-  const parsed = JSON.parse(String(value)) as unknown;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(value)) as unknown;
+  } catch {
+    throw new Error("Expected a JSON object, got invalid JSON");
+  }
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     throw new Error("Expected JSON object");
   }

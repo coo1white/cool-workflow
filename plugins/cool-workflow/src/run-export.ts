@@ -382,6 +382,8 @@ export function importManifestPath(run: WorkflowRun): string {
 }
 
 export interface VerifyReportBundleOptions {
+  /** Base directory for extractReportTo containment. Defaults to process.cwd(). */
+  cwd?: string;
   /** Public key override (inline PEM or path). Used only when the bundle carries
    *  no embedded trust block; the bundle's own key always wins so the artifact is
    *  self-describing. */
@@ -554,7 +556,13 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
     }
     if (options.extractReportTo && reportContent !== undefined) {
       reportExtractedTo = path.resolve(options.extractReportTo);
-      fs.writeFileSync(reportExtractedTo, reportContent);
+      const baseCwd = options.cwd ? path.resolve(options.cwd) : process.cwd();
+      if (!isContainedPath(reportExtractedTo, baseCwd)) {
+        failedChecks.push({ name: "extract-report", code: "path-outside-working-directory" });
+        reportExtractedTo = undefined;
+      } else {
+        fs.writeFileSync(reportExtractedTo, reportContent);
+      }
     }
   } catch (error) {
     failedChecks.push({ name: "restore", code: messageOf(error) });

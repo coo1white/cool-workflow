@@ -86,7 +86,12 @@ export function handleRoutine(args: ParsedArgs, triggers: RoutineTriggerBridge):
       return;
     case "fire": {
       const kind = required(idOrKind, "trigger kind");
-      const payload = payloadPath ? JSON.parse(fs.readFileSync(payloadPath, "utf8")) : args.options;
+      let payload: unknown;
+      try {
+        payload = payloadPath ? JSON.parse(fs.readFileSync(payloadPath, "utf8")) : args.options;
+      } catch (e) {
+        throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String(e && (e as Error).message || e)}`);
+      }
       printJson(triggers.fire(kind, payload));
       return;
     }

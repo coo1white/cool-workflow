@@ -147,7 +147,13 @@ function parseJsonObject(value) {
         return undefined;
     if (typeof value === "object")
         return value;
-    const parsed = JSON.parse(String(value));
+    let parsed;
+    try {
+        parsed = JSON.parse(String(value));
+    }
+    catch {
+        throw new Error("Expected a JSON object, got invalid JSON");
+    }
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
         throw new Error("Expected JSON object");
     }

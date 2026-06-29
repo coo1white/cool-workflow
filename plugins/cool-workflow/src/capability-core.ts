@@ -288,7 +288,11 @@ export function runExportArchive(runner: CoolWorkflowRunner, runId: string, args
   // offline. Default falls back to the same env the verify gate reads, so a single
   // configured key both attests at record-time and travels with the export.
   const trustPublicKey = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
-  return exportRun(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId), path.resolve(base, output), { trustPublicKey });
+  const resolvedOutput = path.resolve(base, output);
+  if (!resolvedOutput.startsWith(base + path.sep) && resolvedOutput !== base) {
+    throw new Error(`Refusing to write archive outside the working directory: ${output}`);
+  }
+  return exportRun(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId), resolvedOutput, { trustPublicKey });
 }
 
 export function runImportArchive(runner: CoolWorkflowRunner, args: Record<string, unknown>): unknown {

@@ -266,6 +266,7 @@ export interface AgentSpawnJob {
   args: string[];
   cwd: string;
   timeoutMs: number;
+  env?: NodeJS.ProcessEnv;
 }
 
 /** Resolve a request to a spawn-style batch job, or undefined when the agent is

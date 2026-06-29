@@ -15,7 +15,8 @@
 // API request. Behavior MUST stay byte-identical to the previous embedded string.
 
 (async () => {
-  const read = () => new Promise((res) => { let b = ""; process.stdin.on("data", (c) => (b += c)); process.stdin.on("end", () => res(b)); });
+  const MAX_STDIN_BYTES = 32 * 1024 * 1024;
+  const read = () => new Promise((res) => { let b = ""; process.stdin.on("data", (c) => { if (b.length < MAX_STDIN_BYTES) b += c; }); process.stdin.on("end", () => res(b)); });
   try {
     const job = JSON.parse((await read()) || "{}");
     const endpoint = process.env.CW_DELEGATE_ENDPOINT;

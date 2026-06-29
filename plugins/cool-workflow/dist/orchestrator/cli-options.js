@@ -112,8 +112,14 @@ function metadataOption(options) {
     const raw = options.metadata;
     if (raw && typeof raw === "object" && !Array.isArray(raw))
         return raw;
-    if (typeof raw === "string")
-        return JSON.parse(raw);
+    if (typeof raw === "string") {
+        try {
+            return JSON.parse(raw);
+        }
+        catch {
+            throw new Error(`Invalid JSON in --metadata: ${String(raw).slice(0, 80)}`);
+        }
+    }
     return undefined;
 }
 function withoutHostRunKeys(args) {
