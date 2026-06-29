@@ -2,8 +2,8 @@
 
 A guide you can use again and again for talking about this project: résumé
 points, the README story, and a Show HN post. The numbers below are true (taken
-from the repo): ~22,324 LOC across 34 TypeScript modules, 26 smoke tests, 6
-bundled workflow apps, 27 tagged releases, MCP-native, BSD-2.
+from the repo): ~45,000 LOC across 68 TypeScript modules, 159 smoke tests, 8
+bundled workflow apps, 96 tagged releases, MCP-native, BSD-2.
 
 ---
 
@@ -27,7 +27,7 @@ github.com/coo1white/cool-workflow
 
 Designed and built a durable, inspectable runtime that turns open-ended agent
 tasks into auditable workflow runs: plan → dispatch → record evidence → verify →
-verifier-gated commit → report. ~22k LOC across 34 modules, 26 smoke tests, 27
+verifier-gated commit → report. ~45k LOC across 68 modules, 159 smoke tests, 96
 tagged releases.
 
 • Built an explicit state machine with plain-JSON durable run state (.cw/runs/);
@@ -51,7 +51,7 @@ tagged releases.
 ```
 Cool Workflow — 独立开发的 Agent 工作流运行时(TypeScript/Node,BSD-2 开源)
 • 设计并实现可审计、可复现的 agent 运行时:plan→dispatch→记录证据→验证→门控提交→报告;
-  显式状态机 + 纯 JSON 持久化(.cw/runs/),全程可断点续跑、可回放。约 2.2 万行 / 34 模块 / 26 smoke 测试 / 27 个版本。
+  显式状态机 + 纯 JSON 持久化(.cw/runs/),全程可断点续跑、可回放。约 4.5 万行 / 68 模块 / 159 smoke 测试 / 96 个版本。
 • 自研多 agent 协作层(进程表 + 黑板协调器 + map-reduce/辩论/评审团拓扑)、证据采纳推理链(可解释"为何采纳",缺据则 fail-closed)、
   确定性 eval/replay 回归门、跨厂商分发(单一真相源生成 Claude/Codex 清单,共享 CLI + MCP),并把发版纪律写成 CI 门禁。
 ```
@@ -138,7 +138,7 @@ A few things I'm happy with:
   plugin manifests are generated from a single source of truth with a
   fail-closed drift check, so no vendor adapter forks the core.
 
-It's ~22k LOC across 34 modules, 26 smoke tests, 6 bundled workflow apps, BSD-2.
+It's ~45k LOC across 68 modules, 159 smoke tests, 8 bundled workflow apps, BSD-2.
 
 I'm a self-taught dev and this is the most ambitious thing I've built. Design is
 deliberately Unix/BSD: small kernel, explicit state, composable pipes, isolated
