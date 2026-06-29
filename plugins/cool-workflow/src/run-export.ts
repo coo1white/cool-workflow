@@ -556,11 +556,14 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
     }
     if (options.extractReportTo && reportContent !== undefined) {
       reportExtractedTo = path.resolve(options.extractReportTo);
-      const baseCwd = options.cwd ? path.resolve(options.cwd) : process.cwd();
-      if (!isContainedPath(reportExtractedTo, baseCwd)) {
-        failedChecks.push({ name: "extract-report", code: "path-outside-working-directory" });
-        reportExtractedTo = undefined;
-      } else {
+      if (options.cwd) {
+        const baseCwd = path.resolve(options.cwd);
+        if (!isContainedPath(reportExtractedTo, baseCwd)) {
+          failedChecks.push({ name: "extract-report", code: "path-outside-working-directory" });
+          reportExtractedTo = undefined;
+        }
+      }
+      if (reportExtractedTo) {
         fs.writeFileSync(reportExtractedTo, reportContent);
       }
     }
