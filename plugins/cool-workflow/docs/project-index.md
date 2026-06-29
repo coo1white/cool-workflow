@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-29 by `npm run sync:projec
 - Source modules: `68`
 - Workflow apps: `8`
 - Docs: `59`
-- Smoke tests: `159`
+- Smoke tests: `162`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -288,6 +288,8 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [operator-ux-smoke.js](../test/operator-ux-smoke.js)
 - [parallel-onramp-smoke.js](../test/parallel-onramp-smoke.js)
 - [parity-doc-sync-smoke.js](../test/parity-doc-sync-smoke.js)
+- [parse-guard-smoke.js](../test/parse-guard-smoke.js)
+- [path-containment-smoke.js](../test/path-containment-smoke.js)
 - [pdca-blackboard-loop-smoke.js](../test/pdca-blackboard-loop-smoke.js)
 - [pii-redaction-smoke.js](../test/pii-redaction-smoke.js)
 - [pipeline-auto-advance-smoke.js](../test/pipeline-auto-advance-smoke.js)
@@ -330,6 +332,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-resume-drive-smoke.js](../test/run-resume-drive-smoke.js)
 - [run-retention-reclamation-smoke.js](../test/run-retention-reclamation-smoke.js)
 - [sample-determinism-smoke.js](../test/sample-determinism-smoke.js)
+- [sandbox-env-batch-hardening-smoke.js](../test/sandbox-env-batch-hardening-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)
 - [sched-policy-validation-smoke.js](../test/sched-policy-validation-smoke.js)
 - [schedule-routine-daemon-smoke.js](../test/schedule-routine-daemon-smoke.js)

@@ -457,9 +457,12 @@ function emitReport(model, usage, resultText) {
 // `logs/agent-stderr.log` sibling is the natural home. Advisory only: never throws,
 // never changes the exit code or the recorded evidence.
 function persistStderr(resultPath, text) {
-  const t = String(text || "").trim();
+  let t = String(text || "").trim();
   if (!t || !resultPath) return;
   try {
+    t = String(t).replace(/\b(sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|xox[bprs]-[A-Za-z0-9-]{20,}|Bearer\s+\S+|Authorization:\s*\S+|api[_-]?key[=:]\s*\S+|token[=:]\s*\S+)/gi, (match) => match.slice(0, 4) + "***[REDACTED]");
+    const cap = 4096;
+    if (t.length > cap) t = t.slice(0, cap) + `\n  [truncated from ${t.length} bytes]`;
     const dir = path.join(path.dirname(resultPath), "logs");
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "agent-stderr.log"), `${t}\n`, "utf8");

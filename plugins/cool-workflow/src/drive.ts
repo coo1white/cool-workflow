@@ -27,7 +27,7 @@ import { CoolWorkflowRunner } from "./orchestrator";
 import { phaseProgressLine } from "./term";
 import { reporter } from "./reporter";
 import { firstRunnablePhase } from "./dispatch";
-import { prepareAgentSpawn, runAgentBatchOutcomes, runBackend, sha256, stripSecretArgs } from "./execution-backend";
+import { prepareAgentSpawn, runAgentBatchOutcomes, runBackend, sha256, stripSecretArgs, buildChildEnv } from "./execution-backend";
 import { recordWorkerRetryAttempt } from "./worker-isolation";
 import { resolveAgentConfig } from "./agent-config";
 import { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy, retryOrPark } from "./scheduling";
@@ -556,6 +556,16 @@ function prepareConcurrentOutcomes(
     if (cachePath && fs.existsSync(cachePath)) continue;
     const job = prepareAgentSpawn(buildAgentRequest(ctx, run, task, manifest));
     if (job) {
+      const sandboxPolicy = manifest.sandboxPolicy;
+      if (sandboxPolicy) {
+        const filteredEnv = buildChildEnv(sandboxPolicy);
+        for (const key of Object.keys(process.env)) {
+          if (/^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i.test(key)) {
+            filteredEnv[key] = process.env[key];
+          }
+        }
+        job.env = filteredEnv;
+      }
       jobs.push(job);
       jobTaskIds.push(taskId);
     }

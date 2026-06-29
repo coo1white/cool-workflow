@@ -288,7 +288,12 @@ function runExportArchive(runner, runId, args) {
     // offline. Default falls back to the same env the verify gate reads, so a single
     // configured key both attests at record-time and travels with the export.
     const trustPublicKey = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
-    return (0, run_export_1.exportRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId), node_path_1.default.resolve(base, output), { trustPublicKey });
+    const resolvedOutput = node_path_1.default.resolve(base, output);
+    const sysDirs = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
+    if (sysDirs.test(resolvedOutput)) {
+        throw new Error(`Refusing to write archive to a system directory: ${output}`);
+    }
+    return (0, run_export_1.exportRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId), resolvedOutput, { trustPublicKey });
 }
 function runImportArchive(runner, args) {
     const base = invocationCwd(args);

@@ -18,10 +18,17 @@
 
 const { spawn } = require("node:child_process");
 let raw = "";
+const MAX_STDIN_BYTES = 32 * 1024 * 1024;
 process.stdin.setEncoding("utf8");
-process.stdin.on("data", (d) => (raw += d));
+process.stdin.on("data", (d) => { if (raw.length < MAX_STDIN_BYTES) raw += d; });
 process.stdin.on("end", () => {
-  const jobs = JSON.parse(raw);
+  let jobs;
+  try {
+    jobs = JSON.parse(raw);
+  } catch (e) {
+    process.stdout.write(JSON.stringify([{ spawnError: `invalid stdin JSON: ${String(e && e.message || e)}`, exitCode: null, stdout: "" }]));
+    return;
+  }
   if (!jobs.length) { process.stdout.write("[]"); return; }
   const out = new Array(jobs.length);
   let pending = jobs.length;
@@ -37,7 +44,7 @@ process.stdin.on("end", () => {
     };
     let child;
     try {
-      child = spawn(job.binary, job.args, { cwd: job.cwd, env: process.env, shell: false });
+      child = spawn(job.binary, job.args, { cwd: job.cwd, env: job.env || process.env, shell: false });
     } catch (error) {
       settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
       return;

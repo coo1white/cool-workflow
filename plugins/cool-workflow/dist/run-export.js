@@ -453,7 +453,16 @@ function verifyReportBundle(archivePath, options = {}) {
         }
         if (options.extractReportTo && reportContent !== undefined) {
             reportExtractedTo = node_path_1.default.resolve(options.extractReportTo);
-            node_fs_1.default.writeFileSync(reportExtractedTo, reportContent);
+            if (options.cwd) {
+                const baseCwd = node_path_1.default.resolve(options.cwd);
+                if (!(0, state_1.isContainedPath)(reportExtractedTo, baseCwd)) {
+                    failedChecks.push({ name: "extract-report", code: "path-outside-working-directory" });
+                    reportExtractedTo = undefined;
+                }
+            }
+            if (reportExtractedTo) {
+                node_fs_1.default.writeFileSync(reportExtractedTo, reportContent);
+            }
         }
     }
     catch (error) {

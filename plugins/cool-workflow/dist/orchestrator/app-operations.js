@@ -169,6 +169,12 @@ function initApp(appsDir, appId, options, resolveFromBase, validateApp) {
         throw new Error("App id must include at least one letter or digit");
     const title = String(options.title || titleize(id));
     const destinationDir = resolveFromBase(String(options.directory || options.output || node_path_1.default.join(appsDir, id)));
+    // Reject writes to system-owned directories. The operator may provide any
+    // output path, but writing to /etc, /bin, /usr etc. is never valid.
+    const sysDirs = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
+    if (sysDirs.test(node_path_1.default.resolve(destinationDir))) {
+        throw new Error(`Refusing to create app in a system directory: ${destinationDir}`);
+    }
     const manifestPath = node_path_1.default.join(destinationDir, "app.json");
     const entrypointPath = node_path_1.default.join(destinationDir, "workflow.js");
     if (!options.force && (node_fs_1.default.existsSync(manifestPath) || node_fs_1.default.existsSync(entrypointPath))) {

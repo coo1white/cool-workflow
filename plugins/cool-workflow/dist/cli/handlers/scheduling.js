@@ -77,7 +77,13 @@ function handleRoutine(args, triggers) {
             return;
         case "fire": {
             const kind = (0, io_1.required)(idOrKind, "trigger kind");
-            const payload = payloadPath ? JSON.parse(node_fs_1.default.readFileSync(payloadPath, "utf8")) : args.options;
+            let payload;
+            try {
+                payload = payloadPath ? JSON.parse(node_fs_1.default.readFileSync(payloadPath, "utf8")) : args.options;
+            }
+            catch (e) {
+                throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String(e && e.message || e)}`);
+            }
             (0, io_1.printJson)(triggers.fire(kind, payload));
             return;
         }

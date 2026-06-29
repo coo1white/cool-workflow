@@ -101,7 +101,7 @@ export function graphViewsOption(options: Record<string, unknown>): GraphView[] 
 export function metadataOption(options: Record<string, unknown>): Record<string, unknown> | undefined {
   const raw = options.metadata;
   if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
-  if (typeof raw === "string") return JSON.parse(raw) as Record<string, unknown>;
+  if (typeof raw === "string") { try { return JSON.parse(raw) as Record<string, unknown>; } catch { throw new Error(`Invalid JSON in --metadata: ${String(raw).slice(0, 80)}`); } }
   return undefined;
 }
 
