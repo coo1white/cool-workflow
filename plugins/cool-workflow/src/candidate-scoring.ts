@@ -15,7 +15,7 @@ import {
   WorkflowRun
 } from "./types";
 import { recordFeedback } from "./error-feedback";
-import { safeFileName, saveCheckpoint, writeJson } from "./state";
+import { readJson, safeFileName, saveCheckpoint, writeJson } from "./state";
 import { appendRunNode, createStateNode, linkStateNodes } from "./state-node";
 import { buildAcceptanceRationale, normalizeEvidence, recordTrustAuditEvent } from "./trust-audit";
 import { reviewGateErrors, selfActorIdsForCandidate } from "./collaboration";
@@ -165,7 +165,7 @@ export function getCandidate(run: WorkflowRun, candidateId: string): CandidateRe
   // Fail-closed integrity boundary (F4/F5): validate the parsed record against
   // its type def BEFORE upserting it as a trusted CandidateRecord. A corrupt or
   // forged candidate.json must throw here rather than flow into the run.
-  const candidate = validateCandidateRecord(JSON.parse(fs.readFileSync(file, "utf8")));
+  const candidate = validateCandidateRecord(readJson(file));
   upsertCandidate(run, candidate);
   return candidate;
 }
@@ -636,7 +636,7 @@ function loadCandidatesFromDisk(run: WorkflowRun): CandidateRecord[] {
     // Fail-closed integrity boundary (F4/F5): each candidate.json is validated
     // against CandidateRecord before it merges into the run; a corrupt record
     // throws rather than entering the candidate set as a trusted cast.
-    .map((file) => validateCandidateRecord(JSON.parse(fs.readFileSync(file, "utf8"))));
+    .map((file) => validateCandidateRecord(readJson(file)));
 }
 
 function readScores(run: WorkflowRun, candidateId: string): CandidateScore[] {
@@ -649,7 +649,7 @@ function readScores(run: WorkflowRun, candidateId: string): CandidateScore[] {
     // Fail-closed integrity boundary (F4/F5): a score file is validated against
     // CandidateScore before it can feed ranking/selection. A corrupt score must
     // throw, not silently widen the normalized/verdict surface the gate reads.
-    .map((file) => validateCandidateScore(JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"))));
+    .map((file) => validateCandidateScore(readJson(path.join(dir, file))));
 }
 
 function candidateArtifacts(run: WorkflowRun, candidate: CandidateRecord): StateArtifact[] {

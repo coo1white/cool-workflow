@@ -132,7 +132,12 @@ function resolveSandboxProfileById(id, context = defaultSandboxContext()) {
     // This closes the gap where `sandbox validate` accepted a custom profile that
     // dispatch/worker-isolation then refused — validated but never enforceable.
     // A non-bundled, non-file id still fails closed via showBundledSandboxProfile.
-    const absolute = node_path_1.default.resolve(requested);
+    const absolute = node_path_1.default.resolve(context.cwd, requested);
+    if (!absolute.startsWith(node_path_1.default.resolve(context.cwd) + node_path_1.default.sep) && absolute !== node_path_1.default.resolve(context.cwd)) {
+        throw new SandboxProfileError("sandbox-profile-path-escape", `Custom profile path traversal denied: ${requested}`, {
+            details: { requested }
+        });
+    }
     if (node_fs_1.default.existsSync(absolute) && node_fs_1.default.statSync(absolute).isFile()) {
         const result = validateSandboxProfileFile(requested, context);
         if (!result.valid || !result.profile) {

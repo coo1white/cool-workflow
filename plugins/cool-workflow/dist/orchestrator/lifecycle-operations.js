@@ -228,6 +228,9 @@ function recordResult(run, taskId, resultPath, options = {}) {
     try {
         (0, verifier_1.assertTaskCanComplete)(run, task);
         const absoluteResultPath = node_path_1.default.resolve(resultPath);
+        if (/^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//.test(absoluteResultPath)) {
+            throw new Error(`Result path must not be a system directory: ${resultPath}`);
+        }
         if (!node_fs_1.default.existsSync(absoluteResultPath)) {
             throw new Error(`Result file does not exist: ${absoluteResultPath}`);
         }

@@ -1,5 +1,14 @@
 # CW Iteration Log
 
+## Batch — fix 8 round-2 security audit findings (Unreleased)
+
+> Second-round audit of v0.1.96 post-P1-P3 fixes found 12 remaining vulnerabilities. HIGH (3): MCP server crash on null/non-object JSON line (type guard), candidate-scoring + migration-operations bare JSON.parse replaced with existing `readJson()` helper. MEDIUM (5): resultPath confined to run directory, sandbox profile path traversal blocked, git ref option injection guarded with `-` prefix check, maxBuffer capped at 512MB, workbench token comparison switched to crypto.timingSafeEqual. LOW (2): already mitigated by HIGH fix #1.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | HIGH: MCP server crash guard (null/non-object check after JSON.parse), candidate-scoring + migration-operations switch bare JSON.parse → readJson() (4 call sites, existing helper with try/catch) | src/mcp-server.ts, src/candidate-scoring.ts, src/orchestrator/migration-operations.ts | npm test 34/34 green | BUILD OK; all checks green | no (accumulate for PR) |
+| 2 | MEDIUM: resultPath run-dir confinement, sandbox profile path traversal guard, git ref -prefix injection guard, maxBuffer 512MB cap, workbench token crypto.timingSafeEqual | src/orchestrator/lifecycle-operations.ts, src/sandbox-profile.ts, src/onramp.ts, src/execution-backend/agent.ts, src/workbench-host.ts | npm test 34/34 green | BUILD OK; all checks green | no (accumulate for PR) |
+
 ## Batch — fix 10 P1-P3 security audit findings (Unreleased)
 
 > Full 7-dimension security audit of v0.1.96 found 10 vulnerabilities. P1 (CRITICAL): batch child env bypass (sandbox policy not enforced in concurrent spawns), agent stderr leaked to disk without redaction, children stdin unbounded + JSON.parse unguarded. P2 (HIGH): 3 JSON.parse call sites missing try/catch + shell metacharacter guard missing # * ? ~. P3 (MEDIUM): extractReportTo, initApp, runExportArchive allowed writes to system paths. All 10 fixed; 3 new smoke tests added (162 total).

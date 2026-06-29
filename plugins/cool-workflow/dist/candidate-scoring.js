@@ -115,7 +115,7 @@ function getCandidate(run, candidateId) {
     // Fail-closed integrity boundary (F4/F5): validate the parsed record against
     // its type def BEFORE upserting it as a trusted CandidateRecord. A corrupt or
     // forged candidate.json must throw here rather than flow into the run.
-    const candidate = (0, validation_1.validateCandidateRecord)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8")));
+    const candidate = (0, validation_1.validateCandidateRecord)((0, state_1.readJson)(file));
     upsertCandidate(run, candidate);
     return candidate;
 }
@@ -537,7 +537,7 @@ function loadCandidatesFromDisk(run) {
         // Fail-closed integrity boundary (F4/F5): each candidate.json is validated
         // against CandidateRecord before it merges into the run; a corrupt record
         // throws rather than entering the candidate set as a trusted cast.
-        .map((file) => (0, validation_1.validateCandidateRecord)(JSON.parse(node_fs_1.default.readFileSync(file, "utf8"))));
+        .map((file) => (0, validation_1.validateCandidateRecord)((0, state_1.readJson)(file)));
 }
 function readScores(run, candidateId) {
     const dir = node_path_1.default.join(candidateDir(run, candidateId), "scores");
@@ -550,7 +550,7 @@ function readScores(run, candidateId) {
         // Fail-closed integrity boundary (F4/F5): a score file is validated against
         // CandidateScore before it can feed ranking/selection. A corrupt score must
         // throw, not silently widen the normalized/verdict surface the gate reads.
-        .map((file) => (0, validation_1.validateCandidateScore)(JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8"))));
+        .map((file) => (0, validation_1.validateCandidateScore)((0, state_1.readJson)(node_path_1.default.join(dir, file))));
 }
 function candidateArtifacts(run, candidate) {
     return [

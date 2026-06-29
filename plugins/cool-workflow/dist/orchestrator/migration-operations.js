@@ -40,5 +40,5 @@ function loadMigrationSnapshot(target, options) {
         : node_path_1.default.join(process.cwd(), ".cw", "runs", target, "state.json");
     if (!node_fs_1.default.existsSync(file))
         throw new Error(`Migration target not found: ${target}`);
-    return { snapshot: JSON.parse(node_fs_1.default.readFileSync(file, "utf8")), contract, dir: node_path_1.default.dirname(file) };
+    return { snapshot: (0, state_1.readJson)(file), contract, dir: node_path_1.default.dirname(file) };
 }

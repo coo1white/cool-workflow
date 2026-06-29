@@ -24,6 +24,7 @@ exports.WorkbenchHost = void 0;
 const node_http_1 = __importDefault(require("node:http"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const node_crypto_1 = __importDefault(require("node:crypto"));
 const workbench_1 = require("./workbench");
 const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 const CONTENT_TYPES = {
@@ -93,7 +94,12 @@ class WorkbenchHost {
             if (requiredToken) {
                 const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
                 const queryToken = url.searchParams.get("token") || "";
-                if (bearer !== requiredToken && queryToken !== requiredToken) {
+                const tokenBuf = Buffer.from(requiredToken);
+                const bearerBuf = Buffer.from(bearer);
+                const queryBuf = Buffer.from(queryToken);
+                const tokenOk = bearerBuf.length === tokenBuf.length && node_crypto_1.default.timingSafeEqual(bearerBuf, tokenBuf);
+                const queryOk = queryBuf.length === tokenBuf.length && node_crypto_1.default.timingSafeEqual(queryBuf, tokenBuf);
+                if (!tokenOk && !queryOk) {
                     return this.send(res, 401, { error: "unauthorized: token mismatch" });
                 }
             }

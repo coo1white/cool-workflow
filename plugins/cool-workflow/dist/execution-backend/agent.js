@@ -276,7 +276,7 @@ function runAgentBatchOutcomes(jobs) {
     const child = (0, node_child_process_1.spawnSync)(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
         input: JSON.stringify(jobs),
         encoding: "utf8",
-        maxBuffer: 33 * 1024 * 1024 * jobs.length,
+        maxBuffer: Math.min(33 * 1024 * 1024 * jobs.length, 512 * 1024 * 1024),
         timeout: maxTimeout + 30000
     });
     if (!child.error && typeof child.status === "number" && child.status === 0) {
