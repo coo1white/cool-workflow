@@ -27,31 +27,47 @@ permissions:
 
 jobs:
   publish:
+    # Gate as a job-level condition (NOT a pre-checkout run-step): on workflow_run
+    # only proceed if release-gate succeeded; workflow_dispatch is always allowed.
+    # A run-step here would execute under the job's working-directory before
+    # actions/checkout has created it, so the shell could not even start.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: plugins/cool-workflow
     steps:
-      - name: Gate — refuse if release-gate did not pass
-        if: github.event_name == 'workflow_run'
-        run: |
-          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
-            echo "::error::release-gate did not pass (conclusion=${{ github.event.workflow_run.conclusion }}). Refusing to publish."
-            exit 1
-          fi
-          echo "release-gate passed — proceeding to publish"
       - uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.inputs.ref || github.event.workflow_run.head_sha || github.ref }}
+          # Check out the exact commit the gate ran on (a tag commit); on dispatch,
+          # the operator-supplied tag. fetch-depth 0 + tags so we can resolve the
+          # tag name from the commit below.
+          ref: ${{ github.event.inputs.ref || github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
       - name: Use npm with Trusted Publishing support
         run: npm install -g npm@^11.5.1
+      - name: Resolve the release tag from the commit
+        id: tagref
+        run: |
+          if [ -n "${{ github.event.inputs.ref }}" ]; then
+            REF="${{ github.event.inputs.ref }}"
+          else
+            # workflow_run: head_branch is the triggering branch (e.g. 'main'), NOT
+            # the tag — derive the tag from the commit the gate actually ran on.
+            REF="$(git describe --tags --exact-match "${{ github.event.workflow_run.head_sha }}")"
+          fi
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+          echo "resolved release tag: $REF"
       - name: Verify the tag matches the committed package version
         run: |
           PKG="$(node -p "require('./package.json').version")"
-          REF="${{ github.event.inputs.ref || github.event.workflow_run.head_branch || github.ref_name }}"
+          REF="${{ steps.tagref.outputs.ref }}"
           TAG="${REF#v}"
           echo "tag=$TAG package=$PKG"
           if [ "$TAG" != "$PKG" ]; then
