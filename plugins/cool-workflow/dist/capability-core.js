@@ -289,8 +289,9 @@ function runExportArchive(runner, runId, args) {
     // configured key both attests at record-time and travels with the export.
     const trustPublicKey = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
     const resolvedOutput = node_path_1.default.resolve(base, output);
-    if (!resolvedOutput.startsWith(base + node_path_1.default.sep) && resolvedOutput !== base) {
-        throw new Error(`Refusing to write archive outside the working directory: ${output}`);
+    const sysDirs = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
+    if (sysDirs.test(resolvedOutput)) {
+        throw new Error(`Refusing to write archive to a system directory: ${output}`);
     }
     return (0, run_export_1.exportRun)(runner.withBaseDir(optionalString(args.cwd)).loadRun(runId), resolvedOutput, { trustPublicKey });
 }

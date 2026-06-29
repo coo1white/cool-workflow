@@ -87,7 +87,7 @@ function main() {
     // Export to /etc is refused
     assert.throws(() => {
       runExportArchive(runner, plan.id, { cwd: tmp, output: "/etc/cw-export-injected" });
-    }, /outside/, "export to /etc is refused");
+    }, /system directory/, "export to /etc is refused");
 
     // Extract to cwd works (reportExtractedTo may be undefined if the bundle
     // has no report.md — that is fine, the containment guard is what matters)
