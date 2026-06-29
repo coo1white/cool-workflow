@@ -19,6 +19,11 @@ and merge through GitHub. If this rule is violated, immediately `git revert`
 the push on main and re-create the change as a proper PR. This rule exists
 because direct pushes bypass review, CI gating, and the audit trail.
 
+Merge only when CI is green. Use `gh pr merge --auto` to auto-merge
+when checks pass, or `gh pr merge --merge` after manually confirming CI
+is green. Never use `--admin` to bypass CI checks. Never merge with a
+red or pending CI run.
+
 # Iteration Loop
 Each cycle MUST follow this sequence. Do not skip steps.
 
