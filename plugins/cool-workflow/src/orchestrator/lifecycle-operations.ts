@@ -247,10 +247,10 @@ export function recordResult(run: WorkflowRun, taskId: string, resultPath: strin
   try {
     assertTaskCanComplete(run, task);
 
-    if (path.isAbsolute(resultPath) && !resultPath.startsWith(run.paths.runDir)) {
-      throw new Error(`Result path outside run directory — use a relative path or place the result file under the run directory: ${resultPath}`);
+    const absoluteResultPath = path.resolve(resultPath);
+    if (/^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//.test(absoluteResultPath)) {
+      throw new Error(`Result path must not be a system directory: ${resultPath}`);
     }
-    const absoluteResultPath = path.resolve(run.paths.runDir, resultPath);
     if (!fs.existsSync(absoluteResultPath)) {
       throw new Error(`Result file does not exist: ${absoluteResultPath}`);
     }
