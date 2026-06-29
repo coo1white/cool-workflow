@@ -227,7 +227,10 @@ function recordResult(run, taskId, resultPath, options = {}) {
     const usage = (0, observability_1.parseUsageFromArgs)(options, new Date().toISOString());
     try {
         (0, verifier_1.assertTaskCanComplete)(run, task);
-        const absoluteResultPath = node_path_1.default.resolve(resultPath);
+        if (node_path_1.default.isAbsolute(resultPath) && !resultPath.startsWith(run.paths.runDir)) {
+            throw new Error(`Result path outside run directory — use a relative path or place the result file under the run directory: ${resultPath}`);
+        }
+        const absoluteResultPath = node_path_1.default.resolve(run.paths.runDir, resultPath);
         if (!node_fs_1.default.existsSync(absoluteResultPath)) {
             throw new Error(`Result file does not exist: ${absoluteResultPath}`);
         }

@@ -19,6 +19,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { CoolWorkflowRunner } from "./orchestrator";
 import {
   WORKBENCH_DEFAULT_PORT,
@@ -110,7 +111,12 @@ export class WorkbenchHost {
       if (requiredToken) {
         const bearer = (req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim();
         const queryToken = url.searchParams.get("token") || "";
-        if (bearer !== requiredToken && queryToken !== requiredToken) {
+        const tokenBuf = Buffer.from(requiredToken);
+        const bearerBuf = Buffer.from(bearer);
+        const queryBuf = Buffer.from(queryToken);
+        const tokenOk = bearerBuf.length === tokenBuf.length && crypto.timingSafeEqual(bearerBuf, tokenBuf);
+        const queryOk = queryBuf.length === tokenBuf.length && crypto.timingSafeEqual(queryBuf, tokenBuf);
+        if (!tokenOk && !queryOk) {
           return this.send(res, 401, { error: "unauthorized: token mismatch" });
         }
       }

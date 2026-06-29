@@ -386,6 +386,8 @@ function resolveBaseRef(root, changedFrom, env) {
     return verifyRef(root, "HEAD");
 }
 function verifyRef(root, ref) {
+    if (ref.startsWith("-"))
+        throw new Error(`Invalid onramp base ref (must not start with '-'): ${ref}`);
     const resolved = gitOne(root, ["rev-parse", "--verify", `${ref}^{commit}`]);
     if (!resolved)
         throw new Error(`Unknown onramp base ref: ${ref}`);

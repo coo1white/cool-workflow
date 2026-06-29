@@ -3,7 +3,7 @@
 // is identical to the inline versions.
 import fs from "node:fs";
 import path from "node:path";
-import { writeJson } from "../state";
+import { readJson, writeJson } from "../state";
 import { listMigrationContracts, checkMigration, proveMigration, MigrationContractId } from "../contract-migration";
 
 export function migrationList(): { contracts: ReturnType<typeof listMigrationContracts> } {
@@ -34,5 +34,5 @@ export function loadMigrationSnapshot(target: string, options: Record<string, un
       ? path.resolve(target)
       : path.join(process.cwd(), ".cw", "runs", target, "state.json");
   if (!fs.existsSync(file)) throw new Error(`Migration target not found: ${target}`);
-  return { snapshot: JSON.parse(fs.readFileSync(file, "utf8")), contract, dir: path.dirname(file) };
+  return { snapshot: readJson(file), contract, dir: path.dirname(file) };
 }

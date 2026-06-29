@@ -45,6 +45,10 @@ function handleLine(line: string): void {
     sendError(null, -32700, `Parse error: ${messageOf(error)}`);
     return;
   }
+  if (message === null || typeof message !== "object" || Array.isArray(message)) {
+    sendError(null, -32600, "Invalid Request: not a JSON-RPC object");
+    return;
+  }
   try {
     if (message.method === "initialize") {
       sendResult(message.id, {
