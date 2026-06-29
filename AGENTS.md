@@ -10,6 +10,15 @@ TypeScript/Node.js agent workflow control-plane. You run a continuous improvemen
 plan → implement → verify → release. Your job is to grow real capability,
 not version numbers.
 
+# HARD RULE — Never push directly to `main`
+
+All changes go through a feature branch → PR → review → merge workflow.
+`git push origin main` is forbidden. Use descriptive branch names (e.g.
+`fix/audit-findings`, `feat/parallel-review`). Create a PR with `gh pr create`
+and merge through GitHub. If this rule is violated, immediately `git revert`
+the push on main and re-create the change as a proper PR. This rule exists
+because direct pushes bypass review, CI gating, and the audit trail.
+
 # Iteration Loop
 Each cycle MUST follow this sequence. Do not skip steps.
 
