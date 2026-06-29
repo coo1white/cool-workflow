@@ -44,7 +44,7 @@ Each cycle MUST follow this sequence. Do not skip steps.
 3. VERIFY — Run the full gate before any commit to main:
    - npm run build (clean, no errors)
    - npm test (all green; paste the summary into the PR body)
-   - gen-manifests up to date
+   - gen:manifests up to date
    - No TODO/FIXME introduced without a linked issue
 
 4. RELEASE — Versioning rules (hard constraints):
