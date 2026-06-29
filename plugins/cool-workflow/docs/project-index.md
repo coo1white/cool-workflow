@@ -8,7 +8,7 @@ Generated from the current repository code on 2026-06-29 by `npm run sync:projec
 - Version: `0.1.96`
 - Source modules: `68`
 - Workflow apps: `8`
-- Docs: `53`
+- Docs: `59`
 - Smoke tests: `159`
 - Repository: https://github.com/coo1white/cool-workflow
 
@@ -145,14 +145,18 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Contract Migration Tooling](contract-migration-tooling.7.md)
 - [Control-Plane Scheduling](control-plane-scheduling.7.md)
 - [Coordinator / Blackboard](coordinator-blackboard.7.md)
+- [DEMO(7)](demo.7.md)
+- [DOCTOR(7)](doctor.7.md)
 - [Dogfood One Real Repo](dogfood-one-real-repo.7.md)
 - [Durable State & Locking](durable-state-and-locking.7.md)
 - [End-to-End Golden Path](end-to-end-golden-path.7.md)
 - [ERROR-FEEDBACK(7)](error-feedback.7.md)
 - [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md)
 - [EXECUTION-BACKENDS(7)](execution-backends.7.md)
+- [FIX(7)](fix.7.md)
 - [Getting Started](getting-started.md)
 - [Cool Workflow Docs](index.md)
+- [INIT(7)](init.7.md)
 - [MCP App Surface](mcp-app-surface.7.md)
 - [Multi-Agent CLI + MCP Surface](multi-agent-cli-mcp-surface.7.md)
 - [Multi-Agent Eval & Replay Harness](multi-agent-eval-replay-harness.7.md)
@@ -164,6 +168,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Observability + Cost Accounting](observability-cost-accounting.7.md)
 - [Operator UX](operator-ux.7.md)
 - [PIPELINE-RUNNER(7)](pipeline-runner.7.md)
+- [PIPELINE-VERBS(7)](pipeline-verbs.7.md)
 - [Cool Workflow Project Index](project-index.md)
 - [Cool Workflow](readme-v0.1.87-full.md)
 - [Real Execution Backend Integrations](real-execution-backends.7.md)
@@ -172,6 +177,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Release Tooling](release-tooling.7.md)
 - [Remote-Source Review (`--link`)](remote-source-review.7.md)
 - [Verifiable Report Bundle](report-verifiable-bundle.7.md)
+- [ROUTINE(7)](routine.7.md)
 - [Routines](routines.md)
 - [Run Registry / Control Plane](run-registry-control-plane.7.md)
 - [Run Retention & Provable Reclamation](run-retention-reclamation.7.md)
