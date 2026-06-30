@@ -100,6 +100,17 @@ short, and simple to add to. Do not use it for guesses.
 
 ## Last Session
 
+- Fixed two release-reviewer root causes exposed cutting v0.1.97: the codex
+  reviewer ran `codex exec` in a `read-only` sandbox at `low` reasoning effort,
+  so it could NOT re-run the gate it was judging and fabricated REJECTED verdicts
+  (twice, in <65s — far shorter than the ~12-min gate). Fix: release-flow.js now
+  sets a vendor-agnostic `CW_RELEASE_REVIEW=1` on the reviewer spawn; codex-agent.js
+  reads it to raise effort to `high` and open the sandbox to `workspace-write`
+  (explicit `CW_CODEX_REASONING_EFFORT`/`CW_CODEX_SANDBOX` still win; an unknown
+  sandbox fails closed). Lesson: an independent reviewer that cannot EXECUTE the
+  gate is structurally unable to verify — wire review intent through to the wrapper,
+  never trust a read-only/low-effort verdict. Covered by codex-agent-wrapper-smoke
+  (default vs review vs override vs invalid) and release-flow-smoke Case 1d.
 - Added the opt-in `architecture-review-fast` app, source-context cache support,
   docs, project index updates, and smoke coverage. The full
   `architecture-review` app remains unchanged.

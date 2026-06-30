@@ -99,7 +99,8 @@ function main() {
     const invocation = readInvocation(dir);
     assert.deepEqual(invocation.args.slice(0, 2), ["exec", "--json"], "codex runs in exec JSONL mode");
     assert.ok(invocation.args.includes("--output-last-message"), "codex final response is written to a file");
-    assert.deepEqual(invocation.args.slice(invocation.args.indexOf("--sandbox"), invocation.args.indexOf("--sandbox") + 2), ["--sandbox", "read-only"]);
+    assert.deepEqual(invocation.args.slice(invocation.args.indexOf("--sandbox"), invocation.args.indexOf("--sandbox") + 2), ["--sandbox", "read-only"], "default worker/probe run stays read-only (POLA)");
+    assert.deepEqual(invocation.args.slice(invocation.args.indexOf("-c"), invocation.args.indexOf("-c") + 2), ["-c", "model_reasoning_effort=low"], "default run stays low effort (speed)");
     // codex exec is non-interactive and never prompts; it has no --ask-for-approval flag.
     // Passing one makes `codex exec` exit 2 ("unexpected argument"). Keep it absent.
     assert.ok(!invocation.args.includes("--ask-for-approval"), "codex exec must NOT receive --ask-for-approval (rejected by codex >=0.139)");
@@ -112,6 +113,46 @@ function main() {
     assert.equal(report.model, "codex-config-model", "model falls back to CODEX_HOME/config.toml (codex JSONL carries none)");
     assert.equal(report.usage.input_tokens, 13, "usage comes from codex turn.completed");
     assert.equal(report.result, RESULT, "stdout report carries final result for CW provenance");
+  }
+
+  {
+    // RELEASE REVIEW path: CW_RELEASE_REVIEW=1 (the vendor-agnostic signal that
+    // release-flow.js sets on the reviewer spawn) must raise codex to high effort
+    // and a workspace-write sandbox so it can re-run the gate it judges. A
+    // read-only/low reviewer can't execute the gate and fabricates verdicts.
+    fs.rmSync(resultPath, { force: true });
+    const dir = shimDir("ok");
+    const child = runWrapper(dir, inputPath, resultPath, { CW_RELEASE_REVIEW: "1" });
+    assert.equal(child.status, 0, `review-mode codex wrapper exits 0 (stderr: ${child.stderr})`);
+    const invocation = readInvocation(dir);
+    assert.deepEqual(invocation.args.slice(invocation.args.indexOf("--sandbox"), invocation.args.indexOf("--sandbox") + 2), ["--sandbox", "workspace-write"], "release review opens an exec-capable sandbox");
+    assert.deepEqual(invocation.args.slice(invocation.args.indexOf("-c"), invocation.args.indexOf("-c") + 2), ["-c", "model_reasoning_effort=high"], "release review raises reasoning effort to high");
+  }
+
+  {
+    // Explicit env overrides win over the review signal (operator escape hatch).
+    fs.rmSync(resultPath, { force: true });
+    const dir = shimDir("ok");
+    const child = runWrapper(dir, inputPath, resultPath, {
+      CW_RELEASE_REVIEW: "1",
+      CW_CODEX_SANDBOX: "read-only",
+      CW_CODEX_REASONING_EFFORT: "medium"
+    });
+    assert.equal(child.status, 0, `override codex wrapper exits 0 (stderr: ${child.stderr})`);
+    const invocation = readInvocation(dir);
+    assert.deepEqual(invocation.args.slice(invocation.args.indexOf("--sandbox"), invocation.args.indexOf("--sandbox") + 2), ["--sandbox", "read-only"], "explicit CW_CODEX_SANDBOX overrides the review signal");
+    assert.deepEqual(invocation.args.slice(invocation.args.indexOf("-c"), invocation.args.indexOf("-c") + 2), ["-c", "model_reasoning_effort=medium"], "explicit CW_CODEX_REASONING_EFFORT overrides the review signal");
+  }
+
+  {
+    // An unknown sandbox fails closed — never silently downgraded to read-only,
+    // which would re-create the can't-verify failure mode this fix removes.
+    fs.rmSync(resultPath, { force: true });
+    const dir = shimDir("ok");
+    const child = runWrapper(dir, inputPath, resultPath, { CW_CODEX_SANDBOX: "wide-open" });
+    assert.notEqual(child.status, 0, "invalid CW_CODEX_SANDBOX fails closed");
+    assert.ok(!fs.existsSync(resultPath), "no result.md on invalid sandbox");
+    assert.match(child.stderr, /invalid CW_CODEX_SANDBOX/, "invalid sandbox is reported on stderr");
   }
 
   {
