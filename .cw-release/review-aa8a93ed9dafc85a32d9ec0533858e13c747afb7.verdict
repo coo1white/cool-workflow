@@ -1,0 +1,2 @@
+APPROVED aa8a93ed9dafc85a32d9ec0533858e13c747afb7
+A piped or non-TTY/CI drive can now stream live agent step progress on demand via CW_AGENT_STREAM=1 (previously silent unless on a TTY), shipped alongside 18 fixed security-audit findings and a hardened, atomic release-cut path.
