@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.97
+
+- **Capability**: A piped or non-TTY drive can now show the live agent steps when you ask for it. Before, `cw -q "..."` drew the live agent view (the `● <vendor> · N steps · <time>` line and the folding tool rows) only on a real terminal; in a pipe, a held pane, or CI it was silent. The man page already said `CW_AGENT_STREAM=1` turns such a run into a plain, line-by-line trace, but the code did not keep that word. Now it does: `CW_AGENT_STREAM=1 cw -q "..." | tee run.log` shows the agent's `→ …` / `✓ … (Xs)` lines as they come. The default is the same as before — silent in a pipe, live on a TTY.
+- **Implementation**: The parent gate in `execution-backend.ts` joined the stream choice to `isTTY` with AND, so the clear `CW_AGENT_STREAM=1` opt-in was dropped for a non-TTY run (the wrapper's stderr was kept, not passed through). A new small, tested `shouldStreamAgentStderr(env, isTTY)` makes the order plain: `CW_NO_STREAM=1` is the master off, `CW_AGENT_STREAM=0` is off, `CW_AGENT_STREAM=1` is on even with no TTY, and with no env set the answer is `isTTY` — the same bytes as the old gate. The wrapper's plain line-by-line mode then writes the trace; the in-place spinner still needs a real TTY, which is the honest fallback.
+- **Tests**: New `agent-stream-gate-smoke` (8 cases) locks the table, including the case that was broken before (`CW_AGENT_STREAM=1` + non-TTY → on) and the `CW_NO_STREAM` master-off order. `npm run test:gate` 164/164 pass.
+- **Risk**: Low. The change is one gate behind a clear env opt-in; the default on a TTY and in a silent pipe is unchanged (POLA). stdout stays the byte-exact data channel, recorded evidence is untouched, and there are no new runtime dependencies.
+
 ## 0.1.96
 
 - **Capability**: A faster, safer release with broader test coverage. Vendor agent runs are quicker and easier to debug — `cw -q "..." -codex` drops from ~4 minutes to ~23 seconds, and every failed agent run now leaves its real stderr on disk under `logs/agent-stderr.log`. The `architecture-review` Map and Assess phases now run 6-wide in parallel, so `cw -q` returns in ~2–4 min (down from 7–14 min). 25 audit findings (16 from a planned architecture review + 9 from a self-audit) are fixed across safety, sandbox, backend, and architecture surfaces. CI now runs on Node 18 + 22 and on ARM64 as well as x86_64. `npm test` gains 3 new coverage smokes (158/158 total) and a fast/full/gate test triple.
