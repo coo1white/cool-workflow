@@ -39,6 +39,7 @@ exports.attestSandbox = attestSandbox;
 exports.probeBackend = probeBackend;
 exports.runBackend = runBackend;
 exports.delegateChildScript = delegateChildScript;
+exports.shouldStreamAgentStderr = shouldStreamAgentStderr;
 exports.createExecutionBackend = createExecutionBackend;
 exports.backendListPayload = backendListPayload;
 exports.backendShowPayload = backendShowPayload;
@@ -675,6 +676,25 @@ function runHttpDelegation(descriptor, policy, request, label, handle, attestati
 // agentSubstitutions, substituteAgentArg, recordedAgentHandle, extractEndpointResult,
 // agentHandle) and the concurrent batch live in ./execution-backend/agent.ts; the
 // stateful runners below build the refusal/delegated envelopes and stay here.
+/** Decide whether cw FORWARDS the agent wrapper's live stderr view (stdio
+ *  "inherit") or captures it ("pipe"). Default follows isTTY — interactive shows
+ *  the live view, a pipe/CI stays silent (Rule of Silence). The two env knobs are
+ *  explicit opt-out/opt-in, honored regardless of isTTY so a piped/CI run can still
+ *  opt into the wrapper's plain append-only trace, exactly as the man page promises
+ *  (agent-delegation-drive.7.md "Live output"):
+ *    CW_NO_STREAM=1    — master off (wins over everything)
+ *    CW_AGENT_STREAM=0 — off
+ *    CW_AGENT_STREAM=1 — on, even without a TTY
+ *  With no env set this returns isTTY — byte-identical to the prior inline gate (POLA). */
+function shouldStreamAgentStderr(env, isTTY) {
+    if (env.CW_NO_STREAM === "1")
+        return false;
+    if (env.CW_AGENT_STREAM === "0")
+        return false;
+    if (env.CW_AGENT_STREAM === "1")
+        return true;
+    return isTTY;
+}
 function runAgentProcess(descriptor, policy, request, label, handle, attestation) {
     const resolved = (0, agent_1.resolveAgentInvocation)(request);
     const subst = (0, agent_1.agentSubstitutions)(request, resolved.model);
@@ -692,10 +712,10 @@ function runAgentProcess(descriptor, policy, request, label, handle, attestation
             outcome = request.preparedAgentOutcome;
         }
         else {
-            // Live output on by default when stderr is a TTY. stdout is always
-            // captured as data. CI/pipes stay silent. CW_AGENT_STREAM=0 or
-            // CW_NO_STREAM=1 forces off; CW_AGENT_STREAM=1 forces on.
-            const streamStderr = process.env.CW_AGENT_STREAM !== "0" && Boolean(process.stderr.isTTY) && process.env.CW_NO_STREAM !== "1";
+            // Live output on by default when stderr is a TTY. stdout is always captured
+            // as data. CI/pipes stay silent unless CW_AGENT_STREAM=1 opts them into the
+            // wrapper's plain append-only trace; CW_AGENT_STREAM=0 / CW_NO_STREAM=1 force off.
+            const streamStderr = shouldStreamAgentStderr(process.env, Boolean(process.stderr.isTTY));
             // Build child env from sandbox policy as baseline (respects env.inherit/expose/deny),
             // then re-allow CW_* + well-known API key env vars the agent needs.
             const childEnv = buildChildEnv(policy);

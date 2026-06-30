@@ -843,3 +843,16 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | 4 | perf: workbench request caching (loadRun 18→1, event log 5→1), architecture-review parallel phases (Map+Assess 6-wide), test scripts (fast 35, full 55, gate 154) | `orchestrator.ts`, `trust-audit.ts`, `workbench.ts`, `workflow.js`, `package.json`, `release-gate.sh`, `run-all.js`, 8 slow test headers | — | BUILD OK; 154/154 test pass; gen:manifests OK | — |
 
 **Gate summary:** `npm run build` OK; `npm test` 154/154 pass; `gen:manifests` OK; no TODO/FIXME introduced; project-index synced.
+
+## Batch — non-TTY agent progress opt-in (Unreleased)
+
+> The live agent view + `[drive]` lines are TTY-gated (Rule of Silence). The man page
+> (`agent-delegation-drive.7.md` "Live output") already promised `CW_AGENT_STREAM=1`
+> opts a piped/CI run into a plain append-only trace, but the parent gate AND-ed on
+> isTTY, so the opt-in was swallowed — code contradicting its own contract. The parent
+> now honors `CW_AGENT_STREAM=1` even without a TTY; the env-unset default is
+> byte-identical (POLA) and `CW_NO_STREAM=1` stays the master off switch.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Honor `CW_AGENT_STREAM=1` in a non-TTY run: extract a pure `shouldStreamAgentStderr(env, isTTY)` and forward the wrapper's stderr (stdio `inherit`) on the explicit opt-in, so a piped/CI drive shows the plain append-only agent trace the man page documents. Default (env unset) stays isTTY — byte-identical. | `src/execution-backend.ts`, `test/agent-stream-gate-smoke.js`, `docs/project-index.md`, `dist/execution-backend.js` | New `agent-stream-gate-smoke` (8 cases): default=isTTY; `CW_AGENT_STREAM=1` ON in non-TTY (was OFF — the bug); `CW_AGENT_STREAM=0` / `CW_NO_STREAM=1` OFF; `CW_NO_STREAM` beats `STREAM=1`; non-canonical value falls back to isTTY | BUILD OK; `test:gate` 164/164 pass; `gen:manifests` OK; `index:check` OK | no (single cycle; release pending review) |
