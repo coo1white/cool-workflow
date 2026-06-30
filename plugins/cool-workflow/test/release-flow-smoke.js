@@ -141,6 +141,37 @@ function runFlow(dir, { agentCmd, fileCommand } = {}) {
   assert.match(r.out, /"verdict": "APPROVED"/, "summary should report APPROVED for the builtin-style spawn");
 }
 
+// ---- Case 1d: the reviewer spawn carries the CW_RELEASE_REVIEW=1 signal -----
+// release-flow must tell the delegated reviewer that THIS is a release verdict, so
+// gate-capable wrappers (codex-agent.js) raise effort and open an exec-capable
+// sandbox. Without the signal a read-only/low reviewer can't run the gate it judges
+// and fabricates verdicts — the exact failure this fix removes. The stub records
+// the env it was spawned with and proves the flag is "1".
+{
+  const dir = fixture();
+  const stub = path.join(dir, "review-env-stub.js");
+  fs.writeFileSync(stub, `
+const fs = require("node:fs");
+const resultPath = process.argv[2];
+fs.writeFileSync(process.env.REVIEW_ENV_OUT, String(process.env.CW_RELEASE_REVIEW));
+fs.writeFileSync(resultPath, "APPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
+process.exit(0);
+`);
+  const envOut = path.join(dir, "review-env.txt");
+  const home = path.join(dir, ".cw-home");
+  const env = {
+    ...process.env,
+    CW_RELEASE_FLOW_GATE_CMD: "true",
+    STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
+    CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
+    REVIEW_ENV_OUT: envOut,
+    CW_AGENT_COMMAND: `node ${stub} {{result}}`
+  };
+  const r = run("node", [FLOW, "--check"], dir, env);
+  assert.equal(r.code, 0, `signal-carrying reviewer should pass:\n${r.err}\n${r.out}`);
+  assert.equal(fs.readFileSync(envOut, "utf8"), "1", "reviewer spawn must set CW_RELEASE_REVIEW=1");
+}
+
 // ---- Case 1c: markdown-wrapped APPROVED file is normalized -----------------
 // Some reviewer agents persist their full response to {{result}} even when the
 // exact APPROVED line appears later. Normalize that strict line instead of

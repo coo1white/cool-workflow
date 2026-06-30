@@ -283,7 +283,13 @@ function delegateReview(resultPath, inputPath) {
     // the file takes precedence. stderr goes to the terminal for live output.
     const r = spawnSync(bin, args, {
       cwd: repoRoot,
-      env: { ...process.env },
+      // CW_RELEASE_REVIEW=1 is a vendor-agnostic signal that THIS spawn is a
+      // release verdict, not a fast worker turn. Wrappers that can re-run the gate
+      // (e.g. codex-agent.js) read it to raise reasoning effort and open an
+      // exec-capable sandbox — a read-only/low-effort reviewer can't execute the
+      // gate it judges and degrades to fabricated verdicts. Preflight liveness
+      // probes never set it, so they stay fast and read-only.
+      env: { ...process.env, CW_RELEASE_REVIEW: "1" },
       encoding: "utf8",
       timeout: cfg.timeoutMs || REVIEWER_TIMEOUT_MS,
       shell: false,

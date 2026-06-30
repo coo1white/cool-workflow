@@ -21,6 +21,16 @@
 // per-run override that does NOT touch the user's interactive codex. Tune with
 // CW_CODEX_REASONING_EFFORT (default "low"); set it to "medium"/"high" to opt back
 // into more thinking.
+//
+// REVIEW MODE: the default low-effort / read-only sandbox is right for a fast
+// delegated worker or a liveness probe — but WRONG for an independent RELEASE
+// reviewer, which must actually RE-RUN the gate (build, tests, regenerate dist)
+// to earn its verdict. A read-only sandbox can't execute that gate, so the model
+// is structurally unable to verify and tends to fabricate a REJECTED. The release
+// path therefore sets CW_RELEASE_REVIEW=1 (a vendor-agnostic signal from
+// release-flow.js): on that signal this wrapper raises reasoning to "high" and
+// opens the sandbox to "workspace-write" so codex can run the gate it is judging.
+// Explicit CW_CODEX_REASONING_EFFORT / CW_CODEX_SANDBOX always win over the signal.
 
 const fs = require("node:fs");
 const os = require("node:os");
@@ -80,11 +90,31 @@ function recordJsonLine(line) {
   }
 }
 
-render.action("codex: reading the repo (read-only)…");
+// A release review (CW_RELEASE_REVIEW=1) must execute the gate it judges, so it
+// needs both stronger reasoning and a sandbox that can write inside the workspace.
+// Explicit env overrides win; otherwise the review signal lifts the fast defaults.
+const reviewMode = process.env.CW_RELEASE_REVIEW === "1";
 
 // Cap codex's reasoning effort for CW runs (speed) — overrides config.toml for
-// THIS invocation only. Default "low"; CW_CODEX_REASONING_EFFORT opts back up.
-const effort = process.env.CW_CODEX_REASONING_EFFORT || "low";
+// THIS invocation only. Default "low"; CW_CODEX_REASONING_EFFORT opts back up, and
+// a release review defaults to "high".
+const effort = process.env.CW_CODEX_REASONING_EFFORT || (reviewMode ? "high" : "low");
+
+// Sandbox: read-only is the POLA default (a worker/probe only reads). A release
+// review opens to workspace-write so codex can build/test/regenerate the gate.
+// CW_CODEX_SANDBOX overrides both; an unknown value fails closed (never silently
+// downgraded to read-only, which would re-create the can't-verify failure mode).
+const SANDBOX_MODES = new Set(["read-only", "workspace-write", "danger-full-access"]);
+const sandbox = process.env.CW_CODEX_SANDBOX || (reviewMode ? "workspace-write" : "read-only");
+if (!SANDBOX_MODES.has(sandbox)) {
+  process.stderr.write(
+    `codex-agent: invalid CW_CODEX_SANDBOX="${sandbox}" — expected one of ${[...SANDBOX_MODES].join(", ")}\n`
+  );
+  process.exit(2);
+}
+
+render.action(`codex: reading the repo (${sandbox})…`);
+
 const args = [
   "exec",
   "--json",
@@ -93,7 +123,7 @@ const args = [
   "--output-last-message",
   finalPath,
   "--sandbox",
-  "read-only",
+  sandbox,
   "--color",
   "never",
   "-"
