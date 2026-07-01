@@ -63,7 +63,11 @@ function handleLedger(args, _runner) {
                 title: (0, io_1.required)(stringOption(opts.title), "--title <text>"),
                 rationale: (0, io_1.required)(stringOption(opts.rationale), "--rationale <text>"),
                 targetFiles: listOption(opts.files),
-                suggestedDiff: stringOption(opts.diff),
+                // Do NOT trim the diff: it is a unified patch (payload, not a label), and
+                // trimming strips the trailing newline `git apply` requires — a trimmed
+                // diff is a corrupt patch. Presence is detected with a trimmed test, but
+                // the bytes are passed through verbatim (matching the MCP propose path).
+                suggestedDiff: typeof opts.diff === "string" && opts.diff.trim() ? opts.diff : undefined,
                 createdAt: nowIso()
             });
             (0, io_1.printJson)(entry);
@@ -113,6 +117,33 @@ function handleLedger(args, _runner) {
                 process.exitCode = 1;
             return;
         }
+        case "apply": {
+            const file = stringOption(opts.file);
+            let text;
+            try {
+                // --file <path>, else read the entry from stdin (fd 0), same as verify.
+                text = fs.readFileSync(file || 0, "utf8");
+            }
+            catch (error) {
+                throw new Error(`Cannot read ledger entry${file ? ` from ${file}` : " from stdin"}: ${error.message}`);
+            }
+            let parsed;
+            try {
+                parsed = JSON.parse(text);
+            }
+            catch {
+                (0, io_1.printJson)({ ok: false, id: null, kind: null, diff: null, failedChecks: [{ name: "parse", code: "ledger-bad-json" }] });
+                process.exitCode = 1;
+                return;
+            }
+            const result = (0, ledger_1.applyLedgerProposal)(parsed);
+            (0, io_1.printJson)(result);
+            // Fail-closed: the diff only comes out (ok:true) when the proposal verifies,
+            // so `cw ledger apply <file> | git apply` never feeds git an unverified patch.
+            if (!result.ok)
+                process.exitCode = 1;
+            return;
+        }
         case "list": {
             // `--dir` is repeatable: 2+ dirs union-verify multiple mirrors into one
             // inbox; a single --dir keeps the original single-directory output (POLA).
@@ -133,6 +164,6 @@ function handleLedger(args, _runner) {
             return;
         }
         default:
-            throw new Error("Usage: cw ledger propose|review|verify|list [options]");
+            throw new Error("Usage: cw ledger propose|review|verify|apply|list [options]");
     }
 }

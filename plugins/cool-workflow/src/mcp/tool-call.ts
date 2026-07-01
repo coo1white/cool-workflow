@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CoolWorkflowRunner } from "../orchestrator";
-import { buildLedgerProposal, buildLedgerReview, verifyLedgerEntry, listLedgerEntries, unionLedgerEntries } from "../ledger";
+import { buildLedgerProposal, buildLedgerReview, verifyLedgerEntry, applyLedgerProposal, listLedgerEntries, unionLedgerEntries } from "../ledger";
 import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
 import { buildWorkbenchRunView, buildWorkbenchServeDescriptor } from "../workbench";
@@ -370,6 +370,8 @@ export function callTool(name: string, args: Record<string, unknown>): unknown {
     }
     case "cw_ledger_verify":
       return verifyLedgerEntry(args.entry);
+    case "cw_ledger_apply":
+      return applyLedgerProposal(args.entry);
     case "cw_ledger_list": {
       // `dirs` (2+) union-verifies mirrors; a single `dir` keeps the original shape.
       const dirs = Array.isArray(args.dirs) ? args.dirs.map(String).filter(Boolean) : [];

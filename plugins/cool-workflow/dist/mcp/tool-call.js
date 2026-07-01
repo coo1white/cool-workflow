@@ -321,6 +321,8 @@ function callTool(name, args) {
         }
         case "cw_ledger_verify":
             return (0, ledger_1.verifyLedgerEntry)(args.entry);
+        case "cw_ledger_apply":
+            return (0, ledger_1.applyLedgerProposal)(args.entry);
         case "cw_ledger_list": {
             // `dirs` (2+) union-verifies mirrors; a single `dir` keeps the original shape.
             const dirs = Array.isArray(args.dirs) ? args.dirs.map(String).filter(Boolean) : [];

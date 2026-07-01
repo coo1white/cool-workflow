@@ -659,6 +659,9 @@ function toolDefinitions() {
         capabilityTool("ledger.verify", "Verify a ledger entry against its content digest (fail-closed on tampering).", {
             entry: objectSchema("The ledger entry object to verify")
         }),
+        capabilityTool("ledger.apply", "Verify a proposal entry and return its suggestedDiff for `git apply` (fail-closed: no diff unless the entry verifies).", {
+            entry: objectSchema("The proposal entry object to verify and extract the diff from")
+        }),
         capabilityTool("ledger.list", "Read + verify every entry in a shared ledger directory (fail-closed inbox).", {
             dir: stringSchema("Path to the ledger directory (a handoff repo working tree)"),
             dirs: arraySchema("Multiple ledger directories to union-verify as mirrors (2+)")

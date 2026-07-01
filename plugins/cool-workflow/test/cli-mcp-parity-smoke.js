@@ -221,9 +221,13 @@ function openMcp() {
       bothBound.length - documentedOptOuts.length,
       "probe set must be every both-surface dual-bound cap minus the documented opt-outs"
     );
-    // the probe is BROAD, not a hand-picked handful.
+    // the probe is BROAD, not a hand-picked handful. The tolerance tracks the
+    // documented opt-out count (each entry-by-file/stdin ledger verb — verify,
+    // apply — and the timestamped ledger.propose/review legitimately opt out of
+    // the generic byte-identity probe); bump it only when a NEW opt-out is added
+    // with a documented reason, never to hide an accidentally-unprobed verb.
     assert.ok(
-      probeSet.length >= bothBound.length - 10,
+      probeSet.length >= bothBound.length - 11,
       `probe set unexpectedly narrow: ${probeSet.length}/${bothBound.length} both-bound caps probed`
     );
 
