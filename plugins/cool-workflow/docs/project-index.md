@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-01 by `npm run sync:projec
 - Source modules: `69`
 - Workflow apps: `8`
 - Docs: `61`
-- Smoke tests: `169`
+- Smoke tests: `170`
 - Repository: http://local_proxy@127.0.0.1:41729/git/coo1white/cool-workflow
 
 ## Architecture
@@ -271,6 +271,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
 - [headline-commands-smoke.js](../test/headline-commands-smoke.js)
 - [incremental-resume-smoke.js](../test/incremental-resume-smoke.js)
+- [ledger-apply-smoke.js](../test/ledger-apply-smoke.js)
 - [ledger-verify-smoke.js](../test/ledger-verify-smoke.js)
 - [loop-bounded-expansion-smoke.js](../test/loop-bounded-expansion-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)

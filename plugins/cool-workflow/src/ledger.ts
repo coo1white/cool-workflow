@@ -214,6 +214,38 @@ export function verifyLedgerEntry(raw: unknown): LedgerVerifyResult {
   return { ok: true, id: expectedId, kind, checks, failedChecks: [] };
 }
 
+export interface LedgerApplyResult {
+  ok: boolean;
+  id: string | null;
+  kind: string | null;
+  /** The verified proposal's unified diff, present ONLY when `ok` — a tampered,
+   *  non-proposal, or diff-less entry yields `diff: null`. */
+  diff: string | null;
+  failedChecks: Array<{ name: string; code: string; detail?: string }>;
+}
+
+/** Fail-closed extraction of a proposal's `suggestedDiff` for `git apply`. The
+ *  diff can ONLY escape after the entry verifies: a tampered entry, a review
+ *  (not a proposal), or a proposal with no diff all yield `ok:false` and
+ *  `diff:null`, so `cw ledger apply <file> | git apply` can never feed an
+ *  unverified patch to git. The kernel never shells out to git — turning the
+ *  diff into a patch stays the operator's step (mechanism, not policy). */
+export function applyLedgerProposal(raw: unknown): LedgerApplyResult {
+  const verified = verifyLedgerEntry(raw);
+  if (!verified.ok) {
+    return { ok: false, id: verified.id, kind: verified.kind, diff: null, failedChecks: verified.failedChecks };
+  }
+  if (verified.kind !== "proposal") {
+    return { ok: false, id: verified.id, kind: verified.kind, diff: null, failedChecks: [{ name: "kind", code: "ledger-not-a-proposal", detail: "apply expects a proposal entry, not a review" }] };
+  }
+  const rec = isRecord(raw) ? raw : {};
+  const diff = typeof rec.suggestedDiff === "string" ? rec.suggestedDiff : "";
+  if (!diff) {
+    return { ok: false, id: verified.id, kind: verified.kind, diff: null, failedChecks: [{ name: "diff", code: "ledger-empty-diff", detail: "proposal carries no suggestedDiff to apply" }] };
+  }
+  return { ok: true, id: verified.id, kind: verified.kind, diff, failedChecks: [] };
+}
+
 // ---------------------------------------------------------------------------
 // Stage-2 git transport: a "ledger directory" is a folder (the working tree of
 // a shared handoff repo both agents are scoped to) holding one `<id>.json` per

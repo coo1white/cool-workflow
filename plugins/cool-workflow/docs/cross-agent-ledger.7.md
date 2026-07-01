@@ -50,12 +50,31 @@ cw ledger propose --from <a> --to <b> --title <t> --rationale <r> \
 cw ledger review  --from <a> --to <b> --target <proposal-id|pr-ref> \
                   --verdict <approved|rejected> [--findings "a,b"]
 cw ledger verify  [--file <path>]        # else reads the entry from stdin
+cw ledger apply   [--file <path>]        # verify a proposal, then print its diff
 cw ledger list    --dir <ledger-dir> [--dir <mirror-2> ...]   # verify a dir (or union of mirrors)
 ```
 
 All write JSON to stdout (stdout is data). `propose` and `review` print a sealed
-entry; `verify` prints a check report; `list` prints a per-entry report over a
-directory.
+entry; `verify` prints a check report; `apply` prints a verify-plus-diff report;
+`list` prints a per-entry report over a directory.
+
+## Applying a proposal — fail-closed
+
+A proposal carries a `suggestedDiff`, but a proposal never mutates the target
+repo by itself: the write-capable side turns it into a real change. `cw ledger
+apply` is the fail-closed bridge — it verifies the entry FIRST and only then
+emits the diff, so an unverified patch can never reach `git`:
+
+```
+cw ledger apply --file proposal.json | jq -r 'select(.ok).diff' | git apply -
+```
+
+`apply` prints `{ ok, id, kind, diff }`. The `diff` is present **only** when
+`ok` is `true` — a tampered entry (`ok:false`, the `verify` failure codes), a
+review rather than a proposal (`ledger-not-a-proposal`), or a proposal with no
+`suggestedDiff` (`ledger-empty-diff`) all yield `diff:null` and exit `1`. The
+kernel never runs `git`; turning the verified diff into a commit stays the
+operator's (or a wrapper's) step — mechanism, not policy.
 
 ## Git transport (T2a — shared handoff repo)
 

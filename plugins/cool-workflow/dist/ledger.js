@@ -51,6 +51,7 @@ exports.computeLedgerDigest = computeLedgerDigest;
 exports.buildLedgerProposal = buildLedgerProposal;
 exports.buildLedgerReview = buildLedgerReview;
 exports.verifyLedgerEntry = verifyLedgerEntry;
+exports.applyLedgerProposal = applyLedgerProposal;
 exports.listLedgerEntries = listLedgerEntries;
 exports.unionLedgerEntries = unionLedgerEntries;
 const crypto = __importStar(require("crypto"));
@@ -172,6 +173,27 @@ function verifyLedgerEntry(raw) {
     }
     checks.push({ name: "id", pass: true });
     return { ok: true, id: expectedId, kind, checks, failedChecks: [] };
+}
+/** Fail-closed extraction of a proposal's `suggestedDiff` for `git apply`. The
+ *  diff can ONLY escape after the entry verifies: a tampered entry, a review
+ *  (not a proposal), or a proposal with no diff all yield `ok:false` and
+ *  `diff:null`, so `cw ledger apply <file> | git apply` can never feed an
+ *  unverified patch to git. The kernel never shells out to git — turning the
+ *  diff into a patch stays the operator's step (mechanism, not policy). */
+function applyLedgerProposal(raw) {
+    const verified = verifyLedgerEntry(raw);
+    if (!verified.ok) {
+        return { ok: false, id: verified.id, kind: verified.kind, diff: null, failedChecks: verified.failedChecks };
+    }
+    if (verified.kind !== "proposal") {
+        return { ok: false, id: verified.id, kind: verified.kind, diff: null, failedChecks: [{ name: "kind", code: "ledger-not-a-proposal", detail: "apply expects a proposal entry, not a review" }] };
+    }
+    const rec = isRecord(raw) ? raw : {};
+    const diff = typeof rec.suggestedDiff === "string" ? rec.suggestedDiff : "";
+    if (!diff) {
+        return { ok: false, id: verified.id, kind: verified.kind, diff: null, failedChecks: [{ name: "diff", code: "ledger-empty-diff", detail: "proposal carries no suggestedDiff to apply" }] };
+    }
+    return { ok: true, id: verified.id, kind: verified.kind, diff, failedChecks: [] };
 }
 /** Read every `*.json` in `dir`, verify each entry fail-closed, and report.
  *  `allOk` is false if any entry is tampered, malformed, or unreadable — so the
