@@ -32,6 +32,7 @@ import { runTamperDemo, runBundleDemo, TelemetryVerifyResult } from "./telemetry
 import { loadRunStateFile, readJson, writeJson } from "./state";
 import { ArchiveInspectResult, ImportResult, RestoreVerificationResult, exportRun, importRun, inspectArchive, verifyImportedRun, verifyReportBundle } from "./run-export";
 import { normalizeResultEnvelope } from "./result-normalize";
+import { numberOption } from "./orchestrator/cli-options";
 import { FindingRow } from "./term";
 import fs from "node:fs";
 import path from "node:path";
@@ -578,6 +579,7 @@ const DRIVE_RUNTIME_KEYS = [
   "agent-timeout-ms",
   "resume",
   "incremental",
+  "concurrency",
   // Remote-source flags (v0.1.91): materialized into a local checkout in the capability
   // layer, never passed to plan as inputs (the resolved sourceUrl/sourceCommit ARE inputs).
   "link",
@@ -617,6 +619,7 @@ export function runDrive(runner: CoolWorkflowRunner, args: Record<string, unknow
     once: isTrue(args.once),
     now: optionalString(args.now),
     incremental: isTrue(args.incremental),
+    concurrency: numberOption(args.concurrency),
     args
   });
 }
