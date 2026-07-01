@@ -100,6 +100,16 @@ short, and simple to add to. Do not use it for guesses.
 
 ## Last Session
 
+- Shipped `cw ledger` (cross-agent handoff ledger) end to end — stages 1-3 plus
+  the id-binding fail-closed hardening, all merged (#317-#320), and bumped the
+  version to `0.1.98` (release PR #321 merged to `main` at commit a64de9f).
+  **Release is NOT published yet:** publishing is tag-driven, and no `v0.1.98`
+  tag has been cut, so `release-gate`/`npm-publish` never fired and npm is still
+  at `0.1.97`. The exact one-command cut (and the other in-flight items — chime
+  environment scoping, post-publish install on both sides) is written up for
+  relay in `docs/HANDOFF_TODO.md`. The sandbox `127.0.0.1` git-URL-rewrite
+  artifact only fails `release:check` readme-sync/dogfood; it does NOT touch
+  `release-gate.sh` or the reviewer, so a clean-env cut is unaffected.
 - Fixed two release-reviewer root causes exposed cutting v0.1.97: the codex
   reviewer ran `codex exec` in a `read-only` sandbox at `low` reasoning effort,
   so it could NOT re-run the gate it was judging and fabricated REJECTED verdicts
@@ -174,6 +184,9 @@ short, and simple to add to. Do not use it for guesses.
 
 ## Next Run
 
+- **In-flight work for the next agent lives in `docs/HANDOFF_TODO.md`** — start
+  there. Top item: cut the `v0.1.98` tag (one command) so npm publishes; then
+  chime environment scoping and post-publish install on both sides.
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`
   for the automated 1→6 path on a CW-shaped repo. Use `--profile-file` for
   non-CW repositories.
