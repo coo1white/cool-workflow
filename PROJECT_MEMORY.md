@@ -128,6 +128,27 @@ short, and simple to add to. Do not use it for guesses.
   `npm run build`, manifest/index/version checks, `git diff --check`, no new
   task markers, and `npm test` 75/75.
 
+## Cross-agent handoff ledger (verified)
+
+- `cw ledger propose|review|verify|list` (CLI + MCP; design #317, impl #318) lets
+  two agents scoped to two separate repos hand each other a change proposal or a
+  review verdict as a digest-sealed JSON entry, verified fail-closed.
+- Transport is git-host-agnostic. An entry is a file under `ledger/` in a shared
+  repo both agents can push/pull; the kernel holds NO git logic. Write =
+  `cw ledger propose > ledger/<id>.json`; read = `cw ledger list --dir ledger`
+  (fail-closed inbox — exits 1 if any entry is tampered or malformed). `git
+  add/commit/push` is the operator's step, kept out of the kernel.
+- Entry digest = `sha256:` over the key-sorted canonical JSON of every field
+  except `id`/`digest`; `id` = `ldg-` + the first 16 hex of the digest.
+- Shared-repo (T2a) setup and the GitHub-vs-self-hosted (Gitea) trade-off live in
+  `plugins/cool-workflow/docs/handoff-setup.md`.
+- A cool-workflow-scoped web session CANNOT create a GitHub repo outside its scope
+  (`create_repository` returns 403). The operator creates the shared repo and sets
+  each environment's git token; scoping both environments is a web-UI step.
+- Reachability decides host choice: github.com is in the default Trusted network
+  allowlist (cloud sessions reach it with no policy change); a self-hosted Gitea
+  host is NOT, so it needs the environment network policy to permit that host.
+
 ## Next Run
 
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`

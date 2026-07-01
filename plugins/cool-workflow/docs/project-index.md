@@ -8,7 +8,7 @@ Generated from the current repository code on 2026-07-01 by `npm run sync:projec
 - Version: `0.1.97`
 - Source modules: `69`
 - Workflow apps: `8`
-- Docs: `60`
+- Docs: `61`
 - Smoke tests: `169`
 - Repository: http://local_proxy@127.0.0.1:41729/git/coo1white/cool-workflow
 
@@ -157,6 +157,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [EXECUTION-BACKENDS(7)](execution-backends.7.md)
 - [FIX(7)](fix.7.md)
 - [Getting Started](getting-started.md)
+- [Handoff ledger — shared-repo setup (T2a)](handoff-setup.md)
 - [Cool Workflow Docs](index.md)
 - [INIT(7)](init.7.md)
 - [MCP App Surface](mcp-app-surface.7.md)
