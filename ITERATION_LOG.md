@@ -1,5 +1,14 @@
 # CW Iteration Log
 
+## Batch — relay + lessons docs (Unreleased)
+
+> After the v0.1.98 release PR merged to `main`, the release is not yet published: publishing is tag-driven (a `v*` tag → `release-gate` → `npm-publish`), and no `v0.1.98` tag has been cut, so npm is still at `0.1.97`. Captured the exact one-command cut and the other in-flight items (chime environment scoping, post-publish install) in a relay doc, plus a durable lessons doc, so any agent or the operator can finish the release and not re-learn the same facts. Docs-only; no source/app/script change.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Add `docs/HANDOFF_TODO.md` (live in-flight tasks for the next agent — distinct from `docs/BACKLOG.md`, which parks off-track ideas): the blocking `v0.1.98` tag cut with the exact `release-flow.js --cut` command, chime environment scoping (operator/web UI), and post-publish install on both sides. Point `PROJECT_MEMORY.md` (Last Session + Next Run) at it. Repo-root `docs/` is outside `sync-project-index.js`'s scan (pluginRoot/docs only), so no project-index churn. | `docs/HANDOFF_TODO.md` (new) + `PROJECT_MEMORY.md` + `ITERATION_LOG.md` | Docs-only; no code path changed, so no smoke. `index:check` stays green (repo-root docs not indexed). | BUILD OK; index:check OK; onramp:check OK (docs-only) | no (docs handoff; not a release) |
+| 2 | Add `docs/LESSONS.md` — durable, cross-cutting facts learned this session (release is tag-driven not merge-driven; the sandbox 127.0.0.1 readme artifact; the reviewer must run execute-capable; content-addressed id must be bound on verify; mechanism-not-policy / additive-POLA; onramp/index gate mechanics; "stale info" after merge; scoped-session 403; macOS zsh `#`/shadowed-prefix quirks), so the next iteration doesn't re-learn them. Complements PROJECT_MEMORY (state) and HANDOFF_TODO (in-flight). | `docs/LESSONS.md` (new) + `ITERATION_LOG.md` | Docs-only; no code path changed, so no smoke. Repo-root docs not indexed → `index:check` stays green. | index:check OK; onramp:check OK (docs-only) | no (docs; not a release) |
+
 ## Batch — release v0.1.98 (cross-agent handoff ledger)
 
 > Cut the release that ships `cw ledger` (the cross-agent handoff ledger: stages 1–3 + the id-binding security fix, all already merged to main). `npm run bump:version -- 0.1.98 --content` stamped the version across every structured surface (package.json, plugin manifests, app.json ids, Formula, server.json, src/version.ts, canonical/golden/dogfood scripts) and the man-page/RELEASE version references; `CHANGELOG.md` gained the 0.1.98 entry (Capability/Implementation/Tests/Risk for the ledger). No behavior change beyond the version string — this is the release-cut batch.
