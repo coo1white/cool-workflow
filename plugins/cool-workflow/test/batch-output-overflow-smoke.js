@@ -12,7 +12,7 @@
 // job the instant it settles, so a job whose line already arrived keeps its
 // real outcome regardless of what happens to the rest of the batch.
 //
-// Two scenarios:
+// Three scenarios:
 //   1. Unit-level: feed reconcileBatchOutcomes a synthetic delegate stdout
 //      with one complete line, one missing index, and one truncated
 //      (mid-kill) trailing line, alongside a synthetic batch-level error —
@@ -21,6 +21,16 @@
 //      2 small jobs, 2 jobs each returning ~25MB of output, 1 forced hang —
 //      proves large output doesn't strand small siblings, and a per-job kill
 //      is still distinguishable from a batch-wide reconciliation miss.
+//   3. Unit-level, V8 string-limit guard: a combined delegate buffer well
+//      past V8's per-string character ceiling (0x1fffffe8, ~512MB). Before
+//      this fix, spawnSync's own `encoding:"utf8"` option decoded the WHOLE
+//      combined buffer as one JS string up front and THREW ("Cannot create
+//      a string longer than 0x1fffffe8 characters") — an uncaught crash
+//      inside spawnSync itself, not a graceful child.error, found while
+//      re-running the 25x30MB repro after removing the flat 512MB cap. This
+//      proves reconcileBatchOutcomes only ever decodes one line (bounded by
+//      the delegate's own per-job cap) at a time, so it never approaches
+//      that ceiling no matter how large the combined batch output gets.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -119,9 +129,36 @@ function integrationLevelLargeOutput() {
   }
 }
 
+function unitLevelPastV8StringLimit() {
+  const jobCount = 20;
+  const perJobChars = 30 * 1024 * 1024; // 30MB per job, under the delegate's 32MB cap
+  const chunk = "a".repeat(perJobChars);
+  const newline = Buffer.from("\n", "utf8");
+  // Concat per-line Buffers directly — never join the lines as one JS
+  // string first, which would hit the very same V8 ceiling this test
+  // exists to guard against, just one step earlier.
+  const pieces = [];
+  for (let i = 0; i < jobCount; i++) {
+    pieces.push(Buffer.from(JSON.stringify({ i, exitCode: 0, stdout: chunk }), "utf8"), newline);
+  }
+  const buf = Buffer.concat(pieces);
+  const v8StringCeiling = 0x1fffffe8;
+  assert.ok(buf.length > v8StringCeiling, `combined buffer (${buf.length} bytes) must exceed V8's per-string ceiling (${v8StringCeiling}) to exercise this guard`);
+
+  const jobs = new Array(jobCount).fill({});
+  const settled = reconcileBatchOutcomes(jobs, { error: null, status: 0, stdout: buf });
+  assert.equal(settled.length, jobCount, "outcomes stay index-aligned across a combined buffer past V8's string limit");
+  for (let i = 0; i < jobCount; i++) {
+    assert.equal(settled[i].exitCode, 0, `job ${i} recovers its real exit code`);
+    assert.equal(settled[i].stdout.length, perJobChars, `job ${i} recovers its full ~30MB output intact`);
+  }
+  console.log("batch-output-overflow-smoke: reconcileBatchOutcomes survives combined output past V8's per-string limit ok");
+}
+
 function main() {
   unitLevelReconciliation();
   integrationLevelLargeOutput();
+  unitLevelPastV8StringLimit();
   console.log("batch-output-overflow-smoke: ok (streamed NDJSON recovers per-job outcomes even under batch-level failure)");
 }
 

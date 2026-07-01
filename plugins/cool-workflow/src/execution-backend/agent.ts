@@ -309,23 +309,36 @@ interface BatchDelegateLine {
  *  output exceeding maxBuffer, ETIMEDOUT from the parent backstop, or a
  *  nonzero/null exit) — a batch-level failure must fail-close ONLY the jobs
  *  whose line never fully arrived, never every job in the batch: a job whose
- *  line already streamed through keeps its REAL outcome. The last split
- *  segment is always dropped before parsing (it is either the empty string
- *  from a clean trailing newline, or a line truncated mid-write by a hard
- *  kill — either way, never a complete line, so never worth parsing), and one
+ *  line already streamed through keeps its REAL outcome.
+ *
+ *  `stdout` is split on the raw newline BYTE, on a Buffer, before any UTF-8
+ *  decoding — never on a decoded string. 0x0A never appears inside a UTF-8
+ *  continuation byte, so this is a safe boundary; decoding is deferred to
+ *  ONE LINE at a time (bounded by the delegate's own 32MB-per-job cap), so
+ *  no single decode ever approaches V8's hard per-string character ceiling
+ *  regardless of how large the COMBINED batch output is. Decoding the whole
+ *  combined buffer as one string up front (the prior approach) could itself
+ *  throw past that ceiling for a large-enough batch — an uncaught crash, not
+ *  a graceful `child.error` — which this line-at-a-time approach avoids by
+ *  construction. The trailing split segment is always dropped before
+ *  parsing (empty from a clean trailing newline, or a line truncated
+ *  mid-write by a hard kill — either way, never a complete line), and one
  *  corrupt line can never crash the reconciliation of its siblings. */
 export function reconcileBatchOutcomes(
   jobs: AgentSpawnJob[],
-  child: { error?: Error | null; status: number | null; stdout?: string | null }
+  child: { error?: Error | null; status: number | null; stdout?: string | Buffer | null }
 ): AgentChildOutcome[] {
-  const lines = String(child.stdout || "").split("\n");
-  lines.pop();
+  const buf = Buffer.isBuffer(child.stdout) ? child.stdout : Buffer.from(String(child.stdout || ""), "utf8");
   const byIndex = new Map<number, AgentChildOutcome>();
-  for (const line of lines) {
-    if (!line) continue;
+  let lineStart = 0;
+  for (let i = 0; i < buf.length; i++) {
+    if (buf[i] !== 0x0a) continue;
+    const lineBuf = buf.subarray(lineStart, i);
+    lineStart = i + 1;
+    if (lineBuf.length === 0) continue;
     let parsed: BatchDelegateLine;
     try {
-      parsed = JSON.parse(line);
+      parsed = JSON.parse(lineBuf.toString("utf8"));
     } catch {
       continue;
     }
@@ -356,11 +369,22 @@ export function reconcileBatchOutcomes(
 export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[] {
   if (!jobs.length) return [];
   const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
-  const child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
-    input: JSON.stringify(jobs),
-    encoding: "utf8",
-    maxBuffer: 34 * 1024 * 1024 * jobs.length,
-    timeout: maxTimeout + 30000
-  });
+  // No `encoding` option: keep stdout as a raw Buffer so reconcileBatchOutcomes
+  // can split on the newline byte and decode one line at a time — decoding the
+  // WHOLE combined buffer as one string up front could itself throw past V8's
+  // per-string character ceiling for a large-enough batch (an uncaught crash,
+  // not a graceful child.error). The try/catch below is a second backstop for
+  // any other unexpected native failure at this boundary — a wedged or
+  // over-limit delegate must fail every job closed, never crash the drive.
+  let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
+  try {
+    child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
+      input: JSON.stringify(jobs),
+      maxBuffer: 34 * 1024 * 1024 * jobs.length,
+      timeout: maxTimeout + 30000
+    });
+  } catch (error) {
+    child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
+  }
   return reconcileBatchOutcomes(jobs, child);
 }
