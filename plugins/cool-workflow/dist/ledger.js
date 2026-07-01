@@ -9,8 +9,10 @@
 // fail-closed (a tampered or malformed entry is refused, never acted on) before
 // turning a proposal into a real PR or recording a verdict.
 //
-// Pure + zero-dependency: only node:crypto. No run state, no I/O — the CLI
-// handler owns reading/printing; this module only builds and verifies.
+// Zero-dependency (only node stdlib). `build*`/`verify*` are pure; the stage-2
+// git transport adds `listLedgerEntries`, a READ-ONLY scan of a shared ledger
+// directory (the working tree of a handoff repo) that verifies every entry
+// fail-closed. No run state, no writes, no network.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -49,7 +51,10 @@ exports.computeLedgerDigest = computeLedgerDigest;
 exports.buildLedgerProposal = buildLedgerProposal;
 exports.buildLedgerReview = buildLedgerReview;
 exports.verifyLedgerEntry = verifyLedgerEntry;
+exports.listLedgerEntries = listLedgerEntries;
 const crypto = __importStar(require("crypto"));
+const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 /** Deterministic JSON with recursively sorted object keys, so the digest is a
  *  function of content only — never key insertion order. */
 function stableStringify(value) {
@@ -155,4 +160,38 @@ function verifyLedgerEntry(raw) {
     }
     checks.push({ name: "digest", pass: true });
     return { ok: true, id: typeof raw.id === "string" ? raw.id : null, kind, checks, failedChecks: [] };
+}
+/** Read every `*.json` in `dir`, verify each entry fail-closed, and report.
+ *  `allOk` is false if any entry is tampered, malformed, or unreadable — so the
+ *  receiving side refuses the whole inbox rather than acting on a mixed batch. */
+function listLedgerEntries(dir) {
+    let names;
+    try {
+        names = fs.readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
+    }
+    catch (error) {
+        return { dir, count: 0, allOk: false, entries: [{ file: dir, id: null, kind: null, from: null, to: null, ok: false, failedChecks: [{ name: "dir", code: "ledger-dir-unreadable", detail: error.message }] }] };
+    }
+    const entries = names.map((name) => {
+        const file = path.join(dir, name);
+        let raw;
+        try {
+            raw = JSON.parse(fs.readFileSync(file, "utf8"));
+        }
+        catch {
+            return { file: name, id: null, kind: null, from: null, to: null, ok: false, failedChecks: [{ name: "parse", code: "ledger-bad-json" }] };
+        }
+        const result = verifyLedgerEntry(raw);
+        const rec = isRecord(raw) ? raw : {};
+        return {
+            file: name,
+            id: result.id,
+            kind: result.kind,
+            from: typeof rec.from === "string" ? rec.from : null,
+            to: typeof rec.to === "string" ? rec.to : null,
+            ok: result.ok,
+            failedChecks: result.failedChecks
+        };
+    });
+    return { dir, count: entries.length, allOk: entries.every((e) => e.ok), entries };
 }

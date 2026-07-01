@@ -113,7 +113,16 @@ function handleLedger(args, _runner) {
                 process.exitCode = 1;
             return;
         }
+        case "list": {
+            const dir = (0, io_1.required)(stringOption(opts.dir), "--dir <ledger-directory>");
+            const result = (0, ledger_1.listLedgerEntries)(dir);
+            (0, io_1.printJson)(result);
+            // Fail-closed inbox: refuse the whole batch if any entry does not verify.
+            if (!result.allOk)
+                process.exitCode = 1;
+            return;
+        }
         default:
-            throw new Error("Usage: cw ledger propose|review|verify [options]");
+            throw new Error("Usage: cw ledger propose|review|verify|list [options]");
     }
 }

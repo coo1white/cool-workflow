@@ -82,7 +82,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 205 capabilities, 189 MCP tools.
+machine-complete by design: 206 capabilities, 193 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -290,9 +290,10 @@ machine-complete by design: 205 capabilities, 189 MCP tools.
 | `handoff` | `cw handoff` | `cw_handoff` | `collaborationHandoff` | both | identical |
 | `review.status` | `cw review status` | `cw_review_status` | `reviewStatus` | both | identical |
 | `review.policy` | `cw review policy` | `cw_review_policy` | `reviewPolicy` | both | identical |
-| `ledger.propose` | `cw ledger propose` | `—` | `buildLedgerProposal` | cli-only | cli-only |
-| `ledger.review` | `cw ledger review` | `—` | `buildLedgerReview` | cli-only | cli-only |
-| `ledger.verify` | `cw ledger verify` | `—` | `verifyLedgerEntry` | cli-only | cli-only |
+| `ledger.propose` | `cw ledger propose` | `cw_ledger_propose` | `buildLedgerProposal` | both | projected |
+| `ledger.review` | `cw ledger review` | `cw_ledger_review` | `buildLedgerReview` | both | projected |
+| `ledger.verify` | `cw ledger verify` | `cw_ledger_verify` | `verifyLedgerEntry` | both | projected |
+| `ledger.list` | `cw ledger list` | `cw_ledger_list` | `listLedgerEntries` | both | projected |
 <!-- /gen:parity:table -->
 
 v0.1.27 closed the old gaps. It added MCP peers `cw_init`, `cw_next`,
@@ -307,7 +308,7 @@ A capability may be on one surface only, but never without word of it — it mus
 carry a recorded reason in the registry.
 
 <!-- gen:parity:cliOnly -->
-16 capabilities are CLI-only:
+13 capabilities are CLI-only:
 
 - `help` — Human help text. MCP hosts enumerate capabilities via tools/list, not a help command.
 - `version` — Version string — no structured data contract.
@@ -322,13 +323,10 @@ carry a recorded reason in the registry.
 - `quickstart` — CLI UX convenience layer (newcomer first value in one command) over the existing run.drive.step + report verbs; it spawns nothing new and delegates worker execution to the operator's agent backend. MCP hosts compose the same outcome from cw_run_drive_step + cw_report (+ cw_report_bundle for --bundle). `audit-run` is a CLI-only alias of the same wrapper.
 - `demo tamper` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo.
 - `demo bundle` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo.
-- `ledger propose` — Stage 1 human-relay MVP: emits a self-contained, digest-sealed entry to stdout for the operator to carry to the other session. The MCP surface + git-ledger transport land in a later cycle.
-- `ledger review` — Stage 1 human-relay MVP: emits a self-contained, digest-sealed verdict to stdout. The MCP surface + git-ledger transport land in a later cycle.
-- `ledger verify` — Stage 1 human-relay MVP: reads an entry from --file/stdin and refuses a tampered or malformed one with a non-zero exit. The MCP surface lands with the git-ledger transport in a later cycle.
 <!-- /gen:parity:cliOnly -->
 
 <!-- gen:parity:projected -->
-Six capabilities are payload-divergent on purpose (`projected`):
+Ten capabilities are payload-divergent on purpose (`projected`):
 
 - `commit` — Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate, commit.acceptanceRationale); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection via capability-core.commitEnvelope, not drift.
 - `backend.agent.config.set` — Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe.
@@ -336,6 +334,10 @@ Six capabilities are payload-divergent on purpose (`projected`):
 - `gc.run` — Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone.
 - `clones.gc` — Mutating: removes cache directories and reports now-derived freedBytes/removed; both surfaces perform the identical reclamation.
 - `workbench.serve` — Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host (like `schedule daemon`), which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.
+- `ledger.propose` — Mints a fresh entry each call: createdAt is the wall-clock instant and the id/digest are derived from it, so the output is inherently non-deterministic and a byte-identity probe does not apply. Both surfaces call the same buildLedgerProposal core; round-trip + fail-closed behavior is covered by ledger-verify-smoke.
+- `ledger.review` — Mints a fresh timestamped/digested verdict each call — non-deterministic output, same reasoning as ledger.propose. Both surfaces call the same buildLedgerReview core.
+- `ledger.verify` — The entry arrives by --file/stdin on the CLI and as an `entry` argument over MCP; there is no shared arg-bag the byte-identity probe can feed both. Both surfaces call the same verifyLedgerEntry core; ledger-verify-smoke proves the fail-closed contract.
+- `ledger.list` — Output depends on the on-disk contents of the named ledger directory, which the generic payload probe does not populate. Both surfaces call the same listLedgerEntries core; ledger-verify-smoke covers the fail-closed inbox.
 <!-- /gen:parity:projected -->
 
 ## Fail-Closed Rules

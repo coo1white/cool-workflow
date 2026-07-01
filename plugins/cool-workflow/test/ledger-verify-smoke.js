@@ -91,4 +91,25 @@ r = runCli(["ledger", "verify"], { input: JSON.stringify(proposal) });
 assert.equal(r.status, 0, "verify from stdin exits 0");
 assert.equal(JSON.parse(r.stdout).ok, true, "stdin entry ok:true");
 
-process.stdout.write("ledger-verify-smoke: ok (propose/review round-trip, tamper+junk+truncation fail-closed, stdin)\n");
+// --- 7. git-transport inbox: `cw ledger list --dir` verifies the whole dir ---
+const ledgerDir = path.join(dir, "shared-ledger");
+fs.mkdirSync(ledgerDir);
+fs.writeFileSync(path.join(ledgerDir, `${proposal.id}.json`), JSON.stringify(proposal));
+fs.writeFileSync(path.join(ledgerDir, `${review.id}.json`), JSON.stringify(review));
+r = runCli(["ledger", "list", "--dir", ledgerDir]);
+assert.equal(r.status, 0, "clean inbox exits 0");
+let list = JSON.parse(r.stdout);
+assert.equal(list.count, 2, "inbox lists both entries");
+assert.equal(list.allOk, true, "clean inbox allOk:true");
+
+// drop a tampered entry into the same dir -> the whole inbox is refused
+fs.writeFileSync(path.join(ledgerDir, "forged.json"), JSON.stringify(forged));
+r = runCli(["ledger", "list", "--dir", ledgerDir]);
+assert.equal(r.status, 1, "inbox with a forged entry exits 1 (fail-closed)");
+list = JSON.parse(r.stdout);
+assert.equal(list.allOk, false, "mixed inbox allOk:false");
+const bad = list.entries.find((e) => e.file === "forged.json");
+assert.ok(bad && bad.ok === false && bad.failedChecks.some((c) => c.code === "ledger-digest-mismatch"),
+  "the forged entry is the one flagged");
+
+process.stdout.write("ledger-verify-smoke: ok (propose/review round-trip, tamper+junk+truncation fail-closed, stdin, git-transport inbox)\n");

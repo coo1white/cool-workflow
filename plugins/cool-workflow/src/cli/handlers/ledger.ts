@@ -5,7 +5,7 @@
 
 import * as fs from "fs";
 import { CoolWorkflowRunner, parseArgv } from "../../orchestrator";
-import { buildLedgerProposal, buildLedgerReview, verifyLedgerEntry, LedgerVerdict } from "../../ledger";
+import { buildLedgerProposal, buildLedgerReview, verifyLedgerEntry, listLedgerEntries, LedgerVerdict } from "../../ledger";
 import { required, printJson } from "../io";
 
 type ParsedArgs = ReturnType<typeof parseArgv>;
@@ -82,7 +82,15 @@ export function handleLedger(args: ParsedArgs, _runner: CoolWorkflowRunner): voi
       if (!result.ok) process.exitCode = 1;
       return;
     }
+    case "list": {
+      const dir = required(stringOption(opts.dir), "--dir <ledger-directory>");
+      const result = listLedgerEntries(dir);
+      printJson(result);
+      // Fail-closed inbox: refuse the whole batch if any entry does not verify.
+      if (!result.allOk) process.exitCode = 1;
+      return;
+    }
     default:
-      throw new Error("Usage: cw ledger propose|review|verify [options]");
+      throw new Error("Usage: cw ledger propose|review|verify|list [options]");
   }
 }
