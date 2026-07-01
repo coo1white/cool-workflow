@@ -179,7 +179,14 @@ function plan(appRecord, options) {
     (0, state_1.saveCheckpoint)(run);
     return run;
 }
+/** `options.persistState === false` (concurrent-round callers ONLY — never from
+ *  a CLI/MCP arg bag) skips commitState/saveCheckpoint/writeReport on every
+ *  branch, success or error, so a caller driving many tasks through one
+ *  in-memory `run` can defer the disk flush to a single call at round end
+ *  instead of once per task. Default (absent) preserves today's exact
+ *  per-call persistence. */
 function dispatch(run, options) {
+    const persistState = options.persistState !== false;
     try {
         const manifest = (0, dispatch_1.createDispatchManifest)(run, (0, cli_options_1.numberOption)(options.limit), {
             sandboxProfileId: (0, cli_options_1.stringOption)(options.sandbox) || (0, cli_options_1.stringOption)(options.sandboxProfile) || (0, cli_options_1.stringOption)(options.sandboxProfileId),
@@ -190,10 +197,12 @@ function dispatch(run, options) {
             multiAgentFanoutId: (0, cli_options_1.stringOption)(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"])
         });
         run.loopStage = "act";
-        if (manifest.dispatchId)
-            (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
-        (0, state_1.saveCheckpoint)(run);
-        (0, report_1.writeReport)(run);
+        if (persistState) {
+            if (manifest.dispatchId)
+                (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
+            (0, state_1.saveCheckpoint)(run);
+            (0, report_1.writeReport)(run);
+        }
         return manifest;
     }
     catch (error) {
@@ -212,8 +221,10 @@ function dispatch(run, options) {
                 retryable: false,
                 metadata: { sandboxProfileId: (0, cli_options_1.stringOption)(options.sandbox) || (0, cli_options_1.stringOption)(options.sandboxProfile) || (0, cli_options_1.stringOption)(options.sandboxProfileId) }
             }, { persist: false });
-            (0, report_1.writeReport)(run);
-            (0, state_1.saveCheckpoint)(run);
+            if (persistState) {
+                (0, report_1.writeReport)(run);
+                (0, state_1.saveCheckpoint)(run);
+            }
         }
         throw error;
     }
@@ -327,6 +338,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // Track 1 fail-closed (opt-in): forward the policy so recordWorkerOutput can
     // park a hop whose telemetry isn't attested. Default (absent) ⇒ flag-and-surface.
     const requireAttestedTelemetry = options.requireAttestedTelemetry === true;
+    const persistState = options.persistState !== false;
     try {
         (0, worker_isolation_1.recordWorkerOutput)(run, workerId, resultPath, { persist: false, agentDelegation, requireAttestedTelemetry });
         if (usage) {
@@ -341,20 +353,25 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         // and either append the next round or mark the loop done (no-op for non-loop runs).
         maybeExpandLoop(run);
         (0, verifier_1.validateRunGates)(run);
-        (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
+        if (persistState) {
+            (0, commit_1.commitState)(run, `worker:${workerId}:result`);
+            (0, report_1.writeReport)(run);
+            (0, state_1.saveCheckpoint)(run);
+        }
         return (0, report_1.summarizeRun)(run);
     }
     catch (error) {
         run.loopStage = "adjust";
         (0, dispatch_1.updatePhaseStatuses)(run);
-        (0, report_1.writeReport)(run);
-        (0, state_1.saveCheckpoint)(run);
+        if (persistState) {
+            (0, report_1.writeReport)(run);
+            (0, state_1.saveCheckpoint)(run);
+        }
         throw error;
     }
 }
 function recordWorkerFailure(run, workerId, message, options = {}) {
+    const persistState = options.persistState !== false;
     const failure = (0, worker_isolation_1.recordWorkerFailure)(run, workerId, {
         code: String(options.code || "worker-runtime-error"),
         message,
@@ -364,8 +381,10 @@ function recordWorkerFailure(run, workerId, message, options = {}) {
     }, { persist: false, retryCount: typeof options.retryCount === "number" ? Number(options.retryCount) : undefined });
     run.loopStage = "adjust";
     (0, dispatch_1.updatePhaseStatuses)(run);
-    (0, report_1.writeReport)(run);
-    (0, state_1.saveCheckpoint)(run);
+    if (persistState) {
+        (0, report_1.writeReport)(run);
+        (0, state_1.saveCheckpoint)(run);
+    }
     return failure;
 }
 function checkState(runId, options = {}) {

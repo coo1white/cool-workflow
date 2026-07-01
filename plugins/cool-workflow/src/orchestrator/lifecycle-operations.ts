@@ -200,7 +200,14 @@ export function plan(appRecord: LoadedWorkflowApp, options: Record<string, unkno
   return run;
 }
 
+/** `options.persistState === false` (concurrent-round callers ONLY — never from
+ *  a CLI/MCP arg bag) skips commitState/saveCheckpoint/writeReport on every
+ *  branch, success or error, so a caller driving many tasks through one
+ *  in-memory `run` can defer the disk flush to a single call at round end
+ *  instead of once per task. Default (absent) preserves today's exact
+ *  per-call persistence. */
 export function dispatch(run: WorkflowRun, options: Record<string, unknown>): DispatchManifest {
+  const persistState = options.persistState !== false;
   try {
     const manifest = createDispatchManifest(run, numberOption(options.limit), {
       sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
@@ -211,9 +218,11 @@ export function dispatch(run: WorkflowRun, options: Record<string, unknown>): Di
       multiAgentFanoutId: stringOption(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"])
     });
     run.loopStage = "act";
-    if (manifest.dispatchId) commitState(run, `dispatch:${manifest.dispatchId}`);
-    saveCheckpoint(run);
-    writeReport(run);
+    if (persistState) {
+      if (manifest.dispatchId) commitState(run, `dispatch:${manifest.dispatchId}`);
+      saveCheckpoint(run);
+      writeReport(run);
+    }
     return manifest;
   } catch (error) {
     if (isSandboxProfileError(error)) {
@@ -231,8 +240,10 @@ export function dispatch(run: WorkflowRun, options: Record<string, unknown>): Di
         retryable: false,
         metadata: { sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId) }
       }, { persist: false });
-      writeReport(run);
-      saveCheckpoint(run);
+      if (persistState) {
+        writeReport(run);
+        saveCheckpoint(run);
+      }
     }
     throw error;
   }
@@ -350,6 +361,7 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
   // Track 1 fail-closed (opt-in): forward the policy so recordWorkerOutput can
   // park a hop whose telemetry isn't attested. Default (absent) ⇒ flag-and-surface.
   const requireAttestedTelemetry = options.requireAttestedTelemetry === true;
+  const persistState = options.persistState !== false;
   try {
     recordWorkerOutputImpl(run, workerId, resultPath, { persist: false, agentDelegation, requireAttestedTelemetry });
     if (usage) {
@@ -363,15 +375,19 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     // and either append the next round or mark the loop done (no-op for non-loop runs).
     maybeExpandLoop(run);
     validateRunGates(run);
-    commitState(run, `worker:${workerId}:result`);
-    writeReport(run);
-    saveCheckpoint(run);
+    if (persistState) {
+      commitState(run, `worker:${workerId}:result`);
+      writeReport(run);
+      saveCheckpoint(run);
+    }
     return summarizeRun(run);
   } catch (error) {
     run.loopStage = "adjust";
     updatePhaseStatuses(run);
-    writeReport(run);
-    saveCheckpoint(run);
+    if (persistState) {
+      writeReport(run);
+      saveCheckpoint(run);
+    }
     throw error;
   }
 }
@@ -382,6 +398,7 @@ export function recordWorkerFailure(
   message: string,
   options: Record<string, unknown> = {}
 ): NonNullable<ReturnType<typeof getWorkerScope>> {
+  const persistState = options.persistState !== false;
   const failure = recordWorkerFailureImpl(
     run,
     workerId,
@@ -396,8 +413,10 @@ export function recordWorkerFailure(
   );
   run.loopStage = "adjust";
   updatePhaseStatuses(run);
-  writeReport(run);
-  saveCheckpoint(run);
+  if (persistState) {
+    writeReport(run);
+    saveCheckpoint(run);
+  }
   return failure;
 }
 
