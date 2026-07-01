@@ -1,5 +1,14 @@
 # CW Iteration Log
 
+## Batch — release v0.1.98 (cross-agent handoff ledger)
+
+> Cut the release that ships `cw ledger` (the cross-agent handoff ledger: stages 1–3 + the id-binding security fix, all already merged to main). `npm run bump:version -- 0.1.98 --content` stamped the version across every structured surface (package.json, plugin manifests, app.json ids, Formula, server.json, src/version.ts, canonical/golden/dogfood scripts) and the man-page/RELEASE version references; `CHANGELOG.md` gained the 0.1.98 entry (Capability/Implementation/Tests/Risk for the ledger). No behavior change beyond the version string — this is the release-cut batch.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Bump to 0.1.98 + CHANGELOG entry for the `cw ledger` capability; stamp the version across all structured + content surfaces. | `CHANGELOG.md` + `plugins/cool-workflow/package.json` (+ package-lock) + `plugins/cool-workflow/src/version.ts` + the plugin manifests (`.claude-plugin`/`.codex-plugin`/`.gemini-plugin`/`.opencode-plugin`/`.agents`/`.claude-plugin/marketplace.json`/`manifest/plugin.manifest.json`) + `server.json` + `Formula/cool-workflow.rb` + the canonical `apps/*/app.json` + `scripts/canonical-apps.js`/`dogfood-release.js`/`golden-path.js` + the 21 `docs/*.7.md` version references + `RELEASE.md` + `docs/project-index.md` | Release gate re-runs the suite; version-stamped smokes (`canonical-workflow-apps-smoke`, `dogfood-release-smoke`, `mcp-app-surface-smoke`, `operator-ux-smoke`, `workflow-app-framework-smoke`) rerun green after the bump | BUILD OK; version:sync OK; parity/index/manifests/dist OK; `release:check` (readme-sync fails only under the sandbox git-URL rewrite, green in CI) | yes (release cut — v0.1.98) |
+
+
 ## Batch — cross-agent handoff ledger, stage 1 (Unreleased)
 
 > Two agents scoped to two separate repos (e.g. cool-workflow ↔ chime) run as two separate cloud sessions: they share no filesystem and are each scoped to one repo at launch, so a local `~/.chime/handoff/` folder cannot be the channel between them. They need to hand each other a CHANGE PROPOSAL or a REVIEW VERDICT as verifiable data, not chat. Design: `plugins/cool-workflow/docs/designs/handoff-ledger.md` (merged in #317). The verb name `handoff` was already taken by an unrelated collaboration primitive (ownership transfer of a run/task), so the cross-agent verb is `ledger`. Stage 1 is the human-relay transport: a self-contained, digest-sealed JSON entry that the operator carries between sessions and the receiving side verifies fail-closed before turning a proposal into a real PR.
