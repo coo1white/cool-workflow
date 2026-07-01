@@ -12,6 +12,7 @@ exports.recordedAgentHandle = recordedAgentHandle;
 exports.extractEndpointResult = extractEndpointResult;
 exports.agentHandle = agentHandle;
 exports.prepareAgentSpawn = prepareAgentSpawn;
+exports.reconcileBatchOutcomes = reconcileBatchOutcomes;
 exports.runAgentBatchOutcomes = runAgentBatchOutcomes;
 // Agent-delegation pure helpers + concurrent batch fulfillment for the
 // execution-backend driver layer. Carved out of execution-backend.ts
@@ -259,36 +260,95 @@ function prepareAgentSpawn(request) {
 // `node -e` string — F11). It reads jobs JSON on stdin, spawns ALL concurrently
 // (shell:false, inherited env — the agent's own credentials resolve; CW never
 // reads them), per-job SIGTERM at timeoutMs + SIGKILL at +5s, caps each captured
-// stdout at 32MB, and prints the outcome array when every job has settled. stderr
-// is drained (a full pipe must never wedge a child). A kill yields exitCode null —
-// the no-exit-code refusal. We spawn it BY PATH (shell:false); the path is
-// resolved from this compiled module (dist/execution-backend/agent.js) up to the
-// package's `scripts/children/` dir, which package.json ships in "files".
+// stdout at 32MB, and streams ONE NDJSON line per job the instant it settles.
+// stderr is drained (a full pipe must never wedge a child). A kill yields
+// exitCode null — the no-exit-code refusal. We spawn it BY PATH (shell:false);
+// the path is resolved from this compiled module (dist/execution-backend/agent.js)
+// up to the package's `scripts/children/` dir, which package.json ships in "files".
 const BATCH_DELEGATE_CHILD_SCRIPT = node_path_1.default.resolve(__dirname, "..", "..", "scripts", "children", "batch-delegate-child.js");
+/** Parse the delegate child's NDJSON stdout and reconcile it against `jobs` by
+ *  index. Runs even when `child.error` is set (ENOBUFS from the combined
+ *  output exceeding maxBuffer, ETIMEDOUT from the parent backstop, or a
+ *  nonzero/null exit) — a batch-level failure must fail-close ONLY the jobs
+ *  whose line never fully arrived, never every job in the batch: a job whose
+ *  line already streamed through keeps its REAL outcome.
+ *
+ *  `stdout` is split on the raw newline BYTE, on a Buffer, before any UTF-8
+ *  decoding — never on a decoded string. 0x0A never appears inside a UTF-8
+ *  continuation byte, so this is a safe boundary; decoding is deferred to
+ *  ONE LINE at a time (bounded by the delegate's own 32MB-per-job cap), so
+ *  no single decode ever approaches V8's hard per-string character ceiling
+ *  regardless of how large the COMBINED batch output is. Decoding the whole
+ *  combined buffer as one string up front (the prior approach) could itself
+ *  throw past that ceiling for a large-enough batch — an uncaught crash, not
+ *  a graceful `child.error` — which this line-at-a-time approach avoids by
+ *  construction. The trailing split segment is always dropped before
+ *  parsing (empty from a clean trailing newline, or a line truncated
+ *  mid-write by a hard kill — either way, never a complete line), and one
+ *  corrupt line can never crash the reconciliation of its siblings. */
+function reconcileBatchOutcomes(jobs, child) {
+    const buf = Buffer.isBuffer(child.stdout) ? child.stdout : Buffer.from(String(child.stdout || ""), "utf8");
+    const byIndex = new Map();
+    let lineStart = 0;
+    for (let i = 0; i < buf.length; i++) {
+        if (buf[i] !== 0x0a)
+            continue;
+        const lineBuf = buf.subarray(lineStart, i);
+        lineStart = i + 1;
+        if (lineBuf.length === 0)
+            continue;
+        let parsed;
+        try {
+            parsed = JSON.parse(lineBuf.toString("utf8"));
+        }
+        catch {
+            continue;
+        }
+        if (typeof parsed.i !== "number" || parsed.i < 0 || parsed.i >= jobs.length)
+            continue;
+        byIndex.set(parsed.i, {
+            ...(parsed.spawnError ? { spawnError: parsed.spawnError } : {}),
+            exitCode: typeof parsed.exitCode === "number" ? parsed.exitCode : null,
+            stdout: String(parsed.stdout || "")
+        });
+    }
+    const reason = child.error
+        ? (0, util_1.messageOf)(child.error)
+        : typeof child.status === "number" && child.status !== 0
+            ? `batch delegate exited with ${child.status}`
+            : "batch delegate produced no outcome for this job";
+    return jobs.map((_, index) => byIndex.get(index) || { spawnError: `batch delegate failed: ${reason}`, exitCode: null, stdout: "" });
+}
 /** Run a batch of agent spawns concurrently; outcomes index-align with jobs. The
  *  parent backstop timeout (max job timeout + 30s) means even a wedged delegate
- *  child cannot deadlock the drive: on any batch-level failure EVERY job settles
- *  as a fail-closed spawn refusal — never a fabricated completion, never a hang. */
+ *  child cannot deadlock the drive. `maxBuffer` scales with batch size (the
+ *  delegate's own per-job 32MB cap is the real safety bound — no separate outer
+ *  ceiling here, since a flat ceiling that stops scaling with job count is
+ *  exactly what let one verbose batch strand its siblings before this fix).
+ *  Collect-all is a real guarantee even under buffer/timeout pressure: a job
+ *  whose NDJSON line fully streamed through keeps its real outcome regardless
+ *  of what happens to the rest of the batch. */
 function runAgentBatchOutcomes(jobs) {
     if (!jobs.length)
         return [];
     const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
-    const child = (0, node_child_process_1.spawnSync)(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
-        input: JSON.stringify(jobs),
-        encoding: "utf8",
-        maxBuffer: Math.min(33 * 1024 * 1024 * jobs.length, 512 * 1024 * 1024),
-        timeout: maxTimeout + 30000
-    });
-    if (!child.error && typeof child.status === "number" && child.status === 0) {
-        try {
-            const parsed = JSON.parse(String(child.stdout || ""));
-            if (Array.isArray(parsed) && parsed.length === jobs.length)
-                return parsed;
-        }
-        catch {
-            // fall through to the fail-closed mapping below
-        }
+    // No `encoding` option: keep stdout as a raw Buffer so reconcileBatchOutcomes
+    // can split on the newline byte and decode one line at a time — decoding the
+    // WHOLE combined buffer as one string up front could itself throw past V8's
+    // per-string character ceiling for a large-enough batch (an uncaught crash,
+    // not a graceful child.error). The try/catch below is a second backstop for
+    // any other unexpected native failure at this boundary — a wedged or
+    // over-limit delegate must fail every job closed, never crash the drive.
+    let child;
+    try {
+        child = (0, node_child_process_1.spawnSync)(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
+            input: JSON.stringify(jobs),
+            maxBuffer: 34 * 1024 * 1024 * jobs.length,
+            timeout: maxTimeout + 30000
+        });
     }
-    const reason = child.error ? (0, util_1.messageOf)(child.error) : `batch delegate exited ${child.status === null ? "without an exit code (timed out or killed)" : `with ${child.status}`}`;
-    return jobs.map(() => ({ spawnError: `batch delegate failed: ${reason}`, exitCode: null, stdout: "" }));
+    catch (error) {
+        child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
+    }
+    return reconcileBatchOutcomes(jobs, child);
 }

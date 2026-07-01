@@ -874,6 +874,7 @@ export function toolDefinitions(): unknown[] {
       question: stringSchema("The question the audited report answers"),
       once: booleanSchema("Advance exactly one step then stop"),
       now: stringSchema("Injected ISO timestamp for deterministic scheduling"),
+      concurrency: numberSchema("Override the round width for parallel() phases (default: the workflow's own limits.maxConcurrentAgents)"),
       cwd: stringSchema("Run workspace")
     }),
     capabilityTool("queue.add", "Enqueue a pending/planned run with explicit ordering policy (lower priority drains first). Plain files; the host still executes workers.", {

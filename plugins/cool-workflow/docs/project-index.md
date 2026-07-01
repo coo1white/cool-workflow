@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-06-30 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-07-01 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-06-30 by `npm run sync:projec
 - Source modules: `68`
 - Workflow apps: `8`
 - Docs: `59`
-- Smoke tests: `164`
+- Smoke tests: `168`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -210,6 +210,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [artifact-integrity-smoke.js](../test/artifact-integrity-smoke.js)
 - [audit-verify-smoke.js](../test/audit-verify-smoke.js)
 - [backend-registry-smoke.js](../test/backend-registry-smoke.js)
+- [batch-output-overflow-smoke.js](../test/batch-output-overflow-smoke.js)
 - [blackboard-state-explosion-management-smoke.js](../test/blackboard-state-explosion-management-smoke.js)
 - [block-unapproved-tag-smoke.js](../test/block-unapproved-tag-smoke.js)
 - [budget-scaling-loop-smoke.js](../test/budget-scaling-loop-smoke.js)
@@ -235,6 +236,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [collaboration-ops-unit-smoke.js](../test/collaboration-ops-unit-smoke.js)
 - [concurrency-default-smoke.js](../test/concurrency-default-smoke.js)
 - [concurrent-failure-semantics-smoke.js](../test/concurrent-failure-semantics-smoke.js)
+- [concurrent-subworkflow-cache-nesting-smoke.js](../test/concurrent-subworkflow-cache-nesting-smoke.js)
 - [concurrent-workflow-dsl-smoke.js](../test/concurrent-workflow-dsl-smoke.js)
 - [contract-migration-tooling-smoke.js](../test/contract-migration-tooling-smoke.js)
 - [control-plane-scheduling-smoke.js](../test/control-plane-scheduling-smoke.js)
@@ -242,11 +244,13 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [cw-help-per-command-smoke.js](../test/cw-help-per-command-smoke.js)
 - [dead-export-removal-guard-smoke.js](../test/dead-export-removal-guard-smoke.js)
 - [deepseek-agent-wrapper-smoke.js](../test/deepseek-agent-wrapper-smoke.js)
+- [deferred-checkpoint-batching-smoke.js](../test/deferred-checkpoint-batching-smoke.js)
 - [demo-bundle-smoke.js](../test/demo-bundle-smoke.js)
 - [det-ids-b-smoke.js](../test/det-ids-b-smoke.js)
 - [doctor-smoke.js](../test/doctor-smoke.js)
 - [dogfood-architecture-review-smoke.js](../test/dogfood-architecture-review-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
+- [drive-concurrency-flag-smoke.js](../test/drive-concurrency-flag-smoke.js)
 - [durable-atomic-write-smoke.js](../test/durable-atomic-write-smoke.js)
 - [end-to-end-demo-smoke.js](../test/end-to-end-demo-smoke.js)
 - [end-to-end-golden-path-smoke.js](../test/end-to-end-golden-path-smoke.js)

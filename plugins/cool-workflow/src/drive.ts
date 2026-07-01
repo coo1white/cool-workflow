@@ -35,6 +35,8 @@ import { deriveUsageTotals } from "./observability";
 import { maxLoopExpansion } from "./loop-expansion";
 import { stableStringify } from "./telemetry-attestation";
 import { safeFileName, saveCheckpoint } from "./state";
+import { commitState } from "./commit";
+import { writeReport } from "./orchestrator/report";
 import { recordTrustAuditEvent, verifyTrustAudit } from "./trust-audit";
 import { compareBytes } from "./compare";
 import {
@@ -246,7 +248,7 @@ function buildAgentRequest(
  *  fulfill step then settles it through runBackend instead of spawning again,
  *  so the concurrent round and the serial step share EVERY envelope/accept
  *  branch by construction. */
-function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutcome?: import("./types").AgentChildOutcome): DriveStep {
+function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutcome?: import("./types").AgentChildOutcome, deferPersist = false): DriveStep {
   const { runner, runId } = ctx;
   let run = runner.loadRun(runId);
 
@@ -255,7 +257,7 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
   let workerId = selected.workerId;
   let dispatched = false;
   if (selected.status === "pending") {
-    const manifest = runner.dispatch(runId, { limit: 1, backend: selected.agentType || "agent" });
+    const manifest = runner.dispatch(runId, { limit: 1, backend: selected.agentType || "agent", ...(deferPersist ? { persistState: false } : {}) });
     const task = manifest.tasks.find((entry) => entry.id === selected.id) || manifest.tasks[0];
     if (!task || !task.workerId) {
       return step("dispatch", "failed", { runId, taskId: selected.id, phase: selected.phase, reason: "dispatch produced no worker scope" });
@@ -282,9 +284,9 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
     emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
     try {
       fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
-      runner.recordWorkerOutput(runId, workerId, manifest.resultPath, {});
+      runner.recordWorkerOutput(runId, workerId, manifest.resultPath, deferPersist ? { persistState: false } : {});
     } catch (error) {
-      return handleHop(ctx, selected, workerId, `result cache rejected: ${error instanceof Error ? error.message : String(error)}`);
+      return handleHop(ctx, selected, workerId, `result cache rejected: ${error instanceof Error ? error.message : String(error)}`, deferPersist);
     }
     return step("accept", "ok", {
       runId,
@@ -299,7 +301,7 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
   // CHILD run and bind its report back as this task's result. Leaf work is still
   // external-agent delegation at every level; CW imports no model SDK here.
   if (selected.subWorkflow) {
-    return runSubWorkflow(ctx, run, selected, workerId, manifest);
+    return runSubWorkflow(ctx, run, selected, workerId, manifest, deferPersist);
   }
 
   emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
@@ -311,17 +313,18 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
   const usageSignature = handle?.metadata?.usageSignature as string | undefined;
 
   if (envelope.status !== "completed") {
-    return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`);
+    return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, deferPersist);
   }
 
   // 3. ACCEPT — the SEPARATE recordWorkerOutput layer validates + records result.md.
   //    A missing result.md is a failed hop (pre-checked so no terminal side effect);
   //    an invalid result.md throws at validation BEFORE any state mutation.
   if (!manifest.resultPath || !fs.existsSync(manifest.resultPath)) {
-    return handleHop(ctx, selected, workerId, "agent produced no result.md");
+    return handleHop(ctx, selected, workerId, "agent produced no result.md", deferPersist);
   }
   try {
     runner.recordWorkerOutput(runId, workerId, manifest.resultPath, {
+      ...(deferPersist ? { persistState: false } : {}),
       agentDelegation: {
         handle: handle!,
         model: reportedModel,
@@ -339,7 +342,7 @@ function processSelectedTask(ctx: DriveContext, selected: RunTask, preparedOutco
       requireAttestedTelemetry: ctx.config.requireAttestedTelemetry
     });
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `result.md rejected: ${error instanceof Error ? error.message : String(error)}`);
+    return handleHop(ctx, selected, workerId, `result.md rejected: ${error instanceof Error ? error.message : String(error)}`, deferPersist);
   }
 
   if (cachePath && manifest.resultPath && fs.existsSync(manifest.resultPath)) {
@@ -481,42 +484,62 @@ function writeResultCache(file: string, content: string): void {
  *  collect-all: a failed/hung/dirty hop never aborts its siblings, every hop
  *  settles and is recorded (failures park via the same retryOrPark). */
 export function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
-  const run = ctx.runner.loadRun(ctx.runId);
-  const selected = selectDriveTask(run);
-  const gate = terminalOrConfigStep(ctx, run, selected);
-  if (gate) return [gate];
+  // The whole round runs inside ONE cached in-memory run object (loadWithCache —
+  // reentrant, so a sub-workflow task's recursive drive() call cannot clobber this
+  // scope's cache). Every dispatch/accept in the round defers its own state.json
+  // write (persistState:false / deferPersist) and mutates that SAME shared object;
+  // the round flushes to disk exactly ONCE at the end instead of once per task —
+  // was O(N) full-state durable rewrites per round (measured: dominates wall time
+  // at scale), now O(1). A crash mid-round loses that round's dispatch/accept
+  // bookkeeping (bounded by the round width, i.e. limits.maxConcurrentAgents) and
+  // forces a safe-but-wasteful re-dispatch/re-spawn on the next drive — never
+  // disk corruption or double-counting, since the atomic-rename+fsync write
+  // itself is untouched; only the write FREQUENCY changed.
+  return ctx.runner.loadWithCache(() => {
+    const run = ctx.runner.loadRun(ctx.runId);
+    const selected = selectDriveTask(run);
+    const gate = terminalOrConfigStep(ctx, run, selected);
+    if (gate) return [gate];
 
-  const phase = firstRunnablePhase(run);
-  const width = Math.max(1, Math.floor(limit) || 1);
-  const batch = run.tasks
-    .filter((task) => phase!.taskIds.includes(task.id) && (task.status === "pending" || task.status === "running"))
-    .slice(0, width)
-    .map((task) => task.id);
+    const phase = firstRunnablePhase(run);
+    const width = Math.max(1, Math.floor(limit) || 1);
+    const batch = run.tasks
+      .filter((task) => phase!.taskIds.includes(task.id) && (task.status === "pending" || task.status === "running"))
+      .slice(0, width)
+      .map((task) => task.id);
 
-  // Phase A+B: dispatch every batch task (sequential — dispatch mutates state),
-  // then collect ALL spawn-style child outcomes in one concurrent window. The
-  // token-budget gate ran at round entry; it is NOT re-checked between accepts —
-  // the spawns already happened, and refusing to RECORD finished work would
-  // discard real results (collect-all + never-claw-back). Overshoot is bounded
-  // by the round width; the next round blocks.
-  const prepared = prepareConcurrentOutcomes(ctx, batch);
+    // Phase A+B: dispatch every batch task (sequential — dispatch mutates state),
+    // then collect ALL spawn-style child outcomes in one concurrent window. The
+    // token-budget gate ran at round entry; it is NOT re-checked between accepts —
+    // the spawns already happened, and refusing to RECORD finished work would
+    // discard real results (collect-all + never-claw-back). Overshoot is bounded
+    // by the round width; the next round blocks.
+    const prepared = prepareConcurrentOutcomes(ctx, batch);
 
-  // Phase C: settle + accept in deterministic batch order, regardless of the
-  // wall-clock order the children finished in.
-  const steps: DriveStep[] = [];
-  for (const taskId of batch) {
-    const failStep = prepared.failSteps.get(taskId);
-    if (failStep) {
-      steps.push(failStep);
-      continue;
+    // Phase C: settle + accept in deterministic batch order, regardless of the
+    // wall-clock order the children finished in.
+    const steps: DriveStep[] = [];
+    for (const taskId of batch) {
+      const failStep = prepared.failSteps.get(taskId);
+      if (failStep) {
+        steps.push(failStep);
+        continue;
+      }
+      // Re-read per task: a prior accept in this round mutated state (the SAME
+      // cached object — no disk round-trip until the round-end flush below).
+      const freshRun = ctx.runner.loadRun(ctx.runId);
+      const fresh = freshRun.tasks.find((task) => task.id === taskId);
+      if (!fresh || (fresh.status !== "pending" && fresh.status !== "running")) continue;
+      steps.push(processSelectedTask(ctx, fresh, prepared.outcomes.get(taskId), true));
     }
-    // Re-read per task: a prior accept in this round mutated state.
-    const freshRun = ctx.runner.loadRun(ctx.runId);
-    const fresh = freshRun.tasks.find((task) => task.id === taskId);
-    if (!fresh || (fresh.status !== "pending" && fresh.status !== "running")) continue;
-    steps.push(processSelectedTask(ctx, fresh, prepared.outcomes.get(taskId)));
-  }
-  return steps.length > 0 ? steps : [driveStep(ctx)];
+    if (steps.length > 0) {
+      const settledRun = ctx.runner.loadRun(ctx.runId);
+      commitState(settledRun, `concurrent-round:${batch.length}-tasks`);
+      writeReport(settledRun);
+      saveCheckpoint(settledRun);
+    }
+    return steps.length > 0 ? steps : [driveStep(ctx)];
+  });
 }
 
 /** Dispatch each batch task and run every spawn-style agent child concurrently
@@ -539,7 +562,7 @@ function prepareConcurrentOutcomes(
     if (!task || (task.status !== "pending" && task.status !== "running")) continue;
     let workerId = task.workerId;
     if (task.status === "pending") {
-      const manifest = runner.dispatch(runId, { limit: 1, backend: task.agentType || "agent" });
+      const manifest = runner.dispatch(runId, { limit: 1, backend: task.agentType || "agent", persistState: false });
       const dispatchedTask = manifest.tasks.find((entry) => entry.id === task.id) || manifest.tasks[0];
       if (!dispatchedTask || !dispatchedTask.workerId) {
         failSteps.set(taskId, step("dispatch", "failed", { runId, taskId, phase: task.phase, reason: "dispatch produced no worker scope" }));
@@ -582,7 +605,7 @@ function prepareConcurrentOutcomes(
 
 /** A failed agent hop: charge one attempt and (reuse v0.1.37 retryOrPark) either
  *  retry on the SAME worker scope next step, or PARK past the retry budget. */
-function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: string): DriveStep {
+function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: string, deferPersist = false): DriveStep {
   const persisted = ctx.runner.showWorker(ctx.runId, workerId).retryCount || 0;
   const prior = Math.max(ctx.attempts.get(task.id) || 0, persisted);
   const entry: RunQueueEntry = {
@@ -604,7 +627,8 @@ function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: s
     ctx.runner.recordWorkerFailure(ctx.runId, workerId, decided.parkedReason || reason, {
       code: "agent-delegation-parked",
       retryable: false,
-      retryCount: attempts
+      retryCount: attempts,
+      ...(deferPersist ? { persistState: false } : {})
     });
     return step("park", "parked", {
       runId: ctx.runId,
@@ -616,7 +640,7 @@ function handleHop(ctx: DriveContext, task: RunTask, workerId: string, reason: s
     });
   }
   // Retryable: leave the task running (scope reused) for the next step.
-  recordWorkerRetryAttempt(ctx.runner.loadRun(ctx.runId), workerId, decided.attempts || prior + 1, reason);
+  recordWorkerRetryAttempt(ctx.runner.loadRun(ctx.runId), workerId, decided.attempts || prior + 1, reason, deferPersist ? { persist: false } : {});
   return step("fulfill", "failed", {
     runId: ctx.runId,
     taskId: task.id,
@@ -653,17 +677,17 @@ function renderSubInputs(spec: NonNullable<RunTask["subWorkflow"]>, parentInputs
  *  own telemetry/audit live in the child run; the parent records ONE honest
  *  `worker.sub-workflow` cross-link (child run id + report digest + child audit
  *  verdict) — nothing is summed or fabricated. */
-function runSubWorkflow(ctx: DriveContext, run: WorkflowRun, selected: RunTask, workerId: string, manifest: { resultPath: string }): DriveStep {
+function runSubWorkflow(ctx: DriveContext, run: WorkflowRun, selected: RunTask, workerId: string, manifest: { resultPath: string }, deferPersist = false): DriveStep {
   const spec = selected.subWorkflow!;
   const parentApp = run.workflow.id;
   // Fail-closed BEFORE planning a child (no child state minted when refused).
   if (ctx.depth + 1 > MAX_SUB_WORKFLOW_DEPTH) {
-    return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${MAX_SUB_WORKFLOW_DEPTH})`);
+    return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${MAX_SUB_WORKFLOW_DEPTH})`, deferPersist);
   }
   // Include the CURRENT app on the path, so a direct self-cycle (A→A) is caught at
   // depth 0 — before any child run dir is minted.
   if ([...ctx.visitedAppIds, parentApp].includes(spec.appId)) {
-    return handleHop(ctx, selected, workerId, `sub-workflow cycle detected: ${[...ctx.visitedAppIds, parentApp, spec.appId].join(" -> ")}`);
+    return handleHop(ctx, selected, workerId, `sub-workflow cycle detected: ${[...ctx.visitedAppIds, parentApp, spec.appId].join(" -> ")}`, deferPersist);
   }
 
   // Deterministic child run id derived from the parent run + task (no clock/random).
@@ -681,7 +705,7 @@ function runSubWorkflow(ctx: DriveContext, run: WorkflowRun, selected: RunTask, 
   try {
     childRun = ctx.runner.plan(spec.appId, childInputs);
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`);
+    return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`, deferPersist);
   }
   const childResult = drive(ctx.runner, childRun.id, {
     now: ctx.now,
@@ -692,7 +716,7 @@ function runSubWorkflow(ctx: DriveContext, run: WorkflowRun, selected: RunTask, 
     visitedAppIds: [...ctx.visitedAppIds, parentApp]
   });
   if (childResult.status !== "complete") {
-    return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`);
+    return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`, deferPersist);
   }
 
   // Bind the child's bytes: the rendered report (default) or the verdict result.
@@ -705,15 +729,15 @@ function runSubWorkflow(ctx: DriveContext, run: WorkflowRun, selected: RunTask, 
     childBytes = fs.existsSync(finalChild.paths.report) ? fs.readFileSync(finalChild.paths.report, "utf8") : undefined;
   }
   if (childBytes === undefined) {
-    return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} produced no ${spec.bindResult || "report"}`);
+    return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} produced no ${spec.bindResult || "report"}`, deferPersist);
   }
 
   // Accept through the SAME path as any other result (verifier/schema/evidence gate).
   try {
     fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
-    ctx.runner.recordWorkerOutput(run.id, workerId, manifest.resultPath, {});
+    ctx.runner.recordWorkerOutput(run.id, workerId, manifest.resultPath, deferPersist ? { persistState: false } : {});
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`);
+    return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`, deferPersist);
   }
 
   // Honest cross-link (provenance only — never fails the accepted hop): one

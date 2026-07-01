@@ -86,6 +86,7 @@ const telemetry_demo_1 = require("./telemetry-demo");
 const state_1 = require("./state");
 const run_export_1 = require("./run-export");
 const result_normalize_1 = require("./result-normalize");
+const cli_options_1 = require("./orchestrator/cli-options");
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const scheduling_1 = require("./scheduling");
@@ -553,6 +554,7 @@ const DRIVE_RUNTIME_KEYS = [
     "agent-timeout-ms",
     "resume",
     "incremental",
+    "concurrency",
     // Remote-source flags (v0.1.91): materialized into a local checkout in the capability
     // layer, never passed to plan as inputs (the resolved sourceUrl/sourceCommit ARE inputs).
     "link",
@@ -592,6 +594,7 @@ function runDrive(runner, args) {
         once: isTrue(args.once),
         now: optionalString(args.now),
         incremental: isTrue(args.incremental),
+        concurrency: (0, cli_options_1.numberOption)(args.concurrency),
         args
     });
 }

@@ -114,15 +114,23 @@ class CoolWorkflowRunner {
     }
     /** Run fn with a per-request loadRun cache. All loadRun calls inside fn share
      *  the same cached run state, collapsing 18 reads into 1. Returns fn's result
-     *  and clears the cache afterwards (never leaks between requests). */
+     *  and clears the cache afterwards (never leaks between requests).
+     *
+     *  Reentrant: a nested call (e.g. a concurrent drive round whose sub-workflow
+     *  task recursively drives a child run on the SAME runner instance) saves and
+     *  restores the OUTER scope's cache rather than clobbering it to undefined —
+     *  otherwise the inner call's `finally` would wipe the outer round's still-in-
+     *  flight (not yet persisted) mutations, and the outer scope's next loadRun
+     *  would silently fall back to a stale disk read. */
     loadWithCache(fn) {
+        const previousCache = this._requestCache;
         this._requestCache = new Map();
         (0, trust_audit_1.setAuditEventCache)(new Map());
         try {
             return fn(this);
         }
         finally {
-            this._requestCache = undefined;
+            this._requestCache = previousCache;
             (0, trust_audit_1.clearAuditEventCache)();
         }
     }
