@@ -54,6 +54,7 @@ exports.verifyLedgerEntry = verifyLedgerEntry;
 exports.applyLedgerProposal = applyLedgerProposal;
 exports.listLedgerEntries = listLedgerEntries;
 exports.unionLedgerEntries = unionLedgerEntries;
+exports.resolveLedgerInbox = resolveLedgerInbox;
 const crypto = __importStar(require("crypto"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -204,7 +205,8 @@ function listLedgerEntries(dir) {
         names = fs.readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
     }
     catch (error) {
-        return { dir, count: 0, allOk: false, entries: [{ file: dir, id: null, kind: null, from: null, to: null, ok: false, failedChecks: [{ name: "dir", code: "ledger-dir-unreadable", detail: error.message }] }] };
+        const entry = { file: dir, id: null, kind: null, from: null, to: null, title: null, target: null, verdict: null, ok: false, failedChecks: [{ name: "dir", code: "ledger-dir-unreadable", detail: error.message }] };
+        return { dir, count: 0, allOk: false, entries: [entry], resolution: resolveLedgerInbox([entry]) };
     }
     const entries = names.map((name) => {
         const file = path.join(dir, name);
@@ -213,7 +215,7 @@ function listLedgerEntries(dir) {
             raw = JSON.parse(fs.readFileSync(file, "utf8"));
         }
         catch {
-            return { file: name, id: null, kind: null, from: null, to: null, ok: false, failedChecks: [{ name: "parse", code: "ledger-bad-json" }] };
+            return { file: name, id: null, kind: null, from: null, to: null, title: null, target: null, verdict: null, ok: false, failedChecks: [{ name: "parse", code: "ledger-bad-json" }] };
         }
         const result = verifyLedgerEntry(raw);
         const rec = isRecord(raw) ? raw : {};
@@ -223,11 +225,14 @@ function listLedgerEntries(dir) {
             kind: result.kind,
             from: typeof rec.from === "string" ? rec.from : null,
             to: typeof rec.to === "string" ? rec.to : null,
+            title: typeof rec.title === "string" ? rec.title : null,
+            target: typeof rec.target === "string" ? rec.target : null,
+            verdict: typeof rec.verdict === "string" ? rec.verdict : null,
             ok: result.ok,
             failedChecks: result.failedChecks
         };
     });
-    return { dir, count: entries.length, allOk: entries.every((e) => e.ok), entries };
+    return { dir, count: entries.length, allOk: entries.every((e) => e.ok), entries, resolution: resolveLedgerInbox(entries) };
 }
 /** Union-verify several mirror directories into ONE fail-closed inbox. Verified
  *  entries are de-duplicated by their content-addressed id (the same entry
@@ -261,5 +266,44 @@ function unionLedgerEntries(dirs) {
         }
     }
     const entries = [...byId.values(), ...failures];
-    return { dirs, count: entries.length, allOk, entries };
+    return { dirs, count: entries.length, allOk, entries, resolution: resolveLedgerInbox(entries) };
+}
+/** Derive a machine-actionable inbox summary: pair each proposal with the
+ *  review(s) that target it and report whether it is pending, approved,
+ *  rejected, or contested. Only VERIFIED entries take part — a tampered review
+ *  must never resolve a proposal, so a proposal with only a failing review
+ *  stays `pending` (fail-closed). Pure derivation over content-addressed
+ *  entries: no git, no network, no policy (it reports the decision, it does not
+ *  enforce one). */
+function resolveLedgerInbox(entries) {
+    const verified = entries.filter((e) => e.ok);
+    const reviews = verified.filter((e) => e.kind === "review" && e.target);
+    const proposals = verified
+        .filter((e) => e.kind === "proposal" && e.id)
+        .map((p) => {
+        const answering = reviews.filter((r) => r.target === p.id);
+        const verdicts = new Set(answering.map((r) => r.verdict));
+        let resolution;
+        if (answering.length === 0)
+            resolution = "pending";
+        else if (verdicts.size > 1)
+            resolution = "contested";
+        else
+            resolution = verdicts.has("APPROVED") ? "approved" : "rejected";
+        return {
+            id: p.id,
+            title: p.title,
+            resolution,
+            reviews: answering.map((r) => r.id).sort()
+        };
+    })
+        .sort((a, b) => a.id.localeCompare(b.id));
+    const tally = (s) => proposals.filter((p) => p.resolution === s).length;
+    return {
+        proposals,
+        pending: tally("pending"),
+        approved: tally("approved"),
+        rejected: tally("rejected"),
+        contested: tally("contested")
+    };
 }

@@ -260,8 +260,40 @@ export interface LedgerListEntry {
   kind: string | null;
   from: string | null;
   to: string | null;
+  /** Proposal title (proposals only); null otherwise. Additive triage field so
+   *  an inbox is readable without opening each file. */
+  title: string | null;
+  /** The proposal id / PR ref a review answers (reviews only); null otherwise. */
+  target: string | null;
+  /** A review's verdict, APPROVED|REJECTED (reviews only); null otherwise. */
+  verdict: string | null;
   ok: boolean;
   failedChecks: Array<{ name: string; code: string; detail?: string }>;
+}
+
+/** How a proposal stands, derived from the review(s) that target it. */
+export type LedgerResolutionState = "pending" | "approved" | "rejected" | "contested";
+
+export interface LedgerProposalResolution {
+  id: string;
+  title: string | null;
+  /** pending = no verified review targets it; approved/rejected = every verified
+   *  review targeting it agrees; contested = verified reviews disagree. */
+  resolution: LedgerResolutionState;
+  /** ids of the verified reviews whose `target` is this proposal. */
+  reviews: string[];
+}
+
+/** A machine-actionable summary of an inbox: which proposals are still open and
+ *  which are decided. Reports the decision; it does NOT enforce policy (whether a
+ *  REJECTED verdict blocks a merge stays outside the kernel — mechanism, not
+ *  policy). */
+export interface LedgerInboxResolution {
+  proposals: LedgerProposalResolution[];
+  pending: number;
+  approved: number;
+  rejected: number;
+  contested: number;
 }
 
 export interface LedgerListResult {
@@ -269,6 +301,7 @@ export interface LedgerListResult {
   count: number;
   allOk: boolean;
   entries: LedgerListEntry[];
+  resolution: LedgerInboxResolution;
 }
 
 /** Read every `*.json` in `dir`, verify each entry fail-closed, and report.
@@ -279,7 +312,8 @@ export function listLedgerEntries(dir: string): LedgerListResult {
   try {
     names = fs.readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
   } catch (error) {
-    return { dir, count: 0, allOk: false, entries: [{ file: dir, id: null, kind: null, from: null, to: null, ok: false, failedChecks: [{ name: "dir", code: "ledger-dir-unreadable", detail: (error as Error).message }] }] };
+    const entry: LedgerListEntry = { file: dir, id: null, kind: null, from: null, to: null, title: null, target: null, verdict: null, ok: false, failedChecks: [{ name: "dir", code: "ledger-dir-unreadable", detail: (error as Error).message }] };
+    return { dir, count: 0, allOk: false, entries: [entry], resolution: resolveLedgerInbox([entry]) };
   }
   const entries: LedgerListEntry[] = names.map((name) => {
     const file = path.join(dir, name);
@@ -287,7 +321,7 @@ export function listLedgerEntries(dir: string): LedgerListResult {
     try {
       raw = JSON.parse(fs.readFileSync(file, "utf8"));
     } catch {
-      return { file: name, id: null, kind: null, from: null, to: null, ok: false, failedChecks: [{ name: "parse", code: "ledger-bad-json" }] };
+      return { file: name, id: null, kind: null, from: null, to: null, title: null, target: null, verdict: null, ok: false, failedChecks: [{ name: "parse", code: "ledger-bad-json" }] };
     }
     const result = verifyLedgerEntry(raw);
     const rec = isRecord(raw) ? raw : {};
@@ -297,11 +331,14 @@ export function listLedgerEntries(dir: string): LedgerListResult {
       kind: result.kind,
       from: typeof rec.from === "string" ? rec.from : null,
       to: typeof rec.to === "string" ? rec.to : null,
+      title: typeof rec.title === "string" ? rec.title : null,
+      target: typeof rec.target === "string" ? rec.target : null,
+      verdict: typeof rec.verdict === "string" ? rec.verdict : null,
       ok: result.ok,
       failedChecks: result.failedChecks
     };
   });
-  return { dir, count: entries.length, allOk: entries.every((e) => e.ok), entries };
+  return { dir, count: entries.length, allOk: entries.every((e) => e.ok), entries, resolution: resolveLedgerInbox(entries) };
 }
 
 export interface LedgerUnionEntry extends LedgerListEntry {
@@ -315,6 +352,7 @@ export interface LedgerUnionResult {
   count: number;
   allOk: boolean;
   entries: LedgerUnionEntry[];
+  resolution: LedgerInboxResolution;
 }
 
 /** Union-verify several mirror directories into ONE fail-closed inbox. Verified
@@ -345,5 +383,42 @@ export function unionLedgerEntries(dirs: string[]): LedgerUnionResult {
     }
   }
   const entries = [...byId.values(), ...failures];
-  return { dirs, count: entries.length, allOk, entries };
+  return { dirs, count: entries.length, allOk, entries, resolution: resolveLedgerInbox(entries) };
+}
+
+/** Derive a machine-actionable inbox summary: pair each proposal with the
+ *  review(s) that target it and report whether it is pending, approved,
+ *  rejected, or contested. Only VERIFIED entries take part — a tampered review
+ *  must never resolve a proposal, so a proposal with only a failing review
+ *  stays `pending` (fail-closed). Pure derivation over content-addressed
+ *  entries: no git, no network, no policy (it reports the decision, it does not
+ *  enforce one). */
+export function resolveLedgerInbox(entries: LedgerListEntry[]): LedgerInboxResolution {
+  const verified = entries.filter((e) => e.ok);
+  const reviews = verified.filter((e) => e.kind === "review" && e.target);
+  const proposals: LedgerProposalResolution[] = verified
+    .filter((e) => e.kind === "proposal" && e.id)
+    .map((p) => {
+      const answering = reviews.filter((r) => r.target === p.id);
+      const verdicts = new Set(answering.map((r) => r.verdict));
+      let resolution: LedgerResolutionState;
+      if (answering.length === 0) resolution = "pending";
+      else if (verdicts.size > 1) resolution = "contested";
+      else resolution = verdicts.has("APPROVED") ? "approved" : "rejected";
+      return {
+        id: p.id as string,
+        title: p.title,
+        resolution,
+        reviews: answering.map((r) => r.id as string).sort()
+      };
+    })
+    .sort((a, b) => a.id.localeCompare(b.id));
+  const tally = (s: LedgerResolutionState) => proposals.filter((p) => p.resolution === s).length;
+  return {
+    proposals,
+    pending: tally("pending"),
+    approved: tally("approved"),
+    rejected: tally("rejected"),
+    contested: tally("contested")
+  };
 }

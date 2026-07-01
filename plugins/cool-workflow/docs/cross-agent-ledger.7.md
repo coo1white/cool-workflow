@@ -99,6 +99,36 @@ reports `allOk`. It is a **fail-closed inbox**: if any single entry is tampered,
 malformed, or unreadable, `allOk` is `false` and the command exits `1`, so the
 receiving side refuses the whole batch rather than acting on a mixed one.
 
+### Inbox resolution — which proposals are still open
+
+`cw ledger list` also derives a `resolution` summary so the inbox is
+machine-actionable without opening each file. It pairs every proposal with the
+review(s) whose `target` is that proposal's id and reports one of four states:
+
+```json
+"resolution": {
+  "proposals": [
+    { "id": "ldg-1de7c92172af1871", "title": "Add retry", "resolution": "approved", "reviews": ["ldg-…"] },
+    { "id": "ldg-…", "title": "Rename thing", "resolution": "pending", "reviews": [] }
+  ],
+  "pending": 1, "approved": 1, "rejected": 0, "contested": 0
+}
+```
+
+- `pending` — no verified review targets the proposal yet.
+- `approved` / `rejected` — every verified review targeting it agrees.
+- `contested` — verified reviews targeting it disagree (both an APPROVED and a
+  REJECTED exist); the ledger REPORTS the disagreement, it does not pick a
+  winner (mechanism, not policy — whether a verdict blocks a merge stays
+  outside).
+
+Only **verified** entries take part: a tampered review can never resolve a
+proposal, so a proposal answered only by a failing review stays `pending`
+(fail-closed). The fields are additive — the existing `entries[]` / `allOk` /
+`count` output is byte-unchanged (POLA), with each entry now also carrying its
+`title` (proposals) or `target`/`verdict` (reviews). The same `resolution` rides
+on the mirror-union output and on the `cw_ledger_list` MCP tool.
+
 ### Mirrors — union-verifying several directories
 
 `--dir` is repeatable. With two or more, `cw ledger list` **union-verifies** the
