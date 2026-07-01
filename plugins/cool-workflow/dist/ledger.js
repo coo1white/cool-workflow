@@ -160,7 +160,18 @@ function verifyLedgerEntry(raw) {
         return fail("digest", "ledger-digest-mismatch", `stored digest does not match content (recomputed ${recomputed})`);
     }
     checks.push({ name: "digest", pass: true });
-    return { ok: true, id: typeof raw.id === "string" ? raw.id : null, kind, checks, failedChecks: [] };
+    // Bind the id to the content: it MUST be the content-addressed id derived from
+    // the digest. Without this, `id` is a free, unverified field (it is excluded
+    // from the digest) — a forged entry could set `id` to collide with a legit
+    // one, and any id-keyed de-duplication (`cw ledger list` union) would silently
+    // drop one of them. Fail closed so a spoofed or absent id is refused, not
+    // trusted.
+    const expectedId = deriveId(raw.digest);
+    if (raw.id !== expectedId) {
+        return fail("id", "ledger-id-mismatch", `id ${JSON.stringify(raw.id)} is not the content-addressed id for this digest (expected ${expectedId})`);
+    }
+    checks.push({ name: "id", pass: true });
+    return { ok: true, id: expectedId, kind, checks, failedChecks: [] };
 }
 /** Read every `*.json` in `dir`, verify each entry fail-closed, and report.
  *  `allOk` is false if any entry is tampered, malformed, or unreadable — so the

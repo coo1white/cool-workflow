@@ -135,6 +135,10 @@ id or a PR ref), `verdict` (`APPROVED` | `REJECTED`), and `findings` (a list).
   field, or a bad `verdict` → `ok:false` with the matching code.
 - Stored digest does not match a fresh digest of the content →
   `ok:false`, code `ledger-digest-mismatch`.
+- `id` is not the content-addressed id for the digest (spoofed or absent) →
+  `ok:false`, code `ledger-id-mismatch`. `id` is excluded from the digest, so it
+  is bound to the content by this check — a forged entry cannot set its `id` to
+  collide with a legitimate one and slip through the mirror-union de-duplication.
 
 Any `ok:false` exits `1`. An intact entry exits `0` with `ok:true`.
 

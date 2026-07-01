@@ -144,4 +144,37 @@ assert.equal(r.status, 1, "a tampered mirror fails the whole union (exit 1)");
 union = JSON.parse(r.stdout);
 assert.equal(union.allOk, false, "tampered union allOk:false");
 
-process.stdout.write("ledger-verify-smoke: ok (propose/review round-trip, tamper+junk+truncation fail-closed, stdin, git-transport inbox, multi-mirror union)\n");
+// --- 9. id-binding: a valid-content entry with a forged/absent id is refused -
+// `id` is NOT part of the digest, so it must be checked against the content-
+// addressed id; otherwise a forged id could collide with a legit entry.
+const forgedId = { ...review, id: "ldg-0000000000000000" };
+fs.writeFileSync(path.join(dir, "forgedid.json"), JSON.stringify(forgedId));
+r = runCli(["ledger", "verify", "--file", path.join(dir, "forgedid.json")]);
+assert.equal(r.status, 1, "forged-id entry exits 1");
+assert.ok(JSON.parse(r.stdout).failedChecks.some((c) => c.code === "ledger-id-mismatch"),
+  "forged id reports ledger-id-mismatch");
+
+const noId = { ...review };
+delete noId.id;
+fs.writeFileSync(path.join(dir, "noid.json"), JSON.stringify(noId));
+r = runCli(["ledger", "verify", "--file", path.join(dir, "noid.json")]);
+assert.equal(r.status, 1, "id-less entry exits 1 (id is required and content-bound)");
+assert.ok(JSON.parse(r.stdout).failedChecks.some((c) => c.code === "ledger-id-mismatch"),
+  "id-less entry reports ledger-id-mismatch");
+
+// --- 10. union: a spoofed-id entry cannot silently mask a legit one ----------
+const mirrorC = path.join(dir, "mirrorC");
+const mirrorD = path.join(dir, "mirrorD");
+fs.mkdirSync(mirrorC);
+fs.mkdirSync(mirrorD);
+fs.writeFileSync(path.join(mirrorC, `${review.id}.json`), JSON.stringify(review)); // legit
+// mint a DIFFERENT valid entry, then spoof its id to collide with `review`
+const other = JSON.parse(runCli(["ledger", "review", "--from", "x", "--to", "y",
+  "--target", "t2", "--verdict", "rejected", "--findings", "different content"]).stdout);
+const spoof = { ...other, id: review.id }; // valid content+digest, but id spoofed to collide
+fs.writeFileSync(path.join(mirrorD, `${review.id}.json`), JSON.stringify(spoof));
+r = runCli(["ledger", "list", "--dir", mirrorC, "--dir", mirrorD]);
+assert.equal(r.status, 1, "a spoofed-id entry fails the union (cannot mask a legit entry)");
+assert.equal(JSON.parse(r.stdout).allOk, false, "spoofed-id union allOk:false");
+
+process.stdout.write("ledger-verify-smoke: ok (round-trip, tamper+junk+truncation fail-closed, stdin, git-transport inbox, multi-mirror union, id-binding + spoof-resistant)\n");
