@@ -114,7 +114,17 @@ function handleLedger(args, _runner) {
             return;
         }
         case "list": {
-            const dir = (0, io_1.required)(stringOption(opts.dir), "--dir <ledger-directory>");
+            // `--dir` is repeatable: 2+ dirs union-verify multiple mirrors into one
+            // inbox; a single --dir keeps the original single-directory output (POLA).
+            const dirs = Array.isArray(opts.dir) ? opts.dir.map(String).filter(Boolean) : [];
+            if (dirs.length > 1) {
+                const union = (0, ledger_1.unionLedgerEntries)(dirs);
+                (0, io_1.printJson)(union);
+                if (!union.allOk)
+                    process.exitCode = 1;
+                return;
+            }
+            const dir = (0, io_1.required)(dirs[0] || stringOption(opts.dir), "--dir <ledger-directory>");
             const result = (0, ledger_1.listLedgerEntries)(dir);
             (0, io_1.printJson)(result);
             // Fail-closed inbox: refuse the whole batch if any entry does not verify.

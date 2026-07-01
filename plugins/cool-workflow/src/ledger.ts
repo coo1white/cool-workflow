@@ -259,3 +259,47 @@ export function listLedgerEntries(dir: string): LedgerListResult {
   });
   return { dir, count: entries.length, allOk: entries.every((e) => e.ok), entries };
 }
+
+export interface LedgerUnionEntry extends LedgerListEntry {
+  /** Which mirror directories this entry appeared in (a verified entry can be in
+   *  several mirrors; content-addressing guarantees they are the same entry). */
+  dirs: string[];
+}
+
+export interface LedgerUnionResult {
+  dirs: string[];
+  count: number;
+  allOk: boolean;
+  entries: LedgerUnionEntry[];
+}
+
+/** Union-verify several mirror directories into ONE fail-closed inbox. Verified
+ *  entries are de-duplicated by their content-addressed id (the same entry
+ *  mirrored to N hosts collapses to one, recording every mirror it came from);
+ *  failing entries are kept per-occurrence so every problem in every mirror is
+ *  visible. `allOk` is false if ANY entry in ANY mirror does not verify — a
+ *  tampered mirror fails the whole batch. Safe because entries are immutable and
+ *  content-addressed, so a union is a conflict-free set-union, not a merge. */
+export function unionLedgerEntries(dirs: string[]): LedgerUnionResult {
+  const byId = new Map<string, LedgerUnionEntry>();
+  const failures: LedgerUnionEntry[] = [];
+  let allOk = true;
+  for (const dir of dirs) {
+    const listed = listLedgerEntries(dir);
+    if (!listed.allOk) allOk = false;
+    for (const entry of listed.entries) {
+      if (entry.ok && entry.id) {
+        const existing = byId.get(entry.id);
+        if (existing) {
+          if (!existing.dirs.includes(dir)) existing.dirs.push(dir);
+        } else {
+          byId.set(entry.id, { ...entry, dirs: [dir] });
+        }
+      } else {
+        failures.push({ ...entry, dirs: [dir] });
+      }
+    }
+  }
+  const entries = [...byId.values(), ...failures];
+  return { dirs, count: entries.length, allOk, entries };
+}

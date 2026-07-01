@@ -337,7 +337,7 @@ Ten capabilities are payload-divergent on purpose (`projected`):
 - `ledger.propose` — Mints a fresh entry each call: createdAt is the wall-clock instant and the id/digest are derived from it, so the output is inherently non-deterministic and a byte-identity probe does not apply. Both surfaces call the same buildLedgerProposal core; round-trip + fail-closed behavior is covered by ledger-verify-smoke.
 - `ledger.review` — Mints a fresh timestamped/digested verdict each call — non-deterministic output, same reasoning as ledger.propose. Both surfaces call the same buildLedgerReview core.
 - `ledger.verify` — The entry arrives by --file/stdin on the CLI and as an `entry` argument over MCP; there is no shared arg-bag the byte-identity probe can feed both. Both surfaces call the same verifyLedgerEntry core; ledger-verify-smoke proves the fail-closed contract.
-- `ledger.list` — Output depends on the on-disk contents of the named ledger directory, which the generic payload probe does not populate. Both surfaces call the same listLedgerEntries core; ledger-verify-smoke covers the fail-closed inbox.
+- `ledger.list` — Output depends on the on-disk contents of the named ledger directory/directories, which the generic payload probe does not populate. Both surfaces call the same listLedgerEntries/unionLedgerEntries core; ledger-verify-smoke covers the fail-closed inbox and the multi-mirror union.
 <!-- /gen:parity:projected -->
 
 ## Fail-Closed Rules

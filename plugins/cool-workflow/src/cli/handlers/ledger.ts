@@ -5,7 +5,7 @@
 
 import * as fs from "fs";
 import { CoolWorkflowRunner, parseArgv } from "../../orchestrator";
-import { buildLedgerProposal, buildLedgerReview, verifyLedgerEntry, listLedgerEntries, LedgerVerdict } from "../../ledger";
+import { buildLedgerProposal, buildLedgerReview, verifyLedgerEntry, listLedgerEntries, unionLedgerEntries, LedgerVerdict } from "../../ledger";
 import { required, printJson } from "../io";
 
 type ParsedArgs = ReturnType<typeof parseArgv>;
@@ -83,7 +83,16 @@ export function handleLedger(args: ParsedArgs, _runner: CoolWorkflowRunner): voi
       return;
     }
     case "list": {
-      const dir = required(stringOption(opts.dir), "--dir <ledger-directory>");
+      // `--dir` is repeatable: 2+ dirs union-verify multiple mirrors into one
+      // inbox; a single --dir keeps the original single-directory output (POLA).
+      const dirs = Array.isArray(opts.dir) ? opts.dir.map(String).filter(Boolean) : [];
+      if (dirs.length > 1) {
+        const union = unionLedgerEntries(dirs);
+        printJson(union);
+        if (!union.allOk) process.exitCode = 1;
+        return;
+      }
+      const dir = required(dirs[0] || stringOption(opts.dir), "--dir <ledger-directory>");
       const result = listLedgerEntries(dir);
       printJson(result);
       // Fail-closed inbox: refuse the whole batch if any entry does not verify.

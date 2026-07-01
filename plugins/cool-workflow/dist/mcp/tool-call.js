@@ -321,8 +321,13 @@ function callTool(name, args) {
         }
         case "cw_ledger_verify":
             return (0, ledger_1.verifyLedgerEntry)(args.entry);
-        case "cw_ledger_list":
-            return (0, ledger_1.listLedgerEntries)(String(args.dir || ""));
+        case "cw_ledger_list": {
+            // `dirs` (2+) union-verifies mirrors; a single `dir` keeps the original shape.
+            const dirs = Array.isArray(args.dirs) ? args.dirs.map(String).filter(Boolean) : [];
+            if (dirs.length > 1)
+                return (0, ledger_1.unionLedgerEntries)(dirs);
+            return (0, ledger_1.listLedgerEntries)(dirs[0] || String(args.dir || ""));
+        }
         case "cw_review_status":
             return runner.reviewStatus(String(args.runId || ""), args);
         case "cw_review_policy":
