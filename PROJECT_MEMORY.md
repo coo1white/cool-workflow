@@ -98,16 +98,43 @@ short, and simple to add to. Do not use it for guesses.
   must be explicit opt-in (`CW_AGENT_STREAM=1`), TTY-gated, and still silent when
   piped.
 
+## Pending (blocking the next release)
+
+- **#6 — Cut the `v0.1.98` tag so npm publishes.** Publishing is tag-driven, not
+  merge-driven: no `v0.1.98` tag exists yet, so `release-gate`/`npm-publish`
+  have never fired and npm is still at `0.1.97`, even though `main` has been at
+  version `0.1.98` (plus 3 more merged ledger PRs) since #321. One-command cut +
+  full rationale in `docs/HANDOFF_TODO.md` item 1. Left for the operator/relay —
+  a public, irreversible npm publish should not be triggered unilaterally from
+  the sandbox.
+- **#4 — Scope chime's environment into `coo1white/handoff`.** The shared
+  handoff repo is created and verified Private; the cool-workflow (Mac) side is
+  proven end-to-end. Remaining step is a web-UI action (add chime's environment
+  scope + a git token) that a repo-scoped session cannot do itself
+  (`create_repository`/cross-repo calls return 403). Details in
+  `docs/HANDOFF_TODO.md` item 2.
+
 ## Last Session
 
+- Merged #322 (relay docs: `docs/HANDOFF_TODO.md` + `docs/LESSONS.md`), #323
+  (`cw ledger list` derives an inbox `resolution` — pending/approved/rejected/
+  contested, pairing each proposal with the review(s) whose `target` is its id;
+  fail-closed — only verified entries take part), and #324 (`cw ledger apply` —
+  verifies a proposal FIRST and only then emits its `suggestedDiff` for `git
+  apply`; fixed a latent bug where CLI `propose` trimmed `--diff` and corrupted
+  the patch by stripping its trailing newline). `cw ledger` now closes the full
+  loop: propose → verify → apply → PR, with a machine-readable inbox. #323 and
+  #324 both hit the SAME `ITERATION_LOG.md` merge conflict against `main` (each
+  had added a top batch before the other merged) plus a `docs/project-index.md`
+  smoke-count collision on #324; both resolved with a plain `git merge
+  origin/main --no-edit` (keep-both-batches, regenerate project-index, rerun
+  gates) and a normal push — never force-push, per the operator's standing
+  preference for the normal branch→PR→review→merge flow.
 - Shipped `cw ledger` (cross-agent handoff ledger) end to end — stages 1-3 plus
   the id-binding fail-closed hardening, all merged (#317-#320), and bumped the
   version to `0.1.98` (release PR #321 merged to `main` at commit a64de9f).
-  **Release is NOT published yet:** publishing is tag-driven, and no `v0.1.98`
-  tag has been cut, so `release-gate`/`npm-publish` never fired and npm is still
-  at `0.1.97`. The exact one-command cut (and the other in-flight items — chime
-  environment scoping, post-publish install on both sides) is written up for
-  relay in `docs/HANDOFF_TODO.md`. The sandbox `127.0.0.1` git-URL-rewrite
+  **Release is NOT published yet** — see "Pending" above.
+  The sandbox `127.0.0.1` git-URL-rewrite
   artifact only fails `release:check` readme-sync/dogfood; it does NOT touch
   `release-gate.sh` or the reviewer, so a clean-env cut is unaffected.
 - Fixed two release-reviewer root causes exposed cutting v0.1.97: the codex
@@ -185,8 +212,9 @@ short, and simple to add to. Do not use it for guesses.
 ## Next Run
 
 - **In-flight work for the next agent lives in `docs/HANDOFF_TODO.md`** — start
-  there. Top item: cut the `v0.1.98` tag (one command) so npm publishes; then
-  chime environment scoping and post-publish install on both sides.
+  there. See "Pending" above for the two blocking items (#6 tag cut, #4 chime
+  scoping); item 3 there covers the post-publish install on both sides once #6
+  lands.
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`
   for the automated 1→6 path on a CW-shaped repo. Use `--profile-file` for
   non-CW repositories.
