@@ -8,13 +8,19 @@
 //
 // Reads jobs JSON on stdin, spawns ALL concurrently (shell:false, inherited env —
 // the agent's own credentials resolve; CW never reads them), per-job SIGTERM at
-// timeoutMs + SIGKILL at +5s, caps each captured stdout at 32MB, and prints the
-// outcome array when every job has settled. stderr is drained (a full pipe must
-// never wedge a child). A kill yields exitCode null — the no-exit-code refusal.
+// timeoutMs + SIGKILL at +5s, caps each captured stdout at 32MB. Streams ONE
+// NDJSON line per job — `{i, spawnError?, exitCode, stdout}\n` — the INSTANT
+// that job settles (not once at the end): the parent's spawnSync call has its
+// own combined-output cap, so writing incrementally means a job whose line
+// already flushed keeps its real outcome even if a LATER job's output pushes
+// the combined stream over that cap and the whole child gets killed. `i` is
+// the job's index (settle order is concurrent, not submission order — the
+// parent cannot infer which line belongs to which job without it). stderr is
+// drained (a full pipe must never wedge a child). A kill yields exitCode null
+// — the no-exit-code refusal.
 //
 // THE RED LINE: this child only `spawn`s the operator-resolved agent binary with
-// shell:false. It imports NO model SDK and reads NO credentials. Behavior MUST
-// stay byte-identical to the previous embedded string.
+// shell:false. It imports NO model SDK and reads NO credentials.
 
 const { spawn } = require("node:child_process");
 let raw = "";
@@ -30,8 +36,6 @@ process.stdin.on("end", () => {
     return;
   }
   if (!jobs.length) { process.stdout.write("[]"); return; }
-  const out = new Array(jobs.length);
-  let pending = jobs.length;
   const CAP = 32 * 1024 * 1024;
   jobs.forEach((job, i) => {
     let stdout = "";
@@ -39,8 +43,7 @@ process.stdin.on("end", () => {
     const settle = (o) => {
       if (settled) return;
       settled = true;
-      out[i] = o;
-      if (--pending === 0) process.stdout.write(JSON.stringify(out));
+      process.stdout.write(JSON.stringify({ i, ...o }) + "\n");
     };
     let child;
     try {
