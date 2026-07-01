@@ -658,7 +658,8 @@ export function toolDefinitions(): unknown[] {
       entry: objectSchema("The ledger entry object to verify")
     }),
     capabilityTool("ledger.list", "Read + verify every entry in a shared ledger directory (fail-closed inbox).", {
-      dir: stringSchema("Path to the ledger directory (a handoff repo working tree)")
+      dir: stringSchema("Path to the ledger directory (a handoff repo working tree)"),
+      dirs: arraySchema("Multiple ledger directories to union-verify as mirrors (2+)")
     }),
     capabilityTool("review.status", "Read the derived per-target review state + collaboration timeline for a run.", {
       ...runIdSchema(),

@@ -149,6 +149,29 @@ short, and simple to add to. Do not use it for guesses.
   allowlist (cloud sessions reach it with no policy change); a self-hosted Gitea
   host is NOT, so it needs the environment network policy to permit that host.
 
+## Handoff ledger — future direction
+
+- Direction, not load: the ledger carries KB-sized JSON commits, so there is no
+  throughput problem to "share". Multi-host is for REDUNDANCY and geo-
+  REACHABILITY (e.g. Gitea mirrors on VPSes in several countries when one host or
+  region is unreachable), never for load-balancing a non-existent load.
+- Why multi-host is safe HERE where general multi-master git is not: entries are
+  immutable, content-addressed (`id` = digest), and self-verifying. Two agents
+  never write the same filename with different content, so union of N mirror
+  directories is a conflict-free set-union of self-verifying files. Write
+  consistency — not throughput — is the real constraint, and immutability +
+  content-addressing resolves it with no merge step.
+- Mechanism for it: `cw ledger list` takes a repeatable `--dir` and union-verifies
+  the mirrors into ONE fail-closed inbox (a tampered entry in ANY mirror fails the
+  whole batch). Single `--dir` stays byte-identical (POLA); 2+ dirs is the new
+  union path.
+- Host path: start on GitHub private (reachable out of the box), add self-hosted
+  Gitea mirrors later for redundancy/reachability. Migration is zero code cost —
+  the transport is git-host-agnostic, so only the git remote(s) change. Each
+  added node is one more network-allowlist entry and one more thing to keep
+  online; add nodes for a concrete availability/reachability driver, not by
+  default (more nodes = larger failure surface).
+
 ## Next Run
 
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`

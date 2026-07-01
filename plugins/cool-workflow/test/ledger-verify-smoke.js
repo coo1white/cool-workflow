@@ -112,4 +112,69 @@ const bad = list.entries.find((e) => e.file === "forged.json");
 assert.ok(bad && bad.ok === false && bad.failedChecks.some((c) => c.code === "ledger-digest-mismatch"),
   "the forged entry is the one flagged");
 
-process.stdout.write("ledger-verify-smoke: ok (propose/review round-trip, tamper+junk+truncation fail-closed, stdin, git-transport inbox)\n");
+// --- 8. multi-mirror union: repeatable --dir union-verifies mirrors ----------
+// mirrorA has the proposal; mirrorB has the review + a COPY of the proposal.
+const mirrorA = path.join(dir, "mirrorA");
+const mirrorB = path.join(dir, "mirrorB");
+fs.mkdirSync(mirrorA);
+fs.mkdirSync(mirrorB);
+fs.writeFileSync(path.join(mirrorA, `${proposal.id}.json`), JSON.stringify(proposal));
+fs.writeFileSync(path.join(mirrorB, `${proposal.id}.json`), JSON.stringify(proposal)); // same entry, mirrored
+fs.writeFileSync(path.join(mirrorB, `${review.id}.json`), JSON.stringify(review));
+r = runCli(["ledger", "list", "--dir", mirrorA, "--dir", mirrorB]);
+assert.equal(r.status, 0, "clean mirror union exits 0");
+let union = JSON.parse(r.stdout);
+assert.deepEqual(union.dirs, [mirrorA, mirrorB], "union reports both dirs");
+assert.equal(union.allOk, true, "clean union allOk:true");
+// proposal is de-duplicated across mirrors; review is unique -> 2 distinct entries
+assert.equal(union.count, 2, "union de-dupes the mirrored proposal (2 distinct entries)");
+const dup = union.entries.find((e) => e.id === proposal.id);
+assert.ok(dup && dup.dirs.length === 2, "the mirrored proposal records both mirror dirs");
+
+// a single --dir keeps the ORIGINAL single-dir shape (POLA) -> `dir`, no `dirs`
+r = runCli(["ledger", "list", "--dir", mirrorA]);
+const single = JSON.parse(r.stdout);
+assert.ok(Object.prototype.hasOwnProperty.call(single, "dir") && !("dirs" in single),
+  "single --dir keeps the original shape (dir, not dirs)");
+
+// tamper one mirror -> the whole union is refused (fail-closed across mirrors)
+fs.writeFileSync(path.join(mirrorB, "forged.json"), JSON.stringify(forged));
+r = runCli(["ledger", "list", "--dir", mirrorA, "--dir", mirrorB]);
+assert.equal(r.status, 1, "a tampered mirror fails the whole union (exit 1)");
+union = JSON.parse(r.stdout);
+assert.equal(union.allOk, false, "tampered union allOk:false");
+
+// --- 9. id-binding: a valid-content entry with a forged/absent id is refused -
+// `id` is NOT part of the digest, so it must be checked against the content-
+// addressed id; otherwise a forged id could collide with a legit entry.
+const forgedId = { ...review, id: "ldg-0000000000000000" };
+fs.writeFileSync(path.join(dir, "forgedid.json"), JSON.stringify(forgedId));
+r = runCli(["ledger", "verify", "--file", path.join(dir, "forgedid.json")]);
+assert.equal(r.status, 1, "forged-id entry exits 1");
+assert.ok(JSON.parse(r.stdout).failedChecks.some((c) => c.code === "ledger-id-mismatch"),
+  "forged id reports ledger-id-mismatch");
+
+const noId = { ...review };
+delete noId.id;
+fs.writeFileSync(path.join(dir, "noid.json"), JSON.stringify(noId));
+r = runCli(["ledger", "verify", "--file", path.join(dir, "noid.json")]);
+assert.equal(r.status, 1, "id-less entry exits 1 (id is required and content-bound)");
+assert.ok(JSON.parse(r.stdout).failedChecks.some((c) => c.code === "ledger-id-mismatch"),
+  "id-less entry reports ledger-id-mismatch");
+
+// --- 10. union: a spoofed-id entry cannot silently mask a legit one ----------
+const mirrorC = path.join(dir, "mirrorC");
+const mirrorD = path.join(dir, "mirrorD");
+fs.mkdirSync(mirrorC);
+fs.mkdirSync(mirrorD);
+fs.writeFileSync(path.join(mirrorC, `${review.id}.json`), JSON.stringify(review)); // legit
+// mint a DIFFERENT valid entry, then spoof its id to collide with `review`
+const other = JSON.parse(runCli(["ledger", "review", "--from", "x", "--to", "y",
+  "--target", "t2", "--verdict", "rejected", "--findings", "different content"]).stdout);
+const spoof = { ...other, id: review.id }; // valid content+digest, but id spoofed to collide
+fs.writeFileSync(path.join(mirrorD, `${review.id}.json`), JSON.stringify(spoof));
+r = runCli(["ledger", "list", "--dir", mirrorC, "--dir", mirrorD]);
+assert.equal(r.status, 1, "a spoofed-id entry fails the union (cannot mask a legit entry)");
+assert.equal(JSON.parse(r.stdout).allOk, false, "spoofed-id union allOk:false");
+
+process.stdout.write("ledger-verify-smoke: ok (round-trip, tamper+junk+truncation fail-closed, stdin, git-transport inbox, multi-mirror union, id-binding + spoof-resistant)\n");

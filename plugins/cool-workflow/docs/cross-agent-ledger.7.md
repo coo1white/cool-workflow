@@ -50,7 +50,7 @@ cw ledger propose --from <a> --to <b> --title <t> --rationale <r> \
 cw ledger review  --from <a> --to <b> --target <proposal-id|pr-ref> \
                   --verdict <approved|rejected> [--findings "a,b"]
 cw ledger verify  [--file <path>]        # else reads the entry from stdin
-cw ledger list    --dir <ledger-dir>     # verify every entry in a directory
+cw ledger list    --dir <ledger-dir> [--dir <mirror-2> ...]   # verify a dir (or union of mirrors)
 ```
 
 All write JSON to stdout (stdout is data). `propose` and `review` print a sealed
@@ -79,6 +79,28 @@ cw ledger list --dir ledger && echo "inbox verified — safe to act"
 reports `allOk`. It is a **fail-closed inbox**: if any single entry is tampered,
 malformed, or unreadable, `allOk` is `false` and the command exits `1`, so the
 receiving side refuses the whole batch rather than acting on a mixed one.
+
+### Mirrors — union-verifying several directories
+
+`--dir` is repeatable. With two or more, `cw ledger list` **union-verifies** the
+directories as mirrors of one ledger (e.g. the same handoff repo cloned from a
+GitHub remote and one or more self-hosted Gitea remotes in different places):
+
+```
+cw ledger list --dir gh/ledger --dir gitea-eu/ledger --dir gitea-asia/ledger
+```
+
+The union is **conflict-free by construction**: entries are immutable and
+content-addressed, so the same entry mirrored to several hosts collapses to one
+result whose `dirs` records every mirror it was found in. It stays **fail-closed
+across mirrors** — a tampered entry in ANY mirror sets `allOk:false` and exits
+`1`. This is for redundancy and reachability, not load: the ledger's traffic is
+tiny; multiple hosts guard against one being down or unreachable.
+
+A single `--dir` keeps the original single-directory output (a `dir` field, no
+`dirs`); two or more switch to the union shape (`dirs` plus a per-entry `dirs`).
+The transport stays git-host-agnostic — adding a mirror is one more clone + one
+more `--dir`, no code change.
 
 ## Entry shape
 
@@ -113,6 +135,10 @@ id or a PR ref), `verdict` (`APPROVED` | `REJECTED`), and `findings` (a list).
   field, or a bad `verdict` → `ok:false` with the matching code.
 - Stored digest does not match a fresh digest of the content →
   `ok:false`, code `ledger-digest-mismatch`.
+- `id` is not the content-addressed id for the digest (spoofed or absent) →
+  `ok:false`, code `ledger-id-mismatch`. `id` is excluded from the digest, so it
+  is bound to the content by this check — a forged entry cannot set its `id` to
+  collide with a legitimate one and slip through the mirror-union de-duplication.
 
 Any `ok:false` exits `1`. An intact entry exits `0` with `ok:true`.
 
