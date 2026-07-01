@@ -65,8 +65,12 @@ the same way it trusts any restored run: by verification, not by good faith.
 
 ## Two verbs
 
-Both are proposed under a single new `cw handoff` verb, so the existing
-surface is untouched and the new behavior is opt-in (POLA).
+Both live under a single new `cw ledger` verb, so the existing surface is
+untouched and the new behavior is opt-in (POLA). (The name `handoff` was already
+taken by an unrelated collaboration primitive — ownership transfer of a run/task
+— so the cross-agent verb is `ledger`, not `handoff`.) Stage 1 ships as
+`cw ledger propose|review|verify`; see
+[cross-agent-ledger](../cross-agent-ledger.7.md) for the contract.
 
 - **`propose`** — the read-only side writes a structured *change proposal*
   (title, rationale, target files, suggested diff) as a ledger entry. It does
@@ -128,7 +132,7 @@ moves from one VM to the other. Two are in scope, smallest first.
 1. **T1 human-relay shape** — a stable, documented print/parse form for a
    proposal and a verdict, plus a smoke that round-trips one of each and
    proves a tampered entry is refused.
-2. **`cw handoff propose` / `review`** over `run export` / `restore`, with the
+2. **`cw ledger propose` / `review`** over `run export` / `restore`, with the
    fail-closed refusal test.
 3. **T2 git-ledger** (shared-repo first), then optionally a scoped bridge job
    for T2b.

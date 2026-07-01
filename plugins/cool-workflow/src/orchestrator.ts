@@ -936,7 +936,7 @@ export function formatHelp(): string {
     "sandbox backend contract node feedback worker audit candidate review loop schedule " +
     "routine registry run queue clones history quickstart audit-run multi-agent topology summary " +
     "blackboard coordinator metrics operator sched gc telemetry migration demo workbench " +
-    "approve reject comment handoff graph eval man version update fix"
+    "approve reject comment handoff ledger graph eval man version update fix"
   ).split(" ");
   // Wrap the command list into clean, indented, pipe-joined lines (<=76 cols) instead of
   // one 400-char line that wraps raggedly and merges with the next shell prompt. Pipe-joined
