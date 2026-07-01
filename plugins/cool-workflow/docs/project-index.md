@@ -6,11 +6,11 @@ Generated from the current repository code on 2026-07-01 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.1.97`
-- Source modules: `68`
+- Source modules: `69`
 - Workflow apps: `8`
-- Docs: `59`
-- Smoke tests: `168`
-- Repository: https://github.com/coo1white/cool-workflow
+- Docs: `60`
+- Smoke tests: `169`
+- Repository: http://local_proxy@127.0.0.1:41729/git/coo1white/cool-workflow
 
 ## Architecture
 
@@ -93,6 +93,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [evidence-reasoning.ts](../src/evidence-reasoning.ts)
 - [execution-backend.ts](../src/execution-backend.ts)
 - [gates.ts](../src/gates.ts)
+- [ledger.ts](../src/ledger.ts)
 - [loop-expansion.ts](../src/loop-expansion.ts)
 - [mcp-surface.ts](../src/mcp-surface.ts)
 - [multi-agent-eval.ts](../src/multi-agent-eval.ts)
@@ -145,6 +146,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Contract Migration Tooling](contract-migration-tooling.7.md)
 - [Control-Plane Scheduling](control-plane-scheduling.7.md)
 - [Coordinator / Blackboard](coordinator-blackboard.7.md)
+- [Cross-Agent Handoff Ledger](cross-agent-ledger.7.md)
 - [DEMO(7)](demo.7.md)
 - [DOCTOR(7)](doctor.7.md)
 - [Dogfood One Real Repo](dogfood-one-real-repo.7.md)
@@ -268,6 +270,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
 - [headline-commands-smoke.js](../test/headline-commands-smoke.js)
 - [incremental-resume-smoke.js](../test/incremental-resume-smoke.js)
+- [ledger-verify-smoke.js](../test/ledger-verify-smoke.js)
 - [loop-bounded-expansion-smoke.js](../test/loop-bounded-expansion-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
 - [mcp-surface-registry-smoke.js](../test/mcp-surface-registry-smoke.js)

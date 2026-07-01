@@ -7,6 +7,7 @@ exports.callTool = callTool;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const orchestrator_1 = require("../orchestrator");
+const ledger_1 = require("../ledger");
 const scheduler_1 = require("../scheduler");
 const triggers_1 = require("../triggers");
 const workbench_1 = require("../workbench");
@@ -294,6 +295,34 @@ function callTool(name, args) {
             return runner.collaborationCommentList(String(args.runId || ""), args);
         case "cw_handoff":
             return runner.collaborationHandoff(String(args.runId || ""), String(args.targetKind || args.kind || ""), String(args.targetId || args.target || ""), args);
+        // ---- Cross-agent handoff ledger (stage 2 MCP surface) ----
+        case "cw_ledger_propose":
+            return (0, ledger_1.buildLedgerProposal)({
+                from: String(args.from || ""),
+                to: String(args.to || ""),
+                title: String(args.title || ""),
+                rationale: String(args.rationale || ""),
+                targetFiles: String(args.files || "").split(",").map((f) => f.trim()).filter(Boolean),
+                suggestedDiff: args.diff === undefined ? undefined : String(args.diff),
+                createdAt: new Date().toISOString()
+            });
+        case "cw_ledger_review": {
+            const verdict = String(args.verdict || "").toUpperCase();
+            if (verdict !== "APPROVED" && verdict !== "REJECTED")
+                throw new Error('verdict must be "approved" or "rejected".');
+            return (0, ledger_1.buildLedgerReview)({
+                from: String(args.from || ""),
+                to: String(args.to || ""),
+                target: String(args.target || ""),
+                verdict,
+                findings: String(args.findings || "").split(",").map((f) => f.trim()).filter(Boolean),
+                createdAt: new Date().toISOString()
+            });
+        }
+        case "cw_ledger_verify":
+            return (0, ledger_1.verifyLedgerEntry)(args.entry);
+        case "cw_ledger_list":
+            return (0, ledger_1.listLedgerEntries)(String(args.dir || ""));
         case "cw_review_status":
             return runner.reviewStatus(String(args.runId || ""), args);
         case "cw_review_policy":

@@ -54,6 +54,7 @@ const registry_1 = require("./handlers/registry");
 const multi_agent_1 = require("./handlers/multi-agent");
 const run_1 = require("./handlers/run");
 const collaboration_1 = require("./handlers/collaboration");
+const ledger_1 = require("./handlers/ledger");
 const blackboard_1 = require("./handlers/blackboard");
 const eval_1 = require("./handlers/eval");
 const node_1 = require("./handlers/node");
@@ -426,6 +427,9 @@ async function runCli(argv = process.argv.slice(2)) {
             return;
         case "review":
             (0, collaboration_1.handleReview)(args, runner);
+            return;
+        case "ledger":
+            (0, ledger_1.handleLedger)(args, runner);
             return;
         case "loop": {
             (0, io_1.printJson)(scheduler.create({ ...args.options, kind: "loop" }));

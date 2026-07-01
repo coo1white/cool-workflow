@@ -639,6 +639,27 @@ export function toolDefinitions(): unknown[] {
       from: stringSchema("From-actor id (defaults to recorder)"),
       reason: stringSchema("Handoff reason")
     }),
+    capabilityTool("ledger.propose", "Build a verifiable cross-agent change proposal entry (digest-sealed JSON).", {
+      from: stringSchema("Proposing agent/repo"),
+      to: stringSchema("Target agent/repo"),
+      title: stringSchema("Short proposal title"),
+      rationale: stringSchema("Why this change"),
+      files: stringSchema("Comma-separated target files"),
+      diff: stringSchema("Suggested unified diff")
+    }),
+    capabilityTool("ledger.review", "Build a verifiable cross-agent review verdict entry (digest-sealed JSON).", {
+      from: stringSchema("Reviewing agent/repo"),
+      to: stringSchema("Target agent/repo"),
+      target: stringSchema("Proposal id or PR ref being judged"),
+      verdict: stringSchema("approved | rejected"),
+      findings: stringSchema("Comma-separated findings")
+    }),
+    capabilityTool("ledger.verify", "Verify a ledger entry against its content digest (fail-closed on tampering).", {
+      entry: objectSchema("The ledger entry object to verify")
+    }),
+    capabilityTool("ledger.list", "Read + verify every entry in a shared ledger directory (fail-closed inbox).", {
+      dir: stringSchema("Path to the ledger directory (a handoff repo working tree)")
+    }),
     capabilityTool("review.status", "Read the derived per-target review state + collaboration timeline for a run.", {
       ...runIdSchema(),
       targetKind: stringSchema("Optional target kind filter"),

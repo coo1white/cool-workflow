@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { CoolWorkflowRunner } from "../orchestrator";
+import { buildLedgerProposal, buildLedgerReview, verifyLedgerEntry, listLedgerEntries } from "../ledger";
 import { Scheduler } from "../scheduler";
 import { RoutineTriggerBridge } from "../triggers";
 import { buildWorkbenchRunView, buildWorkbenchServeDescriptor } from "../workbench";
@@ -344,6 +345,33 @@ export function callTool(name: string, args: Record<string, unknown>): unknown {
       return runner.collaborationCommentList(String(args.runId || ""), args);
     case "cw_handoff":
       return runner.collaborationHandoff(String(args.runId || ""), String(args.targetKind || args.kind || ""), String(args.targetId || args.target || ""), args);
+    // ---- Cross-agent handoff ledger (stage 2 MCP surface) ----
+    case "cw_ledger_propose":
+      return buildLedgerProposal({
+        from: String(args.from || ""),
+        to: String(args.to || ""),
+        title: String(args.title || ""),
+        rationale: String(args.rationale || ""),
+        targetFiles: String(args.files || "").split(",").map((f) => f.trim()).filter(Boolean),
+        suggestedDiff: args.diff === undefined ? undefined : String(args.diff),
+        createdAt: new Date().toISOString()
+      });
+    case "cw_ledger_review": {
+      const verdict = String(args.verdict || "").toUpperCase();
+      if (verdict !== "APPROVED" && verdict !== "REJECTED") throw new Error('verdict must be "approved" or "rejected".');
+      return buildLedgerReview({
+        from: String(args.from || ""),
+        to: String(args.to || ""),
+        target: String(args.target || ""),
+        verdict,
+        findings: String(args.findings || "").split(",").map((f) => f.trim()).filter(Boolean),
+        createdAt: new Date().toISOString()
+      });
+    }
+    case "cw_ledger_verify":
+      return verifyLedgerEntry(args.entry);
+    case "cw_ledger_list":
+      return listLedgerEntries(String(args.dir || ""));
     case "cw_review_status":
       return runner.reviewStatus(String(args.runId || ""), args);
     case "cw_review_policy":

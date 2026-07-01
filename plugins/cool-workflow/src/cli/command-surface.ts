@@ -19,6 +19,7 @@ import { handleHistory, handleQueue, handleRegistry } from "./handlers/registry"
 import { handleMultiAgent } from "./handlers/multi-agent";
 import { handleRun } from "./handlers/run";
 import { handleApprove, handleComment, handleHandoff, handleReject, handleReview } from "./handlers/collaboration";
+import { handleLedger } from "./handlers/ledger";
 import { handleBlackboard, handleCoordinator } from "./handlers/blackboard";
 import { handleEval } from "./handlers/eval";
 import { handleNode } from "./handlers/node";
@@ -373,6 +374,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       return;
     case "review":
       handleReview(args, runner);
+      return;
+    case "ledger":
+      handleLedger(args, runner);
       return;
 
     case "loop": {
