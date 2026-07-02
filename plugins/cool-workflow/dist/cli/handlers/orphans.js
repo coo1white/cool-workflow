@@ -4,7 +4,10 @@ exports.handleOrphans = handleOrphans;
 const capability_core_1 = require("../../capability-core");
 const run_registry_1 = require("../../run-registry");
 const io_1 = require("../io");
-/** `cw orphans list [--json] | orphans gc [--min-age-minutes N] [--all] [--json]`. */
+/** `cw orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home]
+ *  [--min-age-minutes N] [--all] [--json]`. `--scope` defaults to `home`
+ *  (every repo `cw` has registered, not just the current one) — same default as
+ *  `cw gc plan|run`. */
 function handleOrphans(args, runner) {
     const registry = (0, capability_core_1.runRegistryFor)(args.options, runner);
     const [subcommand] = args.positionals;
@@ -26,6 +29,7 @@ function handleOrphans(args, runner) {
             return;
         }
         default:
-            throw new Error("Usage: cw.js orphans list [--json] | orphans gc [--min-age-minutes N] [--all] [--json]");
+            throw new Error("Usage: cw.js orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] " +
+                "[--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)");
     }
 }

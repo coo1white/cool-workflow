@@ -23,10 +23,18 @@
 // never swept out from under it. Known (indexed) run directories are excluded
 // defense-in-depth, even though an indexed run always has a state.json by
 // definition.
+//
+// NOT covered by "that's gc.ts's territory": a run stuck running/queued/blocked
+// with a valid but stale state.json (its process died without reaching a
+// terminal state) is reclaimed by NEITHER module — gc.ts's reclaimEligibility
+// fail-closes on non-terminal with no age override, and it is not an orphan here
+// since state.json exists. As of this writing that class of run has no
+// reclamation path anywhere in cw; it stays retained indefinitely.
 
 import fs from "node:fs";
 import path from "node:path";
 import { GcHost } from "./gc";
+import { withFileLock } from "../state";
 
 export interface OrphanRunEntry {
   repo: string;
@@ -143,8 +151,12 @@ export function listOrphanRuns(host: GcHost, options: { scope?: "repo" | "home";
 /** `gc orphans gc [--min-age-minutes N] [--all]` — reclaim orphan run directories.
  *  Default keeps anything touched within the last 60 minutes (protects a run still
  *  mid-creation); `--all` removes every orphan candidate regardless of age. Deletes
- *  ONLY paths proven inside a scanned repo's runs dir (fail closed), and re-checks
- *  state.json is still absent at delete time (TOCTOU-safe). */
+ *  ONLY paths proven inside a scanned repo's runs dir (fail closed). The re-check
+ *  (state.json still absent) and the delete run inside the SAME `state.json.lock`
+ *  held by `saveCheckpoint` (../state.ts) — a plain existsSync-then-rmSync would
+ *  leave a real gap where a concurrent first checkpoint could finish its rename
+ *  between the check and the delete, so the two are made mutually exclusive with
+ *  the exact lock a live writer already takes. */
 export function gcOrphanRuns(host: GcHost, options: { scope?: "repo" | "home"; minAgeMinutes?: number; all?: boolean; now?: string } = {}): OrphanRunsGcResult {
   const scope = options.scope || "home";
   const all = Boolean(options.all);
@@ -165,8 +177,13 @@ export function gcOrphanRuns(host: GcHost, options: { scope?: "repo" | "home"; m
     const runsDirResolved = path.resolve(runsDirFor(entry.repo));
     const resolved = path.resolve(entry.path);
     if (!resolved.startsWith(runsDirResolved + path.sep)) continue; // containment, fail closed
-    if (fs.existsSync(path.join(resolved, "state.json"))) continue; // re-check at delete time
-    fs.rmSync(resolved, { recursive: true, force: true });
+    const statePath = path.join(resolved, "state.json");
+    const deleted = withFileLock(statePath, () => {
+      if (fs.existsSync(statePath)) return false; // a checkpoint landed between scan and here
+      fs.rmSync(resolved, { recursive: true, force: true });
+      return true;
+    });
+    if (!deleted) continue;
     removed.push({ repo: entry.repo, runId: entry.runId, path: entry.path, bytes: entry.bytes });
     freedBytes += entry.bytes;
   }

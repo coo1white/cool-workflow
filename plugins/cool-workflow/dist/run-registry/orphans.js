@@ -24,6 +24,13 @@
 // never swept out from under it. Known (indexed) run directories are excluded
 // defense-in-depth, even though an indexed run always has a state.json by
 // definition.
+//
+// NOT covered by "that's gc.ts's territory": a run stuck running/queued/blocked
+// with a valid but stale state.json (its process died without reaching a
+// terminal state) is reclaimed by NEITHER module — gc.ts's reclaimEligibility
+// fail-closes on non-terminal with no age override, and it is not an orphan here
+// since state.json exists. As of this writing that class of run has no
+// reclamation path anywhere in cw; it stays retained indefinitely.
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -33,6 +40,7 @@ exports.listOrphanRuns = listOrphanRuns;
 exports.gcOrphanRuns = gcOrphanRuns;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const state_1 = require("../state");
 exports.DEFAULT_ORPHAN_MIN_AGE_MINUTES = 60;
 function resolveNowMs(now) {
     if (now === undefined)
@@ -128,8 +136,12 @@ function listOrphanRuns(host, options = {}) {
 /** `gc orphans gc [--min-age-minutes N] [--all]` — reclaim orphan run directories.
  *  Default keeps anything touched within the last 60 minutes (protects a run still
  *  mid-creation); `--all` removes every orphan candidate regardless of age. Deletes
- *  ONLY paths proven inside a scanned repo's runs dir (fail closed), and re-checks
- *  state.json is still absent at delete time (TOCTOU-safe). */
+ *  ONLY paths proven inside a scanned repo's runs dir (fail closed). The re-check
+ *  (state.json still absent) and the delete run inside the SAME `state.json.lock`
+ *  held by `saveCheckpoint` (../state.ts) — a plain existsSync-then-rmSync would
+ *  leave a real gap where a concurrent first checkpoint could finish its rename
+ *  between the check and the delete, so the two are made mutually exclusive with
+ *  the exact lock a live writer already takes. */
 function gcOrphanRuns(host, options = {}) {
     const scope = options.scope || "home";
     const all = Boolean(options.all);
@@ -151,9 +163,15 @@ function gcOrphanRuns(host, options = {}) {
         const resolved = node_path_1.default.resolve(entry.path);
         if (!resolved.startsWith(runsDirResolved + node_path_1.default.sep))
             continue; // containment, fail closed
-        if (node_fs_1.default.existsSync(node_path_1.default.join(resolved, "state.json")))
-            continue; // re-check at delete time
-        node_fs_1.default.rmSync(resolved, { recursive: true, force: true });
+        const statePath = node_path_1.default.join(resolved, "state.json");
+        const deleted = (0, state_1.withFileLock)(statePath, () => {
+            if (node_fs_1.default.existsSync(statePath))
+                return false; // a checkpoint landed between scan and here
+            node_fs_1.default.rmSync(resolved, { recursive: true, force: true });
+            return true;
+        });
+        if (!deleted)
+            continue;
         removed.push({ repo: entry.repo, runId: entry.runId, path: entry.path, bytes: entry.bytes });
         freedBytes += entry.bytes;
     }

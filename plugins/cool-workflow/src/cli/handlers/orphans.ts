@@ -10,7 +10,10 @@ import { printJson, wantsJson } from "../io";
 
 type ParsedArgs = ReturnType<typeof parseArgv>;
 
-/** `cw orphans list [--json] | orphans gc [--min-age-minutes N] [--all] [--json]`. */
+/** `cw orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home]
+ *  [--min-age-minutes N] [--all] [--json]`. `--scope` defaults to `home`
+ *  (every repo `cw` has registered, not just the current one) — same default as
+ *  `cw gc plan|run`. */
 export function handleOrphans(args: ParsedArgs, runner: CoolWorkflowRunner): void {
   const registry = runRegistryFor(args.options, runner);
   const [subcommand] = args.positionals;
@@ -28,6 +31,9 @@ export function handleOrphans(args: ParsedArgs, runner: CoolWorkflowRunner): voi
       return;
     }
     default:
-      throw new Error("Usage: cw.js orphans list [--json] | orphans gc [--min-age-minutes N] [--all] [--json]");
+      throw new Error(
+        "Usage: cw.js orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] " +
+          "[--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)"
+      );
   }
 }
