@@ -6,9 +6,12 @@ exports.formatRunShow = formatRunShow;
 exports.formatGcPlan = formatGcPlan;
 exports.formatGcRun = formatGcRun;
 exports.formatGcVerify = formatGcVerify;
+exports.formatOrphanRunsList = formatOrphanRunsList;
+exports.formatOrphanRunsGc = formatOrphanRunsGc;
 exports.formatResume = formatResume;
 exports.formatHistory = formatHistory;
 exports.formatQueueList = formatQueueList;
+const orphans_1 = require("./orphans");
 function countsLine(counts) {
     return `total=${counts.total} queued=${counts.queued} running=${counts.running} blocked=${counts.blocked} completed=${counts.completed} failed=${counts.failed} archived=${counts.archived} reclaimed=${counts.reclaimed}`;
 }
@@ -87,6 +90,24 @@ function formatGcVerify(result) {
     ];
     for (const check of result.checks)
         lines.push(`  ${check.pass ? "PASS" : "FAIL"} ${check.name}${check.code ? ` [${check.code}]` : ""}${check.detail ? ` (${check.detail})` : ""}`);
+    return lines.join("\n");
+}
+function formatOrphanRunsList(result) {
+    if (!result.count)
+        return `No orphan run(s) (${result.scope}): every ".cw/runs/" entry across ${result.repos.length} repo(s) is known to the registry.`;
+    const lines = [`Orphan Runs (${result.scope}): ${result.count} in ${result.repos.length} repo(s), ${result.totalBytes} byte(s) total`];
+    for (const e of result.entries)
+        lines.push(`  ${e.runId} (${e.repo}) age=${e.ageMinutes}m ${e.bytes}B`);
+    lines.push(`\nReclaim with: cw orphans gc --min-age-minutes ${orphans_1.DEFAULT_ORPHAN_MIN_AGE_MINUTES}   (or --all)`);
+    return lines.join("\n");
+}
+function formatOrphanRunsGc(result) {
+    const scope = result.all ? "all orphan candidates" : `orphans older than ${result.minAgeMinutes} minute(s)`;
+    if (!result.removed.length)
+        return `Nothing to reclaim (${scope}); ${result.keptCount} kept (${result.scope}).`;
+    const lines = [`Reclaimed ${result.removed.length} orphan run(s) (${scope}) — freed ${result.freedBytes} byte(s); ${result.keptCount} kept`];
+    for (const r of result.removed)
+        lines.push(`  ${r.runId} (${r.repo}) ${r.bytes}B`);
     return lines.join("\n");
 }
 function formatResume(result) {

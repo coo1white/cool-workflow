@@ -46,6 +46,8 @@ import {
   gcVerify,
   listClones,
   gcClones,
+  listOrphanRuns,
+  gcOrphanRuns,
   telemetryVerify,
   auditVerify,
   runDrive,
@@ -492,6 +494,10 @@ export function callTool(name: string, args: Record<string, unknown>): unknown {
       return listClones(args);
     case "cw_clones_gc":
       return gcClones(args);
+    case "cw_orphans_list":
+      return listOrphanRuns(runRegistryFor(args, runner), args);
+    case "cw_orphans_gc":
+      return gcOrphanRuns(runRegistryFor(args, runner), args);
     case "cw_telemetry_verify":
       return telemetryVerify(runner, args);
     case "cw_history":

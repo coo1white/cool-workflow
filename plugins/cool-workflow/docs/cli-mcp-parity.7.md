@@ -82,7 +82,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 207 capabilities, 194 MCP tools.
+machine-complete by design: 209 capabilities, 196 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -275,6 +275,8 @@ machine-complete by design: 207 capabilities, 194 MCP tools.
 | `gc.verify` | `cw gc verify` | `cw_gc_verify` | `gcVerify` | both | identical |
 | `clones.list` | `cw clones list` | `cw_clones_list` | `listClones` | both | identical |
 | `clones.gc` | `cw clones gc` | `cw_clones_gc` | `gcClones` | both | projected |
+| `orphans.list` | `cw orphans list` | `cw_orphans_list` | `listOrphanRuns` | both | identical |
+| `orphans.gc` | `cw orphans gc` | `cw_orphans_gc` | `gcOrphanRuns` | both | projected |
 | `telemetry.verify` | `cw telemetry verify` | `cw_telemetry_verify` | `telemetryVerify` | both | identical |
 | `demo.tamper` | `cw demo tamper` | `—` | `demoTamper` | cli-only | cli-only |
 | `demo.bundle` | `cw demo bundle` | `—` | `demoBundle` | cli-only | cli-only |
@@ -327,13 +329,14 @@ carry a recorded reason in the registry.
 <!-- /gen:parity:cliOnly -->
 
 <!-- gen:parity:projected -->
-Eleven capabilities are payload-divergent on purpose (`projected`):
+Twelve capabilities are payload-divergent on purpose (`projected`):
 
 - `commit` — Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate, commit.acceptanceRationale); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection via capability-core.commitEnvelope, not drift.
 - `backend.agent.config.set` — Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe.
 - `run.drive.step` — Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core.
 - `gc.run` — Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone.
 - `clones.gc` — Mutating: removes cache directories and reports now-derived freedBytes/removed; both surfaces perform the identical reclamation.
+- `orphans.gc` — Mutating: removes orphan run directories and reports now-derived freedBytes/removed; both surfaces perform the identical sweep.
 - `workbench.serve` — Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host (like `schedule daemon`), which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.
 - `ledger.propose` — Mints a fresh entry each call: createdAt is the wall-clock instant and the id/digest are derived from it, so the output is inherently non-deterministic and a byte-identity probe does not apply. Both surfaces call the same buildLedgerProposal core; round-trip + fail-closed behavior is covered by ledger-verify-smoke.
 - `ledger.review` — Mints a fresh timestamped/digested verdict each call — non-deterministic output, same reasoning as ledger.propose. Both surfaces call the same buildLedgerReview core.

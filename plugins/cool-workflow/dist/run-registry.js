@@ -34,7 +34,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatQueueList = exports.formatHistory = exports.formatResume = exports.formatGcVerify = exports.formatGcRun = exports.formatGcPlan = exports.formatRunShow = exports.formatRunSearch = exports.formatRegistryReport = exports.RunRegistry = exports.RUN_REGISTRY_SCHEMA_VERSION = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.isRunLifecycleState = exports.compareQueue = void 0;
+exports.DEFAULT_ORPHAN_MIN_AGE_MINUTES = exports.formatQueueList = exports.formatHistory = exports.formatResume = exports.formatOrphanRunsGc = exports.formatOrphanRunsList = exports.formatGcVerify = exports.formatGcRun = exports.formatGcPlan = exports.formatRunShow = exports.formatRunSearch = exports.formatRegistryReport = exports.RunRegistry = exports.RUN_REGISTRY_SCHEMA_VERSION = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.isRunLifecycleState = exports.compareQueue = void 0;
 exports.resolveCwHome = resolveCwHome;
 exports.deriveLifecycle = deriveLifecycle;
 const node_crypto_1 = __importDefault(require("node:crypto"));
@@ -49,6 +49,7 @@ const derive_1 = require("./run-registry/derive");
 Object.defineProperty(exports, "compareQueue", { enumerable: true, get: function () { return derive_1.compareQueue; } });
 Object.defineProperty(exports, "isRunLifecycleState", { enumerable: true, get: function () { return derive_1.isRunLifecycleState; } });
 const gc_1 = require("./run-registry/gc");
+const orphans_1 = require("./run-registry/orphans");
 const queue_1 = require("./run-registry/queue");
 const policy_1 = require("./run-registry/policy");
 Object.defineProperty(exports, "DEFAULT_RUN_REGISTRY_POLICY", { enumerable: true, get: function () { return policy_1.DEFAULT_RUN_REGISTRY_POLICY; } });
@@ -724,6 +725,15 @@ class RunRegistry {
     gcVerify(runId, options = {}) {
         return (0, gc_1.gcVerify)(this, runId, options);
     }
+    /** `cw orphans list` — run directories under `.cw/runs/` with no state.json
+     *  (invisible to gcPlan/gcRun; see ./run-registry/orphans). Read-only. */
+    listOrphanRuns(options = {}) {
+        return (0, orphans_1.listOrphanRuns)(this, options);
+    }
+    /** `cw orphans gc` — reclaim orphan run directories (age-gated, or `all`). */
+    gcOrphanRuns(options = {}) {
+        return (0, orphans_1.gcOrphanRuns)(this, options);
+    }
     // ---- rerun (NEW run linked to the original; original preserved) ---------
     rerun(runId, options = {}) {
         if (!this.planner)
@@ -845,6 +855,10 @@ Object.defineProperty(exports, "formatRunShow", { enumerable: true, get: functio
 Object.defineProperty(exports, "formatGcPlan", { enumerable: true, get: function () { return format_1.formatGcPlan; } });
 Object.defineProperty(exports, "formatGcRun", { enumerable: true, get: function () { return format_1.formatGcRun; } });
 Object.defineProperty(exports, "formatGcVerify", { enumerable: true, get: function () { return format_1.formatGcVerify; } });
+Object.defineProperty(exports, "formatOrphanRunsList", { enumerable: true, get: function () { return format_1.formatOrphanRunsList; } });
+Object.defineProperty(exports, "formatOrphanRunsGc", { enumerable: true, get: function () { return format_1.formatOrphanRunsGc; } });
 Object.defineProperty(exports, "formatResume", { enumerable: true, get: function () { return format_1.formatResume; } });
 Object.defineProperty(exports, "formatHistory", { enumerable: true, get: function () { return format_1.formatHistory; } });
 Object.defineProperty(exports, "formatQueueList", { enumerable: true, get: function () { return format_1.formatQueueList; } });
+var orphans_2 = require("./run-registry/orphans");
+Object.defineProperty(exports, "DEFAULT_ORPHAN_MIN_AGE_MINUTES", { enumerable: true, get: function () { return orphans_2.DEFAULT_ORPHAN_MIN_AGE_MINUTES; } });
