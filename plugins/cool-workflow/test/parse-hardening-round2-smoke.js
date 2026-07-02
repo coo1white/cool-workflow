@@ -79,6 +79,41 @@ function main() {
     const { loadMigrationSnapshot } = require(path.join(pluginRoot, "dist", "orchestrator", "migration-operations.js"));
     const { recordResult } = require(path.join(pluginRoot, "dist", "orchestrator", "lifecycle-operations.js"));
   }
+
+  // ---- 7. direct recordResult uses the same resolvable evidence gate ----------
+  {
+    const previousRequireResolvable = process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE;
+    process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE = "1";
+    const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist", "orchestrator.js"));
+    const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-direct-result-")));
+    try {
+      const runner = new CoolWorkflowRunner({ pluginRoot }).withBaseDir(tmp);
+      fs.writeFileSync(path.join(tmp, "README.md"), "# target\n", "utf8");
+      const plan = runner.plan("end-to-end-golden-path", { repo: tmp, question: "direct evidence" });
+      const resultPath = path.join(tmp, "result.md");
+      const fence = "`".repeat(3);
+      const writeResult = (evidence) => fs.writeFileSync(
+        resultPath,
+        `# R\n\n${fence}cw:result\n${JSON.stringify({ summary: "ok", findings: [], evidence })}\n${fence}\n`,
+        "utf8"
+      );
+      writeResult(["missing-evidence.txt:1"]);
+      assert.throws(
+        () => runner.recordResult(plan.id, plan.tasks[0].id, resultPath, {}),
+        /does not resolve on disk/,
+        "direct recordResult refuses unresolved file evidence"
+      );
+      fs.writeFileSync(path.join(tmp, "present-evidence.txt"), "ok\n", "utf8");
+      writeResult(["present-evidence.txt:1"]);
+      runner.recordResult(plan.id, plan.tasks[0].id, resultPath, {});
+      const recorded = runner.loadRun(plan.id);
+      assert.ok(recorded.tasks.some((task) => task.id === plan.tasks[0].id && task.status === "completed"), "direct recordResult still accepts resolvable evidence");
+    } finally {
+      if (previousRequireResolvable === undefined) delete process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE;
+      else process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE = previousRequireResolvable;
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  }
 }
 
 try {

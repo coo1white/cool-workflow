@@ -311,9 +311,13 @@ function fetchArchiveBytes(rawUrl: string, sanitizedUrl: string, dest: string, o
     "if(!r.ok){process.stderr.write('HTTP '+r.status+' '+r.statusText);process.exit(2);}",
     "const len=Number(r.headers.get('content-length')||0);",
     "if(cap&&len>cap){process.stderr.write('archive too large');process.exit(3);}",
-    "const buf=Buffer.from(await r.arrayBuffer());",
-    "if(cap&&buf.length>cap){process.stderr.write('archive too large');process.exit(3);}",
-    "fs.writeFileSync(out,buf);return;}",
+    "if(!r.body||!r.body.getReader){process.stderr.write('response body is not streamable');process.exit(4);}",
+    "const fd=fs.openSync(out,'w');let total=0;",
+    "try{const reader=r.body.getReader();for(;;){const x=await reader.read();if(x.done)break;",
+    "const chunk=Buffer.from(x.value);total+=chunk.length;",
+    "if(cap&&total>cap){try{await reader.cancel();}catch{};fs.closeSync(fd);fs.rmSync(out,{force:true});process.stderr.write('archive too large');process.exit(3);}",
+    "fs.writeSync(fd,chunk,0,chunk.length);}fs.closeSync(fd);return;}",
+    "catch(e){try{fs.closeSync(fd);}catch{};fs.rmSync(out,{force:true});throw e;}}",
     "process.stderr.write('too many redirects');process.exit(6);",
     "})().catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(4);});"
   ].join("");
@@ -339,6 +343,9 @@ function listArchive(file: string, isZip: boolean): string[] {
     // two (a corrupt .tar mislabeled .zip used to surface a bogus "unzip not found").
     if (isZip && (result.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
       throw new Error("unzip is required to review a .zip link but was not found on PATH (use a .tar.gz or a git URL)");
+    }
+    if (!isZip && (result.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
+      throw new Error("tar is required to review a .tar/.tgz link but was not found on PATH");
     }
     throw new Error(`could not read archive: ${String(result.stderr || "").trim() || `exit ${result.status}`}`);
   }

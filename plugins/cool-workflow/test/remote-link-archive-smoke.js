@@ -214,6 +214,34 @@ function runAsync(args, home) {
   assert.match(r.stderr, /private\/internal host|disallowed scheme/, "names the SSRF redirect block");
   console.log("remote-link-archive: SSRF redirect-to-private guard ok");
 
+  // ===== 7. chunked download with no content-length is capped WHILE streaming =====
+  {
+    const capHome = freshHome();
+    const chunk = Buffer.alloc(1024 * 1024, "z");
+    const capServer = http.createServer((req, res) => {
+      res.writeHead(200, { "Content-Type": "application/gzip" }); // no content-length
+      let sent = 0;
+      const writeMore = () => {
+        while (sent < 205) {
+          sent += 1;
+          if (!res.write(chunk)) return res.once("drain", writeMore);
+        }
+        res.end();
+      };
+      writeMore();
+    });
+    await new Promise((resolve) => capServer.listen(0, "127.0.0.1", resolve));
+    const capPort = capServer.address().port;
+    const cap = await runAsync(["-q", "x?", "--link", `http://127.0.0.1:${capPort}/huge.tar.gz`, "--agent-command", agent], capHome);
+    capServer.close();
+    assert.equal(cap.status, 1, "a chunked archive over the byte cap fails closed");
+    assert.match(cap.stderr, /archive too large/, "names the streaming archive size cap");
+    const clones = path.join(capHome, "clones");
+    const leftovers = fs.existsSync(clones) ? fs.readdirSync(clones).filter((name) => name.startsWith(".stage-")) : [];
+    assert.deepEqual(leftovers, [], "partial streaming archive staging dirs are cleaned up");
+    console.log("remote-link-archive: chunked no-content-length download is streaming-capped ok");
+  }
+
   for (const d of cleanups) fs.rmSync(d, { recursive: true, force: true });
   console.log("remote-link-archive-smoke: ok");
 })().catch((e) => {

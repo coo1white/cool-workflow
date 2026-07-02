@@ -77,6 +77,16 @@ function writeStub(file) {
     "  }",
     '  process.stdout.write(JSON.stringify({ model: "stub-m" }));',
     "  process.exit(0);",
+    '} else if (behavior === "too-big") {',
+    '  const chunk = "y".repeat(1024 * 1024);',
+    "  let remaining = 35 * 1024 * 1024;",
+    "  while (remaining > 0) {",
+    "    const n = Math.min(chunk.length, remaining);",
+    "    fs.writeSync(1, chunk.slice(0, n));",
+    "    remaining -= n;",
+    "  }",
+    '  process.stdout.write(JSON.stringify({ model: "stub-m" }));',
+    "  process.exit(0);",
     "} else {",
     '  process.stdout.write(JSON.stringify({ model: "stub-m" }));',
     "  process.exit(0);",
@@ -129,6 +139,33 @@ function integrationLevelLargeOutput() {
   }
 }
 
+function integrationLevelCapExceeded() {
+  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-cap-")));
+  try {
+    const stub = writeStub(path.join(work, "stub.js"));
+    const jobFor = (behavior, timeoutMs) => ({
+      binary: process.execPath,
+      args: [stub, path.join(work, `${behavior}-result.md`), behavior],
+      cwd: work,
+      timeoutMs
+    });
+    const settled = runAgentBatchOutcomes([
+      jobFor("small", 10000),
+      jobFor("too-big", 10000),
+      jobFor("small", 10000)
+    ]);
+    assert.equal(settled.length, 3, "outcomes stay index-aligned with a cap-exceeded job");
+    assert.equal(settled[0].exitCode, 0, "small sibling before cap-exceeded job succeeds");
+    assert.equal(settled[2].exitCode, 0, "small sibling after cap-exceeded job succeeds");
+    assert.equal(settled[1].exitCode, null, "cap-exceeded job fails closed");
+    assert.match(settled[1].spawnError || "", /stdout exceeded .* byte cap/, "cap-exceeded job names stdout cap");
+    assert.equal(settled[1].stdout, "", "truncated stdout is not treated as evidence");
+    console.log("batch-output-overflow-smoke: stdout cap exceeded fails one job closed without stranding siblings ok");
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
 function unitLevelPastV8StringLimit() {
   const jobCount = 20;
   const perJobChars = 30 * 1024 * 1024; // 30MB per job, under the delegate's 32MB cap
@@ -158,6 +195,7 @@ function unitLevelPastV8StringLimit() {
 function main() {
   unitLevelReconciliation();
   integrationLevelLargeOutput();
+  integrationLevelCapExceeded();
   unitLevelPastV8StringLimit();
   console.log("batch-output-overflow-smoke: ok (streamed NDJSON recovers per-job outcomes even under batch-level failure)");
 }

@@ -120,7 +120,8 @@ export class WorkbenchHost {
           return this.send(res, 401, { error: "unauthorized: token mismatch" });
         }
       }
-      const route = decodeURIComponent(url.pathname);
+      const route = decodeRoutePath(url.pathname);
+      if (!route) return this.send(res, 400, { error: "bad request: malformed URL path" });
 
       if (route === "/" || route === "/index.html") return this.sendAsset(res, "index.html");
       if (route.startsWith("/ui/")) return this.sendAsset(res, route.slice("/ui/".length));
@@ -185,6 +186,14 @@ function isLocalHost(hostHeader: string | undefined): boolean {
   if (!hostHeader) return true; // HTTP/1.0 / no Host — loopback bind already constrains us.
   const hostname = hostHeader.replace(/:\d+$/, "");
   return ALLOWED_HOSTNAMES.has(hostname);
+}
+
+function decodeRoutePath(pathname: string): string | undefined {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return undefined;
+  }
 }
 
 function FALLBACK_HTML(uiRoot: string): string {

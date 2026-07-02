@@ -177,4 +177,18 @@ r = runCli(["ledger", "list", "--dir", mirrorC, "--dir", mirrorD]);
 assert.equal(r.status, 1, "a spoofed-id entry fails the union (cannot mask a legit entry)");
 assert.equal(JSON.parse(r.stdout).allOk, false, "spoofed-id union allOk:false");
 
+// --- 11. ledger list refuses symlink / non-regular entries ------------------
+const linkDir = path.join(dir, "link-ledger");
+fs.mkdirSync(linkDir);
+fs.writeFileSync(path.join(linkDir, `${proposal.id}.json`), JSON.stringify(proposal));
+const outside = path.join(dir, "outside.json");
+fs.writeFileSync(outside, JSON.stringify(review));
+fs.symlinkSync(outside, path.join(linkDir, "linked.json"));
+r = runCli(["ledger", "list", "--dir", linkDir]);
+assert.equal(r.status, 1, "symlink entry fails the inbox closed");
+list = JSON.parse(r.stdout);
+assert.equal(list.allOk, false, "symlink inbox allOk:false");
+const linked = list.entries.find((e) => e.file === "linked.json");
+assert.ok(linked && linked.failedChecks.some((c) => c.code === "ledger-entry-not-regular"), "symlink reports ledger-entry-not-regular");
+
 process.stdout.write("ledger-verify-smoke: ok (round-trip, tamper+junk+truncation fail-closed, stdin, git-transport inbox, multi-mirror union, id-binding + spoof-resistant)\n");
