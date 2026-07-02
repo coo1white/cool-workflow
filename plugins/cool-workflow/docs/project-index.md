@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-07-01 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-07-02 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,8 +9,8 @@ Generated from the current repository code on 2026-07-01 by `npm run sync:projec
 - Source modules: `69`
 - Workflow apps: `8`
 - Docs: `61`
-- Smoke tests: `171`
-- Repository: http://local_proxy@127.0.0.1:41729/git/coo1white/cool-workflow
+- Smoke tests: `172`
+- Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
 
@@ -254,6 +254,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [dogfood-architecture-review-smoke.js](../test/dogfood-architecture-review-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
 - [drive-concurrency-flag-smoke.js](../test/drive-concurrency-flag-smoke.js)
+- [drive-exhaustion-blocked-smoke.js](../test/drive-exhaustion-blocked-smoke.js)
 - [durable-atomic-write-smoke.js](../test/durable-atomic-write-smoke.js)
 - [end-to-end-demo-smoke.js](../test/end-to-end-demo-smoke.js)
 - [end-to-end-golden-path-smoke.js](../test/end-to-end-golden-path-smoke.js)
