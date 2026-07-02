@@ -75,7 +75,21 @@ function makeCodexHome() {
 function runWrapper(dir, inputPath, resultPath, extraEnv = {}) {
   return spawnSync(process.execPath, [wrapper, inputPath, resultPath], {
     encoding: "utf8",
-    env: { ...process.env, CODEX_HOME: codexHome, ...extraEnv, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
+    env: {
+      ...process.env,
+      CODEX_HOME: codexHome,
+      // Hermetic base: an ambient CW_RELEASE_REVIEW/CW_CODEX_SANDBOX/
+      // CW_CODEX_REASONING_EFFORT (this smoke can itself run inside a real
+      // release review, which sets CW_RELEASE_REVIEW=1 for the reviewer's whole
+      // process tree) must never leak into a case that did not ask for it —
+      // clear them here; a case that wants review mode passes it explicitly via
+      // extraEnv below, which wins.
+      CW_RELEASE_REVIEW: "",
+      CW_CODEX_SANDBOX: "",
+      CW_CODEX_REASONING_EFFORT: "",
+      ...extraEnv,
+      PATH: `${dir}${path.delimiter}${process.env.PATH}`
+    },
     timeout: 30000
   });
 }
@@ -113,6 +127,32 @@ function main() {
     assert.equal(report.model, "codex-config-model", "model falls back to CODEX_HOME/config.toml (codex JSONL carries none)");
     assert.equal(report.usage.input_tokens, 13, "usage comes from codex turn.completed");
     assert.equal(report.result, RESULT, "stdout report carries final result for CW provenance");
+  }
+
+  {
+    // Regression: an AMBIENT CW_RELEASE_REVIEW=1 (e.g. this smoke itself running
+    // inside a real release review, whose whole process tree inherits the
+    // signal) must not leak into a call that never asked for review mode. Found
+    // live cutting v0.1.98 — runWrapper used to spread ...process.env with
+    // nothing clearing this key, so "the default" silently became "workspace-write"
+    // whenever the gate ran under review.
+    const savedReview = process.env.CW_RELEASE_REVIEW;
+    process.env.CW_RELEASE_REVIEW = "1";
+    try {
+      fs.rmSync(resultPath, { force: true });
+      const dir = shimDir("ok");
+      const child = runWrapper(dir, inputPath, resultPath);
+      assert.equal(child.status, 0, `ambient-leak wrapper exits 0 (stderr: ${child.stderr})`);
+      const invocation = readInvocation(dir);
+      assert.deepEqual(
+        invocation.args.slice(invocation.args.indexOf("--sandbox"), invocation.args.indexOf("--sandbox") + 2),
+        ["--sandbox", "read-only"],
+        "a call with no explicit CW_RELEASE_REVIEW stays read-only EVEN WHEN the ambient env has it set"
+      );
+    } finally {
+      if (savedReview === undefined) delete process.env.CW_RELEASE_REVIEW;
+      else process.env.CW_RELEASE_REVIEW = savedReview;
+    }
   }
 
   {
