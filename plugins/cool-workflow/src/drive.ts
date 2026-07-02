@@ -847,6 +847,7 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
     }
   };
 
+  let exhaustedMaxIterations = !options.once;
   for (let i = 0; i < maxIterations; i++) {
     const width = concurrency > 1 ? concurrency : autoWidth(runner.loadRun(runId));
     const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
@@ -870,8 +871,14 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
     // reuses the run we just advanced; goes to stderr via emitProgress so stdout is clean.
     emitPhaseProgress(runner.loadRun(runId));
     const last = roundSteps[roundSteps.length - 1];
-    if (options.once) break;
-    if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) break;
+    if (options.once) {
+      exhaustedMaxIterations = false;
+      break;
+    }
+    if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) {
+      exhaustedMaxIterations = false;
+      break;
+    }
   }
 
   const run = runner.loadRun(runId);
@@ -879,13 +886,21 @@ export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveO
   const parkedWorkers = countParked(run);
   const committed = (run.commits || []).find((commit) => commit.reason && commit.reason.startsWith("agent-delegation-drive"));
   const last = steps[steps.length - 1];
+  if (exhaustedMaxIterations) {
+    steps.push(step("blocked", "blocked", {
+      runId,
+      reason: `drive reached max iteration limit (${maxIterations}) before a terminal state`
+    }));
+  }
   const status: DriveResult["status"] = options.once
     ? completedWorkers === plannedWorkers && committed
       ? "complete"
       : last && (last.status === "parked" || last.status === "blocked")
         ? last.status
         : "in-progress"
-    : parkedWorkers > 0 || (last && last.status === "parked")
+    : exhaustedMaxIterations
+      ? "blocked"
+      : parkedWorkers > 0 || (last && last.status === "parked")
       ? "parked"
       : last && last.status === "blocked"
         ? "blocked"

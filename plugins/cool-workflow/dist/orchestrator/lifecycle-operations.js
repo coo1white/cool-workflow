@@ -29,6 +29,7 @@ const workflow_api_1 = require("../workflow-api");
 const observability_1 = require("../observability");
 const compare_1 = require("../compare");
 const loop_expansion_1 = require("../loop-expansion");
+const evidence_grounding_1 = require("../evidence-grounding");
 const dispatch_1 = require("../dispatch");
 const verifier_1 = require("../verifier");
 const trust_audit_1 = require("../trust-audit");
@@ -250,6 +251,10 @@ function recordResult(run, taskId, resultPath, options = {}) {
         const parsedResult = (0, verifier_1.parseResultEnvelope)(rawResult);
         run.loopStage = "adjust";
         (0, verifier_1.validateResultEnvelope)(task, parsedResult);
+        const unresolved = (0, evidence_grounding_1.unresolvedFileEvidence)(parsedResult.evidence, [run.cwd, process.cwd(), run.paths.runDir, node_path_1.default.dirname(absoluteResultPath)]);
+        if (unresolved.length) {
+            throw new Error(`Result cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`);
+        }
         const destination = node_path_1.default.join(run.paths.resultsDir, `${(0, state_1.safeFileName)(taskId)}.md`);
         node_fs_1.default.copyFileSync(absoluteResultPath, destination);
         task.status = "completed";

@@ -108,7 +108,7 @@ function importRun(exportPath, targetDir) {
             throw new Error(`Archive file escapes restore directory: ${file.relativePath}`);
         }
         node_fs_1.default.mkdirSync(node_path_1.default.dirname(destination), { recursive: true });
-        node_fs_1.default.writeFileSync(destination, Buffer.from(file.contentBase64, "base64"));
+        node_fs_1.default.writeFileSync(destination, decodeBase64Strict(file.contentBase64, file.relativePath));
     }
     const externalPathMap = new Map();
     for (const file of files) {
@@ -364,8 +364,11 @@ function verifyReportBundle(archivePath, options = {}) {
         bundleKey = raw.trust?.publicKeyPem;
         if (options.extractReportTo) {
             const reportFile = (raw.files || []).find((file) => file.relativePath === "report.md");
-            if (reportFile)
-                reportContent = Buffer.from(reportFile.contentBase64, "base64").toString("utf8");
+            if (reportFile) {
+                const decoded = decodeBase64StrictResult(reportFile.contentBase64, reportFile.relativePath);
+                if (decoded.ok)
+                    reportContent = decoded.bytes.toString("utf8");
+            }
         }
     }
     catch {
@@ -647,6 +650,28 @@ function normalizeArchiveFiles(raw) {
         };
     });
 }
+function decodeBase64StrictResult(value, relativePath) {
+    if (typeof value !== "string") {
+        return { ok: false, check: { name: "archive-file", pass: false, code: "archive-bad-base64", path: relativePath, actual: "contentBase64 is not a string" } };
+    }
+    const compact = value.replace(/\s+/g, "");
+    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(compact)) {
+        return { ok: false, check: { name: "archive-file", pass: false, code: "archive-bad-base64", path: relativePath, actual: "invalid base64 encoding" } };
+    }
+    const bytes = Buffer.from(compact, "base64");
+    const expected = compact.replace(/=+$/, "");
+    const actual = bytes.toString("base64").replace(/=+$/, "");
+    if (actual !== expected) {
+        return { ok: false, check: { name: "archive-file", pass: false, code: "archive-bad-base64", path: relativePath, actual: "non-canonical base64 encoding" } };
+    }
+    return { ok: true, bytes };
+}
+function decodeBase64Strict(value, relativePath) {
+    const decoded = decodeBase64StrictResult(value, relativePath);
+    if (!decoded.ok)
+        throw new Error(archiveCheckMessage(decoded.check));
+    return decoded.bytes;
+}
 /** NON-throwing digest/size/count/manifest verification: one structured check per
  *  file (in import order), then the integrity file-count + manifest checks. Shared
  *  by the throwing import path (verifyArchiveFileDigests) and the read-only
@@ -654,7 +679,12 @@ function normalizeArchiveFiles(raw) {
 function collectArchiveDigestChecks(files, integrity) {
     const checks = [];
     for (const file of files) {
-        const bytes = Buffer.from(file.contentBase64, "base64");
+        const decoded = decodeBase64StrictResult(file.contentBase64, file.relativePath);
+        if (!decoded.ok) {
+            checks.push(decoded.check);
+            continue;
+        }
+        const bytes = decoded.bytes;
         const actual = sha256Bytes(bytes);
         const digestOk = actual === file.sha256;
         checks.push(digestOk
@@ -686,6 +716,7 @@ function archiveCheckMessage(check) {
         case "size-mismatch": return `Archive size mismatch for ${check.path}: expected ${check.expected}, got ${check.actual}`;
         case "file-count-mismatch": return `Archive file count mismatch: expected ${check.expected}, got ${check.actual}`;
         case "manifest-digest-mismatch": return `Archive manifest digest mismatch: expected ${check.expected}, got ${check.actual}`;
+        case "archive-bad-base64": return `Archive base64 invalid for ${check.path}: ${check.actual}`;
         default: return `Archive verification failed: ${check.name}`;
     }
 }

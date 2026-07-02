@@ -88,6 +88,20 @@ function writeCopy(tag, mutate) {
   assert.doesNotThrow(() => JSON.parse(cliR.stdout), "stdout still valid JSON on schema failure");
 }
 
+// (c2) bad base64: fail closed with a structured archive-bad-base64 check.
+{
+  const p = writeCopy("bad-b64", (a) => {
+    a.files[targetIdx].contentBase64 = "not base64!!!!";
+  });
+  const r = inspectArchive(p);
+  assert.equal(r.ok, false, "bad-base64 archive inspects ok:false");
+  assert.ok(r.checks.some((c) => c.code === "archive-bad-base64"), "archive-bad-base64 check present");
+
+  const cliR = cliInspect(p, src);
+  assert.notEqual(cliR.status, 0, "CLI inspect of bad-base64 archive exits non-zero");
+  assert.ok(JSON.parse(cliR.stdout).checks.some((c) => c.code === "archive-bad-base64"), "CLI payload names bad base64");
+}
+
 // (d) unreadable path: never throws -> archive-unreadable check, exit 1.
 {
   const missing = path.join(freshDir("missing"), "does-not-exist.cwrun.json");

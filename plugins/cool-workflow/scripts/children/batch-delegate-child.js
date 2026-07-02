@@ -39,6 +39,8 @@ process.stdin.on("end", () => {
   const CAP = 32 * 1024 * 1024;
   jobs.forEach((job, i) => {
     let stdout = "";
+    let stdoutBytes = 0;
+    let stdoutTruncated = false;
     let settled = false;
     const settle = (o) => {
       if (settled) return;
@@ -54,7 +56,18 @@ process.stdin.on("end", () => {
     }
     const term = setTimeout(() => { try { child.kill("SIGTERM"); } catch {} }, job.timeoutMs);
     const kill = setTimeout(() => { try { child.kill("SIGKILL"); } catch {} }, job.timeoutMs + 5000);
-    child.stdout.on("data", (d) => { if (stdout.length < CAP) stdout += d; });
+    child.stdout.on("data", (d) => {
+      const chunk = Buffer.isBuffer(d) ? d : Buffer.from(String(d));
+      stdoutBytes += chunk.length;
+      if (stdoutTruncated) return;
+      const remaining = CAP - Buffer.byteLength(stdout);
+      if (remaining <= 0 || chunk.length > remaining) {
+        stdoutTruncated = true;
+        if (remaining > 0) stdout += chunk.subarray(0, remaining).toString();
+        return;
+      }
+      stdout += chunk.toString();
+    });
     child.stderr.on("data", () => {});
     child.on("error", (error) => {
       clearTimeout(term); clearTimeout(kill);
@@ -62,6 +75,10 @@ process.stdin.on("end", () => {
     });
     child.on("close", (code) => {
       clearTimeout(term); clearTimeout(kill);
+      if (stdoutTruncated) {
+        settle({ spawnError: `stdout exceeded ${CAP} byte cap (${stdoutBytes} bytes)`, exitCode: null, stdout: "" });
+        return;
+      }
       settle({ exitCode: typeof code === "number" ? code : null, stdout });
     });
   });

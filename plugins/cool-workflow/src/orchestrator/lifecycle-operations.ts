@@ -34,6 +34,7 @@ import { slugify } from "../workflow-api";
 import { parseUsageFromArgs, deriveUsageTotals } from "../observability";
 import { compareBytes } from "../compare";
 import { getLoopPredicate } from "../loop-expansion";
+import { unresolvedFileEvidence } from "../evidence-grounding";
 import { createDispatchManifest, updatePhaseStatuses } from "../dispatch";
 import { assertTaskCanComplete, parseResultEnvelope, validateResultEnvelope, validateRunGates } from "../verifier";
 import { ensureTrustAudit } from "../trust-audit";
@@ -270,6 +271,10 @@ export function recordResult(run: WorkflowRun, taskId: string, resultPath: strin
     const parsedResult = parseResultEnvelope(rawResult);
     run.loopStage = "adjust";
     validateResultEnvelope(task, parsedResult);
+    const unresolved = unresolvedFileEvidence(parsedResult.evidence, [run.cwd, process.cwd(), run.paths.runDir, path.dirname(absoluteResultPath)]);
+    if (unresolved.length) {
+      throw new Error(`Result cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`);
+    }
 
     const destination = path.join(run.paths.resultsDir, `${safeFileName(taskId)}.md`);
     fs.copyFileSync(absoluteResultPath, destination);

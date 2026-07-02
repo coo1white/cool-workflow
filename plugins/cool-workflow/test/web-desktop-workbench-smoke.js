@@ -217,6 +217,11 @@ async function main() {
     // Path traversal out of ui/ refused 403.
     const traversal = await request({ ...base, path: "/ui/..%2f..%2fpackage.json", method: "GET", headers: okHeaders });
     assert.equal(traversal.status, 403, "path traversal refused 403");
+
+    // Malformed percent-encoding is a client error, not a server crash.
+    const malformed = await request({ ...base, path: "/%E0%A4%A", method: "GET", headers: okHeaders });
+    assert.equal(malformed.status, 400, "malformed URL path is refused 400");
+    assert.match(JSON.parse(malformed.body).error, /malformed URL path/, "malformed path response is JSON");
   } finally {
     await host.close();
   }

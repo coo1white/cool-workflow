@@ -319,6 +319,10 @@ export function listLedgerEntries(dir: string): LedgerListResult {
     const file = path.join(dir, name);
     let raw: unknown;
     try {
+      const stat = fs.lstatSync(file);
+      if (!stat.isFile()) {
+        return { file: name, id: null, kind: null, from: null, to: null, title: null, target: null, verdict: null, ok: false, failedChecks: [{ name: "file", code: "ledger-entry-not-regular" }] };
+      }
       raw = JSON.parse(fs.readFileSync(file, "utf8"));
     } catch {
       return { file: name, id: null, kind: null, from: null, to: null, title: null, target: null, verdict: null, ok: false, failedChecks: [{ name: "parse", code: "ledger-bad-json" }] };

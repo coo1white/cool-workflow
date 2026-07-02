@@ -107,6 +107,11 @@ assertRefused("count", writeTampered("count", (a) => {
   // integrity.fileCount unchanged -> file count mismatch (checked before manifest)
 }), /file count mismatch/i);
 
+// (5) malformed base64 is refused before any restore write.
+assertRefused("bad-base64", writeTampered("bad-base64", (a) => {
+  a.files[targetIdx].contentBase64 = "not base64!!!!";
+}), /base64 invalid/i);
+
 // --- Env-gated hardening: a stripped-integrity archive ---
 const stripped = writeTampered("stripped", (a) => { delete a.integrity; });
 
