@@ -477,6 +477,12 @@ function releaseFixture() {
     ...process.env,
     CW_RELEASE_FLOW_GATE_CMD: "true",
     CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // stub: a promised vendor is not live
+    // Cleared, not just left to ...process.env: an operator's shell may itself have
+    // CW_SKIP_VENDOR_PREFLIGHT=1 set (e.g. mid-incident, overriding a real --cut
+    // elsewhere) and this nested simulated cut must not inherit it — that would
+    // silently turn the stubbed-FAIL preflight into a pass and false-green this
+    // exact "hard-blocks" assertion.
+    CW_SKIP_VENDOR_PREFLIGHT: "",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
     CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
     CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`
@@ -497,6 +503,9 @@ function releaseFixture() {
     ...process.env,
     CW_RELEASE_FLOW_GATE_CMD: "true",
     CW_RELEASE_FLOW_PREFLIGHT_CMD: "true", // stub: all vendors live
+    // See the "hard-blocks" case above: clear an inherited CW_SKIP_VENDOR_PREFLIGHT
+    // so this asserts the LIVE-preflight path, not a coincidentally-skipped one.
+    CW_SKIP_VENDOR_PREFLIGHT: "",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
     CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
     CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`
