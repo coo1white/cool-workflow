@@ -1,0 +1,4 @@
+# exit: 0
+cw man
+
+  cw man  Show a man page from docs/ (e.g. cw man release-tooling).

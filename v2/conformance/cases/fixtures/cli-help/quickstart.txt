@@ -1,0 +1,4 @@
+# exit: 0
+cw quickstart
+
+  cw quickstart  ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).

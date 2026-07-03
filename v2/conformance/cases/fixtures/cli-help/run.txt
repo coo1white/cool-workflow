@@ -1,0 +1,16 @@
+# exit: 0
+cw run
+
+  cw run archive          Archive/unarchive a run (overlay mark; never deletes source).
+  cw run drive            Preview the next agent-delegation drive step for a run (read-only, deterministic).
+  cw run drive            Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step).
+  cw run export           Export a run to a portable archive with run-local files and digest integrity.
+  cw run import           Restore a portable run archive into a target repo and verify restored file digests.
+  cw run inspect-archive  Read-only integrity inspection of a portable run archive without importing it.
+  cw run list             List indexed runs across repos (search with no filters).
+  cw run rerun            Re-run a failed run as a NEW run linked to the original by provenance.
+  cw run restore          Fail-closed restore of a portable run archive: integrity-inspect, import, and verify in one step; refuses anything that does not verify.
+  cw run resume           Resolve a run by id and return its next runnable tasks/actions (read-only by default; the opt-in --drive/--once mode hands it to the shared agent-drive core, which mutates and is covered by run.drive.step).
+  cw run search           Search runs by app/status/time/repo/free-text, deterministic + paginated.
+  cw run show             Resolve one run by id across the registry; fail closed on missing source.
+  cw run verify-import    Verify an imported run against its restore manifest and telemetry chain.

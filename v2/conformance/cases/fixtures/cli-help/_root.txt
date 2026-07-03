@@ -1,0 +1,30 @@
+Cool Workflow
+
+  -q "question" [-claude|-codex|-gemini|-deepseek]  Ask a question, get a report
+  -q "question" --link <url>                 Review a remote repo by URL
+  version                                   Show version
+  update                                    Update to latest release
+  doctor                                    Check setup
+  fix                                       Show fix commands for setup issues
+
+Flags
+  -q, --question TEXT    The task or question to answer
+  -r, --repo PATH        Target repository path (default: .)
+  -d, --dir PATH         Project folder to review (alias for --repo)
+  -claude                Use Claude agent
+  -codex                 Use Codex agent
+  -gemini                Use Gemini (via opencode)
+  -deepseek              Use DeepSeek (via opencode)
+  --verbose              Show full agent narration live (default: compact)
+  --full                 Verbose, plus the report printed inline at the end
+  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)
+
+More commands
+  list|search|info|init|plan|status|next|dispatch|result|state|commit|report
+  app|sandbox|backend|contract|node|feedback|worker|audit|candidate|review
+  loop|schedule|routine|registry|run|queue|clones|orphans|history|quickstart
+  audit-run|multi-agent|topology|summary|blackboard|coordinator|metrics
+  operator|sched|gc|telemetry|migration|demo|workbench|approve|reject
+  comment|handoff|ledger|graph|eval|man|version|update|fix
+
+    Run  cw help <command>  for one command's subcommands and descriptions.
