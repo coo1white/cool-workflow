@@ -171,45 +171,16 @@ function dispatchLegacy(args: ParsedArgv): void {
       throw new Error(`next is not implemented in this milestone (runId=${runId})`);
     }
 
-    // PLACEHOLDER (milestone 8, trust/ledger) — real `ledger list` reads +
-    // verifies every entry against its content digest (core/trust/
-    // ledger.ts's verifyLedgerEntry). This milestone only reproduces the
-    // observable dir/dirs/count envelope shape that cli-argv-parsing.
-    // case.js probes (repeated --dir becomes an array), reading each
-    // *.json file in the given director{y,ies} WITHOUT real digest
-    // verification. NOTE: "ledger" is intentionally absent from
-    // KNOWN_COMMANDS (see cli/parseargv.ts) even though the dispatcher
-    // handles it here — a known, preserved wart, not a bug.
+    // MILESTONE 8 — `ledger propose|review|verify|apply|list` are now
+    // real capability-table rows (core/capability-table.ts) that
+    // dispatchTable() above always matches first; this arm is reached
+    // only for an unrecognized subcommand (byte-exact to the old
+    // build's handleLedger default case). NOTE: "ledger" is
+    // intentionally absent from KNOWN_COMMANDS (see cli/parseargv.ts)
+    // even though the dispatcher handles it here — a known, preserved
+    // wart, not a bug.
     case "ledger": {
-      const sub = firstPositional(args);
-      if (sub === "list") {
-        const dirOption = args.options.dir;
-        const dirs = Array.isArray(dirOption) ? dirOption.map(String) : dirOption !== undefined ? [String(dirOption)] : [];
-        const readDir = (dir: string) => {
-          let names: string[] = [];
-          try {
-            names = fs.readdirSync(dir).filter((n) => n.endsWith(".json"));
-          } catch {
-            return [] as Array<Record<string, unknown>>;
-          }
-          return names.map((name) => {
-            try {
-              const raw = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"));
-              return { file: name, id: raw.id ?? null, kind: raw.kind ?? null, ok: false };
-            } catch {
-              return { file: name, id: null, kind: null, ok: false };
-            }
-          });
-        };
-        const payload: Record<string, unknown> =
-          dirs.length >= 2
-            ? { dirs, count: dirs.length, allOk: false, entries: dirs.flatMap(readDir) }
-            : { dir: dirs[0], count: dirs.length, allOk: false, entries: dirs.length ? readDir(dirs[0]) : [] };
-        printJson(payload);
-        process.exitCode = 1;
-        return;
-      }
-      throw new Error(`ledger ${sub ?? ""} is not implemented in this milestone`);
+      throw new Error("Usage: cw ledger propose|review|verify|apply|list [options]");
     }
 
     // PLACEHOLDER (milestone 10, scheduling/gc) — real `gc verify` checks
@@ -286,36 +257,17 @@ function dispatchLegacy(args: ParsedArgv): void {
       throw new Error(`migration ${sub ?? ""} is not implemented in this milestone`);
     }
 
-    // PLACEHOLDER (milestone 11, reporting/run-export) — real
-    // `report verify-bundle` verifies a sealed bundle's telemetry/trust
-    // chain offline; this milestone reproduces only the archive-not-found
+    // MILESTONE 8 — `report bundle`/`report verify-bundle` are now real
+    // capability-table rows (core/capability-table.ts) that
+    // dispatchTable() above always matches first. This arm is reached
+    // only for `cw report <run-id>` (no bundle subcommand) — real read/
+    // render of a run's report.md is milestone 11's scope (reporting/
+    // run-export); this milestone reproduces only the missing-run-id
     // refusal.
     case "report": {
       const sub = firstPositional(args);
-      if (sub === "verify-bundle") {
-        const archivePath = optionalArg(firstPositional(args, 1)) || "";
-        const payload = {
-          schemaVersion: 1,
-          archivePath,
-          runId: null,
-          ok: false,
-          archiveOk: false,
-          telemetryVerified: false,
-          trustAuditVerified: false,
-          trustKeySource: "none",
-          signatureKeyProvided: false,
-          signaturesChecked: 0,
-          signaturesReverified: 0,
-          signaturesFailed: 0,
-          trustLevel: "unsigned",
-          reportFindingsVerified: false,
-          failedChecks: [{ name: "archive", code: "archive-unreadable" }],
-        };
-        printJson(payload);
-        process.exitCode = 1;
-        return;
-      }
-      throw new Error(`report ${sub ?? ""} is not implemented in this milestone`);
+      const runId = required(optionalArg(sub), "run id");
+      throw new Error(`report is not implemented in this milestone (runId=${runId})`);
     }
 
     default: {

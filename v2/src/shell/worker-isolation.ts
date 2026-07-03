@@ -34,6 +34,9 @@ import {
 import { ResolvedSandboxPolicy } from "./execution-backend/types";
 import { taskRequiresEvidence } from "./verifier";
 import { runPipelineStage } from "../core/pipeline/runner";
+import { sha256 } from "../core/hash";
+import { resolveTrustPublicKey, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation";
+import { appendTelemetryAttestation } from "./telemetry-ledger-io";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 
@@ -364,8 +367,31 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     throw new Error(message);
   }
 
-  // Step 2: attest delegation (the agent-hop provenance).
+  // Step 2: attest delegation (the agent-hop provenance). Track 1: verify
+  // the agent's signed telemetry BEFORE recording it — CW holds only the
+  // operator's PUBLIC key, so this verifies attribution, never measures
+  // usage. resultDigest binds the agent's findings into the signature:
+  // CW recomputes the digest from the ACCEPTED result bytes so a result
+  // edited after signing fails verification; a signer that did not
+  // cover the result still verifies (4-field back-compat).
   const delegation = options.agentDelegation;
+  const telemetry = delegation
+    ? verifyTelemetryAttestation(delegation.reportedUsage, delegation.usageSignature, resolveTrustPublicKey(delegation.usageTrustPublicKey), {
+        runId: run.id,
+        taskId: task.id,
+        promptDigest: delegation.promptDigest,
+        resultDigest: sha256(rawResult),
+      })
+    : undefined;
+  // Opt-in fail-closed gate (default off): when the operator requires
+  // attested telemetry, a delegated hop whose verdict is not `attested`
+  // is REJECTED here — BEFORE any accept-side state mutation — so the
+  // drive parks it instead of recording unverifiable usage.
+  if (options.requireAttestedTelemetry && telemetry && telemetry.status !== "attested") {
+    const message = `Worker ${workerId} telemetry is ${telemetry.status} (${telemetry.reason || "unverified"}) and require-attested-telemetry is enabled — refusing to accept a hop whose usage cannot be cryptographically verified`;
+    recordWorkerFailure(run, workerId, message, { code: "telemetry-unattested-blocked", path: absoluteResultPath, retryable: false });
+    throw new Error(message);
+  }
   const agentDelegationMeta = delegation
     ? {
         schemaVersion: 1 as const,
@@ -373,11 +399,13 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
         handle: delegation.handle,
         model: delegation.model,
         promptDigest: delegation.promptDigest,
+        resultDigest: sha256(rawResult),
         command: delegation.command,
         args: delegation.args,
         exitCode: delegation.exitCode,
         ...(delegation.reportedUsage ? { reportedUsage: delegation.reportedUsage } : {}),
         ...(delegation.usageSignature ? { usageSignature: delegation.usageSignature } : {}),
+        ...(telemetry ? { usageAttestation: telemetry.status, usageAttestationReason: telemetry.reason } : {}),
       }
     : undefined;
 
@@ -444,7 +472,27 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     recordTrustAuditEvent(run, { kind: "worker.capture-warning", decision: "recorded", source: "cw-validated", workerId, taskId: task.id, nodeId: resultNode.id, parentEventIds: [acceptedAudit.id], metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination } });
   }
 
-  if (delegation) {
+  if (delegation && agentDelegationMeta) {
+    // Track 1 (tamper-evidence): bind this verdict into the append-only,
+    // hash-chained telemetry ledger BEFORE the audit event, so the event
+    // can cross-link the record hash. Editing the recorded verdict/usage
+    // later breaks the chain (verifyTelemetryLedger). Only when a
+    // verdict was computed (every agent hop gets one, even "absent").
+    const ledgerRecord = agentDelegationMeta.usageAttestation
+      ? appendTelemetryAttestation(run, {
+          workerId,
+          taskId: task.id,
+          promptDigest: agentDelegationMeta.promptDigest,
+          reportedUsage: agentDelegationMeta.reportedUsage,
+          usageSignature: agentDelegationMeta.usageSignature,
+          // Store the signed result digest ONLY when the signature
+          // actually covered it, so the offline re-verifier can
+          // reconstruct the 5-field payload.
+          resultDigest: telemetry?.coversResult ? agentDelegationMeta.resultDigest : undefined,
+          attestation: agentDelegationMeta.usageAttestation,
+          attestationReason: agentDelegationMeta.usageAttestationReason,
+        })
+      : undefined;
     recordTrustAuditEvent(run, {
       kind: "worker.agent-delegation",
       decision: "recorded",
@@ -455,7 +503,25 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
       sandboxProfileId: scope.sandboxProfileId,
       policySnapshot: scope.sandboxPolicy,
       parentEventIds: [acceptedAudit.id],
-      metadata: { backendId: "agent", handleKind: delegation.handle.kind, handleRef: delegation.handle.ref, model: delegation.model, promptDigest: delegation.promptDigest, command: delegation.command, args: delegation.args, exitCode: delegation.exitCode },
+      metadata: {
+        backendId: "agent",
+        handleKind: delegation.handle.kind,
+        handleRef: delegation.handle.ref,
+        model: delegation.model,
+        promptDigest: delegation.promptDigest,
+        resultDigest: agentDelegationMeta.resultDigest,
+        command: delegation.command,
+        args: delegation.args,
+        exitCode: delegation.exitCode,
+        ...(agentDelegationMeta.usageAttestation
+          ? {
+              telemetryAttestation: agentDelegationMeta.usageAttestation,
+              ...(agentDelegationMeta.usageAttestationReason ? { telemetryAttestationReason: agentDelegationMeta.usageAttestationReason } : {}),
+              ...(agentDelegationMeta.reportedUsage ? { reportedUsage: agentDelegationMeta.reportedUsage } : {}),
+              ...(ledgerRecord ? { telemetryRecordId: ledgerRecord.recordId, telemetryRecordHash: ledgerRecord.recordHash, telemetryPrevHash: ledgerRecord.prevHash } : {}),
+            }
+          : {}),
+      },
     });
   }
 

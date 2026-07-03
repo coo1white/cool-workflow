@@ -1,25 +1,28 @@
-// shell/trust-audit.ts — a REAL but appropriately-scoped subset of the old
-// build's trust-audit chain: event append (hash-chained), the evidence
-// normalizer (grounding-only provenance, never agent-process fields), and
-// the sandbox-path decision helper.
+// shell/trust-audit.ts — MILESTONE 8: extended from milestone 6+7's
+// scoped-down subset to the FULL trust-audit hash chain: eventHash (the
+// JSON round-trip pre-pass), verifyTrustAudit (chain-link recompute +
+// the era rule — a log is fully chained OR fully legacy, never mixed),
+// event append (hash-chained), the evidence normalizer, and the
+// sandbox-path decision helper.
 //
-// SCOPE NOTE: the full ledger/telemetry/trust-audit trust layer
-// (core/trust/ledger.ts, telemetry-ledger.ts, telemetry-attestation.ts,
-// trust-audit.ts's full summarize/search/collaboration-linked surface) is
-// milestone 8's scope (SPEC/ledger-trust.md). This file builds ONLY what
-// milestones 6+7's combined conformance gate needs: a real, disk-backed,
-// hash-chained events.jsonl (so `verifyTrustAudit`-shaped tampering checks
-// stay meaningful once milestone 8 lands) and `normalizeEvidence`'s exact
-// provenance shape, which exechard-evidence-triple-hygiene pins byte-for-
-// byte (the `evidence.provenance` key set).
+// The milestone-6+7 subset (recordTrustAuditEvent, recordSandboxPath-
+// Decision, normalizeEvidence, ensureTrustAudit) keeps its existing
+// signatures byte-for-byte — shell/commit.ts and shell/worker-
+// isolation.ts already import them. This edit ADDS verifyTrustAudit +
+// the era-rule check + trustAuditGenesis on top, and switches
+// computeEventHash to use core/hash.ts's named `eventHashInput` export
+// (byte-identical behavior to the pre-existing inline JSON-round-trip,
+// now shared with the rest of the hash-dedup story per v2/PLAN.md byte-
+// compat item 2).
 //
-// Evidence: SPEC/pipeline-run.md's worker-accept references;
-// plugins/cool-workflow/src/trust-audit.ts (byte-exact source for the
-// pieces ported here).
+// Evidence: SPEC/ledger-trust.md "Trust-audit chain", invariant 10 (era
+// rule), byte-compat item 2; SPEC/pipeline-run.md's worker-accept
+// references; plugins/cool-workflow/src/trust-audit.ts:1-731 (byte-exact
+// source for the pieces ported here).
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { sha256, stableStringify } from "../core/hash";
+import { eventHashInput, sha256, stableStringify } from "../core/hash";
 import { durableAppendFileSync, safeFileName, writeJson } from "./fs-atomic";
 import { StateEvidence, WorkflowRun } from "../core/state/types";
 
@@ -99,18 +102,38 @@ export function ensureTrustAudit(run: WorkflowRun): { eventLogPath: string; summ
   return audit;
 }
 
-function trustAuditGenesis(runId: string): string {
+/** Genesis prevHash for a run's chain (no prior event). Exported so
+ *  callers outside this module (verify tooling, tests) can recompute it
+ *  independently rather than trusting a stored value. */
+export function trustAuditGenesis(runId: string): string {
   return sha256(`cw-trust-audit:${runId}`);
 }
 
+/** Canonical bytes the eventHash binds: every field EXCEPT eventHash
+ *  itself, via core/hash.ts's `eventHashInput` (the JSON round-trip
+ *  pre-pass that drops nested `undefined`-valued keys BEFORE the
+ *  sort-and-stringify step — not a formatting flag on the same shape,
+ *  see v2/PLAN.md byte-compat item 2). Hashing the PERSISTED form this
+ *  way makes record-time hashes equal verify-time (parsed-from-disk)
+ *  hashes. */
 function computeEventHash(event: TrustAuditEvent): string {
   const { eventHash, ...rest } = event;
   void eventHash;
-  return sha256(stableStringify(JSON.parse(JSON.stringify(rest))));
+  return sha256(eventHashInput(rest));
 }
 
-function readEventsRaw(eventLogPath: string): TrustAuditEvent[] {
-  if (!fs.existsSync(eventLogPath)) return [];
+interface RawEventsRead {
+  events: TrustAuditEvent[];
+  corruptLines: number;
+}
+
+/** Read events in FILE (append) order, tolerating corrupt lines — one
+ *  bad line must not brick the whole audit read surface (it is counted,
+ *  not thrown). The chain links append order, so this is the order
+ *  verification walks. */
+function readEventsRawCounted(eventLogPath: string): RawEventsRead {
+  if (!fs.existsSync(eventLogPath)) return { events: [], corruptLines: 0 };
+  let corruptLines = 0;
   const events: TrustAuditEvent[] = [];
   for (const line of fs.readFileSync(eventLogPath, "utf8").split(/\n/g)) {
     const trimmed = line.trim();
@@ -118,10 +141,78 @@ function readEventsRaw(eventLogPath: string): TrustAuditEvent[] {
     try {
       events.push(JSON.parse(trimmed) as TrustAuditEvent);
     } catch {
-      /* one corrupt line does not brick the read surface */
+      corruptLines += 1;
     }
   }
-  return events;
+  return { events, corruptLines };
+}
+
+function readEventsRaw(eventLogPath: string): TrustAuditEvent[] {
+  return readEventsRawCounted(eventLogPath).events;
+}
+
+export interface TrustAuditCheck {
+  name: string;
+  pass: boolean;
+  code?: string;
+}
+
+export interface TrustAuditIntegrity {
+  present: boolean;
+  verified: boolean;
+  eventCount: number;
+  chained: number;
+  unchained: number;
+  corruptLines: number;
+  checks: TrustAuditCheck[];
+}
+
+/** Re-prove the run's trust-audit chain: prevEventHash linkage (append
+ *  order) + per-event hash recompute. A corrupt line, an edited event,
+ *  or a removed event flips verified=false. Legacy events without a
+ *  hash are reported as `unchained` (skipped), NOT treated as a forgery
+ *  — they predate the chain.
+ *
+ *  ERA RULE (v2/PLAN.md, SPEC/ledger-trust.md invariant 10): a single
+ *  run is written by one code version, so a log is all-chained (chain
+ *  era) or all-legacy (pre-chain). An unchained (eventHash-less) line
+ *  mixed into an otherwise-chained log is a forgery attempt — dropping
+ *  the hash to be waved through as "legacy" — so it fails with
+ *  `trust-audit-unchained-event`, never silently accepted. */
+export function verifyTrustAudit(run: WorkflowRun): TrustAuditIntegrity {
+  const audit = ensureTrustAudit(run);
+  const { events, corruptLines } = readEventsRawCounted(audit.eventLogPath);
+  const checks: TrustAuditCheck[] = [];
+  let verified = corruptLines === 0;
+  if (corruptLines > 0) checks.push({ name: "parse", pass: false, code: "trust-audit-corrupt-line" });
+  let chained = 0;
+  let unchained = 0;
+  let expectedPrev = trustAuditGenesis(run.id);
+  for (let i = 0; i < events.length; i++) {
+    const event = events[i];
+    const recomputed = computeEventHash(event);
+    if (event.eventHash === undefined) {
+      unchained += 1;
+      expectedPrev = recomputed; // advance the chain over legacy events
+      continue;
+    }
+    chained += 1;
+    if (event.eventHash !== recomputed) {
+      verified = false;
+      checks.push({ name: `event-hash[${i}]`, pass: false, code: "trust-audit-digest-mismatch" });
+    }
+    if (event.prevEventHash !== undefined && event.prevEventHash !== expectedPrev) {
+      verified = false;
+      checks.push({ name: `chain-link[${i}]`, pass: false, code: "trust-audit-chain-broken" });
+    }
+    expectedPrev = event.eventHash;
+  }
+  // Era rule: a log with ANY chained event must have EVERY event chained.
+  if (chained > 0 && unchained > 0) {
+    verified = false;
+    checks.push({ name: "unchained-events", pass: false, code: "trust-audit-unchained-event" });
+  }
+  return { present: events.length > 0, verified, eventCount: events.length, chained, unchained, corruptLines, checks };
 }
 
 function unique(values: string[]): string[] {

@@ -78,30 +78,10 @@ function wrapPipeJoined(tokens: string[], width: number): string[] {
  *  verb stays literal until its own milestone lands. */
 const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
   help: [{ command: "cw help", summary: "Print the human CLI help text." }],
-  ledger: [
-    {
-      command: "cw ledger apply",
-      summary:
-        "Verify a proposal entry and return its suggestedDiff for `git apply` (fail-closed: no diff unless the entry verifies as a proposal).",
-    },
-    {
-      command: "cw ledger list",
-      summary:
-        "Read + verify every entry in one or more shared ledger directories (fail-closed inbox; 2+ dirs union-verify mirrors).",
-    },
-    {
-      command: "cw ledger propose",
-      summary: "Build a verifiable cross-agent change proposal entry (printed as JSON).",
-    },
-    {
-      command: "cw ledger review",
-      summary: "Build a verifiable cross-agent review verdict entry (printed as JSON).",
-    },
-    {
-      command: "cw ledger verify",
-      summary: "Verify a ledger entry against its content digest (fail-closed on tampering).",
-    },
-  ],
+  // NOTE: "ledger" is not listed here any more — ledger propose/review/
+  // verify/apply/list are now real capability-table rows (milestone 8,
+  // core/capability-table.ts) and come from cliCommandHelpRows("ledger")
+  // below, so their summary text lives in exactly one place.
   clones: [
     {
       command: "cw clones gc",
@@ -170,17 +150,9 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
   // comes from cliCommandHelpRows("quickstart") below, so its summary
   // text lives in exactly one place.
   man: [{ command: "cw man", summary: "Show a man page from docs/ (e.g. cw man release-tooling)." }],
-  demo: [
-    {
-      command: "cw demo bundle",
-      summary:
-        "Prove portable-bundle verification: export a sealed report bundle, forge it two ways, watch report verify-bundle catch both offline with only the embedded public key.",
-    },
-    {
-      command: "cw demo tamper",
-      summary: "Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.",
-    },
-  ],
+  // NOTE: "demo" is not listed here any more — demo tamper/bundle are now
+  // real capability-table rows (milestone 8, core/capability-table.ts)
+  // and come from cliCommandHelpRows("demo") below.
 };
 
 /** src/orchestrator.ts:899-933 — the top-level `cw help` text. Color is
