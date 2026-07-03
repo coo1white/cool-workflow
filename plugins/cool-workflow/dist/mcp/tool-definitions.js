@@ -991,6 +991,16 @@ function toolDefinitions() {
             olderThanDays: numberSchema("Reclaim checkouts fetched more than N days ago (default 30; ignored with all)"),
             all: booleanSchema("Reclaim every cached checkout")
         }),
+        capabilityTool("orphans.list", "List run directories under `.cw/runs/` that the run registry cannot see (no state.json — a killed/interrupted process never wrote one), with age + bytes. Read-only. Peer of `cw orphans list`.", {
+            cwd: stringSchema("Repo workspace"),
+            scope: stringSchema("home (default, cross-repo) or repo")
+        }),
+        capabilityTool("orphans.gc", "Reclaim orphan run directories (no state.json): an age sweep (--min-age-minutes, default 60) or --all. Deletes only inside a scanned repo's `.cw/runs/`. Peer of `cw orphans gc`.", {
+            cwd: stringSchema("Repo workspace"),
+            scope: stringSchema("home (default, cross-repo) or repo"),
+            minAgeMinutes: numberSchema("Reclaim orphans untouched for at least N minutes (default 60; ignored with all)"),
+            all: booleanSchema("Reclaim every orphan candidate")
+        }),
         capabilityTool("telemetry.verify", "Re-prove a run's telemetry attestation ledger offline: prevHash chain linkage + independent per-record hash recompute (never trusts the stored hash), and optionally re-run ed25519 checks with a public key. A forged or edited record fails it. Peer of `cw telemetry verify`.", {
             cwd: stringSchema("Repo workspace"),
             runId: stringSchema("Run id to verify"),

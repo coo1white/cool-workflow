@@ -63,6 +63,7 @@ const operational_1 = require("./handlers/operational");
 const scheduling_1 = require("./handlers/scheduling");
 const worker_1 = require("./handlers/worker");
 const clones_1 = require("./handlers/clones");
+const orphans_1 = require("./handlers/orphans");
 const workbench_1 = require("./handlers/workbench");
 const operator_ux_1 = require("../operator-ux");
 const doctor_1 = require("../doctor");
@@ -461,6 +462,9 @@ async function runCli(argv = process.argv.slice(2)) {
             return;
         case "gc":
             (0, maintenance_1.handleGc)(args, runner);
+            return;
+        case "orphans":
+            (0, orphans_1.handleOrphans)(args, runner);
             return;
         case "history":
             (0, registry_1.handleHistory)(args, runner);

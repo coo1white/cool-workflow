@@ -15,6 +15,22 @@ import {
   RunSearchResult,
   RunShowResult
 } from "../types";
+import { DEFAULT_ORPHAN_MIN_AGE_MINUTES, OrphanRunsGcResult, OrphanRunsListResult } from "./orphans";
+
+// A local copy of ../cli/format.ts's humanBytes: importing that module here would
+// cycle back (cli/format -> capability-core -> ./run-registry -> this file's own
+// re-exports), so this small pure function is duplicated rather than shared.
+function humanBytes(n: number): string {
+  if (n < 1024) return `${n}B`;
+  const units = ["KiB", "MiB", "GiB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(1)}${units[i]}`;
+}
 
 function countsLine(counts: RunRegistryCounts): string {
   return `total=${counts.total} queued=${counts.queued} running=${counts.running} blocked=${counts.blocked} completed=${counts.completed} failed=${counts.failed} archived=${counts.archived} reclaimed=${counts.reclaimed}`;
@@ -91,6 +107,22 @@ export function formatGcVerify(result: GcVerifyResult): string {
     `GC Verify ${result.runId}: reclaimed=${result.reclaimed} verified=${result.verified} tier=${result.tier} capability=${result.capability}${result.tombstoneHash ? ` tombstone=${result.tombstoneHash.slice(0, 19)}` : ""}`
   ];
   for (const check of result.checks) lines.push(`  ${check.pass ? "PASS" : "FAIL"} ${check.name}${check.code ? ` [${check.code}]` : ""}${check.detail ? ` (${check.detail})` : ""}`);
+  return lines.join("\n");
+}
+
+export function formatOrphanRunsList(result: OrphanRunsListResult): string {
+  if (!result.count) return `No orphan run(s) (${result.scope}): every ".cw/runs/" entry across ${result.repos.length} repo(s) is known to the registry.`;
+  const lines = [`Orphan Runs (${result.scope}): ${result.count} in ${result.repos.length} repo(s), ${humanBytes(result.totalBytes)} total`];
+  for (const e of result.entries) lines.push(`  ${e.runId} (${e.repo}) age=${e.ageMinutes}m ${humanBytes(e.bytes)}`);
+  lines.push(`\nReclaim with: cw orphans gc --min-age-minutes ${DEFAULT_ORPHAN_MIN_AGE_MINUTES}   (or --all)`);
+  return lines.join("\n");
+}
+
+export function formatOrphanRunsGc(result: OrphanRunsGcResult): string {
+  const scope = result.all ? "all orphan candidates" : `orphans older than ${result.minAgeMinutes} minute(s)`;
+  if (!result.removed.length) return `Nothing to reclaim (${scope}); ${result.keptCount} kept (${result.scope}).`;
+  const lines = [`Reclaimed ${result.removed.length} orphan run(s) (${scope}) — freed ${humanBytes(result.freedBytes)}; ${result.keptCount} kept`];
+  for (const r of result.removed) lines.push(`  ${r.runId} (${r.repo}) ${humanBytes(r.bytes)}`);
   return lines.join("\n");
 }
 

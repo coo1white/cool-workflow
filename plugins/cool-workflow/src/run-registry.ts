@@ -80,6 +80,7 @@ import {
   optionalLower
 } from "./run-registry/derive";
 import { gcPlan as gcPlanOp, gcRun as gcRunOp, gcVerify as gcVerifyOp, reclamationPolicy as reclamationPolicyOp, GcHost } from "./run-registry/gc";
+import { listOrphanRuns as listOrphanRunsOp, gcOrphanRuns as gcOrphanRunsOp, OrphanRunsListResult, OrphanRunsGcResult } from "./run-registry/orphans";
 import {
   loadQueue as loadQueueOp,
   queueAdd as queueAddOp,
@@ -823,6 +824,17 @@ export class RunRegistry implements QueueHost, GcHost {
     return gcVerifyOp(this, runId, options);
   }
 
+  /** `cw orphans list` — run directories under `.cw/runs/` with no state.json
+   *  (invisible to gcPlan/gcRun; see ./run-registry/orphans). Read-only. */
+  listOrphanRuns(options: { scope?: "repo" | "home"; now?: string } = {}): OrphanRunsListResult {
+    return listOrphanRunsOp(this, options);
+  }
+
+  /** `cw orphans gc` — reclaim orphan run directories (age-gated, or `all`). */
+  gcOrphanRuns(options: { scope?: "repo" | "home"; minAgeMinutes?: number; all?: boolean; now?: string } = {}): OrphanRunsGcResult {
+    return gcOrphanRunsOp(this, options);
+  }
+
   // ---- rerun (NEW run linked to the original; original preserved) ---------
   rerun(runId: string, options: { reason?: string; scope?: "repo" | "home" } = {}): RunRerunResult {
     if (!this.planner) throw new Error("rerun requires a run planner (CoolWorkflowRunner)");
@@ -958,7 +970,10 @@ export {
   formatGcPlan,
   formatGcRun,
   formatGcVerify,
+  formatOrphanRunsList,
+  formatOrphanRunsGc,
   formatResume,
   formatHistory,
   formatQueueList
 } from "./run-registry/format";
+export { OrphanRunEntry, OrphanRunsListResult, OrphanRunsGcResult, DEFAULT_ORPHAN_MIN_AGE_MINUTES } from "./run-registry/orphans";

@@ -14,7 +14,12 @@ function reclamationPolicy(overrides = {}) {
 }
 /** Fail-closed eligibility: terminal AND archived AND no open feedback AND past
  *  retention. Returns the matching refusal code, or null when eligible. Reads
- *  the live-source-derived record; order yields distinct, stable codes. */
+ *  the live-source-derived record; order yields distinct, stable codes.
+ *  A non-terminal record (running/queued/blocked) always refuses as
+ *  "non-terminal", by design and with no age override — including a run whose
+ *  owning process died without ever reaching a terminal state. That class of
+ *  run has no reclamation path anywhere in cw as of this writing (see
+ *  ./orphans.ts, which reclaims a DIFFERENT case — no state.json at all). */
 function reclaimEligibility(record, policy, nowMs) {
     if (record.tier === "reclaimed")
         return "already-reclaimed";

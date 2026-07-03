@@ -28,6 +28,7 @@ import { handleBackend, handleContract, handleFeedback, handleMetrics, handleMig
 import { handleRoutine, handleSched, handleSchedule } from "./handlers/scheduling";
 import { handleWorker } from "./handlers/worker";
 import { handleClones } from "./handlers/clones";
+import { handleOrphans } from "./handlers/orphans";
 import { handleWorkbench } from "./handlers/workbench";
 import {
   adviseNoRun,
@@ -409,6 +410,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       return;
     case "gc":
       handleGc(args, runner);
+      return;
+    case "orphans":
+      handleOrphans(args, runner);
       return;
     case "history":
       handleHistory(args, runner);

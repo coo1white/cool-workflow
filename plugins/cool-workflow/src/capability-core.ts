@@ -22,7 +22,7 @@ import { drive, drivePreview } from "./drive";
 import { agentConfigShow, setAgentConfigFile, resolveAgentConfig, AgentConfigShowResult } from "./agent-config";
 import { DrivePreview, DriveResult, QuickstartCheck, QuickstartCheckResult, QuickstartResult, ReportBundleResult, ReportBundleVerification } from "./types";
 import { OperatorRecommendation, OperatorRunSummary } from "./operator-ux";
-import { RunRegistry, isRunLifecycleState } from "./run-registry";
+import { RunRegistry, isRunLifecycleState, OrphanRunsListResult, OrphanRunsGcResult } from "./run-registry";
 import { deriveMetricsSummary, loadCostPolicy, loadPersistedMetricsFingerprint, SummaryRunInput } from "./observability";
 import { verifyTelemetryLedger } from "./telemetry-ledger";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "./telemetry-attestation";
@@ -1070,6 +1070,24 @@ export function gcRun(reg: RunRegistry, runId: string | undefined, args: Record<
 
 export function gcVerify(reg: RunRegistry, runId: string, args: Record<string, unknown>): GcVerifyResult {
   return reg.gcVerify(runId, { scope: scopeOf(args, "home") });
+}
+
+// ---- orphan run sweep (gap found 2026-07-02) -------------------------------
+// MECHANISM, ONE SOURCE: both `cw orphans list|gc` and `cw_orphans_list|gc` route
+// through these. See src/run-registry/orphans.ts for why this is orthogonal to
+// gc.plan/gc.run (no state.json ever existed — nothing to skeleton/tombstone).
+export function listOrphanRuns(reg: RunRegistry, args: Record<string, unknown>): OrphanRunsListResult {
+  return reg.listOrphanRuns({ scope: scopeOf(args, "home"), now: optionalString(args.now) });
+}
+
+export function gcOrphanRuns(reg: RunRegistry, args: Record<string, unknown>): OrphanRunsGcResult {
+  const minAgeMinutes = Number(args.minAgeMinutes ?? args["min-age-minutes"]);
+  return reg.gcOrphanRuns({
+    scope: scopeOf(args, "home"),
+    minAgeMinutes: Number.isFinite(minAgeMinutes) ? minAgeMinutes : undefined,
+    all: flag(args.all),
+    now: optionalString(args.now)
+  });
 }
 
 // Remote-source clone cache (v0.1.91): list/reclaim the `~/.local/state/cool-workflow/clones`

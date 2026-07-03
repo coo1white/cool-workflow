@@ -224,10 +224,11 @@ function openMcp() {
     // the probe is BROAD, not a hand-picked handful. The tolerance tracks the
     // documented opt-out count (each entry-by-file/stdin ledger verb — verify,
     // apply — and the timestamped ledger.propose/review legitimately opt out of
-    // the generic byte-identity probe); bump it only when a NEW opt-out is added
-    // with a documented reason, never to hide an accidentally-unprobed verb.
+    // the generic byte-identity probe; orphans.gc joins gc.run/clones.gc as a
+    // mutating sweep with a now-derived payload); bump it only when a NEW opt-out
+    // is added with a documented reason, never to hide an accidentally-unprobed verb.
     assert.ok(
-      probeSet.length >= bothBound.length - 11,
+      probeSet.length >= bothBound.length - 12,
       `probe set unexpectedly narrow: ${probeSet.length}/${bothBound.length} both-bound caps probed`
     );
 

@@ -64,6 +64,8 @@ exports.backendAgentConfigSet = backendAgentConfigSet;
 exports.gcPlan = gcPlan;
 exports.gcRun = gcRun;
 exports.gcVerify = gcVerify;
+exports.listOrphanRuns = listOrphanRuns;
+exports.gcOrphanRuns = gcOrphanRuns;
 exports.runHistory = runHistory;
 exports.metricsSummary = metricsSummary;
 exports.sandboxProfileIdFrom = sandboxProfileIdFrom;
@@ -1035,6 +1037,22 @@ function gcRun(reg, runId, args) {
 }
 function gcVerify(reg, runId, args) {
     return reg.gcVerify(runId, { scope: scopeOf(args, "home") });
+}
+// ---- orphan run sweep (gap found 2026-07-02) -------------------------------
+// MECHANISM, ONE SOURCE: both `cw orphans list|gc` and `cw_orphans_list|gc` route
+// through these. See src/run-registry/orphans.ts for why this is orthogonal to
+// gc.plan/gc.run (no state.json ever existed — nothing to skeleton/tombstone).
+function listOrphanRuns(reg, args) {
+    return reg.listOrphanRuns({ scope: scopeOf(args, "home"), now: optionalString(args.now) });
+}
+function gcOrphanRuns(reg, args) {
+    const minAgeMinutes = Number(args.minAgeMinutes ?? args["min-age-minutes"]);
+    return reg.gcOrphanRuns({
+        scope: scopeOf(args, "home"),
+        minAgeMinutes: Number.isFinite(minAgeMinutes) ? minAgeMinutes : undefined,
+        all: flag(args.all),
+        now: optionalString(args.now)
+    });
 }
 // Remote-source clone cache (v0.1.91): list/reclaim the `~/.local/state/cool-workflow/clones`
 // checkouts that `--link`/URL reviews populate. Pure filesystem work; both CLI and MCP route

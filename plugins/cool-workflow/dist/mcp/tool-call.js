@@ -444,6 +444,10 @@ function callTool(name, args) {
             return (0, capability_core_1.listClones)(args);
         case "cw_clones_gc":
             return (0, capability_core_1.gcClones)(args);
+        case "cw_orphans_list":
+            return (0, capability_core_1.listOrphanRuns)((0, capability_core_1.runRegistryFor)(args, runner), args);
+        case "cw_orphans_gc":
+            return (0, capability_core_1.gcOrphanRuns)((0, capability_core_1.runRegistryFor)(args, runner), args);
         case "cw_telemetry_verify":
             return (0, capability_core_1.telemetryVerify)(runner, args);
         case "cw_history":

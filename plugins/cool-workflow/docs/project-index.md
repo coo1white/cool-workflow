@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-03 by `npm run sync:projec
 - Source modules: `69`
 - Workflow apps: `8`
 - Docs: `61`
-- Smoke tests: `172`
+- Smoke tests: `173`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -298,6 +298,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [onramp-check-smoke.js](../test/onramp-check-smoke.js)
 - [opencode-agent-wrapper-smoke.js](../test/opencode-agent-wrapper-smoke.js)
 - [operator-ux-smoke.js](../test/operator-ux-smoke.js)
+- [orphan-runs-gc-smoke.js](../test/orphan-runs-gc-smoke.js)
 - [parallel-onramp-smoke.js](../test/parallel-onramp-smoke.js)
 - [parity-doc-sync-smoke.js](../test/parity-doc-sync-smoke.js)
 - [parse-guard-smoke.js](../test/parse-guard-smoke.js)

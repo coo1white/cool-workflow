@@ -107,6 +107,27 @@ scratch dir) is **re-pointed** to the retained `results/<task-id>.md` copy, and 
 result-node snapshot is shown to stay `valid` (not `absent`) — so no surviving
 node points to a freed path. Opt out with `--keep-scratch`.
 
+## Orphan runs — a second pure-scratch case, OUTSIDE this transaction
+
+A run directory can also be pure scratch a different way: a process killed or
+interrupted before it ever wrote a first `state.json` (the window between
+`ensureRunDirs` and the first `saveCheckpoint`). Such a directory never becomes a
+`RunRecord` at all, so `gc plan`/`gc run` can never see it, let alone reclaim it —
+`reclaimEligibility` requires a record to classify in the first place. `cw orphans
+list`/`cw orphans gc` (`src/run-registry/orphans.ts`) reclaim exactly this case,
+age-gated by default. Unlike everything else on this page, an orphan sweep
+produces **no skeleton and no tombstone** — there is no durable state to seal, so
+there is nothing to prove. It is a plain, un-audited delete of a directory the
+registry never knew existed, not a new tier of the `live -> archived -> reclaimed`
+lifecycle above.
+
+**Known gap, not covered by either mechanism:** a run stuck `running`/`queued`/
+`blocked` with a perfectly valid but stale `state.json` (its owning process died
+without ever reaching a terminal state) is reclaimed by NEITHER `gc.ts` (fail-closes
+on `non-terminal`, no age override) NOR `orphans.ts` (it has a `state.json`, so it
+is not an orphan candidate). As of this writing nothing in `cw` reclaims that
+class of run; it is left `retained` indefinitely rather than guessed at.
+
 ## CLI
 
 ```
