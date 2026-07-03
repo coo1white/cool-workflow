@@ -1,0 +1,2 @@
+APPROVED c54b492485d7032c370c0ec6ce046029c505a141
+Two agents scoped to separate repos that share no filesystem can now hand each other a change proposal or review verdict as digest-sealed JSON and verify/apply/list it fail-closed via cw ledger on both the CLI and MCP.
