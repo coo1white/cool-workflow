@@ -33,14 +33,29 @@ const RUNTIME_KEYS = new Set([
   "concurrency", "link", "ref", "branch", "refresh", "check", "app", "appId", "workflowId", "question", "repo",
 ]);
 
+/** Byte-exact port of the old build's `normalizeInputs`
+ *  (src/orchestrator/lifecycle-operations.ts:465-480): repeated `--arg
+ *  key=value` pairs unpack into inputs (key = text before the first "=",
+ *  value = the rest re-joined with "="); `repo` copies to `cwd` when `cwd`
+ *  is not already set. Per SPEC/orchestrator.md's "Plan input rules" and
+ *  SPEC/workflow-apps.md. */
 function planInputsFor(args: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(args)) {
+    if (key === "arg") {
+      const pairs = Array.isArray(value) ? value : [value];
+      for (const pair of pairs) {
+        const [argKey, ...rest] = String(pair).split("=");
+        out[argKey] = rest.join("=");
+      }
+      continue;
+    }
     if (RUNTIME_KEYS.has(key)) continue;
     out[key] = value;
   }
   if (typeof args.repo === "string") out.repo = args.repo;
   if (typeof args.question === "string") out.question = args.question;
+  if (out.repo && !out.cwd) out.cwd = out.repo;
   return out;
 }
 

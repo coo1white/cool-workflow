@@ -45,6 +45,21 @@ export interface TrustAuditEvent {
   scoreId?: string;
   selectionId?: string;
   commitId?: string;
+  multiAgentRunId?: string;
+  agentRoleId?: string;
+  agentGroupId?: string;
+  agentMembershipId?: string;
+  agentFanoutId?: string;
+  agentFaninId?: string;
+  blackboardId?: string;
+  blackboardTopicId?: string;
+  blackboardMessageId?: string;
+  blackboardContextId?: string;
+  blackboardArtifactRefId?: string;
+  blackboardSnapshotId?: string;
+  coordinatorDecisionId?: string;
+  topologyId?: string;
+  topologyRunId?: string;
   sandboxProfileId?: string;
   policyRef?: string;
   policySnapshot?: unknown;
@@ -70,9 +85,26 @@ export interface RecordTrustAuditInput {
   nodeId?: string;
   feedbackIds?: string[];
   candidateId?: string;
+  scoreId?: string;
   selectionId?: string;
   commitId?: string;
+  multiAgentRunId?: string;
+  agentRoleId?: string;
+  agentGroupId?: string;
+  agentMembershipId?: string;
+  agentFanoutId?: string;
+  agentFaninId?: string;
+  blackboardId?: string;
+  blackboardTopicId?: string;
+  blackboardMessageId?: string;
+  blackboardContextId?: string;
+  blackboardArtifactRefId?: string;
+  blackboardSnapshotId?: string;
+  coordinatorDecisionId?: string;
+  topologyId?: string;
+  topologyRunId?: string;
   sandboxProfileId?: string;
+  policyRef?: string;
   policySnapshot?: { id?: string };
   normalizedPath?: string;
   command?: string;
@@ -149,6 +181,13 @@ function readEventsRawCounted(eventLogPath: string): RawEventsRead {
 
 function readEventsRaw(eventLogPath: string): TrustAuditEvent[] {
   return readEventsRawCounted(eventLogPath).events;
+}
+
+/** Every recorded trust-audit event for this run, in append (file) order.
+ *  Used by trust-policy/collaboration summaries (e.g.
+ *  hasAcceptedJudgeRationale, summarizeMultiAgentTrust). */
+export function listTrustAuditEvents(run: WorkflowRun): TrustAuditEvent[] {
+  return readEventsRaw(ensureTrustAudit(run).eventLogPath);
 }
 
 export interface TrustAuditCheck {
@@ -245,6 +284,36 @@ function createEventId(run: WorkflowRun, kind: string): string {
   return `audit-${safeFileName(kind)}-${String(count).padStart(4, "0")}`;
 }
 
+/** Correlation-id keys copied verbatim (and no others) — byte-exact list/
+ *  order to the old build's CORRELATION_ID_FIELDS. */
+const CORRELATION_ID_FIELDS = [
+  "candidateId",
+  "scoreId",
+  "selectionId",
+  "commitId",
+  "multiAgentRunId",
+  "agentRoleId",
+  "agentGroupId",
+  "agentMembershipId",
+  "agentFanoutId",
+  "agentFaninId",
+  "blackboardId",
+  "blackboardTopicId",
+  "blackboardMessageId",
+  "blackboardContextId",
+  "blackboardArtifactRefId",
+  "blackboardSnapshotId",
+  "coordinatorDecisionId",
+  "topologyId",
+  "topologyRunId",
+] as const;
+
+function pickCorrelationIds(source: RecordTrustAuditInput): Record<string, string | undefined> {
+  const picked: Record<string, string | undefined> = {};
+  for (const field of CORRELATION_ID_FIELDS) picked[field] = source[field];
+  return picked;
+}
+
 export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditInput): TrustAuditEvent {
   const audit = ensureTrustAudit(run);
   const event = compact({
@@ -260,11 +329,9 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     taskId: input.taskId,
     nodeId: input.nodeId,
     feedbackIds: input.feedbackIds?.filter(Boolean).sort(),
-    candidateId: input.candidateId,
-    selectionId: input.selectionId,
-    commitId: input.commitId,
+    ...pickCorrelationIds(input),
     sandboxProfileId: input.sandboxProfileId || input.policySnapshot?.id,
-    policyRef: input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined,
+    policyRef: input.policyRef || (input.policySnapshot?.id ? `run.sandboxProfiles.${input.policySnapshot.id}` : undefined),
     policySnapshot: input.policySnapshot,
     normalizedPath: input.normalizedPath ? path.resolve(input.normalizedPath) : undefined,
     command: input.command,

@@ -1265,3 +1265,512 @@ REGISTRY_BY_CAPABILITY.get("report.verify-bundle")!.mcp!.handler = (args) => {
   const result = reportVerifyBundleCli(args);
   return result;
 };
+
+// ---------------------------------------------------------------------
+// MILESTONE 9 (multi-agent, topology, coordinator/blackboard, candidate
+// scoring, collaboration, eval replay) CLI bindings. Handler BODIES live
+// in shell/multi-agent-cli.ts (impure — they read/write multi-agent/
+// blackboard/candidate/collaboration/eval state on disk); this table
+// only wires argv shape -> handler call, per cli/dispatch.ts's generic
+// executor contract.
+// ---------------------------------------------------------------------
+
+import {
+  approveCli,
+  blackboardArtifactAddCli,
+  blackboardArtifactListCli,
+  blackboardContextPutCli,
+  blackboardGraphCli,
+  blackboardMessageListCli,
+  blackboardMessagePostCli,
+  blackboardResolveCli,
+  blackboardSnapshotCli,
+  blackboardSummaryCli,
+  blackboardTopicCreateCli,
+  candidateListCli,
+  candidateRankCli,
+  candidateRegisterCli,
+  candidateRejectCli,
+  candidateScoreCli,
+  candidateSelectCli,
+  candidateShowCli,
+  candidateSummaryCli,
+  commentAddCli,
+  commentListCli,
+  coordinatorDecisionCli,
+  coordinatorSummaryCli,
+  evalCompareCli,
+  evalGateCli,
+  evalReplayCli,
+  evalReportCli,
+  evalScoreCli,
+  evalSnapshotCli,
+  handoffCli,
+  multiAgentBlackboardCli,
+  multiAgentFaninCli,
+  multiAgentFanoutCli,
+  multiAgentGraphCli,
+  multiAgentGroupCli,
+  multiAgentMembershipCli,
+  multiAgentRoleCli,
+  multiAgentRunCli,
+  multiAgentScoreCli,
+  multiAgentSelectCli,
+  multiAgentShowCli,
+  multiAgentStatusCli,
+  multiAgentStepCli,
+  multiAgentSummaryCli,
+  rejectCollabCli,
+  reviewPolicyCli,
+  reviewStatusCli,
+  topologyApplyCli,
+  topologyGraphCli,
+  topologyList,
+  topologyRunShowCli,
+  topologyShowCli,
+  topologySummaryCli,
+  topologyValidateCli,
+} from "../shell/multi-agent-cli";
+attachCliBinding("topology.list", { path: ["topology", "list"], jsonMode: "default", handler: () => ({ json: topologyList() }) });
+REGISTRY_BY_CAPABILITY.get("topology.list")!.mcp!.handler = () => topologyList();
+
+attachCliBinding("topology.show", {
+  path: ["topology", "show"],
+  jsonMode: "default",
+  handler: (args) => ({ json: topologyShowCli(required(args.positionals[0], "topology id")) }),
+});
+REGISTRY_BY_CAPABILITY.get("topology.show")!.mcp!.handler = (args) => topologyShowCli(required(optionalArg(args.topologyId ?? args.id), "topology id"));
+
+attachCliBinding("topology.validate", {
+  path: ["topology", "validate"],
+  jsonMode: "default",
+  handler: (args) => {
+    const result = topologyValidateCli(required(args.positionals[0], "topology id"));
+    return { json: result, exitCode: result.valid ? undefined : 1 };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("topology.validate")!.mcp!.handler = (args) => topologyValidateCli(required(optionalArg(args.topologyId ?? args.id), "topology id"));
+
+attachCliBinding("topology.apply", {
+  path: ["topology", "apply"],
+  jsonMode: "default",
+  handler: (args) => ({
+    json: topologyApplyCli({ ...args.options, runId: required(args.positionals[0], "run id"), topologyId: required(args.positionals[1], "topology id") }),
+  }),
+});
+REGISTRY_BY_CAPABILITY.get("topology.apply")!.mcp!.handler = (args) => topologyApplyCli({ ...args, topologyId: args.topologyId ?? args.id });
+
+attachCliBinding("topology.summary", {
+  path: ["topology", "summary"],
+  jsonMode: "default",
+  handler: (args) => ({ json: topologySummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("topology.summary")!.mcp!.handler = (args) => topologySummaryCli(args);
+
+attachCliBinding("topology.graph", {
+  path: ["topology", "graph"],
+  jsonMode: "default",
+  handler: (args) => ({ json: topologyGraphCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("topology.graph")!.mcp!.handler = (args) => topologyGraphCli(args);
+
+// ---- multi-agent kernel + host -----------------------------------------
+
+attachCliBinding("multi-agent.run", {
+  path: ["multi-agent", "run"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentRunCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.run")!.mcp!.handler = (args) => multiAgentRunCli(args);
+
+attachCliBinding("multi-agent.status", {
+  path: ["multi-agent", "status"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentStatusCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.status")!.mcp!.handler = (args) => multiAgentStatusCli(args);
+
+attachCliBinding("multi-agent.step", {
+  path: ["multi-agent", "step"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentStepCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.step")!.mcp!.handler = (args) => multiAgentStepCli(args);
+
+attachCliBinding("multi-agent.blackboard", {
+  path: ["multi-agent", "blackboard"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentBlackboardCli({ ...args.options, runId: required(args.positionals[0], "run id") }, args.positionals[1]) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.blackboard")!.mcp!.handler = (args) => multiAgentBlackboardCli(args, args.action as string | undefined);
+
+attachCliBinding("multi-agent.score", {
+  path: ["multi-agent", "score"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentScoreCli({ ...args.options, runId: required(args.positionals[0], "run id"), candidate: args.options.candidate ?? args.positionals[1] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.score")!.mcp!.handler = (args) => multiAgentScoreCli(args);
+
+attachCliBinding("multi-agent.select", {
+  path: ["multi-agent", "select"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentSelectCli({ ...args.options, runId: required(args.positionals[0], "run id"), candidate: args.options.candidate ?? args.positionals[1] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.select")!.mcp!.handler = (args) => multiAgentSelectCli(args);
+
+attachCliBinding("multi-agent.summary", {
+  path: ["multi-agent", "summary"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentSummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.summary")!.mcp!.handler = (args) => multiAgentSummaryCli(args);
+
+attachCliBinding("multi-agent.graph", {
+  path: ["multi-agent", "graph"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentGraphCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.graph")!.mcp!.handler = (args) => multiAgentGraphCli(args);
+
+attachCliBinding("multi-agent.run.create", {
+  path: ["multi-agent", "role"],
+  helpPath: ["multi-agent", "role"],
+  jsonMode: "default",
+  handler: (args) => ({
+    json: multiAgentRoleCli({
+      ...args.options,
+      runId: required(args.positionals[0], "run id"),
+      roleId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.roleId,
+    }),
+  }),
+});
+attachCliBinding("multi-agent.group.create", {
+  path: ["multi-agent", "group"],
+  helpPath: ["multi-agent", "group"],
+  jsonMode: "default",
+  handler: (args) => ({
+    json: multiAgentGroupCli({
+      ...args.options,
+      runId: required(args.positionals[0], "run id"),
+      groupId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.groupId,
+    }),
+  }),
+});
+attachCliBinding("multi-agent.membership.create", {
+  path: ["multi-agent", "membership"],
+  helpPath: ["multi-agent", "membership"],
+  jsonMode: "default",
+  handler: (args) => ({
+    json: multiAgentMembershipCli({
+      ...args.options,
+      runId: required(args.positionals[0], "run id"),
+      membershipId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.membershipId,
+    }),
+  }),
+});
+attachCliBinding("multi-agent.fanout.create", {
+  path: ["multi-agent", "fanout"],
+  helpPath: ["multi-agent", "fanout"],
+  jsonMode: "default",
+  handler: (args) => ({
+    json: multiAgentFanoutCli({
+      ...args.options,
+      runId: required(args.positionals[0], "run id"),
+      fanoutId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.fanoutId,
+    }),
+  }),
+});
+attachCliBinding("multi-agent.fanin.collect", {
+  path: ["multi-agent", "fanin"],
+  helpPath: ["multi-agent", "fanin"],
+  jsonMode: "default",
+  handler: (args) => ({
+    json: multiAgentFaninCli({
+      ...args.options,
+      runId: required(args.positionals[0], "run id"),
+      faninId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.faninId,
+    }),
+  }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.run.create")!.mcp!.handler = (args) => multiAgentRoleCli(args);
+REGISTRY_BY_CAPABILITY.get("multi-agent.role.create")!.mcp!.handler = (args) => multiAgentRoleCli(args);
+REGISTRY_BY_CAPABILITY.get("multi-agent.group.create")!.mcp!.handler = (args) => multiAgentGroupCli(args);
+REGISTRY_BY_CAPABILITY.get("multi-agent.membership.create")!.mcp!.handler = (args) => multiAgentMembershipCli(args);
+REGISTRY_BY_CAPABILITY.get("multi-agent.fanout.create")!.mcp!.handler = (args) => multiAgentFanoutCli(args);
+REGISTRY_BY_CAPABILITY.get("multi-agent.fanin.collect")!.mcp!.handler = (args) => multiAgentFaninCli(args);
+
+attachCliBinding("multi-agent.run.transition", {
+  path: ["multi-agent", "transition"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentRunCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.run.transition")!.mcp!.handler = (args) => multiAgentRunCli(args);
+
+attachCliBinding("multi-agent.run.show", {
+  path: ["multi-agent", "show"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentShowCli({ runId: required(args.positionals[0], "run id"), ...args.options }, required(args.positionals[1], "id")) }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.run.show")!.mcp!.handler = (args) => multiAgentShowCli(args, required(optionalArg(args.multiAgentRunId ?? args.id), "id"));
+
+// ---- blackboard / coordinator -------------------------------------------
+
+attachCliBinding("blackboard.summary", {
+  path: ["blackboard", "summary"],
+  jsonMode: "default",
+  handler: (args) => ({ json: blackboardSummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.summary")!.mcp!.handler = (args) => blackboardSummaryCli(args);
+
+attachCliBinding("blackboard.graph", {
+  path: ["blackboard", "graph"],
+  jsonMode: "default",
+  handler: (args) => ({ json: blackboardGraphCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.graph")!.mcp!.handler = (args) => blackboardGraphCli(args);
+
+attachCliBinding("blackboard.resolve", {
+  path: ["blackboard", "resolve"],
+  jsonMode: "default",
+  handler: (args) => ({ json: blackboardResolveCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.resolve")!.mcp!.handler = (args) => blackboardResolveCli(args);
+
+attachCliBinding("blackboard.topic.create", {
+  path: ["blackboard", "topic"],
+  helpPath: ["blackboard", "topic", "create"],
+  jsonMode: "default",
+  handler: (args) => ({ json: blackboardTopicCreateCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.topic.create")!.mcp!.handler = (args) => blackboardTopicCreateCli(args);
+
+attachCliBinding("blackboard.message.post", {
+  path: ["blackboard", "message"],
+  helpPath: ["blackboard", "message", "post"],
+  jsonMode: "default",
+  handler: (args) => {
+    const action = args.positionals[1];
+    if (action === "list") return { json: blackboardMessageListCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+    return { json: blackboardMessagePostCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+  },
+});
+attachCliBinding("blackboard.message.list", {
+  path: ["blackboard", "message"],
+  helpPath: ["blackboard", "message", "list"],
+  jsonMode: "default",
+  handler: (args) => {
+    const action = args.positionals[1];
+    if (action === "list") return { json: blackboardMessageListCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+    return { json: blackboardMessagePostCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.message.post")!.mcp!.handler = (args) => blackboardMessagePostCli(args);
+REGISTRY_BY_CAPABILITY.get("blackboard.message.list")!.mcp!.handler = (args) => blackboardMessageListCli(args);
+
+attachCliBinding("blackboard.context.put", {
+  path: ["blackboard", "context"],
+  helpPath: ["blackboard", "context", "put"],
+  jsonMode: "default",
+  handler: (args) => ({ json: blackboardContextPutCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.context.put")!.mcp!.handler = (args) => blackboardContextPutCli(args);
+
+attachCliBinding("blackboard.artifact.add", {
+  path: ["blackboard", "artifact"],
+  helpPath: ["blackboard", "artifact", "add"],
+  jsonMode: "default",
+  handler: (args) => {
+    const action = args.positionals[1];
+    if (action === "list") return { json: blackboardArtifactListCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+    return { json: blackboardArtifactAddCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+  },
+});
+attachCliBinding("blackboard.artifact.list", {
+  path: ["blackboard", "artifact"],
+  helpPath: ["blackboard", "artifact", "list"],
+  jsonMode: "default",
+  handler: (args) => {
+    const action = args.positionals[1];
+    if (action === "list") return { json: blackboardArtifactListCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+    return { json: blackboardArtifactAddCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.artifact.add")!.mcp!.handler = (args) => blackboardArtifactAddCli(args);
+REGISTRY_BY_CAPABILITY.get("blackboard.artifact.list")!.mcp!.handler = (args) => blackboardArtifactListCli(args);
+
+attachCliBinding("blackboard.snapshot", {
+  path: ["blackboard", "snapshot"],
+  jsonMode: "default",
+  handler: (args) => ({ json: blackboardSnapshotCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.snapshot")!.mcp!.handler = (args) => blackboardSnapshotCli(args);
+
+attachCliBinding("coordinator.summary", {
+  path: ["coordinator", "summary"],
+  jsonMode: "default",
+  handler: (args) => ({ json: coordinatorSummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("coordinator.summary")!.mcp!.handler = (args) => coordinatorSummaryCli(args);
+
+attachCliBinding("coordinator.decision", {
+  path: ["coordinator", "decision"],
+  jsonMode: "default",
+  handler: (args) => ({ json: coordinatorDecisionCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("coordinator.decision")!.mcp!.handler = (args) => coordinatorDecisionCli(args);
+
+// ---- candidate scoring ----------------------------------------------------
+
+attachCliBinding("candidate.list", {
+  path: ["candidate", "list"],
+  jsonMode: "default",
+  handler: (args) => ({ json: candidateListCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("candidate.list")!.mcp!.handler = (args) => candidateListCli(args);
+
+attachCliBinding("candidate.show", {
+  path: ["candidate", "show"],
+  jsonMode: "default",
+  handler: (args) => ({ json: candidateShowCli({ runId: required(args.positionals[0], "run id"), ...args.options }, required(args.positionals[1], "candidate id")) }),
+});
+REGISTRY_BY_CAPABILITY.get("candidate.show")!.mcp!.handler = (args) => candidateShowCli(args, required(optionalArg(args.candidateId), "candidate id"));
+
+attachCliBinding("candidate.register", {
+  path: ["candidate", "register"],
+  jsonMode: "default",
+  handler: (args) => ({ json: candidateRegisterCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("candidate.register")!.mcp!.handler = (args) => candidateRegisterCli(args);
+
+attachCliBinding("candidate.score", {
+  path: ["candidate", "score"],
+  jsonMode: "default",
+  handler: (args) => ({ json: candidateScoreCli({ ...args.options, runId: required(args.positionals[0], "run id") }, required(args.positionals[1], "candidate id")) }),
+});
+REGISTRY_BY_CAPABILITY.get("candidate.score")!.mcp!.handler = (args) => candidateScoreCli(args, required(optionalArg(args.candidateId), "candidate id"));
+
+attachCliBinding("candidate.rank", {
+  path: ["candidate", "rank"],
+  jsonMode: "default",
+  handler: (args) => ({ json: candidateRankCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("candidate.rank")!.mcp!.handler = (args) => candidateRankCli(args);
+
+attachCliBinding("candidate.select", {
+  path: ["candidate", "select"],
+  jsonMode: "default",
+  handler: (args) => ({ json: candidateSelectCli({ ...args.options, runId: required(args.positionals[0], "run id") }, required(args.positionals[1], "candidate id")) }),
+});
+REGISTRY_BY_CAPABILITY.get("candidate.select")!.mcp!.handler = (args) => candidateSelectCli(args, required(optionalArg(args.candidateId), "candidate id"));
+
+attachCliBinding("candidate.reject", {
+  path: ["candidate", "reject"],
+  jsonMode: "default",
+  handler: (args) => ({ json: candidateRejectCli({ ...args.options, runId: required(args.positionals[0], "run id") }, required(args.positionals[1], "candidate id")) }),
+});
+REGISTRY_BY_CAPABILITY.get("candidate.reject")!.mcp!.handler = (args) => candidateRejectCli(args, required(optionalArg(args.candidateId), "candidate id"));
+
+attachCliBinding("candidate.summary", {
+  path: ["candidate", "summary"],
+  jsonMode: "default",
+  handler: (args) => ({ json: candidateSummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("candidate.summary")!.mcp!.handler = (args) => candidateSummaryCli(args);
+
+// ---- collaboration ---------------------------------------------------------
+
+attachCliBinding("approve", {
+  path: ["approve"],
+  jsonMode: "default",
+  handler: (args) => ({ json: approveCli({ ...args.options, runId: required(args.positionals[1], "run id"), body: args.positionals[3] }, args.positionals[0], args.positionals[2]) }),
+});
+REGISTRY_BY_CAPABILITY.get("approve")!.mcp!.handler = (args) => approveCli(args);
+
+attachCliBinding("reject", {
+  path: ["reject"],
+  jsonMode: "default",
+  handler: (args) => ({ json: rejectCollabCli({ ...args.options, runId: required(args.positionals[1], "run id") }, args.positionals[0], args.positionals[2]) }),
+});
+REGISTRY_BY_CAPABILITY.get("reject")!.mcp!.handler = (args) => rejectCollabCli(args);
+
+attachCliBinding("comment.add", {
+  path: ["comment", "add"],
+  jsonMode: "default",
+  handler: (args) => ({ json: commentAddCli({ ...args.options, runId: required(args.positionals[1], "run id"), body: args.options.body ?? args.positionals[3] }, args.positionals[0], args.positionals[2]) }),
+});
+REGISTRY_BY_CAPABILITY.get("comment.add")!.mcp!.handler = (args) => commentAddCli(args);
+
+attachCliBinding("comment.list", {
+  path: ["comment", "list"],
+  jsonMode: "default",
+  handler: (args) => ({ json: commentListCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("comment.list")!.mcp!.handler = (args) => commentListCli(args);
+
+attachCliBinding("handoff", {
+  path: ["handoff"],
+  jsonMode: "default",
+  handler: (args) => ({ json: handoffCli({ ...args.options, runId: required(args.positionals[1], "run id") }, args.positionals[0], args.positionals[2]) }),
+});
+REGISTRY_BY_CAPABILITY.get("handoff")!.mcp!.handler = (args) => handoffCli(args);
+
+attachCliBinding("review.status", {
+  path: ["review", "status"],
+  jsonMode: "default",
+  handler: (args) => ({ json: reviewStatusCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("review.status")!.mcp!.handler = (args) => reviewStatusCli(args);
+
+attachCliBinding("review.policy", {
+  path: ["review", "policy"],
+  jsonMode: "default",
+  handler: (args) => ({ json: reviewPolicyCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("review.policy")!.mcp!.handler = (args) => reviewPolicyCli(args);
+
+// ---- eval replay harness ---------------------------------------------------
+
+attachCliBinding("eval.snapshot", {
+  path: ["eval", "snapshot"],
+  jsonMode: "default",
+  handler: (args) => ({ json: evalSnapshotCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("eval.snapshot")!.mcp!.handler = (args) => evalSnapshotCli(args);
+
+attachCliBinding("eval.replay", {
+  path: ["eval", "replay"],
+  jsonMode: "default",
+  handler: (args) => ({ json: evalReplayCli({ snapshot: args.positionals[0], ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("eval.replay")!.mcp!.handler = (args) => evalReplayCli(args);
+
+attachCliBinding("eval.compare", {
+  path: ["eval", "compare"],
+  jsonMode: "default",
+  handler: (args) => ({ json: evalCompareCli({ baseline: args.positionals[0], replay: args.positionals[1], ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("eval.compare")!.mcp!.handler = (args) => evalCompareCli(args);
+
+attachCliBinding("eval.score", {
+  path: ["eval", "score"],
+  jsonMode: "default",
+  handler: (args) => ({ json: evalScoreCli({ replay: args.positionals[0], ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("eval.score")!.mcp!.handler = (args) => evalScoreCli(args);
+
+attachCliBinding("eval.gate", {
+  path: ["eval", "gate"],
+  jsonMode: "default",
+  handler: (args) => {
+    const gate = evalGateCli({ suite: args.positionals[0], ...args.options }) as { verdict: string };
+    return { json: gate, exitCode: gate.verdict === "ship" ? undefined : 1 };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("eval.gate")!.mcp!.handler = (args) => evalGateCli(args);
+
+attachCliBinding("eval.report", {
+  path: ["eval", "report"],
+  jsonMode: "default",
+  handler: (args) => ({ json: evalReportCli({ replay: args.positionals[0], ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("eval.report")!.mcp!.handler = (args) => evalReportCli(args);

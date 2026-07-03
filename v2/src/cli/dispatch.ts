@@ -220,25 +220,11 @@ function dispatchLegacy(args: ParsedArgv): void {
     // 5) that dispatchTable() above always matches first, per the
     // Revision note's "table rows, never a new switch arm" rule.
 
-    // PLACEHOLDER (milestone 9, multi-agent/topology) — real
-    // `topology validate` checks a topology id against the registered
-    // OFFICIAL_TOPOLOGIES table; this milestone reproduces only the
-    // unknown-id refusal.
-    case "topology": {
-      const sub = firstPositional(args);
-      if (sub === "validate") {
-        const topologyId = optionalArg(firstPositional(args, 1)) || "";
-        const payload = {
-          valid: false,
-          topologyId,
-          issues: [{ code: "unknown-topology", message: `Unknown topology id: ${topologyId}` }],
-        };
-        printJson(payload);
-        process.exitCode = 1;
-        return;
-      }
-      throw new Error(`topology ${sub ?? ""} is not implemented in this milestone`);
-    }
+    // NOTE: "topology" is not an arm here any more — topology.list/show/
+    // validate/apply/summary/graph are now real capability-table rows
+    // (core/capability-table.ts, milestone 9) that dispatchTable() above
+    // always matches first, per the Revision note's "table rows, never a
+    // new switch arm" rule.
 
     // PLACEHOLDER (milestone 3/4, state kernel + contract-migration) —
     // real `migration check`/`prove` resolve a run id or file target; the
