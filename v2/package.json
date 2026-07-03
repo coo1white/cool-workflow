@@ -1,0 +1,23 @@
+{
+  "name": "cool-workflow",
+  "version": "0.0.0-v2",
+  "bin": {
+    "cool-workflow": "scripts/cw.js",
+    "cw": "scripts/cw.js"
+  },
+  "description": "Cool Workflow v2 -- rebuilt per v2/PLAN.md from the v2/SPEC behavior spec, judged by v2/conformance.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "BSD-2-Clause",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "conformance": "node ../conformance/run.js --bin dist/cli.js"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
