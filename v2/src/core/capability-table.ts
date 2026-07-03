@@ -946,3 +946,169 @@ addCliOnlyCapability(
   },
   "Environment fix commands are local diagnostics, same reasoning as doctor."
 );
+
+// ---------------------------------------------------------------------
+// MILESTONE 6+7 (combined; see v2/PLAN.md Open risk 10) CLI bindings:
+// plan, quickstart, run --drive, run drive (preview), dispatch, result,
+// commit. Handler BODIES live in shell/pipeline-cli.ts (impure — they
+// plan/drive/dispatch/commit real run state on disk); this table only
+// wires argv shape -> handler call, per cli/dispatch.ts's generic
+// executor contract.
+// ---------------------------------------------------------------------
+
+import { planRun, runDrivePreview, runDriveStep, quickstartRun, dispatchRun, recordResultRun, commitRun } from "../shell/pipeline-cli";
+
+attachCliBinding("plan", {
+  path: ["plan"],
+  jsonMode: "default",
+  handler: (args) => {
+    const workflowId = optionalArg(args.positionals[0]);
+    if (!workflowId) {
+      throw new Error('Missing workflow id.\n  Tip: plan an architecture review with "cw plan architecture-review"');
+    }
+    return { json: planRun({ ...args.options, workflowId }) };
+  },
+});
+
+// `cw run <app> --drive [--once]` and `cw run drive <run-id> [--step]`
+// share the single `run` dispatch path (byte-exact to the old build's
+// handleRun: a run-REGISTRY subcommand keyword is never hijacked by the
+// bare `--drive` intercept just because it carries its own --drive/--step
+// flag). Both rows below dispatch on `["run"]`; the FIRST one registered
+// (run.drive.step) is found first by findCapabilityByCliPath's linear
+// scan, so its handler carries the full branch — the second row exists
+// only so `cw help run` lists both capabilities.
+attachCliBinding("run.drive.step", {
+  path: ["run"],
+  helpPath: ["run", "drive"],
+  jsonMode: "default",
+  handler: (args) => {
+    const registrySubcommands = new Set(["drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive", "restore"]);
+    const target = args.positionals[0];
+    if (args.options.drive && !registrySubcommands.has(String(target || ""))) {
+      const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
+      if (args.options.preview) return { json: runDrivePreview({ ...args.options, runId: runId || target }) };
+      const driveArgs: Record<string, unknown> = { ...args.options };
+      if (runId) driveArgs.runId = runId;
+      else driveArgs.appId = target;
+      return { json: runDriveStep(driveArgs) };
+    }
+    const [subcommand, id] = args.positionals;
+    if (subcommand === "drive") {
+      if (args.options.step) {
+        const driveArgs: Record<string, unknown> = { ...args.options };
+        if (id) driveArgs.runId = id;
+        return { json: runDriveStep(driveArgs) };
+      }
+      return { json: runDrivePreview({ ...args.options, runId: required(id, "run id") }) };
+    }
+    // PLACEHOLDER (milestone 11, reporting/run-export) — real
+    // inspect-archive/restore read a portable archive's manifest and
+    // verify digests; this milestone reproduces only the fail-closed
+    // "archive not found" shape (carried forward byte-identical from the
+    // milestone-1 dispatchLegacy stub now that "run" is a real
+    // capability-table row).
+    if (subcommand === "inspect-archive") {
+      const archivePath = id || "";
+      return {
+        json: {
+          schemaVersion: 1,
+          archivePath,
+          ok: false,
+          schemaSupported: false,
+          runId: null,
+          fileCount: 0,
+          manifestSha256: null,
+          archiveSha256: null,
+          checks: [{ name: "archive", pass: false, code: "archive-unreadable", path: archivePath }],
+        },
+        exitCode: 1,
+      };
+    }
+    if (subcommand === "restore") {
+      const archivePath = id || "";
+      return {
+        json: {
+          schemaVersion: 1,
+          ok: false,
+          target: archivePath,
+          inspect: {
+            schemaVersion: 1,
+            archivePath,
+            ok: false,
+            schemaSupported: false,
+            runId: null,
+            fileCount: 0,
+            manifestSha256: null,
+            archiveSha256: null,
+            checks: [{ name: "archive", pass: false, code: "archive-unreadable", path: archivePath }],
+          },
+          imported: null,
+          verify: null,
+          registry: null,
+        },
+        exitCode: 1,
+      };
+    }
+    throw new Error(`run ${subcommand ?? ""} is not implemented in this milestone`);
+  },
+});
+
+// `run.drive` (the read-only MCP preview tool) has NO separate CLI dispatch
+// path of its own — `cw run drive <run-id>` is served by run.drive.step's
+// handler above (byte-exact to the old build's single handleRun switch,
+// which the same source function backs both branches from). Attaching a
+// SECOND row to cli.path ["run"] would create an ambiguous match (the
+// registry-order-first row would always win over the intended one) — see
+// the comment on run.drive.step above. run.drive keeps its MCP handler
+// only; `cw help run` still lists it via REGISTRY, just without its own
+// cli binding (a capability with no `.cli` is skipped by cliCapabilities()).
+REGISTRY_BY_CAPABILITY.get("run.drive")!.mcp!.handler = (args) => runDrivePreview(args);
+REGISTRY_BY_CAPABILITY.get("run.drive.step")!.mcp!.handler = (args) => runDriveStep(args);
+REGISTRY_BY_CAPABILITY.get("plan")!.mcp!.handler = (args) => planRun(args);
+REGISTRY_BY_CAPABILITY.get("dispatch")!.mcp!.handler = (args) => dispatchRun(args);
+REGISTRY_BY_CAPABILITY.get("result")!.mcp!.handler = (args) => recordResultRun(args);
+REGISTRY_BY_CAPABILITY.get("commit")!.mcp!.handler = (args) => commitRun(args);
+
+addCliOnlyCapability(
+  "quickstart",
+  "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).",
+  {
+    path: ["quickstart"],
+    jsonMode: "default",
+    handler: (args) => {
+      const appId = optionalArg(args.positionals[0]);
+      return { json: quickstartRun({ ...args.options, appId }) };
+    },
+  },
+  "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer)."
+);
+
+attachCliBinding("dispatch", {
+  path: ["dispatch"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    return { json: dispatchRun({ ...args.options, runId }) };
+  },
+});
+
+attachCliBinding("result", {
+  path: ["result"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    const taskId = required(optionalArg(args.positionals[1]), "task id");
+    const resultPath = required(optionalArg(args.positionals[2]), "result file path");
+    return { json: recordResultRun({ ...args.options, runId, taskId, resultPath }) };
+  },
+});
+
+attachCliBinding("commit", {
+  path: ["commit"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    return { json: commitRun({ ...args.options, runId }) };
+  },
+});

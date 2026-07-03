@@ -423,7 +423,7 @@ export interface WorkflowRun {
     id: string;
     title: string;
     summary: string;
-    limits: { maxAgents: number; maxConcurrentAgents: number };
+    limits: { maxAgents: number; maxConcurrentAgents: number; tokenBudget?: number };
     app?: Record<string, unknown>;
   };
   inputs: Record<string, unknown>;

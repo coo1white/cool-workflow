@@ -159,29 +159,9 @@ function dispatchLegacy(args: ParsedArgv): void {
       return;
     }
 
-    // PLACEHOLDER (milestone 3, state kernel) — real `plan` creates a run
-    // dir + state.json; this milestone only reproduces the missing-id
-    // refusal that cli-exit-codes.case.js probes.
-    case "plan": {
-      const workflowId = optionalArg(firstPositional(args));
-      if (!workflowId) {
-        throw new Error('Missing workflow id.\n  Tip: plan an architecture review with "cw plan architecture-review"');
-      }
-      throw new Error("plan is not implemented in this milestone");
-    }
-
-    // PLACEHOLDER (milestone 3, state kernel) — real `quickstart` plans,
-    // drives, and reports in one call; this milestone only reproduces the
-    // fail-closed shape when the resolved repo path does not exist (the
-    // run-dir mkdir fails with the same ENOENT node's fs gives on the real
-    // pipeline's first disk write), so the `-dir`/`--repo` precedence rule
-    // is observable through a real error message naming the resolved path.
-    case "quickstart": {
-      const repo = optionalArg(args.options.repo) || process.cwd();
-      const resolvedRepo = path.resolve(repo);
-      fs.mkdirSync(path.join(resolvedRepo, ".cw", "runs"), { recursive: true });
-      throw new Error("quickstart is not implemented in this milestone");
-    }
+    // NOTE: "plan" and "quickstart" are not arms here any more — both are
+    // now real capability-table rows (core/capability-table.ts, milestone
+    // 6+7) that dispatchTable() above always matches first.
 
     // PLACEHOLDER (milestone 3/6, state kernel + pipeline) — real `next`
     // loads run state and returns dispatchable tasks; this milestone only
@@ -257,56 +237,12 @@ function dispatchLegacy(args: ParsedArgv): void {
       throw new Error(`gc ${sub ?? ""} is not implemented in this milestone`);
     }
 
-    // PLACEHOLDER (milestone 11, reporting/run-export) — real
-    // inspect-archive/restore read a portable archive's manifest and
-    // verify digests; this milestone reproduces only the fail-closed
-    // "archive not found" shape.
-    case "run": {
-      const sub = firstPositional(args);
-      if (sub === "inspect-archive") {
-        const archivePath = optionalArg(firstPositional(args, 1)) || "";
-        const payload = {
-          schemaVersion: 1,
-          archivePath,
-          ok: false,
-          schemaSupported: false,
-          runId: null,
-          fileCount: 0,
-          manifestSha256: null,
-          archiveSha256: null,
-          checks: [{ name: "archive", pass: false, code: "archive-unreadable", path: archivePath }],
-        };
-        printJson(payload);
-        process.exitCode = 1;
-        return;
-      }
-      if (sub === "restore") {
-        const archivePath = optionalArg(firstPositional(args, 1)) || "";
-        const payload = {
-          schemaVersion: 1,
-          ok: false,
-          target: archivePath,
-          inspect: {
-            schemaVersion: 1,
-            archivePath,
-            ok: false,
-            schemaSupported: false,
-            runId: null,
-            fileCount: 0,
-            manifestSha256: null,
-            archiveSha256: null,
-            checks: [{ name: "archive", pass: false, code: "archive-unreadable", path: archivePath }],
-          },
-          imported: null,
-          verify: null,
-          registry: null,
-        };
-        printJson(payload);
-        process.exitCode = 1;
-        return;
-      }
-      throw new Error(`run ${sub ?? ""} is not implemented in this milestone`);
-    }
+    // NOTE: "run" is not an arm here any more — run.drive.step/run.drive
+    // are now real capability-table rows (core/capability-table.ts,
+    // milestone 6+7) that dispatchTable() above always matches first
+    // (their handler reproduces the inspect-archive/restore placeholder
+    // shapes this arm used to own), per the Revision note's "table rows,
+    // never a new switch arm" rule.
 
     // NOTE: "sandbox" is not an arm here — sandbox.list/show/validate are
     // now real capability-table rows (core/capability-table.ts, milestone

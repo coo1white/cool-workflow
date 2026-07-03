@@ -120,11 +120,11 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
       command: "cw run drive",
       summary: "Preview the next agent-delegation drive step for a run (read-only, deterministic).",
     },
-    {
-      command: "cw run drive",
-      summary:
-        "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step).",
-    },
+    // NOTE: the second "cw run drive" row (the mutating "Drive a run by
+    // delegating..." summary) is NOT listed here any more — it is now a
+    // real capability-table row (run.drive.step, milestone 6+7) and comes
+    // from cliCommandHelpRows("run") below, so it is not hand-duplicated
+    // in both places.
     {
       command: "cw run export",
       summary: "Export a run to a portable archive with run-local files and digest integrity.",
@@ -165,13 +165,10 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
       summary: "Verify an imported run against its restore manifest and telemetry chain.",
     },
   ],
-  quickstart: [
-    {
-      command: "cw quickstart",
-      summary:
-        "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).",
-    },
-  ],
+  // NOTE: "quickstart" is not listed here any more — it is now a real
+  // capability-table row (milestone 6+7, core/capability-table.ts) and
+  // comes from cliCommandHelpRows("quickstart") below, so its summary
+  // text lives in exactly one place.
   man: [{ command: "cw man", summary: "Show a man page from docs/ (e.g. cw man release-tooling)." }],
   demo: [
     {
