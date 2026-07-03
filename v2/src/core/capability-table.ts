@@ -381,6 +381,8 @@ const MCP_REAL_HANDLERS: Record<string, (args: Record<string, unknown>) => unkno
   list: () => listBundledWorkflows(),
   "sandbox.list": () => listBundledSandboxProfiles(),
   status: (args) => statusPayload(optionalString(args.runId)),
+  "summary.refresh": (args) => summaryRefreshCli(required(optionalString(args.runId), "run id"), args),
+  "summary.show": (args) => summaryShowCli(required(optionalString(args.runId), "run id"), args),
 };
 
 function optionalString(value: unknown): string | undefined {
@@ -740,3 +742,43 @@ attachCliBinding("node.replay.verify", {
 // wired here (it IS in MCP_TOOL_DATA already); no milestone-3 conformance
 // case reaches it, so it is intentionally left on its placeholder handler
 // until a case demands it — avoids speculative, untested wiring.
+
+// ---------------------------------------------------------------------
+// MILESTONE 4 (state-explosion summaries) CLI bindings: summary.refresh,
+// summary.show. Handler BODIES live in shell/state-explosion-cli.ts
+// (impure — disk reads/writes summaries under the run dir); this table
+// only wires argv shape -> handler call, per cli/dispatch.ts's generic
+// executor contract. Per SPEC/state-core.md's CLI verbs section: without
+// `--json` both print `formatStateExplosionReport` text (jsonMode
+// "flag" — text by default, JSON under --json/--format json).
+// ---------------------------------------------------------------------
+
+import { formatStateExplosionReport } from "./format/state-explosion-text";
+import { summaryRefreshCli, summaryShowCli } from "../shell/state-explosion-cli";
+import { wantsJson } from "../cli/io";
+
+attachCliBinding("summary.refresh", {
+  path: ["summary", "refresh"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const index = summaryRefreshCli(runId, args.options);
+    // Byte-exact port of the old build's handleSummary "refresh": the
+    // human-text branch re-reads via a fresh summaryShow call rather than
+    // formatting the refresh's own index record (src/cli/handlers/
+    // operator.ts:118-127); only computed when actually needed, so a
+    // --json call does exactly the one read the old build's if/else did.
+    if (wantsJson(args.options)) return { json: index };
+    return { json: index, text: formatStateExplosionReport(summaryShowCli(runId, args.options)) };
+  },
+});
+
+attachCliBinding("summary.show", {
+  path: ["summary", "show"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const report = summaryShowCli(runId, args.options);
+    return { json: report, text: formatStateExplosionReport(report) };
+  },
+});
