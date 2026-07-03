@@ -86,6 +86,18 @@ function readJson(p) {
   return JSON.parse(fs.readFileSync(p, "utf8"));
 }
 
+// stubAgentEnv(evidence) — env to wire the deterministic fake agent
+// (fixtures/stub-agent.js) as CW_AGENT_COMMAND. `evidence` is a "path:line"
+// that must exist in the target repo (lib.gitRepo()'s default seed file is
+// a.txt, matching the stub's own default) — CW_REQUIRE_RESOLVABLE_EVIDENCE
+// defaults on and rejects an evidence locator that doesn't resolve on disk.
+const STUB_AGENT = path.join(__dirname, "cases", "fixtures", "stub-agent.js");
+function stubAgentEnv(evidence) {
+  const env = { CW_AGENT_COMMAND: `node ${STUB_AGENT} {{input}} {{result}}` };
+  if (evidence) env.CW_STUB_EVIDENCE = evidence;
+  return env;
+}
+
 // jsonLines(text) — parse stdout that is one JSON value per line.
 function jsonLines(text) {
   return text.split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
@@ -105,4 +117,4 @@ function caseMain(fn) {
     });
 }
 
-module.exports = { run, freshDir, gitRepo, readJson, jsonLines, caseMain, assert, WORK };
+module.exports = { run, freshDir, gitRepo, readJson, jsonLines, caseMain, assert, stubAgentEnv, WORK };
