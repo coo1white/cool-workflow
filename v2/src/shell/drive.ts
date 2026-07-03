@@ -44,18 +44,21 @@ import {
   cacheFileName,
 } from "../core/pipeline/drive-decide";
 import { maxLoopExpansion } from "../core/pipeline/loop-expansion";
+import { firstRunnablePhase } from "../core/pipeline/dispatch";
 import { loadRunFromCwd, saveCheckpoint } from "./run-store";
 import { createDispatchManifest } from "./dispatch";
 import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope } from "./worker-isolation";
 import { commitState } from "./commit";
 import { writeReport } from "./report";
 import { resolveAgentConfig } from "./agent-config";
-import { AgentDelegationConfig } from "./execution-backend/types";
+import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/types";
 import { runBackend } from "./execution-backend/registry";
-import { stripSecretArgs } from "./execution-backend/agent";
+import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes } from "./execution-backend/agent";
+import { buildChildEnv } from "./execution-backend/local";
 import { sha256, stableStringify } from "../core/hash";
 import { plan } from "./pipeline";
 import { reporter } from "./reporter";
+import { safeFileName } from "./fs-atomic";
 
 export const DRIVE_SCHEMA_VERSION = 1;
 export const MAX_SUB_WORKFLOW_DEPTH = 4;
@@ -112,8 +115,37 @@ interface DriveContext {
   visitedAppIds: string[];
 }
 
+// A concurrent round runs many dispatch/accept steps against ONE shared
+// in-memory run object, deferring every disk write to a single flush at
+// round end (see driveConcurrentRound below). loadRun(ctx) is the single
+// choke point every step reads through, so the cache lives here: while a
+// round is active for a given run id, loadRun returns the SAME mutated
+// object instead of re-reading (necessarily stale) disk state. Keyed by
+// run id (not a stack) so a sub-workflow task's nested drive() call on a
+// DIFFERENT run id is unaffected — re-entrant, matches the old build's
+// runner.loadWithCache. Byte-exact in spirit to src/drive.ts's own
+// per-runner cache; ported here as a module-level map since this build
+// has no persistent "runner" object to hang it on.
+const roundCache = new Map<string, WorkflowRun>();
+
 function loadRun(ctx: DriveContext): WorkflowRun {
+  const cached = roundCache.get(ctx.runId);
+  if (cached) return cached;
   return loadRunFromCwd(ctx.runId, ctx.cwd);
+}
+
+/** Runs `fn` with `runId`'s loadRun calls served from one shared cached
+ *  object (seeded fresh from disk), and always clears the cache entry
+ *  afterward — even on throw — so a round never leaks its cache into a
+ *  later, unrelated drive call. */
+function withRoundCache<T>(ctx: DriveContext, fn: () => T): T {
+  const seed = loadRunFromCwd(ctx.runId, ctx.cwd);
+  roundCache.set(ctx.runId, seed);
+  try {
+    return fn();
+  } finally {
+    roundCache.delete(ctx.runId);
+  }
 }
 
 function resultCachePath(run: WorkflowRun, task: { id: string; phase: string; prompt: string; resultCache?: { mode?: string; keyInput?: string } }, promptDigest: string, incremental: boolean, delegationDigest: string): string | undefined {
@@ -128,11 +160,7 @@ function resultCachePath(run: WorkflowRun, task: { id: string; phase: string; pr
     digest = defaultCacheKey(run.workflow.id, task.id, policy.keyInput, keyValue, promptDigest, "");
   }
   if (!digest) return undefined;
-  return path.join(run.cwd, ".cw", "cache", "worker-results", safeName(run.workflow.id), cacheFileName(task.id, digest));
-}
-
-function safeName(value: string): string {
-  return String(value).replace(/[^A-Za-z0-9._-]/g, "_");
+  return path.join(run.cwd, ".cw", "cache", "worker-results", safeFileName(run.workflow.id), cacheFileName(task.id, digest));
 }
 
 function previousPhaseResultsDigest(run: WorkflowRun, task: { id: string; phase: string }): string | undefined {
@@ -158,20 +186,30 @@ function writeResultCache(file: string, content: string): void {
   fs.renameSync(tmp, file);
 }
 
-function handleHop(ctx: DriveContext, task: { id: string; phase: string }, workerId: string, reason: string): DriveStep {
-  const scope = getWorkerScope(loadRun(ctx), workerId);
+/** `deferPersist` (concurrent-round callers ONLY — never a plain serial
+ *  step) skips saveCheckpoint so a caller driving many tasks through one
+ *  in-memory `run` can defer the disk flush to a single call at round
+ *  end; `sharedRun`, when given, is mutated in place instead of a fresh
+ *  loadRun (the round's one shared cached object). */
+function handleHop(ctx: DriveContext, task: { id: string; phase: string }, workerId: string, reason: string, deferPersist = false, sharedRun?: WorkflowRun): DriveStep {
+  // ONE load, mutated in place and saved — a fresh reload right before
+  // saveCheckpoint would discard recordWorkerFailure/RetryAttempt's own
+  // in-memory mutation (they return an updated scope but mutate the run
+  // object passed in), silently dropping the park/retry bookkeeping.
+  const run = sharedRun || loadRun(ctx);
+  const scope = getWorkerScope(run, workerId);
   const persisted = scope?.retryCount || 0;
   const prior = priorAttempts(ctx.attempts.get(task.id) || 0, persisted);
   const decided = retryOrPark(prior, DEFAULT_SCHEDULING_POLICY, reason);
   ctx.attempts.set(task.id, decided.attempts);
 
   if (decided.status === "parked") {
-    recordWorkerFailure(loadRun(ctx), workerId, decided.parkedReason || reason, { code: "agent-delegation-parked", retryable: false, retryCount: decided.attempts });
-    saveCheckpoint(loadRun(ctx));
+    recordWorkerFailure(run, workerId, decided.parkedReason || reason, { code: "agent-delegation-parked", retryable: false, retryCount: decided.attempts });
+    if (!deferPersist) saveCheckpoint(run);
     return makeStep("park", "parked", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason: decided.parkedReason || reason });
   }
-  recordWorkerRetryAttempt(loadRun(ctx), workerId, decided.attempts, reason);
-  saveCheckpoint(loadRun(ctx));
+  recordWorkerRetryAttempt(run, workerId, decided.attempts, reason);
+  if (!deferPersist) saveCheckpoint(run);
   return makeStep("fulfill", "failed", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason });
 }
 
@@ -187,7 +225,12 @@ function errMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
+/** `deferPersist` (concurrent-round callers ONLY) skips the per-task
+ *  commitState/saveCheckpoint calls — the round flushes once at the end
+ *  instead. `preparedOutcome`, when given (concurrent round only), is
+ *  fed to runBackend so the agent spawn that already ran concurrently in
+ *  prepareConcurrentOutcomes is SETTLED here, not re-spawned. */
+function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutcome?: AgentChildOutcome, deferPersist = false): DriveStep {
   let run = loadRun(ctx);
   let selected = run.tasks.find((t) => t.id === selectedId)!;
 
@@ -195,7 +238,14 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
   let dispatched = false;
   if (selected.status === "pending") {
     const manifest = createDispatchManifest(run, 1, { backendId: (selected.agentType as string) || "agent" });
-    saveCheckpoint(run);
+    // Byte-exact to the old build's orchestrator dispatch() wrapper: a
+    // successful dispatch is its own checkpoint commit (reason
+    // `dispatch:<dispatch-id>`), not just a bare saveCheckpoint — SPEC/
+    // pipeline-run.md's persist-ordering section pins this exact reason.
+    if (!deferPersist) {
+      if (manifest.dispatchId) commitState(run, `dispatch:${manifest.dispatchId}`);
+      saveCheckpoint(run);
+    }
     const dispatchedTask = manifest.tasks.find((t) => t.id === selected.id) || manifest.tasks[0];
     if (!dispatchedTask || !dispatchedTask.workerId) {
       return makeStep("dispatch", "failed", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, reason: "dispatch produced no worker scope" });
@@ -210,7 +260,16 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
   }
 
   const manifest = showWorkerManifest(run, workerId);
+  // `promptDigest` here is the PER-DISPATCH worker instructions file
+  // (input.md) — it embeds this run's own id/dispatch id, so it is
+  // NEVER stable across separate runs. It feeds ONLY recordWorkerOutput's
+  // agentDelegation telemetry below, never the cache key. The cache key
+  // instead digests the task's own static, workflow-authored prompt text
+  // (selected.prompt), which IS stable across runs — byte-exact to the
+  // old build's src/drive.ts:280-282 (two differently-sourced digests,
+  // easy to collapse into one by mistake).
   const promptDigest = fs.existsSync(manifest.inputPath) ? sha256(fs.readFileSync(manifest.inputPath, "utf8")) : sha256(manifest.prompt || "");
+  const cacheKeyPromptDigest = sha256((selected.prompt as string) || "");
 
   const delegationDigest = ctx.incremental
     ? incrementalDelegationDigest(
@@ -222,15 +281,21 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
         ctx.config.endpoint || ""
       )
     : "";
-  const cachePath = resultCachePath(run, selected as unknown as { id: string; phase: string; prompt: string; resultCache?: { mode?: string; keyInput?: string } }, promptDigest, ctx.incremental, delegationDigest);
+  const cachePath = resultCachePath(run, selected as unknown as { id: string; phase: string; prompt: string; resultCache?: { mode?: string; keyInput?: string } }, cacheKeyPromptDigest, ctx.incremental, delegationDigest);
   if (cachePath && fs.existsSync(cachePath)) {
     emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
     try {
       fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
       recordWorkerOutput(run, workerId, manifest.resultPath);
-      saveCheckpoint(run);
+      // Byte-exact to the old build's orchestrator recordWorkerOutput()
+      // wrapper: an accepted result is its own checkpoint commit (reason
+      // `worker:<worker-id>:result`), not just a bare saveCheckpoint.
+      if (!deferPersist) {
+        commitState(run, `worker:${workerId}:result`);
+        saveCheckpoint(run);
+      }
     } catch (error) {
-      return handleHop(ctx, selected, workerId, `result cache rejected: ${errMessage(error)}`);
+      return handleHop(ctx, selected, workerId, `result cache rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
     }
     return makeStep("accept", "ok", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, handleKind: "result-cache", reason: "result cache hit" });
   }
@@ -238,7 +303,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
   const subWorkflow = selected.subWorkflow as { appId: string; inputs?: Record<string, string>; bindResult?: string } | undefined;
   if (subWorkflow) {
     emitProgress(`⧉ ${selected.label || selected.id} (${selected.phase}) — sub-workflow ${subWorkflow.appId}…`);
-    return runSubWorkflow(ctx, run, selected, workerId, manifest, subWorkflow);
+    return runSubWorkflow(ctx, run, selected, workerId, manifest, subWorkflow, deferPersist);
   }
 
   emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
@@ -253,6 +318,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
     label: selected.id,
     timeoutMs: ctx.config.timeoutMs,
     delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: (selected.model as string) || ctx.config.model },
+    ...(preparedOutcome ? { preparedAgentOutcome: preparedOutcome } : {}),
   });
   void dispatched;
 
@@ -262,10 +328,10 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
   const usageSignature = handle?.metadata?.usageSignature as string | undefined;
 
   if (envelope.status !== "completed") {
-    return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`);
+    return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, deferPersist, deferPersist ? run : undefined);
   }
   if (!manifest.resultPath || !fs.existsSync(manifest.resultPath)) {
-    return handleHop(ctx, selected, workerId, "agent produced no result.md");
+    return handleHop(ctx, selected, workerId, "agent produced no result.md", deferPersist, deferPersist ? run : undefined);
   }
   try {
     recordWorkerOutput(run, workerId, manifest.resultPath, {
@@ -282,9 +348,12 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
       },
       requireAttestedTelemetry: ctx.config.requireAttestedTelemetry,
     });
-    saveCheckpoint(run);
+    if (!deferPersist) {
+      commitState(run, `worker:${workerId}:result`);
+      saveCheckpoint(run);
+    }
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `result.md rejected: ${errMessage(error)}`);
+    return handleHop(ctx, selected, workerId, `result.md rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
   }
 
   if (cachePath && fs.existsSync(manifest.resultPath)) {
@@ -300,16 +369,17 @@ function runSubWorkflow(
   selected: WorkflowRun["tasks"][number],
   workerId: string,
   manifest: { resultPath: string },
-  spec: { appId: string; inputs?: Record<string, string>; bindResult?: string }
+  spec: { appId: string; inputs?: Record<string, string>; bindResult?: string },
+  deferPersist = false
 ): DriveStep {
   const parentApp = run.workflow.id;
   if (ctx.depth + 1 > MAX_SUB_WORKFLOW_DEPTH) {
-    return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${MAX_SUB_WORKFLOW_DEPTH})`);
+    return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${MAX_SUB_WORKFLOW_DEPTH})`, deferPersist, deferPersist ? run : undefined);
   }
   if ([...ctx.visitedAppIds, parentApp].includes(spec.appId)) {
-    return handleHop(ctx, selected, workerId, `sub-workflow cycle detected: ${[...ctx.visitedAppIds, parentApp, spec.appId].join(" -> ")}`);
+    return handleHop(ctx, selected, workerId, `sub-workflow cycle detected: ${[...ctx.visitedAppIds, parentApp, spec.appId].join(" -> ")}`, deferPersist, deferPersist ? run : undefined);
   }
-  const childRunId = `sub-${run.id}-${safeName(selected.id)}`;
+  const childRunId = `sub-${run.id}-${safeFileName(selected.id)}`;
   const childInputs: Record<string, unknown> = {
     repo: run.inputs.repo ?? run.cwd,
     cwd: run.cwd,
@@ -322,7 +392,7 @@ function runSubWorkflow(
     const { loadWorkflowApp } = require("./workflow-app-loader") as typeof import("./workflow-app-loader");
     childRun = plan(loadWorkflowApp(spec.appId), childInputs);
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`);
+    return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
   }
   const childResult = drive(childRun.id, childRun.cwd, {
     now: ctx.now,
@@ -332,7 +402,7 @@ function runSubWorkflow(
     visitedAppIds: [...ctx.visitedAppIds, parentApp],
   });
   if (childResult.status !== "complete") {
-    return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`);
+    return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`, deferPersist, deferPersist ? run : undefined);
   }
   const finalChild = loadRunFromCwd(childRun.id, childRun.cwd);
   let childBytes: string | undefined;
@@ -343,14 +413,17 @@ function runSubWorkflow(
     childBytes = fs.existsSync(finalChild.paths.report) ? fs.readFileSync(finalChild.paths.report, "utf8") : undefined;
   }
   if (childBytes === undefined) {
-    return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} produced no ${spec.bindResult || "report"}`);
+    return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} produced no ${spec.bindResult || "report"}`, deferPersist, deferPersist ? run : undefined);
   }
   try {
     fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
     recordWorkerOutput(run, workerId, manifest.resultPath);
-    saveCheckpoint(run);
+    if (!deferPersist) {
+      commitState(run, `worker:${workerId}:result`);
+      saveCheckpoint(run);
+    }
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`);
+    return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
   }
   return makeStep("accept", "ok", { runId: run.id, taskId: selected.id, phase: selected.phase, handleKind: "sub-workflow", reason: `sub-workflow ${spec.appId} → ${childRun.id}` });
 }
@@ -369,6 +442,150 @@ export function driveStep(ctx: DriveContext): DriveStep {
   }
   if (gate.step) return gate.step;
   return processSelectedTask(ctx, (selected as WorkflowRun["tasks"][number]).id);
+}
+
+/** Dispatch every batch task (sequential — dispatch mutates state), then
+ *  collect ALL spawn-style agent child outcomes in one concurrent window
+ *  (one batch delegate child process, per-job timeout kill). Returns
+ *  outcomes keyed by task id; a cache-hit or endpoint-configured agent
+ *  gets no prepared outcome and settles through the serial accept path
+ *  inside processSelectedTask. Dispatch failures become recorded fail
+ *  steps up front, exactly what the serial path would emit. Byte-exact
+ *  to the old build's src/drive.ts's prepareConcurrentOutcomes. */
+function prepareConcurrentOutcomes(
+  ctx: DriveContext,
+  batch: string[]
+): { outcomes: Map<string, AgentChildOutcome>; failSteps: Map<string, DriveStep> } {
+  const failSteps = new Map<string, DriveStep>();
+  const jobs: Array<ReturnType<typeof prepareAgentSpawn> & { env?: NodeJS.ProcessEnv }> = [];
+  const jobTaskIds: string[] = [];
+
+  for (const taskId of batch) {
+    const run = loadRun(ctx);
+    const task = run.tasks.find((candidate) => candidate.id === taskId);
+    if (!task || (task.status !== "pending" && task.status !== "running")) continue;
+    let workerId = task.workerId as string | undefined;
+    if (task.status === "pending") {
+      const manifest = createDispatchManifest(run, 1, { backendId: (task.agentType as string) || "agent" });
+      const dispatchedTask = manifest.tasks.find((entry) => entry.id === task.id) || manifest.tasks[0];
+      if (!dispatchedTask || !dispatchedTask.workerId) {
+        failSteps.set(taskId, makeStep("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "dispatch produced no worker scope" }));
+        continue;
+      }
+      workerId = dispatchedTask.workerId;
+    }
+    if (!workerId) {
+      failSteps.set(taskId, makeStep("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "no worker scope for task" }));
+      continue;
+    }
+    const freshRun = loadRun(ctx);
+    const manifest = showWorkerManifest(freshRun, workerId);
+    const delegationDigest = ctx.incremental
+      ? incrementalDelegationDigest(
+          (task.model as string) || ctx.config.model || "",
+          (task.agentType as string) || "agent",
+          manifest.sandboxPolicy?.id || (task.sandboxProfileId as string) || "",
+          ctx.config.command || "",
+          ctx.config.args ? stripSecretArgs(ctx.config.args) : [],
+          ctx.config.endpoint || ""
+        )
+      : "";
+    const cachePath = resultCachePath(
+      freshRun,
+      task as unknown as { id: string; phase: string; prompt: string; resultCache?: { mode?: string; keyInput?: string } },
+      sha256((task.prompt as string) || ""),
+      ctx.incremental,
+      delegationDigest
+    );
+    if (cachePath && fs.existsSync(cachePath)) continue;
+    const job = prepareAgentSpawn({
+      schemaVersion: 1,
+      runId: ctx.runId,
+      taskId: task.id,
+      backendId: (task.agentType as string) || "agent",
+      cwd: freshRun.cwd,
+      sandboxPolicy: manifest.sandboxPolicy!,
+      manifest: { workerDir: manifest.workerDir, manifestPath: manifest.manifestPath, inputPath: manifest.inputPath, resultPath: manifest.resultPath, prompt: manifest.prompt },
+      label: task.id,
+      timeoutMs: ctx.config.timeoutMs,
+      delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: (task.model as string) || ctx.config.model },
+    });
+    if (job) {
+      const sandboxPolicy = manifest.sandboxPolicy;
+      if (sandboxPolicy) {
+        const filteredEnv = buildChildEnv(sandboxPolicy);
+        for (const key of Object.keys(process.env)) {
+          if (/^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i.test(key)) {
+            filteredEnv[key] = process.env[key];
+          }
+        }
+        job.env = filteredEnv;
+      }
+      jobs.push(job);
+      jobTaskIds.push(taskId);
+    }
+  }
+
+  if (jobs.length) {
+    emitProgress(`⇉ concurrent round: ${jobs.length} agent${jobs.length > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
+  }
+  const settled = runAgentBatchOutcomes(jobs as Parameters<typeof runAgentBatchOutcomes>[0]);
+  const outcomes = new Map<string, AgentChildOutcome>();
+  jobTaskIds.forEach((taskId, index) => outcomes.set(taskId, settled[index]));
+  return { outcomes, failSteps };
+}
+
+/** One concurrent round inside one cached in-memory run: dispatches every
+ *  batch task, spawns all spawn-style agent children in one concurrent
+ *  window, then settles + accepts in DETERMINISTIC batch (task-id) order
+ *  regardless of wall-clock finish order. At round end it flushes once:
+ *  commitState(run, "concurrent-round:<n>-tasks") + writeReport +
+ *  saveCheckpoint. Cache-hit tasks and endpoint-only agents get no
+ *  prepared outcome and settle through the serial path (still inside
+ *  this one deferred-persist round). If no step was produced (nothing
+ *  runnable at round entry — terminal/blocked/token-budget gate) the
+ *  round degrades to one plain driveStep. Byte-exact to the old build's
+ *  src/drive.ts's driveConcurrentRound. */
+function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
+  return withRoundCache(ctx, () => {
+    const run = loadRun(ctx);
+    const selected = selectDriveTask(run);
+    const budget = run.workflow.limits?.tokenBudget;
+    const gate = terminalOrConfigStep(run, selected, agentConfigured(ctx.config), budget && budget > 0 ? { spent: 0, budget } : undefined);
+    if (gate.kind === "commit" || gate.step) return [driveStep(ctx)];
+
+    const phase = firstRunnablePhase(run);
+    const width = Math.max(1, Math.floor(limit) || 1);
+    const batch = run.tasks
+      .filter((task) => phase!.taskIds.includes(task.id) && (task.status === "pending" || task.status === "running"))
+      .slice(0, width)
+      .map((task) => task.id);
+
+    const prepared = prepareConcurrentOutcomes(ctx, batch);
+
+    const steps: DriveStep[] = [];
+    for (const taskId of batch) {
+      const failStep = prepared.failSteps.get(taskId);
+      if (failStep) {
+        steps.push(failStep);
+        continue;
+      }
+      // Re-read per task: a prior accept in this round mutated state (the
+      // SAME cached object via loadRun's round cache — no disk round-trip
+      // until the round-end flush below).
+      const freshRun = loadRun(ctx);
+      const fresh = freshRun.tasks.find((task) => task.id === taskId);
+      if (!fresh || (fresh.status !== "pending" && fresh.status !== "running")) continue;
+      steps.push(processSelectedTask(ctx, taskId, prepared.outcomes.get(taskId), true));
+    }
+    if (steps.length > 0) {
+      const settledRun = loadRun(ctx);
+      commitState(settledRun, `concurrent-round:${batch.length}-tasks`);
+      writeReport(settledRun);
+      saveCheckpoint(settledRun);
+    }
+    return steps.length > 0 ? steps : [driveStep(ctx)];
+  });
 }
 
 /** Drive a run: `--once` advances exactly one step; otherwise run to
@@ -395,14 +612,19 @@ export function drive(runId: string, cwd: string, options: DriveOptions = {}): D
   let exhaustedMaxIterations = !options.once;
   for (let i = 0; i < maxIter; i++) {
     const width = roundWidth(loadRun(ctx), options.concurrency);
-    void width; // width>1 concurrent recording is a known, flagged reduction (see file header)
-    const stepResult = driveStep(ctx);
-    steps.push(stepResult);
+    // width>1 (an explicit --concurrency>1, or an auto-width parallel
+    // phase) runs the whole round through driveConcurrentRound — one or
+    // more steps recorded in deterministic batch order, one flush at
+    // round end. `--once` still stops after this ONE outer-loop
+    // iteration even though a round can yield multiple steps.
+    const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
+    for (const stepResult of roundSteps) steps.push(stepResult);
+    const last = roundSteps[roundSteps.length - 1];
     if (options.once) {
       exhaustedMaxIterations = false;
       break;
     }
-    if (stepResult.status === "complete" || stepResult.status === "parked" || stepResult.status === "blocked") {
+    if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) {
       exhaustedMaxIterations = false;
       break;
     }

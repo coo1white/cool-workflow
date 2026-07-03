@@ -604,6 +604,12 @@ export function recordWorkerFailure(run: WorkflowRun, workerId: string, error: u
     retryCount: typeof options.retryCount === "number" ? options.retryCount : scope.retryCount,
     errors: [...(scope.errors || []), structured],
   });
+  // Byte-exact to the old build's updateWorkerScope: worker.json (scope)
+  // AND manifest.json must both reflect the terminal park state — a bare
+  // upsertWorkerScope only rewrites worker.json, leaving manifest.json
+  // (what `cw worker manifest`/`cw worker show` and operators read)
+  // stale at whatever retryCount/status it had at dispatch time.
+  writeWorkerManifest(run, updated);
   writeWorkerIndex(run);
   return updated;
 }

@@ -234,8 +234,13 @@ export function cacheFileName(taskId: string, digest: string): string {
   return `${safeFileNamePart(taskId)}-${digest.replace(/^sha256:/, "").slice(0, 32)}.md`;
 }
 
+/** Kept in sync with shell/fs-atomic.ts's `safeFileName` by the same
+ *  regex (this pure module cannot import the shell-side impure copy);
+ *  both are pinned by SPEC/pipeline-run.md's cache-file-path line, which
+ *  names it `safeFileName` explicitly — the charset MUST include `:` so
+ *  a task id like `golden:path` keeps its colon in the cache filename. */
 function safeFileNamePart(value: string): string {
-  return String(value).replace(/[^A-Za-z0-9._-]/g, "_");
+  return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
 }
 
 /** Default (no `--incremental`) cache key. `undefined` disables caching

@@ -12,7 +12,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { plan } from "./pipeline";
-import { loadWorkflowApp } from "./workflow-app-loader";
+import { loadWorkflowApp, showWorkflowApp } from "./workflow-app-loader";
 import { drive, DriveOptions, drivePreview } from "./drive";
 import { createDispatchManifest } from "./dispatch";
 import { commitState } from "./commit";
@@ -20,6 +20,7 @@ import { recordWorkerOutput } from "./worker-isolation";
 import { loadRunFromCwd, saveCheckpoint } from "./run-store";
 import { writeReport } from "./report";
 import { WorkflowRun } from "../core/state/types";
+import { agentConfigured } from "./agent-config";
 
 const QUICKSTART_DEFAULT_APP = "architecture-review";
 
@@ -103,11 +104,107 @@ export function runDriveStep(args: Record<string, unknown>): ReturnType<typeof d
   return drive(run.id, run.cwd, options);
 }
 
+interface QuickstartCheck {
+  name: string;
+  status: "ok" | "blocked" | "warn";
+  detail: string;
+  fix?: string;
+}
+
+interface QuickstartCheckResult {
+  schemaVersion: 1;
+  mode: "check";
+  ok: boolean;
+  appId: string;
+  repo: string;
+  checks: QuickstartCheck[];
+}
+
+/** `cw quickstart [app] --check` — read-only preflight: does the app
+ *  resolve, is the repo readable/writable, is a question set, is an
+ *  agent backend configured. Never plans or writes a run. Byte-exact
+ *  port of the old build's `quickstartCheck` (src/capability-core.ts),
+ *  local-repo path only (the --link/remote preflight variant is not
+ *  ported — no conformance case exercises it). */
+function quickstartCheck(appId: string, args: Record<string, unknown>): QuickstartCheckResult {
+  const base = invocationCwd(args);
+  const repoArg = typeof args.repo === "string" && args.repo.trim() ? args.repo : base;
+  const repo = path.resolve(base, repoArg);
+  const checks: QuickstartCheck[] = [];
+
+  try {
+    showWorkflowApp(appId);
+    checks.push({ name: "app", status: "ok", detail: `Workflow app ${appId} is available.` });
+  } catch {
+    checks.push({
+      name: "app",
+      status: "blocked",
+      detail: `Workflow app ${appId} is not available.`,
+      fix: "Run `cw app list` and choose one of the listed app ids.",
+    });
+  }
+
+  let repoReadable = false;
+  let repoStateWritable = false;
+  try {
+    const stat = fs.statSync(repo);
+    repoReadable = stat.isDirectory();
+    if (!repoReadable) throw new Error("not a directory");
+    fs.accessSync(repo, fs.constants.R_OK);
+    checks.push({ name: "repo", status: "ok", detail: `Repository path is readable (${repo}).` });
+  } catch {
+    checks.push({
+      name: "repo",
+      status: "blocked",
+      detail: `Repository path is not readable (${repo}).`,
+      fix: "Pass --repo PATH for a readable repository directory.",
+    });
+  }
+  try {
+    const cwDir = path.join(repo, ".cw");
+    fs.accessSync(fs.existsSync(cwDir) ? cwDir : repo, fs.constants.W_OK);
+    repoStateWritable = repoReadable;
+    checks.push({ name: "repo-state", status: "ok", detail: "Run state location is writable." });
+  } catch {
+    checks.push({
+      name: "repo-state",
+      status: "blocked",
+      detail: "Run state location is not writable.",
+      fix: "Use a writable repo, fix directory permissions, or pass --repo to a writable checkout.",
+    });
+  }
+
+  if (typeof args.question === "string" && args.question.trim()) {
+    checks.push({ name: "question", status: "ok", detail: "Question is set." });
+  } else {
+    checks.push({ name: "question", status: "blocked", detail: "Question is missing.", fix: "Pass --question TEXT." });
+  }
+
+  if (agentConfigured(args)) {
+    checks.push({ name: "agent", status: "ok", detail: "Agent backend is configured." });
+  } else {
+    checks.push({
+      name: "agent",
+      status: "blocked",
+      detail: "No agent backend is configured.",
+      fix: 'Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.',
+    });
+  }
+
+  const ok = checks.every((check) => check.status !== "blocked") && repoStateWritable;
+  return { schemaVersion: 1, mode: "check", ok, appId, repo, checks };
+}
+
 /** `cw quickstart [app] --question ...` — composes plan -> runDrive ->
- *  report in one call. Default app is architecture-review. */
-export function quickstartRun(args: Record<string, unknown>): ReturnType<typeof drive> {
+ *  report in one call. Default app is architecture-review. `--check` is a
+ *  read-only preflight that never plans/drives/writes (see
+ *  `quickstartCheck` above). */
+export function quickstartRun(
+  args: Record<string, unknown>
+): (ReturnType<typeof drive> & { appId: string }) | QuickstartCheckResult {
   const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
   if (!args.repo && !args.cwd) args.repo = invocationCwd(args);
+  if (Boolean(args.check)) return quickstartCheck(appId, args);
   const options: DriveOptions = {
     once: Boolean(args.once),
     now: typeof args.now === "string" ? args.now : undefined,
@@ -126,7 +223,12 @@ export function quickstartRun(args: Record<string, unknown>): ReturnType<typeof 
   const result = drive(run.id, run.cwd, options);
   const finalRun = loadRunFromCwd(run.id, run.cwd);
   writeReport(finalRun);
-  return result;
+  // Byte-exact to the old build's quickstart() return shape
+  // (src/capability-core.ts): `appId` is the resolved app id (the
+  // argument, or its architecture-review default), distinct from
+  // `workflowId` which is the driven run's own workflow id (equal for a
+  // top-level run, different for a sub-workflow hop).
+  return { appId, ...result };
 }
 
 export function dispatchRun(args: Record<string, unknown>): Record<string, unknown> {
@@ -150,27 +252,50 @@ export function recordResultRun(args: Record<string, unknown>): Record<string, u
   if (!task || !task.workerId) throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
   const absolute = path.resolve(resultPath);
   if (!fs.existsSync(absolute)) throw new Error(`Result file does not exist: ${resultPath}`);
-  const output = recordWorkerOutput(run, String(task.workerId), absolute);
+  const workerId = String(task.workerId);
+  const output = recordWorkerOutput(run, workerId, absolute);
+  // Byte-exact to the old build's orchestrator recordWorkerOutput()
+  // wrapper: an accepted result is its own checkpoint commit, not just a
+  // bare saveCheckpoint (SPEC/pipeline-run.md's persist-ordering rule).
+  commitState(run, `worker:${workerId}:result`);
   saveCheckpoint(run);
   writeReport(run);
   return output;
 }
 
+/** `cw commit <run-id>` — byte-exact port of the old build's
+ *  `orchestrator/lifecycle-operations.ts`'s `commit()`: the CLI/MCP
+ *  payload wraps the commit record as `{runId, commit}` (NOT the commit
+ *  record at top level). Both the success AND the throw path write the
+ *  report + checkpoint before returning/re-throwing — a gate failure
+ *  still leaves the run's report/state current on disk. */
 export function commitRun(args: Record<string, unknown>): Record<string, unknown> {
   const runId = String(args.runId);
   const run = loadRunFromCwd(runId, invocationCwd(args));
-  const allowCheckpoint = Boolean(args.allowUnverifiedCheckpoint);
-  const hasGateOption = Boolean(args.verifier || args.candidate || args.selection);
-  const commit = commitState(run, {
-    reason: typeof args.reason === "string" && args.reason ? args.reason : "manual",
-    verifierNodeId: typeof args.verifier === "string" ? args.verifier : undefined,
-    candidateId: typeof args.candidate === "string" ? args.candidate : undefined,
-    selectionId: typeof args.selection === "string" ? args.selection : undefined,
-    verifierGated: hasGateOption || !allowCheckpoint,
-    allowUnverifiedCheckpoint: allowCheckpoint,
-    source: "cli",
-  });
-  saveCheckpoint(run);
-  writeReport(run);
-  return commit as unknown as Record<string, unknown>;
+  const allowCheckpoint = Boolean(args.allowUnverifiedCheckpoint || args["allow-unverified-checkpoint"]);
+  const hasGateOption = Boolean(
+    args.verifier || args.verifierNode || args["verifier-node"] || args.candidate || args.selection
+  );
+  try {
+    const commit = commitState(run, {
+      reason: typeof args.reason === "string" && args.reason ? args.reason : "manual",
+      verifierNodeId:
+        (typeof args.verifier === "string" && args.verifier) ||
+        (typeof args.verifierNode === "string" && args.verifierNode) ||
+        (typeof args["verifier-node"] === "string" && args["verifier-node"]) ||
+        undefined,
+      candidateId: typeof args.candidate === "string" ? args.candidate : undefined,
+      selectionId: typeof args.selection === "string" ? args.selection : undefined,
+      verifierGated: hasGateOption || !allowCheckpoint,
+      allowUnverifiedCheckpoint: allowCheckpoint,
+      source: "cli",
+    });
+    writeReport(run);
+    saveCheckpoint(run);
+    return { runId: run.id, commit };
+  } catch (error) {
+    writeReport(run);
+    saveCheckpoint(run);
+    throw error;
+  }
 }

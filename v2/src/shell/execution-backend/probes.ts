@@ -85,7 +85,9 @@ export function probeContainerBackend(): BackendProbeBody {
 }
 
 function delegateChildExists(): boolean {
-  return fs.existsSync(path.resolve(__dirname, "..", "..", "scripts", "children", "http-delegate-child.js"));
+  // __dirname is dist/shell/execution-backend — three levels up reaches
+  // the package root (scripts/ is a sibling of dist/, not two levels up).
+  return fs.existsSync(path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js"));
 }
 
 export function probeRemoteBackend(env: NodeJS.ProcessEnv = process.env): BackendProbeBody {

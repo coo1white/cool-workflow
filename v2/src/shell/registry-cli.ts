@@ -21,6 +21,7 @@ import {
   listClones,
   listOrphanRuns,
 } from "./reclamation-io";
+import { runDriveStep } from "./pipeline-cli";
 
 function resolveCwd(options: Record<string, unknown>): string {
   return path.resolve(String(options.cwd || process.cwd()));
@@ -131,11 +132,18 @@ export function runListCli(options: Record<string, unknown> = {}) {
 export function runShowCli(runId: string, options: Record<string, unknown> = {}) {
   return new RunRegistry(resolveCwd(options)).showRun(runId, { scope: scopeOf(options, "home") });
 }
-export function runResumeCli(runId: string, options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).resume(runId, {
+/** `run resume <run-id> [--drive|--once]` — SPEC/pipeline-run.md: default
+ *  is read-only and byte-identical to the registry resume payload; with
+ *  `--drive`/`--once` the SAME run (nothing re-planned) is handed to the
+ *  real drive loop and the payload gains a `drive: DriveResult` field. */
+export function runResumeCli(runId: string, options: Record<string, unknown> = {}): Record<string, unknown> {
+  const base = new RunRegistry(resolveCwd(options)).resume(runId, {
     scope: scopeOf(options, "home"),
     limit: options.limit === undefined ? undefined : Number(options.limit),
   });
+  if (!options.drive && !options.once) return base as unknown as Record<string, unknown>;
+  const drive = runDriveStep({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) });
+  return { ...base, drive };
 }
 export function runArchiveCli(runId: string | undefined, options: Record<string, unknown> = {}) {
   const registry = new RunRegistry(resolveCwd(options));

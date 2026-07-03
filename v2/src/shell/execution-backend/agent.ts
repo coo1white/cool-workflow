@@ -276,7 +276,13 @@ export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | un
   };
 }
 
-const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "scripts", "children", "batch-delegate-child.js");
+// __dirname is dist/shell/execution-backend at runtime — THREE levels up
+// (execution-backend -> shell -> dist -> package root) reaches scripts/,
+// a sibling of dist/, not two (that was a bug: it resolved to a
+// dist/scripts/... path that is never compiled/copied there — batch
+// concurrent dispatch failed closed with "batch delegate exited with 1"
+// until this was traced to the wrong relative depth).
+const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.js");
 
 interface BatchDelegateLine {
   i?: unknown;
@@ -357,7 +363,8 @@ export function shouldStreamAgentStderr(env: NodeJS.ProcessEnv, isTTY: boolean):
   return isTTY;
 }
 
-const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "scripts", "children", "http-delegate-child.js");
+// Same package-root depth fix as BATCH_DELEGATE_CHILD_SCRIPT above.
+const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
 
 /** agent — spawns an EXTERNAL agent process per worker argv-style
  *  (shell:false), or POSTs the manifest to a configured HTTP agent

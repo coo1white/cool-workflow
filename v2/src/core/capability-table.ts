@@ -1067,7 +1067,9 @@ addCliOnlyCapability(
     jsonMode: "default",
     handler: (args) => {
       const appId = optionalArg(args.positionals[0]);
-      return { json: quickstartRun({ ...args.options, appId }) };
+      const result = quickstartRun({ ...args.options, appId }) as unknown as Record<string, unknown>;
+      const exitCode = result.mode === "check" && result.ok === false ? 1 : undefined;
+      return { json: result, exitCode };
     },
   },
   "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer)."
@@ -2190,7 +2192,7 @@ attachCliBinding("run.resume", {
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
     const result = runResumeCli(runId, args.options);
-    return { json: result, text: formatResume(result) };
+    return { json: result, text: formatResume(result as unknown as Parameters<typeof formatResume>[0]) };
   },
 });
 REGISTRY_BY_CAPABILITY.get("run.resume")!.mcp!.handler = (args) => runResumeCli(required(optionalArg(args.runId), "run id"), args);
@@ -2443,6 +2445,7 @@ import {
   validateWorkflowAppTarget,
 } from "../shell/workflow-app-loader";
 import { formatInfo } from "./format/help";
+import { readManPage } from "../shell/man-cli";
 
 attachCliBinding("app.list", {
   path: ["app", "list"],
@@ -2503,6 +2506,369 @@ addCliOnlyCapability(
     },
   },
   "app.usage exists only to own the fixed usage-error text for an unrecognized app subcommand; every real app.* action is its own capability row above."
+);
+
+// ---------------------------------------------------------------------
+// 1-token usage-fallback rows: one per multi-verb family, each existing
+// ONLY to own the fixed usage string for an unrecognized subcommand,
+// same pattern and reasoning as app.usage above (SPEC/cli-surface.md's
+// "Usage strings" table, byte-for-byte). Per dispatchTable's reversed-
+// candidate-order contract (cli/dispatch.ts), each 1-token row here is
+// only ever reached when no 2-token real row for that family matched.
+// `hiddenFromHelp` keeps each off its own `cw help <verb>` line.
+// ---------------------------------------------------------------------
+
+addCliOnlyCapability(
+  "sandbox.usage",
+  "cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]",
+  {
+    path: ["sandbox"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
+    },
+  },
+  "sandbox.usage exists only to own the fixed usage-error text for an unrecognized sandbox subcommand; every real sandbox.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "state.usage",
+  "cw.js state check <run-id> [--state PATH] [--write]",
+  {
+    path: ["state"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js state check <run-id> [--state PATH] [--write]");
+    },
+  },
+  "state.usage exists only to own the fixed usage-error text for an unrecognized state subcommand; every real state.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "audit.usage",
+  "cw.js audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]",
+  {
+    path: ["audit"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]");
+    },
+  },
+  "audit.usage exists only to own the fixed usage-error text for an unrecognized audit subcommand; every real audit.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "blackboard.usage",
+  "cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>",
+  {
+    path: ["blackboard"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
+    },
+  },
+  "blackboard.usage exists only to own the fixed usage-error text for an unrecognized blackboard subcommand; every real blackboard.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "candidate.usage",
+  "cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]",
+  {
+    path: ["candidate"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
+    },
+  },
+  "candidate.usage exists only to own the fixed usage-error text for an unrecognized candidate subcommand; every real candidate.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "comment.usage",
+  "cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]",
+  {
+    path: ["comment"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]");
+    },
+  },
+  "comment.usage exists only to own the fixed usage-error text for an unrecognized comment subcommand; every real comment.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "eval.usage",
+  "cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>",
+  {
+    path: ["eval"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>");
+    },
+  },
+  "eval.usage exists only to own the fixed usage-error text for an unrecognized eval subcommand; every real eval.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "telemetry.usage",
+  "cw.js telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]",
+  {
+    path: ["telemetry"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]");
+    },
+  },
+  "telemetry.usage exists only to own the fixed usage-error text for an unrecognized telemetry subcommand; every real telemetry.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "demo.usage",
+  "cw.js demo tamper|bundle [--json]",
+  {
+    path: ["demo"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js demo tamper|bundle [--json]");
+    },
+  },
+  "demo.usage exists only to own the fixed usage-error text for an unrecognized demo subcommand; every real demo.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "multi-agent.usage",
+  "cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]",
+  {
+    path: ["multi-agent"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]");
+    },
+  },
+  "multi-agent.usage exists only to own the fixed usage-error text for an unrecognized multi-agent subcommand; every real multi-agent.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "node.usage",
+  "cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]",
+  {
+    path: ["node"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
+    },
+  },
+  "node.usage exists only to own the fixed usage-error text for an unrecognized node subcommand; every real node.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "backend.usage",
+  "cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]",
+  {
+    path: ["backend"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]");
+    },
+  },
+  "backend.usage exists only to own the fixed usage-error text for an unrecognized backend subcommand; every real backend.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "contract.usage",
+  "cw.js contract show <run-id> [contract-id]",
+  {
+    path: ["contract"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js contract show <run-id> [contract-id]");
+    },
+  },
+  "contract.usage exists only to own the fixed usage-error text for an unrecognized contract subcommand; every real contract.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "migration.usage",
+  "cw.js migration list|check|prove [target] [--contract run-state|workflow-app]",
+  {
+    path: ["migration"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js migration list|check|prove [target] [--contract run-state|workflow-app]");
+    },
+  },
+  "migration.usage exists only to own the fixed usage-error text for an unrecognized migration subcommand; every real migration.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "feedback.usage",
+  "cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]",
+  {
+    path: ["feedback"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
+    },
+  },
+  "feedback.usage exists only to own the fixed usage-error text for an unrecognized feedback subcommand; every real feedback.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "metrics.usage",
+  "cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]",
+  {
+    path: ["metrics"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]");
+    },
+  },
+  "metrics.usage exists only to own the fixed usage-error text for an unrecognized metrics subcommand; every real metrics.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "operator.usage",
+  "cw.js operator status|report <run-id> [--json]",
+  {
+    path: ["operator"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js operator status|report <run-id> [--json]");
+    },
+  },
+  "operator.usage exists only to own the fixed usage-error text for an unrecognized operator subcommand; every real operator.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "topology.usage",
+  "cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>",
+  {
+    path: ["topology"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>");
+    },
+  },
+  "topology.usage exists only to own the fixed usage-error text for an unrecognized topology subcommand; every real topology.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "summary.usage",
+  "cw.js summary refresh|show <run-id> [--json]",
+  {
+    path: ["summary"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js summary refresh|show <run-id> [--json]");
+    },
+  },
+  "summary.usage exists only to own the fixed usage-error text for an unrecognized summary subcommand; every real summary.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "workbench.usage",
+  "cw.js workbench serve [--port N] [--once] | view <run-id> [--json]",
+  {
+    path: ["workbench"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js workbench serve [--port N] [--once] | view <run-id> [--json]");
+    },
+  },
+  "workbench.usage exists only to own the fixed usage-error text for an unrecognized workbench subcommand; every real workbench.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "worker.usage",
+  "cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]",
+  {
+    path: ["worker"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
+    },
+  },
+  "worker.usage exists only to own the fixed usage-error text for an unrecognized worker subcommand; every real worker.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "review.usage",
+  "cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection",
+  {
+    path: ["review"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection");
+    },
+  },
+  "review.usage exists only to own the fixed usage-error text for an unrecognized review subcommand; every real review.* action is its own capability row above."
+);
+
+addCliOnlyCapability(
+  "coordinator.usage",
+  "cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT",
+  {
+    path: ["coordinator"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT");
+    },
+  },
+  "coordinator.usage exists only to own the fixed usage-error text for an unrecognized coordinator subcommand; every real coordinator.* action is its own capability row above."
+);
+
+// ---- man (CLI-only; raw manual-page bytes to stdout, no MCP peer) -----
+//
+// Writes the resolved doc file's raw bytes directly to stdout and
+// returns an empty result — the generic renderCliResult (cli/dispatch.ts)
+// always appends "\n" to `result.text` when it is missing one, which
+// would violate "no added trailing newline" for any manual page that
+// does not already end in one. A handler performing its own stdout write
+// and returning `{}` is the established escape hatch (see
+// workbench.serve's handler above for the same pattern/reasoning).
+addCliOnlyCapability(
+  "man",
+  "cw man <topic> — read a manual page from docs/ (raw bytes, no added newline).",
+  {
+    path: ["man"],
+    jsonMode: "human",
+    // core/format/help.ts's COMMAND_HELP_ROWS.man already owns the
+    // human-facing "cw man" help line (byte-ported from the old build's
+    // orchestrator.ts help table); hiddenFromHelp avoids a duplicate row.
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const topic = args.positionals[0];
+      if (!topic) {
+        throw new Error("Missing topic.\n  Tip: cw man release-tooling for the release tooling manual.");
+      }
+      process.stdout.write(readManPage(topic));
+      return {};
+    },
+  },
+  "man is a CLI-only raw-file reader over docs/; the old build never gave it an MCP peer."
 );
 
 // ---- info (CLI-only; mirrors app.show with a human card by default) ----
