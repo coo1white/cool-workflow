@@ -82,6 +82,18 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
   // verify/apply/list are now real capability-table rows (milestone 8,
   // core/capability-table.ts) and come from cliCommandHelpRows("ledger")
   // below, so their summary text lives in exactly one place.
+  //
+  // "clones" (and, below, "schedule"/"routine"/"sched"/"registry"/"queue"/
+  // "gc"/"orphans") STAY literal here even though milestone 10 gave each
+  // verb a real capability-table row: that row's OWN `cli.path` is the
+  // bare 1-token verb (e.g. ["clones"]) because dispatchTable only
+  // supports 1- or 2-token paths and these verbs each have MANY
+  // subcommands handled by one internal switch — so the row's `cli`
+  // binding is a dispatch/usage-error mechanism, not a per-subcommand
+  // help entry, and is marked `hiddenFromHelp` for exactly that reason
+  // (core/capability-table.ts). The per-subcommand summaries a human
+  // reads via `cw help clones` therefore still come from literal rows
+  // here, same as every other not-yet-per-subcommand-tabled verb below.
   clones: [
     {
       command: "cw clones gc",
@@ -94,8 +106,71 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
         "List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only.",
     },
   ],
+  schedule: [
+    { command: "cw schedule create", summary: "Create a scheduled CW task." },
+    { command: "cw schedule list", summary: "List scheduled CW tasks." },
+    { command: "cw schedule delete", summary: "Delete a scheduled CW task." },
+    { command: "cw schedule due", summary: "List due scheduled CW tasks." },
+    { command: "cw schedule complete", summary: "Mark a scheduled task complete." },
+    { command: "cw schedule pause", summary: "Pause a scheduled CW task." },
+    { command: "cw schedule resume", summary: "Resume a scheduled CW task." },
+    { command: "cw schedule run-now", summary: "Create an immediate scheduled-task run record." },
+    { command: "cw schedule history", summary: "List scheduled-task run history." },
+    { command: "cw schedule daemon", summary: "Tick the wall-clock scheduler once (--once) or run forever." },
+  ],
+  routine: [
+    { command: "cw routine create", summary: "Create a routine-style API/GitHub trigger." },
+    { command: "cw routine list", summary: "List routine-style triggers." },
+    { command: "cw routine delete", summary: "Delete a routine-style trigger." },
+    { command: "cw routine fire", summary: "Record an API/GitHub trigger event." },
+    { command: "cw routine events", summary: "List routine trigger events." },
+  ],
+  sched: [
+    { command: "cw sched plan", summary: "Read-only control-plane lease plan for the queue+policy+now." },
+    { command: "cw sched lease", summary: "Claim eligible queue entries as leases (concurrency-bounded)." },
+    { command: "cw sched release", summary: "Release a held lease (failed -> retry/backoff or park)." },
+    { command: "cw sched complete", summary: "Complete a held lease (terminal success)." },
+    { command: "cw sched reclaim", summary: "Reclaim expired leases (each counts a failed attempt)." },
+    { command: "cw sched reset", summary: "Reset a parked entry to ready (operator recovery)." },
+    { command: "cw sched policy", summary: "Show or set the scheduling policy (concurrency/attempts/backoff/TTL)." },
+  ],
+  registry: [
+    { command: "cw registry refresh", summary: "Recompute and persist the derived run registry index." },
+    { command: "cw registry show", summary: "Read the run registry index with valid|stale|absent freshness." },
+  ],
+  queue: [
+    { command: "cw queue add", summary: "Enqueue a pending/planned run with explicit ordering policy." },
+    { command: "cw queue list", summary: "List the durable run queue in policy order." },
+    { command: "cw queue drain", summary: "Mark the next ready queue entries drained (the host still executes)." },
+    { command: "cw queue show", summary: "Show one durable queue entry." },
+  ],
+  gc: [
+    {
+      command: "cw gc plan",
+      summary: "Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing.",
+    },
+    {
+      command: "cw gc run",
+      summary: "Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free).",
+    },
+    {
+      command: "cw gc verify",
+      summary: "Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable.",
+    },
+  ],
+  orphans: [
+    {
+      command: "cw orphans list",
+      summary:
+        "List run directories under .cw/runs/ that the run registry cannot see (no state.json — a killed/interrupted process never wrote one), with age + bytes. Read-only.",
+    },
+    {
+      command: "cw orphans gc",
+      summary:
+        "Reclaim orphan run directories (no state.json): an age sweep (--min-age-minutes, default 60) or --all. Deletes only inside a scanned repo's .cw/runs/, never a run the registry knows about.",
+    },
+  ],
   run: [
-    { command: "cw run archive", summary: "Archive/unarchive a run (overlay mark; never deletes source)." },
     {
       command: "cw run drive",
       summary: "Preview the next agent-delegation drive step for a run (read-only, deterministic).",
@@ -104,7 +179,9 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
     // delegating..." summary) is NOT listed here any more — it is now a
     // real capability-table row (run.drive.step, milestone 6+7) and comes
     // from cliCommandHelpRows("run") below, so it is not hand-duplicated
-    // in both places.
+    // in both places. Same for run archive/list/rerun/resume/search/show
+    // (milestone 10, core/capability-table.ts) — only the not-yet-
+    // implemented run-export family (milestone 11) stays literal here.
     {
       command: "cw run export",
       summary: "Export a run to a portable archive with run-local files and digest integrity.",
@@ -117,28 +194,10 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
       command: "cw run inspect-archive",
       summary: "Read-only integrity inspection of a portable run archive without importing it.",
     },
-    { command: "cw run list", summary: "List indexed runs across repos (search with no filters)." },
-    {
-      command: "cw run rerun",
-      summary: "Re-run a failed run as a NEW run linked to the original by provenance.",
-    },
     {
       command: "cw run restore",
       summary:
         "Fail-closed restore of a portable run archive: integrity-inspect, import, and verify in one step; refuses anything that does not verify.",
-    },
-    {
-      command: "cw run resume",
-      summary:
-        "Resolve a run by id and return its next runnable tasks/actions (read-only by default; the opt-in --drive/--once mode hands it to the shared agent-drive core, which mutates and is covered by run.drive.step).",
-    },
-    {
-      command: "cw run search",
-      summary: "Search runs by app/status/time/repo/free-text, deterministic + paginated.",
-    },
-    {
-      command: "cw run show",
-      summary: "Resolve one run by id across the registry; fail closed on missing source.",
     },
     {
       command: "cw run verify-import",
@@ -204,7 +263,7 @@ export type SuggestCommandFn = (input: string) => string | undefined;
  *  ones) without duplicating data by hand. */
 function cliCommandHelpRows(verb: string): CommandHelpRow[] {
   return cliCapabilities()
-    .filter((row) => row.cli.path[0] === verb)
+    .filter((row) => row.cli.path[0] === verb && !row.cli.hiddenFromHelp)
     .map((row) => ({ command: `cw ${(row.cli.helpPath ?? row.cli.path).join(" ")}`, summary: row.summary }));
 }
 

@@ -100,6 +100,18 @@ export interface CliBinding {
    *  entry point's top-level catch turns that into the `cw: <message>`
    *  stderr shape + exit 1, per cli/entry.ts's `main`). */
   handler: (args: CapabilityCliArgs) => CliHandlerResult;
+  /** MILESTONE 10 addition. A 1-token `path` row (e.g. `["clones"]`) that
+   *  exists ONLY to own the unknown-subcommand usage error for a verb
+   *  whose real subcommands are each their own 2-token row (e.g.
+   *  `clones.list` at `["clones","list"]`) must not ALSO show up as its
+   *  own `cw help <verb>` line — the old build's registry never declared
+   *  a row for the bare verb in this shape, only for its leaf
+   *  subcommands. `cliCommandHelpRows` (core/format/help.ts) skips a row
+   *  with this flag; `dispatchTable` (cli/dispatch.ts) is untouched — the
+   *  1-token candidate is still tried (and still wins) exactly when no
+   *  2-token candidate matches, per that file's existing reversed-
+   *  candidate-order contract. */
+  hiddenFromHelp?: boolean;
 }
 
 /** A capability's MCP-facing binding. `requiredArgs` is a list of
@@ -1050,7 +1062,9 @@ attachCliBinding("run.drive.step", {
         exitCode: 1,
       };
     }
-    throw new Error(`run ${subcommand ?? ""} is not implemented in this milestone`);
+    throw new Error(
+      "Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]"
+    );
   },
 });
 
@@ -1774,3 +1788,462 @@ attachCliBinding("eval.report", {
   handler: (args) => ({ json: evalReportCli({ replay: args.positionals[0], ...args.options }) }),
 });
 REGISTRY_BY_CAPABILITY.get("eval.report")!.mcp!.handler = (args) => evalReportCli(args);
+
+// ---------------------------------------------------------------------
+// MILESTONE 10 (scheduling, registry, gc/reclamation, orphans, clones)
+// CLI bindings: schedule *, cw loop, routine *, sched *, registry *,
+// queue *, gc *, orphans *, clones *, run search|list|show|resume|
+// archive|rerun, history. Handler BODIES live in shell/registry-cli.ts,
+// shell/scheduler-io.ts, shell/scheduling-io.ts, shell/reclamation-io.ts,
+// shell/run-registry-io.ts (impure — disk-scanning IO); this table only
+// wires argv shape -> handler call, per cli/dispatch.ts's generic
+// executor contract. Usage-error strings are copied byte-for-byte from
+// the old build's handlers/{scheduling,registry,maintenance,orphans,
+// clones}.ts.
+// ---------------------------------------------------------------------
+
+import {
+  clonesGcCli,
+  clonesListCli,
+  gcPlanCli,
+  gcRunCli,
+  gcVerifyCli,
+  historyCli,
+  orphansGcCli,
+  orphansListCli,
+  queueAddCli,
+  queueDrainCli,
+  queueListCli,
+  queueShowCli,
+  registryRefreshCli,
+  registryShowCli,
+  routineCreateCli,
+  routineDeleteCli,
+  routineEventsCli,
+  routineFireCli,
+  routineListCli,
+  runArchiveCli,
+  runListCli,
+  runRerunCli,
+  runResumeCli,
+  runSearchCli,
+  runShowCli,
+  scheduleCompleteCli,
+  scheduleCreateCli,
+  scheduleDaemonRunForever,
+  scheduleDaemonTickCli,
+  scheduleDeleteCli,
+  scheduleDueCli,
+  scheduleHistoryCli,
+  schedulePauseCli,
+  scheduleResumeCli,
+  scheduleRunNowCli,
+  scheduleListCli,
+} from "../shell/registry-cli";
+import {
+  formatClonesGc,
+  formatClonesList,
+  formatGcPlan,
+  formatGcRun,
+  formatGcVerify,
+  formatOrphanRunsGc,
+  formatOrphanRunsList,
+} from "../shell/reclamation-io";
+import {
+  formatHistory,
+  formatQueueList,
+  formatRegistryReport,
+  formatResume,
+  formatRunSearch,
+  formatRunShow,
+} from "../shell/run-registry-io";
+import {
+  schedCompleteCli,
+  schedLeaseCli,
+  schedPlanCli,
+  schedPolicySetCli,
+  schedPolicyShowCli,
+  schedReclaimCli,
+  schedReleaseCli,
+  schedResetCli,
+} from "../shell/scheduling-io";
+import fs from "node:fs";
+
+function firstPositionalArg(args: CapabilityCliArgs, index = 0): string | undefined {
+  return args.positionals[index];
+}
+
+// ---- schedule (+ cw loop) ----------------------------------------------
+
+addCliOnlyCapability(
+  "loop",
+  'cw loop — sugar for "schedule create --kind loop".',
+  {
+    path: ["loop"],
+    jsonMode: "default",
+    handler: (args) => ({ json: scheduleCreateCli({ ...args.options, kind: "loop" }) }),
+  },
+  "loop is CLI-only sugar over schedule.create; the old build never gave it an MCP tool of its own (SPEC/scheduling-registry.md section I)."
+);
+
+addCliOnlyCapability(
+  "schedule",
+  "cw schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon — the wall-clock scheduler.",
+  {
+    path: ["schedule"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const [subcommand, id] = args.positionals;
+      switch (subcommand) {
+        case "create":
+          return { json: scheduleCreateCli(args.options) };
+        case "list":
+          return { json: scheduleListCli(args.options) };
+        case "delete":
+          return { json: scheduleDeleteCli(required(id, "schedule id"), args.options) };
+        case "due":
+          return { json: scheduleDueCli(args.options) };
+        case "complete":
+          return { json: scheduleCompleteCli(required(id, "schedule id"), args.options) };
+        case "pause":
+          return { json: schedulePauseCli(required(id, "schedule id"), args.options) };
+        case "resume":
+          return { json: scheduleResumeCli(required(id, "schedule id"), args.options) };
+        case "run-now":
+          return { json: scheduleRunNowCli(required(id, "schedule id"), args.options) };
+        case "history":
+          return { json: scheduleHistoryCli(id, args.options) };
+        case "daemon": {
+          if (args.options.once) return { json: scheduleDaemonTickCli(args.options) };
+          // Never returns (matches the old build's forever daemon loop);
+          // the process stays alive via the DesktopSchedulerDaemon's own
+          // setInterval, printing one tick line per interval.
+          void scheduleDaemonRunForever(args.options);
+          return {};
+        }
+        default:
+          throw new Error("Usage: cw.js schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon");
+      }
+    },
+  },
+  "cw schedule is the desktop wall-clock scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_schedule_*), each wired below."
+);
+
+// ---- routine ------------------------------------------------------------
+
+addCliOnlyCapability(
+  "routine",
+  "cw routine create|list|delete|fire|events — API/GitHub-style triggers.",
+  {
+    path: ["routine"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const [subcommand, idOrKind, payloadPath] = args.positionals;
+      switch (subcommand) {
+        case "create":
+          return { json: routineCreateCli(args.options) };
+        case "list":
+          return { json: routineListCli(args.options) };
+        case "delete":
+          return { json: routineDeleteCli(required(idOrKind, "trigger id"), args.options) };
+        case "fire": {
+          const kind = required(idOrKind, "trigger kind");
+          let payload: unknown;
+          try {
+            payload = payloadPath ? JSON.parse(fs.readFileSync(payloadPath, "utf8")) : args.options;
+          } catch (e) {
+            throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String((e && (e as Error).message) || e)}`);
+          }
+          return { json: routineFireCli(kind, payload, args.options) };
+        }
+        case "events":
+          return { json: routineEventsCli(idOrKind, args.options) };
+        default:
+          throw new Error("Usage: cw.js routine create|list|delete|fire|events");
+      }
+    },
+  },
+  "cw routine is the API/GitHub-style trigger bridge; SPEC/mcp.md declares its MCP peers per verb (cw_routine_*), each wired below."
+);
+REGISTRY_BY_CAPABILITY.get("routine.create")!.mcp!.handler = (args) => routineCreateCli(args);
+REGISTRY_BY_CAPABILITY.get("routine.list")!.mcp!.handler = (args) => routineListCli(args);
+REGISTRY_BY_CAPABILITY.get("routine.delete")!.mcp!.handler = (args) => routineDeleteCli(required(optionalArg(args.id), "trigger id"), args);
+REGISTRY_BY_CAPABILITY.get("routine.fire")!.mcp!.handler = (args) => routineFireCli(required(optionalArg(args.kind), "trigger kind"), args.payload, args);
+REGISTRY_BY_CAPABILITY.get("routine.events")!.mcp!.handler = (args) => routineEventsCli(optionalArg(args.id), args);
+
+// ---- sched (control-plane leases over the durable queue) ---------------
+
+addCliOnlyCapability(
+  "sched",
+  "cw sched plan|lease|release|complete|reclaim|reset|policy [show|set] — control-plane lease scheduling over the durable queue.",
+  {
+    path: ["sched"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const [subcommand, idArg] = args.positionals;
+      switch (subcommand) {
+        case "plan":
+          return { json: schedPlanCli(args.options) };
+        case "lease":
+          return { json: schedLeaseCli(args.options) };
+        case "release":
+          return { json: schedReleaseCli(String(args.options.leaseId || idArg || ""), args.options) };
+        case "complete":
+          return { json: schedCompleteCli(String(args.options.leaseId || idArg || ""), args.options) };
+        case "reclaim":
+          return { json: schedReclaimCli(args.options) };
+        case "reset":
+          return { json: schedResetCli(String(args.options.id || idArg || ""), args.options) };
+        case "policy": {
+          const action = args.positionals[1];
+          if (action === "set") return { json: schedPolicySetCli(args.options) };
+          return { json: schedPolicyShowCli(args.options) };
+        }
+        default:
+          throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
+      }
+    },
+  },
+  "cw sched is the durable-queue lease scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_sched_*), each wired below."
+);
+REGISTRY_BY_CAPABILITY.get("sched.plan")!.mcp!.handler = (args) => schedPlanCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.lease")!.mcp!.handler = (args) => schedLeaseCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.release")!.mcp!.handler = (args) => schedReleaseCli(String(args.leaseId || ""), args);
+REGISTRY_BY_CAPABILITY.get("sched.complete")!.mcp!.handler = (args) => schedCompleteCli(String(args.leaseId || ""), args);
+REGISTRY_BY_CAPABILITY.get("sched.reclaim")!.mcp!.handler = (args) => schedReclaimCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.reset")!.mcp!.handler = (args) => schedResetCli(String(args.id || ""), args);
+REGISTRY_BY_CAPABILITY.get("sched.policy.show")!.mcp!.handler = (args) => schedPolicyShowCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.policy.set")!.mcp!.handler = (args) => schedPolicySetCli(args);
+
+// ---- registry (refresh|show) --------------------------------------------
+
+addCliOnlyCapability(
+  "registry",
+  "cw registry refresh|show [--scope repo|home] [--json] — the derived run registry index.",
+  {
+    path: ["registry"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const subcommand = firstPositionalArg(args);
+      let report;
+      if (subcommand === "refresh") report = registryRefreshCli(args.options);
+      else if (subcommand === "show") report = registryShowCli(args.options);
+      else throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
+      return { json: report, text: formatRegistryReport(report) };
+    },
+  },
+  "cw registry is the derived run-registry index; SPEC/mcp.md declares its MCP peers (cw_registry_refresh|show), each wired below."
+);
+REGISTRY_BY_CAPABILITY.get("registry.refresh")!.mcp!.handler = (args) => registryRefreshCli(args);
+REGISTRY_BY_CAPABILITY.get("registry.show")!.mcp!.handler = (args) => registryShowCli(args);
+
+// ---- queue (add|list|drain|show) ----------------------------------------
+
+addCliOnlyCapability(
+  "queue",
+  "cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N] — the durable run queue.",
+  {
+    path: ["queue"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const [subcommand, id] = args.positionals;
+      switch (subcommand) {
+        case "add":
+          return { json: queueAddCli(args.options) };
+        case "list": {
+          const result = queueListCli(args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: formatQueueList(result) };
+        }
+        case "drain":
+          return { json: queueDrainCli(args.options) };
+        case "show":
+          return { json: queueShowCli(required(id, "queue id"), args.options) };
+        default:
+          throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
+      }
+    },
+  },
+  "cw queue is the durable run queue; SPEC/mcp.md declares its MCP peers (cw_queue_add|list|drain|show), each wired below."
+);
+REGISTRY_BY_CAPABILITY.get("queue.add")!.mcp!.handler = (args) => queueAddCli(args);
+REGISTRY_BY_CAPABILITY.get("queue.list")!.mcp!.handler = (args) => queueListCli(args);
+REGISTRY_BY_CAPABILITY.get("queue.drain")!.mcp!.handler = (args) => queueDrainCli(args);
+REGISTRY_BY_CAPABILITY.get("queue.show")!.mcp!.handler = (args) => queueShowCli(required(optionalArg(args.id), "queue id"), args);
+
+// ---- gc (plan|run|verify) ------------------------------------------------
+
+addCliOnlyCapability(
+  "gc",
+  "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json] — run retention & provable reclamation.",
+  {
+    path: ["gc"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const [subcommand, id] = args.positionals;
+      switch (subcommand) {
+        case "plan": {
+          const result = gcPlanCli(id, args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: formatGcPlan(result) };
+        }
+        case "run": {
+          const result = gcRunCli(id, args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: formatGcRun(result) };
+        }
+        case "verify": {
+          const result = gcVerifyCli(required(id, "run id"), args.options);
+          const text = formatGcVerify(result);
+          return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
+        }
+        default:
+          throw new Error("Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
+      }
+    },
+  },
+  "cw gc is run retention & provable reclamation; SPEC/mcp.md declares its MCP peers (cw_gc_plan|run|verify), each wired below."
+);
+REGISTRY_BY_CAPABILITY.get("gc.plan")!.mcp!.handler = (args) => gcPlanCli(optionalArg(args.runId), args);
+REGISTRY_BY_CAPABILITY.get("gc.run")!.mcp!.handler = (args) => gcRunCli(optionalArg(args.runId), args);
+REGISTRY_BY_CAPABILITY.get("gc.verify")!.mcp!.handler = (args) => gcVerifyCli(required(optionalArg(args.runId), "run id"), args);
+
+// ---- orphans (list|gc) ---------------------------------------------------
+
+addCliOnlyCapability(
+  "orphans",
+  "cw orphans list|gc — reclaim run directories a killed process never registered (no state.json).",
+  {
+    path: ["orphans"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const subcommand = firstPositionalArg(args);
+      switch (subcommand) {
+        case "list": {
+          const result = orphansListCli(args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: formatOrphanRunsList(result) };
+        }
+        case "gc": {
+          const result = orphansGcCli(args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: formatOrphanRunsGc(result) };
+        }
+        default:
+          throw new Error(
+            "Usage: cw.js orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)"
+          );
+      }
+    },
+  },
+  "cw orphans reclaims killed-process run dirs with no state.json; SPEC/mcp.md declares its MCP peers (cw_orphans_list|gc), each wired below."
+);
+REGISTRY_BY_CAPABILITY.get("orphans.list")!.mcp!.handler = (args) => orphansListCli(args);
+REGISTRY_BY_CAPABILITY.get("orphans.gc")!.mcp!.handler = (args) => orphansGcCli(args);
+
+// ---- clones (list|gc) ------------------------------------------------------
+
+addCliOnlyCapability(
+  "clones",
+  "cw clones list|gc [--older-than-days N] [--all] — the cached remote-source checkout cache.",
+  {
+    path: ["clones"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const subcommand = firstPositionalArg(args);
+      switch (subcommand) {
+        case "list": {
+          const result = clonesListCli();
+          return wantsJson(args.options) ? { json: result } : { json: result, text: formatClonesList(result) };
+        }
+        case "gc": {
+          const result = clonesGcCli(args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: formatClonesGc(result) };
+        }
+        default:
+          throw new Error("Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
+      }
+    },
+  },
+  "cw clones is the cached remote-source checkout cache; SPEC/mcp.md declares its MCP peers (cw_clones_list|gc), each wired below."
+);
+REGISTRY_BY_CAPABILITY.get("clones.list")!.mcp!.handler = () => clonesListCli();
+REGISTRY_BY_CAPABILITY.get("clones.gc")!.mcp!.handler = (args) => clonesGcCli(args);
+
+// ---- run search|list|show|resume|archive|rerun (2-token rows, found
+// BEFORE the 1-token run.drive.step row per dispatchTable's reversed
+// candidate order — see that row's own comment for why the run-registry
+// keyword guard set still lists these words) --------------------------
+
+attachCliBinding("run.search", {
+  path: ["run", "search"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const result = runSearchCli(args.options);
+    return { json: result, text: formatRunSearch(result) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("run.search")!.mcp!.handler = (args) => runSearchCli(args);
+
+attachCliBinding("run.list", {
+  path: ["run", "list"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const result = runListCli(args.options);
+    return { json: result, text: formatRunSearch(result) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("run.list")!.mcp!.handler = (args) => runListCli(args);
+
+attachCliBinding("run.show", {
+  path: ["run", "show"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const result = runShowCli(runId, args.options);
+    return { json: result, text: formatRunShow(result) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("run.show")!.mcp!.handler = (args) => runShowCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("run.resume", {
+  path: ["run", "resume"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const result = runResumeCli(runId, args.options);
+    return { json: result, text: formatResume(result) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("run.resume")!.mcp!.handler = (args) => runResumeCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("run.archive", {
+  path: ["run", "archive"],
+  jsonMode: "default",
+  handler: (args) => ({ json: runArchiveCli(optionalArg(args.positionals[0]), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("run.archive")!.mcp!.handler = (args) => runArchiveCli(optionalArg(args.runId), args);
+
+attachCliBinding("run.rerun", {
+  path: ["run", "rerun"],
+  jsonMode: "default",
+  handler: (args) => ({ json: runRerunCli(required(args.positionals[0], "run id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("run.rerun")!.mcp!.handler = (args) => runRerunCli(required(optionalArg(args.runId), "run id"), args);
+
+// ---- history ---------------------------------------------------------
+
+attachCliBinding("history", {
+  path: ["history"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const result = historyCli(args.options);
+    return { json: result, text: formatHistory(result) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("history")!.mcp!.handler = (args) => historyCli(args);
+
+

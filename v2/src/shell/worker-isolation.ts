@@ -114,10 +114,16 @@ function scopePath(scope: WorkerScope): string {
   return path.join(scope.workerDir, "worker.json");
 }
 
-let workerSeq = 0;
+/** Deterministic worker id: the task plus a PER-TASK sequence (count of
+ *  worker scopes already allocated for THIS task + 1) — byte-exact port
+ *  of the old build's src/worker-isolation/paths.ts:38-42. Re-running the
+ *  same workflow yields byte-identical worker ids while retries of the
+ *  SAME task still get a fresh, unique id (workerId is excluded from the
+ *  snapshot source fingerprint, so this does not change replay digests). */
 function createWorkerId(run: WorkflowRun, taskId: string): string {
-  workerSeq += 1;
-  return `worker-${safeFileName(taskId)}-${String((run.workers || []).length + workerSeq).padStart(4, "0")}`;
+  const prefix = `worker-${safeFileName(taskId)}-`;
+  const seq = ((run.workers as unknown as WorkerScope[] | undefined) || []).filter((scope) => scope.id.startsWith(prefix)).length + 1;
+  return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 
 export function getWorkerScope(run: WorkflowRun, workerId: string): WorkerScope | undefined {
