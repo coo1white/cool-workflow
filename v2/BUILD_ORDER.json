@@ -20,32 +20,32 @@
   {
     "milestone": "3-state-kernel",
     "spec_subsystems": ["state-core"],
-    "conformance_filter": "state-json-bytes|state-migration-prove|state-migration-unsupported|state-node-snapshot-replay|state-normalize-defaults",
-    "done_when": "run-state schema, migration ladder, StateNode lifecycle/transition matrix, and node snapshot/diff/replay are byte-identical to the old build. Any CLI-facing state verb lands as a registry row, not a hand-written handler."
+    "conformance_filter": "state-migration-unsupported|state-normalize-defaults",
+    "done_when": "run-state schema, migration ladder, StateNode lifecycle/transition matrix, and node snapshot/diff/replay are byte-identical to the old build. Any CLI-facing state verb lands as a registry row, not a hand-written handler. NOTE (discovered during implementation): state-json-bytes, state-node-snapshot-replay, and half of state-migration-prove ALSO exist and pin real state-core.md behavior, but their own SETUP uses `-q` (quickstart) to generate a realistic run to test against -- `-q` always routes through drive() (src/drive.ts), which needs execution-backend + pipeline-runner + commit-gate + the drive loop itself, i.e. milestones 5+6+7 combined. They cannot go green until milestone 7 is done and are deferred to milestone 13's full-suite filter, NOT dropped. Milestone 3 is done when the two -q-independent cases above are green and the state-kernel logic itself (migrations, StateNode matrix+gate, node snapshot/diff/replay, contract-migration prover) is implemented and manually verified via direct `cw node`/`cw migration` CLI probes."
   },
   {
     "milestone": "4-state-explosion-and-contract-migration",
     "spec_subsystems": ["state-core"],
-    "conformance_filter": "state-json-bytes|state-migration-prove|state-migration-unsupported|state-node-snapshot-replay|state-normalize-defaults",
-    "done_when": "state-explosion summaries (collapse rules, thresholds, digests) and the contract-migration prover match the old build; new cases authored here if the existing state-* filter set is too thin to exercise them."
+    "conformance_filter": "state-migration-unsupported|state-normalize-defaults",
+    "done_when": "state-explosion summaries (collapse rules, thresholds, digests) and the contract-migration prover match the old build; DEDICATED state-explosion-specific conformance cases still need to be authored here (an open risk carried from the first pass) -- when authoring them, prefer a setup path that does NOT require `-q`/drive() if state-explosion's own CLI surface (e.g. a direct `cw state explosion` or `cw node graph` style verb) can generate enough nodes without a live run, so this milestone stays independently gatable."
   },
   {
     "milestone": "5-execution-backend-and-agent-spawn",
     "spec_subsystems": ["execution-backend"],
     "conformance_filter": "exec-backend-registry|exec-agent-substitution|exec-agent-secret-redaction|exec-sandbox-readonly-boundary|exec-doctor-agent-config",
-    "done_when": "the 7-driver registry, local/shell/container/remote/ci drivers, agent spawn+parse+redact path, and sandbox profile checks match the old build. scripts/agents/* and scripts/children/* are copied byte-identical, not rewritten."
+    "done_when": "the 7-driver registry, local/shell/container/remote/ci drivers, agent spawn+parse+redact path, and sandbox profile checks match the old build. scripts/agents/* and scripts/children/* are copied byte-identical, not rewritten. These 5 filter cases ARE independently gatable (none of them invoke -q/drive), so this milestone genuinely stands alone."
   },
   {
     "milestone": "6-pipeline-run-and-commit-gate",
     "spec_subsystems": ["pipeline-run"],
     "conformance_filter": "pipeline-question-basic",
-    "done_when": "plan->dispatch->result->verify->commit spine, the default contract, and the commit gate's ~25 error codes match the old build; dispatch/commit-specific cases authored here if coverage is thin."
+    "done_when": "plan->dispatch->result->verify->commit spine, the default contract, and the commit gate's ~25 error codes match the old build; dispatch/commit-specific cases authored here if coverage is thin. IMPORTANT (discovered during milestone 3): pipeline-question-basic.case.js ALSO uses `-q`, so its own filter will NOT go green until milestone 7 (drive-loop) is also built -- milestones 6 and 7 are implemented in this order but can only be CONFORMANCE-VERIFIED together, as one combined gate, not sequentially. Do not treat a red pipeline-question-basic as a milestone-6 regression until milestone 7 is also complete; build both before expecting either to pass."
   },
   {
     "milestone": "7-drive-loop-and-subworkflow",
     "spec_subsystems": ["pipeline-run"],
-    "conformance_filter": "pipeline-question-basic",
-    "done_when": "drive(), sub-workflow fulfillment, loop() expansion, and the incremental result cache match the old build; drive-specific cases authored here. core/pipeline/drive-decide.ts stays a pure decision function with zero process spawns in its own unit tests."
+    "conformance_filter": "pipeline-question-basic|state-json-bytes|state-node-snapshot-replay|state-migration-prove",
+    "done_when": "drive(), sub-workflow fulfillment, loop() expansion, and the incremental result cache match the old build; drive-specific cases authored here. core/pipeline/drive-decide.ts stays a pure decision function with zero process spawns in its own unit tests. This milestone's filter is the REAL gate for milestones 5+6+7 combined (see note on milestone 6) plus the 3 state-core cases deferred from milestone 3 whose setup needed a live drive run -- all of them should go green together once drive() is complete, since they all share the same `-q` dependency chain."
   },
   {
     "milestone": "8-ledger-telemetry-trust-audit",

@@ -77,6 +77,65 @@ export function readJson(file: string): unknown {
 }
 
 // ---------------------------------------------------------------------------
+// Safe ids / names — src/state.ts:310-334 in the old build.
+// ---------------------------------------------------------------------------
+
+/** Replaces every run of chars outside `[a-zA-Z0-9_.:-]` with a single `_`. */
+export function safeFileName(value: string): string {
+  return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
+}
+
+/** Refuse a run id that is not a single safe path segment, so an id taken
+ *  from an untrusted source (an imported run archive/bundle) can never
+ *  escape the runs directory via a separator or a `..`/`.` component. The
+ *  charset already forbids any separator, so the whole id is ONE path
+ *  component; only the exact components `.` and `..` are refused — an
+ *  EMBEDDED `..` (e.g. `v1..2`) is a safe directory name and is allowed. */
+export function assertSafeRunId(value: unknown, context = "run id"): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new Error(`Invalid ${context}: expected a non-empty string`);
+  }
+  if (!/^[A-Za-z0-9._:-]+$/.test(value) || value === "." || value === "..") {
+    throw new Error(
+      `Unsafe ${context}: ${JSON.stringify(value)} must be a single path segment ([A-Za-z0-9._:-], not '.' or '..')`
+    );
+  }
+  return value;
+}
+
+// ---------------------------------------------------------------------------
+// Symlink-hardened path containment — src/state.ts:195-227 in the old build.
+// ---------------------------------------------------------------------------
+
+/** Realpath the deepest EXISTING ancestor (follows symlinks), then re-join
+ *  the not-yet-created tail. If nothing exists up to the root, returns
+ *  plain `path.resolve(target)`. */
+export function realResolve(target: string): string {
+  let current = path.resolve(target);
+  const tail: string[] = [];
+  for (;;) {
+    try {
+      const real = fs.realpathSync.native ? fs.realpathSync.native(current) : fs.realpathSync(current);
+      return tail.length ? path.join(real, ...tail.reverse()) : real;
+    } catch {
+      const parent = path.dirname(current);
+      if (parent === current) return path.resolve(target);
+      tail.push(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+/** True when `realResolve(candidate)` equals `realResolve(allowed)` or
+ *  starts with it plus `path.sep`. Realpaths BOTH sides so a symlinked temp
+ *  root (macOS `/tmp` -> `/private/tmp`) compares right. */
+export function isContainedPath(candidate: string, allowed: string): boolean {
+  const realCandidate = realResolve(candidate);
+  const realAllowed = realResolve(allowed);
+  return realCandidate === realAllowed || realCandidate.startsWith(realAllowed + path.sep);
+}
+
+// ---------------------------------------------------------------------------
 // durableAppendFileSync — append a line and fsync it before returning. Used
 // by the trust-audit event log, whose loss breaks audit-completeness.
 // ---------------------------------------------------------------------------

@@ -5,3 +5,10 @@
 // was rebuilt. See SPEC/cli-surface.md "Exact outputs > Version" and
 // conformance/cases/version-basic.case.js (regex `/^\d+\.\d+\.\d+\n$/`).
 export const CURRENT_COOL_WORKFLOW_VERSION = "0.1.98";
+
+// State-kernel schema version constants (SPEC/state-core.md "Version
+// constants"). Pinned to the old build's src/version.ts byte-for-byte.
+export const WORKFLOW_APP_SCHEMA_VERSION = 1;
+export const CURRENT_RUN_STATE_SCHEMA_VERSION = 1;
+export const LEGACY_RUN_STATE_SCHEMA_VERSION = 0;
+export const MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION = 0;

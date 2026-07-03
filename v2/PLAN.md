@@ -440,35 +440,43 @@ the old build is a wrong case, fix the case first.
    Everything above this needs run state to load/save byte-identically. Any CLI-facing state
    verb lands as a registry row against milestone 2's dispatcher, never a hand-written handler.
    Draws from: `state-core.md` in full. Conformance filter:
-   `state-json-bytes|state-migration-prove|state-migration-unsupported|state-node-snapshot-replay|state-normalize-defaults`.
+   `state-migration-unsupported|state-normalize-defaults` — see Open risk 10:
+   `state-json-bytes`/`state-node-snapshot-replay`/half of `state-migration-prove` also belong to
+   this milestone's subject matter but use `-q` in their own setup, so they are deferred to
+   milestone 7's combined gate rather than gating milestone 3 itself.
 
 4. **State-explosion summaries + contract-migration prover.** Layered directly on the state
    kernel; exercises the hash module's `fingerprintStrings`/`stableHash` split for real.
    Draws from: `state-core.md` ("state-explosion" and "contract-migration" sections).
-   Conformance filter: same state-* filter as milestone 3, expanded once summary-specific
-   conformance cases exist (author them here if the case set is thin — see Open risk on case
-   coverage).
+   Conformance filter: same reduced state-* filter as milestone 3, expanded once dedicated
+   summary-specific conformance cases exist (author them here if the case set is thin — see Open
+   risk on case coverage — and prefer a setup path that avoids `-q` per Open risk 10's lesson).
 
 5. **Execution backend + agent spawn + sandbox.** The delegate-not-execute boundary: driver
    registry, local/shell/container/remote/ci drivers, the agent driver's spawn+parse+redact
    path, sandbox profile resolution and runtime checks. `scripts/agents/*` and
    `scripts/children/*` are copied byte-identical, not rewritten. Draws from:
-   `execution-backend.md` in full. Conformance filter:
+   `execution-backend.md` in full. Conformance filter (independently gatable — none of these 5
+   cases invoke `-q`/`drive()`):
    `exec-backend-registry|exec-agent-substitution|exec-agent-secret-redaction|exec-sandbox-readonly-boundary|exec-doctor-agent-config`.
 
 6. **Pipeline run + commit gate.** The `plan -> dispatch -> result -> verify -> commit` spine:
    default contract, one-step pipeline runner, dispatch manifests, result-envelope
    normalization, the commit gate's ~25 error codes, task-file rendering, error-feedback
    classification. Draws from: `pipeline-run.md` (contract, dispatch, commit sections).
-   Conformance filter: `pipeline-question-basic` (expand with dispatch/commit-specific cases
-   authored at this step if the existing case set is thin).
+   Conformance filter: `pipeline-question-basic` — per Open risk 10, this filter will NOT go
+   green until milestone 7 is also built (the case uses `-q`, which always routes through the
+   full `drive()`); implement this milestone's code fully, but expect its filter to stay red
+   until milestone 7 completes, and do not treat that as a milestone-6 regression.
 
 7. **Drive loop, sub-workflow, loop() expansion, incremental cache.** The largest and most
    tangled behavioral surface, built once the pipeline spine under it is proven. Draws from:
    `pipeline-run.md` (drive, sub-workflow, loop-expansion, incremental-cache sections).
-   Conformance filter: extend milestone 6's filter with drive-specific cases (author them here;
-   these are exactly the cases the "conformance-porting keeping pace" risk targets — see Open
-   risks).
+   Conformance filter — the REAL combined gate for milestones 5+6+7 (Open risk 10), plus the 3
+   state-core cases deferred from milestone 3:
+   `pipeline-question-basic|state-json-bytes|state-node-snapshot-replay|state-migration-prove`.
+   Author drive-specific cases here too; these are exactly the cases the "conformance-porting
+   keeping pace" risk targets — see Open risks.
 
 8. **Ledger, telemetry, trust-audit, tamper/bundle demos.** The trust layer, reachable from both
    front doors via milestone 2's dispatcher the moment its registry rows land. Draws from:
@@ -604,6 +612,28 @@ are kept as literal ports at their current size, because they are complex FOR A 
    changing behavior, keep the mixed function in `shell/` rather than force a bad split — a
    `shell/`-housed function that is 90% pure is still better than a `core/` function that lies
    about being pure.
+
+10. **Milestones 5, 6, and 7 are not independently conformance-gatable — discovered during
+    milestone 3's implementation, not anticipated by the first pass.** Every `-q`/quickstart
+    conformance case (`pipeline-question-basic`, and `state-json-bytes`/`state-node-snapshot-
+    replay`/half of `state-migration-prove` from milestone 3, which use `-q` only to generate a
+    realistic run to test state-core.md behavior against) routes through the OLD build's
+    `drive()` (`src/drive.ts`) unconditionally — there is no lower-level manual
+    plan/dispatch/result/commit CLI sequence that any existing conformance case exercises
+    instead. `drive()` itself pulls in execution-backend (milestone 5), the pipeline runner and
+    commit gate (milestone 6), and the loop/sub-workflow/incremental-cache logic (milestone 7)
+    together. **Consequence:** milestone 6's own filter (`pipeline-question-basic`) will not go
+    green until milestone 7 is ALSO built, and the 3 state-core cases deferred out of milestone
+    3 will not go green until then either. **Mitigated by:** implement milestones 5, 6, and 7 in
+    order as planned (each is still a distinct, well-scoped body of code), but treat their
+    conformance filters as ONE COMBINED GATE — `v2/BUILD_ORDER.json`'s milestone 7 entry now
+    carries the full combined filter
+    (`pipeline-question-basic|state-json-bytes|state-node-snapshot-replay|state-migration-
+    prove`). Do not treat a red milestone-6 filter as a milestone-6 regression while milestone 7
+    is still in progress. A future builder hitting the same wall should NOT special-case a
+    smaller drive loop just to satisfy an earlier milestone's gate (that duplicates ~1,000+
+    lines of behavior ahead of its own milestone and risks drifting from what gets built for
+    real) — defer the case instead, exactly as done here.
 
 ## How this plan is used
 

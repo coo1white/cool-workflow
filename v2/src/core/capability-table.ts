@@ -608,3 +608,135 @@ attachCliBinding("sandbox.list", {
   jsonMode: "default",
   handler: () => ({ json: listBundledSandboxProfiles() }),
 });
+
+// ---------------------------------------------------------------------
+// MILESTONE 3 (state kernel) CLI bindings: state.check, migration.list|
+// check|prove, node.list|show|graph|snapshot|diff|replay|replay.verify.
+// Handler BODIES live in shell/state-cli.ts (impure — they read/write
+// run state on disk); this table only wires argv shape -> handler call
+// and the row's own exit-code rule, per cli/dispatch.ts's generic
+// executor contract. `required`/`optionalArg` are cli/io.ts's shared
+// coercion helpers, imported here so the wiring stays a thin adapter
+// (Usage-error strings copied byte-for-byte from the old build's
+// handlers/*.ts).
+// ---------------------------------------------------------------------
+
+import { required } from "../cli/io";
+import {
+  checkState,
+  graphNodes,
+  listNodes,
+  migrationCheck,
+  migrationList,
+  migrationProve,
+  nodeDiffCli,
+  nodeReplayCli,
+  nodeReplayVerifyCli,
+  nodeSnapshotCli,
+  showNode,
+} from "../shell/state-cli";
+
+attachCliBinding("state.check", {
+  path: ["state", "check"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const report = checkState(runId, args.options);
+    return { json: report, exitCode: report.status === "unsupported" ? 1 : undefined };
+  },
+});
+
+attachCliBinding("migration.list", {
+  path: ["migration", "list"],
+  jsonMode: "default",
+  handler: () => ({ json: migrationList() }),
+});
+
+attachCliBinding("migration.check", {
+  path: ["migration", "check"],
+  jsonMode: "default",
+  handler: (args) => {
+    const target = required(args.positionals[0], "target (run-id or state/app file)");
+    const report = migrationCheck(target, args.options);
+    return { json: report, exitCode: report.status === "unsupported" ? 1 : undefined };
+  },
+});
+
+attachCliBinding("migration.prove", {
+  path: ["migration", "prove"],
+  jsonMode: "default",
+  handler: (args) => {
+    const target = required(args.positionals[0], "target (run-id or state/app file)");
+    const proof = migrationProve(target, args.options);
+    return { json: proof, exitCode: proof.pass ? undefined : 1 };
+  },
+});
+
+attachCliBinding("node.list", {
+  path: ["node", "list"],
+  jsonMode: "default",
+  handler: (args) => ({ json: listNodes(required(args.positionals[0], "run id"), args.options) }),
+});
+
+attachCliBinding("node.show", {
+  path: ["node", "show"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const nodeId = required(args.positionals[1], "node id");
+    return { json: showNode(runId, nodeId, args.options) };
+  },
+});
+
+attachCliBinding("node.graph", {
+  path: ["node", "graph"],
+  jsonMode: "default",
+  handler: (args) => ({ json: graphNodes(required(args.positionals[0], "run id"), args.options) }),
+});
+
+attachCliBinding("node.snapshot", {
+  path: ["node", "snapshot"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const nodeId = required(args.positionals[1], "node id");
+    return { json: nodeSnapshotCli(runId, nodeId, args.options) };
+  },
+});
+
+attachCliBinding("node.diff", {
+  path: ["node", "diff"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const baselineSnapshotId = required(args.positionals[1], "baseline snapshot id");
+    const candidateSnapshotId = required(args.positionals[2], "candidate snapshot id");
+    return { json: nodeDiffCli(runId, baselineSnapshotId, candidateSnapshotId, args.options) };
+  },
+});
+
+attachCliBinding("node.replay", {
+  path: ["node", "replay"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const snapshotId = required(args.positionals[1], "snapshot id");
+    return { json: nodeReplayCli(runId, snapshotId, args.options) };
+  },
+});
+
+attachCliBinding("node.replay.verify", {
+  path: ["node", "verify"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const replayId = required(args.positionals[1], "replay id");
+    const verdict = nodeReplayVerifyCli(runId, replayId, args.options);
+    return { json: verdict, exitCode: verdict.pass ? undefined : 1 };
+  },
+});
+
+// `contract.show` is not yet a declared MCP_TOOL_DATA row with a CLI peer
+// wired here (it IS in MCP_TOOL_DATA already); no milestone-3 conformance
+// case reaches it, so it is intentionally left on its placeholder handler
+// until a case demands it — avoids speculative, untested wiring.

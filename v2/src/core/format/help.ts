@@ -77,7 +77,6 @@ function wrapPipeJoined(tokens: string[], width: number): string[] {
  *  verb stays literal until its own milestone lands. */
 const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
   help: [{ command: "cw help", summary: "Print the human CLI help text." }],
-  state: [{ command: "cw state check", summary: "Check run-state schema compatibility." }],
   doctor: [
     {
       command: "cw doctor",
@@ -120,15 +119,6 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
       summary:
         "List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only.",
     },
-  ],
-  node: [
-    { command: "cw node diff", summary: "Structurally diff two node snapshots." },
-    { command: "cw node graph", summary: "Read the state-node graph for a run." },
-    { command: "cw node list", summary: "List state nodes for a run." },
-    { command: "cw node replay", summary: "Deterministically replay one node from a snapshot." },
-    { command: "cw node show", summary: "Show one state node for a run." },
-    { command: "cw node snapshot", summary: "Snapshot one state node (derived + fingerprinted)." },
-    { command: "cw node verify", summary: "Verify a node replay against its source." },
   ],
   backend: [
     {
