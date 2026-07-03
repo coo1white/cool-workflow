@@ -1,0 +1,21 @@
+cw demo tamper — tamper-evidence proof (hermetic, ephemeral-ed25519 key)
+
+▶ Built an attested telemetry ledger: 3 hops, 3 records
+  ✓ ledger verifies   2 signed hop(s) verify against the public key
+
+▶ LEDGER tamper
+  edit:   forged record[1] verdict "unattested" -> "attested" AND recomputed its recordHash to cover the edit
+  before: ✓ verified — 3 records: chain intact, all hashes recompute
+  after:  ✗ DETECTED — the hash chain caught it: chain-link[2]: telemetry-chain-broken
+
+▶ SIGNATURE tamper
+  edit:   inflated record[0] reported output_tokens 1911 -> 19110, reused the original ed25519 signature
+  before: ✓ verified — signature verifies against the reported usage (ed25519)
+  after:  ✗ DETECTED — signature does not match reported usage (tampered, replayed, or wrong key)
+
+▶ RESULT tamper
+  edit:   edited the agent's signed finding "severity HIGH" -> "severity LOW" after it was signed
+  before: ✓ verified — the signed finding verifies — ed25519 binds usage + sha256(result), result-covering
+  after:  ✗ DETECTED — signature does not match reported usage (tampered, replayed, or wrong key)
+
+VERDICT: tamper-evidence holds ✓ — every forgery was caught offline, with only the public key. No server was trusted.
