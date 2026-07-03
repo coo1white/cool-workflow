@@ -2,6 +2,22 @@
 //
 // Byte-exact port of src/cli/io.ts in the old build. Pure + zero-dep: arg
 // coercion + JSON stdout. See SPEC/cli-surface.md "Shared io helpers".
+//
+// MILESTONE 11 (reporting/observability) adds `styledHelp` — the one
+// place `formatHelp()`'s plain text gets its "Cool Workflow" header
+// bolded, TTY/env-gated via shell/term.ts's `bold()`. Kept here (not in
+// core/format/help.ts, which stays a pure text generator) since it needs
+// shell/term.ts's env/TTY read.
+
+import { formatHelp } from "../core/format/help";
+import { bold } from "../shell/term";
+
+/** Bold ONLY the fixed "Cool Workflow" header line of `formatHelp()`'s
+ *  plain text. */
+export function styledHelp(): string {
+  const text = formatHelp();
+  return text.replace(/^Cool Workflow\n/, `${bold("Cool Workflow")}\n`);
+}
 
 /** Require a positional/option value or fail with a copy-pasteable recovery tip. */
 export function required(value: string | undefined, label: string): string {

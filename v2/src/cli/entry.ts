@@ -1,23 +1,26 @@
 // cli/entry.ts — the real entry point (`cw` / `cool-workflow` binaries).
 //
 // Byte-exact port of the shape of src/cli.ts + the top-of-function part of
-// src/cli/command-surface.ts's `runCli` in the old build, scoped to this
-// milestone: top-level flag redirects, then a minimal dispatch (see
-// cli/dispatch.ts), then the top-level catch that turns any thrown error
-// into the fixed `cw: <message>` / `  Try: <hint>` stderr shape.
+// src/cli/command-surface.ts's `runCli` in the old build: top-level flag
+// redirects, then dispatch (see cli/dispatch.ts), then the top-level
+// catch that turns any thrown error into the fixed `cw: <message>` /
+// `  Try: <hint>` stderr shape.
 //
-// Color: every path here is exercised by the conformance suite piped with
-// NO_COLOR=1 (conformance/lib.js), and no ANSI is emitted at this
-// milestone — term.ts (color primitives) is out of this milestone's file
-// list per v2/PLAN.md's target shape and lands with the reporting/
-// observability milestone. Byte content is unaffected either way (color
-// codes are additive to the plain text pinned by SPEC/cli-help/*.txt).
+// Color: MILESTONE 11 (reporting/observability) wires shell/term.ts's
+// color primitives here — the "Cool Workflow" help header is bolded and
+// the error path is styled (bold "cw:", red message, dim "Try:"), TTY/
+// env-gated exactly as SPEC/reporting-ux.md's "Color rule" describes.
+// Every conformance case still pipes with NO_COLOR=1 by default (lib.js),
+// so byte content there is unaffected; cli-color-env.case.js exercises
+// the FORCE_COLOR/NO_COLOR/CW_NO_COLOR branches explicitly.
 
 import { parseArgv } from "./parseargv";
 import { dispatch } from "./dispatch";
-import { formatCommandHelp, formatHelp } from "../core/format/help";
+import { formatCommandHelp } from "../core/format/help";
 import { suggestCommand } from "./parseargv";
 import { findCapability } from "../core/capability-table";
+import { bold, dim, red } from "../shell/term";
+import { styledHelp } from "./io";
 
 /** MILESTONE 2: `version` is now a pure projection of the capability
  *  table's `version` row — there is exactly one place its print text
@@ -55,7 +58,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
       return;
     }
     if (!args.command || args.command === "--help" || args.command === "-h" || args.options.h || args.options.help) {
-      process.stdout.write(formatHelp());
+      process.stdout.write(styledHelp());
       return;
     }
   }
@@ -100,9 +103,9 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
 export function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   return runCli(argv).catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`cw: ${message}\n`);
+    process.stderr.write(`${bold("cw:", process.stderr)} ${red(message, process.stderr)}\n`);
     const hint = recoveryHint(message);
-    if (hint) process.stderr.write(`  Try: ${hint}\n`);
+    if (hint) process.stderr.write(`  ${dim("Try:", process.stderr)} ${hint}\n`);
     process.exitCode = 1;
   });
 }

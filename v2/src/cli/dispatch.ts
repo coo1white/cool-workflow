@@ -21,7 +21,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { formatCommandHelp, formatHelp } from "../core/format/help";
+import { formatCommandHelp } from "../core/format/help";
 import {
   CapabilityCliArgs,
   CliHandlerResult,
@@ -29,7 +29,7 @@ import {
   findCapabilityByCliPath,
 } from "../core/capability-table";
 import { KNOWN_COMMANDS, ParsedArgv, suggestCommand } from "./parseargv";
-import { optionalArg, printJson, required, wantsJson } from "./io";
+import { optionalArg, printJson, required, styledHelp, wantsJson } from "./io";
 
 /** Thrown errors carry only a message; the entry point decides exit code
  *  and the recovery hint, matching src/cli.ts's top-level catch. */
@@ -118,7 +118,7 @@ function formatSearchResults(
 function dispatchLegacy(args: ParsedArgv): void {
   switch (args.command) {
     case "": {
-      process.stdout.write(formatHelp());
+      process.stdout.write(styledHelp());
       return;
     }
     case "help": {
@@ -126,7 +126,7 @@ function dispatchLegacy(args: ParsedArgv): void {
       if (topic) {
         process.stdout.write(formatCommandHelp(topic, suggestCommand));
       } else {
-        process.stdout.write(formatHelp());
+        process.stdout.write(styledHelp());
       }
       return;
     }
@@ -243,18 +243,11 @@ function dispatchLegacy(args: ParsedArgv): void {
       throw new Error(`migration ${sub ?? ""} is not implemented in this milestone`);
     }
 
-    // MILESTONE 8 — `report bundle`/`report verify-bundle` are now real
-    // capability-table rows (core/capability-table.ts) that
-    // dispatchTable() above always matches first. This arm is reached
-    // only for `cw report <run-id>` (no bundle subcommand) — real read/
-    // render of a run's report.md is milestone 11's scope (reporting/
-    // run-export); this milestone reproduces only the missing-run-id
-    // refusal.
-    case "report": {
-      const sub = firstPositional(args);
-      const runId = required(optionalArg(sub), "run id");
-      throw new Error(`report is not implemented in this milestone (runId=${runId})`);
-    }
+    // NOTE: "report" is not an arm here any more — report/report.bundle/
+    // report.verify-bundle are now real capability-table rows
+    // (core/capability-table.ts, milestones 8/11) that dispatchTable()
+    // above always matches first, per the Revision note's "table rows,
+    // never a new switch arm" rule.
 
     default: {
       const hint = suggestCommand(args.command);

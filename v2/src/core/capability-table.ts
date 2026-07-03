@@ -464,26 +464,22 @@ export function listBundledSandboxProfiles(): SandboxProfileSummary[] {
   ];
 }
 
-/** PLACEHOLDER (milestone 3, state kernel) — the real `status` with no
- *  run id reads `runner.status`/`formatOperatorStatus`; SPEC/cli-
- *  surface.md pins the no-id JSON shape exactly (`{runId:null,
- *  nextActions}`), reproduced here literally since it needs no run state
- *  at all. A real runId is not yet resolvable at this milestone. */
-export function statusPayload(runId: string | undefined): unknown {
+/** `cw status` / `cw_status` — SPEC/cli-surface.md pins the no-id JSON
+ *  shape exactly (`{runId:null, nextActions}`); a real run id resolves to
+ *  `summarizeRun`'s payload (MILESTONE 11, reporting/observability). */
+export function statusPayload(runId: string | undefined, cwd?: string): unknown {
   if (!runId) {
-    return {
-      runId: null,
-      nextActions: [
-        {
-          command: "node scripts/cw.js plan <workflow-id> --repo <path>",
-          reason: "No run id is available yet; create a workflow run before dispatching or recording evidence.",
-          priority: "high",
-        },
-      ],
-    };
+    return { runId: null, nextActions: statusAdviseNoRun() };
   }
-  throw new CapabilityNotImplementedError("status");
+  const run = statusLoadRunFromCwd(runId, cwd || process.cwd());
+  return statusSummarizeRun(run);
 }
+
+// Aliased on import so this milestone-3 placeholder's own local names
+// (adviseNoRun/loadRunFromCwd/summarizeRun) don't collide with any later
+// milestone section importing the same symbols under their own name.
+import { loadRunFromCwd as statusLoadRunFromCwd } from "../shell/run-store";
+import { adviseNoRun as statusAdviseNoRun, summarizeRun as statusSummarizeRun } from "../shell/operator-ux";
 
 // ---------------------------------------------------------------------
 // Public table-derived API
@@ -1014,53 +1010,28 @@ attachCliBinding("run.drive.step", {
       }
       return { json: runDrivePreview({ ...args.options, runId: required(id, "run id") }) };
     }
-    // PLACEHOLDER (milestone 11, reporting/run-export) — real
-    // inspect-archive/restore read a portable archive's manifest and
-    // verify digests; this milestone reproduces only the fail-closed
-    // "archive not found" shape (carried forward byte-identical from the
-    // milestone-1 dispatchLegacy stub now that "run" is a real
-    // capability-table row).
+    // MILESTONE 11 (reporting/run-export) — the archive family. Handler
+    // bodies live in shell/run-export-cli.ts; this arm only wires argv
+    // shape -> handler call.
+    if (subcommand === "export") {
+      const result = runExportCli(required(id, "run id"), args.options);
+      return { json: result };
+    }
+    if (subcommand === "import") {
+      const result = runImportCli(required(id, "archive path"), args.options);
+      return { json: result };
+    }
+    if (subcommand === "verify-import") {
+      const result = runVerifyImportCli(required(id, "run id"), args.options);
+      return { json: result, exitCode: args.options.strict && !result.ok ? 1 : undefined };
+    }
     if (subcommand === "inspect-archive") {
-      const archivePath = id || "";
-      return {
-        json: {
-          schemaVersion: 1,
-          archivePath,
-          ok: false,
-          schemaSupported: false,
-          runId: null,
-          fileCount: 0,
-          manifestSha256: null,
-          archiveSha256: null,
-          checks: [{ name: "archive", pass: false, code: "archive-unreadable", path: archivePath }],
-        },
-        exitCode: 1,
-      };
+      const result = runInspectArchiveCli(required(id, "archive path"), args.options);
+      return { json: result, exitCode: result.ok ? undefined : 1 };
     }
     if (subcommand === "restore") {
-      const archivePath = id || "";
-      return {
-        json: {
-          schemaVersion: 1,
-          ok: false,
-          target: archivePath,
-          inspect: {
-            schemaVersion: 1,
-            archivePath,
-            ok: false,
-            schemaSupported: false,
-            runId: null,
-            fileCount: 0,
-            manifestSha256: null,
-            archiveSha256: null,
-            checks: [{ name: "archive", pass: false, code: "archive-unreadable", path: archivePath }],
-          },
-          imported: null,
-          verify: null,
-          registry: null,
-        },
-        exitCode: 1,
-      };
+      const result = runRestoreCli(required(id, "archive path"), args.options);
+      return { json: result, exitCode: result.ok ? undefined : 1 };
     }
     throw new Error(
       "Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]"
@@ -1083,6 +1054,19 @@ REGISTRY_BY_CAPABILITY.get("plan")!.mcp!.handler = (args) => planRun(args);
 REGISTRY_BY_CAPABILITY.get("dispatch")!.mcp!.handler = (args) => dispatchRun(args);
 REGISTRY_BY_CAPABILITY.get("result")!.mcp!.handler = (args) => recordResultRun(args);
 REGISTRY_BY_CAPABILITY.get("commit")!.mcp!.handler = (args) => commitRun(args);
+
+// MILESTONE 11 — run.export/import/verify-import/inspect-archive/restore
+// MCP handlers (the CLI side is served by run.drive.step's combined
+// handler above; these tools are called directly by name over MCP, so
+// each needs its own mcp.handler per byte-compat item 5's two-field
+// row shape).
+import { runExportCli, runImportCli, runVerifyImportCli, runInspectArchiveCli, runRestoreCli } from "../shell/run-export-cli";
+
+REGISTRY_BY_CAPABILITY.get("run.export")!.mcp!.handler = (args) => runExportCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("run.import")!.mcp!.handler = (args) => runImportCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
+REGISTRY_BY_CAPABILITY.get("run.verify-import")!.mcp!.handler = (args) => runVerifyImportCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("run.inspect-archive")!.mcp!.handler = (args) => runInspectArchiveCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
+REGISTRY_BY_CAPABILITY.get("run.restore")!.mcp!.handler = (args) => runRestoreCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
 
 addCliOnlyCapability(
   "quickstart",
@@ -2245,5 +2229,209 @@ attachCliBinding("history", {
   },
 });
 REGISTRY_BY_CAPABILITY.get("history")!.mcp!.handler = (args) => historyCli(args);
+
+// ---------------------------------------------------------------------
+// MILESTONE 11 (reporting, observability, doctor/fix, workbench, run
+// export/bundle) CLI bindings: report, status (real run id), graph,
+// operator.status|report|graph. Handler bodies live in shell/report-
+// view-cli.ts (impure — they load run state and, for `report`/`operator
+// report`, re-write report.md); this table only wires argv shape ->
+// handler call, per cli/dispatch.ts's generic executor contract.
+// ---------------------------------------------------------------------
+
+import { reportWriteCli, statusCli, statusSummaryText, statusFullText, operatorStatusCli, operatorReportCli, operatorReportText, graphCli, graphText } from "../shell/report-view-cli";
+
+attachCliBinding("report", {
+  path: ["report"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    const result = reportWriteCli(runId, args.options);
+    if (args.options.show || args.options.summary) {
+      const stateExplosion = formatStateExplosionReport(summaryShowCli(runId, args.options));
+      return { json: result, text: `${operatorReportText(runId, args.options)}\n\n${stateExplosion}\n` };
+    }
+    return { json: result, text: `${result.path}\n` };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("report")!.mcp!.handler = (args) => reportWriteCli(required(optionalArg(args.runId), "run id"), args);
+
+// `status` already carries a milestone-2 CLI binding (`attachCliBinding("status", ...)`
+// above); replace its handler here with the real run-id-aware body while
+// keeping the same row/path (no reshape needed — see byte-compat item 5).
+REGISTRY_BY_CAPABILITY.get("status")!.cli = {
+  path: ["status"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = optionalArg(args.positionals[0]);
+    if (!runId) return { json: statusCli(undefined, args.options), text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
+    if (args.options.summary || args.options.brief) {
+      return { json: statusCli(runId, args.options), text: `${statusSummaryText(runId, args.options)}\n` };
+    }
+    return { json: statusCli(runId, args.options), text: `${statusFullText(runId, args.options)}\n` };
+  },
+};
+REGISTRY_BY_CAPABILITY.get("status")!.mcp!.handler = (args) => statusCli(optionalArg(args.runId), args);
+
+function adviseNoRunLines(): string {
+  return "  node scripts/cw.js plan <workflow-id> --repo <path>\n    reason: No run id is available yet; create a workflow run before dispatching or recording evidence.\n";
+}
+
+attachCliBinding("graph", {
+  path: ["graph"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    return { json: graphCli(runId, args.options), text: `${graphText(runId, args.options)}\n` };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("graph")!.mcp!.handler = (args) => graphCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("operator.status", {
+  path: ["operator", "status"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    if (args.options.summary || args.options.brief) {
+      return { json: operatorStatusCli(runId, args.options), text: `${statusSummaryText(runId, args.options)}\n` };
+    }
+    return { json: operatorStatusCli(runId, args.options), text: `${statusFullText(runId, args.options)}\n` };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("operator.status")!.mcp!.handler = (args) => operatorStatusCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("operator.report", {
+  path: ["operator", "report"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    return { json: operatorReportCli(runId, args.options), text: `${operatorReportText(runId, args.options)}\n` };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("operator.report")!.mcp!.handler = (args) => operatorReportCli(required(optionalArg(args.runId), "run id"), args);
+
+// ---- metrics.show / metrics.summary -----------------------------------
+
+import { metricsShowCli, metricsSummaryCli } from "../shell/metrics-cli";
+import { formatMetricsReport, formatMetricsSummary } from "../shell/observability";
+
+attachCliBinding("metrics.show", {
+  path: ["metrics", "show"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    const report = metricsShowCli(runId, args.options);
+    return { json: report, text: `${formatMetricsReport(report)}\n` };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("metrics.show")!.mcp!.handler = (args) => metricsShowCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("metrics.summary", {
+  path: ["metrics", "summary"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const report = metricsSummaryCli(args.options);
+    return { json: report, text: `${formatMetricsSummary(report)}\n` };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("metrics.summary")!.mcp!.handler = (args) => metricsSummaryCli(args);
+
+// ---- worker.summary (the workbench worker panel + `cw worker summary`) ----
+
+import { summarizeWorkers } from "../shell/worker-isolation";
+import * as workerPath from "node:path";
+
+function workerSummaryCli(args: Record<string, unknown>): ReturnType<typeof summarizeWorkers> {
+  const runId = required(optionalArg(args.runId), "run id");
+  const run = statusLoadRunFromCwd(runId, invocationCwdFor(args));
+  return summarizeWorkers(run);
+}
+function invocationCwdFor(args: Record<string, unknown>): string {
+  return typeof args.cwd === "string" && args.cwd.trim() ? workerPath.resolve(args.cwd) : process.cwd();
+}
+
+attachCliBinding("worker.summary", {
+  path: ["worker", "summary"],
+  jsonMode: "default",
+  handler: (args) => ({ json: workerSummaryCli({ ...args.options, runId: args.positionals[0] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("worker.summary")!.mcp!.handler = (args) => workerSummaryCli(args);
+
+// ---- workbench.view / workbench.serve ---------------------------------
+
+import { buildWorkbenchRunView } from "../shell/workbench";
+import { formatWorkbenchView } from "../shell/workbench-text";
+import { WorkbenchHost } from "../shell/workbench-host";
+
+attachCliBinding("workbench.view", {
+  path: ["workbench", "view"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    const view = buildWorkbenchRunView(runId, args.options);
+    return { json: view, text: `${formatWorkbenchView(view)}\n` };
+  },
+});
+// The MCP path is CLI-facing byte-identical (buildWorkbenchRunView takes
+// the same args shape either way) — required here since `.cli` and
+// `.mcp` never share a handler object per byte-compat item 5.
+REGISTRY_BY_CAPABILITY.get("workbench.view")!.mcp!.handler = (args) => buildWorkbenchRunView(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("workbench.serve", {
+  path: ["workbench", "serve"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const host = new WorkbenchHost(args.options);
+    if (args.options.once || wantsJson(args.options)) {
+      return { json: host.descriptor(true) };
+    }
+    // The default (no --once, no --json) actually binds and blocks — this
+    // returns a promise the generic dispatcher does not await today, so
+    // instead we run it directly here and never return (matching the old
+    // build's own blocking `serve` behavior). See cli/dispatch.ts's
+    // renderCliResult: it is synchronous, so a genuinely blocking serve
+    // must perform its own stdout write and keep the event loop alive
+    // rather than returning a CliHandlerResult at all.
+    void host.run();
+    return { json: undefined };
+  },
+});
+// `cw_workbench_serve` NEVER starts the server — the MCP path forces
+// `once: true` unconditionally, per SPEC/reporting-ux.md's "one declared
+// divergence": an MCP client must never be able to make the server
+// process open a persistent listening socket.
+REGISTRY_BY_CAPABILITY.get("workbench.serve")!.mcp!.handler = (args) => new WorkbenchHost(args).descriptor(true);
+
+// ---- audit.summary / audit.multi-agent / audit.policy / audit.judge ----
+
+import { auditSummaryCli, auditMultiAgentCli, auditPolicyCli, auditJudgeCli } from "../shell/audit-cli";
+
+attachCliBinding("audit.summary", {
+  path: ["audit", "summary"],
+  jsonMode: "default",
+  handler: (args) => ({ json: auditSummaryCli(required(args.positionals[0], "run id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("audit.summary")!.mcp!.handler = (args) => auditSummaryCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("audit.multi-agent", {
+  path: ["audit", "multi-agent"],
+  jsonMode: "default",
+  handler: (args) => ({ json: auditMultiAgentCli(required(args.positionals[0], "run id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("audit.multi-agent")!.mcp!.handler = (args) => auditMultiAgentCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("audit.policy", {
+  path: ["audit", "policy"],
+  jsonMode: "default",
+  handler: (args) => ({ json: auditPolicyCli(required(args.positionals[0], "run id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("audit.policy")!.mcp!.handler = (args) => auditPolicyCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("audit.judge", {
+  path: ["audit", "judge"],
+  jsonMode: "default",
+  handler: (args) => ({ json: auditJudgeCli(required(args.positionals[0], "run id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("audit.judge")!.mcp!.handler = (args) => auditJudgeCli(required(optionalArg(args.runId), "run id"), args);
 
 

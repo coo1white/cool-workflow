@@ -625,3 +625,34 @@ export function showWorkerManifest(run: WorkflowRun, workerId: string): { result
   const task = run.tasks.find((t) => t.id === scope.taskId);
   return { resultPath: scope.resultPath, inputPath: scope.inputPath, manifestPath: manifestPath(scope), workerDir: scope.workerDir, prompt: task?.prompt, sandboxPolicy: scope.sandboxPolicy };
 }
+
+/** MILESTONE 11 (reporting/observability) — `cw worker list [--status]`. */
+export function listWorkerScopes(run: WorkflowRun, options: { status?: string } = {}): WorkerScope[] {
+  const workers = ((run.workers as unknown as WorkerScope[]) || []).slice().sort((a, b) => a.id.localeCompare(b.id));
+  return options.status ? workers.filter((w) => w.status === options.status) : workers;
+}
+
+export interface WorkerSummary {
+  total: number;
+  byStatus: Record<string, number>;
+  manifestPaths: string[];
+  failed: Array<{ id: string; status: string; feedbackIds: string[] }>;
+}
+
+function countByStatus(workers: WorkerScope[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const w of workers) counts[w.status] = (counts[w.status] || 0) + 1;
+  return counts;
+}
+
+/** `cw worker summary <run-id>` — the workbench `worker.summary` panel and
+ *  report.ts's own worker rollup share this one function. */
+export function summarizeWorkers(run: WorkflowRun): WorkerSummary {
+  const workers = listWorkerScopes(run);
+  return {
+    total: workers.length,
+    byStatus: countByStatus(workers),
+    manifestPaths: workers.map((w) => manifestPath(w)),
+    failed: workers.filter((w) => w.status === "failed" || w.status === "rejected").map((w) => ({ id: w.id, status: w.status, feedbackIds: w.feedbackIds || [] })),
+  };
+}

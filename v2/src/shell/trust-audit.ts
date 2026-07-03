@@ -430,3 +430,55 @@ export function writeTrustAuditIndexPlaceholder(run: WorkflowRun): void {
   const audit = ensureTrustAudit(run);
   writeJson(audit.summaryPath, { schemaVersion: 1, runId: run.id, eventCount: readEventsRaw(audit.eventLogPath).length });
 }
+
+function countBy<T>(values: T[], key: (v: T) => string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const value of values) {
+    const bucket = key(value);
+    counts[bucket] = (counts[bucket] || 0) + 1;
+  }
+  return counts;
+}
+
+export interface TrustAuditSummary {
+  schemaVersion: 1;
+  runId: string;
+  generatedAt: string;
+  eventCount: number;
+  integrity: TrustAuditIntegrity;
+  eventLogPath: string;
+  indexPath: string;
+  summaryPath: string;
+  byDecision: Record<string, number>;
+  bySource: Record<string, number>;
+  bySandboxProfile: Record<string, number>;
+}
+
+/** MILESTONE 11 (reporting/observability) — the `## Trust Audit` report
+ *  section's data source. A scoped-down port of the old build's
+ *  `summarizeTrustAudit` (plugins/cool-workflow/src/trust-audit.ts:413+):
+ *  this milestone's report.ts only renders eventCount/integrity/byDecision/
+ *  bySource/bySandboxProfile/paths, so those are the only fields carried
+ *  here — the old build's extra workers/candidates/commits/multiAgent/
+ *  blackboard rollups are milestone 9's own summarizeMultiAgent/
+ *  candidate-scoring-io/coordinator-io surfaces, not duplicated here. */
+export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
+  const audit = ensureTrustAudit(run);
+  const events = readEventsRaw(audit.eventLogPath);
+  return {
+    schemaVersion: TRUST_AUDIT_SCHEMA_VERSION,
+    runId: run.id,
+    generatedAt: new Date().toISOString(),
+    eventCount: events.length,
+    integrity: verifyTrustAudit(run),
+    eventLogPath: audit.eventLogPath,
+    indexPath: audit.indexPath,
+    summaryPath: audit.summaryPath,
+    byDecision: countBy(events, (event) => event.decision),
+    bySource: countBy(events, (event) => event.source),
+    bySandboxProfile: countBy(
+      events.filter((event) => event.sandboxProfileId),
+      (event) => event.sandboxProfileId || "none"
+    ),
+  };
+}

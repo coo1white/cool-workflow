@@ -55,6 +55,7 @@ import { runBackend } from "./execution-backend/registry";
 import { stripSecretArgs } from "./execution-backend/agent";
 import { sha256, stableStringify } from "../core/hash";
 import { plan } from "./pipeline";
+import { reporter } from "./reporter";
 
 export const DRIVE_SCHEMA_VERSION = 1;
 export const MAX_SUB_WORKFLOW_DEPTH = 4;
@@ -87,6 +88,17 @@ export interface DriveResult {
 
 function agentConfigured(config: AgentDelegationConfig): boolean {
   return Boolean(config.command || config.endpoint);
+}
+
+/** Progress to STDERR (stdout stays clean JSON). On by default when
+ *  stderr is a TTY; silent in CI/pipes. CW_DRIVE_PROGRESS=0 forces off,
+ *  =1 forces on. This is gate point #2 of the Rule of Silence's three
+ *  gate points (SPEC/reporting-ux.md rebuild risk #1) — byte-exact port
+ *  of the old build's src/drive.ts's emitProgress. */
+function emitProgress(message: string): void {
+  const forcedOff = process.env.CW_DRIVE_PROGRESS === "0";
+  const forcedOn = process.env.CW_DRIVE_PROGRESS === "1";
+  if ((Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn) reporter.progress(`[drive] ${message}`);
 }
 
 interface DriveContext {
@@ -212,6 +224,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
     : "";
   const cachePath = resultCachePath(run, selected as unknown as { id: string; phase: string; prompt: string; resultCache?: { mode?: string; keyInput?: string } }, promptDigest, ctx.incremental, delegationDigest);
   if (cachePath && fs.existsSync(cachePath)) {
+    emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
     try {
       fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
       recordWorkerOutput(run, workerId, manifest.resultPath);
@@ -224,9 +237,11 @@ function processSelectedTask(ctx: DriveContext, selectedId: string): DriveStep {
 
   const subWorkflow = selected.subWorkflow as { appId: string; inputs?: Record<string, string>; bindResult?: string } | undefined;
   if (subWorkflow) {
+    emitProgress(`⧉ ${selected.label || selected.id} (${selected.phase}) — sub-workflow ${subWorkflow.appId}…`);
     return runSubWorkflow(ctx, run, selected, workerId, manifest, subWorkflow);
   }
 
+  emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
   const envelope = runBackend({
     schemaVersion: 1,
     runId: ctx.runId,
