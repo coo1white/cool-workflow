@@ -1,0 +1,156 @@
+// mcp/server.ts — the stdio JSON-RPC loop: initialize / tools/list /
+// tools/call.
+//
+// MILESTONE 2 (v2/PLAN.md build order, step 2). Byte-exact port of the
+// framing rules in SPEC/mcp.md's "JSON-RPC methods" / "Exact outputs" /
+// "Invariants and error behavior" #9 / "Edge cases" sections:
+//   - transport: stdin/stdout, ONE JSON object per line, no
+//     Content-Length headers (mcp.md:13);
+//   - `initialize` -> protocolVersion/capabilities/serverInfo, ignoring
+//     params (mcp.md:19,263-269);
+//   - `tools/list` -> { tools: [...] } from core/capability-table.ts via
+//     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277);
+//   - `tools/call` -> { content: [{ type: "text", text: <2-space pretty
+//     JSON string> }] } (mcp.md:21,279-285);
+//   - any other method: error -32601 if the request has an `id` key,
+//     otherwise NO reply at all (mcp.md:22,427-428);
+//   - a request with `"id": null` DOES get an error answer for an unknown
+//     method (the guard is `id !== undefined`, and `null !== undefined`)
+//     (mcp.md:427);
+//   - `initialize`/`tools/list`/`tools/call` answer even with no `id` key
+//     at all — the reply then omits `id` (JSON.stringify drops
+//     `undefined`) (mcp.md:428);
+//   - parse errors always answer with `id: null`, even when the broken
+//     line contained one (mcp.md:429, 290-291);
+//   - a line that parses to non-object JSON (number/string/array/null)
+//     gets -32600 "Invalid Request: not a JSON-RPC object" (mcp.md:292,
+//     430);
+//   - many requests in one stdin chunk: split on every "\n", .trim() each
+//     line, skip empty lines (mcp.md:431);
+//   - `tools/call` with a missing/empty/whitespace-only `name` throws
+//     "MCP tools/call missing required field: name" as -32000 (mcp.md:432);
+//   - `arguments: null`/absent -> `{}` before the required-args check
+//     (mcp.md:433);
+//   - fail-closed input framing: MAX_LINE_BYTES = 16 * 1024 * 1024; when
+//     the unconsumed buffer exceeds this with no newline yet, the partial
+//     bytes are DROPPED and a -32700 "Parse error: request line exceeds
+//     16777216 bytes" is sent with id: null (mcp.md:291,418).
+
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
+import { callTool, toolDefinitions } from "./dispatch";
+
+const MAX_LINE_BYTES = 16 * 1024 * 1024;
+
+interface JsonRpcRequest {
+  jsonrpc?: string;
+  id?: unknown;
+  method?: string;
+  params?: Record<string, unknown> | null;
+}
+
+function writeMessage(message: unknown): void {
+  process.stdout.write(`${JSON.stringify(message)}\n`);
+}
+
+function errorMessage(id: unknown, code: number, message: string): { jsonrpc: "2.0"; id: unknown; error: { code: number; message: string } } {
+  return { jsonrpc: "2.0", id: id === undefined ? null : id, error: { code, message } };
+}
+
+function resultMessage(id: unknown, result: unknown): { jsonrpc: "2.0"; id?: unknown; result: unknown } {
+  const message: { jsonrpc: "2.0"; id?: unknown; result: unknown } = { jsonrpc: "2.0", result };
+  if (id !== undefined) message.id = id;
+  return message;
+}
+
+/** Handles one already-parsed JSON-RPC request object. May write zero or
+ *  one reply line to stdout. */
+function handleRequest(message: JsonRpcRequest): void {
+  const hasId = Object.prototype.hasOwnProperty.call(message, "id");
+  const id = message.id;
+
+  if (typeof message.method !== "string") {
+    // Not really reachable from valid JSON-RPC callers, but stay
+    // fail-closed rather than throw synchronously out of the read loop.
+    if (hasId) writeMessage(errorMessage(id, -32601, `Unknown method: ${String(message.method)}`));
+    return;
+  }
+
+  try {
+    switch (message.method) {
+      case "initialize": {
+        writeMessage(
+          resultMessage(id, {
+            protocolVersion: "2024-11-05",
+            capabilities: { tools: {} },
+            serverInfo: { name: "cool-workflow", version: CURRENT_COOL_WORKFLOW_VERSION },
+          })
+        );
+        return;
+      }
+      case "tools/list": {
+        writeMessage(resultMessage(id, { tools: toolDefinitions() }));
+        return;
+      }
+      case "tools/call": {
+        const params = message.params ?? {};
+        const name = (params as Record<string, unknown>).name;
+        if (typeof name !== "string" || name.trim() === "") {
+          throw new Error("MCP tools/call missing required field: name");
+        }
+        const args = (params as Record<string, unknown>).arguments;
+        const coreResult = callTool(name, args ?? {});
+        writeMessage(resultMessage(id, { content: [{ type: "text", text: JSON.stringify(coreResult, null, 2) }] }));
+        return;
+      }
+      default: {
+        if (hasId) writeMessage(errorMessage(id, -32601, `Unknown method: ${message.method}`));
+        return;
+      }
+    }
+  } catch (error: unknown) {
+    const text = error instanceof Error ? error.message : String(error);
+    writeMessage(errorMessage(id, -32000, text));
+  }
+}
+
+/** Handles one raw (already-trimmed, non-empty) stdin line. */
+function handleLine(line: string): void {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error);
+    writeMessage(errorMessage(null, -32700, `Parse error: ${detail}`));
+    return;
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    writeMessage(errorMessage(null, -32600, "Invalid Request: not a JSON-RPC object"));
+    return;
+  }
+
+  handleRequest(parsed as JsonRpcRequest);
+}
+
+/** Starts the stdio read loop. Never resolves — the server is long-lived
+ *  and stops only when its stdin closes / the process exits. */
+export function startServer(): void {
+  process.stdin.setEncoding("utf8");
+
+  let buffer = "";
+  process.stdin.on("data", (chunk: string) => {
+    buffer += chunk;
+    for (;;) {
+      const newlineIndex = buffer.indexOf("\n");
+      if (newlineIndex === -1) break;
+      const line = buffer.slice(0, newlineIndex);
+      buffer = buffer.slice(newlineIndex + 1);
+      const trimmed = line.trim();
+      if (trimmed) handleLine(trimmed);
+    }
+    if (buffer.length > MAX_LINE_BYTES) {
+      buffer = "";
+      writeMessage(errorMessage(null, -32700, `Parse error: request line exceeds ${MAX_LINE_BYTES} bytes`));
+    }
+  });
+}
