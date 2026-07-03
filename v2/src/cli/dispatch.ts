@@ -308,32 +308,10 @@ function dispatchLegacy(args: ParsedArgv): void {
       throw new Error(`run ${sub ?? ""} is not implemented in this milestone`);
     }
 
-    // PLACEHOLDER (milestone 5, execution backend/sandbox) — real
-    // `sandbox validate` reads a sandbox profile file and checks its
-    // shape; this milestone reproduces only the file-not-found refusal.
-    // (`sandbox list` is handled above by dispatchTable — a real
-    // capability-table row — before this switch is ever reached.)
-    case "sandbox": {
-      const sub = firstPositional(args);
-      if (sub === "validate") {
-        const profileFile = optionalArg(firstPositional(args, 1)) || "";
-        const payload = {
-          valid: false,
-          profileFile,
-          issues: [
-            {
-              code: "sandbox-profile-invalid",
-              message: `Profile file does not exist: ${profileFile}`,
-              path: profileFile,
-            },
-          ],
-        };
-        printJson(payload);
-        process.exitCode = 1;
-        return;
-      }
-      throw new Error(`sandbox ${sub ?? ""} is not implemented in this milestone`);
-    }
+    // NOTE: "sandbox" is not an arm here — sandbox.list/show/validate are
+    // now real capability-table rows (core/capability-table.ts, milestone
+    // 5) that dispatchTable() above always matches first, per the
+    // Revision note's "table rows, never a new switch arm" rule.
 
     // PLACEHOLDER (milestone 9, multi-agent/topology) — real
     // `topology validate` checks a topology id against the registered

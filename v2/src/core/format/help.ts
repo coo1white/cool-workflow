@@ -16,12 +16,13 @@
 // capability-table data — see SPEC/cli-help/_root.txt). The per-verb
 // subcommand-row table (`COMMAND_HELP_ROWS`) is now a MIX: verbs whose
 // capability already has a `cli` binding in core/capability-table.ts
-// (`list`, `version`, `status` at this milestone) are dropped from the
-// literal table below and read from the capability table instead, via
-// `cliCommandHelpRows()`; every other verb stays literal here until its
-// own milestone lands. This satisfies v2/PLAN.md milestone 2's own "done
-// when": a CLI `--help` walk and an MCP `tools/list` round-trip read the
-// SAME table rows for any capability wired into both.
+// (`list`, `version`, `status`, `doctor`, `fix`, `backend`, `sandbox` as of
+// milestone 5) are dropped from the literal table below and read from the
+// capability table instead, via `cliCommandHelpRows()`; every other verb
+// stays literal here until its own milestone lands. This satisfies
+// v2/PLAN.md milestone 2's own "done when": a CLI `--help` walk and an MCP
+// `tools/list` round-trip read the SAME table rows for any capability
+// wired into both.
 
 import { cliCapabilities } from "../capability-table";
 
@@ -77,13 +78,6 @@ function wrapPipeJoined(tokens: string[], width: number): string[] {
  *  verb stays literal until its own milestone lands. */
 const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
   help: [{ command: "cw help", summary: "Print the human CLI help text." }],
-  doctor: [
-    {
-      command: "cw doctor",
-      summary:
-        "Diagnose the host for setup problems (Node version, agent backend, agent binary on PATH, git, writable home/repo state) and print an actionable fix per check.",
-    },
-  ],
   ledger: [
     {
       command: "cw ledger apply",
@@ -119,19 +113,6 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
       summary:
         "List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only.",
     },
-  ],
-  backend: [
-    {
-      command: "cw backend agent config",
-      summary: "Show the effective agent delegation config (flags>env>file, secret-stripped, host-stable).",
-    },
-    {
-      command: "cw backend agent config",
-      summary: "Set the durable agent delegation config (command-template/endpoint/model; API keys never written).",
-    },
-    { command: "cw backend list", summary: "List available execution backends and their capabilities." },
-    { command: "cw backend probe", summary: "Probe execution backend readiness (live, deterministic)." },
-    { command: "cw backend show", summary: "Show one execution backend descriptor." },
   ],
   run: [
     { command: "cw run archive", summary: "Archive/unarchive a run (overlay mark; never deletes source)." },
@@ -255,7 +236,7 @@ export type SuggestCommandFn = (input: string) => string | undefined;
 function cliCommandHelpRows(verb: string): CommandHelpRow[] {
   return cliCapabilities()
     .filter((row) => row.cli.path[0] === verb)
-    .map((row) => ({ command: `cw ${row.cli.path.join(" ")}`, summary: row.summary }));
+    .map((row) => ({ command: `cw ${(row.cli.helpPath ?? row.cli.path).join(" ")}`, summary: row.summary }));
 }
 
 /** src/orchestrator.ts:988-1007 — `formatCommandHelp(verb)`. Unknown verb

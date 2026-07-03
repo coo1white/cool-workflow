@@ -456,9 +456,13 @@ the old build is a wrong case, fix the case first.
    registry, local/shell/container/remote/ci drivers, the agent driver's spawn+parse+redact
    path, sandbox profile resolution and runtime checks. `scripts/agents/*` and
    `scripts/children/*` are copied byte-identical, not rewritten. Draws from:
-   `execution-backend.md` in full. Conformance filter (independently gatable — none of these 5
-   cases invoke `-q`/`drive()`):
-   `exec-backend-registry|exec-agent-substitution|exec-agent-secret-redaction|exec-sandbox-readonly-boundary|exec-doctor-agent-config`.
+   `execution-backend.md` in full. Conformance filter (CORRECTED — see Open risk 10; the first
+   pass's claim that all 5 originally-listed cases were independently gatable was verified false
+   during real implementation):
+   `exec-backend-registry|exec-agent-config-file|exec-agent-probe-and-autodetect|exec-sandbox-profile-fail-closed|exec-doctor-agent-config|exechard-codex-sandbox-fail-closed`.
+   The other 3 cases from the first pass's list (`exec-agent-substitution`,
+   `exec-agent-secret-redaction`, `exec-sandbox-readonly-boundary`) plus 2 `exechard-*` gap-fill
+   cases all invoke `quickstart`/`run --drive`, so they defer to milestone 7's combined gate.
 
 6. **Pipeline run + commit gate.** The `plan -> dispatch -> result -> verify -> commit` spine:
    default contract, one-step pipeline runner, dispatch manifests, result-envelope
@@ -473,8 +477,12 @@ the old build is a wrong case, fix the case first.
    tangled behavioral surface, built once the pipeline spine under it is proven. Draws from:
    `pipeline-run.md` (drive, sub-workflow, loop-expansion, incremental-cache sections).
    Conformance filter — the REAL combined gate for milestones 5+6+7 (Open risk 10), plus the 3
-   state-core cases deferred from milestone 3:
-   `pipeline-question-basic|state-json-bytes|state-node-snapshot-replay|state-migration-prove`.
+   state-core cases deferred from milestone 3 and the 5 execution-backend cases deferred from
+   milestone 5:
+   `pipeline-question-basic|state-json-bytes|state-node-snapshot-replay|state-migration-prove|exec-agent-substitution|exec-agent-secret-redaction|exec-sandbox-readonly-boundary|exechard-evidence-triple-hygiene|exechard-model-attestation-unreported`.
+   Re-check after this milestone whether any of these still need milestone 12 (workflow-apps) —
+   some invoke a named app rather than the default one, so a residual dependency there is
+   plausible; defer further rather than building workflow-app resolution early if so.
    Author drive-specific cases here too; these are exactly the cases the "conformance-porting
    keeping pace" risk targets — see Open risks.
 
@@ -614,26 +622,34 @@ are kept as literal ports at their current size, because they are complex FOR A 
    about being pure.
 
 10. **Milestones 5, 6, and 7 are not independently conformance-gatable — discovered during
-    milestone 3's implementation, not anticipated by the first pass.** Every `-q`/quickstart
-    conformance case (`pipeline-question-basic`, and `state-json-bytes`/`state-node-snapshot-
-    replay`/half of `state-migration-prove` from milestone 3, which use `-q` only to generate a
-    realistic run to test state-core.md behavior against) routes through the OLD build's
-    `drive()` (`src/drive.ts`) unconditionally — there is no lower-level manual
+    milestone 3's implementation, CONFIRMED WIDER during milestone 5's (an earlier version of
+    this very risk entry claimed milestone 5 stood alone; that claim was itself wrong, caught
+    only once milestone 5 was actually built and 3 of its 5 originally-listed cases turned out
+    to need the same missing machinery).** Every `-q`/quickstart/`run --drive` conformance case
+    (`pipeline-question-basic`; `state-json-bytes`/`state-node-snapshot-replay`/half of
+    `state-migration-prove` from milestone 3; and `exec-agent-substitution`/`exec-agent-secret-
+    redaction`/`exec-sandbox-readonly-boundary`/2 `exechard-*` cases from milestone 5 — all of
+    which use `-q`/`run --drive` only to generate a realistic run or exercise a real delegation
+    hop, not because their OWN subject matter is pipeline/drive logic) routes through the OLD
+    build's `drive()` (`src/drive.ts`) unconditionally — there is no lower-level manual
     plan/dispatch/result/commit CLI sequence that any existing conformance case exercises
     instead. `drive()` itself pulls in execution-backend (milestone 5), the pipeline runner and
     commit gate (milestone 6), and the loop/sub-workflow/incremental-cache logic (milestone 7)
-    together. **Consequence:** milestone 6's own filter (`pipeline-question-basic`) will not go
-    green until milestone 7 is ALSO built, and the 3 state-core cases deferred out of milestone
-    3 will not go green until then either. **Mitigated by:** implement milestones 5, 6, and 7 in
+    together — and possibly workflow-app resolution (milestone 12) too, for cases that name a
+    specific app. **Consequence:** milestone 6's own filter (`pipeline-question-basic`) will not
+    go green until milestone 7 is ALSO built, and the cases deferred out of milestones 3 and 5
+    will not go green until then either. **Mitigated by:** implement milestones 5, 6, and 7 in
     order as planned (each is still a distinct, well-scoped body of code), but treat their
     conformance filters as ONE COMBINED GATE — `v2/BUILD_ORDER.json`'s milestone 7 entry now
-    carries the full combined filter
-    (`pipeline-question-basic|state-json-bytes|state-node-snapshot-replay|state-migration-
-    prove`). Do not treat a red milestone-6 filter as a milestone-6 regression while milestone 7
-    is still in progress. A future builder hitting the same wall should NOT special-case a
-    smaller drive loop just to satisfy an earlier milestone's gate (that duplicates ~1,000+
-    lines of behavior ahead of its own milestone and risks drifting from what gets built for
-    real) — defer the case instead, exactly as done here.
+    carries the full combined filter (9 cases: the pipeline/state/exec-backend cases named
+    above). Do not treat a red milestone-5 or milestone-6 filter as a regression in that
+    milestone while milestone 7 is still in progress. **A future builder hitting this same wall
+    should NOT trust a "these N cases are independently gatable" claim in this plan without
+    re-verifying it empirically against a real build first — that exact claim was wrong twice in
+    this plan's own history (once for milestone 3's neighbors, once for milestone 5 itself)** —
+    and should NOT special-case a smaller drive loop just to satisfy an earlier milestone's gate
+    (that duplicates ~1,000+ lines of behavior ahead of its own milestone and risks drifting
+    from what gets built for real) — defer the case instead, exactly as done here.
 
 ## How this plan is used
 
