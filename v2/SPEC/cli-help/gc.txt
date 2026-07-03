@@ -1,0 +1,6 @@
+# exit: 0
+cw gc
+
+  cw gc plan    Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing.
+  cw gc run     Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free).
+  cw gc verify  Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable.

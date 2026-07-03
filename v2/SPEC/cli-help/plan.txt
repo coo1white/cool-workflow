@@ -1,0 +1,4 @@
+# exit: 0
+cw plan
+
+  cw plan  Create a CW run and return its canonical plan summary.

@@ -1,0 +1,6 @@
+# exit: 0
+cw report
+
+  cw report                Render a run report and return its canonical descriptor.
+  cw report bundle         Produce-and-prove: export a run to a portable bundle sealed with the trust key, then self-verify it offline (fail-closed) so the producer knows it is verifiable before shipping.
+  cw report verify-bundle  Offline self-contained verify of a portable run bundle: archive bytes + telemetry chain + trust-audit chain + embedded-key signatures.

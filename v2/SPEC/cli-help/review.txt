@@ -1,0 +1,5 @@
+# exit: 0
+cw review
+
+  cw review policy  Set the run's review-gate policy (required approvals, authorized roles, self-approval rule).
+  cw review status  Read the derived per-target review state + collaboration timeline for a run.

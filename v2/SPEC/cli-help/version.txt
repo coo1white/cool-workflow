@@ -1,0 +1,4 @@
+# exit: 0
+cw version
+
+  cw version  Print the current cool-workflow version.

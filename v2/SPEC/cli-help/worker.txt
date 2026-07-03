@@ -1,0 +1,10 @@
+# exit: 0
+cw worker
+
+  cw worker fail      Record a structured worker failure.
+  cw worker list      List worker isolation scopes.
+  cw worker manifest  Write and return a worker manifest.
+  cw worker output    Record worker output.
+  cw worker show      Show one worker isolation scope.
+  cw worker summary   Read the structured worker summary for a run.
+  cw worker validate  Validate a worker output boundary.

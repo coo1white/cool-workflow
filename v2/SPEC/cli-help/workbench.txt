@@ -1,0 +1,5 @@
+# exit: 0
+cw workbench
+
+  cw workbench serve  Describe/serve the optional localhost-only, read-only Workbench host.
+  cw workbench view   Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit).

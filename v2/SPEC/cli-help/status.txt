@@ -1,0 +1,4 @@
+# exit: 0
+cw status
+
+  cw status  Read run checkpoint status.

@@ -1,0 +1,8 @@
+# exit: 0
+cw routine
+
+  cw routine create  Create a routine-style API/GitHub trigger.
+  cw routine delete  Delete a routine-style trigger.
+  cw routine events  List routine trigger events.
+  cw routine fire    Record an API/GitHub trigger event.
+  cw routine list    List routine-style triggers.

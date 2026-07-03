@@ -1,0 +1,4 @@
+# exit: 0
+cw telemetry
+
+  cw telemetry verify  Re-prove a run's telemetry attestation ledger offline: chain linkage + independent hash recompute, and (with --pubkey / CW_AGENT_ATTEST_PUBKEY) re-verify each attested hop's ed25519 signature against the public key.

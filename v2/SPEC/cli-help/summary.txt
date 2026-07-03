@@ -1,0 +1,5 @@
+# exit: 0
+cw summary
+
+  cw summary refresh  Refresh state-explosion summaries.
+  cw summary show     Read the persisted state-explosion report.

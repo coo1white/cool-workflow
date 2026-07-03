@@ -1,0 +1,4 @@
+# exit: 0
+cw info
+
+  cw info  Show what a workflow app does: title, description, inputs, sandbox, phases, and a runnable example.

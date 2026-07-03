@@ -1,0 +1,14 @@
+# exit: 0
+cw audit
+
+  cw audit attest       Record a host/operator sandbox attestation.
+  cw audit blackboard   Read the blackboard write audit.
+  cw audit decision     Validate and record a sandbox decision.
+  cw audit judge        Read judge rationale/panel decision audit.
+  cw audit multi-agent  Read the multi-agent trust/policy/provenance audit.
+  cw audit policy       Read role policies and permission decisions.
+  cw audit provenance   Inspect evidence provenance.
+  cw audit role         Read policy/audit for one role.
+  cw audit summary      Read the trust/audit summary.
+  cw audit verify       Re-prove a run's trust-audit hash chain (fail-closed exit).
+  cw audit worker       Read trust/audit for one worker.

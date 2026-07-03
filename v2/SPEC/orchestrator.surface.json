@@ -1,0 +1,2178 @@
+[
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.constructor",
+    "behavior": "resolvePluginRoot walks up to 5 levels for workflows/+package.json; throws 'Run cw.js from the cool-workflow plugin directory' on miss; baseDir made absolute",
+    "evidence": "src/orchestrator.ts:74",
+    "tests": [
+      "test/parse-hardening-round2-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.withBaseDir",
+    "behavior": "returns a clone that resolves runs against dir with no process.chdir; same instance when dir unchanged",
+    "evidence": "src/orchestrator.ts:105",
+    "tests": [
+      "test/parse-hardening-round2-smoke.js",
+      "test/surface-explicit-cwd-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.loadWithCache",
+    "behavior": "per-request loadRun memo + audit event cache; reentrant (outer cache restored in finally)",
+    "evidence": "src/orchestrator.ts:91",
+    "tests": [
+      "test/concurrent-subworkflow-cache-nesting-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.loadRun",
+    "behavior": "memo hit or loadRunFromCwd(runId, baseDir) reading .cw/runs/<runId>/state.json with dry-run migration",
+    "evidence": "src/orchestrator.ts:766",
+    "tests": [
+      "test/incremental-resume-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parseArgv",
+    "behavior": "argv -> {command, positionals, options}; first token is command",
+    "evidence": "src/orchestrator.ts:789",
+    "tests": [
+      "test/cli-arg-parsing-smoke.js",
+      "test/cli-command-surface-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parseArgv.end-of-options",
+    "behavior": "'--' makes every later token a positional, even dash-leading ones",
+    "evidence": "src/orchestrator.ts:799",
+    "tests": [
+      "test/cli-arg-parsing-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parseArgv.short-alias-map",
+    "behavior": "-q question, -r repo, -d dir, -l link, -a agent-command, -h help, -v version; unmapped short flag keeps its name",
+    "evidence": "src/orchestrator.ts:811",
+    "tests": [
+      "test/cli-arg-parsing-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parseArgv.flag-never-eats-flag",
+    "behavior": "a valueless --flag or -f stays true when the next token starts with '-'; --key=-value passes a dash value",
+    "evidence": "src/orchestrator.ts:829",
+    "tests": [
+      "test/cli-arg-parsing-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parseArgv.repeat-key-array",
+    "behavior": "a repeated option key collects its values into an array",
+    "evidence": "src/orchestrator.ts:1009",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "KNOWN_COMMANDS",
+    "behavior": "the fixed Set of top-level command names used for did-you-mean",
+    "evidence": "src/orchestrator.ts:842",
+    "tests": [
+      "test/cw-help-per-command-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "suggestCommand",
+    "behavior": "Levenshtein nearest known command; undefined when input <2 chars or distance >3 or > input.length/2",
+    "evidence": "src/orchestrator.ts:875",
+    "tests": [
+      "test/cw-help-per-command-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "formatSearchResults",
+    "behavior": "no match: 'No workflows matched \"<kw>\".\\n  Tip: cw list for all available workflows.'; match: header + rows + 'Use cw info <id> for full details.'",
+    "evidence": "src/orchestrator.ts:889",
+    "tests": []
+  },
+  {
+    "kind": "stdout_format",
+    "id": "formatInfo",
+    "behavior": "'cw info <appId>' block: Title/Version/Summary/Author/Compatible/Inputs/Sandbox/Phases lines when present; always ends 'Run: cw quickstart <appId> --repo . --question \"...\"'",
+    "evidence": "src/orchestrator.ts:899",
+    "tests": []
+  },
+  {
+    "kind": "stdout_format",
+    "id": "formatHelp",
+    "behavior": "fixed help text; 2-space command lines are parity tokens; More-commands list pipe-joined, wrapped at 76 cols; final note 4-space indented",
+    "evidence": "src/orchestrator.ts:931",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/cw-help-per-command-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "formatCommandHelp",
+    "behavior": "per-verb rows 'cw <verb> <sub>  <summary>' from CAPABILITY_REGISTRY, sorted, padEnd min(40,longest); unknown verb: 'Unknown command: <verb>' + optional 'Did you mean:  cw <hint>' + 'Try:  cw help   (list all commands)'",
+    "evidence": "src/orchestrator.ts:988",
+    "tests": [
+      "test/cw-help-per-command-smoke.js"
+    ]
+  },
+  {
+    "kind": "env",
+    "id": "CW_DETERMINISTIC_RUN_IDS",
+    "behavior": "truthy /^(1|true|yes|on)$/i: run id = <workflowId>-<sha256(workflowId:pid:seq)[0..6]> with no wall-clock part; unset: <workflowId>-<stamp>-<hash6>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:673",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "run-id-format",
+    "behavior": "default run id <workflowId>-<ISO stamp without -/: and sub-seconds>-<6 hex sha256(workflowId:stamp:pid:seq)>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:688",
+    "tests": [
+      "test/det-ids-b-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".cw/runs/<runId>/state.json",
+    "behavior": "single WorkflowRun JSON (schemaVersion 1); written durably under a file lock by saveCheckpoint on every persisting op",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:82",
+    "tests": [
+      "test/durable-atomic-write-smoke.js",
+      "test/incremental-resume-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".cw/runs/<runId>/report.md",
+    "behavior": "human report rewritten by writeReport on every persisting op; fixed section order and fallback lines",
+    "evidence": "src/orchestrator/report.ts:24",
+    "tests": [
+      "test/cli-render-smoke.js",
+      "test/report-bundle-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".cw/runs/<runId>/results/<safeFileName(taskId)>.md",
+    "behavior": "recordResult copies the caller result file here and points task.resultPath at it",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:279",
+    "tests": [
+      "test/quickstart-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".cw/runs/<runId>/<domain-dirs>",
+    "behavior": "plan creates tasks/ results/ dispatches/ artifacts/ commits/ nodes/ feedback/ audit/ workers/ candidates/ multi-agent/ blackboard/ topologies/",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:83",
+    "tests": []
+  },
+  {
+    "kind": "state_file",
+    "id": ".cw/runs/<runId>/audit/{events.jsonl,summary.json,index.json}",
+    "behavior": "audit paths seeded into run.audit at plan time",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:119",
+    "tests": [
+      "test/audit-verify-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".cw/packages/<appId>-<version>.cwapp.json",
+    "behavior": "packageApp default output: {schemaVersion:1, app, workflow, packagedAt}",
+    "evidence": "src/orchestrator/app-operations.ts:206",
+    "tests": []
+  },
+  {
+    "kind": "state_file",
+    "id": "<appsDir>/<id>/app.json + workflow.js",
+    "behavior": "initApp writes manifest + entrypoint templates, then validates; system dirs refused",
+    "evidence": "src/orchestrator/app-operations.ts:181",
+    "tests": [
+      "test/workflow-app-framework-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": "<workflowsDir>/<id>.workflow.js",
+    "behavior": "init writes the workflow app template; refuses overwrite without force",
+    "evidence": "src/orchestrator.ts:139",
+    "tests": []
+  },
+  {
+    "kind": "state_file",
+    "id": "<state dir>/migration/<fingerprint16>.json",
+    "behavior": "migrationProve appends the proof beside the target; read-only target still returns the proof",
+    "evidence": "src/orchestrator/migration-operations.ts:23",
+    "tests": [
+      "test/contract-migration-tooling-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "error.init-bad-id",
+    "behavior": "Workflow id must include at least one letter or digit",
+    "evidence": "src/orchestrator.ts:137",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.init-overwrite",
+    "behavior": "Refusing to overwrite existing workflow: <destination>",
+    "evidence": "src/orchestrator.ts:143",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.unknown-worker",
+    "behavior": "Unknown worker id for run <runId>: <workerId>",
+    "evidence": "src/orchestrator.ts:185",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.host-run-needs-target",
+    "behavior": "multi-agent run requires <run-id> or --app <app-id>",
+    "evidence": "src/orchestrator.ts:521",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.plugin-root",
+    "behavior": "Run cw.js from the cool-workflow plugin directory",
+    "evidence": "src/orchestrator.ts:1026",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.duplicate-app-id",
+    "behavior": "Duplicate workflow app id <id>: <path1> and <path2>",
+    "evidence": "src/orchestrator/app-operations.ts:55",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.app-not-found",
+    "behavior": "Workflow app not found: <appId>",
+    "evidence": "src/orchestrator/app-operations.ts:66",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.missing-app-target",
+    "behavior": "Missing workflow app path or id",
+    "evidence": "src/orchestrator/app-operations.ts:73",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.app-bad-id",
+    "behavior": "App id must include at least one letter or digit",
+    "evidence": "src/orchestrator/app-operations.ts:172",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.app-system-dir",
+    "behavior": "Refusing to create app in a system directory: <dir>",
+    "evidence": "src/orchestrator/app-operations.ts:179",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.app-overwrite",
+    "behavior": "Refusing to overwrite existing workflow app: <dir>",
+    "evidence": "src/orchestrator/app-operations.ts:184",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.generated-app-invalid",
+    "behavior": "Generated workflow app is invalid (WorkflowAppValidationError with issues)",
+    "evidence": "src/orchestrator/app-operations.ts:191",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.missing-required-input",
+    "behavior": "Missing required input --<name>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:485",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.unknown-task",
+    "behavior": "Unknown task id for run <runId>: <taskId>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:255",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.result-system-dir",
+    "behavior": "Result path must not be a system directory: <path>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:264",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.result-missing",
+    "behavior": "Result file does not exist: <absolutePath>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:267",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.result-evidence-unresolved",
+    "behavior": "Result cites file evidence that does not resolve on disk: <list>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:276",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.duplicate-task-id",
+    "behavior": "Duplicate task id: <taskId>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:611",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.missing-label",
+    "behavior": "Missing <label> (requiredStringOption)",
+    "evidence": "src/orchestrator/cli-options.ts:34",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.bad-target-kind",
+    "behavior": "Target kind must be one of run|task|candidate|selection|commit|node",
+    "evidence": "src/orchestrator/cli-options.ts:44",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.missing-target-id",
+    "behavior": "Missing target id",
+    "evidence": "src/orchestrator/cli-options.ts:46",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.bad-graph-view",
+    "behavior": "Unknown graph view: <view>. Valid views: <list>",
+    "evidence": "src/orchestrator/cli-options.ts:85",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.bad-metadata-json",
+    "behavior": "Invalid JSON in --metadata: <first 80 chars>",
+    "evidence": "src/orchestrator/cli-options.ts:104",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.missing-criteria",
+    "behavior": "Missing score criteria. Use --criterion name=value",
+    "evidence": "src/orchestrator/cli-options.ts:220",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.missing-audit-target",
+    "behavior": "Missing audit decision target: provide --path, --command, --network, or --env",
+    "evidence": "src/orchestrator/audit-operations.ts:143",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.sandbox-env-denied",
+    "behavior": "code sandbox-env-denied: Worker <id> env var is outside sandbox profile <profile|unknown>: <name>",
+    "evidence": "src/orchestrator/audit-operations.ts:153",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.unknown-candidate",
+    "behavior": "Unknown candidate id for run <runId>: <candidateId>",
+    "evidence": "src/orchestrator/candidate-operations.ts:29",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.unknown-feedback",
+    "behavior": "Unknown feedback id for run <runId>: <feedbackId>",
+    "evidence": "src/orchestrator/feedback-operations.ts:25",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.migration-target-missing",
+    "behavior": "Migration target not found: <target>",
+    "evidence": "src/orchestrator/migration-operations.ts:36",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.unknown-topology",
+    "behavior": "Unknown topology id: <topologyId>",
+    "evidence": "src/orchestrator/topology-operations.ts:15",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "error.unknown-multi-agent-entity",
+    "behavior": "Unknown MultiAgentRun|AgentRole|AgentGroup|AgentMembership|AgentFanout|AgentFanin id for run <runId>: <id>",
+    "evidence": "src/orchestrator/multi-agent-operations.ts:150",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "persist-order",
+    "behavior": "mutating ops: impl {persist:false} -> writeReport -> saveCheckpoint, once per call",
+    "evidence": "src/orchestrator/candidate-operations.ts:61",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js",
+      "test/feedback-ops-unit-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "persistState-false-defers-flush",
+    "behavior": "dispatch/recordWorkerOutput/recordWorkerFailure skip commitState/saveCheckpoint/writeReport on all branches when options.persistState===false (internal only)",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:204",
+    "tests": [
+      "test/deferred-checkpoint-batching-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "recordResult-intake-order",
+    "behavior": "gate -> sysdir -> exists -> parse -> validate -> evidence -> copy -> nodes -> gates -> verify stage -> commit result:<taskId> -> report -> checkpoint; error path records verifier feedback + report, NO checkpoint, rethrows",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:253",
+    "tests": [
+      "test/quickstart-smoke.js",
+      "test/end-to-end-golden-path-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "empty-capture-warning",
+    "behavior": "empty result gets node metadata captureWarning 'no findings or evidence captured from result.md' + worker.capture-warning audit event",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:306",
+    "tests": [
+      "test/result-normalize-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "dispatch-sandbox-park",
+    "behavior": "SandboxProfileError in dispatch: loopStage=adjust, feedback source cli non-retryable with sandboxProfileId, persist, rethrow",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:228",
+    "tests": [
+      "test/sandbox-profile-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "commit-gating",
+    "behavior": "verifierGated = gate option present OR NOT --allow-unverified-checkpoint; report+checkpoint on success AND failure; maybeCompactRun on success",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:437",
+    "tests": [
+      "test/verifier-gated-commit-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "usage-attested-only",
+    "behavior": "caller usage recorded verbatim as provenance, never synthesized; absent = unreported; requireAttestedTelemetry=true parks fail-closed",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:256",
+    "tests": [
+      "test/telemetry-attestation-smoke.js",
+      "test/telemetry-fail-closed-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "plan-input-rules",
+    "behavior": "required inputs enforced; optional fold to default or ''; --arg k=v unpacks; repo aliases cwd; injected options.runId fixes child id and is stripped from inputs",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:62",
+    "tests": [
+      "test/sub-workflow-nesting-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "loop-expansion",
+    "behavior": "maybeExpandLoop in recordWorkerOutput: latest round only, all tasks completed, one boundary per call; stop on predicate done, maxRounds cap, or unregistered predicate (fail-closed); one loop-control node <runId>:loop-control:<origin>:r<n>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:499",
+    "tests": [
+      "test/loop-bounded-expansion-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "loop-budget-target",
+    "behavior": "budget-target loop stops when recorded attested tokens >= target; reason 'budget-target: <spent>/<target> recorded tokens'",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:526",
+    "tests": [
+      "test/budget-scaling-loop-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "loop-round-naming",
+    "behavior": "next phase id <origin>@r<n>, name '<origin name> (round <n>)', task ids <base>@r<n>",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:553",
+    "tests": [
+      "test/loop-bounded-expansion-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "node-id-formats",
+    "behavior": "<runId>:input, <runId>:task:<id>, <runId>:result:<id>, <runId>:verifier:<id>; result parent <runId>:dispatch:<dispatchId> when dispatched",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:167",
+    "tests": [
+      "test/state-node-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "commit-reasons",
+    "behavior": "initial-plan, dispatch:<id>, result:<taskId>, worker:<id>:result, manual (default)",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:199",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "checkState-path-resolution",
+    "behavior": "--state overrides, else <cwd>/.cw/runs/<runId>/state.json; --write persists the migration",
+    "evidence": "src/orchestrator/lifecycle-operations.ts:428",
+    "tests": [
+      "test/run-fixture-compat-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "report.md-sections",
+    "behavior": "fixed order: header lines, Phase Status table, State Commits, Error Feedback, Workers, State Size & Compaction, Multi-Agent Runtime, Blackboard / Coordinator, Sandbox Profiles, Trust Audit, Acceptance Rationale, Candidates, Pending Tasks, Results",
+    "evidence": "src/orchestrator/report.ts:34",
+    "tests": [
+      "test/cli-render-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "report.md-fallback-lines",
+    "behavior": "byte-exact empty-section lines, e.g. 'No state commits yet.', 'No pending tasks.', 'No completed results yet.'",
+    "evidence": "src/orchestrator/report.ts:153",
+    "tests": []
+  },
+  {
+    "kind": "stdout_format",
+    "id": "report.md-source-label",
+    "behavior": "research app without sourceUrl relabels 'Repository' to 'Source'; sourceUrl adds '- Source: <url>[@commit]'",
+    "evidence": "src/orchestrator/report.ts:32",
+    "tests": [
+      "test/remote-link-git-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "report.md-tamper-line",
+    "behavior": "'  !! TRUST-AUDIT CHAIN TAMPER DETECTED: <codes>' when chain integrity fails",
+    "evidence": "src/orchestrator/report.ts:311",
+    "tests": [
+      "test/tamper-evidence-demo-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "report.md-telemetry-lines",
+    "behavior": "'- Telemetry attestation: a/n attested[, u UNATTESTED][, b absent]'; per-event UNATTESTED warning; ledger verified/broken lines",
+    "evidence": "src/orchestrator/report.ts:326",
+    "tests": [
+      "test/telemetry-ledger-smoke.js",
+      "test/telemetry-attest-wrap-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "RunSummary-shape",
+    "behavior": "runId, workflowId, app, phases, tasks{total,pending,running,failed,completed}, loopStage, durationMs?, progressPercent, next, reportPath, commits, workers{total,byStatus}",
+    "evidence": "src/orchestrator/report.ts:120",
+    "tests": [
+      "test/cli-progress-summary-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "comment-list-envelope",
+    "behavior": "{schemaVersion:1, surface:'collaboration', runId, target?, count, comments}",
+    "evidence": "src/orchestrator/collaboration-operations.ts:77",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "review-policy-envelope",
+    "behavior": "{schemaVersion:1, surface:'collaboration', runId, policy}",
+    "evidence": "src/orchestrator/collaboration-operations.ts:125",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "audit-envelopes",
+    "behavior": "auditPolicy/auditRole/auditBlackboard/auditJudge return schemaVersion:1 projections; auditRole.nextAction = 'node scripts/cw.js audit multi-agent <runId> --json'",
+    "evidence": "src/orchestrator/audit-operations.ts:38",
+    "tests": [
+      "test/multi-agent-trust-policy-audit-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listWorkflows",
+    "behavior": "id/title/summary/file per workflow app [real work: src/orchestrator/app-operations.ts:83]",
+    "evidence": "src/orchestrator.ts:111",
+    "tests": [
+      "test/canonical-workflow-apps-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listApps",
+    "behavior": "WorkflowAppSummary list [real work: src/orchestrator/app-operations.ts:95]",
+    "evidence": "src/orchestrator.ts:115",
+    "tests": [
+      "test/canonical-workflow-apps-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showApp",
+    "behavior": "full app + workflow projection for one app id [real work: src/orchestrator/app-operations.ts:99]",
+    "evidence": "src/orchestrator.ts:119",
+    "tests": [
+      "test/canonical-workflow-apps-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.validateApp",
+    "behavior": "validation result; loader errors folded into issues (valid:false) [real work: src/orchestrator/app-operations.ts:141]",
+    "evidence": "src/orchestrator.ts:123",
+    "tests": [
+      "test/workflow-app-framework-smoke.js",
+      "test/schema-validation-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.initApp",
+    "behavior": "writes app.json + workflow.js then validates; returns {id, manifestPath, entrypointPath} [real work: src/orchestrator/app-operations.ts:164]",
+    "evidence": "src/orchestrator.ts:127",
+    "tests": [
+      "test/workflow-app-framework-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.packageApp",
+    "behavior": "writes .cwapp.json package; returns {id, version, path} [real work: src/orchestrator/app-operations.ts:197]",
+    "evidence": "src/orchestrator.ts:131",
+    "tests": [
+      "test/workflow-app-framework-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.init",
+    "behavior": "writes a workflow template; refuses overwrite without force; returns {id, path} [real work: src/orchestrator.ts:135]",
+    "evidence": "src/orchestrator.ts:135",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.plan",
+    "behavior": "creates run dir/state/tasks/nodes; commits initial-plan; returns WorkflowRun [real work: src/orchestrator/lifecycle-operations.ts:62]",
+    "evidence": "src/orchestrator.ts:153",
+    "tests": [
+      "test/quickstart-smoke.js",
+      "test/end-to-end-golden-path-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.status",
+    "behavior": "RunSummary (read-only) [real work: src/orchestrator/report.ts:120]",
+    "evidence": "src/orchestrator.ts:157",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.operatorStatus",
+    "behavior": "operator run summary [real work: src/operator-ux (summarizeOperatorRun)]",
+    "evidence": "src/orchestrator.ts:161",
+    "tests": [
+      "test/operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.next",
+    "behavior": "next dispatchable tasks, optional limit [real work: src/dispatch.ts (nextDispatchTasks)]",
+    "evidence": "src/orchestrator.ts:165",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.dispatch",
+    "behavior": "DispatchManifest; commit dispatch:<id>; loopStage=act [real work: src/orchestrator/lifecycle-operations.ts:210]",
+    "evidence": "src/orchestrator.ts:169",
+    "tests": [
+      "test/deferred-checkpoint-batching-smoke.js",
+      "test/end-to-end-golden-path-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.recordResult",
+    "behavior": "accepts a task result; RunSummary [real work: src/orchestrator/lifecycle-operations.ts:253]",
+    "evidence": "src/orchestrator.ts:173",
+    "tests": [
+      "test/quickstart-smoke.js",
+      "test/end-to-end-golden-path-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listWorkers",
+    "behavior": "worker scopes, optional status filter [real work: src/worker-isolation (listWorkerScopes)]",
+    "evidence": "src/orchestrator.ts:177",
+    "tests": [
+      "test/worker-isolation-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showWorker",
+    "behavior": "one worker scope; throws on unknown id [real work: src/orchestrator.ts:183]",
+    "evidence": "src/orchestrator.ts:183",
+    "tests": [
+      "test/worker-isolation-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.reclaimOrphans",
+    "behavior": "reclaims orphan workers; optional now [real work: src/worker-isolation (reclaimOrphans)]",
+    "evidence": "src/orchestrator.ts:189",
+    "tests": [
+      "test/worker-isolation-smoke.js",
+      "test/orphan-runs-gc-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showWorkerManifest",
+    "behavior": "writes + returns the worker manifest; throws on unknown id [real work: src/orchestrator.ts:193]",
+    "evidence": "src/orchestrator.ts:193",
+    "tests": [
+      "test/worker-isolation-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.recordWorkerOutput",
+    "behavior": "accepts worker result; commit worker:<id>:result; may expand a loop [real work: src/orchestrator/lifecycle-operations.ts:360]",
+    "evidence": "src/orchestrator.ts:200",
+    "tests": [
+      "test/worker-isolation-smoke.js",
+      "test/loop-bounded-expansion-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.recordWorkerFailure",
+    "behavior": "records failure; loopStage=adjust [real work: src/orchestrator/lifecycle-operations.ts:400]",
+    "evidence": "src/orchestrator.ts:204",
+    "tests": [
+      "test/worker-retry-count-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.validateWorker",
+    "behavior": "worker boundary check for an optional path [real work: src/worker-isolation (validateWorkerBoundary)]",
+    "evidence": "src/orchestrator.ts:213",
+    "tests": [
+      "test/worker-isolation-smoke.js",
+      "test/one-way-boundary-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.auditSummary",
+    "behavior": "trust-audit summary [real work: src/orchestrator/audit-operations.ts:30]",
+    "evidence": "src/orchestrator.ts:220",
+    "tests": [
+      "test/multi-agent-trust-policy-audit-smoke.js",
+      "test/audit-verify-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.auditMultiAgent",
+    "behavior": "multi-agent trust summary [real work: src/orchestrator/audit-operations.ts:34]",
+    "evidence": "src/orchestrator.ts:224",
+    "tests": [
+      "test/multi-agent-trust-policy-audit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.auditPolicy",
+    "behavior": "role policies + permission decisions + violations [real work: src/orchestrator/audit-operations.ts:38]",
+    "evidence": "src/orchestrator.ts:228",
+    "tests": [
+      "test/multi-agent-trust-policy-audit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.auditRole",
+    "behavior": "per-role trust events projection [real work: src/orchestrator/audit-operations.ts:50]",
+    "evidence": "src/orchestrator.ts:232",
+    "tests": [
+      "test/multi-agent-trust-policy-audit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.auditBlackboard",
+    "behavior": "blackboard writes + provenance + violations [real work: src/orchestrator/audit-operations.ts:70]",
+    "evidence": "src/orchestrator.ts:236",
+    "tests": [
+      "test/multi-agent-trust-policy-audit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.auditJudge",
+    "behavior": "judge rationales + panel decisions [real work: src/orchestrator/audit-operations.ts:82]",
+    "evidence": "src/orchestrator.ts:240",
+    "tests": [
+      "test/multi-agent-trust-policy-audit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.workerAudit",
+    "behavior": "per-worker trust audit [real work: src/orchestrator/audit-operations.ts:95]",
+    "evidence": "src/orchestrator.ts:244",
+    "tests": [
+      "test/worker-isolation-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.evidenceProvenance",
+    "behavior": "evidence provenance filtered by worker/candidate/commit [real work: src/orchestrator/audit-operations.ts:99]",
+    "evidence": "src/orchestrator.ts:248",
+    "tests": [
+      "test/security-trust-hardening-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.recordAuditAttestation",
+    "behavior": "host attestation event; persists [real work: src/orchestrator/audit-operations.ts:110]",
+    "evidence": "src/orchestrator.ts:252",
+    "tests": [
+      "test/security-trust-hardening-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.recordAuditDecision",
+    "behavior": "sandbox path/command/network/env decision; denied also records worker failure; persists [real work: src/orchestrator/audit-operations.ts:134]",
+    "evidence": "src/orchestrator.ts:256",
+    "tests": [
+      "test/security-trust-hardening-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listSandboxProfiles",
+    "behavior": "bundled sandbox profiles for a cwd [real work: src/sandbox-profile (listBundledSandboxProfiles)]",
+    "evidence": "src/orchestrator.ts:260",
+    "tests": [
+      "test/sandbox-profile-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showSandboxProfile",
+    "behavior": "one bundled profile [real work: src/sandbox-profile (showBundledSandboxProfile)]",
+    "evidence": "src/orchestrator.ts:264",
+    "tests": [
+      "test/sandbox-profile-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.validateSandboxProfile",
+    "behavior": "validates a profile file [real work: src/sandbox-profile (validateSandboxProfileFile)]",
+    "evidence": "src/orchestrator.ts:268",
+    "tests": [
+      "test/sandbox-profile-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listBackends",
+    "behavior": "execution backend list payload [real work: src/execution-backend (backendListPayload)]",
+    "evidence": "src/orchestrator.ts:272",
+    "tests": [
+      "test/backend-registry-smoke.js",
+      "test/execution-backends-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showBackend",
+    "behavior": "one backend payload [real work: src/execution-backend (backendShowPayload)]",
+    "evidence": "src/orchestrator.ts:277",
+    "tests": [
+      "test/backend-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.probeBackend",
+    "behavior": "probes a backend against a cwd [real work: src/execution-backend (backendProbePayload)]",
+    "evidence": "src/orchestrator.ts:282",
+    "tests": [
+      "test/execution-backends-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listCandidates",
+    "behavior": "candidates filtered by status/kind [real work: src/orchestrator/candidate-operations.ts:20]",
+    "evidence": "src/orchestrator.ts:287",
+    "tests": [
+      "test/candidate-scoring-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showCandidate",
+    "behavior": "one candidate; throws on unknown id [real work: src/orchestrator/candidate-operations.ts:27]",
+    "evidence": "src/orchestrator.ts:291",
+    "tests": [
+      "test/candidate-scoring-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.registerCandidate",
+    "behavior": "registers a candidate with worker/task/node context; persists [real work: src/orchestrator/candidate-operations.ts:33]",
+    "evidence": "src/orchestrator.ts:295",
+    "tests": [
+      "test/candidate-scoring-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.scoreCandidate",
+    "behavior": "scores via --criterion pairs; persists [real work: src/orchestrator/candidate-operations.ts:66]",
+    "evidence": "src/orchestrator.ts:299",
+    "tests": [
+      "test/candidate-scoring-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.rankCandidates",
+    "behavior": "ranking with policy knobs; persists [real work: src/orchestrator/candidate-operations.ts:81]",
+    "evidence": "src/orchestrator.ts:303",
+    "tests": [
+      "test/candidate-scoring-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.selectCandidate",
+    "behavior": "selection with gate policy; persists [real work: src/orchestrator/candidate-operations.ts:96]",
+    "evidence": "src/orchestrator.ts:307",
+    "tests": [
+      "test/candidate-scoring-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.rejectCandidate",
+    "behavior": "reject with reason; persists [real work: src/orchestrator/candidate-operations.ts:114]",
+    "evidence": "src/orchestrator.ts:311",
+    "tests": [
+      "test/candidate-scoring-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.collaborationApprove",
+    "behavior": "append-only approval record (decision approve|reject); persists [real work: src/orchestrator/collaboration-operations.ts:27]",
+    "evidence": "src/orchestrator.ts:319",
+    "tests": [
+      "test/team-collaboration-smoke.js",
+      "test/collaboration-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.collaborationReject",
+    "behavior": "THE one runner->runner forward: collaborationApprove(..., 'reject') [real work: src/orchestrator.ts:323]",
+    "evidence": "src/orchestrator.ts:323",
+    "tests": [
+      "test/team-collaboration-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.collaborationComment",
+    "behavior": "append-only comment; persists [real work: src/orchestrator/collaboration-operations.ts:50]",
+    "evidence": "src/orchestrator.ts:327",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.collaborationCommentList",
+    "behavior": "comment list envelope (read-only) [real work: src/orchestrator/collaboration-operations.ts:67]",
+    "evidence": "src/orchestrator.ts:331",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.collaborationHandoff",
+    "behavior": "append-only handoff record, reason default 'handoff'; persists [real work: src/orchestrator/collaboration-operations.ts:80]",
+    "evidence": "src/orchestrator.ts:335",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.reviewStatus",
+    "behavior": "derived review state; injectable options.now [real work: src/orchestrator/collaboration-operations.ts:103]",
+    "evidence": "src/orchestrator.ts:339",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.reviewPolicy",
+    "behavior": "sets review policy; persists; returns policy envelope [real work: src/orchestrator/collaboration-operations.ts:109]",
+    "evidence": "src/orchestrator.ts:343",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.formatReviewStatus",
+    "behavior": "pure text render of a ReviewStatusReport [real work: src/orchestrator/collaboration-operations.ts:128]",
+    "evidence": "src/orchestrator.ts:347",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.formatCommentList",
+    "behavior": "pure text render of comments [real work: src/orchestrator/collaboration-operations.ts:132]",
+    "evidence": "src/orchestrator.ts:351",
+    "tests": [
+      "test/collaboration-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.summarizeWorkerRecords",
+    "behavior": "operator worker summary [real work: src/operator-ux (summarizeOperatorWorkers)]",
+    "evidence": "src/orchestrator.ts:355",
+    "tests": [
+      "test/operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.summarizeCandidateOperatorRecords",
+    "behavior": "operator candidate summary [real work: src/operator-ux (summarizeOperatorCandidates)]",
+    "evidence": "src/orchestrator.ts:359",
+    "tests": [
+      "test/operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.summarizeFeedbackRecords",
+    "behavior": "operator feedback summary [real work: src/operator-ux (summarizeOperatorFeedback)]",
+    "evidence": "src/orchestrator.ts:363",
+    "tests": [
+      "test/operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.summarizeCommitRecords",
+    "behavior": "operator commit summary [real work: src/operator-ux (summarizeOperatorCommits)]",
+    "evidence": "src/orchestrator.ts:367",
+    "tests": [
+      "test/operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.report",
+    "behavior": "writes report.md; returns {path} [real work: src/orchestrator/report.ts:24]",
+    "evidence": "src/orchestrator.ts:371",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.operatorReport",
+    "behavior": "writes report.md then returns operator summary [real work: src/orchestrator.ts:376]",
+    "evidence": "src/orchestrator.ts:376",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showContract",
+    "behavior": "run contract via pipeline runner [real work: src/pipeline-runner (getRunContract)]",
+    "evidence": "src/orchestrator.ts:382",
+    "tests": [
+      "test/state-node-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listNodes",
+    "behavior": "run.nodes or [] [real work: src/orchestrator.ts:387]",
+    "evidence": "src/orchestrator.ts:387",
+    "tests": [
+      "test/state-node-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showNode",
+    "behavior": "one node via pipeline runner [real work: src/pipeline-runner (getRunNode)]",
+    "evidence": "src/orchestrator.ts:391",
+    "tests": [
+      "test/state-node-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.graphNodes",
+    "behavior": "projection {id,kind,status,parents,children} per node [real work: src/orchestrator.ts:395]",
+    "evidence": "src/orchestrator.ts:395",
+    "tests": [
+      "test/state-node-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.operatorGraph",
+    "behavior": "operator graph [real work: src/operator-ux (buildOperatorGraph)]",
+    "evidence": "src/orchestrator.ts:405",
+    "tests": [
+      "test/operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentSummary",
+    "behavior": "multi-agent summary [real work: src/multi-agent (summarizeMultiAgent)]",
+    "evidence": "src/orchestrator.ts:409",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentGraph",
+    "behavior": "multi-agent graph [real work: src/multi-agent (buildMultiAgentGraph)]",
+    "evidence": "src/orchestrator.ts:413",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentOperatorStatus",
+    "behavior": "multi-agent operator summary [real work: src/multi-agent-operator-ux (summarizeMultiAgentOperator)]",
+    "evidence": "src/orchestrator.ts:417",
+    "tests": [
+      "test/multi-agent-operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentOperatorGraph",
+    "behavior": "multi-agent operator graph [real work: src/multi-agent-operator-ux (buildMultiAgentOperatorGraph)]",
+    "evidence": "src/orchestrator.ts:421",
+    "tests": [
+      "test/multi-agent-operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentDependencies",
+    "behavior": "dependencies slice of the operator summary [real work: src/orchestrator.ts:425]",
+    "evidence": "src/orchestrator.ts:425",
+    "tests": [
+      "test/multi-agent-operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentFailures",
+    "behavior": "failures slice of the operator summary [real work: src/orchestrator.ts:429]",
+    "evidence": "src/orchestrator.ts:429",
+    "tests": [
+      "test/multi-agent-operator-ux-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentEvidence",
+    "behavior": "evidence rows enriched with rationaleStatus (additive optional field) [real work: src/orchestrator.ts:433]",
+    "evidence": "src/orchestrator.ts:433",
+    "tests": [
+      "test/multi-agent-operator-ux-smoke.js",
+      "test/evidence-adoption-reasoning-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentReasoning",
+    "behavior": "evidence-reasoning report; --refresh recomputes + checkpoints [real work: src/orchestrator.ts:445]",
+    "evidence": "src/orchestrator.ts:445",
+    "tests": [
+      "test/evidence-adoption-reasoning-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentReasoningRefresh",
+    "behavior": "recompute reasoning index; checkpoints [real work: src/orchestrator.ts:454]",
+    "evidence": "src/orchestrator.ts:454",
+    "tests": [
+      "test/evidence-adoption-reasoning-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.summaryRefresh",
+    "behavior": "refresh state-explosion summaries for --view list; report + checkpoint [real work: src/orchestrator.ts:461]",
+    "evidence": "src/orchestrator.ts:461",
+    "tests": [
+      "test/blackboard-state-explosion-management-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.summaryShow",
+    "behavior": "state-explosion summary; checkpoints after read [real work: src/orchestrator.ts:469]",
+    "evidence": "src/orchestrator.ts:469",
+    "tests": [
+      "test/blackboard-state-explosion-management-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.metricsShow",
+    "behavior": "MetricsReport; NEVER checkpoints; args.now injectable; pricing via loadCostPolicy [real work: src/orchestrator.ts:481]",
+    "evidence": "src/orchestrator.ts:481",
+    "tests": [
+      "test/observability-cost-accounting-smoke.js",
+      "test/telemetry-metrics-coverage-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.blackboardSummarize",
+    "behavior": "blackboard digest summary [real work: src/state-explosion (summarizeBlackboardDigest)]",
+    "evidence": "src/orchestrator.ts:488",
+    "tests": [
+      "test/blackboard-state-explosion-management-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentSummarize",
+    "behavior": "state-explosion report [real work: src/state-explosion (buildStateExplosionReport)]",
+    "evidence": "src/orchestrator.ts:492",
+    "tests": [
+      "test/blackboard-state-explosion-management-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.multiAgentGraphView",
+    "behavior": "compact graph with view/focus/depth; view default 'compact' [real work: src/state-explosion (buildCompactGraph)]",
+    "evidence": "src/orchestrator.ts:498",
+    "tests": [
+      "test/blackboard-state-explosion-management-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.stateExplosionReport",
+    "behavior": "state-explosion report (same body as multiAgentSummarize) [real work: src/orchestrator.ts:506]",
+    "evidence": "src/orchestrator.ts:506",
+    "tests": [
+      "test/blackboard-state-explosion-management-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.hostMultiAgentRun",
+    "behavior": "load run OR plan from --app (host-run keys stripped); throws when neither given; persists [real work: src/orchestrator/host-operations.ts:9]",
+    "evidence": "src/orchestrator.ts:514",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.hostMultiAgentStatus",
+    "behavior": "host status; writes report, no checkpoint [real work: src/orchestrator/host-operations.ts:16]",
+    "evidence": "src/orchestrator.ts:525",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.hostMultiAgentStep",
+    "behavior": "one host step; persists [real work: src/orchestrator/host-operations.ts:21]",
+    "evidence": "src/orchestrator.ts:529",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.hostMultiAgentBlackboard",
+    "behavior": "host blackboard action; persists [real work: src/orchestrator/host-operations.ts:28]",
+    "evidence": "src/orchestrator.ts:533",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.hostMultiAgentScore",
+    "behavior": "host scoring; persists [real work: src/orchestrator/host-operations.ts:35]",
+    "evidence": "src/orchestrator.ts:537",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.hostMultiAgentSelect",
+    "behavior": "host selection; persists [real work: src/orchestrator/host-operations.ts:42]",
+    "evidence": "src/orchestrator.ts:541",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.evalSnapshot",
+    "behavior": "replay snapshot of a run [real work: src/multi-agent-eval (createMultiAgentReplaySnapshot)]",
+    "evidence": "src/orchestrator.ts:545",
+    "tests": [
+      "test/multi-agent-eval-replay-smoke.js",
+      "test/multi-agent-eval-replay-harness-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.evalReplay",
+    "behavior": "replays a snapshot target [real work: src/multi-agent-eval (replayMultiAgentSnapshot)]",
+    "evidence": "src/orchestrator.ts:549",
+    "tests": [
+      "test/multi-agent-eval-replay-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.evalCompare",
+    "behavior": "compares baseline vs replay [real work: src/multi-agent-eval (compareMultiAgentReplay)]",
+    "evidence": "src/orchestrator.ts:553",
+    "tests": [
+      "test/multi-agent-eval-replay-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.evalScore",
+    "behavior": "scores a replay [real work: src/multi-agent-eval (scoreMultiAgentReplay)]",
+    "evidence": "src/orchestrator.ts:557",
+    "tests": [
+      "test/multi-agent-eval-replay-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.evalGate",
+    "behavior": "gates an eval [real work: src/multi-agent-eval (gateMultiAgentEval)]",
+    "evidence": "src/orchestrator.ts:561",
+    "tests": [
+      "test/multi-agent-eval-replay-harness-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.evalReport",
+    "behavior": "eval report [real work: src/multi-agent-eval (reportMultiAgentEval)]",
+    "evidence": "src/orchestrator.ts:565",
+    "tests": [
+      "test/multi-agent-eval-replay-harness-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.nodeSnapshot",
+    "behavior": "snapshot of one node [real work: src/node-snapshot (snapshotNode)]",
+    "evidence": "src/orchestrator.ts:570",
+    "tests": [
+      "test/node-snapshot-diff-replay-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.nodeDiff",
+    "behavior": "diff of two node snapshots [real work: src/node-snapshot (diffNodeSnapshots)]",
+    "evidence": "src/orchestrator.ts:574",
+    "tests": [
+      "test/node-snapshot-diff-replay-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.nodeReplay",
+    "behavior": "replays a node snapshot [real work: src/node-snapshot (replayNodeSnapshot)]",
+    "evidence": "src/orchestrator.ts:579",
+    "tests": [
+      "test/node-snapshot-diff-replay-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.nodeReplayVerify",
+    "behavior": "verifies a node replay [real work: src/node-snapshot (verifyNodeReplay)]",
+    "evidence": "src/orchestrator.ts:584",
+    "tests": [
+      "test/node-snapshot-diff-replay-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.migrationList",
+    "behavior": "{contracts:[...]} [real work: src/orchestrator/migration-operations.ts:9]",
+    "evidence": "src/orchestrator.ts:591",
+    "tests": [
+      "test/contract-migration-tooling-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.migrationCheck",
+    "behavior": "migration check for a run id or state file [real work: src/orchestrator/migration-operations.ts:13]",
+    "evidence": "src/orchestrator.ts:595",
+    "tests": [
+      "test/contract-migration-tooling-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.migrationProve",
+    "behavior": "migration proof; persisted append-only when writable [real work: src/orchestrator/migration-operations.ts:18]",
+    "evidence": "src/orchestrator.ts:599",
+    "tests": [
+      "test/contract-migration-tooling-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.loadMigrationSnapshot",
+    "behavior": "resolves target file (path or run id) + contract (workflow-app else run-state) [real work: src/orchestrator/migration-operations.ts:30]",
+    "evidence": "src/orchestrator.ts:603",
+    "tests": [
+      "test/contract-migration-tooling-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listTopologies",
+    "behavior": "topology definitions [real work: src/orchestrator/topology-operations.ts:9]",
+    "evidence": "src/orchestrator.ts:608",
+    "tests": [
+      "test/multi-agent-topologies-map-reduce-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showTopology",
+    "behavior": "one topology definition; throws on unknown id [real work: src/orchestrator/topology-operations.ts:13]",
+    "evidence": "src/orchestrator.ts:612",
+    "tests": [
+      "test/multi-agent-topologies-map-reduce-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.validateTopology",
+    "behavior": "topology validation [real work: src/orchestrator/topology-operations.ts:19]",
+    "evidence": "src/orchestrator.ts:616",
+    "tests": [
+      "test/multi-agent-topologies-map-reduce-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.applyTopology",
+    "behavior": "applies a topology to a run; persists [real work: src/orchestrator/topology-operations.ts:23]",
+    "evidence": "src/orchestrator.ts:620",
+    "tests": [
+      "test/multi-agent-topologies-map-reduce-smoke.js",
+      "test/multi-agent-topologies-debate-smoke.js",
+      "test/multi-agent-topologies-judge-panel-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showTopologyRun",
+    "behavior": "one topology run record [real work: src/orchestrator/topology-operations.ts:41]",
+    "evidence": "src/orchestrator.ts:624",
+    "tests": [
+      "test/multi-agent-topologies-map-reduce-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.topologySummary",
+    "behavior": "topology summary for a run [real work: src/orchestrator/topology-operations.ts:45]",
+    "evidence": "src/orchestrator.ts:628",
+    "tests": [
+      "test/multi-agent-topologies-map-reduce-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.topologyGraph",
+    "behavior": "topology graph for a run [real work: src/orchestrator/topology-operations.ts:49]",
+    "evidence": "src/orchestrator.ts:632",
+    "tests": [
+      "test/multi-agent-topologies-map-reduce-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.createMultiAgentRun",
+    "behavior": "creates a MultiAgentRun record; persists [real work: src/orchestrator/multi-agent-operations.ts:22]",
+    "evidence": "src/orchestrator.ts:637",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.transitionMultiAgentRun",
+    "behavior": "status transition, default 'running'; persists [real work: src/orchestrator/multi-agent-operations.ts:39]",
+    "evidence": "src/orchestrator.ts:641",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.createAgentRole",
+    "behavior": "creates a role (multi-agent run id required); persists [real work: src/orchestrator/multi-agent-operations.ts:50]",
+    "evidence": "src/orchestrator.ts:645",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.createAgentGroup",
+    "behavior": "creates a group (multi-agent run id required); persists [real work: src/orchestrator/multi-agent-operations.ts:70]",
+    "evidence": "src/orchestrator.ts:649",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.assignAgentMembership",
+    "behavior": "assigns membership (group+role+task ids required); persists [real work: src/orchestrator/multi-agent-operations.ts:88]",
+    "evidence": "src/orchestrator.ts:653",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.createAgentFanout",
+    "behavior": "creates a fanout (group id required, reason default 'work split'); persists [real work: src/orchestrator/multi-agent-operations.ts:108]",
+    "evidence": "src/orchestrator.ts:657",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.collectAgentFanin",
+    "behavior": "collects a fanin; persists [real work: src/orchestrator/multi-agent-operations.ts:131]",
+    "evidence": "src/orchestrator.ts:661",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showMultiAgentRun",
+    "behavior": "one MultiAgentRun; throws on unknown id [real work: src/orchestrator/multi-agent-operations.ts:148]",
+    "evidence": "src/orchestrator.ts:665",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showAgentRole",
+    "behavior": "one role; throws on unknown id [real work: src/orchestrator/multi-agent-operations.ts:154]",
+    "evidence": "src/orchestrator.ts:669",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showAgentGroup",
+    "behavior": "one group; throws on unknown id [real work: src/orchestrator/multi-agent-operations.ts:160]",
+    "evidence": "src/orchestrator.ts:673",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showAgentMembership",
+    "behavior": "one membership; throws on unknown id [real work: src/orchestrator/multi-agent-operations.ts:166]",
+    "evidence": "src/orchestrator.ts:677",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showAgentFanout",
+    "behavior": "one fanout; throws on unknown id [real work: src/orchestrator/multi-agent-operations.ts:172]",
+    "evidence": "src/orchestrator.ts:681",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showAgentFanin",
+    "behavior": "one fanin; throws on unknown id [real work: src/orchestrator/multi-agent-operations.ts:178]",
+    "evidence": "src/orchestrator.ts:685",
+    "tests": [
+      "test/multi-agent-runtime-core-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.blackboardSummary",
+    "behavior": "blackboard summary (read-only) [real work: src/orchestrator/multi-agent-operations.ts:184]",
+    "evidence": "src/orchestrator.ts:689",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.coordinatorSummary",
+    "behavior": "alias body of blackboardSummary [real work: src/orchestrator.ts:693]",
+    "evidence": "src/orchestrator.ts:693",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.blackboardGraph",
+    "behavior": "blackboard graph [real work: src/orchestrator/multi-agent-operations.ts:188]",
+    "evidence": "src/orchestrator.ts:697",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.resolveRunBlackboard",
+    "behavior": "resolves/creates the run blackboard; persists [real work: src/orchestrator/multi-agent-operations.ts:192]",
+    "evidence": "src/orchestrator.ts:701",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.createBlackboardTopic",
+    "behavior": "creates a topic (title required); persists [real work: src/orchestrator/multi-agent-operations.ts:210]",
+    "evidence": "src/orchestrator.ts:705",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.postBlackboardMessage",
+    "behavior": "posts a message (topic id + body required); persists [real work: src/orchestrator/multi-agent-operations.ts:226]",
+    "evidence": "src/orchestrator.ts:709",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listBlackboardMessages",
+    "behavior": "messages filtered by topic/blackboard (read-only) [real work: src/orchestrator/multi-agent-operations.ts:248]",
+    "evidence": "src/orchestrator.ts:713",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.putBlackboardContext",
+    "behavior": "puts a context (topic id + kind + value required); persists [real work: src/orchestrator/multi-agent-operations.ts:255]",
+    "evidence": "src/orchestrator.ts:717",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.addBlackboardArtifact",
+    "behavior": "adds an artifact (kind required); persists [real work: src/orchestrator/multi-agent-operations.ts:277]",
+    "evidence": "src/orchestrator.ts:721",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listBlackboardArtifacts",
+    "behavior": "artifacts filtered by topic/blackboard (read-only) [real work: src/orchestrator/multi-agent-operations.ts:301]",
+    "evidence": "src/orchestrator.ts:725",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.snapshotBlackboard",
+    "behavior": "blackboard snapshot; persists [real work: src/orchestrator/multi-agent-operations.ts:308]",
+    "evidence": "src/orchestrator.ts:729",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.recordCoordinatorDecision",
+    "behavior": "coordinator decision (kind+outcome+reason required; author defaults coordinator/cw); persists [real work: src/orchestrator/multi-agent-operations.ts:315]",
+    "evidence": "src/orchestrator.ts:733",
+    "tests": [
+      "test/coordinator-blackboard-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.checkState",
+    "behavior": "state migration report; --write persists [real work: src/orchestrator/lifecycle-operations.ts:428]",
+    "evidence": "src/orchestrator.ts:737",
+    "tests": [
+      "test/run-fixture-compat-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.commit",
+    "behavior": "verifier-gated commit or checkpoint; returns {runId, commit} [real work: src/orchestrator/lifecycle-operations.ts:437]",
+    "evidence": "src/orchestrator.ts:741",
+    "tests": [
+      "test/verifier-gated-commit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.collectFeedback",
+    "behavior": "collects run errors into feedback; persists [real work: src/orchestrator/feedback-operations.ts:8]",
+    "evidence": "src/orchestrator.ts:746",
+    "tests": [
+      "test/feedback-ops-unit-smoke.js",
+      "test/error-feedback-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.listFeedback",
+    "behavior": "feedback filtered by status/severity/classification [real work: src/orchestrator/feedback-operations.ts:15]",
+    "evidence": "src/orchestrator.ts:750",
+    "tests": [
+      "test/feedback-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.showFeedback",
+    "behavior": "one feedback record; throws on unknown id [real work: src/orchestrator/feedback-operations.ts:23]",
+    "evidence": "src/orchestrator.ts:754",
+    "tests": [
+      "test/feedback-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.createFeedbackTask",
+    "behavior": "correction task from feedback (--verify, --guidance); persists [real work: src/orchestrator/feedback-operations.ts:29]",
+    "evidence": "src/orchestrator.ts:758",
+    "tests": [
+      "test/feedback-ops-unit-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "CoolWorkflowRunner.resolveFeedback",
+    "behavior": "resolves feedback (status 'rejected' only when asked, else 'resolved'); persists [real work: src/orchestrator/feedback-operations.ts:39]",
+    "evidence": "src/orchestrator.ts:762",
+    "tests": [
+      "test/error-feedback-resolution-smoke.js",
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  }
+]

@@ -1,0 +1,5 @@
+# exit: 0
+cw coordinator
+
+  cw coordinator decision  Record a coordinator decision.
+  cw coordinator summary   Read the coordinator summary.

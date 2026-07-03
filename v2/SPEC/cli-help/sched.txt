@@ -1,0 +1,11 @@
+# exit: 0
+cw sched
+
+  cw sched complete  Complete a held lease (terminal success).
+  cw sched lease     Claim eligible queue entries as leases (concurrency-bounded).
+  cw sched plan      Read-only control-plane lease plan for the queue+policy+now.
+  cw sched policy    Show the scheduling policy (file or default).
+  cw sched policy    Set scheduling policy fields (concurrency/attempts/backoff/TTL).
+  cw sched reclaim   Reclaim expired leases (each counts a failed attempt).
+  cw sched release   Release a held lease (failed -> retry/backoff or park).
+  cw sched reset     Reset a parked entry to ready (operator recovery).

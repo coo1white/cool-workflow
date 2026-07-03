@@ -1,0 +1,31 @@
+# exit: 0
+cw multi-agent
+
+  cw multi-agent blackboard    Operate on the active multi-agent blackboard.
+  cw multi-agent dependencies  Read derived multi-agent dependency edges for operator inspection.
+  cw multi-agent evidence      Read evidence adoption status from worker output through selection and commit. Each row carries a derived rationaleStatus (explained|unexplained|not-applicable).
+  cw multi-agent failures      Read failed, blocked, rejected, and ambiguous multi-agent records.
+  cw multi-agent fanin         Collect an AgentFanin with evidence coverage.
+  cw multi-agent fanin         Show one AgentFanin record.
+  cw multi-agent fanout        Create an AgentFanout record.
+  cw multi-agent fanout        Show one AgentFanout record.
+  cw multi-agent graph         Read the structured multi-agent operator graph for a run.
+  cw multi-agent graph         Read a compact/focused multi-agent graph view.
+  cw multi-agent group         Create an AgentGroup record.
+  cw multi-agent group         Show one AgentGroup record.
+  cw multi-agent membership    Create an AgentMembership record.
+  cw multi-agent membership    Show one AgentMembership record.
+  cw multi-agent reasoning     Explain why each evidence item was adopted/rejected.
+  cw multi-agent reasoning     Refresh the durable evidence-reasoning index.
+  cw multi-agent role          Create an AgentRole record.
+  cw multi-agent role          Show one AgentRole record.
+  cw multi-agent run           Create or attach a topology-backed multi-agent run.
+  cw multi-agent run           Create a MultiAgentRun state record.
+  cw multi-agent run           Transition a MultiAgentRun lifecycle.
+  cw multi-agent score         Score a candidate with evidence.
+  cw multi-agent select        Select a candidate with the verifier gate.
+  cw multi-agent show          Show one MultiAgentRun record.
+  cw multi-agent status        Read combined topology/blackboard/worker status.
+  cw multi-agent step          Perform one safe deterministic host step.
+  cw multi-agent summarize     Read the combined state-explosion report.
+  cw multi-agent summary       Read the structured multi-agent runtime summary for a run.

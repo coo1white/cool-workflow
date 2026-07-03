@@ -1,0 +1,4 @@
+# exit: 0
+cw dispatch
+
+  cw dispatch  Create a subagent dispatch manifest.

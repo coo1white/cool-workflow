@@ -1,0 +1,1847 @@
+[
+ {
+  "kind": "command",
+  "id": "node test/run-all.js",
+  "behavior": "Finds and runs every test/*-smoke.js in its own sandboxed child process; exit 0 only when all pass",
+  "evidence": "test/run-all.js:164",
+  "tests": [
+   "test/concurrency-default-smoke.js",
+   "test/run-all-json-summary-smoke.js"
+  ]
+ },
+ {
+  "kind": "flag",
+  "id": "run-all --concurrency <n|auto>",
+  "behavior": "Pool size; flag > CW_TEST_CONCURRENCY env > auto = min(16, max(2, cores-1))",
+  "evidence": "test/run-all.js:60",
+  "tests": [
+   "test/concurrency-default-smoke.js"
+  ]
+ },
+ {
+  "kind": "flag",
+  "id": "run-all --json-summary <path>",
+  "behavior": "Writes a JSON run summary file (schemaVersion 1) at the path",
+  "evidence": "test/run-all.js:83",
+  "tests": [
+   "test/run-all-json-summary-smoke.js"
+  ]
+ },
+ {
+  "kind": "flag",
+  "id": "run-all --filter <regex>",
+  "behavior": "Runs only smokes whose file name matches; zero matches is exit 1",
+  "evidence": "test/run-all.js:86",
+  "tests": []
+ },
+ {
+  "kind": "flag",
+  "id": "run-all --retry <n>",
+  "behavior": "Retries a failed smoke up to n more times in a fresh sandbox; never retries a timeout",
+  "evidence": "test/run-all.js:89",
+  "tests": []
+ },
+ {
+  "kind": "flag",
+  "id": "run-all --bail",
+  "behavior": "Stops starting new smokes after the first failure; also set by CW_TEST_BAIL=1",
+  "evidence": "test/run-all.js:96",
+  "tests": []
+ },
+ {
+  "kind": "flag",
+  "id": "run-all --sample <n>",
+  "behavior": "Deterministic subset: rank file names by FNV-1a hash (seed 0x811c9dc5), take lowest n, run in name order",
+  "evidence": "test/run-all.js:99",
+  "tests": [
+   "test/sample-determinism-smoke.js"
+  ]
+ },
+ {
+  "kind": "flag",
+  "id": "run-all --fast",
+  "behavior": "Skips smokes with '// @cw-smoke: tags slow' in the first 20 lines; also set by CW_TEST_FAST=1",
+  "evidence": "test/run-all.js:103",
+  "tests": []
+ },
+ {
+  "kind": "env",
+  "id": "CW_TEST_CONCURRENCY",
+  "behavior": "Pool size when the flag is absent; 1 forces sequential (release gate)",
+  "evidence": "test/run-all.js:75",
+  "tests": [
+   "test/concurrency-default-smoke.js"
+  ]
+ },
+ {
+  "kind": "env",
+  "id": "CW_TEST_FILTER",
+  "behavior": "Same as --filter",
+  "evidence": "test/run-all.js:86",
+  "tests": []
+ },
+ {
+  "kind": "env",
+  "id": "CW_TEST_RETRY",
+  "behavior": "Same as --retry",
+  "evidence": "test/run-all.js:90",
+  "tests": []
+ },
+ {
+  "kind": "env",
+  "id": "CW_TEST_TIMEOUT_MS",
+  "behavior": "Per-test timeout in ms; default 120000, floor 1000; SIGTERM then SIGKILL after 3s",
+  "evidence": "test/run-all.js:94",
+  "tests": []
+ },
+ {
+  "kind": "env",
+  "id": "CW_TEST_BAIL",
+  "behavior": "Value 1 = --bail",
+  "evidence": "test/run-all.js:97",
+  "tests": []
+ },
+ {
+  "kind": "env",
+  "id": "CW_TEST_FAST",
+  "behavior": "Value 1 = --fast",
+  "evidence": "test/run-all.js:104",
+  "tests": []
+ },
+ {
+  "kind": "env",
+  "id": "CW_TEST_SERIAL_ONLY",
+  "behavior": "Comma list of smoke file names run one by one AFTER the parallel pool; hardcoded set is empty",
+  "evidence": "test/run-all.js:215",
+  "tests": []
+ },
+ {
+  "kind": "env",
+  "id": "CI",
+  "behavior": "When set, a failure report adds a '[git log] <last commit>' line for the failing smoke file",
+  "evidence": "test/run-all.js:409",
+  "tests": []
+ },
+ {
+  "kind": "exit_code",
+  "id": "run-all exit 0",
+  "behavior": "All discovered (and not skipped) smokes passed",
+  "evidence": "test/run-all.js:467",
+  "tests": [
+   "test/concurrency-default-smoke.js",
+   "test/run-all-json-summary-smoke.js"
+  ]
+ },
+ {
+  "kind": "exit_code",
+  "id": "run-all exit 1",
+  "behavior": "Any smoke failed, or no smoke files found, or filter matched none, or the runner crashed",
+  "evidence": "test/run-all.js:467",
+  "tests": []
+ },
+ {
+  "kind": "stdout_format",
+  "id": "run-all header line",
+  "behavior": "'Running <N> smoke(s) — concurrency <C>' plus optional notes: (filter: ...), (max-retries: n), (k skipped), (--sample n), (k fast-skipped), (--bail), sequential/pooled tail",
+  "evidence": "test/run-all.js:330",
+  "tests": [
+   "test/concurrency-default-smoke.js"
+  ]
+ },
+ {
+  "kind": "stdout_format",
+  "id": "run-all per-test line",
+  "behavior": "'  PASS|FAIL  <file>  (<ms>ms)' with optional ' [serial-only]', ' [TIMEOUT]', ' [retry n/m]'",
+  "evidence": "test/run-all.js:359",
+  "tests": []
+ },
+ {
+  "kind": "stdout_format",
+  "id": "run-all skipped block",
+  "behavior": "70-char '=' bar, 'Skipped (CW_SKIP):', then '  SKIP  <file>  — <reason>' lines",
+  "evidence": "test/run-all.js:383",
+  "tests": []
+ },
+ {
+  "kind": "stdout_format",
+  "id": "run-all fast-skipped block",
+  "behavior": "'Fast-skipped (tags slow; remove @cw-smoke: tags slow or unset CW_TEST_FAST to include):' then file lines",
+  "evidence": "test/run-all.js:389",
+  "tests": []
+ },
+ {
+  "kind": "stdout_format",
+  "id": "run-all failures block",
+  "behavior": "70-char '=' bar, 'Failures:' (+' [BAIL]'), then per failure '--- <file> (exit <code>) ---' with [stderr]/[stdout] sections",
+  "evidence": "test/run-all.js:397",
+  "tests": []
+ },
+ {
+  "kind": "stdout_format",
+  "id": "run-all summary line",
+  "behavior": "70-char '=' bar then '<passed>/<total> passed, <failed> failed( (bailed))( (<k> skipped)) — <ms>ms total'",
+  "evidence": "test/run-all.js:428",
+  "tests": []
+ },
+ {
+  "kind": "stdout_format",
+  "id": "run-all stderr: empty suite",
+  "behavior": "'run-all.js: no test/*-smoke.js files found — refusing to pass vacuously.' then exit 1",
+  "evidence": "test/run-all.js:170",
+  "tests": []
+ },
+ {
+  "kind": "stdout_format",
+  "id": "run-all stderr: empty filter",
+  "behavior": "'run-all.js: filter \"<regex>\" matched no smoke files (had <N> total).' then exit 1",
+  "evidence": "test/run-all.js:179",
+  "tests": []
+ },
+ {
+  "kind": "state_file",
+  "id": "--json-summary output file",
+  "behavior": "Pretty 2-space JSON + trailing newline: schemaVersion 1, concurrency, wallElapsedMs, sumChildElapsedMs, maxRetries, perTestTimeoutMs, filter?, bail?, skipped?, results[], slowest[] (top 10 by elapsedMs)",
+  "evidence": "test/run-all.js:434",
+  "tests": [
+   "test/run-all-json-summary-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: per-smoke sandbox",
+  "behavior": "Each child runs in mkdtemp cw-smoke- root with cwd/, home/, tmp/; env sets CW_HOME/XDG_STATE_HOME/HOME=home, TMPDIR=tmp, CW_NO_AUTO_AGENT=1, CW_REQUIRE_RESOLVABLE_EVIDENCE=0; root removed after (best effort)",
+  "evidence": "test/run-all.js:248",
+  "tests": []
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: agent env strip",
+  "behavior": "CW_AGENT_COMMAND, CW_AGENT_ENDPOINT, CW_AGENT_MODEL, CW_AGENT_TIMEOUT_MS, CW_AGENT_ATTEST_PUBKEY, CW_AGENT_ATTEST_PRIVKEY, CW_REQUIRE_ATTESTED_TELEMETRY, CW_BACKEND are deleted from every child env",
+  "evidence": "test/run-all.js:232",
+  "tests": [
+   "test/run-all-agent-env-hermetic-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: CW_SKIP convention",
+  "behavior": "'// CW_SKIP: <reason>' in a smoke's first 10 lines skips it and prints the reason",
+  "evidence": "test/run-all.js:131",
+  "tests": []
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: @cw-smoke metadata",
+  "behavior": "'// @cw-smoke:' lines in the first 20 lines are parsed; ONLY 'tags slow' has effect (--fast skip); 'timeout <s>' and 'inline' are parsed but never applied",
+  "evidence": "test/run-all.js:106",
+  "tests": []
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: timeout kill order",
+  "behavior": "At CW_TEST_TIMEOUT_MS send SIGTERM; SIGKILL 3s later if still alive; timed-out result is FAIL and is never retried",
+  "evidence": "test/run-all.js:273",
+  "tests": []
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: list order",
+  "behavior": "discover(sorted) -> --filter -> --sample -> CW_SKIP split -> --fast split -> serial-only split; results re-sorted by name before the report",
+  "evidence": "test/run-all.js:164",
+  "tests": []
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: smoke contract",
+  "behavior": "A smoke is a standalone node script that prints one ok line '<name>-smoke: ok' to stdout, uses node:assert/strict only, and is hermetic",
+  "evidence": "test/README.md:9",
+  "tests": []
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: npm test sampling",
+  "behavior": "npm test = run-all --fast --sample 35; test:full/test:ci = --sample 55; test:gate = the full suite; every script preflights 'node dist/cli.js version'",
+  "evidence": "package.json:65",
+  "tests": []
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: assert-diff helper",
+  "behavior": "diff(expected, actual, label) returns undefined when equal, or a multi-line readable diff string",
+  "evidence": "test/assert-diff.js:23",
+  "tests": []
+ },
+ {
+  "kind": "behavior",
+  "id": "harness: topology helper",
+  "behavior": "topology-smoke-helper.js shares createContext/planArchitecture/dispatchAndOutput/runJson/runText/readTopologyMcp across the 3 topology smokes",
+  "evidence": "test/topology-smoke-helper.js:15",
+  "tests": []
+ },
+ {
+  "kind": "state_file",
+  "id": "test/fixtures/runs/<name>/state.json",
+  "behavior": "Six frozen run-state fixtures (golden-path, mcp-app-surface, operator-ux, pre-app-simple-run, sandbox-profiles, workflow-app-framework) that must keep migrating + loading",
+  "evidence": "test/run-fixture-compat-smoke.js:12",
+  "tests": [
+   "test/run-fixture-compat-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:agent-config-atomic-write",
+  "behavior": "[agent-wrappers] setAgentConfigFile writes temp then rename; the durable agent config file is never torn",
+  "evidence": "test/agent-config-atomic-write-smoke.js:1",
+  "tests": [
+   "test/agent-config-atomic-write-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:agent-delegation-drive",
+  "behavior": "[drive-loop] Full drive loop with a stub agent: plan -> dispatch -> agent -> accept -> complete, hermetic",
+  "evidence": "test/agent-delegation-drive-smoke.js:1",
+  "tests": [
+   "test/agent-delegation-drive-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:agent-stream-gate",
+  "behavior": "[agent-wrappers] Parent-side gate picks stdio 'inherit' (forward live agent stderr) vs 'pipe' (capture)",
+  "evidence": "test/agent-stream-gate-smoke.js:1",
+  "tests": [
+   "test/agent-stream-gate-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:append-run-node-no-realloc",
+  "behavior": "[state-persistence] appendRunNode mutates run.nodes in place; no full-array rebuild per append",
+  "evidence": "test/append-run-node-no-realloc-smoke.js:1",
+  "tests": [
+   "test/append-run-node-no-realloc-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:architecture-review-fast-automation",
+  "behavior": "[apps-quickstart] scripts/architecture-review-fast.js automation runs against a fixture repo",
+  "evidence": "test/architecture-review-fast-automation-smoke.js:1",
+  "tests": [
+   "test/architecture-review-fast-automation-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:architecture-review-fast-phase-cache",
+  "behavior": "[apps-quickstart] Verify and Verdict phases are result-cached; a second full pipeline run reuses the cache",
+  "evidence": "test/architecture-review-fast-phase-cache-smoke.js:1",
+  "tests": [
+   "test/architecture-review-fast-phase-cache-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:architecture-review-fast",
+  "behavior": "[apps-quickstart] The architecture-review-fast app drives to complete via orchestrator + drive under a fixed clock",
+  "evidence": "test/architecture-review-fast-smoke.js:1",
+  "tests": [
+   "test/architecture-review-fast-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:artifact-integrity",
+  "behavior": "[state-persistence] hashArtifactFile hashes artifact files; a missing file does not throw",
+  "evidence": "test/artifact-integrity-smoke.js:1",
+  "tests": [
+   "test/artifact-integrity-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:audit-verify",
+  "behavior": "[telemetry-trust] cw audit verify <run> re-proves the trust-audit hash chain; a forged chain exits non-zero (fail closed)",
+  "evidence": "test/audit-verify-smoke.js:1",
+  "tests": [
+   "test/audit-verify-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:backend-registry",
+  "behavior": "[backends] Built-in backends registered; a host-added backend appears in list/ids/descriptor/run with no central switch edit",
+  "evidence": "test/backend-registry-smoke.js:1",
+  "tests": [
+   "test/backend-registry-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:batch-output-overflow",
+  "behavior": "[drive-loop] A verbose agent in a concurrent batch never strands siblings; output is streamed, not buffered whole",
+  "evidence": "test/batch-output-overflow-smoke.js:1",
+  "tests": [
+   "test/batch-output-overflow-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:blackboard-state-explosion-management",
+  "behavior": "[state-persistence] A large topology run's blackboard state stays bounded (state-explosion management)",
+  "evidence": "test/blackboard-state-explosion-management-smoke.js:1",
+  "tests": [
+   "test/blackboard-state-explosion-management-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:block-unapproved-tag",
+  "behavior": "[release-repo-hygiene] scripts/block-unapproved-tag.sh blocks git tag / tag-push without gate marker + APPROVED reviewer verdict for HEAD",
+  "evidence": "test/block-unapproved-tag-smoke.js:1",
+  "tests": [
+   "test/block-unapproved-tag-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:budget-scaling-loop",
+  "behavior": "[drive-loop] A loop() phase with until:{kind:'budget-target'} keeps spawning rounds while under target",
+  "evidence": "test/budget-scaling-loop-smoke.js:1",
+  "tests": [
+   "test/budget-scaling-loop-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:bump-version-idempotent",
+  "behavior": "[release-repo-hygiene] bump:version <current> is a no-op exit 0 ('already at'), not a hard failure",
+  "evidence": "test/bump-version-idempotent-smoke.js:1",
+  "tests": [
+   "test/bump-version-idempotent-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:candidate-scoring",
+  "behavior": "[worker-commit-gate] registerCandidate / scoreCandidate / rankCandidates / select over a real run state",
+  "evidence": "test/candidate-scoring-smoke.js:1",
+  "tests": [
+   "test/candidate-scoring-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:canonical-workflow-apps",
+  "behavior": "[apps-quickstart] Every canonical app plans and runs through the CLI with min-version checks",
+  "evidence": "test/canonical-workflow-apps-smoke.js:1",
+  "tests": [
+   "test/canonical-workflow-apps-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:claude-p-agent-wrapper",
+  "behavior": "[agent-wrappers] The documented 'claude -p' onboarding agent template works (PATH shim, no live login)",
+  "evidence": "test/claude-p-agent-wrapper-smoke.js:1",
+  "tests": [
+   "test/claude-p-agent-wrapper-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-arg-parsing",
+  "behavior": "[cli-surface] parseArgv: a flag's value is never another flag; a valueless --flag does not swallow the next -flag",
+  "evidence": "test/cli-arg-parsing-smoke.js:1",
+  "tests": [
+   "test/cli-arg-parsing-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-command-surface",
+  "behavior": "[cli-surface] Operational verb families are thin delegations to src/cli/handlers/operational.ts, not an inline switch",
+  "evidence": "test/cli-command-surface-smoke.js:1",
+  "tests": [
+   "test/cli-command-surface-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-format",
+  "behavior": "[cli-surface] src/cli/format.ts pure string formatters keep their exact output",
+  "evidence": "test/cli-format-smoke.js:1",
+  "tests": [
+   "test/cli-format-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-handler-clones",
+  "behavior": "[cli-surface] cw clones routes to src/cli/handlers/clones.ts; verb output shape stable",
+  "evidence": "test/cli-handler-clones-smoke.js:1",
+  "tests": [
+   "test/cli-handler-clones-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-handler-eval-node",
+  "behavior": "[cli-surface] cw eval and cw node route to handlers/eval.ts and handlers/node.ts",
+  "evidence": "test/cli-handler-eval-node-smoke.js:1",
+  "tests": [
+   "test/cli-handler-eval-node-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-handler-maintenance",
+  "behavior": "[cli-surface] cw gc, cw telemetry, cw demo route to handlers/maintenance.ts",
+  "evidence": "test/cli-handler-maintenance-smoke.js:1",
+  "tests": [
+   "test/cli-handler-maintenance-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-handler-workbench",
+  "behavior": "[cli-surface] cw workbench routes to handlers/workbench.ts with unchanged behavior",
+  "evidence": "test/cli-handler-workbench-smoke.js:1",
+  "tests": [
+   "test/cli-handler-workbench-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-io",
+  "behavior": "[cli-surface] src/cli/io.ts helpers: required = passthrough vs fail-with-tip",
+  "evidence": "test/cli-io-smoke.js:1",
+  "tests": [
+   "test/cli-io-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-jsonmode-parity",
+  "behavior": "[cli-surface] cli.ts --json behavior matches the capability registry's declared cli.jsonMode",
+  "evidence": "test/cli-jsonmode-parity-smoke.js:1",
+  "tests": [
+   "test/cli-jsonmode-parity-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-mcp-parity",
+  "behavior": "[cli-surface] CLI and MCP surfaces are two renderings of one data source (the capability registry)",
+  "evidence": "test/cli-mcp-parity-smoke.js:1",
+  "tests": [
+   "test/cli-mcp-parity-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-progress-summary",
+  "behavior": "[cli-surface] Progress/summary UX lines never leak into the stdout data channel",
+  "evidence": "test/cli-progress-summary-smoke.js:1",
+  "tests": [
+   "test/cli-progress-summary-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-recoverable-errors",
+  "behavior": "[cli-surface] Typo'd command -> 'Did you mean: <closest>?' + 'Try: cw help'; every failure hands a concrete next move",
+  "evidence": "test/cli-recoverable-errors-smoke.js:1",
+  "tests": [
+   "test/cli-recoverable-errors-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cli-render",
+  "behavior": "[cli-surface] Reporter (src/reporter.ts) + zero-dep term primitives: truncate, findings table, color-env",
+  "evidence": "test/cli-render-smoke.js:1",
+  "tests": [
+   "test/cli-render-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:clones-gc",
+  "behavior": "[control-plane] cw clones list / cw clones gc: TTL gc reclaims only the stale clone; --all clears all",
+  "evidence": "test/clones-gc-smoke.js:1",
+  "tests": [
+   "test/clones-gc-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:codex-agent-wrapper",
+  "behavior": "[agent-wrappers] Codex builtin adapter works via a 'codex exec' PATH shim, no live login",
+  "evidence": "test/codex-agent-wrapper-smoke.js:1",
+  "tests": [
+   "test/codex-agent-wrapper-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:collaboration-ops-unit",
+  "behavior": "[pipeline-feedback] Orchestrator wrappers collaborationApprove/Comment/Handoff + reviewPolicy unit behavior",
+  "evidence": "test/collaboration-ops-unit-smoke.js:1",
+  "tests": [
+   "test/collaboration-ops-unit-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:concurrency-default",
+  "behavior": "[harness] run-all defaults: no flag/env -> concurrency > 1 (auto); CW_TEST_CONCURRENCY=1 -> sequential; flag wins over env",
+  "evidence": "test/concurrency-default-smoke.js:1",
+  "tests": [
+   "test/concurrency-default-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:concurrent-failure-semantics",
+  "behavior": "[drive-loop] 16 concurrent agents with 1 hang + 1 crash + 1 dirty-return: no deadlock, no disk corruption, replayable pass/fail record",
+  "evidence": "test/concurrent-failure-semantics-smoke.js:1",
+  "tests": [
+   "test/concurrent-failure-semantics-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:concurrent-subworkflow-cache-nesting",
+  "behavior": "[drive-loop] The deferred-checkpoint cache stays correct with nested sub-workflows in concurrent rounds",
+  "evidence": "test/concurrent-subworkflow-cache-nesting-smoke.js:1",
+  "tests": [
+   "test/concurrent-subworkflow-cache-nesting-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:concurrent-workflow-dsl",
+  "behavior": "[drive-loop] parallel() DSL veneer; driveConcurrentRound fulfills many ready tasks per round in deterministic order; reportedUsage thread-back (slow)",
+  "evidence": "test/concurrent-workflow-dsl-smoke.js:1",
+  "tests": [
+   "test/concurrent-workflow-dsl-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:contract-migration-tooling",
+  "behavior": "[state-persistence] Declared migration registry (run-state + workflow-app contracts) with edges + round-trip proofs over a real on-disk state file",
+  "evidence": "test/contract-migration-tooling-smoke.js:1",
+  "tests": [
+   "test/contract-migration-tooling-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:control-plane-scheduling",
+  "behavior": "[control-plane] Deterministic lease order by priority + hard concurrency ceiling over the run-registry queue",
+  "evidence": "test/control-plane-scheduling-smoke.js:1",
+  "tests": [
+   "test/control-plane-scheduling-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:coordinator-blackboard",
+  "behavior": "[pipeline-feedback] Coordinator + blackboard verbs over CLI and stream; durable blackboard entries",
+  "evidence": "test/coordinator-blackboard-smoke.js:1",
+  "tests": [
+   "test/coordinator-blackboard-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:cw-help-per-command",
+  "behavior": "[cli-surface] cw help <verb> and cw <verb> --help render subcommand lists from CAPABILITY_REGISTRY",
+  "evidence": "test/cw-help-per-command-smoke.js:1",
+  "tests": [
+   "test/cw-help-per-command-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:dead-export-removal-guard",
+  "behavior": "[release-repo-hygiene] The 10 removed dead production exports stay removed (static source guard)",
+  "evidence": "test/dead-export-removal-guard-smoke.js:1",
+  "tests": [
+   "test/dead-export-removal-guard-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:deepseek-agent-wrapper",
+  "behavior": "[agent-wrappers] DeepSeek-via-opencode adapter picks the DeepSeek model and reaches the shared opencode runner (shim)",
+  "evidence": "test/deepseek-agent-wrapper-smoke.js:1",
+  "tests": [
+   "test/deepseek-agent-wrapper-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:deferred-checkpoint-batching",
+  "behavior": "[drive-loop] A concurrent round flushes the durable state.json O(1) times per round, not once per task",
+  "evidence": "test/deferred-checkpoint-batching-smoke.js:1",
+  "tests": [
+   "test/deferred-checkpoint-batching-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:demo-bundle",
+  "behavior": "[telemetry-trust] cw demo bundle: sealed bundle verifies offline with its embedded public key; forging chain or signature layer is caught",
+  "evidence": "test/demo-bundle-smoke.js:1",
+  "tests": [
+   "test/demo-bundle-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:det-ids-b",
+  "behavior": "[state-persistence] All 8 entity-ID mint sites are deterministic (sequence or content hash), never wall-clock",
+  "evidence": "test/det-ids-b-smoke.js:1",
+  "tests": [
+   "test/det-ids-b-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:doctor",
+  "behavior": "[cli-surface] cw doctor: report shape; read-only; missing agent is WARN exit 0; unwritable home handled",
+  "evidence": "test/doctor-smoke.js:1",
+  "tests": [
+   "test/doctor-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:dogfood-architecture-review",
+  "behavior": "[apps-quickstart] Architecture-review dogfood --smoke: a stub agent drives the real app to a committed audited report",
+  "evidence": "test/dogfood-architecture-review-smoke.js:1",
+  "tests": [
+   "test/dogfood-architecture-review-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:dogfood-release",
+  "behavior": "[release-repo-hygiene] scripts/dogfood-release.js --smoke --json returns a passing summary",
+  "evidence": "test/dogfood-release-smoke.js:1",
+  "tests": [
+   "test/dogfood-release-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:drive-concurrency-flag",
+  "behavior": "[drive-loop] cw run --drive --concurrency N is forwarded into drive() and changes real concurrency",
+  "evidence": "test/drive-concurrency-flag-smoke.js:1",
+  "tests": [
+   "test/drive-concurrency-flag-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:drive-exhaustion-blocked",
+  "behavior": "[drive-loop] A drive that hits its max-iteration guard without terminal progress fails closed as blocked, never complete/sealed",
+  "evidence": "test/drive-exhaustion-blocked-smoke.js:1",
+  "tests": [
+   "test/drive-exhaustion-blocked-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:durable-atomic-write",
+  "behavior": "[state-persistence] Kernel persist primitive is atomic (temp -> rename); cross-process stores serialize on withFileLock",
+  "evidence": "test/durable-atomic-write-smoke.js:1",
+  "tests": [
+   "test/durable-atomic-write-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:end-to-end-demo",
+  "behavior": "[apps-quickstart] Full plan -> dispatch -> result -> commit -> report pipeline in one script without an LLM",
+  "evidence": "test/end-to-end-demo-smoke.js:1",
+  "tests": [
+   "test/end-to-end-demo-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:end-to-end-golden-path",
+  "behavior": "[apps-quickstart] scripts/golden-path.js --json --cleanup runs green end to end",
+  "evidence": "test/end-to-end-golden-path-smoke.js:1",
+  "tests": [
+   "test/end-to-end-golden-path-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:error-feedback-resolution",
+  "behavior": "[pipeline-feedback] recordFeedback / resolveFeedback / listFeedback resolution states persist per run",
+  "evidence": "test/error-feedback-resolution-smoke.js:1",
+  "tests": [
+   "test/error-feedback-resolution-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:error-feedback",
+  "behavior": "[pipeline-feedback] collectRunErrors / createCorrectionTask feedback flow over run errors",
+  "evidence": "test/error-feedback-smoke.js:1",
+  "tests": [
+   "test/error-feedback-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:evidence-adoption-reasoning",
+  "behavior": "[multi-agent] Judge-panel run's evidence-adoption reasoning chain from worker output through blackboard to judge",
+  "evidence": "test/evidence-adoption-reasoning-smoke.js:1",
+  "tests": [
+   "test/evidence-adoption-reasoning-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:evidence-content-extraction",
+  "behavior": "[worker-commit-gate] extractEvidenceContent / resolveEvidenceLocator: file:line locator, no line number, missing file",
+  "evidence": "test/evidence-content-extraction-smoke.js:1",
+  "tests": [
+   "test/evidence-content-extraction-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:execution-backend-agent",
+  "behavior": "[backends] Agent backend through the full dispatch path: preparedAgentOutcome completion, canonical evidence, fail-closed refusals",
+  "evidence": "test/execution-backend-agent-smoke.js:1",
+  "tests": [
+   "test/execution-backend-agent-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:execution-backend-ci",
+  "behavior": "[backends] CI backend through the full dispatch path: completion, evidence shape, probe readiness, refusals",
+  "evidence": "test/execution-backend-ci-smoke.js:1",
+  "tests": [
+   "test/execution-backend-ci-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:execution-backends",
+  "behavior": "[backends] The execution-backend driver layer contract (descriptor / run / probe)",
+  "evidence": "test/execution-backends-smoke.js:1",
+  "tests": [
+   "test/execution-backends-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:feedback-ops-unit",
+  "behavior": "[pipeline-feedback] Orchestrator wrappers collectFeedback / createFeedbackTask / resolveFeedback unit behavior",
+  "evidence": "test/feedback-ops-unit-smoke.js:1",
+  "tests": [
+   "test/feedback-ops-unit-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:freebsd-audit-fixes",
+  "behavior": "[worker-commit-gate] The v0.1.81 audit's false-green holes now fail closed, each pinned one by one",
+  "evidence": "test/freebsd-audit-fixes-smoke.js:1",
+  "tests": [
+   "test/freebsd-audit-fixes-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:gemini-agent-wrapper",
+  "behavior": "[agent-wrappers] Gemini builtin adapter works via a 'gemini' PATH shim",
+  "evidence": "test/gemini-agent-wrapper-smoke.js:1",
+  "tests": [
+   "test/gemini-agent-wrapper-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:gemini-opencode-agent-wrapper",
+  "behavior": "[agent-wrappers] Gemini-via-opencode adapter picks a google/gemini model through the 'opencode' shim",
+  "evidence": "test/gemini-opencode-agent-wrapper-smoke.js:1",
+  "tests": [
+   "test/gemini-opencode-agent-wrapper-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:h7-custom-profile-persist",
+  "behavior": "[state-persistence] A file-loaded custom sandbox profile persists on run.customSandboxProfiles; the boundary re-resolves it by logical id",
+  "evidence": "test/h7-custom-profile-persist-smoke.js:1",
+  "tests": [
+   "test/h7-custom-profile-persist-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:headline-commands",
+  "behavior": "[cli-surface] The exact documented commands a new user types (cw -q, vendor flags, demo/doctor/help/version/fix) work as typed",
+  "evidence": "test/headline-commands-smoke.js:1",
+  "tests": [
+   "test/headline-commands-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:incremental-resume",
+  "behavior": "[drive-loop] cw run --drive --incremental: 5 scenarios over a real multi-phase app (slow)",
+  "evidence": "test/incremental-resume-smoke.js:1",
+  "tests": [
+   "test/incremental-resume-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:ledger-apply",
+  "behavior": "[ledger] cw ledger apply lets a suggestedDiff escape only after the entry verifies (safe for git apply)",
+  "evidence": "test/ledger-apply-smoke.js:1",
+  "tests": [
+   "test/ledger-apply-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:ledger-resolution",
+  "behavior": "[ledger] cw ledger list pairs each proposal with its review(s): a machine-actionable inbox",
+  "evidence": "test/ledger-resolution-smoke.js:1",
+  "tests": [
+   "test/ledger-resolution-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:ledger-verify",
+  "behavior": "[ledger] cw ledger propose|review|verify round trip; tampered or malformed entry refused with non-zero exit",
+  "evidence": "test/ledger-verify-smoke.js:1",
+  "tests": [
+   "test/ledger-verify-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:loop-bounded-expansion",
+  "behavior": "[drive-loop] A loop() phase's tasks are a per-round template with bounded expansion",
+  "evidence": "test/loop-bounded-expansion-smoke.js:1",
+  "tests": [
+   "test/loop-bounded-expansion-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:mcp-app-surface",
+  "behavior": "[mcp-surface] MCP server app-surface tools answer over stdio JSON-RPC against a fixture run",
+  "evidence": "test/mcp-app-surface-smoke.js:1",
+  "tests": [
+   "test/mcp-app-surface-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:mcp-surface-registry",
+  "behavior": "[mcp-surface] mcp-server is built from mcp-surface + the capability registry (src/dist parity)",
+  "evidence": "test/mcp-surface-registry-smoke.js:1",
+  "tests": [
+   "test/mcp-surface-registry-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:mcp-tool-call-coverage",
+  "behavior": "[mcp-surface] Representative MCP tool calls from every domain (~40+ switch arms) answer",
+  "evidence": "test/mcp-tool-call-coverage-smoke.js:1",
+  "tests": [
+   "test/mcp-tool-call-coverage-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-cli-mcp-surface",
+  "behavior": "[multi-agent] Multi-agent verbs hold parity across CLI and MCP surfaces (slow)",
+  "evidence": "test/multi-agent-cli-mcp-surface-smoke.js:1",
+  "tests": [
+   "test/multi-agent-cli-mcp-surface-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-eval-determinism-regression",
+  "behavior": "[multi-agent] Determinism moat guard: the eval replay path cannot false-green",
+  "evidence": "test/multi-agent-eval-determinism-regression-smoke.js:1",
+  "tests": [
+   "test/multi-agent-eval-determinism-regression-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-eval-replay-harness",
+  "behavior": "[multi-agent] npm run eval:replay entry; a pure require() of multi-agent-eval-replay-smoke",
+  "evidence": "test/multi-agent-eval-replay-harness-smoke.js:1",
+  "tests": [
+   "test/multi-agent-eval-replay-harness-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-eval-replay",
+  "behavior": "[multi-agent] Record then replay a multi-agent eval run deterministically via CLI + MCP",
+  "evidence": "test/multi-agent-eval-replay-smoke.js:1",
+  "tests": [
+   "test/multi-agent-eval-replay-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-operator-ux",
+  "behavior": "[multi-agent] Operator UX verbs for multi-agent runs across CLI + MCP",
+  "evidence": "test/multi-agent-operator-ux-smoke.js:1",
+  "tests": [
+   "test/multi-agent-operator-ux-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-runtime-core",
+  "behavior": "[multi-agent] Multi-agent runtime core verbs (groups, roles, fanout) via the CLI",
+  "evidence": "test/multi-agent-runtime-core-smoke.js:1",
+  "tests": [
+   "test/multi-agent-runtime-core-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-topologies-debate",
+  "behavior": "[multi-agent] The debate topology end to end (via topology-smoke-helper.js)",
+  "evidence": "test/multi-agent-topologies-debate-smoke.js:1",
+  "tests": [
+   "test/multi-agent-topologies-debate-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-topologies-judge-panel",
+  "behavior": "[multi-agent] The judge-panel topology end to end",
+  "evidence": "test/multi-agent-topologies-judge-panel-smoke.js:1",
+  "tests": [
+   "test/multi-agent-topologies-judge-panel-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-topologies-map-reduce",
+  "behavior": "[multi-agent] The map-reduce topology end to end",
+  "evidence": "test/multi-agent-topologies-map-reduce-smoke.js:1",
+  "tests": [
+   "test/multi-agent-topologies-map-reduce-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:multi-agent-trust-policy-audit",
+  "behavior": "[multi-agent] Trust-policy audit verbs over a multi-agent run across CLI + MCP",
+  "evidence": "test/multi-agent-trust-policy-audit-smoke.js:1",
+  "tests": [
+   "test/multi-agent-trust-policy-audit-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:no-false-green",
+  "behavior": "[worker-commit-gate] An empty capture (no findings AND no grounded evidence) can never verify green",
+  "evidence": "test/no-false-green-smoke.js:1",
+  "tests": [
+   "test/no-false-green-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:node-snapshot-diff-replay",
+  "behavior": "[state-persistence] Per-node snapshot / diff / replay over a real persisted StateNode",
+  "evidence": "test/node-snapshot-diff-replay-smoke.js:1",
+  "tests": [
+   "test/node-snapshot-diff-replay-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:npm-global-install",
+  "behavior": "[release-repo-hygiene] Pack + npm install -g into a temp prefix; headline commands work from a fresh unrelated dir",
+  "evidence": "test/npm-global-install-smoke.js:1",
+  "tests": [
+   "test/npm-global-install-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:npm-trusted-publish",
+  "behavior": "[release-repo-hygiene] npm-publish.yml uses OIDC trusted publishing (id-token: write); never NODE_AUTH_TOKEN or secrets.NPM_TOKEN",
+  "evidence": "test/npm-trusted-publish-smoke.js:1",
+  "tests": [
+   "test/npm-trusted-publish-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:observability-cost-accounting",
+  "behavior": "[telemetry-trust] The observability + cost accounting contract: usage totals and per-unit cost derivation",
+  "evidence": "test/observability-cost-accounting-smoke.js:1",
+  "tests": [
+   "test/observability-cost-accounting-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:one-way-boundary",
+  "behavior": "[worker-commit-gate] The red line is welded into the type layer: the repo's own tsc rejects a fixture that crosses the boundary",
+  "evidence": "test/one-way-boundary-smoke.js:1",
+  "tests": [
+   "test/one-way-boundary-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:onramp-check",
+  "behavior": "[release-repo-hygiene] Change-contract gate: behavior changes need smoke coverage, surface changes need docs, src changes need an iteration-log row",
+  "evidence": "test/onramp-check-smoke.js:1",
+  "tests": [
+   "test/onramp-check-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:opencode-agent-wrapper",
+  "behavior": "[agent-wrappers] OpenCode builtin adapter works via a PATH shim",
+  "evidence": "test/opencode-agent-wrapper-smoke.js:1",
+  "tests": [
+   "test/opencode-agent-wrapper-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:operator-ux",
+  "behavior": "[cli-surface] Operator verbs through the CLI over a real run with an evidence locator",
+  "evidence": "test/operator-ux-smoke.js:1",
+  "tests": [
+   "test/operator-ux-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:orphan-runs-gc",
+  "behavior": "[control-plane] cw orphans list / cw orphans gc reclaim run dirs a killed process left with no state.json",
+  "evidence": "test/orphan-runs-gc-smoke.js:1",
+  "tests": [
+   "test/orphan-runs-gc-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:parallel-onramp",
+  "behavior": "[drive-loop] parallel() works through the real command surface, not only the API",
+  "evidence": "test/parallel-onramp-smoke.js:1",
+  "tests": [
+   "test/parallel-onramp-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:parity-doc-sync",
+  "behavior": "[release-repo-hygiene] docs/cli-mcp-parity.7.md stays machine-complete against the capability registry",
+  "evidence": "test/parity-doc-sync-smoke.js:1",
+  "tests": [
+   "test/parity-doc-sync-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:parse-guard",
+  "behavior": "[worker-commit-gate] metadataOption gives a clear error on invalid JSON; routine fire gives a clear error on a bad payload file",
+  "evidence": "test/parse-guard-smoke.js:1",
+  "tests": [
+   "test/parse-guard-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:parse-hardening-round2",
+  "behavior": "[worker-commit-gate] MCP type guard rejects null/non-object lines; readJson replaces bare JSON.parse; resultPath rejects system paths",
+  "evidence": "test/parse-hardening-round2-smoke.js:1",
+  "tests": [
+   "test/parse-hardening-round2-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:path-containment",
+  "behavior": "[worker-commit-gate] initApp refuses outside appsDir; run export output stays in the working dir; extractReportTo contained in cwd",
+  "evidence": "test/path-containment-smoke.js:1",
+  "tests": [
+   "test/path-containment-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:pdca-blackboard-loop",
+  "behavior": "[pipeline-feedback] A PDCA loop over the blackboard through the CLI",
+  "evidence": "test/pdca-blackboard-loop-smoke.js:1",
+  "tests": [
+   "test/pdca-blackboard-loop-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:pii-redaction",
+  "behavior": "[telemetry-trust] No git-tracked file contains the blocked personal-name terms",
+  "evidence": "test/pii-redaction-smoke.js:1",
+  "tests": [
+   "test/pii-redaction-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:pipeline-auto-advance",
+  "behavior": "[pipeline-feedback] The pipeline runner auto-advances phases per the default pipeline contract",
+  "evidence": "test/pipeline-auto-advance-smoke.js:1",
+  "tests": [
+   "test/pipeline-auto-advance-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:pipeline-runner",
+  "behavior": "[pipeline-feedback] createPipelineRunner step/gate behavior over a real run",
+  "evidence": "test/pipeline-runner-smoke.js:1",
+  "tests": [
+   "test/pipeline-runner-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:project-index-sync",
+  "behavior": "[release-repo-hygiene] docs/project-index.md cannot silently drift from the source tree",
+  "evidence": "test/project-index-sync-smoke.js:1",
+  "tests": [
+   "test/project-index-sync-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:quickstart-bundle",
+  "behavior": "[export-bundle] cw quickstart --bundle seals a complete drive into a self-verified portable bundle in one command",
+  "evidence": "test/quickstart-bundle-smoke.js:1",
+  "tests": [
+   "test/quickstart-bundle-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:quickstart-check",
+  "behavior": "[apps-quickstart] cw quickstart --check is a zero-write preflight: no plan, no .cw/, no agent, no report, no commit",
+  "evidence": "test/quickstart-check-smoke.js:1",
+  "tests": [
+   "test/quickstart-check-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:quickstart-corpus",
+  "behavior": "[apps-quickstart] Quickstart over a local non-git folder (corpus) through the research-synthesis app",
+  "evidence": "test/quickstart-corpus-smoke.js:1",
+  "tests": [
+   "test/quickstart-corpus-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:quickstart-no-agent",
+  "behavior": "[apps-quickstart] No-agent first-run path: demo tamper + demo bundle work without an agent",
+  "evidence": "test/quickstart-no-agent-smoke.js:1",
+  "tests": [
+   "test/quickstart-no-agent-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:quickstart-readme-path",
+  "behavior": "[apps-quickstart] README path: check (zero write) -> portable bundle -> offline verify, over the golden-path app",
+  "evidence": "test/quickstart-readme-path-smoke.js:1",
+  "tests": [
+   "test/quickstart-readme-path-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:quickstart",
+  "behavior": "[apps-quickstart] One-command quickstart is a thin wrapper: plan(app) -> run --drive -> report",
+  "evidence": "test/quickstart-smoke.js:1",
+  "tests": [
+   "test/quickstart-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:readme-sync",
+  "behavior": "[release-repo-hygiene] The npm package README is generated from the repo-root README and may not drift",
+  "evidence": "test/readme-sync-smoke.js:1",
+  "tests": [
+   "test/readme-sync-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:readme-trust-claim",
+  "behavior": "[telemetry-trust] The README trust section states the tamper-evidence guarantee honestly, no overstated claim",
+  "evidence": "test/readme-trust-claim-smoke.js:1",
+  "tests": [
+   "test/readme-trust-claim-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:real-execution-backends",
+  "behavior": "[backends] Delegating backends fail closed with no container daemon: no image / no endpoint / no command / unreachable endpoint",
+  "evidence": "test/real-execution-backends-smoke.js:1",
+  "tests": [
+   "test/real-execution-backends-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:registry-corrupt-fail-closed",
+  "behavior": "[state-persistence] Corrupt home-registry / scheduler store files fail closed, never silently reset",
+  "evidence": "test/registry-corrupt-fail-closed-smoke.js:1",
+  "tests": [
+   "test/registry-corrupt-fail-closed-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:release-check-skip",
+  "behavior": "[release-repo-hygiene] release-check.js --skip-tests prints 'release:check tests ... skipped' + '- SKIP tests'; other gates still run",
+  "evidence": "test/release-check-skip-smoke.js:1",
+  "tests": [
+   "test/release-check-skip-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:release-flow",
+  "behavior": "[release-repo-hygiene] scripts/release-flow.js (the gated cut orchestrator) works over throwaway git fixtures",
+  "evidence": "test/release-flow-smoke.js:1",
+  "tests": [
+   "test/release-flow-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:release-gate",
+  "behavior": "[release-repo-hygiene] scripts/release-gate.sh works over git fixtures whose build/test scripts are 'true'",
+  "evidence": "test/release-gate-smoke.js:1",
+  "tests": [
+   "test/release-gate-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:release-pipeline-hygiene",
+  "behavior": "[release-repo-hygiene] Static guards over CI workflows + the cut's git side-effects (the v0.1.96 bug classes)",
+  "evidence": "test/release-pipeline-hygiene-smoke.js:1",
+  "tests": [
+   "test/release-pipeline-hygiene-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:release-tooling",
+  "behavior": "[release-repo-hygiene] bump-version's targeted replace keeps historical version refs; release tooling checks without mutating the repo",
+  "evidence": "test/release-tooling-smoke.js:1",
+  "tests": [
+   "test/release-tooling-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:remote-link-archive",
+  "behavior": "[apps-quickstart] Review a remote repo delivered as a .tar.gz/.zip archive via file:// URLs, hermetic (slow)",
+  "evidence": "test/remote-link-archive-smoke.js:1",
+  "tests": [
+   "test/remote-link-archive-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:remote-link-git",
+  "behavior": "[apps-quickstart] cw -q '...' --link <url> over a local bare git repo via file://, agent stubbed (slow)",
+  "evidence": "test/remote-link-git-smoke.js:1",
+  "tests": [
+   "test/remote-link-git-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:report-bundle",
+  "behavior": "[export-bundle] cw report bundle <run> exports a sealed bundle, self-verifies offline, fails closed if it would not verify",
+  "evidence": "test/report-bundle-smoke.js:1",
+  "tests": [
+   "test/report-bundle-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:report-verify-bundle",
+  "behavior": "[export-bundle] cw report verify-bundle <file> proves archive bytes + telemetry chain + trust-audit chain with the embedded public key, offline",
+  "evidence": "test/report-verify-bundle-smoke.js:1",
+  "tests": [
+   "test/report-verify-bundle-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:result-normalize",
+  "behavior": "[worker-commit-gate] Robust ingest: findings/evidence extracted from varied agent shapes; canonical results pass through unchanged",
+  "evidence": "test/result-normalize-smoke.js:1",
+  "tests": [
+   "test/result-normalize-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:robustness-failclosed",
+  "behavior": "[state-persistence] Malformed-file and concurrent-writer conditions no longer crash, lose data, or misbehave",
+  "evidence": "test/robustness-failclosed-smoke.js:1",
+  "tests": [
+   "test/robustness-failclosed-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:robustness-hardening",
+  "behavior": "[state-persistence] migrateRunState + CLI + MCP hold up over malformed inputs",
+  "evidence": "test/robustness-hardening-smoke.js:1",
+  "tests": [
+   "test/robustness-hardening-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-all-agent-env-hermetic",
+  "behavior": "[harness] The runner strips ambient CW_AGENT_*/CW_BACKEND from every smoke child's env",
+  "evidence": "test/run-all-agent-env-hermetic-smoke.js:1",
+  "tests": [
+   "test/run-all-agent-env-hermetic-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-all-json-summary",
+  "behavior": "[harness] --json-summary writes the schemaVersion-1 summary (proved on a copied runner in a tiny test dir)",
+  "evidence": "test/run-all-json-summary-smoke.js:1",
+  "tests": [
+   "test/run-all-json-summary-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-export-cross-machine",
+  "behavior": "[export-bundle] A .cwrun.json archive exported under one CW_HOME restores under another",
+  "evidence": "test/run-export-cross-machine-smoke.js:1",
+  "tests": [
+   "test/run-export-cross-machine-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-export-import",
+  "behavior": "[export-bundle] exportRun / importRun / verifyImportedRun round trip with artifacts, external artifacts, audit events",
+  "evidence": "test/run-export-import-smoke.js:1",
+  "tests": [
+   "test/run-export-import-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-export-restore-rerun",
+  "behavior": "[export-bundle] A failed run: export, restore on another machine, registry refresh, rerun from a neutral cwd",
+  "evidence": "test/run-export-restore-rerun-smoke.js:1",
+  "tests": [
+   "test/run-export-restore-rerun-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-export-restore-resume",
+  "behavior": "[export-bundle] A partial run: export, restore, digest-verify, then continue from the restored state",
+  "evidence": "test/run-export-restore-resume-smoke.js:1",
+  "tests": [
+   "test/run-export-restore-resume-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-fixture-compat",
+  "behavior": "[state-persistence] Every test/fixtures/runs/*/state.json (6 frozen old states) migrates and loads through the CLI",
+  "evidence": "test/run-fixture-compat-smoke.js:1",
+  "tests": [
+   "test/run-fixture-compat-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-import-path-traversal",
+  "behavior": "[export-bundle] A crafted archive run id cannot write outside the runs dir (zip-slip class refused)",
+  "evidence": "test/run-import-path-traversal-smoke.js:1",
+  "tests": [
+   "test/run-import-path-traversal-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-import-tamper-failclosed",
+  "behavior": "[export-bundle] A tampered archive import: non-zero exit, one 'cw:' stderr line, silent stdout, nothing written",
+  "evidence": "test/run-import-tamper-failclosed-smoke.js:1",
+  "tests": [
+   "test/run-import-tamper-failclosed-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-inspect-archive",
+  "behavior": "[export-bundle] run inspect-archive PATH re-proves every digest/size, the manifest, the whole-file sha256; writes nothing, never throws",
+  "evidence": "test/run-inspect-archive-smoke.js:1",
+  "tests": [
+   "test/run-inspect-archive-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-registry-control-plane",
+  "behavior": "[control-plane] The registry is a derived, fail-closed index over per-run .cw/runs/<id>/state.json",
+  "evidence": "test/run-registry-control-plane-smoke.js:1",
+  "tests": [
+   "test/run-registry-control-plane-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-restore-failclosed",
+  "behavior": "[export-bundle] cw run restore <archive> closes the gap cw run import leaves open (post-write verification, fail closed)",
+  "evidence": "test/run-restore-failclosed-smoke.js:1",
+  "tests": [
+   "test/run-restore-failclosed-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-resume-drive",
+  "behavior": "[drive-loop] run resume <id> --drive/--once continues the same run through the drive loop; bare run resume unchanged",
+  "evidence": "test/run-resume-drive-smoke.js:1",
+  "tests": [
+   "test/run-resume-drive-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:run-retention-reclamation",
+  "behavior": "[control-plane] Write-ahead, fail-closed reclamation transaction; dry-run reports what would be freed",
+  "evidence": "test/run-retention-reclamation-smoke.js:1",
+  "tests": [
+   "test/run-retention-reclamation-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:sample-determinism",
+  "behavior": "[harness] run-all --sample picks the same subset every run (FNV-1a rank, not a random shuffle)",
+  "evidence": "test/sample-determinism-smoke.js:1",
+  "tests": [
+   "test/sample-determinism-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:sandbox-env-batch-hardening",
+  "behavior": "[worker-commit-gate] buildChildEnv filters by sandbox policy; batch child uses job.env; persistStderr redacts secrets; stdin capped",
+  "evidence": "test/sandbox-env-batch-hardening-smoke.js:1",
+  "tests": [
+   "test/sandbox-env-batch-hardening-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:sandbox-profile",
+  "behavior": "[worker-commit-gate] validateSandboxCommand / validateSandboxNetwork / validateSandboxProfileFile plus CLI enforcement",
+  "evidence": "test/sandbox-profile-smoke.js:1",
+  "tests": [
+   "test/sandbox-profile-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:sched-policy-validation",
+  "behavior": "[control-plane] cw sched policy set fails closed on a non-numeric flag instead of silently taking the default",
+  "evidence": "test/sched-policy-validation-smoke.js:1",
+  "tests": [
+   "test/sched-policy-validation-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:schedule-routine-daemon",
+  "behavior": "[control-plane] Scheduler routines create/list/fire and the daemon tick over a temp CW_HOME",
+  "evidence": "test/schedule-routine-daemon-smoke.js:1",
+  "tests": [
+   "test/schedule-routine-daemon-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:schema-validation",
+  "behavior": "[worker-commit-gate] Declared output schemas are enforced at result intake",
+  "evidence": "test/schema-validation-smoke.js:1",
+  "tests": [
+   "test/schema-validation-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:security-trust-hardening",
+  "behavior": "[telemetry-trust] Commit gate + candidate scoring + worker scope + trust-audit summary hardening paths",
+  "evidence": "test/security-trust-hardening-smoke.js:1",
+  "tests": [
+   "test/security-trust-hardening-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:self-audit-hardening",
+  "behavior": "[worker-commit-gate] Evidence grounding at result + commit gate; symlink-hardened path containment (realResolve / isContainedPath)",
+  "evidence": "test/self-audit-hardening-smoke.js:1",
+  "tests": [
+   "test/self-audit-hardening-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:source-context-batch",
+  "behavior": "[release-repo-hygiene] The batched blob reader in scripts/source-context.js keeps the JSONL contract (text/empty/excluded/changed-from/cache-hit)",
+  "evidence": "test/source-context-batch-smoke.js:1",
+  "tests": [
+   "test/source-context-batch-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:source-context-profile",
+  "behavior": "[release-repo-hygiene] The repo-local AI context profile is opt-in, JSONL-clean, faithful to the include/exclude policy",
+  "evidence": "test/source-context-profile-smoke.js:1",
+  "tests": [
+   "test/source-context-profile-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:state-node",
+  "behavior": "[state-persistence] createStateNode / transitionStateNode / linkStateNodes / recordNodeError / contract validation unit behavior",
+  "evidence": "test/state-node-smoke.js:1",
+  "tests": [
+   "test/state-node-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:sub-workflow-nesting",
+  "behavior": "[drive-loop] A task can be fulfilled by planning + driving a child app run; the child's report folds back",
+  "evidence": "test/sub-workflow-nesting-smoke.js:1",
+  "tests": [
+   "test/sub-workflow-nesting-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:surface-explicit-cwd",
+  "behavior": "[cli-surface] MCP and Workbench calls use explicit cwd scoping, never process-global chdir",
+  "evidence": "test/surface-explicit-cwd-smoke.js:1",
+  "tests": [
+   "test/surface-explicit-cwd-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:tamper-evidence-demo",
+  "behavior": "[telemetry-trust] cw demo tamper + cw telemetry verify: every forgery is caught",
+  "evidence": "test/tamper-evidence-demo-smoke.js:1",
+  "tests": [
+   "test/tamper-evidence-demo-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:team-collaboration",
+  "behavior": "[pipeline-feedback] Approvals/comments/handoffs are append-only and provenance-linked with trust-audit event ids",
+  "evidence": "test/team-collaboration-smoke.js:1",
+  "tests": [
+   "test/team-collaboration-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:telemetry-attest-wrap",
+  "behavior": "[telemetry-trust] The executor signing wrapper flips an unsigned agent's telemetry to attested end-to-end (slow)",
+  "evidence": "test/telemetry-attest-wrap-smoke.js:1",
+  "tests": [
+   "test/telemetry-attest-wrap-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:telemetry-attestation",
+  "behavior": "[telemetry-trust] A stub agent signs its self-reported usage with ed25519; the attested verdict is recorded (slow)",
+  "evidence": "test/telemetry-attestation-smoke.js:1",
+  "tests": [
+   "test/telemetry-attestation-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:telemetry-fail-closed",
+  "behavior": "[telemetry-trust] With require-attested-telemetry on (opt-in), an unattested hop is rejected before any accept-side mutation",
+  "evidence": "test/telemetry-fail-closed-smoke.js:1",
+  "tests": [
+   "test/telemetry-fail-closed-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:telemetry-ledger",
+  "behavior": "[telemetry-trust] The recorded attestation is itself tamper-evident (hash-chain ledger)",
+  "evidence": "test/telemetry-ledger-smoke.js:1",
+  "tests": [
+   "test/telemetry-ledger-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:telemetry-metrics-coverage",
+  "behavior": "[telemetry-trust] deriveAttestationCoverage buckets units by cryptographic verdict in the MetricsReport",
+  "evidence": "test/telemetry-metrics-coverage-smoke.js:1",
+  "tests": [
+   "test/telemetry-metrics-coverage-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:telemetry-verify-signatures",
+  "behavior": "[telemetry-trust] cw telemetry verify --pubkey re-runs the ed25519 check instead of trusting the stored attested verdict",
+  "evidence": "test/telemetry-verify-signatures-smoke.js:1",
+  "tests": [
+   "test/telemetry-verify-signatures-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:token-budget-enforcement",
+  "behavior": "[drive-loop] limits.tokenBudget is enforced by the drive loop against recorded usage; CW never measures usage itself (slow)",
+  "evidence": "test/token-budget-enforcement-smoke.js:1",
+  "tests": [
+   "test/token-budget-enforcement-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:vendor-manifest-load",
+  "behavior": "[agent-wrappers] The generated per-vendor mcp.json files actually boot a working MCP server",
+  "evidence": "test/vendor-manifest-load-smoke.js:1",
+  "tests": [
+   "test/vendor-manifest-load-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:vendor-preflight",
+  "behavior": "[agent-wrappers] scripts/vendor-preflight.js matrix + hard-block exit code, tested with shim wrappers offline",
+  "evidence": "test/vendor-preflight-smoke.js:1",
+  "tests": [
+   "test/vendor-preflight-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:verifier-gated-commit",
+  "behavior": "[worker-commit-gate] commitState requires a verified result before commit (the verifier gate)",
+  "evidence": "test/verifier-gated-commit-smoke.js:1",
+  "tests": [
+   "test/verifier-gated-commit-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:verify-import-audit-chain",
+  "behavior": "[export-bundle] Restore verification re-proves the trust-audit hash chain, not only telemetry",
+  "evidence": "test/verify-import-audit-chain-smoke.js:1",
+  "tests": [
+   "test/verify-import-audit-chain-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:web-desktop-workbench",
+  "behavior": "[mcp-surface] The Workbench is a stateless, read-only renderer over durable .cw/ files; a third front door, not a new brain",
+  "evidence": "test/web-desktop-workbench-smoke.js:1",
+  "tests": [
+   "test/web-desktop-workbench-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:worker-accept-path-architecture",
+  "behavior": "[worker-commit-gate] Static guard: src/worker-accept/ holds exactly the 5 expected modules",
+  "evidence": "test/worker-accept-path-architecture-smoke.js:1",
+  "tests": [
+   "test/worker-accept-path-architecture-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:worker-isolation",
+  "behavior": "[worker-commit-gate] allocateWorkerScope / recordWorkerOutput / validateWorkerBoundary / scope listing / summaries",
+  "evidence": "test/worker-isolation-smoke.js:1",
+  "tests": [
+   "test/worker-isolation-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:worker-retry-count",
+  "behavior": "[worker-commit-gate] reclaimOrphans and retry counting on worker scopes",
+  "evidence": "test/worker-retry-count-smoke.js:1",
+  "tests": [
+   "test/worker-retry-count-smoke.js"
+  ]
+ },
+ {
+  "kind": "behavior",
+  "id": "test:workflow-app-framework",
+  "behavior": "[apps-quickstart] The cw apps framework verbs through the CLI",
+  "evidence": "test/workflow-app-framework-smoke.js:1",
+  "tests": [
+   "test/workflow-app-framework-smoke.js"
+  ]
+ }
+]
