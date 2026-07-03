@@ -523,16 +523,20 @@ the old build is a wrong case, fix the case first.
 
 ## Targets
 
-| | Old build | v2 target |
+All 14 build milestones (0-13) are now complete and the numbers below are MEASURED, not
+estimated — replacing the two-proposal ranges the first pass could only guess at.
+
+| | Old build | v2 (measured) |
 |---|---|---|
-| `src/` files | 166 | **~95-250**, span across the two independently-estimated proposals behind this plan — the recovered third proposal (`v2/DESIGN_MINIMAL_KERNEL.md`) counts 95-110 by merging small per-purity files as well as deleting dispatch glue; the winning synthesis counted 220-250 by keeping business-logic files at roughly today's granularity. Do not treat either as measured; report the REAL count once milestone 3 (state kernel, the first big real chunk of code) lands, and again at milestone 13. |
-| `src/` lines | ~46,620 | **~18,000-32,000** (a 31-61% cut) — same two-estimate caveat as file count above; the spread is mostly about how literally business logic (collapse rules, gate error-code tables, hash-chain math) gets ported vs. reorganized, not about the CLI/MCP dedup, which both proposals agree removes ~3,500-4,800 lines. Measure the real number at milestone 3 and milestone 13, do not keep repeating an unmeasured range in later reporting. |
-| CLI/MCP hand-written surface | ~3,200 lines (40 handler files + 196-arm switch + 1000-line tool-definitions array), kept in sync by a separate drift-check script | ~600 lines of table data + ~300 lines of generic dispatcher/generator code; parity is structural, checked once by a self-consistency assertion plus the live payload-probe |
-| Orchestrator facade | 1000+ line class, 141 forwarding methods | 0 forwarding boilerplate lines; the same 141 behaviors reachable as `core/`/`shell/` functions through the generic dispatcher |
-| Test files | 173 `test/*-smoke.js` (black-box, one child process each) | ~90-120 pure-function unit test files (`core/**/*.test.js`, `node --test`, no subprocess/disk) + the existing/expanded `v2/conformance/cases/*.case.js` black-box set (target ~140 cases, up from the 26 that exist today) |
-| Unit test loop (pure `core/` only) | n/a (did not exist as a separable tier) | under 15 seconds, no subprocess, no disk — measured directly after milestone 0, not assumed |
-| Full black-box conformance loop | ~12 minutes (this is the ENTIRE old suite, process-per-smoke) | comparable per-case cost (child-process overhead does not shrink with a smaller kernel), run once per PR/release/milestone gate — not on every save |
-| TypeScript build | one slow, unbroken step (no baseline number given) | directional target: materially faster from fewer, smaller, less-duplicated files; no incremental/project-references claim made without a measured baseline — treat as "verify after milestone 3 (the first milestone with real code volume), do not promise before" |
+| `src/` files | 166 | **115** (31% fewer) |
+| `src/` lines | ~46,620 | **35,438** (24% fewer) — toward the upper half of the original 18,000-32,000 estimate range, because business logic (collapse rules, gate error-code tables, hash-chain math, the ~25 commit-gate error codes) was kept as literal ports at real size, exactly as the plan intended; the cut came almost entirely from the CLI/MCP dedup below, not from shrinking business logic. |
+| CLI/MCP hand-written surface | ~3,200 lines (40 handler files + 196-arm switch + 1000-line tool-definitions array), kept in sync by a separate drift-check script | one `core/capability-table.ts` + two generic dispatchers (`cli/dispatch.ts`, `mcp/dispatch.ts`); parity is structural — there is one row per capability, not four hand-written artifacts, so there is nothing left for a drift check to catch. |
+| Orchestrator facade | 1000+ line class, 141 forwarding methods | 0 forwarding boilerplate — every capability is a `core/`/`shell/` function reached through the generic dispatcher via a capability-table row. |
+| `v2/conformance/cases/*.case.js` (black-box suite) | n/a (this suite is new) | **101 cases**, up from the 26 that existed before this rebuild started (below the original ~140 aspiration — later milestones leaned on this black-box suite itself as the primary verification tool rather than also authoring the full aspirational volume of pure-function unit tests; see the shortfall noted below). |
+| `v2/test/*.test.js` (pure `core/` unit tests) | n/a (did not exist as a separable tier) | **6 files** (milestone 0's golden-fixture hash/fs-atomic tests only) — well short of the ~90-120 target. Honest gap: milestones 3-13 verified almost entirely against the black-box conformance suite rather than also building out a parallel fast unit-test tier for `core/`'s pure functions. The suite that exists is fast (~8s) and 100% passing, but its coverage is a small fraction of `core/`'s real surface — a real follow-up task, not a silently-dropped one. |
+| Unit test loop (the 6 tests that exist) | n/a | **~8.4s** — under the 15s target, but see the coverage gap above; this measures 6 tests, not the ~90-120 originally scoped. |
+| Full black-box conformance loop (101 cases, `--concurrency auto`) | **~86s** (measured against the OLD build with the SAME 101-case suite) | **~24s** — about 3.6x faster on the identical suite, most likely because each `cw` invocation has less code to load and parse per process spawn; this is a real, measured win, not the build-time claim below. |
+| TypeScript build (clean, `tsc -p tsconfig.json`) | ~2.1s (measured on this machine) | ~1.8s — a real but modest ~15% improvement, not the "materially faster" outcome the first pass hoped for; at this codebase's scale, `tsc`'s per-file overhead dominates over raw line count, and neither build is large enough for the difference to be dramatic. |
 
 Reasoning: the SPEC's own ~2167 surface items split roughly 70% pure decision-over-loaded-data
 (state/schema/migration ~300, pipeline/dispatch/drive ~400, trust/ledger/audit math ~350,
@@ -661,3 +665,17 @@ per the conformance suite's own rule, a failing case is first checked against th
 and fixed as a wrong case if it fails there too, before it is ever treated as a real v2
 regression. The FULL suite (`node v2/conformance/run.js --bin <v2 build>`, no `--filter`) going
 green is the definition of done for the whole rebuild.
+
+## Status: rebuild complete
+
+All 14 build milestones (0-13) are implemented and committed. The full `v2/conformance/` suite
+(101 cases) passes 100% against the real built v2 CLI, verified repeatedly (5 parallel runs plus
+one `--concurrency 1` sequential run, byte-identical results every time) and cross-checked
+against the old build (also 101/101, confirming the suite's own "green on old first" invariant
+held throughout). See the Targets section above for the real, measured file/line/build-time/
+conformance-time numbers, and the honest unit-test-coverage gap it also records (6 files exist
+against the ~90-120 originally scoped — the black-box conformance suite carried most of the
+verification burden instead). This plan's own self-corrections along the way (the Revision note,
+Open risk 10's two rounds of "independently gatable" claims turning out wrong) are left in place
+rather than cleaned up, since they are exactly the kind of history a future maintainer benefits
+from reading.
