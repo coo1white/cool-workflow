@@ -30,6 +30,7 @@ import {
 } from "../core/capability-table";
 import { KNOWN_COMMANDS, ParsedArgv, suggestCommand } from "./parseargv";
 import { optionalArg, printJson, required, styledHelp, wantsJson } from "./io";
+import { listWorkflowApps } from "../shell/workflow-app-loader";
 
 /** Thrown errors carry only a message; the entry point decides exit code
  *  and the recovery hint, matching src/cli.ts's top-level catch. */
@@ -81,18 +82,9 @@ function dispatchTable(args: ParsedArgv): boolean {
   return false;
 }
 
-// PLACEHOLDER (milestone 12, workflow-apps) — a tiny embedded id/title/
-// summary list standing in for `runner.listApps()`. Real data lives in
-// apps/*/app.json on disk; this milestone does not read that directory.
-// Kept just large enough that `cw search app` and `cw search --` (a miss)
-// are both observable, per cli-argv-parsing.case.js.
-const PLACEHOLDER_APPS: Array<{ id: string; title: string; summary: string }> = [
-  {
-    id: "workflow-app-framework-demo",
-    title: "Workflow App framework Demo",
-    summary: "Small framework app showing inputs, phases, evidence gates, and sandbox profile hints.",
-  },
-];
+// MILESTONE 12 (workflow-apps) — `search` filters the SAME real app
+// discovery `cw app list`/`cw list` use (shell/workflow-app-loader.ts),
+// by id/title/summary, matching `listApps` in the old build.
 
 function formatSearchResults(
   keyword: string,
@@ -135,8 +127,8 @@ function dispatchLegacy(args: ParsedArgv): void {
     // matches first, per the Revision note's "table rows, never a new
     // switch arm" rule. Same for "list", "status", and "sandbox list".
 
-    // PLACEHOLDER (milestone 12, workflow-apps) — real search filters
-    // runner.listApps() by title/summary/id; see note above.
+    // `search` filters the real app discovery by title/summary/id (see
+    // note above); MILESTONE 12.
     case "search": {
       const keyword = args.positionals.join(" ");
       if (!keyword.trim()) {
@@ -145,12 +137,14 @@ function dispatchLegacy(args: ParsedArgv): void {
         );
       }
       const lower = keyword.toLowerCase();
-      const results = PLACEHOLDER_APPS.filter(
-        (a) =>
-          a.title.toLowerCase().includes(lower) ||
-          a.summary.toLowerCase().includes(lower) ||
-          a.id.toLowerCase().includes(lower)
-      );
+      const results = listWorkflowApps()
+        .filter(
+          (a) =>
+            String(a.title).toLowerCase().includes(lower) ||
+            String(a.summary).toLowerCase().includes(lower) ||
+            String(a.id).toLowerCase().includes(lower)
+        )
+        .map((a) => ({ id: String(a.id), title: String(a.title), summary: String(a.summary) }));
       if (wantsJson(args.options)) {
         printJson(results);
       } else {

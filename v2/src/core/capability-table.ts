@@ -426,21 +426,11 @@ export interface WorkflowSummary {
   file: string;
 }
 
-/** PLACEHOLDER (milestone 12, workflow-apps) — the real `listWorkflows`
- *  discovers every `apps/*\/workflow.js` + legacy `workflows/*.workflow.js`
- *  on disk (10 bundled apps in the old build; see SPEC/cli-probe.md). This
- *  milestone reproduces only the observable SHAPE (id/title/summary/file,
- *  non-empty array) that mcp-basic.case.js and cli/dispatch.ts's `search`
- *  placeholder need, not the real app directory scan. */
+/** `cw list` / `cw_list` (MILESTONE 12) — the real discovery over every
+ *  `apps/*\/app.json` + legacy `workflows/*.workflow.js` on disk, per
+ *  `listWorkflowsShallow` (shell/workflow-app-loader.ts). */
 export function listBundledWorkflows(): WorkflowSummary[] {
-  return [
-    {
-      id: "workflow-app-framework-demo",
-      title: "Workflow App framework Demo",
-      summary: "Small framework app showing inputs, phases, evidence gates, and sandbox profile hints.",
-      file: "apps/workflow-app-framework-demo/workflow.js",
-    },
-  ];
+  return listWorkflowsShallow();
 }
 
 export interface SandboxProfileSummary {
@@ -480,6 +470,7 @@ export function statusPayload(runId: string | undefined, cwd?: string): unknown 
 // milestone section importing the same symbols under their own name.
 import { loadRunFromCwd as statusLoadRunFromCwd } from "../shell/run-store";
 import { adviseNoRun as statusAdviseNoRun, summarizeRun as statusSummarizeRun } from "../shell/operator-ux";
+import { listWorkflowsShallow } from "../shell/workflow-app-loader";
 
 // ---------------------------------------------------------------------
 // Public table-derived API
@@ -2433,5 +2424,102 @@ attachCliBinding("audit.judge", {
   handler: (args) => ({ json: auditJudgeCli(required(args.positionals[0], "run id"), args.options) }),
 });
 REGISTRY_BY_CAPABILITY.get("audit.judge")!.mcp!.handler = (args) => auditJudgeCli(required(optionalArg(args.runId), "run id"), args);
+
+// ---- app.list / app.show / app.validate / app.init / app.package -------
+// MILESTONE 12 (workflow-apps). Handler BODIES live in
+// shell/workflow-app-loader.ts (impure — they scan apps/*/app.json +
+// workflows/*.workflow.js on disk and `require()` each entrypoint); this
+// table only wires argv/tool-args shape -> handler call, per SPEC/
+// workflow-apps.md's "Exact outputs". `app.validate` is ALWAYS JSON
+// (jsonMode "default") even without --json, and its handler sets
+// exitCode 1 on `valid:false` — both the "not found" id case and a
+// structurally-broken manifest case fail this same way.
+
+import {
+  initWorkflowApp,
+  listWorkflowApps,
+  packageWorkflowApp,
+  showWorkflowApp,
+  validateWorkflowAppTarget,
+} from "../shell/workflow-app-loader";
+import { formatInfo } from "./format/help";
+
+attachCliBinding("app.list", {
+  path: ["app", "list"],
+  jsonMode: "default",
+  handler: () => ({ json: listWorkflowApps() }),
+});
+REGISTRY_BY_CAPABILITY.get("app.list")!.mcp!.handler = () => listWorkflowApps();
+
+attachCliBinding("app.show", {
+  path: ["app", "show"],
+  jsonMode: "default",
+  handler: (args) => ({ json: showWorkflowApp(required(args.positionals[0], "workflow app id")) }),
+});
+REGISTRY_BY_CAPABILITY.get("app.show")!.mcp!.handler = (args) => showWorkflowApp(required(optionalArg(args.appId), "workflow app id"));
+
+attachCliBinding("app.validate", {
+  path: ["app", "validate"],
+  jsonMode: "default",
+  handler: (args) => {
+    const result = validateWorkflowAppTarget(required(args.positionals[0], "workflow app path or id"));
+    return { json: result, exitCode: result.valid ? undefined : 1 };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("app.validate")!.mcp!.handler = (args) => validateWorkflowAppTarget(required(optionalArg(args.target ?? args.appId), "workflow app path or id"));
+
+attachCliBinding("app.init", {
+  path: ["app", "init"],
+  jsonMode: "default",
+  handler: (args) => ({ json: initWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("app.init")!.mcp!.handler = (args) => initWorkflowApp(required(optionalArg(args.appId), "app id"), args);
+
+attachCliBinding("app.package", {
+  path: ["app", "package"],
+  jsonMode: "default",
+  handler: (args) => ({ json: packageWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("app.package")!.mcp!.handler = (args) => packageWorkflowApp(required(optionalArg(args.appId), "app id"), args);
+
+// A 1-token `["app"]` row that exists ONLY to own the fixed usage string
+// for an unrecognized `app` subcommand (`app run` is not yet CLI-wired at
+// this milestone — cw_app_run stays MCP-only — so a bogus or `run`
+// subcommand both fall through to this same usage throw, matching
+// SPEC/cli-surface.md's "Usage strings" table byte-for-byte). Per
+// dispatchTable's reversed-candidate-order contract (cli/dispatch.ts),
+// this 1-token row is only ever reached when no 2-token `app.*` row
+// above matched. `hiddenFromHelp` keeps it off `cw help app`'s own line
+// (see CliBinding.hiddenFromHelp's doc comment).
+addCliOnlyCapability(
+  "app.usage",
+  "cw app list|show|validate|init|package|run [app-id|path] — the workflow-app framework.",
+  {
+    path: ["app"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: () => {
+      throw new Error("Usage: cw.js app list|show|validate|init|package|run [app-id|path]");
+    },
+  },
+  "app.usage exists only to own the fixed usage-error text for an unrecognized app subcommand; every real app.* action is its own capability row above."
+);
+
+// ---- info (CLI-only; mirrors app.show with a human card by default) ----
+
+addCliOnlyCapability(
+  "info",
+  "Show a workflow app's contract as a human card (or JSON with --json).",
+  {
+    path: ["info"],
+    jsonMode: "flag",
+    handler: (args) => {
+      const appId = required(args.positionals[0], "workflow app id");
+      const data = showWorkflowApp(appId);
+      return { json: data, text: `${formatInfo(appId, data)}\n` };
+    },
+  },
+  "info is a CLI-only convenience card over app.show; the old build never gave it an MCP peer."
+);
 
 

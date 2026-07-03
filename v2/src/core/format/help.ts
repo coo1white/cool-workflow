@@ -291,3 +291,39 @@ export function formatCommandHelp(verb: string, suggestCommand: SuggestCommandFn
   }
   return `${lines.join("\n")}\n`;
 }
+
+/** `cw info <id>` human card — MILESTONE 12. Byte-exact in spirit to
+ *  src/orchestrator.ts:899-929's `formatInfo` (color stripped, matching
+ *  this file's own `formatHelp`/`formatCommandHelp` — styling, if any, is
+ *  applied by the shell layer, never here). `data` is the `showApp`/
+ *  `showWorkflowApp` payload. */
+export function formatInfo(appId: string, data: Record<string, unknown>): string {
+  const inputs = (Array.isArray(data.inputs) ? data.inputs : []) as Array<Record<string, unknown>>;
+  const phases = (Array.isArray(data.phases) ? data.phases : []) as Array<Record<string, unknown>>;
+  const lines: string[] = [`cw info ${appId}`];
+  if (data.title) lines.push(`  Title: ${data.title}`);
+  if (data.version) lines.push(`  Version: ${data.version}`);
+  if (data.summary) lines.push(`  Summary: ${data.summary}`);
+  if (data.author) lines.push(`  Author: ${typeof data.author === "object" ? (data.author as Record<string, string>).name : data.author}`);
+  if (data.compatible !== undefined) lines.push(`  Compatible: ${data.compatible ? "yes" : "no"}`);
+  if (inputs.length > 0) {
+    lines.push("  Inputs:");
+    for (const one of inputs) {
+      const name = one.name || "";
+      const type = one.type || "string";
+      const required = one.required ? ", required" : "";
+      const def = one.default ? `, default: ${one.default}` : "";
+      const desc = one.description ? ` — ${one.description}` : "";
+      lines.push(`    - ${name} (${type}${required}${def})${desc}`);
+    }
+  }
+  if (Array.isArray(data.sandboxProfiles) && data.sandboxProfiles.length > 0) {
+    lines.push(`  Sandbox: ${data.sandboxProfiles.join(", ")}`);
+  }
+  const taskCount = data.taskCount || 0;
+  if (phases.length > 0) {
+    lines.push(`  Phases: ${phases.length} phase${phases.length !== 1 ? "s" : ""}, ${taskCount} task${taskCount !== 1 ? "s" : ""}`);
+  }
+  lines.push(`  Run: cw quickstart ${appId} --repo . --question "..."`);
+  return lines.join("\n");
+}
