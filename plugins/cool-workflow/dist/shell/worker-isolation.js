@@ -681,7 +681,25 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // Step 5: completion — persist the worker scope with the verify-derived status.
     const output = { workerId, taskId: task.id, resultPath: absoluteResultPath, recordedAt: new Date().toISOString(), stateNodeId: resultNode.id, verifierNodeId: task.verifierNodeId, auditEventIds: [pathAudit.id, acceptedAudit.id] };
     const reportedModel = agentDelegationMeta && agentDelegationMeta.model && agentDelegationMeta.model !== "unreported" ? agentDelegationMeta.model : undefined;
-    const usageRecord = agentDelegationMeta && (reportedModel || agentDelegationMeta.reportedUsage) ? { schemaVersion: 1, source: "host-attested", ...(reportedModel ? { model: reportedModel } : {}), ...(agentDelegationMeta.reportedUsage || {}), attestedAt: new Date().toISOString() } : undefined;
+    // Host-attested usage rides on the worker record. Recorded when the agent
+    // REPORTED a model OR token usage — `unreported`/absent stays ABSENT (never
+    // backfilled from the operator-chosen CW_AGENT_MODEL, never made up).
+    // Track 1: the attestation verdict (`attested`/`unattested`/`absent`) and its
+    // reason ride along, and the token buckets come from normalizeReportedUsage
+    // (tolerates snake_case/camelCase) — CW still never measures usage, it only
+    // records + labels what the agent self-reported. Byte-exact to the old
+    // build's src/worker-accept/verifier-completion.ts:58-68.
+    const usageRecord = agentDelegationMeta && (reportedModel || agentDelegationMeta.reportedUsage)
+        ? {
+            schemaVersion: 1,
+            source: "host-attested",
+            ...(reportedModel ? { model: reportedModel } : {}),
+            ...(0, telemetry_attestation_1.normalizeReportedUsage)(agentDelegationMeta.reportedUsage),
+            attestedAt: new Date().toISOString(),
+            ...(telemetry ? { attestation: telemetry.status, ...(telemetry.reason ? { attestationReason: telemetry.reason } : {}) } : {}),
+            note: "agent-delegation host-attested usage",
+        }
+        : undefined;
     const updatedScope = {
         ...scope,
         updatedAt: new Date().toISOString(),
