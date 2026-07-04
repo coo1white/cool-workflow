@@ -2350,6 +2350,59 @@ attachCliBinding("worker.summary", {
 });
 REGISTRY_BY_CAPABILITY.get("worker.summary")!.mcp!.handler = (args) => workerSummaryCli(args);
 
+// ---- worker list|show|manifest|output|fail|validate (CLI + MCP) ----------
+// Each worker lifecycle verb over a run. The old build routed all of these
+// via src/cli/handlers/worker.ts; v2 shipped only worker.summary bound, so the
+// rest fell through to the worker.usage error. positionals: [runId, workerId,
+// resultFile].
+
+import { workerListCli, workerShowCli, workerManifestCli, workerOutputCli, workerFailCli, workerValidateCli } from "../shell/worker-cli";
+
+attachCliBinding("worker.list", {
+  path: ["worker", "list"],
+  jsonMode: "default",
+  handler: (args) => ({ json: workerListCli({ ...args.options, runId: args.positionals[0] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("worker.list")!.mcp!.handler = (args) => workerListCli(args);
+
+attachCliBinding("worker.show", {
+  path: ["worker", "show"],
+  jsonMode: "default",
+  handler: (args) => ({ json: workerShowCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("worker.show")!.mcp!.handler = (args) => workerShowCli(args);
+
+attachCliBinding("worker.manifest", {
+  path: ["worker", "manifest"],
+  jsonMode: "default",
+  handler: (args) => ({ json: workerManifestCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("worker.manifest")!.mcp!.handler = (args) => workerManifestCli(args);
+
+attachCliBinding("worker.output", {
+  path: ["worker", "output"],
+  jsonMode: "default",
+  handler: (args) => ({ json: workerOutputCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("worker.output")!.mcp!.handler = (args) => workerOutputCli(args);
+
+attachCliBinding("worker.fail", {
+  path: ["worker", "fail"],
+  jsonMode: "default",
+  handler: (args) => ({ json: workerFailCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("worker.fail")!.mcp!.handler = (args) => workerFailCli(args);
+
+attachCliBinding("worker.validate", {
+  path: ["worker", "validate"],
+  jsonMode: "default",
+  handler: (args) => {
+    const { violation, exitCode } = workerValidateCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] });
+    return { json: violation, exitCode };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("worker.validate")!.mcp!.handler = (args) => workerValidateCli(args).violation;
+
 // ---- workbench.view / workbench.serve ---------------------------------
 
 import { buildWorkbenchRunView } from "../shell/workbench";

@@ -33,6 +33,8 @@ import {
 } from "./sandbox-profile";
 import { ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
 import { attestSandbox, getBackendDescriptor, resolveBackendSelection } from "./execution-backend/registry";
+import { recordFeedback } from "./error-feedback-io";
+import { saveCheckpoint } from "./run-store";
 import { taskRequiresEvidence } from "./verifier";
 import { runPipelineStage } from "../core/pipeline/runner";
 import { sha256 } from "../core/hash";
@@ -435,6 +437,43 @@ function requireWorkerTask(run: WorkflowRun, scope: WorkerScope): RunTask {
 /** recordWorkerOutput — the accept-path orchestrator. Order: validate ->
  *  attest delegation -> accept -> verify -> completion (byte-exact to the
  *  old build; multi-agent fan-out is a no-op here). */
+/** Record the worker.sandbox-boundary trust-audit event: a successful write-path
+ *  check documents transparently what CW enforced (write paths) vs what is
+ *  delegated to the host (execute/network/env). Byte-exact to the old build's
+ *  event emitted inside validateWorkerBoundary. */
+function recordSandboxBoundaryEvent(run: WorkflowRun, scope: WorkerScope): void {
+  const policy = scope.sandboxPolicy;
+  recordTrustAuditEvent(run, {
+    kind: "worker.sandbox-boundary",
+    decision: "allowed",
+    source: "cw-validated",
+    workerId: scope.id,
+    taskId: scope.taskId,
+    sandboxProfileId: policy.id,
+    policyRef: `execute=${policy.execute.mode} network=${policy.network.mode} env.inherit=${policy.env.inherit}`,
+    command: policy.execute.mode,
+    networkTarget: policy.network.mode,
+    policySnapshot: policy,
+    metadata: {
+      enforced_by_cw: ["write-paths"],
+      delegated_to_host: ["execute", "network", "env"],
+      env_inherit: policy.env.inherit,
+    },
+  });
+}
+
+/** `cw worker validate <run-id> <worker-id> [target-file]` — re-run the
+ *  write-path boundary check for a worker (default target = its result file).
+ *  Returns the violation, or null when the write path is allowed (also
+ *  recording the sandbox-boundary transparency event on success). */
+export function validateWorkerBoundary(run: WorkflowRun, workerId: string, options: { path?: string } = {}): ReturnType<typeof validateSandboxWrite> {
+  const scope = requireWorkerScope(run, workerId);
+  const rawPath = path.resolve(String(options.path || scope.resultPath));
+  const violation = validateSandboxWrite(scope.sandboxPolicy, rawPath, workerId);
+  if (!violation) recordSandboxBoundaryEvent(run, scope);
+  return violation;
+}
+
 export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPath: string, options: RecordWorkerOutputOptions = {}): Record<string, unknown> {
   const scope = requireWorkerScope(run, workerId);
   const task = requireWorkerTask(run, scope);
@@ -447,6 +486,8 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     recordWorkerFailure(run, workerId, violation.message, { code: violation.code, retryable: false });
     throw new Error(violation.message);
   }
+  // Write path enforced by CW; record the enforced-vs-delegated policy split.
+  recordSandboxBoundaryEvent(run, scope);
   if (!fs.existsSync(absoluteResultPath)) {
     recordWorkerFailure(run, workerId, `Worker result file does not exist: ${absoluteResultPath}`, { code: "worker-result-missing", retryable: true });
     throw new Error(`Worker result file does not exist: ${absoluteResultPath}`);
@@ -668,7 +709,7 @@ function sha256Local(value: string): string {
   return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
 
-export function recordWorkerFailure(run: WorkflowRun, workerId: string, error: unknown, options: { code?: string; path?: string; retryable?: boolean; retryCount?: number } = {}): WorkerScope {
+export function recordWorkerFailure(run: WorkflowRun, workerId: string, error: unknown, options: { code?: string; path?: string; retryable?: boolean; retryCount?: number; persist?: boolean } = {}): WorkerScope {
   const scope = requireWorkerScope(run, workerId);
   const task = requireWorkerTask(run, scope);
   const message = error instanceof Error ? error.message : String(error);
@@ -689,12 +730,30 @@ export function recordWorkerFailure(run: WorkflowRun, workerId: string, error: u
   failureNode = appendRunNode(run, failureNode);
   task.status = "failed";
   task.loopStage = "adjust";
-  recordTrustAuditEvent(run, { kind: "worker.failure", decision: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "denied" : "failed", source: structured.code.startsWith("sandbox-") || structured.code === "worker-boundary-violation" ? "cw-validated" : "runtime-derived", workerId, taskId: task.id, nodeId: failureNode.id, sandboxProfileId: scope.sandboxProfileId, policySnapshot: scope.sandboxPolicy, normalizedPath: structured.path, metadata: { code: structured.code, dispatchId: scope.dispatchId } });
+  // Record the failure as append-only operator feedback so worker.feedbackIds
+  // and run.feedback carry it (its absence cascaded: failed workers left no
+  // feedback trail). Byte-exact to the old build.
+  const feedback = recordFeedback(
+    run,
+    {
+      source: "pipeline-runner",
+      error: structured,
+      nodeId: failureNode.id,
+      taskId: task.id,
+      path: structured.path,
+      retryable: structured.retryable,
+      artifacts: failureNode.artifacts,
+      metadata: { workerId, dispatchId: scope.dispatchId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId, sandboxPolicy: scope.sandboxPolicy, allowedPaths: scope.allowedPaths, details: structured.details },
+    },
+    { persist: false }
+  );
+  recordTrustAuditEvent(run, { kind: "worker.failure", decision: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "denied" : "failed", source: structured.code.startsWith("sandbox-") || structured.code === "worker-boundary-violation" ? "cw-validated" : "runtime-derived", workerId, taskId: task.id, nodeId: failureNode.id, feedbackIds: [feedback.id], sandboxProfileId: scope.sandboxProfileId, policySnapshot: scope.sandboxPolicy, normalizedPath: structured.path, metadata: { code: structured.code, dispatchId: scope.dispatchId } });
   const updated = upsertWorkerScope(run, {
     ...scope,
     updatedAt: new Date().toISOString(),
     status: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "rejected" : "failed",
     retryCount: typeof options.retryCount === "number" ? options.retryCount : scope.retryCount,
+    feedbackIds: [...new Set([...(scope.feedbackIds || []), feedback.id])],
     errors: [...(scope.errors || []), structured],
   });
   // Byte-exact to the old build's updateWorkerScope: worker.json (scope)
@@ -704,6 +763,7 @@ export function recordWorkerFailure(run: WorkflowRun, workerId: string, error: u
   // stale at whatever retryCount/status it had at dispatch time.
   writeWorkerManifest(run, updated);
   writeWorkerIndex(run);
+  if (options.persist !== false) saveCheckpoint(run);
   return updated;
 }
 
