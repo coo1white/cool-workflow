@@ -54,9 +54,14 @@ assert.ok(fs.existsSync(tscJs), "repo typescript devDependency present");
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-boundary-fixture-"));
 // The fixture imports boundary.ts by ABSOLUTE path so it can live in a tmpdir
 // (no repo-tree pollution, no cwd assumption).
-// v2 has NO boundary weld module — this path is intentionally the (absent) v2
-// home the weld would live at; tsc reports "Cannot find module" for it, which
-// IS the real gap this smoke now surfaces (see NO-EQUIVALENT note at top).
+// v2 restored the weld module at src/core/types/boundary.ts (the exact path
+// below). Its type imports transitively reach the shell modules that own the
+// three target types, and those modules `import "node:crypto"` etc., so the
+// fixture must compile WITH node types available. The fixture lives in a
+// tmpdir, so tsc cannot walk up to the repo's node_modules/@types on its own —
+// point --typeRoots + --types at the repo's @types/node explicitly so a clean
+// CI checkout resolves node builtins exactly like the real `npm run build`.
+const typesRoot = path.join(pluginRoot, "node_modules", "@types");
 const boundaryImport = path.join(pluginRoot, "src", "core", "types", "boundary").split(path.sep).join("/");
 // ExecutionResultEnvelope survived the rebuild; repointed to its real v2 home.
 const envelopeImport = path.join(pluginRoot, "src", "shell", "execution-backend", "types").split(path.sep).join("/");
@@ -66,7 +71,7 @@ function compile(name, source) {
   fs.writeFileSync(file, source, "utf8");
   const child = spawnSync(
     process.execPath,
-    [tscJs, "--noEmit", "--strict", "--target", "es2022", "--module", "commonjs", "--moduleResolution", "node", "--skipLibCheck", file],
+    [tscJs, "--noEmit", "--strict", "--target", "es2022", "--module", "commonjs", "--moduleResolution", "node", "--skipLibCheck", "--typeRoots", typesRoot, "--types", "node", file],
     { encoding: "utf8", timeout: 120000 }
   );
   return { status: child.status, out: `${child.stdout || ""}${child.stderr || ""}` };
