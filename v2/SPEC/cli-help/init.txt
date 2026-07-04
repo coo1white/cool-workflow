@@ -1,0 +1,4 @@
+# exit: 0
+cw init
+
+  cw init  Scaffold a new workflow definition.

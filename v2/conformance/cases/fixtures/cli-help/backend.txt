@@ -1,0 +1,8 @@
+# exit: 0
+cw backend
+
+  cw backend agent config  Show the effective agent delegation config (flags>env>file, secret-stripped, host-stable).
+  cw backend agent config  Set the durable agent delegation config (command-template/endpoint/model; API keys never written).
+  cw backend list          List available execution backends and their capabilities.
+  cw backend probe         Probe execution backend readiness (live, deterministic).
+  cw backend show          Show one execution backend descriptor.

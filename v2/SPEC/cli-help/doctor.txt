@@ -1,0 +1,4 @@
+# exit: 0
+cw doctor
+
+  cw doctor  Diagnose the host for setup problems (Node version, agent backend, agent binary on PATH, git, writable home/repo state) and print an actionable fix per check.

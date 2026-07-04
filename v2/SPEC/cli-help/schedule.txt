@@ -1,0 +1,13 @@
+# exit: 0
+cw schedule
+
+  cw schedule complete  Mark a scheduled task complete.
+  cw schedule create    Create a scheduled CW task.
+  cw schedule daemon    Run the desktop scheduler daemon loop.
+  cw schedule delete    Delete a scheduled CW task.
+  cw schedule due       List due scheduled CW tasks.
+  cw schedule history   List scheduled-task run history.
+  cw schedule list      List scheduled CW tasks.
+  cw schedule pause     Pause a scheduled CW task.
+  cw schedule resume    Resume a scheduled CW task.
+  cw schedule run-now   Create an immediate scheduled-task run record.

@@ -1,0 +1,4 @@
+# exit: 0
+cw graph
+
+  cw graph  Read the structured Operator UX run graph.

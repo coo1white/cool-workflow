@@ -1,0 +1,14 @@
+# exit: 0
+cw blackboard
+
+  cw blackboard artifact add   Index an artifact in the blackboard.
+  cw blackboard artifact list  List blackboard artifact refs.
+  cw blackboard context put    Publish a shared context frame.
+  cw blackboard graph          Read blackboard graph nodes and edges.
+  cw blackboard message list   List blackboard messages.
+  cw blackboard message post   Post a blackboard message.
+  cw blackboard resolve        Create or resolve a run blackboard.
+  cw blackboard snapshot       Create a durable blackboard snapshot.
+  cw blackboard summarize      Read a blackboard digest with conflicts/evidence.
+  cw blackboard summary        Read the blackboard/coordinator summary.
+  cw blackboard topic create   Create a blackboard topic.

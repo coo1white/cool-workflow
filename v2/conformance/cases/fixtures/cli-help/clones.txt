@@ -1,0 +1,5 @@
+# exit: 0
+cw clones
+
+  cw clones gc    Reclaim cached remote-source checkouts: a TTL sweep (--older-than-days, default 30) or --all. Deletes only inside the clones cache.
+  cw clones list  List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only.

@@ -1,0 +1,5 @@
+# exit: 0
+cw metrics
+
+  cw metrics show     Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage).
+  cw metrics summary  Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns.

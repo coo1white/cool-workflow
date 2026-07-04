@@ -1,0 +1,9 @@
+# exit: 0
+cw app
+
+  cw app init      Create a CW workflow app directory.
+  cw app list      List CW workflow apps.
+  cw app package   Package an app as a JSON artifact.
+  cw app run       Create a run from an app id + structured inputs.
+  cw app show      Show a CW workflow app contract.
+  cw app validate  Validate an app by path or id.

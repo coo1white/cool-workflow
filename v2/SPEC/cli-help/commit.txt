@@ -1,0 +1,5 @@
+# exit: 0
+cw commit
+
+  cw commit          Create a verifier-gated commit or checkpoint.
+  cw commit summary  Read the structured commit summary for a run.

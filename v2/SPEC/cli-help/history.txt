@@ -1,0 +1,4 @@
+# exit: 0
+cw history
+
+  cw history  Read a cross-repo unified run timeline (newest first).

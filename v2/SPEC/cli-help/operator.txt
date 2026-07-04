@@ -1,0 +1,5 @@
+# exit: 0
+cw operator
+
+  cw operator report  Refresh and read the structured Operator UX report summary.
+  cw operator status  Read the structured Operator UX run status.

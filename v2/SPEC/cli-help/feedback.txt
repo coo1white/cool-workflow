@@ -1,0 +1,9 @@
+# exit: 0
+cw feedback
+
+  cw feedback collect  Collect feedback from failed nodes.
+  cw feedback list     List run feedback records.
+  cw feedback resolve  Resolve or reject feedback.
+  cw feedback show     Show a run feedback record.
+  cw feedback summary  Read the structured feedback summary for a run.
+  cw feedback task     Create a correction task for feedback.

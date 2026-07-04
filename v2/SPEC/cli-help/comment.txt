@@ -1,0 +1,5 @@
+# exit: 0
+cw comment
+
+  cw comment add   Append a comment to a durable target.
+  cw comment list  List append-only comments for a run (optionally one target).

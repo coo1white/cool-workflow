@@ -1,0 +1,8 @@
+# exit: 0
+cw sandbox
+
+  cw sandbox choose    Resolve and validate a sandbox profile choice.
+  cw sandbox list      List bundled sandbox profiles.
+  cw sandbox resolve   Alias of sandbox.choose.
+  cw sandbox show      Show a resolved sandbox profile.
+  cw sandbox validate  Validate a sandbox profile JSON file.

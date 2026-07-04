@@ -1,0 +1,11 @@
+# exit: 0
+cw candidate
+
+  cw candidate list      List candidates for a run.
+  cw candidate rank      Rank candidates with gates.
+  cw candidate register  Register a candidate from evidence.
+  cw candidate reject    Reject a candidate with a reason.
+  cw candidate score     Score a candidate with criteria/evidence.
+  cw candidate select    Select a candidate with the verifier gate.
+  cw candidate show      Show one candidate.
+  cw candidate summary   Read the structured candidate summary for a run.

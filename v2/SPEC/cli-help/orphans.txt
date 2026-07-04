@@ -1,0 +1,5 @@
+# exit: 0
+cw orphans
+
+  cw orphans gc    Reclaim orphan run directories (no state.json): an age sweep (--min-age-minutes, default 60) or --all. Deletes only inside a scanned repo's .cw/runs/, never a run the registry knows about.
+  cw orphans list  List run directories under .cw/runs/ that the run registry cannot see (no state.json — a killed/interrupted process never wrote one), with age + bytes. Read-only.

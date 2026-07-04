@@ -1,0 +1,6 @@
+# exit: 0
+cw migration
+
+  cw migration check  Dry-run migration verdict for a target.
+  cw migration list   List the declared migration registry.
+  cw migration prove  Round-trip / non-destruction migration proof for a target.

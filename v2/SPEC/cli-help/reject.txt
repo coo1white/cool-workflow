@@ -1,0 +1,4 @@
+# exit: 0
+cw reject
+
+  cw reject  Append a host-attested rejection (blocking veto) of a candidate/commit/selection.

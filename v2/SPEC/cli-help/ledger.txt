@@ -1,0 +1,8 @@
+# exit: 0
+cw ledger
+
+  cw ledger apply    Verify a proposal entry and return its suggestedDiff for `git apply` (fail-closed: no diff unless the entry verifies as a proposal).
+  cw ledger list     Read + verify every entry in one or more shared ledger directories (fail-closed inbox; 2+ dirs union-verify mirrors).
+  cw ledger propose  Build a verifiable cross-agent change proposal entry (printed as JSON).
+  cw ledger review   Build a verifiable cross-agent review verdict entry (printed as JSON).
+  cw ledger verify   Verify a ledger entry against its content digest (fail-closed on tampering).

@@ -1,0 +1,4 @@
+# exit: 0
+cw fix
+
+  cw fix  Print consolidated fix commands for CW setup issues.

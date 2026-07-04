@@ -1,0 +1,10 @@
+# exit: 0
+cw node
+
+  cw node diff      Structurally diff two node snapshots.
+  cw node graph     Read the state-node graph for a run.
+  cw node list      List state nodes for a run.
+  cw node replay    Deterministically replay one node from a snapshot.
+  cw node show      Show one state node for a run.
+  cw node snapshot  Snapshot one state node (derived + fingerprinted).
+  cw node verify    Verify a node replay against its source.

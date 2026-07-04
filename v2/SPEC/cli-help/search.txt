@@ -1,0 +1,4 @@
+# exit: 0
+cw search
+
+  cw search  Search workflow apps by keyword (title, description, id).

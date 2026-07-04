@@ -1,0 +1,5 @@
+# exit: 0
+cw registry
+
+  cw registry refresh  Recompute and persist the derived run registry index.
+  cw registry show     Read the run registry index with valid|stale|absent freshness.

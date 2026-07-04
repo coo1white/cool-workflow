@@ -1,0 +1,5 @@
+# exit: 0
+cw demo
+
+  cw demo bundle  Prove portable-bundle verification: export a sealed report bundle, forge it two ways, watch report verify-bundle catch both offline with only the embedded public key.
+  cw demo tamper  Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.

@@ -1,0 +1,2401 @@
+[
+  {
+    "kind": "mcp_tool",
+    "id": "cw_list",
+    "behavior": "List bundled CW workflows. Required args: (none). Payload identical to cw list --json.",
+    "evidence": "src/capability-registry.ts:166",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_plan",
+    "behavior": "Create a CW run and return its canonical plan summary. Required args: workflowId. Payload identical to cw plan --json.",
+    "evidence": "src/capability-registry.ts:214",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_app_run",
+    "behavior": "Create a run from an app id + structured inputs. Required args: appId. Payload identical to cw app run --json.",
+    "evidence": "src/capability-registry.ts:316",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_status",
+    "behavior": "Read run checkpoint status. Required args: runId. Payload identical to cw status --json.",
+    "evidence": "src/capability-registry.ts:222",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_init",
+    "behavior": "Scaffold a new workflow definition. Required args: workflowId. Payload identical to cw init --json.",
+    "evidence": "src/capability-registry.ts:206",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_next",
+    "behavior": "Read the next recommended tasks for a run. Required args: runId. Payload identical to cw next --json.",
+    "evidence": "src/capability-registry.ts:230",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_state_check",
+    "behavior": "Check run-state schema compatibility. Required args: runId. Payload identical to cw state check --json.",
+    "evidence": "src/capability-registry.ts:319",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_contract_show",
+    "behavior": "Show a run's pipeline contract. Required args: runId. Payload identical to cw contract show --json.",
+    "evidence": "src/capability-registry.ts:320",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_node_list",
+    "behavior": "List state nodes for a run. Required args: runId. Payload identical to cw node list --json.",
+    "evidence": "src/capability-registry.ts:321",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_node_show",
+    "behavior": "Show one state node for a run. Required args: runId, nodeId. Payload identical to cw node show --json.",
+    "evidence": "src/capability-registry.ts:322",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_node_graph",
+    "behavior": "Read the state-node graph for a run. Required args: runId. Payload identical to cw node graph --json.",
+    "evidence": "src/capability-registry.ts:323",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_node_snapshot",
+    "behavior": "Snapshot one state node (derived + fingerprinted). Required args: (none). Payload identical to cw node snapshot --json.",
+    "evidence": "src/capability-registry.ts:324",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_node_diff",
+    "behavior": "Structurally diff two node snapshots. Required args: (none). Payload identical to cw node diff --json.",
+    "evidence": "src/capability-registry.ts:325",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_node_replay",
+    "behavior": "Deterministically replay one node from a snapshot. Required args: (none). Payload identical to cw node replay --json.",
+    "evidence": "src/capability-registry.ts:326",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_node_replay_verify",
+    "behavior": "Verify a node replay against its source. Required args: (none). Payload identical to cw node verify --json.",
+    "evidence": "src/capability-registry.ts:327",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_migration_list",
+    "behavior": "List the declared migration registry. Required args: (none). Payload identical to cw migration list --json.",
+    "evidence": "src/capability-registry.ts:328",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_migration_check",
+    "behavior": "Dry-run migration verdict for a target. Required args: (none). Payload identical to cw migration check --json.",
+    "evidence": "src/capability-registry.ts:329",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_migration_prove",
+    "behavior": "Round-trip / non-destruction migration proof for a target. Required args: (none). Payload identical to cw migration prove --json.",
+    "evidence": "src/capability-registry.ts:330",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_operator_status",
+    "behavior": "Read the structured Operator UX run status. Required args: runId. Payload identical to cw operator status --json.",
+    "evidence": "src/capability-registry.ts:299",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_operator_graph",
+    "behavior": "Read the structured Operator UX run graph. Required args: runId. Payload identical to cw graph --json.",
+    "evidence": "src/capability-registry.ts:281",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_operator_report",
+    "behavior": "Refresh and read the structured Operator UX report summary. Required args: runId. Payload identical to cw operator report --json.",
+    "evidence": "src/capability-registry.ts:307",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_worker_summary",
+    "behavior": "Read the structured worker summary for a run. Required args: runId. Payload identical to cw worker summary --json.",
+    "evidence": "src/capability-registry.ts:430",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_workbench_view",
+    "behavior": "Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit). Required args: runId. Payload identical to cw workbench view --json.",
+    "evidence": "src/capability-registry.ts:548",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_workbench_serve",
+    "behavior": "Describe/serve the optional localhost-only, read-only Workbench host. Required args: (none). Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:549",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_candidate_summary",
+    "behavior": "Read the structured candidate summary for a run. Required args: runId. Payload identical to cw candidate summary --json.",
+    "evidence": "src/capability-registry.ts:445",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_feedback_summary",
+    "behavior": "Read the structured feedback summary for a run. Required args: runId. Payload identical to cw feedback summary --json.",
+    "evidence": "src/capability-registry.ts:451",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_commit_summary",
+    "behavior": "Read the structured commit summary for a run. Required args: runId. Payload identical to cw commit summary --json.",
+    "evidence": "src/capability-registry.ts:265",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_summary",
+    "behavior": "Read the structured multi-agent runtime summary for a run. Required args: runId. Payload identical to cw multi-agent summary --json.",
+    "evidence": "src/capability-registry.ts:351",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_graph",
+    "behavior": "Read the structured multi-agent operator graph for a run. Required args: runId. Payload identical to cw multi-agent graph --json.",
+    "evidence": "src/capability-registry.ts:353",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_dependencies",
+    "behavior": "Read derived multi-agent dependency edges for operator inspection. Required args: runId. Payload identical to cw multi-agent dependencies --json.",
+    "evidence": "src/capability-registry.ts:355",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_failures",
+    "behavior": "Read failed, blocked, rejected, and ambiguous multi-agent records. Required args: runId. Payload identical to cw multi-agent failures --json.",
+    "evidence": "src/capability-registry.ts:356",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_evidence",
+    "behavior": "Read evidence adoption status from worker output through selection and commit. Each row carries a derived rationaleStatus (explained|unexplained|not-applicable). Required args: runId. Payload identical to cw multi-agent evidence --json.",
+    "evidence": "src/capability-registry.ts:357",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_evidence_reasoning",
+    "behavior": "Explain why each evidence item was adopted/rejected. Required args: runId. Payload identical to cw multi-agent reasoning --json.",
+    "evidence": "src/capability-registry.ts:358",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_evidence_reasoning_refresh",
+    "behavior": "Refresh the durable evidence-reasoning index. Required args: runId. Payload identical to cw multi-agent reasoning --json.",
+    "evidence": "src/capability-registry.ts:359",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_summary_refresh",
+    "behavior": "Refresh state-explosion summaries. Required args: runId. Payload identical to cw summary refresh --json.",
+    "evidence": "src/capability-registry.ts:341",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_summary_show",
+    "behavior": "Read the persisted state-explosion report. Required args: runId. Payload identical to cw summary show --json.",
+    "evidence": "src/capability-registry.ts:342",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_summarize",
+    "behavior": "Read a blackboard digest with conflicts/evidence. Required args: runId. Payload identical to cw blackboard summarize --json.",
+    "evidence": "src/capability-registry.ts:386",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_summarize",
+    "behavior": "Read the combined state-explosion report. Required args: runId. Payload identical to cw multi-agent summarize --json.",
+    "evidence": "src/capability-registry.ts:352",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_graph_compact",
+    "behavior": "Read a compact/focused multi-agent graph view. Required args: runId. Payload identical to cw multi-agent graph --json.",
+    "evidence": "src/capability-registry.ts:354",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_run",
+    "behavior": "Create or attach a topology-backed multi-agent run. Required args: (none). Payload identical to cw multi-agent run --json.",
+    "evidence": "src/capability-registry.ts:345",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_status",
+    "behavior": "Read combined topology/blackboard/worker status. Required args: runId. Payload identical to cw multi-agent status --json.",
+    "evidence": "src/capability-registry.ts:346",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_step",
+    "behavior": "Perform one safe deterministic host step. Required args: runId. Payload identical to cw multi-agent step --json.",
+    "evidence": "src/capability-registry.ts:347",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_blackboard",
+    "behavior": "Operate on the active multi-agent blackboard. Required args: runId. Payload identical to cw multi-agent blackboard --json.",
+    "evidence": "src/capability-registry.ts:348",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_score",
+    "behavior": "Score a candidate with evidence. Required args: runId. Payload identical to cw multi-agent score --json.",
+    "evidence": "src/capability-registry.ts:349",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_select",
+    "behavior": "Select a candidate with the verifier gate. Required args: runId. Payload identical to cw multi-agent select --json.",
+    "evidence": "src/capability-registry.ts:350",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_eval_snapshot",
+    "behavior": "Create a deterministic replay snapshot. Required args: runId. Payload identical to cw eval snapshot --json.",
+    "evidence": "src/capability-registry.ts:377",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_eval_replay",
+    "behavior": "Replay a snapshot without live agents. Required args: snapshot|snapshotId|path. Payload identical to cw eval replay --json.",
+    "evidence": "src/capability-registry.ts:378",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_eval_compare",
+    "behavior": "Compare baseline and replay deterministically. Required args: baseline|baselinePath, replay|replayPath. Payload identical to cw eval compare --json.",
+    "evidence": "src/capability-registry.ts:379",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_eval_score",
+    "behavior": "Score replay quality. Required args: replay|replayPath|path. Payload identical to cw eval score --json.",
+    "evidence": "src/capability-registry.ts:380",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_eval_gate",
+    "behavior": "Run the eval/replay regression gate. Required args: suite|suiteId|path. Payload identical to cw eval gate --json.",
+    "evidence": "src/capability-registry.ts:381",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_eval_report",
+    "behavior": "Render an eval/replay report. Required args: replay|replayPath|path. Payload identical to cw eval report --json.",
+    "evidence": "src/capability-registry.ts:382",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_run_create",
+    "behavior": "Create a MultiAgentRun state record. Required args: runId. Payload identical to cw multi-agent run --json.",
+    "evidence": "src/capability-registry.ts:362",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_run_transition",
+    "behavior": "Transition a MultiAgentRun lifecycle. Required args: runId. Payload identical to cw multi-agent run --json.",
+    "evidence": "src/capability-registry.ts:363",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_run_show",
+    "behavior": "Show one MultiAgentRun record. Required args: runId. Payload identical to cw multi-agent show --json.",
+    "evidence": "src/capability-registry.ts:364",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_role_create",
+    "behavior": "Create an AgentRole record. Required args: runId. Payload identical to cw multi-agent role --json.",
+    "evidence": "src/capability-registry.ts:365",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_role_show",
+    "behavior": "Show one AgentRole record. Required args: runId, roleId. Payload identical to cw multi-agent role --json.",
+    "evidence": "src/capability-registry.ts:366",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_group_create",
+    "behavior": "Create an AgentGroup record. Required args: runId. Payload identical to cw multi-agent group --json.",
+    "evidence": "src/capability-registry.ts:367",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_group_show",
+    "behavior": "Show one AgentGroup record. Required args: runId, groupId. Payload identical to cw multi-agent group --json.",
+    "evidence": "src/capability-registry.ts:368",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_membership_create",
+    "behavior": "Create an AgentMembership record. Required args: runId. Payload identical to cw multi-agent membership --json.",
+    "evidence": "src/capability-registry.ts:369",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_membership_show",
+    "behavior": "Show one AgentMembership record. Required args: runId, membershipId. Payload identical to cw multi-agent membership --json.",
+    "evidence": "src/capability-registry.ts:370",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_fanout_create",
+    "behavior": "Create an AgentFanout record. Required args: runId. Payload identical to cw multi-agent fanout --json.",
+    "evidence": "src/capability-registry.ts:371",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_fanout_show",
+    "behavior": "Show one AgentFanout record. Required args: runId, fanoutId. Payload identical to cw multi-agent fanout --json.",
+    "evidence": "src/capability-registry.ts:372",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_fanin_collect",
+    "behavior": "Collect an AgentFanin with evidence coverage. Required args: runId. Payload identical to cw multi-agent fanin --json.",
+    "evidence": "src/capability-registry.ts:373",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_multi_agent_fanin_show",
+    "behavior": "Show one AgentFanin record. Required args: runId, faninId. Payload identical to cw multi-agent fanin --json.",
+    "evidence": "src/capability-registry.ts:374",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_topology_list",
+    "behavior": "List official topology definitions. Required args: (none). Payload identical to cw topology list --json.",
+    "evidence": "src/capability-registry.ts:333",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_topology_show",
+    "behavior": "Show a topology definition or run. Required args: topologyId|id. Payload identical to cw topology show --json.",
+    "evidence": "src/capability-registry.ts:334",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_topology_validate",
+    "behavior": "Validate a topology definition. Required args: topologyId|id. Payload identical to cw topology validate --json.",
+    "evidence": "src/capability-registry.ts:335",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_topology_apply",
+    "behavior": "Apply a topology to a run. Required args: runId, topologyId|id. Payload identical to cw topology apply --json.",
+    "evidence": "src/capability-registry.ts:336",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_topology_summary",
+    "behavior": "Read topology progress and next actions. Required args: runId. Payload identical to cw topology summary --json.",
+    "evidence": "src/capability-registry.ts:337",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_topology_graph",
+    "behavior": "Read topology graph nodes and edges. Required args: runId. Payload identical to cw topology graph --json.",
+    "evidence": "src/capability-registry.ts:338",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_summary",
+    "behavior": "Read the blackboard/coordinator summary. Required args: runId. Payload identical to cw blackboard summary --json.",
+    "evidence": "src/capability-registry.ts:385",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_graph",
+    "behavior": "Read blackboard graph nodes and edges. Required args: runId. Payload identical to cw blackboard graph --json.",
+    "evidence": "src/capability-registry.ts:387",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_resolve",
+    "behavior": "Create or resolve a run blackboard. Required args: runId. Payload identical to cw blackboard resolve --json.",
+    "evidence": "src/capability-registry.ts:388",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_topic_create",
+    "behavior": "Create a blackboard topic. Required args: runId. Payload identical to cw blackboard topic create --json.",
+    "evidence": "src/capability-registry.ts:389",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_message_post",
+    "behavior": "Post a blackboard message. Required args: runId. Payload identical to cw blackboard message post --json.",
+    "evidence": "src/capability-registry.ts:390",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_message_list",
+    "behavior": "List blackboard messages. Required args: runId. Payload identical to cw blackboard message list --json.",
+    "evidence": "src/capability-registry.ts:391",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_context_put",
+    "behavior": "Publish a shared context frame. Required args: runId. Payload identical to cw blackboard context put --json.",
+    "evidence": "src/capability-registry.ts:392",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_artifact_add",
+    "behavior": "Index an artifact in the blackboard. Required args: runId. Payload identical to cw blackboard artifact add --json.",
+    "evidence": "src/capability-registry.ts:393",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_artifact_list",
+    "behavior": "List blackboard artifact refs. Required args: runId. Payload identical to cw blackboard artifact list --json.",
+    "evidence": "src/capability-registry.ts:394",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_blackboard_snapshot",
+    "behavior": "Create a durable blackboard snapshot. Required args: runId. Payload identical to cw blackboard snapshot --json.",
+    "evidence": "src/capability-registry.ts:395",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_coordinator_summary",
+    "behavior": "Read the coordinator summary. Required args: runId. Payload identical to cw coordinator summary --json.",
+    "evidence": "src/capability-registry.ts:396",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_coordinator_decision",
+    "behavior": "Record a coordinator decision. Required args: runId. Payload identical to cw coordinator decision --json.",
+    "evidence": "src/capability-registry.ts:397",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_summary",
+    "behavior": "Read the trust/audit summary. Required args: runId. Payload identical to cw audit summary --json.",
+    "evidence": "src/capability-registry.ts:400",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_verify",
+    "behavior": "Re-prove a run's trust-audit hash chain (fail-closed exit). Required args: runId. Payload identical to cw audit verify --json.",
+    "evidence": "src/capability-registry.ts:401",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_worker",
+    "behavior": "Read trust/audit for one worker. Required args: runId. Payload identical to cw audit worker --json.",
+    "evidence": "src/capability-registry.ts:402",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_provenance",
+    "behavior": "Inspect evidence provenance. Required args: runId. Payload identical to cw audit provenance --json.",
+    "evidence": "src/capability-registry.ts:403",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_multi_agent",
+    "behavior": "Read the multi-agent trust/policy/provenance audit. Required args: runId. Payload identical to cw audit multi-agent --json.",
+    "evidence": "src/capability-registry.ts:404",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_policy",
+    "behavior": "Read role policies and permission decisions. Required args: runId. Payload identical to cw audit policy --json.",
+    "evidence": "src/capability-registry.ts:405",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_role",
+    "behavior": "Read policy/audit for one role. Required args: runId. Payload identical to cw audit role --json.",
+    "evidence": "src/capability-registry.ts:406",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_blackboard",
+    "behavior": "Read the blackboard write audit. Required args: runId. Payload identical to cw audit blackboard --json.",
+    "evidence": "src/capability-registry.ts:407",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_judge",
+    "behavior": "Read judge rationale/panel decision audit. Required args: runId. Payload identical to cw audit judge --json.",
+    "evidence": "src/capability-registry.ts:408",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_attest",
+    "behavior": "Record a host/operator sandbox attestation. Required args: runId. Payload identical to cw audit attest --json.",
+    "evidence": "src/capability-registry.ts:409",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_audit_decision",
+    "behavior": "Validate and record a sandbox decision. Required args: runId. Payload identical to cw audit decision --json.",
+    "evidence": "src/capability-registry.ts:410",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_dispatch",
+    "behavior": "Create a subagent dispatch manifest. Required args: runId. Payload identical to cw dispatch --json.",
+    "evidence": "src/capability-registry.ts:238",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sandbox_list",
+    "behavior": "List bundled sandbox profiles. Required args: (none). Payload identical to cw sandbox list --json.",
+    "evidence": "src/capability-registry.ts:413",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sandbox_show",
+    "behavior": "Show a resolved sandbox profile. Required args: profileId. Payload identical to cw sandbox show --json.",
+    "evidence": "src/capability-registry.ts:414",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sandbox_validate",
+    "behavior": "Validate a sandbox profile JSON file. Required args: profileFile. Payload identical to cw sandbox validate --json.",
+    "evidence": "src/capability-registry.ts:415",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sandbox_choose",
+    "behavior": "Resolve and validate a sandbox profile choice. Required args: (none). Payload identical to cw sandbox choose --json.",
+    "evidence": "src/capability-registry.ts:416",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sandbox_resolve",
+    "behavior": "Alias of sandbox.choose. Required args: (none). Payload identical to cw sandbox resolve --json.",
+    "evidence": "src/capability-registry.ts:417",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_backend_list",
+    "behavior": "List available execution backends and their capabilities. Required args: (none). Payload identical to cw backend list --json.",
+    "evidence": "src/capability-registry.ts:420",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_backend_show",
+    "behavior": "Show one execution backend descriptor. Required args: (none). Payload identical to cw backend show --json.",
+    "evidence": "src/capability-registry.ts:421",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_backend_probe",
+    "behavior": "Probe execution backend readiness (live, deterministic). Required args: (none). Payload identical to cw backend probe --json.",
+    "evidence": "src/capability-registry.ts:422",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_backend_agent_config_show",
+    "behavior": "Show the effective agent delegation config (flags>env>file, secret-stripped, host-stable). Required args: (none). Payload identical to cw backend agent config --json.",
+    "evidence": "src/capability-registry.ts:425",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_backend_agent_config_set",
+    "behavior": "Set the durable agent delegation config (command-template/endpoint/model; API keys never written). Required args: (none). Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:426",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_result",
+    "behavior": "Record a subagent result file against a task. Required args: runId. Payload identical to cw result --json.",
+    "evidence": "src/capability-registry.ts:246",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_commit",
+    "behavior": "Create a verifier-gated commit or checkpoint. Required args: runId. Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:254",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_report",
+    "behavior": "Render a run report and return its canonical descriptor. Required args: runId. Payload identical to cw report --json.",
+    "evidence": "src/capability-registry.ts:273",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_app_list",
+    "behavior": "List CW workflow apps. Required args: (none). Payload identical to cw app list --json.",
+    "evidence": "src/capability-registry.ts:311",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_app_show",
+    "behavior": "Show a CW workflow app contract. Required args: (none). Payload identical to cw app show --json.",
+    "evidence": "src/capability-registry.ts:312",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_app_validate",
+    "behavior": "Validate an app by path or id. Required args: (none). Payload identical to cw app validate --json.",
+    "evidence": "src/capability-registry.ts:313",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_app_init",
+    "behavior": "Create a CW workflow app directory. Required args: (none). Payload identical to cw app init --json.",
+    "evidence": "src/capability-registry.ts:314",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_app_package",
+    "behavior": "Package an app as a JSON artifact. Required args: (none). Payload identical to cw app package --json.",
+    "evidence": "src/capability-registry.ts:315",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_worker_list",
+    "behavior": "List worker isolation scopes. Required args: runId. Payload identical to cw worker list --json.",
+    "evidence": "src/capability-registry.ts:429",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_worker_show",
+    "behavior": "Show one worker isolation scope. Required args: runId, workerId. Payload identical to cw worker show --json.",
+    "evidence": "src/capability-registry.ts:431",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_worker_manifest",
+    "behavior": "Write and return a worker manifest. Required args: runId. Payload identical to cw worker manifest --json.",
+    "evidence": "src/capability-registry.ts:432",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_worker_output",
+    "behavior": "Record worker output. Required args: runId. Payload identical to cw worker output --json.",
+    "evidence": "src/capability-registry.ts:433",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_worker_fail",
+    "behavior": "Record a structured worker failure. Required args: runId. Payload identical to cw worker fail --json.",
+    "evidence": "src/capability-registry.ts:434",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_worker_validate",
+    "behavior": "Validate a worker output boundary. Required args: runId. Payload identical to cw worker validate --json.",
+    "evidence": "src/capability-registry.ts:435",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_candidate_list",
+    "behavior": "List candidates for a run. Required args: runId. Payload identical to cw candidate list --json.",
+    "evidence": "src/capability-registry.ts:438",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_candidate_show",
+    "behavior": "Show one candidate. Required args: runId, candidateId. Payload identical to cw candidate show --json.",
+    "evidence": "src/capability-registry.ts:439",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_candidate_register",
+    "behavior": "Register a candidate from evidence. Required args: runId. Payload identical to cw candidate register --json.",
+    "evidence": "src/capability-registry.ts:440",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_candidate_score",
+    "behavior": "Score a candidate with criteria/evidence. Required args: runId. Payload identical to cw candidate score --json.",
+    "evidence": "src/capability-registry.ts:441",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_candidate_rank",
+    "behavior": "Rank candidates with gates. Required args: runId. Payload identical to cw candidate rank --json.",
+    "evidence": "src/capability-registry.ts:442",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_candidate_select",
+    "behavior": "Select a candidate with the verifier gate. Required args: runId. Payload identical to cw candidate select --json.",
+    "evidence": "src/capability-registry.ts:443",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_candidate_reject",
+    "behavior": "Reject a candidate with a reason. Required args: runId. Payload identical to cw candidate reject --json.",
+    "evidence": "src/capability-registry.ts:444",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_approve",
+    "behavior": "Append a host-attested approval of a candidate/commit/selection. Required args: runId, targetKind|kind, targetId|target. Payload identical to cw approve --json.",
+    "evidence": "src/capability-registry.ts:572",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_reject",
+    "behavior": "Append a host-attested rejection (blocking veto) of a candidate/commit/selection. Required args: runId, targetKind|kind, targetId|target. Payload identical to cw reject --json.",
+    "evidence": "src/capability-registry.ts:573",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_comment_add",
+    "behavior": "Append a comment to a durable target. Required args: runId, targetKind|kind, targetId|target, body|message|text. Payload identical to cw comment add --json.",
+    "evidence": "src/capability-registry.ts:574",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_comment_list",
+    "behavior": "List append-only comments for a run (optionally one target). Required args: runId. Payload identical to cw comment list --json.",
+    "evidence": "src/capability-registry.ts:575",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_handoff",
+    "behavior": "Record an ownership transfer (from-actor → to-actor) of a run/task. Required args: runId, targetKind|kind, targetId|target, to|toActor. Payload identical to cw handoff --json.",
+    "evidence": "src/capability-registry.ts:576",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_ledger_propose",
+    "behavior": "Build a verifiable cross-agent change proposal entry (printed as JSON). Required args: from, to, title, rationale. Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:581",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_ledger_review",
+    "behavior": "Build a verifiable cross-agent review verdict entry (printed as JSON). Required args: from, to, target, verdict. Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:582",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_ledger_verify",
+    "behavior": "Verify a ledger entry against its content digest (fail-closed on tampering). Required args: entry. Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:583",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_ledger_apply",
+    "behavior": "Verify a proposal entry and return its suggestedDiff for `git apply` (fail-closed: no diff unless the entry verifies as a proposal). Required args: entry. Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:584",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_ledger_list",
+    "behavior": "Read + verify every entry in one or more shared ledger directories (fail-closed inbox; 2+ dirs union-verify mirrors). Required args: dir|dirs. Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:585",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_review_status",
+    "behavior": "Read the derived per-target review state + collaboration timeline for a run. Required args: runId. Payload identical to cw review status --json.",
+    "evidence": "src/capability-registry.ts:577",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_review_policy",
+    "behavior": "Set the run's review-gate policy (required approvals, authorized roles, self-approval rule). Required args: runId. Payload identical to cw review policy --json.",
+    "evidence": "src/capability-registry.ts:578",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_feedback_list",
+    "behavior": "List run feedback records. Required args: runId. Payload identical to cw feedback list --json.",
+    "evidence": "src/capability-registry.ts:448",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_feedback_show",
+    "behavior": "Show a run feedback record. Required args: runId, feedbackId. Payload identical to cw feedback show --json.",
+    "evidence": "src/capability-registry.ts:449",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_feedback_collect",
+    "behavior": "Collect feedback from failed nodes. Required args: runId. Payload identical to cw feedback collect --json.",
+    "evidence": "src/capability-registry.ts:450",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_feedback_task",
+    "behavior": "Create a correction task for feedback. Required args: runId. Payload identical to cw feedback task --json.",
+    "evidence": "src/capability-registry.ts:452",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_feedback_resolve",
+    "behavior": "Resolve or reject feedback. Required args: runId. Payload identical to cw feedback resolve --json.",
+    "evidence": "src/capability-registry.ts:453",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_create",
+    "behavior": "Create a scheduled CW task. Required args: (none). Payload identical to cw schedule create --json.",
+    "evidence": "src/capability-registry.ts:456",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_list",
+    "behavior": "List scheduled CW tasks. Required args: (none). Payload identical to cw schedule list --json.",
+    "evidence": "src/capability-registry.ts:457",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_due",
+    "behavior": "List due scheduled CW tasks. Required args: (none). Payload identical to cw schedule due --json.",
+    "evidence": "src/capability-registry.ts:459",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_complete",
+    "behavior": "Mark a scheduled task complete. Required args: id. Payload identical to cw schedule complete --json.",
+    "evidence": "src/capability-registry.ts:460",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_pause",
+    "behavior": "Pause a scheduled CW task. Required args: id. Payload identical to cw schedule pause --json.",
+    "evidence": "src/capability-registry.ts:461",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_resume",
+    "behavior": "Resume a scheduled CW task. Required args: id. Payload identical to cw schedule resume --json.",
+    "evidence": "src/capability-registry.ts:462",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_run_now",
+    "behavior": "Create an immediate scheduled-task run record. Required args: id. Payload identical to cw schedule run-now --json.",
+    "evidence": "src/capability-registry.ts:463",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_history",
+    "behavior": "List scheduled-task run history. Required args: (none). Payload identical to cw schedule history --json.",
+    "evidence": "src/capability-registry.ts:464",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_schedule_delete",
+    "behavior": "Delete a scheduled CW task. Required args: id. Payload identical to cw schedule delete --json.",
+    "evidence": "src/capability-registry.ts:458",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_routine_create",
+    "behavior": "Create a routine-style API/GitHub trigger. Required args: (none). Payload identical to cw routine create --json.",
+    "evidence": "src/capability-registry.ts:475",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_routine_list",
+    "behavior": "List routine-style triggers. Required args: (none). Payload identical to cw routine list --json.",
+    "evidence": "src/capability-registry.ts:476",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_routine_fire",
+    "behavior": "Record an API/GitHub trigger event. Required args: kind. Payload identical to cw routine fire --json.",
+    "evidence": "src/capability-registry.ts:478",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_routine_events",
+    "behavior": "List routine trigger events. Required args: (none). Payload identical to cw routine events --json.",
+    "evidence": "src/capability-registry.ts:479",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_routine_delete",
+    "behavior": "Delete a routine-style trigger. Required args: id. Payload identical to cw routine delete --json.",
+    "evidence": "src/capability-registry.ts:477",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_registry_refresh",
+    "behavior": "Recompute and persist the derived run registry index. Required args: (none). Payload identical to cw registry refresh --json.",
+    "evidence": "src/capability-registry.ts:486",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_registry_show",
+    "behavior": "Read the run registry index with valid|stale|absent freshness. Required args: (none). Payload identical to cw registry show --json.",
+    "evidence": "src/capability-registry.ts:487",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_metrics_show",
+    "behavior": "Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage). Required args: runId. Payload identical to cw metrics show --json.",
+    "evidence": "src/capability-registry.ts:561",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_metrics_summary",
+    "behavior": "Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns. Required args: (none). Payload identical to cw metrics summary --json.",
+    "evidence": "src/capability-registry.ts:562",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_search",
+    "behavior": "Search runs by app/status/time/repo/free-text, deterministic + paginated. Required args: (none). Payload identical to cw run search --json.",
+    "evidence": "src/capability-registry.ts:488",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_list",
+    "behavior": "List indexed runs across repos (search with no filters). Required args: (none). Payload identical to cw run list --json.",
+    "evidence": "src/capability-registry.ts:489",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_show",
+    "behavior": "Resolve one run by id across the registry; fail closed on missing source. Required args: runId. Payload identical to cw run show --json.",
+    "evidence": "src/capability-registry.ts:490",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_resume",
+    "behavior": "Resolve a run by id and return its next runnable tasks/actions (read-only by default; the opt-in --drive/--once mode hands it to the shared agent-drive core, which mutates and is covered by run.drive.step). Required args: runId. Payload identical to cw run resume --json.",
+    "evidence": "src/capability-registry.ts:491",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_archive",
+    "behavior": "Archive/unarchive a run (overlay mark; never deletes source). Required args: runId|olderThanDays. Payload identical to cw run archive --json.",
+    "evidence": "src/capability-registry.ts:492",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_rerun",
+    "behavior": "Re-run a failed run as a NEW run linked to the original by provenance. Required args: runId. Payload identical to cw run rerun --json.",
+    "evidence": "src/capability-registry.ts:493",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_export",
+    "behavior": "Export a run to a portable archive with run-local files and digest integrity. Required args: runId. Payload identical to cw run export --json.",
+    "evidence": "src/capability-registry.ts:494",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_import",
+    "behavior": "Restore a portable run archive into a target repo and verify restored file digests. Required args: archive|path|file. Payload identical to cw run import --json.",
+    "evidence": "src/capability-registry.ts:495",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_verify_import",
+    "behavior": "Verify an imported run against its restore manifest and telemetry chain. Required args: runId. Payload identical to cw run verify-import --json.",
+    "evidence": "src/capability-registry.ts:496",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_inspect_archive",
+    "behavior": "Read-only integrity inspection of a portable run archive without importing it. Required args: archive|path|file. Payload identical to cw run inspect-archive --json.",
+    "evidence": "src/capability-registry.ts:497",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_restore",
+    "behavior": "Fail-closed restore of a portable run archive: integrity-inspect, import, and verify in one step; refuses anything that does not verify. Required args: archive|path|file. Payload identical to cw run restore --json.",
+    "evidence": "src/capability-registry.ts:498",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_report_verify_bundle",
+    "behavior": "Offline self-contained verify of a portable run bundle: archive bytes + telemetry chain + trust-audit chain + embedded-key signatures. Required args: archive|path|file|bundle. Payload identical to cw report verify-bundle --json.",
+    "evidence": "src/capability-registry.ts:499",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_report_bundle",
+    "behavior": "Produce-and-prove: export a run to a portable bundle sealed with the trust key, then self-verify it offline (fail-closed) so the producer knows it is verifiable before shipping. Required args: runId. Payload identical to cw report bundle --json.",
+    "evidence": "src/capability-registry.ts:500",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_drive",
+    "behavior": "Preview the next agent-delegation drive step for a run (read-only, deterministic). Required args: (none). Payload identical to cw run drive --json.",
+    "evidence": "src/capability-registry.ts:501",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_run_drive_step",
+    "behavior": "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step). Required args: (none). Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:502",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_queue_add",
+    "behavior": "Enqueue a pending/planned run with explicit ordering policy. Required args: (none). Payload identical to cw queue add --json.",
+    "evidence": "src/capability-registry.ts:511",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_queue_list",
+    "behavior": "List the durable run queue in policy order. Required args: (none). Payload identical to cw queue list --json.",
+    "evidence": "src/capability-registry.ts:512",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_queue_drain",
+    "behavior": "Mark the next ready queue entries drained (the host still executes). Required args: (none). Payload identical to cw queue drain --json.",
+    "evidence": "src/capability-registry.ts:513",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_queue_show",
+    "behavior": "Show one durable queue entry. Required args: id. Payload identical to cw queue show --json.",
+    "evidence": "src/capability-registry.ts:514",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sched_plan",
+    "behavior": "Read-only control-plane lease plan for the queue+policy+now. Required args: (none). Payload identical to cw sched plan --json.",
+    "evidence": "src/capability-registry.ts:517",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sched_lease",
+    "behavior": "Claim eligible queue entries as leases (concurrency-bounded). Required args: (none). Payload identical to cw sched lease --json.",
+    "evidence": "src/capability-registry.ts:518",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sched_release",
+    "behavior": "Release a held lease (failed -> retry/backoff or park). Required args: (none). Payload identical to cw sched release --json.",
+    "evidence": "src/capability-registry.ts:519",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sched_complete",
+    "behavior": "Complete a held lease (terminal success). Required args: (none). Payload identical to cw sched complete --json.",
+    "evidence": "src/capability-registry.ts:520",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sched_reclaim",
+    "behavior": "Reclaim expired leases (each counts a failed attempt). Required args: (none). Payload identical to cw sched reclaim --json.",
+    "evidence": "src/capability-registry.ts:521",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sched_reset",
+    "behavior": "Reset a parked entry to ready (operator recovery). Required args: (none). Payload identical to cw sched reset --json.",
+    "evidence": "src/capability-registry.ts:522",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sched_policy_show",
+    "behavior": "Show the scheduling policy (file or default). Required args: (none). Payload identical to cw sched policy --json.",
+    "evidence": "src/capability-registry.ts:523",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_sched_policy_set",
+    "behavior": "Set scheduling policy fields (concurrency/attempts/backoff/TTL). Required args: (none). Payload identical to cw sched policy --json.",
+    "evidence": "src/capability-registry.ts:524",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_gc_plan",
+    "behavior": "Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing. Required args: (none). Payload identical to cw gc plan --json.",
+    "evidence": "src/capability-registry.ts:530",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_gc_run",
+    "behavior": "Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free). Required args: (none). Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:531",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_gc_verify",
+    "behavior": "Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable. Required args: runId. Payload identical to cw gc verify --json.",
+    "evidence": "src/capability-registry.ts:532",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_clones_list",
+    "behavior": "List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only. Required args: (none). Payload identical to cw clones list --json.",
+    "evidence": "src/capability-registry.ts:533",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_clones_gc",
+    "behavior": "Reclaim cached remote-source checkouts: a TTL sweep (--older-than-days, default 30) or --all. Deletes only inside the clones cache. Required args: (none). Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:534",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_orphans_list",
+    "behavior": "List run directories under .cw/runs/ that the run registry cannot see (no state.json — a killed/interrupted process never wrote one), with age + bytes. Read-only. Required args: (none). Payload identical to cw orphans list --json.",
+    "evidence": "src/capability-registry.ts:535",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_orphans_gc",
+    "behavior": "Reclaim orphan run directories (no state.json): an age sweep (--min-age-minutes, default 60) or --all. Deletes only inside a scanned repo's .cw/runs/, never a run the registry knows about. Required args: (none). Payload projected (declared divergence).",
+    "evidence": "src/capability-registry.ts:536",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_telemetry_verify",
+    "behavior": "Re-prove a run's telemetry attestation ledger offline: chain linkage + independent hash recompute, and (with --pubkey / CW_AGENT_ATTEST_PUBKEY) re-verify each attested hop's ed25519 signature against the public key. Required args: runId. Payload identical to cw telemetry verify --json.",
+    "evidence": "src/capability-registry.ts:537",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "mcp_tool",
+    "id": "cw_history",
+    "behavior": "Read a cross-repo unified run timeline (newest first). Required args: (none). Payload identical to cw history --json.",
+    "evidence": "src/capability-registry.ts:540",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js",
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "command",
+    "id": "node dist/mcp-server.js",
+    "behavior": "Start the long-lived MCP stdio server; newline-delimited JSON-RPC 2.0 on stdin/stdout, no Content-Length headers.",
+    "evidence": "src/mcp-server.ts:15",
+    "tests": [
+      "test/mcp-app-surface-smoke.js",
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "command",
+    "id": "scripts/mcp-server.js",
+    "behavior": "4-line shim that requires ../dist/mcp-server.js.",
+    "evidence": "scripts/mcp-server.js:4",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "jsonrpc.initialize",
+    "behavior": "initialize answers {protocolVersion:\"2024-11-05\",capabilities:{tools:{}},serverInfo:{name:\"cool-workflow\",version:CURRENT_COOL_WORKFLOW_VERSION}}.",
+    "evidence": "src/mcp-server.ts:53",
+    "tests": [
+      "test/mcp-app-surface-smoke.js",
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "jsonrpc.tools_list",
+    "behavior": "tools/list answers {tools:[196 definitions]} in source order, cw_list first, cw_history last; must equal toolDefinitions() exactly.",
+    "evidence": "src/mcp-server.ts:61",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "jsonrpc.tools_call.envelope",
+    "behavior": "tools/call answers {content:[{type:\"text\",text:JSON.stringify(result,null,2)}]} — the core result as a 2-space pretty JSON string.",
+    "evidence": "src/mcp-server.ts:69",
+    "tests": [
+      "test/mcp-app-surface-smoke.js",
+      "scripts/parity-check.js"
+    ]
+  },
+  {
+    "kind": "stdout_format",
+    "id": "jsonrpc.line_framing",
+    "behavior": "Every server message is JSON.stringify(message)+\"\\n\" on stdout; input lines are split on \\n, trimmed, empty lines skipped.",
+    "evidence": "src/mcp-server.ts:24-31",
+    "tests": [
+      "test/mcp-app-surface-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "jsonrpc.error.-32700.parse",
+    "behavior": "Broken JSON line answers {code:-32700,message:\"Parse error: <JSON.parse message>\"} with id null, even when the line held an id.",
+    "evidence": "src/mcp-server.ts:44-46",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "jsonrpc.error.-32700.line_cap",
+    "behavior": "Unconsumed stdin buffer over MAX_LINE_BYTES=16*1024*1024 with no newline is dropped and answered with code -32700 message \"Parse error: request line exceeds 16777216 bytes\", id null.",
+    "evidence": "src/mcp-server.ts:22-37",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "jsonrpc.error.-32600",
+    "behavior": "Valid JSON that is not an object (number/string/array/null) answers {code:-32600,message:\"Invalid Request: not a JSON-RPC object\"} with id null.",
+    "evidence": "src/mcp-server.ts:48-51",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "jsonrpc.error.-32601",
+    "behavior": "Unknown method with an id key (null counts) answers {code:-32601,message:\"Unknown method: <method>\"}; an id-less unknown method gets no answer at all.",
+    "evidence": "src/mcp-server.ts:74",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "jsonrpc.error.-32000",
+    "behavior": "Any error thrown by tool name/argument checks or the core answers {code:-32000,message:<error message>} with the request id.",
+    "evidence": "src/mcp-server.ts:75-77",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "tools_call.missing_name",
+    "behavior": "tools/call with params.name missing, empty, or spaces-only throws \"MCP tools/call missing required field: name\" (-32000).",
+    "evidence": "src/mcp-server.ts:80-83",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "tools_call.unknown_tool",
+    "behavior": "A tool name not in the dispatch switch throws \"Unknown tool: <name>\" (-32000).",
+    "evidence": "src/mcp/tool-call.ts:513",
+    "tests": [
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "tools_call.args_must_be_object",
+    "behavior": "Non-object arguments throw \"MCP tool <name> arguments must be an object.\"; null/absent arguments become {}.",
+    "evidence": "src/mcp-surface.ts:8-9",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "tools_call.required_args",
+    "behavior": "Required-argument groups come from registry data (McpBinding.requiredArgs); group \"a|b\" needs one key that is not undefined, null, or \"\"; failure throws \"MCP tool <name> missing required argument: a or b\".",
+    "evidence": "src/mcp-surface.ts:11-16",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "tools_call.cwd_resolution",
+    "behavior": "A non-empty args.cwd is path.resolve-d, must be a directory (else \"MCP cwd is not a directory: <path>\"), is written back into a copy of args, and re-bases the runner via withBaseDir(cwd); Scheduler/RoutineTriggerBridge use cwd||process.cwd().",
+    "evidence": "src/mcp/tool-call.ts:76-82",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "tools_call.explicit_switch",
+    "behavior": "Dispatch is an explicit switch by design; descriptor.entry does not reliably name the called function (cw_app_run entry=validateApp calls appRun; cw_commit entry=commit calls commitEnvelope) — a generic dispatcher would false-green.",
+    "evidence": "src/mcp/tool-call.ts:63-75",
+    "tests": [
+      "test/mcp-tool-call-coverage-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "schema.additional_properties",
+    "behavior": "Every tool inputSchema is {type:\"object\",properties,additionalProperties:true}; unknown extra keys pass through to the core.",
+    "evidence": "src/capability-registry.ts:849-853",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "schema.property_shapes",
+    "behavior": "Property values are string/number/boolean/object(additionalProperties:true)/array(items:{}) helpers; two hand-written exceptions: cw_commit.allowUnverifiedCheckpoint (plain boolean) and cw_routine_fire.payload (object with NO additionalProperties key).",
+    "evidence": "src/mcp/tool-definitions.ts:1035-1053",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "workbench_serve.descriptor_only",
+    "behavior": "cw_workbench_serve forces once:true and only returns the serve descriptor identical to `cw workbench serve --json`; it never starts the blocking localhost host (declared divergence).",
+    "evidence": "src/mcp/tool-call.ts:507-511",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "ledger_review.verdict_check",
+    "behavior": "cw_ledger_review upper-cases verdict and refuses anything but APPROVED/REJECTED with error 'verdict must be \"approved\" or \"rejected\".'.",
+    "evidence": "src/mcp/tool-call.ts:361-363",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "ledger_list.union_dirs",
+    "behavior": "cw_ledger_list with dirs array of 2+ union-verifies mirrors (unionLedgerEntries); else listLedgerEntries(dirs[0] || dir).",
+    "evidence": "src/mcp/tool-call.ts:377-382",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "topology_show.routing",
+    "behavior": "cw_topology_show with runId AND (topologyRunId or id) shows a topology run; else shows the official topology named by topologyId/id.",
+    "evidence": "src/mcp/tool-call.ts:214-216",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "routine_fire.payload_fallback",
+    "behavior": "cw_routine_fire fires with args.payload || args — with no payload key the whole args bag is the event payload.",
+    "evidence": "src/mcp/tool-call.ts:422",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "registry.single_source",
+    "behavior": "CAPABILITY_REGISTRY (209 capabilities, 196 MCP tools, 13 cli-only, 0 mcp-only) is the one declared source both surfaces are gated against; dedupe by capability id, last declaration wins.",
+    "evidence": "src/capability-registry.ts:592-594",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/mcp-surface-registry-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parity.static_gate",
+    "behavior": "buildParityReport fails closed on: tool/token on one surface only, live-but-undeclared tools/tokens, help-token gaps, reasonless exceptions, probe misclassification, registry lint.",
+    "evidence": "src/capability-registry.ts:980-1031",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parity.payload_gate",
+    "behavior": "For every non-opted-out both-surface capability, `cw <cmd> --json` must byte-equal the cw_<tool> result after neutralizing ISO timestamps (and for scenarios: workspace roots, run/snapshot/replay/dispatch ids, durationMs, sha256/hex64).",
+    "evidence": "scripts/parity-check.js:104-133",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parity.probe_plan",
+    "behavior": "73 payload probes: 7 global, 23 run-scoped, 43 scenario; every payload-identical capability must be classified exactly once or deferred with a reason, else the gate fails.",
+    "evidence": "src/capability-registry.ts:600-806",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parity.opt_out_rule",
+    "behavior": "A capability escapes the payload probe only with BOTH payloadIdentical:false AND a non-empty reason; a bare payloadIdentical:false stays probed (fail closed).",
+    "evidence": "src/capability-registry.ts:903-905",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parity.projected_set",
+    "behavior": "Exactly 12 declared payload-divergent (projected) capabilities: commit, backend.agent.config.set, run.drive.step, gc.run, clones.gc, orphans.gc, workbench.serve, ledger.propose, ledger.review, ledger.verify, ledger.apply, ledger.list.",
+    "evidence": "docs/cli-mcp-parity.7.md:332-346",
+    "tests": [
+      "test/parity-doc-sync-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parity.cli_only_set",
+    "behavior": "Exactly 13 declared cli-only capabilities: help, version, update, fix, info, search, man, doctor, loop, schedule.daemon, quickstart, demo.tamper, demo.bundle — each with a recorded reason.",
+    "evidence": "docs/cli-mcp-parity.7.md:314-329",
+    "tests": [
+      "test/parity-doc-sync-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "parity.cli_token_scan",
+    "behavior": "The gate parses live CLI tokens as case \"<token>\": strings from dist/cli.js, dist/cli/command-surface.js, and every dist/cli/handlers/*.js.",
+    "evidence": "scripts/parity-check.js:66-81",
+    "tests": []
+  },
+  {
+    "kind": "command",
+    "id": "node scripts/parity-check.js",
+    "behavior": "Print the parity report JSON {ok,static,payload}; boots the real server for tools/list and runs the 73 payload probes on temp workspaces.",
+    "evidence": "scripts/parity-check.js:890-910",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js"
+    ]
+  },
+  {
+    "kind": "flag",
+    "id": "parity-check --check",
+    "behavior": "Exit 1 on ANY drift; stderr starts \"CLI <-> MCP parity drift detected (release-blocking):\" and ends \"Reconcile src/capability-registry.ts, cli.ts, and mcp-server.ts so both surfaces render one data source.\".",
+    "evidence": "scripts/parity-check.js:912-929",
+    "tests": []
+  },
+  {
+    "kind": "exit_code",
+    "id": "parity-check exit 1 on error",
+    "behavior": "Any thrown error prints \"parity-check: <message>\" to stderr and exits 1.",
+    "evidence": "scripts/parity-check.js:932-935",
+    "tests": []
+  },
+  {
+    "kind": "command",
+    "id": "node scripts/gen-manifests.js",
+    "behavior": "Write all 12 vendor manifests from manifest/plugin.manifest.json via {{path}} templates; stdout {ok,mode,results[]}; files serialized as JSON.stringify(json,null,2)+\"\\n\".",
+    "evidence": "scripts/gen-manifests.js:199-220",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "flag",
+    "id": "gen-manifests --check",
+    "behavior": "Compare instead of write; per-file status in-sync|drift|missing; on drift stderr \"<N> generated manifest(s) drifted from manifest/plugin.manifest.json:\" + paths + \"Run `npm run gen:manifests` and commit the result.\" and exit 1.",
+    "evidence": "scripts/gen-manifests.js:208-229",
+    "tests": []
+  },
+  {
+    "kind": "behavior",
+    "id": "gen-manifests.template_engine",
+    "behavior": "{{path.to.field}} dot-path interpolation; whole-string markers resolve to real JS values; |lowercase is the only transformer; {{pluginRootVar}} resolves per vendor; unresolved markers stay literal; object keys may be markers; legacy hardcoded build when no vendors key.",
+    "evidence": "scripts/gen-manifests.js:52-178",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "command",
+    "id": "node scripts/gen-parity-doc.js",
+    "behavior": "Regenerate the four marker regions (gen:parity:count/table/cliOnly/projected) in docs/cli-mcp-parity.7.md from the registry; --check fails closed on drift.",
+    "evidence": "scripts/gen-parity-doc.js:1-16",
+    "tests": [
+      "test/parity-doc-sync-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": "manifest/plugin.manifest.json",
+    "behavior": "Hand-edited single source of truth for every vendor manifest: identity, descriptions, interface, layout (mcpServerScript=dist/mcp-server.js), mcp (serverName=cool-workflow, command=node), targets, vendors templates.",
+    "evidence": "manifest/plugin.manifest.json:2",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".mcp.json",
+    "behavior": "GENERATED Claude MCP config: {mcpServers:{\"cool-workflow\":{command:\"node\",args:[\"${CLAUDE_PLUGIN_ROOT}/dist/mcp-server.js\"]}}}.",
+    "evidence": ".mcp.json:1-10",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".claude-plugin/plugin.json",
+    "behavior": "GENERATED Claude plugin manifest (name/description/version/author/homepage/license/keywords) at plugins/cool-workflow/.claude-plugin/plugin.json; marketplace at repo-root .claude-plugin/marketplace.json.",
+    "evidence": "manifest/plugin.manifest.json:53-55",
+    "tests": []
+  },
+  {
+    "kind": "state_file",
+    "id": ".codex-plugin/{plugin.json,mcp.json}",
+    "behavior": "GENERATED codex adapter; mcp.json args use ./dist/mcp-server.js; marketplace at repo-root .agents/plugins/marketplace.json.",
+    "evidence": "manifest/plugin.manifest.json:58-63",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".agents/plugins/cool-workflow/{plugin.json,mcp.json}",
+    "behavior": "GENERATED generic agents adapter at repo root; pluginRootVar ./.",
+    "evidence": "manifest/plugin.manifest.json:64-68",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".gemini-plugin/{plugin.json,mcp.json}",
+    "behavior": "GENERATED gemini adapter; pluginRootVar ./.",
+    "evidence": "manifest/plugin.manifest.json:69-73",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": ".opencode-plugin/{plugin.json,mcp.json}",
+    "behavior": "GENERATED opencode adapter; pluginRootVar ./.",
+    "evidence": "manifest/plugin.manifest.json:74-78",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "state_file",
+    "id": "server.json",
+    "behavior": "MCP registry metadata: name io.github.coo1white/cool-workflow, version 0.1.98, npm package cool-workflow, transport stdio, environmentVariables [].",
+    "evidence": "server.json:1-21",
+    "tests": []
+  },
+  {
+    "kind": "state_file",
+    "id": "manifest/pricing.policy.json",
+    "behavior": "Bundled EXAMPLE pricing policy (schemaVersion 1, id bundled-example-v1, USD per-million token prices, defaultPrice); used when metrics pricing=\"default\"; no policy => cost unreported/unpriced, never guessed.",
+    "evidence": "manifest/pricing.policy.json:1-14",
+    "tests": []
+  },
+  {
+    "kind": "state_file",
+    "id": "manifest/source-context-profiles.json",
+    "behavior": "Scoped source-context export profiles {schemaVersion:1,profiles:{core,runtime,...}} with description/maxLines/include/exclude globs for the fast architecture-review lane.",
+    "evidence": "manifest/source-context-profiles.json:1-30",
+    "tests": []
+  },
+  {
+    "kind": "env",
+    "id": "CLAUDE_PLUGIN_ROOT",
+    "behavior": "Path variable expanded by the Claude client inside the generated .mcp.json args; other vendors ship ./ instead. Not read by server code.",
+    "evidence": ".mcp.json:6",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "vendor_mcp_boot_contract",
+    "behavior": "Every generated vendor mcp.json must boot the same kernel with shell:false argv spawn; all vendors must agree on serverInfo and tool count.",
+    "evidence": "test/vendor-manifest-load-smoke.js:1-60",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "serverInfo.version_source",
+    "behavior": "serverInfo.version comes from CURRENT_COOL_WORKFLOW_VERSION (src/version.ts) = \"0.1.98\"; version:sync keeps it equal across package.json, server.json, and manifest/plugin.manifest.json.",
+    "evidence": "src/version.ts:1",
+    "tests": [
+      "test/vendor-manifest-load-smoke.js"
+    ]
+  },
+  {
+    "kind": "behavior",
+    "id": "transport_module_split",
+    "behavior": "mcp-server.ts is transport only: callTool and toolDefinitions must live outside it (in src/mcp/), and the surface must derive tool names from capability ids, never hard-code tool(\"cw_ strings.",
+    "evidence": "src/mcp-surface.ts:4-5",
+    "tests": [
+      "test/mcp-surface-registry-smoke.js"
+    ]
+  }
+]

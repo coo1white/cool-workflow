@@ -1,0 +1,7 @@
+# exit: 0
+cw queue
+
+  cw queue add    Enqueue a pending/planned run with explicit ordering policy.
+  cw queue drain  Mark the next ready queue entries drained (the host still executes).
+  cw queue list   List the durable run queue in policy order.
+  cw queue show   Show one durable queue entry.

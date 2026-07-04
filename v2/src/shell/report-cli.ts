@@ -1,0 +1,78 @@
+// shell/report-cli.ts — CLI/MCP-reachable bodies for `cw report bundle`
+// and `cw report verify-bundle`.
+//
+// MILESTONE 8. Byte-exact port of the old build's capability-core.ts's
+// `reportBundle`/`runVerifyReportBundle` argv shapes.
+//
+// Evidence: SPEC/ledger-trust.md "CLI: `cw report verify-bundle` and `cw
+// report bundle`"; plugins/cool-workflow/src/capability-core.ts:396-433.
+
+import * as path from "node:path";
+import { exportRun, verifyReportBundle, ReportBundleVerification } from "./run-export";
+import { loadRunFromCwd } from "./run-store";
+
+export interface ReportBundleResult {
+  schemaVersion: 1;
+  runId: string;
+  archivePath: string;
+  trustKeyEmbedded: boolean;
+  reportExtractedTo?: string;
+  verification: ReportBundleVerification;
+  ok: boolean;
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function invocationCwd(args: Record<string, unknown>): string {
+  return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
+}
+
+const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
+
+export function reportBundleCli(runId: string, args: Record<string, unknown>): ReportBundleResult {
+  if (!runId) throw new Error("report bundle requires a run id (cw report bundle <run-id>)");
+  const base = invocationCwd(args);
+  const run = loadRunFromCwd(runId, base);
+  const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
+  const outputPath = path.resolve(base, output);
+  if (SYSTEM_DIRS.test(outputPath)) {
+    throw new Error(`Refusing to write archive to a system directory: ${output}`);
+  }
+  // Optionally seal in the operator's PUBLIC trust key so the bundle
+  // re-verifies offline. Default falls back to the same env the verify
+  // gate reads, so a single configured key both attests at record-time
+  // and travels with the export.
+  const trustKeyArg = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+  const exported = exportRun(run, outputPath, { trustPublicKey: trustKeyArg });
+  const extractReportTo = optionalString(args["extract-report"] || args.extractReport || args.extractReportTo);
+  const verification = verifyReportBundle(exported.path, {
+    pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
+    extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
+    strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
+    requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs),
+  });
+  return {
+    schemaVersion: 1,
+    runId,
+    archivePath: exported.path,
+    trustKeyEmbedded: exported.trustKeyEmbedded,
+    reportExtractedTo: verification.reportExtractedTo,
+    verification,
+    ok: verification.ok,
+  };
+}
+
+export function reportVerifyBundleCli(args: Record<string, unknown>): ReportBundleVerification {
+  const base = invocationCwd(args);
+  const archive = optionalString(args.archive || args.path || args.file || args.bundle);
+  if (!archive) throw new Error("report verify-bundle requires a bundle path (positional, --archive, --path, --file, or --bundle)");
+  const extractReportTo = optionalString(args["extract-report"] || args.extractReport || args.extractReportTo);
+  return verifyReportBundle(path.resolve(base, archive), {
+    pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
+    extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
+    strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
+    requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs),
+  });
+}

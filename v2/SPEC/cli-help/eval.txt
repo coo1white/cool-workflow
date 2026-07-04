@@ -1,0 +1,9 @@
+# exit: 0
+cw eval
+
+  cw eval compare   Compare baseline and replay deterministically.
+  cw eval gate      Run the eval/replay regression gate.
+  cw eval replay    Replay a snapshot without live agents.
+  cw eval report    Render an eval/replay report.
+  cw eval score     Score replay quality.
+  cw eval snapshot  Create a deterministic replay snapshot.
