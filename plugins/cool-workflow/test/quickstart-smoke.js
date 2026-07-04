@@ -22,7 +22,53 @@
 //   5. the `audit-run` alias resolves to the same wrapper;
 //   6. RED LINE: the wrapper delegates — it does not import a model SDK (covered
 //      structurally by agent-delegation-drive-smoke; here we assert the wrapper
-//      routes through runDrive, not a private executor).
+//      routes through the drive() core, not a private executor).
+//
+// ============================================================================
+// V2 CUTOVER NOTE (rewrite audit) — this smoke is a REAL-GAP marker.
+//
+// Imports repointed to v2's dist layout:
+//   dist/orchestrator.js CoolWorkflowRunner ........ REMOVED in v2 (no facade).
+//     v2's quickstart core takes a plain `args` object, not a runner. Run state
+//     is read with loadRunFromCwd(runId, cwd) from dist/shell/run-store.js.
+//   dist/capability-core.js quickstart/QUICKSTART_DEFAULT_APP
+//     -> dist/shell/pipeline-cli.js quickstartRun (QUICKSTART_DEFAULT_APP is now
+//        a private const; "architecture-review" is asserted by value).
+//   dist/capability-registry.js CAPABILITY_REGISTRY
+//     -> dist/core/capability-table.js REGISTRY.
+//   src/capability-core.ts -> src/shell/pipeline-cli.ts (the quickstart core).
+//
+// v2's quickstartRun(args) (src/shell/pipeline-cli.ts:202) is a STRIPPED-DOWN
+// composition. It handles plan -> drive -> report and `--check`, but DROPPED
+// several user-facing behaviors the old build (src/capability-core.ts
+// quickstart()) had and that this suite verifies. These are genuine gaps, not
+// import breakage — the assertions below are left INTACT (not weakened) so the
+// gaps stay visible:
+//
+//   * SECTION 2  — `hint` on a fail-closed block. v2 DriveResult has no `hint`
+//                  field at all (src/shell/drive.ts:77-90). The old build set a
+//                  "not configured … delegates" hint (old capability-core.ts:792).
+//   * SECTION 1b — `--resume` single-step advance + copy-paste continue `hint`
+//                  + `resumedFrom` echo. v2 quickstartRun never maps resume->once
+//                  and never stamps resumedFrom (src/shell/pipeline-cli.ts:202-232).
+//   * SECTION 3  — `--preview` read-only next-step projection. v2 quickstartRun
+//                  ignores args.preview and DRIVES instead of returning the
+//                  drivePreview() shape (nextAction/pendingWorkers). It only
+//                  branches on `--check` (src/shell/pipeline-cli.ts:207).
+//                  Note: the capability-table help text still ADVERTISES
+//                  "--preview for a read-only dry run"
+//                  (src/core/capability-table.ts:1064) — surface documented,
+//                  behavior missing.
+//   * SECTION 5  — the `audit-run` alias. v2 has NO capability-table row and NO
+//                  dispatch arm for it; it is only a KNOWN_COMMANDS token
+//                  (src/cli/parseargv.ts:123), so `cw audit-run …` returns
+//                  "Unknown command: audit-run" (absurdly "Did you mean:
+//                  audit-run?"). REGISTRY rows also no longer carry `entry` or
+//                  `cli.caseTokens`, and the CLI is capability-table-driven so
+//                  there are no `case "quickstart":`/`case "audit-run":` strings.
+//
+// Cleanly-portable sections (1, 1c, 4, 6, 7) ARE adapted to v2 and pass.
+// ============================================================================
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
@@ -31,8 +77,11 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { quickstart, QUICKSTART_DEFAULT_APP } = require(path.join(pluginRoot, "dist/capability-core.js"));
+const { quickstartRun } = require(path.join(pluginRoot, "dist/shell/pipeline-cli.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+// v2: QUICKSTART_DEFAULT_APP is a private module const; its value is the
+// contract asserted here.
+const QUICKSTART_DEFAULT_APP = "architecture-review";
 
 const FAST_APP = "architecture-review-fast";
 const GOLDEN_APP = "end-to-end-golden-path";
@@ -47,6 +96,11 @@ function tmpWorkspace() {
 function clearAgentEnv() {
   for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
   process.env.CW_NO_AUTO_AGENT = "1";
+}
+
+// v2: run state is read directly from the run's repo cwd (no runner facade).
+function loadRunAt(runId, cwd) {
+  return loadRunFromCwd(runId, cwd);
 }
 
 // A stub agent: argv[2]=resultPath. Writes a valid evidence-gated result.md and
@@ -74,8 +128,7 @@ function main() {
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
     process.chdir(work);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
-      const result = quickstart(runner, {
+      const result = quickstartRun({
         appId: "architecture-review",
         repo: work,
         question: "What are the architecture risks?",
@@ -90,6 +143,7 @@ function main() {
       assert.equal(result.parkedWorkers, 0, "no parked workers on the happy path");
       assert.ok(result.commitId, "the driven run is committed");
       assert.equal(result.agentConfigured, true, "agent backend reported configured");
+      // v2 DriveResult has no `hint` field; a clean completion carries no hint.
       assert.ok(result.hint === undefined, "no hint on a clean completion");
       assert.ok(Array.isArray(result.steps) && result.steps.length > 0, "steps recorded verbatim from drive()");
       // report.md + state.json exist on disk.
@@ -98,7 +152,7 @@ function main() {
       const report = fs.readFileSync(result.reportPath, "utf8");
       assert.ok(report.trim().length > 0, "report.md is non-empty");
       // the SAME drive committed it — cross-check against the run state.
-      const run = runner.loadRun(result.runId);
+      const run = loadRunAt(result.runId, work);
       assert.ok(run.tasks.every((t) => t.status === "completed"), "all tasks completed in state");
       assert.ok((run.commits || []).some((c) => c.id === result.commitId), "the reported commit id is in the run state");
     } finally {
@@ -107,15 +161,19 @@ function main() {
   }
 
   // ---- 1b. --resume: guided stop-then-resume a newcomer can WITNESS (Track A) -
+  // REAL-GAP: v2 quickstartRun (src/shell/pipeline-cli.ts:202-232) does NOT
+  // implement the --resume single-step behavior. It never maps resume->once, so
+  // `resume:true` drives the WHOLE run to completion instead of advancing one
+  // step, never emits a copy-paste `--resume` continue `hint`, and never stamps
+  // `resumedFrom`. Assertions kept intact so the gap stays visible.
   {
     const work = tmpWorkspace();
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
     process.chdir(work);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
       const agentCommand = `${process.execPath} ${stub} {{result}}`;
       // (a) --resume, no --run: advance exactly ONE step and print a continue line.
-      const step1 = quickstart(runner, { appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true });
+      const step1 = quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true });
       assert.equal(step1.status, "in-progress", "--resume advances one step, not the whole drive");
       assert.ok(step1.completedWorkers < step1.plannedWorkers, "one resume step leaves work pending");
       assert.ok(!step1.commitId, "an in-progress resume step has not committed");
@@ -123,7 +181,7 @@ function main() {
       assert.ok(step1.hint && /--run .* --resume/.test(step1.hint), "hint is a copy-pasteable --resume continue line");
       assert.ok(!/--once/.test(step1.hint), "the resume hint uses --resume, not --once");
       // (b) --resume --run <id>: continue THAT run to completion.
-      const done = quickstart(runner, { appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true, run: step1.runId });
+      const done = quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true, run: step1.runId });
       assert.equal(done.runId, step1.runId, "resume --run continues the SAME run");
       assert.equal(done.status, "complete", "resume --run drives to completion");
       assert.equal(done.completedWorkers, done.plannedWorkers, "all workers completed after resume");
@@ -140,8 +198,7 @@ function main() {
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
     process.chdir(work);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
-      const result = quickstart(runner, { appId: GOLDEN_APP, repo: work, question: "risks?", agentCommand: `${process.execPath} ${stub} {{result}}` });
+      const result = quickstartRun({ appId: GOLDEN_APP, repo: work, question: "risks?", agentCommand: `${process.execPath} ${stub} {{result}}` });
       assert.equal(Object.prototype.hasOwnProperty.call(result, "resumedFrom"), false, "default (no --resume) output has no resumedFrom key");
       assert.ok(result.hint === undefined, "clean default completion still has no hint (unchanged wording)");
     } finally {
@@ -154,8 +211,7 @@ function main() {
     const work = tmpWorkspace();
     process.chdir(work);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
-      const blocked = quickstart(runner, { appId: FAST_APP, repo: work, question: "risks?", resume: true });
+      const blocked = quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", resume: true });
       assert.notEqual(blocked.status, "complete", "--resume with no agent never reports complete");
       assert.equal(blocked.completedWorkers, 0, "no fabricated completion under --resume");
       assert.equal(Object.prototype.hasOwnProperty.call(blocked, "resumedFrom"), false, "blocked fresh resume carries no resumedFrom");
@@ -165,13 +221,17 @@ function main() {
   }
 
   // ---- 2. FAIL CLOSED: unconfigured agent blocks, never fabricates -----------
+  // REAL-GAP: the block itself works (status=blocked, agentConfigured=false,
+  // completedWorkers=0, no commit, report+state still written), but v2
+  // DriveResult (src/shell/drive.ts:77-90) has NO `hint` field, so the
+  // "not configured / delegate" triage hint the old build attached
+  // (old capability-core.ts:792) is gone. Assertions kept intact.
   {
     const work = tmpWorkspace();
     process.chdir(work);
     try {
       clearAgentEnv();
-      const runner = new CoolWorkflowRunner({ pluginRoot });
-      const result = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?" });
+      const result = quickstartRun({ appId: "architecture-review", repo: work, question: "risks?" });
       assert.equal(result.status, "blocked", "unconfigured agent BLOCKS (fail closed)");
       assert.equal(result.agentConfigured, false, "agentConfigured=false reported");
       assert.equal(result.completedWorkers, 0, "no fabricated completion");
@@ -187,14 +247,19 @@ function main() {
   }
 
   // ---- 3. --preview: read-only, deterministic, no mutation/commit/spawn ------
+  // REAL-GAP: v2 quickstartRun ignores args.preview (src/shell/pipeline-cli.ts:207
+  // branches only on `--check`) and DRIVES the run, returning a DriveResult
+  // (no nextAction / pendingWorkers projection) instead of the deterministic
+  // drivePreview() shape. The read-only next-step dry run is unimplemented in
+  // the quickstart wrapper even though the help text advertises it
+  // (src/core/capability-table.ts:1064). Assertions kept intact.
   {
     const work = tmpWorkspace();
     process.chdir(work);
     try {
       clearAgentEnv();
-      const runner = new CoolWorkflowRunner({ pluginRoot });
       // Preview a FRESH app -> plans one run, projects its next step.
-      const p1 = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", preview: true });
+      const p1 = quickstartRun({ appId: "architecture-review", repo: work, question: "risks?", preview: true });
       assert.equal(p1.nextAction, "blocked", "unconfigured -> next action is blocked");
       assert.equal(p1.agentConfigured, false);
       assert.equal(p1.completedWorkers, 0, "preview mutates nothing");
@@ -202,12 +267,12 @@ function main() {
       // Re-previewing the SAME run is deterministic (counts derived from state; no
       // now-derived numeric field). A fresh-app preview only differs by the planned
       // runId, so we re-preview p1's run to assert the projection is byte-stable.
-      const p2 = quickstart(runner, { repo: work, question: "risks?", preview: true, runId: p1.runId });
+      const p2 = quickstartRun({ repo: work, question: "risks?", preview: true, runId: p1.runId });
       assert.equal(JSON.stringify(p1), JSON.stringify(p2), "preview of the same run is deterministic (no now-derived numeric field)");
       for (const [k, v] of Object.entries(p1)) if (typeof v === "number") assert.ok(Number.isInteger(v), `${k} is an integer count`);
       // the preview's run was NOT driven: only the initial-plan checkpoint exists,
       // no agent-delegation-drive commit, and every task is still pending.
-      const run = runner.loadRun(p1.runId);
+      const run = loadRunAt(p1.runId, work);
       assert.ok(!(run.commits || []).some((c) => c.reason && c.reason.startsWith("agent-delegation-drive")), "preview did not drive/commit");
       assert.ok(run.tasks.every((t) => t.status === "pending"), "preview did not advance any task");
     } finally {
@@ -221,8 +286,7 @@ function main() {
     process.chdir(work);
     try {
       clearAgentEnv();
-      const runner = new CoolWorkflowRunner({ pluginRoot });
-      const result = quickstart(runner, { repo: work, question: "risks?" });
+      const result = quickstartRun({ repo: work, question: "risks?" });
       assert.equal(result.appId, QUICKSTART_DEFAULT_APP, "defaults to architecture-review");
       assert.equal(result.appId, "architecture-review");
     } finally {
@@ -231,11 +295,21 @@ function main() {
   }
 
   // ---- 5. CLI `audit-run` alias resolves to the same wrapper ----------------
-  // The alias is a CLI case token; assert it is declared so the parity gate holds
-  // and that the dispatcher routes both tokens to quickstart().
+  // REAL-GAP / NO-EQUIVALENT: v2 dropped the audit-run alias entirely.
+  //   * The capability-table REGISTRY row for quickstart no longer carries an
+  //     `entry` field or `cli.caseTokens` (dist/core/capability-table.js: the row
+  //     is { capability, summary, surface, cli:{path,jsonMode}, reason }).
+  //   * `audit-run` is only a KNOWN_COMMANDS token (src/cli/parseargv.ts:123) with
+  //     NO capability-table row and NO dispatch arm, so findCapabilityByCliPath
+  //     (["audit-run"]) === undefined and `cw audit-run …` returns
+  //     "Unknown command: audit-run".
+  //   * The CLI is capability-table-driven (dist/cli.js is a 9-line shim), so
+  //     there are no `case "quickstart":` / `case "audit-run":` dispatch strings.
+  // The quickstart row itself IS still declared as cli-only, which is asserted.
+  // The alias/entry/caseTokens/case-string assertions are kept intact and fail.
   {
-    const registry = require(path.join(pluginRoot, "dist/capability-registry.js"));
-    const cap = registry.CAPABILITY_REGISTRY.find((c) => c.capability === "quickstart");
+    const { REGISTRY } = require(path.join(pluginRoot, "dist/core/capability-table.js"));
+    const cap = REGISTRY.find((c) => c.capability === "quickstart");
     assert.ok(cap, "quickstart capability is declared");
     assert.equal(cap.surface, "cli-only", "quickstart is a CLI-only UX convenience");
     assert.equal(cap.entry, "quickstart", "routes through the shared quickstart core entry");
@@ -252,14 +326,16 @@ function main() {
   }
 
   // ---- 6. RED LINE: the wrapper has NO private executor (delegates only) -----
-  // capability-core's quickstart must route through runDrive (the existing core),
-  // not spawn a child or import a model SDK. Structurally: the only spawn path is
-  // the agent backend, and there is no model-SDK import in capability-core.
+  // The quickstart core must route through the existing drive() core (v2:
+  // drive(run.id, run.cwd, …) in src/shell/pipeline-cli.ts — the old build's
+  // runDrive(runner, …)), not spawn a child or import a model SDK. Structurally:
+  // the only spawn path is the agent backend, and there is no model-SDK import in
+  // the quickstart core.
   {
-    const coreSrc = fs.readFileSync(path.join(pluginRoot, "src/capability-core.ts"), "utf8");
-    assert.ok(/runDrive\(runner,/.test(coreSrc), "quickstart composes the existing runDrive core");
+    const coreSrc = fs.readFileSync(path.join(pluginRoot, "src/shell/pipeline-cli.ts"), "utf8");
+    assert.ok(/drive\(run\.id, run\.cwd/.test(coreSrc), "quickstart composes the existing drive() core");
     const SDK_PKGS = ["@anthropic-ai", "openai", "@google/generative-ai", "ollama", "cohere", "mistralai"];
-    for (const sdk of SDK_PKGS) assert.ok(!coreSrc.includes(sdk), `capability-core must not import a model SDK: ${sdk}`);
+    for (const sdk of SDK_PKGS) assert.ok(!coreSrc.includes(sdk), `quickstart core must not import a model SDK: ${sdk}`);
     assert.ok(!/child_process|spawn\(|execFile/.test(coreSrc), "quickstart does not spawn its own executor (delegation goes through the agent backend)");
   }
 

@@ -32,10 +32,17 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.equal(board.id, "bb-smoke");
   assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "blackboard", "index.json")));
 
+  // v2 CLI grammar change: the blackboard family dropped the per-verb action
+  // word and takes the run id as the FIRST positional. Old build:
+  //   blackboard topic create <run-id> | context put <run-id> |
+  //   artifact add <run-id> | message post <run-id>
+  // v2 (src/core/capability-table.ts attachCliBinding, ~L1530-1596):
+  //   blackboard topic <run-id> | context <run-id> | artifact <run-id> |
+  //   message <run-id>  (list is a trailing positional: artifact <run-id> list)
+  // Adapted below to the v2 spelling; every result assertion is unchanged.
   const topic = runJson([
     "blackboard",
     "topic",
-    "create",
     plan.runId,
     "--id",
     "topic-synthesis",
@@ -49,7 +56,6 @@ const evidenceLocator = `${evidencePath}:1`;
   const fact = runJson([
     "blackboard",
     "context",
-    "put",
     plan.runId,
     "--topic",
     "topic-synthesis",
@@ -66,7 +72,6 @@ const evidenceLocator = `${evidencePath}:1`;
   const conflict = runJson([
     "blackboard",
     "context",
-    "put",
     plan.runId,
     "--topic",
     "topic-synthesis",
@@ -83,7 +88,6 @@ const evidenceLocator = `${evidencePath}:1`;
   const artifact = runJson([
     "blackboard",
     "artifact",
-    "add",
     plan.runId,
     "--topic",
     "topic-synthesis",
@@ -100,7 +104,6 @@ const evidenceLocator = `${evidencePath}:1`;
   const message = runJson([
     "blackboard",
     "message",
-    "post",
     plan.runId,
     "--topic",
     "topic-synthesis",
@@ -112,8 +115,8 @@ const evidenceLocator = `${evidencePath}:1`;
     evidenceLocator
   ]);
   assert.equal(message.linkedArtifactRefIds[0], artifact.id);
-  assert.equal(runJson(["blackboard", "message", "list", plan.runId, "--topic", "topic-synthesis"]).length, 1);
-  assert.equal(runJson(["blackboard", "artifact", "list", plan.runId]).length, 1);
+  assert.equal(runJson(["blackboard", "message", plan.runId, "list", "--topic", "topic-synthesis"]).length, 1);
+  assert.equal(runJson(["blackboard", "artifact", plan.runId, "list"]).length, 1);
 
   const decision = runJson([
     "coordinator",
@@ -204,6 +207,21 @@ const evidenceLocator = `${evidencePath}:1`;
     "--topic",
     "topic-synthesis"
   ]);
+  // REAL-GAP (v2): this asserts the blackboard linkage the old build carried on
+  // every multi-agent record. In v2 the kernel still supports it — the
+  // Create*Input types accept blackboardId/topicIds and createAgentFanout even
+  // inherits `input.blackboardId || group.blackboardId || multiAgentRun.blackboardId`
+  // (src/core/multi-agent/runtime.ts). But the SHELL CLI layer silently drops
+  // the `--blackboard`/`--topic` flags: none of the multi-agent CLI handlers
+  // forward them into the kernel input:
+  //   src/shell/multi-agent-cli.ts:147  createMultiAgentRun  (only id/title/objective)
+  //   src/shell/multi-agent-cli.ts:227  createAgentGroup     (no blackboardId/topicIds)
+  //   src/shell/multi-agent-cli.ts:272  createAgentFanout    (no blackboardId/topicIds)
+  // So `multi-agent run|group|fanout --blackboard bb-smoke` leaves
+  // blackboardId undefined, and this assertion (plus every downstream
+  // manifest.blackboard / membership.blackboardId / fanin.blackboardArtifactRefIds
+  // check) fails. No CLI-invocation change can repair this — the flag never
+  // reaches the kernel. Left failing intentionally; fix belongs in Phase B.
   assert.equal(fanout.blackboardId, "bb-smoke");
 
   const dispatch = runJson([
@@ -295,6 +313,22 @@ const evidenceLocator = `${evidencePath}:1`;
   // way the god-dispatch did. A thrown error → exit 1 → stderr `cw: <message>`.
   // `required` throws "Missing <label>."; the inner default + topic/message/
   // context/artifact fall-through hit the trailing "Usage: cw.js blackboard …".
+  //
+  // NOTE (v2 audit): the run fails earlier at the fanout blackboardId gap, so
+  // this block is not reached under v2. Recorded here for the gap map — two more
+  // v2 CLI-surface divergences live below if it ever were reached:
+  //   1. `blackboard summarize` no longer exists as a CLI verb (it is MCP-only:
+  //      capability blackboard.summarize has no attachCliBinding, only the
+  //      cw_blackboard_summarize tool row in src/core/capability-table.ts:234).
+  //      So `blackboard summarize` (no run id) falls through to the
+  //      blackboard.usage row (src/core/capability-table.ts:2563) and prints the
+  //      "Usage: cw.js blackboard …" string, NOT "Missing run id" — the old
+  //      carved handler treated `summarize` as a real run-id verb.
+  //   2. `blackboard topic` (no run id) now matches the capability path
+  //      ["blackboard","topic"] and refuses with "Missing run id.", not the
+  //      trailing Usage throw the action-gated old grammar produced.
+  // Both are consequences of the v2 grammar redesign; the assertions below keep
+  // the OLD contract intentionally (not weakened to force green).
   for (const verb of ["summary", "summarize", "graph", "resolve", "snapshot"]) {
     const fail = runFail(["blackboard", verb]);
     assert.notEqual(fail.status, 0);

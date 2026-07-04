@@ -25,11 +25,19 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const stateModule = require(path.join(pluginRoot, "dist/state.js"));
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const lifecycle = require(path.join(pluginRoot, "dist/orchestrator/lifecycle-operations.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
-const api = require(path.join(pluginRoot, "dist/workflow-api.js"));
+// v2 layout: the old flat dist/state.js's saveCheckpoint now lives in
+// dist/shell/run-store.js; dist/drive.js -> dist/shell/drive.js; the
+// old dist/orchestrator/lifecycle-operations.js plan() is now plan() in
+// dist/shell/pipeline.js; the old dist/workflow-api.js factory api
+// (agent/parallel/workflow) is dist/core/workflow-apps/app-schema.js.
+// v2 dismantled the CoolWorkflowRunner facade entirely — drive() no
+// longer takes a runner object; it takes (runId, cwd, options). This
+// smoke still counts the SAME saveCheckpoint function the fix batches,
+// so its intent is unchanged.
+const stateModule = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+const api = require(path.join(pluginRoot, "dist/core/workflow-apps/app-schema.js"));
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -60,9 +68,13 @@ function planParallelApp(work, n) {
     inputs: [{ name: "repo", type: "path", required: true }],
     phases: [api.parallel("Fan", tasks)]
   });
-  return lifecycle.plan(
-    { app: { schemaVersion: 1, id: def.id, title: def.title, version: "0.0.1", workflow: def }, source: { kind: "manifest", path: path.join(work, "app.json"), manifestPath: path.join(work, "app.json") } },
-    { repo: work }
+  // v2 plan(app, options): app is the full app object (with .workflow),
+  // options carries the inputs (repo/cwd). Old lifecycle.plan took a
+  // {app, source} envelope + a separate inputs arg; the source envelope
+  // is gone in v2.
+  return plan(
+    { schemaVersion: 1, id: def.id, title: def.title, version: "0.0.1", workflow: def },
+    { repo: work, cwd: work }
   );
 }
 
@@ -81,11 +93,12 @@ function countSaveCheckpointsDuring(fn) {
   return count;
 }
 
-function driveNTasksAndCountCheckpoints(work, runner, stub, n) {
+function driveNTasksAndCountCheckpoints(work, stub, n) {
   const run = planParallelApp(work, n);
   let result;
   const checkpointCount = countSaveCheckpointsDuring(() => {
-    result = drive(runner, run.id, {
+    // v2 drive(runId, cwd, options) — no runner object (facade removed).
+    result = drive(run.id, run.cwd, {
       now: FIXED_NOW,
       concurrency: n,
       agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: 10000 }
@@ -103,10 +116,8 @@ function main() {
   const stub = writeStub(path.join(work, "stub.js"));
   process.chdir(work);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
-
-    const checkpointsAt5 = driveNTasksAndCountCheckpoints(work, runner, stub, 5);
-    const checkpointsAt15 = driveNTasksAndCountCheckpoints(work, runner, stub, 15);
+    const checkpointsAt5 = driveNTasksAndCountCheckpoints(work, stub, 5);
+    const checkpointsAt15 = driveNTasksAndCountCheckpoints(work, stub, 15);
 
     console.log(`deferred-checkpoint-batching: saveCheckpoint calls at N=5: ${checkpointsAt5}, at N=15: ${checkpointsAt15}`);
 

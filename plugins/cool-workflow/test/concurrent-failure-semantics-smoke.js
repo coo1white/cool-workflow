@@ -25,9 +25,15 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const lifecycle = require(path.join(pluginRoot, "dist/orchestrator/lifecycle-operations.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
+// v2 repoint: the old flat dist/orchestrator.js CoolWorkflowRunner facade +
+// dist/orchestrator/lifecycle-operations.js plan() collapse into the pure
+// shell/pipeline.js plan(app, inputs) (no runner object); dist/drive.js moves
+// to shell/drive.js with the signature drive(runId, cwd, opts). The old
+// LoadedWorkflowApp was a {app:{workflow,...}, source} record; v2's
+// LoadedWorkflowApp is a FLAT {id,title,summary,version,workflow,
+// sandboxProfiles,sourcePath}, so buildApp() (below) builds the flat shape.
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -71,7 +77,7 @@ function behaviorFor(taskId) {
   return "good";
 }
 
-function buildAppRecord(work) {
+function buildApp(work) {
   const taskIds = [];
   for (let i = 1; i <= TOTAL; i++) taskIds.push(`map:t${String(i).padStart(2, "0")}`);
   const tasks = taskIds.map((id) => ({
@@ -80,23 +86,25 @@ function buildAppRecord(work) {
     status: "pending",
     prompt: `Probe the repo. BEHAVIOR=${behaviorFor(id)}`
   }));
+  // v2 FLAT LoadedWorkflowApp (id/title/summary/version/workflow/
+  // sandboxProfiles/sourcePath); plan() reads app.workflow directly (the old
+  // build read appRecord.app.workflow through the {app,source} record).
   return {
-    record: {
-      app: {
-        schemaVersion: 1,
+    app: {
+      id: "t2-acceptance",
+      title: "Track 2 acceptance",
+      summary: "16 concurrent agents: 1 hang + 1 crash + 1 dirty",
+      version: "0.0.1",
+      sandboxProfiles: [],
+      sourcePath: path.join(work, "app.json"),
+      workflow: {
         id: "t2-acceptance",
         title: "Track 2 acceptance",
-        version: "0.0.1",
-        workflow: {
-          id: "t2-acceptance",
-          title: "Track 2 acceptance",
-          summary: "16 concurrent agents: 1 hang + 1 crash + 1 dirty",
-          limits: { maxAgents: TOTAL, maxConcurrentAgents: TOTAL },
-          inputs: [{ name: "repo", type: "path", required: true }],
-          phases: [{ id: "fan", name: "Fan", status: "pending", mode: "parallel", tasks }]
-        }
-      },
-      source: { kind: "manifest", path: path.join(work, "app.json"), manifestPath: path.join(work, "app.json") }
+        summary: "16 concurrent agents: 1 hang + 1 crash + 1 dirty",
+        limits: { maxAgents: TOTAL, maxConcurrentAgents: TOTAL },
+        inputs: [{ name: "repo", type: "path", required: true }],
+        phases: [{ id: "fan", name: "Fan", status: "pending", mode: "parallel", tasks }]
+      }
     },
     taskIds
   };
@@ -109,24 +117,43 @@ function main() {
   const stub = writeStub(path.join(work, "stub.js"));
   process.chdir(work);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
-    const { record, taskIds } = buildAppRecord(work);
-    const run = lifecycle.plan(record, { repo: work });
+    const { app, taskIds } = buildApp(work);
+    const run = plan(app, { repo: work });
     assert.equal(run.tasks.length, TOTAL, `planned ${TOTAL} tasks`);
 
     const timingLog = path.join(work, "concurrent-timing.jsonl");
     process.env.CW_TIMING_LOG = timingLog;
     const started = Date.now();
-    const result = drive(runner, run.id, {
+    // v2 drive: (runId, cwd, opts); no runner object. The old smoke forced
+    // policy:{maxAttempts:1} so each failure parked on its FIRST attempt; v2's
+    // drive hardcodes DEFAULT_SCHEDULING_POLICY.maxAttempts=3 and no longer
+    // exposes a policy knob, so the hang/crash/dirty hops each retry to attempt
+    // 3 before parking (see NO-EQUIVALENT note in the audit result).
+    const result = drive(run.id, run.cwd, {
       now: FIXED_NOW,
       concurrency: TOTAL,
-      policy: { maxAttempts: 1 },
       agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: TIMEOUT_MS }
     });
     const elapsed = Date.now() - started;
     delete process.env.CW_TIMING_LOG;
 
     // ---- no deadlock + REAL parallelism ------------------------------------
+    // NO-EQUIVALENT (v2 cutover audit): this smoke depends on single-attempt
+    // parking, which the old drive gave via DriveOptions.policy={maxAttempts:1}
+    // (old src/drive.ts:59). v2 dropped that knob from DriveOptions and
+    // hardcodes DEFAULT_SCHEDULING_POLICY={maxAttempts:3}
+    // (src/core/pipeline/drive-decide.ts:154); the field is threaded into
+    // driveStep (src/shell/drive.ts:203) and maxIterations
+    // (src/shell/drive.ts:610) with NO injection point (no option, no env var,
+    // no task field). So the hang/crash/dirty hops now retry to attempt 3
+    // before parking: the drive spans multiple retry rounds instead of one, and
+    // the round-scoped assertions below no longer describe v2. Observed
+    // breakage under maxAttempts=3: 20 (not 16) worker starts here; parkSteps
+    // count 2 (not 3); park reasons carry an "(attempt N/3)" suffix. The
+    // final-state assertions (status=parked, 13 completed, 3 parked, disk
+    // replay) still hold. NOT weakened: left asserting the old single-attempt
+    // contract so the gap stays visible for Phase B. First failure lands here:
+    // "every worker process recorded a start" 20 !== 16.
     assertConcurrentTiming(readTimingLog(timingLog));
     console.log(`t2-acceptance: 16-agent round, no deadlock, wall ${elapsed}ms ok`);
 

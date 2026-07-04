@@ -17,6 +17,13 @@ const { spawnSync } = require("node:child_process");
 const pluginRoot = path.resolve(__dirname, "..");
 const gen = path.join(pluginRoot, "scripts", "gen-parity-doc.js");
 
+// DEFERRED-TOOLING: this smoke spawns scripts/gen-parity-doc.js --check, and
+// that SCRIPT (line 25) still require()s the old flat dist/capability-registry.js,
+// which v2 removed (its source of truth is now core/capability-table's REGISTRY).
+// So --check crashes with MODULE_NOT_FOUND and this assertion trips. Repointing the
+// gen-parity-doc.js script to the v2 module is the separate tooling-repoint job
+// (gen-parity-doc is on the deferred list); the test file's own import is already
+// repointed below. Once the script is repointed, this smoke should go green as-is.
 const r = spawnSync(process.execPath, [gen, "--check"], { cwd: pluginRoot, encoding: "utf8" });
 assert.equal(
   r.status,
@@ -27,7 +34,10 @@ assert.equal(
 
 // Sanity: the generated matrix actually reflects the registry size (catches a
 // generator that no-ops against an empty/partial registry).
-const { CAPABILITY_REGISTRY } = require(path.join(pluginRoot, "dist", "capability-registry.js"));
+// v2 repoint: the flat dist/capability-registry.js is gone. Its single source of
+// truth is now core/capability-table's REGISTRY (same array shape: capability,
+// surface, cli, mcp, ...). Same intent: the registry is not empty/partial.
+const { REGISTRY: CAPABILITY_REGISTRY } = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
 assert.ok(CAPABILITY_REGISTRY.length >= 180, `registry unexpectedly small (${CAPABILITY_REGISTRY.length})`);
 
 process.stdout.write(`parity-doc-sync-smoke: ok (matrix generated + in sync; ${CAPABILITY_REGISTRY.length} capabilities)\n`);

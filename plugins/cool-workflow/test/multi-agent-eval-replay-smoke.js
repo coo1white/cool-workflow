@@ -35,6 +35,31 @@ const evidenceLocator = `${evidencePath}:1`;
     "map:web-client"
   ]);
 
+  // AUDIT NOTE (v2 cutover) — REAL-GAP, do NOT weaken this call.
+  // This smoke is black-box: it only shells out to dist/cli.js and
+  // dist/mcp-server.js (both stable v2 entry points that exist), so there
+  // are NO old flat-dist require()s to repoint. The failure below is a
+  // genuine v2 CLI dispatch bug, not an import crash.
+  //
+  // `blackboard message post <run-id>` fails with
+  //   cw: File not found: <cwd>/.cw/runs/post/state.json
+  // v2 mis-resolves the run id. The capability-table binding uses
+  //   path: ["blackboard", "message"]
+  // so dispatchTable (dist/cli/dispatch.js:59-77) consumes only
+  // "blackboard"+"message" and hands the handler
+  //   positionals = ["post", "<run-id>"]
+  // The handler then reads runId = positionals[0] ("post"), the leaf verb
+  // token, instead of positionals[1] (the real run id):
+  //   dist/core/capability-table.js:1218-1222 (blackboard.message.post)
+  //   dist/core/capability-table.js:1229-1233 (blackboard.message.list)
+  // The same off-by-one hits the sibling 3-token blackboard verbs whose
+  // path stops one token short of the leaf:
+  //   blackboard.topic.create  — capability-table.js:1207-1211
+  //   blackboard.artifact.add / .list, blackboard.context.put (same shape)
+  // v2's own usage string still documents this exact CLI form
+  //   ("message post|list <run-id>", capability-table.js:2019), and the
+  // old build resolved it correctly, so v2 dropped working behavior.
+  // Left failing on purpose; the fix belongs in v2 src, not in this test.
   const rationale = runJson([
     "blackboard",
     "message",

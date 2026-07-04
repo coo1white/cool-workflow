@@ -26,9 +26,11 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const node = process.execPath;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-schedule-routine-"));
 
-const { Scheduler } = require("../dist/scheduler");
-const { RoutineTriggerBridge } = require("../dist/triggers");
-const { DesktopSchedulerDaemon } = require("../dist/daemon");
+// v2: the flat scheduler.ts/triggers.ts/daemon.ts modules were folded into
+// one shell/scheduler-io.ts — all three exports live there now.
+const { Scheduler } = require("../dist/shell/scheduler-io");
+const { RoutineTriggerBridge } = require("../dist/shell/scheduler-io");
+const { DesktopSchedulerDaemon } = require("../dist/shell/scheduler-io");
 
 const MINUTE = 60 * 1000;
 const DAY = 24 * 60 * MINUTE;

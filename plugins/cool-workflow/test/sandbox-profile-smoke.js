@@ -5,12 +5,16 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
+// v2 layout: old flat dist/state + dist/sandbox-profile were re-homed.
+// createRunPaths/ensureRunDirs/loadRunFromCwd/saveCheckpoint now live in
+// dist/shell/run-store; the sandbox validators moved to dist/shell/sandbox-profile
+// (byte-exact port, same signatures).
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
 const {
   validateSandboxCommand,
   validateSandboxNetwork,
   validateSandboxProfileFile
-} = require("../dist/sandbox-profile");
+} = require("../dist/shell/sandbox-profile");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-sandbox-profile-"));
 const cli = path.join(__dirname, "../dist/cli.js");
@@ -119,6 +123,13 @@ assert.equal(dispatch.tasks[0].sandboxProfileId, "readonly");
 assert.equal(dispatch.tasks[0].sandboxPolicy.id, "readonly");
 
 const workerId = dispatch.tasks[0].workerId;
+// REAL-GAP (v2): `cw worker manifest` (and `worker output`/list/show/fail/validate)
+// have no CLI binding in v2. In src/core/capability-table.ts only worker.summary
+// calls attachCliBinding (line ~2346); worker.manifest/output/... are registered
+// MCP-only (rows ~310-315), so `cw worker <sub>` falls through to worker.usage
+// (line ~2801) and throws the usage error. The old build exposed all seven worker
+// subcommands on the CLI. Imports above are repointed to v2 dist; this line is where
+// the test now lands on the genuine missing behavior. Leave failing for Phase B.
 const manifest = JSON.parse(execFileSync("node", [cli, "worker", "manifest", "sandbox-smoke", workerId], { cwd: tmp, encoding: "utf8" }));
 assert.equal(manifest.sandboxProfileId, "readonly");
 assert.equal(manifest.sandbox.profileId, "readonly");

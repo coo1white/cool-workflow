@@ -16,8 +16,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint, readJson, writeJson, assertSafeRunId, loadRunFromCwd } = require("../dist/state");
-const { exportRun, importRun, verifyReportBundle } = require("../dist/run-export");
+// v2 split the old flat ../dist/state module: run-store owns run dirs +
+// checkpoint + load; fs-atomic owns the json helpers + the run-id guard.
+const { createRunPaths, ensureRunDirs, saveCheckpoint, loadRunFromCwd } = require("../dist/shell/run-store");
+const { readJson, writeJson, assertSafeRunId } = require("../dist/shell/fs-atomic");
+const { exportRun, importRun, verifyReportBundle } = require("../dist/shell/run-export");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-import-traversal-"));
 

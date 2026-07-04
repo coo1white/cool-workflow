@@ -117,6 +117,20 @@ try {
 
   // ---- 5. a research-domain report labels the source line "Source:", not "Repository:" --
   //         (FAILS before the report.ts domain-gated label change; code apps keep "Repository:").
+  //
+  // AUDIT (v2 cutover): REAL-GAP, not an import fault. This file has no old-flat
+  // dist require()s to repoint — it drives the real dist/cli.js as a subprocess,
+  // and assertions 1-4 all pass (routing + investigate prompt + notes.md cite).
+  // Only THIS label check fails: the v2 report renderer DOES gate the label on
+  // domain (src/shell/report.ts:299 reads workflowApp?.metadata?.domain ===
+  // "research"), and apps/research-synthesis/app.json:43 sets that domain. But
+  // the plumbing that fills run.workflow.app drops it: workflowAppRunMetadata()
+  // (src/core/workflow-apps/app-schema.ts:826) never emits a `metadata` block,
+  // and LoadedWorkflowApp (app-schema.ts:223) carries no `metadata`/`domain`
+  // field, so workflowApp.metadata is always undefined -> label always falls to
+  // "Repository". The old build's domain-gated "Source:" label is missing. Fix
+  // is Phase B (thread app.metadata.domain through the loader into run metadata);
+  // do NOT weaken this assertion to force green.
   assert.match(report, /^- Source: /m, "research report labels the source line 'Source:'");
   assert.doesNotMatch(report, /^- Repository: /m, "research report does NOT use the code-only 'Repository:' label");
 

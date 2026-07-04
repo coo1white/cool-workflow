@@ -36,9 +36,40 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
-const { safeFileName } = require(path.join(pluginRoot, "dist/state.js"));
+// v2 module layout: the flat dist/*.js facades (orchestrator.js, drive.js,
+// state.js) are gone. The old CoolWorkflowRunner facade class + its
+// drive(runner, runId, options) signature no longer exist at all. Below we
+// reconstruct the exact runner methods this smoke uses (plan / loadRun) from
+// the v2 free functions, and call drive with the new positional
+// (runId, cwd, options) signature. safeFileName moved to dist/shell/fs-atomic.
+// Every assertion's INTENT is preserved.
+const { drive: driveV2 } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+const { safeFileName } = require(path.join(pluginRoot, "dist/shell/fs-atomic.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+
+// makeRunner() reconstructs runner.plan / .loadRun over the v2 functions. This
+// smoke chdir's into each workspace before it plans/drives, so process.cwd() is
+// the run's cwd; we read cwd there (plan reads inputs.repo/cwd; loadRunFromCwd
+// defaults cwd to process.cwd()). NO CoolWorkflowRunner / dist/orchestrator.js
+// in v2.
+function makeRunner() {
+  return {
+    plan(appId, inputs) {
+      return plan(loadWorkflowApp(appId), inputs);
+    },
+    loadRun(runId) {
+      return loadRunFromCwd(runId, process.cwd());
+    },
+  };
+}
+// v2 drive takes (runId, cwd, options) — NOT (runner, runId, options). The
+// smoke always drives from inside the workspace it chdir'd into, so
+// process.cwd() is the correct cwd for these calls.
+function drive(_runner, runId, options) {
+  return driveV2(runId, process.cwd(), options);
+}
 
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
@@ -94,7 +125,7 @@ function main() {
   const stubA = writeCountingStub(path.join(workA, "stub.js"), countA);
   process.chdir(workA);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
+    const runner = makeRunner();
 
     // --- run 1: --incremental, populates the cache ---
     const r1 = runner.plan("architecture-review-fast", { repo: workA, question: "Sound?" });
@@ -141,7 +172,7 @@ function main() {
     const stubC = writeCountingStub(path.join(workC, "stub.js"), countC);
     process.chdir(workC);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const p1 = runner.plan("architecture-review-fast", { repo: workC, question: "Q?" });
       const planned = p1.tasks.length;
       const mapPhase = p1.phases[0];
@@ -187,7 +218,7 @@ function main() {
     const stubD = writeCountingStub(path.join(workD, "stub.js"), countD);
     process.chdir(workD);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const p1 = runner.plan("architecture-review-fast", { repo: workD, question: "Q?" });
       const planned = p1.tasks.length;
       drive(runner, p1.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stubD, "model-a") });
@@ -213,7 +244,7 @@ function main() {
     const stubE = writeCountingStub(path.join(workE, "stub.js"), countE);
     process.chdir(workE);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const p1 = runner.plan("architecture-review-fast", { repo: workE, question: "Q?" });
       const planned = p1.tasks.length;
       const mapTasks = p1.tasks.filter((t) => p1.phases[0].taskIds.includes(t.id));
@@ -256,7 +287,7 @@ function main() {
     const stub2 = writeCountingStub(path.join(workF, "stub2.js"), countF); // identical output, different path (≈ a different agent binary)
     process.chdir(workF);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const p1 = runner.plan("architecture-review-fast", { repo: workF, question: "Q?" });
       const planned = p1.tasks.length;
       drive(runner, p1.id, { now: FIXED_NOW, incremental: true, agentConfig: agentConfig(stub1) });

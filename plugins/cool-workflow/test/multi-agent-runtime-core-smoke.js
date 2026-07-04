@@ -1,6 +1,24 @@
 #!/usr/bin/env node
 "use strict";
 
+// CUTOVER NOTE (v2 audit): This smoke is pure CLI/MCP black-box — it only
+// spawns dist/cli.js and dist/mcp-server.js, so it needs NO flat-module
+// import repointing. It is left as-is on purpose.
+//
+// REAL-GAP (v2 defect, do NOT fix here — Phase B): the v2 CLI accepts the
+// multi-agent option flags but silently drops the multi-word ones. parseArgv
+// emits kebab-case option keys verbatim (e.g. "required-evidence"), but
+// src/shell/multi-agent-cli.ts reads camelCase keys that never exist:
+//   - multiAgentRoleCli (src/shell/multi-agent-cli.ts:208-211) reads
+//     args.requiredEvidence / args.sandboxProfileHint / args.expectedArtifact
+//     / args.faninObligation for --required-evidence / --sandbox-profile-hint
+//     / --expected-artifact / --fanin-obligation → all fold to [].
+//   - multiAgentFaninCli (src/shell/multi-agent-cli.ts:299) reads
+//     args.requiredRole for --required-role → folds to [].
+// The old flat build honored these flags. First failure lands at line 65
+// (role.requiredEvidence is [] not [evidenceLocator]). Assertions below are
+// left intact — they encode the correct old-build behavior.
+
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
 const fs = require("node:fs");

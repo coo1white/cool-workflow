@@ -2,17 +2,27 @@
 "use strict";
 
 // drive-concurrency-flag-smoke — `cw run --drive --concurrency N` must
-// actually change real concurrency. Before this fix, `runDrive()` never
-// forwarded `args.concurrency` into `drive()`'s options, so only a
-// workflow's OWN `limits.maxConcurrentAgents` had any effect — the CLI/MCP
-// flag was silently a no-op (verified: a workflow capped at
-// maxConcurrentAgents=2, driven via `cw run --drive --concurrency 8`, still
-// only ever ran 2 agents at once).
+// actually change real concurrency. Before this fix, the `cw run --drive`
+// capability entry point never forwarded `args.concurrency` into `drive()`'s
+// options, so only a workflow's OWN `limits.maxConcurrentAgents` had any
+// effect — the CLI/MCP flag was silently a no-op (verified: a workflow
+// capped at maxConcurrentAgents=2, driven via `cw run --drive
+// --concurrency 8`, still only ever ran 2 agents at once).
 //
-// Drives through the REAL `runDrive()` capability function (the exact
-// function `cw run --drive` calls) — not the low-level `drive()` — so this
-// pins the fix at the actual CLI/MCP entry point, not just the plumbing
+// Drives through the REAL `cw run --drive` capability function (the exact
+// function that flag routes to) — not the low-level `drive()` — so this pins
+// the fix at the actual CLI/MCP entry point, not just the plumbing
 // underneath it.
+//
+// v2 cutover: the old flat surface (dist/orchestrator.js's
+// CoolWorkflowRunner facade + dist/capability-core.js's runDrive(runner,
+// args)) is gone by design. v2's `cw run --drive` entry point is
+// `runDriveStep(args)` in dist/shell/pipeline-cli.js — it takes no runner
+// facade, reads args.run to continue an already-planned run, and (the point
+// of this smoke) forwards args.concurrency into drive()'s options
+// (pipeline-cli.js:129). Planning is now plan(app, {repo, cwd}) from
+// dist/shell/pipeline.js; the workflow-builder DSL (agent/workflow/parallel)
+// moved to dist/core/workflow-apps/app-schema.js.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -20,10 +30,9 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const lifecycle = require(path.join(pluginRoot, "dist/orchestrator/lifecycle-operations.js"));
-const { runDrive } = require(path.join(pluginRoot, "dist/capability-core.js"));
-const api = require(path.join(pluginRoot, "dist/workflow-api.js"));
+const { runDriveStep } = require(path.join(pluginRoot, "dist/shell/pipeline-cli.js"));
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const api = require(path.join(pluginRoot, "dist/core/workflow-apps/app-schema.js"));
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -62,9 +71,12 @@ function planLowCapApp(work) {
     inputs: [{ name: "repo", type: "path", required: true }],
     phases: [api.parallel("Fan", tasks)]
   });
-  return lifecycle.plan(
-    { app: { schemaVersion: 1, id: def.id, title: def.title, version: "0.0.1", workflow: def }, source: { kind: "manifest", path: path.join(work, "app.json"), manifestPath: path.join(work, "app.json") } },
-    { repo: work }
+  // v2 plan(app, options): the app object is passed directly (not wrapped in
+  // {app, source}); options carry repo/cwd. plan() reads app.workflow/app.id/
+  // app.version to seed the run — same fields the old lifecycle.plan consumed.
+  return plan(
+    { schemaVersion: 1, id: def.id, title: def.title, version: "0.0.1", workflow: def },
+    { repo: work, cwd: work }
   );
 }
 
@@ -84,12 +96,16 @@ function maxOverlap(events) {
   return max;
 }
 
-function driveOnce(runner, runId, agentCommand, concurrencyArg) {
+function driveOnce(runId, agentCommand, concurrencyArg) {
   const timingLog = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cw-conc-flag-log-")), "timing.jsonl");
   process.env.CW_TIMING_LOG = timingLog;
+  // v2 runDriveStep(args): args.run continues an already-planned run; the run
+  // is loaded relative to args.cwd (or process.cwd() — we chdir'd into `work`).
+  // args["agent-command"] + args.concurrency flow through to drive()'s options
+  // exactly as the real `cw run --drive --concurrency N` argv would.
   const args = { run: runId, now: FIXED_NOW, "agent-command": agentCommand };
   if (concurrencyArg !== undefined) args.concurrency = concurrencyArg;
-  const result = runDrive(runner, args);
+  const result = runDriveStep(args);
   delete process.env.CW_TIMING_LOG;
   return { result, overlap: maxOverlap(readTimingLog(timingLog)) };
 }
@@ -102,12 +118,10 @@ function main() {
   const agentCommand = `${process.execPath} ${stub} {{result}}`;
   process.chdir(work);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
-
     // ---- (a) numeric override beats a low limits.maxConcurrentAgents -------
     {
       const run = planLowCapApp(work);
-      const { result, overlap } = driveOnce(runner, run.id, agentCommand, 8);
+      const { result, overlap } = driveOnce(run.id, agentCommand, 8);
       assert.equal(result.status, "complete", "run completes with the override");
       assert.equal(result.completedWorkers, N, "every task fulfilled");
       assert.equal(overlap, N, `numeric --concurrency 8 overrides maxConcurrentAgents=${LOW_CAP}, got overlap ${overlap}`);
@@ -117,7 +131,7 @@ function main() {
     // ---- (b) string override (exactly what real CLI argv produces) ---------
     {
       const run = planLowCapApp(work);
-      const { result, overlap } = driveOnce(runner, run.id, agentCommand, "8");
+      const { result, overlap } = driveOnce(run.id, agentCommand, "8");
       assert.equal(result.status, "complete", "run completes with a string override");
       assert.equal(overlap, N, `string --concurrency "8" overrides maxConcurrentAgents=${LOW_CAP}, got overlap ${overlap}`);
       console.log("drive-concurrency-flag: string override (real CLI argv shape) ok");
@@ -126,7 +140,7 @@ function main() {
     // ---- (c) no flag: default behavior is unchanged (bounded by the cap) ---
     {
       const run = planLowCapApp(work);
-      const { result, overlap } = driveOnce(runner, run.id, agentCommand, undefined);
+      const { result, overlap } = driveOnce(run.id, agentCommand, undefined);
       assert.equal(result.status, "complete", "run completes with no override");
       assert.equal(overlap, LOW_CAP, `no --concurrency flag: overlap stays bounded by maxConcurrentAgents=${LOW_CAP}, got ${overlap}`);
       console.log(`drive-concurrency-flag: no flag leaves default behavior unchanged (overlap ${overlap}) ok`);

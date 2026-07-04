@@ -5,41 +5,63 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { extractEvidenceContent, resolveEvidenceLocator } = require("../dist/evidence-grounding");
+const { extractEvidenceContent, resolveEvidenceLocator } = require("../dist/core/trust/evidence-grounding");
+
+// v2 made core/trust/evidence-grounding pure: it never imports fs/path itself.
+// resolveEvidenceLocator/unresolvedFileEvidence take injected (exists, isAbsolute,
+// resolve) predicates, and extractEvidenceContent takes an `ops` PathOps object plus
+// a `readFile`. Real shell/ callers pass fs.existsSync/path.isAbsolute/path.resolve
+// (see src/shell/commit.ts). We pass the same here to preserve the original
+// on-disk behavior these assertions checked.
+const pathOps = {
+  exists: fs.existsSync,
+  isAbsolute: path.isAbsolute,
+  resolve: (base, rel) => path.resolve(base, rel)
+};
+// readFile mirrors the old build's inline fs.readFileSync: return the file bytes,
+// or undefined when the path does not exist / cannot be read (preserves the
+// "missing file -> undefined" contract for absolute locators, which skip ops.exists).
+const readFile = (p) => {
+  try {
+    return fs.readFileSync(p, "utf8");
+  } catch {
+    return undefined;
+  }
+};
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-evidence-content-"));
 const testFile = path.join(tmp, "test.ts");
 fs.writeFileSync(testFile, "line one\nline two\nline three has evidence\nline four\n", "utf8");
 
 // File-style locator with line number
-const content = extractEvidenceContent(`${testFile}:3`, [tmp]);
+const content = extractEvidenceContent(`${testFile}:3`, [tmp], pathOps, readFile);
 assert.equal(content, "line three has evidence", "should extract line 3 content");
 
 // File without line number
-const preview = extractEvidenceContent(testFile, [tmp]);
+const preview = extractEvidenceContent(testFile, [tmp], pathOps, readFile);
 assert.ok(preview, "should preview file without line number");
 assert.ok(preview.length <= 200, "preview should be capped at 200 chars");
 
 // Missing file
-const missing = extractEvidenceContent("/no/such/file.ts:42", [tmp]);
+const missing = extractEvidenceContent("/no/such/file.ts:42", [tmp], pathOps, readFile);
 assert.equal(missing, undefined, "missing file should return undefined");
 
 // Non-file locator
-const url = extractEvidenceContent("https://example.com", [tmp]);
+const url = extractEvidenceContent("https://example.com", [tmp], pathOps, readFile);
 assert.equal(url, undefined, "URL should return undefined");
 
 // Line number out of range
-const outOfRange = extractEvidenceContent(`${testFile}:999`, [tmp]);
+const outOfRange = extractEvidenceContent(`${testFile}:999`, [tmp], pathOps, readFile);
 assert.equal(outOfRange, undefined, "out of range line should return undefined");
 
 // --- Evidence resolution in default strict mode ---
 // This test runs in the smoke runner sandbox with CW_REQUIRE_RESOLVABLE_EVIDENCE=0,
 // so unresolvedFileEvidence returns [] (shape-only check). We verify the resolution
 // primitives directly instead, which are pure functions unaffected by the env var.
-const resolvedR = resolveEvidenceLocator(testFile, [tmp]);
+const resolvedR = resolveEvidenceLocator(testFile, [tmp], pathOps.exists, pathOps.isAbsolute, pathOps.resolve);
 assert.equal(resolvedR, "resolved", "existing file locator must resolve");
 
-const unresolvedR = resolveEvidenceLocator("/no/such/file.ts:42", [tmp]);
+const unresolvedR = resolveEvidenceLocator("/no/such/file.ts:42", [tmp], pathOps.exists, pathOps.isAbsolute, pathOps.resolve);
 assert.equal(unresolvedR, "unresolved", "missing file locator must be unresolved");
 
 // unresolvedFileEvidence is gated by requireResolvableEvidence(). In the smoke
@@ -49,7 +71,7 @@ const file = path.join(tmp, "real.txt");
 fs.writeFileSync(file, "evidence content\n", "utf8");
 const locators = [`${file}:1`, `https://example.com`, `exitCode:0`];
 for (const loc of locators) {
-  const r = resolveEvidenceLocator(loc, [tmp]);
+  const r = resolveEvidenceLocator(loc, [tmp], pathOps.exists, pathOps.isAbsolute, pathOps.resolve);
   if (loc === `${file}:1`) assert.equal(r, "resolved", `"${loc}" must resolve`);
   else assert.notEqual(r, "unresolved", `"${loc}" must not be flagged unresolved`);
 }
@@ -59,9 +81,15 @@ for (const loc of locators) {
 // gate rejects unresolvable file-style evidence.
 const strictProbe = [
   'const assert = require("node:assert/strict");',
-  `const { unresolvedFileEvidence } = require("${path.join(__dirname, "..", "dist", "evidence-grounding.js")}");`,
+  'const fs = require("node:fs");',
+  'const path = require("node:path");',
+  // v2 dist path + pure signature: unresolvedFileEvidence(evidence, baseDirs, ops, env)
+  // where ops = { exists, isAbsolute, resolve }. Real callers pass real fs/path
+  // (see src/shell/commit.ts); we do the same to keep the on-disk check intact.
+  `const { unresolvedFileEvidence } = require("${path.join(__dirname, "..", "dist", "core", "trust", "evidence-grounding.js")}");`,
+  "const ops = { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) };",
   "const file = process.env.CW_EVIDENCE_FILE;",
-  "const unresolved = unresolvedFileEvidence([file + ':1', '/no/such/path.ts:42', 'https://example.com', 'exitCode:0'], [process.env.CW_EVIDENCE_DIR]);",
+  "const unresolved = unresolvedFileEvidence([file + ':1', '/no/such/path.ts:42', 'https://example.com', 'exitCode:0'], [process.env.CW_EVIDENCE_DIR], ops);",
   "assert.deepEqual(unresolved, ['/no/such/path.ts:42'], 'only the non-existent file must be flagged');",
   'process.stdout.write("evidence-strict-probe: ok\\n");',
   ""

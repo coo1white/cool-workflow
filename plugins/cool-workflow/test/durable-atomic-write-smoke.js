@@ -9,7 +9,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { writeJson, readJson, withFileLock } = require("../dist/state");
+// v2: the atomic/durable JSON IO + advisory file lock moved out of the old flat
+// src/state.ts into the shell layer. writeJson/readJson/withFileLock signatures
+// are byte-identical (writeJson takes { durable }, withFileLock steals a lock
+// older than 30_000ms). Repointed require only; no assertion change.
+const { writeJson, readJson, withFileLock } = require("../dist/shell/fs-atomic");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-durable-"));
 

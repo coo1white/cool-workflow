@@ -26,11 +26,43 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const ledger = require(path.join(pluginRoot, "dist/telemetry-ledger.js"));
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
-const { writeReport } = require(path.join(pluginRoot, "dist/orchestrator/report.js"));
-const { listTrustAuditEvents } = require(path.join(pluginRoot, "dist/trust-audit.js"));
+// v2 module layout: the flat dist/*.js facades are gone.
+//   - telemetry-ledger.js  -> dist/shell/telemetry-ledger-io.js exports the
+//     run-facing IO (appendTelemetryAttestation, verifyTelemetryLedger,
+//     telemetryLedgerPath, computeRecordHash) with the SAME (run, ...)
+//     signatures; genesisPrevHash lives in the pure core module
+//     dist/core/trust/telemetry-ledger.js and is NOT re-exported by the IO
+//     module, so we pull it in from there.
+//   - orchestrator.js / CoolWorkflowRunner  -> gone; rebuilt as a small shim
+//     over the v2 free functions plan()/loadRunFromCwd() (see makeRunner).
+//   - drive.js  -> dist/shell/drive.js; drive() is now (runId, cwd, options).
+//   - orchestrator/report.js  -> dist/shell/report.js.
+//   - trust-audit.js  -> dist/shell/trust-audit.js.
+// Every assertion's INTENT is preserved.
+const ledgerIo = require(path.join(pluginRoot, "dist/shell/telemetry-ledger-io.js"));
+const { genesisPrevHash } = require(path.join(pluginRoot, "dist/core/trust/telemetry-ledger.js"));
+const ledger = { ...ledgerIo, genesisPrevHash };
+const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+const { writeReport } = require(path.join(pluginRoot, "dist/shell/report.js"));
+const { listTrustAuditEvents } = require(path.join(pluginRoot, "dist/shell/trust-audit.js"));
+
+// v2 runner shim: the old CoolWorkflowRunner facade + dist/orchestrator.js do
+// not exist. plan()/loadRunFromCwd() are the v2 free functions; the smoke
+// chdir's into its workspace before it plans/drives, so process.cwd() is the
+// run's cwd (loadRunFromCwd/drive default cwd to process.cwd()).
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+function makeRunner() {
+  return {
+    plan(appId, inputs) {
+      return plan(loadWorkflowApp(appId), inputs);
+    },
+    loadRun(runId) {
+      return loadRunFromCwd(runId, process.cwd());
+    },
+  };
+}
 
 const cleanups = [];
 function tmpWorkspace() {
@@ -50,7 +82,7 @@ function ed25519() {
   };
 }
 function writeSigningStub(file, privPath) {
-  const taPath = JSON.stringify(path.join(pluginRoot, "dist/telemetry-attestation.js"));
+  const taPath = JSON.stringify(path.join(pluginRoot, "dist/core/trust/telemetry-attestation.js"));
   const lines = [
     'const fs = require("fs");',
     'const crypto = require("crypto");',
@@ -130,9 +162,10 @@ function main() {
   const stub = writeSigningStub(path.join(workE, "stub.js"), privPath);
   process.chdir(workE);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
+    const runner = makeRunner();
     const planned = runner.plan("architecture-review", { repo: workE, question: "Sound?" });
-    const result = drive(runner, planned.id, {
+    // v2 drive() is (runId, cwd, options); the smoke chdir'd into workE.
+    const result = drive(planned.id, process.cwd(), {
       now: "2026-06-10T00:00:00.000Z",
       agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}", "{{manifest}}", "{{input}}"], model: "op", attestPublicKey: publicPem, source: "flag" }
     });

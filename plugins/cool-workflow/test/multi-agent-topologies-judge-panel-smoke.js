@@ -13,6 +13,37 @@ const {
   runText
 } = require("./topology-smoke-helper.js");
 
+// CUTOVER AUDIT (Phase A) — REAL-GAP, left failing on purpose.
+//
+// This smoke has NO old flat dist require()s to repoint: it drives the
+// external CLI (dist/cli.js) through topology-smoke-helper.js, whose
+// surface the cutover claims is byte-identical. So the proven repoint
+// pattern does not apply here.
+//
+// The genuine failure is a v2 CLI-surface regression, not an import
+// crash: dispatchAndOutput() (helper lines 57/59) calls
+//   cw worker manifest <run> <worker>
+//   cw worker output   <run> <worker> <result>
+// and BOTH fall through to the fixed usage error
+//   "cw.js worker list|summary|show|manifest|output|fail|validate ..."
+//
+// Root cause in v2 src: src/core/capability-table.ts declares MCP tool
+// rows for cw_worker_list/show/manifest/output/fail/validate (lines
+// 310-315) but only ONE worker subcommand got a CLI path binding —
+// attachCliBinding("worker.summary", { path: ["worker","summary"], ... })
+// at capability-table.ts:2346. worker.manifest/list/show/output/fail/
+// validate have NO attachCliBinding, so the CLI router has no path for
+// them and every one falls through to worker.usage
+// (capability-table.ts:2801-2813). Confirmed: `cw worker summary` works,
+// `cw worker list|show|manifest|output` all print the usage line.
+//
+// Conformance stays 101/101 because the suite has zero
+// `worker manifest|list|show|output` CLI cases (v2/conformance has none).
+// The old build wired these worker subcommands on the CLI; v2 dropped
+// all but `summary`. Not fixable in this test (would need the missing
+// CLI binding in src/, which the audit forbids editing). Fix belongs to
+// Phase B: add CLI path bindings for the six unwired worker.* rows.
+
 (async () => {
   const ctx = createContext("cw-topologies-judge-");
   const plan = planArchitecture(ctx, "Prove v0.1.19 judge-panel topology.");

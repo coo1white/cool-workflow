@@ -5,8 +5,13 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
-const { appendRunNode, createStateNode } = require("../dist/state-node");
+// v2 layout: flat src/state.ts split into shell/run-store (fs-backed run I/O)
+// + core/state/*. state-node moved to core/state/state-node. The candidate
+// scoring surface split into a pure core/multi-agent/candidate-scoring and an
+// fs-backed shell/candidate-scoring-io; the register/score/rank/select/reject/
+// summarize functions used here are the shell IO wrappers (same signatures).
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
+const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
 const {
   registerCandidate,
   listCandidates,
@@ -15,7 +20,7 @@ const {
   selectCandidate,
   rejectCandidate,
   summarizeCandidates
-} = require("../dist/candidate-scoring");
+} = require("../dist/shell/candidate-scoring-io");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-candidate-scoring-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "candidate-smoke"));

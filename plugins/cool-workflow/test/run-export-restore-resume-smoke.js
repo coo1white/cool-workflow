@@ -14,7 +14,27 @@ const path = require("node:path");
 const pluginRoot = path.resolve(__dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
+
+// v2 API map (the old CoolWorkflowRunner orchestrator facade is gone; its
+// methods split across the pipeline spine — all byte-parity ports):
+//   - runner.plan(appId, {cwd,repo,question})
+//       -> plan(loadWorkflowApp(appId), {cwd,repo,question})   (persists the run to disk)
+//   - runner.dispatch(id, {limit})
+//       -> dispatchRun({runId:id, limit, cwd})   (same manifest shape:
+//          tasks[].workerId / workerResultPath / workerDir)
+//   - runner.recordWorkerOutput(id, workerId, path)
+//       -> recordResultRun({runId:id, taskId, resultPath:path, cwd})
+//          (pipeline-cli.ts:246 — "byte-exact to the old build's orchestrator
+//          recordWorkerOutput() wrapper": resolves workerId from the task, then
+//          commits + saveCheckpoint + writeReport. It keys off taskId, so pass
+//          the task id whose worker we are recording.)
+//   - runner.loadRun(id) -> loadRunFromCwd(id, cwd)
+// The CLI subprocess calls below (run export/import/verify-import/resume,
+// dispatch, worker output) are byte-identical in v2 and stay as-is.
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { dispatchRun, recordResultRun } = require(path.join(pluginRoot, "dist/shell/pipeline-cli.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
 
 const sourceRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-source-")));
 const restoredRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-target-")));
@@ -39,23 +59,24 @@ function resultMarkdown(summary, evidence = []) {
 const originalCwd = process.cwd();
 try {
   process.chdir(sourceRepo);
-  const runner = new CoolWorkflowRunner({ pluginRoot });
-  const run = runner.plan("workflow-app-framework-demo", {
+  const run = plan(loadWorkflowApp("workflow-app-framework-demo"), {
     cwd: sourceRepo,
     repo: sourceRepo,
     question: "prove restore can resume a partial run"
   });
   assert.deepEqual(run.tasks.map((task) => task.id), ["inspect:contract", "implement:change", "verify:evidence"]);
 
-  const firstDispatch = runner.dispatch(run.id, { limit: 1 });
+  const firstDispatch = dispatchRun({ runId: run.id, limit: 1, cwd: sourceRepo });
   assert.equal(firstDispatch.tasks[0].id, "inspect:contract", "first phase dispatches inspect task");
   const firstWorkerId = firstDispatch.tasks[0].workerId;
   assert.ok(firstWorkerId, "first dispatch allocates a worker");
   const firstResultPath = firstDispatch.tasks[0].workerResultPath;
   fs.writeFileSync(firstResultPath, resultMarkdown("source inspect completed", ["README.md:1"]), "utf8");
-  runner.recordWorkerOutput(run.id, firstWorkerId, firstResultPath);
+  // recordResultRun keys off taskId (resolving firstWorkerId from the task) and
+  // persists the accepted result, exactly as the old runner.recordWorkerOutput did.
+  recordResultRun({ runId: run.id, taskId: firstDispatch.tasks[0].id, resultPath: firstResultPath, cwd: sourceRepo });
 
-  const sourceMid = runner.loadRun(run.id);
+  const sourceMid = loadRunFromCwd(run.id, sourceRepo);
   assert.equal(sourceMid.tasks.find((task) => task.id === "inspect:contract").status, "completed");
   assert.equal(sourceMid.tasks.find((task) => task.id === "implement:change").status, "pending");
   assert.equal(sourceMid.tasks.find((task) => task.id === "implement:change").workerId, undefined);
@@ -82,6 +103,17 @@ try {
 
   const secondResultPath = secondDispatch.tasks[0].workerResultPath;
   fs.writeFileSync(secondResultPath, resultMarkdown("restored implementation completed"), "utf8");
+  // REAL-GAP (v2): `cw worker output` (and list/show/manifest/fail/validate) has
+  // NO CLI binding in v2. src/core/capability-table.ts declares worker.output at
+  // line 313 as an MCP capability but only worker.summary gets an
+  // attachCliBinding (line 2346); every other `worker <verb>` falls through to
+  // the worker.usage catch-all (path ["worker"], line 2805) and throws the usage
+  // error. docs/cli-mcp-parity.7.md:211 documents `worker.output | cw worker
+  // output | ... | both | identical`, so the CLI surface is contract, not
+  // optional. This assertion (and the two source-untouched asserts below) will
+  // fail until v2 restores the worker.* CLI bindings. Intent preserved: prove
+  // the restored run accepts a fresh worker's output via the same CLI verb the
+  // old build shipped.
   const accepted = cliJson(["worker", "output", run.id, secondDispatch.tasks[0].workerId, secondResultPath], restoredRepo);
   assert.equal(accepted.tasks.completed, 2, "restored run accepts new worker output");
 

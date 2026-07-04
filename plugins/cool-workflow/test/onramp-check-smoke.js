@@ -4,6 +4,23 @@
 // onramp-check-smoke — the change-contract gate must make the development path
 // explicit: behavior changes need smoke coverage, surface changes need docs, and
 // source/app/script changes need an iteration-log row.
+//
+// CUTOVER AUDIT (v2) — REAL-GAP. This smoke require()s ../dist/onramp.js
+// (exports evaluateOnrampContract + recommendSmokeTests) and drives
+// `cw doctor --onramp --json`. The whole onramp change-contract subsystem is
+// MISSING from v2: there is no onramp module and no equivalent export anywhere
+// under dist/ (grep for evaluateOnrampContract / recommendSmokeTests / the
+// issue codes runtime-smoke-required, types-without-runtime,
+// surface-docs-required returns nothing in src/ or dist/). The old build had a
+// full src/onramp.ts (added in #198, 300+ lines: evaluateOnrampContract,
+// recommendSmokeTests, resolveChangedFiles, buildDoctorOnramp). v2 dropped it
+// on purpose for now — src/shell/doctor.ts:6-10 states the --onramp section
+// (buildDoctorOnramp) is "intentionally NOT wired here" as later-milestone
+// work, so `cw doctor --onramp --json` silently ignores the flag and emits no
+// `onramp` key. The require below cannot be repointed (no target exists), so
+// the smoke fails at import time on genuine missing functionality, not a moved
+// path. Assertions are left UNCHANGED — this must go green only once v2 grows
+// the onramp gate back (Phase B). Do not weaken to force green.
 
 const assert = require("node:assert/strict");
 const path = require("node:path");

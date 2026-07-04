@@ -15,8 +15,12 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { runBackend, sha256, probeBackend, getBackendDriver } = require(path.join(pluginRoot, "dist/execution-backend.js"));
-const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/sandbox-profile.js"));
+// v2 split the old flat dist/execution-backend.js: the backend registry API
+// (runBackend/probeBackend/getBackendDriver) moved to shell/execution-backend/registry,
+// and sha256 moved to the pure core/hash module. sandbox-profile moved under shell/.
+const { runBackend, probeBackend, getBackendDriver } = require(path.join(pluginRoot, "dist/shell/execution-backend/registry.js"));
+const { sha256 } = require(path.join(pluginRoot, "dist/core/hash.js"));
+const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/shell/sandbox-profile.js"));
 
 const ctx = sandboxContextForValidation(pluginRoot);
 const ro = showBundledSandboxProfile("readonly", ctx);
@@ -52,6 +56,17 @@ function main() {
   }
 
   // ---- 3. PROBE: configured -> ready -------------------------------------------
+  // REAL-GAP (v2): this FAILS. probeBackend never threads env into the probe body.
+  // registry.probeBackend(id, {cwd}) calls driver.probe(context) with the {cwd}
+  // context object (src/shell/execution-backend/registry.ts:372), but the agent
+  // probe body reads config from its `env` parameter which defaults to
+  // process.env (src/shell/execution-backend/probes.ts:141,144). So `context`
+  // (a {cwd} object) shadows process.env, CW_AGENT_COMMAND is never seen, and a
+  // configured agent still reports readiness "unverified" / agent-command ok:false.
+  // Same seam breaks the CLI: probeBackendCli -> backendProbePayload(id,{cwd})
+  // (src/shell/exec-backend-cli.ts:64). The probe body logic itself is correct
+  // (configured -> "ready"); only the registry->probe call site is wrong.
+  // Assertions kept intact per audit rules — do NOT weaken to force green.
   {
     process.env.CW_AGENT_COMMAND = "claude -p {{manifest}}";
     try {

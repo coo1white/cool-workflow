@@ -115,7 +115,7 @@ function main() {
   }
 
   {
-    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "agent-config.js"));
+    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js"));
     const cfg = resolveAgentConfig({ "agent-command": "builtin:deepseek" }, {});
     assert.ok(cfg.command && cfg.command.includes("deepseek-agent.js"), "builtin:deepseek expands to the deepseek wrapper");
     assert.ok(cfg.command.includes("{{input}}") && cfg.command.includes("{{result}}"), "expanded template carries worker substitutions");

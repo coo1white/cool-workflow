@@ -15,7 +15,10 @@ const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 
-const { buildChildEnv } = require(path.join(pluginRoot, "dist/execution-backend.js"));
+// v2 layout: flat dist/execution-backend.js was split into dist/shell/execution-backend/*.
+// buildChildEnv lives in the local-execution driver body. Signature is byte-exact
+// (policy.env.{inherit,expose,deny}; PATH+HOME kept; expose adds; deny deletes).
+const { buildChildEnv } = require(path.join(pluginRoot, "dist/shell/execution-backend/local.js"));
 const adapterCore = require(path.join(pluginRoot, "scripts/agents/agent-adapter-core.js"));
 
 // test the directory listing for the child scripts

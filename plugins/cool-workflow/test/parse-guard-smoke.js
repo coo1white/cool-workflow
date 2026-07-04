@@ -1,6 +1,6 @@
 "use strict";
 // parse-guard-smoke (v0.1.96). Proves the P2 audit fixes:
-// metadataOption gives a clear error on invalid JSON (not raw SyntaxError),
+// metadata parse gives a clear error on invalid JSON (not raw SyntaxError),
 // routine fire gives a clear error on bad payload files,
 // and the shell backend guard catches # * ? ~ metacharacters.
 //
@@ -18,13 +18,28 @@ const cw = path.join(pluginRoot, "dist", "cli.js");
 
 
 function main() {
-  // ---- 1. metadataOption throws clear error on invalid JSON -------------------
+  // ---- 1. metadata JSON parse throws clear error on invalid JSON --------------
+  // v2 NO-EQUIVALENT: the old flat exported internal API metadataOption(options)
+  // from src/orchestrator/cli-options.ts is gone. v2 collapsed it into the
+  // module-private helper parseJsonObject(value) at src/shell/scheduler-io.ts:608
+  // (throws "Expected a JSON object, got invalid JSON"; matches /Invalid JSON/i).
+  // It is NOT exported, so it cannot be required and called directly.
+  // The reachable v2 surface that routes options.metadata through that same
+  // successor parser is RoutineTriggerBridge.create() (scheduler-io.ts:506),
+  // so we drive the identical four metadata-parse behaviors through it. This
+  // preserves every assertion's intent (invalid -> clear error, object
+  // passthrough, valid-string parse, absent -> undefined) against the real v2
+  // code path; it does not weaken any of them.
   {
-    const { metadataOption } = require(path.join(pluginRoot, "dist", "orchestrator", "cli-options.js"));
-    assert.throws(() => metadataOption({ metadata: "{bad" }), /Invalid JSON/i, "metadataOption rejects invalid JSON");
-    assert.deepEqual(metadataOption({ metadata: { key: "val" } }), { key: "val" }, "metadataOption passes through objects");
-    assert.equal(metadataOption({ metadata: JSON.stringify({ key: "val" }) }).key, "val", "metadataOption parses valid JSON string");
-    assert.equal(metadataOption({}), undefined, "metadataOption returns undefined when absent");
+    const { RoutineTriggerBridge } = require(path.join(pluginRoot, "dist", "shell", "scheduler-io.js"));
+    const tmp1 = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-md-"));
+    const bridge = new RoutineTriggerBridge(tmp1);
+    const withMetadata = (metadata) => bridge.create({ kind: "api", prompt: "guard-smoke", metadata }).metadata;
+    assert.throws(() => withMetadata("{bad"), /Invalid JSON/i, "metadata parse rejects invalid JSON");
+    assert.deepEqual(withMetadata({ key: "val" }), { key: "val" }, "metadata parse passes through objects");
+    assert.equal(withMetadata(JSON.stringify({ key: "val" })).key, "val", "metadata parse parses valid JSON string");
+    assert.equal(bridge.create({ kind: "api", prompt: "guard-smoke" }).metadata, undefined, "metadata is undefined when absent");
+    fs.rmSync(tmp1, { recursive: true, force: true });
   }
 
   // ---- 2. routine fire handles bad payload file with clear error --------------
@@ -41,8 +56,8 @@ function main() {
 
   // ---- 3. shell backend catches # comment truncation --------------------------
   {
-    const { runBackend } = require(path.join(pluginRoot, "dist/execution-backend.js"));
-    const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/sandbox-profile.js"));
+    const { runBackend } = require(path.join(pluginRoot, "dist/shell/execution-backend/registry.js"));
+    const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/shell/sandbox-profile.js"));
     const ctx = sandboxContextForValidation(pluginRoot);
     const policy = showBundledSandboxProfile("readonly", ctx);
     const tryShell = () => runBackend({
@@ -60,8 +75,8 @@ function main() {
 
   // ---- 4. shell backend catches * glob expansion ------------------------------
   {
-    const { runBackend } = require(path.join(pluginRoot, "dist/execution-backend.js"));
-    const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/sandbox-profile.js"));
+    const { runBackend } = require(path.join(pluginRoot, "dist/shell/execution-backend/registry.js"));
+    const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/shell/sandbox-profile.js"));
     const ctx = sandboxContextForValidation(pluginRoot);
     const policy = showBundledSandboxProfile("readonly", ctx);
     const tryShell = () => runBackend({
@@ -79,8 +94,8 @@ function main() {
 
   // ---- 5. shell backend catches ~ home expansion ------------------------------
   {
-    const { runBackend } = require(path.join(pluginRoot, "dist/execution-backend.js"));
-    const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/sandbox-profile.js"));
+    const { runBackend } = require(path.join(pluginRoot, "dist/shell/execution-backend/registry.js"));
+    const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/shell/sandbox-profile.js"));
     const ctx = sandboxContextForValidation(pluginRoot);
     const policy = showBundledSandboxProfile("readonly", ctx);
     const tryShell = () => runBackend({
@@ -98,8 +113,8 @@ function main() {
 
   // ---- 7. node backend still accepts safe args (no regression) ----------------
   {
-    const { runBackend } = require(path.join(pluginRoot, "dist/execution-backend.js"));
-    const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/sandbox-profile.js"));
+    const { runBackend } = require(path.join(pluginRoot, "dist/shell/execution-backend/registry.js"));
+    const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/shell/sandbox-profile.js"));
     const ctx = sandboxContextForValidation(pluginRoot);
     const policy = showBundledSandboxProfile("readonly", ctx);
     const result = runBackend({

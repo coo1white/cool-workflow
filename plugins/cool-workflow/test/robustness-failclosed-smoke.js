@@ -23,10 +23,13 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require(path.join(pluginRoot, "dist", "state.js"));
-const { allocateWorkerScope, listWorkerScopes, getWorkerScope } = require(path.join(pluginRoot, "dist", "worker-isolation.js"));
-const { RunRegistry } = require(path.join(pluginRoot, "dist", "run-registry.js"));
-const { Scheduler } = require(path.join(pluginRoot, "dist", "scheduler.js"));
+// v2 dist layout: old flat dist/{state,worker-isolation,run-registry,scheduler}.js
+// split into dist/shell/*. createRunPaths/ensureRunDirs/saveCheckpoint moved to
+// the run-store shell module; RunRegistry/Scheduler to their *-io shell modules.
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require(path.join(pluginRoot, "dist", "shell", "run-store.js"));
+const { allocateWorkerScope, listWorkerScopes, getWorkerScope } = require(path.join(pluginRoot, "dist", "shell", "worker-isolation.js"));
+const { RunRegistry } = require(path.join(pluginRoot, "dist", "shell", "run-registry-io.js"));
+const { Scheduler } = require(path.join(pluginRoot, "dist", "shell", "scheduler-io.js"));
 
 function makeRun(tmp, id) {
   const paths = createRunPaths(path.join(tmp, ".cw", "runs", id));
@@ -63,6 +66,21 @@ function addTask(run, taskId) {
 }
 
 // ---- A. corrupt worker.json: skip in listing, fail closed on direct lookup ----
+// REAL-GAP (v2 robustness regression). This part fails on genuine behavior after
+// the imports were repointed — it is NOT an import crash. v2 dropped two
+// fail-closed guards the old build had (git c8a6265^:src/worker-isolation.ts):
+//   1. listWorkerScopes reloaded scopes from disk (loadWorkerScopesFromDisk) and
+//      SKIPPED a corrupt worker.json with a stderr diagnostic. v2's
+//      dist/shell/worker-isolation.js:577-580 just returns the in-memory
+//      run.workers slice with no disk reload — so `run.workers = []` (the test's
+//      forced reload) yields an EMPTY list and the readable worker A vanishes.
+//   2. getWorkerScope wrapped JSON.parse in try/catch and threw
+//      "Corrupt worker scope <file>: ...". v2's
+//      dist/shell/worker-isolation.js:111 does a raw
+//      JSON.parse(fs.readFileSync(...)) — a corrupt file throws a raw SyntaxError,
+//      not /Corrupt worker scope/.
+// Both guards must be restored in v2 src (Phase B); this test is left failing on
+// purpose to pin the regression. Assertions are unchanged (intent preserved).
 function corruptWorkerScope() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-rob-worker-"));
   const run = makeRun(tmp, "rob-workers");
@@ -101,7 +119,7 @@ async function concurrentSchedulerWrites() {
   const N = 16;
   const child = path.join(tmp, "create-one.js");
   fs.writeFileSync(child, `
-    const { Scheduler } = require(${JSON.stringify(path.join(pluginRoot, "dist", "scheduler.js"))});
+    const { Scheduler } = require(${JSON.stringify(path.join(pluginRoot, "dist", "shell", "scheduler-io.js"))});
     new Scheduler(${JSON.stringify(tmp)}).create({ prompt: "task " + process.argv[2], intervalMinutes: 5 });
   `, "utf8");
 

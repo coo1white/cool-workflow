@@ -50,6 +50,23 @@ function main() {
   fs.writeFileSync(path.join(project, "README.md"), "# someone's project\n", "utf8");
 
   // `cw -q "…"` auto-detects THIS dir as the repo (no --repo), resolves its own bundled app
+  //
+  // REAL-GAP (v2): this smoke is BLACK-BOX (no dist require()s — it drives the installed
+  // `cw` bin as a subprocess), so no imports needed repointing. The failure lands on genuine
+  // v2 behavior: from a GLOBAL install with an unrelated cwd, `cw -q --check` returns
+  // ok:false — the "app" check is "blocked" ("Workflow app architecture-review is not
+  // available."). The v2 bundled-app resolver cannot find its own apps from the install
+  // location, which is exactly the "install once, use anywhere" property this smoke proves.
+  //   Root cause: src/shell/workflow-app-loader.ts walkUpFor() (line ~67) builds only
+  //   `path.join(dir, "plugins", "cool-workflow", <tail>)` candidates while walking up from
+  //   the loader's own __dirname, plus a `<cwd>/apps` fallback. In the published/globally-
+  //   installed package the bundled `apps/` sit at the PACKAGE ROOT (`<pkg>/apps`), never
+  //   under a nested `plugins/cool-workflow/` segment — so every candidate misses, and the
+  //   cwd fallback points at the unrelated caller dir. candidateAppsRoots (line ~79) /
+  //   candidateWorkflowsRoots (line ~90) never try the package root itself (`../..` from
+  //   dist/shell), so listWorkflowAppRecords() (line ~353) and loadWorkflowApp() (line ~121)
+  //   both resolve 0 apps. The old flat build resolved bundled apps from the install
+  //   location; v2 regressed. NOT fixed here (v2 src is off-limits in this phase — Phase B).
   const ask = runFrom(project, ["-q", "What are the risks here?", "--check", "--agent-command", FAKE_AGENT]);
   assert.doesNotMatch(ask.stdout + ask.stderr, /Workflow app not found/, "installed `cw -q` routes the question");
   const askp = JSON.parse(ask.stdout);

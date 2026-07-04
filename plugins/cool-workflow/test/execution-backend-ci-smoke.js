@@ -13,8 +13,11 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { runBackend, sha256, probeBackend } = require(path.join(pluginRoot, "dist/execution-backend.js"));
-const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/sandbox-profile.js"));
+// v2 layout: execution-backend split into dist/shell/execution-backend/*;
+// runBackend + probeBackend live in the registry, sha256 moved to dist/core/hash.
+const { runBackend, probeBackend } = require(path.join(pluginRoot, "dist/shell/execution-backend/registry.js"));
+const { sha256 } = require(path.join(pluginRoot, "dist/core/hash.js"));
+const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/shell/sandbox-profile.js"));
 
 const ctx = sandboxContextForValidation(pluginRoot);
 const ro = showBundledSandboxProfile("readonly", ctx);
@@ -64,6 +67,14 @@ async function main() {
     process.env.CW_CI_ENDPOINT = endpoint;
 
     // (a) probe is ready when CW_CI_ENDPOINT is set
+    // REAL-GAP (v2): this assertion fails. probeBackend calls the driver probe as
+    // `driver.probe(context)` (src/shell/execution-backend/registry.ts:372), but the
+    // ci/remote/agent probes are typed `(env = process.env)`
+    // (src/shell/execution-backend/probes.ts:117). The passed context object shadows
+    // the process.env default, so env.CW_CI_ENDPOINT is never read and the ci probe
+    // can NEVER reach "ready" — it stays "unverified" even with CW_CI_ENDPOINT set.
+    // Old build read the env correctly. Assertion left intact (do not weaken). Fix is
+    // Phase B's job: registry must forward env into the probe (do NOT edit src here).
     const probe = probeBackend("ci");
     assert.equal(probe.readiness, "ready", "ci probe is ready when CW_CI_ENDPOINT is set");
     assert.ok(probe.checks.some((c) => c.name === "ci-endpoint" && c.ok), "ci-endpoint check is ok when set");

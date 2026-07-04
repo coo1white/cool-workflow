@@ -13,7 +13,9 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 const node = process.execPath;
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-robustness-"));
-const { migrateRunState } = require("../dist/state-migrations");
+// v2: flat dist/state-migrations moved to core/state/migrations; same signature
+// migrateRunState(input, { statePath?, dryRun? }).
+const { migrateRunState } = require("../dist/core/state/migrations");
 
 (async () => {
   verifyStateMigration();
@@ -21,6 +23,14 @@ const { migrateRunState } = require("../dist/state-migrations");
   const plan = runJson(["plan", "architecture-review", "--repo", tmp, "--question", "Robustness hardening smoke."]);
   assert.ok(fs.existsSync(plan.statePath));
 
+  // REAL-GAP (v2): `blackboard message post <runId>` mis-routes the runId.
+  // The CLI binding path is ["blackboard","message"], so after it is consumed
+  // the leading positional is the action token ("post"/"list") and the runId
+  // is positionals[1]. But the v2 handler reads positionals[0] as the runId
+  // (src/core/capability-table.ts:1543-1545 and 1553-1555), so it treats
+  // "post" as the runId and fails with "File not found ... runs/post/state.json".
+  // Old build errored with "Missing message body" here. Import repoint above is
+  // correct; this failure is genuine v2 behavior, left failing per audit rules.
   const invalidCli = runFail(["blackboard", "message", "post", plan.runId, "--topic", "missing-topic"]);
   assert.match(invalidCli.stderr, /Unknown BlackboardTopic id|Missing message body|body is required/);
 

@@ -17,7 +17,10 @@ const cp = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const s = require(path.join(pluginRoot, "dist/scheduling.js"));
+// v2: the flat dist/scheduling.js was relocated under dist/shell/scheduling-io.js.
+// Same exports + same signatures (normalizeSchedulingPolicy/planSchedule/applyLease/
+// reclaimExpired/resetEntry), so a plain repoint preserves every assertion's intent.
+const s = require(path.join(pluginRoot, "dist/shell/scheduling-io.js"));
 
 const NOW = "2020-01-01T00:00:00.000Z";
 const P = s.normalizeSchedulingPolicy({ maxConcurrent: 2, maxAttempts: 3, leaseTtlMs: 1000, backoffBaseMs: 1000, backoffFactor: 2, backoffCapMs: 60000 });

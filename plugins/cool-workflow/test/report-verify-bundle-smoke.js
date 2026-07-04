@@ -16,10 +16,14 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state");
-const { exportRun, verifyReportBundle } = require("../dist/run-export");
-const { appendTelemetryAttestation, computeRecordHash, reportedUsageDigest } = require("../dist/telemetry-ledger");
-const { signTelemetry } = require("../dist/telemetry-attestation");
+// v2 layout: old flat ../dist/state split into shell/run-store (run dir + checkpoint IO);
+// ../dist/run-export -> shell/run-export; ../dist/telemetry-ledger's IO half (append +
+// its re-exported computeRecordHash/reportedUsageDigest) -> shell/telemetry-ledger-io;
+// ../dist/telemetry-attestation -> core/trust/telemetry-attestation. Same signatures.
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { exportRun, verifyReportBundle } = require("../dist/shell/run-export");
+const { appendTelemetryAttestation, computeRecordHash, reportedUsageDigest } = require("../dist/shell/telemetry-ledger-io");
+const { signTelemetry } = require("../dist/core/trust/telemetry-attestation");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -236,7 +240,7 @@ function reseal(record) {
 // section. Editing the report breaks (3); editing the result breaks (2); editing
 // BOTH to one consistent lie still breaks (2) — the signed digest does not move.
 {
-  const { sha256 } = require("../dist/execution-backend");
+  const { sha256 } = require("../dist/core/hash"); // v2: sha256 moved out of execution-backend into core/hash
   const REAL = "## Findings\n\n- src/server.js:18 — missing auth check (real).";
   // `written` is what lands in result.md + report.md; `signed` is what the
   // executor's signature covers (an attacker makes these differ).
@@ -340,7 +344,7 @@ function reseal(record) {
 // --- 9. Section-anchor across TWO tasks: an earlier result containing the LATER
 //        task's heading must not mis-anchor the later task's check (false positive). ---
 {
-  const { sha256 } = require("../dist/execution-backend");
+  const { sha256 } = require("../dist/core/hash"); // v2: sha256 moved out of execution-backend into core/hash
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-xcheck-2task-"));
   const runId = "xcheck-2task";
   const runDir = path.join(tmp, ".cw", "runs", runId);

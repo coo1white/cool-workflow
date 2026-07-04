@@ -17,8 +17,14 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 
-const { commitState, CommitGateError } = require("../dist/commit");
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/candidate-scoring");
+// v2 layout: flat src/ split into core/ (pure) + shell/ (impure IO wrappers).
+// The stateful/audit-recording halves this smoke drives (commit gate, candidate
+// scoring, collaboration records, run store) now live under dist/shell/*; the
+// pure node builders under dist/core/state/*. shell/collaboration-io.ts and
+// shell/candidate-scoring-io.ts are byte-exact ports of the old impure halves
+// (same signatures + persist:false option), so every call below is unchanged.
+const { commitState, CommitGateError } = require("../dist/shell/commit");
+const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
 const {
   setReviewPolicy,
   recordApproval,
@@ -27,9 +33,9 @@ const {
   deriveReviewState,
   buildReviewStatusReport,
   deriveOwner
-} = require("../dist/collaboration");
-const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
-const { appendRunNode, createStateNode } = require("../dist/state-node");
+} = require("../dist/shell/collaboration-io");
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
+const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
 
 const CLI = path.join(__dirname, "../dist/cli.js");
 const MCP = path.join(__dirname, "../dist/mcp-server.js");
@@ -195,6 +201,18 @@ assert.equal(policy.requiredApprovals, 1);
 assert.deepEqual(policy.authorizedRoles, ["reviewer"]);
 
 // ---- 2. Review gate BLOCKS a verifier-passing commit lacking approvals -----
+// REAL-GAP (v2): the commit path does NOT stack the review gate. commitState
+// (src/shell/commit.ts:74-90) builds its gate solely from resolveCommitGate
+// (src/core/pipeline/commit-gate.ts), which has ZERO review references — so a
+// verifier-passing, un-approved commit is NOT blocked. The pure gate logic is
+// present and correct (collab.reviewGateErrors returns "review-gate-missing-
+// approvals"; commitReviewProvenance stamps the shipped commit's .review), and
+// shell/collaboration-io.ts re-exports both, but NOTHING in commitState ever
+// calls them — they are dead. The old build wired reviewGateErrors on top of
+// the verifier gate inside commitState (SPEC/multi-agent.md invariant 7/8; see
+// the "reviewGateErrors STACKS" comment at src/core/multi-agent/
+// collaboration.ts:9-11). This assertion (and every review-gate/provenance
+// assertion below) fails until v2 restores that wiring. Do NOT weaken it.
 let blocked;
 try {
   commitState(run, { reason: "selected candidate", selectionId: selection.id, verifierGated: true, source: "cli" });
