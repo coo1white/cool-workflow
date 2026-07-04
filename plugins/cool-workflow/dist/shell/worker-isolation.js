@@ -74,6 +74,33 @@ const registry_1 = require("./execution-backend/registry");
 const error_feedback_io_1 = require("./error-feedback-io");
 const run_store_1 = require("./run-store");
 const multi_agent_io_1 = require("./multi-agent-io");
+const runtime_1 = require("../core/multi-agent/runtime");
+/** The blackboard coordination block on a worker manifest, derived from the
+ *  worker's AgentMembership linkage (undefined for a non-blackboard worker).
+ *  Byte-behavior port of the old build's blackboardManifest. */
+function workerBlackboardManifest(run, task) {
+    const membershipId = task?.multiAgent?.membershipId;
+    const membership = membershipId ? (0, runtime_1.getAgentMembership)(run, membershipId) : undefined;
+    const blackboardId = membership?.blackboardId;
+    if (!blackboardId)
+        return undefined;
+    const root = run.paths.blackboardDir || path.join(run.paths.runDir, "blackboard");
+    return {
+        id: blackboardId,
+        topicIds: membership?.topicIds || [],
+        indexPath: path.join(root, "index.json"),
+        messagesPath: path.join(root, "messages.jsonl"),
+        topicsDir: path.join(root, "topics"),
+        contextsDir: path.join(root, "contexts"),
+        artifactsDir: path.join(root, "artifacts"),
+        instructions: [
+            "Use the blackboard as shared coordination context.",
+            "Read index.json and the relevant topic/context/artifact files before synthesizing.",
+            "Cite blackboard artifact refs or message refs in result evidence when relevant.",
+            "Do not edit blackboard files directly; CW records accepted worker output into the blackboard.",
+        ],
+    };
+}
 const verifier_1 = require("./verifier");
 const runner_1 = require("../core/pipeline/runner");
 const hash_1 = require("../core/hash");
@@ -233,6 +260,7 @@ function writeWorkerManifest(run, scope) {
         backendId: scope.backendId,
         backendAttestation: scope.backendAttestation,
         multiAgent: task?.multiAgent,
+        blackboard: workerBlackboardManifest(run, task),
         backend: scope.backendId && scope.backendAttestation
             ? {
                 id: scope.backendId,

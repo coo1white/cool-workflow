@@ -36,6 +36,33 @@ import { attestSandbox, getBackendDescriptor, resolveBackendSelection } from "./
 import { recordFeedback } from "./error-feedback-io";
 import { saveCheckpoint } from "./run-store";
 import { recordMultiAgentWorkerOutput } from "./multi-agent-io";
+import { getAgentMembership } from "../core/multi-agent/runtime";
+
+/** The blackboard coordination block on a worker manifest, derived from the
+ *  worker's AgentMembership linkage (undefined for a non-blackboard worker).
+ *  Byte-behavior port of the old build's blackboardManifest. */
+function workerBlackboardManifest(run: WorkflowRun, task: RunTask | undefined): Record<string, unknown> | undefined {
+  const membershipId = (task?.multiAgent as { membershipId?: string } | undefined)?.membershipId;
+  const membership = membershipId ? getAgentMembership(run, membershipId) : undefined;
+  const blackboardId = membership?.blackboardId;
+  if (!blackboardId) return undefined;
+  const root = run.paths.blackboardDir || path.join(run.paths.runDir, "blackboard");
+  return {
+    id: blackboardId,
+    topicIds: membership?.topicIds || [],
+    indexPath: path.join(root, "index.json"),
+    messagesPath: path.join(root, "messages.jsonl"),
+    topicsDir: path.join(root, "topics"),
+    contextsDir: path.join(root, "contexts"),
+    artifactsDir: path.join(root, "artifacts"),
+    instructions: [
+      "Use the blackboard as shared coordination context.",
+      "Read index.json and the relevant topic/context/artifact files before synthesizing.",
+      "Cite blackboard artifact refs or message refs in result evidence when relevant.",
+      "Do not edit blackboard files directly; CW records accepted worker output into the blackboard.",
+    ],
+  };
+}
 import { taskRequiresEvidence } from "./verifier";
 import { runPipelineStage } from "../core/pipeline/runner";
 import { sha256 } from "../core/hash";
@@ -259,6 +286,7 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Recor
     backendId: scope.backendId,
     backendAttestation: scope.backendAttestation,
     multiAgent: task?.multiAgent,
+    blackboard: workerBlackboardManifest(run, task),
     backend:
       scope.backendId && scope.backendAttestation
         ? {

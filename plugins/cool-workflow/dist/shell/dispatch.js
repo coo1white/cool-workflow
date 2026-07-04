@@ -128,6 +128,10 @@ function createDispatchManifest(run, limit, options = {}) {
         }
     }
     run.dispatches.push({ id: dispatchId, phase: tasks[0].phase || "", taskIds: tasks.map((t) => t.id), manifestPath, createdAt: now, stateNodeId: dispatchNode.id, workerIds: selectedRunTasks.filter((t) => t.workerId).map((t) => String(t.workerId)), sandboxProfileId, backendId: backendSelection.backendId, ...(multiAgentBlock ? { multiAgent: multiAgentBlock } : {}) });
+    // Advance the run-level loop stage so operator status ("Stage: act") reflects
+    // that work is dispatched — the standalone `cw dispatch` path, like the drive
+    // loop, moves interpret→act. (Old build advanced it here.)
+    run.loopStage = "act";
     (0, dispatch_1.updatePhaseStatuses)(run);
     const manifest = {
         schemaVersion: 1,

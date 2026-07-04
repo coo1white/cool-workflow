@@ -141,6 +141,10 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
 
   const commitNodeId = recordCommitNode(run, commit, options, gate);
   if (commitNodeId) commit.stateNodeId = commitNodeId;
+  // A verifier-gated commit is the run's checkpoint — advance the run-level loop
+  // stage. Guard on verifierGated so the initial plan/unverified checkpoint does
+  // NOT prematurely move the run off "interpret".
+  if (gate.verifierGated) run.loopStage = "checkpoint";
   writeJson(snapshotPath, { commit, run });
   run.commits.push(commit);
   return commit;
