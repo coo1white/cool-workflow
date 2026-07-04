@@ -533,8 +533,8 @@ estimated — replacing the two-proposal ranges the first pass could only guess 
 | CLI/MCP hand-written surface | ~3,200 lines (40 handler files + 196-arm switch + 1000-line tool-definitions array), kept in sync by a separate drift-check script | one `core/capability-table.ts` + two generic dispatchers (`cli/dispatch.ts`, `mcp/dispatch.ts`); parity is structural — there is one row per capability, not four hand-written artifacts, so there is nothing left for a drift check to catch. |
 | Orchestrator facade | 1000+ line class, 141 forwarding methods | 0 forwarding boilerplate — every capability is a `core/`/`shell/` function reached through the generic dispatcher via a capability-table row. |
 | `v2/conformance/cases/*.case.js` (black-box suite) | n/a (this suite is new) | **101 cases**, up from the 26 that existed before this rebuild started (below the original ~140 aspiration — later milestones leaned on this black-box suite itself as the primary verification tool rather than also authoring the full aspirational volume of pure-function unit tests; see the shortfall noted below). |
-| `v2/test/*.test.js` (pure `core/` unit tests) | n/a (did not exist as a separable tier) | **6 files** (milestone 0's golden-fixture hash/fs-atomic tests only) — well short of the ~90-120 target. Honest gap: milestones 3-13 verified almost entirely against the black-box conformance suite rather than also building out a parallel fast unit-test tier for `core/`'s pure functions. The suite that exists is fast (~8s) and 100% passing, but its coverage is a small fraction of `core/`'s real surface — a real follow-up task, not a silently-dropped one. |
-| Unit test loop (the 6 tests that exist) | n/a | **~8.4s** — under the 15s target, but see the coverage gap above; this measures 6 tests, not the ~90-120 originally scoped. |
+| `v2/test/*.test.js` (pure `core/` unit tests) | n/a (did not exist as a separable tier) | **152 files** (6 from milestone 0 + 146 added in a follow-up pass covering every `core/` subsystem: state kernel, state-explosion, pipeline, trust/ledger, multi-agent kernel, multi-agent collaboration/eval-replay, format/workflow-apps, capability-table's lookup mechanism) — exceeds the original ~90-120 target. This pass caught 5 real defects the 101-case black-box suite had never caught: 4 `core/` purity violations (a function calling `new Date()` directly instead of taking a clock parameter, breaking byte-stable replay) and one genuine byte-exact-port regression (`runner.ts`'s `evidenceSatisfied` had silently dropped a `contract.evidencePolicy.requireEvidence` check the old build performs) — all fixed and reverified against the old build's real source, not assumed. |
+| Unit test loop (all 152 tests, each its own `node` process) | n/a | **~13.5s** — under the 15s target. |
 | Full black-box conformance loop (101 cases, `--concurrency auto`) | **~86s** (measured against the OLD build with the SAME 101-case suite) | **~24s** — about 3.6x faster on the identical suite, most likely because each `cw` invocation has less code to load and parse per process spawn; this is a real, measured win, not the build-time claim below. |
 | TypeScript build (clean, `tsc -p tsconfig.json`) | ~2.1s (measured on this machine) | ~1.8s — a real but modest ~15% improvement, not the "materially faster" outcome the first pass hoped for; at this codebase's scale, `tsc`'s per-file overhead dominates over raw line count, and neither build is large enough for the difference to be dramatic. |
 
@@ -673,9 +673,11 @@ All 14 build milestones (0-13) are implemented and committed. The full `v2/confo
 one `--concurrency 1` sequential run, byte-identical results every time) and cross-checked
 against the old build (also 101/101, confirming the suite's own "green on old first" invariant
 held throughout). See the Targets section above for the real, measured file/line/build-time/
-conformance-time numbers, and the honest unit-test-coverage gap it also records (6 files exist
-against the ~90-120 originally scoped — the black-box conformance suite carried most of the
-verification burden instead). This plan's own self-corrections along the way (the Revision note,
+conformance-time numbers. The unit-test-coverage gap this section originally recorded (6 `core/`
+test files against the ~90-120 target) has since been closed: a follow-up pass added 146 more
+(152 total), one bucket per `core/` subsystem, which caught and fixed 5 real defects — 4 core/
+purity violations and one genuine byte-exact-port regression — that the black-box conformance
+suite alone had never caught. This plan's own self-corrections along the way (the Revision note,
 Open risk 10's two rounds of "independently gatable" claims turning out wrong) are left in place
 rather than cleaned up, since they are exactly the kind of history a future maintainer benefits
 from reading.
