@@ -108,8 +108,18 @@ function cliHelpTokens() {
 // Generation-moment ISO timestamps are presentation metadata, not capability
 // data: the same field carries the wall-clock instant of the render. Neutralize
 // them (and only them) before comparison so we assert canonical-payload identity.
+// Also neutralize the metrics fields derived from a live run's `updatedAt`
+// (wallClockMs = elapsed-since-updatedAt; sourceFingerprint / freshness's
+// current+persisted fingerprints = a hash folding updatedAt). These drift
+// between two separate reads (the CLI subprocess vs the in-process MCP call) of
+// the SAME unchanged run — the same non-determinism web-desktop-workbench-smoke
+// neutralizes with its canonicalStable. Only the workbench/metrics payloads
+// carry these fields, so the extra replacements are a no-op elsewhere.
 function canonical(value) {
-  return JSON.stringify(value).replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, "<ts>");
+  return JSON.stringify(value)
+    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, "<ts>")
+    .replace(/"wallClockMs":\d+/g, '"wallClockMs":<ms>')
+    .replace(/"(sourceFingerprint|currentFingerprint|persistedFingerprint)":"[^"]*"/g, '"$1":"<fp>"');
 }
 
 function escapeRegExp(value) {

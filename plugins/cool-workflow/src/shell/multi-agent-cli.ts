@@ -904,7 +904,17 @@ export function reviewStatusCli(args: Record<string, unknown>): unknown {
 export function reviewPolicyCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
   const run = loadRun(args, runId);
-  const policy = collab.setReviewPolicy(run, { requiredApprovals: numberArg(args.requiredApprovals), authorizedRoles: arrayArg(args.authorizedRoles).length ? arrayArg(args.authorizedRoles) : optionalString(args.authorizedRoles), allowSelfApproval: args.allowSelfApproval === undefined ? undefined : boolArg(args.allowSelfApproval), requireAttestedActor: args.requireAttestedActor === undefined ? undefined : boolArg(args.requireAttestedActor), appliesTo: arrayArg(args.appliesTo).length ? (arrayArg(args.appliesTo) as never) : (optionalString(args.appliesTo) as never) });
+  // Read BOTH the MCP camelCase keys and the CLI kebab-case flags: the CLI
+  // parser emits `--required-approvals` as `required-approvals`, not
+  // `requiredApprovals`, so without the fallback every flag was silently
+  // dropped and the CLI wrote the default policy (caught by parity-check's
+  // cw --json vs cw_review_policy payload probe).
+  const requiredApprovals = args.requiredApprovals ?? args["required-approvals"];
+  const authorizedRoles = args.authorizedRoles ?? args["authorized-roles"];
+  const allowSelfApproval = args.allowSelfApproval ?? args["allow-self-approval"];
+  const requireAttestedActor = args.requireAttestedActor ?? args["require-attested-actor"];
+  const appliesTo = args.appliesTo ?? args["applies-to"];
+  const policy = collab.setReviewPolicy(run, { requiredApprovals: numberArg(requiredApprovals), authorizedRoles: arrayArg(authorizedRoles).length ? arrayArg(authorizedRoles) : optionalString(authorizedRoles), allowSelfApproval: allowSelfApproval === undefined ? undefined : boolArg(allowSelfApproval), requireAttestedActor: requireAttestedActor === undefined ? undefined : boolArg(requireAttestedActor), appliesTo: arrayArg(appliesTo).length ? (arrayArg(appliesTo) as never) : (optionalString(appliesTo) as never) });
   return policy;
 }
 
