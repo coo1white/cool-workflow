@@ -21,6 +21,7 @@ import { safeFileName, writeJson } from "./fs-atomic";
 import { RunTask, StateEvidence, StateNodeError, WorkflowRun } from "../core/state/types";
 import { appendRunNode } from "./node-store";
 import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node";
+import { validateWorkerScope as validateWorkerScopeShape } from "../core/state/validation";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract";
 import { normalizeResultEnvelope, isEmptyCapture, ResultEnvelope } from "../core/pipeline/result-normalize";
 import { isGroundedEvidence } from "../core/trust/evidence-grounding";
@@ -172,15 +173,15 @@ function createWorkerId(run: WorkflowRun, taskId: string): string {
   return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 
-/** Minimal fail-closed shape check for a worker.json overlay: it must be a
- *  non-null object carrying a string id. Enough to reject a wrong-shape scope
- *  (null/array/scalar) with context; a syntactically-invalid file throws from
- *  JSON.parse before this runs. */
+/** Full fail-closed shape guard for a worker.json overlay: delegates to the
+ *  core WorkerScope guard (schemaVersion, every required string field, the
+ *  status enum, allowedPaths/feedbackIds/errors shapes) and casts the
+ *  result to this module's richer WorkerScope, a structural superset of the
+ *  core WorkerScopeShape. A syntactically-invalid file throws from
+ *  JSON.parse before this runs; a wrong-shape (but parseable) file throws a
+ *  RecordValidationError naming the exact broken field. */
 function validateWorkerScope(value: unknown): WorkerScope {
-  if (!value || typeof value !== "object" || Array.isArray(value) || typeof (value as { id?: unknown }).id !== "string") {
-    throw new Error("worker.json is not a WorkerScope object");
-  }
-  return value as WorkerScope;
+  return validateWorkerScopeShape(value) as unknown as WorkerScope;
 }
 
 export function getWorkerScope(run: WorkflowRun, workerId: string): WorkerScope | undefined {

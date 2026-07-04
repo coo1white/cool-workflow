@@ -65,6 +65,7 @@ const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const node_store_1 = require("./node-store");
 const state_node_1 = require("../core/state/state-node");
+const validation_1 = require("../core/state/validation");
 const contract_1 = require("../core/pipeline/contract");
 const result_normalize_1 = require("../core/pipeline/result-normalize");
 const evidence_grounding_1 = require("../core/trust/evidence-grounding");
@@ -141,15 +142,15 @@ function createWorkerId(run, taskId) {
     const seq = (run.workers || []).filter((scope) => scope.id.startsWith(prefix)).length + 1;
     return `${prefix}${String(seq).padStart(4, "0")}`;
 }
-/** Minimal fail-closed shape check for a worker.json overlay: it must be a
- *  non-null object carrying a string id. Enough to reject a wrong-shape scope
- *  (null/array/scalar) with context; a syntactically-invalid file throws from
- *  JSON.parse before this runs. */
+/** Full fail-closed shape guard for a worker.json overlay: delegates to the
+ *  core WorkerScope guard (schemaVersion, every required string field, the
+ *  status enum, allowedPaths/feedbackIds/errors shapes) and casts the
+ *  result to this module's richer WorkerScope, a structural superset of the
+ *  core WorkerScopeShape. A syntactically-invalid file throws from
+ *  JSON.parse before this runs; a wrong-shape (but parseable) file throws a
+ *  RecordValidationError naming the exact broken field. */
 function validateWorkerScope(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value) || typeof value.id !== "string") {
-        throw new Error("worker.json is not a WorkerScope object");
-    }
-    return value;
+    return (0, validation_1.validateWorkerScope)(value);
 }
 function getWorkerScope(run, workerId) {
     ensureWorkerState(run);

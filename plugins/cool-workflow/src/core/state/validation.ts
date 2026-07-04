@@ -1,12 +1,22 @@
 // core/state/validation.ts — RecordValidationError + per-record shape
 // guards.
 //
-// MILESTONE 3. Byte-exact port of the parts of the old build's
-// src/validation.ts this milestone's conformance filter actually reaches
-// (NodeSnapshot / NodeReplayRun, both read at the `readNodeSnapshot`/
-// `readNodeReplay` edge in shell/node-store.ts). WorkerScope/
-// CandidateScore/CandidateRecord guards land with their owning milestone
-// (5/9) rather than being spec'd ahead of need here.
+// MILESTONE 3 (+ WorkerScope port). Byte-exact port of the old build's
+// src/validation.ts. NodeSnapshot / NodeReplayRun are read at the
+// `readNodeSnapshot`/`readNodeReplay` edge in shell/node-store.ts.
+// WorkerScope is read at the `getWorkerScope`/`loadWorkerScopesFromDisk`
+// edge in shell/worker-isolation.ts. CandidateScore/CandidateRecord
+// guards still land with their owning milestone (9) rather than being
+// spec'd ahead of need here.
+//
+// WorkerScope itself is a shell-layer concept (its full type carries
+// ResolvedSandboxPolicy/SandboxAttestation from shell/execution-backend),
+// so this pure core module does not import that type. Instead it
+// declares WorkerScopeShape: the subset of required fields the old guard
+// actually checks. Any real WorkerScope satisfies this shape structurally
+// (TypeScript structural typing), so shell/worker-isolation.ts can call
+// this guard and get its own WorkerScope back without a core -> shell
+// import.
 //
 // Two callers, two error semantics, both fail closed:
 //   - validate*()     throws a descriptive Error on mismatch.
@@ -18,7 +28,7 @@
 // Evidence: SPEC/state-core.md "src/validation.ts — persisted-record shape
 // guards", "Fail-closed record reads".
 
-import { NodeReplayRun, NodeSnapshot, NodeSnapshotBody, NodeSnapshotFreshness } from "./types";
+import { NodeReplayRun, NodeSnapshot, NodeSnapshotBody, NodeSnapshotFreshness, StateNodeError } from "./types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -38,6 +48,43 @@ function isStringArray(value: unknown): value is string[] {
 
 const SNAPSHOT_FRESHNESS: ReadonlySet<string> = new Set<NodeSnapshotFreshness>(["valid", "stale", "absent"]);
 
+/** Worker isolation status enum — mirrors shell/worker-isolation.ts's
+ *  WorkerScope["status"] (kept here, not imported, to hold the core/shell
+ *  boundary — see file header). */
+export type WorkerIsolationStatus = "allocated" | "running" | "completed" | "failed" | "rejected" | "verified" | "orphaned";
+
+const WORKER_STATUSES: ReadonlySet<string> = new Set<WorkerIsolationStatus>([
+  "allocated",
+  "running",
+  "completed",
+  "failed",
+  "rejected",
+  "verified",
+  "orphaned",
+]);
+
+/** Structural subset of shell/worker-isolation.ts's WorkerScope that this
+ *  guard checks. A real WorkerScope satisfies this shape by structural
+ *  typing (see file header) — validateWorkerScope's caller casts the
+ *  return value back to its own WorkerScope. */
+export interface WorkerScopeShape {
+  schemaVersion: 1;
+  id: string;
+  runId: string;
+  taskId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: WorkerIsolationStatus;
+  workerDir: string;
+  inputPath: string;
+  resultPath: string;
+  artifactsDir: string;
+  logsDir: string;
+  allowedPaths: string[];
+  feedbackIds: string[];
+  errors: StateNodeError[];
+}
+
 /** Descriptive integrity error — the message names the type and the field
  *  that broke, so a corrupt record is diagnosable from logs alone. */
 export class RecordValidationError extends Error {
@@ -50,6 +97,51 @@ export class RecordValidationError extends Error {
     this.typeName = typeName;
     this.field = field;
   }
+}
+
+// ---------------------------------------------------------------------------
+// WorkerScope — worker-isolation.ts getWorkerScope / loadWorkerScopesFromDisk
+// Required: schemaVersion===1, id, runId, taskId, createdAt, updatedAt,
+// workerDir, inputPath, resultPath, artifactsDir, logsDir are strings;
+// status a valid WorkerIsolationStatus; allowedPaths string[]; feedbackIds
+// string[]; errors object[]. Optional fields are not enforced (additive,
+// may be absent).
+// ---------------------------------------------------------------------------
+
+function workerScopeReason(value: unknown): { field?: string; reason: string } | undefined {
+  if (!isRecord(value)) return { reason: "not an object" };
+  if (value.schemaVersion !== 1) return { field: "schemaVersion", reason: "must equal 1" };
+  const requiredStrings: (keyof WorkerScopeShape)[] = [
+    "id",
+    "runId",
+    "taskId",
+    "createdAt",
+    "updatedAt",
+    "workerDir",
+    "inputPath",
+    "resultPath",
+    "artifactsDir",
+    "logsDir",
+  ];
+  for (const field of requiredStrings) {
+    if (!isString(value[field as string])) return { field: field as string, reason: "must be a string" };
+  }
+  if (!isString(value.status) || !WORKER_STATUSES.has(value.status)) {
+    return { field: "status", reason: "must be a valid WorkerIsolationStatus" };
+  }
+  if (!isStringArray(value.allowedPaths)) return { field: "allowedPaths", reason: "must be a string[]" };
+  if (!isStringArray(value.feedbackIds)) return { field: "feedbackIds", reason: "must be a string[]" };
+  if (!isObjectArray(value.errors)) return { field: "errors", reason: "must be a StateNodeError[]" };
+  return undefined;
+}
+
+/** Throw-on-mismatch guard for WorkerScope (callers that require the
+ *  record). Returns WorkerScopeShape — the caller (shell/worker-isolation.ts)
+ *  casts to its own richer WorkerScope, which is a structural superset. */
+export function validateWorkerScope(value: unknown): WorkerScopeShape {
+  const problem = workerScopeReason(value);
+  if (problem) throw new RecordValidationError("WorkerScope", problem.reason, problem.field);
+  return value as WorkerScopeShape;
 }
 
 function nodeSnapshotBodyReason(value: unknown, prefix: string): { field?: string; reason: string } | undefined {
