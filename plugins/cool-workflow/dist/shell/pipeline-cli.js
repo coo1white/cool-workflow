@@ -462,7 +462,20 @@ function quickstartRun(args) {
 function dispatchRun(args) {
     const runId = String(args.runId);
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const manifest = (0, dispatch_1.createDispatchManifest)(run, args.limit !== undefined ? Number(args.limit) : undefined, { sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined, backendId: typeof args.backend === "string" ? args.backend : undefined });
+    // parseArgv keys long flags in kebab-case; accept camelCase as a fallback.
+    const flag = (kebab, camel) => {
+        const v = args[kebab] ?? args[camel];
+        return typeof v === "string" && v.trim() ? v : undefined;
+    };
+    const manifest = (0, dispatch_1.createDispatchManifest)(run, args.limit !== undefined ? Number(args.limit) : undefined, {
+        sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined,
+        sandbox: typeof args.sandbox === "string" ? args.sandbox : undefined,
+        backendId: typeof args.backend === "string" ? args.backend : undefined,
+        multiAgentRunId: flag("multi-agent-run", "multiAgentRun"),
+        multiAgentGroupId: flag("multi-agent-group", "multiAgentGroup"),
+        multiAgentRoleId: flag("multi-agent-role", "multiAgentRole"),
+        multiAgentFanoutId: flag("multi-agent-fanout", "multiAgentFanout"),
+    });
     if (manifest.dispatchId) {
         (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
         (0, run_store_1.saveCheckpoint)(run);

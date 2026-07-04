@@ -75,11 +75,24 @@ function workerManifestCli(args) {
     (0, run_store_1.saveCheckpoint)(run);
     return manifest;
 }
+/** Task-status rollup carried on the `cw worker output` payload — byte-behavior
+ *  port of the old orchestrator recordWorkerOutput's summarizeRun.tasks. Callers
+ *  (pdca/run-export) read output.tasks.completed. */
+function taskCounts(run) {
+    const tasks = run.tasks;
+    return {
+        total: tasks.length,
+        pending: tasks.filter((t) => t.status === "pending").length,
+        running: tasks.filter((t) => t.status === "running").length,
+        failed: tasks.filter((t) => t.status === "failed").length,
+        completed: tasks.filter((t) => t.status === "completed").length,
+    };
+}
 function workerOutputCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
     const result = (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {});
     (0, run_store_1.saveCheckpoint)(run);
-    return result;
+    return { ...result, tasks: taskCounts(run) };
 }
 function workerFailCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
