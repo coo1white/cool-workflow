@@ -77,7 +77,7 @@ const { normalizeValue, replayStableStringify } = require("../dist/core/multi-ag
   assert.equal(timestamped, "Started at <timestamp> and again <timestamp>", "both timestamp regex forms are replaced with the literal <timestamp> placeholder");
 }
 {
-  const runDirString = normalizeValue("see /Users/nick/.cw/runs/run-42/state.json for detail");
+  const runDirString = normalizeValue("see /Users/x/.cw/runs/run-42/state.json for detail");
   assert.equal(runDirString, "see <run-dir>/state.json for detail", "an inline .cw/runs/<id> path substring anywhere in a plain string has that segment scrubbed to <run-dir>, trailing path kept");
 }
 {
