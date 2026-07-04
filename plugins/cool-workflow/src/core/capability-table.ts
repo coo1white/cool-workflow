@@ -889,6 +889,24 @@ attachCliBinding("sandbox.validate", {
 REGISTRY_BY_CAPABILITY.get("sandbox.validate")!.mcp!.handler = (args) =>
   validateSandboxProfileCli(required(optionalArg(args.profileFile), "profile file"), args);
 
+// PARITY: `sandbox.choose`/`sandbox.resolve` are BOTH-surface capabilities
+// per SPEC/mcp.md (old build cli.path ["sandbox","choose"]/["sandbox",
+// "resolve"]) — they were left MCP-only at GAP #24 (see the comment
+// above sandboxChooseCli's mcp.handler wiring). Attach the same, already-
+// working shell body as the cli.handler too, so the CLI front door and
+// the parity payload probe both reach it (no new business logic, same
+// function both surfaces already call over MCP).
+attachCliBinding("sandbox.choose", {
+  path: ["sandbox", "choose"],
+  jsonMode: "default",
+  handler: (args) => ({ json: sandboxChooseCli(args.options) }),
+});
+attachCliBinding("sandbox.resolve", {
+  path: ["sandbox", "resolve"],
+  jsonMode: "default",
+  handler: (args) => ({ json: sandboxChooseCli(args.options) }),
+});
+
 attachCliBinding("backend.list", {
   path: ["backend", "list"],
   jsonMode: "default",
@@ -949,6 +967,13 @@ attachCliBinding("backend.agent.config.set", {
 });
 REGISTRY_BY_CAPABILITY.get("backend.agent.config.show")!.mcp!.handler = (args) => backendAgentConfigShow(args);
 REGISTRY_BY_CAPABILITY.get("backend.agent.config.set")!.mcp!.handler = (args) => backendAgentConfigSet(args);
+// PARITY: `backend.agent.config.set` mutates $CW_HOME/agent-config.json
+// (secret-stripped) before returning the effective config; both surfaces
+// perform the same write, so it is a documented opt-out from the
+// read-payload probe, not an undocumented divergence.
+REGISTRY_BY_CAPABILITY.get("backend.agent.config.set")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("backend.agent.config.set")!.reason =
+  "Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe.";
 
 addCliOnlyCapability(
   "doctor",
@@ -1076,17 +1101,39 @@ attachCliBinding("run.drive.step", {
   },
 });
 
-// `run.drive` (the read-only MCP preview tool) has NO separate CLI dispatch
-// path of its own — `cw run drive <run-id>` is served by run.drive.step's
-// handler above (byte-exact to the old build's single handleRun switch,
-// which the same source function backs both branches from). Attaching a
-// SECOND row to cli.path ["run"] would create an ambiguous match (the
-// registry-order-first row would always win over the intended one) — see
-// the comment on run.drive.step above. run.drive keeps its MCP handler
-// only; `cw help run` still lists it via REGISTRY, just without its own
-// cli binding (a capability with no `.cli` is skipped by cliCapabilities()).
+// PARITY: `run.drive` (the read-only MCP preview tool) now ALSO carries
+// its own two-token `cli.path` ["run","drive"], same as the old build's
+// registry row (cli.path ["run","drive"]) and the same reversed-
+// candidate-order pattern already used for run.search/run.list/etc.
+// (see those rows' own comment below): findCapabilityByCliPath tries the
+// 2-token candidate BEFORE the 1-token ["run"] row, so this row — not
+// run.drive.step's combined switch — now serves `cw run drive <run-id>`
+// [--step]. Behavior is unchanged (same runDrivePreview/runDriveStep
+// calls, same --step branch run.drive.step's switch already used); only
+// WHICH row answers the dispatch changes, so run.drive becomes a real
+// both-surface, dual-bound capability for the payload-identity probe.
+attachCliBinding("run.drive", {
+  path: ["run", "drive"],
+  jsonMode: "default",
+  handler: (args) => {
+    const id = args.positionals[0];
+    if (args.options.step) {
+      const driveArgs: Record<string, unknown> = { ...args.options };
+      if (id) driveArgs.runId = id;
+      return { json: runDriveStep(driveArgs) };
+    }
+    return { json: runDrivePreview({ ...args.options, runId: required(id, "run id") }) };
+  },
+});
 REGISTRY_BY_CAPABILITY.get("run.drive")!.mcp!.handler = (args) => runDrivePreview(args);
 REGISTRY_BY_CAPABILITY.get("run.drive.step")!.mcp!.handler = (args) => runDriveStep(args);
+// PARITY: `run.drive.step` advances the run by spawning the external
+// agent per worker and recording attested output — not a read probe.
+// CLI (--drive/--step) and MCP route through the same drive() core; the
+// opt-out is the documented divergence, not undocumented drift.
+REGISTRY_BY_CAPABILITY.get("run.drive.step")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("run.drive.step")!.reason =
+  "Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core.";
 REGISTRY_BY_CAPABILITY.get("plan")!.mcp!.handler = (args) => planRun(args);
 // GAP #24: dispatchRun reads the sandbox profile from `args.sandbox` only
 // (the CLI's --sandbox flag). The cw_dispatch MCP tool also accepts the
@@ -1116,6 +1163,17 @@ REGISTRY_BY_CAPABILITY.get("commit")!.mcp!.handler = (args) => {
     commit,
   };
 };
+// PARITY: `commit` is the one declared payload projection (byte-compat
+// item 5 above). Both surfaces route through the single core entry
+// runner.commit (commitRun); the CLI keeps the raw StateCommitResult for
+// scripting while cw_commit lifts an operator-facing envelope on top (see
+// the mcp.handler just above). Marked here, not silently let drift, so
+// the parity payload probe (core/capability-table.ts's
+// payloadIdenticalCapabilities) skips it with a paper trail instead of
+// tripping on an undocumented divergence.
+REGISTRY_BY_CAPABILITY.get("commit")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("commit")!.reason =
+  "Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection, not drift.";
 
 // MILESTONE 11 — run.export/import/verify-import/inspect-archive/restore
 // MCP handlers (the CLI side is served by run.drive.step's combined
@@ -2340,6 +2398,41 @@ addCliOnlyCapability(
 REGISTRY_BY_CAPABILITY.get("gc.plan")!.mcp!.handler = (args) => gcPlanCli(optionalArg(args.runId), args);
 REGISTRY_BY_CAPABILITY.get("gc.run")!.mcp!.handler = (args) => gcRunCli(optionalArg(args.runId), args);
 REGISTRY_BY_CAPABILITY.get("gc.verify")!.mcp!.handler = (args) => gcVerifyCli(required(optionalArg(args.runId), "run id"), args);
+// PARITY: `gc.run` frees disk and appends a tombstone; both surfaces run
+// the identical transaction but the payload reports now-derived
+// bytesFreed/tombstone, so it is a documented opt-out, not drift.
+REGISTRY_BY_CAPABILITY.get("gc.run")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("gc.run")!.reason =
+  "Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone.";
+
+// PARITY: `gc.plan`/`gc.verify` now ALSO carry their own two-token
+// cli.path ["gc","plan"]/["gc","verify"], same as the old build's
+// registry rows and the same reversed-candidate-order pattern used for
+// run.drive/run.search above: findCapabilityByCliPath tries the 2-token
+// candidate before the 1-token ["gc"] catch-all row, so these rows — not
+// the "gc" capability's combined switch — now serve `cw gc plan`/`cw gc
+// verify`. Same functions, same output; only which row answers the
+// dispatch changes, so both become real both-surface, dual-bound
+// capabilities for the payload-identity probe. `gc.run` stays reachable
+// only via the ["gc"] catch-all (it is a documented payload-probe
+// opt-out above, so it does not need its own dual-bound row).
+attachCliBinding("gc.plan", {
+  path: ["gc", "plan"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const result = gcPlanCli(args.positionals[0], args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: formatGcPlan(result) };
+  },
+});
+attachCliBinding("gc.verify", {
+  path: ["gc", "verify"],
+  jsonMode: "flag",
+  handler: (args) => {
+    const result = gcVerifyCli(required(args.positionals[0], "run id"), args.options);
+    const text = formatGcVerify(result);
+    return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
+  },
+});
 
 // ---- orphans (list|gc) ---------------------------------------------------
 
@@ -2749,6 +2842,17 @@ attachCliBinding("workbench.serve", {
 // divergence": an MCP client must never be able to make the server
 // process open a persistent listening socket.
 REGISTRY_BY_CAPABILITY.get("workbench.serve")!.mcp!.handler = (args) => new WorkbenchHost(args).descriptor(true);
+// PARITY: both surfaces route through the single core entry
+// buildWorkbenchServeDescriptor and return the IDENTICAL serve
+// descriptor under `cw workbench serve --json`/`--once` and
+// `cw_workbench_serve`. They diverge only in side effect, not payload:
+// the CLI's default `cw workbench serve` (no --once) additionally
+// STARTS the blocking localhost host, which an MCP stdio host cannot do,
+// so cw_workbench_serve only ever returns the descriptor. Declared
+// divergence, not drift.
+REGISTRY_BY_CAPABILITY.get("workbench.serve")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("workbench.serve")!.reason =
+  "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host, which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.";
 
 // ---- audit.summary / audit.multi-agent / audit.policy / audit.judge ----
 
@@ -3306,5 +3410,493 @@ addCliOnlyCapability(
   },
   "info is a CLI-only convenience card over app.show; the old build never gave it an MCP peer."
 );
+
+// ---- PARITY WIRING -------------------------------------------------------
+//
+// `next` had a raw `case "next"` arm in cli/dispatch.ts (a milestone 3/6
+// PLACEHOLDER that always throws "not implemented in this milestone") but
+// no row in this table's cli binding, so it had no cli-mcp-parity-smoke /
+// cli-jsonmode-parity-smoke coverage. This row makes `next` a real,
+// dual-bound capability (matching the old build's `cli: { path: ["next"],
+// jsonMode: "default" }`) with the SAME placeholder body as the dispatch.ts
+// arm — no new capability logic, just giving the existing placeholder a
+// home in the one data table. dispatchTable() in cli/dispatch.ts tries this
+// row before the switch statement is reached, so the old `case "next"` arm
+// is now dead code for the CLI path (left in place, like the other
+// superseded arms in that file, each with its own "dispatchTable() above
+// always matches first" note).
+attachCliBinding("next", {
+  path: ["next"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    throw new Error(`next is not implemented in this milestone (runId=${runId})`);
+  },
+});
+
+// `ledger.propose`/`.review`/`.verify`/`.apply`/`.list` are documented
+// payload-probe opt-outs in the old build (each mints a fresh timestamped/
+// digested entry, or reads args that arrive by --file/stdin on the CLI vs
+// a plain `entry` argument over MCP, or reads an on-disk ledger directory
+// the generic probe does not populate) — same reasoning applies here
+// unchanged, since both surfaces still route through the same
+// buildLedgerProposal/buildLedgerReview/verifyLedgerEntry/
+// applyLedgerProposal/listLedgerEntries core. Ported so these rows do not
+// sit unclassified in the payload-identity probe.
+REGISTRY_BY_CAPABILITY.get("ledger.propose")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.propose")!.reason =
+  "Mints a fresh entry each call: createdAt is the wall-clock instant and the id/digest are derived from it, so the output is inherently non-deterministic and a byte-identity probe does not apply. Both surfaces call the same buildLedgerProposal core; round-trip + fail-closed behavior is covered by ledger-verify-smoke.";
+REGISTRY_BY_CAPABILITY.get("ledger.review")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.review")!.reason =
+  "Mints a fresh timestamped/digested verdict each call — non-deterministic output, same reasoning as ledger.propose. Both surfaces call the same buildLedgerReview core.";
+REGISTRY_BY_CAPABILITY.get("ledger.verify")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.verify")!.reason =
+  "The entry arrives by --file/stdin on the CLI and as an `entry` argument over MCP; there is no shared arg-bag the byte-identity probe can feed both. Both surfaces call the same verifyLedgerEntry core; ledger-verify-smoke proves the fail-closed contract.";
+REGISTRY_BY_CAPABILITY.get("ledger.apply")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.apply")!.reason =
+  "The entry arrives by --file/stdin on the CLI and as an `entry` argument over MCP; there is no shared arg-bag the byte-identity probe can feed both. Both surfaces call the same applyLedgerProposal core (a fail-closed wrapper over verifyLedgerEntry); ledger-apply-smoke proves the diff only escapes a verified proposal.";
+REGISTRY_BY_CAPABILITY.get("ledger.list")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.list")!.reason =
+  "Output depends on the on-disk contents of the named ledger directory/directories, which the generic payload probe does not populate. Both surfaces call the same listLedgerEntries/unionLedgerEntries core; ledger-verify-smoke covers the fail-closed inbox and the multi-mirror union.";
+
+// ---------------------------------------------------------------------------
+// CLI <-> MCP parity planning + report. Ported from the old flat build's
+// src/capability-registry.ts (its single source of parity data) onto this
+// table's row shape. Same rule as that file's header: a capability marked
+// `payloadIdentical` (the default for `surface: "both"`) MUST return a
+// byte-for-byte equal JSON payload from `cw <cmd> --json` and from the
+// `cw_<tool>` MCP result (whitespace aside); any divergence is drift. A
+// capability reachable on one surface but absent on the other, or an
+// undeclared payload divergence, is a release-blocking fail-closed error —
+// see scripts/parity-check.js.
+//
+// `CAPABILITY_REGISTRY` is an alias so callers written against the old
+// name (and the two smokes that import this module) find the same array
+// under either name; `REGISTRY` stays the primary export other v2 modules
+// already use.
+export const CAPABILITY_REGISTRY: Capability[] = REGISTRY;
+
+export type PayloadProbeKind = "global" | "run" | "scenario";
+
+export interface PayloadProbeTarget {
+  capability: string;
+  kind: PayloadProbeKind;
+}
+
+export interface PayloadProbeDeferred {
+  capability: string;
+  reason: string;
+}
+
+export interface PayloadProbePlan {
+  targets: PayloadProbeTarget[];
+  deferred: PayloadProbeDeferred[];
+  unclassified: string[];
+  duplicateClassifications: string[];
+  invalidClassifications: string[];
+}
+
+export interface ParityReport {
+  ok: boolean;
+  registrySize: number;
+  /** Tools declared here but absent from the live MCP server. */
+  missingMcpTools: string[];
+  /** Live MCP tools not declared here (undeclared drift). */
+  undeclaredMcpTools: string[];
+  /** CLI case tokens declared here but absent from cli source. */
+  missingCliTokens: string[];
+  /** CLI case tokens in cli source not declared here (undeclared drift). */
+  undeclaredCliTokens: string[];
+  /** Top-level CLI commands declared here but absent from `cw help`. */
+  helpMissingCliTokens: string[];
+  /** Top-level CLI commands shown in `cw help` but absent from the registry. */
+  helpUndeclaredCliTokens: string[];
+  /** Descriptors that must carry a reason but do not. */
+  reasonlessExceptions: string[];
+  /** Payload-identical both-surface capabilities that are neither probed nor deferred. */
+  payloadProbeUnclassified: string[];
+  /** Capabilities named more than once in the payload probe classification. */
+  payloadProbeDuplicateClassifications: string[];
+  /** Payload probe classifications that do not name a payload-identical capability. */
+  payloadProbeInvalidClassifications: string[];
+  /** Internal registry lint failures (duplicate ids/tools, malformed bindings). */
+  registryLint: string[];
+}
+
+/** Read-only, run-less global reads: safe with just `cwd`. */
+const GLOBAL_PAYLOAD_PROBE_CAPABILITIES = [
+  "list",
+  "app.list",
+  "topology.list",
+  "sandbox.list",
+  "backend.list",
+  "backend.agent.config.show",
+  "metrics.summary",
+];
+
+/** Read-only reads that need only a planned run id. */
+const RUN_PAYLOAD_PROBE_CAPABILITIES = [
+  "status",
+  "operator.status",
+  "operator.report",
+  "graph",
+  "report",
+  "next",
+  "state.check",
+  "contract.show",
+  "node.list",
+  "node.graph",
+  "worker.summary",
+  "candidate.summary",
+  "feedback.summary",
+  "commit.summary",
+  "audit.summary",
+  "multi-agent.summary",
+  "workbench.view",
+  "metrics.show",
+  "review.status",
+  "comment.list",
+  "run.drive",
+  "gc.plan",
+  "gc.verify",
+];
+
+/** Capabilities that need bespoke scenario setup (extra args, seeded state,
+ *  a dispatched worker, ...) beyond a bare `cwd`/`runId` — see
+ *  scripts/parity-check.js's `prepareScenarioCli`/`prepareScenarioMcp` and
+ *  `runScenarioCli`/`runScenarioMcp` for the setup + invocation each one
+ *  actually runs. */
+const SCENARIO_PAYLOAD_PROBE_CAPABILITIES = [
+  "plan",
+  "app.show",
+  "app.validate",
+  "app.package",
+  "topology.show",
+  "topology.validate",
+  "topology.apply",
+  "topology.summary",
+  "topology.graph",
+  "summary.refresh",
+  "summary.show",
+  "sandbox.show",
+  "sandbox.validate",
+  "sandbox.choose",
+  "sandbox.resolve",
+  "approve",
+  "reject",
+  "comment.add",
+  "handoff",
+  "review.policy",
+  "worker.list",
+  "worker.show",
+  "worker.manifest",
+  "worker.output",
+  "worker.fail",
+  "worker.validate",
+  "candidate.list",
+  "candidate.show",
+  "candidate.register",
+  "candidate.score",
+  "candidate.rank",
+  "candidate.select",
+  "candidate.reject",
+  "feedback.list",
+  "feedback.show",
+  "feedback.collect",
+  "feedback.task",
+  "feedback.resolve",
+  "node.show",
+  "node.snapshot",
+  "node.diff",
+  "node.replay",
+  "node.replay.verify",
+];
+
+/** Payload-identical, both-surface, dual-bound capabilities that are not
+ *  yet safe for the deterministic bootstrap parity probe — each needs
+ *  extra target ids/files, mutates durable state, depends on external
+ *  state, or needs a dedicated fixture beyond cwd/runId. Every entry here
+ *  must actually be a dual-bound (`cli` + `mcp`) row in `REGISTRY` without
+ *  a declared opt-out, or it never reaches the candidate set this list is
+ *  deferring — `buildPayloadProbePlan`'s `invalidClassifications` fails
+ *  closed on a stale entry left behind after a row later grows a real
+ *  probe target or an explicit opt-out. */
+const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: string[] }> = [
+  {
+    reason:
+      "Not safe for the deterministic bootstrap parity probe yet: this capability needs extra target ids/files, mutates durable state, depends on external state, or needs a dedicated fixture beyond cwd/runId.",
+    capabilities: [
+      "dispatch",
+      "result",
+      "app.init",
+      "migration.list",
+      "migration.check",
+      "migration.prove",
+      "multi-agent.run",
+      "multi-agent.status",
+      "multi-agent.step",
+      "multi-agent.blackboard",
+      "multi-agent.score",
+      "multi-agent.select",
+      "multi-agent.summarize",
+      "multi-agent.graph",
+      "multi-agent.dependencies",
+      "multi-agent.failures",
+      "multi-agent.evidence",
+      "multi-agent.reasoning",
+      "multi-agent.run.create",
+      "multi-agent.run.transition",
+      "multi-agent.run.show",
+      "multi-agent.group.create",
+      "multi-agent.membership.create",
+      "multi-agent.fanout.create",
+      "multi-agent.fanin.collect",
+      "eval.snapshot",
+      "eval.replay",
+      "eval.compare",
+      "eval.score",
+      "eval.gate",
+      "eval.report",
+      "blackboard.summary",
+      "blackboard.summarize",
+      "blackboard.graph",
+      "blackboard.resolve",
+      "blackboard.topic.create",
+      "blackboard.message.post",
+      "blackboard.message.list",
+      "blackboard.context.put",
+      "blackboard.artifact.add",
+      "blackboard.artifact.list",
+      "blackboard.snapshot",
+      "coordinator.summary",
+      "coordinator.decision",
+      "audit.verify",
+      "audit.worker",
+      "audit.provenance",
+      "audit.multi-agent",
+      "audit.policy",
+      "audit.role",
+      "audit.blackboard",
+      "audit.judge",
+      "audit.attest",
+      "audit.decision",
+      "backend.show",
+      "backend.probe",
+      "run.search",
+      "run.list",
+      "run.show",
+      "run.resume",
+      "run.archive",
+      "run.rerun",
+      "report.verify-bundle",
+      "report.bundle",
+      "telemetry.verify",
+      "history",
+    ],
+  },
+];
+
+/** The MCP tool names this registry declares. */
+export function declaredMcpToolsList(): string[] {
+  return declaredMcpTools();
+}
+
+/** Required MCP argument groups for a registry-declared tool. */
+export function mcpRequiredArgsForTool(tool: string): string[] {
+  return findCapabilityByMcpTool(tool)?.mcp?.requiredArgs ?? [];
+}
+
+/** The CLI `case` tokens this registry declares (deduped). */
+export function declaredCliTokens(): string[] {
+  const tokens = new Set<string>();
+  for (const cap of REGISTRY) {
+    if (!cap.cli) continue;
+    for (const token of cap.cli.caseTokens ?? cap.cli.path) tokens.add(token);
+  }
+  return [...tokens].sort();
+}
+
+/** The top-level CLI commands that should be visible in `cw help`.
+ *  Subcommands are collapsed to their first token; alias tokens (e.g.
+ *  `audit-run`) stay visible alongside the verb they alias. */
+export function declaredCliHelpTokens(): string[] {
+  const tokens = new Set<string>();
+  for (const cap of REGISTRY) {
+    if (!cap.cli) continue;
+    const subcommandTokens = new Set(cap.cli.path.slice(1));
+    tokens.add(cap.cli.path[0]);
+    for (const token of cap.cli.caseTokens || []) {
+      if (!subcommandTokens.has(token)) tokens.add(token);
+    }
+  }
+  tokens.delete("help");
+  return [...tokens].sort();
+}
+
+/** Whether a row MUST carry a reason (surface-specific or payload-divergent). */
+export function requiresReason(cap: Capability): boolean {
+  if (cap.surface !== "both") return true;
+  if (cap.payloadIdentical === false) return true;
+  return false;
+}
+
+/**
+ * Whether a `surface:"both"` capability is DOCUMENTED out of the payload-identity
+ * probe. The probe defaults capabilities IN (every both-surface, dual-bound verb —
+ * including write/complex-arg verbs) and requires an EXPLICIT, REASONED opt-out to
+ * fall out of scope. A capability escapes the probe only when it carries BOTH
+ * `payloadIdentical: false` AND a non-empty `reason`. A bare `payloadIdentical:
+ * false` with no recorded reason does NOT silently escape — it stays in the probe
+ * set so the undocumented divergence trips the gate (FAIL CLOSED).
+ */
+export function isPayloadProbeOptOut(cap: Capability): boolean {
+  return cap.payloadIdentical === false && !!(cap.reason && cap.reason.trim());
+}
+
+/** Rows for the payload-identity probe. Defaults to EVERY both-surface,
+ *  dual-bound capability (read OR write); a row is excluded only by a
+ *  documented opt-out (`payloadIdentical: false` + a non-empty `reason`) —
+ *  see `isPayloadProbeOptOut`. Fail-closed: an undocumented `payloadIdentical:
+ *  false` stays in scope so its divergence is caught, not silently excused. */
+export function payloadIdenticalCapabilities(): Capability[] {
+  return REGISTRY.filter((cap) => cap.surface === "both" && cap.cli && cap.mcp && !isPayloadProbeOptOut(cap));
+}
+
+export function payloadProbeTargets(): PayloadProbeTarget[] {
+  return [
+    ...GLOBAL_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "global" as const })),
+    ...RUN_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "run" as const })),
+    ...SCENARIO_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "scenario" as const })),
+  ];
+}
+
+export function deferredPayloadProbeCapabilities(): PayloadProbeDeferred[] {
+  return PAYLOAD_PROBE_DEFERRED_GROUPS.flatMap((group) =>
+    group.capabilities.map((capability) => ({ capability, reason: group.reason }))
+  );
+}
+
+export function buildPayloadProbePlan(
+  targets: PayloadProbeTarget[],
+  deferred: PayloadProbeDeferred[]
+): PayloadProbePlan {
+  const candidateIds = new Set(payloadIdenticalCapabilities().map((cap) => cap.capability));
+  const counts = new Map<string, number>();
+  const classified = [...targets.map((entry) => entry.capability), ...deferred.map((entry) => entry.capability)];
+  for (const capability of classified) counts.set(capability, (counts.get(capability) || 0) + 1);
+  const classifiedIds = new Set(classified);
+  return {
+    targets,
+    deferred,
+    unclassified: [...candidateIds].filter((capability) => !classifiedIds.has(capability)).sort(),
+    duplicateClassifications: [...counts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([capability]) => capability)
+      .sort(),
+    invalidClassifications: [...classifiedIds].filter((capability) => !candidateIds.has(capability)).sort(),
+  };
+}
+
+export function payloadProbePlan(): PayloadProbePlan {
+  return buildPayloadProbePlan(payloadProbeTargets(), deferredPayloadProbeCapabilities());
+}
+
+function lintRegistry(): string[] {
+  const issues: string[] = [];
+  const seenCaps = new Set<string>();
+  const seenTools = new Set<string>();
+  for (const cap of REGISTRY) {
+    if (seenCaps.has(cap.capability)) issues.push(`duplicate capability id: ${cap.capability}`);
+    seenCaps.add(cap.capability);
+    if (cap.mcp) {
+      if (seenTools.has(cap.mcp.tool)) issues.push(`duplicate MCP tool: ${cap.mcp.tool}`);
+      seenTools.add(cap.mcp.tool);
+    }
+    // NOTE (v2 build-order difference from the old flat registry): the old
+    // build's registry was written all at once, so a "both" row ALWAYS had
+    // both bindings the moment it was declared. This table is built up
+    // MILESTONE BY MILESTONE (this file's header note): `REGISTRY` starts
+    // from the full, literal 196-tool `mcp` surface (SPEC/mcp.md) and each
+    // milestone LAYERS a `cli` binding onto the rows it wires next — so a
+    // "both" row with an `mcp` binding but no `cli` binding YET is the
+    // expected, honest mid-rollout state, not a lint error. `cli` bindings
+    // are added without ever touching `surface`, so the lint only fails
+    // closed on what is actually impossible: a `mcp` binding must always
+    // exist for "both" (every row starts from `MCP_TOOL_DATA`), and
+    // `cli-only`/`mcp-only` rows must carry exactly the one binding their
+    // name promises.
+    if (cap.surface === "both" && !cap.mcp) {
+      issues.push(`${cap.capability}: surface "both" requires an mcp binding`);
+    }
+    if (cap.surface === "cli-only" && (cap.mcp || !cap.cli)) {
+      issues.push(`${cap.capability}: surface "cli-only" requires a cli binding and no mcp binding`);
+    }
+    if (cap.surface === "mcp-only" && (cap.cli || !cap.mcp)) {
+      issues.push(`${cap.capability}: surface "mcp-only" requires an mcp binding and no cli binding`);
+    }
+  }
+  return issues;
+}
+
+/**
+ * Compare the declared registry against the ACTUAL surfaces and report every
+ * fail-closed gap. `mcpTools` is the live `tools/list` result; `cliTokens` is the
+ * set of `case "<token>"` strings parsed from the CLI source.
+ */
+export function buildParityReport(input: { mcpTools: string[]; cliTokens: string[]; helpTokens?: string[] }): ParityReport {
+  const declaredTools = new Set(declaredMcpTools());
+  const actualTools = new Set(input.mcpTools);
+  const declaredTokens = new Set(declaredCliTokens());
+  const actualTokens = new Set(input.cliTokens);
+  const declaredHelpTokens = new Set(declaredCliHelpTokens());
+  const actualHelpTokens = new Set(input.helpTokens || []);
+
+  const missingMcpTools = [...declaredTools].filter((tool) => !actualTools.has(tool)).sort();
+  const undeclaredMcpTools = [...actualTools].filter((tool) => !declaredTools.has(tool)).sort();
+  const missingCliTokens = [...declaredTokens].filter((token) => !actualTokens.has(token)).sort();
+  const undeclaredCliTokens = [...actualTokens].filter((token) => !declaredTokens.has(token)).sort();
+  const helpMissingCliTokens = input.helpTokens
+    ? [...declaredHelpTokens].filter((token) => !actualHelpTokens.has(token)).sort()
+    : [];
+  const helpUndeclaredCliTokens = input.helpTokens
+    ? [...actualHelpTokens].filter((token) => !declaredHelpTokens.has(token)).sort()
+    : [];
+
+  const reasonlessExceptions = REGISTRY.filter((cap) => requiresReason(cap) && !(cap.reason && cap.reason.trim()))
+    .map((cap) => cap.capability)
+    .sort();
+
+  const payloadPlan = payloadProbePlan();
+  const registryLint = lintRegistry();
+
+  const ok =
+    missingMcpTools.length === 0 &&
+    undeclaredMcpTools.length === 0 &&
+    missingCliTokens.length === 0 &&
+    undeclaredCliTokens.length === 0 &&
+    helpMissingCliTokens.length === 0 &&
+    helpUndeclaredCliTokens.length === 0 &&
+    reasonlessExceptions.length === 0 &&
+    payloadPlan.unclassified.length === 0 &&
+    payloadPlan.duplicateClassifications.length === 0 &&
+    payloadPlan.invalidClassifications.length === 0 &&
+    registryLint.length === 0;
+
+  return {
+    ok,
+    registrySize: REGISTRY.length,
+    missingMcpTools,
+    undeclaredMcpTools,
+    missingCliTokens,
+    undeclaredCliTokens,
+    helpMissingCliTokens,
+    helpUndeclaredCliTokens,
+    reasonlessExceptions,
+    payloadProbeUnclassified: payloadPlan.unclassified,
+    payloadProbeDuplicateClassifications: payloadPlan.duplicateClassifications,
+    payloadProbeInvalidClassifications: payloadPlan.invalidClassifications,
+    registryLint,
+  };
+}
 
 

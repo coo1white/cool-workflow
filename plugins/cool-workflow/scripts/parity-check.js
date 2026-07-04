@@ -15,8 +15,16 @@
 //      `cw <cmd> --json` payload must equal the `cw_<tool>` MCP result on a real
 //      bootstrap run (whitespace + generation-moment ISO timestamps aside).
 //
-// The registry (src/capability-registry.ts -> dist/capability-registry.js) is
-// the single source of truth; this script never re-declares capabilities.
+// The registry (src/core/capability-table.ts -> dist/core/capability-table.js)
+// is the single source of truth; this script never re-declares capabilities.
+//
+// v2 repoint: the old flat dist/capability-registry.js, dist/orchestrator.js,
+// dist/state.js, dist/state-node.js are gone. Each function this script
+// actually calls now lives in its v2 core/shell home:
+//   - registry (capability + parity planning data) -> core/capability-table.js
+//   - formatHelp                                    -> core/format/help.js
+//   - loadRunFromCwd, saveCheckpoint                 -> shell/run-store.js
+//   - appendRunNode, createStateNode                 -> core/state/state-node.js
 
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
@@ -29,10 +37,10 @@ const pluginRoot = path.resolve(__dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
-const registry = require(path.join(pluginRoot, "dist", "capability-registry.js"));
-const { formatHelp } = require(path.join(pluginRoot, "dist", "orchestrator.js"));
-const { loadRunFromCwd, saveCheckpoint } = require(path.join(pluginRoot, "dist", "state.js"));
-const { appendRunNode, createStateNode } = require(path.join(pluginRoot, "dist", "state-node.js"));
+const registry = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
+const { formatHelp } = require(path.join(pluginRoot, "dist", "core", "format", "help.js"));
+const { loadRunFromCwd, saveCheckpoint } = require(path.join(pluginRoot, "dist", "shell", "run-store.js"));
+const { appendRunNode, createStateNode } = require(path.join(pluginRoot, "dist", "core", "state", "state-node.js"));
 
 function capById(id) {
   const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === id);

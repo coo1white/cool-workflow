@@ -161,17 +161,17 @@ const COMMAND_HELP_ROWS = {
         },
     ],
     run: [
-        {
-            command: "cw run drive",
-            summary: "Preview the next agent-delegation drive step for a run (read-only, deterministic).",
-        },
-        // NOTE: the second "cw run drive" row (the mutating "Drive a run by
-        // delegating..." summary) is NOT listed here any more — it is now a
-        // real capability-table row (run.drive.step, milestone 6+7) and comes
-        // from cliCommandHelpRows("run") below, so it is not hand-duplicated
-        // in both places. Same for run archive/list/rerun/resume/search/show
-        // (milestone 10, core/capability-table.ts) — only the not-yet-
-        // implemented run-export family (milestone 11) stays literal here.
+        // NOTE: neither "cw run drive" row is listed here any more. The first
+        // (read-only preview, "Preview the next agent-delegation...") is now a
+        // real capability-table row (run.drive, PARITY WIRING) with its own
+        // `cli.path`; the second (mutating "Drive a run by delegating...") is
+        // also a real capability-table row (run.drive.step, milestone 6+7)
+        // whose `helpPath` override displays it under the same "cw run drive"
+        // command column. Both come from cliCommandHelpRows("run") below, so
+        // neither is hand-duplicated here. Same for run archive/list/rerun/
+        // resume/search/show (milestone 10, core/capability-table.ts) — only
+        // the not-yet-implemented run-export family (milestone 11) stays
+        // literal here.
         {
             command: "cw run export",
             summary: "Export a run to a portable archive with run-local files and digest integrity.",
