@@ -368,9 +368,15 @@ const workflow_app_loader_1 = require("../shell/workflow-app-loader");
 // ---------------------------------------------------------------------
 function buildMcpBinding(row) {
     const handler = MCP_REAL_HANDLERS[row.capability] ?? notYetImplemented(row.capability);
+    // A transcript entry like "runId, workerId" is TWO AND-required args (the
+    // spec table's comma form), while "topicId|id" is one OR-group. mcp/dispatch's
+    // validator only splits on `|`, so expand each comma-joined transcript entry
+    // into its separate AND-groups here (the one place the row shape is turned
+    // into the runtime McpBinding.requiredArgs contract).
+    const requiredArgs = row.requiredArgs.flatMap((group) => group.split(",").map((entry) => entry.trim()).filter(Boolean));
     return {
         tool: row.tool,
-        requiredArgs: row.requiredArgs.length ? row.requiredArgs : undefined,
+        requiredArgs: requiredArgs.length ? requiredArgs : undefined,
         properties: row.properties,
         description: row.description,
         handler,
@@ -875,7 +881,26 @@ REGISTRY_BY_CAPABILITY.get("plan").mcp.handler = (args) => (0, pipeline_cli_1.pl
 // sandboxProfileIdFrom() alias set — before handing off.
 REGISTRY_BY_CAPABILITY.get("dispatch").mcp.handler = (args) => (0, pipeline_cli_1.dispatchRun)({ ...args, sandbox: args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileId });
 REGISTRY_BY_CAPABILITY.get("result").mcp.handler = (args) => (0, pipeline_cli_1.recordResultRun)(args);
-REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => (0, pipeline_cli_1.commitRun)(args);
+// `cw_commit` returns the FLAT commit envelope (verifierGated/checkpoint/
+// selectionId/… at the top level, plus a nested `commit`), matching the old
+// build's commitEnvelope. `commitRun` (CLI shape) returns `{ runId, commit }`;
+// lift the commit's key fields to the top for the MCP surface.
+REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
+    const result = (0, pipeline_cli_1.commitRun)(args);
+    const commit = result.commit || {};
+    return {
+        runId: result.runId,
+        commitId: commit.id,
+        verifierGated: commit.verifierGated,
+        checkpoint: commit.checkpoint,
+        verifierNodeId: commit.verifierNodeId,
+        candidateId: commit.candidateId,
+        selectionId: commit.selectionId,
+        evidenceCount: Array.isArray(commit.evidence) ? commit.evidence.length : 0,
+        snapshotPath: commit.snapshotPath,
+        commit,
+    };
+};
 // MILESTONE 11 — run.export/import/verify-import/inspect-archive/restore
 // MCP handlers (the CLI side is served by run.drive.step's combined
 // handler above; these tools are called directly by name over MCP, so
@@ -1101,13 +1126,27 @@ REGISTRY_BY_CAPABILITY.get("topology.graph").mcp.handler = (args) => (0, multi_a
 attachCliBinding("multi-agent.run", {
     path: ["multi-agent", "run"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentRunCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    // positionals[1] is the MultiAgentRun entity id for the transition/show
+    // arms (`cw multi-agent run <run> <id> --status …`); it must NOT collide
+    // with the create arm's `--id`, so it is forwarded as `multiAgentRunId`
+    // only when no `--id` create flag was passed (old handler took `id` from
+    // the 3rd positional token).
+    handler: (args) => ({
+        json: (0, multi_agent_cli_1.multiAgentRunCli)({
+            ...args.options,
+            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            multiAgentRunId: args.options.id === undefined ? (args.positionals[1] ?? args.options.multiAgentRunId) : args.options.multiAgentRunId,
+        }),
+    }),
 });
 REGISTRY_BY_CAPABILITY.get("multi-agent.run").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentRunCli)(args);
 attachCliBinding("multi-agent.status", {
     path: ["multi-agent", "status"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentStatusCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => ({
+        json: (0, multi_agent_cli_1.multiAgentStatusCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+        text: (0, multi_agent_cli_1.multiAgentStatusText)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+    }),
 });
 REGISTRY_BY_CAPABILITY.get("multi-agent.status").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentStatusCli)(args);
 attachCliBinding("multi-agent.step", {
@@ -1142,10 +1181,96 @@ attachCliBinding("multi-agent.summary", {
 REGISTRY_BY_CAPABILITY.get("multi-agent.summary").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentSummaryCli)(args);
 attachCliBinding("multi-agent.graph", {
     path: ["multi-agent", "graph"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentGraphCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const call = { runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options };
+        // `--view`/`--focus`/`--depth` switch to the compact/focused state-explosion
+        // graph (multi-agent.graph.compact); the bare form is the operator graph.
+        if (args.options.view !== undefined || args.options.focus !== undefined || args.options.depth !== undefined) {
+            const compact = (0, multi_agent_cli_1.multiAgentGraphCompactCli)(call);
+            return { json: compact, text: (0, state_explosion_text_1.formatCompactGraph)(compact) };
+        }
+        return { json: (0, multi_agent_cli_1.multiAgentGraphCli)(call), text: (0, multi_agent_cli_1.multiAgentGraphText)(call) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("multi-agent.graph").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentGraphCli)(args);
+// GAP: `cw multi-agent dependencies|failures|evidence` — the MCP tool rows
+// (cw_multi_agent_dependencies/failures/evidence) were declared but had no
+// CLI path binding and their mcp.handler was still notYetImplemented. Wire
+// both surfaces to the same operator-ux derivation the CLI text render uses
+// (port of the old handler's dependencies/failures/evidence arms).
+attachCliBinding("multi-agent.dependencies", {
+    path: ["multi-agent", "dependencies"],
+    jsonMode: "flag",
+    handler: (args) => ({
+        json: (0, multi_agent_cli_1.multiAgentDependenciesCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+        text: (0, multi_agent_cli_1.multiAgentDependenciesText)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+    }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.dependencies").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentDependenciesCli)(args);
+attachCliBinding("multi-agent.failures", {
+    path: ["multi-agent", "failures"],
+    jsonMode: "flag",
+    handler: (args) => ({
+        json: (0, multi_agent_cli_1.multiAgentFailuresCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+        text: (0, multi_agent_cli_1.multiAgentFailuresText)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+    }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.failures").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentFailuresCli)(args);
+attachCliBinding("multi-agent.evidence", {
+    path: ["multi-agent", "evidence"],
+    jsonMode: "flag",
+    handler: (args) => ({
+        json: (0, multi_agent_cli_1.multiAgentEvidenceCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+        text: (0, multi_agent_cli_1.multiAgentEvidenceText)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+    }),
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.evidence").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentEvidenceCli)(args);
+// GAP: `cw multi-agent reasoning <run> [--refresh|--evidence <id>]` — the
+// evidence-adoption reasoning chain (cw_evidence_reasoning /
+// cw_evidence_reasoning_refresh MCP tools were declared but notYetImplemented,
+// and no CLI verb was bound). `--refresh` prints the durable index (JSON only,
+// matching the old handler's printJson refresh arm); otherwise it prints the
+// report (text, or JSON under --json).
+attachCliBinding("multi-agent.reasoning", {
+    path: ["multi-agent", "reasoning"],
+    jsonMode: "flag",
+    handler: (args) => {
+        const call = { runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options };
+        if (args.options.refresh && args.options.evidence === undefined && args.options.evidenceId === undefined) {
+            return { json: (0, multi_agent_cli_1.multiAgentReasoningRefreshCli)(call) };
+        }
+        return { json: (0, multi_agent_cli_1.multiAgentReasoningCli)(call), text: (0, multi_agent_cli_1.multiAgentReasoningText)(call) };
+    },
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.reasoning").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentReasoningCli)(args);
+REGISTRY_BY_CAPABILITY.get("multi-agent.reasoning.refresh").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentReasoningRefreshCli)(args);
+// GAP: the state-explosion / contract read views (cw_multi_agent_summarize /
+// cw_blackboard_summarize / cw_multi_agent_graph_compact / cw_contract_show)
+// were declared MCP tools left on notYetImplemented, and their CLI verbs were
+// unbound. Wire both surfaces to the ported read fns.
+attachCliBinding("multi-agent.summarize", {
+    path: ["multi-agent", "summarize"],
+    jsonMode: "flag",
+    handler: (args) => {
+        const result = (0, multi_agent_cli_1.multiAgentSummarizeCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        return { json: result, text: (0, state_explosion_text_1.formatStateExplosionReport)(result) };
+    },
+});
+REGISTRY_BY_CAPABILITY.get("multi-agent.summarize").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentSummarizeCli)(args);
+REGISTRY_BY_CAPABILITY.get("multi-agent.graph.compact").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentGraphCompactCli)(args);
+attachCliBinding("blackboard.summarize", {
+    path: ["blackboard", "summarize"],
+    jsonMode: "flag",
+    handler: (args) => ({ json: (0, multi_agent_cli_1.blackboardSummarizeCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+});
+REGISTRY_BY_CAPABILITY.get("blackboard.summarize").mcp.handler = (args) => (0, multi_agent_cli_1.blackboardSummarizeCli)(args);
+attachCliBinding("contract.show", {
+    path: ["contract", "show"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, multi_agent_cli_1.contractShowCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }, args.positionals[1]) }),
+});
+REGISTRY_BY_CAPABILITY.get("contract.show").mcp.handler = (args) => (0, multi_agent_cli_1.contractShowCli)(args);
 attachCliBinding("multi-agent.run.create", {
     path: ["multi-agent", "role"],
     helpPath: ["multi-agent", "role"],
@@ -1212,6 +1337,13 @@ REGISTRY_BY_CAPABILITY.get("multi-agent.group.create").mcp.handler = (args) => (
 REGISTRY_BY_CAPABILITY.get("multi-agent.membership.create").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentMembershipCli)(args);
 REGISTRY_BY_CAPABILITY.get("multi-agent.fanout.create").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentFanoutCli)(args);
 REGISTRY_BY_CAPABILITY.get("multi-agent.fanin.collect").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentFaninCli)(args);
+// GAP: the *.show MCP tools were declared but left notYetImplemented. Route
+// each to its create CLI fn's read arm (id-only args return the record).
+REGISTRY_BY_CAPABILITY.get("multi-agent.role.show").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentRoleCli)({ ...args, roleId: args.roleId ?? args.id });
+REGISTRY_BY_CAPABILITY.get("multi-agent.group.show").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentGroupCli)({ ...args, groupId: args.groupId ?? args.id });
+REGISTRY_BY_CAPABILITY.get("multi-agent.membership.show").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentMembershipCli)({ ...args, membershipId: args.membershipId ?? args.id });
+REGISTRY_BY_CAPABILITY.get("multi-agent.fanout.show").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentFanoutCli)({ ...args, fanoutId: args.fanoutId ?? args.id });
+REGISTRY_BY_CAPABILITY.get("multi-agent.fanin.show").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentFaninCli)({ ...args, faninId: args.faninId ?? args.id });
 attachCliBinding("multi-agent.run.transition", {
     path: ["multi-agent", "transition"],
     jsonMode: "default",
@@ -1243,72 +1375,59 @@ attachCliBinding("blackboard.resolve", {
     handler: (args) => ({ json: (0, multi_agent_cli_1.blackboardResolveCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
 });
 REGISTRY_BY_CAPABILITY.get("blackboard.resolve").mcp.handler = (args) => (0, multi_agent_cli_1.blackboardResolveCli)(args);
-// GAP #27: binding path ["blackboard","topic"|"message"|"context"|"artifact"]
-// is 2 tokens; cli/dispatch.ts consumes only the leading token, so the
-// handler's positionals are [action, runId, …] — positionals[0] is the
-// ACTION word ("create"/"post"/"list"/"put"/"add"), positionals[1] is the
-// run id. The old build read [subcommand, action, runId] (handlers/blackboard.ts)
-// and took the run id from the 3rd positional; here it is the 2nd.
+// GAP: the blackboard write/read verbs accept the sub-verb's ACTION word
+// ("create"/"post"/"put"/"add"/"list") in EITHER of two slots around the run
+// id, per the smokes' varied spellings:
+//   blackboard topic <run>                  (create, run first)
+//   blackboard topic create <run>           (create action FIRST)
+//   blackboard message <run>                (post, run first)
+//   blackboard message <run> list           (list action AFTER run)
+//   blackboard message list <run>           (list action FIRST)
+//   blackboard message post <run>           (post action FIRST)
+// dispatchTable already consumed the sub-verb ("topic"/"message"/…), so the
+// handler's positionals begin at the token AFTER it. `blackboardRunAndAction`
+// strips a leading action word (if present) so the run id is found wherever it
+// sits, and reports the effective action word for the post/list split.
+const BLACKBOARD_ACTION_WORDS = new Set(["create", "post", "put", "add", "list", "show"]);
+function blackboardRunAndAction(args) {
+    const [first, second] = args.positionals;
+    if (first !== undefined && BLACKBOARD_ACTION_WORDS.has(first)) {
+        return { runId: (0, io_1.required)(second, "run id"), action: first };
+    }
+    return { runId: (0, io_1.required)(first, "run id"), action: second };
+}
 attachCliBinding("blackboard.topic.create", {
     path: ["blackboard", "topic"],
     helpPath: ["blackboard", "topic", "create"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.blackboardTopicCreateCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) }),
+    handler: (args) => ({ json: (0, multi_agent_cli_1.blackboardTopicCreateCli)({ ...args.options, runId: blackboardRunAndAction(args).runId }) }),
 });
 REGISTRY_BY_CAPABILITY.get("blackboard.topic.create").mcp.handler = (args) => (0, multi_agent_cli_1.blackboardTopicCreateCli)(args);
-attachCliBinding("blackboard.message.post", {
-    path: ["blackboard", "message"],
-    helpPath: ["blackboard", "message", "post"],
-    jsonMode: "default",
-    handler: (args) => {
-        const action = args.positionals[0];
-        if (action === "list")
-            return { json: (0, multi_agent_cli_1.blackboardMessageListCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) };
-        return { json: (0, multi_agent_cli_1.blackboardMessagePostCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) };
-    },
-});
-attachCliBinding("blackboard.message.list", {
-    path: ["blackboard", "message"],
-    helpPath: ["blackboard", "message", "list"],
-    jsonMode: "default",
-    handler: (args) => {
-        const action = args.positionals[0];
-        if (action === "list")
-            return { json: (0, multi_agent_cli_1.blackboardMessageListCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) };
-        return { json: (0, multi_agent_cli_1.blackboardMessagePostCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) };
-    },
-});
+function blackboardMessageHandler(args) {
+    const { runId, action } = blackboardRunAndAction(args);
+    if (action === "list")
+        return { json: (0, multi_agent_cli_1.blackboardMessageListCli)({ ...args.options, runId }) };
+    return { json: (0, multi_agent_cli_1.blackboardMessagePostCli)({ ...args.options, runId }) };
+}
+attachCliBinding("blackboard.message.post", { path: ["blackboard", "message"], helpPath: ["blackboard", "message", "post"], jsonMode: "default", handler: blackboardMessageHandler });
+attachCliBinding("blackboard.message.list", { path: ["blackboard", "message"], helpPath: ["blackboard", "message", "list"], jsonMode: "default", handler: blackboardMessageHandler });
 REGISTRY_BY_CAPABILITY.get("blackboard.message.post").mcp.handler = (args) => (0, multi_agent_cli_1.blackboardMessagePostCli)(args);
 REGISTRY_BY_CAPABILITY.get("blackboard.message.list").mcp.handler = (args) => (0, multi_agent_cli_1.blackboardMessageListCli)(args);
 attachCliBinding("blackboard.context.put", {
     path: ["blackboard", "context"],
     helpPath: ["blackboard", "context", "put"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.blackboardContextPutCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) }),
+    handler: (args) => ({ json: (0, multi_agent_cli_1.blackboardContextPutCli)({ ...args.options, runId: blackboardRunAndAction(args).runId }) }),
 });
 REGISTRY_BY_CAPABILITY.get("blackboard.context.put").mcp.handler = (args) => (0, multi_agent_cli_1.blackboardContextPutCli)(args);
-attachCliBinding("blackboard.artifact.add", {
-    path: ["blackboard", "artifact"],
-    helpPath: ["blackboard", "artifact", "add"],
-    jsonMode: "default",
-    handler: (args) => {
-        const action = args.positionals[0];
-        if (action === "list")
-            return { json: (0, multi_agent_cli_1.blackboardArtifactListCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) };
-        return { json: (0, multi_agent_cli_1.blackboardArtifactAddCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) };
-    },
-});
-attachCliBinding("blackboard.artifact.list", {
-    path: ["blackboard", "artifact"],
-    helpPath: ["blackboard", "artifact", "list"],
-    jsonMode: "default",
-    handler: (args) => {
-        const action = args.positionals[0];
-        if (action === "list")
-            return { json: (0, multi_agent_cli_1.blackboardArtifactListCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) };
-        return { json: (0, multi_agent_cli_1.blackboardArtifactAddCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }) };
-    },
-});
+function blackboardArtifactHandler(args) {
+    const { runId, action } = blackboardRunAndAction(args);
+    if (action === "list")
+        return { json: (0, multi_agent_cli_1.blackboardArtifactListCli)({ ...args.options, runId }) };
+    return { json: (0, multi_agent_cli_1.blackboardArtifactAddCli)({ ...args.options, runId }) };
+}
+attachCliBinding("blackboard.artifact.add", { path: ["blackboard", "artifact"], helpPath: ["blackboard", "artifact", "add"], jsonMode: "default", handler: blackboardArtifactHandler });
+attachCliBinding("blackboard.artifact.list", { path: ["blackboard", "artifact"], helpPath: ["blackboard", "artifact", "list"], jsonMode: "default", handler: blackboardArtifactHandler });
 REGISTRY_BY_CAPABILITY.get("blackboard.artifact.add").mcp.handler = (args) => (0, multi_agent_cli_1.blackboardArtifactAddCli)(args);
 REGISTRY_BY_CAPABILITY.get("blackboard.artifact.list").mcp.handler = (args) => (0, multi_agent_cli_1.blackboardArtifactListCli)(args);
 attachCliBinding("blackboard.snapshot", {
@@ -1422,43 +1541,61 @@ attachCliBinding("review.policy", {
 });
 REGISTRY_BY_CAPABILITY.get("review.policy").mcp.handler = (args) => (0, multi_agent_cli_1.reviewPolicyCli)(args);
 // ---- eval replay harness ---------------------------------------------------
+// eval snapshot|replay|compare|score|gate|report — `jsonMode: flag` so a bare
+// call renders the human eval report (formatMultiAgentEval) and `--json`
+// prints the result object, matching the old build's eval handler.
 attachCliBinding("eval.snapshot", {
     path: ["eval", "snapshot"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.evalSnapshotCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const result = (0, multi_agent_cli_1.evalSnapshotCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        return { json: result, text: (0, eval_text_1.formatMultiAgentEval)(result) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("eval.snapshot").mcp.handler = (args) => (0, multi_agent_cli_1.evalSnapshotCli)(args);
 attachCliBinding("eval.replay", {
     path: ["eval", "replay"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.evalReplayCli)({ snapshot: args.positionals[0], ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const result = (0, multi_agent_cli_1.evalReplayCli)({ snapshot: args.positionals[0], ...args.options });
+        return { json: result, text: (0, eval_text_1.formatMultiAgentEval)(result) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("eval.replay").mcp.handler = (args) => (0, multi_agent_cli_1.evalReplayCli)(args);
 attachCliBinding("eval.compare", {
     path: ["eval", "compare"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.evalCompareCli)({ baseline: args.positionals[0], replay: args.positionals[1], ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const result = (0, multi_agent_cli_1.evalCompareCli)({ baseline: args.positionals[0], replay: args.positionals[1], ...args.options });
+        return { json: result, text: (0, eval_text_1.formatMultiAgentEval)(result) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("eval.compare").mcp.handler = (args) => (0, multi_agent_cli_1.evalCompareCli)(args);
 attachCliBinding("eval.score", {
     path: ["eval", "score"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.evalScoreCli)({ replay: args.positionals[0], ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const result = (0, multi_agent_cli_1.evalScoreCli)({ replay: args.positionals[0], ...args.options });
+        return { json: result, text: (0, eval_text_1.formatMultiAgentEval)(result) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("eval.score").mcp.handler = (args) => (0, multi_agent_cli_1.evalScoreCli)(args);
 attachCliBinding("eval.gate", {
     path: ["eval", "gate"],
-    jsonMode: "default",
+    jsonMode: "flag",
     handler: (args) => {
         const gate = (0, multi_agent_cli_1.evalGateCli)({ suite: args.positionals[0], ...args.options });
-        return { json: gate, exitCode: gate.verdict === "ship" ? undefined : 1 };
+        return { json: gate, text: (0, eval_text_1.formatMultiAgentEval)(gate), exitCode: gate.verdict === "ship" ? undefined : 1 };
     },
 });
 REGISTRY_BY_CAPABILITY.get("eval.gate").mcp.handler = (args) => (0, multi_agent_cli_1.evalGateCli)(args);
 attachCliBinding("eval.report", {
     path: ["eval", "report"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.evalReportCli)({ replay: args.positionals[0], ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const result = (0, multi_agent_cli_1.evalReportCli)({ replay: args.positionals[0], ...args.options });
+        return { json: result, text: (0, eval_text_1.formatMultiAgentEval)(result) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("eval.report").mcp.handler = (args) => (0, multi_agent_cli_1.evalReportCli)(args);
 // ---------------------------------------------------------------------
@@ -2041,6 +2178,8 @@ attachCliBinding("workbench.serve", {
 REGISTRY_BY_CAPABILITY.get("workbench.serve").mcp.handler = (args) => new workbench_host_1.WorkbenchHost(args).descriptor(true);
 // ---- audit.summary / audit.multi-agent / audit.policy / audit.judge ----
 const audit_cli_2 = require("../shell/audit-cli");
+const operator_ux_text_1 = require("../shell/operator-ux-text");
+const eval_text_1 = require("../shell/eval-text");
 attachCliBinding("audit.summary", {
     path: ["audit", "summary"],
     jsonMode: "default",
@@ -2049,22 +2188,78 @@ attachCliBinding("audit.summary", {
 REGISTRY_BY_CAPABILITY.get("audit.summary").mcp.handler = (args) => (0, audit_cli_2.auditSummaryCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
 attachCliBinding("audit.multi-agent", {
     path: ["audit", "multi-agent"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, audit_cli_2.auditMultiAgentCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const view = (0, audit_cli_2.auditMultiAgentCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("audit.multi-agent").mcp.handler = (args) => (0, audit_cli_2.auditMultiAgentCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
 attachCliBinding("audit.policy", {
     path: ["audit", "policy"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, audit_cli_2.auditPolicyCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const view = (0, audit_cli_2.auditPolicyCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("audit.policy").mcp.handler = (args) => (0, audit_cli_2.auditPolicyCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
 attachCliBinding("audit.judge", {
     path: ["audit", "judge"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, audit_cli_2.auditJudgeCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const view = (0, audit_cli_2.auditJudgeCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("audit.judge").mcp.handler = (args) => (0, audit_cli_2.auditJudgeCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
+// GAP: `cw audit worker|provenance|role|blackboard|attest|decision` — the MCP
+// tool rows (cw_audit_worker/provenance/role/blackboard/attest/decision) were
+// declared but had no CLI path binding and their mcp.handler was still
+// notYetImplemented. Wire both surfaces (port of the old cli/handlers/audit.ts
+// arms). `audit worker`/`role`/`decision` read positionals[1] as the entity id.
+attachCliBinding("audit.worker", {
+    path: ["audit", "worker"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, audit_cli_2.auditWorkerCli)((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "worker id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("audit.worker").mcp.handler = (args) => (0, audit_cli_2.auditWorkerCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_3.optionalArg)(args.workerId ?? args.worker), "worker id"), args);
+attachCliBinding("audit.provenance", {
+    path: ["audit", "provenance"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, audit_cli_2.auditProvenanceCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("audit.provenance").mcp.handler = (args) => (0, audit_cli_2.auditProvenanceCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
+attachCliBinding("audit.role", {
+    path: ["audit", "role"],
+    jsonMode: "flag",
+    handler: (args) => {
+        const view = (0, audit_cli_2.auditRoleCli)((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "role id"), args.options);
+        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+    },
+});
+REGISTRY_BY_CAPABILITY.get("audit.role").mcp.handler = (args) => (0, audit_cli_2.auditRoleCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_3.optionalArg)(args.roleId ?? args.id), "role id"), args);
+attachCliBinding("audit.blackboard", {
+    path: ["audit", "blackboard"],
+    jsonMode: "flag",
+    handler: (args) => {
+        const view = (0, audit_cli_2.auditBlackboardCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+    },
+});
+REGISTRY_BY_CAPABILITY.get("audit.blackboard").mcp.handler = (args) => (0, audit_cli_2.auditBlackboardCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
+attachCliBinding("audit.attest", {
+    path: ["audit", "attest"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, audit_cli_2.auditAttestCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("audit.attest").mcp.handler = (args) => (0, audit_cli_2.auditAttestCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
+attachCliBinding("audit.decision", {
+    path: ["audit", "decision"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, audit_cli_2.auditDecisionCli)((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "worker id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("audit.decision").mcp.handler = (args) => (0, audit_cli_2.auditDecisionCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_3.optionalArg)(args.workerId), "worker id"), args);
 // ---- app.list / app.show / app.validate / app.init / app.package -------
 // MILESTONE 12 (workflow-apps). Handler BODIES live in
 // shell/workflow-app-loader.ts (impure — they scan apps/*/app.json +

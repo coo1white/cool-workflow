@@ -26,6 +26,7 @@ import * as ev from "../core/multi-agent/eval-replay";
 import { summarizeMultiAgentTrust } from "./trust-policy-io";
 import { summarizeTopologies } from "./topology-io";
 import { summarizeMultiAgent } from "./multi-agent-io";
+import { normalizeEvidenceReasoningForEval } from "./evidence-reasoning";
 
 function now(): string {
   return new Date().toISOString();
@@ -190,9 +191,7 @@ function normalizeRun(run: WorkflowRun): ev.MultiAgentEvalNormalized {
     criticalPath: [],
     evidenceDigest: [],
     expansionRefs: [],
-    reasoningFreshness: [],
-    reasoningChains: [],
-    reasoningUnexplained: [],
+    ...normalizeEvidenceReasoningForEval(run),
   };
 }
 

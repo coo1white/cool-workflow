@@ -10,9 +10,14 @@
 // plugins/cool-workflow/src/capability-core.ts:1223-1249.
 
 import * as path from "node:path";
-import { verifyTrustAudit, summarizeTrustAudit } from "./trust-audit";
-import { loadRunFromCwd } from "./run-store";
+import { verifyTrustAudit, summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit";
+import { loadRunFromCwd, saveCheckpoint } from "./run-store";
 import { summarizeMultiAgentTrust } from "./trust-policy-io";
+import { writeReport } from "./report";
+import { evidenceProvenance, recordHostAttestation, recordSandboxPolicyDecision, workerTrustAudit } from "./audit-provenance";
+import { getWorkerScope, recordWorkerFailure, validateWorkerBoundary } from "./worker-isolation";
+import { validateSandboxCommand, validateSandboxNetwork } from "./sandbox-profile";
+import { WorkflowRun } from "../core/state/types";
 
 export interface AuditVerifyResult {
   schemaVersion: 1;
@@ -87,4 +92,162 @@ export function auditJudgeCli(runId: string, args: Record<string, unknown>): Aud
   const run = loadRunFromCwd(runId, invocationCwd(args));
   const summary = summarizeMultiAgentTrust(run);
   return { schemaVersion: 1, runId: run.id, judgeRationales: summary.judgeRationales, panelDecisions: summary.panelDecisions };
+}
+
+// ---------------------------------------------------------------------------
+// Phase B: the audit worker/provenance/role/blackboard/attest/decision verbs
+// the old flat build had (cli/handlers/audit.ts + orchestrator/
+// audit-operations.ts). Ported here as thin loadRun -> delegate wrappers over
+// audit-provenance.ts + trust-audit.ts primitives.
+// ---------------------------------------------------------------------------
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
+}
+/** Sanitized env-var NAMES only (`FOO=bar` -> `FOO`); the value is dropped. */
+function valuesOption(value: unknown): string[] {
+  const raw = value === undefined || value === null || value === true ? [] : Array.isArray(value) ? value : [value];
+  return raw.map((entry) => String(entry).split("=")[0]).filter(Boolean);
+}
+/** Byte-exact port of the old build's inferAuditDecisionKind. */
+function inferAuditDecisionKind(options: Record<string, unknown>): string {
+  if (options.command) return "sandbox.command";
+  if (options.network || options.networkTarget) return "sandbox.network";
+  if (options.env || options.envVar) return "sandbox.env";
+  return "sandbox.path";
+}
+
+/** `cw audit worker <run> <worker>` — every audited event for one worker. */
+export function auditWorkerCli(runId: string, workerId: string, args: Record<string, unknown>): ReturnType<typeof workerTrustAudit> {
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  return workerTrustAudit(run, workerId);
+}
+
+/** `cw audit provenance <run> [--worker|--candidate|--commit <id>]`. */
+export function auditProvenanceCli(runId: string, args: Record<string, unknown>): ReturnType<typeof evidenceProvenance> {
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  return evidenceProvenance(run, {
+    workerId: optionalString(args.worker ?? args.workerId),
+    candidateId: optionalString(args.candidate ?? args.candidateId),
+    commitId: optionalString(args.commit ?? args.commitId),
+  });
+}
+
+/** `cw audit role <run> <role>` — per-role policy + audit slice. */
+export function auditRoleCli(runId: string, roleId: string, args: Record<string, unknown>): Record<string, unknown> {
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const summary = summarizeMultiAgentTrust(run);
+  const events = listTrustAuditEvents(run).filter((event) => event.agentRoleId === roleId);
+  return {
+    schemaVersion: 1,
+    runId: run.id,
+    roleId,
+    role: (run.multiAgent as { roles?: Array<{ id: string }> } | undefined)?.roles?.find((entry) => entry.id === roleId),
+    rolePolicies: summary.rolePolicies.filter((entry) => (entry as { subjectId?: string }).subjectId === roleId),
+    permissionDecisions: events.filter((event) => event.kind === "multi-agent.permission"),
+    blackboardWrites: events.filter((event) => event.kind === "blackboard.write"),
+    messageProvenance: events.filter((event) => event.kind === "blackboard.message-provenance"),
+    judgeRationales: events.filter((event) => event.kind === "judge.rationale"),
+    panelDecisions: events.filter((event) => event.kind === "judge.panel-decision"),
+    policyViolations: events.filter((event) => event.kind === "policy.violation"),
+    events,
+    nextAction: `node scripts/cw.js audit multi-agent ${run.id} --json`,
+  };
+}
+
+/** `cw audit blackboard <run>` — blackboard write/provenance audit. */
+export function auditBlackboardCli(runId: string, args: Record<string, unknown>): Record<string, unknown> {
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const summary = summarizeMultiAgentTrust(run);
+  return {
+    schemaVersion: 1,
+    runId: run.id,
+    blackboardWrites: summary.blackboardWrites,
+    messageProvenance: summary.messageProvenance,
+    policyViolations: summary.policyViolations.filter((event) => (event as { blackboardId?: string }).blackboardId),
+    nextAction: summary.nextAction,
+  };
+}
+
+/** `cw audit attest <run> [--worker …] [--command|--network|--env|--note …]`
+ *  — record a host/operator sandbox attestation. */
+export function auditAttestCli(runId: string, args: Record<string, unknown>): ReturnType<typeof recordHostAttestation> {
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const workerId = optionalString(args.worker ?? args.workerId);
+  const worker = workerId ? getWorkerScope(run, workerId) : undefined;
+  const event = recordHostAttestation(run, {
+    actor: optionalString(args.actor) || "host",
+    workerId,
+    taskId: worker?.taskId || optionalString(args.task ?? args.taskId),
+    sandboxProfileId: worker?.sandboxProfileId || optionalString(args.sandboxProfileId),
+    policySnapshot: worker?.sandboxPolicy,
+    command: optionalString(args.command),
+    networkTarget: optionalString(args.network ?? args.networkTarget),
+    metadata: {
+      note: optionalString(args.note ?? args.message),
+      hostEnforced: args.hostEnforced === undefined ? undefined : Boolean(args.hostEnforced),
+      envVars: valuesOption(args.env ?? args.envVar ?? args.envVars),
+    },
+  });
+  saveCheckpoint(run);
+  return event;
+}
+
+/** `cw audit decision <run> <worker> --path|--command|--network|--env <t>`
+ *  — validate a sandbox decision against the worker's policy, record it
+ *  (fail-closed: a denied decision records a structured worker failure), and
+ *  return the audit event. Byte-behavior port of the old recordAuditDecision. */
+export function auditDecisionCli(runId: string, workerId: string, args: Record<string, unknown>): Record<string, unknown> {
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  return recordAuditDecision(run, workerId, args);
+}
+
+function recordAuditDecision(run: WorkflowRun, workerId: string, options: Record<string, unknown>): Record<string, unknown> {
+  const worker = getWorkerScope(run, workerId);
+  if (!worker) throw new Error(`Unknown worker id for run ${run.id}: ${workerId}`);
+  const kind = optionalString(options.kind) || inferAuditDecisionKind(options);
+  const target = optionalString(options.path ?? options.command ?? options.network ?? options.networkTarget ?? options.env ?? options.envVar);
+  if (!target) throw new Error("Missing audit decision target: provide --path, --command, --network, or --env");
+  const policy = worker.sandboxPolicy;
+  let denied: { code: string; message: string; path?: string } | null = null;
+  if (kind === "sandbox.command") {
+    denied = policy ? validateSandboxCommand(policy, target, workerId) : null;
+  } else if (kind === "sandbox.network") {
+    denied = policy ? validateSandboxNetwork(policy, target, workerId) : null;
+  } else if (kind === "sandbox.env") {
+    const name = target.includes("=") ? target.split("=")[0] : target;
+    const allowed = Boolean(policy?.env.inherit || policy?.env.expose.includes(name));
+    denied = allowed ? null : { code: "sandbox-env-denied", message: `Worker ${workerId} env var is outside sandbox profile ${policy?.id || "unknown"}: ${name}` };
+  } else {
+    denied = validateWorkerBoundary(run, workerId, { path: target });
+  }
+  const feedbackIds: string[] = [];
+  if (denied) {
+    const failurePath = denied.path || (kind === "sandbox.path" ? path.resolve(target) : undefined);
+    const failure = recordWorkerFailure(
+      run,
+      workerId,
+      { code: denied.code, message: denied.message, at: new Date().toISOString(), path: failurePath, retryable: false },
+      { code: denied.code, path: failurePath, retryable: false, persist: false }
+    );
+    feedbackIds.push(...(failure.feedbackIds || []));
+  }
+  const envVars = kind === "sandbox.env" ? [target.includes("=") ? target.split("=")[0] : target] : undefined;
+  const event = recordSandboxPolicyDecision(run, {
+    kind,
+    decision: denied ? "denied" : "allowed",
+    workerId,
+    taskId: worker.taskId,
+    sandboxProfileId: worker.sandboxProfileId,
+    policySnapshot: policy,
+    command: kind === "sandbox.command" ? target : undefined,
+    networkTarget: kind === "sandbox.network" ? target : undefined,
+    normalizedPath: kind === "sandbox.path" ? target : undefined,
+    envVars,
+    feedbackIds,
+    metadata: { code: denied?.code },
+  });
+  writeReport(run);
+  saveCheckpoint(run);
+  return event as unknown as Record<string, unknown>;
 }

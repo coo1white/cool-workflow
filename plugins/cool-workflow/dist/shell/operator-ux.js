@@ -54,6 +54,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.summarizeRun = summarizeRun;
 exports.adviseNoRun = adviseNoRun;
+exports.summarizeCandidateOperatorRecords = summarizeCandidateOperatorRecords;
 exports.summarizeOperatorRun = summarizeOperatorRun;
 exports.buildOperatorGraph = buildOperatorGraph;
 const path = __importStar(require("node:path"));
@@ -62,6 +63,9 @@ const candidate_scoring_io_1 = require("./candidate-scoring-io");
 const trust_audit_1 = require("./trust-audit");
 const multi_agent_io_1 = require("./multi-agent-io");
 const coordinator_io_1 = require("./coordinator-io");
+const topology_io_1 = require("./topology-io");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
+const trust_policy_io_1 = require("./trust-policy-io");
 function countBy(values, key) {
     const counts = {};
     for (const value of values)
@@ -134,8 +138,47 @@ function summarizeTasks(tasks) {
         completed: byId("completed"),
     };
 }
+/** Port of the old build's summarizeOperatorCandidates: the counts PLUS the
+ *  selected/readyForCommit/problems/candidates detail the `candidate summary`
+ *  verb and operator panel both read. */
 function summarizeOperatorCandidates(run) {
-    return (0, candidate_scoring_io_1.summarizeCandidates)(run);
+    const counts = (0, candidate_scoring_io_1.summarizeCandidates)(run);
+    const candidates = [...(run.candidates || [])].sort((left, right) => left.id.localeCompare(right.id));
+    const selections = [...(run.candidateSelections || [])].sort((left, right) => left.id.localeCompare(right.id));
+    const commits = run.commits || [];
+    const selectedIds = new Set(selections.map((selection) => selection.candidateId));
+    const readyForCommit = selections
+        .filter((selection) => {
+        const candidate = candidates.find((item) => item.id === selection.candidateId);
+        if (!candidate || candidate.status !== "verified" || !selection.scoreId)
+            return false;
+        return !commits.some((commit) => commit.verifierGated && commit.selectionId === selection.id);
+    })
+        .map((selection) => ({ candidateId: selection.candidateId, selectionId: selection.id, scoreId: selection.scoreId, verifierNodeId: selection.verifierNodeId }));
+    const problems = [];
+    for (const candidate of candidates) {
+        if ((candidate.status === "registered" || candidate.status === "scored") && !(candidate.evidence || []).length)
+            problems.push(`candidate ${candidate.id} has no evidence`);
+        if (candidate.status === "registered" && !(candidate.scores || []).length)
+            problems.push(`candidate ${candidate.id} has not been scored`);
+        if ((candidate.status === "selected" || candidate.status === "verified") && !selections.some((selection) => selection.candidateId === candidate.id))
+            problems.push(`candidate ${candidate.id} status is ${candidate.status} but no selection record exists`);
+    }
+    return {
+        ...counts,
+        latestRankingPath: counts.rankingPath,
+        selected: selections.map((selection) => ({ selectionId: selection.id, candidateId: selection.candidateId, scoreId: selection.scoreId, verifierNodeId: selection.verifierNodeId })),
+        readyForCommit,
+        problems: problems.sort(),
+        candidates: candidates.map((candidate) => ({ id: candidate.id, kind: candidate.kind, status: candidate.status, scoreCount: (candidate.scores || []).length, selected: selectedIds.has(candidate.id), feedbackIds: candidate.feedbackIds || [], resultPath: candidate.resultPath })),
+    };
+}
+/** `cw candidate summary <run>` — the operator candidate summary (with
+ *  readyForCommit/selected/problems). Exported so the candidate.summary CLI
+ *  verb returns the same rich shape the old build's
+ *  summarizeCandidateOperatorRecords did. */
+function summarizeCandidateOperatorRecords(run) {
+    return summarizeOperatorCandidates(run);
 }
 function summarizeOperatorFeedback(run) {
     const records = (run.feedback || []);
@@ -207,6 +250,8 @@ function summarizeOperatorRun(run) {
     const feedback = summarizeOperatorFeedback(run);
     const commits = summarizeOperatorCommits(run);
     const multiAgent = (0, multi_agent_io_1.summarizeMultiAgent)(run);
+    const multiAgentOperator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
+    const multiAgentTrust = (0, trust_policy_io_1.summarizeMultiAgentTrust)(run);
     const blackboard = (0, coordinator_io_1.summarizeBlackboard)(run);
     const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
     const activePhase = phases.find((p) => p.status === "running") || phases.find((p) => p.status === "pending");
@@ -232,6 +277,8 @@ function summarizeOperatorRun(run) {
         feedback,
         commits,
         multiAgent,
+        multiAgentOperator,
+        multiAgentTrust,
         blackboard,
         trust,
         reportPath: run.paths.report,
@@ -323,6 +370,26 @@ function buildOperatorGraph(run) {
         if (feedback.taskId)
             addEdge(`${run.id}:task:${feedback.taskId}`, `${run.id}:feedback:${feedback.id}`);
     }
+    // Fold the topology + multi-agent + blackboard graphs into the operator
+    // graph, per the old build's buildOperatorGraph (operator-ux.ts:411-419): a
+    // run's top-level `cw graph` shows topology-run, multi-agent-run/agent-group/
+    // agent-role/agent-membership/agent-fanout/agent-fanin, and the blackboard
+    // topic/message/artifact nodes alongside the pipeline nodes.
+    const topologyGraph = (0, topology_io_1.buildTopologyGraph)(run);
+    for (const node of topologyGraph.nodes)
+        addNode(node.id, node.kind, node.status, node.label, node.path);
+    for (const edge of topologyGraph.edges)
+        addEdge(edge.from, edge.to, edge.label);
+    const multiAgentGraph = (0, multi_agent_io_1.buildMultiAgentGraph)(run);
+    for (const node of multiAgentGraph.nodes)
+        addNode(node.id, node.kind, node.status, node.label, node.path);
+    for (const edge of multiAgentGraph.edges)
+        addEdge(edge.from, edge.to, edge.label);
+    const blackboardGraph = (0, coordinator_io_1.buildBlackboardGraph)(run);
+    for (const node of blackboardGraph.nodes)
+        addNode(node.id, node.kind, node.status, node.label, node.path);
+    for (const edge of blackboardGraph.edges)
+        addEdge(edge.from, edge.to, edge.label);
     const sortedNodes = [...nodes.values()].sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
     const sortedEdges = edges.slice().sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || (a.label || "").localeCompare(b.label || ""));
     return { runId: run.id, nodes: sortedNodes, edges: sortedEdges };

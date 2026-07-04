@@ -65,6 +65,7 @@ const ev = __importStar(require("../core/multi-agent/eval-replay"));
 const trust_policy_io_1 = require("./trust-policy-io");
 const topology_io_1 = require("./topology-io");
 const multi_agent_io_1 = require("./multi-agent-io");
+const evidence_reasoning_1 = require("./evidence-reasoning");
 function now() {
     return new Date().toISOString();
 }
@@ -231,9 +232,7 @@ function normalizeRun(run) {
         criticalPath: [],
         evidenceDigest: [],
         expansionRefs: [],
-        reasoningFreshness: [],
-        reasoningChains: [],
-        reasoningUnexplained: [],
+        ...(0, evidence_reasoning_1.normalizeEvidenceReasoningForEval)(run),
     };
 }
 function createMultiAgentReplaySnapshot(run, options = {}) {

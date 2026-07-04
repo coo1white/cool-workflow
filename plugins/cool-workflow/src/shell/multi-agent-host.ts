@@ -450,7 +450,20 @@ export function hostStep(run: WorkflowRun, options: Record<string, unknown> = {}
   }
   const dispatchPlan = nextDispatchPlan(run, topology, options);
   if (dispatchPlan) {
-    const manifest = createDispatchManifest(run, dispatchPlan.limit, { sandboxProfileId: dispatchPlan.sandboxProfileId, backendId: dispatchPlan.backendId });
+    // Bind this step's dispatch to the topology's multi-agent run/group/role/
+    // fanout so `attachDispatchToMultiAgent` creates the AgentMembership. Without
+    // this binding the fanout's roles never got a membership, so a later
+    // board-scoped fanin reported every required role as "has no membership"
+    // instead of advancing on real evidence. Byte-behavior port of the old host
+    // step's dispatch attachment (orchestrator hostMultiAgentStep).
+    const manifest = createDispatchManifest(run, dispatchPlan.limit, {
+      sandboxProfileId: dispatchPlan.sandboxProfileId,
+      backendId: dispatchPlan.backendId,
+      multiAgentRunId: topology.multiAgentRunId,
+      multiAgentGroupId: dispatchPlan.groupId,
+      multiAgentRoleId: dispatchPlan.roleId,
+      multiAgentFanoutId: dispatchPlan.fanoutId,
+    });
     return envelope(run, "step", { performed: manifest.dispatchId ? "created-dispatch-manifest" : "none", data: manifest, requiredHostAction: manifest.dispatchId ? "Spawn the worker described by the manifest and record its result." : "No runnable pending task is available for dispatch." });
   }
   const blackboards = (run.blackboard as unknown as { boards?: Array<{ id: string }>; snapshots?: Array<{ blackboardId: string }> } | undefined) || {};

@@ -52,6 +52,16 @@ exports.topologyGraphCli = topologyGraphCli;
 exports.topologyRunShowCli = topologyRunShowCli;
 exports.multiAgentRunCli = multiAgentRunCli;
 exports.multiAgentStatusCli = multiAgentStatusCli;
+exports.multiAgentStatusText = multiAgentStatusText;
+exports.multiAgentDependenciesCli = multiAgentDependenciesCli;
+exports.multiAgentDependenciesText = multiAgentDependenciesText;
+exports.multiAgentFailuresCli = multiAgentFailuresCli;
+exports.multiAgentFailuresText = multiAgentFailuresText;
+exports.multiAgentEvidenceCli = multiAgentEvidenceCli;
+exports.multiAgentReasoningCli = multiAgentReasoningCli;
+exports.multiAgentReasoningText = multiAgentReasoningText;
+exports.multiAgentReasoningRefreshCli = multiAgentReasoningRefreshCli;
+exports.multiAgentEvidenceText = multiAgentEvidenceText;
 exports.multiAgentStepCli = multiAgentStepCli;
 exports.multiAgentBlackboardCli = multiAgentBlackboardCli;
 exports.multiAgentScoreCli = multiAgentScoreCli;
@@ -63,7 +73,12 @@ exports.multiAgentFanoutCli = multiAgentFanoutCli;
 exports.multiAgentFaninCli = multiAgentFaninCli;
 exports.multiAgentShowCli = multiAgentShowCli;
 exports.multiAgentSummaryCli = multiAgentSummaryCli;
+exports.multiAgentSummarizeCli = multiAgentSummarizeCli;
+exports.multiAgentGraphCompactCli = multiAgentGraphCompactCli;
+exports.blackboardSummarizeCli = blackboardSummarizeCli;
+exports.contractShowCli = contractShowCli;
 exports.multiAgentGraphCli = multiAgentGraphCli;
+exports.multiAgentGraphText = multiAgentGraphText;
 exports.blackboardSummaryCli = blackboardSummaryCli;
 exports.blackboardGraphCli = blackboardGraphCli;
 exports.blackboardResolveCli = blackboardResolveCli;
@@ -108,7 +123,17 @@ const collab = __importStar(require("./collaboration-io"));
 const evalio = __importStar(require("./eval-io"));
 const host = __importStar(require("./multi-agent-host"));
 const runtime_1 = require("../core/multi-agent/runtime");
+const worker_isolation_1 = require("./worker-isolation");
 const topology_1 = require("../core/multi-agent/topology");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
+const operator_ux_text_1 = require("./operator-ux-text");
+const report_2 = require("../core/state/state-explosion/report");
+const graph_1 = require("../core/state/state-explosion/graph");
+const digest_1 = require("../core/state/state-explosion/digest");
+const state_explosion_cli_1 = require("./state-explosion-cli");
+const runner_1 = require("../core/pipeline/runner");
+const operator_ux_1 = require("./operator-ux");
+const reasoning = __importStar(require("./evidence-reasoning"));
 function invocationCwd(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
@@ -175,6 +200,57 @@ function blackboardIdArg(args) {
 function topicIdsArg(args) {
     const raw = args.topic ?? args.topicId ?? args.topics;
     return arrayArg(raw);
+}
+/** `--author-id`/`--author-kind`/`--author-name` (or the `worker`/`role`/
+ *  `group` fallbacks) — byte-exact port of parseBlackboardAuthor
+ *  (orchestrator/cli-options.ts). Threaded into every blackboard write so a
+ *  message/context/artifact carries the posting role, not the default. */
+function parseBlackboardAuthorCli(args) {
+    const structured = args.author;
+    if (structured && typeof structured === "object" && !Array.isArray(structured))
+        return structured;
+    const id = optionalString(args.authorId ?? args.author ?? args.worker ?? args.workerId ?? args.role ?? args.roleId ?? args.group ?? args.groupId);
+    const kind = optionalString(args.authorKind ?? args.sourceKind ?? args.source);
+    const displayName = optionalString(args.authorName ?? args.displayName);
+    if (!id && !kind && !displayName)
+        return undefined;
+    return { kind, id, displayName };
+}
+/** `--scope-kind`/`--scope-id` — byte-exact port of parseBlackboardScope. */
+function parseBlackboardScopeCli(args) {
+    const structured = args.scope;
+    if (structured && typeof structured === "object" && !Array.isArray(structured))
+        return structured;
+    const kind = optionalString(args.scopeKind);
+    const id = optionalString(args.scopeId);
+    if (!kind && !id)
+        return undefined;
+    return { kind, id };
+}
+/** `--multi-agent-*`/`--task`/`--worker`/`--evidence` etc → BlackboardLinks —
+ *  byte-exact port of parseBlackboardLinks (orchestrator/cli-options.ts). */
+function parseBlackboardLinksCli(runId, args) {
+    const structured = args.provenance ?? args.links;
+    if (structured && typeof structured === "object" && !Array.isArray(structured))
+        return structured;
+    const links = {
+        workflowRunId: runId,
+        multiAgentRunId: multiAgentRunArg(args),
+        agentGroupId: groupArg(args),
+        agentRoleId: optionalString(args.role ?? args.roleId ?? args["multi-agent-role"]),
+        agentMembershipId: optionalString(args.membership ?? args.membershipId ?? args["multi-agent-membership"]),
+        agentFanoutId: optionalString(args.fanout ?? args.fanoutId ?? args["multi-agent-fanout"]),
+        agentFaninId: optionalString(args.fanin ?? args.faninId ?? args["multi-agent-fanin"]),
+        taskId: optionalString(args.task ?? args.taskId),
+        workerId: optionalString(args.worker ?? args.workerId),
+        candidateId: optionalString(args.candidate ?? args.candidateId),
+        verifierNodeId: optionalString(args.verifier ?? args.verifierNode ?? args.verifierNodeId),
+        commitId: optionalString(args.commit ?? args.commitId),
+        auditEventIds: arrayArg(args.audit ?? args.auditEvent ?? args.auditEventId ?? args["audit-event"]),
+        evidenceRefs: arrayArg(args.evidence ?? args.evidenceRef ?? args["evidence-ref"]),
+    };
+    const entries = Object.entries(links).filter(([, value]) => value !== undefined && (!Array.isArray(value) || value.length));
+    return entries.length > 1 ? Object.fromEntries(entries) : undefined;
 }
 /** `--sandbox-choice role=profile` (repeatable) — byte-exact port of the old
  *  build's parseSandboxChoices (orchestrator/cli-options.ts): merges a
@@ -264,6 +340,34 @@ function multiAgentRunCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
     const topology = optionalString(args.topology);
+    // `multi-agent run <run> <id> --status <status>` — port of the old CLI
+    // handler's `id && args.options.status` arm (cli/handlers/multi-agent.ts):
+    // transition the MultiAgentRun lifecycle (the core cascades completion to
+    // owned roles/groups/fanouts/fanins, or fails closed when a fanin is not
+    // verifier-ready). `multiAgentRunId` is the positional entity id the CLI
+    // binding forwards (or the `--id`/`--multi-agent-run` alias the MCP peer
+    // sends).
+    const transitionId = optionalString(args.multiAgentRunId ?? args.id ?? args.multiAgentRun);
+    const status = optionalString(args.status);
+    const app = optionalString(args.app ?? args.appId);
+    const workflow = optionalString(args.workflow ?? args.workflowId);
+    const isHostRun = !runId || topology !== undefined || app !== undefined || workflow !== undefined;
+    if (!isHostRun && transitionId && status && args.title === undefined && args.objective === undefined) {
+        const record = mai.transitionMultiAgentRun(run, transitionId, status, {
+            reason: optionalString(args.reason),
+            actor: optionalString(args.actor),
+        });
+        persist(run);
+        return record;
+    }
+    if (!isHostRun && transitionId && !status && args.title === undefined && args.objective === undefined && args.id === undefined) {
+        // `multi-agent run <run> <id>` (positional id, no status/create flags) —
+        // SHOW the MultiAgentRun record (old handler's showMultiAgentRun arm).
+        const record = (0, runtime_1.getMultiAgentRun)(run, transitionId);
+        if (!record)
+            throw new Error(`Unknown MultiAgentRun id: ${transitionId}`);
+        return record;
+    }
     let result;
     if (topology === undefined && (args.id !== undefined || args.title !== undefined)) {
         // #28: forward `--blackboard`/`--topic` (plus the old build's
@@ -292,6 +396,88 @@ function multiAgentStatusCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
     return host.hostStatus(run);
+}
+/** `cw multi-agent status <run>` human text — the operator-UX status panel
+ *  (Agent Graph / Dependencies / Failed-Blocked / Adopted-Missing Evidence
+ *  / Next Action). Port of the old CLI handler's non-`--json` status arm
+ *  (cli/handlers/multi-agent.ts). */
+function multiAgentStatusText(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, multi_agent_operator_ux_1.formatMultiAgentOperatorStatus)((0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run));
+}
+/** `cw multi-agent dependencies <run>` — derived dependency edges (JSON). */
+function multiAgentDependenciesCli(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run).dependencies;
+}
+function multiAgentDependenciesText(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, multi_agent_operator_ux_1.formatMultiAgentDependencies)((0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run).dependencies);
+}
+/** `cw multi-agent failures <run>` — failed/blocked/rejected/ambiguous rows. */
+function multiAgentFailuresCli(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run).failures;
+}
+function multiAgentFailuresText(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, multi_agent_operator_ux_1.formatMultiAgentFailures)((0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run).failures);
+}
+/** `cw multi-agent evidence <run>` — evidence adoption rows, each additively
+ *  enriched with the derived rationaleStatus (explained|unexplained|
+ *  not-applicable) from the reasoning report. Port of the old
+ *  runner.multiAgentEvidence enrichment. */
+function multiAgentEvidenceCli(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    const rows = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run).evidence;
+    const report = reasoning.buildEvidenceReasoningReport(run, { index: reasoning.loadEvidenceReasoningIndex(run) });
+    const byId = new Map(report.chains.map((chain) => [chain.id, chain.rationaleStatus]));
+    for (const row of rows)
+        row.rationaleStatus = byId.get(row.id) ?? "not-applicable";
+    return rows;
+}
+/** `cw multi-agent reasoning <run> [--refresh] [--evidence <id>]` — the
+ *  evidence adoption reasoning report (or a durable-index refresh). Port of
+ *  the old runner.multiAgentReasoning / multiAgentReasoningRefresh. */
+function multiAgentReasoningCli(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    const evidenceId = optionalString(args.evidence ?? args.evidenceId ?? args.id);
+    if (args.refresh && !evidenceId) {
+        const index = reasoning.refreshEvidenceReasoning(run);
+        persist(run);
+        return index;
+    }
+    return reasoning.showEvidenceReasoning(run, { evidenceId });
+}
+function multiAgentReasoningText(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    const evidenceId = optionalString(args.evidence ?? args.evidenceId ?? args.id);
+    return reasoning.formatEvidenceReasoningReport(reasoning.showEvidenceReasoning(run, { evidenceId }));
+}
+function multiAgentReasoningRefreshCli(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    const index = reasoning.refreshEvidenceReasoning(run);
+    persist(run);
+    return index;
+}
+function multiAgentEvidenceText(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    const rows = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run).evidence;
+    const report = reasoning.buildEvidenceReasoningReport(run, { index: reasoning.loadEvidenceReasoningIndex(run) });
+    const byId = new Map(report.chains.map((chain) => [chain.id, chain.rationaleStatus]));
+    for (const row of rows)
+        row.rationaleStatus = byId.get(row.id) ?? "not-applicable";
+    return (0, multi_agent_operator_ux_1.formatMultiAgentEvidence)(rows);
 }
 function multiAgentStepCli(args) {
     const runId = requireArg(args.runId, "run id");
@@ -485,10 +671,55 @@ function multiAgentSummaryCli(args) {
     const run = loadRun(args, runId);
     return mai.summarizeMultiAgent(run);
 }
+/** `cw multi-agent summarize <run>` / `cw_multi_agent_summarize` — the
+ *  combined state-explosion report (loads the persisted summary index when
+ *  present). Port of the old runner.multiAgentSummarize. */
+function multiAgentSummarizeCli(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, report_2.buildStateExplosionReport)(run, { index: (0, state_explosion_cli_1.loadStateExplosionSummaryIndex)(run) });
+}
+/** `cw_multi_agent_graph_compact` — a compact/focused multi-agent graph
+ *  view. Port of the old runner.multiAgentGraphView. */
+function multiAgentGraphCompactCli(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    const view = optionalString(args.view);
+    // Protect every reasoning-chain decision-gate node from collapse (the old
+    // build fed reasoningCriticalNodeIds into buildCompactGraph so an adopted
+    // chain's score/selection/commit/fanin nodes survive compaction).
+    return (0, graph_1.buildCompactGraphFromView)(run.id, (0, graph_1.runToGraphViewFromWorkflowRun)(run), view || "compact", {
+        focus: optionalString(args.focus),
+        depth: numberArg(args.depth),
+        reasoningCriticalIds: reasoning.reasoningCriticalNodeIds(run),
+    });
+}
+/** `cw blackboard summarize <run>` / `cw_blackboard_summarize` — a blackboard
+ *  digest with conflicts/evidence. Port of the old runner.blackboardSummarize. */
+function blackboardSummarizeCli(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, digest_1.summarizeBlackboardDigest)({ id: run.id, blackboard: run.blackboard }, blackboardIdArg(args));
+}
+/** `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
+ *  resolved pipeline contract. Port of the old runner.showContract. */
+function contractShowCli(args, contractId) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, runner_1.getRunContract)(run, contractId ?? optionalString(args.contractId));
+}
 function multiAgentGraphCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
-    return mai.buildMultiAgentGraph(run);
+    return (0, multi_agent_operator_ux_1.buildMultiAgentOperatorGraph)(run);
+}
+/** `cw multi-agent graph <run>` human text — the operator graph render
+ *  (nodes grouped by kind, then edges). Reuses the operator-ux graph
+ *  formatter so `cw graph` and `cw multi-agent graph` render identically. */
+function multiAgentGraphText(args) {
+    const runId = requireArg(args.runId, "run id");
+    const run = loadRun(args, runId);
+    return (0, operator_ux_text_1.formatOperatorGraph)((0, multi_agent_operator_ux_1.buildMultiAgentOperatorGraph)(run));
 }
 // ---------------------------------------------------------------------------
 // Blackboard / coordinator
@@ -513,14 +744,14 @@ function blackboardResolveCli(args) {
 function blackboardTopicCreateCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
-    const topic = coord.createBlackboardTopic(run, { id: optionalString(args.id), title: requireArg(args.title, "topic title"), description: optionalString(args.description), blackboardId: optionalString(args.blackboardId), tags: arrayArg(args.tag) });
+    const topic = coord.createBlackboardTopic(run, { id: optionalString(args.id), title: requireArg(args.title, "topic title"), description: optionalString(args.description), blackboardId: optionalString(args.blackboardId), author: parseBlackboardAuthorCli(args), scope: parseBlackboardScopeCli(args), tags: arrayArg(args.tag) });
     persist(run);
     return topic;
 }
 function blackboardMessagePostCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
-    const message = coord.postBlackboardMessage(run, { id: optionalString(args.id), topicId: requireArg(args.topic ?? args.topicId, "topic id"), blackboardId: optionalString(args.blackboardId), body: requireArg(args.body, "message body"), replyToId: optionalString(args.replyTo), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact) });
+    const message = coord.postBlackboardMessage(run, { id: optionalString(args.id), topicId: requireArg(args.topic ?? args.topicId, "topic id"), blackboardId: optionalString(args.blackboardId), body: requireArg(args.body, "message body"), replyToId: optionalString(args.replyTo), visibility: optionalString(args.visibility), author: parseBlackboardAuthorCli(args), scope: parseBlackboardScopeCli(args), links: parseBlackboardLinksCli(runId, args), tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact) });
     persist(run);
     return message;
 }
@@ -532,14 +763,14 @@ function blackboardMessageListCli(args) {
 function blackboardContextPutCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
-    const context = coord.putBlackboardContext(run, { id: optionalString(args.id), topicId: requireArg(args.topic ?? args.topicId, "topic id"), kind: requireArg(args.kind, "context kind"), key: optionalString(args.key), value: requireArg(args.value ?? args.body, "context value"), blackboardId: optionalString(args.blackboardId), supersedesContextIds: arrayArg(args.supersedes), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact) });
+    const context = coord.putBlackboardContext(run, { id: optionalString(args.id), topicId: requireArg(args.topic ?? args.topicId, "topic id"), kind: requireArg(args.kind, "context kind"), key: optionalString(args.key), value: requireArg(args.value ?? args.body, "context value"), blackboardId: optionalString(args.blackboardId), supersedesContextIds: arrayArg(args.supersedes), author: parseBlackboardAuthorCli(args), scope: parseBlackboardScopeCli(args), links: parseBlackboardLinksCli(runId, args), tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact) });
     persist(run);
     return context;
 }
 function blackboardArtifactAddCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
-    const artifact = coord.addBlackboardArtifact(run, { id: optionalString(args.id), topicId: optionalString(args.topic), kind: requireArg(args.kind, "artifact kind"), path: optionalString(args.path), locator: optionalString(args.locator), blackboardId: optionalString(args.blackboardId), source: optionalString(args.source), evidenceRefs: arrayArg(args.evidence) });
+    const artifact = coord.addBlackboardArtifact(run, { id: optionalString(args.id), topicId: optionalString(args.topic ?? args.topicId), kind: requireArg(args.kind, "artifact kind"), path: optionalString(args.path), locator: optionalString(args.locator), blackboardId: optionalString(args.blackboardId), source: optionalString(args.source), author: parseBlackboardAuthorCli(args), scope: parseBlackboardScopeCli(args), links: parseBlackboardLinksCli(runId, args), tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence) });
     persist(run);
     return artifact;
 }
@@ -586,7 +817,30 @@ function candidateShowCli(args, candidateId) {
 function candidateRegisterCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
-    const candidate = cs.registerCandidate(run, { id: optionalString(args.id), kind: optionalString(args.kind), workerId: optionalString(args.worker ?? args.workerId), taskId: optionalString(args.task ?? args.taskId), resultNodeId: optionalString(args.resultNode), verifierNodeId: optionalString(args.verifierNode), resultPath: optionalString(args.resultPath) });
+    // `candidate register --worker <id>` — derive the worker's accepted
+    // result/verifier state nodes (and result path) from the worker scope +
+    // its backing task, so a candidate registered from a verified worker
+    // carries the verifier gate the selection gate requires. Port of the old
+    // orchestrator/candidate-operations.ts registerCandidate worker read
+    // (v2's candidateRegisterCli only forwarded --result-node/--verifier-node).
+    const workerId = optionalString(args.worker ?? args.workerId);
+    const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
+    if (workerId && !worker)
+        throw new Error(`Unknown worker id for run ${run.id}: ${workerId}`);
+    const workerOutput = worker?.output;
+    const task = worker ? run.tasks.find((entry) => entry.id === worker.taskId) : undefined;
+    const resultNodeId = optionalString(args.resultNode) || worker?.resultNodeId || task?.resultNodeId;
+    const verifierNodeId = optionalString(args.verifierNode) || workerOutput?.verifierNodeId || task?.verifierNodeId;
+    const resultPath = optionalString(args.resultPath) || workerOutput?.resultPath || task?.resultPath;
+    const candidate = cs.registerCandidate(run, {
+        id: optionalString(args.id),
+        kind: optionalString(args.kind),
+        workerId,
+        taskId: optionalString(args.task ?? args.taskId) || worker?.taskId,
+        resultNodeId,
+        verifierNodeId,
+        resultPath,
+    });
     persist(run);
     return candidate;
 }
@@ -644,7 +898,10 @@ function candidateRejectCli(args, candidateId) {
 function candidateSummaryCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
-    return cs.summarizeCandidates(run);
+    // `candidate summary` returns the operator candidate summary (with
+    // readyForCommit/selected/problems/candidates), matching the old build's
+    // summarizeCandidateOperatorRecords — not the bare counts.
+    return (0, operator_ux_1.summarizeCandidateOperatorRecords)(run);
 }
 // ---------------------------------------------------------------------------
 // Collaboration

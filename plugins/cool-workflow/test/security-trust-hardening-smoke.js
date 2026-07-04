@@ -42,7 +42,11 @@ const { allocateWorkerScope, recordWorkerOutput } = require("../dist/shell/worke
 // (capability-table.ts:282-290 declare the MCP tools, but no `path: ["audit",
 // "provenance"|"worker"|"decision"]` row is registered — they fall through to
 // the audit.usage error). See report.
-const { summarizeTrustAudit, evidenceProvenance } = require("../dist/shell/trust-audit");
+const { summarizeTrustAudit } = require("../dist/shell/trust-audit");
+// v2 cutover: evidenceProvenance moved to shell/audit-provenance.js (the v2
+// shell/trust-audit.ts is the audited chain writer and does not re-export the
+// read/record helpers; audit-provenance.ts wraps them over its primitives).
+const { evidenceProvenance } = require("../dist/shell/audit-provenance");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-security-trust-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "trust-smoke"));

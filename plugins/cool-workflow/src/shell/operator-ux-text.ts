@@ -15,6 +15,7 @@
 
 import { dim } from "./term";
 import { OperatorGraph, OperatorRecommendation, OperatorRunSummary, RunSummary } from "./operator-ux";
+import { formatMultiAgentDependencies, formatMultiAgentEvidence, formatMultiAgentFailures } from "./multi-agent-operator-ux";
 
 function formatCounts(counts: Record<string, number>): string {
   const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
@@ -77,13 +78,149 @@ function formatTrustPanel(summary: OperatorRunSummary["trust"]): string {
   ].join("\n");
 }
 
-/** The full `cw status <id>` human render — byte-exact port of
- *  formatOperatorStatus's panel order (worker/candidate/feedback/commit/
- *  trust, then the report path). This milestone's port omits the old
- *  build's topology/multi-agent-operator/blackboard sub-panels (no
- *  dedicated conformance case pins their exact text yet); the panels the
- *  case set DOES pin (Workers/Candidates/Feedback/Commits/Trust Audit,
- *  Report: <path>) are byte-exact. */
+function arrayView(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value) ? (value as Array<Record<string, unknown>>) : [];
+}
+
+function formatRolePolicyRows(rows: Array<Record<string, unknown>>): string[] {
+  if (!rows.length) return ["  none"];
+  return rows.slice(0, 40).map((row) => {
+    const writes = Array.isArray(row.allowedWriteOperations) ? row.allowedWriteOperations.join(",") : "none";
+    const candidates = Array.isArray(row.allowedCandidateOperations) ? row.allowedCandidateOperations.join(",") : "none";
+    const judges = Array.isArray(row.allowedJudgeOperations) ? row.allowedJudgeOperations.join(",") : "none";
+    const topics = Array.isArray(row.allowedBlackboardTopicIds) ? row.allowedBlackboardTopicIds.join(",") : "none";
+    return `  ${String(row.policyRef || row.id || row.subjectId)} subject=${String(row.subjectKind || "unknown")}:${String(row.subjectId || "unknown")} topics=${topics} writes=${writes} candidates=${candidates} judges=${judges}`;
+  });
+}
+
+function formatAuditEventRows(rows: Array<Record<string, unknown>>): string[] {
+  if (!rows.length) return ["  none"];
+  return rows.slice(0, 60).map((row) => {
+    const metadata = row.metadata && typeof row.metadata === "object" ? (row.metadata as Record<string, unknown>) : {};
+    const ids = [
+      row.agentRoleId ? `role=${row.agentRoleId}` : "",
+      row.agentMembershipId ? `membership=${row.agentMembershipId}` : "",
+      row.blackboardMessageId ? `message=${row.blackboardMessageId}` : "",
+      row.blackboardContextId ? `context=${row.blackboardContextId}` : "",
+      row.blackboardArtifactRefId ? `artifact=${row.blackboardArtifactRefId}` : "",
+      row.coordinatorDecisionId ? `decision=${row.coordinatorDecisionId}` : "",
+      row.candidateId ? `candidate=${row.candidateId}` : "",
+      row.scoreId ? `score=${row.scoreId}` : "",
+      row.selectionId ? `selection=${row.selectionId}` : "",
+    ].filter(Boolean).join(" ");
+    const reason = metadata.reason ? ` reason=${String(metadata.reason)}` : "";
+    const operation = metadata.operation ? ` operation=${String(metadata.operation)}` : "";
+    return `  [${String(row.decision || "recorded")}] ${String(row.kind || "event")} ${String(row.id || "")}${operation}${ids ? ` ${ids}` : ""}${row.policyRef ? ` policy=${String(row.policyRef)}` : ""}${reason}`;
+  });
+}
+
+/** `cw audit multi-agent|policy|role|blackboard|judge` human render — port
+ *  of the old build's formatMultiAgentTrustAudit (operator-ux/format.ts). */
+export function formatMultiAgentTrustAudit(view: Record<string, unknown>): string {
+  return [
+    `Multi-Agent Trust: ${String(view.runId || "unknown")}`,
+    "",
+    "Role Policies",
+    ...formatRolePolicyRows(arrayView(view.rolePolicies)),
+    "",
+    "Permission Decisions",
+    ...formatAuditEventRows(arrayView(view.permissionDecisions)),
+    "",
+    "Blackboard Write Audit",
+    ...formatAuditEventRows(arrayView(view.blackboardWrites)),
+    "",
+    "Message Provenance",
+    ...formatAuditEventRows(arrayView(view.messageProvenance)),
+    "",
+    "Judge Rationales",
+    ...formatAuditEventRows([...arrayView(view.judgeRationales), ...arrayView(view.panelDecisions)]),
+    "",
+    "Policy Violations",
+    ...formatAuditEventRows(arrayView(view.policyViolations)),
+    "",
+    "Next Action",
+    `  ${String(view.nextAction || `node scripts/cw.js audit multi-agent ${String(view.runId || "<run-id>")} --json`)}`,
+  ].join("\n");
+}
+
+/** `Topologies` panel — port of the old build's formatTopologyPanel
+ *  (operator-ux/format.ts): the topology-run rollup with per-run roles/
+ *  topics/fanout/fanin/readiness. */
+function formatTopologyPanel(summary: OperatorRunSummary["multiAgentOperator"]["summaries"]["topologies"]): string {
+  const lines = [
+    "Topologies",
+    `  runs=${summary.totalRuns}; status=${formatCounts(summary.runsByStatus)}; official=${summary.officialTopologies.join(", ")}`,
+  ];
+  for (const record of summary.active.slice(0, 6)) {
+    lines.push(`  ${record.id}: ${record.topologyId}, status=${record.status}, readiness=${record.readiness}`);
+    lines.push(`    run=${record.multiAgentRunId} board=${record.blackboardId}`);
+    lines.push(`    roles=${record.roles.join(", ") || "none"} topics=${record.topics.join(", ") || "none"}`);
+    lines.push(`    fanout=${record.fanouts.join(", ") || "none"} fanin=${record.fanins.join(", ") || "none"}`);
+    for (const missing of record.missingEvidence.slice(0, 4)) lines.push(`    missing=${missing}`);
+    for (const conflict of record.conflicts.slice(0, 4)) lines.push(`    conflict=${conflict}`);
+    if (record.nextActions[0]) lines.push(`    next=${record.nextActions[0]}`);
+  }
+  if (summary.nextAction) lines.push(`  next=${summary.nextAction}`);
+  return lines.join("\n");
+}
+
+/** `Multi-Agent` panel — port of the old build's formatMultiAgentPanel
+ *  (operator-ux/format.ts): the run/role/group/membership/fanout/fanin
+ *  rollup with per-group role coverage and blocked reasons. */
+function formatMultiAgentPanel(summary: OperatorRunSummary["multiAgent"]): string {
+  const lines = [
+    "Multi-Agent",
+    `  runs=${summary.totalRuns}; status=${formatCounts(summary.runsByStatus)}`,
+    `  roles=${summary.roles}; groups=${summary.groups} (${formatCounts(summary.groupsByStatus)})`,
+    `  memberships=${summary.memberships} (${formatCounts(summary.membershipsByStatus)})`,
+    `  fanouts=${summary.fanouts}; fanins=${summary.fanins} (${formatCounts(summary.faninsByStatus)})`,
+  ];
+  for (const group of summary.groupsDetail.slice(0, 6)) {
+    lines.push(`  group ${group.id}: ${group.status}, phase=${group.phase || "none"}, run=${group.multiAgentRunId}`);
+    for (const role of group.roles.slice(0, 6)) {
+      lines.push(`    role ${role.roleId}: memberships=${role.memberships}, reported=${role.reported}, missing=${role.missing}`);
+    }
+    lines.push(`    fanout=${group.fanouts.join(", ") || "none"} fanin=${group.fanins.join(", ") || "none"}`);
+  }
+  for (const reason of summary.blockedReasons.slice(0, 6)) lines.push(`  blocked: ${reason}`);
+  if (summary.nextAction) lines.push(`  next=${summary.nextAction}`);
+  return lines.join("\n");
+}
+
+/** `Multi-Agent Operator UX` block — port of the old build's inline
+ *  operator-status summary (operator-ux/format.ts:41-45): active runs,
+ *  dependency/failure/evidence counts, and the next command. */
+function formatMultiAgentOperatorBlock(operator: OperatorRunSummary["multiAgentOperator"]): string {
+  return [
+    "Multi-Agent Operator UX",
+    `  active=${operator.activeMultiAgentRunIds.join(", ") || "none"}; topologies=${operator.topologyRunIds.join(", ") || "none"}; blocked=${operator.blocked ? "yes" : "no"}`,
+    `  dependencies=${operator.dependencies.length}; failures=${operator.failures.length}; adoptedEvidence=${operator.adoptedEvidence.length}; missingEvidence=${operator.missingEvidence.length}${operator.inspectableEvidence.length ? ` (inspectable=${operator.inspectableEvidence.length})` : ""}`,
+    `  next=${operator.nextAction}`,
+  ].join("\n");
+}
+
+/** `Blackboard / Coordinator` panel — port of the old build's
+ *  formatBlackboardPanel (operator-ux/format.ts). */
+function formatBlackboardPanel(summary: OperatorRunSummary["blackboard"]): string {
+  const lines = [
+    "Blackboard / Coordinator",
+    `  board=${summary.blackboardId || "none"}; topics=${summary.topics}; messages=${summary.messages}; contexts=${summary.contexts}; artifacts=${summary.artifacts}`,
+    `  open questions=${summary.openQuestions.length}; conflicts=${summary.conflicts.length}; missing evidence=${summary.missingEvidence.length}`,
+    `  ready for fanin=${summary.readyForFanin ? "yes" : "no"}`,
+    `  index=${summary.indexPath || "none"}`,
+    `  latest snapshot=${summary.latestSnapshotPath || "none"}`,
+  ];
+  for (const question of summary.openQuestions.slice(0, 5)) lines.push(`  question ${question.id}: ${question.value}`);
+  for (const conflict of summary.conflicts.slice(0, 5)) lines.push(`  conflict ${conflict.id}: ${conflict.key} -> ${conflict.conflictingContextIds.join(", ") || "unindexed"}`);
+  for (const missing of summary.missingEvidence.slice(0, 5)) lines.push(`  missing: ${missing}`);
+  if (summary.nextAction) lines.push(`  next=${summary.nextAction}`);
+  return lines.join("\n");
+}
+
+/** The full `cw status <id>` human render — port of formatOperatorStatus's
+ *  panel order (worker/candidate/feedback/commit, then the
+ *  multi-agent/operator-ux/blackboard sub-panels the operator-ux smokes
+ *  pin, then trust and the report path). */
 export function formatOperatorStatus(summary: OperatorRunSummary): string {
   return [
     formatOperatorSummary(summary),
@@ -96,7 +233,17 @@ export function formatOperatorStatus(summary: OperatorRunSummary): string {
     "",
     formatCommitPanel(summary.commits),
     "",
+    formatTopologyPanel(summary.multiAgentOperator.summaries.topologies),
+    "",
+    formatMultiAgentPanel(summary.multiAgent),
+    "",
+    formatMultiAgentOperatorBlock(summary.multiAgentOperator),
+    "",
+    formatBlackboardPanel(summary.blackboard),
+    "",
     formatTrustPanel(summary.trust),
+    "",
+    formatMultiAgentTrustAudit(summary.multiAgentTrust as unknown as Record<string, unknown>),
     "",
     `Report: ${summary.reportPath}`,
   ].join("\n");
@@ -121,6 +268,12 @@ export function formatOperatorReport(summary: OperatorRunSummary, evidencePaths:
     "",
     "Evidence",
     ...(evidencePaths.length ? evidencePaths.map((entry) => `  ${entry}`) : ["  none recorded"]),
+    "",
+    formatMultiAgentDependencies(summary.multiAgentOperator.dependencies),
+    "",
+    formatMultiAgentFailures(summary.multiAgentOperator.failures),
+    "",
+    formatMultiAgentEvidence(summary.multiAgentOperator.evidence),
     "",
     "Resource Commands",
     `  node scripts/cw.js graph ${summary.runId}`,

@@ -68,6 +68,8 @@ const trust_audit_1 = require("./trust-audit");
 const rt = __importStar(require("../core/multi-agent/runtime"));
 const trust_policy_1 = require("../core/multi-agent/trust-policy");
 const trust_policy_io_1 = require("./trust-policy-io");
+const coordinator_io_1 = require("./coordinator-io");
+const worker_isolation_1 = require("./worker-isolation");
 function multiAgentRoot(run) {
     return run.paths.multiAgentDir || path.join(run.paths.runDir, "multi-agent");
 }
@@ -226,6 +228,24 @@ function attachDispatchToMultiAgent(run, input) {
     const result = rt.attachDispatchToMultiAgent(run, input, now(), trust_policy_1.policyForMembership, workerExists(run));
     if (!result.multiAgent)
         return result;
+    // Mirror each task's freshly-set multiAgent attachment onto its durable
+    // worker scope so worker.json (read by `cw worker show`/operators) and the
+    // manifest both carry the run/group/role/membership/fanout linkage. The
+    // core set it on the task; the scope is the shell-owned durable copy. Byte-
+    // behavior port of the old build's dispatch attach (scope.multiAgent).
+    for (const task of input.tasks) {
+        const attachment = task.multiAgent;
+        if (!attachment || !task.workerId)
+            continue;
+        const scope = (0, worker_isolation_1.getWorkerScope)(run, String(task.workerId));
+        if (!scope)
+            continue;
+        scope.multiAgent = attachment;
+        // Persist the durable worker.json overlay so `cw worker show` / a
+        // reloaded run carries the attachment (the scope object is written at
+        // allocation time, BEFORE this attach step runs).
+        (0, fs_atomic_1.writeJson)(path.join(scope.workerDir, "worker.json"), scope);
+    }
     const fanout = rt.requireAgentFanout(run, result.multiAgent.fanoutId);
     appendMultiAgentNode(run, "agent-fanout", fanout.id, "running", { status: fanout.status, dispatchIds: fanout.dispatchIds, workerIds: fanout.workerIds, membershipIds: fanout.membershipIds }, [`${run.id}:dispatch:${input.dispatchId}`]);
     (0, trust_audit_1.recordTrustAuditEvent)(run, {
@@ -259,9 +279,82 @@ function collectAgentFanin(run, input) {
     persistMultiAgentState(run);
     return fanin;
 }
+/** Publish a board-linked worker's accepted output to the blackboard: one
+ *  artifact ref (kind `worker-result`) plus one message, both scoped to the
+ *  membership's first topic. Returns the created ids, or undefined when the
+ *  worker's membership is not board-linked (no blackboardId/topicIds). Port
+ *  of the old worker-accept/blackboard-fanout.ts publishWorkerOutputToBlackboard. */
+function indexWorkerOutputToBlackboard(run, input) {
+    const state = ensureMultiAgentState(run);
+    const membership = state.memberships.find((entry) => entry.workerId === input.workerId && entry.taskId === input.taskId);
+    if (!membership || !membership.blackboardId || !membership.topicIds.length)
+        return undefined;
+    // Idempotency: a re-run of `worker output` for the same worker/task must not
+    // index the evidence twice (the old accept path ran once per acceptance).
+    if ((membership.blackboardArtifactRefIds || []).length || (membership.blackboardMessageIds || []).length)
+        return undefined;
+    const topicId = membership.topicIds[0];
+    const evidenceRefs = input.evidence.map((entry) => entry.locator || entry.path || entry.summary || entry.id).filter(Boolean);
+    // The worker-output accept path (worker-isolation.ts) does not thread the
+    // on-disk result path down to us, so derive the artifact's locator from the
+    // best evidence pointer (a real file locator/path) or fall back to the
+    // result state node id — addBlackboardArtifact requires a path OR locator.
+    const primaryPath = (input.artifactPaths && input.artifactPaths[0]) || undefined;
+    const primaryLocator = input.evidence.map((entry) => entry.locator || entry.path).find(Boolean) || input.resultNodeId;
+    const links = {
+        multiAgentRunId: membership.multiAgentRunId,
+        agentGroupId: membership.groupId,
+        agentRoleId: membership.roleId,
+        agentMembershipId: membership.id,
+        agentFanoutId: membership.fanoutId,
+        taskId: membership.taskId,
+        workerId: membership.workerId,
+    };
+    const artifact = (0, coordinator_io_1.addBlackboardArtifact)(run, {
+        topicId,
+        blackboardId: membership.blackboardId,
+        kind: "worker-result",
+        path: primaryPath,
+        locator: primaryPath ? undefined : primaryLocator,
+        owner: { kind: "worker", id: String(membership.workerId) },
+        author: { kind: "runtime", id: "cw" },
+        scope: { kind: "worker", id: String(membership.workerId) },
+        source: "cw-validated-worker-output",
+        provenance: links,
+        evidenceRefs,
+        links,
+    });
+    const message = (0, coordinator_io_1.postBlackboardMessage)(run, {
+        topicId,
+        blackboardId: membership.blackboardId,
+        body: `Worker ${membership.workerId} reported output for ${membership.roleId}.`,
+        author: { kind: "worker", id: String(membership.workerId) },
+        scope: { kind: "worker", id: String(membership.workerId) },
+        artifactRefIds: [artifact.id],
+        evidenceRefs,
+        links,
+        metadata: { taskId: membership.taskId },
+    });
+    return { messageIds: [message.id], artifactRefIds: [artifact.id] };
+}
 function recordMultiAgentWorkerOutput(run, input) {
     ensureMultiAgentState(run);
-    const memberships = rt.recordMultiAgentWorkerOutput(run, input, now());
+    // Auto-index a board-linked worker's accepted output into the blackboard
+    // (one artifact ref + one message per membership on a board), then thread
+    // those ids into the kernel so the membership carries
+    // blackboardArtifactRefIds/blackboardMessageIds and a board-scoped fanin
+    // (requiresBlackboardEvidence) can see the evidence as indexed. Byte-behavior
+    // port of the old build's worker-accept/blackboard-fanout.ts fanOut step,
+    // which v2's forbidden worker-isolation accept path dropped.
+    const boardLinks = indexWorkerOutputToBlackboard(run, input);
+    const enrichedInput = boardLinks
+        ? {
+            ...input,
+            blackboardMessageIds: [...(input.blackboardMessageIds || []), ...boardLinks.messageIds],
+            blackboardArtifactRefIds: [...(input.blackboardArtifactRefIds || []), ...boardLinks.artifactRefIds],
+        }
+        : input;
+    const memberships = rt.recordMultiAgentWorkerOutput(run, enrichedInput, now());
     for (const membership of memberships) {
         appendMultiAgentNode(run, "agent-membership", membership.id, "completed", { resultNodeId: membership.resultNodeId, verifierNodeId: membership.verifierNodeId, evidenceRefs: membership.evidenceRefs }, [membership.resultNodeId, membership.verifierNodeId].filter(Boolean));
         (0, trust_audit_1.recordTrustAuditEvent)(run, {
