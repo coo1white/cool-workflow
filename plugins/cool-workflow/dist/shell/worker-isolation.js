@@ -231,6 +231,7 @@ function writeWorkerManifest(run, scope) {
             : undefined,
         backendId: scope.backendId,
         backendAttestation: scope.backendAttestation,
+        multiAgent: task?.multiAgent,
         backend: scope.backendId && scope.backendAttestation
             ? {
                 id: scope.backendId,

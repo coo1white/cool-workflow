@@ -257,6 +257,7 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Recor
       : undefined,
     backendId: scope.backendId,
     backendAttestation: scope.backendAttestation,
+    multiAgent: task?.multiAgent,
     backend:
       scope.backendId && scope.backendAttestation
         ? {
