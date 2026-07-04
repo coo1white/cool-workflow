@@ -72,21 +72,20 @@ function liveMcpTools() {
 }
 
 function cliDispatchTokens() {
-  const source = cliDispatchSources().map((file) => fs.readFileSync(file, "utf8")).join("\n");
-  return [...new Set([...source.matchAll(/case\s+"([^"]+)":/g)].map((match) => match[1]))];
+  // v2 dispatch is table-driven (findCapabilityByCliPath over REGISTRY), not a
+  // switch, so the token set is the union of every CLI capability's accepted
+  // first tokens (cli.caseTokens where an alias set is declared, else cli.path).
+  // The reachability check below then proves each declared path resolves through
+  // the live dispatcher — replacing the old `case "x":` dist source-grep.
+  return [...new Set(registry.cliCapabilities().flatMap((cap) => cap.cli.caseTokens ?? cap.cli.path))];
 }
 
-function cliDispatchSources() {
-  // The dispatcher + every per-command handler module carved out of it (the
-  // command-surface god-object decomposition). A verb's subcommand `case`s may
-  // live in dist/cli/handlers/<group>.js, so scan those too or their tokens read
-  // as "missing from dist/cli.js".
-  const handlersDir = path.join(pluginRoot, "dist", "cli", "handlers");
-  const handlerFiles = fs.existsSync(handlersDir)
-    ? fs.readdirSync(handlersDir).filter((name) => name.endsWith(".js")).map((name) => path.join(handlersDir, name))
-    : [];
-  return [cli, path.join(pluginRoot, "dist", "cli", "command-surface.js"), ...handlerFiles].filter((file) => fs.existsSync(file));
-}
+// Old-build top-level verbs kept in the frozen help "More commands" index line
+// but folded in v2 into subcommands / the shell layer: init->app.init,
+// search->run.search (declaredCliHelpTokens collapses both to app/run), and
+// update is a shell-level command with no capability-table row. Help-index
+// discovery text, not dispatch-parity tokens — exclude them.
+const HELP_INDEX_ONLY_TOKENS = new Set(["init", "search", "update"]);
 
 function cliHelpTokens() {
   const lines = formatHelp().split(/\r?\n/);
@@ -99,7 +98,7 @@ function cliHelpTokens() {
     const first = trimmed.split(/\s+/)[0];
     for (const token of first.split("|")) {
       const clean = token.replace(/[<[].*$/, "");
-      if (clean) tokens.add(clean);
+      if (clean && !HELP_INDEX_ONLY_TOKENS.has(clean)) tokens.add(clean);
     }
   }
   return [...tokens].sort();

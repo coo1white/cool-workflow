@@ -6,7 +6,7 @@
 // source/app/script changes need an iteration-log row.
 
 const path = require("node:path");
-const { evaluateOnrampContract, resolveChangedFiles } = require("../dist/onramp.js");
+const { evaluateOnrampContract, resolveChangedFiles } = require("../dist/shell/onramp.js");
 
 const pluginRoot = path.resolve(__dirname, "..");
 
