@@ -14,7 +14,14 @@
 // source for the ported pieces).
 
 import { dim } from "./term";
-import { OperatorGraph, OperatorRecommendation, OperatorRunSummary, RunSummary } from "./operator-ux";
+import {
+  OperatorCandidateSummary,
+  OperatorFeedbackSummary,
+  OperatorGraph,
+  OperatorRecommendation,
+  OperatorRunSummary,
+  RunSummary,
+} from "./operator-ux";
 import { formatMultiAgentDependencies, formatMultiAgentEvidence, formatMultiAgentFailures } from "./multi-agent-operator-ux";
 
 function formatCounts(counts: Record<string, number>): string {
@@ -57,7 +64,14 @@ function formatWorkerPanel(summary: OperatorRunSummary["workers"]): string {
 }
 
 function formatCandidatePanel(summary: OperatorRunSummary["candidates"]): string {
-  return ["Candidates", `  Total: ${summary.total}`, `  By status: ${formatCounts(summary.byStatus)}`, `  By kind: ${formatCounts(summary.byKind)}`, `  Selections: ${summary.selections}`].join("\n");
+  return [
+    "Candidates",
+    `  Total: ${summary.total}`,
+    `  By status: ${formatCounts(summary.byStatus)}`,
+    `  By kind: ${formatCounts(summary.byKind)}`,
+    `  Selections: ${summary.selections}`,
+    `  ready for commit=${summary.readyForCommit.map((item) => `${item.candidateId}/${item.selectionId}`).join(", ") || "none"}`,
+  ].join("\n");
 }
 
 function formatFeedbackPanel(summary: OperatorRunSummary["feedback"]): string {
@@ -65,7 +79,10 @@ function formatFeedbackPanel(summary: OperatorRunSummary["feedback"]): string {
 }
 
 function formatCommitPanel(summary: OperatorRunSummary["commits"]): string {
-  const lines = ["Commits", `  Total: ${summary.total}`, `  Verifier-gated: ${summary.verifierGated}`, `  Checkpoints: ${summary.checkpoints}`];
+  const lines = [
+    "Commits",
+    `  total=${summary.total}; verifier-gated=${summary.verifierGated}; checkpoints=${summary.checkpoints}`,
+  ];
   for (const commit of summary.commits) lines.push(`  - ${commit.id}: ${commit.reason}`);
   return lines.join("\n");
 }
@@ -185,6 +202,13 @@ function formatMultiAgentPanel(summary: OperatorRunSummary["multiAgent"]): strin
   for (const reason of summary.blockedReasons.slice(0, 6)) lines.push(`  blocked: ${reason}`);
   if (summary.nextAction) lines.push(`  next=${summary.nextAction}`);
   return lines.join("\n");
+}
+
+/** `cw multi-agent summary <run>` human text — the same `Multi-Agent`
+ *  panel `cw status` shows, port of the old build's formatMultiAgentSummary
+ *  (operator-ux/format.ts). */
+export function formatMultiAgentSummaryText(summary: OperatorRunSummary["multiAgent"]): string {
+  return formatMultiAgentPanel(summary);
 }
 
 /** `Multi-Agent Operator UX` block — port of the old build's inline
@@ -326,6 +350,37 @@ export function formatOperatorGraph(graph: OperatorGraph): string {
     lines.push(`  ${edge.from} -> ${edge.to}${edge.label ? ` (${edge.label})` : ""}`);
   }
   return lines.join("\n");
+}
+
+/** `cw candidate summary <run>` human text — port of the old build's
+ *  formatCandidatePanel (operator-ux/format.ts): a `Candidates` rollup with
+ *  status/kind counts, the latest ranking, and the ready-for-commit list. */
+export function formatCandidateSummaryText(summary: OperatorCandidateSummary): string {
+  const lines = [
+    "Candidates",
+    `  total=${summary.total}; status=${formatCounts(summary.byStatus)}; kind=${formatCounts(summary.byKind)}`,
+    `  latest ranking=${summary.latestRankingPath || summary.rankingPath || "none"}`,
+    `  selected=${summary.selected.map((selection) => `${selection.candidateId}/${selection.selectionId}`).join(", ") || "none"}`,
+    `  ready for commit=${summary.readyForCommit.map((item) => `${item.candidateId}/${item.selectionId}`).join(", ") || "none"}`,
+  ];
+  for (const problem of summary.problems.slice(0, 5)) lines.push(`  problem: ${problem}`);
+  for (const candidate of summary.candidates.slice(0, 8)) {
+    lines.push(`  ${candidate.id}: ${candidate.status}, scores=${candidate.scoreCount}, selected=${candidate.selected ? "yes" : "no"}`);
+  }
+  if (summary.candidates.length > 8) lines.push(`  ... ${summary.candidates.length - 8} more candidate(s)`);
+  return lines.join("\n");
+}
+
+/** `cw feedback summary <run>` human text — port of the old build's
+ *  formatFeedbackPanel (operator-ux/format.ts): a `Feedback` rollup with
+ *  status/severity/classification counts. */
+export function formatFeedbackSummaryText(summary: OperatorFeedbackSummary): string {
+  return [
+    "Feedback",
+    `  total=${summary.total}; status=${formatCounts(summary.byStatus)}`,
+    `  severity=${formatCounts(summary.bySeverity)}`,
+    `  classification=${formatCounts(summary.byClassification)}`,
+  ].join("\n");
 }
 
 /** RunSummary is not itself rendered to human text anywhere in the

@@ -361,3 +361,52 @@ export function buildTopologyGraph(run: WorkflowRun): topo.TopologyGraph {
   const state = ensureTopologyState(run);
   return topo.buildTopologyGraphFromRuns(run.id, state.runs, (id) => topologyRunPath(run, id));
 }
+
+function formatTopologyCounts(counts: Record<string, number>): string {
+  const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+  if (!entries.length) return "none";
+  return entries.map(([k, v]) => `${k}=${v}`).join(", ");
+}
+
+/** `cw topology summary <run>` human text — port of the old build's
+ *  formatTopologyPanel (operator-ux/format.ts): a `Topologies` rollup with
+ *  per-run roles/topics/fanout/fanin/readiness. */
+export function formatTopologySummaryText(summary: TopologySummary): string {
+  const lines = [
+    "Topologies",
+    `  runs=${summary.totalRuns}; status=${formatTopologyCounts(summary.runsByStatus)}; official=${summary.officialTopologies.join(", ")}`,
+  ];
+  for (const record of summary.active.slice(0, 6)) {
+    lines.push(`  ${record.id}: ${record.topologyId}, status=${record.status}, readiness=${record.readiness}`);
+    lines.push(`    run=${record.multiAgentRunId} board=${record.blackboardId}`);
+    lines.push(`    roles=${record.roles.join(", ") || "none"} topics=${record.topics.join(", ") || "none"}`);
+    lines.push(`    fanout=${record.fanouts.join(", ") || "none"} fanin=${record.fanins.join(", ") || "none"}`);
+    for (const missing of record.missingEvidence.slice(0, 4)) lines.push(`    missing=${missing}`);
+    for (const conflict of record.conflicts.slice(0, 4)) lines.push(`    conflict=${conflict}`);
+    if (record.nextActions[0]) lines.push(`    next=${record.nextActions[0]}`);
+  }
+  if (summary.nextAction) lines.push(`  next=${summary.nextAction}`);
+  return lines.join("\n");
+}
+
+/** `cw topology graph <run>` human text — the same `Run Graph:` render
+ *  `cw graph` uses, over the topology graph's nodes/edges (old build:
+ *  formatOperatorGraph({ runId, nodes, edges })). */
+export function formatTopologyGraphText(runId: string, graph: topo.TopologyGraph): string {
+  const lines = [`Run Graph: ${runId}`, "", "Nodes"];
+  const groups: Record<string, topo.TopologyGraph["nodes"]> = {};
+  for (const node of graph.nodes) (groups[node.kind] ||= []).push(node);
+  for (const kind of Object.keys(groups).sort()) {
+    lines.push(`  ${kind}`);
+    for (const node of groups[kind]) {
+      const suffix = node.path ? ` -> ${node.path}` : "";
+      lines.push(`    [${node.status}] ${node.id} (${node.label})${suffix}`);
+    }
+  }
+  lines.push("", "Edges");
+  if (!graph.edges.length) lines.push("  none");
+  for (const edge of graph.edges) {
+    lines.push(`  ${edge.from} -> ${edge.to}${edge.label ? ` (${edge.label})` : ""}`);
+  }
+  return lines.join("\n");
+}

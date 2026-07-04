@@ -570,10 +570,16 @@ attachCliBinding("node.show", {
         return { json: (0, state_cli_1.showNode)(runId, nodeId, args.options) };
     },
 });
+// jsonMode "flag": `--json` prints the node array (graphNodes); the bare
+// verb prints the operator run-graph text, byte-for-byte the old build's
+// `node graph` render (formatOperatorGraph over runner.operatorGraph).
 attachCliBinding("node.graph", {
     path: ["node", "graph"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, state_cli_1.graphNodes)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const runId = (0, io_1.required)(args.positionals[0], "run id");
+        return { json: (0, state_cli_1.graphNodes)(runId, args.options), text: `${(0, report_view_cli_1.graphText)(runId, args.options)}\n` };
+    },
 });
 attachCliBinding("node.snapshot", {
     path: ["node", "snapshot"],
@@ -990,6 +996,51 @@ REGISTRY_BY_CAPABILITY.get("run.import").mcp.handler = (args) => (0, run_export_
 REGISTRY_BY_CAPABILITY.get("run.verify-import").mcp.handler = (args) => (0, run_export_cli_1.runVerifyImportCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
 REGISTRY_BY_CAPABILITY.get("run.inspect-archive").mcp.handler = (args) => (0, run_export_cli_1.runInspectArchiveCli)((0, io_1.required)((0, io_3.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
 REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) => (0, run_export_cli_1.runRestoreCli)((0, io_1.required)((0, io_3.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
+// `run export|import|verify-import|inspect-archive|restore` each carry their
+// own two-token cli.path (found before the ["run"] run.drive.step catch-all
+// per the reversed candidate order), calling the same shell fns with the
+// same [subcommand, id] positional mapping and exit-code shape the catch-all
+// switch already used. `hiddenFromHelp` keeps the byte-pinned `cw help run`
+// fixture's rows coming from the single literal COMMAND_HELP_ROWS.run block.
+attachCliBinding("run.export", {
+    path: ["run", "export"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => ({ json: (0, run_export_cli_1.runExportCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+});
+attachCliBinding("run.import", {
+    path: ["run", "import"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => ({ json: (0, run_export_cli_1.runImportCli)((0, io_1.required)(args.positionals[0], "archive path"), args.options) }),
+});
+attachCliBinding("run.verify-import", {
+    path: ["run", "verify-import"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, run_export_cli_1.runVerifyImportCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: result, exitCode: args.options.strict && !result.ok ? 1 : undefined };
+    },
+});
+attachCliBinding("run.inspect-archive", {
+    path: ["run", "inspect-archive"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, run_export_cli_1.runInspectArchiveCli)((0, io_1.required)(args.positionals[0], "archive path"), args.options);
+        return { json: result, exitCode: result.ok ? undefined : 1 };
+    },
+});
+attachCliBinding("run.restore", {
+    path: ["run", "restore"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, run_export_cli_1.runRestoreCli)((0, io_1.required)(args.positionals[0], "archive path"), args.options);
+        return { json: result, exitCode: result.ok ? undefined : 1 };
+    },
+});
 addCliOnlyCapability("quickstart", "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).", {
     path: ["quickstart"],
     // `audit-run` is a CLI-only alias that dispatches to the same quickstart
@@ -1042,7 +1093,10 @@ attachCliBinding("commit", {
 attachCliBinding("commit.summary", {
     path: ["commit", "summary"],
     jsonMode: "flag",
-    handler: (args) => ({ json: (0, commit_summary_1.commitSummaryCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    handler: (args) => {
+        const summary = (0, commit_summary_1.commitSummaryCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") });
+        return { json: summary, text: `${(0, commit_summary_1.formatCommitSummaryText)(summary)}\n` };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("commit.summary").mcp.handler = (args) => (0, commit_summary_1.commitSummaryCli)(args);
 // ---------------------------------------------------------------------
@@ -1170,6 +1224,8 @@ REGISTRY_BY_CAPABILITY.get("report.verify-bundle").mcp.handler = (args) => {
 // executor contract.
 // ---------------------------------------------------------------------
 const multi_agent_cli_1 = require("../shell/multi-agent-cli");
+const collaboration_io_1 = require("../shell/collaboration-io");
+const topology_io_1 = require("../shell/topology-io");
 attachCliBinding("topology.list", { path: ["topology", "list"], jsonMode: "default", handler: () => ({ json: (0, multi_agent_cli_1.topologyList)() }) });
 REGISTRY_BY_CAPABILITY.get("topology.list").mcp.handler = () => (0, multi_agent_cli_1.topologyList)();
 attachCliBinding("topology.show", {
@@ -1195,16 +1251,27 @@ attachCliBinding("topology.apply", {
     }),
 });
 REGISTRY_BY_CAPABILITY.get("topology.apply").mcp.handler = (args) => (0, multi_agent_cli_1.topologyApplyCli)({ ...args, topologyId: args.topologyId ?? args.id });
+// jsonMode "flag": human `Topologies` panel by default, canonical JSON
+// under --json (old build's topology.summary was flag).
 attachCliBinding("topology.summary", {
     path: ["topology", "summary"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.topologySummaryCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const summary = (0, multi_agent_cli_1.topologySummaryCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        return { json: summary, text: `${(0, topology_io_1.formatTopologySummaryText)(summary)}\n` };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("topology.summary").mcp.handler = (args) => (0, multi_agent_cli_1.topologySummaryCli)(args);
+// jsonMode "flag": human `Run Graph:` render by default, canonical JSON
+// under --json (old build's topology.graph was flag).
 attachCliBinding("topology.graph", {
     path: ["topology", "graph"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.topologyGraphCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const runId = (0, io_1.required)(args.positionals[0], "run id");
+        const graph = (0, multi_agent_cli_1.topologyGraphCli)({ runId, ...args.options });
+        return { json: graph, text: `${(0, topology_io_1.formatTopologyGraphText)(runId, graph)}\n` };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("topology.graph").mcp.handler = (args) => (0, multi_agent_cli_1.topologyGraphCli)(args);
 // ---- multi-agent kernel + host -----------------------------------------
@@ -1258,26 +1325,33 @@ attachCliBinding("multi-agent.select", {
     handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentSelectCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), candidate: args.options.candidate ?? args.positionals[1] }) }),
 });
 REGISTRY_BY_CAPABILITY.get("multi-agent.select").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentSelectCli)(args);
+// jsonMode "flag": human `Multi-Agent` panel by default, canonical JSON
+// under --json (old build's multi-agent.summary was flag).
 attachCliBinding("multi-agent.summary", {
     path: ["multi-agent", "summary"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentSummaryCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
-});
-REGISTRY_BY_CAPABILITY.get("multi-agent.summary").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentSummaryCli)(args);
-attachCliBinding("multi-agent.graph", {
-    path: ["multi-agent", "graph"],
     jsonMode: "flag",
     handler: (args) => {
-        const call = { runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options };
-        // `--view`/`--focus`/`--depth` switch to the compact/focused state-explosion
-        // graph (multi-agent.graph.compact); the bare form is the operator graph.
-        if (args.options.view !== undefined || args.options.focus !== undefined || args.options.depth !== undefined) {
-            const compact = (0, multi_agent_cli_1.multiAgentGraphCompactCli)(call);
-            return { json: compact, text: (0, state_explosion_text_1.formatCompactGraph)(compact) };
-        }
-        return { json: (0, multi_agent_cli_1.multiAgentGraphCli)(call), text: (0, multi_agent_cli_1.multiAgentGraphText)(call) };
+        const summary = (0, multi_agent_cli_1.multiAgentSummaryCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        return { json: summary, text: `${(0, operator_ux_text_1.formatMultiAgentSummaryText)(summary)}\n` };
     },
 });
+REGISTRY_BY_CAPABILITY.get("multi-agent.summary").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentSummaryCli)(args);
+// `cw multi-agent graph <run>` is one dispatch path served by two capability
+// rows (multi-agent.graph — the operator graph — and multi-agent.graph.compact
+// — the state-explosion view under --view/--focus/--depth), exactly like
+// blackboard.message.post/list. One shared handler answers both; the
+// second row exists so both capabilities carry a cli binding (the
+// both-surface pairing) and `cw help multi-agent` can list both forms.
+function multiAgentGraphHandler(args) {
+    const call = { runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options };
+    if (args.options.view !== undefined || args.options.focus !== undefined || args.options.depth !== undefined) {
+        const compact = (0, multi_agent_cli_1.multiAgentGraphCompactCli)(call);
+        return { json: compact, text: (0, state_explosion_text_1.formatCompactGraph)(compact) };
+    }
+    return { json: (0, multi_agent_cli_1.multiAgentGraphCli)(call), text: (0, multi_agent_cli_1.multiAgentGraphText)(call) };
+}
+attachCliBinding("multi-agent.graph", { path: ["multi-agent", "graph"], helpPath: ["multi-agent", "graph"], jsonMode: "flag", handler: multiAgentGraphHandler });
+attachCliBinding("multi-agent.graph.compact", { path: ["multi-agent", "graph"], helpPath: ["multi-agent", "graph"], jsonMode: "flag", handler: multiAgentGraphHandler });
 REGISTRY_BY_CAPABILITY.get("multi-agent.graph").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentGraphCli)(args);
 // GAP: `cw multi-agent dependencies|failures|evidence` — the MCP tool rows
 // (cw_multi_agent_dependencies/failures/evidence) were declared but had no
@@ -1317,17 +1391,20 @@ REGISTRY_BY_CAPABILITY.get("multi-agent.evidence").mcp.handler = (args) => (0, m
 // and no CLI verb was bound). `--refresh` prints the durable index (JSON only,
 // matching the old handler's printJson refresh arm); otherwise it prints the
 // report (text, or JSON under --json).
-attachCliBinding("multi-agent.reasoning", {
-    path: ["multi-agent", "reasoning"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const call = { runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options };
-        if (args.options.refresh && args.options.evidence === undefined && args.options.evidenceId === undefined) {
-            return { json: (0, multi_agent_cli_1.multiAgentReasoningRefreshCli)(call) };
-        }
-        return { json: (0, multi_agent_cli_1.multiAgentReasoningCli)(call), text: (0, multi_agent_cli_1.multiAgentReasoningText)(call) };
-    },
-});
+function multiAgentReasoningHandler(args) {
+    const call = { runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options };
+    if (args.options.refresh && args.options.evidence === undefined && args.options.evidenceId === undefined) {
+        return { json: (0, multi_agent_cli_1.multiAgentReasoningRefreshCli)(call) };
+    }
+    return { json: (0, multi_agent_cli_1.multiAgentReasoningCli)(call), text: (0, multi_agent_cli_1.multiAgentReasoningText)(call) };
+}
+attachCliBinding("multi-agent.reasoning", { path: ["multi-agent", "reasoning"], helpPath: ["multi-agent", "reasoning"], jsonMode: "flag", handler: multiAgentReasoningHandler });
+// `multi-agent.reasoning.refresh` (the durable evidence-adoption index) shares
+// the ["multi-agent","reasoning"] dispatch path — `cw multi-agent reasoning
+// <run> --refresh` is served by the reasoning binding above (first row wins).
+// This row exists so the refresh capability also carries a cli binding (the
+// both-surface pairing) and `cw help multi-agent` lists it. Same handler.
+attachCliBinding("multi-agent.reasoning.refresh", { path: ["multi-agent", "reasoning"], helpPath: ["multi-agent", "reasoning"], jsonMode: "default", handler: multiAgentReasoningHandler });
 REGISTRY_BY_CAPABILITY.get("multi-agent.reasoning").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentReasoningCli)(args);
 REGISTRY_BY_CAPABILITY.get("multi-agent.reasoning.refresh").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentReasoningRefreshCli)(args);
 // GAP: the state-explosion / contract read views (cw_multi_agent_summarize /
@@ -1429,6 +1506,50 @@ REGISTRY_BY_CAPABILITY.get("multi-agent.group.show").mcp.handler = (args) => (0,
 REGISTRY_BY_CAPABILITY.get("multi-agent.membership.show").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentMembershipCli)({ ...args, membershipId: args.membershipId ?? args.id });
 REGISTRY_BY_CAPABILITY.get("multi-agent.fanout.show").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentFanoutCli)({ ...args, fanoutId: args.fanoutId ?? args.id });
 REGISTRY_BY_CAPABILITY.get("multi-agent.fanin.show").mcp.handler = (args) => (0, multi_agent_cli_1.multiAgentFaninCli)({ ...args, faninId: args.faninId ?? args.id });
+// The create/show pairs for role/group/membership/fanout/fanin each SHARE
+// one dispatch path (["multi-agent","role"] etc.); `cw multi-agent role
+// <run> [id]` is served by the create binding declared above (first row
+// wins findCapabilityByCliPath), and an id-only invocation returns the
+// existing record (the read arm). These extra rows exist so each show
+// capability — and multi-agent.role.create, distinct from the
+// multi-agent.run.create binding that already owns the ["multi-agent",
+// "role"] path — also carries a cli binding (the both-surface pairing),
+// exactly like blackboard.message.post/list. Same handler, same shell fn.
+function multiAgentRoleHandler(args) {
+    return {
+        json: (0, multi_agent_cli_1.multiAgentRoleCli)({
+            ...args.options,
+            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            roleId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.roleId,
+        }),
+    };
+}
+attachCliBinding("multi-agent.role.create", { path: ["multi-agent", "role"], helpPath: ["multi-agent", "role"], jsonMode: "default", handler: multiAgentRoleHandler });
+attachCliBinding("multi-agent.role.show", { path: ["multi-agent", "role"], helpPath: ["multi-agent", "role"], jsonMode: "default", handler: multiAgentRoleHandler });
+attachCliBinding("multi-agent.group.show", {
+    path: ["multi-agent", "group"],
+    helpPath: ["multi-agent", "group"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentGroupCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), groupId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.groupId }) }),
+});
+attachCliBinding("multi-agent.membership.show", {
+    path: ["multi-agent", "membership"],
+    helpPath: ["multi-agent", "membership"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentMembershipCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), membershipId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.membershipId }) }),
+});
+attachCliBinding("multi-agent.fanout.show", {
+    path: ["multi-agent", "fanout"],
+    helpPath: ["multi-agent", "fanout"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentFanoutCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), fanoutId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.fanoutId }) }),
+});
+attachCliBinding("multi-agent.fanin.show", {
+    path: ["multi-agent", "fanin"],
+    helpPath: ["multi-agent", "fanin"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, multi_agent_cli_1.multiAgentFaninCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), faninId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.faninId }) }),
+});
 attachCliBinding("multi-agent.run.transition", {
     path: ["multi-agent", "transition"],
     jsonMode: "default",
@@ -1576,10 +1697,15 @@ attachCliBinding("candidate.reject", {
     handler: (args) => ({ json: (0, multi_agent_cli_1.candidateRejectCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }, (0, io_1.required)(args.positionals[1], "candidate id")) }),
 });
 REGISTRY_BY_CAPABILITY.get("candidate.reject").mcp.handler = (args) => (0, multi_agent_cli_1.candidateRejectCli)(args, (0, io_1.required)((0, io_3.optionalArg)(args.candidateId), "candidate id"));
+// jsonMode "flag": human `Candidates` panel by default, canonical JSON under
+// --json (old build's candidate.summary was flag).
 attachCliBinding("candidate.summary", {
     path: ["candidate", "summary"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.candidateSummaryCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const summary = (0, multi_agent_cli_1.candidateSummaryCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        return { json: summary, text: `${(0, operator_ux_text_1.formatCandidateSummaryText)(summary)}\n` };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("candidate.summary").mcp.handler = (args) => (0, multi_agent_cli_1.candidateSummaryCli)(args);
 // ---- collaboration ---------------------------------------------------------
@@ -1601,10 +1727,15 @@ attachCliBinding("comment.add", {
     handler: (args) => ({ json: (0, multi_agent_cli_1.commentAddCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id"), body: args.options.body ?? args.positionals[3] }, args.positionals[0], args.positionals[2]) }),
 });
 REGISTRY_BY_CAPABILITY.get("comment.add").mcp.handler = (args) => (0, multi_agent_cli_1.commentAddCli)(args);
+// jsonMode "flag": human comment list by default, canonical JSON under
+// --json (old build's comment.list was flag).
 attachCliBinding("comment.list", {
     path: ["comment", "list"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.commentListCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const report = (0, multi_agent_cli_1.commentListCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        return { json: report, text: `${(0, collaboration_io_1.formatCommentList)(report)}\n` };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("comment.list").mcp.handler = (args) => (0, multi_agent_cli_1.commentListCli)(args);
 attachCliBinding("handoff", {
@@ -1621,10 +1752,15 @@ attachCliBinding("handoff", {
     },
 });
 REGISTRY_BY_CAPABILITY.get("handoff").mcp.handler = (args) => (0, multi_agent_cli_1.handoffCli)(args);
+// jsonMode "flag": human review-status report by default, canonical JSON
+// under --json (old build's review.status was flag).
 attachCliBinding("review.status", {
     path: ["review", "status"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.reviewStatusCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const report = (0, multi_agent_cli_1.reviewStatusCli)({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        return { json: report, text: `${(0, collaboration_io_1.formatReviewStatus)(report)}\n` };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("review.status").mcp.handler = (args) => (0, multi_agent_cli_1.reviewStatusCli)(args);
 attachCliBinding("review.policy", {
@@ -1769,6 +1905,21 @@ REGISTRY_BY_CAPABILITY.get("schedule.resume").mcp.handler = (args) => (0, regist
 REGISTRY_BY_CAPABILITY.get("schedule.run-now").mcp.handler = (args) => (0, registry_cli_1.scheduleRunNowCli)((0, io_1.required)((0, io_3.optionalArg)(args.id), "schedule id"), args);
 REGISTRY_BY_CAPABILITY.get("schedule.history").mcp.handler = (args) => (0, registry_cli_1.scheduleHistoryCli)((0, io_3.optionalArg)(args.id), args);
 REGISTRY_BY_CAPABILITY.get("schedule.delete").mcp.handler = (args) => (0, registry_cli_1.scheduleDeleteCli)((0, io_1.required)((0, io_3.optionalArg)(args.id), "schedule id"), args);
+// Each `schedule <verb>` sub-action is its own two-token cli row (found
+// before the ["schedule"] catch-all per the reversed candidate order), so
+// each capability is a real both-surface dual-bound row. Same shell fns and
+// [subcommand, id] positional mapping as the catch-all switch above.
+// `hiddenFromHelp` keeps `cw help schedule`'s rows coming from the single
+// literal COMMAND_HELP_ROWS.schedule block.
+attachCliBinding("schedule.create", { path: ["schedule", "create"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.scheduleCreateCli)(args.options) }) });
+attachCliBinding("schedule.list", { path: ["schedule", "list"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.scheduleListCli)(args.options) }) });
+attachCliBinding("schedule.delete", { path: ["schedule", "delete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.scheduleDeleteCli)((0, io_1.required)(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.due", { path: ["schedule", "due"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.scheduleDueCli)(args.options) }) });
+attachCliBinding("schedule.complete", { path: ["schedule", "complete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.scheduleCompleteCli)((0, io_1.required)(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.pause", { path: ["schedule", "pause"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.schedulePauseCli)((0, io_1.required)(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.resume", { path: ["schedule", "resume"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.scheduleResumeCli)((0, io_1.required)(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.run-now", { path: ["schedule", "run-now"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.scheduleRunNowCli)((0, io_1.required)(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.history", { path: ["schedule", "history"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.scheduleHistoryCli)(args.positionals[0], args.options) }) });
 // ---- routine ------------------------------------------------------------
 addCliOnlyCapability("routine", "cw routine create|list|delete|fire|events — API/GitHub-style triggers.", {
     path: ["routine"],
@@ -1806,6 +1957,32 @@ REGISTRY_BY_CAPABILITY.get("routine.list").mcp.handler = (args) => (0, registry_
 REGISTRY_BY_CAPABILITY.get("routine.delete").mcp.handler = (args) => (0, registry_cli_1.routineDeleteCli)((0, io_1.required)((0, io_3.optionalArg)(args.id), "trigger id"), args);
 REGISTRY_BY_CAPABILITY.get("routine.fire").mcp.handler = (args) => (0, registry_cli_1.routineFireCli)((0, io_1.required)((0, io_3.optionalArg)(args.kind), "trigger kind"), args.payload, args);
 REGISTRY_BY_CAPABILITY.get("routine.events").mcp.handler = (args) => (0, registry_cli_1.routineEventsCli)((0, io_3.optionalArg)(args.id), args);
+// Each `routine <verb>` sub-action is its own two-token cli row. The
+// catch-all read [subcommand, idOrKind, payloadPath], so after the
+// dispatcher consumes the sub-verb positionals[0]=idOrKind,
+// positionals[1]=payloadPath. `hiddenFromHelp` keeps `cw help routine`'s
+// rows coming from the single literal COMMAND_HELP_ROWS.routine block.
+attachCliBinding("routine.create", { path: ["routine", "create"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.routineCreateCli)(args.options) }) });
+attachCliBinding("routine.list", { path: ["routine", "list"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.routineListCli)(args.options) }) });
+attachCliBinding("routine.delete", { path: ["routine", "delete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.routineDeleteCli)((0, io_1.required)(args.positionals[0], "trigger id"), args.options) }) });
+attachCliBinding("routine.fire", {
+    path: ["routine", "fire"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const kind = (0, io_1.required)(args.positionals[0], "trigger kind");
+        const payloadPath = args.positionals[1];
+        let payload;
+        try {
+            payload = payloadPath ? JSON.parse(node_fs_1.default.readFileSync(payloadPath, "utf8")) : args.options;
+        }
+        catch (e) {
+            throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String((e && e.message) || e)}`);
+        }
+        return { json: (0, registry_cli_1.routineFireCli)(kind, payload, args.options) };
+    },
+});
+attachCliBinding("routine.events", { path: ["routine", "events"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, registry_cli_1.routineEventsCli)(args.positionals[0], args.options) }) });
 // ---- sched (control-plane leases over the durable queue) ---------------
 addCliOnlyCapability("sched", "cw sched plan|lease|release|complete|reclaim|reset|policy [show|set] — control-plane lease scheduling over the durable queue.", {
     path: ["sched"],
@@ -1845,6 +2022,28 @@ REGISTRY_BY_CAPABILITY.get("sched.reclaim").mcp.handler = (args) => (0, scheduli
 REGISTRY_BY_CAPABILITY.get("sched.reset").mcp.handler = (args) => (0, scheduling_io_1.schedResetCli)(String(args.id || ""), args);
 REGISTRY_BY_CAPABILITY.get("sched.policy.show").mcp.handler = (args) => (0, scheduling_io_1.schedPolicyShowCli)(args);
 REGISTRY_BY_CAPABILITY.get("sched.policy.set").mcp.handler = (args) => (0, scheduling_io_1.schedPolicySetCli)(args);
+// Each `sched <verb>` sub-action is its own two-token cli row. The
+// catch-all read [subcommand, idArg]; after the dispatcher consumes the
+// sub-verb, positionals[0]=idArg (release/complete read --leaseId or that
+// positional; reset reads --id or that positional). `sched.policy.show`/
+// `.set` share the ["sched","policy"] path with the [show|set] action read
+// from the first positional (like blackboard.message.post/list).
+// `hiddenFromHelp` keeps `cw help sched`'s rows coming from the single
+// literal COMMAND_HELP_ROWS.sched block.
+attachCliBinding("sched.plan", { path: ["sched", "plan"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, scheduling_io_1.schedPlanCli)(args.options) }) });
+attachCliBinding("sched.lease", { path: ["sched", "lease"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, scheduling_io_1.schedLeaseCli)(args.options) }) });
+attachCliBinding("sched.release", { path: ["sched", "release"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, scheduling_io_1.schedReleaseCli)(String(args.options.leaseId || args.positionals[0] || ""), args.options) }) });
+attachCliBinding("sched.complete", { path: ["sched", "complete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, scheduling_io_1.schedCompleteCli)(String(args.options.leaseId || args.positionals[0] || ""), args.options) }) });
+attachCliBinding("sched.reclaim", { path: ["sched", "reclaim"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, scheduling_io_1.schedReclaimCli)(args.options) }) });
+attachCliBinding("sched.reset", { path: ["sched", "reset"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: (0, scheduling_io_1.schedResetCli)(String(args.options.id || args.positionals[0] || ""), args.options) }) });
+function schedPolicyHandler(args) {
+    const action = args.positionals[0];
+    if (action === "set")
+        return { json: (0, scheduling_io_1.schedPolicySetCli)(args.options) };
+    return { json: (0, scheduling_io_1.schedPolicyShowCli)(args.options) };
+}
+attachCliBinding("sched.policy.show", { path: ["sched", "policy"], helpPath: ["sched", "policy"], jsonMode: "default", hiddenFromHelp: true, handler: schedPolicyHandler });
+attachCliBinding("sched.policy.set", { path: ["sched", "policy"], helpPath: ["sched", "policy"], jsonMode: "default", hiddenFromHelp: true, handler: schedPolicyHandler });
 // ---- registry (refresh|show) --------------------------------------------
 addCliOnlyCapability("registry", "cw registry refresh|show [--scope repo|home] [--json] — the derived run registry index.", {
     path: ["registry"],
@@ -1864,6 +2063,30 @@ addCliOnlyCapability("registry", "cw registry refresh|show [--scope repo|home] [
 }, "cw registry is the derived run-registry index; SPEC/mcp.md declares its MCP peers (cw_registry_refresh|show), each wired below.");
 REGISTRY_BY_CAPABILITY.get("registry.refresh").mcp.handler = (args) => (0, registry_cli_1.registryRefreshCli)(args);
 REGISTRY_BY_CAPABILITY.get("registry.show").mcp.handler = (args) => (0, registry_cli_1.registryShowCli)(args);
+// `registry.refresh`/`registry.show` each carry their own two-token
+// cli.path (found before the ["registry"] catch-all). `hiddenFromHelp`
+// keeps `cw help registry`'s rows coming from the single literal
+// COMMAND_HELP_ROWS.registry block. Both are read/derive verbs, so they
+// stay in the payload-identity probe (classified deferred until a
+// bootstrap fixture seeds a registry index).
+attachCliBinding("registry.refresh", {
+    path: ["registry", "refresh"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const report = (0, registry_cli_1.registryRefreshCli)(args.options);
+        return (0, io_2.wantsJson)(args.options) ? { json: report } : { json: report, text: (0, run_registry_io_1.formatRegistryReport)(report) };
+    },
+});
+attachCliBinding("registry.show", {
+    path: ["registry", "show"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const report = (0, registry_cli_1.registryShowCli)(args.options);
+        return (0, io_2.wantsJson)(args.options) ? { json: report } : { json: report, text: (0, run_registry_io_1.formatRegistryReport)(report) };
+    },
+});
 // ---- queue (add|list|drain|show) ----------------------------------------
 addCliOnlyCapability("queue", "cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N] — the durable run queue.", {
     path: ["queue"],
@@ -1891,6 +2114,38 @@ REGISTRY_BY_CAPABILITY.get("queue.add").mcp.handler = (args) => (0, registry_cli
 REGISTRY_BY_CAPABILITY.get("queue.list").mcp.handler = (args) => (0, registry_cli_1.queueListCli)(args);
 REGISTRY_BY_CAPABILITY.get("queue.drain").mcp.handler = (args) => (0, registry_cli_1.queueDrainCli)(args);
 REGISTRY_BY_CAPABILITY.get("queue.show").mcp.handler = (args) => (0, registry_cli_1.queueShowCli)((0, io_1.required)((0, io_3.optionalArg)(args.id), "queue id"), args);
+// `queue add|list|drain|show` each carry their own two-token cli.path
+// (found before the ["queue"] catch-all). `hiddenFromHelp` keeps `cw help
+// queue`'s rows coming from the single literal COMMAND_HELP_ROWS.queue
+// block. `queue.list` is jsonMode "flag" (human table by default); the
+// others are always-JSON "default", matching the old build's registry.
+attachCliBinding("queue.add", {
+    path: ["queue", "add"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => ({ json: (0, registry_cli_1.queueAddCli)(args.options) }),
+});
+attachCliBinding("queue.list", {
+    path: ["queue", "list"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, registry_cli_1.queueListCli)(args.options);
+        return (0, io_2.wantsJson)(args.options) ? { json: result } : { json: result, text: (0, run_registry_io_1.formatQueueList)(result) };
+    },
+});
+attachCliBinding("queue.drain", {
+    path: ["queue", "drain"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => ({ json: (0, registry_cli_1.queueDrainCli)(args.options) }),
+});
+attachCliBinding("queue.show", {
+    path: ["queue", "show"],
+    jsonMode: "default",
+    hiddenFromHelp: true,
+    handler: (args) => ({ json: (0, registry_cli_1.queueShowCli)((0, io_1.required)(args.positionals[0], "queue id"), args.options) }),
+});
 // ---- gc (plan|run|verify) ------------------------------------------------
 addCliOnlyCapability("gc", "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json] — run retention & provable reclamation.", {
     path: ["gc"],
@@ -1954,6 +2209,21 @@ attachCliBinding("gc.verify", {
         return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
     },
 });
+// `gc.run` also carries its own two-token cli.path ["gc","run"], same
+// reversed-candidate-order pattern as gc.plan/gc.verify. It stays a
+// documented payload-probe opt-out (mutating reclamation), so this row
+// only satisfies the both-surface "cli + mcp" pairing — it does not join
+// the payload-identity probe. `hiddenFromHelp` keeps `cw help gc`'s row
+// coming from the single literal COMMAND_HELP_ROWS.gc entry.
+attachCliBinding("gc.run", {
+    path: ["gc", "run"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, registry_cli_1.gcRunCli)(args.positionals[0], args.options);
+        return (0, io_2.wantsJson)(args.options) ? { json: result } : { json: result, text: (0, reclamation_io_1.formatGcRun)(result) };
+    },
+});
 // ---- orphans (list|gc) ---------------------------------------------------
 addCliOnlyCapability("orphans", "cw orphans list|gc — reclaim run directories a killed process never registered (no state.json).", {
     path: ["orphans"],
@@ -1977,6 +2247,34 @@ addCliOnlyCapability("orphans", "cw orphans list|gc — reclaim run directories 
 }, "cw orphans reclaims killed-process run dirs with no state.json; SPEC/mcp.md declares its MCP peers (cw_orphans_list|gc), each wired below.");
 REGISTRY_BY_CAPABILITY.get("orphans.list").mcp.handler = (args) => (0, registry_cli_1.orphansListCli)(args);
 REGISTRY_BY_CAPABILITY.get("orphans.gc").mcp.handler = (args) => (0, registry_cli_1.orphansGcCli)(args);
+// `orphans.list`/`orphans.gc` each carry their own two-token cli.path
+// (found before the ["orphans"] catch-all per the reversed-candidate
+// order), so both are real both-surface dual-bound rows. `hiddenFromHelp`
+// keeps `cw help orphans`'s rows coming from the single literal
+// COMMAND_HELP_ROWS.orphans block. `orphans.gc` is a documented
+// payload-probe opt-out (mutating sweep, now-derived freedBytes/removed),
+// same as gc.run/clones.gc.
+attachCliBinding("orphans.list", {
+    path: ["orphans", "list"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, registry_cli_1.orphansListCli)(args.options);
+        return (0, io_2.wantsJson)(args.options) ? { json: result } : { json: result, text: (0, reclamation_io_1.formatOrphanRunsList)(result) };
+    },
+});
+attachCliBinding("orphans.gc", {
+    path: ["orphans", "gc"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, registry_cli_1.orphansGcCli)(args.options);
+        return (0, io_2.wantsJson)(args.options) ? { json: result } : { json: result, text: (0, reclamation_io_1.formatOrphanRunsGc)(result) };
+    },
+});
+REGISTRY_BY_CAPABILITY.get("orphans.gc").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("orphans.gc").reason =
+    "Mutating: removes orphan run directories and reports now-derived freedBytes/removed; both surfaces perform the identical sweep.";
 // ---- clones (list|gc) ------------------------------------------------------
 addCliOnlyCapability("clones", "cw clones list|gc [--older-than-days N] [--all] — the cached remote-source checkout cache.", {
     path: ["clones"],
@@ -2000,6 +2298,32 @@ addCliOnlyCapability("clones", "cw clones list|gc [--older-than-days N] [--all] 
 }, "cw clones is the cached remote-source checkout cache; SPEC/mcp.md declares its MCP peers (cw_clones_list|gc), each wired below.");
 REGISTRY_BY_CAPABILITY.get("clones.list").mcp.handler = () => (0, registry_cli_1.clonesListCli)();
 REGISTRY_BY_CAPABILITY.get("clones.gc").mcp.handler = (args) => (0, registry_cli_1.clonesGcCli)(args);
+// `clones.list`/`clones.gc` each carry their own two-token cli.path (found
+// before the ["clones"] catch-all). `hiddenFromHelp` keeps the byte-pinned
+// `cw help clones` fixture's rows coming from the single literal
+// COMMAND_HELP_ROWS.clones block. `clones.gc` is a documented payload-probe
+// opt-out (mutating sweep), same as gc.run/orphans.gc.
+attachCliBinding("clones.list", {
+    path: ["clones", "list"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, registry_cli_1.clonesListCli)();
+        return (0, io_2.wantsJson)(args.options) ? { json: result } : { json: result, text: (0, reclamation_io_1.formatClonesList)(result) };
+    },
+});
+attachCliBinding("clones.gc", {
+    path: ["clones", "gc"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+        const result = (0, registry_cli_1.clonesGcCli)(args.options);
+        return (0, io_2.wantsJson)(args.options) ? { json: result } : { json: result, text: (0, reclamation_io_1.formatClonesGc)(result) };
+    },
+});
+REGISTRY_BY_CAPABILITY.get("clones.gc").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("clones.gc").reason =
+    "Mutating: removes cache directories and reports now-derived freedBytes/removed; both surfaces perform the identical reclamation.";
 // ---- run search|list|show|resume|archive|rerun (2-token rows, found
 // BEFORE the 1-token run.drive.step row per dispatchTable's reversed
 // candidate order — see that row's own comment for why the run-registry
@@ -2073,6 +2397,7 @@ REGISTRY_BY_CAPABILITY.get("history").mcp.handler = (args) => (0, registry_cli_1
 // handler call, per cli/dispatch.ts's generic executor contract.
 // ---------------------------------------------------------------------
 const report_view_cli_1 = require("../shell/report-view-cli");
+const operator_ux_text_1 = require("../shell/operator-ux-text");
 attachCliBinding("report", {
     path: ["report"],
     jsonMode: "flag",
@@ -2167,13 +2492,23 @@ function workerSummaryCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwdFor(args));
     return (0, worker_isolation_1.summarizeWorkers)(run);
 }
+function workerSummaryText(args) {
+    const runId = (0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id");
+    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwdFor(args));
+    return (0, worker_isolation_1.formatWorkerSummaryText)(run);
+}
 function invocationCwdFor(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? workerPath.resolve(args.cwd) : process.cwd();
 }
+// jsonMode "flag": human `Workers` panel by default, canonical JSON under
+// --json (old build's worker.summary was flag, cli/handlers/worker.ts).
 attachCliBinding("worker.summary", {
     path: ["worker", "summary"],
-    jsonMode: "default",
-    handler: (args) => ({ json: workerSummaryCli({ ...args.options, runId: args.positionals[0] }) }),
+    jsonMode: "flag",
+    handler: (args) => ({
+        json: workerSummaryCli({ ...args.options, runId: args.positionals[0] }),
+        text: `${workerSummaryText({ ...args.options, runId: args.positionals[0] })}\n`,
+    }),
 });
 REGISTRY_BY_CAPABILITY.get("worker.summary").mcp.handler = (args) => workerSummaryCli(args);
 // ---- worker list|show|manifest|output|fail|validate (CLI + MCP) ----------
@@ -2226,10 +2561,15 @@ REGISTRY_BY_CAPABILITY.get("worker.validate").mcp.handler = (args) => (0, worker
 // (notYetImplemented) and no CLI verb was bound; the old build routed all of
 // these. positionals: [runId, feedbackId].
 const feedback_cli_1 = require("../shell/feedback-cli");
+// jsonMode "flag": human `Feedback` panel by default, canonical JSON under
+// --json (old build's feedback.summary was flag).
 attachCliBinding("feedback.summary", {
     path: ["feedback", "summary"],
-    jsonMode: "default",
-    handler: (args) => ({ json: (0, feedback_cli_1.feedbackSummaryCli)({ ...args.options, runId: args.positionals[0] }) }),
+    jsonMode: "flag",
+    handler: (args) => {
+        const summary = (0, feedback_cli_1.feedbackSummaryCli)({ ...args.options, runId: args.positionals[0] });
+        return { json: summary, text: `${(0, operator_ux_text_1.formatFeedbackSummaryText)(summary)}\n` };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("feedback.summary").mcp.handler = (args) => (0, feedback_cli_1.feedbackSummaryCli)(args);
 attachCliBinding("feedback.list", {
@@ -2316,7 +2656,7 @@ REGISTRY_BY_CAPABILITY.get("workbench.serve").reason =
     "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host, which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.";
 // ---- audit.summary / audit.multi-agent / audit.policy / audit.judge ----
 const audit_cli_2 = require("../shell/audit-cli");
-const operator_ux_text_1 = require("../shell/operator-ux-text");
+const operator_ux_text_2 = require("../shell/operator-ux-text");
 const eval_text_1 = require("../shell/eval-text");
 attachCliBinding("audit.summary", {
     path: ["audit", "summary"],
@@ -2329,7 +2669,7 @@ attachCliBinding("audit.multi-agent", {
     jsonMode: "flag",
     handler: (args) => {
         const view = (0, audit_cli_2.auditMultiAgentCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
     },
 });
 REGISTRY_BY_CAPABILITY.get("audit.multi-agent").mcp.handler = (args) => (0, audit_cli_2.auditMultiAgentCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
@@ -2338,7 +2678,7 @@ attachCliBinding("audit.policy", {
     jsonMode: "flag",
     handler: (args) => {
         const view = (0, audit_cli_2.auditPolicyCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
     },
 });
 REGISTRY_BY_CAPABILITY.get("audit.policy").mcp.handler = (args) => (0, audit_cli_2.auditPolicyCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
@@ -2347,7 +2687,7 @@ attachCliBinding("audit.judge", {
     jsonMode: "flag",
     handler: (args) => {
         const view = (0, audit_cli_2.auditJudgeCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
     },
 });
 REGISTRY_BY_CAPABILITY.get("audit.judge").mcp.handler = (args) => (0, audit_cli_2.auditJudgeCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
@@ -2373,7 +2713,7 @@ attachCliBinding("audit.role", {
     jsonMode: "flag",
     handler: (args) => {
         const view = (0, audit_cli_2.auditRoleCli)((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "role id"), args.options);
-        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
     },
 });
 REGISTRY_BY_CAPABILITY.get("audit.role").mcp.handler = (args) => (0, audit_cli_2.auditRoleCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_3.optionalArg)(args.roleId ?? args.id), "role id"), args);
@@ -2382,7 +2722,7 @@ attachCliBinding("audit.blackboard", {
     jsonMode: "flag",
     handler: (args) => {
         const view = (0, audit_cli_2.auditBlackboardCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: (0, operator_ux_text_1.formatMultiAgentTrustAudit)(view) };
+        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
     },
 });
 REGISTRY_BY_CAPABILITY.get("audit.blackboard").mcp.handler = (args) => (0, audit_cli_2.auditBlackboardCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
@@ -2437,12 +2777,33 @@ attachCliBinding("app.init", {
     handler: (args) => ({ json: (0, workflow_app_loader_2.initWorkflowApp)((0, io_1.required)(args.positionals[0], "app id"), args.options) }),
 });
 REGISTRY_BY_CAPABILITY.get("app.init").mcp.handler = (args) => (0, workflow_app_loader_2.initWorkflowApp)((0, io_1.required)((0, io_3.optionalArg)(args.appId), "app id"), args);
+// `cw init <id>` — the standalone scaffold verb. v2 folds `init` into
+// `app.init` (the old build's legacy `.workflow.js` scaffold is gone), so
+// both surfaces route through initWorkflowApp, same as `cw app init`. The
+// `init` help token is folded away (declaredCliHelpTokens) — it stays in
+// the frozen "More commands" index line only, matching the parity smoke's
+// HELP_INDEX_ONLY_TOKENS treatment. `workflowId` is the old init arg name.
+attachCliBinding("init", {
+    path: ["init"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, workflow_app_loader_2.initWorkflowApp)((0, io_1.required)((0, io_3.optionalArg)(args.positionals[0]), "workflow id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("init").mcp.handler = (args) => (0, workflow_app_loader_2.initWorkflowApp)((0, io_1.required)((0, io_3.optionalArg)(args.workflowId ?? args.appId), "workflow id"), args);
 attachCliBinding("app.package", {
     path: ["app", "package"],
     jsonMode: "default",
     handler: (args) => ({ json: (0, workflow_app_loader_2.packageWorkflowApp)((0, io_1.required)(args.positionals[0], "app id"), args.options) }),
 });
 REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) => (0, workflow_app_loader_2.packageWorkflowApp)((0, io_1.required)((0, io_3.optionalArg)(args.appId), "app id"), args);
+// `cw app run <app-id>` — plan+drive+report an app in one call. 2-token
+// cli.path found before the ["app"] usage catch-all; `appRunCli` reads the
+// app id from `appId`, so the first positional after "run" is forwarded as
+// appId (old build: appRun(runner, { ...options, appId: <positional> })).
+attachCliBinding("app.run", {
+    path: ["app", "run"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, app_run_cli_1.appRunCli)({ ...args.options, appId: (0, io_1.required)(args.positionals[0], "app id") }) }),
+});
 // A 1-token `["app"]` row that exists ONLY to own the fixed usage string
 // for an unrecognized `app` subcommand (`app run` is not yet CLI-wired at
 // this milestone — cw_app_run stays MCP-only — so a bogus or `run`
@@ -2915,6 +3276,66 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "history",
         ],
     },
+    {
+        // Phase B: the CLI bindings just layered onto these previously
+        // MCP-only rows make each a real both-surface dual-bound capability, so
+        // the payload probe now sees them. Each needs a seeded fixture beyond a
+        // bare cwd/runId — a scheduled task / routine trigger / durable queue
+        // entry / lease / portable archive on disk, a target entity id
+        // (role/group/membership/fanout/fanin/schedule/lease id), a workflow-app
+        // id to scaffold or drive, or a registry index to refresh — so each is
+        // deferred until a bootstrap fixture is added, exactly like the
+        // scenario/deferred split the older batches use. `init` also folds into
+        // app.init on both surfaces (scaffold), so it defers with the app family.
+        reason: "Not safe for the deterministic bootstrap parity probe yet: this capability needs a seeded fixture beyond cwd/runId (a scheduled task / routine trigger / queue entry / lease / portable archive on disk, a target entity id, or a workflow-app id to scaffold or drive). Both surfaces route through the same shell fn; each defers until a bootstrap fixture seeds its state.",
+        capabilities: [
+            "app.run",
+            "init",
+            "registry.refresh",
+            "registry.show",
+            "queue.add",
+            "queue.list",
+            "queue.drain",
+            "queue.show",
+            "clones.list",
+            "orphans.list",
+            "schedule.create",
+            "schedule.list",
+            "schedule.delete",
+            "schedule.due",
+            "schedule.complete",
+            "schedule.pause",
+            "schedule.resume",
+            "schedule.run-now",
+            "schedule.history",
+            "routine.create",
+            "routine.list",
+            "routine.delete",
+            "routine.fire",
+            "routine.events",
+            "sched.plan",
+            "sched.lease",
+            "sched.release",
+            "sched.complete",
+            "sched.reclaim",
+            "sched.reset",
+            "sched.policy.show",
+            "sched.policy.set",
+            "run.export",
+            "run.import",
+            "run.verify-import",
+            "run.inspect-archive",
+            "run.restore",
+            "multi-agent.reasoning.refresh",
+            "multi-agent.graph.compact",
+            "multi-agent.role.create",
+            "multi-agent.role.show",
+            "multi-agent.group.show",
+            "multi-agent.membership.show",
+            "multi-agent.fanout.show",
+            "multi-agent.fanin.show",
+        ],
+    },
 ];
 /** The MCP tool names this registry declares. */
 function declaredMcpToolsList() {
@@ -2951,6 +3372,13 @@ function declaredCliHelpTokens() {
         }
     }
     tokens.delete("help");
+    // `init` is a help-index-only token: v2 folds the standalone `init`
+    // capability into `app.init` (its cli.path is ["init"] only so the
+    // dispatcher can still run `cw init`, but `cw help` lists it in the
+    // frozen "More commands" index line, never as its own per-command help
+    // row). Mirrors the parity smoke's HELP_INDEX_ONLY_TOKENS set so the
+    // help-token parity stays balanced.
+    tokens.delete("init");
     return [...tokens].sort();
 }
 /** Whether a row MUST carry a reason (surface-specific or payload-divergent). */

@@ -79,3 +79,18 @@ export function commitSummaryCli(args: Record<string, unknown>): OperatorCommitS
   const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
   return summarizeOperatorCommits(run);
 }
+
+/** `cw commit summary <run>` human text — port of the old build's
+ *  formatCommitPanel (operator-ux/format.ts): a `Commits` rollup with the
+ *  verifier-gated / checkpoint counts and the latest commit. */
+export function formatCommitSummaryText(summary: OperatorCommitSummary): string {
+  const lines = [
+    "Commits",
+    `  total=${summary.total}; verifier-gated=${summary.verifierGated}; checkpoints=${summary.checkpoints}`,
+    `  latest=${summary.latest ? `${summary.latest.id} (${summary.latest.kind}) ${summary.latest.snapshotPath}` : "none"}`,
+  ];
+  for (const commit of summary.commits.slice(-8)) {
+    lines.push(`  ${commit.id}: ${commit.kind}, reason=${commit.reason}`);
+  }
+  return lines.join("\n");
+}

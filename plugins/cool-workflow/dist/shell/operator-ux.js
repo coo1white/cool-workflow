@@ -211,46 +211,65 @@ function summarizeOperatorWorkers(run) {
  *  priority-ordered advice ladder (open feedback -> failed worker ->
  *  running tasks -> pending tasks -> ready-for-commit -> fallback
  *  `report --show`). */
+/** Next-action advice — port of the old build's adviseNextSteps
+ *  (src/operator-ux.ts): a single ordered chain of guard arms, each
+ *  returning as soon as it fires so the operator sees the ONE next step
+ *  the run is waiting on. The candidate lifecycle arms (register -> score
+ *  -> rank/select -> commit) are the part v2's earlier scoped port dropped;
+ *  the operator-ux smoke walks that whole chain. Reads candidate/selection
+ *  state off `run` directly, same as the old build. */
 function adviseNextSteps(run, ctx) {
     const actions = [];
-    if (ctx.feedback.total > (run.feedback ? 0 : 0) && (ctx.feedback.byStatus.open || 0) > 0) {
-        actions.push({ command: `node scripts/cw.js feedback list ${run.id}`, reason: "Open feedback needs a decision before the run can proceed.", priority: "high" });
+    const feedbackRecords = (run.feedback || []);
+    const openFeedback = feedbackRecords.filter((record) => record.status === "open");
+    if (openFeedback.length) {
+        const feedback = openFeedback[0];
+        actions.push({ command: `node scripts/cw.js feedback show ${run.id} ${feedback.id}`, reason: `Open ${feedback.severity} ${feedback.classification} feedback should be inspected before more dispatch.`, priority: "high" });
+        actions.push({ command: `node scripts/cw.js feedback task ${run.id} ${feedback.id}`, reason: "Create a correction task if the feedback is actionable.", priority: "normal" });
+        return actions;
     }
     const failedWorker = ctx.workers.workers.find((w) => w.status === "failed" || w.status === "rejected");
     if (failedWorker) {
-        actions.push({ command: `node scripts/cw.js worker show ${run.id} --worker-id ${failedWorker.id}`, reason: `Worker ${failedWorker.id} failed and needs attention.`, priority: "high" });
+        actions.push({ command: `node scripts/cw.js feedback list ${run.id}`, reason: `Worker ${failedWorker.id} is ${failedWorker.status}; inspect linked feedback before retrying.`, priority: "high" });
+        return actions;
     }
     if (ctx.tasks.running.length) {
-        // A running task has a live worker scope; point the operator at that
-        // worker's manifest (and its result-record command once result.md is
-        // ready), matching the old build's advice. Falls back to `worker list`
-        // when no running/allocated worker scope is found.
         const worker = ctx.workers.workers.find((w) => w.status === "running" || w.status === "allocated");
-        actions.push({
-            command: worker ? `node scripts/cw.js worker manifest ${run.id} ${worker.id}` : `node scripts/cw.js worker list ${run.id}`,
-            reason: "Running workers need their manifests inspected and final output recorded.",
-            priority: "high",
-        });
+        actions.push({ command: worker ? `node scripts/cw.js worker manifest ${run.id} ${worker.id}` : `node scripts/cw.js worker list ${run.id}`, reason: "Running workers need their manifests inspected and final output recorded.", priority: "high" });
         if (worker && worker.resultPath) {
-            actions.push({
-                command: `node scripts/cw.js worker output ${run.id} ${worker.id} ${worker.resultPath}`,
-                reason: "Record the worker result after its result.md is ready.",
-                priority: "normal",
-            });
+            actions.push({ command: `node scripts/cw.js worker output ${run.id} ${worker.id} ${worker.resultPath}`, reason: "Record the worker result after its result.md is ready.", priority: "normal" });
         }
+        return actions;
     }
     if (ctx.tasks.pending.length) {
-        actions.push({ command: `node scripts/cw.js dispatch ${run.id} --limit 1`, reason: "Pending tasks are ready to dispatch.", priority: "normal" });
+        const limit = Math.min(ctx.tasks.pending.length, run.workflow.limits?.maxConcurrentAgents || 4);
+        actions.push({ command: `node scripts/cw.js dispatch ${run.id} --limit ${limit}`, reason: `${ctx.tasks.pending.length} pending task(s) are ready for the active phase.`, priority: "high" });
+        return actions;
     }
-    if (!actions.length) {
-        const allComplete = run.tasks.length > 0 && run.tasks.every((t) => t.status === "completed");
-        if (allComplete) {
-            actions.push({ command: `node scripts/cw.js report ${run.id} --show`, reason: "All tasks are complete; review the full report.", priority: "normal" });
-        }
-        else {
-            actions.push({ command: `node scripts/cw.js status ${run.id}`, reason: "Check the current run status.", priority: "low" });
-        }
+    const candidateRecords = (run.candidates || []);
+    const selectionRecords = (run.candidateSelections || []);
+    const completedWithoutCandidate = (run.tasks || []).find((task) => task.status === "completed" && task.workerId && !candidateRecords.some((candidate) => candidate.workerId === task.workerId));
+    if (completedWithoutCandidate?.workerId) {
+        actions.push({ command: `node scripts/cw.js candidate register ${run.id} --worker ${completedWithoutCandidate.workerId}`, reason: "A completed worker result is available but has not been registered as a candidate.", priority: "high" });
+        return actions;
     }
+    const unscored = candidateRecords.find((candidate) => candidate.status === "registered" && !(candidate.scores || []).length);
+    if (unscored) {
+        actions.push({ command: `node scripts/cw.js candidate score ${run.id} ${unscored.id} --criterion correctness=1 --evidence <path-or-locator>`, reason: "Registered candidates need score evidence before ranking or selection.", priority: "high" });
+        return actions;
+    }
+    const scoredWithoutSelection = candidateRecords.find((candidate) => candidate.status === "scored" && !selectionRecords.some((selection) => selection.candidateId === candidate.id));
+    if (scoredWithoutSelection) {
+        actions.push({ command: `node scripts/cw.js candidate rank ${run.id}`, reason: "Scored candidates can be ranked before selection.", priority: "high" });
+        actions.push({ command: `node scripts/cw.js candidate select ${run.id} ${scoredWithoutSelection.id}`, reason: "Select the candidate once the ranking supports it.", priority: "normal" });
+        return actions;
+    }
+    if (ctx.candidates.readyForCommit.length) {
+        const ready = ctx.candidates.readyForCommit[0];
+        actions.push({ command: `node scripts/cw.js commit ${run.id} --selection ${ready.selectionId}`, reason: "A verified selected candidate is ready for a verifier-gated commit.", priority: "high" });
+        return actions;
+    }
+    actions.push({ command: `node scripts/cw.js report ${run.id} --show`, reason: "All tracked phases are complete or no further operator action is currently available.", priority: "normal" });
     return actions;
 }
 /** `cw operator status <id> --json` — a wider payload than `summarizeRun`
@@ -298,7 +317,7 @@ function summarizeOperatorRun(run) {
         blackboard,
         trust,
         reportPath: run.paths.report,
-        nextActions: adviseNextSteps(run, { tasks, workers, feedback }),
+        nextActions: adviseNextSteps(run, { tasks, workers, feedback, candidates }),
     };
 }
 function workerManifestPath(worker) {

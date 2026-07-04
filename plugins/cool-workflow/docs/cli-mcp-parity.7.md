@@ -90,9 +90,9 @@ machine-complete by design: 237 capabilities, 196 MCP tools.
 | --- | --- | --- | --- | --- | --- |
 | `list` | `cw list` | `cw_list` | `list` | both | identical |
 | `plan` | `cw plan` | `cw_plan` | `plan` | both | identical |
-| `app.run` | `—` | `cw_app_run` | `app.run` | both | identical |
+| `app.run` | `cw app run` | `cw_app_run` | `app.run` | both | identical |
 | `status` | `cw status` | `cw_status` | `status` | both | identical |
-| `init` | `—` | `cw_init` | `init` | both | identical |
+| `init` | `cw init` | `cw_init` | `init` | both | identical |
 | `next` | `cw next` | `cw_next` | `next` | both | identical |
 | `state.check` | `cw state check` | `cw_state_check` | `state.check` | both | identical |
 | `contract.show` | `cw contract show` | `cw_contract_show` | `contract.show` | both | identical |
@@ -121,12 +121,12 @@ machine-complete by design: 237 capabilities, 196 MCP tools.
 | `multi-agent.failures` | `cw multi-agent failures` | `cw_multi_agent_failures` | `multi-agent.failures` | both | identical |
 | `multi-agent.evidence` | `cw multi-agent evidence` | `cw_multi_agent_evidence` | `multi-agent.evidence` | both | identical |
 | `multi-agent.reasoning` | `cw multi-agent reasoning` | `cw_evidence_reasoning` | `multi-agent.reasoning` | both | identical |
-| `multi-agent.reasoning.refresh` | `—` | `cw_evidence_reasoning_refresh` | `multi-agent.reasoning.refresh` | both | identical |
+| `multi-agent.reasoning.refresh` | `cw multi-agent reasoning` | `cw_evidence_reasoning_refresh` | `multi-agent.reasoning.refresh` | both | identical |
 | `summary.refresh` | `cw summary refresh` | `cw_summary_refresh` | `summary.refresh` | both | identical |
 | `summary.show` | `cw summary show` | `cw_summary_show` | `summary.show` | both | identical |
 | `blackboard.summarize` | `cw blackboard summarize` | `cw_blackboard_summarize` | `blackboard.summarize` | both | identical |
 | `multi-agent.summarize` | `cw multi-agent summarize` | `cw_multi_agent_summarize` | `multi-agent.summarize` | both | identical |
-| `multi-agent.graph.compact` | `—` | `cw_multi_agent_graph_compact` | `multi-agent.graph.compact` | both | identical |
+| `multi-agent.graph.compact` | `cw multi-agent graph` | `cw_multi_agent_graph_compact` | `multi-agent.graph.compact` | both | identical |
 | `multi-agent.run` | `cw multi-agent run` | `cw_multi_agent_run` | `multi-agent.run` | both | identical |
 | `multi-agent.status` | `cw multi-agent status` | `cw_multi_agent_status` | `multi-agent.status` | both | identical |
 | `multi-agent.step` | `cw multi-agent step` | `cw_multi_agent_step` | `multi-agent.step` | both | identical |
@@ -142,16 +142,16 @@ machine-complete by design: 237 capabilities, 196 MCP tools.
 | `multi-agent.run.create` | `cw multi-agent role` | `cw_multi_agent_run_create` | `multi-agent.run.create` | both | identical |
 | `multi-agent.run.transition` | `cw multi-agent transition` | `cw_multi_agent_run_transition` | `multi-agent.run.transition` | both | identical |
 | `multi-agent.run.show` | `cw multi-agent show` | `cw_multi_agent_run_show` | `multi-agent.run.show` | both | identical |
-| `multi-agent.role.create` | `—` | `cw_multi_agent_role_create` | `multi-agent.role.create` | both | identical |
-| `multi-agent.role.show` | `—` | `cw_multi_agent_role_show` | `multi-agent.role.show` | both | identical |
+| `multi-agent.role.create` | `cw multi-agent role` | `cw_multi_agent_role_create` | `multi-agent.role.create` | both | identical |
+| `multi-agent.role.show` | `cw multi-agent role` | `cw_multi_agent_role_show` | `multi-agent.role.show` | both | identical |
 | `multi-agent.group.create` | `cw multi-agent group` | `cw_multi_agent_group_create` | `multi-agent.group.create` | both | identical |
-| `multi-agent.group.show` | `—` | `cw_multi_agent_group_show` | `multi-agent.group.show` | both | identical |
+| `multi-agent.group.show` | `cw multi-agent group` | `cw_multi_agent_group_show` | `multi-agent.group.show` | both | identical |
 | `multi-agent.membership.create` | `cw multi-agent membership` | `cw_multi_agent_membership_create` | `multi-agent.membership.create` | both | identical |
-| `multi-agent.membership.show` | `—` | `cw_multi_agent_membership_show` | `multi-agent.membership.show` | both | identical |
+| `multi-agent.membership.show` | `cw multi-agent membership` | `cw_multi_agent_membership_show` | `multi-agent.membership.show` | both | identical |
 | `multi-agent.fanout.create` | `cw multi-agent fanout` | `cw_multi_agent_fanout_create` | `multi-agent.fanout.create` | both | identical |
-| `multi-agent.fanout.show` | `—` | `cw_multi_agent_fanout_show` | `multi-agent.fanout.show` | both | identical |
+| `multi-agent.fanout.show` | `cw multi-agent fanout` | `cw_multi_agent_fanout_show` | `multi-agent.fanout.show` | both | identical |
 | `multi-agent.fanin.collect` | `cw multi-agent fanin` | `cw_multi_agent_fanin_collect` | `multi-agent.fanin.collect` | both | identical |
-| `multi-agent.fanin.show` | `—` | `cw_multi_agent_fanin_show` | `multi-agent.fanin.show` | both | identical |
+| `multi-agent.fanin.show` | `cw multi-agent fanin` | `cw_multi_agent_fanin_show` | `multi-agent.fanin.show` | both | identical |
 | `topology.list` | `cw topology list` | `cw_topology_list` | `topology.list` | both | identical |
 | `topology.show` | `cw topology show` | `cw_topology_show` | `topology.show` | both | identical |
 | `topology.validate` | `cw topology validate` | `cw_topology_validate` | `topology.validate` | both | identical |
@@ -230,22 +230,22 @@ machine-complete by design: 237 capabilities, 196 MCP tools.
 | `feedback.collect` | `cw feedback collect` | `cw_feedback_collect` | `feedback.collect` | both | identical |
 | `feedback.task` | `cw feedback task` | `cw_feedback_task` | `feedback.task` | both | identical |
 | `feedback.resolve` | `cw feedback resolve` | `cw_feedback_resolve` | `feedback.resolve` | both | identical |
-| `schedule.create` | `—` | `cw_schedule_create` | `schedule.create` | both | identical |
-| `schedule.list` | `—` | `cw_schedule_list` | `schedule.list` | both | identical |
-| `schedule.due` | `—` | `cw_schedule_due` | `schedule.due` | both | identical |
-| `schedule.complete` | `—` | `cw_schedule_complete` | `schedule.complete` | both | identical |
-| `schedule.pause` | `—` | `cw_schedule_pause` | `schedule.pause` | both | identical |
-| `schedule.resume` | `—` | `cw_schedule_resume` | `schedule.resume` | both | identical |
-| `schedule.run-now` | `—` | `cw_schedule_run_now` | `schedule.run-now` | both | identical |
-| `schedule.history` | `—` | `cw_schedule_history` | `schedule.history` | both | identical |
-| `schedule.delete` | `—` | `cw_schedule_delete` | `schedule.delete` | both | identical |
-| `routine.create` | `—` | `cw_routine_create` | `routine.create` | both | identical |
-| `routine.list` | `—` | `cw_routine_list` | `routine.list` | both | identical |
-| `routine.fire` | `—` | `cw_routine_fire` | `routine.fire` | both | identical |
-| `routine.events` | `—` | `cw_routine_events` | `routine.events` | both | identical |
-| `routine.delete` | `—` | `cw_routine_delete` | `routine.delete` | both | identical |
-| `registry.refresh` | `—` | `cw_registry_refresh` | `registry.refresh` | both | identical |
-| `registry.show` | `—` | `cw_registry_show` | `registry.show` | both | identical |
+| `schedule.create` | `cw schedule create` | `cw_schedule_create` | `schedule.create` | both | identical |
+| `schedule.list` | `cw schedule list` | `cw_schedule_list` | `schedule.list` | both | identical |
+| `schedule.due` | `cw schedule due` | `cw_schedule_due` | `schedule.due` | both | identical |
+| `schedule.complete` | `cw schedule complete` | `cw_schedule_complete` | `schedule.complete` | both | identical |
+| `schedule.pause` | `cw schedule pause` | `cw_schedule_pause` | `schedule.pause` | both | identical |
+| `schedule.resume` | `cw schedule resume` | `cw_schedule_resume` | `schedule.resume` | both | identical |
+| `schedule.run-now` | `cw schedule run-now` | `cw_schedule_run_now` | `schedule.run-now` | both | identical |
+| `schedule.history` | `cw schedule history` | `cw_schedule_history` | `schedule.history` | both | identical |
+| `schedule.delete` | `cw schedule delete` | `cw_schedule_delete` | `schedule.delete` | both | identical |
+| `routine.create` | `cw routine create` | `cw_routine_create` | `routine.create` | both | identical |
+| `routine.list` | `cw routine list` | `cw_routine_list` | `routine.list` | both | identical |
+| `routine.fire` | `cw routine fire` | `cw_routine_fire` | `routine.fire` | both | identical |
+| `routine.events` | `cw routine events` | `cw_routine_events` | `routine.events` | both | identical |
+| `routine.delete` | `cw routine delete` | `cw_routine_delete` | `routine.delete` | both | identical |
+| `registry.refresh` | `cw registry refresh` | `cw_registry_refresh` | `registry.refresh` | both | identical |
+| `registry.show` | `cw registry show` | `cw_registry_show` | `registry.show` | both | identical |
 | `metrics.show` | `cw metrics show` | `cw_metrics_show` | `metrics.show` | both | identical |
 | `metrics.summary` | `cw metrics summary` | `cw_metrics_summary` | `metrics.summary` | both | identical |
 | `run.search` | `cw run search` | `cw_run_search` | `run.search` | both | identical |
@@ -254,34 +254,34 @@ machine-complete by design: 237 capabilities, 196 MCP tools.
 | `run.resume` | `cw run resume` | `cw_run_resume` | `run.resume` | both | identical |
 | `run.archive` | `cw run archive` | `cw_run_archive` | `run.archive` | both | identical |
 | `run.rerun` | `cw run rerun` | `cw_run_rerun` | `run.rerun` | both | identical |
-| `run.export` | `—` | `cw_run_export` | `run.export` | both | identical |
-| `run.import` | `—` | `cw_run_import` | `run.import` | both | identical |
-| `run.verify-import` | `—` | `cw_run_verify_import` | `run.verify-import` | both | identical |
-| `run.inspect-archive` | `—` | `cw_run_inspect_archive` | `run.inspect-archive` | both | identical |
-| `run.restore` | `—` | `cw_run_restore` | `run.restore` | both | identical |
+| `run.export` | `cw run export` | `cw_run_export` | `run.export` | both | identical |
+| `run.import` | `cw run import` | `cw_run_import` | `run.import` | both | identical |
+| `run.verify-import` | `cw run verify-import` | `cw_run_verify_import` | `run.verify-import` | both | identical |
+| `run.inspect-archive` | `cw run inspect-archive` | `cw_run_inspect_archive` | `run.inspect-archive` | both | identical |
+| `run.restore` | `cw run restore` | `cw_run_restore` | `run.restore` | both | identical |
 | `report.verify-bundle` | `cw report verify-bundle` | `cw_report_verify_bundle` | `report.verify-bundle` | both | identical |
 | `report.bundle` | `cw report bundle` | `cw_report_bundle` | `report.bundle` | both | identical |
 | `run.drive` | `cw run drive` | `cw_run_drive` | `run.drive` | both | identical |
 | `run.drive.step` | `cw run` | `cw_run_drive_step` | `run.drive.step` | both | projected |
-| `queue.add` | `—` | `cw_queue_add` | `queue.add` | both | identical |
-| `queue.list` | `—` | `cw_queue_list` | `queue.list` | both | identical |
-| `queue.drain` | `—` | `cw_queue_drain` | `queue.drain` | both | identical |
-| `queue.show` | `—` | `cw_queue_show` | `queue.show` | both | identical |
-| `sched.plan` | `—` | `cw_sched_plan` | `sched.plan` | both | identical |
-| `sched.lease` | `—` | `cw_sched_lease` | `sched.lease` | both | identical |
-| `sched.release` | `—` | `cw_sched_release` | `sched.release` | both | identical |
-| `sched.complete` | `—` | `cw_sched_complete` | `sched.complete` | both | identical |
-| `sched.reclaim` | `—` | `cw_sched_reclaim` | `sched.reclaim` | both | identical |
-| `sched.reset` | `—` | `cw_sched_reset` | `sched.reset` | both | identical |
-| `sched.policy.show` | `—` | `cw_sched_policy_show` | `sched.policy.show` | both | identical |
-| `sched.policy.set` | `—` | `cw_sched_policy_set` | `sched.policy.set` | both | identical |
+| `queue.add` | `cw queue add` | `cw_queue_add` | `queue.add` | both | identical |
+| `queue.list` | `cw queue list` | `cw_queue_list` | `queue.list` | both | identical |
+| `queue.drain` | `cw queue drain` | `cw_queue_drain` | `queue.drain` | both | identical |
+| `queue.show` | `cw queue show` | `cw_queue_show` | `queue.show` | both | identical |
+| `sched.plan` | `cw sched plan` | `cw_sched_plan` | `sched.plan` | both | identical |
+| `sched.lease` | `cw sched lease` | `cw_sched_lease` | `sched.lease` | both | identical |
+| `sched.release` | `cw sched release` | `cw_sched_release` | `sched.release` | both | identical |
+| `sched.complete` | `cw sched complete` | `cw_sched_complete` | `sched.complete` | both | identical |
+| `sched.reclaim` | `cw sched reclaim` | `cw_sched_reclaim` | `sched.reclaim` | both | identical |
+| `sched.reset` | `cw sched reset` | `cw_sched_reset` | `sched.reset` | both | identical |
+| `sched.policy.show` | `cw sched policy` | `cw_sched_policy_show` | `sched.policy.show` | both | identical |
+| `sched.policy.set` | `cw sched policy` | `cw_sched_policy_set` | `sched.policy.set` | both | identical |
 | `gc.plan` | `cw gc plan` | `cw_gc_plan` | `gc.plan` | both | identical |
-| `gc.run` | `—` | `cw_gc_run` | `gc.run` | both | projected |
+| `gc.run` | `cw gc run` | `cw_gc_run` | `gc.run` | both | projected |
 | `gc.verify` | `cw gc verify` | `cw_gc_verify` | `gc.verify` | both | identical |
-| `clones.list` | `—` | `cw_clones_list` | `clones.list` | both | identical |
-| `clones.gc` | `—` | `cw_clones_gc` | `clones.gc` | both | identical |
-| `orphans.list` | `—` | `cw_orphans_list` | `orphans.list` | both | identical |
-| `orphans.gc` | `—` | `cw_orphans_gc` | `orphans.gc` | both | identical |
+| `clones.list` | `cw clones list` | `cw_clones_list` | `clones.list` | both | identical |
+| `clones.gc` | `cw clones gc` | `cw_clones_gc` | `clones.gc` | both | projected |
+| `orphans.list` | `cw orphans list` | `cw_orphans_list` | `orphans.list` | both | identical |
+| `orphans.gc` | `cw orphans gc` | `cw_orphans_gc` | `orphans.gc` | both | projected |
 | `telemetry.verify` | `cw telemetry verify` | `cw_telemetry_verify` | `telemetry.verify` | both | identical |
 | `history` | `cw history` | `cw_history` | `history` | both | identical |
 | `version` | `cw version` | `—` | `version` | cli-only | cli-only |
@@ -385,7 +385,7 @@ carry a recorded reason in the registry.
 <!-- /gen:parity:cliOnly -->
 
 <!-- gen:parity:projected -->
-Ten capabilities are payload-divergent on purpose (`projected`):
+Twelve capabilities are payload-divergent on purpose (`projected`):
 
 - `workbench.serve` — Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host, which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.
 - `backend.agent.config.set` — Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe.
@@ -397,6 +397,8 @@ Ten capabilities are payload-divergent on purpose (`projected`):
 - `ledger.list` — Output depends on the on-disk contents of the named ledger directory/directories, which the generic payload probe does not populate. Both surfaces call the same listLedgerEntries/unionLedgerEntries core; ledger-verify-smoke covers the fail-closed inbox and the multi-mirror union.
 - `run.drive.step` — Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core.
 - `gc.run` — Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone.
+- `clones.gc` — Mutating: removes cache directories and reports now-derived freedBytes/removed; both surfaces perform the identical reclamation.
+- `orphans.gc` — Mutating: removes orphan run directories and reports now-derived freedBytes/removed; both surfaces perform the identical sweep.
 <!-- /gen:parity:projected -->
 
 ## Fail-Closed Rules

@@ -722,10 +722,16 @@ attachCliBinding("node.show", {
   },
 });
 
+// jsonMode "flag": `--json` prints the node array (graphNodes); the bare
+// verb prints the operator run-graph text, byte-for-byte the old build's
+// `node graph` render (formatOperatorGraph over runner.operatorGraph).
 attachCliBinding("node.graph", {
   path: ["node", "graph"],
-  jsonMode: "default",
-  handler: (args) => ({ json: graphNodes(required(args.positionals[0], "run id"), args.options) }),
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    return { json: graphNodes(runId, args.options), text: `${graphText(runId, args.options)}\n` };
+  },
 });
 
 attachCliBinding("node.snapshot", {
@@ -1027,7 +1033,7 @@ addCliOnlyCapability(
 // ---------------------------------------------------------------------
 
 import { planRun, runDrivePreview, runDriveStep, quickstartRun, dispatchRun, recordResultRun, commitRun } from "../shell/pipeline-cli";
-import { commitSummaryCli } from "../shell/commit-summary";
+import { commitSummaryCli, formatCommitSummaryText } from "../shell/commit-summary";
 
 attachCliBinding("plan", {
   path: ["plan"],
@@ -1189,6 +1195,52 @@ REGISTRY_BY_CAPABILITY.get("run.verify-import")!.mcp!.handler = (args) => runVer
 REGISTRY_BY_CAPABILITY.get("run.inspect-archive")!.mcp!.handler = (args) => runInspectArchiveCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
 REGISTRY_BY_CAPABILITY.get("run.restore")!.mcp!.handler = (args) => runRestoreCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
 
+// `run export|import|verify-import|inspect-archive|restore` each carry their
+// own two-token cli.path (found before the ["run"] run.drive.step catch-all
+// per the reversed candidate order), calling the same shell fns with the
+// same [subcommand, id] positional mapping and exit-code shape the catch-all
+// switch already used. `hiddenFromHelp` keeps the byte-pinned `cw help run`
+// fixture's rows coming from the single literal COMMAND_HELP_ROWS.run block.
+attachCliBinding("run.export", {
+  path: ["run", "export"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => ({ json: runExportCli(required(args.positionals[0], "run id"), args.options) }),
+});
+attachCliBinding("run.import", {
+  path: ["run", "import"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => ({ json: runImportCli(required(args.positionals[0], "archive path"), args.options) }),
+});
+attachCliBinding("run.verify-import", {
+  path: ["run", "verify-import"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = runVerifyImportCli(required(args.positionals[0], "run id"), args.options);
+    return { json: result, exitCode: args.options.strict && !result.ok ? 1 : undefined };
+  },
+});
+attachCliBinding("run.inspect-archive", {
+  path: ["run", "inspect-archive"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = runInspectArchiveCli(required(args.positionals[0], "archive path"), args.options);
+    return { json: result, exitCode: result.ok ? undefined : 1 };
+  },
+});
+attachCliBinding("run.restore", {
+  path: ["run", "restore"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = runRestoreCli(required(args.positionals[0], "archive path"), args.options);
+    return { json: result, exitCode: result.ok ? undefined : 1 };
+  },
+});
+
 addCliOnlyCapability(
   "quickstart",
   "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).",
@@ -1251,7 +1303,10 @@ attachCliBinding("commit", {
 attachCliBinding("commit.summary", {
   path: ["commit", "summary"],
   jsonMode: "flag",
-  handler: (args) => ({ json: commitSummaryCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+  handler: (args) => {
+    const summary = commitSummaryCli({ ...args.options, runId: required(args.positionals[0], "run id") });
+    return { json: summary, text: `${formatCommitSummaryText(summary)}\n` };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("commit.summary")!.mcp!.handler = (args) => commitSummaryCli(args);
 
@@ -1488,6 +1543,12 @@ import {
   topologySummaryCli,
   topologyValidateCli,
 } from "../shell/multi-agent-cli";
+import { formatCommentList, formatReviewStatus } from "../shell/collaboration-io";
+import type { CommentListReport } from "../shell/collaboration-io";
+import type { ReviewStatusReport } from "../core/multi-agent/collaboration";
+import { formatTopologySummaryText, formatTopologyGraphText } from "../shell/topology-io";
+import type { TopologySummary } from "../shell/topology-io";
+import type { TopologyGraph } from "../core/multi-agent/topology";
 attachCliBinding("topology.list", { path: ["topology", "list"], jsonMode: "default", handler: () => ({ json: topologyList() }) });
 REGISTRY_BY_CAPABILITY.get("topology.list")!.mcp!.handler = () => topologyList();
 
@@ -1517,17 +1578,28 @@ attachCliBinding("topology.apply", {
 });
 REGISTRY_BY_CAPABILITY.get("topology.apply")!.mcp!.handler = (args) => topologyApplyCli({ ...args, topologyId: args.topologyId ?? args.id });
 
+// jsonMode "flag": human `Topologies` panel by default, canonical JSON
+// under --json (old build's topology.summary was flag).
 attachCliBinding("topology.summary", {
   path: ["topology", "summary"],
-  jsonMode: "default",
-  handler: (args) => ({ json: topologySummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+  jsonMode: "flag",
+  handler: (args) => {
+    const summary = topologySummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options });
+    return { json: summary, text: `${formatTopologySummaryText(summary as TopologySummary)}\n` };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("topology.summary")!.mcp!.handler = (args) => topologySummaryCli(args);
 
+// jsonMode "flag": human `Run Graph:` render by default, canonical JSON
+// under --json (old build's topology.graph was flag).
 attachCliBinding("topology.graph", {
   path: ["topology", "graph"],
-  jsonMode: "default",
-  handler: (args) => ({ json: topologyGraphCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+  jsonMode: "flag",
+  handler: (args) => {
+    const runId = required(args.positionals[0], "run id");
+    const graph = topologyGraphCli({ runId, ...args.options });
+    return { json: graph, text: `${formatTopologyGraphText(runId, graph as TopologyGraph)}\n` };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("topology.graph")!.mcp!.handler = (args) => topologyGraphCli(args);
 
@@ -1589,27 +1661,34 @@ attachCliBinding("multi-agent.select", {
 });
 REGISTRY_BY_CAPABILITY.get("multi-agent.select")!.mcp!.handler = (args) => multiAgentSelectCli(args);
 
+// jsonMode "flag": human `Multi-Agent` panel by default, canonical JSON
+// under --json (old build's multi-agent.summary was flag).
 attachCliBinding("multi-agent.summary", {
   path: ["multi-agent", "summary"],
-  jsonMode: "default",
-  handler: (args) => ({ json: multiAgentSummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+  jsonMode: "flag",
+  handler: (args) => {
+    const summary = multiAgentSummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options });
+    return { json: summary, text: `${formatMultiAgentSummaryText(summary as MultiAgentSummaryText)}\n` };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("multi-agent.summary")!.mcp!.handler = (args) => multiAgentSummaryCli(args);
 
-attachCliBinding("multi-agent.graph", {
-  path: ["multi-agent", "graph"],
-  jsonMode: "flag",
-  handler: (args) => {
-    const call = { runId: required(args.positionals[0], "run id"), ...args.options };
-    // `--view`/`--focus`/`--depth` switch to the compact/focused state-explosion
-    // graph (multi-agent.graph.compact); the bare form is the operator graph.
-    if (args.options.view !== undefined || args.options.focus !== undefined || args.options.depth !== undefined) {
-      const compact = multiAgentGraphCompactCli(call);
-      return { json: compact, text: formatCompactGraph(compact as never) };
-    }
-    return { json: multiAgentGraphCli(call), text: multiAgentGraphText(call) };
-  },
-});
+// `cw multi-agent graph <run>` is one dispatch path served by two capability
+// rows (multi-agent.graph — the operator graph — and multi-agent.graph.compact
+// — the state-explosion view under --view/--focus/--depth), exactly like
+// blackboard.message.post/list. One shared handler answers both; the
+// second row exists so both capabilities carry a cli binding (the
+// both-surface pairing) and `cw help multi-agent` can list both forms.
+function multiAgentGraphHandler(args: CapabilityCliArgs): CliHandlerResult {
+  const call = { runId: required(args.positionals[0], "run id"), ...args.options };
+  if (args.options.view !== undefined || args.options.focus !== undefined || args.options.depth !== undefined) {
+    const compact = multiAgentGraphCompactCli(call);
+    return { json: compact, text: formatCompactGraph(compact as never) };
+  }
+  return { json: multiAgentGraphCli(call), text: multiAgentGraphText(call) };
+}
+attachCliBinding("multi-agent.graph", { path: ["multi-agent", "graph"], helpPath: ["multi-agent", "graph"], jsonMode: "flag", handler: multiAgentGraphHandler });
+attachCliBinding("multi-agent.graph.compact", { path: ["multi-agent", "graph"], helpPath: ["multi-agent", "graph"], jsonMode: "flag", handler: multiAgentGraphHandler });
 REGISTRY_BY_CAPABILITY.get("multi-agent.graph")!.mcp!.handler = (args) => multiAgentGraphCli(args);
 
 // GAP: `cw multi-agent dependencies|failures|evidence` — the MCP tool rows
@@ -1653,17 +1732,20 @@ REGISTRY_BY_CAPABILITY.get("multi-agent.evidence")!.mcp!.handler = (args) => mul
 // and no CLI verb was bound). `--refresh` prints the durable index (JSON only,
 // matching the old handler's printJson refresh arm); otherwise it prints the
 // report (text, or JSON under --json).
-attachCliBinding("multi-agent.reasoning", {
-  path: ["multi-agent", "reasoning"],
-  jsonMode: "flag",
-  handler: (args) => {
-    const call = { runId: required(args.positionals[0], "run id"), ...args.options };
-    if (args.options.refresh && args.options.evidence === undefined && args.options.evidenceId === undefined) {
-      return { json: multiAgentReasoningRefreshCli(call) };
-    }
-    return { json: multiAgentReasoningCli(call), text: multiAgentReasoningText(call) };
-  },
-});
+function multiAgentReasoningHandler(args: CapabilityCliArgs): CliHandlerResult {
+  const call = { runId: required(args.positionals[0], "run id"), ...args.options };
+  if (args.options.refresh && args.options.evidence === undefined && args.options.evidenceId === undefined) {
+    return { json: multiAgentReasoningRefreshCli(call) };
+  }
+  return { json: multiAgentReasoningCli(call), text: multiAgentReasoningText(call) };
+}
+attachCliBinding("multi-agent.reasoning", { path: ["multi-agent", "reasoning"], helpPath: ["multi-agent", "reasoning"], jsonMode: "flag", handler: multiAgentReasoningHandler });
+// `multi-agent.reasoning.refresh` (the durable evidence-adoption index) shares
+// the ["multi-agent","reasoning"] dispatch path — `cw multi-agent reasoning
+// <run> --refresh` is served by the reasoning binding above (first row wins).
+// This row exists so the refresh capability also carries a cli binding (the
+// both-surface pairing) and `cw help multi-agent` lists it. Same handler.
+attachCliBinding("multi-agent.reasoning.refresh", { path: ["multi-agent", "reasoning"], helpPath: ["multi-agent", "reasoning"], jsonMode: "default", handler: multiAgentReasoningHandler });
 REGISTRY_BY_CAPABILITY.get("multi-agent.reasoning")!.mcp!.handler = (args) => multiAgentReasoningCli(args);
 REGISTRY_BY_CAPABILITY.get("multi-agent.reasoning.refresh")!.mcp!.handler = (args) => multiAgentReasoningRefreshCli(args);
 
@@ -1769,6 +1851,51 @@ REGISTRY_BY_CAPABILITY.get("multi-agent.group.show")!.mcp!.handler = (args) => m
 REGISTRY_BY_CAPABILITY.get("multi-agent.membership.show")!.mcp!.handler = (args) => multiAgentMembershipCli({ ...args, membershipId: args.membershipId ?? args.id });
 REGISTRY_BY_CAPABILITY.get("multi-agent.fanout.show")!.mcp!.handler = (args) => multiAgentFanoutCli({ ...args, fanoutId: args.fanoutId ?? args.id });
 REGISTRY_BY_CAPABILITY.get("multi-agent.fanin.show")!.mcp!.handler = (args) => multiAgentFaninCli({ ...args, faninId: args.faninId ?? args.id });
+
+// The create/show pairs for role/group/membership/fanout/fanin each SHARE
+// one dispatch path (["multi-agent","role"] etc.); `cw multi-agent role
+// <run> [id]` is served by the create binding declared above (first row
+// wins findCapabilityByCliPath), and an id-only invocation returns the
+// existing record (the read arm). These extra rows exist so each show
+// capability — and multi-agent.role.create, distinct from the
+// multi-agent.run.create binding that already owns the ["multi-agent",
+// "role"] path — also carries a cli binding (the both-surface pairing),
+// exactly like blackboard.message.post/list. Same handler, same shell fn.
+function multiAgentRoleHandler(args: CapabilityCliArgs): CliHandlerResult {
+  return {
+    json: multiAgentRoleCli({
+      ...args.options,
+      runId: required(args.positionals[0], "run id"),
+      roleId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.roleId,
+    }),
+  };
+}
+attachCliBinding("multi-agent.role.create", { path: ["multi-agent", "role"], helpPath: ["multi-agent", "role"], jsonMode: "default", handler: multiAgentRoleHandler });
+attachCliBinding("multi-agent.role.show", { path: ["multi-agent", "role"], helpPath: ["multi-agent", "role"], jsonMode: "default", handler: multiAgentRoleHandler });
+attachCliBinding("multi-agent.group.show", {
+  path: ["multi-agent", "group"],
+  helpPath: ["multi-agent", "group"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentGroupCli({ ...args.options, runId: required(args.positionals[0], "run id"), groupId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.groupId }) }),
+});
+attachCliBinding("multi-agent.membership.show", {
+  path: ["multi-agent", "membership"],
+  helpPath: ["multi-agent", "membership"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentMembershipCli({ ...args.options, runId: required(args.positionals[0], "run id"), membershipId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.membershipId }) }),
+});
+attachCliBinding("multi-agent.fanout.show", {
+  path: ["multi-agent", "fanout"],
+  helpPath: ["multi-agent", "fanout"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentFanoutCli({ ...args.options, runId: required(args.positionals[0], "run id"), fanoutId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.fanoutId }) }),
+});
+attachCliBinding("multi-agent.fanin.show", {
+  path: ["multi-agent", "fanin"],
+  helpPath: ["multi-agent", "fanin"],
+  jsonMode: "default",
+  handler: (args) => ({ json: multiAgentFaninCli({ ...args.options, runId: required(args.positionals[0], "run id"), faninId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.faninId }) }),
+});
 
 attachCliBinding("multi-agent.run.transition", {
   path: ["multi-agent", "transition"],
@@ -1937,10 +2064,15 @@ attachCliBinding("candidate.reject", {
 });
 REGISTRY_BY_CAPABILITY.get("candidate.reject")!.mcp!.handler = (args) => candidateRejectCli(args, required(optionalArg(args.candidateId), "candidate id"));
 
+// jsonMode "flag": human `Candidates` panel by default, canonical JSON under
+// --json (old build's candidate.summary was flag).
 attachCliBinding("candidate.summary", {
   path: ["candidate", "summary"],
-  jsonMode: "default",
-  handler: (args) => ({ json: candidateSummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+  jsonMode: "flag",
+  handler: (args) => {
+    const summary = candidateSummaryCli({ runId: required(args.positionals[0], "run id"), ...args.options });
+    return { json: summary, text: `${formatCandidateSummaryText(summary as OperatorCandidateSummary)}\n` };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("candidate.summary")!.mcp!.handler = (args) => candidateSummaryCli(args);
 
@@ -1967,10 +2099,15 @@ attachCliBinding("comment.add", {
 });
 REGISTRY_BY_CAPABILITY.get("comment.add")!.mcp!.handler = (args) => commentAddCli(args);
 
+// jsonMode "flag": human comment list by default, canonical JSON under
+// --json (old build's comment.list was flag).
 attachCliBinding("comment.list", {
   path: ["comment", "list"],
-  jsonMode: "default",
-  handler: (args) => ({ json: commentListCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+  jsonMode: "flag",
+  handler: (args) => {
+    const report = commentListCli({ runId: required(args.positionals[0], "run id"), ...args.options });
+    return { json: report, text: `${formatCommentList(report as CommentListReport)}\n` };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("comment.list")!.mcp!.handler = (args) => commentListCli(args);
 
@@ -1989,10 +2126,15 @@ attachCliBinding("handoff", {
 });
 REGISTRY_BY_CAPABILITY.get("handoff")!.mcp!.handler = (args) => handoffCli(args);
 
+// jsonMode "flag": human review-status report by default, canonical JSON
+// under --json (old build's review.status was flag).
 attachCliBinding("review.status", {
   path: ["review", "status"],
-  jsonMode: "default",
-  handler: (args) => ({ json: reviewStatusCli({ runId: required(args.positionals[0], "run id"), ...args.options }) }),
+  jsonMode: "flag",
+  handler: (args) => {
+    const report = reviewStatusCli({ runId: required(args.positionals[0], "run id"), ...args.options });
+    return { json: report, text: `${formatReviewStatus(report as ReviewStatusReport)}\n` };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("review.status")!.mcp!.handler = (args) => reviewStatusCli(args);
 
@@ -2222,6 +2364,21 @@ REGISTRY_BY_CAPABILITY.get("schedule.resume")!.mcp!.handler = (args) => schedule
 REGISTRY_BY_CAPABILITY.get("schedule.run-now")!.mcp!.handler = (args) => scheduleRunNowCli(required(optionalArg(args.id), "schedule id"), args);
 REGISTRY_BY_CAPABILITY.get("schedule.history")!.mcp!.handler = (args) => scheduleHistoryCli(optionalArg(args.id), args);
 REGISTRY_BY_CAPABILITY.get("schedule.delete")!.mcp!.handler = (args) => scheduleDeleteCli(required(optionalArg(args.id), "schedule id"), args);
+// Each `schedule <verb>` sub-action is its own two-token cli row (found
+// before the ["schedule"] catch-all per the reversed candidate order), so
+// each capability is a real both-surface dual-bound row. Same shell fns and
+// [subcommand, id] positional mapping as the catch-all switch above.
+// `hiddenFromHelp` keeps `cw help schedule`'s rows coming from the single
+// literal COMMAND_HELP_ROWS.schedule block.
+attachCliBinding("schedule.create", { path: ["schedule", "create"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleCreateCli(args.options) }) });
+attachCliBinding("schedule.list", { path: ["schedule", "list"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleListCli(args.options) }) });
+attachCliBinding("schedule.delete", { path: ["schedule", "delete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleDeleteCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.due", { path: ["schedule", "due"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleDueCli(args.options) }) });
+attachCliBinding("schedule.complete", { path: ["schedule", "complete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleCompleteCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.pause", { path: ["schedule", "pause"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedulePauseCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.resume", { path: ["schedule", "resume"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleResumeCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.run-now", { path: ["schedule", "run-now"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleRunNowCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.history", { path: ["schedule", "history"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleHistoryCli(args.positionals[0], args.options) }) });
 
 // ---- routine ------------------------------------------------------------
 
@@ -2265,6 +2422,31 @@ REGISTRY_BY_CAPABILITY.get("routine.list")!.mcp!.handler = (args) => routineList
 REGISTRY_BY_CAPABILITY.get("routine.delete")!.mcp!.handler = (args) => routineDeleteCli(required(optionalArg(args.id), "trigger id"), args);
 REGISTRY_BY_CAPABILITY.get("routine.fire")!.mcp!.handler = (args) => routineFireCli(required(optionalArg(args.kind), "trigger kind"), args.payload, args);
 REGISTRY_BY_CAPABILITY.get("routine.events")!.mcp!.handler = (args) => routineEventsCli(optionalArg(args.id), args);
+// Each `routine <verb>` sub-action is its own two-token cli row. The
+// catch-all read [subcommand, idOrKind, payloadPath], so after the
+// dispatcher consumes the sub-verb positionals[0]=idOrKind,
+// positionals[1]=payloadPath. `hiddenFromHelp` keeps `cw help routine`'s
+// rows coming from the single literal COMMAND_HELP_ROWS.routine block.
+attachCliBinding("routine.create", { path: ["routine", "create"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: routineCreateCli(args.options) }) });
+attachCliBinding("routine.list", { path: ["routine", "list"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: routineListCli(args.options) }) });
+attachCliBinding("routine.delete", { path: ["routine", "delete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: routineDeleteCli(required(args.positionals[0], "trigger id"), args.options) }) });
+attachCliBinding("routine.fire", {
+  path: ["routine", "fire"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const kind = required(args.positionals[0], "trigger kind");
+    const payloadPath = args.positionals[1];
+    let payload: unknown;
+    try {
+      payload = payloadPath ? JSON.parse(fs.readFileSync(payloadPath, "utf8")) : args.options;
+    } catch (e) {
+      throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String((e && (e as Error).message) || e)}`);
+    }
+    return { json: routineFireCli(kind, payload, args.options) };
+  },
+});
+attachCliBinding("routine.events", { path: ["routine", "events"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: routineEventsCli(args.positionals[0], args.options) }) });
 
 // ---- sched (control-plane leases over the durable queue) ---------------
 
@@ -2310,6 +2492,27 @@ REGISTRY_BY_CAPABILITY.get("sched.reclaim")!.mcp!.handler = (args) => schedRecla
 REGISTRY_BY_CAPABILITY.get("sched.reset")!.mcp!.handler = (args) => schedResetCli(String(args.id || ""), args);
 REGISTRY_BY_CAPABILITY.get("sched.policy.show")!.mcp!.handler = (args) => schedPolicyShowCli(args);
 REGISTRY_BY_CAPABILITY.get("sched.policy.set")!.mcp!.handler = (args) => schedPolicySetCli(args);
+// Each `sched <verb>` sub-action is its own two-token cli row. The
+// catch-all read [subcommand, idArg]; after the dispatcher consumes the
+// sub-verb, positionals[0]=idArg (release/complete read --leaseId or that
+// positional; reset reads --id or that positional). `sched.policy.show`/
+// `.set` share the ["sched","policy"] path with the [show|set] action read
+// from the first positional (like blackboard.message.post/list).
+// `hiddenFromHelp` keeps `cw help sched`'s rows coming from the single
+// literal COMMAND_HELP_ROWS.sched block.
+attachCliBinding("sched.plan", { path: ["sched", "plan"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedPlanCli(args.options) }) });
+attachCliBinding("sched.lease", { path: ["sched", "lease"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedLeaseCli(args.options) }) });
+attachCliBinding("sched.release", { path: ["sched", "release"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedReleaseCli(String(args.options.leaseId || args.positionals[0] || ""), args.options) }) });
+attachCliBinding("sched.complete", { path: ["sched", "complete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedCompleteCli(String(args.options.leaseId || args.positionals[0] || ""), args.options) }) });
+attachCliBinding("sched.reclaim", { path: ["sched", "reclaim"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedReclaimCli(args.options) }) });
+attachCliBinding("sched.reset", { path: ["sched", "reset"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedResetCli(String(args.options.id || args.positionals[0] || ""), args.options) }) });
+function schedPolicyHandler(args: CapabilityCliArgs): CliHandlerResult {
+  const action = args.positionals[0];
+  if (action === "set") return { json: schedPolicySetCli(args.options) };
+  return { json: schedPolicyShowCli(args.options) };
+}
+attachCliBinding("sched.policy.show", { path: ["sched", "policy"], helpPath: ["sched", "policy"], jsonMode: "default", hiddenFromHelp: true, handler: schedPolicyHandler });
+attachCliBinding("sched.policy.set", { path: ["sched", "policy"], helpPath: ["sched", "policy"], jsonMode: "default", hiddenFromHelp: true, handler: schedPolicyHandler });
 
 // ---- registry (refresh|show) --------------------------------------------
 
@@ -2333,6 +2536,30 @@ addCliOnlyCapability(
 );
 REGISTRY_BY_CAPABILITY.get("registry.refresh")!.mcp!.handler = (args) => registryRefreshCli(args);
 REGISTRY_BY_CAPABILITY.get("registry.show")!.mcp!.handler = (args) => registryShowCli(args);
+// `registry.refresh`/`registry.show` each carry their own two-token
+// cli.path (found before the ["registry"] catch-all). `hiddenFromHelp`
+// keeps `cw help registry`'s rows coming from the single literal
+// COMMAND_HELP_ROWS.registry block. Both are read/derive verbs, so they
+// stay in the payload-identity probe (classified deferred until a
+// bootstrap fixture seeds a registry index).
+attachCliBinding("registry.refresh", {
+  path: ["registry", "refresh"],
+  jsonMode: "flag",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const report = registryRefreshCli(args.options);
+    return wantsJson(args.options) ? { json: report } : { json: report, text: formatRegistryReport(report) };
+  },
+});
+attachCliBinding("registry.show", {
+  path: ["registry", "show"],
+  jsonMode: "flag",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const report = registryShowCli(args.options);
+    return wantsJson(args.options) ? { json: report } : { json: report, text: formatRegistryReport(report) };
+  },
+});
 
 // ---- queue (add|list|drain|show) ----------------------------------------
 
@@ -2367,6 +2594,38 @@ REGISTRY_BY_CAPABILITY.get("queue.add")!.mcp!.handler = (args) => queueAddCli(ar
 REGISTRY_BY_CAPABILITY.get("queue.list")!.mcp!.handler = (args) => queueListCli(args);
 REGISTRY_BY_CAPABILITY.get("queue.drain")!.mcp!.handler = (args) => queueDrainCli(args);
 REGISTRY_BY_CAPABILITY.get("queue.show")!.mcp!.handler = (args) => queueShowCli(required(optionalArg(args.id), "queue id"), args);
+// `queue add|list|drain|show` each carry their own two-token cli.path
+// (found before the ["queue"] catch-all). `hiddenFromHelp` keeps `cw help
+// queue`'s rows coming from the single literal COMMAND_HELP_ROWS.queue
+// block. `queue.list` is jsonMode "flag" (human table by default); the
+// others are always-JSON "default", matching the old build's registry.
+attachCliBinding("queue.add", {
+  path: ["queue", "add"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => ({ json: queueAddCli(args.options) }),
+});
+attachCliBinding("queue.list", {
+  path: ["queue", "list"],
+  jsonMode: "flag",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = queueListCli(args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: formatQueueList(result) };
+  },
+});
+attachCliBinding("queue.drain", {
+  path: ["queue", "drain"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => ({ json: queueDrainCli(args.options) }),
+});
+attachCliBinding("queue.show", {
+  path: ["queue", "show"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => ({ json: queueShowCli(required(args.positionals[0], "queue id"), args.options) }),
+});
 
 // ---- gc (plan|run|verify) ------------------------------------------------
 
@@ -2438,6 +2697,21 @@ attachCliBinding("gc.verify", {
     return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
   },
 });
+// `gc.run` also carries its own two-token cli.path ["gc","run"], same
+// reversed-candidate-order pattern as gc.plan/gc.verify. It stays a
+// documented payload-probe opt-out (mutating reclamation), so this row
+// only satisfies the both-surface "cli + mcp" pairing — it does not join
+// the payload-identity probe. `hiddenFromHelp` keeps `cw help gc`'s row
+// coming from the single literal COMMAND_HELP_ROWS.gc entry.
+attachCliBinding("gc.run", {
+  path: ["gc", "run"],
+  jsonMode: "flag",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = gcRunCli(args.positionals[0], args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: formatGcRun(result) };
+  },
+});
 
 // ---- orphans (list|gc) ---------------------------------------------------
 
@@ -2470,6 +2744,34 @@ addCliOnlyCapability(
 );
 REGISTRY_BY_CAPABILITY.get("orphans.list")!.mcp!.handler = (args) => orphansListCli(args);
 REGISTRY_BY_CAPABILITY.get("orphans.gc")!.mcp!.handler = (args) => orphansGcCli(args);
+// `orphans.list`/`orphans.gc` each carry their own two-token cli.path
+// (found before the ["orphans"] catch-all per the reversed-candidate
+// order), so both are real both-surface dual-bound rows. `hiddenFromHelp`
+// keeps `cw help orphans`'s rows coming from the single literal
+// COMMAND_HELP_ROWS.orphans block. `orphans.gc` is a documented
+// payload-probe opt-out (mutating sweep, now-derived freedBytes/removed),
+// same as gc.run/clones.gc.
+attachCliBinding("orphans.list", {
+  path: ["orphans", "list"],
+  jsonMode: "flag",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = orphansListCli(args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: formatOrphanRunsList(result) };
+  },
+});
+attachCliBinding("orphans.gc", {
+  path: ["orphans", "gc"],
+  jsonMode: "flag",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = orphansGcCli(args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: formatOrphanRunsGc(result) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("orphans.gc")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("orphans.gc")!.reason =
+  "Mutating: removes orphan run directories and reports now-derived freedBytes/removed; both surfaces perform the identical sweep.";
 
 // ---- clones (list|gc) ------------------------------------------------------
 
@@ -2500,6 +2802,32 @@ addCliOnlyCapability(
 );
 REGISTRY_BY_CAPABILITY.get("clones.list")!.mcp!.handler = () => clonesListCli();
 REGISTRY_BY_CAPABILITY.get("clones.gc")!.mcp!.handler = (args) => clonesGcCli(args);
+// `clones.list`/`clones.gc` each carry their own two-token cli.path (found
+// before the ["clones"] catch-all). `hiddenFromHelp` keeps the byte-pinned
+// `cw help clones` fixture's rows coming from the single literal
+// COMMAND_HELP_ROWS.clones block. `clones.gc` is a documented payload-probe
+// opt-out (mutating sweep), same as gc.run/orphans.gc.
+attachCliBinding("clones.list", {
+  path: ["clones", "list"],
+  jsonMode: "flag",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = clonesListCli();
+    return wantsJson(args.options) ? { json: result } : { json: result, text: formatClonesList(result) };
+  },
+});
+attachCliBinding("clones.gc", {
+  path: ["clones", "gc"],
+  jsonMode: "flag",
+  hiddenFromHelp: true,
+  handler: (args) => {
+    const result = clonesGcCli(args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: formatClonesGc(result) };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("clones.gc")!.payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("clones.gc")!.reason =
+  "Mutating: removes cache directories and reports now-derived freedBytes/removed; both surfaces perform the identical reclamation.";
 
 // ---- run search|list|show|resume|archive|rerun (2-token rows, found
 // BEFORE the 1-token run.drive.step row per dispatchTable's reversed
@@ -2584,6 +2912,9 @@ REGISTRY_BY_CAPABILITY.get("history")!.mcp!.handler = (args) => historyCli(args)
 // ---------------------------------------------------------------------
 
 import { reportWriteCli, statusCli, statusSummaryText, statusFullText, operatorStatusCli, operatorReportCli, operatorReportText, graphCli, graphText } from "../shell/report-view-cli";
+import { formatCandidateSummaryText, formatFeedbackSummaryText, formatMultiAgentSummaryText } from "../shell/operator-ux-text";
+import type { OperatorCandidateSummary, OperatorFeedbackSummary, OperatorRunSummary } from "../shell/operator-ux";
+type MultiAgentSummaryText = OperatorRunSummary["multiAgent"];
 
 attachCliBinding("report", {
   path: ["report"],
@@ -2682,7 +3013,7 @@ REGISTRY_BY_CAPABILITY.get("metrics.summary")!.mcp!.handler = (args) => metricsS
 
 // ---- worker.summary (the workbench worker panel + `cw worker summary`) ----
 
-import { summarizeWorkers } from "../shell/worker-isolation";
+import { summarizeWorkers, formatWorkerSummaryText } from "../shell/worker-isolation";
 import * as workerPath from "node:path";
 
 function workerSummaryCli(args: Record<string, unknown>): ReturnType<typeof summarizeWorkers> {
@@ -2690,14 +3021,24 @@ function workerSummaryCli(args: Record<string, unknown>): ReturnType<typeof summ
   const run = statusLoadRunFromCwd(runId, invocationCwdFor(args));
   return summarizeWorkers(run);
 }
+function workerSummaryText(args: Record<string, unknown>): string {
+  const runId = required(optionalArg(args.runId), "run id");
+  const run = statusLoadRunFromCwd(runId, invocationCwdFor(args));
+  return formatWorkerSummaryText(run);
+}
 function invocationCwdFor(args: Record<string, unknown>): string {
   return typeof args.cwd === "string" && args.cwd.trim() ? workerPath.resolve(args.cwd) : process.cwd();
 }
 
+// jsonMode "flag": human `Workers` panel by default, canonical JSON under
+// --json (old build's worker.summary was flag, cli/handlers/worker.ts).
 attachCliBinding("worker.summary", {
   path: ["worker", "summary"],
-  jsonMode: "default",
-  handler: (args) => ({ json: workerSummaryCli({ ...args.options, runId: args.positionals[0] }) }),
+  jsonMode: "flag",
+  handler: (args) => ({
+    json: workerSummaryCli({ ...args.options, runId: args.positionals[0] }),
+    text: `${workerSummaryText({ ...args.options, runId: args.positionals[0] })}\n`,
+  }),
 });
 REGISTRY_BY_CAPABILITY.get("worker.summary")!.mcp!.handler = (args) => workerSummaryCli(args);
 
@@ -2761,10 +3102,15 @@ REGISTRY_BY_CAPABILITY.get("worker.validate")!.mcp!.handler = (args) => workerVa
 
 import { feedbackListCli, feedbackShowCli, feedbackSummaryCli, feedbackCollectCli, feedbackTaskCli, feedbackResolveCli } from "../shell/feedback-cli";
 
+// jsonMode "flag": human `Feedback` panel by default, canonical JSON under
+// --json (old build's feedback.summary was flag).
 attachCliBinding("feedback.summary", {
   path: ["feedback", "summary"],
-  jsonMode: "default",
-  handler: (args) => ({ json: feedbackSummaryCli({ ...args.options, runId: args.positionals[0] }) }),
+  jsonMode: "flag",
+  handler: (args) => {
+    const summary = feedbackSummaryCli({ ...args.options, runId: args.positionals[0] });
+    return { json: summary, text: `${formatFeedbackSummaryText(summary as OperatorFeedbackSummary)}\n` };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("feedback.summary")!.mcp!.handler = (args) => feedbackSummaryCli(args);
 
@@ -3006,12 +3352,35 @@ attachCliBinding("app.init", {
 });
 REGISTRY_BY_CAPABILITY.get("app.init")!.mcp!.handler = (args) => initWorkflowApp(required(optionalArg(args.appId), "app id"), args);
 
+// `cw init <id>` — the standalone scaffold verb. v2 folds `init` into
+// `app.init` (the old build's legacy `.workflow.js` scaffold is gone), so
+// both surfaces route through initWorkflowApp, same as `cw app init`. The
+// `init` help token is folded away (declaredCliHelpTokens) — it stays in
+// the frozen "More commands" index line only, matching the parity smoke's
+// HELP_INDEX_ONLY_TOKENS treatment. `workflowId` is the old init arg name.
+attachCliBinding("init", {
+  path: ["init"],
+  jsonMode: "default",
+  handler: (args) => ({ json: initWorkflowApp(required(optionalArg(args.positionals[0]), "workflow id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("init")!.mcp!.handler = (args) => initWorkflowApp(required(optionalArg(args.workflowId ?? args.appId), "workflow id"), args);
+
 attachCliBinding("app.package", {
   path: ["app", "package"],
   jsonMode: "default",
   handler: (args) => ({ json: packageWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
 });
 REGISTRY_BY_CAPABILITY.get("app.package")!.mcp!.handler = (args) => packageWorkflowApp(required(optionalArg(args.appId), "app id"), args);
+
+// `cw app run <app-id>` — plan+drive+report an app in one call. 2-token
+// cli.path found before the ["app"] usage catch-all; `appRunCli` reads the
+// app id from `appId`, so the first positional after "run" is forwarded as
+// appId (old build: appRun(runner, { ...options, appId: <positional> })).
+attachCliBinding("app.run", {
+  path: ["app", "run"],
+  jsonMode: "default",
+  handler: (args) => ({ json: appRunCli({ ...args.options, appId: required(args.positionals[0], "app id") }) }),
+});
 
 // A 1-token `["app"]` row that exists ONLY to own the fixed usage string
 // for an unrecognized `app` subcommand (`app run` is not yet CLI-wired at
@@ -3697,6 +4066,67 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: strin
       "history",
     ],
   },
+  {
+    // Phase B: the CLI bindings just layered onto these previously
+    // MCP-only rows make each a real both-surface dual-bound capability, so
+    // the payload probe now sees them. Each needs a seeded fixture beyond a
+    // bare cwd/runId — a scheduled task / routine trigger / durable queue
+    // entry / lease / portable archive on disk, a target entity id
+    // (role/group/membership/fanout/fanin/schedule/lease id), a workflow-app
+    // id to scaffold or drive, or a registry index to refresh — so each is
+    // deferred until a bootstrap fixture is added, exactly like the
+    // scenario/deferred split the older batches use. `init` also folds into
+    // app.init on both surfaces (scaffold), so it defers with the app family.
+    reason:
+      "Not safe for the deterministic bootstrap parity probe yet: this capability needs a seeded fixture beyond cwd/runId (a scheduled task / routine trigger / queue entry / lease / portable archive on disk, a target entity id, or a workflow-app id to scaffold or drive). Both surfaces route through the same shell fn; each defers until a bootstrap fixture seeds its state.",
+    capabilities: [
+      "app.run",
+      "init",
+      "registry.refresh",
+      "registry.show",
+      "queue.add",
+      "queue.list",
+      "queue.drain",
+      "queue.show",
+      "clones.list",
+      "orphans.list",
+      "schedule.create",
+      "schedule.list",
+      "schedule.delete",
+      "schedule.due",
+      "schedule.complete",
+      "schedule.pause",
+      "schedule.resume",
+      "schedule.run-now",
+      "schedule.history",
+      "routine.create",
+      "routine.list",
+      "routine.delete",
+      "routine.fire",
+      "routine.events",
+      "sched.plan",
+      "sched.lease",
+      "sched.release",
+      "sched.complete",
+      "sched.reclaim",
+      "sched.reset",
+      "sched.policy.show",
+      "sched.policy.set",
+      "run.export",
+      "run.import",
+      "run.verify-import",
+      "run.inspect-archive",
+      "run.restore",
+      "multi-agent.reasoning.refresh",
+      "multi-agent.graph.compact",
+      "multi-agent.role.create",
+      "multi-agent.role.show",
+      "multi-agent.group.show",
+      "multi-agent.membership.show",
+      "multi-agent.fanout.show",
+      "multi-agent.fanin.show",
+    ],
+  },
 ];
 
 /** The MCP tool names this registry declares. */
@@ -3733,6 +4163,13 @@ export function declaredCliHelpTokens(): string[] {
     }
   }
   tokens.delete("help");
+  // `init` is a help-index-only token: v2 folds the standalone `init`
+  // capability into `app.init` (its cli.path is ["init"] only so the
+  // dispatcher can still run `cw init`, but `cw help` lists it in the
+  // frozen "More commands" index line, never as its own per-command help
+  // row). Mirrors the parity smoke's HELP_INDEX_ONLY_TOKENS set so the
+  // help-token parity stays balanced.
+  tokens.delete("init");
   return [...tokens].sort();
 }
 

@@ -60,6 +60,7 @@ exports.recordWorkerRetryAttempt = recordWorkerRetryAttempt;
 exports.showWorkerManifest = showWorkerManifest;
 exports.listWorkerScopes = listWorkerScopes;
 exports.summarizeWorkers = summarizeWorkers;
+exports.formatWorkerSummaryText = formatWorkerSummaryText;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
@@ -815,4 +816,37 @@ function summarizeWorkers(run) {
         manifestPaths: workers.map((w) => manifestPath(w)),
         failed: workers.filter((w) => w.status === "failed" || w.status === "rejected").map((w) => ({ id: w.id, status: w.status, feedbackIds: w.feedbackIds || [] })),
     };
+}
+function countBucket(values) {
+    const counts = {};
+    for (const value of values)
+        counts[value] = (counts[value] || 0) + 1;
+    return counts;
+}
+function formatCountBucket(counts) {
+    const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+    if (!entries.length)
+        return "none";
+    return entries.map(([k, v]) => `${k}=${v}`).join(", ");
+}
+/** `cw worker summary <run-id>` human text — port of the old build's
+ *  formatWorkerPanel (operator-ux/format.ts): a `Workers` rollup with
+ *  status/sandbox/backend counts and one line per worker naming its
+ *  sandbox profile and manifest path. */
+function formatWorkerSummaryText(run) {
+    const workers = listWorkerScopes(run);
+    const lines = [
+        "Workers",
+        `  total=${workers.length}; status=${formatCountBucket(countBucket(workers.map((w) => w.status)))}; sandbox=${formatCountBucket(countBucket(workers.map((w) => w.sandboxProfileId || "none")))}; backend=${formatCountBucket(countBucket(workers.map((w) => w.backendId || "none")))}`,
+    ];
+    for (const worker of workers.slice(0, 8)) {
+        lines.push(`  ${worker.id}: ${worker.status}, task=${worker.taskId}, sandbox=${worker.sandboxProfileId || "none"}, backend=${worker.backendId || "none"}`);
+        lines.push(`    manifest=${manifestPath(worker)}`);
+        lines.push(`    result=${worker.resultPath}`);
+        if ((worker.feedbackIds || []).length)
+            lines.push(`    feedback=${worker.feedbackIds.join(", ")}`);
+    }
+    if (workers.length > 8)
+        lines.push(`  ... ${workers.length - 8} more worker(s)`);
+    return lines.join("\n");
 }

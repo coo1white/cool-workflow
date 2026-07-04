@@ -43,6 +43,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.summarizeOperatorCommits = summarizeOperatorCommits;
 exports.commitSummaryCli = commitSummaryCli;
+exports.formatCommitSummaryText = formatCommitSummaryText;
 const path = __importStar(require("node:path"));
 const run_store_1 = require("./run-store");
 function formatCommitRow(commit) {
@@ -86,4 +87,18 @@ function cwdFor(args) {
 function commitSummaryCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
     return summarizeOperatorCommits(run);
+}
+/** `cw commit summary <run>` human text — port of the old build's
+ *  formatCommitPanel (operator-ux/format.ts): a `Commits` rollup with the
+ *  verifier-gated / checkpoint counts and the latest commit. */
+function formatCommitSummaryText(summary) {
+    const lines = [
+        "Commits",
+        `  total=${summary.total}; verifier-gated=${summary.verifierGated}; checkpoints=${summary.checkpoints}`,
+        `  latest=${summary.latest ? `${summary.latest.id} (${summary.latest.kind}) ${summary.latest.snapshotPath}` : "none"}`,
+    ];
+    for (const commit of summary.commits.slice(-8)) {
+        lines.push(`  ${commit.id}: ${commit.kind}, reason=${commit.reason}`);
+    }
+    return lines.join("\n");
 }

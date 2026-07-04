@@ -16,9 +16,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatOperatorSummary = formatOperatorSummary;
 exports.formatMultiAgentTrustAudit = formatMultiAgentTrustAudit;
+exports.formatMultiAgentSummaryText = formatMultiAgentSummaryText;
 exports.formatOperatorStatus = formatOperatorStatus;
 exports.formatOperatorReport = formatOperatorReport;
 exports.formatOperatorGraph = formatOperatorGraph;
+exports.formatCandidateSummaryText = formatCandidateSummaryText;
+exports.formatFeedbackSummaryText = formatFeedbackSummaryText;
 const term_1 = require("./term");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 function formatCounts(counts) {
@@ -60,13 +63,23 @@ function formatWorkerPanel(summary) {
     return lines.join("\n");
 }
 function formatCandidatePanel(summary) {
-    return ["Candidates", `  Total: ${summary.total}`, `  By status: ${formatCounts(summary.byStatus)}`, `  By kind: ${formatCounts(summary.byKind)}`, `  Selections: ${summary.selections}`].join("\n");
+    return [
+        "Candidates",
+        `  Total: ${summary.total}`,
+        `  By status: ${formatCounts(summary.byStatus)}`,
+        `  By kind: ${formatCounts(summary.byKind)}`,
+        `  Selections: ${summary.selections}`,
+        `  ready for commit=${summary.readyForCommit.map((item) => `${item.candidateId}/${item.selectionId}`).join(", ") || "none"}`,
+    ].join("\n");
 }
 function formatFeedbackPanel(summary) {
     return ["Feedback", `  Total: ${summary.total}`, `  By status: ${formatCounts(summary.byStatus)}`, `  By severity: ${formatCounts(summary.bySeverity)}`].join("\n");
 }
 function formatCommitPanel(summary) {
-    const lines = ["Commits", `  Total: ${summary.total}`, `  Verifier-gated: ${summary.verifierGated}`, `  Checkpoints: ${summary.checkpoints}`];
+    const lines = [
+        "Commits",
+        `  total=${summary.total}; verifier-gated=${summary.verifierGated}; checkpoints=${summary.checkpoints}`,
+    ];
     for (const commit of summary.commits)
         lines.push(`  - ${commit.id}: ${commit.reason}`);
     return lines.join("\n");
@@ -188,6 +201,12 @@ function formatMultiAgentPanel(summary) {
     if (summary.nextAction)
         lines.push(`  next=${summary.nextAction}`);
     return lines.join("\n");
+}
+/** `cw multi-agent summary <run>` human text — the same `Multi-Agent`
+ *  panel `cw status` shows, port of the old build's formatMultiAgentSummary
+ *  (operator-ux/format.ts). */
+function formatMultiAgentSummaryText(summary) {
+    return formatMultiAgentPanel(summary);
 }
 /** `Multi-Agent Operator UX` block — port of the old build's inline
  *  operator-status summary (operator-ux/format.ts:41-45): active runs,
@@ -328,4 +347,35 @@ function formatOperatorGraph(graph) {
         lines.push(`  ${edge.from} -> ${edge.to}${edge.label ? ` (${edge.label})` : ""}`);
     }
     return lines.join("\n");
+}
+/** `cw candidate summary <run>` human text — port of the old build's
+ *  formatCandidatePanel (operator-ux/format.ts): a `Candidates` rollup with
+ *  status/kind counts, the latest ranking, and the ready-for-commit list. */
+function formatCandidateSummaryText(summary) {
+    const lines = [
+        "Candidates",
+        `  total=${summary.total}; status=${formatCounts(summary.byStatus)}; kind=${formatCounts(summary.byKind)}`,
+        `  latest ranking=${summary.latestRankingPath || summary.rankingPath || "none"}`,
+        `  selected=${summary.selected.map((selection) => `${selection.candidateId}/${selection.selectionId}`).join(", ") || "none"}`,
+        `  ready for commit=${summary.readyForCommit.map((item) => `${item.candidateId}/${item.selectionId}`).join(", ") || "none"}`,
+    ];
+    for (const problem of summary.problems.slice(0, 5))
+        lines.push(`  problem: ${problem}`);
+    for (const candidate of summary.candidates.slice(0, 8)) {
+        lines.push(`  ${candidate.id}: ${candidate.status}, scores=${candidate.scoreCount}, selected=${candidate.selected ? "yes" : "no"}`);
+    }
+    if (summary.candidates.length > 8)
+        lines.push(`  ... ${summary.candidates.length - 8} more candidate(s)`);
+    return lines.join("\n");
+}
+/** `cw feedback summary <run>` human text — port of the old build's
+ *  formatFeedbackPanel (operator-ux/format.ts): a `Feedback` rollup with
+ *  status/severity/classification counts. */
+function formatFeedbackSummaryText(summary) {
+    return [
+        "Feedback",
+        `  total=${summary.total}; status=${formatCounts(summary.byStatus)}`,
+        `  severity=${formatCounts(summary.bySeverity)}`,
+        `  classification=${formatCounts(summary.byClassification)}`,
+    ].join("\n");
 }
