@@ -74,6 +74,16 @@ const hash_1 = require("../core/hash");
 const pipeline_1 = require("./pipeline");
 const reporter_1 = require("./reporter");
 const fs_atomic_1 = require("./fs-atomic");
+const observability_1 = require("./observability");
+/** Token-budget gate input: enforce limits.tokenBudget against RECORDED usage,
+ *  not a hardcoded zero. Returns undefined when no positive budget is set so the
+ *  gate is a no-op. Spent = the run's total recorded tokens. */
+function tokenBudgetUsage(run) {
+    const budget = run.workflow.limits?.tokenBudget;
+    if (!budget || budget <= 0)
+        return undefined;
+    return { spent: (0, observability_1.deriveUsageTotals)(run).totals.totalTokens, budget };
+}
 exports.DRIVE_SCHEMA_VERSION = 1;
 exports.MAX_SUB_WORKFLOW_DEPTH = 4;
 function agentConfigured(config) {
@@ -386,8 +396,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
 function driveStep(ctx) {
     const run = loadRun(ctx);
     const selected = (0, drive_decide_1.selectDriveTask)(run);
-    const budget = run.workflow.limits?.tokenBudget;
-    const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), budget && budget > 0 ? { spent: 0, budget } : undefined);
+    const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
     if (gate.kind === "commit") {
         const commit = (0, commit_1.commitState)(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) });
         (0, report_1.writeReport)(run);
@@ -487,8 +496,7 @@ function driveConcurrentRound(ctx, limit) {
     return withRoundCache(ctx, () => {
         const run = loadRun(ctx);
         const selected = (0, drive_decide_1.selectDriveTask)(run);
-        const budget = run.workflow.limits?.tokenBudget;
-        const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), budget && budget > 0 ? { spent: 0, budget } : undefined);
+        const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
         if (gate.kind === "commit" || gate.step)
             return [driveStep(ctx)];
         const phase = (0, dispatch_1.firstRunnablePhase)(run);

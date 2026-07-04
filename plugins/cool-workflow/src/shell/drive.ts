@@ -59,6 +59,16 @@ import { sha256, stableStringify } from "../core/hash";
 import { plan } from "./pipeline";
 import { reporter } from "./reporter";
 import { safeFileName } from "./fs-atomic";
+import { deriveUsageTotals } from "./observability";
+
+/** Token-budget gate input: enforce limits.tokenBudget against RECORDED usage,
+ *  not a hardcoded zero. Returns undefined when no positive budget is set so the
+ *  gate is a no-op. Spent = the run's total recorded tokens. */
+function tokenBudgetUsage(run: WorkflowRun): { spent: number; budget: number } | undefined {
+  const budget = run.workflow.limits?.tokenBudget;
+  if (!budget || budget <= 0) return undefined;
+  return { spent: deriveUsageTotals(run).totals.totalTokens, budget };
+}
 
 export const DRIVE_SCHEMA_VERSION = 1;
 export const MAX_SUB_WORKFLOW_DEPTH = 4;
@@ -432,8 +442,7 @@ function runSubWorkflow(
 export function driveStep(ctx: DriveContext): DriveStep {
   const run = loadRun(ctx);
   const selected = selectDriveTask(run);
-  const budget = run.workflow.limits?.tokenBudget;
-  const gate = terminalOrConfigStep(run, selected, agentConfigured(ctx.config), budget && budget > 0 ? { spent: 0, budget } : undefined);
+  const gate = terminalOrConfigStep(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
   if (gate.kind === "commit") {
     const commit = commitState(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) });
     writeReport(run);
@@ -550,8 +559,7 @@ function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
   return withRoundCache(ctx, () => {
     const run = loadRun(ctx);
     const selected = selectDriveTask(run);
-    const budget = run.workflow.limits?.tokenBudget;
-    const gate = terminalOrConfigStep(run, selected, agentConfigured(ctx.config), budget && budget > 0 ? { spent: 0, budget } : undefined);
+    const gate = terminalOrConfigStep(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
     if (gate.kind === "commit" || gate.step) return [driveStep(ctx)];
 
     const phase = firstRunnablePhase(run);

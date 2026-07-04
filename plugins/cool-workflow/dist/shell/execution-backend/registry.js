@@ -282,7 +282,12 @@ function attestSandbox(descriptor, policy, options = { mode: "execute" }) {
 function probeBackend(id, context = {}) {
     const descriptor = getBackendDescriptor(id);
     const driver = BACKEND_REGISTRY.get(id);
-    const body = driver?.probe ? driver.probe(context) : { checks: [], readiness: descriptor.readiness };
+    // Config-based probes (agent/remote/ci) read readiness from the environment;
+    // the local probes (node/bun/shell/container) ignore their arg. Pass
+    // process.env, NOT the {cwd} context — otherwise the context object shadows
+    // process.env and a configured agent always reads back "unverified".
+    void context;
+    const body = driver?.probe ? driver.probe(process.env) : { checks: [], readiness: descriptor.readiness };
     return {
         schemaVersion: 1,
         backendId: descriptor.id,

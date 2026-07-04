@@ -96,6 +96,11 @@ function planInputsFor(args) {
         out.repo = args.repo;
     if (typeof args.question === "string")
         out.question = args.question;
+    // An explicit --cwd is stripped by RUNTIME_KEYS above, but the old build
+    // honored it for the run anchor. Re-add it (like repo) so a caller-supplied
+    // cwd is not silently dropped to process.cwd() — a cross-request bleed.
+    if (typeof args.cwd === "string" && args.cwd.trim())
+        out.cwd = args.cwd;
     if (out.repo && !out.cwd)
         out.cwd = out.repo;
     return out;

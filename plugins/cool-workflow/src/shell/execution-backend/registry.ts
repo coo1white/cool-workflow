@@ -193,7 +193,7 @@ export interface BackendDriver {
   delegateRun?: DelegateRun;
   buildHandle?: (request: ExecutionRequest) => BackendExecutionHandle | undefined;
   commandlessDelegate?: boolean;
-  probe?: (context: { cwd?: string }) => BackendProbeBody;
+  probe?: (env?: NodeJS.ProcessEnv) => BackendProbeBody;
 }
 
 const BACKEND_REGISTRY = new Map<string, BackendDriver>();
@@ -369,7 +369,12 @@ export function attestSandbox(
 export function probeBackend(id: string, context: { cwd?: string } = {}): BackendProbeResult {
   const descriptor = getBackendDescriptor(id);
   const driver = BACKEND_REGISTRY.get(id);
-  const body: BackendProbeBody = driver?.probe ? driver.probe(context) : { checks: [], readiness: descriptor.readiness };
+  // Config-based probes (agent/remote/ci) read readiness from the environment;
+  // the local probes (node/bun/shell/container) ignore their arg. Pass
+  // process.env, NOT the {cwd} context — otherwise the context object shadows
+  // process.env and a configured agent always reads back "unverified".
+  void context;
+  const body: BackendProbeBody = driver?.probe ? driver.probe(process.env) : { checks: [], readiness: descriptor.readiness };
   return {
     schemaVersion: 1,
     backendId: descriptor.id,
