@@ -60,7 +60,9 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // assertion instead of a top-of-file crash.
 let redactCredentials;
 try {
-  ({ redactCredentials } = require(path.join(pluginRoot, "dist", "remote-source.js")));
+  // v2 cutover: remote-source moved from the old flat dist/remote-source.js to
+  // dist/shell/remote-source.js (impure shell layer).
+  ({ redactCredentials } = require(path.join(pluginRoot, "dist", "shell", "remote-source.js")));
 } catch (err) {
   redactCredentials = null;
   var _remoteSourceLoadError = err;

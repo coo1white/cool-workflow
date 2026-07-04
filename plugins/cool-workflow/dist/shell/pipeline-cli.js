@@ -61,6 +61,8 @@ const worker_isolation_1 = require("./worker-isolation");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const agent_config_1 = require("./agent-config");
+const remote_source_1 = require("./remote-source");
+const trust_audit_1 = require("./trust-audit");
 const QUICKSTART_DEFAULT_APP = "architecture-review";
 /** Runtime keys that must NEVER leak into run.inputs (they are drive/CLI
  *  plumbing, not workflow-declared inputs). Byte-exact to the old
@@ -154,7 +156,13 @@ function runDriveStep(args) {
  *  port of the old build's `quickstartCheck` (src/capability-core.ts),
  *  local-repo path only (the --link/remote preflight variant is not
  *  ported — no conformance case exercises it). */
-function quickstartCheck(appId, args) {
+function quickstartCheck(appId, args, remoteCandidate) {
+    // `--link`/URL preflight: validate the URL SHAPE + tooling WITHOUT fetching
+    // (a clone is heavy + side-effecting; --check stays read-only). Swaps the
+    // local-repo readability checks for link + tooling. `repo` carries the
+    // sanitized URL so the result reports what would be reviewed.
+    if (remoteCandidate)
+        return remoteQuickstartCheck(appId, args, remoteCandidate);
     const base = invocationCwd(args);
     const repoArg = typeof args.repo === "string" && args.repo.trim() ? args.repo : base;
     const repo = path.resolve(base, repoArg);
@@ -223,16 +231,82 @@ function quickstartCheck(appId, args) {
     const ok = checks.every((check) => check.status !== "blocked") && repoStateWritable;
     return { schemaVersion: 1, mode: "check", ok, appId, repo, checks };
 }
+/** `--check` for a `--link`/URL review: validates the URL shape + git tooling
+ *  WITHOUT fetching (byte-behavior port of the old build's remoteQuickstartCheck).
+ *  `repo` carries the sanitized URL. */
+function remoteQuickstartCheck(appId, args, candidate) {
+    const validation = (0, remote_source_1.validateRemoteUrl)(candidate);
+    const checks = [];
+    try {
+        (0, workflow_app_loader_1.showWorkflowApp)(appId);
+        checks.push({ name: "app", status: "ok", detail: `Workflow app ${appId} is available.` });
+    }
+    catch {
+        checks.push({ name: "app", status: "blocked", detail: `Workflow app ${appId} is not available.`, fix: "Run `cw app list` and choose one of the listed app ids." });
+    }
+    if (validation.ok) {
+        checks.push({ name: "link", status: "ok", detail: `Remote source is a valid ${validation.kind} URL (${validation.url}).` });
+    }
+    else {
+        checks.push({ name: "link", status: "blocked", detail: `Remote source is not usable: ${validation.reason}.`, fix: "Pass a git URL (https/ssh/git/file or git@host:repo)." });
+    }
+    if ((0, remote_source_1.gitAvailable)()) {
+        checks.push({ name: "tooling", status: "ok", detail: "git is available to clone the remote." });
+    }
+    else {
+        checks.push({ name: "tooling", status: "blocked", detail: "git was not found on PATH.", fix: "Install git, then re-run." });
+    }
+    if (typeof args.question === "string" && args.question.trim()) {
+        checks.push({ name: "question", status: "ok", detail: "Question is set." });
+    }
+    else {
+        checks.push({ name: "question", status: "blocked", detail: "Question is missing.", fix: "Pass --question TEXT." });
+    }
+    if ((0, agent_config_1.agentConfigured)(args)) {
+        checks.push({ name: "agent", status: "ok", detail: "Agent backend is configured." });
+    }
+    else {
+        checks.push({ name: "agent", status: "blocked", detail: "No agent backend is configured.", fix: 'Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.' });
+    }
+    const ok = checks.every((check) => check.status !== "blocked");
+    return { schemaVersion: 1, mode: "check", ok, appId, repo: validation.url, checks };
+}
 /** `cw quickstart [app] --question ...` — composes plan -> runDrive ->
  *  report in one call. Default app is architecture-review. `--check` is a
  *  read-only preflight that never plans/drives/writes (see
  *  `quickstartCheck` above). */
 function quickstartRun(args) {
     const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
-    if (!args.repo && !args.cwd)
+    // Remote source: a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
+    // materialized to a LOCAL checkout HERE (capability/shell layer). Cloning is
+    // non-deterministic network I/O and must never enter the replay-deterministic
+    // core, so we rewrite `args.repo`/`args.cwd` to the local path; everything
+    // downstream is a normal local run.
+    const linkArg = typeof args.link === "string" && args.link.trim() ? args.link.trim() : undefined;
+    const repoArgRaw = typeof args.repo === "string" && args.repo.trim() ? args.repo.trim() : undefined;
+    const remoteCandidate = linkArg || (repoArgRaw && (0, remote_source_1.isRemoteUrl)(repoArgRaw) ? repoArgRaw : undefined);
+    if (!remoteCandidate && !args.repo && !args.cwd)
         args.repo = invocationCwd(args);
     if (Boolean(args.check))
-        return quickstartCheck(appId, args);
+        return quickstartCheck(appId, args, remoteCandidate);
+    // Materialize the remote NOW — after `--check` (never fetches) and before any
+    // plan/drive — so the core only ever sees the local checkout. Fails closed: a
+    // bad URL / blocked scheme / missing git / fetch failure throws here.
+    let remoteSource;
+    if (remoteCandidate) {
+        remoteSource = (0, remote_source_1.materializeRemote)(remoteCandidate, {
+            ref: typeof args.ref === "string" ? args.ref : typeof args.branch === "string" ? args.branch : undefined,
+            refresh: Boolean(args.refresh),
+        });
+        args.repo = remoteSource.localPath;
+        args.cwd = remoteSource.localPath;
+        // Record the origin as plan INPUTS so it rides into run.inputs → the report
+        // header (report.ts renders `- Source: url@sha` from run.inputs.sourceUrl).
+        args.sourceUrl = remoteSource.url;
+        args.sourceCommit = remoteSource.commit;
+        if (remoteSource.ref)
+            args.sourceRef = remoteSource.ref;
+    }
     const options = {
         once: Boolean(args.once),
         now: typeof args.now === "string" ? args.now : undefined,
@@ -252,12 +326,35 @@ function quickstartRun(args) {
     const result = (0, drive_1.drive)(run.id, run.cwd, options);
     const finalRun = (0, run_store_1.loadRunFromCwd)(run.id, run.cwd);
     (0, report_1.writeReport)(finalRun);
+    // Tamper-evident provenance: bind the remote origin (url@sha) into the run's
+    // hash-chained trust-audit log so `cw audit verify` re-proves where the code
+    // came from. Best-effort — the origin is already in run.inputs/report/result.
+    if (remoteSource) {
+        try {
+            (0, trust_audit_1.recordTrustAuditEvent)(finalRun, {
+                kind: remoteSource.kind === "archive" ? "source.download" : "source.clone",
+                decision: "recorded",
+                source: "operator-recorded",
+                metadata: { url: remoteSource.url, commit: remoteSource.commit, ref: remoteSource.ref || null, kind: remoteSource.kind, depth: 1 },
+            });
+        }
+        catch {
+            /* provenance is additive; never fail a completed review over an audit hiccup */
+        }
+    }
     // Byte-exact to the old build's quickstart() return shape
     // (src/capability-core.ts): `appId` is the resolved app id (the
     // argument, or its architecture-review default), distinct from
     // `workflowId` which is the driven run's own workflow id (equal for a
-    // top-level run, different for a sub-workflow hop).
-    return { appId, ...result };
+    // top-level run, different for a sub-workflow hop). `remote` is present only
+    // for a --link/URL source, so a local-repo run stays byte-identical.
+    return {
+        appId,
+        ...result,
+        ...(remoteSource
+            ? { remote: { url: remoteSource.url, commit: remoteSource.commit, kind: remoteSource.kind, cached: remoteSource.cached, ...(remoteSource.ref ? { ref: remoteSource.ref } : {}) } }
+            : {}),
+    };
 }
 function dispatchRun(args) {
     const runId = String(args.runId);
