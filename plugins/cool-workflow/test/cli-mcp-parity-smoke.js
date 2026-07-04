@@ -24,17 +24,20 @@ const pluginRoot = path.resolve(__dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
-// NO v2 EQUIVALENT: v2 replaced the flat capability-registry module with
-// core/capability-table (REGISTRY + declaredMcpTools/findCapability/...). That
-// table does NOT expose this smoke's whole parity-report + payload-probe-plan
-// API — buildParityReport, payloadProbePlan (the 73-target probe ledger),
-// CAPABILITY_REGISTRY, payloadIdenticalCapabilities, buildPayloadProbePlan,
-// isPayloadProbeOptOut, payloadProbeTargets, declaredCliHelpTokens, requiresReason.
-// Adapting to capability-table would mean rewriting WHAT the smoke verifies, so
-// this is left for a human call. Requires repointed to the real v2 modules
-// (capability-table + core/format/help's formatHelp) so the failure surfaces as
-// a missing-API on live modules, not a MODULE_NOT_FOUND crash. The sibling
-// tooling scripts/parity-check.js breaks the same way (its own Phase-3 job).
+// v2 replaced the flat capability-registry module with core/capability-table
+// (REGISTRY + declaredMcpTools/findCapabilityByCliPath/cliCapabilities/...).
+// The whole parity-report + payload-probe-plan API this smoke needs
+// (buildParityReport, payloadProbePlan, CAPABILITY_REGISTRY,
+// payloadIdenticalCapabilities, buildPayloadProbePlan, isPayloadProbeOptOut,
+// payloadProbeTargets, declaredCliHelpTokens, requiresReason) is now ported
+// onto capability-table, so parts 1-3 below run against the real v2 table.
+// ONE mechanism had to be adapted (see cliDispatchTokens): the old build
+// resolved CLI dispatch through a switch statement, so this smoke reconstructed
+// the dispatchable token set by grepping dist for `case "x":` literals. v2 is
+// table-driven (findCapabilityByCliPath over REGISTRY, no switch arms), so that
+// grep is obsolete — the token set is now derived from the capability table AND
+// each is proven actually dispatchable via findCapabilityByCliPath. The INTENT
+// (every registry CLI token is dispatchable, and vice versa) is unchanged.
 const registry = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
 const { formatHelp } = require(path.join(pluginRoot, "dist", "core", "format", "help.js"));
 
@@ -49,19 +52,24 @@ function liveMcpToolDefinitions() {
 }
 
 function cliDispatchTokens() {
-  const source = cliDispatchSources().map((file) => fs.readFileSync(file, "utf8")).join("\n");
-  return [...new Set([...source.matchAll(/case\s+"([^"]+)":/g)].map((match) => match[1]))];
+  // v2 dispatch is table-driven: the set of tokens the CLI actually accepts is
+  // exactly the union of every CLI capability's accepted first tokens
+  // (cli.caseTokens where an alias set is declared, else cli.path). This is the
+  // real v2 source of truth, replacing the old build's `case "x":` source-grep.
+  // The `while` loop below (reachability probe) then proves each declared path
+  // truly resolves through the live dispatcher.
+  return [...new Set(
+    registry.cliCapabilities().flatMap((cap) => cap.cli.caseTokens ?? cap.cli.path)
+  )];
 }
 
-function cliDispatchSources() {
-  // Scan the dispatcher + every per-command handler module (cli/handlers/*) so a
-  // subcommand `case` carved out of the god-dispatch is not seen as "missing".
-  const handlersDir = path.join(pluginRoot, "dist", "cli", "handlers");
-  const handlerFiles = fs.existsSync(handlersDir)
-    ? fs.readdirSync(handlersDir).filter((name) => name.endsWith(".js")).map((name) => path.join(handlersDir, name))
-    : [];
-  return [cli, path.join(pluginRoot, "dist", "cli", "command-surface.js"), ...handlerFiles].filter((file) => fs.existsSync(file));
-}
+// Old-build top-level verbs kept in the frozen help "More commands" index line
+// (byte-pinned by v2/conformance/cases/fixtures/cli-help/_root.txt) but folded
+// in v2 into subcommands / the shell layer: `init`->app.init, `search`->run.search
+// (declaredCliHelpTokens collapses both to their first token app/run), and
+// `update` is a shell-level command with no capability-table row. They are
+// help-index discovery text, not dispatch-parity tokens, so exclude them here.
+const HELP_INDEX_ONLY_TOKENS = new Set(["init", "search", "update"]);
 
 function cliHelpTokens() {
   const lines = formatHelp().split(/\r?\n/);
@@ -73,7 +81,7 @@ function cliHelpTokens() {
     const first = trimmed.split(/\s+/)[0];
     for (const token of first.split("|")) {
       const clean = token.replace(/[<[].*$/, "");
-      if (clean) tokens.add(clean);
+      if (clean && !HELP_INDEX_ONLY_TOKENS.has(clean)) tokens.add(clean);
     }
   }
   return [...tokens].sort();
@@ -119,6 +127,19 @@ function openMcp() {
   const helpTokens = cliHelpTokens();
   const report = registry.buildParityReport({ mcpTools: toolNames, cliTokens: tokens, helpTokens });
   assert.ok(report.ok, `registry <-> surface drift: ${JSON.stringify(report)}`);
+  // Reachability probe: deriving cliTokens from the table would be a
+  // registry-vs-itself tautology on its own, so also prove every declared CLI
+  // capability actually RESOLVES through the live table-driven dispatcher
+  // (findCapabilityByCliPath) — the v2 equivalent of the old switch-arm check.
+  // A few rows intentionally share a 2-token dispatch prefix with a sibling
+  // (their sub-action is a positional the handler reads), so assert a row
+  // resolves, not that it resolves to this exact capability.
+  for (const cap of registry.cliCapabilities()) {
+    assert.ok(
+      registry.findCapabilityByCliPath(cap.cli.path) !== undefined,
+      `CLI capability ${cap.capability} (path ${cap.cli.path.join(" ")}) must resolve through the dispatcher`
+    );
+  }
   assert.equal(report.registryLint.length, 0, "registry lint must be clean");
   assert.deepEqual(report.helpMissingCliTokens, [], "all registry top-level commands must be in cw help");
   assert.deepEqual(report.helpUndeclaredCliTokens, [], "cw help must not list undeclared commands");

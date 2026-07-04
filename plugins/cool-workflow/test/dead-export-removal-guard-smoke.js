@@ -36,7 +36,14 @@ const cases = [
     // resolveBackendSelection is KEPT — used by dispatch.ts + worker-isolation.ts.
     live: ["resolveBackendSelection", "runBackend", "attestSandbox"]
   },
-  { mod: "../dist/core/state/state-explosion/report", dead: ["buildOperatorDigest"], live: ["buildStateExplosionReport", "buildCompactGraph"] }
+  // v2 relocations vs the old flat build: buildOperatorDigest was dead then
+  // (0 external refs) but v2 keeps it exported and calls it from TWO modules
+  // (shell/state-explosion-cli.ts + shell/multi-agent-operator-ux.ts), so it is
+  // a LIVE cross-module export here. The old build's buildCompactGraph does not
+  // live in report.ts in v2 at all — the compact-graph builder moved to
+  // state-explosion/graph.ts as buildCompactGraphFromView — so this case checks
+  // report.ts's real live pair instead.
+  { mod: "../dist/core/state/state-explosion/report", dead: [], live: ["buildStateExplosionReport", "buildOperatorDigest"] }
 ];
 
 for (const { mod, dead, live } of cases) {

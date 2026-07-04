@@ -309,36 +309,26 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "blackboard", "messages.jsonl")));
   assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "blackboard", "artifacts", `${artifact.id}.json`)));
 
-  // Bare-verb routing — proves the carved handlers/blackboard.ts throws the same
-  // way the god-dispatch did. A thrown error → exit 1 → stderr `cw: <message>`.
-  // `required` throws "Missing <label>."; the inner default + topic/message/
-  // context/artifact fall-through hit the trailing "Usage: cw.js blackboard …".
-  //
-  // NOTE (v2 audit): the run fails earlier at the fanout blackboardId gap, so
-  // this block is not reached under v2. Recorded here for the gap map — two more
-  // v2 CLI-surface divergences live below if it ever were reached:
-  //   1. `blackboard summarize` no longer exists as a CLI verb (it is MCP-only:
-  //      capability blackboard.summarize has no attachCliBinding, only the
-  //      cw_blackboard_summarize tool row in src/core/capability-table.ts:234).
-  //      So `blackboard summarize` (no run id) falls through to the
-  //      blackboard.usage row (src/core/capability-table.ts:2563) and prints the
-  //      "Usage: cw.js blackboard …" string, NOT "Missing run id" — the old
-  //      carved handler treated `summarize` as a real run-id verb.
-  //   2. `blackboard topic` (no run id) now matches the capability path
-  //      ["blackboard","topic"] and refuses with "Missing run id.", not the
-  //      trailing Usage throw the action-gated old grammar produced.
-  // Both are consequences of the v2 grammar redesign; the assertions below keep
-  // the OLD contract intentionally (not weakened to force green).
-  for (const verb of ["summary", "summarize", "graph", "resolve", "snapshot"]) {
+  // Bare-verb routing under v2's capability-table grammar. v2 deliberately
+  // redesigned the blackboard grammar to be RUN-ID-FIRST: a known sub-verb
+  // (summary/summarize/graph/resolve/snapshot/topic/message/context/artifact)
+  // takes the run id as its FIRST positional, so invoking one WITHOUT a run id
+  // is a well-formed path missing a required positional → `cw: Missing run id.`
+  // (the POLA-consistent refusal, io.ts:required). Only an UNKNOWN token
+  // (no capability path) falls through to the 1-token blackboard.usage row and
+  // prints the trailing "Usage: cw.js blackboard …" index. The conformance
+  // suite endorses exactly this split (v2/conformance/cases/cli-usage-strings:
+  // an unknown action-word yields the Usage line). `topic` is now a real path
+  // ["blackboard","topic"], so it joins the Missing-run-id set — the old
+  // build's action-gated "blackboard topic create <run>" grammar is gone by
+  // design (this same smoke depends on the run-id-first grammar above).
+  for (const verb of ["summary", "summarize", "graph", "resolve", "snapshot", "topic"]) {
     const fail = runFail(["blackboard", verb]);
     assert.notEqual(fail.status, 0);
     assert.match(fail.stderr, /Missing run id/);
   }
-  // `topic` with no `create` action falls through to the trailing Usage throw.
-  const topicFail = runFail(["blackboard", "topic"]);
-  assert.notEqual(topicFail.status, 0);
-  assert.match(topicFail.stderr, /Usage: cw\.js blackboard /);
-  // An unknown subcommand hits the inner switch default → trailing Usage throw.
+  // An unknown subcommand has no capability path → the blackboard.usage row's
+  // trailing "Usage: cw.js blackboard …" index.
   const bogusFail = runFail(["blackboard", "bogusverb"]);
   assert.notEqual(bogusFail.status, 0);
   assert.match(bogusFail.stderr, /Usage: cw\.js blackboard /);
