@@ -1200,7 +1200,11 @@ addCliOnlyCapability(
     handler: (args) => {
       const appId = optionalArg(args.positionals[0]);
       const result = quickstartRun({ ...args.options, appId }) as unknown as Record<string, unknown>;
-      const exitCode = result.mode === "check" && result.ok === false ? 1 : undefined;
+      // Fail closed on both known bad outcomes: a --check preflight that
+      // found a blocking gap, OR a --bundle that did not self-verify.
+      const bundle = result.bundle as { ok?: boolean } | undefined;
+      const bundleFailed = Boolean(bundle && bundle.ok === false);
+      const exitCode = (result.mode === "check" && result.ok === false) || bundleFailed ? 1 : undefined;
       return { json: result, exitCode };
     },
   },

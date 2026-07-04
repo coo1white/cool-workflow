@@ -999,7 +999,11 @@ addCliOnlyCapability("quickstart", "ONE-COMMAND quickstart: --check preflights w
     handler: (args) => {
         const appId = (0, io_3.optionalArg)(args.positionals[0]);
         const result = (0, pipeline_cli_1.quickstartRun)({ ...args.options, appId });
-        const exitCode = result.mode === "check" && result.ok === false ? 1 : undefined;
+        // Fail closed on both known bad outcomes: a --check preflight that
+        // found a blocking gap, OR a --bundle that did not self-verify.
+        const bundle = result.bundle;
+        const bundleFailed = Boolean(bundle && bundle.ok === false);
+        const exitCode = (result.mode === "check" && result.ok === false) || bundleFailed ? 1 : undefined;
         return { json: result, exitCode };
     },
 }, "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.", "quickstart");
