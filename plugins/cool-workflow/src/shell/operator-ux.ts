@@ -284,7 +284,23 @@ function adviseNextSteps(run: WorkflowRun, ctx: { tasks: OperatorTaskSummary; wo
     actions.push({ command: `node scripts/cw.js worker show ${run.id} --worker-id ${failedWorker.id}`, reason: `Worker ${failedWorker.id} failed and needs attention.`, priority: "high" });
   }
   if (ctx.tasks.running.length) {
-    actions.push({ command: `node scripts/cw.js status ${run.id}`, reason: "Tasks are running; check back for completion.", priority: "normal" });
+    // A running task has a live worker scope; point the operator at that
+    // worker's manifest (and its result-record command once result.md is
+    // ready), matching the old build's advice. Falls back to `worker list`
+    // when no running/allocated worker scope is found.
+    const worker = ctx.workers.workers.find((w) => w.status === "running" || w.status === "allocated");
+    actions.push({
+      command: worker ? `node scripts/cw.js worker manifest ${run.id} ${worker.id}` : `node scripts/cw.js worker list ${run.id}`,
+      reason: "Running workers need their manifests inspected and final output recorded.",
+      priority: "high",
+    });
+    if (worker && worker.resultPath) {
+      actions.push({
+        command: `node scripts/cw.js worker output ${run.id} ${worker.id} ${worker.resultPath}`,
+        reason: "Record the worker result after its result.md is ready.",
+        priority: "normal",
+      });
+    }
   }
   if (ctx.tasks.pending.length) {
     actions.push({ command: `node scripts/cw.js dispatch ${run.id} --limit 1`, reason: "Pending tasks are ready to dispatch.", priority: "normal" });

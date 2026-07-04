@@ -53,6 +53,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MAX_SUB_WORKFLOW_DEPTH = exports.DRIVE_SCHEMA_VERSION = void 0;
+exports.maybeExpandLoop = maybeExpandLoop;
 exports.driveStep = driveStep;
 exports.drive = drive;
 exports.drivePreview = drivePreview;
@@ -499,7 +500,10 @@ function compareBytes(a, b) {
  *  accept handles the next. Byte-exact port of the old build's
  *  orchestrator/lifecycle-operations.ts maybeExpandLoop, called there from
  *  recordWorkerOutput; v2's recordWorkerOutput (shell/worker-isolation.ts)
- *  does not expand, so the drive shell wires it in right after an accept. */
+ *  does not expand, so the drive shell wires it in right after an accept.
+ *  Exported so the standalone `cw worker output` CLI verb (worker-cli.ts) can
+ *  run the same round-expansion after a hand-recorded accept, matching the old
+ *  build's recordWorkerOutput wrapper. */
 function maybeExpandLoop(run) {
     for (const phase of [...run.phases]) {
         const originId = phase.loop ? phase.id : phase.loopOrigin;

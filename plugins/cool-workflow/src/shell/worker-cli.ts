@@ -4,7 +4,6 @@
 // worker-isolation shell. Impure: loads run state, mutates, persists.
 
 import * as path from "node:path";
-import { WorkflowRun } from "../core/state/types";
 import { loadRunFromCwd, saveCheckpoint } from "./run-store";
 import {
   getWorkerScope,
@@ -14,6 +13,11 @@ import {
   recordWorkerFailure,
   validateWorkerBoundary,
 } from "./worker-isolation";
+import { updatePhaseStatuses } from "../core/pipeline/dispatch";
+import { maybeExpandLoop } from "./drive";
+import { commitState } from "./commit";
+import { writeReport } from "./report";
+import { summarizeRun } from "./operator-ux";
 
 function cwdFor(args: Record<string, unknown>): string {
   return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
@@ -46,25 +50,26 @@ export function workerManifestCli(args: Record<string, unknown>): unknown {
   return manifest;
 }
 
-/** Task-status rollup carried on the `cw worker output` payload — byte-behavior
- *  port of the old orchestrator recordWorkerOutput's summarizeRun.tasks. Callers
- *  (pdca/run-export) read output.tasks.completed. */
-function taskCounts(run: WorkflowRun): { total: number; pending: number; running: number; failed: number; completed: number } {
-  const tasks = run.tasks as Array<{ status: string }>;
-  return {
-    total: tasks.length,
-    pending: tasks.filter((t) => t.status === "pending").length,
-    running: tasks.filter((t) => t.status === "running").length,
-    failed: tasks.filter((t) => t.status === "failed").length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-  };
-}
-
+/** `cw worker output <run> <worker> <result>` — records the worker's result
+ *  and returns the full RunSummary, a byte-behavior port of the old build's
+ *  orchestrator recordWorkerOutput wrapper (lifecycle-operations.ts). The bare
+ *  accept (worker-isolation.recordWorkerOutput) only mutates the worker/task;
+ *  the operator-facing verb ALSO advances the run: loopStage -> observe, refresh
+ *  phase statuses, expand a bounded loop round if one is ready, commit the
+ *  accept as its own `worker:<id>:result` checkpoint, and write the report.
+ *  Callers (pdca / run-export / the golden-path smoke) read the RunSummary's
+ *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
+ *  same steps itself around the bare accept, so it never routes through here. */
 export function workerOutputCli(args: Record<string, unknown>): unknown {
   const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
-  const result = recordWorkerOutput(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {});
+  recordWorkerOutput(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {});
+  run.loopStage = "observe";
+  updatePhaseStatuses(run);
+  maybeExpandLoop(run);
+  commitState(run, `worker:${req(args.workerId, "worker id")}:result`);
+  writeReport(run);
   saveCheckpoint(run);
-  return { ...(result as Record<string, unknown>), tasks: taskCounts(run) };
+  return summarizeRun(run);
 }
 
 export function workerFailCli(args: Record<string, unknown>): unknown {

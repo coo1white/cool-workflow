@@ -561,8 +561,11 @@ function compareBytes(a: string, b: string): number {
  *  accept handles the next. Byte-exact port of the old build's
  *  orchestrator/lifecycle-operations.ts maybeExpandLoop, called there from
  *  recordWorkerOutput; v2's recordWorkerOutput (shell/worker-isolation.ts)
- *  does not expand, so the drive shell wires it in right after an accept. */
-function maybeExpandLoop(run: WorkflowRun): void {
+ *  does not expand, so the drive shell wires it in right after an accept.
+ *  Exported so the standalone `cw worker output` CLI verb (worker-cli.ts) can
+ *  run the same round-expansion after a hand-recorded accept, matching the old
+ *  build's recordWorkerOutput wrapper. */
+export function maybeExpandLoop(run: WorkflowRun): void {
   for (const phase of [...run.phases]) {
     const originId = phase.loop ? phase.id : phase.loopOrigin;
     if (!originId) continue;

@@ -47,6 +47,7 @@ exports.checkState = checkState;
 exports.migrationList = migrationList;
 exports.migrationCheck = migrationCheck;
 exports.migrationProve = migrationProve;
+exports.nextCli = nextCli;
 exports.listNodes = listNodes;
 exports.getRunNode = getRunNode;
 exports.showNode = showNode;
@@ -63,6 +64,7 @@ const run_store_1 = require("./run-store");
 const node_store_1 = require("./node-store");
 const contract_migration_1 = require("../core/state/contract-migration");
 const node_snapshot_1 = require("../core/state/node-snapshot");
+const dispatch_1 = require("../core/pipeline/dispatch");
 function optionalStringArg(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -125,6 +127,21 @@ function migrationProve(target, options = {}) {
 function loadRun(runId, options = {}) {
     const cwd = options.cwd ? path.resolve(String(options.cwd)) : process.cwd();
     return (0, run_store_1.loadRunFromCwd)(runId, cwd);
+}
+function numberOption(value) {
+    if (value === undefined || value === null || value === true)
+        return undefined;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
+}
+/** `cw next <run-id> [--limit N]` — the read-only "what would dispatch next"
+ *  preview: the runnable tasks the next `cw dispatch` would pick, in order,
+ *  without mutating state. A byte-behavior port of the old build's
+ *  orchestrator.next (nextDispatchTasks over the loaded run). Both the CLI and
+ *  the cw_next MCP tool render this same DispatchTask[] value, so their
+ *  payloads stay identical. */
+function nextCli(runId, options = {}) {
+    return (0, dispatch_1.nextDispatchTasks)(loadRun(runId, options), numberOption(options.limit));
 }
 function listNodes(runId, options = {}) {
     return loadRun(runId, options).nodes || [];

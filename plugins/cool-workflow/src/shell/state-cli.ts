@@ -21,6 +21,7 @@ import {
   proveMigration,
 } from "../core/state/contract-migration";
 import { diffNodeSnapshots, verifyNodeReplay } from "../core/state/node-snapshot";
+import { nextDispatchTasks } from "../core/pipeline/dispatch";
 import { StateMigrationReport } from "../core/state/migrations";
 import { WorkflowRun } from "../core/state/types";
 
@@ -98,6 +99,22 @@ export function migrationProve(target: string, options: Record<string, unknown> 
 function loadRun(runId: string, options: Record<string, unknown> = {}): WorkflowRun {
   const cwd = options.cwd ? path.resolve(String(options.cwd)) : process.cwd();
   return loadRunFromCwd(runId, cwd);
+}
+
+function numberOption(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === true) return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** `cw next <run-id> [--limit N]` — the read-only "what would dispatch next"
+ *  preview: the runnable tasks the next `cw dispatch` would pick, in order,
+ *  without mutating state. A byte-behavior port of the old build's
+ *  orchestrator.next (nextDispatchTasks over the loaded run). Both the CLI and
+ *  the cw_next MCP tool render this same DispatchTask[] value, so their
+ *  payloads stay identical. */
+export function nextCli(runId: string, options: Record<string, unknown> = {}) {
+  return nextDispatchTasks(loadRun(runId, options), numberOption(options.limit));
 }
 
 export function listNodes(runId: string, options: Record<string, unknown> = {}): NonNullable<WorkflowRun["nodes"]> {

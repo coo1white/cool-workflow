@@ -12,6 +12,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { WorkflowRun } from "../core/state/types";
+import { tryValidateCandidateScore } from "../core/state/validation";
 import { writeJson, safeFileName } from "./fs-atomic";
 import { MultiAgentOperatorEvidence, summarizeMultiAgentOperator } from "./multi-agent-operator-ux";
 import { listTrustAuditEvents } from "./trust-audit";
@@ -650,9 +651,11 @@ function readAllScores(run: WorkflowRun): Map<string, ScoreLike> {
     if (!fs.existsSync(dir)) continue;
     for (const file of fs.readdirSync(dir).filter((entry) => entry.endsWith(".json")).sort()) {
       try {
-        const parsed = JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as ScoreLike;
-        if (!parsed || typeof parsed.id !== "string" || typeof parsed.normalized !== "number") continue; // fail closed on a malformed/forged score shape
-        scores.set(parsed.id, parsed);
+        // Fail closed on a malformed/forged score shape via the shared core
+        // guard (full field-shape check, not just id/normalized).
+        const parsed = tryValidateCandidateScore(JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")));
+        if (!parsed) continue;
+        scores.set(parsed.id, parsed as unknown as ScoreLike);
       } catch {
         // Unreadable score record: skip; the score gate fails closed.
       }

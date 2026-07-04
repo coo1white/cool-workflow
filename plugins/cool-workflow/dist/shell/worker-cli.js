@@ -46,6 +46,11 @@ exports.workerValidateCli = workerValidateCli;
 const path = __importStar(require("node:path"));
 const run_store_1 = require("./run-store");
 const worker_isolation_1 = require("./worker-isolation");
+const dispatch_1 = require("../core/pipeline/dispatch");
+const drive_1 = require("./drive");
+const commit_1 = require("./commit");
+const report_1 = require("./report");
+const operator_ux_1 = require("./operator-ux");
 function cwdFor(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
@@ -75,24 +80,26 @@ function workerManifestCli(args) {
     (0, run_store_1.saveCheckpoint)(run);
     return manifest;
 }
-/** Task-status rollup carried on the `cw worker output` payload — byte-behavior
- *  port of the old orchestrator recordWorkerOutput's summarizeRun.tasks. Callers
- *  (pdca/run-export) read output.tasks.completed. */
-function taskCounts(run) {
-    const tasks = run.tasks;
-    return {
-        total: tasks.length,
-        pending: tasks.filter((t) => t.status === "pending").length,
-        running: tasks.filter((t) => t.status === "running").length,
-        failed: tasks.filter((t) => t.status === "failed").length,
-        completed: tasks.filter((t) => t.status === "completed").length,
-    };
-}
+/** `cw worker output <run> <worker> <result>` — records the worker's result
+ *  and returns the full RunSummary, a byte-behavior port of the old build's
+ *  orchestrator recordWorkerOutput wrapper (lifecycle-operations.ts). The bare
+ *  accept (worker-isolation.recordWorkerOutput) only mutates the worker/task;
+ *  the operator-facing verb ALSO advances the run: loopStage -> observe, refresh
+ *  phase statuses, expand a bounded loop round if one is ready, commit the
+ *  accept as its own `worker:<id>:result` checkpoint, and write the report.
+ *  Callers (pdca / run-export / the golden-path smoke) read the RunSummary's
+ *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
+ *  same steps itself around the bare accept, so it never routes through here. */
 function workerOutputCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    const result = (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {});
+    (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {});
+    run.loopStage = "observe";
+    (0, dispatch_1.updatePhaseStatuses)(run);
+    (0, drive_1.maybeExpandLoop)(run);
+    (0, commit_1.commitState)(run, `worker:${req(args.workerId, "worker id")}:result`);
+    (0, report_1.writeReport)(run);
     (0, run_store_1.saveCheckpoint)(run);
-    return { ...result, tasks: taskCounts(run) };
+    return (0, operator_ux_1.summarizeRun)(run);
 }
 function workerFailCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));

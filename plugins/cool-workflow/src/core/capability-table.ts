@@ -662,6 +662,7 @@ import {
   migrationCheck,
   migrationList,
   migrationProve,
+  nextCli,
   nodeDiffCli,
   nodeReplayCli,
   nodeReplayVerifyCli,
@@ -3432,11 +3433,9 @@ addCliOnlyCapability(
 attachCliBinding("next", {
   path: ["next"],
   jsonMode: "default",
-  handler: (args) => {
-    const runId = required(optionalArg(args.positionals[0]), "run id");
-    throw new Error(`next is not implemented in this milestone (runId=${runId})`);
-  },
+  handler: (args) => ({ json: nextCli(required(optionalArg(args.positionals[0]), "run id"), args.options) }),
 });
+REGISTRY_BY_CAPABILITY.get("next")!.mcp!.handler = (args) => nextCli(required(optionalArg(args.runId), "run id"), args);
 
 // `ledger.propose`/`.review`/`.verify`/`.apply`/`.list` are documented
 // payload-probe opt-outs in the old build (each mints a fresh timestamped/

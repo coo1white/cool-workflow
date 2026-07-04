@@ -24,6 +24,7 @@ exports.formatEvidenceReasoningReport = formatEvidenceReasoningReport;
 const node_crypto_1 = __importDefault(require("node:crypto"));
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
+const validation_1 = require("../core/state/validation");
 const fs_atomic_1 = require("./fs-atomic");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const trust_audit_1 = require("./trust-audit");
@@ -488,9 +489,11 @@ function readAllScores(run) {
             continue;
         for (const file of node_fs_1.default.readdirSync(dir).filter((entry) => entry.endsWith(".json")).sort()) {
             try {
-                const parsed = JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8"));
-                if (!parsed || typeof parsed.id !== "string" || typeof parsed.normalized !== "number")
-                    continue; // fail closed on a malformed/forged score shape
+                // Fail closed on a malformed/forged score shape via the shared core
+                // guard (full field-shape check, not just id/normalized).
+                const parsed = (0, validation_1.tryValidateCandidateScore)(JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, file), "utf8")));
+                if (!parsed)
+                    continue;
                 scores.set(parsed.id, parsed);
             }
             catch {
