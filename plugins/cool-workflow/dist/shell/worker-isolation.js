@@ -73,6 +73,7 @@ const sandbox_profile_1 = require("./sandbox-profile");
 const registry_1 = require("./execution-backend/registry");
 const error_feedback_io_1 = require("./error-feedback-io");
 const run_store_1 = require("./run-store");
+const multi_agent_io_1 = require("./multi-agent-io");
 const verifier_1 = require("./verifier");
 const runner_1 = require("../core/pipeline/runner");
 const hash_1 = require("../core/hash");
@@ -576,6 +577,13 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     resultNode.evidence = (0, trust_audit_1.normalizeEvidence)(run, resultNode.evidence, { source: "cw-validated", workerId, taskId: task.id, resultNodeId: resultNode.id, auditEventIds: [pathAudit.id, acceptedAudit.id] });
     resultNode = (0, node_store_1.appendRunNode)(run, resultNode);
     task.resultNodeId = resultNode.id;
+    // Multi-agent: if this task belongs to an AgentMembership, sync the membership
+    // to "reported" with this result's evidence so a fanin can see it as complete
+    // (isMembershipReported). No-op for a non-multi-agent task (no membership
+    // matches workerId/taskId). Byte-behavior port of the old accept path.
+    if (task.multiAgent) {
+        (0, multi_agent_io_1.recordMultiAgentWorkerOutput)(run, { workerId, taskId: task.id, resultNodeId: resultNode.id, evidence: resultNode.evidence });
+    }
     if ((0, result_normalize_1.isEmptyCapture)(parsedResult)) {
         (0, trust_audit_1.recordTrustAuditEvent)(run, { kind: "worker.capture-warning", decision: "recorded", source: "cw-validated", workerId, taskId: task.id, nodeId: resultNode.id, parentEventIds: [acceptedAudit.id], metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination } });
     }

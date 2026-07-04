@@ -35,6 +35,7 @@ import { ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/t
 import { attestSandbox, getBackendDescriptor, resolveBackendSelection } from "./execution-backend/registry";
 import { recordFeedback } from "./error-feedback-io";
 import { saveCheckpoint } from "./run-store";
+import { recordMultiAgentWorkerOutput } from "./multi-agent-io";
 import { taskRequiresEvidence } from "./verifier";
 import { runPipelineStage } from "../core/pipeline/runner";
 import { sha256 } from "../core/hash";
@@ -619,6 +620,14 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
   resultNode.evidence = normalizeEvidence(run, resultNode.evidence, { source: "cw-validated", workerId, taskId: task.id, resultNodeId: resultNode.id, auditEventIds: [pathAudit.id, acceptedAudit.id] });
   resultNode = appendRunNode(run, resultNode);
   task.resultNodeId = resultNode.id;
+
+  // Multi-agent: if this task belongs to an AgentMembership, sync the membership
+  // to "reported" with this result's evidence so a fanin can see it as complete
+  // (isMembershipReported). No-op for a non-multi-agent task (no membership
+  // matches workerId/taskId). Byte-behavior port of the old accept path.
+  if (task.multiAgent) {
+    recordMultiAgentWorkerOutput(run, { workerId, taskId: task.id, resultNodeId: resultNode.id, evidence: resultNode.evidence });
+  }
 
   if (isEmptyCapture(parsedResult)) {
     recordTrustAuditEvent(run, { kind: "worker.capture-warning", decision: "recorded", source: "cw-validated", workerId, taskId: task.id, nodeId: resultNode.id, parentEventIds: [acceptedAudit.id], metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination } });
