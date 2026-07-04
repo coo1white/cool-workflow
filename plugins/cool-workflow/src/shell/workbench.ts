@@ -104,6 +104,10 @@ export function buildWorkbenchRunView(runId: string, args: Record<string, unknow
 }
 
 export interface WorkbenchRoute {
+  /** Every route is GET — the host refuses any other verb 405. The label
+   *  is carried per route so a reader of the serve descriptor can see the
+   *  read-only guarantee route by route (old build's WorkbenchRoute.method). */
+  method: "GET";
   path: string;
   description: string;
 }
@@ -136,11 +140,11 @@ export function workbenchUiRoot(): string {
 }
 
 const WORKBENCH_ROUTES: WorkbenchRoute[] = [
-  { path: "/", description: "Index page (or the UI's index.html, when installed)." },
-  { path: "/ui/*", description: "Static Workbench UI assets, when installed." },
-  { path: "/api/index", description: "Read-only index of available runs." },
-  { path: "/api/serve", description: "This serve descriptor." },
-  { path: "/api/run/:runId", description: "The five-panel WorkbenchRunView for one run." },
+  { method: "GET", path: "/", description: "Index page (or the UI's index.html, when installed)." },
+  { method: "GET", path: "/ui/*", description: "Static Workbench UI assets, when installed." },
+  { method: "GET", path: "/api/index", description: "Read-only index of available runs." },
+  { method: "GET", path: "/api/serve", description: "This serve descriptor." },
+  { method: "GET", path: "/api/run/:runId", description: "The five-panel WorkbenchRunView for one run." },
 ];
 
 /** `cw workbench serve [--port N] [--once] [--scope repo|home]` — the
@@ -166,11 +170,27 @@ export function buildWorkbenchServeDescriptor(args: Record<string, unknown> = {}
   };
 }
 
-export function buildWorkbenchIndex(): { schemaVersion: 1; runs: never[] } {
-  // PLACEHOLDER (no conformance case in this milestone's scope exercises
-  // /api/index against a real run registry listing) — a real index would
-  // enumerate the run registry the same way `cw run list` does. Kept
-  // honestly empty rather than fabricated, per the workbench's
-  // fail-closed invariant.
-  return { schemaVersion: 1, runs: [] };
+export interface WorkbenchIndexView {
+  schemaVersion: 1;
+  surface: "workbench";
+  command: "index";
+  scope: "repo" | "home";
+  registry: unknown;
+  runs: unknown;
+}
+
+/** The cross-run index (old build's src/workbench.ts buildWorkbenchIndex):
+ *  the registry index (`cw registry show`) plus the run list (`cw run
+ *  list`), each embedded VERBATIM from its own already-declared capability
+ *  handler — the Workbench adds no new source of truth. Composed the same
+ *  way the panels are (findCapability(...).mcp.handler), so `/api/index`
+ *  can never drift from the standalone `cw` commands. Read-only. */
+export function buildWorkbenchIndex(args: Record<string, unknown> = {}): WorkbenchIndexView {
+  const scope: "repo" | "home" = args.scope === "home" ? "home" : "repo";
+  const scoped = { ...args, scope };
+  const registryRow = findCapability("registry.show");
+  const runListRow = findCapability("run.list");
+  const registry = registryRow?.mcp ? registryRow.mcp.handler(scoped) : undefined;
+  const runs = runListRow?.mcp ? runListRow.mcp.handler(scoped) : [];
+  return { schemaVersion: 1, surface: "workbench", command: "index", scope, registry, runs };
 }

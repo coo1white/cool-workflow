@@ -104,13 +104,46 @@ export function recordHandoff(run: WorkflowRun, input: collab.RecordHandoffInput
   return record;
 }
 
-export function setReviewPolicy(run: WorkflowRun, input: collab.ReviewPolicyInput, options: CollaborationOptions = {}): collab.ReviewGatePolicy {
+/** First defined value among a set of option-name aliases (old wrapper's
+ *  `firstDefined`) — lets a caller pass any of `requiredApprovals`/`required`,
+ *  `authorizedRoles`/`roles`, `allowSelfApproval`/`allow-self-approval`, etc. */
+function firstDefined(source: Record<string, unknown>, ...keys: string[]): unknown {
+  for (const key of keys) {
+    if (source[key] !== undefined) return source[key];
+  }
+  return undefined;
+}
+
+/** The return shape of `setReviewPolicy`: the ReviewGatePolicy itself (so a
+ *  caller can read `.requiredApprovals`/`.authorizedRoles` directly or pass it
+ *  straight into `deriveReviewState` as `{ policy }`), PLUS a `policy`
+ *  self-reference + `schemaVersion`/`surface`/`runId` for the old wrapper's
+ *  report-envelope callers (`result.policy.requiredApprovals`). */
+export type SetReviewPolicyResult = collab.ReviewGatePolicy & {
+  surface: "collaboration";
+  runId: string;
+  policy: collab.ReviewGatePolicy;
+};
+
+export function setReviewPolicy(run: WorkflowRun, input: collab.ReviewPolicyInput, options: CollaborationOptions = {}): SetReviewPolicyResult {
   const state = ensureCollaborationState(run);
-  const policy = collab.buildReviewPolicy(input, state.policy, now());
+  // Resolve the old wrapper's option-name aliases before building the policy,
+  // so `required`/`roles`/`allow-self-approval`/... reach buildReviewPolicy on
+  // the canonical keys. Values are Boolean/number-coerced inside
+  // buildReviewPolicy; undefined aliases fall through to existing/defaults.
+  const raw = input as unknown as Record<string, unknown>;
+  const resolved: collab.ReviewPolicyInput = {
+    requiredApprovals: firstDefined(raw, "requiredApprovals", "required-approvals", "required", "approvals") as collab.ReviewPolicyInput["requiredApprovals"],
+    authorizedRoles: firstDefined(raw, "authorizedRoles", "authorized-roles", "roles") as collab.ReviewPolicyInput["authorizedRoles"],
+    allowSelfApproval: firstDefined(raw, "allowSelfApproval", "allow-self-approval") as collab.ReviewPolicyInput["allowSelfApproval"],
+    requireAttestedActor: firstDefined(raw, "requireAttestedActor", "require-attested-actor") as collab.ReviewPolicyInput["requireAttestedActor"],
+    appliesTo: firstDefined(raw, "appliesTo", "applies-to", "targets") as collab.ReviewPolicyInput["appliesTo"],
+  };
+  const policy = collab.buildReviewPolicy(resolved, state.policy, now());
   state.policy = policy;
   recordTrustAuditEvent(run, { kind: "collaboration.review-policy", decision: "recorded", source: "operator-recorded", metadata: compact({ policyId: policy.id, requiredApprovals: policy.requiredApprovals, authorizedRoles: policy.authorizedRoles, allowSelfApproval: policy.allowSelfApproval, requireAttestedActor: policy.requireAttestedActor, appliesTo: policy.appliesTo }) });
   persist(run, options);
-  return policy;
+  return { ...policy, surface: "collaboration", runId: run.id, policy };
 }
 
 export function resolveReviewPolicy(run: WorkflowRun, policy?: collab.ReviewGatePolicy): collab.ReviewGatePolicy | undefined {
@@ -191,8 +224,23 @@ export function buildReviewStatusReport(run: WorkflowRun, options: { now: string
   };
 }
 
-export function listComments(run: WorkflowRun, target?: collab.CollaborationTarget): collab.CommentRecord[] {
-  return collab.listComments(ensureCollaborationState(run), target);
+/** The read-only comment-list report envelope (old orchestrator wrapper's
+ *  `collaborationCommentList` contract): a stable shape the CLI/MCP and the
+ *  Workbench comment panel all emit, so a bare array can never leak as the
+ *  top-level surface. */
+export interface CommentListReport {
+  schemaVersion: 1;
+  surface: "collaboration";
+  runId: string;
+  target?: collab.CollaborationTarget;
+  count: number;
+  comments: collab.CommentRecord[];
+}
+
+export function listComments(run: WorkflowRun, target?: collab.CollaborationTarget): CommentListReport {
+  const normalized = target ? collab.normalizeTarget(target) : undefined;
+  const comments = collab.listComments(ensureCollaborationState(run), normalized);
+  return { schemaVersion: 1, surface: "collaboration", runId: run.id, ...(normalized ? { target: normalized } : {}), count: comments.length, comments };
 }
 
 export function deriveOwner(run: WorkflowRun): collab.Actor | undefined {
@@ -200,4 +248,12 @@ export function deriveOwner(run: WorkflowRun): collab.Actor | undefined {
 }
 
 export const formatReviewStatus = collab.formatReviewStatus;
-export const formatCommentList = collab.formatCommentList;
+
+/** Format the comment list for humans. Accepts either the bare record array
+ *  (the core formatter's shape) or the `CommentListReport` envelope this
+ *  module now returns, so a caller that passes `listComments(run)` straight
+ *  through still renders the comments (never the envelope's own keys). */
+export function formatCommentList(input: collab.CommentRecord[] | CommentListReport): string {
+  const comments = Array.isArray(input) ? input : input.comments;
+  return collab.formatCommentList(comments);
+}

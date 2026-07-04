@@ -162,6 +162,43 @@ function multiAgentRunArg(args) {
 function groupArg(args) {
     return optionalString(args.groupId ?? args.group ?? args["multi-agent-group"]);
 }
+/** `--blackboard <id>` — byte-exact to the old build's
+ *  `options.blackboard || options.blackboardId` read
+ *  (orchestrator/multi-agent-operations.ts). parseArgv keeps `--blackboard`
+ *  as the literal key `blackboard`; the MCP surface also accepts
+ *  `blackboardId`. */
+function blackboardIdArg(args) {
+    return optionalString(args.blackboard ?? args.blackboardId);
+}
+/** `--topic <id>` (repeatable) — byte-exact to the old build's
+ *  `options.topic || options.topicId || options.topics` read. */
+function topicIdsArg(args) {
+    const raw = args.topic ?? args.topicId ?? args.topics;
+    return arrayArg(raw);
+}
+/** `--sandbox-choice role=profile` (repeatable) — byte-exact port of the old
+ *  build's parseSandboxChoices (orchestrator/cli-options.ts): merges a
+ *  structured `sandboxChoices`/`sandboxProfileChoices` object with repeated
+ *  `--sandbox-choice`/`sandboxChoice` `key=value` pairs, then falls back to a
+ *  bare `--sandbox` as the `default` choice only when no explicit choice was
+ *  given. */
+function parseSandboxChoicesCli(args) {
+    const choices = {};
+    const structured = args.sandboxChoices ?? args.sandboxProfileChoices;
+    if (structured && typeof structured === "object" && !Array.isArray(structured)) {
+        for (const [key, value] of Object.entries(structured))
+            choices[key] = String(value);
+    }
+    for (const entry of arrayArg(args.sandboxChoice ?? args["sandbox-choice"])) {
+        const [key, ...rest] = String(entry).split("=");
+        if (key && rest.length)
+            choices[key] = rest.join("=");
+    }
+    const sandbox = optionalString(args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileId);
+    if (sandbox && !Object.keys(choices).length)
+        choices.default = sandbox;
+    return Object.keys(choices).length ? choices : undefined;
+}
 // ---------------------------------------------------------------------------
 // Topology (catalog — no run needed)
 // ---------------------------------------------------------------------------
@@ -183,14 +220,21 @@ function topologyApplyCli(args) {
     const topologyId = requireArg(args.topologyId ?? args.id, "topology id");
     const run = loadRun(args, runId);
     const record = topio.applyTopology(run, topologyId, {
-        id: optionalString(args.id2),
+        // #30: `topology apply <run> <topology> --id <custom>` — the custom
+        // topology-run id arrives as `--id` (parseArgv key `id`), NOT `id2`
+        // (which no CLI/MCP surface ever emits). On CLI the topology id comes
+        // from positional[1] (capability-table), so `args.id` is free for the
+        // run-id override; on MCP the handler pre-maps topologyId from
+        // `topologyId ?? id`. Byte-exact to the old build's
+        // `id: stringOption(options.id)` (orchestrator/topology-operations.ts).
+        id: optionalString(args.id),
         task: undefined,
         taskIds: arrayArg(args.task ?? args.taskId),
         mapperCount: numberArg(args.mapperCount ?? args["mapper-count"] ?? args.mappers ?? args.mapper),
         judgeCount: numberArg(args.judgeCount ?? args["judge-count"] ?? args.judges ?? args.judge),
         debateRounds: numberArg(args.debateRounds ?? args["debate-rounds"] ?? args.rounds),
-        blackboardId: optionalString(args.blackboardId),
-        multiAgentRunId: optionalString(args.multiAgentRunId),
+        blackboardId: blackboardIdArg(args),
+        multiAgentRunId: multiAgentRunArg(args),
         collectInitialFanin: boolArg(args.collectInitialFanin ?? args["collect-initial-fanin"]),
     });
     persist(run);
@@ -222,7 +266,21 @@ function multiAgentRunCli(args) {
     const topology = optionalString(args.topology);
     let result;
     if (topology === undefined && (args.id !== undefined || args.title !== undefined)) {
-        result = mai.createMultiAgentRun(run, { id: optionalString(args.id), title: optionalString(args.title), objective: optionalString(args.objective) });
+        // #28: forward `--blackboard`/`--topic` (plus the old build's
+        // objective/parent/phase reads) into the kernel input so a plain
+        // `multi-agent run <run> --id ma --blackboard bb --topic t` carries the
+        // blackboard linkage. Byte-exact to the old build's createMultiAgentRun
+        // option map (orchestrator/multi-agent-operations.ts).
+        result = mai.createMultiAgentRun(run, {
+            id: optionalString(args.id),
+            title: optionalString(args.title),
+            objective: optionalString(args.objective ?? args.reason),
+            parentMultiAgentRunId: optionalString(args.parent ?? args.parentMultiAgentRunId),
+            phase: optionalString(args.phase),
+            phaseId: optionalString(args.phaseId),
+            blackboardId: blackboardIdArg(args),
+            topicIds: topicIdsArg(args),
+        });
     }
     else {
         result = host.hostRun(run, args);
@@ -274,15 +332,22 @@ function multiAgentRoleCli(args) {
             throw new Error(`Unknown AgentRole id: ${roleId}`);
         return role;
     }
+    // #29: parseArgv keeps `--required-evidence` etc. as their literal kebab
+    // keys, so the old camelCase-only reads folded to []. Read BOTH the kebab
+    // CLI key and the camelCase MCP alias, byte-exact to the old build's
+    // createAgentRole option map (orchestrator/multi-agent-operations.ts).
     const role = mai.createAgentRole(run, {
         id: optionalString(args.id) ?? roleId,
         multiAgentRunId: requireArg(multiAgentRunId, "multi-agent run id"),
         title: optionalString(args.title),
         responsibilities: arrayArg(args.responsibility ?? args.responsibilities),
-        requiredEvidence: arrayArg(args.requiredEvidence),
-        sandboxProfileHints: arrayArg(args.sandboxProfileHint),
-        expectedArtifacts: arrayArg(args.expectedArtifact),
-        faninObligations: arrayArg(args.faninObligation),
+        requiredEvidence: arrayArg(args.requiredEvidence ?? args["required-evidence"]),
+        sandboxProfileHints: arrayArg(args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileHint ?? args["sandbox-profile"]),
+        expectedArtifacts: arrayArg(args.expectedArtifact ?? args.expectedArtifacts ?? args["expected-artifact"]),
+        faninObligations: arrayArg(args.faninObligation ?? args.faninObligations ?? args["fanin-obligation"]),
+        parentRoleId: optionalString(args.parent ?? args.parentRoleId),
+        blackboardId: blackboardIdArg(args),
+        topicIds: topicIdsArg(args),
     });
     persist(run);
     return role;
@@ -298,12 +363,18 @@ function multiAgentGroupCli(args) {
             throw new Error(`Unknown AgentGroup id: ${groupId}`);
         return group;
     }
+    // #28: forward `--blackboard`/`--topic` (plus phaseId/parent) into the
+    // kernel input. Byte-exact to the old createAgentGroup option map.
     const group = mai.createAgentGroup(run, {
         id: optionalString(args.id) ?? groupId,
         multiAgentRunId: requireArg(multiAgentRunId, "multi-agent run id"),
         title: optionalString(args.title),
         phase: optionalString(args.phase),
-        taskIds: arrayArg(args.task ?? args.taskId),
+        phaseId: optionalString(args.phaseId),
+        taskIds: arrayArg(args.task ?? args.taskId ?? args.tasks),
+        parentGroupId: optionalString(args.parent ?? args.parentGroupId),
+        blackboardId: blackboardIdArg(args),
+        topicIds: topicIdsArg(args),
     });
     persist(run);
     return group;
@@ -320,14 +391,20 @@ function multiAgentMembershipCli(args) {
             throw new Error(`Unknown AgentMembership id: ${membershipId}`);
         return membership;
     }
+    // #28: forward `--blackboard`/`--topic` (plus multiAgentRunId/status) into
+    // the kernel input. Byte-exact to the old assignAgentMembership option map.
     const membership = mai.assignAgentMembership(run, {
         id: optionalString(args.id) ?? membershipId,
+        multiAgentRunId: multiAgentRunArg(args),
         groupId: requireArg(groupId, "group id"),
         roleId: requireArg(roleId, "role id"),
         taskId: requireArg(args.taskId ?? args.task, "task id"),
         workerId: optionalString(args.workerId ?? args.worker),
-        dispatchId: optionalString(args.dispatchId),
-        fanoutId: optionalString(args.fanoutId),
+        dispatchId: optionalString(args.dispatchId ?? args.dispatch),
+        fanoutId: optionalString(args.fanoutId ?? args.fanout ?? args["multi-agent-fanout"]),
+        status: optionalString(args.status),
+        blackboardId: blackboardIdArg(args),
+        topicIds: topicIdsArg(args),
     });
     persist(run);
     return membership;
@@ -343,13 +420,26 @@ function multiAgentFanoutCli(args) {
             throw new Error(`Unknown AgentFanout id: ${fanoutId}`);
         return fanout;
     }
+    // #28: forward `--blackboard`/`--topic` so `fanout.blackboardId` inherits
+    // the board (kernel: input.blackboardId || group.blackboardId ||
+    // multiAgentRun.blackboardId). Also port the old build's fuller fanout
+    // reads (multiAgentRunId, workerIds/membershipIds/dispatchIds,
+    // sandboxProfileChoices, expectedReturnShape).
     const fanout = mai.createAgentFanout(run, {
         id: optionalString(args.id) ?? fanoutId,
+        multiAgentRunId: multiAgentRunArg(args),
         groupId: requireArg(groupId, "group id"),
         reason: requireArg(args.reason, "reason"),
-        roleIds: arrayArg(args.role ?? args.roleId),
-        taskIds: arrayArg(args.task ?? args.taskId),
-        concurrencyLimit: numberArg(args.limit),
+        roleIds: arrayArg(args.role ?? args.roleId ?? args.roles),
+        taskIds: arrayArg(args.task ?? args.taskId ?? args.tasks),
+        workerIds: arrayArg(args.worker ?? args.workerId ?? args.workers),
+        membershipIds: arrayArg(args.membership ?? args.membershipId ?? args.memberships),
+        dispatchIds: arrayArg(args.dispatch ?? args.dispatchId ?? args.dispatches),
+        concurrencyLimit: numberArg(args.limit ?? args.concurrency ?? args.concurrencyLimit),
+        sandboxProfileChoices: parseSandboxChoicesCli(args),
+        expectedReturnShape: optionalString(args.expectedReturnShape ?? args["expected-return-shape"]),
+        blackboardId: blackboardIdArg(args),
+        topicIds: topicIdsArg(args),
     });
     persist(run);
     return fanout;
@@ -366,12 +456,18 @@ function multiAgentFaninCli(args) {
             throw new Error(`Unknown AgentFanin id: ${faninId}`);
         return fanin;
     }
+    // #29: `--required-role` folds to the kebab key `required-role`; read the
+    // kebab + camelCase aliases. #28: forward `--blackboard`/`--topic` +
+    // multiAgentRunId. Byte-exact to the old collectAgentFanin option map.
     const fanin = mai.collectAgentFanin(run, {
         id: optionalString(args.id) ?? faninId,
+        multiAgentRunId: multiAgentRunArg(args),
         groupId,
         fanoutId,
-        requiredRoleIds: arrayArg(args.requiredRole),
+        requiredRoleIds: arrayArg(args.requiredRole ?? args.requiredRoleId ?? args["required-role"]),
         strategy: optionalString(args.strategy),
+        blackboardId: blackboardIdArg(args),
+        topicIds: topicIdsArg(args),
     });
     persist(run);
     return fanin;

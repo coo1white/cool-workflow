@@ -545,7 +545,13 @@ function workflowAppRunMetadata(app) {
         summary: app.summary,
         version: app.version,
         author: app.author,
+        // compatibility + metadata ride into run.workflow.app so report.md can
+        // render the domain-gated "- Source:" label (metadata.domain ===
+        // "research") and downstream tools can read the app's compatibility
+        // window. Byte-behavior port of the old build's workflowAppRunMetadata.
+        compatibility: app.compatibility,
         sandboxProfiles: app.sandboxProfiles,
         source: { manifestPath: app.sourcePath },
+        metadata: app.metadata,
     };
 }

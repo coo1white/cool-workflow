@@ -130,11 +130,11 @@ function workbenchUiRoot() {
     return path.join(process.cwd(), exports.WORKBENCH_UI_RELATIVE);
 }
 const WORKBENCH_ROUTES = [
-    { path: "/", description: "Index page (or the UI's index.html, when installed)." },
-    { path: "/ui/*", description: "Static Workbench UI assets, when installed." },
-    { path: "/api/index", description: "Read-only index of available runs." },
-    { path: "/api/serve", description: "This serve descriptor." },
-    { path: "/api/run/:runId", description: "The five-panel WorkbenchRunView for one run." },
+    { method: "GET", path: "/", description: "Index page (or the UI's index.html, when installed)." },
+    { method: "GET", path: "/ui/*", description: "Static Workbench UI assets, when installed." },
+    { method: "GET", path: "/api/index", description: "Read-only index of available runs." },
+    { method: "GET", path: "/api/serve", description: "This serve descriptor." },
+    { method: "GET", path: "/api/run/:runId", description: "The five-panel WorkbenchRunView for one run." },
 ];
 /** `cw workbench serve [--port N] [--once] [--scope repo|home]` — the
  *  serve descriptor. Building this never starts a listener; the caller
@@ -158,11 +158,18 @@ function buildWorkbenchServeDescriptor(args = {}, boundPort) {
         routes: WORKBENCH_ROUTES,
     };
 }
-function buildWorkbenchIndex() {
-    // PLACEHOLDER (no conformance case in this milestone's scope exercises
-    // /api/index against a real run registry listing) — a real index would
-    // enumerate the run registry the same way `cw run list` does. Kept
-    // honestly empty rather than fabricated, per the workbench's
-    // fail-closed invariant.
-    return { schemaVersion: 1, runs: [] };
+/** The cross-run index (old build's src/workbench.ts buildWorkbenchIndex):
+ *  the registry index (`cw registry show`) plus the run list (`cw run
+ *  list`), each embedded VERBATIM from its own already-declared capability
+ *  handler — the Workbench adds no new source of truth. Composed the same
+ *  way the panels are (findCapability(...).mcp.handler), so `/api/index`
+ *  can never drift from the standalone `cw` commands. Read-only. */
+function buildWorkbenchIndex(args = {}) {
+    const scope = args.scope === "home" ? "home" : "repo";
+    const scoped = { ...args, scope };
+    const registryRow = (0, capability_table_1.findCapability)("registry.show");
+    const runListRow = (0, capability_table_1.findCapability)("run.list");
+    const registry = registryRow?.mcp ? registryRow.mcp.handler(scoped) : undefined;
+    const runs = runListRow?.mcp ? runListRow.mcp.handler(scoped) : [];
+    return { schemaVersion: 1, surface: "workbench", command: "index", scope, registry, runs };
 }

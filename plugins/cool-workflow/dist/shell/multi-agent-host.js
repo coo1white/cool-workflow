@@ -35,6 +35,7 @@ const topology_io_1 = require("./topology-io");
 const candidate_scoring_io_1 = require("./candidate-scoring-io");
 const trust_policy_io_1 = require("./trust-policy-io");
 const trust_audit_1 = require("./trust-audit");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 function unique(values) {
     return [...new Set(values.filter((value) => value !== undefined && value !== null))];
 }
@@ -345,7 +346,7 @@ function envelope(run, command, options = {}) {
         evidenceRequirements: evidenceRequirements(active, multiAgent.blockedReasons),
         ids,
         paths: { statePath: run.paths.state, reportPath: run.paths.report, blackboardIndexPath: blackboard.indexPath, auditSummaryPath: run.audit?.summaryPath, auditEventLogPath: run.audit?.eventLogPath, candidateRankingPath: candidates.latestRankingPath, workerManifestPaths: workers.manifestPaths, workerResultPaths: workers.resultPaths },
-        summaries: { topologies, multiAgent, multiAgentOperator: {}, blackboard, workers, candidates, feedback, commits, trust },
+        summaries: { topologies, multiAgent, multiAgentOperator: (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run), blackboard, workers, candidates, feedback, commits, trust },
         data: options.data,
     };
 }

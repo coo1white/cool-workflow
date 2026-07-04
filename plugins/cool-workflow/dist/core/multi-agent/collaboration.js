@@ -127,7 +127,7 @@ function buildApproval(input, approvalCount, runId, now, auditEventId) {
 function buildComment(input, commentCount, runId, now, auditEventId) {
     const actor = normalizeActor(input);
     const target = normalizeTarget(input.target);
-    const body = trimmed(input.body);
+    const body = trimmed(input.body) || trimmed(input.message) || trimmed(input.text);
     if (!body)
         throw new Error("Comment body is required");
     const threadId = trimmed(input.threadId) || `${target.kind}:${target.id}`;
@@ -165,6 +165,11 @@ function buildHandoff(input, handoffCount, runId, now, auditEventId) {
         auditEventIds: [auditEventId],
     });
 }
+/** Boolean-coerce a defined tri-state flag; leave `undefined` alone so the
+ *  caller's `?? existing ?? default` chain still governs an unset flag. */
+function coerceFlag(value) {
+    return value === undefined ? undefined : Boolean(value);
+}
 function toNumber(value, fallback) {
     if (value === undefined || value === null || value === "" || value === true)
         return fallback;
@@ -195,8 +200,8 @@ function buildReviewPolicy(input, existing, now) {
         id: existing?.id || createCollabId("policy", 0),
         requiredApprovals: Math.max(0, Math.floor(toNumber(input.requiredApprovals, existing?.requiredApprovals ?? 0))),
         authorizedRoles: toStringList(input.authorizedRoles, existing?.authorizedRoles ?? ["*"]),
-        allowSelfApproval: input.allowSelfApproval ?? existing?.allowSelfApproval ?? false,
-        requireAttestedActor: input.requireAttestedActor ?? existing?.requireAttestedActor ?? false,
+        allowSelfApproval: coerceFlag(input.allowSelfApproval) ?? existing?.allowSelfApproval ?? false,
+        requireAttestedActor: coerceFlag(input.requireAttestedActor) ?? existing?.requireAttestedActor ?? false,
         appliesTo: toTargetKindList(input.appliesTo, existing?.appliesTo ?? ["commit"]),
         updatedAt: now,
     };

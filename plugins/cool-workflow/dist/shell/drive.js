@@ -64,6 +64,11 @@ const dispatch_1 = require("../core/pipeline/dispatch");
 const run_store_1 = require("./run-store");
 const dispatch_2 = require("./dispatch");
 const worker_isolation_1 = require("./worker-isolation");
+const state_node_1 = require("../core/state/state-node");
+const node_store_1 = require("./node-store");
+const runner_1 = require("../core/pipeline/runner");
+const harness_1 = require("./harness");
+const term_1 = require("./term");
 const commit_1 = require("./commit");
 const report_1 = require("./report");
 const agent_config_1 = require("./agent-config");
@@ -75,6 +80,36 @@ const pipeline_1 = require("./pipeline");
 const reporter_1 = require("./reporter");
 const fs_atomic_1 = require("./fs-atomic");
 const observability_1 = require("./observability");
+const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
+/** Total RECORDED tokens across the run's attested units, reading the
+ *  agent-reported usage through normalizeReportedUsage so a hop that
+ *  reported snake_case buckets (`input_tokens`/`output_tokens`, the shape
+ *  parseAgentReport hands back verbatim) is counted — not silently zeroed.
+ *  Reuses deriveUsageTotals' own unit selection (its `rows` are the
+ *  deduped attested units) so worker-vs-task double-counting stays fixed;
+ *  only the key-reading is corrected here. The old build normalized at
+ *  store time in worker-accept/verifier-completion.ts; v2 stores the raw
+ *  reportedUsage, so the drive's budget accounting normalizes at read
+ *  time — same net RECORDED total, same fail-closed backstop. */
+function recordedTokenTotal(run) {
+    let total = 0;
+    for (const row of (0, observability_1.deriveUsageTotals)(run).rows) {
+        const usage = row.usage;
+        if (!usage)
+            continue;
+        const declared = usage.totalTokens;
+        if (typeof declared === "number") {
+            total += declared;
+            continue;
+        }
+        const n = (0, telemetry_attestation_1.normalizeReportedUsage)(usage);
+        if (typeof n.totalTokens === "number")
+            total += n.totalTokens;
+        else
+            total += (n.inputTokens || 0) + (n.outputTokens || 0);
+    }
+    return total;
+}
 /** Token-budget gate input: enforce limits.tokenBudget against RECORDED usage,
  *  not a hardcoded zero. Returns undefined when no positive budget is set so the
  *  gate is a no-op. Spent = the run's total recorded tokens. */
@@ -82,7 +117,7 @@ function tokenBudgetUsage(run) {
     const budget = run.workflow.limits?.tokenBudget;
     if (!budget || budget <= 0)
         return undefined;
-    return { spent: (0, observability_1.deriveUsageTotals)(run).totals.totalTokens, budget };
+    return { spent: recordedTokenTotal(run), budget };
 }
 exports.DRIVE_SCHEMA_VERSION = 1;
 exports.MAX_SUB_WORKFLOW_DEPTH = 4;
@@ -221,6 +256,12 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     let dispatched = false;
     if (selected.status === "pending") {
         const manifest = (0, dispatch_2.createDispatchManifest)(run, 1, { backendId: selected.agentType || "agent" });
+        // Advance the RUN-level lifecycle stage on dispatch, exactly as the old
+        // build's orchestrator dispatch() wrapper did (run.loopStage = "act").
+        // The operator status "Stage:" line reads run.loopStage; v2's shell/
+        // dispatch.ts advances the task/node loopStage but never the run, so a
+        // driven run's operator status stayed frozen at "interpret".
+        run.loopStage = "act";
         // Byte-exact to the old build's orchestrator dispatch() wrapper: a
         // successful dispatch is its own checkpoint commit (reason
         // `dispatch:<dispatch-id>`), not just a bare saveCheckpoint — SPEC/
@@ -262,6 +303,14 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         try {
             fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
             (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+            // Advance the run lifecycle stage on accept, as the old build's
+            // recordWorkerOutput wrapper did (run.loopStage = "observe").
+            run.loopStage = "observe";
+            // Bounded dynamic loops: after a round's tasks complete, evaluate the
+            // predicate and either append the next round or mark the loop done —
+            // folded into this same worker:<id>:result checkpoint, exactly as the
+            // old build's recordWorkerOutput wrapper did (no-op for non-loop runs).
+            maybeExpandLoop(run);
             // Byte-exact to the old build's orchestrator recordWorkerOutput()
             // wrapper: an accepted result is its own checkpoint commit (reason
             // `worker:<worker-id>:result`), not just a bare saveCheckpoint.
@@ -320,6 +369,11 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
             },
             requireAttestedTelemetry: ctx.config.requireAttestedTelemetry,
         });
+        // Advance the run lifecycle stage on accept (old build: "observe").
+        run.loopStage = "observe";
+        // Bounded dynamic loops: same round-boundary evaluation the old build's
+        // recordWorkerOutput wrapper performed, folded into this checkpoint.
+        maybeExpandLoop(run);
         if (!deferPersist) {
             (0, commit_1.commitState)(run, `worker:${workerId}:result`);
             (0, run_store_1.saveCheckpoint)(run);
@@ -382,6 +436,11 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
     try {
         fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
         (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+        // Advance the run lifecycle stage on accept (old build: "observe").
+        run.loopStage = "observe";
+        // Bounded dynamic loops: evaluate the round boundary in the same
+        // checkpoint (no-op unless this task's phase is a loop round).
+        maybeExpandLoop(run);
         if (!deferPersist) {
             (0, commit_1.commitState)(run, `worker:${workerId}:result`);
             (0, run_store_1.saveCheckpoint)(run);
@@ -392,12 +451,122 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
     }
     return (0, drive_decide_1.makeStep)("accept", "ok", { runId: run.id, taskId: selected.id, phase: selected.phase, handleKind: "sub-workflow", reason: `sub-workflow ${spec.appId} → ${childRun.id}` });
 }
+/** Byte-stable string order for anything that flows into a recorded
+ *  loop-control decision (POLA: deterministic across runs/locales). */
+function compareBytes(a, b) {
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+/** Bounded dynamic loop expansion — the shell half of the loop runtime.
+ *  After a worker result is recorded (mutating `run` in memory), if the
+ *  just-completed phase is the LATEST round of a loop whose origin is not
+ *  yet done and all that round's tasks completed, evaluate the pure stop
+ *  decision (evaluateLoopStop) and either append the next round (clone the
+ *  round-1 template tasks into a fresh phase, materialized like plan()
+ *  does — task files + a plan-stage node per new task) or mark the loop
+ *  done. One deterministic `loop-control` node is recorded per round
+ *  boundary — the replay source of truth. No-op when the run has no loop
+ *  phases (POLA). Expands at most ONE loop boundary per call; the next
+ *  accept handles the next. Byte-exact port of the old build's
+ *  orchestrator/lifecycle-operations.ts maybeExpandLoop, called there from
+ *  recordWorkerOutput; v2's recordWorkerOutput (shell/worker-isolation.ts)
+ *  does not expand, so the drive shell wires it in right after an accept. */
+function maybeExpandLoop(run) {
+    for (const phase of [...run.phases]) {
+        const originId = phase.loop ? phase.id : phase.loopOrigin;
+        if (!originId)
+            continue;
+        const origin = run.phases.find((p) => p.id === originId);
+        if (!origin || !origin.loop || origin.loopDone)
+            continue;
+        // Act only from the LATEST round phase of this loop.
+        const loopPhases = run.phases.filter((p) => p.id === originId || p.loopOrigin === originId);
+        const latest = loopPhases.reduce((a, b) => ((b.loopRound || 1) >= (a.loopRound || 1) ? b : a));
+        if (phase.id !== latest.id)
+            continue;
+        const roundTasks = run.tasks.filter((t) => latest.taskIds.includes(t.id));
+        if (roundTasks.length === 0 || !roundTasks.every((t) => t.status === "completed"))
+            continue;
+        const round = latest.loopRound || 1;
+        const ordered = (tasks) => tasks
+            .slice()
+            .sort((a, b) => compareBytes(a.id, b.id))
+            .map((t) => t.result);
+        const roundResults = ordered(roundTasks);
+        const allLoopTasks = run.tasks.filter((t) => t.status === "completed" && loopPhases.some((p) => p.taskIds.includes(t.id)));
+        const allResults = ordered(allLoopTasks);
+        const ctx = {
+            round,
+            roundResults,
+            allResults,
+            // budget-target scaling counts RECORDED tokens; read them through the
+            // same normalizer the CAP gate uses so a snake_case reportedUsage hop
+            // is counted (evaluateLoopStop reads usageTotals.totalTokens).
+            usageTotals: { totalTokens: recordedTokenTotal(run) },
+            inputs: run.inputs,
+        };
+        const decision = (0, loop_expansion_1.evaluateLoopStop)(origin, round, ctx);
+        const until = origin.loop.until;
+        // Record the decision under a deterministic id (the replay source of truth).
+        (0, node_store_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
+            id: (0, loop_expansion_1.loopControlNodeId)(run.id, originId, round),
+            kind: "loop-control",
+            status: "completed",
+            loopStage: "adjust",
+            outputs: { round, done: decision.done, atCap: decision.atCap, reason: decision.reason },
+            metadata: {
+                originPhaseId: originId,
+                until: until.kind === "predicate" ? until.ref : `budget-target:${until.target}`,
+                round,
+                done: decision.done,
+                atCap: decision.atCap,
+                reason: decision.reason,
+            },
+        }));
+        if (decision.done) {
+            origin.loopDone = true;
+            return;
+        }
+        // Expand: clone the ROUND-1 template tasks into a fresh phase appended
+        // right after the latest round.
+        const nextRound = round + 1;
+        const templateTasks = run.tasks.filter((t) => origin.taskIds.includes(t.id));
+        const { phase: nextPhase, tasks: newTasks } = (0, loop_expansion_1.cloneLoopRoundTasks)(origin, templateTasks, nextRound);
+        const insertAt = run.phases.findIndex((p) => p.id === latest.id);
+        run.phases.splice(insertAt + 1, 0, nextPhase);
+        run.tasks.push(...newTasks);
+        // Materialize: task files + a plan-stage node per new task (mirrors plan()).
+        (0, harness_1.writeTaskFiles)(run);
+        const inputNodeId = `${run.id}:input`;
+        for (const t of newTasks) {
+            const result = (0, runner_1.runPipelineStage)(run, "plan", inputNodeId, {
+                outputNodeId: `${run.id}:task:${t.id}`,
+                outputStatus: "pending",
+                loopStage: "interpret",
+                artifacts: [{ id: "task", kind: "markdown", path: t.taskPath }],
+                metadata: {
+                    workflowId: run.workflow.id,
+                    taskId: t.id,
+                    phase: t.phase,
+                    taskKind: t.kind,
+                    requiresEvidence: t.requiresEvidence,
+                    sandboxProfileId: t.sandboxProfileId,
+                },
+            }, { persist: false, persistNode: (r, node) => void (0, node_store_1.appendRunNode)(r, node) });
+            t.stateNodeId = result.outputNodeId;
+        }
+        (0, dispatch_1.updatePhaseStatuses)(run);
+        return;
+    }
+}
 /** One deterministic drive step. */
 function driveStep(ctx) {
     const run = loadRun(ctx);
     const selected = (0, drive_decide_1.selectDriveTask)(run);
     const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
     if (gate.kind === "commit") {
+        // Terminal commit: advance the run lifecycle stage as the old build's
+        // commit() wrapper did (run.loopStage = "checkpoint").
+        run.loopStage = "checkpoint";
         const commit = (0, commit_1.commitState)(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) });
         (0, report_1.writeReport)(run);
         (0, run_store_1.saveCheckpoint)(run);
@@ -550,6 +719,37 @@ function drive(runId, cwd, options = {}) {
     const run0 = loadRun(ctx);
     const plannedWorkers = run0.tasks.length;
     const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), drive_decide_1.DEFAULT_SCHEDULING_POLICY);
+    // Phase-boundary progress (brew-style): announce each phase when it
+    // becomes active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess
+    // ⇉ (3/6)`. Describes CW's OWN phases (vendor-neutral); goes to stderr
+    // via emitProgress so stdout stays clean data. Byte-exact port of the
+    // old build's src/drive.ts emitPhaseProgress. term.phaseProgressLine
+    // renders the line; this closure decides WHEN to emit each boundary.
+    const announcedPhaseComplete = new Set();
+    let activePhaseId;
+    const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+    const emitPhaseProgress = (run) => {
+        for (const ph of run.phases || []) {
+            const phaseTasks = run.tasks.filter((task) => ph.taskIds.includes(task.id));
+            const total = phaseTasks.length;
+            if (total === 0)
+                continue;
+            const done = phaseTasks.filter((task) => task.status === "completed").length;
+            const label = titleCase(ph.name || ph.id);
+            if (done >= total) {
+                if (!announcedPhaseComplete.has(ph.id)) {
+                    announcedPhaseComplete.add(ph.id);
+                    emitProgress((0, term_1.phaseProgressLine)(label, done, total, ph.mode, process.stderr));
+                }
+                continue;
+            }
+            if (ph.id !== activePhaseId) {
+                activePhaseId = ph.id;
+                emitProgress((0, term_1.phaseProgressLine)(label, done, total, ph.mode, process.stderr));
+            }
+            return; // only the first not-yet-complete phase is "active"
+        }
+    };
     let exhaustedMaxIterations = !options.once;
     for (let i = 0; i < maxIter; i++) {
         const width = (0, drive_decide_1.roundWidth)(loadRun(ctx), options.concurrency);
@@ -561,6 +761,10 @@ function drive(runId, cwd, options = {}) {
         const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
         for (const stepResult of roundSteps)
             steps.push(stepResult);
+        // Brew-style phase boundaries: after each round, announce a
+        // newly-active phase and any phase that just finished. Cheap — reuses
+        // the run we just advanced; goes to stderr so stdout stays clean.
+        emitPhaseProgress(loadRun(ctx));
         const last = roundSteps[roundSteps.length - 1];
         if (options.once) {
             exhaustedMaxIterations = false;

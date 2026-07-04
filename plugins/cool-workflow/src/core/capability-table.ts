@@ -747,6 +747,21 @@ attachCliBinding("node.replay.verify", {
   },
 });
 
+// GAP #24: mirror the state-kernel CLI shell fns as MCP handlers (they were
+// declared MCP tool rows but left on notYetImplemented). Arg-name reads copied
+// byte-for-byte from the old build's mcp/tool-call.ts switch arms.
+REGISTRY_BY_CAPABILITY.get("state.check")!.mcp!.handler = (args) => checkState(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("migration.list")!.mcp!.handler = () => migrationList();
+REGISTRY_BY_CAPABILITY.get("migration.check")!.mcp!.handler = (args) => migrationCheck(required(optionalArg(args.target ?? args.runId), "target (run-id or state/app file)"), args);
+REGISTRY_BY_CAPABILITY.get("migration.prove")!.mcp!.handler = (args) => migrationProve(required(optionalArg(args.target ?? args.runId), "target (run-id or state/app file)"), args);
+REGISTRY_BY_CAPABILITY.get("node.list")!.mcp!.handler = (args) => listNodes(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("node.show")!.mcp!.handler = (args) => showNode(required(optionalArg(args.runId), "run id"), required(optionalArg(args.nodeId), "node id"), args);
+REGISTRY_BY_CAPABILITY.get("node.graph")!.mcp!.handler = (args) => graphNodes(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("node.snapshot")!.mcp!.handler = (args) => nodeSnapshotCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.nodeId), "node id"), args);
+REGISTRY_BY_CAPABILITY.get("node.diff")!.mcp!.handler = (args) => nodeDiffCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.baselineSnapshotId ?? args.baseline), "baseline snapshot id"), required(optionalArg(args.candidateSnapshotId ?? args.candidate), "candidate snapshot id"), args);
+REGISTRY_BY_CAPABILITY.get("node.replay")!.mcp!.handler = (args) => nodeReplayCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.snapshotId), "snapshot id"), args);
+REGISTRY_BY_CAPABILITY.get("node.replay.verify")!.mcp!.handler = (args) => nodeReplayVerifyCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.replayId), "replay id"), args);
+
 // `contract.show` is not yet a declared MCP_TOOL_DATA row with a CLI peer
 // wired here (it IS in MCP_TOOL_DATA already); no milestone-3 conformance
 // case reaches it, so it is intentionally left on its placeholder handler
@@ -817,6 +832,7 @@ import {
 } from "../shell/exec-backend-cli";
 import { formatDoctorFixes, formatDoctorReport, runDoctor } from "../shell/doctor";
 import { optionalArg } from "../cli/io";
+import { appRunCli, sandboxChooseCli } from "../shell/app-run-cli";
 
 attachCliBinding("sandbox.list", {
   path: ["sandbox", "list"],
@@ -824,6 +840,13 @@ attachCliBinding("sandbox.list", {
   handler: (args) => ({ json: listSandboxProfilesCli(args.options) }),
 });
 REGISTRY_BY_CAPABILITY.get("sandbox.list")!.mcp!.handler = (args) => listSandboxProfilesCli(args);
+
+// GAP #24: cw_sandbox_choose / cw_sandbox_resolve + cw_app_run were declared
+// MCP-only rows with the notYetImplemented placeholder handler. Wire them to
+// the ported shell bodies (both are MCP-only in the old build — no CLI path).
+REGISTRY_BY_CAPABILITY.get("sandbox.choose")!.mcp!.handler = (args) => sandboxChooseCli(args);
+REGISTRY_BY_CAPABILITY.get("sandbox.resolve")!.mcp!.handler = (args) => sandboxChooseCli(args);
+REGISTRY_BY_CAPABILITY.get("app.run")!.mcp!.handler = (args) => appRunCli(args);
 
 attachCliBinding("sandbox.show", {
   path: ["sandbox", "show"],
@@ -956,6 +979,7 @@ addCliOnlyCapability(
 // ---------------------------------------------------------------------
 
 import { planRun, runDrivePreview, runDriveStep, quickstartRun, dispatchRun, recordResultRun, commitRun } from "../shell/pipeline-cli";
+import { commitSummaryCli } from "../shell/commit-summary";
 
 attachCliBinding("plan", {
   path: ["plan"],
@@ -1042,7 +1066,13 @@ attachCliBinding("run.drive.step", {
 REGISTRY_BY_CAPABILITY.get("run.drive")!.mcp!.handler = (args) => runDrivePreview(args);
 REGISTRY_BY_CAPABILITY.get("run.drive.step")!.mcp!.handler = (args) => runDriveStep(args);
 REGISTRY_BY_CAPABILITY.get("plan")!.mcp!.handler = (args) => planRun(args);
-REGISTRY_BY_CAPABILITY.get("dispatch")!.mcp!.handler = (args) => dispatchRun(args);
+// GAP #24: dispatchRun reads the sandbox profile from `args.sandbox` only
+// (the CLI's --sandbox flag). The cw_dispatch MCP tool also accepts the
+// `sandboxProfile`/`sandboxProfileId` aliases (its declared properties), so
+// normalize them onto `sandbox` here — mirrors the old build's
+// sandboxProfileIdFrom() alias set — before handing off.
+REGISTRY_BY_CAPABILITY.get("dispatch")!.mcp!.handler = (args) =>
+  dispatchRun({ ...args, sandbox: args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileId });
 REGISTRY_BY_CAPABILITY.get("result")!.mcp!.handler = (args) => recordResultRun(args);
 REGISTRY_BY_CAPABILITY.get("commit")!.mcp!.handler = (args) => commitRun(args);
 
@@ -1103,6 +1133,19 @@ attachCliBinding("commit", {
     return { json: commitRun({ ...args.options, runId }) };
   },
 });
+
+// GAP #26: restore `cw commit summary <run-id>` (CLI + help row). The old
+// build had commit.summary with cli path ["commit","summary"] surface "both"
+// (capability-registry.ts:260-266); v2 kept only the cw_commit_summary MCP
+// tool and dropped both the CLI binding and the COMMAND_HELP_ROWS entry, so
+// `cw commit summary` mis-read "summary" as the run id. Path ["commit","summary"]
+// is 2 tokens; dispatch consumes 1, so positionals[0] is the run id.
+attachCliBinding("commit.summary", {
+  path: ["commit", "summary"],
+  jsonMode: "flag",
+  handler: (args) => ({ json: commitSummaryCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+});
+REGISTRY_BY_CAPABILITY.get("commit.summary")!.mcp!.handler = (args) => commitSummaryCli(args);
 
 // ---------------------------------------------------------------------
 // MILESTONE 8 (ledger, telemetry, trust-audit, tamper/bundle demos) CLI
@@ -1527,11 +1570,17 @@ attachCliBinding("blackboard.resolve", {
 });
 REGISTRY_BY_CAPABILITY.get("blackboard.resolve")!.mcp!.handler = (args) => blackboardResolveCli(args);
 
+// GAP #27: binding path ["blackboard","topic"|"message"|"context"|"artifact"]
+// is 2 tokens; cli/dispatch.ts consumes only the leading token, so the
+// handler's positionals are [action, runId, …] — positionals[0] is the
+// ACTION word ("create"/"post"/"list"/"put"/"add"), positionals[1] is the
+// run id. The old build read [subcommand, action, runId] (handlers/blackboard.ts)
+// and took the run id from the 3rd positional; here it is the 2nd.
 attachCliBinding("blackboard.topic.create", {
   path: ["blackboard", "topic"],
   helpPath: ["blackboard", "topic", "create"],
   jsonMode: "default",
-  handler: (args) => ({ json: blackboardTopicCreateCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+  handler: (args) => ({ json: blackboardTopicCreateCli({ ...args.options, runId: required(args.positionals[1], "run id") }) }),
 });
 REGISTRY_BY_CAPABILITY.get("blackboard.topic.create")!.mcp!.handler = (args) => blackboardTopicCreateCli(args);
 
@@ -1540,9 +1589,9 @@ attachCliBinding("blackboard.message.post", {
   helpPath: ["blackboard", "message", "post"],
   jsonMode: "default",
   handler: (args) => {
-    const action = args.positionals[1];
-    if (action === "list") return { json: blackboardMessageListCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
-    return { json: blackboardMessagePostCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+    const action = args.positionals[0];
+    if (action === "list") return { json: blackboardMessageListCli({ ...args.options, runId: required(args.positionals[1], "run id") }) };
+    return { json: blackboardMessagePostCli({ ...args.options, runId: required(args.positionals[1], "run id") }) };
   },
 });
 attachCliBinding("blackboard.message.list", {
@@ -1550,9 +1599,9 @@ attachCliBinding("blackboard.message.list", {
   helpPath: ["blackboard", "message", "list"],
   jsonMode: "default",
   handler: (args) => {
-    const action = args.positionals[1];
-    if (action === "list") return { json: blackboardMessageListCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
-    return { json: blackboardMessagePostCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+    const action = args.positionals[0];
+    if (action === "list") return { json: blackboardMessageListCli({ ...args.options, runId: required(args.positionals[1], "run id") }) };
+    return { json: blackboardMessagePostCli({ ...args.options, runId: required(args.positionals[1], "run id") }) };
   },
 });
 REGISTRY_BY_CAPABILITY.get("blackboard.message.post")!.mcp!.handler = (args) => blackboardMessagePostCli(args);
@@ -1562,7 +1611,7 @@ attachCliBinding("blackboard.context.put", {
   path: ["blackboard", "context"],
   helpPath: ["blackboard", "context", "put"],
   jsonMode: "default",
-  handler: (args) => ({ json: blackboardContextPutCli({ ...args.options, runId: required(args.positionals[0], "run id") }) }),
+  handler: (args) => ({ json: blackboardContextPutCli({ ...args.options, runId: required(args.positionals[1], "run id") }) }),
 });
 REGISTRY_BY_CAPABILITY.get("blackboard.context.put")!.mcp!.handler = (args) => blackboardContextPutCli(args);
 
@@ -1571,9 +1620,9 @@ attachCliBinding("blackboard.artifact.add", {
   helpPath: ["blackboard", "artifact", "add"],
   jsonMode: "default",
   handler: (args) => {
-    const action = args.positionals[1];
-    if (action === "list") return { json: blackboardArtifactListCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
-    return { json: blackboardArtifactAddCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+    const action = args.positionals[0];
+    if (action === "list") return { json: blackboardArtifactListCli({ ...args.options, runId: required(args.positionals[1], "run id") }) };
+    return { json: blackboardArtifactAddCli({ ...args.options, runId: required(args.positionals[1], "run id") }) };
   },
 });
 attachCliBinding("blackboard.artifact.list", {
@@ -1581,9 +1630,9 @@ attachCliBinding("blackboard.artifact.list", {
   helpPath: ["blackboard", "artifact", "list"],
   jsonMode: "default",
   handler: (args) => {
-    const action = args.positionals[1];
-    if (action === "list") return { json: blackboardArtifactListCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
-    return { json: blackboardArtifactAddCli({ ...args.options, runId: required(args.positionals[0], "run id") }) };
+    const action = args.positionals[0];
+    if (action === "list") return { json: blackboardArtifactListCli({ ...args.options, runId: required(args.positionals[1], "run id") }) };
+    return { json: blackboardArtifactAddCli({ ...args.options, runId: required(args.positionals[1], "run id") }) };
   },
 });
 REGISTRY_BY_CAPABILITY.get("blackboard.artifact.add")!.mcp!.handler = (args) => blackboardArtifactAddCli(args);
@@ -1906,6 +1955,20 @@ addCliOnlyCapability(
   },
   "cw schedule is the desktop wall-clock scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_schedule_*), each wired below."
 );
+
+// GAP #24: the cw_schedule_* MCP peers were declared but left on the
+// notYetImplemented placeholder (the "each wired below" comment was never
+// satisfied). Mirror the CLI switch's shell fns; arg-name reads (id/status)
+// copied from the old build's mcp/tool-call.ts scheduler arms.
+REGISTRY_BY_CAPABILITY.get("schedule.create")!.mcp!.handler = (args) => scheduleCreateCli(args);
+REGISTRY_BY_CAPABILITY.get("schedule.list")!.mcp!.handler = (args) => scheduleListCli(args);
+REGISTRY_BY_CAPABILITY.get("schedule.due")!.mcp!.handler = (args) => scheduleDueCli(args);
+REGISTRY_BY_CAPABILITY.get("schedule.complete")!.mcp!.handler = (args) => scheduleCompleteCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.pause")!.mcp!.handler = (args) => schedulePauseCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.resume")!.mcp!.handler = (args) => scheduleResumeCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.run-now")!.mcp!.handler = (args) => scheduleRunNowCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.history")!.mcp!.handler = (args) => scheduleHistoryCli(optionalArg(args.id), args);
+REGISTRY_BY_CAPABILITY.get("schedule.delete")!.mcp!.handler = (args) => scheduleDeleteCli(required(optionalArg(args.id), "schedule id"), args);
 
 // ---- routine ------------------------------------------------------------
 

@@ -79,10 +79,18 @@ function evaluateLoopStop(origin, round, ctx) {
  *  <n>)`. Pure data transform; the caller writes task files + runs the
  *  plan pipeline stage per new task. */
 function cloneLoopRoundTasks(origin, templateTasks, nextRound) {
+    // Round-suffix strips any prior @rN so round 3 clones round 1's base id,
+    // never round 2's suffixed id — byte-exact to the old build's
+    // `t.id.replace(/@r\d+$/, "")` in maybeExpandLoop.
     const suffix = `@r${nextRound}`;
+    const nextPhaseName = `${origin.name} (round ${nextRound})`;
     const tasks = templateTasks.map((task) => ({
         ...task,
-        id: `${task.id}${suffix}`,
+        id: `${task.id.replace(/@r\d+$/, "")}${suffix}`,
+        // The cloned tasks belong to the NEW round phase, not round 1 — the old
+        // build set `phase: nextPhaseName` on every cloned task so progress views
+        // and previousPhaseResultsDigest resolve to the right phase.
+        phase: nextPhaseName,
         status: "pending",
         loopStage: "interpret",
         loopRound: nextRound,
@@ -101,10 +109,10 @@ function cloneLoopRoundTasks(origin, templateTasks, nextRound) {
     }));
     const phase = {
         id: `${origin.id}${suffix}`,
-        name: `${origin.name} (round ${nextRound})`,
+        name: nextPhaseName,
         status: "pending",
         taskIds: tasks.map((t) => t.id),
-        mode: origin.mode,
+        ...(origin.mode ? { mode: origin.mode } : {}),
         loopOrigin: origin.id,
         loopRound: nextRound,
     };

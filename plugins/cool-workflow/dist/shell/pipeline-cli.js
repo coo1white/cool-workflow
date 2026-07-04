@@ -58,6 +58,7 @@ const drive_1 = require("./drive");
 const dispatch_1 = require("./dispatch");
 const commit_1 = require("./commit");
 const worker_isolation_1 = require("./worker-isolation");
+const observability_1 = require("./observability");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const agent_config_1 = require("./agent-config");
@@ -110,15 +111,65 @@ function planInputsFor(args) {
 function invocationCwd(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
+/** True for a value that counts as "not supplied" — byte-exact to the old
+ *  build's cli-options.isMissing (undefined / null / empty string). */
+function isMissingInput(value) {
+    return value === undefined || value === null || value === "";
+}
+/** Resolve a workflow app for `plan`/`run --drive` over the SAME surface `cw
+ *  list` shows — bundled apps AND legacy `<name>.workflow.js` files. The old
+ *  build's plan() resolved via loadWorkflowAppById (full discovery over both the
+ *  workflows/ and apps/ roots — app-operations.ts:64), so any id `cw list`
+ *  surfaces is plannable. v2's fast-path loadWorkflowApp only reads
+ *  apps/<id>/app.json, so a legacy workflow-file wrapper (e.g.
+ *  legacy-research-synthesis) that `list` CAN resolve died with "Workflow app
+ *  not found". Fall back to the full-discovery record (loadWorkflowAppRecordById)
+ *  and adapt it to the minimal LoadedWorkflowApp plan() consumes. */
+function resolveWorkflowAppForPlan(appId) {
+    try {
+        return (0, workflow_app_loader_1.loadWorkflowApp)(appId);
+    }
+    catch (error) {
+        if (!(error instanceof workflow_app_loader_1.WorkflowAppNotFoundError))
+            throw error;
+        const record = (0, workflow_app_loader_1.loadWorkflowAppRecordById)(appId);
+        const author = typeof record.app.author === "string" ? record.app.author : record.app.author?.name;
+        return {
+            id: record.app.id,
+            title: record.app.title,
+            summary: record.app.summary || record.app.workflow.summary || "",
+            version: record.app.version,
+            ...(author !== undefined ? { author } : {}),
+            workflow: record.app.workflow,
+            sandboxProfiles: record.app.sandboxProfiles || record.app.workflow.sandboxProfiles || [],
+            sourcePath: record.source.manifestPath || record.source.path,
+        };
+    }
+}
 /** `cw plan <workflowId>` — real: loads the app, plans a fresh run,
  *  returns the canonical plan summary. */
 function planRun(args) {
     const appId = String(args.workflowId || args.app || QUICKSTART_DEFAULT_APP);
-    if (!args.repo && !args.cwd)
-        args.repo = invocationCwd(args);
-    const app = (0, workflow_app_loader_1.loadWorkflowApp)(appId);
-    const run = (0, pipeline_1.plan)(app, planInputsFor(args));
-    return { schemaVersion: 1, runId: run.id, workflowId: run.workflow.id, statePath: run.paths.state, reportPath: run.paths.report, taskCount: run.tasks.length };
+    // POLA: `cw plan <app>` does NOT default repo to the caller's cwd (unlike the
+    // one-command quickstart). The old build validated required inputs FIRST
+    // (lifecycle-operations.ts validateInputs, message `Missing required input
+    // --<name>`), so a missing --repo surfaces the copy-pasteable `-dir` recovery
+    // line (cli/entry.ts recoveryHint's "missing"+"repo" branch) instead of a
+    // silent cwd-anchored run. Auto-filling repo here would hide that recovery.
+    const app = resolveWorkflowAppForPlan(appId);
+    const planInputs = planInputsFor(args);
+    for (const declared of app.workflow.inputs || []) {
+        if (declared.required && isMissingInput(planInputs[declared.name])) {
+            throw new Error(`Missing required input --${declared.name}`);
+        }
+    }
+    const run = (0, pipeline_1.plan)(app, planInputs);
+    // `pendingTasks` is the canonical plan-payload key both `cw plan` and
+    // `cw_plan` carry (old build src/capability-core.ts:79 planSummary:
+    // `pendingTasks: run.tasks.filter(status === "pending").length`, and
+    // SPEC/workflow-apps.md). `taskCount` stays as a harmless extra.
+    const pendingTasks = run.tasks.filter((task) => task.status === "pending").length;
+    return { schemaVersion: 1, runId: run.id, workflowId: run.workflow.id, statePath: run.paths.state, reportPath: run.paths.report, pendingTasks, taskCount: run.tasks.length };
 }
 function runDrivePreview(args) {
     const runId = String(args.runId || args.run || "");
@@ -274,7 +325,10 @@ function remoteQuickstartCheck(appId, args, candidate) {
 /** `cw quickstart [app] --question ...` — composes plan -> runDrive ->
  *  report in one call. Default app is architecture-review. `--check` is a
  *  read-only preflight that never plans/drives/writes (see
- *  `quickstartCheck` above). */
+ *  `quickstartCheck` above). `--preview` is a read-only next-step
+ *  projection (never drives), `--resume` advances one step (no --run) or
+ *  continues a named run to completion (--run <id>) — both ported byte-for-
+ *  byte from the old build's src/capability-core.ts quickstart(). */
 function quickstartRun(args) {
     const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
     // Remote source: a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
@@ -307,21 +361,45 @@ function quickstartRun(args) {
         if (remoteSource.ref)
             args.sourceRef = remoteSource.ref;
     }
+    // `--resume`: a discoverability flag over the existing continuation. With no
+    // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
+    // copy-pasteable continue line; with `--run <id>`, continue that run to
+    // completion (the default drive). It adds no new execution path. Byte-exact to
+    // the old build's src/capability-core.ts quickstart().
+    const resume = Boolean(args.resume);
+    const existingRunId = String(args.runId || args.run || "");
+    const resumeRunId = resume && existingRunId ? existingRunId : undefined;
+    // `--preview`: read-only, deterministic next-step projection (no spawn, no
+    // commit). Plan a fresh run (the read-only first verb) then project the next
+    // drive step. Never drives.
+    if (Boolean(args.preview)) {
+        let previewRunId = existingRunId;
+        let repoCwd = typeof args.cwd === "string" && args.cwd.trim() ? args.cwd : typeof args.repo === "string" ? args.repo : undefined;
+        if (!previewRunId) {
+            const run = resolveWorkflowAppForPlan(appId);
+            const planned = (0, pipeline_1.plan)(run, planInputsFor(args));
+            previewRunId = planned.id;
+            repoCwd = planned.cwd;
+        }
+        const target = repoCwd && fs.existsSync(repoCwd) ? repoCwd : invocationCwd(args);
+        return (0, drive_1.drivePreview)(previewRunId, target, args);
+    }
     const options = {
-        once: Boolean(args.once),
+        // `--resume` with no run id advances a SINGLE step (reuse `--once`), so a
+        // newcomer WITNESSES the stop-then-resume; `--resume --run <id>` continues to
+        // completion (the default drive). Non-resume paths keep the caller's --once.
+        once: Boolean(args.once) || (resume && !resumeRunId),
         now: typeof args.now === "string" ? args.now : undefined,
         args,
         concurrency: args.concurrency !== undefined ? Number(args.concurrency) : undefined,
         incremental: Boolean(args.incremental),
     };
-    const existingRunId = String(args.runId || args.run || "");
     let run;
     if (existingRunId) {
         run = (0, run_store_1.loadRunFromCwd)(existingRunId, invocationCwd(args));
     }
     else {
-        const app = (0, workflow_app_loader_1.loadWorkflowApp)(appId);
-        run = (0, pipeline_1.plan)(app, planInputsFor(args));
+        run = (0, pipeline_1.plan)(resolveWorkflowAppForPlan(appId), planInputsFor(args));
     }
     const result = (0, drive_1.drive)(run.id, run.cwd, options);
     const finalRun = (0, run_store_1.loadRunFromCwd)(run.id, run.cwd);
@@ -342,15 +420,40 @@ function quickstartRun(args) {
             /* provenance is additive; never fail a completed review over an audit hiccup */
         }
     }
+    // Human-facing triage `hint` (stderr-side; absent on a clean completion so the
+    // default payload is byte-identical). Byte-exact wording to the old build's
+    // src/capability-core.ts quickstart(): the fail-closed "not configured …
+    // DELEGATES" line reaffirms the red line; the resume/once lines are copy-paste
+    // continue commands.
+    let hint;
+    if (!result.agentConfigured) {
+        hint =
+            "agent backend not configured — set CW_AGENT_COMMAND (e.g. \"claude -p\") or pass --agent-command, then re-run. The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.";
+    }
+    else if (result.status === "parked") {
+        hint = `a worker parked past its retry budget — inspect: cw run show ${result.runId}`;
+    }
+    else if (result.status === "blocked") {
+        hint = `the drive is blocked — inspect: cw run drive ${result.runId}`;
+    }
+    else if (result.status === "in-progress") {
+        hint = resume
+            ? `one step advanced — continue: cw quickstart ${appId} --run ${result.runId} --resume`
+            : `one step advanced (--once) — continue: cw quickstart ${appId} --run ${result.runId} --once`;
+    }
     // Byte-exact to the old build's quickstart() return shape
     // (src/capability-core.ts): `appId` is the resolved app id (the
     // argument, or its architecture-review default), distinct from
     // `workflowId` which is the driven run's own workflow id (equal for a
     // top-level run, different for a sub-workflow hop). `remote` is present only
     // for a --link/URL source, so a local-repo run stays byte-identical.
+    // `resumedFrom` is stamped ONLY when an explicit --run was continued
+    // (conditional spread keeps the key absent on the fresh/default path).
     return {
         appId,
         ...result,
+        hint,
+        ...(resumeRunId ? { resumedFrom: resumeRunId } : {}),
         ...(remoteSource
             ? { remote: { url: remoteSource.url, commit: remoteSource.commit, kind: remoteSource.kind, cached: remoteSource.cached, ...(remoteSource.ref ? { ref: remoteSource.ref } : {}) } }
             : {}),
@@ -379,7 +482,36 @@ function recordResultRun(args) {
     if (!fs.existsSync(absolute))
         throw new Error(`Result file does not exist: ${resultPath}`);
     const workerId = String(task.workerId);
-    const output = (0, worker_isolation_1.recordWorkerOutput)(run, workerId, absolute);
+    // Host-attested `cw result <run> <task> <file>` intake: the operator hands CW
+    // an EXTERNAL result file that lives OUTSIDE the worker's read-only write
+    // boundary. The old task-level recordResult (lifecycle-operations.ts:279-280)
+    // COPIED that external file into the run's results area and recorded the
+    // internal path — it never ran the external path through validateSandboxWrite.
+    // v2 collapsed the two intakes into recordWorkerOutput, which sandbox-validates
+    // its input against the worker boundary, so a bare external path is rejected
+    // ("write path is outside sandbox profile <id>"). Restore the copy-in: stage
+    // the operator file at the worker's OWN result.md (which IS inside the write
+    // boundary), then record that internal path exactly like a driven worker.
+    const manifest = (0, worker_isolation_1.showWorkerManifest)(run, workerId);
+    fs.mkdirSync(path.dirname(manifest.resultPath), { recursive: true });
+    fs.copyFileSync(absolute, manifest.resultPath);
+    const output = (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+    // Host-attested token usage (v0.1.31): record it verbatim as provenance when
+    // the operator supplied `--usage-*` flags; CW never synthesizes usage. The old
+    // task-level recordResult set `task.usage = usage` (lifecycle-operations.ts:286)
+    // and its unit was the TASK. v2 records through recordWorkerOutput, which gives
+    // the worker an `output` record — so the observability usage UNIT becomes the
+    // WORKER (deriveUsageTotals reads worker.usage for workers with output, and
+    // EXCLUDES that task). Attach the usage to the worker scope so the report counts
+    // it as an attested unit; also stamp task.usage for byte-parity with the old
+    // task-level record.
+    const usage = (0, observability_1.parseUsageFromArgs)(args, new Date().toISOString());
+    if (usage) {
+        task.usage = usage;
+        const scope = (0, worker_isolation_1.getWorkerScope)(run, workerId);
+        if (scope)
+            scope.usage = usage;
+    }
     // Byte-exact to the old build's orchestrator recordWorkerOutput()
     // wrapper: an accepted result is its own checkpoint commit, not just a
     // bare saveCheckpoint (SPEC/pipeline-run.md's persist-ordering rule).

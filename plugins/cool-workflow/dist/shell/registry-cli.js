@@ -81,6 +81,8 @@ exports.clonesListCli = clonesListCli;
 exports.clonesGcCli = clonesGcCli;
 const path = __importStar(require("node:path"));
 const run_registry_io_1 = require("./run-registry-io");
+const pipeline_1 = require("./pipeline");
+const workflow_app_loader_1 = require("./workflow-app-loader");
 const scheduler_io_1 = require("./scheduler-io");
 const reclamation_io_1 = require("./reclamation-io");
 const pipeline_cli_1 = require("./pipeline-cli");
@@ -218,8 +220,18 @@ function runArchiveCli(runId, options = {}) {
         unarchive: Boolean(options.unarchive),
     });
 }
+/** The CLI/MCP-path run planner: the old build injected the CoolWorkflowRunner
+ *  (its `.plan(appId, inputs)`) as RunRegistry's planner so `cw run rerun` /
+ *  `cw_run_rerun` could plan the new linked run. v2 dismantled that facade, so
+ *  we rebuild the same `.plan(appId, inputs)` surface from the two pieces that
+ *  replaced it: resolve the app object with loadWorkflowApp, then hand it to the
+ *  pure pipeline plan(). Without this, RunRegistry.rerun throws
+ *  "rerun requires a run planner (CoolWorkflowRunner)". */
+function cliRunPlanner() {
+    return { plan: (appId, inputs) => (0, pipeline_1.plan)((0, workflow_app_loader_1.loadWorkflowApp)(appId), inputs) };
+}
 function runRerunCli(runId, options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
+    return new run_registry_io_1.RunRegistry(resolveCwd(options), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
 }
 function historyCli(options = {}) {
     return new run_registry_io_1.RunRegistry(resolveCwd(options)).history({

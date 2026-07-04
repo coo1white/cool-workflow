@@ -94,6 +94,29 @@ function walkUpFor(...tail) {
     }
     return roots;
 }
+/** Walk up from this file's own location and, at each ancestor that looks
+ *  like the package root (has a package.json), yield `<pkgRoot>/<tail>`.
+ *  On a published/globally-installed package the bundled `apps/`+`workflows/`
+ *  sit at the PACKAGE ROOT (`<pkg>/apps`), NOT under a nested
+ *  `plugins/cool-workflow/` segment — walkUpFor above only ever builds the
+ *  nested monorepo path, so a global install found 0 apps. This restores the
+ *  old build's resolvePluginRoot behavior (find the dir with package.json,
+ *  then read `<pluginRoot>/apps`). The loader lives at
+ *  `<pkg>/dist/shell/workflow-app-loader.js`, so `<pkg>` is two hops up. */
+function walkUpForPackageRoot(...tail) {
+    const roots = [];
+    let dir = __dirname;
+    for (let i = 0; i < 8; i++) {
+        if (fs.existsSync(path.join(dir, "package.json"))) {
+            roots.push(path.join(dir, ...tail));
+        }
+        const parent = path.dirname(dir);
+        if (parent === dir)
+            break;
+        dir = parent;
+    }
+    return roots;
+}
 function candidateAppsRoots() {
     const roots = [];
     if (process.env.CW_APPS_DIR)
@@ -102,6 +125,9 @@ function candidateAppsRoots() {
     // plugins/cool-workflow/apps tree (the real bundled apps ship there in
     // this monorepo checkout).
     roots.push(...walkUpFor("apps"));
+    // ...and for the package-root `<pkg>/apps` tree an npm-installed (global or
+    // local) package ships. Placed before the cwd fallback so bundled apps win.
+    roots.push(...walkUpForPackageRoot("apps"));
     roots.push(path.join(process.cwd(), "apps"));
     return roots;
 }
@@ -110,6 +136,7 @@ function candidateWorkflowsRoots() {
     if (process.env.CW_WORKFLOWS_DIR)
         roots.push(path.resolve(process.env.CW_WORKFLOWS_DIR));
     roots.push(...walkUpFor("workflows"));
+    roots.push(...walkUpForPackageRoot("workflows"));
     roots.push(path.join(process.cwd(), "workflows"));
     return roots;
 }
@@ -131,15 +158,45 @@ function authorNameOf(author) {
         return author.name;
     return undefined;
 }
+/** Convert a discovery record (from listWorkflowAppRecords) into the minimal
+ *  LoadedWorkflowApp shape `plan`/`drive` consume. Used as the fallback path
+ *  in loadWorkflowApp so a legacy `<name>.workflow.js` wrapper — which `cw
+ *  list`/`cw app list` already resolve as a record but which has no
+ *  `apps/<id>/app.json` directory — can also be planned by id. Without this,
+ *  `cw plan legacy-research-synthesis` died "Workflow app not found" even
+ *  though `cw list` shows it. */
+function loadedAppFromRecord(record) {
+    const workflowDefinition = record.app.workflow;
+    return {
+        id: record.app.id,
+        title: record.app.title,
+        summary: record.app.summary || workflowDefinition.summary || "",
+        version: record.app.version,
+        author: authorNameOf(record.app.author),
+        workflow: workflowDefinition,
+        sandboxProfiles: record.app.sandboxProfiles || workflowDefinition.sandboxProfiles || [],
+        sourcePath: sourcePathOf(record),
+        compatibility: record.app.compatibility,
+        metadata: record.app.metadata,
+    };
+}
 /** Load one real bundled workflow app by id: reads its `app.json`
  *  manifest, then `require()`s its declared `workflow.entrypoint` factory
  *  file (the same `({workflow, phase, parallel, agent, artifact, input})
  *  => workflow({...})` shape the old build's workflow-api.ts factories
- *  produce), and returns the interpreted WorkflowDefinition. */
+ *  produce), and returns the interpreted WorkflowDefinition. A legacy
+ *  workflow-file id (no `apps/<id>/app.json`) resolves through the record
+ *  fallback below. */
 function loadWorkflowApp(appId) {
     const dir = findAppDir(appId);
-    if (!dir)
-        throw new WorkflowAppNotFoundError(appId);
+    if (!dir) {
+        // No `apps/<id>/app.json` directory: fall back to the full discovery set
+        // (app directories + legacy `<name>.workflow.js` wrappers) so a legacy
+        // workflow-file app id resolves for plan/drive the same way `cw list`
+        // resolves it. loadWorkflowAppRecordById throws WorkflowAppNotFoundError
+        // when nothing matches, preserving the not-found contract.
+        return loadedAppFromRecord(loadWorkflowAppRecordById(appId));
+    }
     const manifestPath = path.join(dir, "app.json");
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
     const entrypointPath = path.resolve(dir, manifest.workflow.entrypoint);
@@ -168,6 +225,12 @@ function loadWorkflowApp(appId) {
         workflow: definition,
         sandboxProfiles: manifest.sandboxProfiles || definition.sandboxProfiles || [],
         sourcePath: manifestPath,
+        // Thread the manifest's compatibility window + metadata (incl. domain)
+        // into the loaded app so workflowAppRunMetadata can stamp them onto
+        // run.workflow.app — this is what lets report.md label a research-domain
+        // run's source line "Source:" instead of "Repository:".
+        compatibility: manifest.compatibility,
+        metadata: manifest.metadata,
     };
 }
 // ---------------------------------------------------------------------

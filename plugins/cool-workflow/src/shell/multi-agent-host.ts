@@ -29,6 +29,7 @@ import { assertMultiAgentActionAllowed, hasAcceptedJudgeRationale, recordJudgeRa
 import { StateEvidence } from "../core/state/types";
 import { CandidateRecord } from "../core/multi-agent/candidate-scoring";
 import { listTrustAuditEvents } from "./trust-audit";
+import { summarizeMultiAgentOperator } from "./multi-agent-operator-ux";
 
 export type HostRunState = "needs-run" | "ready-for-dispatch" | "awaiting-worker-output" | "ready-for-fanin" | "ready-for-scoring" | "ready-for-selection" | "ready-for-commit" | "blocked" | "failed" | "complete";
 
@@ -396,7 +397,7 @@ function envelope(run: WorkflowRun, command: MultiAgentHostResponse["command"], 
     evidenceRequirements: evidenceRequirements(active, multiAgent.blockedReasons),
     ids,
     paths: { statePath: run.paths.state, reportPath: run.paths.report, blackboardIndexPath: blackboard.indexPath, auditSummaryPath: run.audit?.summaryPath, auditEventLogPath: run.audit?.eventLogPath, candidateRankingPath: candidates.latestRankingPath, workerManifestPaths: workers.manifestPaths, workerResultPaths: workers.resultPaths },
-    summaries: { topologies, multiAgent, multiAgentOperator: {}, blackboard, workers, candidates, feedback, commits, trust },
+    summaries: { topologies, multiAgent, multiAgentOperator: summarizeMultiAgentOperator(run), blackboard, workers, candidates, feedback, commits, trust },
     data: options.data,
   };
 }

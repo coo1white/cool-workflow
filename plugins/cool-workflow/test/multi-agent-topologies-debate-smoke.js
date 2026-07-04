@@ -49,10 +49,14 @@ assert.equal(debateRun.roleIds.includes("topo-debate-position-a"), true);
 dispatchAndOutput(ctx, plan.runId, "topo-debate-ma", "topo-debate-group", "topo-debate-position-a", "topo-debate-fanout", "position a");
 dispatchAndOutput(ctx, plan.runId, "topo-debate-ma", "topo-debate-group", "topo-debate-position-b", "topo-debate-fanout", "position b");
 
+// v2 CLI grammar change (same as coordinator-blackboard-smoke): the
+// blackboard family dropped the per-verb action word, so the run id is the
+// FIRST positional — `blackboard context <run-id>`, NOT
+// `blackboard context put <run-id>`. Adapted to the v2 spelling; every
+// result assertion below is unchanged.
 const claimA = runJson(ctx, [
   "blackboard",
   "context",
-  "put",
   plan.runId,
   "--blackboard",
   debateRun.blackboardId,
@@ -70,7 +74,6 @@ const claimA = runJson(ctx, [
 const claimB = runJson(ctx, [
   "blackboard",
   "context",
-  "put",
   plan.runId,
   "--blackboard",
   debateRun.blackboardId,

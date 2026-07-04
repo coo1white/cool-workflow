@@ -233,7 +233,13 @@ export function buildApproval(input: RecordApprovalInput, approvalCount: number,
 
 export interface RecordCommentInput extends ActorInput {
   target: CollaborationTarget;
-  body: string;
+  body?: string;
+  /** Body option-name fallbacks (old orchestrator wrapper contract): when
+   *  `body` is empty the comment text is taken from `message`, then `text`.
+   *  Restored so a caller that only set `message`/`text` still records the
+   *  comment instead of tripping the fail-closed empty-body throw. */
+  message?: string;
+  text?: string;
   threadId?: string;
   parentId?: string;
 }
@@ -241,7 +247,7 @@ export interface RecordCommentInput extends ActorInput {
 export function buildComment(input: RecordCommentInput, commentCount: number, runId: string, now: string, auditEventId: string): CommentRecord {
   const actor = normalizeActor(input);
   const target = normalizeTarget(input.target);
-  const body = trimmed(input.body);
+  const body = trimmed(input.body) || trimmed(input.message) || trimmed(input.text);
   if (!body) throw new Error("Comment body is required");
   const threadId = trimmed(input.threadId) || `${target.kind}:${target.id}`;
   return compact({
@@ -293,11 +299,21 @@ export function buildHandoff(input: RecordHandoffInput, handoffCount: number, ru
 }
 
 export interface ReviewPolicyInput {
-  requiredApprovals?: number;
+  requiredApprovals?: number | string;
   authorizedRoles?: string[] | string;
-  allowSelfApproval?: boolean;
-  requireAttestedActor?: boolean;
+  // Accept a raw string ("true"/"") as well as a real boolean — the old
+  // wrapper coerced CLI string options here (Boolean("true")===true,
+  // Boolean("")===false). buildReviewPolicy Boolean()-coerces when the value
+  // is defined so a string "true" lands as boolean true, never the string.
+  allowSelfApproval?: boolean | string;
+  requireAttestedActor?: boolean | string;
   appliesTo?: CollaborationTargetKind[] | string;
+}
+
+/** Boolean-coerce a defined tri-state flag; leave `undefined` alone so the
+ *  caller's `?? existing ?? default` chain still governs an unset flag. */
+function coerceFlag(value: boolean | string | undefined): boolean | undefined {
+  return value === undefined ? undefined : Boolean(value);
 }
 
 function toNumber(value: unknown, fallback: number): number {
@@ -331,8 +347,8 @@ export function buildReviewPolicy(input: ReviewPolicyInput, existing: ReviewGate
     id: existing?.id || createCollabId("policy", 0),
     requiredApprovals: Math.max(0, Math.floor(toNumber(input.requiredApprovals, existing?.requiredApprovals ?? 0))),
     authorizedRoles: toStringList(input.authorizedRoles, existing?.authorizedRoles ?? ["*"]),
-    allowSelfApproval: input.allowSelfApproval ?? existing?.allowSelfApproval ?? false,
-    requireAttestedActor: input.requireAttestedActor ?? existing?.requireAttestedActor ?? false,
+    allowSelfApproval: coerceFlag(input.allowSelfApproval) ?? existing?.allowSelfApproval ?? false,
+    requireAttestedActor: coerceFlag(input.requireAttestedActor) ?? existing?.requireAttestedActor ?? false,
     appliesTo: toTargetKindList(input.appliesTo, existing?.appliesTo ?? ["commit"]),
     updatedAt: now,
   };

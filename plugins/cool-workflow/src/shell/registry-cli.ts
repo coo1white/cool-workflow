@@ -10,7 +10,9 @@
 // delegate to.
 
 import * as path from "node:path";
-import { RunRegistry } from "./run-registry-io";
+import { RunPlanner, RunRegistry } from "./run-registry-io";
+import { plan as pipelinePlan } from "./pipeline";
+import { loadWorkflowApp } from "./workflow-app-loader";
 import { DesktopSchedulerDaemon, RoutineTriggerBridge, Scheduler } from "./scheduler-io";
 import {
   gcOrphanRuns,
@@ -167,8 +169,19 @@ export function runArchiveCli(runId: string | undefined, options: Record<string,
     unarchive: Boolean(options.unarchive),
   });
 }
+/** The CLI/MCP-path run planner: the old build injected the CoolWorkflowRunner
+ *  (its `.plan(appId, inputs)`) as RunRegistry's planner so `cw run rerun` /
+ *  `cw_run_rerun` could plan the new linked run. v2 dismantled that facade, so
+ *  we rebuild the same `.plan(appId, inputs)` surface from the two pieces that
+ *  replaced it: resolve the app object with loadWorkflowApp, then hand it to the
+ *  pure pipeline plan(). Without this, RunRegistry.rerun throws
+ *  "rerun requires a run planner (CoolWorkflowRunner)". */
+function cliRunPlanner(): RunPlanner {
+  return { plan: (appId, inputs) => pipelinePlan(loadWorkflowApp(appId), inputs) };
+}
+
 export function runRerunCli(runId: string, options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
+  return new RunRegistry(resolveCwd(options), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
 }
 export function historyCli(options: Record<string, unknown> = {}) {
   return new RunRegistry(resolveCwd(options)).history({

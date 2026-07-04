@@ -43,7 +43,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatCommentList = exports.formatReviewStatus = void 0;
+exports.formatReviewStatus = void 0;
 exports.ensureCollaborationState = ensureCollaborationState;
 exports.recordApproval = recordApproval;
 exports.recordComment = recordComment;
@@ -57,6 +57,7 @@ exports.commitReviewProvenance = commitReviewProvenance;
 exports.buildReviewStatusReport = buildReviewStatusReport;
 exports.listComments = listComments;
 exports.deriveOwner = deriveOwner;
+exports.formatCommentList = formatCommentList;
 const trust_audit_1 = require("./trust-audit");
 const run_store_1 = require("./run-store");
 const collab = __importStar(require("../core/multi-agent/collaboration"));
@@ -142,13 +143,35 @@ function recordHandoff(run, input, options = {}) {
     persist(run, options);
     return record;
 }
+/** First defined value among a set of option-name aliases (old wrapper's
+ *  `firstDefined`) — lets a caller pass any of `requiredApprovals`/`required`,
+ *  `authorizedRoles`/`roles`, `allowSelfApproval`/`allow-self-approval`, etc. */
+function firstDefined(source, ...keys) {
+    for (const key of keys) {
+        if (source[key] !== undefined)
+            return source[key];
+    }
+    return undefined;
+}
 function setReviewPolicy(run, input, options = {}) {
     const state = ensureCollaborationState(run);
-    const policy = collab.buildReviewPolicy(input, state.policy, now());
+    // Resolve the old wrapper's option-name aliases before building the policy,
+    // so `required`/`roles`/`allow-self-approval`/... reach buildReviewPolicy on
+    // the canonical keys. Values are Boolean/number-coerced inside
+    // buildReviewPolicy; undefined aliases fall through to existing/defaults.
+    const raw = input;
+    const resolved = {
+        requiredApprovals: firstDefined(raw, "requiredApprovals", "required-approvals", "required", "approvals"),
+        authorizedRoles: firstDefined(raw, "authorizedRoles", "authorized-roles", "roles"),
+        allowSelfApproval: firstDefined(raw, "allowSelfApproval", "allow-self-approval"),
+        requireAttestedActor: firstDefined(raw, "requireAttestedActor", "require-attested-actor"),
+        appliesTo: firstDefined(raw, "appliesTo", "applies-to", "targets"),
+    };
+    const policy = collab.buildReviewPolicy(resolved, state.policy, now());
     state.policy = policy;
     (0, trust_audit_1.recordTrustAuditEvent)(run, { kind: "collaboration.review-policy", decision: "recorded", source: "operator-recorded", metadata: compact({ policyId: policy.id, requiredApprovals: policy.requiredApprovals, authorizedRoles: policy.authorizedRoles, allowSelfApproval: policy.allowSelfApproval, requireAttestedActor: policy.requireAttestedActor, appliesTo: policy.appliesTo }) });
     persist(run, options);
-    return policy;
+    return { ...policy, surface: "collaboration", runId: run.id, policy };
 }
 function resolveReviewPolicy(run, policy) {
     return policy || ensureCollaborationState(run).policy || undefined;
@@ -223,10 +246,19 @@ function buildReviewStatusReport(run, options) {
     };
 }
 function listComments(run, target) {
-    return collab.listComments(ensureCollaborationState(run), target);
+    const normalized = target ? collab.normalizeTarget(target) : undefined;
+    const comments = collab.listComments(ensureCollaborationState(run), normalized);
+    return { schemaVersion: 1, surface: "collaboration", runId: run.id, ...(normalized ? { target: normalized } : {}), count: comments.length, comments };
 }
 function deriveOwner(run) {
     return collab.deriveOwner(ensureCollaborationState(run).handoffs);
 }
 exports.formatReviewStatus = collab.formatReviewStatus;
-exports.formatCommentList = collab.formatCommentList;
+/** Format the comment list for humans. Accepts either the bare record array
+ *  (the core formatter's shape) or the `CommentListReport` envelope this
+ *  module now returns, so a caller that passes `listComments(run)` straight
+ *  through still renders the comments (never the envelope's own keys). */
+function formatCommentList(input) {
+    const comments = Array.isArray(input) ? input : input.comments;
+    return collab.formatCommentList(comments);
+}

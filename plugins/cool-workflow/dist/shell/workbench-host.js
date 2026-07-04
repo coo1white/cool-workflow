@@ -147,25 +147,41 @@ class WorkbenchHost {
                 sendJson(res, 401, { error: "unauthorized: token mismatch" });
                 return;
             }
-            if (url.pathname === "/api/serve") {
+            // Decode the route path ONCE (old build's decodeRoutePath). Node's
+            // `new URL()` does NOT throw on a malformed percent-escape like
+            // `/%E0%A4%A`; only decodeURIComponent does — so this is where a
+            // malformed URL is caught as a 400 client error (not a 404, not a
+            // 500 crash). The decoded route is also what the traversal guard
+            // inspects, so an encoded `..%2f..%2f` unescapes to `../../` BEFORE
+            // path.resolve, letting it escape uiRoot and fail 403.
+            let route;
+            try {
+                route = decodeURIComponent(url.pathname);
+            }
+            catch {
+                sendJson(res, 400, { error: "bad request: malformed URL path" });
+                return;
+            }
+            if (route === "/api/serve") {
                 sendJson(res, 200, this.descriptor(false));
                 return;
             }
-            if (url.pathname === "/api/index") {
-                sendJson(res, 200, (0, workbench_1.buildWorkbenchIndex)());
+            if (route === "/api/index") {
+                const scope = this.args.scope === "home" ? "home" : "repo";
+                sendJson(res, 200, (0, workbench_1.buildWorkbenchIndex)({ ...this.args, scope, ...Object.fromEntries(url.searchParams.entries()) }));
                 return;
             }
-            const runMatch = url.pathname.match(/^\/api\/run\/([^/]+)$/);
+            const runMatch = route.match(/^\/api\/run\/([^/]+)$/);
             if (runMatch) {
-                const runId = decodeURIComponent(runMatch[1]);
+                const runId = runMatch[1];
                 sendJson(res, 200, (0, workbench_1.buildWorkbenchRunView)(runId, this.args));
                 return;
             }
-            if (url.pathname === "/" || url.pathname.startsWith("/ui/")) {
-                this.serveUiAsset(url.pathname, res);
+            if (route === "/" || route.startsWith("/ui/")) {
+                this.serveUiAsset(route, res);
                 return;
             }
-            sendJson(res, 404, { error: `no such read-only view: ${url.pathname}` });
+            sendJson(res, 404, { error: `no such read-only view: ${route}` });
         }
         catch (error) {
             sendJson(res, 500, { error: error instanceof Error ? error.message : String(error) });

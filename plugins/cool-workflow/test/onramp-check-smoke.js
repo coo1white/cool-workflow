@@ -31,7 +31,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const {
   evaluateOnrampContract,
   recommendSmokeTests
-} = require(path.join(pluginRoot, "dist", "onramp.js"));
+} = require(path.join(pluginRoot, "dist", "shell", "onramp.js"));
 
 function codes(report) {
   return report.issues.map((issue) => issue.code).sort();

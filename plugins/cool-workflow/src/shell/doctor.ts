@@ -26,6 +26,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveAgentConfig } from "./agent-config";
+import { buildDoctorOnramp, DoctorOnramp, optionEnabled } from "./onramp";
 import { bold, doctorGlyph, green, red } from "./term";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
@@ -42,6 +43,7 @@ export interface DoctorReport {
   ok: boolean;
   checks: DoctorCheck[];
   summary: string;
+  onramp?: DoctorOnramp;
 }
 
 function whichBinary(bin: string, env: NodeJS.ProcessEnv): string | undefined {
@@ -197,7 +199,24 @@ export function runDoctor(
       ? "ready — all checks passed"
       : `ready, with ${warns} warning${warns === 1 ? "" : "s"}`
     : `${fails} blocking problem${fails === 1 ? "" : "s"} found`;
-  return { schemaVersion: 1, ok, checks, summary };
+  return {
+    schemaVersion: 1,
+    ok,
+    checks,
+    summary,
+    // `--onramp` attaches the change-contract onramp block (byte-exact port
+    // of the old build's src/doctor.ts wiring). `--changed-from REF` threads
+    // the base ref through to resolveChangedFiles + evaluateOnrampContract.
+    ...(optionEnabled(args.onramp)
+      ? {
+          onramp: buildDoctorOnramp({
+            cwd,
+            env,
+            changedFrom: typeof args["changed-from"] === "string" ? (args["changed-from"] as string) : undefined,
+          }),
+        }
+      : {}),
+  };
 }
 
 /** Human rendering (TTY/default). `--json` callers use the report object directly. */
@@ -210,6 +229,38 @@ export function formatDoctorReport(report: DoctorReport): string {
   lines.push("");
   const summaryGlyph = report.ok ? green("✓") : red("✗");
   lines.push(`${summaryGlyph} ${report.summary}`);
+  if (report.onramp) {
+    lines.push("");
+    lines.push("Quick start (3 steps):");
+    lines.push("  1. cw demo tamper        — prove trust checks work (30s)");
+    lines.push("  2. cw demo bundle         — prove portable bundles (30s)");
+    lines.push('  3. cw -q "what risks?"     — your first real report (needs an agent)');
+    lines.push('     cw quickstart research-synthesis --repo <folder> --question "..."  — cited report over a docs/papers folder, not only code');
+    lines.push("");
+    lines.push("Onramp");
+    lines.push(`  ${report.onramp.summary}`);
+    if (report.onramp.recommendedChecks) {
+      lines.push("");
+      lines.push("  Recommended Checks");
+      for (const command of report.onramp.recommendedChecks.commands) lines.push(`    - ${command}`);
+    }
+    if (report.onramp.contract && !report.onramp.contract.ok) {
+      lines.push("");
+      lines.push("  Contract Issues");
+      for (const issue of report.onramp.contract.issues) {
+        lines.push(`    - ${issue.code}: ${issue.detail}`);
+        lines.push(`      fix: ${issue.fix}`);
+      }
+    }
+    for (const section of report.onramp.sections) {
+      lines.push("");
+      lines.push(`  ${section.title}: ${section.summary}`);
+      for (const action of section.actions) {
+        lines.push(`    - ${action.command}`);
+        lines.push(`      ${action.reason}`);
+      }
+    }
+  }
   return lines.join("\n");
 }
 

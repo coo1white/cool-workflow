@@ -68,6 +68,11 @@ function flattenTasks(app: LoadedWorkflowApp, inputs: Record<string, unknown>): 
         ...(task.label ? { label: task.label } : {}),
         ...(task.model ? { model: task.model } : {}),
         ...(task.agentType ? { agentType: task.agentType } : {}),
+        // Per-phase result-cache policy the drive READS (drive.ts resultCachePath).
+        // Carries mode/keyInput and any includeCompletedResults sub-field through,
+        // so warm re-runs hit .cw/cache/worker-results instead of re-spawning.
+        // Byte-exact to the old build's flattenTasks (lifecycle-operations.ts).
+        ...(task.resultCache ? { resultCache: task.resultCache } : {}),
       });
     }
   }
