@@ -262,8 +262,12 @@ export function rankCandidateRows(
 // WorkflowRun-shaped state).
 // ---------------------------------------------------------------------------
 
-export function stateNodeError(code: string, message: string, options: { details?: Record<string, unknown> } = {}): StateNodeError {
-  return { code, message, at: new Date().toISOString(), retryable: false, details: options.details };
+/** `now` is the explicit clock value for `at`; the real clock is read ONLY
+ *  when it is omitted, matching rankCandidateRows's own `now` parameter in
+ *  this same file so StateNodeError.at stays byte-stable across identical
+ *  logical calls when a caller pins the clock. */
+export function stateNodeError(code: string, message: string, options: { details?: Record<string, unknown> } = {}, now?: string): StateNodeError {
+  return { code, message, at: now || new Date().toISOString(), retryable: false, details: options.details };
 }
 
 export interface SelectionGateInput {
@@ -285,25 +289,28 @@ export interface SelectionGateInput {
  *  Review-gate errors are NOT included here; the caller appends them
  *  (v2/PLAN.md byte-compat / rebuild risk 8: append-only stacking, never
  *  replacing a verifier error). */
-export function selectionGateFailures(input: SelectionGateInput): StateNodeError[] {
+export function selectionGateFailures(input: SelectionGateInput, now?: string): StateNodeError[] {
   const failures: StateNodeError[] = [];
   if (input.candidateStatus === "rejected" || input.candidateStatus === "failed") {
-    failures.push(stateNodeError("candidate-not-selectable", `Candidate ${input.candidateId} is ${input.candidateStatus}`));
+    failures.push(stateNodeError("candidate-not-selectable", `Candidate ${input.candidateId} is ${input.candidateStatus}`, {}, now));
   }
   if (input.policy.requireVerifierGate && !input.allowUnverified) {
     if (!input.verifierNode || input.verifierNode.status !== "verified") {
-      failures.push(stateNodeError("candidate-selection-missing-verifier", `Candidate ${input.candidateId} requires a verified verifier node`));
+      failures.push(stateNodeError("candidate-selection-missing-verifier", `Candidate ${input.candidateId} requires a verified verifier node`, {}, now));
     } else if (!input.verifierNode.evidence.length) {
-      failures.push(stateNodeError("candidate-selection-missing-evidence", `Candidate ${input.candidateId} verifier node has no evidence`));
+      failures.push(stateNodeError("candidate-selection-missing-evidence", `Candidate ${input.candidateId} verifier node has no evidence`, {}, now));
     } else if (input.verifierNodeIsEmptyCapture) {
-      failures.push(stateNodeError("candidate-selection-empty-capture", `Candidate ${input.candidateId} verifier node has no real evidence (empty-capture result)`));
+      failures.push(stateNodeError("candidate-selection-empty-capture", `Candidate ${input.candidateId} verifier node has no real evidence (empty-capture result)`, {}, now));
     }
   }
   if (input.policy.minNormalized !== undefined && (input.bestScoreNormalized ?? 0) < input.policy.minNormalized) {
     failures.push(
-      stateNodeError("candidate-selection-score-below-threshold", `Candidate ${input.candidateId} score is below threshold`, {
-        details: { normalized: input.bestScoreNormalized ?? 0, minNormalized: input.policy.minNormalized },
-      })
+      stateNodeError(
+        "candidate-selection-score-below-threshold",
+        `Candidate ${input.candidateId} score is below threshold`,
+        { details: { normalized: input.bestScoreNormalized ?? 0, minNormalized: input.policy.minNormalized } },
+        now
+      )
     );
   }
   return failures;

@@ -32,10 +32,14 @@ export const PIPELINE_CONTRACT_SCHEMA_VERSION = 1;
 export class PipelineContractError extends Error {
   structured: StateNodeError;
 
-  constructor(error: Omit<StateNodeError, "at"> & { at?: string }) {
+  /** `error.at` wins when the caller already has one (e.g. re-wrapping a
+   *  structured error); `now` is the explicit clock value for a fresh one;
+   *  the real clock is read ONLY when neither is given, matching
+   *  node-snapshot.ts's `options.now` fallback pattern. */
+  constructor(error: Omit<StateNodeError, "at"> & { at?: string }, now?: string) {
     super(error.message);
     this.name = "PipelineContractError";
-    this.structured = { ...error, at: error.at || new Date().toISOString() };
+    this.structured = { ...error, at: error.at || now || new Date().toISOString() };
   }
 }
 
@@ -64,16 +68,19 @@ export interface TransitionStateNodeInput {
   metadata?: Record<string, unknown>;
 }
 
-export function createStateNode(input: CreateStateNodeInput): StateNode {
-  const now = new Date().toISOString();
+/** `now` is the explicit clock value; the real clock is read ONLY when it
+ *  is omitted, matching node-snapshot.ts's `options.now` fallback so a
+ *  caller that always passes `now` gets byte-stable createdAt/updatedAt. */
+export function createStateNode(input: CreateStateNodeInput, now?: string): StateNode {
+  const at = now || new Date().toISOString();
   return {
     schemaVersion: STATE_NODE_SCHEMA_VERSION,
     id: input.id || createNodeId(input),
     kind: input.kind,
     status: input.status || "pending",
     loopStage: input.loopStage,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: at,
+    updatedAt: at,
     inputs: input.inputs || {},
     outputs: input.outputs || {},
     artifacts: input.artifacts || [],
@@ -90,7 +97,7 @@ export function createStateNode(input: CreateStateNodeInput): StateNode {
  *  unless the node is already `verified` (checked AFTER the matrix, its own
  *  error code `commit-without-verifier`). An illegal transition throws
  *  BEFORE the node changes. */
-export function transitionStateNode(node: StateNode, input: TransitionStateNodeInput): StateNode {
+export function transitionStateNode(node: StateNode, input: TransitionStateNodeInput, now?: string): StateNode {
   if (!isLegalTransition(node.status, input.status)) {
     throw contractError(
       "illegal-transition",
@@ -109,7 +116,7 @@ export function transitionStateNode(node: StateNode, input: TransitionStateNodeI
     ...node,
     status: input.status,
     loopStage: input.loopStage || node.loopStage,
-    updatedAt: new Date().toISOString(),
+    updatedAt: now || new Date().toISOString(),
     outputs: input.outputs ? { ...node.outputs, ...input.outputs } : node.outputs,
     artifacts: input.artifacts ? mergeById(node.artifacts, input.artifacts) : node.artifacts,
     evidence: input.evidence ? mergeById(node.evidence, input.evidence) : node.evidence,
@@ -180,20 +187,23 @@ export function assertNodeSatisfiesContract(
 
 export function recordNodeError(
   node: StateNode,
-  error: Omit<StateNodeError, "at" | "nodeId"> & { at?: string; nodeId?: string }
+  error: Omit<StateNodeError, "at" | "nodeId"> & { at?: string; nodeId?: string },
+  now?: string
 ): StateNode {
+  const at = now || new Date().toISOString();
   return {
     ...node,
     status: "failed",
-    updatedAt: new Date().toISOString(),
-    errors: [...node.errors, { ...error, at: error.at || new Date().toISOString(), nodeId: error.nodeId || node.id }],
+    updatedAt: at,
+    errors: [...node.errors, { ...error, at: error.at || at, nodeId: error.nodeId || node.id }],
   };
 }
 
-export function linkStateNodes(parent: StateNode, child: StateNode): [StateNode, StateNode] {
+export function linkStateNodes(parent: StateNode, child: StateNode, now?: string): [StateNode, StateNode] {
+  const at = now || new Date().toISOString();
   return [
-    { ...parent, updatedAt: new Date().toISOString(), children: unique([...parent.children, child.id]) },
-    { ...child, updatedAt: new Date().toISOString(), parents: unique([...child.parents, parent.id]) },
+    { ...parent, updatedAt: at, children: unique([...parent.children, child.id]) },
+    { ...child, updatedAt: at, parents: unique([...child.parents, parent.id]) },
   ];
 }
 

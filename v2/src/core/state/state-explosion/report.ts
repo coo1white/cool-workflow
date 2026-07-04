@@ -202,10 +202,14 @@ export function buildStateExplosionReport(
   // shapes land with milestone 9); this cast is the one bridge point
   // between "genuinely empty today" and "typed once milestone 9 writes
   // real records", matching digest.ts's own DigestTopic/Message/... shapes.
-  const blackboardDigest = summarizeBlackboardDigest({
-    id: run.id,
-    blackboard: run.blackboard as unknown as BlackboardDigestRunView["blackboard"],
-  });
+  const blackboardDigest = summarizeBlackboardDigest(
+    {
+      id: run.id,
+      blackboard: run.blackboard as unknown as BlackboardDigestRunView["blackboard"],
+    },
+    undefined,
+    now
+  );
   const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now);
 
   const currentFingerprint = fingerprintStrings([

@@ -396,15 +396,18 @@ export function selectCandidate(run: WorkflowRun, candidateId: string, options: 
   const verifierNode = candidate.verifierNodeId ? (run.nodes || []).find((node) => node.id === candidate.verifierNodeId) : undefined;
   const bestScoreRecord = options.scoreId ? readScores(run, candidateId).find((score) => score.id === options.scoreId) : readScores(run, candidateId).find((score) => score.id === ranked?.bestScoreId);
 
-  const failures: StateNodeError[] = cs.selectionGateFailures({
-    candidateId,
-    candidateStatus: candidate.status,
-    policy,
-    allowUnverified: options.allowUnverified,
-    verifierNode,
-    verifierNodeIsEmptyCapture: verifierNode ? verifierIsEmptyCapture(run, candidate.verifierNodeId) : false,
-    bestScoreNormalized: bestScoreRecord?.normalized,
-  });
+  const failures: StateNodeError[] = cs.selectionGateFailures(
+    {
+      candidateId,
+      candidateStatus: candidate.status,
+      policy,
+      allowUnverified: options.allowUnverified,
+      verifierNode,
+      verifierNodeIsEmptyCapture: verifierNode ? verifierIsEmptyCapture(run, candidate.verifierNodeId) : false,
+      bestScoreNormalized: bestScoreRecord?.normalized,
+    },
+    now()
+  );
 
   // REVIEW GATE — layered on top, never replacing the verifier failures above.
   const collaborationState = ensureCollaborationState(run);

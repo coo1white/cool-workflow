@@ -53,6 +53,10 @@ export interface PipelineRunnerOptions {
   /** Caller-supplied checkpoint side effect (shell/run-store.ts's
    *  saveCheckpoint). */
   saveCheckpoint?: (run: WorkflowRun) => void;
+  /** Explicit clock value for any timestamp this call produces (e.g.
+   *  failPipelineStage's generic-Error `error.at`). The real clock is read
+   *  ONLY when this is omitted, matching resolveCommitGate's `deps.now`. */
+  now?: string;
 }
 
 export interface RunPipelineStageOptions {
@@ -114,9 +118,16 @@ export function getRunNode(run: WorkflowRun, nodeId: string): StateNode {
   return node;
 }
 
-function evidenceSatisfied(node: StateNode, stage: PipelineStageContract): boolean {
+/** Byte-exact port of the old build's `hasRequiredEvidence`: a stage's own
+ *  `requiredEvidence` list AND the contract-wide
+ *  `evidencePolicy.requireEvidence` flag both gate this pre-filter, exactly
+ *  like assertRequiredEvidence's stricter check in state-node.ts — so a
+ *  node findRunnablePipelineStages reports "runnable" never fails this
+ *  same check again inside runPipelineStage. */
+function evidenceSatisfied(node: StateNode, stage: PipelineStageContract, contract: PipelineContract): boolean {
   const requiredEvidence = stage.requiredEvidence || [];
-  if (!requiredEvidence.length) return true;
+  const contractRequiresEvidence = Boolean(contract.evidencePolicy?.requireEvidence);
+  if ((requiredEvidence.length || contractRequiresEvidence) && !node.evidence.length) return false;
   for (const required of requiredEvidence) {
     const matches = node.evidence.filter((e) => e.id === required || e.source === required);
     if (!matches.length) return false;
@@ -158,7 +169,7 @@ export function findRunnablePipelineStages(
       if (!stage.acceptedInputKinds.includes(node.kind)) continue;
       if (!stage.acceptedInputStatuses.includes(node.status)) continue;
       if (!artifactsSatisfied(node, stage, pathExists)) continue;
-      if (!evidenceSatisfied(node, stage)) continue;
+      if (!evidenceSatisfied(node, stage, resolvedContract)) continue;
       if (!verifierGatePasses(node, stage, resolvedContract)) continue;
       out.push({
         runId: run.id,
@@ -283,7 +294,7 @@ export function failPipelineStage(
       : {
           code: "pipeline-stage-error",
           message: error instanceof Error ? error.message : String(error),
-          at: new Date().toISOString(),
+          at: options.now || new Date().toISOString(),
           nodeId: inputNode.id,
           retryable: stage?.failure?.retryable ?? contract.failurePolicy?.retryableByDefault ?? false,
         };

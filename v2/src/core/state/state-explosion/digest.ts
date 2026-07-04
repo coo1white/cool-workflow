@@ -150,8 +150,11 @@ export interface BlackboardDigestRunView {
 /** Deterministic structural summary of one (or the default) blackboard.
  *  Every list is sorted by id (`byId`); `recentChanges` is the last 10 by
  *  `updatedAt` desc, THEN re-sorted by id for the final list (matching the
- *  old build's two-stage sort exactly). */
-export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboardId?: string): BlackboardSummaryRecord {
+ *  old build's two-stage sort exactly). `now` is the explicit clock value
+ *  for `generatedAt`; the real clock is read ONLY when it is omitted,
+ *  matching graph.ts's finalizeGraphRecord / report.ts's
+ *  buildStateExplosionReport `options.now` pattern. */
+export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboardId?: string, now?: string): BlackboardSummaryRecord {
   const bb = run.blackboard || { boards: [], topics: [], messages: [], contexts: [], artifacts: [], snapshots: [], decisions: [] };
   const board = blackboardId ? (bb.boards || []).find((b) => b.id === blackboardId) : (bb.boards || [])[0];
   const boardId = board?.id;
@@ -354,7 +357,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
     importantRefs: unique([...conflicts.map((c) => c.id), ...unresolvedQuestions.map((q) => q.id), ...policyViolations.map((p) => p.id)]),
     evidenceRefs,
     trustAuditEventRefs,
-    generatedAt: new Date().toISOString(),
+    generatedAt: now || new Date().toISOString(),
     status: "valid",
     deterministic: true,
     nextAction: `node scripts/cw.js blackboard summary ${run.id}`,

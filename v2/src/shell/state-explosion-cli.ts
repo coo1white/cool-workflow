@@ -68,10 +68,14 @@ export function refreshStateExplosionSummaries(
 
   const graphView = runToGraphViewFromWorkflowRun(run);
   // See core/state/state-explosion/report.ts's own note on this cast.
-  const blackboardDigest = summarizeBlackboardDigest({
-    id: run.id,
-    blackboard: run.blackboard as unknown as BlackboardDigestRunView["blackboard"],
-  });
+  const blackboardDigest = summarizeBlackboardDigest(
+    {
+      id: run.id,
+      blackboard: run.blackboard as unknown as BlackboardDigestRunView["blackboard"],
+    },
+    undefined,
+    now
+  );
   const stateSize = computeStateSizeWithGraph(run, thresholds, graphView);
   const compactGraph = buildCompactGraphFromView(run.id, graphView, "compact", { thresholds, now });
   const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now);
