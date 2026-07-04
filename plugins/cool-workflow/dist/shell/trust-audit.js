@@ -335,9 +335,56 @@ function countBy(values, key) {
  *  here — the old build's extra workers/candidates/commits/multiAgent/
  *  blackboard rollups are milestone 9's own summarizeMultiAgent/
  *  candidate-scoring-io/coordinator-io surfaces, not duplicated here. */
+function workerRows(events, run) {
+    const workerIds = unique([...(run.workers || []).map((w) => w.id), ...events.map((e) => e.workerId || "")]).sort();
+    return workerIds.filter(Boolean).map((workerId) => {
+        const worker = (run.workers || []).find((w) => w.id === workerId);
+        const scoped = events.filter((e) => e.workerId === workerId);
+        return {
+            workerId,
+            taskId: worker?.taskId || scoped.find((e) => e.taskId)?.taskId,
+            sandboxProfileId: worker?.sandboxProfileId || scoped.find((e) => e.sandboxProfileId)?.sandboxProfileId,
+            decisions: countBy(scoped, (e) => e.decision),
+            denied: scoped.filter((e) => e.decision === "denied" || e.decision === "rejected").length,
+            feedbackIds: unique(scoped.flatMap((e) => e.feedbackIds || [])).sort(),
+        };
+    });
+}
+function candidateRows(events, run) {
+    const cands = run.candidates || [];
+    const selectionsAll = run.candidateSelections || [];
+    const ids = unique([...cands.map((c) => c.id), ...events.map((e) => e.candidateId || "")]).sort();
+    return ids.filter(Boolean).map((candidateId) => {
+        const candidate = cands.find((c) => c.id === candidateId);
+        const selections = selectionsAll.filter((s) => s.candidateId === candidateId);
+        const scoped = events.filter((e) => e.candidateId === candidateId);
+        return {
+            candidateId,
+            scoreIds: unique([...(candidate?.scores || []), ...scoped.map((e) => e.scoreId || "")]).filter(Boolean).sort(),
+            selectionIds: unique([...selections.map((s) => s.id), ...scoped.map((e) => e.selectionId || "")]).filter(Boolean).sort(),
+            evidenceCount: candidate?.evidence?.length || scoped.flatMap((e) => e.evidence || []).length,
+        };
+    });
+}
+function commitRows(events, run) {
+    const ids = unique([...(run.commits || []).map((c) => c.id), ...events.map((e) => e.commitId || "")]).sort();
+    return ids.filter(Boolean).map((commitId) => {
+        const commit = (run.commits || []).find((c) => c.id === commitId);
+        return {
+            commitId,
+            verifierGated: Boolean(commit?.verifierGated),
+            candidateId: commit?.candidateId,
+            selectionId: commit?.selectionId,
+            evidenceCount: commit?.evidence?.length || 0,
+            rationale: commit?.acceptanceRationale,
+        };
+    });
+}
 function summarizeTrustAudit(run) {
     const audit = ensureTrustAudit(run);
     const events = readEventsRaw(audit.eventLogPath);
+    const ma = run.multiAgent;
+    const bb = run.blackboard;
     return {
         schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
         runId: run.id,
@@ -347,8 +394,44 @@ function summarizeTrustAudit(run) {
         eventLogPath: audit.eventLogPath,
         indexPath: audit.indexPath,
         summaryPath: audit.summaryPath,
+        byKind: countBy(events, (event) => event.kind),
         byDecision: countBy(events, (event) => event.decision),
         bySource: countBy(events, (event) => event.source),
         bySandboxProfile: countBy(events.filter((event) => event.sandboxProfileId), (event) => event.sandboxProfileId || "none"),
+        workers: workerRows(events, run),
+        candidates: candidateRows(events, run),
+        commits: commitRows(events, run),
+        multiAgent: {
+            runs: ma?.runs.length || 0,
+            roles: ma?.roles.length || 0,
+            groups: ma?.groups.length || 0,
+            memberships: ma?.memberships.length || 0,
+            fanouts: ma?.fanouts.length || 0,
+            fanins: ma?.fanins.length || 0,
+            events: events.filter((e) => Boolean(e.multiAgentRunId || e.agentRoleId || e.agentGroupId || e.agentMembershipId || e.agentFanoutId || e.agentFaninId)).length,
+        },
+        blackboard: {
+            boards: bb?.boards.length || 0,
+            topics: bb?.topics.length || 0,
+            messages: bb?.messages.length || 0,
+            contexts: bb?.contexts.length || 0,
+            artifacts: bb?.artifacts.length || 0,
+            snapshots: bb?.snapshots.length || 0,
+            decisions: bb?.decisions.length || 0,
+            events: events.filter((e) => Boolean(e.blackboardId || e.blackboardTopicId || e.blackboardMessageId || e.blackboardContextId || e.blackboardArtifactRefId || e.blackboardSnapshotId || e.coordinatorDecisionId)).length,
+        },
+        topologies: {
+            runs: run.topologies?.runs.length || 0,
+            events: events.filter((e) => Boolean(e.topologyId || e.topologyRunId || e.kind.startsWith("topology."))).length,
+        },
+        multiAgentTrust: {
+            rolePolicies: events.filter((e) => e.kind === "multi-agent.role-policy").length,
+            permissionDecisions: events.filter((e) => e.kind === "multi-agent.permission").length,
+            blackboardWrites: events.filter((e) => e.kind === "blackboard.write").length,
+            messageProvenance: events.filter((e) => e.kind === "blackboard.message-provenance").length,
+            judgeRationales: events.filter((e) => e.kind === "judge.rationale").length,
+            panelDecisions: events.filter((e) => e.kind === "judge.panel-decision").length,
+            policyViolations: events.filter((e) => e.kind === "policy.violation").length,
+        },
     };
 }
