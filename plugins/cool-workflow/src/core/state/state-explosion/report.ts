@@ -24,7 +24,7 @@ import {
   StateSize,
   computeStateSizeWithGraph,
 } from "./size";
-import { GraphSummaryRecord, GraphView, buildCompactGraphFromView, runToGraphViewFromWorkflowRun } from "./graph";
+import { GraphSummaryRecord, GraphView, GraphViewInput, buildCompactGraphFromView, runToGraphViewFromWorkflowRun } from "./graph";
 import { BlackboardDigestRunView, BlackboardSummaryRecord, summarizeBlackboardDigest } from "./digest";
 import { unique } from "./helpers";
 
@@ -215,14 +215,27 @@ function currentEntryFingerprint(
 }
 
 /** Builds the full `StateExplosionReport` VALUE (no disk I/O) from an
- *  in-memory run plus an already-loaded persisted index (or none). */
+ *  in-memory run plus an already-loaded persisted index (or none).
+ *
+ *  `options.graphView` lets a caller that already ran
+ *  `runToGraphViewFromWorkflowRun(run)` this same tick (e.g.
+ *  `refreshStateExplosionSummaries`) hand that value in, so this function
+ *  does not build the graph view a second time. Mirrors the old build's
+ *  `StateExplosionBuildContext` memoization — one graph build per refresh,
+ *  not one per derived view. */
 export function buildStateExplosionReport(
   run: WorkflowRun,
-  options: { thresholds?: StateExplosionThresholds; index?: MultiAgentSummaryIndex; now?: string; operator?: OperatorDigestInput } = {}
+  options: {
+    thresholds?: StateExplosionThresholds;
+    index?: MultiAgentSummaryIndex;
+    now?: string;
+    operator?: OperatorDigestInput;
+    graphView?: GraphViewInput;
+  } = {}
 ): StateExplosionReport {
   const thresholds = options.thresholds || DEFAULT_STATE_EXPLOSION_THRESHOLDS;
   const now = options.now || new Date().toISOString();
-  const graphView = runToGraphViewFromWorkflowRun(run);
+  const graphView = options.graphView || runToGraphViewFromWorkflowRun(run);
   const stateSize = computeStateSizeWithGraph(run, thresholds, graphView);
   const compactGraph = buildCompactGraphFromView(run.id, graphView, "compact", { thresholds, now });
   const criticalPathGraph = buildCompactGraphFromView(run.id, graphView, "critical-path", { thresholds, now });

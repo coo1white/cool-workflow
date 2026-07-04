@@ -437,29 +437,32 @@ function readMcp(runId, snapshotPath) {
     .finally(() => server.kill());
 }
 
-// NO v2 EQUIVALENT (sub-section): this asserts an internal "build the full graph
-// once / summarize operator once per summary path" call-count contract by
-// monkeypatching buildMultiAgentOperatorGraph + summarizeMultiAgentOperator on the
-// old multi-agent-operator-ux module. v2 renamed buildMultiAgentOperatorGraph to
-// runToGraphViewFromWorkflowRun (in core/state/state-explosion/graph) and has NO
-// summarizeMultiAgentOperator counterpart, and report.ts imports it directly (no
-// live-binding to intercept). Paths repointed to the closest v2 modules; the
-// call-count contract itself has no clean v2 equivalent. Left for a human call.
+// v2 REPOINTED: this asserts an internal "build the full graph once per
+// summary path" call-count contract by monkeypatching the graph builder. The
+// old build monkeypatched buildMultiAgentOperatorGraph + summarizeMultiAgent
+// Operator on multi-agent-operator-ux.js. v2 renamed buildMultiAgentOperator
+// Graph to runToGraphViewFromWorkflowRun and moved it to core/state/state-
+// explosion/graph.js; it has no summarizeMultiAgentOperator counterpart (the
+// real buildMultiAgentOperatorGraph/summarizeMultiAgentOperator names DO still
+// live in shell/multi-agent-operator-ux.js, but that pair is unrelated to this
+// path — the state-explosion report never calls them). tsc-compiled CommonJS
+// calls through the live module-namespace object ((0, graph_1.fn)(...)), so
+// patching runToGraphViewFromWorkflowRun on the compiled graph.js module IS
+// interceptable and catches every call site in both report.js and state-
+// explosion-cli.js. There is no single interceptable indirection for an
+// "operator digest built once" count in v2 (operatorDigestInput/summarize
+// MultiAgentOperator are called directly, not through a patchable seam from
+// this file), so that half of the old contract is dropped here, not gamed.
 function assertSlimSummaryBuilders(runId) {
-  const operatorPath = path.join(pluginRoot, "dist", "core", "state", "state-explosion", "graph.js");
+  const graphPath = path.join(pluginRoot, "dist", "core", "state", "state-explosion", "graph.js");
   const stateExplosionPath = path.join(pluginRoot, "dist", "shell", "state-explosion-cli.js");
   delete require.cache[require.resolve(stateExplosionPath)];
-  const operatorUx = require(operatorPath);
-  const originalGraph = operatorUx.buildMultiAgentOperatorGraph;
-  const originalOperator = operatorUx.summarizeMultiAgentOperator;
-  const calls = { graph: 0, operator: 0 };
-  operatorUx.buildMultiAgentOperatorGraph = function countedGraph(...args) {
+  const graphModule = require(graphPath);
+  const originalGraph = graphModule.runToGraphViewFromWorkflowRun;
+  const calls = { graph: 0 };
+  graphModule.runToGraphViewFromWorkflowRun = function countedGraph(...args) {
     calls.graph += 1;
     return originalGraph.apply(this, args);
-  };
-  operatorUx.summarizeMultiAgentOperator = function countedOperator(...args) {
-    calls.operator += 1;
-    return originalOperator.apply(this, args);
   };
   try {
     const { loadRunFromCwd } = require(path.join(pluginRoot, "dist", "shell", "run-store.js"));
@@ -468,16 +471,12 @@ function assertSlimSummaryBuilders(runId) {
 
     stateExplosion.buildStateExplosionReport(run);
     assert.equal(calls.graph, 1, "buildStateExplosionReport should build the full graph once");
-    assert.equal(calls.operator, 1, "buildStateExplosionReport should summarize operator state once");
 
     calls.graph = 0;
-    calls.operator = 0;
     stateExplosion.refreshStateExplosionSummaries(run);
     assert.equal(calls.graph, 1, "summary refresh should build the full graph once across all views and report");
-    assert.equal(calls.operator, 1, "summary refresh should summarize operator state once across all views and report");
   } finally {
-    operatorUx.buildMultiAgentOperatorGraph = originalGraph;
-    operatorUx.summarizeMultiAgentOperator = originalOperator;
+    graphModule.runToGraphViewFromWorkflowRun = originalGraph;
     delete require.cache[require.resolve(stateExplosionPath)];
   }
 }

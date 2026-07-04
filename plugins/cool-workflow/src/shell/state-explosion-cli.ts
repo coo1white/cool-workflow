@@ -79,7 +79,10 @@ export function refreshStateExplosionSummaries(
   );
   const stateSize = computeStateSizeWithGraph(run, thresholds, graphView);
   const compactGraph = buildCompactGraphFromView(run.id, graphView, "compact", { thresholds, now });
-  const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now, operatorDigestInput(run));
+  // Built once here and reused below (report tail) so this refresh calls
+  // operatorDigestInput/summarizeMultiAgentOperator exactly once.
+  const operatorInput = operatorDigestInput(run);
+  const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now, operatorInput);
   const graphRecords = views.map((view) => buildCompactGraphFromView(run.id, graphView, view, { thresholds, now }));
 
   const entries: MultiAgentSummaryIndexEntry[] = [];
@@ -117,7 +120,10 @@ export function refreshStateExplosionSummaries(
     paths: { summariesDir: dir, indexPath: path.join(dir, "index.json"), reportPath },
   };
   writeJson(index.paths.indexPath, index);
-  const report = buildStateExplosionReport(run, { thresholds, index, now, operator: operatorDigestInput(run) });
+  // Pass the graphView and operator input already built above so
+  // buildStateExplosionReport does not call runToGraphViewFromWorkflowRun(run)
+  // or operatorDigestInput(run) a second time this refresh.
+  const report = buildStateExplosionReport(run, { thresholds, index, now, operator: operatorInput, graphView });
   writeJson(reportPath, report);
 
   return index;

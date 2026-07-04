@@ -110,11 +110,18 @@ function currentEntryFingerprint(entry, records) {
     return undefined;
 }
 /** Builds the full `StateExplosionReport` VALUE (no disk I/O) from an
- *  in-memory run plus an already-loaded persisted index (or none). */
+ *  in-memory run plus an already-loaded persisted index (or none).
+ *
+ *  `options.graphView` lets a caller that already ran
+ *  `runToGraphViewFromWorkflowRun(run)` this same tick (e.g.
+ *  `refreshStateExplosionSummaries`) hand that value in, so this function
+ *  does not build the graph view a second time. Mirrors the old build's
+ *  `StateExplosionBuildContext` memoization — one graph build per refresh,
+ *  not one per derived view. */
 function buildStateExplosionReport(run, options = {}) {
     const thresholds = options.thresholds || size_1.DEFAULT_STATE_EXPLOSION_THRESHOLDS;
     const now = options.now || new Date().toISOString();
-    const graphView = (0, graph_1.runToGraphViewFromWorkflowRun)(run);
+    const graphView = options.graphView || (0, graph_1.runToGraphViewFromWorkflowRun)(run);
     const stateSize = (0, size_1.computeStateSizeWithGraph)(run, thresholds, graphView);
     const compactGraph = (0, graph_1.buildCompactGraphFromView)(run.id, graphView, "compact", { thresholds, now });
     const criticalPathGraph = (0, graph_1.buildCompactGraphFromView)(run.id, graphView, "critical-path", { thresholds, now });
