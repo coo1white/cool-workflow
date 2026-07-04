@@ -4,7 +4,8 @@
 
 No. CW delegates worker execution to an external agent command or endpoint. It
 records and verifies the resulting files and metadata, but it does not import a
-model SDK, hold an API key, or call a model API.
+model SDK, hold an API key, or call a model API. See the
+[Mental Model](Mental-Model.md) for why this line is the point of CW, not a gap.
 
 ## Do I Need An Agent To Try It?
 

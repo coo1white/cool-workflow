@@ -3,10 +3,12 @@
 ## Requirements
 
 - Node.js 18 or newer.
-- An external agent command for live reviews, such as Claude Code, Codex, or an
-  HTTP agent endpoint.
+- One agent CLI on your `PATH` for live reviews: `claude`, `codex`, `gemini`, or
+  `opencode` — or an HTTP agent endpoint via `CW_AGENT_ENDPOINT`.
 
 The tamper-evidence demo does not need an agent, API key, or cloned repo.
+
+*New to CW? The [Getting Started](Getting-Started.md) walkthrough explains each step in full.*
 
 ## 1. Prove The Integrity Demo
 
