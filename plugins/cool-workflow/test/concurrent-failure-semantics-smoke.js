@@ -124,36 +124,21 @@ function main() {
     const timingLog = path.join(work, "concurrent-timing.jsonl");
     process.env.CW_TIMING_LOG = timingLog;
     const started = Date.now();
-    // v2 drive: (runId, cwd, opts); no runner object. The old smoke forced
-    // policy:{maxAttempts:1} so each failure parked on its FIRST attempt; v2's
-    // drive hardcodes DEFAULT_SCHEDULING_POLICY.maxAttempts=3 and no longer
-    // exposes a policy knob, so the hang/crash/dirty hops each retry to attempt
-    // 3 before parking (see NO-EQUIVALENT note in the audit result).
+    // v2 drive: (runId, cwd, opts); no runner object. policy:{maxAttempts:1}
+    // makes each failure park on its FIRST attempt (DriveOptions.policy —
+    // src/shell/drive.ts — is merged over DEFAULT_SCHEDULING_POLICY and
+    // threaded into handleHop's retryOrPark call and drive()'s maxIterations
+    // call), byte-exact to the old build's drive(runner, run.id, {policy:...}).
     const result = drive(run.id, run.cwd, {
       now: FIXED_NOW,
       concurrency: TOTAL,
+      policy: { maxAttempts: 1 },
       agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: TIMEOUT_MS }
     });
     const elapsed = Date.now() - started;
     delete process.env.CW_TIMING_LOG;
 
     // ---- no deadlock + REAL parallelism ------------------------------------
-    // NO-EQUIVALENT (v2 cutover audit): this smoke depends on single-attempt
-    // parking, which the old drive gave via DriveOptions.policy={maxAttempts:1}
-    // (old src/drive.ts:59). v2 dropped that knob from DriveOptions and
-    // hardcodes DEFAULT_SCHEDULING_POLICY={maxAttempts:3}
-    // (src/core/pipeline/drive-decide.ts:154); the field is threaded into
-    // driveStep (src/shell/drive.ts:203) and maxIterations
-    // (src/shell/drive.ts:610) with NO injection point (no option, no env var,
-    // no task field). So the hang/crash/dirty hops now retry to attempt 3
-    // before parking: the drive spans multiple retry rounds instead of one, and
-    // the round-scoped assertions below no longer describe v2. Observed
-    // breakage under maxAttempts=3: 20 (not 16) worker starts here; parkSteps
-    // count 2 (not 3); park reasons carry an "(attempt N/3)" suffix. The
-    // final-state assertions (status=parked, 13 completed, 3 parked, disk
-    // replay) still hold. NOT weakened: left asserting the old single-attempt
-    // contract so the gap stays visible for Phase B. First failure lands here:
-    // "every worker process recorded a start" 20 !== 16.
     assertConcurrentTiming(readTimingLog(timingLog));
     console.log(`t2-acceptance: 16-agent round, no deadlock, wall ${elapsed}ms ok`);
 

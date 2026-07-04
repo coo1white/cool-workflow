@@ -222,7 +222,7 @@ function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun)
     const scope = (0, worker_isolation_1.getWorkerScope)(run, workerId);
     const persisted = scope?.retryCount || 0;
     const prior = (0, drive_decide_1.priorAttempts)(ctx.attempts.get(task.id) || 0, persisted);
-    const decided = (0, drive_decide_1.retryOrPark)(prior, drive_decide_1.DEFAULT_SCHEDULING_POLICY, reason);
+    const decided = (0, drive_decide_1.retryOrPark)(prior, ctx.policy, reason);
     ctx.attempts.set(task.id, decided.attempts);
     if (decided.status === "parked") {
         (0, worker_isolation_1.recordWorkerFailure)(run, workerId, decided.parkedReason || reason, { code: "agent-delegation-parked", retryable: false, retryCount: decided.attempts });
@@ -418,6 +418,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
         incremental: ctx.incremental,
         depth: ctx.depth + 1,
         visitedAppIds: [...ctx.visitedAppIds, parentApp],
+        policy: ctx.policy,
     });
     if (childResult.status !== "complete") {
         return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`, deferPersist, deferPersist ? run : undefined);
@@ -734,6 +735,7 @@ function driveConcurrentRound(ctx, limit) {
 function drive(runId, cwd, options = {}) {
     const now = options.now || new Date().toISOString();
     const config = options.agentConfig || (0, agent_config_1.resolveAgentConfig)(options.args || {});
+    const policy = { ...drive_decide_1.DEFAULT_SCHEDULING_POLICY, ...(options.policy || {}) };
     const ctx = {
         runId,
         cwd,
@@ -743,11 +745,12 @@ function drive(runId, cwd, options = {}) {
         incremental: Boolean(options.incremental),
         depth: Math.max(0, Math.floor(options.depth || 0)),
         visitedAppIds: options.visitedAppIds || [],
+        policy,
     };
     const steps = [];
     const run0 = loadRun(ctx);
     const plannedWorkers = run0.tasks.length;
-    const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), drive_decide_1.DEFAULT_SCHEDULING_POLICY);
+    const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), policy);
     // Phase-boundary progress (brew-style): announce each phase when it
     // becomes active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess
     // ⇉ (3/6)`. Describes CW's OWN phases (vendor-neutral); goes to stderr

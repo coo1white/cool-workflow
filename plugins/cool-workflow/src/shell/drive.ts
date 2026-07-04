@@ -25,6 +25,7 @@ import {
   DEFAULT_SCHEDULING_POLICY,
   DriveResultStatusInputs,
   DriveStep,
+  SchedulingPolicy,
   countCompleted,
   countParked,
   exitCodeFromEvidence,
@@ -124,6 +125,11 @@ export interface DriveOptions {
   incremental?: boolean;
   depth?: number;
   visitedAppIds?: string[];
+  /** Override the retry/park scheduling policy (e.g. {maxAttempts:1} so a
+   *  failing hop parks on its first attempt). Merged over
+   *  DEFAULT_SCHEDULING_POLICY; unset fields keep the default. Byte-exact
+   *  port of the old build's src/drive.ts DriveOptions.policy. */
+  policy?: Partial<SchedulingPolicy>;
 }
 
 export interface DriveResult {
@@ -165,6 +171,10 @@ interface DriveContext {
   incremental: boolean;
   depth: number;
   visitedAppIds: string[];
+  /** Resolved scheduling policy (DEFAULT_SCHEDULING_POLICY merged with any
+   *  DriveOptions.policy override) — read by handleHop's retryOrPark call
+   *  and by drive()'s maxIterations call. */
+  policy: SchedulingPolicy;
 }
 
 // A concurrent round runs many dispatch/accept steps against ONE shared
@@ -252,7 +262,7 @@ function handleHop(ctx: DriveContext, task: { id: string; phase: string }, worke
   const scope = getWorkerScope(run, workerId);
   const persisted = scope?.retryCount || 0;
   const prior = priorAttempts(ctx.attempts.get(task.id) || 0, persisted);
-  const decided = retryOrPark(prior, DEFAULT_SCHEDULING_POLICY, reason);
+  const decided = retryOrPark(prior, ctx.policy, reason);
   ctx.attempts.set(task.id, decided.attempts);
 
   if (decided.status === "parked") {
@@ -471,6 +481,7 @@ function runSubWorkflow(
     incremental: ctx.incremental,
     depth: ctx.depth + 1,
     visitedAppIds: [...ctx.visitedAppIds, parentApp],
+    policy: ctx.policy,
   });
   if (childResult.status !== "complete") {
     return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`, deferPersist, deferPersist ? run : undefined);
@@ -818,6 +829,7 @@ function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
 export function drive(runId: string, cwd: string, options: DriveOptions = {}): DriveResult {
   const now = options.now || new Date().toISOString();
   const config = options.agentConfig || resolveAgentConfig(options.args || {});
+  const policy: SchedulingPolicy = { ...DEFAULT_SCHEDULING_POLICY, ...(options.policy || {}) };
   const ctx: DriveContext = {
     runId,
     cwd,
@@ -827,12 +839,13 @@ export function drive(runId: string, cwd: string, options: DriveOptions = {}): D
     incremental: Boolean(options.incremental),
     depth: Math.max(0, Math.floor(options.depth || 0)),
     visitedAppIds: options.visitedAppIds || [],
+    policy,
   };
 
   const steps: DriveStep[] = [];
   const run0 = loadRun(ctx);
   const plannedWorkers = run0.tasks.length;
-  const maxIter = maxIterations(plannedWorkers, maxLoopExpansion(run0), DEFAULT_SCHEDULING_POLICY);
+  const maxIter = maxIterations(plannedWorkers, maxLoopExpansion(run0), policy);
 
   // Phase-boundary progress (brew-style): announce each phase when it
   // becomes active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess
