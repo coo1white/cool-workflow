@@ -54,6 +54,7 @@ const node_store_1 = require("./node-store");
 Object.defineProperty(exports, "writeRunNode", { enumerable: true, get: function () { return node_store_1.writeRunNode; } });
 const fs_atomic_1 = require("./fs-atomic");
 const worker_isolation_1 = require("./worker-isolation");
+const multi_agent_io_1 = require("./multi-agent-io");
 const registry_1 = require("./execution-backend/registry");
 const sandbox_profile_1 = require("./sandbox-profile");
 function createDispatchManifest(run, limit, options = {}) {
@@ -84,11 +85,28 @@ function createDispatchManifest(run, limit, options = {}) {
         backendAttestation = backendAttestation || scope.backendAttestation;
     }
     const selectedRunTasks = run.tasks.filter((t) => taskIds.has(t.id));
+    // Attach this dispatch to any active multi-agent run/group/role/fanout: the
+    // kernel binds each selected task to its membership and returns the multiAgent
+    // block that rides on the manifest + each task + run.dispatches, so a fanin can
+    // see its members. Byte-behavior port of the old build's dispatch attachment.
+    const multiAgentAttachment = (0, multi_agent_io_1.attachDispatchToMultiAgent)(run, {
+        multiAgentRunId: options.multiAgentRunId,
+        groupId: options.multiAgentGroupId,
+        roleId: options.multiAgentRoleId,
+        fanoutId: options.multiAgentFanoutId,
+        dispatchId,
+        tasks: selectedRunTasks,
+        sandboxProfileId,
+        concurrencyLimit: limit,
+    });
     for (const task of selectedRunTasks) {
         const worker = task.workerId ? (0, worker_isolation_1.getWorkerScope)(run, String(task.workerId)) : undefined;
         if (worker)
             (0, worker_isolation_1.writeWorkerManifest)(run, worker);
     }
+    const multiAgentBlock = multiAgentAttachment.multiAgent
+        ? { ...multiAgentAttachment.multiAgent, membershipIds: multiAgentAttachment.membershipIds }
+        : undefined;
     const dispatchNode = (0, node_store_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
         id: `${run.id}:dispatch:${dispatchId}`,
         kind: "dispatch",
@@ -109,7 +127,7 @@ function createDispatchManifest(run, limit, options = {}) {
             (0, node_store_1.appendRunNode)(run, (0, state_node_1.transitionStateNode)(node, { status: "running", loopStage: "act" }));
         }
     }
-    run.dispatches.push({ id: dispatchId, phase: tasks[0].phase || "", taskIds: tasks.map((t) => t.id), manifestPath, createdAt: now, stateNodeId: dispatchNode.id, workerIds: selectedRunTasks.filter((t) => t.workerId).map((t) => String(t.workerId)), sandboxProfileId, backendId: backendSelection.backendId });
+    run.dispatches.push({ id: dispatchId, phase: tasks[0].phase || "", taskIds: tasks.map((t) => t.id), manifestPath, createdAt: now, stateNodeId: dispatchNode.id, workerIds: selectedRunTasks.filter((t) => t.workerId).map((t) => String(t.workerId)), sandboxProfileId, backendId: backendSelection.backendId, ...(multiAgentBlock ? { multiAgent: multiAgentBlock } : {}) });
     (0, dispatch_1.updatePhaseStatuses)(run);
     const manifest = {
         schemaVersion: 1,
@@ -127,6 +145,7 @@ function createDispatchManifest(run, limit, options = {}) {
         backendId: backendSelection.backendId,
         backendSelection,
         backendAttestation,
+        ...(multiAgentBlock ? { multiAgent: multiAgentBlock } : {}),
     };
     (0, fs_atomic_1.writeJson)(manifestPath, manifest);
     return manifest;
