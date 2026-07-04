@@ -581,7 +581,7 @@ function hasTraversal(value: string): boolean {
 }
 
 function hasControlCharacters(value: string): boolean {
-  return /[ -]/.test(value);
+  return /[\x00-\x1f]/.test(value);
 }
 
 function compactMetadata(value: Record<string, unknown>): Record<string, unknown> | undefined {

@@ -545,7 +545,7 @@ function hasTraversal(value) {
     return value.split(/[\\/]+/).includes("..");
 }
 function hasControlCharacters(value) {
-    return /[ -]/.test(value);
+    return /[\x00-\x1f]/.test(value);
 }
 function compactMetadata(value) {
     const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
