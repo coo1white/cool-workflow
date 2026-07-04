@@ -295,34 +295,29 @@ function main() {
   }
 
   // ---- 5. CLI `audit-run` alias resolves to the same wrapper ----------------
-  // REAL-GAP / NO-EQUIVALENT: v2 dropped the audit-run alias entirely.
-  //   * The capability-table REGISTRY row for quickstart no longer carries an
-  //     `entry` field or `cli.caseTokens` (dist/core/capability-table.js: the row
-  //     is { capability, summary, surface, cli:{path,jsonMode}, reason }).
-  //   * `audit-run` is only a KNOWN_COMMANDS token (src/cli/parseargv.ts:123) with
-  //     NO capability-table row and NO dispatch arm, so findCapabilityByCliPath
-  //     (["audit-run"]) === undefined and `cw audit-run …` returns
-  //     "Unknown command: audit-run".
-  //   * The CLI is capability-table-driven (dist/cli.js is a 9-line shim), so
-  //     there are no `case "quickstart":` / `case "audit-run":` dispatch strings.
-  // The quickstart row itself IS still declared as cli-only, which is asserted.
-  // The alias/entry/caseTokens/case-string assertions are kept intact and fail.
+  // NO-EQUIVALENT (source-text half only): the old build dispatched through a
+  // switch statement, so a real smoke could grep dist/cli.js for literal
+  // `case "quickstart":` / `case "audit-run":` strings. v2's CLI is
+  // capability-table-driven (dist/cli.js is a tiny shim; dispatch goes through
+  // findCapabilityByCliPath -> dispatchTable), so there is no switch arm to
+  // grep for -- that implementation detail is gone by design, not dropped
+  // behavior. The alias itself (declared entry/caseTokens, and the actual
+  // dispatch resolution) is fully present, so check the BEHAVIOR instead of
+  // the old switch-arm text: both tokens resolve through the capability
+  // table to the same quickstart capability row.
   {
-    const { REGISTRY } = require(path.join(pluginRoot, "dist/core/capability-table.js"));
+    const { REGISTRY, findCapabilityByCliPath } = require(path.join(pluginRoot, "dist/core/capability-table.js"));
     const cap = REGISTRY.find((c) => c.capability === "quickstart");
     assert.ok(cap, "quickstart capability is declared");
     assert.equal(cap.surface, "cli-only", "quickstart is a CLI-only UX convenience");
     assert.equal(cap.entry, "quickstart", "routes through the shared quickstart core entry");
     assert.deepEqual(cap.cli.caseTokens, ["quickstart", "audit-run"], "declares both case tokens (incl. the audit-run alias)");
-    const cliSource = [
-      path.join(pluginRoot, "dist", "cli.js"),
-      path.join(pluginRoot, "dist", "cli", "command-surface.js")
-    ]
-      .filter((file) => fs.existsSync(file))
-      .map((file) => fs.readFileSync(file, "utf8"))
-      .join("\n");
-    assert.ok(/case "quickstart":/.test(cliSource), "cli dispatches quickstart");
-    assert.ok(/case "audit-run":/.test(cliSource), "cli dispatches the audit-run alias");
+    const quickstartMatch = findCapabilityByCliPath(["quickstart"]);
+    const auditRunMatch = findCapabilityByCliPath(["audit-run"]);
+    assert.ok(quickstartMatch, "cli dispatch resolves quickstart to a capability");
+    assert.ok(auditRunMatch, "cli dispatch resolves the audit-run alias to a capability");
+    assert.equal(quickstartMatch.capability, "quickstart", "quickstart token routes to the quickstart capability");
+    assert.equal(auditRunMatch.capability, "quickstart", "audit-run alias routes to the SAME quickstart capability");
   }
 
   // ---- 6. RED LINE: the wrapper has NO private executor (delegates only) -----
