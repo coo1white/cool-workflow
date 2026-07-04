@@ -105,6 +105,16 @@ function workerRoot(run: WorkflowRun): string {
   return run.paths.workersDir || path.join(run.paths.runDir, "workers");
 }
 
+/** Record a resolved sandbox policy into run.sandboxProfiles (upsert by id) so
+ *  the run state carries every profile a worker ran under — reports and
+ *  operators read it. Byte-exact to the old sandbox-profile.ts helper v2
+ *  dropped. */
+function upsertRunSandboxProfile(run: WorkflowRun, policy: ResolvedSandboxPolicy): void {
+  const profiles = (run.sandboxProfiles as ResolvedSandboxPolicy[] | undefined) || [];
+  const index = profiles.findIndex((candidate) => candidate.id === policy.id);
+  run.sandboxProfiles = (index >= 0 ? profiles.map((candidate) => (candidate.id === policy.id ? policy : candidate)) : [...profiles, policy]) as unknown as WorkflowRun["sandboxProfiles"];
+}
+
 function ensureWorkerState(run: WorkflowRun): void {
   run.paths.workersDir = run.paths.workersDir || path.join(run.paths.runDir, "workers");
   fs.mkdirSync(run.paths.workersDir, { recursive: true });
@@ -344,6 +354,7 @@ export function allocateWorkerScope(run: WorkflowRun, task: RunTask, options: Al
     customProfiles: run.customSandboxProfiles as Record<string, import("./execution-backend/types").SandboxProfileDefinition> | undefined,
   });
   const allowedPaths = effectiveSandboxWritePaths(sandboxPolicy);
+  upsertRunSandboxProfile(run, sandboxPolicy);
 
   // Execution-backend selection (mechanism vs policy): when a backend was
   // explicitly selected, record its sandbox attestation. The dispatch path is a

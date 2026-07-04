@@ -82,6 +82,15 @@ exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
 function workerRoot(run) {
     return run.paths.workersDir || path.join(run.paths.runDir, "workers");
 }
+/** Record a resolved sandbox policy into run.sandboxProfiles (upsert by id) so
+ *  the run state carries every profile a worker ran under — reports and
+ *  operators read it. Byte-exact to the old sandbox-profile.ts helper v2
+ *  dropped. */
+function upsertRunSandboxProfile(run, policy) {
+    const profiles = run.sandboxProfiles || [];
+    const index = profiles.findIndex((candidate) => candidate.id === policy.id);
+    run.sandboxProfiles = (index >= 0 ? profiles.map((candidate) => (candidate.id === policy.id ? policy : candidate)) : [...profiles, policy]);
+}
 function ensureWorkerState(run) {
     run.paths.workersDir = run.paths.workersDir || path.join(run.paths.runDir, "workers");
     fs.mkdirSync(run.paths.workersDir, { recursive: true });
@@ -315,6 +324,7 @@ function allocateWorkerScope(run, task, options = {}) {
         customProfiles: run.customSandboxProfiles,
     });
     const allowedPaths = (0, sandbox_profile_1.effectiveSandboxWritePaths)(sandboxPolicy);
+    upsertRunSandboxProfile(run, sandboxPolicy);
     // Execution-backend selection (mechanism vs policy): when a backend was
     // explicitly selected, record its sandbox attestation. The dispatch path is a
     // delegate-host execution (the host runs the worker), so the backend enforces
