@@ -10,12 +10,12 @@
 
 **Go deeper**
 
-- [Workflow Apps](Workflow-Apps.md)
 - [Architecture](Architecture.md)
-- [Trust And Audit](Trust-And-Audit.md)
-- [Recovery And Restore](Recovery-And-Restore.md)
+- [Workflow Apps](Workflow-Apps.md)
 - [Commands or API](Commands-or-API.md)
 - [MCP And Manifests](MCP-And-Manifests.md)
+- [Trust And Audit](Trust-And-Audit.md)
+- [Recovery And Restore](Recovery-And-Restore.md)
 - [Operations](Operations.md)
 - [FAQ](FAQ.md)
 

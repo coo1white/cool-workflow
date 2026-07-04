@@ -3,6 +3,8 @@
 A ten-minute walkthrough: install CW, prove its tamper-evidence with **no agent**, run your first cited
 review, read and re-verify the report, then resume and share it.
 
+*Already know the shape? The [Quickstart](Quickstart.md) is the same steps as a fast command reference.*
+
 ## Prerequisites
 
 - **Node.js v18+** — check with `node --version`.

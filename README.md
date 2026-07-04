@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/cw-hero.png" alt="Cool Workflow — your AI report, already proven. Point your agent at any repo or folder and get a saved, cited report you can re-verify offline." width="100%">
+<img src="docs/assets/cw-hero.png" alt="Cool Workflow hero image: the CW name over a line reading ask, plan, dispatch, verify, report — the stages of a saved, cited run." width="100%">
 
 <br><br>
 
@@ -48,7 +48,7 @@ Upgrade later with `brew update && brew upgrade cool-workflow`.
 </details>
 
 **You need:** Node.js v18+ and one agent CLI on your machine — `claude`, `codex`, `gemini`, or
-`opencode` (all auto-detected). No agent yet? `cw demo` still works — **CW never runs a model itself.**
+`opencode` (all auto-detected). No agent yet? `cw demo tamper` still works — **CW never runs a model itself.**
 
 ## Quick Start
 
@@ -109,6 +109,12 @@ is long, parallel, or high-stakes, you can't tell what happened or trust the res
 | **Deterministic, local replay** | Every step is plain JSON under `.cw/runs/<id>/` — read it, diff it, resume it, replay it. No hidden database; the runtime never *guesses* success. |
 | **Vendor-neutral by design** | One source-of-truth manifest generates every vendor adapter (Claude, Codex, …) over a shared CLI + MCP runtime, with a fail-closed drift check. No lock-in, no forked logic. |
 
+**What CW is not.** CW is not the model — it never calls a model API and never holds your keys;
+your agent does that work out of process. It is not a CI system or a build tool — it keeps and
+checks the record of agent work, it does not stand in for your tests or your release pipeline.
+And it is not a big framework to take up — it is a small set of commands over plain `.cw/` files
+on your own disk, not a library your code has to be built around.
+
 ## How It Works
 
 CW is a small TypeScript tool with **zero runtime dependencies**. It drives your agent over a repo — or
@@ -131,6 +137,9 @@ ask simple → run simple → verify simple → resume simple
 | `pr-review-fix-ci` | Review a PR or branch, diagnose CI, and propose + verify fixes |
 | `research-synthesis` | Answer a question over a local folder of files — your docs, notes, or papers |
 | `release-cut` | Run a gated, reviewed release with dry-run evidence |
+
+Every app writes the same thing: a saved, cited report you can re-verify offline. These four are
+the main lanes; `cw app list` shows all eight installed apps.
 
 ```bash
 cw app list            # see everything installed

@@ -4,9 +4,10 @@ CW exposes the same runtime through CLI commands and MCP tools. Use `--json` or
 `--format json` when scripting a CLI command.
 
 This page lists the common, stable command shapes — not the whole surface. The
-full machine-complete list (202 capabilities, 189 MCP tools) is generated from the
-capability registry and lives in
+full machine-complete list of every capability and its MCP tool is generated from
+the capability registry and lives in
 [`docs/cli-mcp-parity.7.md`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/cli-mcp-parity.7.md).
+Read the exact counts there, so this page never drifts from the code.
 
 Use `cw help` for the built-in help text. The CLI does not currently implement a
 top-level `cw --help` flag.

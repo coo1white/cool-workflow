@@ -21,14 +21,16 @@ the tokens; CW keeps the books.
 
 ## Go deeper
 
+Read these in order for a full picture, or jump to the one you need:
+
 | Page | Use it for |
 | --- | --- |
-| [Workflow Apps](Workflow-Apps.md) | Choose between the shipped apps and inspect app contracts. |
 | [Architecture](Architecture.md) | The runtime boundary, state files, verifier gate, and MCP surface. |
-| [Trust And Audit](Trust-And-Audit.md) | What telemetry, audit verification, and the trust limits actually prove. |
-| [Recovery And Restore](Recovery-And-Restore.md) | Resume, export, inspect, import, verify, and rerun durable runs. |
+| [Workflow Apps](Workflow-Apps.md) | Choose between the shipped apps and inspect app contracts. |
 | [Commands or API](Commands-or-API.md) | The stable CLI shapes and MCP entry points. |
 | [MCP And Manifests](MCP-And-Manifests.md) | Generated vendor manifests and CLI ↔ MCP parity. |
+| [Trust And Audit](Trust-And-Audit.md) | What telemetry, audit verification, and the trust limits actually prove. |
+| [Recovery And Restore](Recovery-And-Restore.md) | Resume, export, inspect, import, verify, and rerun durable runs. |
 | [Operations](Operations.md) | Verify, restore, regenerate manifests, and run release checks. |
 | [FAQ](FAQ.md) | Trust limits, agent setup, reports, and failure behavior. |
 
