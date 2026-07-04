@@ -12,7 +12,7 @@
 //
 // It signs the EXACT same canonical payload CW verifies — {usage, runId, taskId,
 // promptDigest} — sharing the canonicalization with the verifier via
-// dist/telemetry-attestation.js, so signer and verifier can never drift.
+// dist/core/trust/telemetry-attestation.js, so signer and verifier can never drift.
 //
 // Usage (wrap any agent that prints a {model, usage} JSON report on stdout):
 //   node cw-attest-wrap.js --manifest {{manifest}} -- <agent-cmd> [agent-args...]
@@ -32,7 +32,7 @@ const crypto = require("node:crypto");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const ta = require(path.resolve(__dirname, "..", "..", "dist", "telemetry-attestation.js"));
+const ta = require(path.resolve(__dirname, "..", "..", "dist", "core", "trust", "telemetry-attestation.js"));
 
 function fail(message) {
   process.stderr.write(`cw-attest-wrap: ${message}\n`);
