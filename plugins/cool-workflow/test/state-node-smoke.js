@@ -11,8 +11,8 @@ const {
   recordNodeError,
   transitionStateNode,
   validatePipelineContract
-} = require("../dist/state-node");
-const { createDefaultPipelineContract } = require("../dist/pipeline-contract");
+} = require("../dist/core/state/state-node");
+const { createDefaultPipelineContract } = require("../dist/core/pipeline/contract");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-state-node-"));
 const resultPath = path.join(tmp, "result.md");
@@ -73,7 +73,10 @@ const missingArtifact = createStateNode({
   evidence: [{ id: "result", source: "test" }]
 });
 assert.throws(
-  () => assertNodeSatisfiesContract(missingArtifact, contract, "result"),
+  // v2 made core/ pure: assertNodeSatisfiesContract takes an injected path-exists
+  // predicate (default () => true). The old build called fs.existsSync inline;
+  // pass it here to preserve the original artifact-existence check.
+  () => assertNodeSatisfiesContract(missingArtifact, contract, "result", (p) => fs.existsSync(p)),
   /path does not exist/
 );
 
