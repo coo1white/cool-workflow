@@ -31,7 +31,8 @@ import {
   sandboxPolicyForWorker,
   validateSandboxWrite,
 } from "./sandbox-profile";
-import { ResolvedSandboxPolicy } from "./execution-backend/types";
+import { ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
+import { attestSandbox, getBackendDescriptor, resolveBackendSelection } from "./execution-backend/registry";
 import { taskRequiresEvidence } from "./verifier";
 import { runPipelineStage } from "../core/pipeline/runner";
 import { sha256 } from "../core/hash";
@@ -58,6 +59,7 @@ export interface WorkerScope {
   sandboxProfileId: string;
   sandboxPolicy: ResolvedSandboxPolicy;
   backendId?: string;
+  backendAttestation?: SandboxAttestation;
   stateNodeId?: string;
   resultNodeId?: string;
   feedbackIds: string[];
@@ -242,6 +244,18 @@ export function writeWorkerManifest(run: WorkflowRun, scope: WorkerScope): Recor
       ? { profileId: scope.sandboxPolicy.id, policy: scope.sandboxPolicy, enforcedByCW: scope.sandboxPolicy.enforcement.enforcedByCW, hostRequired: scope.sandboxPolicy.enforcement.hostRequired }
       : undefined,
     backendId: scope.backendId,
+    backendAttestation: scope.backendAttestation,
+    backend:
+      scope.backendId && scope.backendAttestation
+        ? {
+            id: scope.backendId,
+            locality: scope.backendAttestation.locality,
+            kind: scope.backendAttestation.kind,
+            enforces: scope.backendAttestation.enforced,
+            attests: scope.backendAttestation.attested,
+            attestation: scope.backendAttestation,
+          }
+        : undefined,
     retryCount: scope.retryCount,
     instructions: [
       "Read input.md before doing work.",
@@ -329,6 +343,14 @@ export function allocateWorkerScope(run: WorkflowRun, task: RunTask, options: Al
   });
   const allowedPaths = effectiveSandboxWritePaths(sandboxPolicy);
 
+  // Execution-backend selection (mechanism vs policy): when a backend was
+  // explicitly selected, record its sandbox attestation. The dispatch path is a
+  // delegate-host execution (the host runs the worker), so the backend enforces
+  // only CW's own worker-output acceptance and attests the rest.
+  const backendAttestation = options.backendId
+    ? attestSandbox(getBackendDescriptor(options.backendId), sandboxPolicy, { mode: "delegate-host" })
+    : undefined;
+
   fs.mkdirSync(artifactsDir, { recursive: true });
   fs.mkdirSync(logsDir, { recursive: true });
 
@@ -350,6 +372,7 @@ export function allocateWorkerScope(run: WorkflowRun, task: RunTask, options: Al
     sandboxProfileId: sandboxPolicy.id,
     sandboxPolicy,
     backendId: options.backendId,
+    backendAttestation,
     stateNodeId: task.stateNodeId,
     feedbackIds: [],
     errors: [],
@@ -369,11 +392,31 @@ export function allocateWorkerScope(run: WorkflowRun, task: RunTask, options: Al
     policySnapshot: sandboxPolicy,
     metadata: { dispatchId: scope.dispatchId, workerDir: scope.workerDir, allowedPaths },
   });
+  if (options.backendId && backendAttestation) {
+    recordTrustAuditEvent(run, {
+      kind: "worker.backend",
+      decision: backendAttestation.status === "refused" ? "denied" : "recorded",
+      source: "runtime-derived",
+      workerId: scope.id,
+      taskId: task.id,
+      sandboxProfileId: sandboxPolicy.id,
+      policySnapshot: sandboxPolicy,
+      metadata: {
+        backendId: options.backendId,
+        attestationStatus: backendAttestation.status,
+        enforced: backendAttestation.enforced,
+        attested: backendAttestation.attested,
+        unenforceable: backendAttestation.unenforceable,
+        dispatchId: scope.dispatchId,
+      },
+    });
+  }
   task.workerId = scope.id;
   task.workerManifestPath = manifestPath(scope);
   task.sandboxProfileId = sandboxPolicy.id;
   task.sandboxPolicy = sandboxPolicy;
   task.backendId = options.backendId;
+  task.backendAttestation = backendAttestation;
   writeWorkerIndex(run);
   return scope;
 }

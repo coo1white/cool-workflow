@@ -21,7 +21,7 @@ import { writeJson } from "./fs-atomic";
 import { allocateWorkerScope, writeWorkerManifest, getWorkerScope } from "./worker-isolation";
 import { resolveBackendSelection } from "./execution-backend/registry";
 import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation } from "./sandbox-profile";
-import { BackendSelection, ResolvedSandboxPolicy } from "./execution-backend/types";
+import { BackendSelection, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
 
 export interface DispatchManifest {
   schemaVersion: 1;
@@ -38,6 +38,7 @@ export interface DispatchManifest {
   sandboxPolicy?: ResolvedSandboxPolicy;
   backendId: string;
   backendSelection: BackendSelection;
+  backendAttestation?: SandboxAttestation;
 }
 
 export interface DispatchOptions {
@@ -62,6 +63,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
   const taskIds = new Set(tasks.map((t) => t.id));
 
   let sandboxPolicy: ResolvedSandboxPolicy | undefined;
+  let backendAttestation: SandboxAttestation | undefined;
   for (const task of run.tasks) {
     if (!taskIds.has(task.id)) continue;
     const taskSandboxProfileId = String(options.sandboxProfileId || task.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID);
@@ -71,6 +73,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
     task.dispatchedAt = now;
     const scope = allocateWorkerScope(run, task, { dispatchId, sandboxProfileId: taskSandboxProfileId, backendId: backendSelection.backendId, status: "running", metadata: { dispatchId, phase: task.phase } });
     sandboxPolicy = sandboxPolicy || scope.sandboxPolicy;
+    backendAttestation = backendAttestation || scope.backendAttestation;
   }
 
   const selectedRunTasks = run.tasks.filter((t) => taskIds.has(t.id));
@@ -121,6 +124,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
     sandboxPolicy,
     backendId: backendSelection.backendId,
     backendSelection,
+    backendAttestation,
   };
   writeJson(manifestPath, manifest);
   return manifest;

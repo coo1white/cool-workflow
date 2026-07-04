@@ -70,6 +70,7 @@ function createDispatchManifest(run, limit, options = {}) {
     fs.mkdirSync(run.paths.dispatchesDir, { recursive: true });
     const taskIds = new Set(tasks.map((t) => t.id));
     let sandboxPolicy;
+    let backendAttestation;
     for (const task of run.tasks) {
         if (!taskIds.has(task.id))
             continue;
@@ -80,6 +81,7 @@ function createDispatchManifest(run, limit, options = {}) {
         task.dispatchedAt = now;
         const scope = (0, worker_isolation_1.allocateWorkerScope)(run, task, { dispatchId, sandboxProfileId: taskSandboxProfileId, backendId: backendSelection.backendId, status: "running", metadata: { dispatchId, phase: task.phase } });
         sandboxPolicy = sandboxPolicy || scope.sandboxPolicy;
+        backendAttestation = backendAttestation || scope.backendAttestation;
     }
     const selectedRunTasks = run.tasks.filter((t) => taskIds.has(t.id));
     for (const task of selectedRunTasks) {
@@ -124,6 +126,7 @@ function createDispatchManifest(run, limit, options = {}) {
         sandboxPolicy,
         backendId: backendSelection.backendId,
         backendSelection,
+        backendAttestation,
     };
     (0, fs_atomic_1.writeJson)(manifestPath, manifest);
     return manifest;
