@@ -1899,6 +1899,47 @@ attachCliBinding("worker.validate", {
     },
 });
 REGISTRY_BY_CAPABILITY.get("worker.validate").mcp.handler = (args) => (0, worker_cli_1.workerValidateCli)(args).violation;
+// ---- feedback list|show|summary|collect|task|resolve (CLI + MCP) ---------
+// The operator feedback lifecycle. MCP rows were declared but stubbed
+// (notYetImplemented) and no CLI verb was bound; the old build routed all of
+// these. positionals: [runId, feedbackId].
+const feedback_cli_1 = require("../shell/feedback-cli");
+attachCliBinding("feedback.summary", {
+    path: ["feedback", "summary"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, feedback_cli_1.feedbackSummaryCli)({ ...args.options, runId: args.positionals[0] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("feedback.summary").mcp.handler = (args) => (0, feedback_cli_1.feedbackSummaryCli)(args);
+attachCliBinding("feedback.list", {
+    path: ["feedback", "list"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, feedback_cli_1.feedbackListCli)({ ...args.options, runId: args.positionals[0] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("feedback.list").mcp.handler = (args) => (0, feedback_cli_1.feedbackListCli)(args);
+attachCliBinding("feedback.show", {
+    path: ["feedback", "show"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, feedback_cli_1.feedbackShowCli)({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("feedback.show").mcp.handler = (args) => (0, feedback_cli_1.feedbackShowCli)(args);
+attachCliBinding("feedback.collect", {
+    path: ["feedback", "collect"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, feedback_cli_1.feedbackCollectCli)({ ...args.options, runId: args.positionals[0] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("feedback.collect").mcp.handler = (args) => (0, feedback_cli_1.feedbackCollectCli)(args);
+attachCliBinding("feedback.task", {
+    path: ["feedback", "task"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, feedback_cli_1.feedbackTaskCli)({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("feedback.task").mcp.handler = (args) => (0, feedback_cli_1.feedbackTaskCli)(args);
+attachCliBinding("feedback.resolve", {
+    path: ["feedback", "resolve"],
+    jsonMode: "default",
+    handler: (args) => ({ json: (0, feedback_cli_1.feedbackResolveCli)({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
+});
+REGISTRY_BY_CAPABILITY.get("feedback.resolve").mcp.handler = (args) => (0, feedback_cli_1.feedbackResolveCli)(args);
 // ---- workbench.view / workbench.serve ---------------------------------
 const workbench_1 = require("../shell/workbench");
 const workbench_text_1 = require("../shell/workbench-text");
