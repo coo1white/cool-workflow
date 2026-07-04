@@ -30,6 +30,7 @@ import {
   formatMultiAgentFailures,
   formatMultiAgentOperatorStatus,
   summarizeMultiAgentOperator,
+  operatorDigestInput,
 } from "./multi-agent-operator-ux";
 import { formatOperatorGraph as formatOperatorGraphText } from "./operator-ux-text";
 import { buildStateExplosionReport } from "../core/state/state-explosion/report";
@@ -592,7 +593,7 @@ export function multiAgentSummaryCli(args: Record<string, unknown>): unknown {
 export function multiAgentSummarizeCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
   const run = loadRun(args, runId);
-  return buildStateExplosionReport(run, { index: loadStateExplosionSummaryIndex(run) });
+  return buildStateExplosionReport(run, { index: loadStateExplosionSummaryIndex(run), operator: operatorDigestInput(run) });
 }
 
 /** `cw_multi_agent_graph_compact` — a compact/focused multi-agent graph

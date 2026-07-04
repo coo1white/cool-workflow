@@ -58,6 +58,7 @@ const trust_audit_1 = require("./trust-audit");
 const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
 const multi_agent_io_1 = require("./multi-agent-io");
 const coordinator_io_1 = require("./coordinator-io");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 function formatInputList(value) {
     if (Array.isArray(value))
         return value.join("; ");
@@ -91,7 +92,7 @@ function renderCommits(run) {
  *  "no records" fallback in the old build either). */
 function renderStateSize(run) {
     const index = (0, state_explosion_cli_1.loadStateExplosionSummaryIndex)(run);
-    const report = (0, state_explosion_cli_1.buildStateExplosionReport)(run, { index });
+    const report = (0, state_explosion_cli_1.buildStateExplosionReport)(run, { index, operator: (0, multi_agent_operator_ux_1.operatorDigestInput)(run) });
     return (0, state_explosion_text_1.stateExplosionReportLines)(report);
 }
 /** `## Sandbox Profiles` — byte-exact port of the old build's

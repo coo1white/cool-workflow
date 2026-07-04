@@ -56,6 +56,8 @@ exports.validateSandboxRead = validateSandboxRead;
 exports.validateSandboxCommand = validateSandboxCommand;
 exports.validateSandboxNetwork = validateSandboxNetwork;
 exports.sandboxContextForValidation = sandboxContextForValidation;
+exports.sandboxContextForRun = sandboxContextForRun;
+exports.persistCustomSandboxProfile = persistCustomSandboxProfile;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
@@ -343,6 +345,52 @@ function sandboxContextForValidation(cwd = process.cwd()) {
         artifactsDir: path.join(workerDir, "artifacts"),
         logsDir: path.join(workerDir, "logs"),
     };
+}
+// H7: a run-scoped resolution context. Threads run.customSandboxProfiles as
+// customProfiles so a worker-boundary re-resolve by logical id can find and
+// re-resolve a CUSTOM profile after a scope snapshot is lost — re-resolving
+// against the worker context (not a dispatch-time file path).
+function sandboxContextForRun(run) {
+    return {
+        cwd: run.cwd,
+        runDir: run.paths.runDir,
+        customProfiles: run.customSandboxProfiles,
+    };
+}
+// H7: if the requested profile is a CUSTOM profile loaded from a FILE (a
+// non-bundled id that resolves to a readable, valid profile file), persist its
+// raw DEFINITION onto run.customSandboxProfiles keyed by the definition's logical
+// id. We store the DEFINITION (path tokens intact), not a resolved policy, so
+// worker-specific tokens re-bind to the correct worker context on every later
+// re-resolve. Bundled ids and unknown ids are left untouched, so this never
+// shadows a bundled profile or masks a fail-closed. Throws on an id collision:
+// the same logical id mapped to a DIFFERENT profile file is a caller mistake.
+function persistCustomSandboxProfile(run, requested) {
+    if (!requested || isBundledSandboxProfileId(requested))
+        return;
+    const absolute = path.resolve(requested);
+    if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile())
+        return;
+    const validation = validateSandboxProfileFile(requested, sandboxContextForValidation(run.cwd));
+    if (!validation.valid || !validation.profile)
+        return;
+    let definition;
+    try {
+        definition = JSON.parse(fs.readFileSync(absolute, "utf8"));
+    }
+    catch {
+        return;
+    }
+    if (!definition || typeof definition !== "object" || typeof definition.id !== "string" || !definition.id)
+        return;
+    const profiles = (run.customSandboxProfiles || {});
+    const previous = profiles[definition.id];
+    if (previous && JSON.stringify(previous) !== JSON.stringify(definition)) {
+        throw new Error(`Sandbox profile id collision: "${definition.id}" is already defined by a different custom profile ` +
+            `(source: ${absolute}). Use a unique id in each custom profile file.`);
+    }
+    profiles[definition.id] = definition;
+    run.customSandboxProfiles = profiles;
 }
 function validateSandboxPathAccess(mode, policy, rawPath, allowedPaths, workerId) {
     if (hasTraversal(rawPath)) {

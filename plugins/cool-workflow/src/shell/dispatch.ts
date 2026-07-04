@@ -21,7 +21,7 @@ import { writeJson } from "./fs-atomic";
 import { allocateWorkerScope, writeWorkerManifest, getWorkerScope } from "./worker-isolation";
 import { attachDispatchToMultiAgent } from "./multi-agent-io";
 import { resolveBackendSelection } from "./execution-backend/registry";
-import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation } from "./sandbox-profile";
+import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation, persistCustomSandboxProfile } from "./sandbox-profile";
 import { BackendSelection, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
 
 export interface DispatchManifest {
@@ -55,8 +55,14 @@ export interface DispatchOptions {
 }
 
 export function createDispatchManifest(run: WorkflowRun, limit?: number, options: DispatchOptions = {}): DispatchManifest {
-  const sandboxProfileId = String(options.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID);
+  const requestedSandboxProfileId = options.sandboxProfileId || options.sandbox;
+  const sandboxProfileId = String(requestedSandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID);
   resolveSandboxProfileById(sandboxProfileId, sandboxContextForValidation(run.cwd));
+  // H7: if the requested profile is a CUSTOM profile loaded from a FILE (non-bundled,
+  // existing file), persist its DEFINITION on run.customSandboxProfiles keyed by the
+  // definition's logical id, so a worker boundary can re-resolve it by logical id after
+  // a scope snapshot is lost. Throws on an id collision (same id, different file).
+  persistCustomSandboxProfile(run, sandboxProfileId);
   const backendSelection = resolveBackendSelection(options.backendId);
   const tasks = nextDispatchTasks(run, limit);
 
@@ -74,7 +80,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
   let backendAttestation: SandboxAttestation | undefined;
   for (const task of run.tasks) {
     if (!taskIds.has(task.id)) continue;
-    const taskSandboxProfileId = String(options.sandboxProfileId || task.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID);
+    const taskSandboxProfileId = String(requestedSandboxProfileId || task.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID);
     task.status = "running";
     task.loopStage = "act";
     task.dispatchId = dispatchId;

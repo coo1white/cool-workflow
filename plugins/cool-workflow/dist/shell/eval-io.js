@@ -66,6 +66,8 @@ const trust_policy_io_1 = require("./trust-policy-io");
 const topology_io_1 = require("./topology-io");
 const multi_agent_io_1 = require("./multi-agent-io");
 const evidence_reasoning_1 = require("./evidence-reasoning");
+const state_explosion_cli_1 = require("./state-explosion-cli");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 function now() {
     return new Date().toISOString();
 }
@@ -226,13 +228,53 @@ function normalizeRun(run) {
         selectedCandidates: ev.lines((run.candidateSelections || []).map((entry) => ({ candidateId: entry.candidateId, scoreId: entry.scoreId, verifierNodeId: entry.verifierNodeId, reason: entry.reason, evidenceCount: entry.evidence.length }))),
         verifierCommitGate: ev.lines((run.commits || []).map((entry) => ({ verifierGated: Boolean(entry.verifierGated), checkpoint: Boolean(entry.checkpoint), candidateId: entry.candidateId, selectionId: entry.selectionId, verifierNodeId: entry.verifierNodeId, evidenceCount: (entry.evidence || []).length }))),
         reportSections: reportSections(run),
-        summaryFreshness: [],
-        compactGraphShape: [],
-        blackboardDigest: [],
-        criticalPath: [],
-        evidenceDigest: [],
-        expansionRefs: [],
+        ...normalizeStateExplosionForEval(run),
         ...(0, evidence_reasoning_1.normalizeEvidenceReasoningForEval)(run),
+    };
+}
+/** The v0.1.25/v0.1.26 state-explosion eval sections — a stabilized
+ *  projection of the state-explosion report (summary freshness, compact
+ *  graph shape, blackboard digest, critical path, evidence digest,
+ *  expansion refs). Byte-behavior port of the old build's
+ *  normalizeStateExplosionForEval. */
+function normalizeStateExplosionForEval(run) {
+    const report = (0, state_explosion_cli_1.buildStateExplosionReport)(run, { operator: (0, multi_agent_operator_ux_1.operatorDigestInput)(run) });
+    const graph = report.compactGraph;
+    const runPrefix = `${run.id}:`;
+    const stripRunId = (id) => (id.startsWith(runPrefix) ? id.slice(runPrefix.length) : id);
+    return {
+        summaryFreshness: ev.lines([
+            { compactionRecommended: report.stateSize.compactionRecommended, total: report.stateSize.total, deterministic: graph.deterministic },
+        ]),
+        compactGraphShape: ev.lines([
+            {
+                view: graph.view,
+                fullNodeCount: graph.fullNodeCount,
+                fullEdgeCount: graph.fullEdgeCount,
+                compactNodeCount: graph.compactNodeCount,
+                compactEdgeCount: graph.compactEdgeCount,
+                collapsedNodeCount: graph.collapsedNodeCount,
+                syntheticNodes: graph.syntheticNodes.map((s) => ({ kind: s.id.split(":summary:")[1] || s.kind, collapsedNodeCount: s.collapsedNodeCount, collapsedEdgeCount: s.collapsedEdgeCount, dominantStatus: s.dominantStatus })),
+            },
+        ]),
+        blackboardDigest: ev.lines([
+            {
+                topics: report.blackboardDigest.topicRollups.length,
+                threads: report.blackboardDigest.threadSummaries.length,
+                unresolved: report.blackboardDigest.unresolvedQuestions.map((q) => q.id),
+                conflicts: report.blackboardDigest.conflicts.map((c) => c.id),
+                decisions: report.blackboardDigest.decisions.length,
+                artifacts: report.blackboardDigest.artifacts.length,
+                policyViolations: report.blackboardDigest.policyViolations.map((p) => p.id),
+                judgeRationale: report.blackboardDigest.judgeRationale.map((j) => j.id),
+                missingEvidence: report.blackboardDigest.missingEvidence.map((m) => m.label),
+            },
+        ]),
+        criticalPath: graph.criticalPath.map(stripRunId).sort(),
+        evidenceDigest: ev.lines([
+            { adopted: report.operatorDigest.evidenceDigest.adopted, missing: report.operatorDigest.evidenceDigest.missing, rejected: report.operatorDigest.evidenceDigest.rejected },
+        ]),
+        expansionRefs: report.hiddenSourceRecords.map((h) => `${h.kind}=${h.count}`).sort(),
     };
 }
 function createMultiAgentReplaySnapshot(run, options = {}) {

@@ -31,6 +31,7 @@ import {
 } from "../core/state/state-explosion/report";
 import { computeStateSizeWithGraph } from "../core/state/state-explosion/size";
 import { WorkflowRun } from "../core/state/types";
+import { operatorDigestInput } from "./multi-agent-operator-ux";
 
 export type { MultiAgentSummaryIndex, MultiAgentSummaryIndexEntry, StateExplosionReport };
 export { buildStateExplosionReport };
@@ -78,7 +79,7 @@ export function refreshStateExplosionSummaries(
   );
   const stateSize = computeStateSizeWithGraph(run, thresholds, graphView);
   const compactGraph = buildCompactGraphFromView(run.id, graphView, "compact", { thresholds, now });
-  const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now);
+  const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now, operatorDigestInput(run));
   const graphRecords = views.map((view) => buildCompactGraphFromView(run.id, graphView, view, { thresholds, now }));
 
   const entries: MultiAgentSummaryIndexEntry[] = [];
@@ -116,7 +117,7 @@ export function refreshStateExplosionSummaries(
     paths: { summariesDir: dir, indexPath: path.join(dir, "index.json"), reportPath },
   };
   writeJson(index.paths.indexPath, index);
-  const report = buildStateExplosionReport(run, { thresholds, index, now });
+  const report = buildStateExplosionReport(run, { thresholds, index, now, operator: operatorDigestInput(run) });
   writeJson(reportPath, report);
 
   return index;
@@ -141,7 +142,7 @@ export function loadStateExplosionSummaryIndex(run: WorkflowRun): MultiAgentSumm
  *  (see `refreshStateExplosionSummaries`'s own note). */
 export function showStateExplosionSummary(run: WorkflowRun, options: { thresholds?: StateExplosionThresholds } = {}): StateExplosionReport {
   const index = loadStateExplosionSummaryIndex(run);
-  return buildStateExplosionReport(run, { thresholds: options.thresholds, index });
+  return buildStateExplosionReport(run, { thresholds: options.thresholds, index, operator: operatorDigestInput(run) });
 }
 
 // ---------------------------------------------------------------------

@@ -108,6 +108,10 @@ function flattenTasks(app, inputs) {
                 // so warm re-runs hit .cw/cache/worker-results instead of re-spawning.
                 // Byte-exact to the old build's flattenTasks (lifecycle-operations.ts).
                 ...(task.resultCache ? { resultCache: task.resultCache } : {}),
+                // Sub-workflow delegation spec the drive READS (drive.ts's runSubWorkflow
+                // branch reads selected.subWorkflow). Without this the delegate task falls
+                // through to the normal agent path instead of spawning a child run.
+                ...(task.subWorkflow ? { subWorkflow: task.subWorkflow } : {}),
             });
         }
     }
@@ -145,9 +149,18 @@ function plan(app, options) {
     const paths = (0, run_paths_1.createRunPaths)(runDir);
     (0, run_paths_1.ensureRunDirs)(paths);
     const tasks = flattenTasks(app, inputs);
+    // Stamp a real wall-clock createdAt/updatedAt at plan time (shell layer —
+    // clock reads are allowed here). The pure migration defaults a run that
+    // LACKS these to epoch-0 (for migrating old state), but a NEW run must
+    // carry a real createdAt so metrics/duration (wallClockMs = updatedAt -
+    // createdAt) are meaningful and stable, not a ~epoch-millis drift. Honors
+    // an explicit --now for deterministic callers.
+    const planNow = typeof options.now === "string" && options.now.trim() ? options.now : new Date().toISOString();
     const seed = {
         schemaVersion: 1,
         id: runId,
+        createdAt: planNow,
+        updatedAt: planNow,
         cwd,
         workflow: {
             id: app.workflow.id,

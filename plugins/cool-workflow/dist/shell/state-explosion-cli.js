@@ -65,6 +65,7 @@ const helpers_1 = require("../core/state/state-explosion/helpers");
 const report_1 = require("../core/state/state-explosion/report");
 Object.defineProperty(exports, "buildStateExplosionReport", { enumerable: true, get: function () { return report_1.buildStateExplosionReport; } });
 const size_2 = require("../core/state/state-explosion/size");
+const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 function summariesDir(run) {
     return path.join(run.paths.runDir, "summaries");
 }
@@ -100,7 +101,7 @@ function refreshStateExplosionSummaries(run, options = {}) {
     }, undefined, now);
     const stateSize = (0, size_2.computeStateSizeWithGraph)(run, thresholds, graphView);
     const compactGraph = (0, graph_1.buildCompactGraphFromView)(run.id, graphView, "compact", { thresholds, now });
-    const operatorDigest = (0, report_1.buildOperatorDigest)(run, compactGraph, blackboardDigest, stateSize, now);
+    const operatorDigest = (0, report_1.buildOperatorDigest)(run, compactGraph, blackboardDigest, stateSize, now, (0, multi_agent_operator_ux_1.operatorDigestInput)(run));
     const graphRecords = views.map((view) => (0, graph_1.buildCompactGraphFromView)(run.id, graphView, view, { thresholds, now }));
     const entries = [];
     const writeRecord = (id, record, scope, fingerprint, included, omitted) => {
@@ -135,7 +136,7 @@ function refreshStateExplosionSummaries(run, options = {}) {
         paths: { summariesDir: dir, indexPath: path.join(dir, "index.json"), reportPath },
     };
     (0, fs_atomic_1.writeJson)(index.paths.indexPath, index);
-    const report = (0, report_1.buildStateExplosionReport)(run, { thresholds, index, now });
+    const report = (0, report_1.buildStateExplosionReport)(run, { thresholds, index, now, operator: (0, multi_agent_operator_ux_1.operatorDigestInput)(run) });
     (0, fs_atomic_1.writeJson)(reportPath, report);
     return index;
 }
@@ -160,7 +161,7 @@ function loadStateExplosionSummaryIndex(run) {
  *  (see `refreshStateExplosionSummaries`'s own note). */
 function showStateExplosionSummary(run, options = {}) {
     const index = loadStateExplosionSummaryIndex(run);
-    return (0, report_1.buildStateExplosionReport)(run, { thresholds: options.thresholds, index });
+    return (0, report_1.buildStateExplosionReport)(run, { thresholds: options.thresholds, index, operator: (0, multi_agent_operator_ux_1.operatorDigestInput)(run) });
 }
 // ---------------------------------------------------------------------
 // CLI-facing wrappers: `cw summary refresh <run-id> [--json]` / `cw

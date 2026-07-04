@@ -408,8 +408,8 @@ function attachCliBinding(capability, cli) {
 /** Declare a capability that is CLI-only at this milestone (`help`,
  *  `version` — both are permanently `cli-only` per SPEC/mcp.md's
  *  declared one-surface list, so no mcp row is created for them). */
-function addCliOnlyCapability(capability, summary, cli, reason) {
-    const row = { capability, summary, surface: "cli-only", cli, reason };
+function addCliOnlyCapability(capability, summary, cli, reason, entry) {
+    const row = { capability, summary, surface: "cli-only", cli, reason, ...(entry ? { entry } : {}) };
     exports.REGISTRY.push(row);
     REGISTRY_BY_CAPABILITY.set(capability, row);
 }
@@ -418,11 +418,19 @@ function findCapability(capability) {
     return REGISTRY_BY_CAPABILITY.get(capability);
 }
 /** Returns the declared row whose `cli.path` matches `path` exactly
- *  (path[0] is the verb). Used by cli/dispatch.ts's generic executor. */
+ *  (path[0] is the verb). Used by cli/dispatch.ts's generic executor.
+ *  A single-token command also matches a row's `caseTokens` alias list, so
+ *  an alias (e.g. `audit-run`) dispatches to the same handler as its verb. */
 function findCapabilityByCliPath(path) {
     for (const row of exports.REGISTRY) {
         if (row.cli && row.cli.path.length === path.length && row.cli.path.every((p, i) => p === path[i])) {
             return row;
+        }
+    }
+    if (path.length === 1) {
+        for (const row of exports.REGISTRY) {
+            if (row.cli && row.cli.caseTokens && row.cli.caseTokens.includes(path[0]))
+                return row;
         }
     }
     return undefined;
@@ -914,6 +922,9 @@ REGISTRY_BY_CAPABILITY.get("run.inspect-archive").mcp.handler = (args) => (0, ru
 REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) => (0, run_export_cli_1.runRestoreCli)((0, io_1.required)((0, io_3.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
 addCliOnlyCapability("quickstart", "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).", {
     path: ["quickstart"],
+    // `audit-run` is a CLI-only alias that dispatches to the same quickstart
+    // wrapper (byte-behavior port of the old build's caseTokens).
+    caseTokens: ["quickstart", "audit-run"],
     jsonMode: "default",
     handler: (args) => {
         const appId = (0, io_3.optionalArg)(args.positionals[0]);
@@ -921,7 +932,7 @@ addCliOnlyCapability("quickstart", "ONE-COMMAND quickstart: --check preflights w
         const exitCode = result.mode === "check" && result.ok === false ? 1 : undefined;
         return { json: result, exitCode };
     },
-}, "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer).");
+}, "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.", "quickstart");
 attachCliBinding("dispatch", {
     path: ["dispatch"],
     jsonMode: "default",
@@ -1525,7 +1536,15 @@ REGISTRY_BY_CAPABILITY.get("comment.list").mcp.handler = (args) => (0, multi_age
 attachCliBinding("handoff", {
     path: ["handoff"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, multi_agent_cli_1.handoffCli)({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }, args.positionals[0], args.positionals[2]) }),
+    // `cw handoff <kind> <run-id> [target-id]` (byte-behavior port of the old
+    // build's handleHandoff): the FIRST required() is on the target-kind
+    // positional, so a bare `cw handoff` fails with "Missing target kind" — not
+    // "Missing run id". The kind check must fire before the run-id read.
+    handler: (args) => {
+        const kind = (0, io_1.required)(args.positionals[0], "target kind");
+        const runId = (0, io_1.required)(args.positionals[1], "run id");
+        return { json: (0, multi_agent_cli_1.handoffCli)({ ...args.options, runId }, kind, args.positionals[2]) };
+    },
 });
 REGISTRY_BY_CAPABILITY.get("handoff").mcp.handler = (args) => (0, multi_agent_cli_1.handoffCli)(args);
 attachCliBinding("review.status", {

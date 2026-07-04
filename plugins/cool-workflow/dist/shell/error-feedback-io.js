@@ -51,6 +51,7 @@ exports.listFeedback = listFeedback;
 exports.collectRunErrors = collectRunErrors;
 exports.createCorrectionTask = createCorrectionTask;
 exports.resolveFeedback = resolveFeedback;
+exports.runPipelineStage = runPipelineStage;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
@@ -58,6 +59,7 @@ const error_feedback_1 = require("../core/pipeline/error-feedback");
 const state_node_1 = require("../core/state/state-node");
 const node_store_1 = require("./node-store");
 const run_store_1 = require("./run-store");
+const runner_1 = require("../core/pipeline/runner");
 function ensureFeedbackState(run) {
     run.paths.feedbackDir = run.paths.feedbackDir || path.join(run.paths.runDir, "feedback");
     fs.mkdirSync(run.paths.feedbackDir, { recursive: true });
@@ -279,4 +281,25 @@ function resolveFeedback(run, feedbackId, result) {
     });
     (0, run_store_1.saveCheckpoint)(run);
     return requireFeedback(run, feedbackId);
+}
+/** Shell-bound `runPipelineStage`: the core pure runner with `recordFeedback`
+ *  wired in, so a failed pipeline stage that preserves its failure node ALSO
+ *  writes a durable ErrorFeedback record (byte-behavior port of the old
+ *  build's pipeline-runner, whose runPipelineStage recorded feedback on
+ *  failure). The core runner stays feedback-free; this is the impure seam. */
+function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions = {}) {
+    return (0, runner_1.runPipelineStage)(run, stageId, inputNodeId, options, {
+        ...runnerOptions,
+        // Keep the caller-named failure node id (the old build honored outputNodeId
+        // for the preserved failure node); the raw core auto-mints when unset.
+        failureNodeId: runnerOptions.failureNodeId || options.outputNodeId,
+        recordFeedback: (r, error, nodeId) => {
+            // Read the failure node's own contractId so this feedback's dedup key
+            // (code+message+nodeId+stageId+contractId+path) matches the one
+            // collectRunErrors derives from the same node — otherwise a later
+            // collect re-records a duplicate.
+            const failNode = (r.nodes || []).find((n) => n.id === nodeId);
+            recordFeedback(r, { source: "pipeline-runner", error, nodeId, stageId, contractId: failNode?.contractId || runnerOptions.contractId, path: error.path, retryable: error.retryable, metadata: { inputNodeId, preservedFailureNode: true } }, { persist: false });
+        },
+    });
 }

@@ -336,7 +336,7 @@ function allocateWorkerScope(run, task, options = {}) {
         return existing;
     }
     const now = new Date().toISOString();
-    const workerId = createWorkerId(run, task.id);
+    const workerId = options.workerId || createWorkerId(run, task.id);
     const workerDir = path.join(workerRoot(run), (0, fs_atomic_1.safeFileName)(workerId));
     const inputPath = path.join(workerDir, "input.md");
     const resultPath = path.join(workerDir, "result.md");

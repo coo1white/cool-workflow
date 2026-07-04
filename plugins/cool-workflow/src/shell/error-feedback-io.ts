@@ -28,6 +28,14 @@ import {
 import { createStateNode } from "../core/state/state-node";
 import { appendRunNode } from "./node-store";
 import { saveCheckpoint } from "./run-store";
+import {
+  runPipelineStage as coreRunPipelineStage,
+  RunPipelineStageOptions,
+  PipelineRunnerOptions,
+  PipelineStageRunResult,
+  PipelineStageFailure,
+} from "../core/pipeline/runner";
+import { StateNodeError } from "../core/state/types";
 
 export interface ListFeedbackOptions {
   status?: ErrorFeedbackRecord["status"];
@@ -284,4 +292,36 @@ export function resolveFeedback(run: WorkflowRun, feedbackId: string, result: Co
   });
   saveCheckpoint(run);
   return requireFeedback(run, feedbackId);
+}
+
+/** Shell-bound `runPipelineStage`: the core pure runner with `recordFeedback`
+ *  wired in, so a failed pipeline stage that preserves its failure node ALSO
+ *  writes a durable ErrorFeedback record (byte-behavior port of the old
+ *  build's pipeline-runner, whose runPipelineStage recorded feedback on
+ *  failure). The core runner stays feedback-free; this is the impure seam. */
+export function runPipelineStage(
+  run: WorkflowRun,
+  stageId: string,
+  inputNodeId: string,
+  options: RunPipelineStageOptions = {},
+  runnerOptions: PipelineRunnerOptions = {}
+): PipelineStageRunResult | PipelineStageFailure {
+  return coreRunPipelineStage(run, stageId, inputNodeId, options, {
+    ...runnerOptions,
+    // Keep the caller-named failure node id (the old build honored outputNodeId
+    // for the preserved failure node); the raw core auto-mints when unset.
+    failureNodeId: runnerOptions.failureNodeId || options.outputNodeId,
+    recordFeedback: (r: WorkflowRun, error: StateNodeError, nodeId: string) => {
+      // Read the failure node's own contractId so this feedback's dedup key
+      // (code+message+nodeId+stageId+contractId+path) matches the one
+      // collectRunErrors derives from the same node — otherwise a later
+      // collect re-records a duplicate.
+      const failNode = (r.nodes || []).find((n) => n.id === nodeId);
+      recordFeedback(
+        r,
+        { source: "pipeline-runner", error, nodeId, stageId, contractId: failNode?.contractId || runnerOptions.contractId, path: error.path, retryable: error.retryable, metadata: { inputNodeId, preservedFailureNode: true } },
+        { persist: false }
+      );
+    },
+  });
 }

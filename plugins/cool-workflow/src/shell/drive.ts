@@ -63,6 +63,7 @@ import { phaseProgressLine } from "./term";
 import { RunPhase, RunTask } from "../core/state/types";
 import { commitState } from "./commit";
 import { writeReport } from "./report";
+import { recordTrustAuditEvent, verifyTrustAudit } from "./trust-audit";
 import { resolveAgentConfig } from "./agent-config";
 import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/types";
 import { runBackend } from "./execution-backend/registry";
@@ -488,6 +489,33 @@ function runSubWorkflow(
   try {
     fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
     recordWorkerOutput(run, workerId, manifest.resultPath);
+    // Cross-link the child run onto the parent's delegate task + a tamper-
+    // evident `worker.sub-workflow` trust-audit event (byte-behavior port of
+    // the old build's drive sub-workflow cross-link). subRunId/subRunDir let a
+    // reader walk from the parent task to the child run; the audit event binds
+    // the child report digest + verification into the parent's hash chain.
+    selected.subRunId = childRun.id;
+    selected.subRunDir = finalChild.paths.runDir;
+    try {
+      const childAudit = verifyTrustAudit(finalChild);
+      recordTrustAuditEvent(run, {
+        kind: "worker.sub-workflow",
+        decision: "accepted",
+        source: "cw-validated",
+        workerId,
+        taskId: selected.id,
+        nodeId: selected.resultNodeId as string | undefined,
+        metadata: {
+          subWorkflowAppId: spec.appId,
+          subRunId: childRun.id,
+          childReportDigest: sha256(childBytes),
+          childAuditVerified: childAudit.verified,
+          bindResult: spec.bindResult || "report",
+        },
+      });
+    } catch {
+      /* the cross-link is provenance; a failure here must not undo an accepted hop */
+    }
     // Advance the run lifecycle stage on accept (old build: "observe").
     run.loopStage = "observe";
     // Bounded dynamic loops: evaluate the round boundary in the same

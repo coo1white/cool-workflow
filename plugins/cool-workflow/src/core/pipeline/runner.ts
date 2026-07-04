@@ -57,6 +57,16 @@ export interface PipelineRunnerOptions {
    *  failPipelineStage's generic-Error `error.at`). The real clock is read
    *  ONLY when this is omitted, matching resolveCommitGate's `deps.now`. */
   now?: string;
+  /** Caller-supplied feedback side effect (shell/error-feedback-io.ts's
+   *  recordFeedback). Threaded to failPipelineStage so a preserved failure
+   *  node ALSO writes a durable ErrorFeedback record — the shell binds this;
+   *  the pure core stays feedback-free when it is omitted. */
+  recordFeedback?: (run: WorkflowRun, error: StateNodeError, nodeId: string) => void;
+  /** Explicit id for a preserved failure node. When omitted, the node id is
+   *  auto-minted (`error-<hash>`). The shell runPipelineStage sets this to the
+   *  caller's outputNodeId so a caller-named failure node (e.g.
+   *  `<run>:error:commit`) keeps its id, matching the old build. */
+  failureNodeId?: string;
 }
 
 export interface RunPipelineStageOptions {
@@ -307,11 +317,17 @@ export function failPipelineStage(
   const persistNode = options.persist === false ? undefined : options.persistNode;
   let errorNode = recordNodeError(
     createStateNode({
+      // Honor a caller-supplied failure node id when given (shell binds it to
+      // the caller's outputNodeId); else auto-mint (`error-<hash>`).
+      ...(options.failureNodeId ? { id: options.failureNodeId } : {}),
       kind: stage?.failure?.failureKind || "error",
       status: "pending",
       loopStage: inputNode.loopStage,
       contractId: contract.id,
-      metadata: { preserved: true },
+      // `pipelineStage` names the stage that failed so collectRunErrors's
+      // dedup key matches the feedback recorded here (both key on stageId).
+      // Byte-behavior port of the old build's failed-node metadata.
+      metadata: { pipelineStage: stageId, preserved: true },
     }),
     structured
   );

@@ -635,10 +635,14 @@ export function initWorkflowApp(appId: string, options: Record<string, unknown> 
   return { id, manifestPath, entrypointPath };
 }
 
-/** `cw app package <id>` / `cw_app_package`. Ported from `packageApp`. */
-export function packageWorkflowApp(appId: string, options: Record<string, unknown> = {}, cwd: string = process.cwd()): { id: string; version: string; path: string } {
+/** `cw app package <id>` / `cw_app_package`. Ported from `packageApp`. The
+ *  default package path is anchored under the caller's explicit `cwd`
+ *  (`options.cwd`) so the CLI/MCP surfaces never write into the process cwd
+ *  when a different working directory was requested — and never chdir. */
+export function packageWorkflowApp(appId: string, options: Record<string, unknown> = {}, cwd?: string): { id: string; version: string; path: string } {
+  const base = cwd || (typeof options.cwd === "string" && options.cwd.trim() ? path.resolve(String(options.cwd)) : process.cwd());
   const record = loadWorkflowAppRecordById(appId);
-  const destination = path.resolve(cwd, String(options.output || path.join(".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
+  const destination = path.resolve(base, String(options.output || path.join(".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   const payload = {
     schemaVersion: 1,

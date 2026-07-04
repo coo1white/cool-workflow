@@ -58,8 +58,14 @@ const multi_agent_io_1 = require("./multi-agent-io");
 const registry_1 = require("./execution-backend/registry");
 const sandbox_profile_1 = require("./sandbox-profile");
 function createDispatchManifest(run, limit, options = {}) {
-    const sandboxProfileId = String(options.sandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
+    const requestedSandboxProfileId = options.sandboxProfileId || options.sandbox;
+    const sandboxProfileId = String(requestedSandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
     (0, sandbox_profile_1.resolveSandboxProfileById)(sandboxProfileId, (0, sandbox_profile_1.sandboxContextForValidation)(run.cwd));
+    // H7: if the requested profile is a CUSTOM profile loaded from a FILE (non-bundled,
+    // existing file), persist its DEFINITION on run.customSandboxProfiles keyed by the
+    // definition's logical id, so a worker boundary can re-resolve it by logical id after
+    // a scope snapshot is lost. Throws on an id collision (same id, different file).
+    (0, sandbox_profile_1.persistCustomSandboxProfile)(run, sandboxProfileId);
     const backendSelection = (0, registry_1.resolveBackendSelection)(options.backendId);
     const tasks = (0, dispatch_1.nextDispatchTasks)(run, limit);
     if (!tasks.length) {
@@ -75,7 +81,7 @@ function createDispatchManifest(run, limit, options = {}) {
     for (const task of run.tasks) {
         if (!taskIds.has(task.id))
             continue;
-        const taskSandboxProfileId = String(options.sandboxProfileId || task.sandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
+        const taskSandboxProfileId = String(requestedSandboxProfileId || task.sandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID);
         task.status = "running";
         task.loopStage = "act";
         task.dispatchId = dispatchId;

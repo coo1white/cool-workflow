@@ -71,6 +71,7 @@ const harness_1 = require("./harness");
 const term_1 = require("./term");
 const commit_1 = require("./commit");
 const report_1 = require("./report");
+const trust_audit_1 = require("./trust-audit");
 const agent_config_1 = require("./agent-config");
 const registry_1 = require("./execution-backend/registry");
 const agent_1 = require("./execution-backend/agent");
@@ -436,6 +437,34 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
     try {
         fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
         (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+        // Cross-link the child run onto the parent's delegate task + a tamper-
+        // evident `worker.sub-workflow` trust-audit event (byte-behavior port of
+        // the old build's drive sub-workflow cross-link). subRunId/subRunDir let a
+        // reader walk from the parent task to the child run; the audit event binds
+        // the child report digest + verification into the parent's hash chain.
+        selected.subRunId = childRun.id;
+        selected.subRunDir = finalChild.paths.runDir;
+        try {
+            const childAudit = (0, trust_audit_1.verifyTrustAudit)(finalChild);
+            (0, trust_audit_1.recordTrustAuditEvent)(run, {
+                kind: "worker.sub-workflow",
+                decision: "accepted",
+                source: "cw-validated",
+                workerId,
+                taskId: selected.id,
+                nodeId: selected.resultNodeId,
+                metadata: {
+                    subWorkflowAppId: spec.appId,
+                    subRunId: childRun.id,
+                    childReportDigest: (0, hash_1.sha256)(childBytes),
+                    childAuditVerified: childAudit.verified,
+                    bindResult: spec.bindResult || "report",
+                },
+            });
+        }
+        catch {
+            /* the cross-link is provenance; a failure here must not undo an accepted hop */
+        }
         // Advance the run lifecycle stage on accept (old build: "observe").
         run.loopStage = "observe";
         // Bounded dynamic loops: evaluate the round boundary in the same

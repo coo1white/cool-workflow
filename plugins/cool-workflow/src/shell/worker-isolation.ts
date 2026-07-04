@@ -127,6 +127,10 @@ export interface AllocateWorkerScopeOptions {
   status?: WorkerScope["status"];
   persist?: boolean;
   metadata?: Record<string, unknown>;
+  /** Explicit worker id — honored when given (else auto-minted). Lets a
+   *  caller allocate a worker with a known id (byte-behavior port of the old
+   *  build's allocateWorkerScope). */
+  workerId?: string;
 }
 
 function workerRoot(run: WorkflowRun): string {
@@ -366,7 +370,7 @@ export function allocateWorkerScope(run: WorkflowRun, task: RunTask, options: Al
   }
 
   const now = new Date().toISOString();
-  const workerId = createWorkerId(run, task.id);
+  const workerId = options.workerId || createWorkerId(run, task.id);
   const workerDir = path.join(workerRoot(run), safeFileName(workerId));
   const inputPath = path.join(workerDir, "input.md");
   const resultPath = path.join(workerDir, "result.md");

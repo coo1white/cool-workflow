@@ -118,12 +118,24 @@ export interface StateExplosionReport {
   nextAction: string;
 }
 
+/** The operator-derived failures/evidence/trust the digest folds in. Shell's
+ *  `summarizeMultiAgentOperator(run)` (multi-agent-operator-ux.ts) produces
+ *  this; a core caller with no operator summary passes nothing and the digest
+ *  degrades to truthfully-empty. Kept structural so core stays shell-free. */
+export interface OperatorDigestInput {
+  failures: Array<{ id: string; kind: string; status: string; reason: string; nextCommand: string }>;
+  evidence: Array<{ id: string; ref?: string; status: string; sourceId?: string }>;
+  nextAction?: string;
+  trustEvents?: number;
+}
+
 export function buildOperatorDigest(
   run: Pick<WorkflowRun, "id">,
   compact: GraphSummaryRecord,
   blackboard: BlackboardSummaryRecord,
   stateSize: StateSize,
-  now: string
+  now: string,
+  operator?: OperatorDigestInput
 ): OperatorDigest {
   const hiddenSourceRecords = compact.syntheticNodes.map((syn) => ({
     kind: syn.id.split(":summary:")[1] || syn.kind,
@@ -137,6 +149,10 @@ export function buildOperatorDigest(
     `node scripts/cw.js multi-agent failures ${run.id} --json`,
     ...compact.syntheticNodes.map((syn) => syn.expansionCommand),
   ]);
+  const evidence = operator?.evidence || [];
+  const adopted = evidence.filter((e) => e.status === "adopted");
+  const missing = evidence.filter((e) => e.status === "missing" || e.status === "pending" || e.status === "conflicting");
+  const rejected = evidence.filter((e) => e.status === "rejected");
   return {
     schemaVersion: STATE_EXPLOSION_SCHEMA_VERSION,
     runId: run.id,
@@ -147,22 +163,35 @@ export function buildOperatorDigest(
     includedCount: compact.compactNodeCount,
     omittedCount: compact.collapsedNodeCount,
     importantRefs: compact.criticalPath,
-    evidenceRefs: [],
+    evidenceRefs: unique(adopted.map((e) => e.ref || e.id)),
     trustAuditEventRefs: unique(blackboard.trustAuditEventRefs),
     generatedAt: now,
     status: "valid",
     deterministic: true,
-    // No failure/evidence/trust records exist yet (milestone 9); the
-    // compact graph's own nextAction is the truthful fallback until then.
-    nextAction: compact.nextAction,
+    // Prefer the operator summary's nextAction (it reflects the whole run's
+    // blocked/evidence state); fall back to the compact graph's own when no
+    // operator summary was threaded in.
+    nextAction: operator?.nextAction || compact.nextAction,
     stateSize,
     compactGraphRef: compact.id,
     blackboardDigestRef: blackboard.id,
     criticalPath: compact.criticalPath,
-    failures: [],
-    evidenceDigest: { adopted: 0, missing: 0, rejected: 0, entries: [] },
+    failures: (operator?.failures || []).map((f) => ({ id: f.id, kind: f.kind, status: f.status, reason: f.reason, nextCommand: f.nextCommand })),
+    evidenceDigest: {
+      adopted: adopted.length,
+      missing: missing.length,
+      rejected: rejected.length,
+      entries: [...adopted, ...missing].slice(0, 40).map((e) => ({
+        id: e.id,
+        label: `${e.ref || e.id} (${e.status})`,
+        status: e.status,
+        sourceIds: [e.sourceId || e.id].filter(Boolean) as string[],
+        evidenceRefs: [e.ref || e.id].filter(Boolean) as string[],
+        expansionCommand: `node scripts/cw.js multi-agent evidence ${run.id} --json`,
+      })),
+    },
     trustDigest: {
-      events: 0,
+      events: operator?.trustEvents || 0,
       policyViolations: blackboard.policyViolations.length,
       judgeRationales: blackboard.judgeRationale.length,
       entries: unique([...blackboard.policyViolations.map((p) => p.id), ...blackboard.judgeRationale.map((j) => j.id)]),
@@ -189,7 +218,7 @@ function currentEntryFingerprint(
  *  in-memory run plus an already-loaded persisted index (or none). */
 export function buildStateExplosionReport(
   run: WorkflowRun,
-  options: { thresholds?: StateExplosionThresholds; index?: MultiAgentSummaryIndex; now?: string } = {}
+  options: { thresholds?: StateExplosionThresholds; index?: MultiAgentSummaryIndex; now?: string; operator?: OperatorDigestInput } = {}
 ): StateExplosionReport {
   const thresholds = options.thresholds || DEFAULT_STATE_EXPLOSION_THRESHOLDS;
   const now = options.now || new Date().toISOString();
@@ -210,7 +239,7 @@ export function buildStateExplosionReport(
     undefined,
     now
   );
-  const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now);
+  const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now, options.operator);
 
   const currentFingerprint = fingerprintStrings([
     compactGraph.sourceFingerprint,

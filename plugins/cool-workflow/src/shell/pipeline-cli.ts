@@ -25,8 +25,49 @@ import { WorkflowRun } from "../core/state/types";
 import { agentConfigured } from "./agent-config";
 import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable, RemoteSource } from "./remote-source";
 import { recordTrustAuditEvent } from "./trust-audit";
+import { reportBundleCli, ReportBundleResult } from "./report-cli";
 
 const QUICKSTART_DEFAULT_APP = "architecture-review";
+
+/** True when `value` is a truthy CLI flag (present, or "true"/"1"/"yes"/"on"). */
+function truthyFlag(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value === "string") return /^(1|true|yes|on)$/i.test(value.trim());
+  return false;
+}
+
+/** First non-empty string among the given arg values (mirrors the old
+ *  build's optionalString read over several alias keys). */
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+/** Shell-quote a token for a copy-pasteable next command (byte-exact to the
+ *  old build's shellWord). */
+function shellWord(value: string): string {
+  if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+/** The copy-pasteable `cw quickstart …` line the `--check` payload echoes,
+ *  weaving in --bundle / --with-trust-key / --strict-signatures so the
+ *  suggested resume preserves bundle intent. Byte-exact port of the old
+ *  build's quickstartNextCommand. */
+function quickstartNextCommand(appId: string, repo: string, args: Record<string, unknown>): string {
+  const parts = ["cw", "quickstart", shellWord(appId), "--repo", shellWord(repo)];
+  const question = firstString(args.question);
+  if (question) parts.push("--question", shellWord(question));
+  const command = firstString(args.agentCommand, args["agent-command"]);
+  if (command) parts.push("--agent-command", shellWord(command));
+  if (truthyFlag(args.bundle)) parts.push("--bundle");
+  const trustKey = firstString(args["with-trust-key"], args.withTrustKey, args.trustKey);
+  if (trustKey) parts.push("--with-trust-key", shellWord(trustKey));
+  if (truthyFlag(args["strict-signatures"]) || truthyFlag(args.strictSignatures) || truthyFlag(args.strictSigs)) parts.push("--strict-signatures");
+  return parts.join(" ");
+}
 
 /** Runtime keys that must NEVER leak into run.inputs (they are drive/CLI
  *  plumbing, not workflow-declared inputs). Byte-exact to the old
@@ -177,6 +218,7 @@ interface QuickstartCheckResult {
   appId: string;
   repo: string;
   checks: QuickstartCheck[];
+  nextCommand: string;
 }
 
 /** `cw quickstart [app] --check` — read-only preflight: does the app
@@ -255,8 +297,22 @@ function quickstartCheck(appId: string, args: Record<string, unknown>, remoteCan
     });
   }
 
+  // --bundle preflight: a completed run sealed into a bundle re-verifies offline
+  // only with a public trust key. Warn (not block) by default; block only under
+  // --strict-signatures where an unkeyed bundle would fail verification.
+  if (truthyFlag(args.bundle)) {
+    const trustKey = firstString(args["with-trust-key"], args.withTrustKey, args.trustKey, args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    if (trustKey) {
+      checks.push({ name: "bundle-trust-key", status: "ok", detail: "Bundle trust public key is configured." });
+    } else if (truthyFlag(args["strict-signatures"]) || truthyFlag(args.strictSignatures) || truthyFlag(args.strictSigs)) {
+      checks.push({ name: "bundle-trust-key", status: "blocked", detail: "Strict signature verification needs a public trust key.", fix: "Pass --with-trust-key PATH or set $CW_AGENT_ATTEST_PUBKEY." });
+    } else {
+      checks.push({ name: "bundle-trust-key", status: "warn", detail: "No public trust key is configured; unsigned or unkeyed bundles may verify with reduced signature proof.", fix: "Pass --with-trust-key PATH to embed the public key." });
+    }
+  }
+
   const ok = checks.every((check) => check.status !== "blocked") && repoStateWritable;
-  return { schemaVersion: 1, mode: "check", ok, appId, repo, checks };
+  return { schemaVersion: 1, mode: "check", ok, appId, repo, checks, nextCommand: quickstartNextCommand(appId, repo, args) };
 }
 
 /** `--check` for a `--link`/URL review: validates the URL shape + git tooling
@@ -298,10 +354,12 @@ function remoteQuickstartCheck(appId: string, args: Record<string, unknown>, can
   }
 
   const ok = checks.every((check) => check.status !== "blocked");
-  return { schemaVersion: 1, mode: "check", ok, appId, repo: validation.url, checks };
+  const question = firstString(args.question);
+  const nextCommand = `cw quickstart ${shellWord(appId)} --link ${shellWord(validation.url)}${question ? ` --question ${shellWord(question)}` : ""}`;
+  return { schemaVersion: 1, mode: "check", ok, appId, repo: validation.url, checks, nextCommand };
 }
 
-type QuickstartResult = ReturnType<typeof drive> & { appId: string; hint?: string; resumedFrom?: string };
+type QuickstartResult = ReturnType<typeof drive> & { appId: string; hint?: string; resumedFrom?: string; bundle?: ReportBundleResult };
 
 /** `cw quickstart [app] --question ...` — composes plan -> runDrive ->
  *  report in one call. Default app is architecture-review. `--check` is a
@@ -404,6 +462,27 @@ export function quickstartRun(
     }
   }
 
+  // --bundle: after a COMPLETE drive, seal the run into a portable, self-verified
+  // bundle so the one command yields a client-verifiable artifact. Pure composition
+  // of reportBundleCli (export sealed + offline self-verify); spawns nothing. Gated
+  // on completion: a partial/blocked run is NEVER sealed. Run-state resolution
+  // anchors to the run's OWN repo (run.cwd) — quickstart runs cross-directory — but
+  // OUTPUT paths resolve against the CALLER's cwd so artifacts land where the
+  // operator ran the command. Byte-behavior port of the old build's quickstart().
+  const wantsBundle = truthyFlag(args.bundle);
+  let bundle: ReportBundleResult | undefined;
+  if (wantsBundle && result.status === "complete") {
+    const callerBase = invocationCwd(args);
+    const outArg = firstString(args.output, args.path, args.archive);
+    const extractArg = firstString(args["extract-report"], args.extractReport, args.extractReportTo);
+    bundle = reportBundleCli(result.runId, {
+      ...args,
+      cwd: run.cwd,
+      output: path.resolve(callerBase, outArg || `${result.runId}.cwrun.json`),
+      ...(extractArg ? { "extract-report": path.resolve(callerBase, extractArg) } : {}),
+    });
+  }
+
   // Human-facing triage `hint` (stderr-side; absent on a clean completion so the
   // default payload is byte-identical). Byte-exact wording to the old build's
   // src/capability-core.ts quickstart(): the fail-closed "not configured …
@@ -419,8 +498,13 @@ export function quickstartRun(
     hint = `the drive is blocked — inspect: cw run drive ${result.runId}`;
   } else if (result.status === "in-progress") {
     hint = resume
-      ? `one step advanced — continue: cw quickstart ${appId} --run ${result.runId} --resume`
+      ? `one step advanced — continue: cw quickstart ${appId} --run ${result.runId} --resume${wantsBundle ? " --bundle" : ""}`
       : `one step advanced (--once) — continue: cw quickstart ${appId} --run ${result.runId} --once`;
+  }
+  // --bundle on a run that did not complete is a NO-OP, not silence: tell the
+  // operator why nothing was sealed (the Rule of Silence permits a human hint).
+  if (wantsBundle && result.status !== "complete") {
+    hint = `${hint ? `${hint} ` : ""}--bundle skipped: the run did not complete (status=${result.status}); no bundle was sealed.`;
   }
 
   // Byte-exact to the old build's quickstart() return shape
@@ -436,6 +520,9 @@ export function quickstartRun(
     ...result,
     hint,
     ...(resumeRunId ? { resumedFrom: resumeRunId } : {}),
+    // `bundle` is present only when --bundle sealed a completed run (conditional
+    // spread keeps the key absent on the default path → byte-identical output).
+    ...(bundle ? { bundle } : {}),
     ...(remoteSource
       ? { remote: { url: remoteSource.url, commit: remoteSource.commit, kind: remoteSource.kind, cached: remoteSource.cached, ...(remoteSource.ref ? { ref: remoteSource.ref } : {}) } }
       : {}),
@@ -475,6 +562,13 @@ export function recordResultRun(args: Record<string, unknown>): Record<string, u
   const task = run.tasks.find((t) => t.id === taskId);
   if (!task || !task.workerId) throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
   const absolute = path.resolve(resultPath);
+  // A result path inside a system directory is never accepted (POLA): the
+  // operator file gets copied into the worker's result.md, so a /etc/passwd
+  // source would smuggle system content into a run. Byte-behavior port of the
+  // old build's recordResult system-directory blacklist.
+  if (/^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//.test(absolute)) {
+    throw new Error(`Result path must not be a system directory: ${resultPath}`);
+  }
   if (!fs.existsSync(absolute)) throw new Error(`Result file does not exist: ${resultPath}`);
   const workerId = String(task.workerId);
 

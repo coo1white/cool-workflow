@@ -25,6 +25,7 @@ import { summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
 import { summarizeMultiAgent } from "./multi-agent-io";
 import { summarizeBlackboard } from "./coordinator-io";
+import { operatorDigestInput } from "./multi-agent-operator-ux";
 
 interface SandboxProfileLike {
   id: string;
@@ -69,7 +70,7 @@ function renderCommits(run: WorkflowRun): string[] {
  *  "no records" fallback in the old build either). */
 function renderStateSize(run: WorkflowRun): string[] {
   const index = loadStateExplosionSummaryIndex(run);
-  const report = buildStateExplosionReport(run, { index });
+  const report = buildStateExplosionReport(run, { index, operator: operatorDigestInput(run) });
   return stateExplosionReportLines(report);
 }
 

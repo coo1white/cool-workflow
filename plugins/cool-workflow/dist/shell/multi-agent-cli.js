@@ -677,7 +677,7 @@ function multiAgentSummaryCli(args) {
 function multiAgentSummarizeCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
-    return (0, report_2.buildStateExplosionReport)(run, { index: (0, state_explosion_cli_1.loadStateExplosionSummaryIndex)(run) });
+    return (0, report_2.buildStateExplosionReport)(run, { index: (0, state_explosion_cli_1.loadStateExplosionSummaryIndex)(run), operator: (0, multi_agent_operator_ux_1.operatorDigestInput)(run) });
 }
 /** `cw_multi_agent_graph_compact` — a compact/focused multi-agent graph
  *  view. Port of the old runner.multiAgentGraphView. */

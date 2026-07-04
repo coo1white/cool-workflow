@@ -10,6 +10,9 @@
 // Evidence: SPEC/pipeline-run.md "Commit gate — src/commit.ts",
 // "Commit-gate error codes (fixed strings)".
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.sandboxProfileForCandidate = sandboxProfileForCandidate;
+exports.buildAcceptanceRationale = buildAcceptanceRationale;
+exports.validateAcceptanceRationale = validateAcceptanceRationale;
 exports.emptyCaptureWarning = emptyCaptureWarning;
 exports.verifierNodeRequiresEvidence = verifierNodeRequiresEvidence;
 exports.resolveCommitGate = resolveCommitGate;
@@ -17,6 +20,57 @@ exports.formatCommitId = formatCommitId;
 exports.gateFailureSeq = gateFailureSeq;
 const evidence_grounding_1 = require("../trust/evidence-grounding");
 const result_normalize_1 = require("./result-normalize");
+/** The sandbox profile that accepted a candidate's worker output — the
+ *  worker's own profile when present, else the backing task's. Pure port of
+ *  the old build's src/gates.ts sandboxProfileForCandidate. */
+function sandboxProfileForCandidate(run, candidate) {
+    const worker = candidate?.workerId
+        ? (run.workers || []).find((entry) => entry.id === candidate.workerId)
+        : undefined;
+    if (worker?.sandboxProfileId)
+        return worker.sandboxProfileId;
+    const task = candidate?.taskId ? run.tasks.find((entry) => entry.id === candidate.taskId) : undefined;
+    return task?.sandboxProfileId;
+}
+/** Build a normalized acceptance rationale record. Pure port of the old
+ *  build's src/trust-audit.ts buildAcceptanceRationale. */
+function buildAcceptanceRationale(input) {
+    const ids = (input.auditEventIds || []).filter((v, i, a) => v && a.indexOf(v) === i).sort();
+    return {
+        schemaVersion: 1,
+        selectedCandidateId: input.selectedCandidateId,
+        scoreId: input.scoreId,
+        scoreCriteria: input.scoreCriteria,
+        verifierNodeId: input.verifierNodeId,
+        evidenceCount: input.evidenceCount || 0,
+        sandboxProfileId: input.sandboxProfileId,
+        workerId: input.workerId,
+        commitGateResult: input.commitGateResult,
+        auditEventIds: ids,
+    };
+}
+/** Return the list of reasons an acceptance rationale is incomplete (empty =
+ *  complete). Pure port of the old build's validateAcceptanceRationale. */
+function validateAcceptanceRationale(rationale) {
+    if (!rationale)
+        return ["acceptance rationale is missing"];
+    const failures = [];
+    if (!rationale.selectedCandidateId)
+        failures.push("selected candidate id is missing");
+    if (!rationale.scoreId)
+        failures.push("score id is missing");
+    if (!rationale.verifierNodeId)
+        failures.push("verifier node id is missing");
+    if (!rationale.evidenceCount)
+        failures.push("evidence count is zero");
+    if (!rationale.workerId)
+        failures.push("worker id is missing");
+    if (!rationale.sandboxProfileId)
+        failures.push("sandbox profile id is missing");
+    if (rationale.commitGateResult !== "passed")
+        failures.push("commit gate result is not passed");
+    return failures;
+}
 function error(code, message, options = {}, now) {
     return { code, message, at: now, retryable: false, ...options };
 }
@@ -175,6 +229,13 @@ function resolveCommitGate(run, options, deps) {
     if (verifierNode) {
         groundVerifierEvidence(run, verifierNode, errors, deps, now);
     }
+    // Acceptance rationale: explains WHY this commit was accepted. Only for a
+    // commit that resolved to BOTH a candidate and a selection (the higher-stakes
+    // gate). Prefer the selection's own rationale (built at selection time), else
+    // reconstruct from the resolved parts. A verifier-gated commit that cannot
+    // explain its acceptance fails closed with commit-rationale-incomplete —
+    // byte-behavior port of the old build's buildCommitRationale.
+    const acceptanceRationale = buildCommitRationale(run, { candidateId, selectionId, verifierNodeId, errors }, verifierNode, now);
     return {
         verifierGated: true,
         verifierNodeId,
@@ -183,8 +244,31 @@ function resolveCommitGate(run, options, deps) {
         selectionNodeId,
         evidence: verifierNode?.evidence || [],
         errors,
+        acceptanceRationale,
         metadata: { ...metadata, verifierNodeId, candidateId, selectionId, selectionNodeId },
     };
+}
+function buildCommitRationale(run, resolution, verifierNode, now) {
+    const { candidateId, selectionId, verifierNodeId, errors } = resolution;
+    if (!candidateId || !selectionId)
+        return undefined;
+    const candidate = findCandidate(run, candidateId);
+    const selection = findSelection(run, selectionId);
+    const rationale = selection?.acceptanceRationale || buildAcceptanceRationale({
+        selectedCandidateId: candidateId,
+        scoreId: selection?.scoreId,
+        verifierNodeId,
+        evidenceCount: verifierNode?.evidence.length || 0,
+        sandboxProfileId: sandboxProfileForCandidate(run, candidate),
+        workerId: candidate?.workerId,
+        commitGateResult: "passed",
+    });
+    for (const failure of validateAcceptanceRationale(rationale)) {
+        errors.push(error("commit-rationale-incomplete", `Verifier-gated commit cannot explain acceptance: ${failure}`, {
+            details: { candidateId, selectionId, verifierNodeId },
+        }, now));
+    }
+    return rationale;
 }
 function groundVerifierEvidence(run, verifierNode, errors, deps, now) {
     if (verifierNode.kind !== "verifier") {

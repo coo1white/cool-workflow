@@ -22,6 +22,13 @@ export interface CommitStateOptions {
   allowUnverifiedCheckpoint?: boolean;
   source?: "runtime" | "cli" | "manual";
   metadata?: Record<string, unknown>;
+  /** Facade-style aliases: the host/MCP surface passes `verifier`/`candidate`/
+   *  `selection` (bare nouns). commitState folds them into the *Id fields, so a
+   *  caller can hand commitState the same object the CLI/MCP layer received. */
+  verifier?: string;
+  verifierNode?: string;
+  candidate?: string;
+  selection?: string;
 }
 
 export interface CommitCandidate {
@@ -29,6 +36,8 @@ export interface CommitCandidate {
   status: string;
   scores: unknown[];
   verifierNodeId?: string;
+  workerId?: string;
+  taskId?: string;
 }
 
 export interface CommitSelection {
@@ -49,6 +58,56 @@ export interface CommitGateResolution {
   evidence: StateEvidence[];
   errors: StateNodeError[];
   metadata: Record<string, unknown>;
+  /** The acceptance rationale that explains WHY this commit passed the gate
+   *  (selectedCandidateId, scoreId, verifierNodeId, evidenceCount,
+   *  sandboxProfileId, workerId, commitGateResult). Only set for a
+   *  verifier-gated commit that resolves to a candidate + selection. */
+  acceptanceRationale?: Record<string, unknown>;
+}
+
+/** The sandbox profile that accepted a candidate's worker output — the
+ *  worker's own profile when present, else the backing task's. Pure port of
+ *  the old build's src/gates.ts sandboxProfileForCandidate. */
+export function sandboxProfileForCandidate(run: WorkflowRun, candidate: CommitCandidate | undefined): string | undefined {
+  const worker = candidate?.workerId
+    ? ((run.workers as Array<{ id: string; sandboxProfileId?: string }> | undefined) || []).find((entry) => entry.id === candidate.workerId)
+    : undefined;
+  if (worker?.sandboxProfileId) return worker.sandboxProfileId;
+  const task = candidate?.taskId ? run.tasks.find((entry) => entry.id === candidate.taskId) : undefined;
+  return task?.sandboxProfileId as string | undefined;
+}
+
+/** Build a normalized acceptance rationale record. Pure port of the old
+ *  build's src/trust-audit.ts buildAcceptanceRationale. */
+export function buildAcceptanceRationale(input: Record<string, unknown>): Record<string, unknown> {
+  const ids = ((input.auditEventIds as string[]) || []).filter((v, i, a) => v && a.indexOf(v) === i).sort();
+  return {
+    schemaVersion: 1,
+    selectedCandidateId: input.selectedCandidateId,
+    scoreId: input.scoreId,
+    scoreCriteria: input.scoreCriteria,
+    verifierNodeId: input.verifierNodeId,
+    evidenceCount: input.evidenceCount || 0,
+    sandboxProfileId: input.sandboxProfileId,
+    workerId: input.workerId,
+    commitGateResult: input.commitGateResult,
+    auditEventIds: ids,
+  };
+}
+
+/** Return the list of reasons an acceptance rationale is incomplete (empty =
+ *  complete). Pure port of the old build's validateAcceptanceRationale. */
+export function validateAcceptanceRationale(rationale: Record<string, unknown> | undefined): string[] {
+  if (!rationale) return ["acceptance rationale is missing"];
+  const failures: string[] = [];
+  if (!rationale.selectedCandidateId) failures.push("selected candidate id is missing");
+  if (!rationale.scoreId) failures.push("score id is missing");
+  if (!rationale.verifierNodeId) failures.push("verifier node id is missing");
+  if (!rationale.evidenceCount) failures.push("evidence count is zero");
+  if (!rationale.workerId) failures.push("worker id is missing");
+  if (!rationale.sandboxProfileId) failures.push("sandbox profile id is missing");
+  if (rationale.commitGateResult !== "passed") failures.push("commit gate result is not passed");
+  return failures;
 }
 
 function error(code: string, message: string, options: Partial<Pick<StateNodeError, "nodeId" | "path" | "retryable" | "details">> = {}, now: string): StateNodeError {
@@ -246,6 +305,14 @@ export function resolveCommitGate(run: WorkflowRun, options: CommitStateOptions,
     groundVerifierEvidence(run, verifierNode, errors, deps, now);
   }
 
+  // Acceptance rationale: explains WHY this commit was accepted. Only for a
+  // commit that resolved to BOTH a candidate and a selection (the higher-stakes
+  // gate). Prefer the selection's own rationale (built at selection time), else
+  // reconstruct from the resolved parts. A verifier-gated commit that cannot
+  // explain its acceptance fails closed with commit-rationale-incomplete —
+  // byte-behavior port of the old build's buildCommitRationale.
+  const acceptanceRationale = buildCommitRationale(run, { candidateId, selectionId, verifierNodeId, errors }, verifierNode, now);
+
   return {
     verifierGated: true,
     verifierNodeId,
@@ -254,8 +321,38 @@ export function resolveCommitGate(run: WorkflowRun, options: CommitStateOptions,
     selectionNodeId,
     evidence: verifierNode?.evidence || [],
     errors,
+    acceptanceRationale,
     metadata: { ...metadata, verifierNodeId, candidateId, selectionId, selectionNodeId },
   };
+}
+
+function buildCommitRationale(
+  run: WorkflowRun,
+  resolution: { candidateId?: string; selectionId?: string; verifierNodeId?: string; errors: StateNodeError[] },
+  verifierNode: StateNode | undefined,
+  now: string
+): Record<string, unknown> | undefined {
+  const { candidateId, selectionId, verifierNodeId, errors } = resolution;
+  if (!candidateId || !selectionId) return undefined;
+  const candidate = findCandidate(run, candidateId);
+  const selection = findSelection(run, selectionId);
+  const rationale = selection?.acceptanceRationale || buildAcceptanceRationale({
+    selectedCandidateId: candidateId,
+    scoreId: selection?.scoreId,
+    verifierNodeId,
+    evidenceCount: verifierNode?.evidence.length || 0,
+    sandboxProfileId: sandboxProfileForCandidate(run, candidate),
+    workerId: candidate?.workerId,
+    commitGateResult: "passed",
+  });
+  for (const failure of validateAcceptanceRationale(rationale)) {
+    errors.push(
+      error("commit-rationale-incomplete", `Verifier-gated commit cannot explain acceptance: ${failure}`, {
+        details: { candidateId, selectionId, verifierNodeId },
+      }, now)
+    );
+  }
+  return rationale;
 }
 
 function groundVerifierEvidence(run: WorkflowRun, verifierNode: StateNode, errors: StateNodeError[], deps: ResolveCommitGateDeps, now: string): void {

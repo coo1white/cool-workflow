@@ -72,7 +72,24 @@ exports.CommitGateError = CommitGateError;
 function normalizeCommitOptions(input) {
     if (typeof input === "string")
         return { reason: input || "manual", source: "runtime" };
-    return { ...input, reason: input.reason || "manual", source: input.source || "runtime" };
+    // Fold facade-style bare nouns (verifier/candidate/selection) into the *Id
+    // fields so a host/MCP-shaped payload gates the same as a CLI-shaped one. When
+    // any gate option is supplied, the commit is verifier-gated by construction —
+    // mirrors commitRun()'s hasGateOption, so calling commitState directly with
+    // { selection } gates exactly as `cw commit --selection` does.
+    const verifierNodeId = input.verifierNodeId || input.verifier || input.verifierNode;
+    const candidateId = input.candidateId || input.candidate;
+    const selectionId = input.selectionId || input.selection;
+    const hasGateOption = Boolean(verifierNodeId || candidateId || selectionId);
+    return {
+        ...input,
+        reason: input.reason || "manual",
+        source: input.source || "runtime",
+        verifierNodeId,
+        candidateId,
+        selectionId,
+        verifierGated: input.verifierGated || (hasGateOption && !input.allowUnverifiedCheckpoint),
+    };
 }
 function readGitHead(cwd) {
     try {
@@ -138,10 +155,11 @@ function commitState(run, input) {
     fs.mkdirSync(run.paths.commitsDir, { recursive: true });
     const id = (0, commit_gate_1.formatCommitId)((run.commits || []).length + 1);
     const snapshotPath = path.join(run.paths.commitsDir, `${id}.json`);
+    const rationale = gate.acceptanceRationale;
     const audit = gate.verifierGated
-        ? (0, trust_audit_1.recordTrustAuditEvent)(run, { kind: "commit.gate", decision: "accepted", source: "cw-validated", nodeId: gate.verifierNodeId, candidateId: gate.candidateId, selectionId: gate.selectionId, commitId: id, evidence: gate.evidence })
+        ? (0, trust_audit_1.recordTrustAuditEvent)(run, { kind: "commit.gate", decision: "accepted", source: "cw-validated", workerId: rationale?.workerId, nodeId: gate.verifierNodeId, candidateId: gate.candidateId, selectionId: gate.selectionId, commitId: id, sandboxProfileId: rationale?.sandboxProfileId, evidence: gate.evidence, metadata: rationale })
         : undefined;
-    const evidence = (0, trust_audit_1.normalizeEvidence)(run, gate.evidence, { source: gate.verifierGated ? "cw-validated" : "runtime-derived", verifierNodeId: gate.verifierNodeId, candidateId: gate.candidateId, selectionId: gate.selectionId, commitId: id, auditEventIds: audit ? [audit.id] : [] });
+    const evidence = (0, trust_audit_1.normalizeEvidence)(run, gate.evidence, { source: gate.verifierGated ? "cw-validated" : "runtime-derived", workerId: rationale?.workerId, verifierNodeId: gate.verifierNodeId, candidateId: gate.candidateId, selectionId: gate.selectionId, commitId: id, auditEventIds: audit ? [audit.id] : [] });
     const commit = {
         id,
         createdAt: now,
@@ -157,6 +175,19 @@ function commitState(run, input) {
         candidateId: gate.candidateId,
         selectionId: gate.selectionId,
         evidence,
+        // Acceptance rationale rides on the commit so `report`/`metrics`/audit can
+        // explain WHY it was accepted. commitGateResult reflects whether the gate
+        // ran (passed) or this was an unverified checkpoint; audit event id is
+        // threaded so the rationale points back at its own audit record.
+        ...(rationale
+            ? {
+                acceptanceRationale: {
+                    ...rationale,
+                    commitGateResult: gate.verifierGated ? "passed" : "checkpoint",
+                    auditEventIds: audit ? [...(rationale.auditEventIds || []), audit.id] : rationale.auditEventIds,
+                },
+            }
+            : {}),
         metadata: { ...(options.metadata || {}), ...gate.metadata },
         ...(reviewProvenance ? { review: reviewProvenance } : {}),
     };

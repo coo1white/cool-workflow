@@ -31,6 +31,9 @@
 import { RunTask, StateCommit, WorkflowRun } from "../types";
 import { DEFAULT_STATE_EXPLOSION_THRESHOLDS, StateExplosionThresholds } from "./size";
 import { byId, dominantStatus, isProtectedStatus, parentMap, slug, unique } from "./helpers";
+import { buildMultiAgentGraph } from "../../multi-agent/runtime";
+import { buildBlackboardGraph, emptyBlackboardState, BlackboardState } from "../../multi-agent/coordinator";
+import { buildTopologyGraphFromRuns, TopologyRunRecordForGraph } from "../../multi-agent/topology";
 
 export type GraphView =
   | "full"
@@ -330,7 +333,43 @@ export function buildCompactGraph(
  *  fields can hold before their owning milestone writes real records) and
  *  needs no change once real records exist. */
 export function runToGraphViewFromWorkflowRun(run: WorkflowRun): GraphViewInput {
-  return runToGraphView(run as unknown as RunToGraphViewInput);
+  const base = runToGraphView(run as unknown as RunToGraphViewInput);
+  // Fold in the multi-agent, blackboard, and topology sub-graphs (the
+  // milestone-9 extension point promised in this file's header note). These
+  // add the high-volume, low-signal node kinds the collapse rules exist for
+  // (blackboard-message/context/snapshot, agent-membership/role) plus the
+  // multi-agent-run/group/fanout/fanin roots the critical path is keyed on.
+  // Byte-behavior port of the old build's runToGraphView, which merged the
+  // same three sub-graphs via summarizeMultiAgentOperator. Node `path` values
+  // are display-only (never affect counts/collapse), so the blackboard graph
+  // gets lightweight path stubs here.
+  const multiAgent = buildMultiAgentGraph(run);
+  const blackboardState = (run.blackboard as BlackboardState | undefined) || emptyBlackboardState();
+  const blackboard = buildBlackboardGraph(
+    run.id,
+    blackboardState,
+    (kind, id) => `${run.paths.runDir}/blackboard/${kind}/${id}.json`,
+    `${run.paths.runDir}/blackboard/messages.jsonl`
+  );
+  const topologyRuns = ((run.topologies?.runs as TopologyRunRecordForGraph[] | undefined) || []);
+  const topology = buildTopologyGraphFromRuns(run.id, topologyRuns, (id) => `${run.paths.runDir}/topologies/${id}.json`);
+
+  const nodes = new Map<string, GraphViewNode>();
+  for (const node of [...base.nodes, ...multiAgent.nodes, ...blackboard.nodes, ...topology.nodes]) {
+    if (!nodes.has(node.id)) nodes.set(node.id, node);
+  }
+  const edges: GraphViewEdge[] = [];
+  const edgeSeen = new Set<string>();
+  for (const edge of [...base.edges, ...multiAgent.edges, ...blackboard.edges, ...topology.edges]) {
+    const key = `${edge.from}\0${edge.to}\0${edge.label || ""}`;
+    if (edgeSeen.has(key)) continue;
+    edgeSeen.add(key);
+    edges.push(edge);
+  }
+  return {
+    nodes: [...nodes.values()].sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id)),
+    edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || (a.label || "").localeCompare(b.label || "")),
+  };
 }
 
 interface CollapseRule {
@@ -378,14 +417,32 @@ function shouldCollapseKind(kind: string): boolean {
   ].includes(kind);
 }
 
-/** Critical-path node ids: this milestone's own graph substrate has no
- *  multi-agent-run/group/fanout/fanin/selection/commit RECORD list yet
- *  (those are `unknown[]` — see types.ts), so the run-root id is the only
- *  entry this milestone can derive on its own; the two extension points
- *  (`reasoningCriticalIds`, `linkedFailureIds`) let a later milestone feed
- *  in the rest without reshaping this function. */
-function criticalPathNodeIds(runId: string, options: BuildCompactGraphOptions): string[] {
+/** Critical-path node ids. The run root, plus the multi-agent-run/group/
+ *  fanout/fanin roots, the candidate/selection reasoning chain, and every
+ *  verifier-gated commit — derived from the merged graph's own node kinds
+ *  (the sub-graphs `runToGraphViewFromWorkflowRun` now folds in). Byte-
+ *  behavior port of the old build's criticalPathNodeIds. The two extension
+ *  points (`reasoningCriticalIds`, `linkedFailureIds`) still feed in extra
+ *  ids without reshaping this function. */
+function criticalPathNodeIds(runId: string, options: BuildCompactGraphOptions, nodes: GraphViewNode[] = []): string[] {
   const ids: string[] = [`${runId}:run`, ...(options.linkedFailureIds || [])];
+  for (const node of nodes) {
+    switch (node.kind) {
+      case "multi-agent-run":
+      case "agent-group":
+      case "agent-fanout":
+      case "agent-fanin":
+      case "candidate":
+      case "selection":
+        ids.push(node.id);
+        break;
+      case "commit":
+        if (node.status === "committed") ids.push(node.id);
+        break;
+      default:
+        break;
+    }
+  }
   return unique(ids);
 }
 
@@ -540,7 +597,7 @@ export function buildCompactGraphFromView(
   options: BuildCompactGraphOptions = {}
 ): GraphSummaryRecord {
   const thresholds = options.thresholds || DEFAULT_STATE_EXPLOSION_THRESHOLDS;
-  const critical = criticalPathNodeIds(runId, options);
+  const critical = criticalPathNodeIds(runId, options, full.nodes);
   const protectedIds = new Set<string>(critical);
   // Failures, blocked, rejected, conflicting nodes are always preserved.
   for (const node of full.nodes) {

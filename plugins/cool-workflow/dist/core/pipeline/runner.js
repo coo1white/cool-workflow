@@ -208,11 +208,17 @@ function failPipelineStage(run, stageId, inputNode, error, options = {}) {
     }
     const persistNode = options.persist === false ? undefined : options.persistNode;
     let errorNode = (0, state_node_1.recordNodeError)((0, state_node_1.createStateNode)({
+        // Honor a caller-supplied failure node id when given (shell binds it to
+        // the caller's outputNodeId); else auto-mint (`error-<hash>`).
+        ...(options.failureNodeId ? { id: options.failureNodeId } : {}),
         kind: stage?.failure?.failureKind || "error",
         status: "pending",
         loopStage: inputNode.loopStage,
         contractId: contract.id,
-        metadata: { preserved: true },
+        // `pipelineStage` names the stage that failed so collectRunErrors's
+        // dedup key matches the feedback recorded here (both key on stageId).
+        // Byte-behavior port of the old build's failed-node metadata.
+        metadata: { pipelineStage: stageId, preserved: true },
     }), structured);
     const [linkedInput, linkedError] = (0, state_node_1.linkStateNodes)(inputNode, errorNode);
     (0, state_node_1.appendRunNode)(run, linkedInput, persistNode);

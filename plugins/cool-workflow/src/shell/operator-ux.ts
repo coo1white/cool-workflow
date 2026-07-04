@@ -408,7 +408,7 @@ export function buildOperatorGraph(run: WorkflowRun): OperatorGraph {
   };
   const addEdge = (from: string | undefined, to: string | undefined, label?: string): void => {
     if (!from || !to) return;
-    const key = `${from} ${to} ${label || ""}`;
+    const key = `${from}\0${to}\0${label || ""}`;
     if (edgeKeys.has(key)) return;
     edgeKeys.add(key);
     edges.push({ from, to, label });

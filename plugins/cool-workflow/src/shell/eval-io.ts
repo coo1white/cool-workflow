@@ -27,6 +27,8 @@ import { summarizeMultiAgentTrust } from "./trust-policy-io";
 import { summarizeTopologies } from "./topology-io";
 import { summarizeMultiAgent } from "./multi-agent-io";
 import { normalizeEvidenceReasoningForEval } from "./evidence-reasoning";
+import { buildStateExplosionReport } from "./state-explosion-cli";
+import { operatorDigestInput } from "./multi-agent-operator-ux";
 
 function now(): string {
   return new Date().toISOString();
@@ -185,13 +187,61 @@ function normalizeRun(run: WorkflowRun): ev.MultiAgentEvalNormalized {
     selectedCandidates: ev.lines(((run.candidateSelections as Array<{ candidateId: string; scoreId?: string; verifierNodeId?: string; reason: string; evidence: unknown[] }> | undefined) || []).map((entry) => ({ candidateId: entry.candidateId, scoreId: entry.scoreId, verifierNodeId: entry.verifierNodeId, reason: entry.reason, evidenceCount: entry.evidence.length }))),
     verifierCommitGate: ev.lines((run.commits || []).map((entry) => ({ verifierGated: Boolean(entry.verifierGated), checkpoint: Boolean(entry.checkpoint), candidateId: entry.candidateId, selectionId: entry.selectionId, verifierNodeId: entry.verifierNodeId, evidenceCount: (entry.evidence || []).length }))),
     reportSections: reportSections(run),
-    summaryFreshness: [],
-    compactGraphShape: [],
-    blackboardDigest: [],
-    criticalPath: [],
-    evidenceDigest: [],
-    expansionRefs: [],
+    ...normalizeStateExplosionForEval(run),
     ...normalizeEvidenceReasoningForEval(run),
+  };
+}
+
+/** The v0.1.25/v0.1.26 state-explosion eval sections — a stabilized
+ *  projection of the state-explosion report (summary freshness, compact
+ *  graph shape, blackboard digest, critical path, evidence digest,
+ *  expansion refs). Byte-behavior port of the old build's
+ *  normalizeStateExplosionForEval. */
+function normalizeStateExplosionForEval(run: WorkflowRun): {
+  summaryFreshness: string[];
+  compactGraphShape: string[];
+  blackboardDigest: string[];
+  criticalPath: string[];
+  evidenceDigest: string[];
+  expansionRefs: string[];
+} {
+  const report = buildStateExplosionReport(run, { operator: operatorDigestInput(run) });
+  const graph = report.compactGraph;
+  const runPrefix = `${run.id}:`;
+  const stripRunId = (id: string): string => (id.startsWith(runPrefix) ? id.slice(runPrefix.length) : id);
+  return {
+    summaryFreshness: ev.lines([
+      { compactionRecommended: report.stateSize.compactionRecommended, total: report.stateSize.total, deterministic: graph.deterministic },
+    ]),
+    compactGraphShape: ev.lines([
+      {
+        view: graph.view,
+        fullNodeCount: graph.fullNodeCount,
+        fullEdgeCount: graph.fullEdgeCount,
+        compactNodeCount: graph.compactNodeCount,
+        compactEdgeCount: graph.compactEdgeCount,
+        collapsedNodeCount: graph.collapsedNodeCount,
+        syntheticNodes: graph.syntheticNodes.map((s) => ({ kind: s.id.split(":summary:")[1] || s.kind, collapsedNodeCount: s.collapsedNodeCount, collapsedEdgeCount: s.collapsedEdgeCount, dominantStatus: s.dominantStatus })),
+      },
+    ]),
+    blackboardDigest: ev.lines([
+      {
+        topics: report.blackboardDigest.topicRollups.length,
+        threads: report.blackboardDigest.threadSummaries.length,
+        unresolved: report.blackboardDigest.unresolvedQuestions.map((q) => q.id),
+        conflicts: report.blackboardDigest.conflicts.map((c) => c.id),
+        decisions: report.blackboardDigest.decisions.length,
+        artifacts: report.blackboardDigest.artifacts.length,
+        policyViolations: report.blackboardDigest.policyViolations.map((p) => p.id),
+        judgeRationale: report.blackboardDigest.judgeRationale.map((j) => j.id),
+        missingEvidence: report.blackboardDigest.missingEvidence.map((m) => m.label),
+      },
+    ]),
+    criticalPath: graph.criticalPath.map(stripRunId).sort(),
+    evidenceDigest: ev.lines([
+      { adopted: report.operatorDigest.evidenceDigest.adopted, missing: report.operatorDigest.evidenceDigest.missing, rejected: report.operatorDigest.evidenceDigest.rejected },
+    ]),
+    expansionRefs: report.hiddenSourceRecords.map((h) => `${h.kind}=${h.count}`).sort(),
   };
 }
 

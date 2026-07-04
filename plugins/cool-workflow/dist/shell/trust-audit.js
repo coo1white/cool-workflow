@@ -243,6 +243,18 @@ function pickCorrelationIds(source) {
         picked[field] = source[field];
     return picked;
 }
+/** The audit index historically omits scoreId (byte-exact to the old build's
+ *  INDEX_OMITTED_CORRELATION_IDS). */
+const INDEX_OMITTED_CORRELATION_IDS = new Set(["scoreId"]);
+function indexCorrelationIds(event) {
+    const picked = {};
+    for (const field of CORRELATION_ID_FIELDS) {
+        if (INDEX_OMITTED_CORRELATION_IDS.has(field))
+            continue;
+        picked[field] = event[field];
+    }
+    return picked;
+}
 function recordTrustAuditEvent(run, input) {
     const audit = ensureTrustAudit(run);
     const event = compact({
@@ -385,7 +397,7 @@ function summarizeTrustAudit(run) {
     const events = readEventsRaw(audit.eventLogPath);
     const ma = run.multiAgent;
     const bb = run.blackboard;
-    return {
+    const summary = {
         schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
         runId: run.id,
         generatedAt: new Date().toISOString(),
@@ -434,4 +446,26 @@ function summarizeTrustAudit(run) {
             policyViolations: events.filter((e) => e.kind === "policy.violation").length,
         },
     };
+    // Durable: the summary/index are the read-side view of the audit log; persist
+    // them durably so a crash can't leave them pointing past the last durably-
+    // appended event. Byte-behavior port of the old build's summarizeTrustAudit.
+    (0, fs_atomic_1.writeJson)(audit.summaryPath, summary, { durable: true });
+    (0, fs_atomic_1.writeJson)(audit.indexPath, {
+        schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
+        runId: run.id,
+        events: events.map((event) => ({
+            id: event.id,
+            createdAt: event.createdAt,
+            kind: event.kind,
+            decision: event.decision,
+            source: event.source,
+            workerId: event.workerId,
+            taskId: event.taskId,
+            ...indexCorrelationIds(event),
+            sandboxProfileId: event.sandboxProfileId,
+            policyRef: event.policyRef,
+        })),
+    }, { durable: true });
+    run.audit = { schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION, ...audit };
+    return summary;
 }

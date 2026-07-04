@@ -18,17 +18,15 @@ const { execFileSync } = require("node:child_process");
 // error. This smoke exercises the whole collect -> task -> resolve flow, which
 // v2 has no equivalent for. Requires repointed so the failure lands on the
 // missing API, not an import crash. Reported as a REAL GAP for a human call.
-const { recordFeedback } = require("../dist/shell/error-feedback-io");
+const { recordFeedback, collectRunErrors, createCorrectionTask, listFeedback, resolveFeedback, runPipelineStage } = require("../dist/shell/error-feedback-io");
 const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
 const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
-const { getRunContract, runPipelineStage } = require("../dist/core/pipeline/runner");
+const { getRunContract } = require("../dist/core/pipeline/runner");
 // v2 has no createPipelineRunner factory; the smoke's `runner.getRunContract` /
 // `runner.runPipelineStage` below map to these free functions. The collect/list/
-// resolve/correction-task API it also needs simply does not exist in v2.
-const collectRunErrors = undefined;
-const createCorrectionTask = undefined;
-const listFeedback = undefined;
-const resolveFeedback = undefined;
+// resolve/correction-task API now lives in shell/error-feedback-io (Phase B port);
+// runPipelineStage is the SHELL-bound wrapper there (recordFeedback wired in), so a
+// failed stage writes a durable ErrorFeedback record, matching the old build.
 const createPipelineRunner = () => ({ getRunContract, runPipelineStage });
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-error-feedback-"));

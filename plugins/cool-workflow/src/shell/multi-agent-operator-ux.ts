@@ -23,6 +23,7 @@ import { summarizeBlackboard } from "./coordinator-io";
 import { summarizeMultiAgent } from "./multi-agent-io";
 import { summarizeTopologies } from "./topology-io";
 import { summarizeTrustAudit } from "./trust-audit";
+import type { OperatorDigestInput } from "../core/state/state-explosion/report";
 
 export type MultiAgentOperatorEvidenceStatus =
   | "adopted"
@@ -221,6 +222,19 @@ export function summarizeMultiAgentOperator(run: WorkflowRun): MultiAgentOperato
     inspectableEvidence,
     nextAction,
     summaries: { topologies, multiAgent, blackboard, trust },
+  };
+}
+
+/** Adapt the operator status into the structural input `buildOperatorDigest`
+ *  (core) folds into the state-explosion digest — the shell-side bridge that
+ *  lets core stay free of `summarizeMultiAgentOperator`. */
+export function operatorDigestInput(run: WorkflowRun): OperatorDigestInput {
+  const status = summarizeMultiAgentOperator(run);
+  return {
+    failures: status.failures.map((f) => ({ id: f.id, kind: f.kind, status: f.status, reason: f.reason, nextCommand: f.nextCommand })),
+    evidence: status.evidence.map((e) => ({ id: e.id, ref: e.ref, status: e.status, sourceId: e.sourceId })),
+    nextAction: status.nextAction,
+    trustEvents: (status.summaries.trust as { eventCount?: number } | undefined)?.eventCount || 0,
   };
 }
 

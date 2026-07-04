@@ -302,7 +302,7 @@ function buildOperatorGraph(run) {
     const addEdge = (from, to, label) => {
         if (!from || !to)
             return;
-        const key = `${from} ${to} ${label || ""}`;
+        const key = `${from}\0${to}\0${label || ""}`;
         if (edgeKeys.has(key))
             return;
         edgeKeys.add(key);

@@ -33,7 +33,7 @@ const helpers_1 = require("./helpers");
 function computeStateSize(run, thresholds = size_1.DEFAULT_STATE_EXPLOSION_THRESHOLDS) {
     return (0, size_1.computeStateSizeWithGraph)(run, thresholds, (0, graph_1.runToGraphViewFromWorkflowRun)(run));
 }
-function buildOperatorDigest(run, compact, blackboard, stateSize, now) {
+function buildOperatorDigest(run, compact, blackboard, stateSize, now, operator) {
     const hiddenSourceRecords = compact.syntheticNodes.map((syn) => ({
         kind: syn.id.split(":summary:")[1] || syn.kind,
         count: syn.collapsedNodeCount,
@@ -46,6 +46,10 @@ function buildOperatorDigest(run, compact, blackboard, stateSize, now) {
         `node scripts/cw.js multi-agent failures ${run.id} --json`,
         ...compact.syntheticNodes.map((syn) => syn.expansionCommand),
     ]);
+    const evidence = operator?.evidence || [];
+    const adopted = evidence.filter((e) => e.status === "adopted");
+    const missing = evidence.filter((e) => e.status === "missing" || e.status === "pending" || e.status === "conflicting");
+    const rejected = evidence.filter((e) => e.status === "rejected");
     return {
         schemaVersion: size_1.STATE_EXPLOSION_SCHEMA_VERSION,
         runId: run.id,
@@ -56,22 +60,35 @@ function buildOperatorDigest(run, compact, blackboard, stateSize, now) {
         includedCount: compact.compactNodeCount,
         omittedCount: compact.collapsedNodeCount,
         importantRefs: compact.criticalPath,
-        evidenceRefs: [],
+        evidenceRefs: (0, helpers_1.unique)(adopted.map((e) => e.ref || e.id)),
         trustAuditEventRefs: (0, helpers_1.unique)(blackboard.trustAuditEventRefs),
         generatedAt: now,
         status: "valid",
         deterministic: true,
-        // No failure/evidence/trust records exist yet (milestone 9); the
-        // compact graph's own nextAction is the truthful fallback until then.
-        nextAction: compact.nextAction,
+        // Prefer the operator summary's nextAction (it reflects the whole run's
+        // blocked/evidence state); fall back to the compact graph's own when no
+        // operator summary was threaded in.
+        nextAction: operator?.nextAction || compact.nextAction,
         stateSize,
         compactGraphRef: compact.id,
         blackboardDigestRef: blackboard.id,
         criticalPath: compact.criticalPath,
-        failures: [],
-        evidenceDigest: { adopted: 0, missing: 0, rejected: 0, entries: [] },
+        failures: (operator?.failures || []).map((f) => ({ id: f.id, kind: f.kind, status: f.status, reason: f.reason, nextCommand: f.nextCommand })),
+        evidenceDigest: {
+            adopted: adopted.length,
+            missing: missing.length,
+            rejected: rejected.length,
+            entries: [...adopted, ...missing].slice(0, 40).map((e) => ({
+                id: e.id,
+                label: `${e.ref || e.id} (${e.status})`,
+                status: e.status,
+                sourceIds: [e.sourceId || e.id].filter(Boolean),
+                evidenceRefs: [e.ref || e.id].filter(Boolean),
+                expansionCommand: `node scripts/cw.js multi-agent evidence ${run.id} --json`,
+            })),
+        },
         trustDigest: {
-            events: 0,
+            events: operator?.trustEvents || 0,
             policyViolations: blackboard.policyViolations.length,
             judgeRationales: blackboard.judgeRationale.length,
             entries: (0, helpers_1.unique)([...blackboard.policyViolations.map((p) => p.id), ...blackboard.judgeRationale.map((j) => j.id)]),
@@ -110,7 +127,7 @@ function buildStateExplosionReport(run, options = {}) {
         id: run.id,
         blackboard: run.blackboard,
     }, undefined, now);
-    const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now);
+    const operatorDigest = buildOperatorDigest(run, compactGraph, blackboardDigest, stateSize, now, options.operator);
     const currentFingerprint = (0, hash_1.fingerprintStrings)([
         compactGraph.sourceFingerprint,
         blackboardDigest.sourceFingerprint,

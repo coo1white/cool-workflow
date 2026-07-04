@@ -112,6 +112,11 @@ export interface CliBinding {
    *  2-token candidate matches, per that file's existing reversed-
    *  candidate-order contract. */
   hiddenFromHelp?: boolean;
+  /** The CLI verb token(s) this binding owns, INCLUDING any alias tokens
+   *  that dispatch to the same entry (e.g. `["quickstart", "audit-run"]`).
+   *  Declarative record of the accepted command words; the dispatch table
+   *  routes each to this binding's handler. */
+  caseTokens?: string[];
 }
 
 /** A capability's MCP-facing binding. `requiredArgs` is a list of
@@ -144,6 +149,10 @@ export interface Capability {
   mcp?: McpBinding;
   payloadIdentical?: boolean;
   reason?: string;
+  /** The ONE shared core entry both surfaces route through (mechanism, one
+   *  source). Present for capabilities that name their canonical entry
+   *  explicitly; the CLI/MCP bindings are two renderings of that entry. */
+  entry?: string;
 }
 
 /** Thrown by every not-yet-wired MCP tool handler. Never hit by this
@@ -521,8 +530,8 @@ function attachCliBinding(capability: string, cli: CliBinding): void {
 /** Declare a capability that is CLI-only at this milestone (`help`,
  *  `version` — both are permanently `cli-only` per SPEC/mcp.md's
  *  declared one-surface list, so no mcp row is created for them). */
-function addCliOnlyCapability(capability: string, summary: string, cli: CliBinding, reason: string): void {
-  const row: Capability = { capability, summary, surface: "cli-only", cli, reason };
+function addCliOnlyCapability(capability: string, summary: string, cli: CliBinding, reason: string, entry?: string): void {
+  const row: Capability = { capability, summary, surface: "cli-only", cli, reason, ...(entry ? { entry } : {}) };
   REGISTRY.push(row);
   REGISTRY_BY_CAPABILITY.set(capability, row);
 }
@@ -533,11 +542,18 @@ export function findCapability(capability: string): Capability | undefined {
 }
 
 /** Returns the declared row whose `cli.path` matches `path` exactly
- *  (path[0] is the verb). Used by cli/dispatch.ts's generic executor. */
+ *  (path[0] is the verb). Used by cli/dispatch.ts's generic executor.
+ *  A single-token command also matches a row's `caseTokens` alias list, so
+ *  an alias (e.g. `audit-run`) dispatches to the same handler as its verb. */
 export function findCapabilityByCliPath(path: string[]): Capability | undefined {
   for (const row of REGISTRY) {
     if (row.cli && row.cli.path.length === path.length && row.cli.path.every((p, i) => p === path[i])) {
       return row;
+    }
+  }
+  if (path.length === 1) {
+    for (const row of REGISTRY) {
+      if (row.cli && row.cli.caseTokens && row.cli.caseTokens.includes(path[0])) return row;
     }
   }
   return undefined;
@@ -1119,6 +1135,9 @@ addCliOnlyCapability(
   "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).",
   {
     path: ["quickstart"],
+    // `audit-run` is a CLI-only alias that dispatches to the same quickstart
+    // wrapper (byte-behavior port of the old build's caseTokens).
+    caseTokens: ["quickstart", "audit-run"],
     jsonMode: "default",
     handler: (args) => {
       const appId = optionalArg(args.positionals[0]);
@@ -1127,7 +1146,8 @@ addCliOnlyCapability(
       return { json: result, exitCode };
     },
   },
-  "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer)."
+  "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.",
+  "quickstart"
 );
 
 attachCliBinding("dispatch", {
@@ -1894,7 +1914,15 @@ REGISTRY_BY_CAPABILITY.get("comment.list")!.mcp!.handler = (args) => commentList
 attachCliBinding("handoff", {
   path: ["handoff"],
   jsonMode: "default",
-  handler: (args) => ({ json: handoffCli({ ...args.options, runId: required(args.positionals[1], "run id") }, args.positionals[0], args.positionals[2]) }),
+  // `cw handoff <kind> <run-id> [target-id]` (byte-behavior port of the old
+  // build's handleHandoff): the FIRST required() is on the target-kind
+  // positional, so a bare `cw handoff` fails with "Missing target kind" — not
+  // "Missing run id". The kind check must fire before the run-id read.
+  handler: (args) => {
+    const kind = required(args.positionals[0], "target kind");
+    const runId = required(args.positionals[1], "run id");
+    return { json: handoffCli({ ...args.options, runId }, kind, args.positionals[2]) };
+  },
 });
 REGISTRY_BY_CAPABILITY.get("handoff")!.mcp!.handler = (args) => handoffCli(args);
 
