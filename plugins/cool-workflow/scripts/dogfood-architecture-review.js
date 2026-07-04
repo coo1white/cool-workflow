@@ -23,9 +23,8 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
-const { resolveAgentConfig } = require(path.join(pluginRoot, "dist/agent-config.js"));
+const { CoolWorkflowRunner, drive } = require(path.join(pluginRoot, "dist/shell/orchestrator.js"));
+const { resolveAgentConfig } = require(path.join(pluginRoot, "dist/shell/agent-config.js"));
 
 const argv = process.argv.slice(2);
 const flags = new Set(argv.filter((a) => a.startsWith("--")));

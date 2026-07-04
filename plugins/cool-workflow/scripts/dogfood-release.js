@@ -4,7 +4,7 @@
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
-const { CoolWorkflowRunner } = require("../dist/orchestrator.js");
+const { CoolWorkflowRunner } = require("../dist/shell/orchestrator.js");
 
 const TARGET_VERSION = "0.1.98";
 const PREVIOUS_VERSION = "0.1.31";
@@ -269,7 +269,7 @@ function commandsForTask(taskId, context) {
               "-e",
               [
                 releaseSourceReaderSnippet(),
-                "for (const f of ['plugins/cool-workflow/package.json','plugins/cool-workflow/src/version.ts','CHANGELOG.md','RELEASE.md']) {",
+                "for (const f of ['plugins/cool-workflow/package.json','plugins/cool-workflow/src/core/version.ts','CHANGELOG.md','RELEASE.md']) {",
                 " const t=readSurface(f);",
                 ` if (t===null) throw new Error(f+' missing from release commit');`,
                 ` if (!t.includes('${TARGET_VERSION}')) throw new Error(f+' missing ${TARGET_VERSION}');`,
