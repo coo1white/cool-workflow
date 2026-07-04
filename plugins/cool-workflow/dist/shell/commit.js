@@ -54,6 +54,8 @@ const node_store_1 = require("./node-store");
 const state_node_1 = require("../core/state/state-node");
 const trust_audit_1 = require("./trust-audit");
 const evidence_grounding_1 = require("../core/trust/evidence-grounding");
+const collaboration_io_1 = require("./collaboration-io");
+const error_feedback_io_1 = require("./error-feedback-io");
 class CommitGateError extends Error {
     structured;
     feedbackId;
@@ -109,6 +111,27 @@ function commitState(run, input) {
             ? (evidence) => (0, evidence_grounding_1.unresolvedFileEvidence)(evidence, Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])), { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) })
             : undefined,
     });
+    // Stack the review gate ON TOP of the verifier gate. An applicable review
+    // policy can only ADD required-approval constraints from authorized roles; it
+    // never relaxes verifier acceptance. Fail closed: a verifier-passing but
+    // un-approved commit is BLOCKED here. Provenance (who approved the shipped
+    // commit) is stamped only when NO errors remain. The old build wired this
+    // inside resolveVerifierGate; v2's resolver is pure, so it layers in the
+    // shell where the run's approval state lives.
+    let reviewProvenance;
+    if (gate.verifierGated) {
+        const reviewInput = {
+            targetKind: "commit",
+            candidateId: gate.candidateId,
+            selectionId: gate.selectionId,
+            selfActorIds: (0, collaboration_io_1.selfActorIdsForCandidate)(run, gate.candidateId, gate.selectionId),
+        };
+        const reviewErrors = (0, collaboration_io_1.reviewGateErrors)(run, reviewInput);
+        if (reviewErrors.length)
+            gate.errors.push(...reviewErrors);
+        else
+            reviewProvenance = (0, collaboration_io_1.commitReviewProvenance)(run, reviewInput);
+    }
     if (gate.errors.length) {
         throw recordCommitGateFailure(run, options, gate);
     }
@@ -135,6 +158,7 @@ function commitState(run, input) {
         selectionId: gate.selectionId,
         evidence,
         metadata: { ...(options.metadata || {}), ...gate.metadata },
+        ...(reviewProvenance ? { review: reviewProvenance } : {}),
     };
     const commitNodeId = recordCommitNode(run, commit, options, gate);
     if (commitNodeId)
@@ -196,7 +220,28 @@ function recordCommitGateFailure(run, options, gate) {
     for (const parentId of [gate.selectionNodeId, gate.verifierNodeId].filter(Boolean)) {
         linkAdditionalParent(run, parentId, persisted.id);
     }
-    return new CommitGateError(first, { stateNodeId: persisted.id });
+    // Record the block as append-only operator feedback so the codes
+    // (commit-verifier-not-found / missing-evidence / review-gate-missing-
+    // approvals / …) are not lost — the old build did this and the commit gate's
+    // failure must surface visibly, not silently.
+    const feedback = (0, error_feedback_io_1.recordFeedback)(run, {
+        source: options.source === "cli" ? "cli" : "verifier",
+        error: first,
+        nodeId: persisted.id,
+        stageId: "commit",
+        contractId: contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+        retryable: false,
+        evidence: gate.evidence,
+        artifacts: [],
+        metadata: {
+            reason: options.reason,
+            verifierNodeId: gate.verifierNodeId,
+            candidateId: gate.candidateId,
+            selectionId: gate.selectionId,
+            failures: gate.errors.map((entry) => ({ code: entry.code, message: entry.message, nodeId: entry.nodeId })),
+        },
+    });
+    return new CommitGateError(first, { feedbackId: feedback.id, stateNodeId: persisted.id });
 }
 function linkAdditionalParent(run, parentId, childId) {
     const parent = findNode(run, parentId);
