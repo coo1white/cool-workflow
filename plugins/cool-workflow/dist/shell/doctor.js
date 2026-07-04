@@ -1,0 +1,228 @@
+"use strict";
+// shell/doctor.ts — `cw doctor` environment diagnostics, in the spirit of
+// `brew doctor`.
+//
+// MILESTONE 5 (v2/PLAN.md build order, step 5). Byte-exact port of
+// plugins/cool-workflow/src/doctor.ts's checks this milestone needs
+// (node/agent/agent-binary/git/home-registry/repo-state). The `--onramp`
+// section (buildDoctorOnramp) is later-milestone (reporting) territory and
+// is intentionally NOT wired here — no milestone-5 conformance case passes
+// `--onramp`, and DoctorReport.onramp is optional so this is a strict
+// subset, not a behavior change for any case this milestone must pass.
+//
+// Discipline (unchanged from the old build):
+//  - READ-ONLY. Never creates .cw/ or $CW_HOME as a side effect.
+//  - FAIL CLOSED. Any `fail` check => ok:false => the CLI exits non-zero.
+//    A `warn` (e.g. no agent yet) does not fail.
+//  - TWO RENDERINGS. Human text by default; a stable `--json` payload.
+//
+// Evidence: SPEC/execution-backend.md "Agent delegation config"; the doctor
+// behavior itself is documented in the old build's src/doctor.ts (not yet a
+// dedicated SPEC file — this milestone's conformance case,
+// exec-doctor-agent-config.case.js, pins the exact text this file must
+// produce).
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.runDoctor = runDoctor;
+exports.formatDoctorReport = formatDoctorReport;
+exports.formatDoctorFixes = formatDoctorFixes;
+const fs = __importStar(require("node:fs"));
+const os = __importStar(require("node:os"));
+const path = __importStar(require("node:path"));
+const node_child_process_1 = require("node:child_process");
+const agent_config_1 = require("./agent-config");
+const term_1 = require("./term");
+function whichBinary(bin, env) {
+    if (bin.includes("/") || bin.includes("\\")) {
+        try {
+            return fs.statSync(bin).isFile() ? bin : undefined;
+        }
+        catch {
+            return undefined;
+        }
+    }
+    const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
+    const exts = process.platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
+    for (const dir of dirs) {
+        for (const ext of exts) {
+            const candidate = path.join(dir, bin + ext);
+            try {
+                if (fs.statSync(candidate).isFile())
+                    return candidate;
+            }
+            catch {
+                /* keep looking */
+            }
+        }
+    }
+    return undefined;
+}
+/** True when `target` could be created/written: walk up to the nearest
+ *  EXISTING ancestor and require it to be a writable DIRECTORY. Does NOT
+ *  create anything — a diagnostic must not have side effects. */
+function dirWritable(target) {
+    let dir = path.resolve(target);
+    for (;;) {
+        let stat;
+        try {
+            stat = fs.statSync(dir);
+        }
+        catch {
+            const parent = path.dirname(dir);
+            if (parent === dir)
+                return false;
+            dir = parent;
+            continue;
+        }
+        if (!stat.isDirectory())
+            return false;
+        try {
+            fs.accessSync(dir, fs.constants.W_OK);
+            return true;
+        }
+        catch {
+            return false;
+        }
+    }
+}
+function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
+    const checks = [];
+    // 1. Node runtime — the one hard prerequisite (v18+).
+    const major = Number((process.version.match(/^v(\d+)/) || [])[1]);
+    checks.push(Number.isFinite(major) && major >= 18
+        ? { name: "node", status: "ok", detail: `Node ${process.version} (>= 18).` }
+        : {
+            name: "node",
+            status: "fail",
+            detail: `Node ${process.version} is below the required v18.`,
+            fix: "Install Node.js 18+ (e.g. `brew install node`, or https://nodejs.org).",
+        });
+    // 2. Agent backend — CW delegates execution; without one, real runs park.
+    const cfg = (0, agent_config_1.resolveAgentConfig)(args, env);
+    if (cfg.source === "auto") {
+        const vendor = cfg.model && cfg.model.startsWith("builtin:") ? cfg.model.slice("builtin:".length) : "auto";
+        checks.push({
+            name: "agent",
+            status: "ok",
+            detail: `Agent auto-detected: ${vendor}. Set CW_AGENT_COMMAND or --agent-command to override.`,
+        });
+    }
+    else if (cfg.source === "none") {
+        checks.push({
+            name: "agent",
+            status: "warn",
+            detail: "No agent backend configured — `demo` and `--preview` work, but a real run reports status: blocked.",
+            fix: 'Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.',
+        });
+    }
+    else {
+        const binToken = cfg.command ? String(cfg.command).split(/\s+/)[0] : undefined;
+        checks.push({
+            name: "agent",
+            status: "ok",
+            detail: `Agent configured from ${cfg.source}${binToken ? `: ${binToken}` : cfg.endpoint ? " (HTTP endpoint)" : ""}.`,
+        });
+        if (binToken) {
+            const resolved = whichBinary(binToken, env);
+            checks.push(resolved
+                ? { name: "agent-binary", status: "ok", detail: `Agent binary "${binToken}" found at ${resolved}.` }
+                : {
+                    name: "agent-binary",
+                    status: "warn",
+                    detail: `Configured agent binary "${binToken}" is not on $PATH.`,
+                    fix: `Install "${binToken}", or correct --agent-command / $CW_AGENT_COMMAND.`,
+                });
+        }
+    }
+    // 3. git — only needed for commit provenance; a warn, not a hard fail.
+    const git = (0, node_child_process_1.spawnSync)("git", ["--version"], { encoding: "utf8", timeout: 5000 });
+    checks.push(!git.error && git.status === 0
+        ? { name: "git", status: "ok", detail: `${String(git.stdout || "git").trim()}.` }
+        : {
+            name: "git",
+            status: "warn",
+            detail: "git is not available — commit provenance (git HEAD) is recorded as absent.",
+            fix: "Install git (e.g. `brew install git`) if you want commit provenance.",
+        });
+    // 4. Home registry — the cross-repo run index lives here; must be writable.
+    const home = env.CW_HOME && String(env.CW_HOME).trim() ? path.resolve(String(env.CW_HOME)) : path.join(os.homedir(), ".local", "state", "cool-workflow");
+    checks.push(dirWritable(home)
+        ? { name: "home-registry", status: "ok", detail: `Home registry location is writable (${home}).` }
+        : {
+            name: "home-registry",
+            status: "fail",
+            detail: `Home registry location is not writable: ${home}`,
+            fix: "Set $CW_HOME to a writable directory, or fix the permissions.",
+        });
+    // 5. Working-dir state — per-repo runs land under <cwd>/.cw.
+    const cwState = path.join(path.resolve(cwd), ".cw");
+    checks.push(dirWritable(cwState)
+        ? { name: "repo-state", status: "ok", detail: `Run state location is writable (${cwState}).` }
+        : {
+            name: "repo-state",
+            status: "warn",
+            detail: `Cannot write run state under ${cwState}.`,
+            fix: "Run from a writable working directory, or pass --cwd PATH.",
+        });
+    const fails = checks.filter((c) => c.status === "fail").length;
+    const warns = checks.filter((c) => c.status === "warn").length;
+    const ok = fails === 0;
+    const summary = ok
+        ? warns === 0
+            ? "ready — all checks passed"
+            : `ready, with ${warns} warning${warns === 1 ? "" : "s"}`
+        : `${fails} blocking problem${fails === 1 ? "" : "s"} found`;
+    return { schemaVersion: 1, ok, checks, summary };
+}
+/** Human rendering (TTY/default). `--json` callers use the report object directly. */
+function formatDoctorReport(report) {
+    const lines = [(0, term_1.bold)("cw doctor")];
+    for (const check of report.checks) {
+        lines.push(`  ${(0, term_1.doctorGlyph)(check.status)} ${check.name}: ${check.detail}`);
+        if (check.fix && check.status !== "ok")
+            lines.push(`      fix: ${check.fix}`);
+    }
+    lines.push("");
+    const summaryGlyph = report.ok ? (0, term_1.green)("✓") : (0, term_1.red)("✗");
+    lines.push(`${summaryGlyph} ${report.summary}`);
+    return lines.join("\n");
+}
+/** `--fix` rendering: consolidates all fix strings into an actionable block. */
+function formatDoctorFixes(report) {
+    const fixes = report.checks.filter((c) => c.fix && c.status !== "ok").map((c) => c.fix);
+    if (!fixes.length)
+        return "No fixes needed.";
+    return [(0, term_1.bold)("Fix Commands"), ...fixes.map((f, i) => `  ${i + 1}. ${f}`), ""].join("\n");
+}
