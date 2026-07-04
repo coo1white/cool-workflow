@@ -10,13 +10,30 @@
 // "Write ordering and atomic rules", "compactCheckpoint on a run with no
 // empty optional arrays writes nothing".
 
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic";
 import { createRunPaths, ensureRunDirs } from "../core/state/run-paths";
 import { migrateRunState, StateMigrationResult } from "../core/state/migrations";
-import { WorkflowRun } from "../core/state/types";
+import { WorkflowRun, StateArtifact } from "../core/state/types";
+import { sha256 } from "../core/hash";
 
 export { createRunPaths, ensureRunDirs };
+
+/** Read the file at artifact.path and stamp sha256 (the core `sha256:`+hex
+ *  form) + sizeBytes onto the StateArtifact. A missing/unreadable file is
+ *  silently skipped so hashing an absent artifact never throws. Byte-exact
+ *  port of the old flat src/state.ts:hashArtifactFile. */
+export function hashArtifactFile(artifact: StateArtifact): StateArtifact {
+  try {
+    const content = fs.readFileSync(artifact.path, "utf8");
+    artifact.sha256 = sha256(content);
+    artifact.sizeBytes = Buffer.byteLength(content, "utf8");
+  } catch {
+    /* file missing — silently skip */
+  }
+  return artifact;
+}
 
 /** Dry-run load + migrate a state.json at an explicit path. */
 export function loadRunStateFile(statePath: string, options: { dryRun?: boolean } = {}): StateMigrationResult {

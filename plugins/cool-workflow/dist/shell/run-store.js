@@ -45,6 +45,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ensureRunDirs = exports.createRunPaths = void 0;
+exports.hashArtifactFile = hashArtifactFile;
 exports.loadRunStateFile = loadRunStateFile;
 exports.checkRunStateFile = checkRunStateFile;
 exports.migrateRunStateFile = migrateRunStateFile;
@@ -52,12 +53,29 @@ exports.loadRunFromCwd = loadRunFromCwd;
 exports.saveCheckpoint = saveCheckpoint;
 exports.compactCheckpoint = compactCheckpoint;
 exports.createRun = createRun;
+const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const run_paths_1 = require("../core/state/run-paths");
 Object.defineProperty(exports, "createRunPaths", { enumerable: true, get: function () { return run_paths_1.createRunPaths; } });
 Object.defineProperty(exports, "ensureRunDirs", { enumerable: true, get: function () { return run_paths_1.ensureRunDirs; } });
 const migrations_1 = require("../core/state/migrations");
+const hash_1 = require("../core/hash");
+/** Read the file at artifact.path and stamp sha256 (the core `sha256:`+hex
+ *  form) + sizeBytes onto the StateArtifact. A missing/unreadable file is
+ *  silently skipped so hashing an absent artifact never throws. Byte-exact
+ *  port of the old flat src/state.ts:hashArtifactFile. */
+function hashArtifactFile(artifact) {
+    try {
+        const content = fs.readFileSync(artifact.path, "utf8");
+        artifact.sha256 = (0, hash_1.sha256)(content);
+        artifact.sizeBytes = Buffer.byteLength(content, "utf8");
+    }
+    catch {
+        /* file missing — silently skip */
+    }
+    return artifact;
+}
 /** Dry-run load + migrate a state.json at an explicit path. */
 function loadRunStateFile(statePath, options = {}) {
     return (0, migrations_1.migrateRunState)((0, fs_atomic_1.readJson)(statePath), {

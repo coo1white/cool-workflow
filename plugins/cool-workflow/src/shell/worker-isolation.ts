@@ -126,15 +126,65 @@ function createWorkerId(run: WorkflowRun, taskId: string): string {
   return `${prefix}${String(seq).padStart(4, "0")}`;
 }
 
+/** Minimal fail-closed shape check for a worker.json overlay: it must be a
+ *  non-null object carrying a string id. Enough to reject a wrong-shape scope
+ *  (null/array/scalar) with context; a syntactically-invalid file throws from
+ *  JSON.parse before this runs. */
+function validateWorkerScope(value: unknown): WorkerScope {
+  if (!value || typeof value !== "object" || Array.isArray(value) || typeof (value as { id?: unknown }).id !== "string") {
+    throw new Error("worker.json is not a WorkerScope object");
+  }
+  return value as WorkerScope;
+}
+
 export function getWorkerScope(run: WorkflowRun, workerId: string): WorkerScope | undefined {
   ensureWorkerState(run);
   const existing = (run.workers as unknown as WorkerScope[] | undefined || []).find((s) => s.id === workerId);
   if (existing) return existing;
   const file = path.join(workerRoot(run), safeFileName(workerId), "worker.json");
   if (!fs.existsSync(file)) return undefined;
-  const scope = JSON.parse(fs.readFileSync(file, "utf8")) as WorkerScope;
+  let scope: WorkerScope;
+  try {
+    scope = validateWorkerScope(JSON.parse(fs.readFileSync(file, "utf8")));
+  } catch (error) {
+    // A present-but-corrupt scope fails closed with context, not a raw
+    // SyntaxError/validation throw bubbling up from deep in the call stack.
+    throw new Error(`Corrupt worker scope ${file}: ${error instanceof Error ? error.message : String(error)}`);
+  }
   upsertWorkerScope(run, scope);
   return scope;
+}
+
+/** Load every worker.json under the run's workers dir, skipping (with a
+ *  stderr diagnostic) any one that is corrupt/partially-written so a single
+ *  bad file cannot blank the whole listing. Byte-exact to the old build's
+ *  loadWorkerScopesFromDisk. */
+function loadWorkerScopesFromDisk(run: WorkflowRun): WorkerScope[] {
+  const root = workerRoot(run);
+  if (!fs.existsSync(root)) return [];
+  return fs
+    .readdirSync(root, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(root, entry.name, "worker.json"))
+    .filter((file) => fs.existsSync(file))
+    .map((file) => {
+      try {
+        return validateWorkerScope(JSON.parse(fs.readFileSync(file, "utf8")));
+      } catch (error) {
+        process.stderr.write(`cw: skipping unreadable worker scope ${file}: ${error instanceof Error ? error.message : String(error)}\n`);
+        return undefined;
+      }
+    })
+    .filter((scope): scope is WorkerScope => scope !== undefined);
+}
+
+/** Overlay disk-loaded scopes onto the in-memory list, keyed by id (disk
+ *  wins), preserving first-seen order. */
+function mergeScopes(existing: WorkerScope[], loaded: WorkerScope[]): WorkerScope[] {
+  const byId = new Map<string, WorkerScope>();
+  for (const scope of existing) byId.set(scope.id, scope);
+  for (const scope of loaded) byId.set(scope.id, scope);
+  return [...byId.values()];
 }
 
 function upsertWorkerScope(run: WorkflowRun, scope: WorkerScope): WorkerScope {
@@ -634,7 +684,13 @@ export function showWorkerManifest(run: WorkflowRun, workerId: string): { result
 
 /** MILESTONE 11 (reporting/observability) — `cw worker list [--status]`. */
 export function listWorkerScopes(run: WorkflowRun, options: { status?: string } = {}): WorkerScope[] {
-  const workers = ((run.workers as unknown as WorkerScope[]) || []).slice().sort((a, b) => a.id.localeCompare(b.id));
+  ensureWorkerState(run);
+  // Reload from disk and merge so a listing reflects the durable truth (and a
+  // single corrupt worker.json is skipped, not fatal) — an in-memory-only slice
+  // silently drops workers whenever run.workers was reset.
+  const merged = mergeScopes((run.workers as unknown as WorkerScope[]) || [], loadWorkerScopesFromDisk(run));
+  run.workers = merged as unknown as WorkflowRun["workers"];
+  const workers = merged.slice().sort((a, b) => a.id.localeCompare(b.id));
   return options.status ? workers.filter((w) => w.status === options.status) : workers;
 }
 
