@@ -30,7 +30,7 @@ are examples or an internal proof. List them all with `cw app list`.
 
 | App | Use it when | Notes |
 | --- | --- | --- |
-| `architecture-review` | You want the full repository architecture and risk review. | 13 tasks across Map, Assess, and Verify; the Verdict phase writes an artifact, not a task. Readonly sandbox. |
+| `architecture-review` | You want the full repository architecture and risk review. | 14 tasks across Map, Assess, Verify, and Verdict (13 agent workers plus the Verdict artifact); readonly sandbox. |
 | `architecture-review-fast` | You want faster first results before a deeper background review. | 6 tasks; supports source-context inputs; readonly sandbox. |
 | `pr-review-fix-ci` | You want PR review and CI diagnosis. | 7 tasks; can use readonly or workspace-write profiles depending on mode. |
 | `research-synthesis` | You want evidence-backed synthesis from sources. | 6 tasks; uses readonly and locked-down profiles. |
