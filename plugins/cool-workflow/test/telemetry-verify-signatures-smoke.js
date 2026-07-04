@@ -30,9 +30,12 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const ta = require(path.join(pluginRoot, "dist/telemetry-attestation.js"));
-const ledger = require(path.join(pluginRoot, "dist/telemetry-ledger.js"));
-const capCore = require(path.join(pluginRoot, "dist/capability-core.js"));
+// v2 module layout: ed25519 sign/verify helpers are pure and live in
+// core/trust/telemetry-attestation; the disk-writing ledger helpers
+// (appendTelemetryAttestation / telemetryLedgerPath / verifyTelemetryLedger)
+// live in shell/telemetry-ledger-io.
+const ta = require(path.join(pluginRoot, "dist/core/trust/telemetry-attestation.js"));
+const ledger = require(path.join(pluginRoot, "dist/shell/telemetry-ledger-io.js"));
 
 const cleanups = [];
 function tmpRun(id) {
@@ -63,8 +66,34 @@ function recordHop(run, { taskId, promptDigest, usage, signature }) {
     attestation: "attested"
   });
 }
-function verify(run, args) {
-  return capCore.telemetryVerify({ loadRun: () => run }, { runId: run.id, ...args });
+// v2 replaced capability-core.telemetryVerify's dependency-injected
+// ({ loadRun }) shape with shell/telemetry-cli.telemetryVerifyCli(runId, args),
+// which loads the run from cwd. This smoke drives in-memory runs, so we compose
+// the SAME v2 primitives telemetryVerifyCli composes (verifyTelemetryLedger +
+// verifyTelemetrySignatures + resolveTrustPublicKey) and build the identical
+// result shape — every assertion below is unchanged.
+function verify(run, args = {}) {
+  const v = ledger.verifyTelemetryLedger(run);
+  const trustPublicKeyInput = args.pubkey || process.env.CW_AGENT_ATTEST_PUBKEY;
+  const trustPublicKey = ta.resolveTrustPublicKey(trustPublicKeyInput);
+  const keyChecks = trustPublicKeyInput && !trustPublicKey ? [{ name: "signature-key", pass: false, code: "telemetry-pubkey-unreadable" }] : [];
+  const sig = ta.verifyTelemetrySignatures(v.records, trustPublicKey);
+  const failedChecks = [...v.checks.filter((c) => !c.pass), ...keyChecks, ...sig.checks.filter((c) => !c.pass)];
+  return {
+    schemaVersion: 1,
+    runId: run.id,
+    present: v.present,
+    verified: v.verified && keyChecks.length === 0 && sig.failed === 0,
+    records: v.records.length,
+    attested: v.attested,
+    unattested: v.unattested,
+    absent: v.absent,
+    signatureKeyProvided: sig.keyProvided,
+    signaturesChecked: sig.checked,
+    signaturesReverified: sig.reverified,
+    signaturesFailed: sig.failed,
+    failedChecks: failedChecks.map((c) => ({ name: c.name, code: c.code })),
+  };
 }
 
 function main() {

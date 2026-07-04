@@ -26,9 +26,11 @@ const machineACwd = path.join(tmp, "repo-a");
 const machineBCwd = path.join(tmp, "repo-b");
 for (const dir of [machineAHome, machineBHome, machineACwd, machineBCwd]) fs.mkdirSync(dir, { recursive: true });
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint, readJson } = require("../dist/state");
-const { exportRun, importRun, verifyImportedRun } = require("../dist/run-export");
-const { CoolWorkflowRunner } = require("../dist/orchestrator");
+const { createRunPaths, ensureRunDirs, saveCheckpoint, loadRunFromCwd } = require("../dist/shell/run-store");
+const { readJson } = require("../dist/shell/fs-atomic");
+const { exportRun, importRun, verifyImportedRun } = require("../dist/shell/run-export");
+// v2 dismantled the CoolWorkflowRunner facade; its loadRun(runId) was exactly
+// loadRunFromCwd(runId, baseDir), so call that directly.
 
 const runId = "cross-machine-test";
 const pluginRoot = path.resolve(__dirname, "..");
@@ -152,8 +154,7 @@ try {
     const savedCwd = process.cwd();
     process.chdir(machineBCwd);
     try {
-      const runnerB = new CoolWorkflowRunner({ pluginRoot, baseDir: machineBCwd });
-      const loaded = runnerB.loadRun(runId);
+      const loaded = loadRunFromCwd(runId, machineBCwd);
       assert.equal(loaded.id, runId);
       assert.equal(loaded.workflow.id, "cross-machine-test");
       assert.equal(loaded.tasks.length, 1);

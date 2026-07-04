@@ -18,9 +18,9 @@ const {
   loadTelemetryLedger,
   appendTelemetryAttestation,
   TelemetryLedgerCorruptError
-} = require("../dist/telemetry-ledger");
-const { recordTrustAuditEvent, verifyTrustAudit } = require("../dist/trust-audit");
-const sandbox = require("../dist/sandbox-profile");
+} = require("../dist/shell/telemetry-ledger-io");
+const { recordTrustAuditEvent, verifyTrustAudit } = require("../dist/shell/trust-audit");
+const sandbox = require("../dist/shell/sandbox-profile");
 
 const cli = path.join(__dirname, "..", "dist", "cli.js");
 

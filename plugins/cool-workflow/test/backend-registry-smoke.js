@@ -13,7 +13,7 @@ const {
   runBackend,
   probeBackend,
   DEFAULT_BACKEND_ID
-} = require("../dist/execution-backend");
+} = require("../dist/shell/execution-backend/registry");
 
 // Built-ins are present and node remains the default.
 const ids = backendIds();

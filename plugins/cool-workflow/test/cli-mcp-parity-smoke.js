@@ -24,8 +24,19 @@ const pluginRoot = path.resolve(__dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
-const registry = require(path.join(pluginRoot, "dist", "capability-registry.js"));
-const { formatHelp } = require(path.join(pluginRoot, "dist", "orchestrator.js"));
+// NO v2 EQUIVALENT: v2 replaced the flat capability-registry module with
+// core/capability-table (REGISTRY + declaredMcpTools/findCapability/...). That
+// table does NOT expose this smoke's whole parity-report + payload-probe-plan
+// API — buildParityReport, payloadProbePlan (the 73-target probe ledger),
+// CAPABILITY_REGISTRY, payloadIdenticalCapabilities, buildPayloadProbePlan,
+// isPayloadProbeOptOut, payloadProbeTargets, declaredCliHelpTokens, requiresReason.
+// Adapting to capability-table would mean rewriting WHAT the smoke verifies, so
+// this is left for a human call. Requires repointed to the real v2 modules
+// (capability-table + core/format/help's formatHelp) so the failure surfaces as
+// a missing-API on live modules, not a MODULE_NOT_FOUND crash. The sibling
+// tooling scripts/parity-check.js breaks the same way (its own Phase-3 job).
+const registry = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
+const { formatHelp } = require(path.join(pluginRoot, "dist", "core", "format", "help.js"));
 
 function liveMcpToolDefinitions() {
   const out = execFileSync(node, [mcpServer], {

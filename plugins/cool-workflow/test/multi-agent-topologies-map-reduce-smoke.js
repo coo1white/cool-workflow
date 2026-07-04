@@ -1,6 +1,20 @@
 #!/usr/bin/env node
 "use strict";
 
+// REAL v2 BUG (reported, not papered over): this smoke needs `topology apply
+// <run> map-reduce --id topo-map` to honor the caller-supplied id so derived ids
+// (topo-map-fanout, topo-map-group, topo-map-mapper-N) are stable and referenceable
+// by the later fanin/dispatch/coordinator steps. In v2, topologyApplyCli
+// (src/shell/multi-agent-cli.ts:103) reads the topology-run id from `args.id2`
+// (a field the CLI never emits) instead of `args.id`, so `--id` is silently
+// dropped and applyTopology falls through to a hash id
+// (map-reduce-<hash>-fanout). The old build passed CLI options straight to
+// applyTopology, so options.id reached input.id. This is a source wiring bug, not
+// a moved/renamed API; the fix is `args.id` in src/shell/multi-agent-cli.ts, which
+// is out of scope for a test rewrite (editing src/ risks the conformance suite).
+// The test file itself has no dist imports to repoint. Left failing for a human
+// source fix.
+
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");

@@ -11,9 +11,11 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
+// v2 relocated the MCP surface to src/mcp/dispatch.ts and moved workbench-host
+// under src/shell/. Same no-process.chdir guard, new paths.
 const srcGuards = [
-  path.join(pluginRoot, "src", "mcp-surface.ts"),
-  path.join(pluginRoot, "src", "workbench-host.ts")
+  path.join(pluginRoot, "src", "mcp", "dispatch.ts"),
+  path.join(pluginRoot, "src", "shell", "workbench-host.ts")
 ];
 const carvedToolCall = path.join(pluginRoot, "src", "mcp", "tool-call.ts");
 if (fs.existsSync(carvedToolCall)) srcGuards.push(carvedToolCall);
@@ -23,7 +25,7 @@ for (const file of srcGuards) {
   assert.doesNotMatch(source, /process\.chdir\(/, `${path.relative(pluginRoot, file)} must not use process.chdir`);
 }
 
-const { callTool } = require(path.join(pluginRoot, "dist", "mcp-surface.js"));
+const { callTool } = require(path.join(pluginRoot, "dist", "mcp", "dispatch.js"));
 const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-explicit-cwd-")));
 fs.writeFileSync(path.join(workspace, "README.md"), "# explicit cwd smoke\n", "utf8");
 

@@ -5,8 +5,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint, readJson, writeJson } = require("../dist/state");
-const { exportRun, importRun, verifyImportedRun } = require("../dist/run-export");
+// v2 split the old flat `dist/state`: run-dir/checkpoint helpers moved to
+// shell/run-store, JSON helpers to shell/fs-atomic. run-export moved to shell/.
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { readJson, writeJson } = require("../dist/shell/fs-atomic");
+const { exportRun, importRun, verifyImportedRun } = require("../dist/shell/run-export");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-run-export-"));
 const runId = "export-test";

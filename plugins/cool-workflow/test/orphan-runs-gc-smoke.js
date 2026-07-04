@@ -20,7 +20,8 @@ const path = require("node:path");
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const node = process.execPath;
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist", "orchestrator.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist", "shell", "workflow-app-loader"));
+const { plan } = require(path.join(pluginRoot, "dist", "shell", "pipeline"));
 
 const cleanups = [];
 function freshRepo() {
@@ -67,9 +68,10 @@ function seedCorrupt(repo, runId) {
 
 // A REAL known run (via the in-process planner, same as run-registry-control-plane-smoke)
 // so "never touch a known run" is proven against the actual state.json shape, not a stub.
+// v2: plan() from shell/pipeline persists state.json on disk (it calls saveCheckpoint),
+// and returns a run with .id and .paths (.runDir, .state).
 function seedKnownRun(repo) {
-  const runner = new CoolWorkflowRunner({ pluginRoot });
-  const result = runner.plan("architecture-review", { question: "orphan-sweep control", repo, cwd: repo });
+  const result = plan(loadWorkflowApp("architecture-review"), { question: "orphan-sweep control", repo, cwd: repo });
   return result;
 }
 
@@ -197,8 +199,8 @@ function seedKnownRun(repo) {
   seedOrphan(repo, "orphan-parity", { ageMinutes: 0 });
   const now = new Date().toISOString();
   const cliOut = JSON.parse(runOk(["orphans", "list", "--scope", "repo", "--now", now, "--json"], repo).stdout);
-  const { listOrphanRuns } = require(path.join(pluginRoot, "dist", "capability-core.js"));
-  const { RunRegistry } = require(path.join(pluginRoot, "dist", "run-registry.js"));
+  const { listOrphanRuns } = require(path.join(pluginRoot, "dist", "shell", "reclamation-io"));
+  const { RunRegistry } = require(path.join(pluginRoot, "dist", "shell", "run-registry-io"));
   const mcpOut = listOrphanRuns(new RunRegistry(repo), { scope: "repo", now });
   assert.deepEqual(cliOut, mcpOut, "CLI --json and the MCP-bound core call return the identical payload");
   console.log("orphans: CLI/MCP payload identity ok");

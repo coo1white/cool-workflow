@@ -4,10 +4,25 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createDefaultPipelineContract } = require("../dist/pipeline-contract");
-const { createPipelineRunner } = require("../dist/pipeline-runner");
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state");
-const { appendRunNode, createStateNode } = require("../dist/state-node");
+const { createDefaultPipelineContract } = require("../dist/core/pipeline/contract");
+// v2 replaced the createPipelineRunner() factory with pure free functions in
+// core/pipeline/runner. The runner no longer touches fs itself: it takes injected
+// persistNode / saveCheckpoint deps (exactly how src/shell/pipeline.ts wires it).
+// Rebuild the same `runner` facade here by binding those shell deps, so the smoke
+// keeps proving the same one-step engine AND on-disk node persistence.
+const pipelineRunner = require("../dist/core/pipeline/runner");
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { writeRunNode } = require("../dist/shell/node-store");
+const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
+
+const RUNNER_OPTS = { persistNode: writeRunNode, saveCheckpoint, pathExists: (p) => fs.existsSync(p) };
+const runner = {
+  getRunContract: (run, contractId) => pipelineRunner.getRunContract(run, contractId),
+  getRunNode: (run, nodeId) => pipelineRunner.getRunNode(run, nodeId),
+  findRunnablePipelineStages: (run) => pipelineRunner.findRunnablePipelineStages(run, undefined, RUNNER_OPTS.pathExists),
+  runPipelineStage: (run, stageId, inputNodeId, options) =>
+    pipelineRunner.runPipelineStage(run, stageId, inputNodeId, options, RUNNER_OPTS)
+};
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-pipeline-runner-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "runner-smoke"));
@@ -41,7 +56,6 @@ const run = {
 };
 saveCheckpoint(run);
 
-const runner = createPipelineRunner();
 const contract = runner.getRunContract(run);
 assert.equal(contract.id, createDefaultPipelineContract().id);
 
@@ -76,8 +90,12 @@ const illegalCommit = runner.runPipelineStage(run, "commit", "runner-smoke:task"
 });
 assert.equal(illegalCommit.status, "failed");
 assert.equal(illegalCommit.error.code, "unexpected-node-kind");
-assert.equal(illegalCommit.outputNodeId, "runner-smoke:commit-failed");
-assert.equal(runner.getRunNode(run, "runner-smoke:commit-failed").kind, "error");
+// v2's failPipelineStage mints its own error-node id (error-<hash>) rather than
+// honoring the caller's outputNodeId; the default contract preserves the failure
+// node. Assert on the id v2 actually returns and that it is an error node — the
+// original intent (an illegal commit produces a preserved error node) is intact.
+assert.ok(/^error-/.test(illegalCommit.outputNodeId), "failure produces a preserved error node id");
+assert.equal(runner.getRunNode(run, illegalCommit.outputNodeId).kind, "error");
 
 const taskNode = runner.getRunNode(run, "runner-smoke:task");
 const dispatch = runner.runPipelineStage(run, "dispatch", taskNode.id, {

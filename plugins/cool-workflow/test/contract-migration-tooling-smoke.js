@@ -19,7 +19,7 @@ const cp = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const m = require(path.join(pluginRoot, "dist/contract-migration.js"));
+const m = require(path.join(pluginRoot, "dist/core/state/contract-migration.js"));
 
 // 1. registry
 const contracts = m.listMigrationContracts();

@@ -28,10 +28,43 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const lifecycle = require(path.join(pluginRoot, "dist/orchestrator/lifecycle-operations.js"));
-const { runDrive } = require(path.join(pluginRoot, "dist/capability-core.js"));
-const api = require(path.join(pluginRoot, "dist/workflow-api.js"));
+// v2 relocations: the workflow-authoring DSL (agent/workflow/parallel/phase) moved
+// from workflow-api to core/workflow-apps/app-schema; lifecycle.plan is now the free
+// plan() in shell/pipeline; the old runDrive(runner, args) is runDriveStep(args) in
+// shell/pipeline-cli (no runner arg); loadRun -> loadRunFromCwd. The
+// CoolWorkflowRunner facade is gone, shimmed to those free functions below.
+const { plan: planApp } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const { runDriveStep } = require(path.join(pluginRoot, "dist/shell/pipeline-cli.js"));
+const api = require(path.join(pluginRoot, "dist/core/workflow-apps/app-schema.js"));
+
+// v2's plan() takes a FLAT LoadedWorkflowApp ({ id, title, summary, version,
+// workflow, sandboxProfiles, sourcePath }) — the old lifecycle.plan took a nested
+// { app: {...workflow...}, source: {...} }. Flatten the smoke's nested shape.
+function toLoadedApp(nested) {
+  const inner = nested.app || nested;
+  const manifestPath = (nested.source && (nested.source.manifestPath || nested.source.path)) || inner.sourcePath || "";
+  return {
+    id: inner.id,
+    title: inner.title,
+    summary: inner.summary || "",
+    version: inner.version,
+    author: inner.author,
+    workflow: inner.workflow,
+    sandboxProfiles: inner.sandboxProfiles || [],
+    sourcePath: manifestPath
+  };
+}
+const lifecycle = { plan: (nestedApp, options) => planApp(toLoadedApp(nestedApp), options) };
+// runDrive(runner, args) -> runDriveStep(args) (cwd resolved from args.run's own repo).
+function runDrive(_runner, args) { return runDriveStep(args); }
+const CoolWorkflowRunner = function () {
+  let lastCwd = process.cwd();
+  return {
+    loadRun(runId) { return loadRunFromCwd(runId, lastCwd); },
+    _setCwd(c) { lastCwd = c; }
+  };
+};
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();

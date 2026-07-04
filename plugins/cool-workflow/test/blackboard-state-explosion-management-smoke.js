@@ -16,10 +16,65 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const readline = require("node:readline");
-const blackboard = require("../dist/coordinator.js");
-const { CoolWorkflowRunner } = require("../dist/orchestrator.js");
-const { writeReport } = require("../dist/orchestrator/report.js");
-const { loadRunFromCwd, saveCheckpoint } = require("../dist/state.js");
+// v2 relocations: blackboard IO coordinator -> shell/coordinator-io; writeReport
+// -> shell/report; state -> shell/run-store. The CoolWorkflowRunner facade is gone;
+// its multi-agent host + lifecycle methods are now free functions in
+// shell/multi-agent-host + shell/worker-isolation + shell/pipeline + shell/commit.
+// A local runner shim below re-exposes exactly the methods this smoke uses, loading
+// the run from disk per call and saveCheckpoint-ing after each mutation (v2's host
+// functions mutate in place with persist:false and do NOT checkpoint themselves).
+const blackboard = require("../dist/shell/coordinator-io.js");
+const { writeReport } = require("../dist/shell/report.js");
+const { loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store.js");
+const { plan: planApp } = require("../dist/shell/pipeline.js");
+const { loadWorkflowApp } = require("../dist/shell/workflow-app-loader.js");
+const { hostRun, hostStep, hostScore, hostSelect } = require("../dist/shell/multi-agent-host.js");
+const { getWorkerScope, writeWorkerManifest, recordWorkerOutput } = require("../dist/shell/worker-isolation.js");
+const { commitState } = require("../dist/shell/commit.js");
+
+function CoolWorkflowRunner() {
+  let baseDir = process.cwd();
+  const load = (runId) => loadRunFromCwd(runId, baseDir);
+  // Persist + return the same host envelope shape the old facade returned.
+  const hostAndSave = (runId, fn) => {
+    const run = load(runId);
+    const res = fn(run);
+    saveCheckpoint(run);
+    return res;
+  };
+  const api = {
+    withBaseDir(dir) { if (dir) baseDir = path.resolve(dir); return api; },
+    plan(workflowId, options = {}) {
+      if (options.repo) baseDir = path.resolve(options.repo);
+      else if (options.cwd) baseDir = path.resolve(options.cwd);
+      return planApp(loadWorkflowApp(workflowId), options);
+    },
+    hostMultiAgentRun(runId, options = {}) { return hostAndSave(runId, (run) => hostRun(run, options)); },
+    hostMultiAgentStep(runId, options = {}) { return hostAndSave(runId, (run) => hostStep(run, options)); },
+    hostMultiAgentScore(runId, options = {}) { return hostAndSave(runId, (run) => hostScore(run, options)); },
+    hostMultiAgentSelect(runId, options = {}) { return hostAndSave(runId, (run) => hostSelect(run, options)); },
+    showWorkerManifest(runId, workerId) {
+      const run = load(runId);
+      const worker = getWorkerScope(run, workerId);
+      if (!worker) throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
+      return writeWorkerManifest(run, worker);
+    },
+    recordWorkerOutput(runId, workerId, resultPath, options = {}) {
+      const run = load(runId);
+      const out = recordWorkerOutput(run, workerId, path.resolve(baseDir, resultPath), options);
+      saveCheckpoint(run);
+      return out;
+    },
+    commit(runId, input = {}) {
+      const run = load(runId);
+      const commit = commitState(run, input);
+      saveCheckpoint(run);
+      writeReport(run);
+      return { commit };
+    }
+  };
+  return api;
+}
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -87,6 +142,15 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
     writeWorkerResult(manifest.resultPath, label);
     runner.recordWorkerOutput(runId, workerId, manifest.resultPath);
   }
+  // REAL-GAP (v2): the multi-agent host step no longer binds a dispatch to its
+  // fanout role/group. The old build's hostStep called createDispatchManifest with
+  // { multiAgentGroupId, multiAgentRoleId, multiAgentFanoutId }; v2's DispatchOptions
+  // dropped those fields and createDispatchManifest never attaches the dispatch to
+  // the multi-agent fanout (attachDispatchToMultiAgent is exported but unused). With
+  // no membership recorded, nextDispatchPlan's role-exhaustion gate never fires, so
+  // hostStep keeps returning "created-dispatch-manifest" for EVERY pending task and
+  // never reaches "collected-fanin" -> the judge-panel fan-in/candidate/commit flow
+  // below is unreachable. Reported as a REAL GAP for a human call.
   assert.equal(runner.hostMultiAgentStep(runId).performed, "collected-fanin");
   assert.equal(runner.hostMultiAgentStep(runId).performed, "created-blackboard-snapshot");
   assert.equal(runner.hostMultiAgentStep(runId, { candidate: "sem-candidate" }).performed, "registered-candidate");
@@ -373,9 +437,17 @@ function readMcp(runId, snapshotPath) {
     .finally(() => server.kill());
 }
 
+// NO v2 EQUIVALENT (sub-section): this asserts an internal "build the full graph
+// once / summarize operator once per summary path" call-count contract by
+// monkeypatching buildMultiAgentOperatorGraph + summarizeMultiAgentOperator on the
+// old multi-agent-operator-ux module. v2 renamed buildMultiAgentOperatorGraph to
+// runToGraphViewFromWorkflowRun (in core/state/state-explosion/graph) and has NO
+// summarizeMultiAgentOperator counterpart, and report.ts imports it directly (no
+// live-binding to intercept). Paths repointed to the closest v2 modules; the
+// call-count contract itself has no clean v2 equivalent. Left for a human call.
 function assertSlimSummaryBuilders(runId) {
-  const operatorPath = path.join(pluginRoot, "dist", "multi-agent-operator-ux.js");
-  const stateExplosionPath = path.join(pluginRoot, "dist", "state-explosion.js");
+  const operatorPath = path.join(pluginRoot, "dist", "core", "state", "state-explosion", "graph.js");
+  const stateExplosionPath = path.join(pluginRoot, "dist", "shell", "state-explosion-cli.js");
   delete require.cache[require.resolve(stateExplosionPath)];
   const operatorUx = require(operatorPath);
   const originalGraph = operatorUx.buildMultiAgentOperatorGraph;
@@ -390,7 +462,7 @@ function assertSlimSummaryBuilders(runId) {
     return originalOperator.apply(this, args);
   };
   try {
-    const { loadRunFromCwd } = require(path.join(pluginRoot, "dist", "state.js"));
+    const { loadRunFromCwd } = require(path.join(pluginRoot, "dist", "shell", "run-store.js"));
     const stateExplosion = require(stateExplosionPath);
     const run = loadRunFromCwd(runId, tmp);
 

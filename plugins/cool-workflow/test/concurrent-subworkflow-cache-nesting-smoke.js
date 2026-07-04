@@ -24,10 +24,17 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const lifecycle = require(path.join(pluginRoot, "dist/orchestrator/lifecycle-operations.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
-const api = require(path.join(pluginRoot, "dist/workflow-api.js"));
+// v2 dismantled the CoolWorkflowRunner facade. The reentrant round-cache this
+// smoke exercises still exists — it moved into shell/drive.ts as a module-level
+// roundCache (the source comment says it "matches the old build's
+// runner.loadWithCache ... ported here as a module-level map since this build has
+// no persistent runner object"). So drive() is now a free function
+// drive(runId, cwd, options), loadRun -> loadRunFromCwd(runId, cwd), plan lives in
+// shell/pipeline, and the workflow DSL builders in core/workflow-apps/app-schema.
+const { plan: pipelinePlan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const api = require(path.join(pluginRoot, "dist/core/workflow-apps/app-schema.js"));
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -49,8 +56,18 @@ function writeStub(file) {
 }
 
 function planApp(work, def) {
-  return lifecycle.plan(
-    { app: { schemaVersion: 1, id: def.id, title: def.title, version: "0.0.1", workflow: def }, source: { kind: "manifest", path: path.join(work, `${def.id}.app.json`), manifestPath: path.join(work, `${def.id}.app.json`) } },
+  // v2 shell/pipeline.plan takes a flat LoadedWorkflowApp (workflow at top level,
+  // sourcePath a string), not the old { app, source } record.
+  return pipelinePlan(
+    {
+      id: def.id,
+      title: def.title,
+      summary: def.summary || "",
+      version: "0.0.1",
+      workflow: def,
+      sandboxProfiles: def.sandboxProfiles || [],
+      sourcePath: path.join(work, `${def.id}.app.json`)
+    },
     { repo: work }
   );
 }
@@ -63,8 +80,6 @@ function main() {
   const agentCommand = `${process.execPath} ${stub} {{result}}`;
   process.chdir(work);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
-
     // Child workflow: its OWN parallel() phase (so the recursive drive() call
     // ALSO enters driveConcurrentRound, on the SAME runner instance).
     const childDef = api.workflow({
@@ -121,7 +136,7 @@ function main() {
       const run = planApp(work, parentDef);
       assert.equal(run.tasks.length, 3, "parent has 3 tasks in one parallel phase");
 
-      const result = drive(runner, run.id, {
+      const result = drive(run.id, work, {
         now: FIXED_NOW,
         concurrency: 3,
         agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: 15000 }
@@ -135,8 +150,7 @@ function main() {
       // actually reached state.json — not just an in-memory object that got
       // silently discarded when the nested child round's loadWithCache
       // cleared the parent round's cache.
-      const freshRunner = new CoolWorkflowRunner({ pluginRoot });
-      const reloaded = freshRunner.loadRun(run.id);
+      const reloaded = loadRunFromCwd(run.id, work);
       const completedIds = reloaded.tasks.filter((t) => t.status === "completed").map((t) => t.id).sort();
       assert.deepEqual(completedIds, ["map:sibling1", "map:sibling2", "map:sub"], "every sibling AND the sub-workflow task persisted to disk");
       console.log("concurrent-subworkflow-cache-nesting: nested concurrent sub-workflow does not clobber sibling tasks' persisted state ok");

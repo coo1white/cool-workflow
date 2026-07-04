@@ -12,7 +12,7 @@
 // keeping the env-unset default byte-identical to the prior gate (POLA).
 
 const assert = require("node:assert");
-const { shouldStreamAgentStderr } = require("../dist/execution-backend.js");
+const { shouldStreamAgentStderr } = require("../dist/shell/execution-backend/agent.js");
 
 let passed = 0;
 function check(env, isTTY, expected, why) {

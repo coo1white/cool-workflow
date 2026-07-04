@@ -38,7 +38,8 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { reconcileBatchOutcomes, runAgentBatchOutcomes } = require(path.join(pluginRoot, "dist/execution-backend/agent.js"));
+// v2 moved the execution-backend agent module under dist/shell/.
+const { reconcileBatchOutcomes, runAgentBatchOutcomes } = require(path.join(pluginRoot, "dist/shell/execution-backend/agent.js"));
 
 function unitLevelReconciliation() {
   const jobs = [{}, {}, {}]; // reconcileBatchOutcomes only reads jobs.length

@@ -18,8 +18,8 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const obs = require(path.join(pluginRoot, "dist/observability.js"));
-const ledger = require(path.join(pluginRoot, "dist/telemetry-ledger.js"));
+const obs = require(path.join(pluginRoot, "dist/shell/observability.js"));
+const ledger = require(path.join(pluginRoot, "dist/shell/telemetry-ledger-io.js"));
 
 const FIXED_NOW = "2026-06-10T12:00:00.000Z";
 const cleanups = [];

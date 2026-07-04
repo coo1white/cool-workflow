@@ -12,7 +12,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 
-const { runBundleDemo } = require("../dist/telemetry-demo");
+const { runBundleDemo } = require("../dist/shell/telemetry-demo");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");

@@ -8,7 +8,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { setAgentConfigFile, loadAgentConfigFile } = require("../dist/agent-config");
+const { setAgentConfigFile, loadAgentConfigFile } = require("../dist/shell/agent-config");
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), "cw-acfg-"));
 const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home };

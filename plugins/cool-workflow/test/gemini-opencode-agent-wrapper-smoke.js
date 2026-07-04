@@ -100,7 +100,7 @@ function main() {
   }
 
   {
-    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "agent-config.js"));
+    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js"));
     const cfg = resolveAgentConfig({ "agent-command": "builtin:gemini" }, {});
     assert.ok(cfg.command && cfg.command.includes("gemini-opencode-agent.js"), "builtin:gemini routes through opencode");
     console.log("gemini-opencode: builtin:gemini alias resolution OK");

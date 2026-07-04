@@ -13,23 +13,24 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state");
-const { appendRunNode, createStateNode } = require("../dist/state-node");
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/candidate-scoring");
-const { recordFeedback } = require("../dist/error-feedback");
-const { commitState } = require("../dist/commit");
+// v2 module layout: old flat modules split into core/ (pure) + shell/ (io).
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
+const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
+const { recordFeedback } = require("../dist/shell/error-feedback-io");
+const { commitState } = require("../dist/shell/commit");
 const {
   createMultiAgentRun,
   createAgentRole,
   createAgentGroup
-} = require("../dist/multi-agent");
+} = require("../dist/shell/multi-agent-io");
 const {
   resolveBlackboard,
   createBlackboardTopic,
   postBlackboardMessage,
   recordCoordinatorDecision
-} = require("../dist/coordinator");
-const { RoutineTriggerBridge } = require("../dist/triggers");
+} = require("../dist/shell/coordinator-io");
+const { RoutineTriggerBridge } = require("../dist/shell/scheduler-io");
 
 const RUN_ID = "det-ids-b";
 
@@ -291,7 +292,7 @@ assert.match(trigA.eventId, /^event-api-\d{4}$/, "event id is a zero-padded sequ
 // length-based seq would reuse a LIVE id after delete+create (corrupting the
 // append-only event/audit log). nextTriggerSeq is monotonic.
 {
-  const { RoutineTriggerBridge } = require("../dist/triggers");
+  const { RoutineTriggerBridge } = require("../dist/shell/scheduler-io");
   const make = () => {
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-det-trig-"));
     const b = new RoutineTriggerBridge(cwd);

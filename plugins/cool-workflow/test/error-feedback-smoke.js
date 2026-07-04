@@ -5,16 +5,31 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-const {
-  collectRunErrors,
-  createCorrectionTask,
-  listFeedback,
-  recordFeedback,
-  resolveFeedback
-} = require("../dist/error-feedback");
-const { createPipelineRunner } = require("../dist/pipeline-runner");
-const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
-const { appendRunNode, createStateNode } = require("../dist/state-node");
+// REAL-GAP (v2): the v2 rebuild ported only the pure DECISION half of error
+// feedback (core/pipeline/error-feedback: classifyFeedback / buildFeedbackRecord
+// / summarizeFeedback) and the recordFeedback WRITER (shell/error-feedback-io).
+// It did NOT port collectRunErrors / createCorrectionTask / listFeedback /
+// resolveFeedback, and it did NOT port createPipelineRunner (the pipeline runner
+// is now a set of free functions in core/pipeline/runner: getRunContract,
+// runPipelineStage, advancePipeline, ...). On top of that, every feedback.*
+// capability (list/show/collect/task/resolve/summary) is declared in the
+// capability registry but its handler throws CapabilityNotImplementedError and
+// it has NO cli block — so `cw feedback list|show` fall through to the usage
+// error. This smoke exercises the whole collect -> task -> resolve flow, which
+// v2 has no equivalent for. Requires repointed so the failure lands on the
+// missing API, not an import crash. Reported as a REAL GAP for a human call.
+const { recordFeedback } = require("../dist/shell/error-feedback-io");
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
+const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
+const { getRunContract, runPipelineStage } = require("../dist/core/pipeline/runner");
+// v2 has no createPipelineRunner factory; the smoke's `runner.getRunContract` /
+// `runner.runPipelineStage` below map to these free functions. The collect/list/
+// resolve/correction-task API it also needs simply does not exist in v2.
+const collectRunErrors = undefined;
+const createCorrectionTask = undefined;
+const listFeedback = undefined;
+const resolveFeedback = undefined;
+const createPipelineRunner = () => ({ getRunContract, runPipelineStage });
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-error-feedback-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "feedback-smoke"));
