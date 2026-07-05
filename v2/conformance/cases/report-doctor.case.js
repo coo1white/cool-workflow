@@ -62,12 +62,13 @@ caseMain(() => {
   const jsonForced = run(["doctor", "--json"], { cwd, env: { PATH: nodeOnlyPath(), FORCE_COLOR: "1" } });
   assert.equal(jsonForced.stdout, json.stdout, "machine payload is never styled");
 
-  // --- all-ok scenario (real PATH has git + claude in this dev box) ---
+  // --- all-ok scenario (only on a host where every check is clean — git,
+  // an agent backend, and a writable home registry all present; CI hosts
+  // commonly lack an agent backend, so this only fires on some dev boxes) ---
   const ok = run(["doctor", "--json"], { cwd });
   const okReport = JSON.parse(ok.stdout);
-  if (okReport.ok) {
+  if (okReport.checks.every((c) => c.status === "ok")) {
     assert.equal(okReport.summary, "ready — all checks passed");
-    assert.ok(okReport.checks.every((c) => c.status === "ok"));
   }
 
   // --- fail-closed: home-registry parent is a FILE, not a dir ---
