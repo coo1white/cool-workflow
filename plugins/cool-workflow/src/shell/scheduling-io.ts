@@ -13,7 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { readJson, writeJson } from "./fs-atomic";
+import { readJson, withFileLock, writeJson } from "./fs-atomic";
 import { compareQueue, RunQueueEntry, RunRegistry } from "./run-registry-io";
 
 export const SCHEDULING_SCHEMA_VERSION = 1;
@@ -256,9 +256,11 @@ export function schedLeaseCli(options: Record<string, unknown> = {}): { schemaVe
   const now = nowIso(options);
   const policy = loadSchedulingPolicy(registry).policy;
   const limit = options.limit === undefined ? undefined : Number(options.limit);
-  const { entries, leases } = applyLease(registry.loadQueueEntries(), policy, now, limit);
-  registry.saveQueueEntries(entries);
-  return { schemaVersion: 1, now, granted: leases.length, leases };
+  return withFileLock(registry.queueFilePath(), () => {
+    const { entries, leases } = applyLease(registry.loadQueueEntries(), policy, now, limit);
+    registry.saveQueueEntries(entries);
+    return { schemaVersion: 1, now, granted: leases.length, leases };
+  });
 }
 
 export function schedReleaseCli(leaseId: string, options: Record<string, unknown> = {}): { schemaVersion: 1; released: string; failed: boolean } {
@@ -266,34 +268,42 @@ export function schedReleaseCli(leaseId: string, options: Record<string, unknown
   const now = nowIso(options);
   const failed = isTrue(options.failed);
   const reason = typeof options.reason === "string" ? options.reason : undefined;
-  const { entries, matched } = leaseRelease(registry.loadQueueEntries(), leaseId, loadSchedulingPolicy(registry).policy, now, { failed, reason });
-  if (!matched) throw new Error(`No active lease to release: ${leaseId}`);
-  registry.saveQueueEntries(entries);
-  return { schemaVersion: 1, released: leaseId, failed };
+  return withFileLock(registry.queueFilePath(), () => {
+    const { entries, matched } = leaseRelease(registry.loadQueueEntries(), leaseId, loadSchedulingPolicy(registry).policy, now, { failed, reason });
+    if (!matched) throw new Error(`No active lease to release: ${leaseId}`);
+    registry.saveQueueEntries(entries);
+    return { schemaVersion: 1, released: leaseId, failed };
+  });
 }
 
 export function schedCompleteCli(leaseId: string, options: Record<string, unknown> = {}): { schemaVersion: 1; completed: string } {
   const registry = new RunRegistry(resolveCwd(options));
-  const { entries, matched } = leaseComplete(registry.loadQueueEntries(), leaseId, nowIso(options));
-  if (!matched) throw new Error(`No active lease to complete: ${leaseId}`);
-  registry.saveQueueEntries(entries);
-  return { schemaVersion: 1, completed: leaseId };
+  return withFileLock(registry.queueFilePath(), () => {
+    const { entries, matched } = leaseComplete(registry.loadQueueEntries(), leaseId, nowIso(options));
+    if (!matched) throw new Error(`No active lease to complete: ${leaseId}`);
+    registry.saveQueueEntries(entries);
+    return { schemaVersion: 1, completed: leaseId };
+  });
 }
 
 export function schedReclaimCli(options: Record<string, unknown> = {}): { schemaVersion: 1; now: string; reclaimed: string[] } {
   const registry = new RunRegistry(resolveCwd(options));
   const now = nowIso(options);
-  const { entries, reclaimed } = reclaimExpired(registry.loadQueueEntries(), loadSchedulingPolicy(registry).policy, now);
-  registry.saveQueueEntries(entries);
-  return { schemaVersion: 1, now, reclaimed };
+  return withFileLock(registry.queueFilePath(), () => {
+    const { entries, reclaimed } = reclaimExpired(registry.loadQueueEntries(), loadSchedulingPolicy(registry).policy, now);
+    registry.saveQueueEntries(entries);
+    return { schemaVersion: 1, now, reclaimed };
+  });
 }
 
 export function schedResetCli(id: string, options: Record<string, unknown> = {}): { schemaVersion: 1; reset: string } {
   const registry = new RunRegistry(resolveCwd(options));
-  const { entries, matched } = resetEntry(registry.loadQueueEntries(), id);
-  if (!matched) throw new Error(`No parked entry to reset: ${id}`);
-  registry.saveQueueEntries(entries);
-  return { schemaVersion: 1, reset: id };
+  return withFileLock(registry.queueFilePath(), () => {
+    const { entries, matched } = resetEntry(registry.loadQueueEntries(), id);
+    if (!matched) throw new Error(`No parked entry to reset: ${id}`);
+    registry.saveQueueEntries(entries);
+    return { schemaVersion: 1, reset: id };
+  });
 }
 
 export function schedPolicyShowCli(options: Record<string, unknown> = {}): SchedulingPolicyReport {

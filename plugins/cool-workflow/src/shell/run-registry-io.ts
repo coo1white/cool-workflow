@@ -615,7 +615,7 @@ export class RunRegistry {
 
   // ---- queue file (durable, ordered; drained by the host) ----------------
 
-  private queueFilePath(): string {
+  queueFilePath(): string {
     return path.join(this.homeRegistryDir(), "queue.json");
   }
 
