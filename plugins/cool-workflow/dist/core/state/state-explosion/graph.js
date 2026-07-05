@@ -26,7 +26,7 @@
 // file's collapse-rule machinery changing at all.
 //
 // Evidence: SPEC/state-core.md "buildCompactGraph(...)", "State-explosion
-// collapse rules"; v2/PLAN.md byte-compat item 9;
+// collapse rules"; docs/rebuild/PLAN.md byte-compat item 9;
 // src/multi-agent-operator-ux.ts:153-227 (buildMultiAgentOperatorGraph).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.byId = exports.GRAPH_VIEWS = void 0;
@@ -220,7 +220,7 @@ function collapseRuleFor() {
         },
     };
 }
-/** Collapsible kinds ONLY (v2/PLAN.md byte-compat item 9): high-volume,
+/** Collapsible kinds ONLY (docs/rebuild/PLAN.md byte-compat item 9): high-volume,
  *  low-individual-signal. `decisions, artifacts, fanins, candidates,
  *  selections, commits, feedback` are NEVER collapsed so failures,
  *  evidence, policy, and judge rationale stay visible. */
@@ -414,7 +414,7 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
             protectedIds.add(node.id);
     }
     // Reasoning-critical nodes are on the critical path and must never be
-    // collapsed into a synthetic summary node (v2/PLAN.md byte-compat item 9).
+    // collapsed into a synthetic summary node (docs/rebuild/PLAN.md byte-compat item 9).
     for (const id of options.reasoningCriticalIds || [])
         protectedIds.add(id);
     const parents = (0, helpers_1.parentMap)(full.edges);
@@ -467,7 +467,7 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
         buckets.set(bucketKey, [...(buckets.get(bucketKey) || []), node.id]);
     }
     // Buckets smaller than the collapse threshold stay expanded (unless
-    // critical-path — v2/PLAN.md byte-compat item 9).
+    // critical-path — docs/rebuild/PLAN.md byte-compat item 9).
     const synthetic = [];
     const collapsedNodeIds = new Map(); // sourceNodeId -> syntheticId
     for (const [bucketKey, ids] of [...buckets.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {

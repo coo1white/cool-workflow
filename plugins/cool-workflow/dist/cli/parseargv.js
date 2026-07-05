@@ -2,7 +2,7 @@
 // cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand.
 //
 // Pure. Byte-exact port of src/orchestrator.ts:789-887 in the old build.
-// See v2/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
+// See docs/rebuild/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
 // parsing (parseArgv)" / SPEC/orchestrator.md "Module-level exports".
 //
 // Rules (do not "clean up" — every one of these is pinned by a conformance
@@ -103,7 +103,7 @@ function parseArgv(argv) {
 /** src/orchestrator.ts:842-851 — every top-level command name, used for
  *  "did you mean". NOTE: this deliberately does NOT include "ledger" even
  *  though the dispatcher handles it and formatHelp lists it — a known,
- *  intentionally-preserved wart (see v2/PLAN.md "Kept byte-for-byte"). */
+ *  intentionally-preserved wart (see docs/rebuild/PLAN.md "Kept byte-for-byte"). */
 exports.KNOWN_COMMANDS = new Set([
     "help", "list", "doctor", "info", "search", "man", "init", "quickstart",
     "plan", "status", "next", "dispatch", "result", "state", "commit", "report",

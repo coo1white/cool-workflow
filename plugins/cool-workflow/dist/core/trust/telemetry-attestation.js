@@ -6,7 +6,7 @@
 // node:crypto's built-in ed25519 sign/verify (no npm dependency).
 //
 // `crypto.verify`/`crypto.createPublicKey` are allowed here per
-// v2/PLAN.md's lint carve-out for this exact file (Target shape,
+// docs/rebuild/PLAN.md's lint carve-out for this exact file (Target shape,
 // core/trust/telemetry-attestation.ts comment) — this remains otherwise
 // pure (no fs, no process.env, no clock; `resolveTrustPublicKey`'s lazy
 // `require("node:fs")` is the one exception, ported byte-identically
@@ -62,7 +62,7 @@ const crypto = __importStar(require("node:crypto"));
  *  recursively, AND maps a top-level `undefined` input to the literal
  *  string `"null"`. Divergent from `core/hash.ts`'s
  *  `ledgerStableStringify` exactly at the top-level-undefined edge (see
- *  v2/PLAN.md byte-compat item 2). Re-exported under this file's own
+ *  docs/rebuild/PLAN.md byte-compat item 2). Re-exported under this file's own
  *  name (rather than importing `telemetryStableStringify` from
  *  core/hash.ts) because SPEC/ledger-trust.md's "Exported functions"
  *  list names `stableStringify` as a real export of THIS module — the
@@ -118,7 +118,7 @@ function normalizeReportedUsage(usage) {
     };
 }
 /** Verify the agent's signed usage against the operator-provisioned
- *  public key. Two-arm check (v2/PLAN.md byte-compat item 11): try the
+ *  public key. Two-arm check (docs/rebuild/PLAN.md byte-compat item 11): try the
  *  5-field payload (with resultDigest) first; on a miss, retry the
  *  4-field payload (old signers still verify). `coversResult` is set
  *  ONLY on a first-arm match — a 4-field fallback match never covers the

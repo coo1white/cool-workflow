@@ -51,7 +51,7 @@ assert.equal(canonicalResearchPlan.workflowId, "research-synthesis");
 // the canonical `pendingTasks` key and emits `taskCount` instead (plus an
 // unspecified `schemaVersion: 1`). Old build + v2 SPEC both mandate `pendingTasks`:
 //   - old: src/capability-core.ts:79 `pendingTasks: run.tasks.filter(pending).length`
-//   - SPEC: v2/SPEC/workflow-apps.md:62 and :163 ("pendingTasks": 14)
+//   - SPEC: docs/rebuild/SPEC/workflow-apps.md:62 and :163 ("pendingTasks": 14)
 //   - v2 defect: src/shell/pipeline-cli.ts:74 returns `taskCount: run.tasks.length`
 // Conformance is 101/101 but no case covers the plan --json key, so it slipped through.
 // Left failing on purpose (do NOT weaken): reports the gap for Phase B to fix in v2.

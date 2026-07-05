@@ -9,7 +9,7 @@
 //
 // Evidence: SPEC/state-core.md "src/state-migrations.ts — run-state
 // migration", "Migration pipeline (migrateRunState)", "Normalization
-// defaults" (v2/PLAN.md byte-compat item 4).
+// defaults" (docs/rebuild/PLAN.md byte-compat item 4).
 
 import * as path from "node:path";
 import {
@@ -274,7 +274,7 @@ export function reverseRunState(
 }
 
 /** Fill in every WorkflowRun default, each recorded as a StateMigrationChange.
- *  Pinned defaults (v2/PLAN.md byte-compat item 4): epoch-0 ISO timestamps,
+ *  Pinned defaults (docs/rebuild/PLAN.md byte-compat item 4): epoch-0 ISO timestamps,
  *  cwd = three dirs above the run dir else process.cwd(), workflow.limits =
  *  { maxAgents: 8, maxConcurrentAgents: 4 }, loopStage = "interpret" (any
  *  unknown value overwritten). */

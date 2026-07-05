@@ -1,7 +1,7 @@
 // shell/agent-config.ts — agent delegation config: env/file/flag resolution
 // order, CW_HOME resolution, builtin:<name> expansion, PATH auto-detect.
 //
-// MILESTONE 5 (v2/PLAN.md build order, step 5). Byte-exact port of
+// MILESTONE 5 (docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
 // plugins/cool-workflow/src/agent-config.ts.
 //
 // Resolution order per field: flags > env > a durable

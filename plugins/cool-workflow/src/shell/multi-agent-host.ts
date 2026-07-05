@@ -8,7 +8,7 @@
 // deterministic step order), hostBlackboard's action dispatch. The
 // `summaries.workers/candidates/feedback/commits/operator` blocks are
 // simplified real projections (not the full operator-ux/multi-agent-
-// operator-ux module — out of this milestone's scope per v2/PLAN.md's
+// operator-ux module — out of this milestone's scope per docs/rebuild/PLAN.md's
 // build-order list) — every FIELD the conformance cases actually assert
 // on (`summaries.topologies.officialTopologies`, the envelope's fixed key
 // set, `ids.*`) is still byte-exact; the parts no case reaches are

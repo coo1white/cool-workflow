@@ -164,7 +164,7 @@ function stateNodeError(code, message, options = {}, now) {
 /** Byte-exact port of selectCandidate's own gate ordering: not-selectable
  *  -> verifier-missing/no-evidence/empty-capture -> score-below-threshold.
  *  Review-gate errors are NOT included here; the caller appends them
- *  (v2/PLAN.md byte-compat / rebuild risk 8: append-only stacking, never
+ *  (docs/rebuild/PLAN.md byte-compat / rebuild risk 8: append-only stacking, never
  *  replacing a verifier error). */
 function selectionGateFailures(input, now) {
     const failures = [];

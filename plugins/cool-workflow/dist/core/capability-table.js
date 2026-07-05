@@ -1,7 +1,7 @@
 "use strict";
 // core/capability-table.ts — THE one data table: one row per capability.
 //
-// MILESTONE 2 (v2/PLAN.md build order, step 2). Replaces the old build's
+// MILESTONE 2 (docs/rebuild/PLAN.md build order, step 2). Replaces the old build's
 // `capability-registry.ts` (940 lines) + 40 CLI handler files + the
 // 196-arm MCP switch + the 1000-line tool-definitions array with ONE data
 // table plus two generic front-door readers (`cli/dispatch.ts`,
@@ -12,9 +12,9 @@
 // exactly what conformance/cases/mcp-basic.case.js and the milestone-1
 // carry-over cases need). Every later milestone adds capabilities as table
 // ROWS ONLY; this file's shape (and cli/dispatch.ts + mcp/dispatch.ts) is
-// not touched again — see v2/PLAN.md's Revision note.
+// not touched again — see docs/rebuild/PLAN.md's Revision note.
 //
-// Byte-compat item 5 (v2/PLAN.md): 12 capabilities have CLI and MCP call
+// Byte-compat item 5 (docs/rebuild/PLAN.md): 12 capabilities have CLI and MCP call
 // DIFFERENT functions with DIFFERENT payloads. So a row carries a SEPARATE
 // `cli.handler` and `mcp.handler`, never one shared "handler" — even
 // though every row landed so far happens to share one function, the type
@@ -487,7 +487,7 @@ function findCapabilityByMcpTool(tool) {
 // dispatchable command row); `list`/`status`/`sandbox.list` reuse the mcp
 // row's capability id and get a cli binding layered on top. Every handler
 // below returns a `CliHandlerResult`; core/ never touches process.stdout
-// or process.exitCode directly (see v2/PLAN.md's core/shell split) —
+// or process.exitCode directly (see docs/rebuild/PLAN.md's core/shell split) —
 // cli/dispatch.ts's generic executor performs the actual write.
 // ---------------------------------------------------------------------
 const version_1 = require("./version");
@@ -830,7 +830,7 @@ addCliOnlyCapability("fix", "Print consolidated fix commands for CW setup issues
     },
 }, "Environment fix commands are local diagnostics, same reasoning as doctor.");
 // ---------------------------------------------------------------------
-// MILESTONE 6+7 (combined; see v2/PLAN.md Open risk 10) CLI bindings:
+// MILESTONE 6+7 (combined; see docs/rebuild/PLAN.md Open risk 10) CLI bindings:
 // plan, quickstart, run --drive, run drive (preview), dispatch, result,
 // commit. Handler BODIES live in shell/pipeline-cli.ts (impure — they
 // plan/drive/dispatch/commit real run state on disk); this table only

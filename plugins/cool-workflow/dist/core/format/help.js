@@ -5,7 +5,7 @@
 // src/orchestrator.ts:899-1007 in the old build (formatHelp,
 // formatCommandHelp) plus the color helpers `bold`/`dim` keyed off stdout.
 //
-// LOAD-BEARING LAYOUT (v2/PLAN.md byte-compat item 14 — do not "clean up"):
+// LOAD-BEARING LAYOUT (docs/rebuild/PLAN.md byte-compat item 14 — do not "clean up"):
 //   - The command-line rows under "Cool Workflow" and the `cw <path...>`
 //     rows in formatCommandHelp use a 2-space indent. The CLI/MCP parity
 //     help-token checker parses ONLY 2-space lines as command tokens.
@@ -21,7 +21,7 @@
 // milestone 5) are dropped from the literal table below and read from the
 // capability table instead, via `cliCommandHelpRows()`; every other verb
 // stays literal here until its own milestone lands. This satisfies
-// v2/PLAN.md milestone 2's own "done when": a CLI `--help` walk and an MCP
+// docs/rebuild/PLAN.md milestone 2's own "done when": a CLI `--help` walk and an MCP
 // `tools/list` round-trip read the SAME table rows for any capability
 // wired into both.
 Object.defineProperty(exports, "__esModule", { value: true });
