@@ -17,8 +17,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const PLUGIN_ROOT = path.resolve(__dirname, "..");
-const TYPES_FILE = path.join(PLUGIN_ROOT, "src", "types", "run.ts");
-const SCHEMA_MODULE = path.join(PLUGIN_ROOT, "dist", "run-state-schema.js");
+const TYPES_FILE = path.join(PLUGIN_ROOT, "src", "core", "state", "types.ts");
+const SCHEMA_MODULE = path.join(PLUGIN_ROOT, "dist", "core", "state", "schema.js");
 
 function main() {
   const errors = [];

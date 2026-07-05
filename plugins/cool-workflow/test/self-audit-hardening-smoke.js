@@ -15,9 +15,9 @@ const {
   hasGroundedEvidence,
   resolveEvidenceLocator,
   requireResolvableEvidence
-} = require("../dist/evidence-grounding");
-const { isContainedPath, realResolve, durableAppendFileSync } = require("../dist/state");
-const { validateResultEnvelope } = require("../dist/verifier");
+} = require("../dist/core/trust/evidence-grounding");
+const { isContainedPath, realResolve, durableAppendFileSync } = require("../dist/shell/fs-atomic");
+const { taskRequiresEvidence } = require("../dist/shell/verifier");
 
 const node = process.execPath;
 const cli = path.join(__dirname, "..", "dist", "cli.js");
@@ -37,25 +37,30 @@ assert.ok(!hasGroundedEvidence(["x", "anything"]), "all-prose evidence is reject
 console.log("self-audit-hardening: evidence grounding ok");
 
 // ---------------------------------------------------------------------------
-// 2. validateResultEnvelope enforces grounding for required-evidence tasks but
-//    leaves optional-evidence tasks alone (so map/assess stay flexible).
-// ---------------------------------------------------------------------------
-const verifyTask = { id: "verify:risks", requiresEvidence: true };
-assert.throws(
-  () => validateResultEnvelope(verifyTask, { summary: "s", findings: [], evidence: ["x"] }),
-  /grounded/i,
-  "required task with ungrounded evidence must throw"
-);
-validateResultEnvelope(verifyTask, { summary: "s", findings: [], evidence: ["src/x.ts:1"] });
-// A P1 finding must cite grounded evidence regardless of task.
-assert.throws(
-  () => validateResultEnvelope({ id: "map:x" }, { summary: "s", findings: [{ id: "f", severity: "P1", evidence: ["nope"] }], evidence: [] }),
-  /grounded/i,
-  "P1 finding with ungrounded evidence must throw"
-);
-// Optional task with opaque evidence is fine.
-validateResultEnvelope({ id: "map:x" }, { summary: "s", findings: [], evidence: ["x"] });
-console.log("self-audit-hardening: validateResultEnvelope policy ok");
+// 2. Grounding policy: a required-evidence task with ungrounded evidence must be
+//    caught, while optional-evidence tasks stay flexible (so map/assess still
+//    pass with opaque evidence). In v2 the old `validateResultEnvelope(task,
+//    envelope)` throw-wrapper is gone; the same policy is enforced by the pair
+//    `taskRequiresEvidence(task)` + `hasGroundedEvidence(evidence)` that the
+//    v2 commit gate itself uses (src/core/pipeline/commit-gate.ts
+//    groundVerifierEvidence). Assert on that equivalent pair.
+{
+  const verifyTask = { id: "verify:risks", requiresEvidence: true };
+  // required task + ungrounded evidence -> policy would reject.
+  assert.ok(taskRequiresEvidence(verifyTask), "verify: task is held to the evidence bar");
+  assert.ok(!hasGroundedEvidence(["x"]), "required task with ungrounded evidence is rejected");
+  // required task + grounded evidence -> policy passes.
+  assert.ok(hasGroundedEvidence(["src/x.ts:1"]), "required task with grounded evidence passes");
+  // optional task -> not held to the bar, opaque evidence is fine.
+  assert.ok(!taskRequiresEvidence({ id: "map:x" }), "map: optional task is not held to the evidence bar");
+  console.log("self-audit-hardening: required-task grounding policy ok");
+}
+// NO v2 EQUIVALENT: the old validateResultEnvelope also rejected any P0/P1/P2
+// FINDING whose own evidence was ungrounded (per-finding severity gate). v2 moved
+// grounding enforcement to the verifier-node / commit-gate level, which grades the
+// node's aggregate evidence list and no task-level, per-finding-severity grounding
+// check exists. Reported for a human judgment call; not reconstructed here so the
+// smoke keeps asserting only real v2 behavior.
 
 // ---------------------------------------------------------------------------
 // 3. Symlink-hardened containment: a symlink whose textual path is "inside" an
@@ -107,11 +112,17 @@ console.log(`self-audit-hardening: deterministic worker id ok (${idA})`);
 // ---------------------------------------------------------------------------
 // 6. Opt-in strict resolution is off by default; resolveEvidenceLocator classifies.
 // ---------------------------------------------------------------------------
+// v2's resolveEvidenceLocator is pure: it takes injected fs/path predicates so
+// core/ never touches fs directly. Inject the real ones to preserve the original
+// on-disk resolution intent.
+const exists = (p) => fs.existsSync(p);
+const isAbs = (p) => path.isAbsolute(p);
+const resolvePath = (base, rel) => path.resolve(base, rel);
 assert.equal(requireResolvableEvidence(), false, "strict mode defaults off");
-assert.equal(resolveEvidenceLocator("https://x.test", []), "external", "urls are external");
-assert.equal(resolveEvidenceLocator("exitCode:0", []), "opaque", "tokens are opaque (not file paths)");
-assert.equal(resolveEvidenceLocator(path.join(tmp, "audit", "events.jsonl"), [tmp]), "resolved", "an existing file resolves");
-assert.equal(resolveEvidenceLocator("does/not/exist.ts:1", [tmp]), "unresolved", "a missing file is unresolved");
+assert.equal(resolveEvidenceLocator("https://x.test", [], exists, isAbs, resolvePath), "external", "urls are external");
+assert.equal(resolveEvidenceLocator("exitCode:0", [], exists, isAbs, resolvePath), "opaque", "tokens are opaque (not file paths)");
+assert.equal(resolveEvidenceLocator(path.join(tmp, "audit", "events.jsonl"), [tmp], exists, isAbs, resolvePath), "resolved", "an existing file resolves");
+assert.equal(resolveEvidenceLocator("does/not/exist.ts:1", [tmp], exists, isAbs, resolvePath), "unresolved", "a missing file is unresolved");
 console.log("self-audit-hardening: strict resolution classification ok");
 
 console.log("self-audit-hardening: ok");

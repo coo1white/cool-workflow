@@ -1,6 +1,35 @@
 #!/usr/bin/env node
 "use strict";
 
+// CUTOVER AUDIT — outcome: REAL-GAP (v2 is missing behavior the old build had).
+//
+// This smoke is pure black-box: it only spawns dist/cli.js and
+// dist/mcp-server.js (both present in v2), so there are NO "../dist" module
+// requires to repoint. The failure therefore already lands on genuine v2
+// behavior, not on an import crash.
+//
+// The gap: the whole "Multi-Agent Operator UX" family (v0.1.21 + v0.1.27) is
+// NOT ported into v2. First hard failure is line ~41
+// (`assert.match(initialStatusText, /Agent Graph/)`): v2's
+// `cw multi-agent status` (no --json) emits JSON, and none of the operator-UX
+// panels this smoke drives exist anywhere in v2 src. Tracing:
+//   - src/shell/multi-agent-host.ts:399 hardcodes `multiAgentOperator: {}`
+//     (empty) — so status.summaries.multiAgentOperator.dependencies/failures/
+//     inspectableEvidence/evidence (lines ~49, 165, 201) are all undefined.
+//   - src/core/capability-table.ts registers CLI bindings ONLY for
+//     multi-agent.summary/graph (lines ~1412/1419); multi-agent.dependencies/
+//     failures/evidence exist as MCP tool rows (~227-229) but have NO
+//     attachCliBinding, so `cw multi-agent dependencies|failures|evidence`
+//     falls through to the usage-error handler (~2654-2655).
+//   - src/shell/operator-ux-text.ts documents the omission in its own headers:
+//     formatOperatorStatus (:82-86) "omits the old build's topology/
+//     multi-agent-operator/blackboard sub-panels" and formatOperatorReport
+//     (:113-114) "multi-agent dependency/failure/evidence panels are scoped
+//     out of this milestone's port". `cw operator status|report` is the
+//     nearest v2 surface but deliberately lacks exactly these panels — there
+//     is no v2 equivalent to adapt to.
+// Assertions are preserved verbatim; the gap is left failing for Phase B.
+
 const assert = require("node:assert/strict");
 const { execFileSync, spawn, spawnSync } = require("node:child_process");
 const fs = require("node:fs");

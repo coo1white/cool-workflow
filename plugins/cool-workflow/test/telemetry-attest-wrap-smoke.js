@@ -20,12 +20,54 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
-const { writeReport } = require(path.join(pluginRoot, "dist/orchestrator/report.js"));
-const ledger = require(path.join(pluginRoot, "dist/telemetry-ledger.js"));
-const ta = require(path.join(pluginRoot, "dist/telemetry-attestation.js"));
+// v2 layout: the old flat dist modules (orchestrator.js / drive.js /
+// orchestrator/report.js / telemetry-ledger.js / telemetry-attestation.js)
+// were split into src/shell/** + src/core/**. There is NO CoolWorkflowRunner
+// facade class in v2 — plan/loadRun/drive are free functions.
+//   dist/orchestrator.js  (CoolWorkflowRunner) → plan (shell/pipeline) +
+//                                                 loadRunFromCwd (shell/run-store)
+//   dist/drive.js                             → shell/drive
+//   dist/orchestrator/report.js               → shell/report
+//   dist/telemetry-ledger.js  (verifyTelemetryLedger) → shell/telemetry-ledger-io
+//   dist/telemetry-attestation.js             → core/trust/telemetry-attestation
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+const { writeReport } = require(path.join(pluginRoot, "dist/shell/report.js"));
+const ledger = require(path.join(pluginRoot, "dist/shell/telemetry-ledger-io.js"));
+const ta = require(path.join(pluginRoot, "dist/core/trust/telemetry-attestation.js"));
 
+// makeRunner() reconstructs the old runner.plan / .loadRun surface over v2's
+// free functions. The smoke chdir's into each workspace before it plans/drives,
+// so process.cwd() is the run's cwd (loadRunFromCwd + plan both default cwd to
+// process.cwd()) — preserving the old runner's cwd behaviour.
+function makeRunner() {
+  return {
+    plan(appId, inputs) {
+      return plan(loadWorkflowApp(appId), inputs);
+    },
+    loadRun(runId) {
+      return loadRunFromCwd(runId, process.cwd());
+    },
+  };
+}
+// v2 drive takes (runId, cwd, options) positionally — NOT (runner, runId, ...).
+// The smoke always drives from inside the workspace it chdir'd into, so
+// process.cwd() is the correct cwd.
+function driveRun(_runner, runId, options) {
+  return drive(runId, process.cwd(), options);
+}
+
+// DEFERRED-TOOLING (v2 cutover): this smoke's OWN dist imports are repointed to
+// v2 above, and the drive now plans + spawns the agent hop correctly. But the
+// EXECUTOR script it wraps around — scripts/agents/cw-attest-wrap.js — still does
+// `require(".../dist/telemetry-attestation.js")` (the OLD flat path) at its line
+// 35. v2 moved that module to dist/core/trust/telemetry-attestation.js, so the
+// wrapper CRASHES on load (MODULE_NOT_FOUND), every agent hop exits 1, and the
+// drive parks instead of completing. Repointing that require lives in the script
+// (a separate cutover job), NOT in this test. Once the wrapper is repointed this
+// smoke should go green with no further test change.
 const WRAP = path.join(pluginRoot, "scripts/agents/cw-attest-wrap.js");
 const KEYGEN = path.join(pluginRoot, "scripts/agents/cw-attest-keygen.js");
 
@@ -55,9 +97,9 @@ function writeInnerStub(file) {
 }
 
 function driveThroughWrapper(work, innerStub, manifestPlaceholder, attestPublicKey) {
-  const runner = new CoolWorkflowRunner({ pluginRoot });
+  const runner = makeRunner();
   const run = runner.plan("architecture-review", { repo: work, question: "Sound?" });
-  const result = drive(runner, run.id, {
+  const result = driveRun(runner, run.id, {
     now: "2026-06-10T00:00:00.000Z",
     agentConfig: {
       schemaVersion: 1,

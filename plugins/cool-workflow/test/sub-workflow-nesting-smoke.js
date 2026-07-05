@@ -26,11 +26,51 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
+// NO v2 EQUIVALENT / REAL GAP: v2's plan() drops the task's subWorkflow spec, so
+// inline sub-workflow nesting is unreachable. flattenTasks (src/shell/pipeline.ts)
+// copies a fixed field list onto each RunTask and omits `subWorkflow`; drive()'s
+// runSubWorkflow branch (src/shell/drive.ts) reads selected.subWorkflow, always
+// undefined, so the delegate task is fulfilled by a plain agent spawn (handleKind
+// "process") instead. subRunId/subRunDir and the worker.sub-workflow audit event
+// are never written (neither symbol exists in v2 src). The MAX_SUB_WORKFLOW_DEPTH
+// cap + cycle guard live inside the never-entered runSubWorkflow (dead code), so
+// the self-cycle / depth-cap cases complete instead of parking. Left failing for
+// a human call — do NOT delete. Fix requires editing src/ (forbidden here):
+// carry subWorkflow through flattenTasks + restore subRunId + the audit event.
+//
+// Imports repointed to v2 so the smoke fails on the honest capability gap
+// (subRunId undefined / handleKind "process"), not a missing-module crash.
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive, MAX_SUB_WORKFLOW_DEPTH } = require(path.join(pluginRoot, "dist/drive.js"));
-const ns = require(path.join(pluginRoot, "dist/node-snapshot.js"));
-const { verifyTrustAudit } = require(path.join(pluginRoot, "dist/trust-audit.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const { summarizeTrustAudit, listTrustAuditEvents } = require(path.join(pluginRoot, "dist/shell/trust-audit.js"));
+const { drive, MAX_SUB_WORKFLOW_DEPTH } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+const ns = require(path.join(pluginRoot, "dist/core/state/node-snapshot.js"));
+const { verifyTrustAudit } = require(path.join(pluginRoot, "dist/shell/trust-audit.js"));
+
+// v2 replaces the CoolWorkflowRunner facade + drive(runner,...) with plain
+// functions; a custom apps dir is selected via the CW_APPS_DIR env var read by
+// loadWorkflowApp. This shim keeps the test body's runner.* calls working.
+function CoolWorkflowRunner() {
+  return {
+    appsDir: undefined,
+    plan(appId, inputs) {
+      if (this.appsDir) process.env.CW_APPS_DIR = this.appsDir;
+      return plan(loadWorkflowApp(appId), inputs);
+    },
+    loadRun(runId) {
+      return loadRunFromCwd(runId, process.cwd());
+    },
+    auditSummary(runId) {
+      const run = loadRunFromCwd(runId, process.cwd());
+      const summary = summarizeTrustAudit(run);
+      const byKind = {};
+      for (const ev of listTrustAuditEvents(run)) byKind[ev.kind] = (byKind[ev.kind] || 0) + 1;
+      return { ...summary, byKind };
+    }
+  };
+}
 
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
@@ -84,8 +124,14 @@ function appBody(id, apiNames, phasesSrc) {
 
 function newRunner(appsDir) {
   const runner = new CoolWorkflowRunner({ pluginRoot });
-  runner.appsDir = appsDir; // point the loader at the fixture apps
+  runner.appsDir = appsDir; // point the loader at the fixture apps (CW_APPS_DIR)
   return runner;
+}
+// v2 drive(runId, cwd, options) — positional, no runner facade. Kept as a thin
+// wrapper so the test body reads unchanged and fails on the real capability gap
+// (handleKind "process" / subRunId undefined), not a signature mismatch.
+function driveRun(_runner, runId, options) {
+  return drive(runId, process.cwd(), options);
 }
 
 function main() {
@@ -112,7 +158,7 @@ function main() {
     try {
       const runner = newRunner(appsDir);
       const parent = runner.plan("sub-parent", { repo: work, question: "Q?" });
-      const result = drive(runner, parent.id, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
+      const result = driveRun(runner, parent.id, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
       assert.equal(result.status, "complete", "parent run completes");
 
       const sub = result.steps.find((s) => s.action === "accept" && s.taskId === "delegate:child");
@@ -159,7 +205,7 @@ function main() {
     try {
       const runner = newRunner(appsDir);
       const run = runner.plan("sub-cycle", { repo: work, question: "Q?" });
-      const result = drive(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 1 }, agentConfig: agentConfig(stub) });
+      const result = driveRun(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 1 }, agentConfig: agentConfig(stub) });
       assert.equal(result.status, "parked", "a self-cycling sub-workflow parks fail-closed (no infinite recursion)");
       assert.ok(!result.commitId, "no commit on a fail-closed park");
       console.log("sub-workflow: self-cycle parks fail-closed ok");
@@ -185,7 +231,7 @@ function main() {
     try {
       const runner = newRunner(appsDir);
       const run = runner.plan("chain-0", { repo: work, question: "Q?" });
-      const result = drive(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 1 }, agentConfig: agentConfig(stub) });
+      const result = driveRun(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 1 }, agentConfig: agentConfig(stub) });
       assert.equal(result.status, "parked", `a chain deeper than MAX_SUB_WORKFLOW_DEPTH (${MAX_SUB_WORKFLOW_DEPTH}) parks fail-closed`);
       console.log("sub-workflow: depth-limit chain parks fail-closed ok");
     } finally {

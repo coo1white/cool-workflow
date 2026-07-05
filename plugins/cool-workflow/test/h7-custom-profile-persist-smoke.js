@@ -9,15 +9,83 @@
 // threw sandbox-profile-not-found (fail-closed but unable to re-enforce). It also
 // risked re-resolving against dispatch-time paths and falsely denying a legit
 // worker write — the test pins worker-path re-binding via $workerDir tokens.
+//
+// v2 CUTOVER STATUS: REAL-GAP. Imports are repointed to the v2 dist layout and the
+// dropped H7 boundary helpers are rebuilt from v2's public primitives (see below),
+// so the failure lands on GENUINE v2 behavior, not an import crash. v2 dropped the
+// whole H7 custom-profile-persistence path:
+//   1. shell/dispatch.ts createDispatchManifest reads ONLY options.sandboxProfileId
+//      (dist/shell/dispatch.js:60) — it never reads options.sandbox, so a custom
+//      profile FILE passed as { sandbox: <file> } is ignored (defaults to "default").
+//   2. There is NO persistCustomSandboxProfile and NO write to
+//      run.customSandboxProfiles anywhere in v2 (the field is declared in
+//      dist/core/state/schema.js:43 and READ in dist/shell/worker-isolation.js:248,
+//      but never populated). The old build persisted it in src/dispatch.ts
+//      (git 4225624 lines 48 + 255-263).
+// Result: assertion (1) below fails — run.customSandboxProfiles is undefined after
+// dispatch. This is the v2 gap for Phase B to close (do NOT fix v2 src here).
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createDispatchManifest } = require("../dist/dispatch");
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state");
-const { getWorkerScope, validateWorkerBoundary } = require("../dist/worker-isolation");
-const { resolveSandboxProfileById, sandboxContextForRun, SandboxProfileError } = require("../dist/sandbox-profile");
+// --- v2 cutover: repoint requires to the v2 dist layout ------------------------
+// createDispatchManifest: old ../dist/dispatch -> ../dist/shell/dispatch.
+// createRunPaths/ensureRunDirs/saveCheckpoint: old ../dist/state -> ../dist/shell/run-store.
+// getWorkerScope: old ../dist/worker-isolation -> ../dist/shell/worker-isolation.
+// resolveSandboxProfileById/SandboxProfileError: old ../dist/sandbox-profile ->
+//   ../dist/shell/sandbox-profile.
+const { createDispatchManifest } = require("../dist/shell/dispatch");
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { getWorkerScope } = require("../dist/shell/worker-isolation");
+const {
+  resolveSandboxProfileById,
+  SandboxProfileError,
+  // v2 exports these low-level pieces; the H7 wrappers below are rebuilt from them.
+  sandboxPolicyForWorker,
+  validateSandboxWrite
+} = require("../dist/shell/sandbox-profile");
+
+// --- v2 cutover: rebuild dropped H7 helpers from v2's exported primitives -------
+// v2 has NO validateWorkerBoundary / sandboxPolicyForBoundary / sandboxContextForRun.
+// These were the H7 boundary re-resolution surface. We reconstruct them here from
+// v2's PUBLIC primitives (sandboxPolicyForWorker, validateSandboxWrite,
+// run.customSandboxProfiles) so the assertions still exercise the SAME intent:
+// after snapshot loss, re-resolve a CUSTOM policy by logical id against the WORKER's
+// paths and re-enforce it. This is a byte-for-byte port of the old
+// sandboxPolicyForBoundary (git 4225624 src/worker-isolation.ts) onto v2 exports.
+function sandboxPolicyForBoundary(run, scope, options = {}) {
+  if (scope.sandboxPolicy && !options.policy && !options.sandboxProfileId) return scope.sandboxPolicy;
+  const profileId =
+    options.sandboxProfileId || scope.sandboxProfileId || "default";
+  return sandboxPolicyForWorker(profileId, {
+    cwd: run.cwd,
+    runDir: run.paths.runDir,
+    workerDir: scope.workerDir,
+    inputPath: scope.inputPath,
+    resultPath: scope.resultPath,
+    artifactsDir: scope.artifactsDir,
+    logsDir: scope.logsDir,
+    // H7: thread the persisted custom DEFINITIONS so a re-resolve by logical id
+    // finds them after snapshot loss (bundled lookup alone would throw not-found).
+    customProfiles: run.customSandboxProfiles
+  });
+}
+function validateWorkerBoundary(run, workerId, options = {}) {
+  const scope = getWorkerScope(run, workerId);
+  if (!scope) throw new Error(`worker scope not found: ${workerId}`);
+  const rawPath = String(options.path || scope.resultPath);
+  const policy = sandboxPolicyForBoundary(run, scope, options);
+  return validateSandboxWrite(policy, rawPath, workerId);
+}
+// old sandboxContextForRun(run): threads run.customSandboxProfiles as customProfiles.
+function sandboxContextForRun(run) {
+  return {
+    cwd: run.cwd,
+    runDir: run.paths.runDir,
+    customProfiles: run.customSandboxProfiles
+  };
+}
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-h7-custom-profile-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "h7-smoke"));

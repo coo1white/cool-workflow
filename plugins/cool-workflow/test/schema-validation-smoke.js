@@ -16,8 +16,27 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { validateAgainstSchema } = require(path.join(pluginRoot, "dist/schema-validate.js"));
-const { validateResultEnvelope } = require(path.join(pluginRoot, "dist/verifier.js"));
+// v2 cutover: the VALIDATOR moved to core/state/schema-validate.js (pure, same
+// export + same behavior — the unit half below stays green verbatim).
+const { validateAgainstSchema } = require(path.join(pluginRoot, "dist/core/state/schema-validate.js"));
+// v2 cutover REAL-GAP: the VERIFIER GATE half is missing. Old dist/verifier.js
+// exported validateResultEnvelope, which — after the evidence/finding checks —
+// enforced task.schema against the accepted result and threw
+// "…violates declared schema…" (fail-closed ⇒ the drive parks the hop). See old
+// src/verifier.ts (commit 7639165) validateResultEnvelope, Track 3.
+//   v2 has NO such wiring: dist/shell/verifier.js (the successor of dist/
+//   verifier.js) exports only { taskRequiresEvidence }; there is no
+//   validateResultEnvelope anywhere, and validateAgainstSchema is never imported
+//   outside its own file (grep src: zero intake call-sites, zero "violates
+//   declared schema" string). The v2 result-intake path
+//   (src/shell/worker-isolation.ts acceptWorkerOutput, ~lines 360-374) enforces
+//   evidence grounding + telemetry but never checks task.schema.
+//   ⇒ Declared output schemas are NOT enforced at intake in v2. The validator
+//   exists but is dead — a violating result would be ACCEPTED, not parked.
+// Import from the direct successor module so this require resolves (no import
+// crash); the destructured symbol is undefined ⇒ the first gate call below fails
+// on the genuine MISSING BEHAVIOR, which is exactly the gap to report.
+const { validateResultEnvelope } = require(path.join(pluginRoot, "dist/shell/verifier.js"));
 
 function ok(value, schema, msg) {
   assert.deepEqual(validateAgainstSchema(value, schema), [], msg);
@@ -73,6 +92,14 @@ function main() {
   ok({ a: 1 }, {}, "empty schema accepts anything");
 
   // ---- VERIFIER GATE integration ------------------------------------------
+  // REAL-GAP (v2): from here down the smoke FAILS. validateResultEnvelope does
+  // not exist in v2, so the first call below throws "…is not a function". This
+  // is not an import artifact — it is the missing Track 3 behavior: v2 keeps the
+  // validator (asserted green above) but never enforces a declared task.schema
+  // at result intake, so these four gate cases (conforming passes; enum/required/
+  // item-type violations each throw "violates declared schema"; no-schema
+  // unaffected) can no longer be exercised. Leaving this failing is the point of
+  // the audit; do NOT stub validateResultEnvelope to force green.
   const schema = {
     type: "object",
     required: ["summary", "findings"],

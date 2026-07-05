@@ -124,7 +124,9 @@ function main() {
   }
 
   {
-    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "agent-config.js"));
+    // v2 rebuild: flat dist/agent-config.js moved to dist/shell/agent-config.js
+    // (same resolveAgentConfig(args, env) signature).
+    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js"));
     const cfg = resolveAgentConfig({ "agent-command": "builtin:opencode" }, {});
     assert.ok(cfg.command && cfg.command.includes("opencode-agent.js"), "builtin:opencode expands to the packaged wrapper");
     assert.ok(cfg.command.includes("{{input}}") && cfg.command.includes("{{result}}"), "expanded template carries worker substitutions");

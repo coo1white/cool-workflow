@@ -28,11 +28,76 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const eb = require(path.join(pluginRoot, "dist/execution-backend.js"));
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive, drivePreview } = require(path.join(pluginRoot, "dist/drive.js"));
-const ns = require(path.join(pluginRoot, "dist/node-snapshot.js"));
-const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/sandbox-profile.js"));
+// v2 module layout: the flat dist/*.js facades (execution-backend.js,
+// orchestrator.js, drive.js, node-snapshot.js, sandbox-profile.js) are gone.
+// The functions they exported now live under dist/shell/** and
+// dist/core/state/**. The old CoolWorkflowRunner facade class + its
+// driveRun(runner, runId, options) signature no longer exist at all; below we
+// reconstruct the exact methods this smoke uses from the v2 free functions,
+// and call drive/drivePreview with the new positional (runId, cwd, ...)
+// signature. Every assertion's INTENT is preserved.
+const eb = require(path.join(pluginRoot, "dist/shell/execution-backend/registry"));
+const { drive, drivePreview } = require(path.join(pluginRoot, "dist/shell/drive"));
+const ns = require(path.join(pluginRoot, "dist/core/state/node-snapshot"));
+const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/shell/sandbox-profile"));
+
+// --- v2 runner shim: the small facade this smoke needs, rebuilt from the
+//     v2 free functions. NO CoolWorkflowRunner / dist/orchestrator.js in v2.
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader"));
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store"));
+const { summarizeTrustAudit, listTrustAuditEvents } = require(path.join(pluginRoot, "dist/shell/trust-audit"));
+const { getWorkerScope, showWorkerManifest } = require(path.join(pluginRoot, "dist/shell/worker-isolation"));
+
+// makeRunner() reconstructs runner.plan / .loadRun / .auditSummary /
+// .showWorker over the v2 functions. The smoke chdir's into each workspace
+// before it plans/drives, so process.cwd() is the run's cwd; we capture it
+// per method call (loadRunFromCwd defaults cwd to process.cwd()).
+function makeRunner() {
+  return {
+    plan(appId, inputs) {
+      // plan() reads cwd from inputs.repo/inputs.cwd, defaulting to
+      // process.cwd() — matching the old runner.plan behaviour.
+      return plan(loadWorkflowApp(appId), inputs);
+    },
+    loadRun(runId) {
+      return loadRunFromCwd(runId, process.cwd());
+    },
+    auditSummary(runId) {
+      const run = loadRunFromCwd(runId, process.cwd());
+      const summary = summarizeTrustAudit(run);
+      // v2's summarizeTrustAudit renders byDecision/bySource/bySandboxProfile
+      // only (this milestone's report.ts needs no per-kind rollup), so it has
+      // no byKind field. The raw events DO carry a `.kind` (worker-isolation.ts
+      // records kind:"worker.agent-delegation" on a delegated worker output),
+      // so we derive byKind here to preserve the old assertion's intent —
+      // NOT a weakening: it counts the same real events.
+      const byKind = {};
+      for (const ev of listTrustAuditEvents(run)) {
+        if (ev && typeof ev.kind === "string") byKind[ev.kind] = (byKind[ev.kind] || 0) + 1;
+      }
+      return { ...summary, byKind };
+    },
+    showWorker(runId, workerId) {
+      const run = loadRunFromCwd(runId, process.cwd());
+      const manifest = showWorkerManifest(run, workerId);
+      const scope = getWorkerScope(run, workerId) || {};
+      // retryCount lives on the WorkerScope (worker-isolation.ts) — surfaced
+      // here the way the old runner.showWorker(...).retryCount did.
+      return { ...manifest, retryCount: scope.retryCount || 0 };
+    },
+  };
+}
+
+// v2 drive/drivePreview take (runId, cwd, options|args) positionally — NOT
+// (runner, runId, ...). The smoke always drives from inside the workspace it
+// chdir'd into, so process.cwd() is the correct cwd for these calls.
+function driveRun(_runner, runId, options) {
+  return drive(runId, process.cwd(), options);
+}
+function drivePreviewRun(_runner, runId, args) {
+  return drivePreview(runId, process.cwd(), args);
+}
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cleanups = [];
@@ -44,6 +109,13 @@ function tmpWorkspace() {
 }
 function clearAgentEnv() {
   for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+  // v2 auto-detects an agent from PATH (claude/codex/gemini/opencode) when no
+  // command/endpoint is configured, so "env cleared" is NOT "unconfigured" on a
+  // machine that has one of those on PATH. CW_NO_AUTO_AGENT=1 is v2's own knob
+  // to suppress that auto-detect (agent-config.ts detectAgentFromPath), keeping
+  // the "no agent configured" assertions hermetic — the flag-driven drives below
+  // always pass an explicit agentConfig, so they are unaffected.
+  process.env.CW_NO_AUTO_AGENT = "1";
 }
 
 // A stub agent: argv[2]=resultPath. Options: { fail, invalid, noModel, model }.
@@ -173,10 +245,10 @@ function main() {
   const stubH = writeStub(path.join(workH, "stub.js"), { model: "drive-opus" });
   process.chdir(workH);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
+    const runner = makeRunner();
     const run = runner.plan("architecture-review", { repo: workH, question: "Sound?" });
     const planned = run.tasks.length;
-    const result = drive(runner, run.id, { now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubH, "{{result}}"], model: "op", source: "flag" } });
+    const result = driveRun(runner, run.id, { now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubH, "{{result}}"], model: "op", source: "flag" } });
     assert.equal(result.status, "complete");
     assert.equal(result.completedWorkers, planned, "EVERY planned worker driven (count-agnostic)");
     assert.ok(result.commitId, "committed");
@@ -228,9 +300,9 @@ function main() {
     const stubN = writeStub(path.join(workN, "stub.js"), { noResult: true });
     process.chdir(workN);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const run = runner.plan("end-to-end-golden-path", { question: "q" });
-      const result = drive(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 2 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubN, "{{result}}"], source: "flag" } });
+      const result = driveRun(runner, run.id, { now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubN, "{{result}}"], source: "flag" } });
       assert.equal(result.status, "parked", "an agent that writes no result.md fails closed (parks)");
       assert.equal(result.completedWorkers, 0, "no worker fabricated when no result.md is produced");
       assert.ok(!result.commitId, "no commit on a fail-closed park");
@@ -245,9 +317,9 @@ function main() {
     const stubI = writeStub(path.join(workI, "stub.js"), { invalid: true });
     process.chdir(workI);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const run = runner.plan("end-to-end-golden-path", { question: "q" });
-      const result = drive(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 2 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubI, "{{result}}"], source: "flag" } });
+      const result = driveRun(runner, run.id, { now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubI, "{{result}}"], source: "flag" } });
       assert.equal(result.status, "parked", "an invalid (evidence-less) result.md fails closed at the evidence-gated worker");
       assert.ok(result.completedWorkers < result.plannedWorkers, "the run did not complete on invalid output");
       assert.ok(!result.commitId, "no commit when an evidence-gated worker is unsatisfied");
@@ -264,9 +336,9 @@ function main() {
     const stubP = writeStub(path.join(workP, "stub.js"), { fail: true });
     process.chdir(workP);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const run = runner.plan("end-to-end-golden-path", { question: "q" });
-      const result = drive(runner, run.id, { now: FIXED_NOW, policy: { maxAttempts: 3 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubP, "{{result}}"], source: "flag" } });
+      const result = driveRun(runner, run.id, { now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubP, "{{result}}"], source: "flag" } });
       assert.equal(result.status, "parked");
       const park = result.steps.find((s) => s.action === "park");
       assert.ok(park, "a park step occurred");
@@ -284,9 +356,9 @@ function main() {
       const s = writeStub(path.join(w, "stub.js"), { model: "once-m" });
       process.chdir(w);
       try {
-        const runner = new CoolWorkflowRunner({ pluginRoot });
+        const runner = makeRunner();
         const run = runner.plan("end-to-end-golden-path", { question: "q" });
-        return drive(runner, run.id, { once: true, now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [s, "{{result}}"], source: "flag" } });
+        return driveRun(runner, run.id, { once: true, now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [s, "{{result}}"], source: "flag" } });
       } finally {
         process.chdir(cwd0);
       }
@@ -306,22 +378,33 @@ function main() {
     const stubO = writeStub(path.join(workO, "stub.js"), { noResult: true });
     process.chdir(workO);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const run = runner.plan("end-to-end-golden-path", { question: "q" });
-      const common = { once: true, now: FIXED_NOW, policy: { maxAttempts: 2 }, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubO, "{{result}}"], source: "flag" } };
-      const first = drive(runner, run.id, common);
+      // v2's retry budget is the fixed DEFAULT_SCHEDULING_POLICY (maxAttempts:3);
+      // there is no per-drive `policy` override any more (the old build's
+      // policy:{maxAttempts:2} knob is gone), so this drives one MORE `--once`
+      // to reach the real park point. The INTENT is unchanged: repeated `--once`
+      // failures persist + resume the attempt count across calls, and the run
+      // parks only once the budget is exhausted, blocking the phase gate.
+      const common = { once: true, now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubO, "{{result}}"], source: "flag" } };
+      const first = driveRun(runner, run.id, common);
       assert.equal(first.status, "in-progress", "first once failure leaves the worker retryable");
       assert.equal(first.steps[0].attempts, 1, "first once failure consumes attempt 1");
       const workerId = runner.loadRun(run.id).tasks[0].workerId;
       assert.equal(runner.showWorker(run.id, workerId).retryCount, 1, "attempt 1 persisted on the worker scope");
 
-      const second = drive(runner, run.id, common);
-      assert.equal(second.status, "parked", "second once failure reaches maxAttempts and parks");
-      assert.equal(second.steps[0].action, "park");
+      const second = driveRun(runner, run.id, common);
+      assert.equal(second.status, "in-progress", "second once failure still under budget stays retryable");
       assert.equal(second.steps[0].attempts, 2, "second once failure resumes from persisted attempt 1");
+      assert.equal(runner.showWorker(run.id, workerId).retryCount, 2, "attempt 2 persisted on the worker scope");
+
+      const third = driveRun(runner, run.id, common);
+      assert.equal(third.status, "parked", "third once failure reaches maxAttempts and parks");
+      assert.equal(third.steps[0].action, "park");
+      assert.equal(third.steps[0].attempts, 3, "third once failure resumes from persisted attempt 2 and parks at the budget");
       const finalO = runner.loadRun(run.id);
       assert.equal(finalO.tasks[0].status, "failed", "parked worker blocks the phase gate");
-      assert.equal(runner.showWorker(run.id, workerId).retryCount, 2, "park attempt count persisted");
+      assert.equal(runner.showWorker(run.id, workerId).retryCount, 3, "park attempt count persisted");
     } finally {
       process.chdir(cwd0);
     }
@@ -332,11 +415,11 @@ function main() {
     const w = tmpWorkspace();
     process.chdir(w);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const run = runner.plan("end-to-end-golden-path", { question: "q" });
       clearAgentEnv();
-      const p1 = drivePreview(runner, run.id, {});
-      const p2 = drivePreview(runner, run.id, {});
+      const p1 = drivePreviewRun(runner, run.id, {});
+      const p2 = drivePreviewRun(runner, run.id, {});
       assert.equal(JSON.stringify(p1), JSON.stringify(p2), "drive preview is deterministic (no now-derived numeric field)");
       assert.equal(p1.agentConfigured, false);
       assert.equal(p1.plannedWorkers, run.tasks.length);

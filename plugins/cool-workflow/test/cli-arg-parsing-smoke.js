@@ -10,7 +10,8 @@
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
-const { parseArgv } = require(path.resolve(__dirname, "..", "dist", "orchestrator.js"));
+// v2: parseArgv moved from the flat dist/orchestrator.js facade into dist/cli/parseargv.js.
+const { parseArgv } = require(path.resolve(__dirname, "..", "dist", "cli", "parseargv.js"));
 
 // 1. The regression: `--drive` (boolean) must NOT consume the following `-dir` flag.
 {

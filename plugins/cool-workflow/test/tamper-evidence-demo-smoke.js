@@ -30,10 +30,25 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { runTamperDemo } = require(path.join(pluginRoot, "dist/telemetry-demo.js"));
-const { telemetryVerify, demoTamper } = require(path.join(pluginRoot, "dist/capability-core.js"));
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { appendTelemetryAttestation } = require(path.join(pluginRoot, "dist/telemetry-ledger.js"));
+// v2 layout: the old flat capability-core/orchestrator/telemetry-demo/
+// telemetry-ledger modules split into core/ (pure) + shell/ (IO). The
+// tamper demo runner is now shell/telemetry-demo; the two CLI-reachable
+// verbs the old smoke called through capability-core map 1:1 to the v2
+// CLI bodies:
+//   telemetryVerify(runner, {runId})  ->  telemetryVerifyCli(runId, {cwd})
+//     (resolves the run from cwd via loadRunFromCwd instead of a runner)
+//   demoTamper(null, {})              ->  demoTamperCli()
+//     (both just return runTamperDemo(); demoTamperCli drops the ignored args)
+// The old CoolWorkflowRunner facade is gone in v2 (an intentional anti-goal
+// to dismantle): a run is planned by loadWorkflowApp(appId) + plan(app, inputs),
+// which writes <cwd>/.cw/runs/<id> and returns the full WorkflowRun (with
+// run.id + run.paths.runDir) — exactly what runner.plan(...) gave us.
+const { runTamperDemo } = require(path.join(pluginRoot, "dist/shell/telemetry-demo.js"));
+const { telemetryVerifyCli } = require(path.join(pluginRoot, "dist/shell/telemetry-cli.js"));
+const { demoTamperCli } = require(path.join(pluginRoot, "dist/shell/demo-cli.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { appendTelemetryAttestation } = require(path.join(pluginRoot, "dist/shell/telemetry-ledger-io.js"));
 
 function main() {
   // ---- 1. the demo proves all three layers ----------------------------------
@@ -68,7 +83,7 @@ function main() {
   console.log("tamper-demo: no tmp dir leak ok");
 
   // ---- 3. demoTamper capability returns the provable result ------------------
-  const viaCap = demoTamper(null, {});
+  const viaCap = demoTamperCli();
   assert.equal(viaCap.proven, true, "demoTamper capability returns proven:true (CLI gates exit code on this)");
   console.log("tamper-demo: demoTamper capability ok");
 
@@ -78,13 +93,17 @@ function main() {
   const cwd0 = process.cwd();
   process.chdir(work);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
-    const run = runner.plan("architecture-review", { repo: work, question: "q" });
+    // v2: plan a real run through the production planner (writes
+    // <work>/.cw/runs/<id> and returns the full WorkflowRun). This replaces
+    // the old CoolWorkflowRunner.plan facade.
+    const run = plan(loadWorkflowApp("architecture-review"), { repo: work, question: "q" });
     // Seed a small real ledger directly through the production append API.
     appendTelemetryAttestation(run, { workerId: "w1", taskId: "map:a", promptDigest: "d1", reportedUsage: { input_tokens: 5, output_tokens: 3 }, attestation: "unattested", now: "2026-01-01T00:00:00.000Z" });
     appendTelemetryAttestation(run, { workerId: "w2", taskId: "map:b", promptDigest: "d2", reportedUsage: { input_tokens: 7, output_tokens: 2 }, attestation: "unattested", now: "2026-01-01T00:00:01.000Z" });
 
-    const clean = telemetryVerify(runner, { runId: run.id });
+    // v2: telemetryVerifyCli(runId, {cwd}) resolves the run from disk via
+    // loadRunFromCwd (<cwd>/.cw/runs/<id>/state.json) instead of a runner.
+    const clean = telemetryVerifyCli(run.id, { cwd: work });
     assert.equal(clean.present, true, "ledger present");
     assert.equal(clean.verified, true, "clean ledger verifies through the verb");
     assert.equal(clean.records, 2, "both records counted");
@@ -96,7 +115,7 @@ function main() {
     j.records[0].reportedUsageDigest = "deadbeef";
     fs.writeFileSync(ledgerPath, JSON.stringify(j, null, 2));
 
-    const tampered = telemetryVerify(runner, { runId: run.id });
+    const tampered = telemetryVerifyCli(run.id, { cwd: work });
     assert.equal(tampered.verified, false, "tampered ledger fails verification through the verb");
     assert.ok(tampered.failedChecks.length >= 1, "the verb reports the specific failing check(s)");
     assert.ok(tampered.failedChecks.some((c) => /record-hash|chain-link/.test(c.name)), "failing check names the broken record");

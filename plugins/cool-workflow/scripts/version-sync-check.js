@@ -66,10 +66,10 @@ function main() {
   checkJson("plugins/cool-workflow/.claude-plugin/plugin.json", "version", VERSION, checks);
   checkJson("plugins/cool-workflow/.gemini-plugin/plugin.json", "version", VERSION, checks);
   checkJson("plugins/cool-workflow/.opencode-plugin/plugin.json", "version", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/src/version.ts", `CURRENT_COOL_WORKFLOW_VERSION = "${VERSION}"`, checks);
-  checkIncludes("plugins/cool-workflow/src/version.ts", "CURRENT_RUN_STATE_SCHEMA_VERSION = 1", checks);
-  checkIncludes("plugins/cool-workflow/src/mcp-server.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);
-  checkIncludes("plugins/cool-workflow/src/workflow-app-framework.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);
+  checkIncludes("plugins/cool-workflow/src/core/version.ts", `CURRENT_COOL_WORKFLOW_VERSION = "${VERSION}"`, checks);
+  checkIncludes("plugins/cool-workflow/src/core/version.ts", "CURRENT_RUN_STATE_SCHEMA_VERSION = 1", checks);
+  checkIncludes("plugins/cool-workflow/src/mcp/server.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/workflow-app-loader.ts", "CURRENT_COOL_WORKFLOW_VERSION", checks);
 
   for (const appId of canonicalApps) {
     checkJson(`plugins/cool-workflow/apps/${appId}/app.json`, "version", VERSION, checks);
@@ -90,9 +90,9 @@ function main() {
   checkIncludes("plugins/cool-workflow/test/mcp-app-surface-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/canonical-workflow-apps-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/workflow-app-framework-smoke.js", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/dist/version.js", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/dist/mcp-server.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
-  checkIncludes("plugins/cool-workflow/dist/workflow-app-framework.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
+  checkIncludes("plugins/cool-workflow/dist/core/version.js", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/dist/mcp/server.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
+  checkIncludes("plugins/cool-workflow/dist/shell/workflow-app-loader.js", "CURRENT_COOL_WORKFLOW_VERSION", checks);
 
   // The npm package README (plugins/cool-workflow/README.md) is GENERATED from the GitHub
   // README.md (scripts/sync-readme.js) and conveys the version via the live npm/release shields
@@ -160,37 +160,37 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/run-retention-reclamation.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "run-retention-reclamation.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/run-retention-reclamation-smoke.js", "run-retention-reclamation-smoke", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "gc.plan", checks);
+  checkIncludes("plugins/cool-workflow/src/core/capability-table.ts", "gc.plan", checks);
   checkIncludes("plugins/cool-workflow/docs/durable-state-and-locking.7.md", "Durable State & Locking", checks);
   checkIncludes("plugins/cool-workflow/docs/durable-state-and-locking.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "durable-state-and-locking.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/durable-atomic-write-smoke.js", "durable-atomic-write-smoke", checks);
-  checkIncludes("plugins/cool-workflow/src/state.ts", "withFileLock", checks);
-  checkIncludes("plugins/cool-workflow/src/drive.ts", "driveStep", checks);
-  checkIncludes("plugins/cool-workflow/dist/drive.js", "driveStep", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "run.drive", checks);
-  checkIncludes("plugins/cool-workflow/src/collaboration.ts", "deriveReviewState", checks);
-  checkIncludes("plugins/cool-workflow/dist/collaboration.js", "deriveReviewState", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "review.status", checks);
-  checkIncludes("plugins/cool-workflow/src/observability.ts", "deriveMetricsReport", checks);
-  checkIncludes("plugins/cool-workflow/dist/observability.js", "deriveMetricsReport", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "metrics.show", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/fs-atomic.ts", "withFileLock", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/drive.ts", "driveStep", checks);
+  checkIncludes("plugins/cool-workflow/dist/shell/drive.js", "driveStep", checks);
+  checkIncludes("plugins/cool-workflow/src/core/capability-table.ts", "run.drive", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/collaboration-io.ts", "deriveReviewState", checks);
+  checkIncludes("plugins/cool-workflow/dist/shell/collaboration-io.js", "deriveReviewState", checks);
+  checkIncludes("plugins/cool-workflow/src/core/capability-table.ts", "review.status", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/observability.ts", "deriveMetricsReport", checks);
+  checkIncludes("plugins/cool-workflow/dist/shell/observability.js", "deriveMetricsReport", checks);
+  checkIncludes("plugins/cool-workflow/src/core/capability-table.ts", "metrics.show", checks);
   checkIncludes("plugins/cool-workflow/manifest/pricing.policy.json", "schemaVersion", checks);
-  checkIncludes("plugins/cool-workflow/src/workbench.ts", "buildWorkbenchRunView", checks);
-  checkIncludes("plugins/cool-workflow/dist/workbench.js", "buildWorkbenchRunView", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "workbench.view", checks);
-  checkIncludes("plugins/cool-workflow/src/execution-backend.ts", "ExecutionBackend", checks);
-  checkIncludes("plugins/cool-workflow/dist/execution-backend.js", "ExecutionBackend", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "backend.list", checks);
-  checkIncludes("plugins/cool-workflow/src/run-registry.ts", "RunRegistry", checks);
-  checkIncludes("plugins/cool-workflow/dist/run-registry.js", "RunRegistry", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "registry.refresh", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/workbench.ts", "buildWorkbenchRunView", checks);
+  checkIncludes("plugins/cool-workflow/dist/shell/workbench.js", "buildWorkbenchRunView", checks);
+  checkIncludes("plugins/cool-workflow/src/core/capability-table.ts", "workbench.view", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/execution-backend/registry.ts", "ExecutionBackend", checks);
+  checkIncludes("plugins/cool-workflow/dist/shell/execution-backend/registry.js", "ExecutionBackend", checks);
+  checkIncludes("plugins/cool-workflow/src/core/capability-table.ts", "backend.list", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/run-registry-io.ts", "RunRegistry", checks);
+  checkIncludes("plugins/cool-workflow/dist/shell/run-registry-io.js", "RunRegistry", checks);
+  checkIncludes("plugins/cool-workflow/src/core/capability-table.ts", "registry.refresh", checks);
   checkIncludes("plugins/cool-workflow/package.json", "parity:check", checks);
   checkIncludes("plugins/cool-workflow/scripts/parity-check.js", "buildParityReport", checks);
   checkIncludes("plugins/cool-workflow/test/cli-mcp-parity-smoke.js", "cli-mcp-parity-smoke", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-registry.ts", "CAPABILITY_REGISTRY", checks);
-  checkIncludes("plugins/cool-workflow/src/capability-core.ts", "planSummary", checks);
-  checkIncludes("plugins/cool-workflow/dist/capability-registry.js", "CAPABILITY_REGISTRY", checks);
+  checkIncludes("plugins/cool-workflow/src/core/capability-table.ts", "export const REGISTRY", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/pipeline-cli.ts", "planSummary", checks);
+  checkIncludes("plugins/cool-workflow/dist/core/capability-table.js", "REGISTRY", checks);
   checkIncludes("plugins/cool-workflow/docs/multi-agent-runtime-core.7.md", "Multi-Agent Runtime Core", checks);
   checkIncludes("plugins/cool-workflow/docs/dogfood-one-real-repo.7.md", "Dogfood One Real Repo", checks);
   checkIncludes("plugins/cool-workflow/docs/getting-started.md", "npm run release:check", checks);

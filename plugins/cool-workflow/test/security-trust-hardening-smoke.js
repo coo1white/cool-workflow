@@ -1,5 +1,24 @@
 #!/usr/bin/env node
 "use strict";
+//
+// CUTOVER STATUS: REAL-GAP (test left failing on purpose).
+// Imports are repointed to v2 dist (shell/*). The pure-function + worker
+// stages (lines ~87-118) pass under v2. The smoke then fails at the first
+// `cw audit decision` call because v2 never ported three audit subcommands:
+//   - `cw audit decision`   (record/validate a sandbox path/command/network/env decision)
+//   - `cw audit worker`     (read trust/audit for one worker)
+//   - `cw audit provenance` (inspect evidence provenance for a commit)
+// and never ported the `evidenceProvenance()` library function used at line ~185.
+// Evidence in v2 source:
+//   src/core/capability-table.ts:282-290  declare cw_audit_worker /
+//     cw_audit_provenance / cw_audit_decision as MCP tools, but NO
+//     `path: ["audit","decision"|"worker"|"provenance"]` capability row is
+//     registered (only verify/summary/multi-agent/policy/judge are — lines
+//     1195, 2403, 2410, 2417, 2424), so these fall through to the audit.usage
+//     error at capability-table.ts:2549-2561.
+//   src/shell/trust-audit.ts  exports summarizeTrustAudit/normalizeEvidence but
+//     has no `evidenceProvenance` export.
+// This is Phase-B work (complete v2); do NOT weaken the assertions to force green.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -7,11 +26,27 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-const { commitState } = require("../dist/commit");
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/candidate-scoring");
-const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
-const { allocateWorkerScope, recordWorkerOutput } = require("../dist/worker-isolation");
-const { summarizeTrustAudit, evidenceProvenance } = require("../dist/trust-audit");
+// v2 cutover: OLD flat dist modules split into shell/ + core/.
+//   ../dist/commit            -> ../dist/shell/commit
+//   ../dist/candidate-scoring -> ../dist/shell/candidate-scoring-io
+//   ../dist/state (run I/O)    -> ../dist/shell/run-store
+//   ../dist/worker-isolation  -> ../dist/shell/worker-isolation
+//   ../dist/trust-audit       -> ../dist/shell/trust-audit
+const { commitState } = require("../dist/shell/commit");
+const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
+const { allocateWorkerScope, recordWorkerOutput } = require("../dist/shell/worker-isolation");
+// REAL-GAP: v2 dropped `evidenceProvenance`. src/shell/trust-audit.ts exports
+// normalizeEvidence/summarizeTrustAudit but no evidenceProvenance function, and
+// no CLI `audit provenance`/`audit worker`/`audit decision` handler exists
+// (capability-table.ts:282-290 declare the MCP tools, but no `path: ["audit",
+// "provenance"|"worker"|"decision"]` row is registered — they fall through to
+// the audit.usage error). See report.
+const { summarizeTrustAudit } = require("../dist/shell/trust-audit");
+// v2 cutover: evidenceProvenance moved to shell/audit-provenance.js (the v2
+// shell/trust-audit.ts is the audited chain writer and does not re-export the
+// read/record helpers; audit-provenance.ts wraps them over its primitives).
+const { evidenceProvenance } = require("../dist/shell/audit-provenance");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-security-trust-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "trust-smoke"));

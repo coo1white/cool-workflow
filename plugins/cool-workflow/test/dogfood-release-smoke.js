@@ -8,6 +8,13 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
+// DEFERRED-TOOLING (v2 cutover): this smoke has no dist imports of its own — it
+// shells out to scripts/dogfood-release.js and asserts on that script's JSON.
+// That script still does require("../dist/orchestrator.js"), a flat v0 dist path
+// gone in v2 (the CoolWorkflowRunner facade now lives at
+// dist/shell/run-registry-io.js). The test file needs no rewrite; the fix is to
+// repoint the SCRIPT's require, which is Phase C/D tooling-repoint work, not this
+// smoke-rewrite job. Do NOT edit scripts/dogfood-release.js from here.
 const summary = JSON.parse(
   execFileSync(process.execPath, [path.join(pluginRoot, "scripts/dogfood-release.js"), "--smoke", "--json"], {
     cwd: pluginRoot,

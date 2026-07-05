@@ -25,51 +25,55 @@ const CHECK = process.argv.includes("--check");
 const REPO_ONLY = process.argv.includes("--repo-only");
 const indexPathOverride = process.env.CW_PROJECT_INDEX_PATH || "";
 
+// v2 layout: src/ splits into a pure core/ (state kernel, pipeline decisions,
+// multi-agent decisions, workflow-app schema) and an impure shell/ (file IO,
+// CLI/MCP wiring, worker sandboxing). Paths below are relative to src/ and
+// may include a subdirectory — the render step keeps the full relative path
+// as both the link target and the label, so the table also shows which
+// layer (core vs shell) each module lives in.
 const moduleCatalog = {
   "Core runtime": [
-    ["orchestrator.ts", "Plans runs, loads workflows, records results, writes reports, and exposes runner commands."],
-    ["state.ts", "Persists run checkpoints, JSON state, run paths, and state migration entrypoints."],
-    ["state-node.ts", "Defines explicit state nodes, pipeline transitions, evidence checks, and node persistence."],
-    ["pipeline-contract.ts", "Builds the default pipeline contract used by run state."],
-    ["pipeline-runner.ts", "Finds runnable stages and advances/fails pipeline nodes with retry-aware errors."],
-    ["types.ts", "Owns the shared workflow, run, app, evidence, worker, candidate, audit, and topology types."]
+    ["shell/orchestrator.ts", "Plans runs, loads workflows, records results, writes reports, and exposes runner commands (a thin facade over the shell functions below)."],
+    ["shell/run-store.ts", "Persists run checkpoints, JSON state, run paths, and state migration entrypoints."],
+    ["core/state/state-node.ts", "Defines explicit state nodes, pipeline transitions, evidence checks, and node persistence."],
+    ["core/pipeline/contract.ts", "Builds the default pipeline contract used by run state."],
+    ["core/pipeline/runner.ts", "Finds runnable stages and advances/fails pipeline nodes with retry-aware errors."],
+    ["core/state/types.ts", "Owns the shared run/state types: WorkflowRun and everything it carries, StateNode, and the pipeline contract shape."]
   ],
   "Verification and state gates": [
-    ["verifier.ts", "Validates result envelopes, findings, evidence, and run gate completion."],
-    ["commit.ts", "Creates verifier-gated commits and explicit manual checkpoints."],
-    ["candidate-scoring.ts", "Registers, scores, ranks, selects, rejects, and summarizes candidate outputs."],
-    ["error-feedback.ts", "Turns failures into persisted feedback records and correction tasks."],
-    ["trust-audit.ts", "Records provenance, sandbox decisions, host attestations, and acceptance rationale."]
+    ["shell/verifier.ts", "Validates result envelopes, findings, evidence, and run gate completion."],
+    ["shell/commit.ts", "Creates verifier-gated commits and explicit manual checkpoints."],
+    ["core/multi-agent/candidate-scoring.ts", "Registers, scores, ranks, selects, rejects, and summarizes candidate outputs."],
+    ["core/pipeline/error-feedback.ts", "Turns failures into persisted feedback records and correction tasks."],
+    ["shell/trust-audit.ts", "Records provenance, sandbox decisions, host attestations, and acceptance rationale."]
   ],
   "Workers and policy": [
-    ["dispatch.ts", "Selects runnable tasks and writes dispatch manifests."],
-    ["worker-isolation.ts", "Allocates worker scopes, writes manifests, records worker outputs, and validates boundaries."],
-    ["sandbox-profile.ts", "Resolves named sandbox policy contracts and validates read/write/command/network boundaries."],
-    ["harness.ts", "Renders task files for dispatched work."]
+    ["shell/dispatch.ts", "Selects runnable tasks and writes dispatch manifests."],
+    ["shell/worker-isolation.ts", "Allocates worker scopes, writes manifests, records worker outputs, and validates boundaries."],
+    ["shell/sandbox-profile.ts", "Resolves named sandbox policy contracts and validates read/write/command/network boundaries."],
+    ["shell/harness.ts", "Renders task files for dispatched work."]
   ],
   "Multi-agent layer": [
-    ["multi-agent.ts", "Persists multi-agent runs, roles, groups, memberships, fanouts, and fanins."],
-    ["coordinator.ts", "Owns blackboard topics, messages, context, artifacts, snapshots, and coordinator decisions."],
-    ["topology.ts", "Defines and applies official map-reduce, debate, and judge-panel topologies."],
-    ["multi-agent-host.ts", "Provides the preferred host loop for run, status, step, blackboard, score, and select."]
+    ["core/multi-agent/runtime.ts", "Persists multi-agent runs, roles, groups, memberships, fanouts, and fanins."],
+    ["core/multi-agent/coordinator.ts", "Owns blackboard topics, messages, context, artifacts, snapshots, and coordinator decisions."],
+    ["core/multi-agent/topology.ts", "Defines and applies official map-reduce, debate, and judge-panel topologies."],
+    ["shell/multi-agent-host.ts", "Provides the preferred host loop for run, status, step, blackboard, score, and select."]
   ],
   "User and host surfaces": [
     ["cli.ts", "Routes human CLI commands to runtime, app, topology, multi-agent, and operator flows."],
     ["mcp-server.ts", "Exposes JSON-RPC/MCP tool parity for agent hosts."],
-    ["operator-ux.ts", "Formats status, reports, graph, worker, candidate, feedback, commit, and trust summaries."],
-    ["workflow-app-framework.ts", "Validates app manifests and loads app entrypoints."],
-    ["workflow-api.ts", "Provides the fluent workflow, phase, task, artifact, and input API."],
-    ["daemon.ts", "Runs scheduled tasks through the desktop scheduler daemon."],
-    ["scheduler.ts", "Creates, stores, computes, and runs schedules."],
-    ["triggers.ts", "Bridges routine triggers to explicit workflow events."],
-    ["version.ts", "Defines current package and state schema versions."]
+    ["shell/operator-ux.ts", "Formats status, reports, graph, worker, candidate, feedback, commit, and trust summaries."],
+    ["shell/workflow-app-loader.ts", "Validates app manifests and loads app entrypoints."],
+    ["core/workflow-apps/app-schema.ts", "Provides the fluent workflow, phase, task, artifact, and input API."],
+    ["shell/scheduler-io.ts", "Runs wall-clock schedules, the desktop scheduler daemon tick, and routine triggers."],
+    ["core/version.ts", "Defines current package and state schema versions."]
   ]
 };
 
 function main() {
   const apps = listApps();
   const docs = listMarkdown(path.join(pluginRoot, "docs"));
-  const sourceFiles = listFiles(path.join(pluginRoot, "src"), ".ts");
+  const sourceFiles = listFilesRecursive(path.join(pluginRoot, "src"), ".ts");
   const smokeTests = listFiles(path.join(pluginRoot, "test"), ".js").filter((file) => file.endsWith("-smoke.js"));
   const context = { apps, docs, sourceFiles, smokeTests };
 
@@ -182,6 +186,26 @@ function listFiles(dir, extension) {
   return fs.readdirSync(dir)
     .filter((file) => file.endsWith(extension))
     .sort();
+}
+
+// v2's src/ splits into core/ and shell/ subdirectories (see moduleCatalog's
+// header note), so a flat top-level scan misses almost every file. Walk the
+// whole tree and return paths relative to `dir` with forward slashes, so a
+// catalog entry like "shell/orchestrator.ts" matches what this returns.
+function listFilesRecursive(dir, extension) {
+  const out = [];
+  const walk = (current) => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (entry.isFile() && entry.name.endsWith(extension)) {
+        out.push(path.relative(dir, full).split(path.sep).join("/"));
+      }
+    }
+  };
+  walk(dir);
+  return out.sort();
 }
 
 function renderIndex(target, context) {

@@ -25,8 +25,24 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { RunRegistry } = require(path.join(pluginRoot, "dist", "run-registry.js"));
-const { schedPolicyShow } = require(path.join(pluginRoot, "dist", "capability-core.js"));
+const { RunRegistry } = require(path.join(pluginRoot, "dist", "shell", "run-registry-io.js"));
+// v2 dropped the capability-core schedPolicyShow(reg) wrapper. The exported v2
+// path that reads + fails-closed on a home's scheduling-policy.json is
+// schedPolicyShowCli({ cwd }); it resolves the home from CW_HOME (same as the
+// RunRegistry ctor's env). It builds its own registry, so point process.env.CW_HOME
+// at the case's home before calling it. Return shape is { schemaVersion, policy,
+// source } — same .source contract the old schedPolicyShow returned.
+const { schedPolicyShowCli } = require(path.join(pluginRoot, "dist", "shell", "scheduling-io.js"));
+function schedPolicyShow(home, repo) {
+  const saved = process.env.CW_HOME;
+  process.env.CW_HOME = home;
+  try {
+    return schedPolicyShowCli({ cwd: repo });
+  } finally {
+    if (saved === undefined) delete process.env.CW_HOME;
+    else process.env.CW_HOME = saved;
+  }
+}
 
 const CORRUPT = "{ this is not valid json ]";
 
@@ -47,12 +63,12 @@ const homeRegistry = (home, name) => path.join(home, "registry", name);
 
 // ---- 0. ABSENT baseline: every store loads its clean default, no throw -------
 (function absentLoadsCleanDefault() {
-  const { reg } = freshEnv();
+  const { home, repo, reg } = freshEnv();
   const index = reg.buildIndex("repo");
   assert.deepEqual(index.records, [], "absent stores => no records");
   assert.deepEqual(index.queue, [], "absent queue => empty queue");
   assert.deepEqual(reg.search({ scope: "home" }).records, [], "absent repos.json => home scan is empty, not a throw");
-  assert.equal(schedPolicyShow(reg).source, "default", "absent scheduling-policy.json => default policy");
+  assert.equal(schedPolicyShow(home, repo).source, "default", "absent scheduling-policy.json => default policy");
 })();
 
 // ---- 1. CORRUPT archive overlay => fail closed -------------------------------
@@ -86,9 +102,9 @@ const homeRegistry = (home, name) => path.join(home, "registry", name);
 
 // ---- 5. CORRUPT scheduling policy => fail closed -----------------------------
 (function corruptSchedulingPolicyFailsClosed() {
-  const { home, reg } = freshEnv();
+  const { home, repo } = freshEnv();
   fs.writeFileSync(homeRegistry(home, "scheduling-policy.json"), CORRUPT);
-  assert.throws(() => schedPolicyShow(reg), /Invalid JSON/, "corrupt scheduling-policy.json must surface, not silently fall back to defaults");
+  assert.throws(() => schedPolicyShow(home, repo), /Invalid JSON/, "corrupt scheduling-policy.json must surface, not silently fall back to defaults");
 })();
 
 process.stdout.write("registry-corrupt-fail-closed-smoke: ok (absent loads clean default; corrupt archive/provenance/queue/repos/scheduling-policy all fail closed)\n");

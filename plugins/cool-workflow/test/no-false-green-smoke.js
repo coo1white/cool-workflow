@@ -29,13 +29,15 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
-const { createStateNode, appendRunNode, linkStateNodes } = require("../dist/state-node");
-const { DEFAULT_PIPELINE_CONTRACT_ID } = require("../dist/pipeline-contract");
-const { recordWorkerOutput, allocateWorkerScope, writeWorkerManifest } = require("../dist/worker-isolation");
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/candidate-scoring");
-const { commitState, CommitGateError } = require("../dist/commit");
-const { listTrustAuditEvents } = require("../dist/trust-audit");
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
+const { createStateNode, appendRunNode, linkStateNodes } = require("../dist/core/state/state-node");
+const { DEFAULT_PIPELINE_CONTRACT_ID } = require("../dist/core/pipeline/contract");
+const { recordWorkerOutput, allocateWorkerScope, writeWorkerManifest } = require("../dist/shell/worker-isolation");
+// v2 split candidate scoring: registerCandidate/scoreCandidate/selectCandidate are
+// the disk-backed IO ops, now in shell/candidate-scoring-io.
+const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
+const { commitState, CommitGateError } = require("../dist/shell/commit");
+const { listTrustAuditEvents } = require("../dist/shell/trust-audit");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-no-false-green-"));
 
@@ -121,6 +123,12 @@ function buildRun(runId, taskId) {
   appendRunNode(run, resultNode);
   task.resultNodeId = resultNode.id;
   task.status = "completed";
+  // v2 changed the empty-capture MECHANISM (same fail-closed behavior): the gate
+  // now reads the backing task's parsed result envelope via isEmptyCapture
+  // (findings + evidence both empty) instead of the result node's
+  // metadata.captureWarning. Set the empty envelope on the task so v2's gate
+  // sees the same false-green state this smoke reconstructs.
+  task.result = { summary: "looks clean", findings: [], evidence: [] };
 
   // A VERIFIED verifier node fed by the empty result, carrying ONLY the summary
   // fallback (length 1, source "summary", NOT grounded) — the shape that slips

@@ -14,8 +14,16 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { appendRunNode, createStateNode } = require("../dist/state-node");
-const { createRunPaths, ensureRunDirs } = require("../dist/state");
+// v2 layout: the old flat `state-node` split into a PURE core module
+// (core/state/state-node: createStateNode + the in-place appendRunNode(run,
+// node, persist)) and a shell wrapper (shell/node-store: appendRunNode(run,
+// node) that injects writeRunNode as the persist side effect). This smoke needs
+// the persisting variant (assertion #3 checks disk writes), so appendRunNode
+// comes from shell/node-store; createStateNode is the pure core export.
+// createRunPaths/ensureRunDirs moved from flat `state` to shell/run-store.
+const { appendRunNode } = require("../dist/shell/node-store");
+const { createStateNode } = require("../dist/core/state/state-node");
+const { createRunPaths, ensureRunDirs } = require("../dist/shell/run-store");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-append-node-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "rn"));

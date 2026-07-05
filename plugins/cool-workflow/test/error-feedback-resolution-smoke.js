@@ -4,9 +4,18 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint, writeJson } = require("../dist/state");
-const { createStateNode, appendRunNode } = require("../dist/state-node");
-const { recordFeedback, resolveFeedback, listFeedback } = require("../dist/error-feedback");
+// v2 split the old flat `dist/state`: createRunPaths/ensureRunDirs/saveCheckpoint
+// now live in shell/run-store, writeJson in shell/fs-atomic.
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { writeJson } = require("../dist/shell/fs-atomic");
+const { createStateNode, appendRunNode } = require("../dist/core/state/state-node");
+// REAL GAP (v2): recordFeedback ported to shell/error-feedback-io, but
+// resolveFeedback + listFeedback have NO v2 equivalent — no function in
+// src/ or dist/ transitions a feedback record to resolved (the
+// resolvedAt/resolutionNote fields exist on ErrorFeedbackRecord but nothing
+// writes them). Reported for a human judgement call; this smoke stays red.
+const { recordFeedback } = require("../dist/shell/error-feedback-io");
+const { resolveFeedback, listFeedback } = require("../dist/shell/error-feedback-io");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-feedback-resolution-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "feedback-resolution"));

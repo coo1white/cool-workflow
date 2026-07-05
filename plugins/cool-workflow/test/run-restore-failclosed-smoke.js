@@ -30,10 +30,10 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state");
-const { exportRun } = require("../dist/run-export");
-const { appendTelemetryAttestation } = require("../dist/telemetry-ledger");
-const { recordTrustAuditEvent } = require("../dist/trust-audit");
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { exportRun } = require("../dist/shell/run-export");
+const { appendTelemetryAttestation } = require("../dist/shell/telemetry-ledger-io");
+const { recordTrustAuditEvent } = require("../dist/shell/trust-audit");
 
 const cli = path.join(__dirname, "..", "dist", "cli.js");
 const node = process.execPath;
@@ -142,7 +142,9 @@ assert.equal(digestManifest(good.files), good.integrity.manifestSha256, "digestM
   assert.equal(out.ok, true, "happy: result.ok true");
   assert.ok(out.inspect && out.inspect.ok === true, "happy: inspect.ok true (integrity proven first)");
   assert.ok(out.verify && out.verify.ok === true, "happy: verify.ok true (telemetry + trust-audit chains verified)");
-  assert.ok(out.imported && out.imported.run && out.imported.run.id === runId, "happy: imported run id matches");
+  // v2's `run restore --json` sets `imported` to the run object directly
+  // (run-export-cli.ts: `imported: imported.run`), not a { run } wrapper.
+  assert.ok(out.imported && out.imported.id === runId, "happy: imported run id matches");
 
   // The run is actually present in the target's repo registry now.
   assert.ok(fs.existsSync(path.join(target, ".cw", "runs", runId)), "happy: run dir restored under target");

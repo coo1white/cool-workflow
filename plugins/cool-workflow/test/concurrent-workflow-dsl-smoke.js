@@ -25,10 +25,38 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive, driveStep, driveConcurrentRound } = require(path.join(pluginRoot, "dist/drive.js"));
-const { createWorkflowApi } = require(path.join(pluginRoot, "dist/workflow-api.js"));
-const { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy } = require(path.join(pluginRoot, "dist/scheduling.js"));
+// v2 rebuild: no CoolWorkflowRunner facade, no dist/orchestrator.js. The
+// runner's two methods this smoke used — .plan and .loadRun — are now the
+// free functions plan(loadWorkflowApp(appId), inputs) and
+// loadRunFromCwd(runId, cwd). A tiny local shim below rebuilds the same
+// two-method surface so the test body reads the same.
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader"));
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store"));
+// v2 drive(runId, cwd, options) is positional (no runner arg). driveStep(ctx)
+// is exported with a cwd-based DriveContext (no runner/policy). The old
+// exported driveConcurrentRound is a PRIVATE fn in v2's shell/drive; the
+// public way to run ONE concurrent round of width N and observe its per-task
+// accept steps in deterministic order is drive(runId, cwd, {once, concurrency})
+// — one outer-loop iteration routes through the internal driveConcurrentRound
+// and returns its steps. See driveOneConcurrentRound() below.
+const { drive, driveStep } = require(path.join(pluginRoot, "dist/shell/drive"));
+const { createWorkflowApi } = require(path.join(pluginRoot, "dist/core/workflow-apps/app-schema"));
+const { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy } = require(path.join(pluginRoot, "dist/shell/scheduling-io"));
+
+// Runner-shim: the v2 build has no persistent runner object; these are the
+// free-function equivalents of the two methods the smoke used. plan() reads
+// the run's cwd from the inputs (repo), and loadRun reads it back from disk.
+function makeRunner() {
+  return {
+    plan(appId, inputs) {
+      return plan(loadWorkflowApp(appId), inputs);
+    },
+    loadRun(runId) {
+      return loadRunFromCwd(runId, process.cwd());
+    },
+  };
+}
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const STUB_USAGE = { input_tokens: 4, output_tokens: 2 };
@@ -60,15 +88,37 @@ function writeStub(file, model) {
 function agentConfig(stub) {
   return { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], model: "operator-pick", source: "flag" };
 }
+// v2 DriveContext (src/shell/drive.ts interface DriveContext): { runId, cwd,
+// now, config, attempts, incremental, depth, visitedAppIds } — cwd-based, NO
+// runner and NO policy (the old build's per-runner policy is gone; drive
+// hard-codes DEFAULT_SCHEDULING_POLICY internally). The smoke chdir's into the
+// workspace, so ctx.cwd = process.cwd(). normalizeSchedulingPolicy /
+// DEFAULT_SCHEDULING_POLICY are still exercised below to prove the scheduling
+// module ports; they no longer belong in the ctx.
 function makeCtx(runner, runId, stub) {
+  void runner;
   return {
-    runner,
     runId,
+    cwd: process.cwd(),
     now: FIXED_NOW,
-    policy: normalizeSchedulingPolicy(DEFAULT_SCHEDULING_POLICY),
     config: agentConfig(stub),
-    attempts: new Map()
+    attempts: new Map(),
+    incremental: false,
+    depth: 0,
+    visitedAppIds: []
   };
+}
+
+// The old build exported driveConcurrentRound(ctx, width) directly. In v2 that
+// fn is private to shell/drive; drive(runId, cwd, {once:true, concurrency})
+// runs exactly ONE outer-loop iteration, which for width>1 routes through the
+// internal driveConcurrentRound and returns its per-task steps in the SAME
+// deterministic batch order. This is the v2 public entry to "drive one
+// concurrent round of width N" — same observable steps the old direct call
+// returned.
+function driveOneConcurrentRound(ctx, width) {
+  const result = drive(ctx.runId, ctx.cwd, { once: true, now: ctx.now, concurrency: width, agentConfig: ctx.config });
+  return result.steps;
 }
 
 function main() {
@@ -91,6 +141,14 @@ function main() {
   assert.equal(ag.agentType, "agent", "agent() carries agentType");
   assert.equal(ag.label, "Reviewer", "agent() carries label");
 
+  // The scheduling policy module still ports (v2: dist/shell/scheduling-io):
+  // normalizeSchedulingPolicy over the fail-closed DEFAULT is a stable,
+  // serial-by-default policy. drive() applies this policy internally; here we
+  // just prove the primitive the old ctx carried is still reachable.
+  const policy = normalizeSchedulingPolicy(DEFAULT_SCHEDULING_POLICY);
+  assert.equal(policy.maxConcurrent, 1, "default scheduling policy is serial (fail-closed)");
+  assert.equal(policy.maxAttempts, DEFAULT_SCHEDULING_POLICY.maxAttempts, "normalize preserves the default retry bound");
+
   const cwd0 = process.cwd();
 
   // ---- 2. CONCURRENT DRIVER: one round fulfills a multi-task phase ----------
@@ -102,7 +160,7 @@ function main() {
     const stub = writeStub(path.join(work, "stub.js"), "round-opus");
     process.chdir(work);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
 
       // Concurrent round of width 4 on a fresh plan.
       const runC = runner.plan("architecture-review", { repo: work, question: "Sound?" });
@@ -110,7 +168,7 @@ function main() {
       const phaseOrder = runC.tasks.filter((t) => t.phase === firstPhaseId).map((t) => t.id);
       assert.ok(phaseOrder.length >= 4, "first phase has >=4 ready tasks (precondition for the batch test)");
 
-      const round = driveConcurrentRound(makeCtx(runner, runC.id, stub), 4);
+      const round = driveOneConcurrentRound(makeCtx(runner, runC.id, stub), 4);
       const accepts = round.filter((s) => s.action === "accept" && s.status === "ok");
       assert.ok(accepts.length >= 2, `one concurrent round fulfills MULTIPLE ready tasks, got ${accepts.length}`);
       assert.equal(new Set(accepts.map((s) => s.taskId)).size, accepts.length, "each accept is a distinct task");
@@ -136,11 +194,11 @@ function main() {
     const stub = writeStub(path.join(work, "stub.js"), "drive-opus");
     process.chdir(work);
     try {
-      const runner = new CoolWorkflowRunner({ pluginRoot });
+      const runner = makeRunner();
       const run = runner.plan("architecture-review", { repo: work, question: "Sound?" });
       const planned = run.tasks.length;
 
-      const result = drive(runner, run.id, { now: FIXED_NOW, concurrency: 6, agentConfig: agentConfig(stub) });
+      const result = drive(run.id, process.cwd(), { now: FIXED_NOW, concurrency: 6, agentConfig: agentConfig(stub) });
       assert.equal(result.status, "complete", "concurrent drive reaches the SAME complete outcome as serial");
       assert.equal(result.completedWorkers, planned, "every planned worker driven under concurrency");
       assert.ok(result.commitId, "concurrent drive commits the audited verdict");

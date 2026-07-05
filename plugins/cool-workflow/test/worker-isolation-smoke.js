@@ -5,9 +5,15 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-const { createDispatchManifest } = require("../dist/dispatch");
-const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
-const { workerTrustAudit } = require("../dist/trust-audit");
+// v2 cutover: the old flat modules split across core/ and shell/.
+//   ../dist/dispatch          -> ../dist/shell/dispatch
+//   ../dist/state             -> ../dist/shell/run-store (run I/O)
+//   ../dist/trust-audit       -> ../dist/shell/trust-audit
+//   ../dist/worker-isolation  -> ../dist/shell/worker-isolation
+const { createDispatchManifest } = require("../dist/shell/dispatch");
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
+const { listTrustAuditEvents } = require("../dist/shell/trust-audit");
+const { validateSandboxWrite } = require("../dist/shell/sandbox-profile");
 const {
   allocateWorkerScope,
   getWorkerScope,
@@ -15,9 +21,31 @@ const {
   recordWorkerFailure,
   recordWorkerOutput,
   summarizeWorkers,
-  validateWorkerBoundary,
   writeWorkerManifest
-} = require("../dist/worker-isolation");
+} = require("../dist/shell/worker-isolation");
+
+// v2 dropped the old `workerTrustAudit(run, workerId)` helper. Its body was a
+// one-line filter over the audit log; inline the exact same shape here so the
+// smoke keeps checking real recorded events (not a weakened stub).
+function workerTrustAudit(run, workerId) {
+  return { workerId, events: listTrustAuditEvents(run).filter((event) => event.workerId === workerId) };
+}
+
+// v2 dropped the exported `validateWorkerBoundary(run, workerId, { path })`.
+// The old function resolved the scope's sandbox policy and delegated the
+// write-path check to the same primitive v2 still exports:
+// validateSandboxWrite(policy, path, workerId) -> null when in-scope, a
+// violation whose .message contains "outside" when out-of-scope. Wrap it so the
+// three boundary assertions below preserve their original intent.
+// NOTE: the OLD validateWorkerBoundary ALSO recorded a `worker.sandbox-boundary`
+// audit event (the enforced-by-cw vs delegated-to-host policy split). v2 has no
+// path that records that event (see the REAL-GAP comment further down); this
+// wrapper only reproduces the boundary *decision*, matching what v2 can do.
+function validateWorkerBoundary(run, workerId, options = {}) {
+  const scope = getWorkerScope(run, workerId);
+  const rawPath = String(options.path || scope.resultPath);
+  return validateSandboxWrite(scope.sandboxPolicy, rawPath, workerId);
+}
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-worker-isolation-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "worker-smoke"));
@@ -126,6 +154,20 @@ assert.equal(run.tasks[0].status, "completed");
 assert.equal(getWorkerScope(run, manual.id).status, "verified");
 // Sandbox boundary audit: a successful write-path check must record that
 // command/network limits are delegated to the host.
+//
+// REAL-GAP (v2): v2 has NO code path that records a `worker.sandbox-boundary`
+// trust-audit event. The old build emitted it inside validateWorkerBoundary
+// (old src/worker-isolation.ts:465, the `kind: "worker.sandbox-boundary"`
+// event with metadata.enforced_by_cw / metadata.delegated_to_host). v2 deleted
+// that function and never relocated the event: for a worker it records only
+// worker.sandbox-profile | sandbox.path | worker.output, and the strings
+// enforced_by_cw / delegated_to_host appear NOWHERE in v2 src. The write-path
+// *enforcement* survives via validateSandboxWrite (checked above), but the
+// audit *transparency* that documents the CW-enforced vs host-delegated policy
+// split is gone. This assertion is left as-is so it fails on the genuine
+// missing behavior, not on an import crash. Trace: v2 src/shell/worker-
+// isolation.ts:345-479 (recordWorkerOutput records no sandbox-boundary event);
+// the split metadata lived only in old src/worker-isolation.ts:462-476.
 const workerEvents = workerTrustAudit(run, manual.id);
 const boundaryEvent = workerEvents.events.find((e) => e.kind === "worker.sandbox-boundary");
 assert.ok(boundaryEvent, "a worker.sandbox-boundary audit event must be recorded");

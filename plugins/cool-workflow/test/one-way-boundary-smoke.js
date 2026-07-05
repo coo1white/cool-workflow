@@ -18,6 +18,28 @@
 //      deleting the welds (which tsc cannot notice) is caught here.
 //
 // Portable: node + the repo's own typescript devDependency. No new dependency.
+//
+// CUTOVER AUDIT (v2) — NO-EQUIVALENT. This smoke asserts an OLD internal
+// TYPE-LAYER structure that v2 legitimately does not have:
+//   - src/types/boundary.ts (the weld module) — GONE in v2.
+//   - Its exports OneWayData<T>, IsOneWayData<T>, AssertTrue<T extends true>
+//     — GONE (grep src for "IsOneWayData"/"AssertTrue"/"OneWayData" = 0 hits).
+//   - The three welds AssertTrue<IsOneWayData<{ExecutionResultEnvelope,
+//     ResultEnvelope,UsageRecord}>> — GONE.
+//   - The barrel src/types.ts (which re-exported ./types/boundary) — GONE;
+//     v2 has no top-level src/types.ts (only src/core/state/types.ts and
+//     src/shell/execution-backend/types.ts, neither carries the weld).
+// ExecutionResultEnvelope itself DID survive the rebuild — it moved from
+// src/types/execution-backend.ts to src/shell/execution-backend/types.ts —
+// so the import below is repointed to its real v2 home. But EVERY one of the
+// four checks needs IsOneWayData/AssertTrue from a "boundary" module that has
+// no v2 equivalent to adapt to, so the smoke cannot be made green without
+// re-adding the deleted type-weld to v2 src (Phase B's call, not this file's).
+// The old boundary.ts source is preserved at git c8a6265^ for that work.
+// Left failing on the genuine gap (missing weld module / welds in source),
+// NOT on a bare require crash: the ExecutionResultEnvelope import is repointed
+// so the tsc error is "Cannot find module .../boundary" (the real absence),
+// and check 4 reads the real v2 paths so it reports the missing weld/barrel.
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
@@ -32,15 +54,24 @@ assert.ok(fs.existsSync(tscJs), "repo typescript devDependency present");
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-boundary-fixture-"));
 // The fixture imports boundary.ts by ABSOLUTE path so it can live in a tmpdir
 // (no repo-tree pollution, no cwd assumption).
-const boundaryImport = path.join(pluginRoot, "src", "types", "boundary").split(path.sep).join("/");
-const envelopeImport = path.join(pluginRoot, "src", "types", "execution-backend").split(path.sep).join("/");
+// v2 restored the weld module at src/core/types/boundary.ts (the exact path
+// below). Its type imports transitively reach the shell modules that own the
+// three target types, and those modules `import "node:crypto"` etc., so the
+// fixture must compile WITH node types available. The fixture lives in a
+// tmpdir, so tsc cannot walk up to the repo's node_modules/@types on its own —
+// point --typeRoots + --types at the repo's @types/node explicitly so a clean
+// CI checkout resolves node builtins exactly like the real `npm run build`.
+const typesRoot = path.join(pluginRoot, "node_modules", "@types");
+const boundaryImport = path.join(pluginRoot, "src", "core", "types", "boundary").split(path.sep).join("/");
+// ExecutionResultEnvelope survived the rebuild; repointed to its real v2 home.
+const envelopeImport = path.join(pluginRoot, "src", "shell", "execution-backend", "types").split(path.sep).join("/");
 
 function compile(name, source) {
   const file = path.join(fixtureDir, name);
   fs.writeFileSync(file, source, "utf8");
   const child = spawnSync(
     process.execPath,
-    [tscJs, "--noEmit", "--strict", "--target", "es2022", "--module", "commonjs", "--moduleResolution", "node", "--skipLibCheck", file],
+    [tscJs, "--noEmit", "--strict", "--target", "es2022", "--module", "commonjs", "--moduleResolution", "node", "--skipLibCheck", "--typeRoots", typesRoot, "--types", "node", file],
     { encoding: "utf8", timeout: 120000 }
   );
   return { status: child.status, out: `${child.stdout || ""}${child.stderr || ""}` };
@@ -89,8 +120,11 @@ function main() {
   }
 
   // ---- 4. the welds stay present in source ----------------------------------
+  // v2 has no boundary weld module and no top-level src/types.ts barrel, so
+  // both reads below fail (ENOENT) — that IS the NO-EQUIVALENT gap. Kept as the
+  // real v2 paths so a Phase-B fix (re-adding the weld) turns this green.
   {
-    const boundarySrc = fs.readFileSync(path.join(pluginRoot, "src", "types", "boundary.ts"), "utf8");
+    const boundarySrc = fs.readFileSync(path.join(pluginRoot, "src", "core", "types", "boundary.ts"), "utf8");
     for (const weld of [
       "AssertTrue<IsOneWayData<ExecutionResultEnvelope>>",
       "AssertTrue<IsOneWayData<ResultEnvelope>>",
@@ -98,7 +132,7 @@ function main() {
     ]) {
       assert.ok(boundarySrc.includes(weld), `boundary weld present: ${weld}`);
     }
-    const barrel = fs.readFileSync(path.join(pluginRoot, "src", "types.ts"), "utf8");
+    const barrel = fs.readFileSync(path.join(pluginRoot, "src", "core", "types.ts"), "utf8");
     assert.ok(barrel.includes('export * from "./types/boundary"'), "barrel exports the boundary module");
     console.log("one-way-boundary: welds present in source ok");
   }

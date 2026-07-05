@@ -6,7 +6,9 @@
 // god-object extraction stays behaviour-preserving.
 
 const assert = require("node:assert/strict");
-const { humanBytes, formatClonesList, formatClonesGc, formatWorkbenchView } = require("../dist/cli/format");
+const { humanBytes } = require("../dist/shell/run-registry-io");
+const { formatClonesList, formatClonesGc } = require("../dist/shell/reclamation-io");
+const { formatWorkbenchView } = require("../dist/shell/workbench-text");
 
 // humanBytes: byte → human scale.
 assert.equal(humanBytes(0), "0B");

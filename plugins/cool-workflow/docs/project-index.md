@@ -1,12 +1,12 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-07-03 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-07-04 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
 - Version: `0.1.98`
-- Source modules: `69`
+- Source modules: `129`
 - Workflow apps: `8`
 - Docs: `61`
 - Smoke tests: `173`
@@ -29,40 +29,40 @@ multi-agent host -> topology -> blackboard/coordinator
 
 | Module | Responsibility |
 | --- | --- |
-| [orchestrator.ts](../src/orchestrator.ts) | Plans runs, loads workflows, records results, writes reports, and exposes runner commands. |
-| [state.ts](../src/state.ts) | Persists run checkpoints, JSON state, run paths, and state migration entrypoints. |
-| [state-node.ts](../src/state-node.ts) | Defines explicit state nodes, pipeline transitions, evidence checks, and node persistence. |
-| [pipeline-contract.ts](../src/pipeline-contract.ts) | Builds the default pipeline contract used by run state. |
-| [pipeline-runner.ts](../src/pipeline-runner.ts) | Finds runnable stages and advances/fails pipeline nodes with retry-aware errors. |
-| [types.ts](../src/types.ts) | Owns the shared workflow, run, app, evidence, worker, candidate, audit, and topology types. |
+| [shell/orchestrator.ts](../src/shell/orchestrator.ts) | Plans runs, loads workflows, records results, writes reports, and exposes runner commands (a thin facade over the shell functions below). |
+| [shell/run-store.ts](../src/shell/run-store.ts) | Persists run checkpoints, JSON state, run paths, and state migration entrypoints. |
+| [core/state/state-node.ts](../src/core/state/state-node.ts) | Defines explicit state nodes, pipeline transitions, evidence checks, and node persistence. |
+| [core/pipeline/contract.ts](../src/core/pipeline/contract.ts) | Builds the default pipeline contract used by run state. |
+| [core/pipeline/runner.ts](../src/core/pipeline/runner.ts) | Finds runnable stages and advances/fails pipeline nodes with retry-aware errors. |
+| [core/state/types.ts](../src/core/state/types.ts) | Owns the shared run/state types: WorkflowRun and everything it carries, StateNode, and the pipeline contract shape. |
 
 ### Verification and state gates
 
 | Module | Responsibility |
 | --- | --- |
-| [verifier.ts](../src/verifier.ts) | Validates result envelopes, findings, evidence, and run gate completion. |
-| [commit.ts](../src/commit.ts) | Creates verifier-gated commits and explicit manual checkpoints. |
-| [candidate-scoring.ts](../src/candidate-scoring.ts) | Registers, scores, ranks, selects, rejects, and summarizes candidate outputs. |
-| [error-feedback.ts](../src/error-feedback.ts) | Turns failures into persisted feedback records and correction tasks. |
-| [trust-audit.ts](../src/trust-audit.ts) | Records provenance, sandbox decisions, host attestations, and acceptance rationale. |
+| [shell/verifier.ts](../src/shell/verifier.ts) | Validates result envelopes, findings, evidence, and run gate completion. |
+| [shell/commit.ts](../src/shell/commit.ts) | Creates verifier-gated commits and explicit manual checkpoints. |
+| [core/multi-agent/candidate-scoring.ts](../src/core/multi-agent/candidate-scoring.ts) | Registers, scores, ranks, selects, rejects, and summarizes candidate outputs. |
+| [core/pipeline/error-feedback.ts](../src/core/pipeline/error-feedback.ts) | Turns failures into persisted feedback records and correction tasks. |
+| [shell/trust-audit.ts](../src/shell/trust-audit.ts) | Records provenance, sandbox decisions, host attestations, and acceptance rationale. |
 
 ### Workers and policy
 
 | Module | Responsibility |
 | --- | --- |
-| [dispatch.ts](../src/dispatch.ts) | Selects runnable tasks and writes dispatch manifests. |
-| [worker-isolation.ts](../src/worker-isolation.ts) | Allocates worker scopes, writes manifests, records worker outputs, and validates boundaries. |
-| [sandbox-profile.ts](../src/sandbox-profile.ts) | Resolves named sandbox policy contracts and validates read/write/command/network boundaries. |
-| [harness.ts](../src/harness.ts) | Renders task files for dispatched work. |
+| [shell/dispatch.ts](../src/shell/dispatch.ts) | Selects runnable tasks and writes dispatch manifests. |
+| [shell/worker-isolation.ts](../src/shell/worker-isolation.ts) | Allocates worker scopes, writes manifests, records worker outputs, and validates boundaries. |
+| [shell/sandbox-profile.ts](../src/shell/sandbox-profile.ts) | Resolves named sandbox policy contracts and validates read/write/command/network boundaries. |
+| [shell/harness.ts](../src/shell/harness.ts) | Renders task files for dispatched work. |
 
 ### Multi-agent layer
 
 | Module | Responsibility |
 | --- | --- |
-| [multi-agent.ts](../src/multi-agent.ts) | Persists multi-agent runs, roles, groups, memberships, fanouts, and fanins. |
-| [coordinator.ts](../src/coordinator.ts) | Owns blackboard topics, messages, context, artifacts, snapshots, and coordinator decisions. |
-| [topology.ts](../src/topology.ts) | Defines and applies official map-reduce, debate, and judge-panel topologies. |
-| [multi-agent-host.ts](../src/multi-agent-host.ts) | Provides the preferred host loop for run, status, step, blackboard, score, and select. |
+| [core/multi-agent/runtime.ts](../src/core/multi-agent/runtime.ts) | Persists multi-agent runs, roles, groups, memberships, fanouts, and fanins. |
+| [core/multi-agent/coordinator.ts](../src/core/multi-agent/coordinator.ts) | Owns blackboard topics, messages, context, artifacts, snapshots, and coordinator decisions. |
+| [core/multi-agent/topology.ts](../src/core/multi-agent/topology.ts) | Defines and applies official map-reduce, debate, and judge-panel topologies. |
+| [shell/multi-agent-host.ts](../src/shell/multi-agent-host.ts) | Provides the preferred host loop for run, status, step, blackboard, score, and select. |
 
 ### User and host surfaces
 
@@ -70,57 +70,117 @@ multi-agent host -> topology -> blackboard/coordinator
 | --- | --- |
 | [cli.ts](../src/cli.ts) | Routes human CLI commands to runtime, app, topology, multi-agent, and operator flows. |
 | [mcp-server.ts](../src/mcp-server.ts) | Exposes JSON-RPC/MCP tool parity for agent hosts. |
-| [operator-ux.ts](../src/operator-ux.ts) | Formats status, reports, graph, worker, candidate, feedback, commit, and trust summaries. |
-| [workflow-app-framework.ts](../src/workflow-app-framework.ts) | Validates app manifests and loads app entrypoints. |
-| [workflow-api.ts](../src/workflow-api.ts) | Provides the fluent workflow, phase, task, artifact, and input API. |
-| [daemon.ts](../src/daemon.ts) | Runs scheduled tasks through the desktop scheduler daemon. |
-| [scheduler.ts](../src/scheduler.ts) | Creates, stores, computes, and runs schedules. |
-| [triggers.ts](../src/triggers.ts) | Bridges routine triggers to explicit workflow events. |
-| [version.ts](../src/version.ts) | Defines current package and state schema versions. |
+| [shell/operator-ux.ts](../src/shell/operator-ux.ts) | Formats status, reports, graph, worker, candidate, feedback, commit, and trust summaries. |
+| [shell/workflow-app-loader.ts](../src/shell/workflow-app-loader.ts) | Validates app manifests and loads app entrypoints. |
+| [core/workflow-apps/app-schema.ts](../src/core/workflow-apps/app-schema.ts) | Provides the fluent workflow, phase, task, artifact, and input API. |
+| [shell/scheduler-io.ts](../src/shell/scheduler-io.ts) | Runs wall-clock schedules, the desktop scheduler daemon tick, and routine triggers. |
+| [core/version.ts](../src/core/version.ts) | Defines current package and state schema versions. |
 
 ### Other Source Modules
 
-- [agent-config.ts](../src/agent-config.ts)
-- [capability-core.ts](../src/capability-core.ts)
-- [capability-registry.ts](../src/capability-registry.ts)
-- [clones.ts](../src/clones.ts)
-- [collaboration.ts](../src/collaboration.ts)
-- [compare.ts](../src/compare.ts)
-- [contract-migration.ts](../src/contract-migration.ts)
-- [doctor.ts](../src/doctor.ts)
-- [drive.ts](../src/drive.ts)
-- [evidence-grounding.ts](../src/evidence-grounding.ts)
-- [evidence-reasoning.ts](../src/evidence-reasoning.ts)
-- [execution-backend.ts](../src/execution-backend.ts)
-- [gates.ts](../src/gates.ts)
-- [ledger.ts](../src/ledger.ts)
-- [loop-expansion.ts](../src/loop-expansion.ts)
-- [mcp-surface.ts](../src/mcp-surface.ts)
-- [multi-agent-eval.ts](../src/multi-agent-eval.ts)
-- [multi-agent-operator-ux.ts](../src/multi-agent-operator-ux.ts)
-- [multi-agent-trust.ts](../src/multi-agent-trust.ts)
-- [node-projection.ts](../src/node-projection.ts)
-- [node-snapshot.ts](../src/node-snapshot.ts)
-- [observability.ts](../src/observability.ts)
-- [onramp.ts](../src/onramp.ts)
-- [reclamation.ts](../src/reclamation.ts)
-- [remote-source.ts](../src/remote-source.ts)
-- [reporter.ts](../src/reporter.ts)
-- [result-normalize.ts](../src/result-normalize.ts)
-- [run-export.ts](../src/run-export.ts)
-- [run-registry.ts](../src/run-registry.ts)
-- [run-state-schema.ts](../src/run-state-schema.ts)
-- [scheduling.ts](../src/scheduling.ts)
-- [schema-validate.ts](../src/schema-validate.ts)
-- [state-explosion.ts](../src/state-explosion.ts)
-- [state-migrations.ts](../src/state-migrations.ts)
-- [telemetry-attestation.ts](../src/telemetry-attestation.ts)
-- [telemetry-demo.ts](../src/telemetry-demo.ts)
-- [telemetry-ledger.ts](../src/telemetry-ledger.ts)
-- [term.ts](../src/term.ts)
-- [validation.ts](../src/validation.ts)
-- [workbench-host.ts](../src/workbench-host.ts)
-- [workbench.ts](../src/workbench.ts)
+- [cli/dispatch.ts](../src/cli/dispatch.ts)
+- [cli/entry.ts](../src/cli/entry.ts)
+- [cli/io.ts](../src/cli/io.ts)
+- [cli/parseargv.ts](../src/cli/parseargv.ts)
+- [core/capability-table.ts](../src/core/capability-table.ts)
+- [core/format/help.ts](../src/core/format/help.ts)
+- [core/format/state-explosion-text.ts](../src/core/format/state-explosion-text.ts)
+- [core/hash.ts](../src/core/hash.ts)
+- [core/multi-agent/collaboration.ts](../src/core/multi-agent/collaboration.ts)
+- [core/multi-agent/eval-replay.ts](../src/core/multi-agent/eval-replay.ts)
+- [core/multi-agent/trust-policy.ts](../src/core/multi-agent/trust-policy.ts)
+- [core/pipeline/commit-gate.ts](../src/core/pipeline/commit-gate.ts)
+- [core/pipeline/dispatch.ts](../src/core/pipeline/dispatch.ts)
+- [core/pipeline/drive-decide.ts](../src/core/pipeline/drive-decide.ts)
+- [core/pipeline/loop-expansion.ts](../src/core/pipeline/loop-expansion.ts)
+- [core/pipeline/result-normalize.ts](../src/core/pipeline/result-normalize.ts)
+- [core/state/contract-migration.ts](../src/core/state/contract-migration.ts)
+- [core/state/migrations.ts](../src/core/state/migrations.ts)
+- [core/state/node-projection.ts](../src/core/state/node-projection.ts)
+- [core/state/node-snapshot.ts](../src/core/state/node-snapshot.ts)
+- [core/state/run-paths.ts](../src/core/state/run-paths.ts)
+- [core/state/schema-validate.ts](../src/core/state/schema-validate.ts)
+- [core/state/schema.ts](../src/core/state/schema.ts)
+- [core/state/state-explosion/digest.ts](../src/core/state/state-explosion/digest.ts)
+- [core/state/state-explosion/graph.ts](../src/core/state/state-explosion/graph.ts)
+- [core/state/state-explosion/helpers.ts](../src/core/state/state-explosion/helpers.ts)
+- [core/state/state-explosion/report.ts](../src/core/state/state-explosion/report.ts)
+- [core/state/state-explosion/size.ts](../src/core/state/state-explosion/size.ts)
+- [core/state/validation.ts](../src/core/state/validation.ts)
+- [core/trust/evidence-grounding.ts](../src/core/trust/evidence-grounding.ts)
+- [core/trust/ledger.ts](../src/core/trust/ledger.ts)
+- [core/trust/telemetry-attestation.ts](../src/core/trust/telemetry-attestation.ts)
+- [core/trust/telemetry-ledger.ts](../src/core/trust/telemetry-ledger.ts)
+- [core/types.ts](../src/core/types.ts)
+- [core/types/boundary.ts](../src/core/types/boundary.ts)
+- [mcp/dispatch.ts](../src/mcp/dispatch.ts)
+- [mcp/server.ts](../src/mcp/server.ts)
+- [shell/agent-config.ts](../src/shell/agent-config.ts)
+- [shell/app-run-cli.ts](../src/shell/app-run-cli.ts)
+- [shell/audit-cli.ts](../src/shell/audit-cli.ts)
+- [shell/audit-provenance.ts](../src/shell/audit-provenance.ts)
+- [shell/candidate-scoring-io.ts](../src/shell/candidate-scoring-io.ts)
+- [shell/collaboration-io.ts](../src/shell/collaboration-io.ts)
+- [shell/commit-summary.ts](../src/shell/commit-summary.ts)
+- [shell/coordinator-io.ts](../src/shell/coordinator-io.ts)
+- [shell/demo-cli.ts](../src/shell/demo-cli.ts)
+- [shell/doctor.ts](../src/shell/doctor.ts)
+- [shell/drive.ts](../src/shell/drive.ts)
+- [shell/error-feedback-io.ts](../src/shell/error-feedback-io.ts)
+- [shell/eval-io.ts](../src/shell/eval-io.ts)
+- [shell/eval-text.ts](../src/shell/eval-text.ts)
+- [shell/evidence-reasoning.ts](../src/shell/evidence-reasoning.ts)
+- [shell/exec-backend-cli.ts](../src/shell/exec-backend-cli.ts)
+- [shell/execution-backend/agent.ts](../src/shell/execution-backend/agent.ts)
+- [shell/execution-backend/ci.ts](../src/shell/execution-backend/ci.ts)
+- [shell/execution-backend/container.ts](../src/shell/execution-backend/container.ts)
+- [shell/execution-backend/envelopes.ts](../src/shell/execution-backend/envelopes.ts)
+- [shell/execution-backend/local.ts](../src/shell/execution-backend/local.ts)
+- [shell/execution-backend/probes.ts](../src/shell/execution-backend/probes.ts)
+- [shell/execution-backend/registry.ts](../src/shell/execution-backend/registry.ts)
+- [shell/execution-backend/remote.ts](../src/shell/execution-backend/remote.ts)
+- [shell/execution-backend/types.ts](../src/shell/execution-backend/types.ts)
+- [shell/feedback-cli.ts](../src/shell/feedback-cli.ts)
+- [shell/feedback-operations.ts](../src/shell/feedback-operations.ts)
+- [shell/fs-atomic.ts](../src/shell/fs-atomic.ts)
+- [shell/ledger-cli.ts](../src/shell/ledger-cli.ts)
+- [shell/ledger-io.ts](../src/shell/ledger-io.ts)
+- [shell/man-cli.ts](../src/shell/man-cli.ts)
+- [shell/metrics-cli.ts](../src/shell/metrics-cli.ts)
+- [shell/multi-agent-cli.ts](../src/shell/multi-agent-cli.ts)
+- [shell/multi-agent-io.ts](../src/shell/multi-agent-io.ts)
+- [shell/multi-agent-operator-ux.ts](../src/shell/multi-agent-operator-ux.ts)
+- [shell/node-store.ts](../src/shell/node-store.ts)
+- [shell/observability-format.ts](../src/shell/observability-format.ts)
+- [shell/observability-intake.ts](../src/shell/observability-intake.ts)
+- [shell/observability.ts](../src/shell/observability.ts)
+- [shell/onramp.ts](../src/shell/onramp.ts)
+- [shell/operator-ux-text.ts](../src/shell/operator-ux-text.ts)
+- [shell/pipeline-cli.ts](../src/shell/pipeline-cli.ts)
+- [shell/pipeline.ts](../src/shell/pipeline.ts)
+- [shell/reclamation-io.ts](../src/shell/reclamation-io.ts)
+- [shell/registry-cli.ts](../src/shell/registry-cli.ts)
+- [shell/remote-source.ts](../src/shell/remote-source.ts)
+- [shell/report-cli.ts](../src/shell/report-cli.ts)
+- [shell/report-view-cli.ts](../src/shell/report-view-cli.ts)
+- [shell/report.ts](../src/shell/report.ts)
+- [shell/reporter.ts](../src/shell/reporter.ts)
+- [shell/run-export-cli.ts](../src/shell/run-export-cli.ts)
+- [shell/run-export.ts](../src/shell/run-export.ts)
+- [shell/run-registry-io.ts](../src/shell/run-registry-io.ts)
+- [shell/scheduling-io.ts](../src/shell/scheduling-io.ts)
+- [shell/state-cli.ts](../src/shell/state-cli.ts)
+- [shell/state-explosion-cli.ts](../src/shell/state-explosion-cli.ts)
+- [shell/telemetry-cli.ts](../src/shell/telemetry-cli.ts)
+- [shell/telemetry-demo.ts](../src/shell/telemetry-demo.ts)
+- [shell/telemetry-ledger-io.ts](../src/shell/telemetry-ledger-io.ts)
+- [shell/term.ts](../src/shell/term.ts)
+- [shell/topology-io.ts](../src/shell/topology-io.ts)
+- [shell/trust-policy-io.ts](../src/shell/trust-policy-io.ts)
+- [shell/workbench-host.ts](../src/shell/workbench-host.ts)
+- [shell/workbench-text.ts](../src/shell/workbench-text.ts)
+- [shell/workbench.ts](../src/shell/workbench.ts)
+- [shell/worker-cli.ts](../src/shell/worker-cli.ts)
 
 ## Workflow Apps
 

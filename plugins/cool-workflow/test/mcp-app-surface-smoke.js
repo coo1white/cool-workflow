@@ -1,4 +1,22 @@
 #!/usr/bin/env node
+// CUTOVER AUDIT (v2): REAL-GAP — left failing on purpose, do NOT weaken.
+//
+// This smoke drives the built dist/mcp-server.js over stdio; it require()s
+// no internal modules, so there are NO imports to repoint. The failure is
+// genuine v2 behavior, not an import crash: the server answers, but the app
+// -> worker -> candidate -> commit -> operator MCP surface this smoke walks
+// is only PARTLY wired in v2's current milestone. tools/list reports the
+// full 196-tool set (src/core/capability-table.ts MCP_TOOL_DATA), but many
+// of the tools this smoke CALLS still carry the notYetImplemented placeholder
+// handler (src/core/capability-table.ts:159-163, :480). The first one hit is
+// cw_sandbox_choose at line ~92 below:
+//   "sandbox.choose is not implemented in this milestone"
+//   -> capability "sandbox.choose", row src/core/capability-table.ts:295,
+//      no MCP_REAL_HANDLERS entry and no later handler override.
+// Also still placeholders: app.run (cw_app_run, ~line 95), worker.manifest
+// (cw_worker_manifest, ~line 115). Real handlers exist for some later tools
+// (candidate.register, operator.status, worker.summary), so this is a
+// partial-surface gap for Phase B to close, not a whole-file NO-EQUIVALENT.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");

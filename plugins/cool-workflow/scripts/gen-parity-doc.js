@@ -22,7 +22,13 @@ const pluginRoot = path.resolve(__dirname, "..");
 const DOC = path.join(pluginRoot, "docs", "cli-mcp-parity.7.md");
 const CHECK = process.argv.includes("--check");
 
-const { CAPABILITY_REGISTRY } = require(path.join(pluginRoot, "dist", "capability-registry.js"));
+// v2 repoint: the flat dist/capability-registry.js is gone. The single
+// source of truth is now core/capability-table's REGISTRY (same row shape:
+// capability, surface, cli, mcp, payloadIdentical, reason, entry, ...),
+// exported under the old name too (CAPABILITY_REGISTRY = REGISTRY, an
+// alias declared in capability-table.ts for callers written against the
+// old name).
+const { CAPABILITY_REGISTRY } = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
 
 const NUM_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve"];
 const numWord = (n) => NUM_WORDS[n] || String(n);
@@ -41,6 +47,13 @@ function payload(cap) {
   if (cap.surface !== "both") return cap.surface;
   return cap.payloadIdentical === false ? "projected" : "identical";
 }
+// v2 adapt: this table's `entry` field is only set where a row names its
+// shared core entry explicitly (most rows do not yet, unlike the old flat
+// registry where every row named one). Fall back to the capability id
+// itself so the doc table never prints a literal "undefined".
+function coreEntry(cap) {
+  return cap.entry || cap.capability;
+}
 
 function buildCount() {
   const caps = CAPABILITY_REGISTRY.length;
@@ -54,7 +67,7 @@ function buildTable() {
     "| --- | --- | --- | --- | --- | --- |"
   ];
   for (const cap of CAPABILITY_REGISTRY) {
-    lines.push(`| \`${cap.capability}\` | \`${cliCommand(cap)}\` | \`${mcpTool(cap)}\` | \`${cap.entry}\` | ${payload(cap) === "cli-only" || cap.surface !== "both" ? cap.surface : "both"} | ${payload(cap)} |`);
+    lines.push(`| \`${cap.capability}\` | \`${cliCommand(cap)}\` | \`${mcpTool(cap)}\` | \`${coreEntry(cap)}\` | ${payload(cap) === "cli-only" || cap.surface !== "both" ? cap.surface : "both"} | ${payload(cap)} |`);
   }
   return lines.join("\n");
 }

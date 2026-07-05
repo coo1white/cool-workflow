@@ -129,7 +129,8 @@ function main() {
   }
 
   {
-    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "agent-config.js"));
+    // v2 moved agent-config under dist/shell/.
+    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js"));
     // builtin:gemini now routes through opencode (where the user's key lives);
     // the native Gemini CLI wrapper is preserved as builtin:gemini-cli.
     const cfg = resolveAgentConfig({ "agent-command": "builtin:gemini-cli" }, {});

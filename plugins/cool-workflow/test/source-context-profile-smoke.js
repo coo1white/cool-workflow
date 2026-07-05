@@ -95,7 +95,7 @@ assert.ok(totalLines <= core.maxLines, `core export must stay under ${core.maxLi
 
 const subprofileExpectations = {
   runtime: {
-    includes: ["plugins/cool-workflow/src/drive.ts"],
+    includes: ["plugins/cool-workflow/src/shell/drive.ts"],
     excludes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js", "plugins/cool-workflow/scripts/cw.js"]
   },
   mcp: {
@@ -103,15 +103,15 @@ const subprofileExpectations = {
     excludes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js"]
   },
   "workflow-apps": {
-    includes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js", "plugins/cool-workflow/src/workflow-app-framework.ts"],
+    includes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js", "plugins/cool-workflow/src/shell/workflow-app-loader.ts"],
     excludes: ["plugins/cool-workflow/src/mcp-server.ts"]
   },
   release: {
     includes: ["plugins/cool-workflow/scripts/release-flow.js", "plugins/cool-workflow/scripts/version-sync-check.js"],
-    excludes: ["plugins/cool-workflow/src/drive.ts"]
+    excludes: ["plugins/cool-workflow/src/shell/drive.ts"]
   },
   "agent-wrappers": {
-    includes: ["plugins/cool-workflow/scripts/agents/claude-p-agent.js", "plugins/cool-workflow/src/agent-config.ts"],
+    includes: ["plugins/cool-workflow/scripts/agents/claude-p-agent.js", "plugins/cool-workflow/src/shell/agent-config.ts"],
     excludes: ["plugins/cool-workflow/apps/architecture-review-fast/workflow.js"]
   }
 };

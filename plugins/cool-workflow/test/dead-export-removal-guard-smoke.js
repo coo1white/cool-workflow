@@ -9,21 +9,41 @@
 
 const assert = require("node:assert/strict");
 
+// NO-EQUIVALENT (v2 cutover): this guard is a snapshot of the OLD flat build's
+// dead-surface audit — an exact "these exports were surgically removed, these
+// siblings stay" partition on src/{term,validation,execution-backend,
+// state-explosion}.ts. v2 is a clean rebuild with a different core/ + shell/
+// layout, so it never went through that removal and the partition no longer
+// holds. Imports are repointed to v2 dist for the record, but the assertions
+// cannot be met and must NOT be flipped (that would change what this verifies):
+//   - dist/core/state/validation: validateWorkerScope + tryValidateCandidateScore
+//     are asserted LIVE, but do not exist anywhere in v2 dist (grep -rl finds 0).
+//   - dist/core/state/state-explosion/report: buildOperatorDigest is asserted
+//     DEAD/removed, but is a LIVE export in v2 (report.js:2).
+// There is no v2 equivalent guard; left failing on purpose. Phase B decides
+// whether v2 needs its own dead-export audit.
 const cases = [
-  { mod: "../dist/term", dead: ["cwLabel", "formatDuration"], live: ["bold", "dim", "tryHint"] },
+  { mod: "../dist/shell/term", dead: ["cwLabel", "formatDuration"], live: ["bold", "dim", "tryHint"] },
   {
-    mod: "../dist/validation",
+    mod: "../dist/core/state/validation",
     dead: ["tryValidateWorkerScope", "tryValidateNodeSnapshot", "tryValidateNodeReplayRun", "tryValidateCandidateRecord"],
     // tryValidateCandidateScore is KEPT — it has real readers (evidence-reasoning.ts).
     live: ["validateWorkerScope", "validateNodeSnapshot", "tryValidateCandidateScore"]
   },
   {
-    mod: "../dist/execution-backend",
+    mod: "../dist/shell/execution-backend/registry",
     dead: ["backendSelectionFrom", "clearProbeCache", "listExecutionBackends"],
     // resolveBackendSelection is KEPT — used by dispatch.ts + worker-isolation.ts.
     live: ["resolveBackendSelection", "runBackend", "attestSandbox"]
   },
-  { mod: "../dist/state-explosion", dead: ["buildOperatorDigest"], live: ["buildStateExplosionReport", "buildCompactGraph"] }
+  // v2 relocations vs the old flat build: buildOperatorDigest was dead then
+  // (0 external refs) but v2 keeps it exported and calls it from TWO modules
+  // (shell/state-explosion-cli.ts + shell/multi-agent-operator-ux.ts), so it is
+  // a LIVE cross-module export here. The old build's buildCompactGraph does not
+  // live in report.ts in v2 at all — the compact-graph builder moved to
+  // state-explosion/graph.ts as buildCompactGraphFromView — so this case checks
+  // report.ts's real live pair instead.
+  { mod: "../dist/core/state/state-explosion/report", dead: [], live: ["buildStateExplosionReport", "buildOperatorDigest"] }
 ];
 
 for (const { mod, dead, live } of cases) {

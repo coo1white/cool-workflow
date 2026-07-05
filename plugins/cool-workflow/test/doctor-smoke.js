@@ -19,7 +19,7 @@ const { execFileSync } = require("node:child_process");
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const { runDoctor } = require(path.join(pluginRoot, "dist", "doctor.js"));
+const { runDoctor } = require(path.join(pluginRoot, "dist", "shell", "doctor.js"));
 
 function run(args, env, cwd) {
   try {

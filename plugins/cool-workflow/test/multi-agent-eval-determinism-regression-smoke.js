@@ -34,8 +34,8 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const distDir = process.env.CW_TEST_DIST_DIR || path.join(pluginRoot, "dist");
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require(path.join(distDir, "state.js"));
-const evalMod = require(path.join(distDir, "multi-agent-eval.js"));
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require(path.join(distDir, "shell", "run-store.js"));
+const evalMod = require(path.join(distDir, "shell", "eval-io.js"));
 
 const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-ma-eval-determinism-")));
 

@@ -15,7 +15,41 @@ const path = require("node:path");
 const pluginRoot = path.resolve(__dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
+// REAL-GAP (v2): the CoolWorkflowRunner facade is gone (remapped below to free
+// functions), but the deeper issue is that v2's recordWorkerFailure records an
+// error NODE + trust-audit event yet emits NO error-feedback record. So the
+// failed source run has an empty run.feedback (line 51 assertion), and because
+// deriveLifecycle only returns "blocked" when openFeedback > 0 (a failed task
+// alone derives "failed"), the restored run shows derivedLifecycle "failed", not
+// the "blocked" this smoke asserts (line 62). Same missing error-feedback
+// integration seen in error-feedback-smoke / no-false-green-smoke. The facade
+// remap lets the export/import/rerun/provenance CLI assertions still run; the two
+// feedback-derived assertions fail on the real gap. Reported for a human call.
+const { plan: planApp } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { loadRunFromCwd, saveCheckpoint } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const { dispatchRun } = require(path.join(pluginRoot, "dist/shell/pipeline-cli.js"));
+const { recordWorkerFailure } = require(path.join(pluginRoot, "dist/shell/worker-isolation.js"));
+
+const CoolWorkflowRunner = function () {
+  let lastCwd = process.cwd();
+  return {
+    plan(workflowId, options = {}) {
+      lastCwd = String(options.repo || options.cwd || process.cwd());
+      return planApp(loadWorkflowApp(workflowId), options);
+    },
+    dispatch(runId, options = {}) {
+      return dispatchRun({ runId, cwd: lastCwd, ...options });
+    },
+    recordWorkerFailure(runId, workerId, message, options = {}) {
+      const run = loadRunFromCwd(runId, lastCwd);
+      const updated = recordWorkerFailure(run, workerId, message, options);
+      saveCheckpoint(run);
+      return updated;
+    },
+    loadRun(runId) { return loadRunFromCwd(runId, lastCwd); }
+  };
+};
 
 const cwHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-rerun-home-")));
 const sourceRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-rerun-source-")));

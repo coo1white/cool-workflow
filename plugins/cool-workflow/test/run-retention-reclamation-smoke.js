@@ -14,11 +14,19 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state");
-const { allocateWorkerScope, recordWorkerOutput } = require("../dist/worker-isolation");
-const { snapshotNode, loadNodeSnapshot } = require("../dist/node-snapshot");
-const { RunRegistry } = require("../dist/run-registry");
-const { listTrustAuditEvents } = require("../dist/trust-audit");
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { allocateWorkerScope, recordWorkerOutput } = require("../dist/shell/worker-isolation");
+// v2 split node-snapshot into a PURE core half and a SHELL persistence half.
+// snapshotNode must come from shell/node-store: only that wrapper honors
+// `persist: true` and actually writes nodes/snapshots/<nodeId>/<id>.json to
+// disk — which is exactly what the reclamation scan reads to decide the
+// re-runnable-by-reconstruction downgrade. (The core snapshotNode is pure; its
+// `persist` is a callback, so `persist:true` there writes nothing.)
+// loadNodeSnapshot stays the pure freshness check from core.
+const { snapshotNode } = require("../dist/shell/node-store");
+const { loadNodeSnapshot } = require("../dist/core/state/node-snapshot");
+const { RunRegistry } = require("../dist/shell/run-registry-io");
+const { listTrustAuditEvents } = require("../dist/shell/trust-audit");
 const {
   runReclamation,
   planReclamation,
@@ -29,11 +37,29 @@ const {
   loadReclamationLog,
   reclaimedLogPath,
   dirBytes,
-  dominantFailureCode,
   ReclamationAbort,
   ReclamationError,
-  SKELETON_REQUIRED_KEYS
-} = require("../dist/reclamation");
+  SKELETON_REQUIRED_KEYS,
+  // v2 moved gcPlan/gcRun/gcVerify off RunRegistry into free functions that
+  // take the registry (a GcHost) as their first arg. So the old
+  // reg.gcPlan(o) is now gcPlan(reg, o), reg.gcRun(o) is gcRun(reg, o),
+  // and reg.gcVerify(id, o) is gcVerify(reg, id, o).
+  gcPlan,
+  gcRun,
+  gcVerify
+} = require("../dist/shell/reclamation-io");
+
+// v2's reclamation-io no longer exports the dominantFailureCode test helper
+// (it was a pure ranker over verifyReclamation's `checks`, not a behavior).
+// Inlined byte-for-byte from the pre-cutover src/reclamation.ts so the
+// "which failure code dominates" assertions keep their exact original intent.
+function dominantFailureCode(checks) {
+  const order = ["tombstone-chain-broken", "tombstone-digest-mismatch", "reconstruction-digest-mismatch", "skeleton-incomplete", "not-reclaimed"];
+  for (const code of order) {
+    if (checks.some((c) => !c.pass && c.code === code)) return code;
+  }
+  return undefined;
+}
 
 const RESULT_BODY = (summary, ev) =>
   ["# Result", "", summary, "", "```cw:result", JSON.stringify({ summary, findings: [], evidence: ev }), "```", ""].join("\n");
@@ -166,7 +192,7 @@ function fileManifest(root) {
   const reg = new RunRegistry(repo);
   reg.archive("dry-run", { scope: "repo", reason: "test" });
   const before = dirBytes(run.paths.runDir);
-  const plan = reg.gcPlan({ scope: "repo", runId: "dry-run" });
+  const plan = gcPlan(reg, { scope: "repo", runId: "dry-run" });
   const after = dirBytes(run.paths.runDir);
   assert.equal(before, after, "gc plan frees zero bytes");
   assert.ok(!fs.existsSync(reclaimedLogPath(run)), "gc plan writes no reclaimed.json");
@@ -292,7 +318,7 @@ function fileManifest(root) {
   const snapDir = path.join(run.paths.stateNodesDir, "snapshots");
   const reg = new RunRegistry(repo);
   reg.archive("reconstruct", { scope: "repo", reason: "test" });
-  const result = reg.gcRun({ scope: "repo", runId: "reconstruct", policy: { keepScratch: true } });
+  const result = gcRun(reg, { scope: "repo", runId: "reconstruct", policy: { keepScratch: true } });
   assert.equal(result.reclaimed.length, 1, "the run was reclaimed");
   assert.equal(result.reclaimed[0].capability, "re-runnable-by-reconstruction", "reconstructable snapshot downgrades to re-runnable-by-reconstruction");
   assert.equal(result.reclaimed[0].capabilityReason, "inputs-and-expectdigest-retained", "matching closed-enum reason");
@@ -314,7 +340,7 @@ function fileManifest(root) {
   );
 
   // gc verify passes: reconstruction re-derives from the retained node body.
-  let verify = reg.gcVerify("reconstruct", { scope: "repo" });
+  let verify = gcVerify(reg, "reconstruct", { scope: "repo" });
   assert.ok(verify.verified, "reconstructable reclaim verifies");
   assert.ok(verify.checks.some((c) => c.name.startsWith("reconstruct[")), "a reconstruction check ran");
 
@@ -324,19 +350,19 @@ function fileManifest(root) {
   const proofPath = reclaimedLogPath(run);
   const proofBackup = fs.readFileSync(proofPath, "utf8");
   fs.rmSync(proofPath);
-  const wiped = reg.gcVerify("reconstruct", { scope: "repo" });
+  const wiped = gcVerify(reg, "reconstruct", { scope: "repo" });
   assert.equal(wiped.reclaimed, true, "deleted reclaimed.json + witness => still reclaimed (witness attests)");
   assert.ok(!wiped.verified, "deleted reclaim proof fails verify");
   assert.ok(wiped.checks.some((c) => c.code === "reclaim-proof-deleted"), "proof-deletion is reported, not 'never reclaimed'");
   fs.writeFileSync(proofPath, proofBackup, "utf8");
 
   // Flip ONE retained input byte (mutate the source node body) -> mismatch.
-  const fresh = require("../dist/state").loadRunFromCwd("reconstruct", repo);
+  const fresh = require("../dist/shell/run-store").loadRunFromCwd("reconstruct", repo);
   const node = fresh.nodes.find((n) => n.id === built.resultNodeId);
   node.status = node.status === "completed" ? "verified" : "completed";
   node.updatedAt = new Date().toISOString();
   saveCheckpoint(fresh);
-  verify = reg.gcVerify("reconstruct", { scope: "repo" });
+  verify = gcVerify(reg, "reconstruct", { scope: "repo" });
   assert.ok(!verify.verified, "tampering a retained input fails verify");
   assert.equal(dominantFailureCode(verify.checks.map((c) => ({ pass: c.pass, code: c.code }))), "reconstruction-digest-mismatch", "flipping a retained input is reconstruction-digest-mismatch");
   void snap;
@@ -366,7 +392,7 @@ function fileManifest(root) {
   assert.ok(fs.existsSync(resultsCopy), "results/<task>.md is retained");
   assert.equal(sha(resultsCopy), resultsShaBefore, "results/<task>.md sha is unchanged");
   // (b) result node resolves, snapshot valid (not absent), evidence byte-identical.
-  const reloaded = require("../dist/state").loadRunFromCwd("scratch", repo);
+  const reloaded = require("../dist/shell/run-store").loadRunFromCwd("scratch", repo);
   const reNode = reloaded.nodes.find((n) => n.id === built.resultNodeId);
   assert.ok(reNode, "result node still resolves");
   const reSnap = snapshotNode(reloaded, built.resultNodeId, { persist: false });
@@ -404,12 +430,12 @@ function fileManifest(root) {
   for (const [runId, code, policy] of cases) {
     const runDir = path.join(repo, ".cw", "runs", runId);
     const before = dirBytes(runDir);
-    const res = reg.gcRun({ scope: "repo", runId, policy });
+    const res = gcRun(reg, { scope: "repo", runId, policy });
     assert.equal(res.reclaimed.length, 0, `${runId}: nothing reclaimed`);
     assert.deepEqual(res.refused, [{ runId, code }], `${runId}: refused with ${code}`);
     assert.equal(dirBytes(runDir), before, `${runId}: frees zero bytes`);
     assert.ok(!fs.existsSync(path.join(runDir, "reclaimed.json")), `${runId}: no reclaimed.json`);
-    const plan = reg.gcPlan({ scope: "repo", runId, policy });
+    const plan = gcPlan(reg, { scope: "repo", runId, policy });
     const entry = plan.entries.find((e) => e.runId === runId);
     assert.ok(entry && !entry.eligible && entry.reason === code, `${runId}: gc plan lists ineligible with ${code}`);
   }
@@ -429,7 +455,7 @@ function fileManifest(root) {
   const out = runReclamation(run, { reclaimPolicy: { keepSnapshots: true } });
   // NOTE: no saveCheckpoint() here — runReclamation must have persisted the
   // re-point itself. Reload from disk to prove it.
-  const reloaded = require("../dist/state").loadRunFromCwd("durable-repoint", repo);
+  const reloaded = require("../dist/shell/run-store").loadRunFromCwd("durable-repoint", repo);
   const reNode = reloaded.nodes.find((n) => n.id === built.resultNodeId);
   for (const artifact of reNode.artifacts) {
     if (!artifact.path) continue;

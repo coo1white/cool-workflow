@@ -1,0 +1,152 @@
+// core/pipeline/loop-expansion.ts — predicate registry, maxLoopExpansion,
+// maybeExpandLoop's decision half (round clone, stop reasons).
+//
+// MILESTONE 6+7 (combined). Byte-exact port of the old build's
+// src/loop-expansion.ts (predicate registry + maxLoopExpansion are
+// already pure there) plus the DECISION half of
+// src/orchestrator/lifecycle-operations.ts's maybeExpandLoop (materializing
+// the cloned phase/tasks + loop-control node is the caller's job in
+// shell/, since it needs writeTaskFiles + the plan pipeline stage).
+//
+// Evidence: SPEC/pipeline-run.md "loop() expansion — src/loop-
+// expansion.ts + maybeExpandLoop".
+
+import { RunPhase, RunTask, WorkflowRun } from "../state/types";
+
+export interface ResultEnvelopeLike {
+  findings?: unknown[];
+  evidence?: unknown[];
+}
+
+export interface UsageTotalsLike {
+  totalTokens: number;
+}
+
+export interface LoopPredicateContext {
+  round: number;
+  roundResults: ReadonlyArray<ResultEnvelopeLike | undefined>;
+  allResults: ReadonlyArray<ResultEnvelopeLike | undefined>;
+  usageTotals: UsageTotalsLike;
+  inputs: Record<string, unknown>;
+}
+
+export type LoopPredicate = (ctx: LoopPredicateContext) => { done: boolean; reason: string };
+
+const REGISTRY = new Map<string, LoopPredicate>();
+
+export function registerLoopPredicate(name: string, fn: LoopPredicate): void {
+  REGISTRY.set(name, fn);
+}
+export function getLoopPredicate(name: string): LoopPredicate | undefined {
+  return REGISTRY.get(name);
+}
+export function hasLoopPredicate(name: string): boolean {
+  return REGISTRY.has(name);
+}
+
+registerLoopPredicate("no-new-findings", (ctx) => {
+  const empty = ctx.roundResults.every((r) => !r || !Array.isArray(r.findings) || r.findings.length === 0);
+  return empty
+    ? { done: true, reason: "no-new-findings: the latest round produced no findings" }
+    : { done: false, reason: "no-new-findings: the latest round still has findings" };
+});
+
+registerLoopPredicate("single-round", () => ({ done: true, reason: "single-round: stop after one round" }));
+
+/** Static worst-case number of EXTRA tasks a fully-expanded run could
+ *  mint, derived purely from the workflow declaration. Zero with no loop
+ *  phases. */
+export function maxLoopExpansion(run: WorkflowRun): number {
+  let extra = 0;
+  for (const phase of run.phases) {
+    const loop = phase.loop as { maxRounds?: number } | undefined;
+    if (loop && typeof loop.maxRounds === "number" && loop.maxRounds > 1) {
+      extra += (loop.maxRounds - 1) * phase.taskIds.length;
+    }
+  }
+  return extra;
+}
+
+export interface LoopStopDecision {
+  done: boolean;
+  atCap: boolean;
+  reason: string;
+}
+
+/** Decide whether a just-completed loop round should stop, given the
+ *  origin phase's loop spec and the round's recorded results. Pure —
+ *  `until:{kind:"predicate"}` looks up the registry; an unregistered ref
+ *  stops fail-closed (never throws). */
+export function evaluateLoopStop(
+  origin: RunPhase,
+  round: number,
+  ctx: LoopPredicateContext
+): LoopStopDecision {
+  const loop = origin.loop as { maxRounds: number; until: { kind: string; ref?: string; target?: number } } | undefined;
+  if (!loop) return { done: true, atCap: false, reason: "no loop spec" };
+  const maxRounds = loop.maxRounds;
+  let decision: { done: boolean; reason: string };
+  if (loop.until.kind === "budget-target") {
+    const target = loop.until.target || 0;
+    const spent = ctx.usageTotals.totalTokens;
+    decision = spent >= target
+      ? { done: true, reason: `budget-target: ${spent}/${target} recorded tokens` }
+      : { done: false, reason: `budget-target: ${spent}/${target} recorded tokens` };
+  } else {
+    const ref = loop.until.ref || "";
+    const predicate = getLoopPredicate(ref);
+    decision = predicate ? predicate(ctx) : { done: true, reason: `loop predicate "${ref}" not registered — stopping fail-closed` };
+  }
+  const atCap = round >= maxRounds;
+  return { done: decision.done || atCap, atCap, reason: decision.reason };
+}
+
+/** Clone round-1 template tasks into `<base-id>@r<nextRound>` for a fresh
+ *  phase `id: <origin-id>@r<nextRound>`, `name: <origin name> (round
+ *  <n>)`. Pure data transform; the caller writes task files + runs the
+ *  plan pipeline stage per new task. */
+export function cloneLoopRoundTasks(origin: RunPhase, templateTasks: RunTask[], nextRound: number): { phase: RunPhase; tasks: RunTask[] } {
+  // Round-suffix strips any prior @rN so round 3 clones round 1's base id,
+  // never round 2's suffixed id — byte-exact to the old build's
+  // `t.id.replace(/@r\d+$/, "")` in maybeExpandLoop.
+  const suffix = `@r${nextRound}`;
+  const nextPhaseName = `${origin.name} (round ${nextRound})`;
+  const tasks = templateTasks.map((task) => ({
+    ...task,
+    id: `${task.id.replace(/@r\d+$/, "")}${suffix}`,
+    // The cloned tasks belong to the NEW round phase, not round 1 — the old
+    // build set `phase: nextPhaseName` on every cloned task so progress views
+    // and previousPhaseResultsDigest resolve to the right phase.
+    phase: nextPhaseName,
+    status: "pending" as const,
+    loopStage: "interpret" as const,
+    loopRound: nextRound,
+    dispatchId: undefined,
+    dispatchedAt: undefined,
+    startedAt: undefined,
+    completedAt: undefined,
+    result: undefined,
+    stateNodeId: undefined,
+    resultNodeId: undefined,
+    verifierNodeId: undefined,
+    workerId: undefined,
+    workerManifestPath: undefined,
+    taskPath: "",
+    resultPath: "",
+  }));
+  const phase: RunPhase = {
+    id: `${origin.id}${suffix}`,
+    name: nextPhaseName,
+    status: "pending",
+    taskIds: tasks.map((t) => t.id),
+    ...(origin.mode ? { mode: origin.mode } : {}),
+    loopOrigin: origin.id,
+    loopRound: nextRound,
+  };
+  return { phase, tasks };
+}
+
+/** Loop-control node id: `<run-id>:loop-control:<origin-phase-id>:r<round>`. */
+export function loopControlNodeId(runId: string, originPhaseId: string, round: number): string {
+  return `${runId}:loop-control:${originPhaseId}:r${round}`;
+}

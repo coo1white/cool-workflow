@@ -15,7 +15,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const { recordTrustAuditEvent, verifyTrustAudit } = require("../dist/trust-audit");
+const { recordTrustAuditEvent, verifyTrustAudit } = require("../dist/shell/trust-audit");
 const cli = path.join(__dirname, "..", "dist", "cli.js");
 
 function runCli(cwd, args) {

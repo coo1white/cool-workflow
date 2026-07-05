@@ -14,9 +14,11 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state");
-const { appendTelemetryAttestation, computeRecordHash } = require("../dist/telemetry-ledger");
-const { signTelemetry } = require("../dist/telemetry-attestation");
+// v2 layout: flat src/state.ts split into shell/run-store (run I/O) + core/state;
+// telemetry-ledger + telemetry-attestation moved under shell/core-trust.
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { appendTelemetryAttestation, computeRecordHash } = require("../dist/shell/telemetry-ledger-io");
+const { signTelemetry } = require("../dist/core/trust/telemetry-attestation");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");

@@ -233,9 +233,9 @@ function delegateReview(resultPath, inputPath) {
   // Reuse the canonical agent-config resolver (flags > env > file).
   let resolveAgentConfig;
   try {
-    ({ resolveAgentConfig } = require(path.join(pluginRoot, "dist", "agent-config.js")));
+    ({ resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js")));
   } catch (e) {
-    die("cannot load dist/agent-config.js — run `npm run build` first", String(e));
+    die("cannot load dist/shell/agent-config.js — run `npm run build` first", String(e));
   }
   const cfg = resolveAgentConfig(
     { "agent-command": val("--agent-command"), "agent-model": val("--agent-model") },

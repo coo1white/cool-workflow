@@ -5,13 +5,30 @@
 // domain so the switch covers ~40+ previously-uncovered arms.
 // Light touch: verifies dispatch succeeds, does not crash.
 
+// REAL v2 GAP (reported, not papered over): v2's mcp/dispatch wires every tool row
+// but backs un-migrated ones with notYetImplemented (capability-table.ts line ~480:
+// `MCP_REAL_HANDLERS[row.capability] ?? notYetImplemented(row.capability)`), which
+// throws CapabilityNotImplementedError. 17 tools THIS smoke calls are deferred in
+// the current milestone: cw_migration_list, cw_schedule_create|list|due,
+// cw_state_check, cw_contract_show, cw_node_list, cw_feedback_summary,
+// cw_commit_summary, cw_multi_agent_dependencies|failures|evidence,
+// cw_blackboard_summarize, cw_multi_agent_summarize, cw_audit_blackboard,
+// cw_feedback_list, cw_worker_list. The black-box conformance suite never exercises
+// these MCP arms, so 101/101 stays green while this white-box coverage smoke cannot.
+// Imports are repointed to v2 (mcp/dispatch, shell/pipeline, workflow-app-loader);
+// assertions are intentionally NOT weakened. This smoke stays red until v2 wires
+// these MCP handlers — a human milestone decision, not a test-rewrite fix.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { callTool } = require("../dist/mcp/tool-call");
-const { CoolWorkflowRunner } = require("../dist/orchestrator");
+const { callTool } = require("../dist/mcp/dispatch");
+// v2 dismantled the CoolWorkflowRunner facade. runner.plan(appId, opts) was
+// lifecycleOps.plan(loadWorkflowAppById(appId), opts); the v2 equivalent is
+// pipelinePlan(loadWorkflowApp(appId), opts).
+const { plan: pipelinePlan } = require("../dist/shell/pipeline");
+const { loadWorkflowApp } = require("../dist/shell/workflow-app-loader");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-tool-call-"));
 const pluginRoot = path.resolve(__dirname, "..");
@@ -160,9 +177,8 @@ const pluginRoot = path.resolve(__dirname, "..");
 {
   // Create a minimal run for testing read-only tools. Use tmp as cwd
   // so callTool (which defaults to process.cwd()) can find the state.
-  const runner = new CoolWorkflowRunner({ pluginRoot });
   process.chdir(tmp); // run plan creates .cw/ under tmp
-  const plan = runner.plan("architecture-review", { repo: tmp, question: "coverage test" });
+  const plan = pipelinePlan(loadWorkflowApp("architecture-review"), { repo: tmp, question: "coverage test" });
   const runId = plan.id;
   assert.ok(runId, "plan created a run");
   process.chdir(__dirname); // restore cwd

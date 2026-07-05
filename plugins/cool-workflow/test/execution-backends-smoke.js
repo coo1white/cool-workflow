@@ -34,9 +34,9 @@ const {
   backendListPayload,
   probeBackend,
   DEFAULT_BACKEND_ID
-} = require("../dist/execution-backend");
-const { showBundledSandboxProfile, sandboxContextForValidation } = require("../dist/sandbox-profile");
-const { createRunPaths, ensureRunDirs, saveCheckpoint, loadRunFromCwd } = require("../dist/state");
+} = require("../dist/shell/execution-backend/registry");
+const { showBundledSandboxProfile, sandboxContextForValidation } = require("../dist/shell/sandbox-profile");
+const { createRunPaths, ensureRunDirs, saveCheckpoint, loadRunFromCwd } = require("../dist/shell/run-store");
 
 const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-execution-backends-")));
 const ctx = sandboxContextForValidation(tmp);
@@ -230,6 +230,17 @@ const dispatch = JSON.parse(
 assert.equal(dispatch.backendId, "shell", "dispatch records the selected backend");
 assert.equal(dispatch.backendSelection.source, "flag", "selection source is the flag");
 assert.equal(dispatch.tasks[0].backendId, "shell", "task records the backend");
+// REAL-GAP (v2): the dispatch payload does NOT record a backendAttestation block.
+// v2's src/shell/dispatch.ts:createDispatchManifest records backendId +
+// backendSelection (lines 122-123) but never calls attestSandbox nor threads a
+// `backendAttestation` onto the DispatchManifest (interface at src/shell/dispatch.ts:26-41
+// has no such field). The old build recorded the sandbox attestation at dispatch time
+// (smoke intent #3: "record the selected backend + sandbox attestation in run state
+// and the manifest"). The core per-task field exists (core/pipeline/dispatch.ts:27,78:
+// backendAttestation?: unknown) but the shell dispatch flow never populates it, so both
+// the dispatch payload and the worker manifest lack the backend attestation. This is a
+// v2 behavior gap, not an import mismatch — the imports above resolve to the v2 dist.
+// DO NOT weaken these assertions; Phase B must restore attestation recording.
 assert.ok(dispatch.backendAttestation, "dispatch records a sandbox attestation");
 assert.equal(dispatch.backendAttestation.backendId, "shell");
 assert.ok(["enforced", "attested"].includes(dispatch.backendAttestation.status), "attestation honored, not refused");

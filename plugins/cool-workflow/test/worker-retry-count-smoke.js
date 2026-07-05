@@ -4,8 +4,8 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/state");
-const { allocateWorkerScope, reclaimOrphans, listWorkerScopes } = require("../dist/worker-isolation");
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { allocateWorkerScope, listWorkerScopes } = require("../dist/shell/worker-isolation");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-worker-retry-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "worker-retry"));

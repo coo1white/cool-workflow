@@ -24,11 +24,37 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
-const ns = require(path.join(pluginRoot, "dist/node-snapshot.js"));
-const { registerLoopPredicate, maxLoopExpansion } = require(path.join(pluginRoot, "dist/loop-expansion.js"));
+// v2 repoint: the old flat dist/orchestrator.js CoolWorkflowRunner facade is
+// gone. Its plan/loadRun/appsDir now live as free functions across shell/ +
+// core/. Wire them the same way the other rewritten smokes do:
+//   runner.plan(appId, inputs) -> loadWorkflowApp(appId) then plan(app, inputs)
+//   runner.loadRun(id)         -> loadRunFromCwd(id, cwd)
+//   runner.appsDir = dir       -> process.env.CW_APPS_DIR = dir
+//   drive(runner, id, opts)    -> drive(id, cwd, opts)
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+const ns = require(path.join(pluginRoot, "dist/core/state/node-snapshot.js"));
+const { registerLoopPredicate, maxLoopExpansion } = require(path.join(pluginRoot, "dist/core/pipeline/loop-expansion.js"));
 
+// v2 REAL-GAP (audit finding — do NOT fix src here, that is Phase B):
+// Imports are fully repointed to v2 (dist/shell/{pipeline,drive,run-store,
+// workflow-app-loader}.js + dist/core/pipeline/loop-expansion.js + dist/core/
+// state/node-snapshot.js), so this smoke now reaches the GENUINE behavior. It
+// fails on line ~124: only 1 agent spawns, ZERO loop-control nodes are made,
+// and no round phases are appended — the loop() template runs exactly once,
+// then the run completes.
+// Root cause: v2's drive engine never wires the loop RUNTIME primitives.
+//   - src/shell/drive.ts:46 imports ONLY maxLoopExpansion (the STATIC bound,
+//     used at drive.ts:610 to size the maxIterations budget).
+//   - src/core/pipeline/loop-expansion.ts DOES export the runtime primitives
+//     evaluateLoopStop / cloneLoopRoundTasks / loopControlNodeId, but NOTHING
+//     in the whole build calls them (grep dist: 0 hits outside the module).
+// So the old build's bounded dynamic control flow (#2) — expand round by round,
+// evaluate the pure stop predicate, append round-suffixed phases, record a
+// loop-control decision node per round, hard-cap at maxRounds — is absent in
+// v2. drive reserves the loop iteration budget but never expands.
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
 
@@ -80,10 +106,12 @@ function writeLoopApp(appsDir, id, maxRounds, ref) {
   ]
 });\n`);
 }
-function newRunner(appsDir) {
-  const r = new CoolWorkflowRunner({ pluginRoot });
-  r.appsDir = appsDir;
-  return r;
+// v2: plan a run from a tmp apps dir. Old build used a runner bound to
+// `appsDir`; v2 resolves apps via the CW_APPS_DIR env override, then plan(app,
+// inputs) takes the interpreted app object (not an appId).
+function planRun(appsDir, appId, inputs) {
+  process.env.CW_APPS_DIR = appsDir;
+  return plan(loadWorkflowApp(appId), inputs);
 }
 function loopControlDecisions(run) {
   return run.nodes
@@ -107,14 +135,13 @@ function main() {
 
     process.chdir(work);
     try {
-      const runner = newRunner(appsDir);
-      const r = runner.plan("loop-stop3", { repo: work, question: "Q?" });
+      const r = planRun(appsDir, "loop-stop3", { repo: work, question: "Q?" });
       assert.equal(maxLoopExpansion(r), 4, "static expansion bound = (maxRounds-1)*templateTasks = 4");
-      const result = drive(runner, r.id, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
+      const result = drive(r.id, r.cwd, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
       assert.equal(result.status, "complete", "loop run completes");
       assert.equal(fs.readFileSync(countFile, "utf8").length, 3, "exactly 3 rounds ran (predicate stopped at round 3, not maxRounds 5)");
 
-      const final = runner.loadRun(r.id);
+      const final = loadRunFromCwd(r.id, r.cwd);
       const decisions = loopControlDecisions(final);
       assert.equal(decisions.length, 3, "one loop-control node per round (3)");
       assert.deepEqual(decisions.map((d) => d.done), [false, false, true], "loop ran rounds 1,2 then stopped at 3");
@@ -130,9 +157,9 @@ function main() {
       assert.equal(r1.outputFingerprint, r2.outputFingerprint, "result node replays identically under two now");
 
       // a SECOND run with a different now produces the identical decision sequence
-      const r2run = runner.plan("loop-stop3", { repo: work, question: "Q?" });
-      drive(runner, r2run.id, { now: "2031-02-03T00:00:00.000Z", agentConfig: agentConfig(stub) });
-      const decisions2 = loopControlDecisions(runner.loadRun(r2run.id));
+      const r2run = planRun(appsDir, "loop-stop3", { repo: work, question: "Q?" });
+      drive(r2run.id, r2run.cwd, { now: "2031-02-03T00:00:00.000Z", agentConfig: agentConfig(stub) });
+      const decisions2 = loopControlDecisions(loadRunFromCwd(r2run.id, r2run.cwd));
       assert.deepEqual(decisions2, decisions, "two runs under different now ⇒ identical recorded loop decisions");
       console.log("loop: predicate-stops-at-3 + determinism ok");
     } finally {
@@ -150,12 +177,11 @@ function main() {
     writeLoopApp(appsDir, "loop-cap", 2, "test:never");
     process.chdir(work);
     try {
-      const runner = newRunner(appsDir);
-      const r = runner.plan("loop-cap", { repo: work, question: "Q?" });
-      const result = drive(runner, r.id, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
+      const r = planRun(appsDir, "loop-cap", { repo: work, question: "Q?" });
+      const result = drive(r.id, r.cwd, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
       assert.equal(result.status, "complete", "capped loop completes");
       assert.equal(fs.readFileSync(countFile, "utf8").length, 2, "a never-done predicate stops at maxRounds (2)");
-      const decisions = loopControlDecisions(runner.loadRun(r.id));
+      const decisions = loopControlDecisions(loadRunFromCwd(r.id, r.cwd));
       assert.deepEqual(decisions.map((d) => [d.round, d.done, d.atCap]), [[1, false, false], [2, true, true]], "round 2 is done via the cap");
       console.log("loop: cap fail-closed ok");
     } finally {

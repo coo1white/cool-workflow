@@ -29,6 +29,7 @@ function freshRepo() {
   git(dir, ["config", "user.email", "t@t"]);
   git(dir, ["config", "user.name", "t"]);
   git(dir, ["config", "commit.gpgsign", "false"]);
+  git(dir, ["config", "tag.gpgsign", "false"]);
   // Minimal plugin package so `npm run build` / `npm test` resolve to no-ops.
   const pkgDir = path.join(dir, "plugins", "cool-workflow");
   fs.mkdirSync(pkgDir, { recursive: true });

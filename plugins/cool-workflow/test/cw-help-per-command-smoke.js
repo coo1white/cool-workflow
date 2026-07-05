@@ -5,6 +5,32 @@
 // verb's CLI subcommands + one-line summaries derived from CAPABILITY_REGISTRY
 // (the same table the dispatcher and CLI/MCP parity check use). Additive: the
 // bare `cw help` general output is unchanged except a 4-space discoverability note.
+//
+// CUTOVER AUDIT (v2) — no import to repoint: this smoke only shells out to the
+// real CLI (dist/cli.js via execFileSync), so it does NOT crash on the old
+// flat-dist layout. It fails on GENUINE v2 behavior. Classification: REAL-GAP.
+//
+// v2 drops per-command subcommand rows the old build listed:
+//   1. `cw commit summary` — GONE as a CLI subcommand AND as a help row.
+//      Old: src/capability-registry.ts had commit.summary with
+//        cli: { path: ["commit","summary"], jsonMode: "flag" }, surface "both".
+//      v2: src/core/capability-table.ts:224 keeps only the MCP tool
+//        (cw_commit_summary); NO attachCliBinding for commit.summary, and
+//        `commit` is absent from COMMAND_HELP_ROWS in src/core/format/help.ts.
+//        So `cw help commit` shows only `cw commit`, and `cw commit summary`
+//        mis-dispatches ("summary" is read as a positional runId).
+//   2. `cw worker list` (and worker show/manifest/output/fail/validate) — the
+//      CLI still dispatches (through the worker.usage catch-all,
+//      src/core/capability-table.ts:2802 addCliOnlyCapability, hiddenFromHelp),
+//      but the per-subcommand HELP rows are gone: only worker.summary has a
+//      non-hidden cli binding (src/core/capability-table.ts:2347), so
+//      `cw help worker` shows only `cw worker summary`.
+// The registry data still EXISTS in v2 (both capabilities are live rows); v2
+// just no longer surfaces them via `cw help <verb>` (and, for commit.summary,
+// no longer exposes the CLI subcommand at all). Assertions below are LEFT
+// FAILING on purpose — the intent (help lists the verb's registry subcommands)
+// is unchanged; do not weaken them to force green. Phase B must restore the
+// commit.summary CLI binding + the per-subcommand worker help rows.
 
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");

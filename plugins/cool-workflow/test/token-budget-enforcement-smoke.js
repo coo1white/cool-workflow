@@ -22,8 +22,38 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
+// v2 dismantled the CoolWorkflowRunner orchestrator facade into free functions.
+// The old runner.plan/loadRun + drive(runner, ...) map to shell/pipeline's plan()
+// (over a loaded workflow app), shell/run-store's loadRunFromCwd, and the new
+// drive(runId, cwd, options) signature (no runner arg). A tiny local shim keeps
+// the rest of this smoke — and everything it verifies — byte-for-byte identical.
+const { plan: planRun } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
+const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const { drive: driveRun } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+
+// Facade shim: preserves the old runner.plan(workflowId, opts) / runner.loadRun(id)
+// call sites and threads the run's cwd into the new drive(runId, cwd, opts).
+function makeRunner() {
+  let lastCwd = process.cwd();
+  return {
+    plan(workflowId, options = {}) {
+      lastCwd = String(options.repo || options.cwd || process.cwd());
+      return planRun(loadWorkflowApp(workflowId), options);
+    },
+    loadRun(runId) {
+      return loadRunFromCwd(runId, lastCwd);
+    },
+    _cwd: () => lastCwd
+  };
+}
+// drive(runner, runId, opts) -> drive(runId, runner._cwd(), opts).
+function drive(runner, runId, options) {
+  return driveRun(runId, runner._cwd(), options);
+}
+const CoolWorkflowRunner = function () {
+  return makeRunner();
+};
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();

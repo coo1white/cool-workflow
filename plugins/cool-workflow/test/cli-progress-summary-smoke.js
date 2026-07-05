@@ -24,7 +24,10 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const term = require(path.join(pluginRoot, "dist", "term.js"));
+// v2 moved term.ts into src/shell/ → dist/shell/term.js (exports + signatures
+// are byte-identical: printSuccessSummary(fields, stream), phaseProgressLine(
+// name, done, total, mode, stream)). cli.js stays at dist/cli.js.
+const term = require(path.join(pluginRoot, "dist", "shell", "term.js"));
 const cleanups = [];
 
 // A stream stand-in: captures writes; `isTTY` decides whether helpers style/emit at all.
@@ -80,6 +83,19 @@ const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 }
 
 // ===== 2. integration: a real drive emits `==>` phase lines on stderr; --json stdout is clean =====
+//
+// REAL-GAP (v2, Phase B): the drive runs clean — status 0, complete, 14/14
+// workers, byte-clean --json stdout — but v2 NO LONGER emits the brew-style
+// `==> <Phase> ✓ (N/N)` phase-boundary lines this block asserts (lines below).
+// v2's src/shell/drive.ts emitProgress (drive.ts:101) only writes PER-WORKER
+// lines: `[drive] → <label> (<Phase>) — spawning agent…` (drive.ts:309) and
+// `[drive] ⇉ concurrent round: N agents…` (drive.ts:530). The phase-boundary
+// renderer term.phaseProgressLine still exists (src/shell/term.ts:99) but has
+// ZERO callers in v2 src — the drive→phaseProgressLine wiring the old build had
+// was dropped, so no `==> Map`, `==> Map ✓ (6/6)`, or `==> Verdict ✓` ever
+// reaches stderr. The unit surface (parts 1a–1d) still passes; only this live
+// integration assertion is broken. Fix belongs in v2 src (re-wire the drive to
+// emit phaseProgressLine at phase boundaries), NOT in this test.
 {
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-progress-")));
   cleanups.push(work);

@@ -18,8 +18,9 @@ const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const { createReporter } = require(path.join(pluginRoot, "dist", "reporter.js"));
-const term = require(path.join(pluginRoot, "dist", "term.js"));
+// v2 moved the terminal presentation layer under dist/shell/ (was flat dist/).
+const { createReporter } = require(path.join(pluginRoot, "dist", "shell", "reporter.js"));
+const term = require(path.join(pluginRoot, "dist", "shell", "term.js"));
 const { createRenderer, truncate: coreTruncate, toolLabel, summarizeToolResult } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
 
 const HIDE_CURSOR = "\x1b[?25l";

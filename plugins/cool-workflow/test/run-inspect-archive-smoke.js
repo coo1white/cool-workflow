@@ -12,7 +12,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 
-const { inspectArchive } = require("../dist/run-export");
+const { inspectArchive } = require("../dist/shell/run-export");
 const cli = path.join(__dirname, "..", "dist", "cli.js");
 const node = process.execPath;
 

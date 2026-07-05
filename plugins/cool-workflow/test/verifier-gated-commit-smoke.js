@@ -5,10 +5,14 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-const { commitState } = require("../dist/commit");
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/candidate-scoring");
-const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/state");
-const { appendRunNode, createStateNode } = require("../dist/state-node");
+// v2 layout: flat src/ was split into core/ (pure) + shell/ (stateful I/O).
+// commitState and the stateful candidate register/score/select moved to shell/;
+// run-path + checkpoint helpers moved to shell/run-store; the pure state-node
+// helpers moved to core/state/state-node. Signatures are unchanged.
+const { commitState } = require("../dist/shell/commit");
+const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
+const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
+const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-verifier-gated-commit-"));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "commit-smoke"));
@@ -148,6 +152,16 @@ assert.throws(
     }),
   /Verifier node not found/
 );
+// REAL-GAP (v2): the throw + error code are correct, but v2 never records the
+// gate-failure code into run.feedback. The old build pushed these codes onto the
+// deduped, disk-persisted feedback surface (the one cw doctor/report reads).
+// v2's src/shell/commit.ts recordCommitGateFailure (lines 162-189) only builds an
+// error node via appendRunNode; it never calls recordFeedback
+// (src/shell/error-feedback-io.ts), and it bypasses runPipelineStage's
+// recordFeedback hook (src/core/pipeline/runner.ts:279,323). So run.feedback stays
+// empty and this assertion (and the two below at ~L167 and ~L250) fails.
+// Do NOT weaken: the intent is that a blocked commit leaves an operator-visible
+// feedback record. Fix belongs in v2 src (Phase B), not here.
 assert.ok(run.feedback.some((record) => record.code === "commit-verifier-not-found"));
 
 assert.throws(

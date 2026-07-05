@@ -25,9 +25,15 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
-const lifecycle = require(path.join(pluginRoot, "dist/orchestrator/lifecycle-operations.js"));
-const { drive } = require(path.join(pluginRoot, "dist/drive.js"));
+// v2 repoint: the old flat dist/orchestrator.js CoolWorkflowRunner facade +
+// dist/orchestrator/lifecycle-operations.js plan() collapse into the pure
+// shell/pipeline.js plan(app, inputs) (no runner object); dist/drive.js moves
+// to shell/drive.js with the signature drive(runId, cwd, opts). The old
+// LoadedWorkflowApp was a {app:{workflow,...}, source} record; v2's
+// LoadedWorkflowApp is a FLAT {id,title,summary,version,workflow,
+// sandboxProfiles,sourcePath}, so buildApp() (below) builds the flat shape.
+const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
+const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -71,7 +77,7 @@ function behaviorFor(taskId) {
   return "good";
 }
 
-function buildAppRecord(work) {
+function buildApp(work) {
   const taskIds = [];
   for (let i = 1; i <= TOTAL; i++) taskIds.push(`map:t${String(i).padStart(2, "0")}`);
   const tasks = taskIds.map((id) => ({
@@ -80,23 +86,25 @@ function buildAppRecord(work) {
     status: "pending",
     prompt: `Probe the repo. BEHAVIOR=${behaviorFor(id)}`
   }));
+  // v2 FLAT LoadedWorkflowApp (id/title/summary/version/workflow/
+  // sandboxProfiles/sourcePath); plan() reads app.workflow directly (the old
+  // build read appRecord.app.workflow through the {app,source} record).
   return {
-    record: {
-      app: {
-        schemaVersion: 1,
+    app: {
+      id: "t2-acceptance",
+      title: "Track 2 acceptance",
+      summary: "16 concurrent agents: 1 hang + 1 crash + 1 dirty",
+      version: "0.0.1",
+      sandboxProfiles: [],
+      sourcePath: path.join(work, "app.json"),
+      workflow: {
         id: "t2-acceptance",
         title: "Track 2 acceptance",
-        version: "0.0.1",
-        workflow: {
-          id: "t2-acceptance",
-          title: "Track 2 acceptance",
-          summary: "16 concurrent agents: 1 hang + 1 crash + 1 dirty",
-          limits: { maxAgents: TOTAL, maxConcurrentAgents: TOTAL },
-          inputs: [{ name: "repo", type: "path", required: true }],
-          phases: [{ id: "fan", name: "Fan", status: "pending", mode: "parallel", tasks }]
-        }
-      },
-      source: { kind: "manifest", path: path.join(work, "app.json"), manifestPath: path.join(work, "app.json") }
+        summary: "16 concurrent agents: 1 hang + 1 crash + 1 dirty",
+        limits: { maxAgents: TOTAL, maxConcurrentAgents: TOTAL },
+        inputs: [{ name: "repo", type: "path", required: true }],
+        phases: [{ id: "fan", name: "Fan", status: "pending", mode: "parallel", tasks }]
+      }
     },
     taskIds
   };
@@ -109,15 +117,19 @@ function main() {
   const stub = writeStub(path.join(work, "stub.js"));
   process.chdir(work);
   try {
-    const runner = new CoolWorkflowRunner({ pluginRoot });
-    const { record, taskIds } = buildAppRecord(work);
-    const run = lifecycle.plan(record, { repo: work });
+    const { app, taskIds } = buildApp(work);
+    const run = plan(app, { repo: work });
     assert.equal(run.tasks.length, TOTAL, `planned ${TOTAL} tasks`);
 
     const timingLog = path.join(work, "concurrent-timing.jsonl");
     process.env.CW_TIMING_LOG = timingLog;
     const started = Date.now();
-    const result = drive(runner, run.id, {
+    // v2 drive: (runId, cwd, opts); no runner object. policy:{maxAttempts:1}
+    // makes each failure park on its FIRST attempt (DriveOptions.policy —
+    // src/shell/drive.ts — is merged over DEFAULT_SCHEDULING_POLICY and
+    // threaded into handleHop's retryOrPark call and drive()'s maxIterations
+    // call), byte-exact to the old build's drive(runner, run.id, {policy:...}).
+    const result = drive(run.id, run.cwd, {
       now: FIXED_NOW,
       concurrency: TOTAL,
       policy: { maxAttempts: 1 },

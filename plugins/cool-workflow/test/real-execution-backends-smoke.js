@@ -14,8 +14,13 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { runBackend, sha256 } = require(path.join(pluginRoot, "dist/execution-backend.js"));
-const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/sandbox-profile.js"));
+// v2 layout: flat dist/execution-backend.js split into dist/shell/execution-backend/*
+// (runBackend lives in registry) and the evidence sha256 moved to dist/core/hash.js —
+// the SAME sha256 the backend's envelopes/local use to build stdoutSha256:, so this
+// preserves the evidence-parity intent. sandbox-profile moved under dist/shell/.
+const { runBackend } = require(path.join(pluginRoot, "dist/shell/execution-backend/registry.js"));
+const { sha256 } = require(path.join(pluginRoot, "dist/core/hash.js"));
+const { showBundledSandboxProfile, sandboxContextForValidation } = require(path.join(pluginRoot, "dist/shell/sandbox-profile.js"));
 
 const ctx = sandboxContextForValidation(pluginRoot);
 const ro = showBundledSandboxProfile("readonly", ctx);

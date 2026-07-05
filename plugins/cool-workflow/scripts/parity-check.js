@@ -15,8 +15,16 @@
 //      `cw <cmd> --json` payload must equal the `cw_<tool>` MCP result on a real
 //      bootstrap run (whitespace + generation-moment ISO timestamps aside).
 //
-// The registry (src/capability-registry.ts -> dist/capability-registry.js) is
-// the single source of truth; this script never re-declares capabilities.
+// The registry (src/core/capability-table.ts -> dist/core/capability-table.js)
+// is the single source of truth; this script never re-declares capabilities.
+//
+// v2 repoint: the old flat dist/capability-registry.js, dist/orchestrator.js,
+// dist/state.js, dist/state-node.js are gone. Each function this script
+// actually calls now lives in its v2 core/shell home:
+//   - registry (capability + parity planning data) -> core/capability-table.js
+//   - formatHelp                                    -> core/format/help.js
+//   - loadRunFromCwd, saveCheckpoint                 -> shell/run-store.js
+//   - appendRunNode, createStateNode                 -> core/state/state-node.js
 
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
@@ -29,10 +37,10 @@ const pluginRoot = path.resolve(__dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
-const registry = require(path.join(pluginRoot, "dist", "capability-registry.js"));
-const { formatHelp } = require(path.join(pluginRoot, "dist", "orchestrator.js"));
-const { loadRunFromCwd, saveCheckpoint } = require(path.join(pluginRoot, "dist", "state.js"));
-const { appendRunNode, createStateNode } = require(path.join(pluginRoot, "dist", "state-node.js"));
+const registry = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
+const { formatHelp } = require(path.join(pluginRoot, "dist", "core", "format", "help.js"));
+const { loadRunFromCwd, saveCheckpoint } = require(path.join(pluginRoot, "dist", "shell", "run-store.js"));
+const { appendRunNode, createStateNode } = require(path.join(pluginRoot, "dist", "core", "state", "state-node.js"));
 
 function capById(id) {
   const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === id);
@@ -64,21 +72,20 @@ function liveMcpTools() {
 }
 
 function cliDispatchTokens() {
-  const source = cliDispatchSources().map((file) => fs.readFileSync(file, "utf8")).join("\n");
-  return [...new Set([...source.matchAll(/case\s+"([^"]+)":/g)].map((match) => match[1]))];
+  // v2 dispatch is table-driven (findCapabilityByCliPath over REGISTRY), not a
+  // switch, so the token set is the union of every CLI capability's accepted
+  // first tokens (cli.caseTokens where an alias set is declared, else cli.path).
+  // The reachability check below then proves each declared path resolves through
+  // the live dispatcher — replacing the old `case "x":` dist source-grep.
+  return [...new Set(registry.cliCapabilities().flatMap((cap) => cap.cli.caseTokens ?? cap.cli.path))];
 }
 
-function cliDispatchSources() {
-  // The dispatcher + every per-command handler module carved out of it (the
-  // command-surface god-object decomposition). A verb's subcommand `case`s may
-  // live in dist/cli/handlers/<group>.js, so scan those too or their tokens read
-  // as "missing from dist/cli.js".
-  const handlersDir = path.join(pluginRoot, "dist", "cli", "handlers");
-  const handlerFiles = fs.existsSync(handlersDir)
-    ? fs.readdirSync(handlersDir).filter((name) => name.endsWith(".js")).map((name) => path.join(handlersDir, name))
-    : [];
-  return [cli, path.join(pluginRoot, "dist", "cli", "command-surface.js"), ...handlerFiles].filter((file) => fs.existsSync(file));
-}
+// Old-build top-level verbs kept in the frozen help "More commands" index line
+// but folded in v2 into subcommands / the shell layer: init->app.init,
+// search->run.search (declaredCliHelpTokens collapses both to app/run), and
+// update is a shell-level command with no capability-table row. Help-index
+// discovery text, not dispatch-parity tokens — exclude them.
+const HELP_INDEX_ONLY_TOKENS = new Set(["init", "search", "update"]);
 
 function cliHelpTokens() {
   const lines = formatHelp().split(/\r?\n/);
@@ -91,7 +98,7 @@ function cliHelpTokens() {
     const first = trimmed.split(/\s+/)[0];
     for (const token of first.split("|")) {
       const clean = token.replace(/[<[].*$/, "");
-      if (clean) tokens.add(clean);
+      if (clean && !HELP_INDEX_ONLY_TOKENS.has(clean)) tokens.add(clean);
     }
   }
   return [...tokens].sort();
@@ -101,8 +108,18 @@ function cliHelpTokens() {
 // Generation-moment ISO timestamps are presentation metadata, not capability
 // data: the same field carries the wall-clock instant of the render. Neutralize
 // them (and only them) before comparison so we assert canonical-payload identity.
+// Also neutralize the metrics fields derived from a live run's `updatedAt`
+// (wallClockMs = elapsed-since-updatedAt; sourceFingerprint / freshness's
+// current+persisted fingerprints = a hash folding updatedAt). These drift
+// between two separate reads (the CLI subprocess vs the in-process MCP call) of
+// the SAME unchanged run — the same non-determinism web-desktop-workbench-smoke
+// neutralizes with its canonicalStable. Only the workbench/metrics payloads
+// carry these fields, so the extra replacements are a no-op elsewhere.
 function canonical(value) {
-  return JSON.stringify(value).replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, "<ts>");
+  return JSON.stringify(value)
+    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, "<ts>")
+    .replace(/"wallClockMs":\d+/g, '"wallClockMs":<ms>')
+    .replace(/"(sourceFingerprint|currentFingerprint|persistedFingerprint)":"[^"]*"/g, '"$1":"<fp>"');
 }
 
 function escapeRegExp(value) {

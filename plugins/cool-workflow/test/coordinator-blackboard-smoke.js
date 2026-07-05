@@ -32,10 +32,17 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.equal(board.id, "bb-smoke");
   assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "blackboard", "index.json")));
 
+  // v2 CLI grammar change: the blackboard family dropped the per-verb action
+  // word and takes the run id as the FIRST positional. Old build:
+  //   blackboard topic create <run-id> | context put <run-id> |
+  //   artifact add <run-id> | message post <run-id>
+  // v2 (src/core/capability-table.ts attachCliBinding, ~L1530-1596):
+  //   blackboard topic <run-id> | context <run-id> | artifact <run-id> |
+  //   message <run-id>  (list is a trailing positional: artifact <run-id> list)
+  // Adapted below to the v2 spelling; every result assertion is unchanged.
   const topic = runJson([
     "blackboard",
     "topic",
-    "create",
     plan.runId,
     "--id",
     "topic-synthesis",
@@ -49,7 +56,6 @@ const evidenceLocator = `${evidencePath}:1`;
   const fact = runJson([
     "blackboard",
     "context",
-    "put",
     plan.runId,
     "--topic",
     "topic-synthesis",
@@ -66,7 +72,6 @@ const evidenceLocator = `${evidencePath}:1`;
   const conflict = runJson([
     "blackboard",
     "context",
-    "put",
     plan.runId,
     "--topic",
     "topic-synthesis",
@@ -83,7 +88,6 @@ const evidenceLocator = `${evidencePath}:1`;
   const artifact = runJson([
     "blackboard",
     "artifact",
-    "add",
     plan.runId,
     "--topic",
     "topic-synthesis",
@@ -100,7 +104,6 @@ const evidenceLocator = `${evidencePath}:1`;
   const message = runJson([
     "blackboard",
     "message",
-    "post",
     plan.runId,
     "--topic",
     "topic-synthesis",
@@ -112,8 +115,8 @@ const evidenceLocator = `${evidencePath}:1`;
     evidenceLocator
   ]);
   assert.equal(message.linkedArtifactRefIds[0], artifact.id);
-  assert.equal(runJson(["blackboard", "message", "list", plan.runId, "--topic", "topic-synthesis"]).length, 1);
-  assert.equal(runJson(["blackboard", "artifact", "list", plan.runId]).length, 1);
+  assert.equal(runJson(["blackboard", "message", plan.runId, "list", "--topic", "topic-synthesis"]).length, 1);
+  assert.equal(runJson(["blackboard", "artifact", plan.runId, "list"]).length, 1);
 
   const decision = runJson([
     "coordinator",
@@ -204,6 +207,21 @@ const evidenceLocator = `${evidencePath}:1`;
     "--topic",
     "topic-synthesis"
   ]);
+  // REAL-GAP (v2): this asserts the blackboard linkage the old build carried on
+  // every multi-agent record. In v2 the kernel still supports it — the
+  // Create*Input types accept blackboardId/topicIds and createAgentFanout even
+  // inherits `input.blackboardId || group.blackboardId || multiAgentRun.blackboardId`
+  // (src/core/multi-agent/runtime.ts). But the SHELL CLI layer silently drops
+  // the `--blackboard`/`--topic` flags: none of the multi-agent CLI handlers
+  // forward them into the kernel input:
+  //   src/shell/multi-agent-cli.ts:147  createMultiAgentRun  (only id/title/objective)
+  //   src/shell/multi-agent-cli.ts:227  createAgentGroup     (no blackboardId/topicIds)
+  //   src/shell/multi-agent-cli.ts:272  createAgentFanout    (no blackboardId/topicIds)
+  // So `multi-agent run|group|fanout --blackboard bb-smoke` leaves
+  // blackboardId undefined, and this assertion (plus every downstream
+  // manifest.blackboard / membership.blackboardId / fanin.blackboardArtifactRefIds
+  // check) fails. No CLI-invocation change can repair this — the flag never
+  // reaches the kernel. Left failing intentionally; fix belongs in Phase B.
   assert.equal(fanout.blackboardId, "bb-smoke");
 
   const dispatch = runJson([
@@ -291,20 +309,26 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "blackboard", "messages.jsonl")));
   assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "blackboard", "artifacts", `${artifact.id}.json`)));
 
-  // Bare-verb routing — proves the carved handlers/blackboard.ts throws the same
-  // way the god-dispatch did. A thrown error → exit 1 → stderr `cw: <message>`.
-  // `required` throws "Missing <label>."; the inner default + topic/message/
-  // context/artifact fall-through hit the trailing "Usage: cw.js blackboard …".
-  for (const verb of ["summary", "summarize", "graph", "resolve", "snapshot"]) {
+  // Bare-verb routing under v2's capability-table grammar. v2 deliberately
+  // redesigned the blackboard grammar to be RUN-ID-FIRST: a known sub-verb
+  // (summary/summarize/graph/resolve/snapshot/topic/message/context/artifact)
+  // takes the run id as its FIRST positional, so invoking one WITHOUT a run id
+  // is a well-formed path missing a required positional → `cw: Missing run id.`
+  // (the POLA-consistent refusal, io.ts:required). Only an UNKNOWN token
+  // (no capability path) falls through to the 1-token blackboard.usage row and
+  // prints the trailing "Usage: cw.js blackboard …" index. The conformance
+  // suite endorses exactly this split (v2/conformance/cases/cli-usage-strings:
+  // an unknown action-word yields the Usage line). `topic` is now a real path
+  // ["blackboard","topic"], so it joins the Missing-run-id set — the old
+  // build's action-gated "blackboard topic create <run>" grammar is gone by
+  // design (this same smoke depends on the run-id-first grammar above).
+  for (const verb of ["summary", "summarize", "graph", "resolve", "snapshot", "topic"]) {
     const fail = runFail(["blackboard", verb]);
     assert.notEqual(fail.status, 0);
     assert.match(fail.stderr, /Missing run id/);
   }
-  // `topic` with no `create` action falls through to the trailing Usage throw.
-  const topicFail = runFail(["blackboard", "topic"]);
-  assert.notEqual(topicFail.status, 0);
-  assert.match(topicFail.stderr, /Usage: cw\.js blackboard /);
-  // An unknown subcommand hits the inner switch default → trailing Usage throw.
+  // An unknown subcommand has no capability path → the blackboard.usage row's
+  // trailing "Usage: cw.js blackboard …" index.
   const bogusFail = runFail(["blackboard", "bogusverb"]);
   assert.notEqual(bogusFail.status, 0);
   assert.match(bogusFail.stderr, /Usage: cw\.js blackboard /);

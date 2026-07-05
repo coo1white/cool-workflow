@@ -19,10 +19,17 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { createRunPaths, ensureRunDirs, saveCheckpoint, loadRunFromCwd } = require(path.join(pluginRoot, "dist/state.js"));
-const { appendRunNode, createStateNode, transitionStateNode } = require(path.join(pluginRoot, "dist/state-node.js"));
-const ns = require(path.join(pluginRoot, "dist/node-snapshot.js"));
-const { CoolWorkflowRunner } = require(path.join(pluginRoot, "dist/orchestrator.js"));
+// v2 layout: flat src/ was split into core/ (pure) + shell/ (fs/clock). The old
+// dist/state.js run-store helpers now live in shell/run-store; the pure state
+// machine + node-snapshot mechanism live in core/state/*.
+const { createRunPaths, ensureRunDirs, saveCheckpoint, loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const { appendRunNode, createStateNode, transitionStateNode } = require(path.join(pluginRoot, "dist/core/state/state-node.js"));
+const ns = require(path.join(pluginRoot, "dist/core/state/node-snapshot.js"));
+// v2 dismantled the CoolWorkflowRunner orchestrator facade (a documented
+// anti-goal). The "orchestrator entries reachable" intent is now carried by the
+// capability REGISTRY: each node op is a registered capability with a CLI/MCP
+// binding. findCapability is the v2 equivalent of prototype-method presence.
+const { findCapability } = require(path.join(pluginRoot, "dist/core/capability-table.js"));
 
 const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-node-snapshot-")));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "ns-smoke"));
@@ -101,12 +108,18 @@ assert.throws(
 run.nodes = [];
 assert.equal(ns.loadNodeSnapshot(run, s1).freshness, "absent", "absent node surfaces absent");
 
-// 6. disk-loaded run path + orchestrator entries reachable
+// 6. disk-loaded run path + node ops reachable on the public dispatch surface
 const reloaded = loadRunFromCwd("ns-smoke", tmp);
 const onDisk = ns.snapshotNode(reloaded, "node:result", { now: EPOCH, persist: false });
 assert.equal(onDisk.sourceFingerprint, s1.sourceFingerprint, "disk-loaded run snapshots identically");
-for (const m of ["nodeSnapshot", "nodeDiff", "nodeReplay", "nodeReplayVerify"]) {
-  assert.equal(typeof CoolWorkflowRunner.prototype[m], "function", `orchestrator exposes ${m}`);
+// v2: the old CoolWorkflowRunner.prototype.{nodeSnapshot,nodeDiff,nodeReplay,
+// nodeReplayVerify} facade methods are now capabilities in the REGISTRY, each
+// with a CLI binding. Assert every op resolves + is CLI-reachable — same intent
+// (the mechanism is wired into the public surface), v2 equivalent structure.
+for (const cap of ["node.snapshot", "node.diff", "node.replay", "node.replay.verify"]) {
+  const entry = findCapability(cap);
+  assert.ok(entry, `registry exposes capability ${cap}`);
+  assert.ok(entry.cli && typeof entry.cli.handler === "function", `capability ${cap} is CLI-reachable`);
 }
 
 fs.rmSync(tmp, { recursive: true, force: true });

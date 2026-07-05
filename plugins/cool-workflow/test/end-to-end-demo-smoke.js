@@ -10,11 +10,25 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs, saveCheckpoint, writeJson } = require("../dist/state");
-const { appendRunNode, createStateNode, upsertRunContract } = require("../dist/state-node");
-const { createPipelineRunner } = require("../dist/pipeline-runner");
-const { createDefaultPipelineContract } = require("../dist/pipeline-contract");
-const { commitState } = require("../dist/commit");
+// v2 layout: the old flat dist modules split across core/ (pure) and shell/
+// (fs). run-store gives run-paths + checkpoint; writeJson moved to shell/pipeline.
+const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
+const { writeJson } = require("../dist/shell/pipeline");
+const { appendRunNode, createStateNode, upsertRunContract } = require("../dist/core/state/state-node");
+// v2 dropped the createPipelineRunner() factory for pure free functions in
+// core/pipeline/runner (fs is injected). Rebuild the same `runner` facade by
+// binding the shell deps (writeRunNode/saveCheckpoint/pathExists), exactly how
+// src/shell/pipeline.ts wires it — same one-step engine + on-disk persistence.
+const pipelineRunner = require("../dist/core/pipeline/runner");
+const { writeRunNode } = require("../dist/shell/node-store");
+const { createDefaultPipelineContract } = require("../dist/core/pipeline/contract");
+const { commitState } = require("../dist/shell/commit");
+
+const RUNNER_OPTS = { persistNode: writeRunNode, saveCheckpoint, pathExists: (p) => fs.existsSync(p) };
+const runner = {
+  getRunContract: (run, contractId) => pipelineRunner.getRunContract(run, contractId),
+  advancePipeline: (run) => pipelineRunner.advancePipeline(run, RUNNER_OPTS)
+};
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-demo-"));
 const runId = "demo-run";
@@ -62,7 +76,6 @@ const run = {
 };
 saveCheckpoint(run);
 
-const runner = createPipelineRunner();
 const contract = runner.getRunContract(run);
 
 // Seed the pipeline with an input node

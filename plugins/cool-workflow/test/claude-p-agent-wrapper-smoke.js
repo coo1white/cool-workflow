@@ -198,7 +198,8 @@ function main() {
 
   // ---- 5: builtin:claude alias resolves to THIS wrapper (npx-safe config) ----
   {
-    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "agent-config.js"));
+    // v2 cutover: the flat dist/agent-config.js moved to dist/shell/agent-config.js.
+    const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js"));
     const cfg = resolveAgentConfig({ "agent-command": "builtin:claude" }, {});
     assert.ok(cfg.command && cfg.command.includes("claude-p-agent.js"), "builtin:claude expands to the packaged wrapper (absolute path — npx/global installs work)");
     assert.ok(cfg.command.includes("{{input}}") && cfg.command.includes("{{result}}"), "expanded template carries the worker substitutions");
