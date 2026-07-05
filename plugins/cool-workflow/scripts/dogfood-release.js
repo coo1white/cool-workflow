@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { CoolWorkflowRunner } = require("../dist/shell/orchestrator.js");
 
-const TARGET_VERSION = "0.1.98";
+const TARGET_VERSION = "0.2.0";
 const PREVIOUS_VERSION = "0.1.31";
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");

@@ -89,8 +89,9 @@ function main() {
     note("server.json");
   }
 
-  // 3. src/version.ts runtime constant
-  const versionTs = path.join(pluginRoot, "src", "version.ts");
+  // 3. src/core/version.ts runtime constant (v2 moved it from the old flat
+  //    src/version.ts into the core state layer)
+  const versionTs = path.join(pluginRoot, "src", "core", "version.ts");
   const vtsText = fs.readFileSync(versionTs, "utf8");
   const vtsNext = vtsText.replace(
     /(CURRENT_COOL_WORKFLOW_VERSION\s*=\s*)"[^"]*"/,
@@ -98,7 +99,7 @@ function main() {
   );
   if (vtsNext !== vtsText) {
     fs.writeFileSync(versionTs, vtsNext);
-    note("src/version.ts");
+    note("src/core/version.ts");
   }
 
   // 4. manifest/plugin.manifest.json (identity.version) — gen:manifests then

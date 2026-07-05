@@ -1,11 +1,11 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-07-04 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-07-05 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.1.98`
+- Version: `0.2.0`
 - Source modules: `129`
 - Workflow apps: `8`
 - Docs: `61`
