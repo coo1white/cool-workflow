@@ -46,6 +46,10 @@ jobs:
       - run: npm run check
       - run: node scripts/cw.js list
       - run: node scripts/cw.js schedule list
+      # Black-box regression net: the shipping cli.js must stay byte-identical
+      # in observable behavior. This is the guardrail CHANGELOG.md's 0.2.0 entry
+      # promises; it must run in CI or that promise is false.
+      - run: node ../../v2/conformance/run.js --bin dist/cli.js
       # `test:coverage` already runs the full smoke suite; keep release:check for
       # the remaining parity, manifest, version-sync, golden-path, canonical-apps,
       # and eval gates without running the same suite a second time.
