@@ -251,43 +251,53 @@ function schedLeaseCli(options = {}) {
     const now = nowIso(options);
     const policy = loadSchedulingPolicy(registry).policy;
     const limit = options.limit === undefined ? undefined : Number(options.limit);
-    const { entries, leases } = applyLease(registry.loadQueueEntries(), policy, now, limit);
-    registry.saveQueueEntries(entries);
-    return { schemaVersion: 1, now, granted: leases.length, leases };
+    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+        const { entries, leases } = applyLease(registry.loadQueueEntries(), policy, now, limit);
+        registry.saveQueueEntries(entries);
+        return { schemaVersion: 1, now, granted: leases.length, leases };
+    });
 }
 function schedReleaseCli(leaseId, options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
     const now = nowIso(options);
     const failed = isTrue(options.failed);
     const reason = typeof options.reason === "string" ? options.reason : undefined;
-    const { entries, matched } = leaseRelease(registry.loadQueueEntries(), leaseId, loadSchedulingPolicy(registry).policy, now, { failed, reason });
-    if (!matched)
-        throw new Error(`No active lease to release: ${leaseId}`);
-    registry.saveQueueEntries(entries);
-    return { schemaVersion: 1, released: leaseId, failed };
+    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+        const { entries, matched } = leaseRelease(registry.loadQueueEntries(), leaseId, loadSchedulingPolicy(registry).policy, now, { failed, reason });
+        if (!matched)
+            throw new Error(`No active lease to release: ${leaseId}`);
+        registry.saveQueueEntries(entries);
+        return { schemaVersion: 1, released: leaseId, failed };
+    });
 }
 function schedCompleteCli(leaseId, options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
-    const { entries, matched } = leaseComplete(registry.loadQueueEntries(), leaseId, nowIso(options));
-    if (!matched)
-        throw new Error(`No active lease to complete: ${leaseId}`);
-    registry.saveQueueEntries(entries);
-    return { schemaVersion: 1, completed: leaseId };
+    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+        const { entries, matched } = leaseComplete(registry.loadQueueEntries(), leaseId, nowIso(options));
+        if (!matched)
+            throw new Error(`No active lease to complete: ${leaseId}`);
+        registry.saveQueueEntries(entries);
+        return { schemaVersion: 1, completed: leaseId };
+    });
 }
 function schedReclaimCli(options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
     const now = nowIso(options);
-    const { entries, reclaimed } = reclaimExpired(registry.loadQueueEntries(), loadSchedulingPolicy(registry).policy, now);
-    registry.saveQueueEntries(entries);
-    return { schemaVersion: 1, now, reclaimed };
+    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+        const { entries, reclaimed } = reclaimExpired(registry.loadQueueEntries(), loadSchedulingPolicy(registry).policy, now);
+        registry.saveQueueEntries(entries);
+        return { schemaVersion: 1, now, reclaimed };
+    });
 }
 function schedResetCli(id, options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
-    const { entries, matched } = resetEntry(registry.loadQueueEntries(), id);
-    if (!matched)
-        throw new Error(`No parked entry to reset: ${id}`);
-    registry.saveQueueEntries(entries);
-    return { schemaVersion: 1, reset: id };
+    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+        const { entries, matched } = resetEntry(registry.loadQueueEntries(), id);
+        if (!matched)
+            throw new Error(`No parked entry to reset: ${id}`);
+        registry.saveQueueEntries(entries);
+        return { schemaVersion: 1, reset: id };
+    });
 }
 function schedPolicyShowCli(options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));

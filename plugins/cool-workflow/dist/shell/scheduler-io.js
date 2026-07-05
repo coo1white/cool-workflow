@@ -387,51 +387,60 @@ class RoutineTriggerBridge {
         this.storePath = path.join(this.cwd, ".cw", "routines", "triggers.json");
         this.payloadsDir = path.join(this.cwd, ".cw", "routines", "payloads");
     }
+    locked(fn) {
+        return (0, fs_atomic_1.withFileLock)(this.storePath, fn);
+    }
     create(options) {
-        const now = new Date().toISOString();
-        const store = this.load();
-        // Monotonic id, NOT triggers.length: delete shrinks the collection, so
-        // a length-based seq would reuse a live id after delete+create.
-        const seq = (store.nextTriggerSeq || 0) + 1;
-        store.nextTriggerSeq = seq;
-        const trigger = {
-            id: createTriggerId(normalizeTriggerKind(options.kind), seq),
-            kind: normalizeTriggerKind(options.kind),
-            createdAt: now,
-            updatedAt: now,
-            source: String(options.source || options.kind || "api"),
-            prompt: requiredString(options.prompt, "prompt"),
-            workflowId: stringOption(options.workflowId),
-            runId: stringOption(options.runId),
-            match: parseJsonObject(options.match),
-            metadata: parseJsonObject(options.metadata),
-        };
-        store.triggers.push(trigger);
-        this.save(store);
-        return trigger;
+        return this.locked(() => {
+            const now = new Date().toISOString();
+            const store = this.load();
+            // Monotonic id, NOT triggers.length: delete shrinks the collection, so
+            // a length-based seq would reuse a live id after delete+create.
+            const seq = (store.nextTriggerSeq || 0) + 1;
+            store.nextTriggerSeq = seq;
+            const trigger = {
+                id: createTriggerId(normalizeTriggerKind(options.kind), seq),
+                kind: normalizeTriggerKind(options.kind),
+                createdAt: now,
+                updatedAt: now,
+                source: String(options.source || options.kind || "api"),
+                prompt: requiredString(options.prompt, "prompt"),
+                workflowId: stringOption(options.workflowId),
+                runId: stringOption(options.runId),
+                match: parseJsonObject(options.match),
+                metadata: parseJsonObject(options.metadata),
+            };
+            store.triggers.push(trigger);
+            this.save(store);
+            return trigger;
+        });
     }
     list(kind) {
         const store = this.load();
         return kind ? store.triggers.filter((trigger) => trigger.kind === kind) : store.triggers;
     }
     delete(id) {
-        const store = this.load();
-        const before = store.triggers.length;
-        store.triggers = store.triggers.filter((trigger) => trigger.id !== id);
-        this.save(store);
-        return { deleted: store.triggers.length !== before, id };
+        return this.locked(() => {
+            const store = this.load();
+            const before = store.triggers.length;
+            store.triggers = store.triggers.filter((trigger) => trigger.id !== id);
+            this.save(store);
+            return { deleted: store.triggers.length !== before, id };
+        });
     }
     fire(kind, payload) {
-        const normalizedKind = normalizeTriggerKind(kind);
-        const store = this.load();
-        const now = new Date().toISOString();
-        const base = store.events.length;
-        const events = store.triggers
-            .filter((trigger) => trigger.kind === normalizedKind)
-            .map((trigger, index) => this.createEvent(trigger, payload, now, base + index + 1));
-        store.events.push(...events);
-        this.save(store);
-        return events;
+        return this.locked(() => {
+            const normalizedKind = normalizeTriggerKind(kind);
+            const store = this.load();
+            const now = new Date().toISOString();
+            const base = store.events.length;
+            const events = store.triggers
+                .filter((trigger) => trigger.kind === normalizedKind)
+                .map((trigger, index) => this.createEvent(trigger, payload, now, base + index + 1));
+            store.events.push(...events);
+            this.save(store);
+            return events;
+        });
     }
     events(triggerId) {
         const store = this.load();
