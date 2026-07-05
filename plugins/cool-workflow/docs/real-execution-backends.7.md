@@ -189,3 +189,5 @@ _No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes on
 0.1.97
 
 0.1.98
+
+0.2.0
