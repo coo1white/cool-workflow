@@ -1,0 +1,2 @@
+APPROVED c974dd8d61e7a69e5aace07e768200ff4835b830
+You can now run ~50 verbs that were MCP-only — cw schedule|routine|queue|sched, cw run export|import|restore, cw gc run, cw registry show, and the multi-agent read verbs — straight from the cw CLI, on a from-scratch-rebuilt runtime whose external behavior is proven byte-for-byte unchanged by a 101-case conformance suite that passes on both the old and the new build.
