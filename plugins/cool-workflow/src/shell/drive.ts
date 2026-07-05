@@ -2,7 +2,7 @@
 // once per step and performs the spawn/commit/cache-write IO the
 // decision names.
 //
-// MILESTONE 6+7 (combined; see v2/PLAN.md Open risk 9/10 — the LARGEST
+// MILESTONE 6+7 (combined; see docs/rebuild/PLAN.md Open risk 9/10 — the LARGEST
 // milestone). Byte-exact port of the old build's src/drive.ts's
 // imperative shell around the pure decision core now in
 // core/pipeline/drive-decide.ts. Sub-workflow nesting and `--incremental`

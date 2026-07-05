@@ -2,7 +2,7 @@
 // mcp/server.ts — the stdio JSON-RPC loop: initialize / tools/list /
 // tools/call.
 //
-// MILESTONE 2 (v2/PLAN.md build order, step 2). Byte-exact port of the
+// MILESTONE 2 (docs/rebuild/PLAN.md build order, step 2). Byte-exact port of the
 // framing rules in SPEC/mcp.md's "JSON-RPC methods" / "Exact outputs" /
 // "Invariants and error behavior" #9 / "Edge cases" sections:
 //   - transport: stdin/stdout, ONE JSON object per line, no

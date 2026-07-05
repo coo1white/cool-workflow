@@ -6,7 +6,7 @@
 //
 // MILESTONE 8. Byte-exact port of the old build's src/telemetry-ledger.ts
 // verify-side logic. Uses core/hash.ts's `sha256`/`telemetryStableStringify`
-// (see v2/PLAN.md byte-compat item 2's key-omission-vs-null rule).
+// (see docs/rebuild/PLAN.md byte-compat item 2's key-omission-vs-null rule).
 //
 // Evidence: SPEC/ledger-trust.md "Telemetry ledger record", byte-compat
 // items 2 and 12; plugins/cool-workflow/src/telemetry-ledger.ts:1-224.
@@ -65,7 +65,7 @@ export function genesisPrevHash(runId: string): string {
  *  recordHash itself. `reportedUsage`/`resultDigest` are OMITTED (not
  *  `null`) when absent, so a usage-only record's hash is byte-identical
  *  to a pre-result-coverage one (back-compat with old ledgers) — see
- *  v2/PLAN.md byte-compat item 2. */
+ *  docs/rebuild/PLAN.md byte-compat item 2. */
 function recordHashInput(record: Omit<TelemetryAttestationRecord, "recordHash">): string {
   return telemetryStableStringify({
     schemaVersion: record.schemaVersion,

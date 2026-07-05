@@ -30,7 +30,7 @@ function unique<T extends string>(values: readonly T[]): T[] {
 
 /** Chair detection: lowercased `metadata.topologyRoleId` (or title)
  *  contains "chair", "reducer", or "synthesizer". Judge detection:
- *  contains "judge". Renaming a role changes its authority (v2/PLAN.md
+ *  contains "judge". Renaming a role changes its authority (docs/rebuild/PLAN.md
  *  byte-compat / rebuild risk 4 — substring match, not a flag). */
 export function policyForRole(role: AgentRole): MultiAgentPolicy {
   const topologyRole = String((role.metadata as Record<string, unknown> | undefined)?.topologyRoleId || role.title || "").toLowerCase();

@@ -25,7 +25,7 @@ function unique(values) {
 }
 /** Chair detection: lowercased `metadata.topologyRoleId` (or title)
  *  contains "chair", "reducer", or "synthesizer". Judge detection:
- *  contains "judge". Renaming a role changes its authority (v2/PLAN.md
+ *  contains "judge". Renaming a role changes its authority (docs/rebuild/PLAN.md
  *  byte-compat / rebuild risk 4 — substring match, not a flag). */
 function policyForRole(role) {
     const topologyRole = String(role.metadata?.topologyRoleId || role.title || "").toLowerCase();

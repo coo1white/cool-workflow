@@ -2,7 +2,7 @@
 // registerBackend, resolveBackendSelection, attestSandbox, probeBackend,
 // runBackend, and the CLI-facing inspection payloads.
 //
-// MILESTONE 5 (v2/PLAN.md build order, step 5). Byte-exact port of
+// MILESTONE 5 (docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
 // plugins/cool-workflow/src/execution-backend.ts (the parts not carved into
 // local.ts/container.ts/remote.ts/ci.ts/agent.ts/probes.ts).
 //

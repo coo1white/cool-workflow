@@ -5,7 +5,7 @@
 // content object, a list of strings) still comes in as a plain function
 // argument here.
 //
-// Per v2/PLAN.md's byte-compat section ("Hash dedup — three shapes, not one
+// Per docs/rebuild/PLAN.md's byte-compat section ("Hash dedup — three shapes, not one
 // edge case"), this file must keep THREE things separate, each with its own
 // name, never collapsed into a single flagged helper:
 //

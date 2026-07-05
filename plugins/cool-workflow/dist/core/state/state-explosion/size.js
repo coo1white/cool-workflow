@@ -2,7 +2,7 @@
 // core/state/state-explosion/size.ts — computeStateSizeWithGraph,
 // DEFAULT_STATE_EXPLOSION_THRESHOLDS.
 //
-// MILESTONE 4 (v2/PLAN.md build order, step 4). Byte-exact port of the old
+// MILESTONE 4 (docs/rebuild/PLAN.md build order, step 4). Byte-exact port of the old
 // build's src/state-explosion/size.ts. The counts are the same 12
 // categories the old build reads off `run.multiAgent`/`run.blackboard`
 // (loose `unknown[]`-typed record arrays at this milestone — see core/
