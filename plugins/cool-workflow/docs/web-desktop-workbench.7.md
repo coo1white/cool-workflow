@@ -96,11 +96,21 @@ The console is read-only. It offers no actions. If a later release adds an actio
 capability core entry that already exists — never a side code path — so it cannot drift from the
 CLI/MCP and is covered by the parity gate.
 
+Authentication is opt-in, not on by default: set `CW_WORKBENCH_TOKEN` and every
+request must carry it as `Authorization: Bearer <token>` or `?token=<token>`
+(timing-safe compare); left unset, the loopback/read-only/GET-only controls
+above are the only defense and any local process can read. Pass
+`--require-token` to `cw workbench serve` to fail closed instead: the server
+refuses to start at all unless `CW_WORKBENCH_TOKEN` is already set. This is a
+strict opt-in — leaving it off keeps today's default behavior unchanged.
+(`--require-token` has no effect on `cw_workbench_serve`'s MCP path, which
+never actually binds a listener.)
+
 ## Surfaces
 
 ```
 cw workbench view <run-id> [--json]         # five-panel WorkbenchRunView for one run
-cw workbench serve [--port N] [--scope repo|home] [--once|--json]
+cw workbench serve [--port N] [--scope repo|home] [--once|--json] [--require-token]
 ```
 
 `cw workbench serve` with `--once`/`--json` prints the serve descriptor (bind

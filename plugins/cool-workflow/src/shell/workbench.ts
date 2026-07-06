@@ -127,16 +127,13 @@ export interface WorkbenchServeDescriptor {
   routes: WorkbenchRoute[];
 }
 
+/** Package-relative resolution only — never falls back to the invocation
+ *  cwd. `ui/` ships as a sibling of `dist/` in the published package
+ *  (package.json's `files`), so from `dist/shell/workbench.js` the fixed
+ *  path is two levels up. Matches the existing precedent in
+ *  execution-backend/agent.ts's BATCH_DELEGATE_CHILD_SCRIPT resolution. */
 export function workbenchUiRoot(): string {
-  let dir = __dirname;
-  for (let i = 0; i < 8; i++) {
-    const candidate = path.join(dir, "plugins", "cool-workflow", WORKBENCH_UI_RELATIVE);
-    if (require("node:fs").existsSync(candidate)) return candidate;
-    const parent = path.dirname(dir);
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return path.join(process.cwd(), WORKBENCH_UI_RELATIVE);
+  return path.resolve(__dirname, "..", "..", WORKBENCH_UI_RELATIVE);
 }
 
 const WORKBENCH_ROUTES: WorkbenchRoute[] = [
