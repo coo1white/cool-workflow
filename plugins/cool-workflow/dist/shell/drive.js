@@ -384,6 +384,25 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     catch (error) {
         return handleHop(ctx, selected, workerId, `result.md rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
     }
+    // Trust visibility (purely additive, no execution-behavior change): when
+    // the agent backend forwarded provider-namespace env vars (CW_/ANTHROPIC_/
+    // etc.) to the delegated child, record the NAMES (never values) as their
+    // own tamper-evident audit event, mirroring the worker.sub-workflow event
+    // pattern above. Only ever populated by execution-backend/agent.ts's
+    // recordedAgentHandle() — a no-op for every other backend.
+    const forwardedEnvVars = handle?.metadata?.forwardedEnvVars || [];
+    if (forwardedEnvVars.length) {
+        (0, trust_audit_1.recordTrustAuditEvent)(run, {
+            kind: "worker.agent-env",
+            decision: "delegated",
+            source: "runtime-derived",
+            workerId,
+            taskId: selected.id,
+            nodeId: selected.resultNodeId,
+            envVars: forwardedEnvVars,
+            metadata: { reason: "provider-namespace env vars forwarded from host process env to the delegated agent child" },
+        });
+    }
     if (cachePath && fs.existsSync(manifest.resultPath)) {
         writeResultCache(cachePath, fs.readFileSync(manifest.resultPath, "utf8"));
     }

@@ -203,7 +203,7 @@ function substituteAgentArg(arg, subst) {
 /** Build the recorded process handle for the envelope — secret-stripped +
  *  the agent-reported model. Same SHAPE that lands in provenance, never in
  *  evidence. */
-function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedModel, reportedUsage, usageSignature) {
+function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedModel, reportedUsage, usageSignature, forwardedEnvVars) {
     const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
     return {
         kind: "process",
@@ -217,6 +217,7 @@ function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedMode
             reportedModel,
             ...(reportedUsage ? { reportedUsage } : {}),
             ...(usageSignature ? { usageSignature } : {}),
+            ...(forwardedEnvVars && forwardedEnvVars.length ? { forwardedEnvVars } : {}),
         },
     };
 }
@@ -365,6 +366,10 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
         const realArgs = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
         const recordedArgs = stripSecretArgs(realArgs);
         let outcome;
+        // Names only, never values — for the worker.agent-env trust-audit event
+        // below. Stays empty for a preparedAgentOutcome (a batch-delegated child
+        // that already ran elsewhere; this code path forwards nothing itself).
+        const forwardedEnvVars = [];
         if (request.preparedAgentOutcome) {
             outcome = request.preparedAgentOutcome;
         }
@@ -374,6 +379,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             for (const key of Object.keys(process.env)) {
                 if (/^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i.test(key)) {
                     childEnv[key] = process.env[key];
+                    forwardedEnvVars.push(key);
                 }
             }
             const child = (0, node_child_process_1.spawnSync)(resolved.binary, realArgs, {
@@ -392,7 +398,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             };
         }
         if (outcome.spawnError) {
-            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported");
+            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
             return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${outcome.spawnError}`, {
                 ...attestation,
                 handle: handleOut,
@@ -402,7 +408,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
         const stdout = outcome.stdout;
         const report = parseAgentReport(stdout);
         const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature);
+        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature, forwardedEnvVars);
         if (exitCode === null) {
             return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent process returned no exit code (timed out or killed)`, { ...attestation, handle: handleOut });
         }

@@ -152,7 +152,22 @@ export function runDoctor(
     }
   }
 
-  // 3. git — only needed for commit provenance; a warn, not a hard fail.
+  // 3. Sandbox enforcement boundary — a fixed architectural fact (see
+  // docs/sandbox-profiles.7.md), not a host-specific problem to fix, so this
+  // is "ok" (informational), never "warn": CW validates sandbox policy and
+  // gates worker-output acceptance, but OS-level read/write/execute/network/
+  // env isolation is the execution host's responsibility, which this doctor
+  // run cannot itself verify. An "ok" check carries no `fix` line by
+  // convention (see the node/git checks above), so the pointer to the docs
+  // lives in `detail` instead.
+  checks.push({
+    name: "sandbox-enforceability",
+    status: "ok",
+    detail:
+      "CW sandbox profiles validate policy and gate worker-output acceptance; OS-level read/write/execute/network/env isolation is the execution host's responsibility (see docs/sandbox-profiles.7.md's ENFORCEMENT section) — this doctor run cannot verify that host enforcement.",
+  });
+
+  // 4. git — only needed for commit provenance; a warn, not a hard fail.
   const git = spawnSync("git", ["--version"], { encoding: "utf8", timeout: 5000 });
   checks.push(
     !git.error && git.status === 0
@@ -165,7 +180,7 @@ export function runDoctor(
         }
   );
 
-  // 4. Home registry — the cross-repo run index lives here; must be writable.
+  // 5. Home registry — the cross-repo run index lives here; must be writable.
   const home = env.CW_HOME && String(env.CW_HOME).trim() ? path.resolve(String(env.CW_HOME)) : path.join(os.homedir(), ".local", "state", "cool-workflow");
   checks.push(
     dirWritable(home)
@@ -178,7 +193,7 @@ export function runDoctor(
         }
   );
 
-  // 5. Working-dir state — per-repo runs land under <cwd>/.cw.
+  // 6. Working-dir state — per-repo runs land under <cwd>/.cw.
   const cwState = path.join(path.resolve(cwd), ".cw");
   checks.push(
     dirWritable(cwState)
