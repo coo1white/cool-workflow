@@ -34,6 +34,40 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
+
+/** Build the env for a REAL spawned agent child under a sandbox policy: the
+ *  policy's own PATH+HOME+expose/deny base (buildChildEnv), plus provider-key
+ *  vars (the CW_, ANTHROPIC_, etc. prefixes), plus USER. USER is not a provider key, but a
+ *  real vendor CLI (claude, at least) reads it to resolve its own OS-level
+ *  login/keychain credential in headless mode -- buildChildEnv alone keeps
+ *  only PATH+HOME under the readonly policy, so a spawned agent that IS
+ *  logged in interactively reported "Not logged in" here. Found live: PATH+
+ *  HOME alone reproduces it, adding USER back fixes it, LOGNAME alone does
+ *  not. This is the ONE place that builds this env -- the single-request
+ *  (runAgentProcess) and concurrent-batch (shell/drive.ts) spawn paths both
+ *  call it, so the allowlist cannot drift into a second silent copy again.
+ *  Returns the forwarded var NAMES too (never values) for the
+ *  worker.agent-env trust-audit event. */
+export function buildAgentChildEnv(
+  policy: ResolvedSandboxPolicy,
+  baseEnv: NodeJS.ProcessEnv = process.env
+): { env: NodeJS.ProcessEnv; forwarded: string[] } {
+  const env = buildChildEnv(policy, baseEnv);
+  const forwarded: string[] = [];
+  for (const key of Object.keys(baseEnv)) {
+    if (AGENT_PROVIDER_KEY_ENV_RE.test(key)) {
+      env[key] = baseEnv[key];
+      forwarded.push(key);
+    }
+  }
+  if (baseEnv.USER !== undefined && env.USER === undefined) {
+    env.USER = baseEnv.USER;
+    forwarded.push("USER");
+  }
+  return { env, forwarded };
+}
+
 export interface AgentInvocation {
   binary?: string;
   rawArgs: string[];
@@ -388,28 +422,14 @@ export function runAgentProcess(
     // Names only, never values — for the worker.agent-env trust-audit event
     // below. Stays empty for a preparedAgentOutcome (a batch-delegated child
     // that already ran elsewhere; this code path forwards nothing itself).
-    const forwardedEnvVars: string[] = [];
+    let forwardedEnvVars: string[] = [];
     if (request.preparedAgentOutcome) {
       outcome = request.preparedAgentOutcome;
     } else {
       const streamStderr = shouldStreamAgentStderr(process.env, Boolean(process.stderr.isTTY));
-      const childEnv = buildChildEnv(policy);
-      for (const key of Object.keys(process.env)) {
-        if (/^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i.test(key)) {
-          childEnv[key] = process.env[key];
-          forwardedEnvVars.push(key);
-        }
-      }
-      // USER is not a provider key, but a real vendor CLI (claude, at least) reads
-      // it to resolve its own OS-level login/keychain credential in headless mode.
-      // buildChildEnv keeps only PATH+HOME under the readonly policy, so a spawned
-      // agent that IS logged in interactively reported "Not logged in" here — found
-      // live: PATH+HOME alone reproduces it, adding USER back fixes it, LOGNAME
-      // alone does not. Forward the name only (never a secret), same as above.
-      if (process.env.USER !== undefined && childEnv.USER === undefined) {
-        childEnv.USER = process.env.USER;
-        forwardedEnvVars.push("USER");
-      }
+      const built = buildAgentChildEnv(policy);
+      const childEnv = built.env;
+      forwardedEnvVars = built.forwarded;
       const child = spawnSync(resolved.binary, realArgs, {
         cwd: request.cwd,
         env: childEnv,
