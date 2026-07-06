@@ -405,6 +405,76 @@ async function main() {
   const listed = cwJson(["list"], pluginRoot);
   assert.ok(Array.isArray(listed) || (listed && typeof listed === "object"), "core `cw list` still works");
 
+  // ---- 7. --require-token opt-in + UI-root resolution fix -------------------
+  // An architecture review flagged two Workbench gaps: (a) no way to make the
+  // host fail closed when CW_WORKBENCH_TOKEN is unset, and (b) workbenchUiRoot()
+  // could silently fall back to the invocation cwd on an npm install where its
+  // old 8-level walk-up never matched. Both are fixed; pin the fix, not just
+  // "the UI still loads" (the old walk-up could accidentally work in THIS
+  // monorepo checkout while being broken for a real npm install).
+  {
+    const { workbenchUiRoot } = require(path.join(pluginRoot, "dist", "shell", "workbench.js"));
+    assert.equal(
+      workbenchUiRoot(),
+      path.resolve(pluginRoot, "ui", "workbench"),
+      "workbenchUiRoot() resolves via direct package-relative path, not a cwd-dependent walk-up"
+    );
+
+    // Back-compat: no token, no flag -> unauthenticated reads still work.
+    // Already fully exercised above (the live-host section ran with no
+    // CW_WORKBENCH_TOKEN set and every GET succeeded), so no restatement
+    // needed here.
+
+    // Fail-closed: no token, --require-token -> refuses to start, never binds.
+    const tokenlessEnv = { ...process.env };
+    delete tokenlessEnv.CW_WORKBENCH_TOKEN;
+    const refused = require("node:child_process").spawnSync(
+      node,
+      [cli, "workbench", "serve", "--require-token", "--port", "0", "--cwd", workspace],
+      { encoding: "utf8", env: tokenlessEnv }
+    );
+    assert.notEqual(refused.status, 0, "--require-token with no token set exits non-zero");
+    assert.match(refused.stderr || "", /CW_WORKBENCH_TOKEN is not set; refusing to start/, "clear fail-closed message");
+    assert.equal((refused.stdout || "").trim(), "", "never prints a serve descriptor (never binds a listening socket)");
+
+    // Enforced: token set + --require-token -> starts fine; existing checkAuth
+    // 401 logic (unit-tested implicitly: a request without the token is
+    // rejected, one with it succeeds) is unchanged by the new flag.
+    const requiredToken = "smoke-token-abc123";
+    const tokenEnv = { ...process.env, CW_WORKBENCH_TOKEN: requiredToken };
+    const enforced = spawn(node, [cli, "workbench", "serve", "--require-token", "--port", "0", "--cwd", workspace], {
+      env: tokenEnv,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    try {
+      const descriptor = await new Promise((resolve, reject) => {
+        const rl = readline.createInterface({ input: enforced.stdout });
+        rl.once("line", (line) => {
+          try {
+            resolve(JSON.parse(line));
+          } catch (e) {
+            reject(e);
+          }
+        });
+        enforced.once("error", reject);
+        enforced.once("exit", (code) => reject(new Error(`enforced server exited early (${code})`)));
+      });
+      const enforcedBase = { host: "127.0.0.1", port: descriptor.boundPort };
+      const enforcedHeaders = { host: `127.0.0.1:${descriptor.boundPort}` };
+      const noAuth = await request({ ...enforcedBase, path: "/api/index", method: "GET", headers: enforcedHeaders });
+      assert.equal(noAuth.status, 401, "token required + none provided -> 401");
+      const withAuth = await request({
+        ...enforcedBase,
+        path: "/api/index",
+        method: "GET",
+        headers: { ...enforcedHeaders, authorization: `Bearer ${requiredToken}` },
+      });
+      assert.equal(withAuth.status, 200, "token required + correct bearer -> 200 (checkAuth unchanged by --require-token)");
+    } finally {
+      enforced.kill();
+    }
+  }
+
   process.stdout.write(
     `${JSON.stringify({ ok: true, test: "web-desktop-workbench-smoke", runId, panelsChecked: panelCliParity.length }, null, 2)}\n`
   );

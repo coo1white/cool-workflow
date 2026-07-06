@@ -233,8 +233,16 @@ class WorkbenchHost {
     /** `cw workbench serve` entry point: `--once`/`--json` prints ONLY the
      *  descriptor (compact JSON) and starts nothing; the default binds and
      *  blocks, printing one compact line (`{...descriptor, boundPort}`)
-     *  once listening. */
+     *  once listening. `--require-token` is a strict opt-in: default behavior
+     *  (unauthenticated local reads when no token is configured) is
+     *  unchanged unless the caller explicitly asks to fail closed. */
     async run() {
+        const requireToken = Boolean(this.args.requireToken || this.args["require-token"]);
+        if (requireToken && !this.token) {
+            process.stderr.write("workbench serve --require-token: CW_WORKBENCH_TOKEN is not set; refusing to start.\n");
+            process.exitCode = 1;
+            return;
+        }
         const once = Boolean(this.args.once || this.args.json);
         if (once) {
             process.stdout.write(`${JSON.stringify(this.descriptor(true))}\n`);

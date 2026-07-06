@@ -146,7 +146,7 @@ const MCP_TOOL_DATA = [
     { tool: "cw_operator_report", capability: "operator.report", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Refresh and read the structured Operator UX report summary." },
     { tool: "cw_worker_summary", capability: "worker.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured worker summary for a run." },
     { tool: "cw_workbench_view", capability: "workbench.view", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit)." },
-    { tool: "cw_workbench_serve", capability: "workbench.serve", requiredArgs: [], properties: ["cwd", "port", "scope"], description: "Describe/serve the optional localhost-only, read-only Workbench host." },
+    { tool: "cw_workbench_serve", capability: "workbench.serve", requiredArgs: [], properties: ["cwd", "port", "scope", "requireToken"], description: "Describe/serve the optional localhost-only, read-only Workbench host. requireToken is a CLI-only opt-in (the MCP path never actually binds, so it is a no-op here)." },
     { tool: "cw_candidate_summary", capability: "candidate.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured candidate summary for a run." },
     { tool: "cw_feedback_summary", capability: "feedback.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured feedback summary for a run." },
     { tool: "cw_commit_summary", capability: "commit.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured commit summary for a run." },
@@ -2966,12 +2966,12 @@ addCliOnlyCapability("summary.usage", "cw.js summary refresh|show <run-id> [--js
         throw new Error("Usage: cw.js summary refresh|show <run-id> [--json]");
     },
 }, "summary.usage exists only to own the fixed usage-error text for an unrecognized summary subcommand; every real summary.* action is its own capability row above.");
-addCliOnlyCapability("workbench.usage", "cw.js workbench serve [--port N] [--once] | view <run-id> [--json]", {
+addCliOnlyCapability("workbench.usage", "cw.js workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]", {
     path: ["workbench"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js workbench serve [--port N] [--once] | view <run-id> [--json]");
+        throw new Error("Usage: cw.js workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]");
     },
 }, "workbench.usage exists only to own the fixed usage-error text for an unrecognized workbench subcommand; every real workbench.* action is its own capability row above.");
 addCliOnlyCapability("worker.usage", "cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]", {

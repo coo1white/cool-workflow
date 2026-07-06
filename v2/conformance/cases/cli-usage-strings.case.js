@@ -46,7 +46,7 @@ caseMain(() => {
     ["schedule", "cw.js schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon"],
     ["routine", "cw.js routine create|list|delete|fire|events"],
     ["sched", "cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]"],
-    ["workbench", "cw.js workbench serve [--port N] [--once] | view <run-id> [--json]"],
+    ["workbench", "cw.js workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]"],
     ["worker", "cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]"],
     ["review", "cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection"],
     ["coordinator", "cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT"],

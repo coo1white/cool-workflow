@@ -116,18 +116,13 @@ function buildWorkbenchRunView(runId, args = {}) {
     }
     return { schemaVersion: 1, surface: "workbench", runId, resolved, ...(resolveError ? { error: resolveError } : {}), panels };
 }
+/** Package-relative resolution only — never falls back to the invocation
+ *  cwd. `ui/` ships as a sibling of `dist/` in the published package
+ *  (package.json's `files`), so from `dist/shell/workbench.js` the fixed
+ *  path is two levels up. Matches the existing precedent in
+ *  execution-backend/agent.ts's BATCH_DELEGATE_CHILD_SCRIPT resolution. */
 function workbenchUiRoot() {
-    let dir = __dirname;
-    for (let i = 0; i < 8; i++) {
-        const candidate = path.join(dir, "plugins", "cool-workflow", exports.WORKBENCH_UI_RELATIVE);
-        if (require("node:fs").existsSync(candidate))
-            return candidate;
-        const parent = path.dirname(dir);
-        if (parent === dir)
-            break;
-        dir = parent;
-    }
-    return path.join(process.cwd(), exports.WORKBENCH_UI_RELATIVE);
+    return path.resolve(__dirname, "..", "..", exports.WORKBENCH_UI_RELATIVE);
 }
 const WORKBENCH_ROUTES = [
     { method: "GET", path: "/", description: "Index page (or the UI's index.html, when installed)." },
