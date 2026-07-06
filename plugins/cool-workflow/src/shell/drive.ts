@@ -68,8 +68,7 @@ import { recordTrustAuditEvent, verifyTrustAudit } from "./trust-audit";
 import { resolveAgentConfig } from "./agent-config";
 import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/types";
 import { runBackend } from "./execution-backend/registry";
-import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes } from "./execution-backend/agent";
-import { buildChildEnv } from "./execution-backend/local";
+import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv } from "./execution-backend/agent";
 import { sha256, stableStringify } from "../core/hash";
 import { plan } from "./pipeline";
 import { reporter } from "./reporter";
@@ -773,13 +772,7 @@ function prepareConcurrentOutcomes(
     if (job) {
       const sandboxPolicy = manifest.sandboxPolicy;
       if (sandboxPolicy) {
-        const filteredEnv = buildChildEnv(sandboxPolicy);
-        for (const key of Object.keys(process.env)) {
-          if (/^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i.test(key)) {
-            filteredEnv[key] = process.env[key];
-          }
-        }
-        job.env = filteredEnv;
+        job.env = buildAgentChildEnv(sandboxPolicy).env;
       }
       jobs.push(job);
       jobTaskIds.push(taskId);

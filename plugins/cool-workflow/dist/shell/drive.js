@@ -76,7 +76,6 @@ const trust_audit_1 = require("./trust-audit");
 const agent_config_1 = require("./agent-config");
 const registry_1 = require("./execution-backend/registry");
 const agent_1 = require("./execution-backend/agent");
-const local_1 = require("./execution-backend/local");
 const hash_1 = require("../core/hash");
 const pipeline_1 = require("./pipeline");
 const reporter_1 = require("./reporter");
@@ -683,13 +682,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
         if (job) {
             const sandboxPolicy = manifest.sandboxPolicy;
             if (sandboxPolicy) {
-                const filteredEnv = (0, local_1.buildChildEnv)(sandboxPolicy);
-                for (const key of Object.keys(process.env)) {
-                    if (/^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i.test(key)) {
-                        filteredEnv[key] = process.env[key];
-                    }
-                }
-                job.env = filteredEnv;
+                job.env = (0, agent_1.buildAgentChildEnv)(sandboxPolicy).env;
             }
             jobs.push(job);
             jobTaskIds.push(taskId);
