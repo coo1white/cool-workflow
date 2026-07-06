@@ -113,7 +113,8 @@ read-only metrics panel from the same payload, showing coverage and
 - `cw metrics summary` — the cross-repo rollup over the v0.1.28 run registry:
   pooled rates, summed attested usage/cost with coverage, and per-app and
   per-backend breakdowns. `--scope repo|home`; runs that cannot be read are counted
-  (`unreadableRuns`), never quietly dropped.
+  (`unreadableRuns`), never quietly dropped. `--limit N` caps how many run
+  states are loaded (default 50, matching `run list`/`run search`'s own floor).
 
 MCP hosts call `cw_metrics_show` and `cw_metrics_summary` with the same
 payloads. Old runs load and report `unreported` cost while still giving correct

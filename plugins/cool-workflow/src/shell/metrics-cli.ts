@@ -39,12 +39,14 @@ export function metricsShowCli(runId: string, args: Record<string, unknown>): Re
   return showMetricsReport(run, { now: nowOf(args), policy });
 }
 
-/** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO]`. */
+/** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO] [--limit N]`.
+ *  `--limit` defaults to RunRegistry.list()'s own 50-record floor when omitted. */
 export function metricsSummaryCli(args: Record<string, unknown>): ReturnType<typeof deriveMetricsSummary> {
   const cwd = invocationCwd(args);
   const scope = args.scope === "home" ? "home" : "repo";
   const registry = new RunRegistry(cwd);
-  const listing = registry.list({ scope, includeArchived: true });
+  const limit = args.limit === undefined ? undefined : Number(args.limit);
+  const listing = registry.list({ scope, includeArchived: true, limit });
   const inputs: SummaryRunInput[] = [];
   let unreadableRuns = 0;
   for (const record of listing.records as Array<{ statePath: string; repo?: string }>) {
