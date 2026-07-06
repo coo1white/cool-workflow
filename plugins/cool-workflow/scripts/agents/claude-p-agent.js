@@ -34,7 +34,7 @@ const { spawn, spawnSync } = require("node:child_process");
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-const { buildPrompt, createRenderer, persistStderr, toolLabel, summarizeToolResult } = require("./agent-adapter-core");
+const { buildPrompt, createRenderer, persistStderr, toolLabel, summarizeToolResult, buildFailureDetail } = require("./agent-adapter-core");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -179,9 +179,14 @@ child.on("close", (code) => {
   render.finishLive(); // stop the spinner + restore the cursor BEFORE any further output
   render.writeTranscript(transcriptPath); // full narration + tool I/O always saved
   if (code !== 0) {
-    const detail = childStderr.trim() || `claude exited ${code === null ? "(timeout/killed)" : code}`;
+    const stderrText = childStderr.trim();
+    // childStderr is the OS-level stream; claude's real failure reason (auth,
+    // rate limit, relay error) is often reported as a stream-json `result`
+    // event on STDOUT instead, already parsed into `resultText` above — fold
+    // it in here so a silent-stderr failure still leaves a readable reason.
+    const detail = buildFailureDetail({ label: "claude", code, childStderr: stderrText, partialText: resultText });
     persistStderr(resultPath, detail);
-    if (childStderr.trim()) process.stderr.write(`${childStderr.trim()}\n`);
+    if (stderrText) process.stderr.write(`${stderrText}\n`);
     process.stderr.write(`claude exited ${code === null ? "(timeout/killed)" : code}\n`);
     process.exit(code === null ? 1 : code);
   }

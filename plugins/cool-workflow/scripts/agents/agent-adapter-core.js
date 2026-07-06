@@ -471,6 +471,25 @@ function persistStderr(resultPath, text) {
   }
 }
 
+// Build the failure-path diagnostic string for a non-zero exit. Real OS-level
+// stderr wins when present (the common case: a crash, a killed process, a
+// vendor CLI that DOES write to stderr) — byte-identical to before this
+// helper existed. When stderr is EMPTY, fall back to whatever partial/
+// structured text the wrapper already parsed from stdout before the child
+// died (a stream-json `result` event with is_error:true is how claude
+// reports terminal errors like an auth failure — that text was being parsed
+// and then silently thrown away). If there is no partial text either, say so
+// plainly instead of just repeating the bare exit code. Never throws; always
+// returns a non-empty string.
+function buildFailureDetail({ label, code, childStderr, partialText }) {
+  const stderrText = String(childStderr || "").trim();
+  if (stderrText) return stderrText;
+  const partial = String(partialText || "").trim();
+  const codeText = `${label} exited ${code === null ? "(timeout/killed)" : code}`;
+  if (partial) return `${codeText} — ${label} stdout (no stderr) said: ${partial}`;
+  return codeText;
+}
+
 module.exports = {
   RESULT_CONTRACT,
   buildPrompt,
@@ -485,5 +504,6 @@ module.exports = {
   flushJsonLines,
   writeResult,
   emitReport,
-  persistStderr // save a failed agent's stderr to <workerDir>/logs/agent-stderr.log (shared by all wrappers)
+  persistStderr, // save a failed agent's stderr to <workerDir>/logs/agent-stderr.log (shared by all wrappers)
+  buildFailureDetail // fold in parsed partial stdout text when real stderr is empty (shared by all wrappers)
 };

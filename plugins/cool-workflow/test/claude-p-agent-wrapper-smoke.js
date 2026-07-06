@@ -48,6 +48,17 @@ function shimDir(behavior) {
   } else if (behavior === "garbage") {
     // Exits 0 but emits no `result` event ⇒ wrapper must fail closed.
     lines.push('process.stdout.write("not json at all\\n");');
+  } else if (behavior === "auth-error") {
+    // Real claude failures (auth, rate limit, relay error) are reported as a
+    // stream-json `result` event with is_error:true on STDOUT, then the
+    // process exits nonzero with EMPTY real stderr — the exact shape that
+    // used to collapse to a bare "claude exited 1" with no reason at all.
+    lines.push(
+      "const emit = (o) => process.stdout.write(JSON.stringify(o) + '\\n');",
+      "emit({ type: 'system', subtype: 'init', tools: ['Read'] });",
+      "emit({ type: 'result', subtype: 'error', is_error: true, result: 'Please run /login' });",
+      "process.exit(1);"
+    );
   } else {
     // Capture invocation for assertions, then emit either the legacy JSON object
     // or stream-json NDJSON depending on the requested output format.
@@ -182,6 +193,19 @@ function main() {
     assert.notEqual(garbage.status, 0, "non-JSON claude output ⇒ wrapper exits nonzero");
     assert.ok(!fs.existsSync(resultPath), "no result.md on garbage output");
     console.log("wrapper: fail-closed on crash + garbage output ok");
+  }
+
+  // ---- 4b: empty-stderr failure surfaces the PARSED stdout result, not a bare code ----
+  {
+    fs.rmSync(resultPath, { force: true });
+    const authErr = runWrapper(shimDir("auth-error"), inputPath, resultPath);
+    assert.notEqual(authErr.status, 0, "auth-error shim exits nonzero");
+    assert.ok(!fs.existsSync(resultPath), "no result.md on an auth-style failure");
+    const logPath = path.join(work, "logs", "agent-stderr.log");
+    assert.ok(fs.existsSync(logPath), "agent-stderr.log persisted for the failed hop");
+    const log = fs.readFileSync(logPath, "utf8");
+    assert.ok(log.includes("Please run /login"), "persisted log carries the PARSED stdout result, not just the bare exit code");
+    console.log("wrapper: empty-stderr failure surfaces parsed stdout result (auth-style) ok");
   }
 
   // ---- 5: doc-drift guard ----------------------------------------------------

@@ -17,6 +17,7 @@
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const {
+  buildFailureDetail,
   buildPrompt,
   createRenderer,
   emitReport,
@@ -94,7 +95,10 @@ child.on("close", (code) => {
   render.finishLive();
   render.writeTranscript(transcriptPath);
   if (code !== 0) {
-    const detail = childStderr.trim() || `gemini exited ${code === null ? "(timeout/killed)" : code}`;
+    // gemini's real failure reason is often only in the NDJSON text/result
+    // fragments already parsed into `state`, not in raw OS-level stderr.
+    const partial = state.finalResult || state.textFragments.join("\n\n");
+    const detail = buildFailureDetail({ label: "gemini", code, childStderr: childStderr.trim(), partialText: partial });
     persistStderr(resultPath, detail);
     process.stderr.write(`${detail}\n`);
     process.exit(code === null ? 1 : code);

@@ -1,5 +1,25 @@
 # CW Iteration Log
 
+## Batch — agent-hop failure diagnostics + question-aware architecture-review (Unreleased)
+
+> Two independent findings from a live `cw -q "..." -claude` run against an external
+> repo. (1) All 6 Map-phase workers died in ~6s with only `claude exited 1` in
+> `logs/agent-stderr.log` — the wrapper only checked the child's raw OS-level stderr,
+> which stays empty when claude reports a terminal failure (auth, rate limit, relay
+> error) as a stream-json `result` event on stdout instead; that parsed text was
+> already sitting in a local variable and got thrown away. Same gap in the gemini and
+> opencode wrappers; codex reads its answer from a file, so it had nothing to lose.
+> (2) User complaint: the tool always drifts back to "what are the main risks" no
+> matter what question is asked. `apps/architecture-review/workflow.js` had 11 of 14
+> agent/artifact prompts that never referenced `{{question}}` at all — they ran the
+> same fixed risk lenses blind to the actual ask. The newer `architecture-review-fast`
+> sibling app already threads `{{question}}` through every prompt; this closes the gap.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Add a shared `buildFailureDetail()` to `agent-adapter-core.js`: real stderr still wins byte-for-byte (POLA); when empty, fall back to the already-parsed partial stdout text (`resultText` / `state.finalResult` / `state.lastMessageText`) instead of a bare `"<label> exited <code>"`. Wired into `claude-p-agent.js` (persisted log only; the wrapper's own two-line stderr output stays byte-identical), `gemini-agent.js`, and `opencode-agent.js` (both a clean 1:1 swap). No change to `codex-agent.js` (confirmed it has no spare parsed text to lose — it reads its answer from a file). | `plugins/cool-workflow/scripts/agents/agent-adapter-core.js`, `claude-p-agent.js`, `gemini-agent.js`, `opencode-agent.js` | Added an `"auth-error"` shim case to `claude-p-agent-wrapper-smoke.js`, `gemini-agent-wrapper-smoke.js`, `opencode-agent-wrapper-smoke.js`: a fake vendor binary emits an `is_error:true` result event on stdout with a distinctive message, then exits 1 with empty real stderr. Verified red before the fix (bare exit-code string only) and green after (persisted log/stderr now carries the real message). `codex-agent-wrapper-smoke.js` unchanged, still green. | BUILD OK; check OK; `test:gate` 170/170 pass; `canonical-apps` OK; `release:check` OK | no (dev loop — review + PR, never tag) |
+| 2 | Thread `{{question}}` into the 5 Map + 5 Assess + 1 Verify prompts in `apps/architecture-review/workflow.js` that were fully fixed strings (plus `{{focus}}`/`{{invariant}}` into the same 10 Map/Assess prompts), so every lens explicitly relates its findings to the actual question instead of running blind. Kept the same 6 Map agents, 6 Assess agents, 1 Verify, 1 Verdict — same ids, same dimensions, same order (a pure "as they relate to {{question}}" wording insert). `map:server-api`, `assess:domain`, and `verdict:synthesis` were already correct and stay untouched. Updated the `question` input description in `app.json` and the matching `workflow.js` `input()` call to state the new behavior in Basic English. | `plugins/cool-workflow/apps/architecture-review/workflow.js`, `apps/architecture-review/app.json` | New `architecture-review-question-aware-smoke.js`: loads `workflow.js` directly (no LLM calls), asserts `{{question}}` appears in all 12 Map/Assess/Verify prompts and `{{focus}}` in all 12 Map/Assess prompts, and pins the exact task-id list/order per phase so a future reword can't silently drop or rename an agent. Verified red before the fix (11 assertions threw) and green after. | BUILD OK; check OK; `test:gate` 170/170 pass (project index regenerated for smoke count `170`); `canonical-apps` OK (architecture-review still plans 14 tasks); `release:check` OK | no (dev loop — review + PR, never tag) |
+
 ## Batch — fix CW_RELEASE_REVIEW leak into codex-agent-wrapper-smoke's default case (Unreleased)
 
 > Found by the release-reviewer ITSELF while re-verifying v0.1.98 after the #327 fix landed: the reviewer spawns with `CW_RELEASE_REVIEW=1` (release-flow.js's vendor-agnostic "you must actually execute the gate" signal), so when it re-ran the gate as part of earning its verdict, that ambient signal leaked into `codex-agent-wrapper-smoke.js`'s default ("no explicit env") case — `codex-agent.js`'s sandbox/effort DEFAULTS are themselves a function of `CW_RELEASE_REVIEW`, so "the default" the test asserted was actually the review-mode behavior (`workspace-write`/`high`) whenever the whole suite ran inside a real review, false-failing "default worker/probe run stays read-only (POLA)" (`0 !== 1`-shaped: expected read-only, got workspace-write). Same defect class as #327 (CW_SKIP_VENDOR_PREFLIGHT leaking the other direction), different variable, different file — grepped every other vendor wrapper script and only codex-agent.js reads CW_RELEASE_REVIEW at all, so no sibling smoke needed the same fix.
@@ -56,7 +76,6 @@
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Bump to 0.1.98 + CHANGELOG entry for the `cw ledger` capability; stamp the version across all structured + content surfaces. | `CHANGELOG.md` + `plugins/cool-workflow/package.json` (+ package-lock) + `plugins/cool-workflow/src/version.ts` + the plugin manifests (`.claude-plugin`/`.codex-plugin`/`.gemini-plugin`/`.opencode-plugin`/`.agents`/`.claude-plugin/marketplace.json`/`manifest/plugin.manifest.json`) + `server.json` + `Formula/cool-workflow.rb` + the canonical `apps/*/app.json` + `scripts/canonical-apps.js`/`dogfood-release.js`/`golden-path.js` + the 21 `docs/*.7.md` version references + `RELEASE.md` + `docs/project-index.md` | Release gate re-runs the suite; version-stamped smokes (`canonical-workflow-apps-smoke`, `dogfood-release-smoke`, `mcp-app-surface-smoke`, `operator-ux-smoke`, `workflow-app-framework-smoke`) rerun green after the bump | BUILD OK; version:sync OK; parity/index/manifests/dist OK; `release:check` (readme-sync fails only under the sandbox git-URL rewrite, green in CI) | yes (release cut — v0.1.98) |
-
 
 ## Batch — cross-agent handoff ledger, stage 1 (Unreleased)
 
