@@ -38,11 +38,17 @@ function run(args, env, cwd) {
   assert.equal(report.schemaVersion, 1);
   assert.ok(Array.isArray(report.checks) && report.checks.length >= 4, "has checks");
   const names = report.checks.map((c) => c.name);
-  for (const n of ["node", "agent", "home-registry", "repo-state"]) assert.ok(names.includes(n), `check ${n} present`);
+  for (const n of ["node", "agent", "sandbox-enforceability", "home-registry", "repo-state"]) assert.ok(names.includes(n), `check ${n} present`);
   for (const c of report.checks) assert.ok(["ok", "warn", "fail"].includes(c.status), `valid status for ${c.name}`);
   assert.equal(report.onramp, undefined, "onramp is opt-in");
   // node check must pass (the test runs on Node 18+).
   assert.equal(report.checks.find((c) => c.name === "node").status, "ok", "node check ok");
+  // sandbox-enforceability is a fixed architectural fact, not a per-host
+  // problem: always "ok", never "warn"/"fail", so it can never contaminate
+  // the warning count or block "ready — all checks passed".
+  const sandboxCheck = report.checks.find((c) => c.name === "sandbox-enforceability");
+  assert.equal(sandboxCheck.status, "ok", "sandbox-enforceability is always ok");
+  assert.equal(sandboxCheck.fix, undefined, "an ok check must not carry a fix line");
 })();
 
 // ---- 2. READ-ONLY: doctor creates neither $CW_HOME nor <cwd>/.cw --------------

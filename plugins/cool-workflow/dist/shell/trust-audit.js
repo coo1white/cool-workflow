@@ -277,6 +277,7 @@ function recordTrustAuditEvent(run, input) {
         normalizedPath: input.normalizedPath ? path.resolve(input.normalizedPath) : undefined,
         command: input.command,
         networkTarget: input.networkTarget,
+        envVars: input.envVars?.filter(Boolean).sort(),
         evidence: normalizeEvidence(run, input.evidence || [], { source: input.source, workerId: input.workerId, taskId: input.taskId, resultNodeId: input.nodeId }),
         evidenceRefs: unique(input.evidenceRefs || []).sort(),
         parentEventIds: unique(input.parentEventIds || []).sort(),

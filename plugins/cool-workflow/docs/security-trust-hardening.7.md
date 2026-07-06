@@ -37,7 +37,9 @@ Event sources are clear:
 - `runtime-derived`: CW got the event from run state.
 
 CW does not keep secrets or raw environment values. Environment audit records
-keep names only.
+keep names only — for example, `worker.agent-env` records which provider-namespace
+env var NAMES (`CW_`, `ANTHROPIC_`, `OPENAI_`, and similar) were forwarded from
+the host process to a delegated agent child, queryable via `cw audit summary`/`cw audit`.
 
 ## Enforcement Boundary
 

@@ -244,6 +244,11 @@ function main() {
   const workH = tmpWorkspace();
   const stubH = writeStub(path.join(workH, "stub.js"), { model: "drive-opus" });
   process.chdir(workH);
+  // A CW_-prefixed env var, deterministically forwarded to the stub agent
+  // child by runAgentProcess's provider-namespace loop regardless of ambient
+  // CI environment, so the worker.agent-env trust-audit assertion below
+  // fires reliably (not dependent on whatever happens to already be set).
+  process.env.CW_TEST_SECRET_VALUE = "should-never-appear-in-audit";
   try {
     const runner = makeRunner();
     const run = runner.plan("architecture-review", { repo: workH, question: "Sound?" });
@@ -273,6 +278,17 @@ function main() {
     const byKind = audit.byKind || {};
     assert.ok((byKind["worker.agent-delegation"] || 0) >= 1, "worker.agent-delegation audit events recorded");
 
+    // ---- trust visibility: agent-env forwarding is audited, names only -----
+    assert.ok((byKind["worker.agent-env"] || 0) >= 1, "worker.agent-env audit events recorded for the CW_-prefixed var forwarded to the stub agent");
+    const envEvents = listTrustAuditEvents(final).filter((ev) => ev.kind === "worker.agent-env");
+    assert.ok(envEvents.length >= 1, "at least one worker.agent-env event present");
+    for (const ev of envEvents) {
+      assert.ok(Array.isArray(ev.envVars) && ev.envVars.includes("CW_TEST_SECRET_VALUE"), "envVars carries the forwarded var's NAME");
+      for (const name of ev.envVars) assert.match(name, /^[A-Z_][A-Z0-9_]*$/i, `envVars entry "${name}" looks like a name, not a value`);
+    }
+    const serializedEnvEvents = JSON.stringify(envEvents);
+    assert.ok(!serializedEnvEvents.includes("should-never-appear-in-audit"), "the forwarded var's VALUE never appears in the audit event");
+
     // ---- 10. REPLAY determinism (bound to node-snapshot) -------------------
     const snap = ns.snapshotNode(final, verdict.resultNodeId, { now: FIXED_NOW, persist: false });
     assert.ok(snap.body.metadata.agentDelegation, "snapshot body carries the agent-delegation provenance (covered by replay)");
@@ -291,6 +307,7 @@ function main() {
     const r3 = ns.replayNodeSnapshot(final, snap, { now: "2031-02-03T00:00:00.000Z", persist: false });
     assert.equal(r3.outputFingerprint, r1.outputFingerprint, "replay reproduces WITHOUT re-spawning the agent (binary unavailable)");
   } finally {
+    delete process.env.CW_TEST_SECRET_VALUE;
     process.chdir(cwd0);
   }
 

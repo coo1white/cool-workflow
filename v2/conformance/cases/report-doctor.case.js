@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 "use strict";
 
-// cw doctor — read-only host checks. Fixed check order (node, agent, git,
-// home-registry, repo-state — agent-binary only fires for a command agent),
-// fixed glyphs and summary strings, --json shape, fail-closed exit code, and
-// the read-only invariant (it never creates $CW_HOME or <cwd>/.cw).
+// cw doctor — read-only host checks. Fixed check order (node, agent,
+// sandbox-enforceability, git, home-registry, repo-state — agent-binary only
+// fires for a command agent), fixed glyphs and summary strings, --json shape,
+// fail-closed exit code, and the read-only invariant (it never creates
+// $CW_HOME or <cwd>/.cw). sandbox-enforceability is always "ok" (a fixed
+// architectural fact, not a per-host problem) so it never contaminates the
+// warning count or blocks the "ready — all checks passed" summary.
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -48,12 +51,14 @@ caseMain(() => {
   assert.equal(report.summary, "ready, with 2 warnings");
   assert.deepEqual(
     report.checks.map((c) => c.name),
-    ["node", "agent", "git", "home-registry", "repo-state"]
+    ["node", "agent", "sandbox-enforceability", "git", "home-registry", "repo-state"]
   );
   const byName = Object.fromEntries(report.checks.map((c) => [c.name, c]));
   assert.equal(byName.node.status, "ok");
   assert.equal(byName.agent.status, "warn");
   assert.ok(byName.agent.fix, "a non-ok check must carry a fix line");
+  assert.equal(byName["sandbox-enforceability"].status, "ok", "sandbox-enforceability is a fixed fact, always ok, never warn");
+  assert.equal(byName["sandbox-enforceability"].fix, undefined, "an ok check must not carry a fix line");
   assert.equal(byName.git.status, "warn");
   assert.equal(byName.node.fix, undefined, "an ok check must not carry a fix line");
   assert.equal(report.onramp, undefined, "no --onramp means no onramp block");
