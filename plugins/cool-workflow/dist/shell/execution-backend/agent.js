@@ -382,6 +382,16 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
                     forwardedEnvVars.push(key);
                 }
             }
+            // USER is not a provider key, but a real vendor CLI (claude, at least) reads
+            // it to resolve its own OS-level login/keychain credential in headless mode.
+            // buildChildEnv keeps only PATH+HOME under the readonly policy, so a spawned
+            // agent that IS logged in interactively reported "Not logged in" here — found
+            // live: PATH+HOME alone reproduces it, adding USER back fixes it, LOGNAME
+            // alone does not. Forward the name only (never a secret), same as above.
+            if (process.env.USER !== undefined && childEnv.USER === undefined) {
+                childEnv.USER = process.env.USER;
+                forwardedEnvVars.push("USER");
+            }
             const child = (0, node_child_process_1.spawnSync)(resolved.binary, realArgs, {
                 cwd: request.cwd,
                 env: childEnv,
