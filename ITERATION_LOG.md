@@ -1,6 +1,21 @@
 # CW Iteration Log
 
-## Batch — forward USER to the agent backend's real spawned child (Unreleased)
+## Batch — generalize the shared result contract + onboarding examples beyond "risk audit" (Unreleased)
+
+> Follow-up to the architecture-review question-aware fix. `severity`/`classification`
+> (P0-P4, real/conditional/non-issue/unknown) in the shared `cw:result` contract are
+> already generic triage vocabulary that fits any kind of claim, not only security
+> findings — but the contract's `title` field was documented as a "short **risk**
+> title", and the README/wiki Quick Start examples were ALL risk-shaped questions
+> ("What are the main risks?", "What are the security risks?", "What are the
+> risks?"), even though the top-level tagline already positions CW as a general
+> "ask a question, get a cited report" tool. New users copying the examples would
+> anchor on risk-audit questions regardless of the tagline. This is docs/prompt-text
+> only — no schema, field name, or JSON shape changed.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Reword the shared `RESULT_CONTRACT`'s `title` field from "short risk title" to "short finding title" (all four vendor wrappers import this one constant, so the wording applies project-wide, not only to architecture-review); diversify the README and wiki Getting-Started Quick Start examples to mix a mechanism question, a risk question, and a decision question instead of three risk-only questions; regenerated the npm-mirrored README via `sync:readme`. | `plugins/cool-workflow/scripts/agents/agent-adapter-core.js` + `README.md` + `plugins/cool-workflow/README.md` (generated) + `docs/wiki/Getting-Started.md` | No test pins the literal "risk title" string (confirmed by grep) or the specific example-question wording (`quickstart-readme-path-smoke.js` reuses a similar phrase only as an arbitrary functional-test input, unrelated to README content) — existing `claude/gemini/opencode/codex-agent-wrapper-smoke.js` (which check `RESULT_CONTRACT` inclusion via the same imported constant) and `readme-sync-smoke.js`/`readme-trust-claim-smoke.js` rerun green, proving no drift. | BUILD OK; check OK; affected smokes OK; `release:check` OK | no (dev loop — review + PR, never tag) |
 
 > Follow-up to the agent-hop-diagnostics fix, found by using it live: after that fix
 > landed, a real `cw -q "..." -claude` run against an external repo still parked, but

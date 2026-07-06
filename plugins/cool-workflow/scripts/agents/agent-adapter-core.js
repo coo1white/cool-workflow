@@ -18,7 +18,7 @@ cw:result block that EXACTLY follows this schema:
   "findings": [
     {
       "id": "unique-kebab-id",
-      "title": "short risk title",
+      "title": "short finding title",
       "severity": "P0",
       "classification": "real",
       "evidence": ["path/to/file.ts:42"]

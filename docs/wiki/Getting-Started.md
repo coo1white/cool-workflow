@@ -46,10 +46,11 @@ of its own; your agent signs, and CW verifies.
 From inside a project (or point `-dir` anywhere):
 
 ```bash
-cw -q "What are the main risks here?"
+cw -q "How does auth work end-to-end here?"
 ```
 
-CW auto-detects the current repo and the first agent on your `PATH`. Pin a specific one with a flag:
+Any question works, not only a risk audit. CW auto-detects the current repo and the first agent on
+your `PATH`. Pin a specific one with a flag:
 
 ```bash
 cw -q "What are the security risks?" -claude     # or -codex / -gemini / -deepseek

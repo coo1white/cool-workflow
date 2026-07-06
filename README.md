@@ -63,16 +63,18 @@ cw demo tamper
 ### 2 · Ask a question about your code — one command
 
 ```bash
-cw -q "What are the main risks here?"
+cw -q "How does auth work end-to-end here?"
 ```
 
-CW auto-detects the current repo and the first agent on your `PATH`. Pin a specific one with a flag
-(`-claude`, `-codex`, `-gemini`, `-deepseek`). Point it anywhere — no `cd` required — or review a
-**remote repo by URL** and CW clones, snapshots, and reviews the checkout:
+Any question works, not only a risk audit — architecture questions, "is it safe to change X",
+"what would break if Y rotated" all get a direct, cited answer. CW auto-detects the current repo
+and the first agent on your `PATH`. Pin a specific one with a flag (`-claude`, `-codex`, `-gemini`,
+`-deepseek`). Point it anywhere — no `cd` required — or review a **remote repo by URL** and CW
+clones, snapshots, and reviews the checkout:
 
 ```bash
 cw -q "What are the security risks?" -dir /path/to/project
-cw -q "What are the risks?" --link https://github.com/owner/repo
+cw -q "Is it safe to swap this queue for Redis?" --link https://github.com/owner/repo
 ```
 
 **Not just code.** Aim CW at a folder of docs, notes, or papers and it reads them as sources for the
