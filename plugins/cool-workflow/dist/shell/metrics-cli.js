@@ -72,12 +72,14 @@ function metricsShowCli(runId, args) {
     const policy = (0, observability_1.loadCostPolicy)(args, pluginRoot());
     return (0, observability_1.showMetricsReport)(run, { now: nowOf(args), policy });
 }
-/** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO]`. */
+/** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO] [--limit N]`.
+ *  `--limit` defaults to RunRegistry.list()'s own 50-record floor when omitted. */
 function metricsSummaryCli(args) {
     const cwd = invocationCwd(args);
     const scope = args.scope === "home" ? "home" : "repo";
     const registry = new run_registry_io_1.RunRegistry(cwd);
-    const listing = registry.list({ scope, includeArchived: true });
+    const limit = args.limit === undefined ? undefined : Number(args.limit);
+    const listing = registry.list({ scope, includeArchived: true, limit });
     const inputs = [];
     let unreadableRuns = 0;
     for (const record of listing.records) {

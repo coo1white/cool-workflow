@@ -36,7 +36,7 @@ caseMain(() => {
     ["contract", "cw.js contract show <run-id> [contract-id]"],
     ["migration", "cw.js migration list|check|prove [target] [--contract run-state|workflow-app]"],
     ["feedback", "cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]"],
-    ["metrics", "cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]"],
+    ["metrics", "cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]"],
     ["operator", "cw.js operator status|report <run-id> [--json]"],
     ["topology", "cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>"],
     ["summary", "cw.js summary refresh|show <run-id> [--json]"],
