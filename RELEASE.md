@@ -99,13 +99,18 @@ Only use `--write` when you have a mind to normalize a state file in place.
 
 ## Publish Steps
 
-After the dry-run gate and manual review pass, tagging, pushing, and publishing
-are still open maintainer actions:
+After the dry-run gate and manual review pass, cutting the release is a
+maintainer action taken through the gated tool — never a raw `git push`:
 
 ```bash
-git tag v0.1.24
-git push origin main --tags
+node scripts/release-flow.js --cut --version x.y.z --push
 ```
+
+This re-runs the deterministic gate, delegates to the independent reviewer,
+bumps every version surface, commits the reviewer verdict, creates the tag,
+and (because of `--push`) pushes the tag and the verdict commit and creates
+the GitHub Release — all in one gated step. Leave off `--push` for a local-only
+cut (tag created but nothing pushed or published).
 
 Package publication, marketplace updates, or plugin cache updates should be run
 only when the maintainer has a mind to publish. Local tag creation, push, package
