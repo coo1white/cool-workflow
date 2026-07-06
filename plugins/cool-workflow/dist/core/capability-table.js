@@ -67,9 +67,6 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CAPABILITY_REGISTRY = exports.REGISTRY = exports.CapabilityNotImplementedError = void 0;
 exports.listBundledWorkflows = listBundledWorkflows;
@@ -1843,7 +1840,6 @@ const registry_cli_1 = require("../shell/registry-cli");
 const reclamation_io_1 = require("../shell/reclamation-io");
 const run_registry_io_1 = require("../shell/run-registry-io");
 const scheduling_io_1 = require("../shell/scheduling-io");
-const node_fs_1 = __importDefault(require("node:fs"));
 function firstPositionalArg(args, index = 0) {
     return args.positionals[index];
 }
@@ -1936,13 +1932,7 @@ addCliOnlyCapability("routine", "cw routine create|list|delete|fire|events — A
                 return { json: (0, registry_cli_1.routineDeleteCli)((0, io_1.required)(idOrKind, "trigger id"), args.options) };
             case "fire": {
                 const kind = (0, io_1.required)(idOrKind, "trigger kind");
-                let payload;
-                try {
-                    payload = payloadPath ? JSON.parse(node_fs_1.default.readFileSync(payloadPath, "utf8")) : args.options;
-                }
-                catch (e) {
-                    throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String((e && e.message) || e)}`);
-                }
+                const payload = (0, registry_cli_1.resolveRoutineFirePayload)(payloadPath, args.options);
                 return { json: (0, registry_cli_1.routineFireCli)(kind, payload, args.options) };
             }
             case "events":
@@ -1972,13 +1962,7 @@ attachCliBinding("routine.fire", {
     handler: (args) => {
         const kind = (0, io_1.required)(args.positionals[0], "trigger kind");
         const payloadPath = args.positionals[1];
-        let payload;
-        try {
-            payload = payloadPath ? JSON.parse(node_fs_1.default.readFileSync(payloadPath, "utf8")) : args.options;
-        }
-        catch (e) {
-            throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String((e && e.message) || e)}`);
-        }
+        const payload = (0, registry_cli_1.resolveRoutineFirePayload)(payloadPath, args.options);
         return { json: (0, registry_cli_1.routineFireCli)(kind, payload, args.options) };
     },
 });

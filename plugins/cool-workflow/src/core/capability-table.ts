@@ -2238,6 +2238,7 @@ import {
   queueShowCli,
   registryRefreshCli,
   registryShowCli,
+  resolveRoutineFirePayload,
   routineCreateCli,
   routineDeleteCli,
   routineEventsCli,
@@ -2288,7 +2289,6 @@ import {
   schedReleaseCli,
   schedResetCli,
 } from "../shell/scheduling-io";
-import fs from "node:fs";
 
 function firstPositionalArg(args: CapabilityCliArgs, index = 0): string | undefined {
   return args.positionals[index];
@@ -2400,12 +2400,7 @@ addCliOnlyCapability(
           return { json: routineDeleteCli(required(idOrKind, "trigger id"), args.options) };
         case "fire": {
           const kind = required(idOrKind, "trigger kind");
-          let payload: unknown;
-          try {
-            payload = payloadPath ? JSON.parse(fs.readFileSync(payloadPath, "utf8")) : args.options;
-          } catch (e) {
-            throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String((e && (e as Error).message) || e)}`);
-          }
+          const payload = resolveRoutineFirePayload(payloadPath, args.options);
           return { json: routineFireCli(kind, payload, args.options) };
         }
         case "events":
@@ -2437,12 +2432,7 @@ attachCliBinding("routine.fire", {
   handler: (args) => {
     const kind = required(args.positionals[0], "trigger kind");
     const payloadPath = args.positionals[1];
-    let payload: unknown;
-    try {
-      payload = payloadPath ? JSON.parse(fs.readFileSync(payloadPath, "utf8")) : args.options;
-    } catch (e) {
-      throw new Error(`Failed to parse payload${payloadPath ? ` file "${payloadPath}"` : ""}: ${String((e && (e as Error).message) || e)}`);
-    }
+    const payload = resolveRoutineFirePayload(payloadPath, args.options);
     return { json: routineFireCli(kind, payload, args.options) };
   },
 });
