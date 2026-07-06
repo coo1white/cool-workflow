@@ -45,6 +45,16 @@ if (${JSON.stringify(behavior)} === "garbage") {
   process.stdout.write("not-json\\n");
   process.exit(0);
 }
+if (${JSON.stringify(behavior)} === "auth-error") {
+  // Real gemini failures (auth, rate limit) are reported as a stream-json
+  // result event with is_error:true on STDOUT, then the process exits
+  // nonzero with EMPTY real stderr — the shape that used to collapse to a
+  // bare "gemini exited 1" with no reason at all.
+  const emit = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
+  emit({ type: "system", subtype: "init" });
+  emit({ type: "result", subtype: "error", is_error: true, result: "Gemini API error: please re-authenticate" });
+  process.exit(1);
+}
 const emit = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
 if (format !== "stream-json" && format !== "json") {
   process.stdout.write(${JSON.stringify(RESULT)});
@@ -126,6 +136,19 @@ function main() {
     const garbage = runWrapper(shimDir("garbage"), inputPath, resultPath);
     assert.notEqual(garbage.status, 0, "non-JSONL gemini stdout fails closed");
     console.log("gemini: fail-closed on crash + garbage output OK");
+  }
+
+  {
+    fs.rmSync(resultPath, { force: true });
+    const authErr = runWrapper(shimDir("auth-error"), inputPath, resultPath);
+    assert.notEqual(authErr.status, 0, "auth-error shim exits nonzero");
+    assert.ok(!fs.existsSync(resultPath), "no result.md on an auth-style failure");
+    assert.ok(authErr.stderr.includes("Gemini API error: please re-authenticate"), "wrapper's own stderr carries the PARSED stdout result, not just the bare exit code");
+    const logPath = path.join(work, "logs", "agent-stderr.log");
+    assert.ok(fs.existsSync(logPath), "agent-stderr.log persisted for the failed hop");
+    const log = fs.readFileSync(logPath, "utf8");
+    assert.ok(log.includes("Gemini API error: please re-authenticate"), "persisted log carries the PARSED stdout result");
+    console.log("gemini: empty-stderr failure surfaces parsed stdout result (auth-style) OK");
   }
 
   {

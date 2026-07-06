@@ -42,6 +42,14 @@ if (${JSON.stringify(behavior)} === "garbage") {
   process.stdout.write("not-json\\n");
   process.exit(0);
 }
+if (${JSON.stringify(behavior)} === "auth-error") {
+  // Real opencode failures (auth, rate limit) surface as a legacy result-shape
+  // JSONL line on STDOUT, then the process exits nonzero with EMPTY real
+  // stderr — the shape that used to collapse to a bare "opencode exited 1"
+  // with no reason at all.
+  process.stdout.write(JSON.stringify({ result: "OpenCode auth error: session expired" }) + "\\n");
+  process.exit(1);
+}
 // Mirror real opencode (>=1.x) --format json: { type, part } JSONL events.
 // type:"text" -> part.text (grouped by part.messageID); the LAST message is the
 // final answer. type:"step_finish" -> part.tokens. NO model field is emitted.
@@ -121,6 +129,19 @@ function main() {
     const garbage = runWrapper(shimDir("garbage"), inputPath, resultPath);
     assert.notEqual(garbage.status, 0, "non-JSONL opencode stdout fails closed");
     console.log("opencode: fail-closed on crash + garbage output OK");
+  }
+
+  {
+    fs.rmSync(resultPath, { force: true });
+    const authErr = runWrapper(shimDir("auth-error"), inputPath, resultPath);
+    assert.notEqual(authErr.status, 0, "auth-error shim exits nonzero");
+    assert.ok(!fs.existsSync(resultPath), "no result.md on an auth-style failure");
+    assert.ok(authErr.stderr.includes("OpenCode auth error: session expired"), "wrapper's own stderr carries the PARSED stdout result, not just the bare exit code");
+    const logPath = path.join(work, "logs", "agent-stderr.log");
+    assert.ok(fs.existsSync(logPath), "agent-stderr.log persisted for the failed hop");
+    const log = fs.readFileSync(logPath, "utf8");
+    assert.ok(log.includes("OpenCode auth error: session expired"), "persisted log carries the PARSED stdout result");
+    console.log("opencode: empty-stderr failure surfaces parsed stdout result (auth-style) OK");
   }
 
   {

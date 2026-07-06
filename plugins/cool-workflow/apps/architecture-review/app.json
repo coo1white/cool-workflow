@@ -16,7 +16,7 @@
       "name": "question",
       "type": "string",
       "required": true,
-      "description": "Architecture question or decision to review."
+      "description": "Architecture question or decision to review. Every phase scopes its work to this question - not only a fixed risk list."
     },
     {
       "name": "invariant",
