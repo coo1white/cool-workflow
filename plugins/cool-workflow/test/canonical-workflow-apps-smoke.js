@@ -110,7 +110,7 @@ for (const app of canonicalApps) {
   assert.ok(summary, `${app.id} must appear in cw.js app list`);
   assert.equal(summary.sourceKind, "app-directory");
   assert.equal(summary.legacy, false);
-  assert.equal(summary.version, "0.2.0");
+  assert.equal(summary.version, "0.2.1");
   assert.ok(summary.sandboxProfiles.length > 0);
 
   const validation = run(["app", "validate", path.join(pluginRoot, "apps", app.id, "app.json")]);
@@ -119,7 +119,7 @@ for (const app of canonicalApps) {
 
   const shown = run(["app", "show", app.id]);
   assert.equal(shown.app.id, app.id);
-  assert.equal(shown.app.version, "0.2.0");
+  assert.equal(shown.app.version, "0.2.1");
   assert.equal(shown.app.compatibility.minVersion, app.minVersion);
   assert.equal(shown.app.metadata.canonical, true);
   assertTaskIdsUnique(shown);
@@ -143,7 +143,7 @@ for (const app of canonicalApps) {
   const state = JSON.parse(fs.readFileSync(plan.statePath, "utf8"));
   assert.equal(state.workflow.id, app.id);
   assert.equal(state.workflow.app.id, app.id);
-  assert.equal(state.workflow.app.version, "0.2.0");
+  assert.equal(state.workflow.app.version, "0.2.1");
   // CUTOVER AUDIT — REAL-GAP (v2): the persisted run.workflow.app block dropped
   // `metadata` (and `compatibility`). Old builder src/workflow-app-framework.ts
   // workflowAppRunMetadata() carried `metadata: record.app.metadata` (holds
@@ -157,7 +157,7 @@ for (const app of canonicalApps) {
   assert.ok(state.tasks.every((task) => task.sandboxProfileId), `${app.id} plan needs sandbox profile hints`);
 
   const report = fs.readFileSync(plan.reportPath, "utf8");
-  assert.match(report, new RegExp(`Workflow App: ${app.id}@0\\.2\\.0`));
+  assert.match(report, new RegExp(`Workflow App: ${app.id}@0\\.2\\.1`));
 }
 
 const matrix = run(["app", "list"]);
