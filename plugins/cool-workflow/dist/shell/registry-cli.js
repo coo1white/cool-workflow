@@ -58,6 +58,7 @@ exports.routineCreateCli = routineCreateCli;
 exports.routineListCli = routineListCli;
 exports.routineDeleteCli = routineDeleteCli;
 exports.routineFireCli = routineFireCli;
+exports.resolveRoutineFirePayload = resolveRoutineFirePayload;
 exports.routineEventsCli = routineEventsCli;
 exports.registryRefreshCli = registryRefreshCli;
 exports.registryShowCli = registryShowCli;
@@ -79,6 +80,7 @@ exports.orphansListCli = orphansListCli;
 exports.orphansGcCli = orphansGcCli;
 exports.clonesListCli = clonesListCli;
 exports.clonesGcCli = clonesGcCli;
+const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const run_registry_io_1 = require("./run-registry-io");
 const pipeline_1 = require("./pipeline");
@@ -148,6 +150,19 @@ function routineDeleteCli(id, options = {}) {
 }
 function routineFireCli(kind, payload, options = {}) {
     return new scheduler_io_1.RoutineTriggerBridge(resolveCwd(options)).fire(kind, payload);
+}
+/** Resolves a `routine fire` payload: a `--payload-path`/positional file wins
+ *  (parsed as JSON) over the raw CLI/MCP options bag. The file read lives
+ *  here, in the shell layer, not in core/capability-table.ts. */
+function resolveRoutineFirePayload(payloadPath, options) {
+    if (!payloadPath)
+        return options;
+    try {
+        return JSON.parse(fs.readFileSync(payloadPath, "utf8"));
+    }
+    catch (e) {
+        throw new Error(`Failed to parse payload file "${payloadPath}": ${String((e && e.message) || e)}`);
+    }
 }
 function routineEventsCli(id, options = {}) {
     return new scheduler_io_1.RoutineTriggerBridge(resolveCwd(options)).events(id);

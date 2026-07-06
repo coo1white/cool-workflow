@@ -9,6 +9,7 @@
 // this is the shell layer the capability-table's CLI/MCP handlers
 // delegate to.
 
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { RunPlanner, RunRegistry } from "./run-registry-io";
 import { plan as pipelinePlan } from "./pipeline";
@@ -93,6 +94,17 @@ export function routineDeleteCli(id: string, options: Record<string, unknown> = 
 }
 export function routineFireCli(kind: string, payload: unknown, options: Record<string, unknown> = {}) {
   return new RoutineTriggerBridge(resolveCwd(options)).fire(kind, payload);
+}
+/** Resolves a `routine fire` payload: a `--payload-path`/positional file wins
+ *  (parsed as JSON) over the raw CLI/MCP options bag. The file read lives
+ *  here, in the shell layer, not in core/capability-table.ts. */
+export function resolveRoutineFirePayload(payloadPath: string | undefined, options: Record<string, unknown>): unknown {
+  if (!payloadPath) return options;
+  try {
+    return JSON.parse(fs.readFileSync(payloadPath, "utf8"));
+  } catch (e) {
+    throw new Error(`Failed to parse payload file "${payloadPath}": ${String((e && (e as Error).message) || e)}`);
+  }
 }
 export function routineEventsCli(id: string | undefined, options: Record<string, unknown> = {}) {
   return new RoutineTriggerBridge(resolveCwd(options)).events(id);

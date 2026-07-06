@@ -51,6 +51,10 @@ function main() {
     assert.ok(child.status !== 0, "routine fire with bad file exits non-zero");
     const stderr = String(child.stderr || "");
     assert.ok(stderr.includes("parse") || stderr.includes("Parse") || stderr.includes("JSON") || stderr.includes("payload"), `payload error is clear: ${stderr.slice(0, 200)}`);
+    // resolveRoutineFirePayload (shell/registry-cli.ts) owns this wording now
+    // (moved out of core/capability-table.ts) — pin the exact prefix so the
+    // move stayed byte-identical.
+    assert.ok(stderr.includes(`Failed to parse payload file "${badFile}"`), `exact error prefix preserved: ${stderr.slice(0, 200)}`);
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 
