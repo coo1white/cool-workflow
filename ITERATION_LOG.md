@@ -1,5 +1,24 @@
 # CW Iteration Log
 
+## Batch — forward USER to the agent backend's real spawned child (Unreleased)
+
+> Follow-up to the agent-hop-diagnostics fix, found by using it live: after that fix
+> landed, a real `cw -q "..." -claude` run against an external repo still parked, but
+> now `logs/agent-stderr.log` said the real reason plainly: `claude exited 1 - claude
+> stdout (no stderr) said: Not logged in - Please run /login`. Reproduced by hand:
+> `env -i PATH=$PATH HOME=$HOME claude -p ...` fails the same way; adding `USER` back
+> (not `LOGNAME`) fixes it. Root cause: under the `readonly` sandbox profile
+> (`env.inherit:false`, `expose:[]`), `buildChildEnv(policy)` keeps only `PATH`+`HOME`;
+> `runAgentProcess` re-adds provider-key-shaped vars (`CW_*`/`ANTHROPIC_*`/...) but
+> never `USER` — a real vendor CLI's headless OAuth/keychain credential lookup needs
+> it even though it is not itself a provider key. Every existing
+> `execution-backend-agent-smoke.js` case uses `preparedAgentOutcome`, bypassing the
+> real `spawnSync` path entirely, so none of them could have caught this.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Forward `USER` (name only, never logged as a value) to the agent backend's real spawned child alongside the existing `CW_*`/provider-key allowlist, so a vendor CLI's OS-level login/keychain lookup keeps working under the `readonly` sandbox profile's stripped-down child env. | `plugins/cool-workflow/src/shell/execution-backend/agent.ts` | New `agent-backend-user-env-smoke.js`: a REAL spawned stub child (no `preparedAgentOutcome`) reports whether it saw `USER`/`ANTHROPIC_API_KEY`; asserted via the stdout digest already used by every other agent-backend evidence assertion. Verified red before the fix (stub saw neither var beyond PATH/HOME) and green after. | BUILD OK; check OK; new smoke OK (project index regenerated, smoke count 176→177) | no (dev loop — review + PR, never tag) |
+
 ## Batch — agent-hop failure diagnostics + question-aware architecture-review (Unreleased)
 
 > Two independent findings from a live `cw -q "..." -claude` run against an external
