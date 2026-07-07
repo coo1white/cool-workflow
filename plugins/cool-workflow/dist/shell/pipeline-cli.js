@@ -606,7 +606,10 @@ function recordResultRun(args) {
     const manifest = (0, worker_isolation_1.showWorkerManifest)(run, workerId);
     fs.mkdirSync(path.dirname(manifest.resultPath), { recursive: true });
     fs.copyFileSync(absolute, manifest.resultPath);
-    const output = (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+    const output = (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath, {
+        requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
+        allowUnattested: Boolean(args.allowUnattested ?? args["allow-unattested"]),
+    });
     // Host-attested token usage (v0.1.31): record it verbatim as provenance when
     // the operator supplied `--usage-*` flags; CW never synthesizes usage. The old
     // task-level recordResult set `task.usage = usage` (lifecycle-operations.ts:286)

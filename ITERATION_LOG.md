@@ -1,6 +1,26 @@
 # CW Iteration Log
 
-## Batch — release v0.2.1 (agent-hop diagnostics + question-aware review + generalized wording)
+## Batch — close the attested-telemetry manual-accept side door (Unreleased)
+
+> From the architecture-improvement plan's trust track: the opt-in
+> `requireAttestedTelemetry` gate (worker-isolation.ts) only fired when
+> `options.agentDelegation` was present. A MANUAL accept (`cw worker output`,
+> `cw result`) passes no delegation metadata at all, so `telemetry` was
+> `undefined` and the old `telemetry && telemetry.status !== "attested"`
+> condition short-circuited false — an unattested result could be laundered
+> through the manual accept path even with the operator's require flag on.
+> This batch closes that side door: the gate now also fires when telemetry
+> is fully absent (distinct code `telemetry-missing-blocked`), with an
+> explicit, always-audited `--allow-unattested` escape hatch (records a
+> `telemetry.gate-override` trust-audit event). A result-cache hit is never
+> re-blocked (it was already gated at first acceptance) but now records a
+> `telemetry.cache-accept` note when the require flag is on. With the flag
+> off (the default), behavior is unchanged.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Fix the manual-accept/cache-accept gaps in the attested-telemetry gate: `worker-isolation.ts`'s gate fires on missing telemetry too (new code `telemetry-missing-blocked`), gains `allowUnattested` (audited override, kind `telemetry.gate-override`); `worker-cli.ts`/`pipeline-cli.ts` thread `resolveAgentConfig(args).requireAttestedTelemetry` + `--allow-unattested` into the manual accept paths; `drive.ts`'s cache-hit accept records a `telemetry.cache-accept` note when the require flag is on (never blocks); `cw_result`/`cw_worker_output` gain the `allowUnattested` property; man page section in `docs/security-trust-hardening.7.md`. | `plugins/cool-workflow/src/shell/worker-isolation.ts`, `src/shell/worker-cli.ts`, `src/shell/pipeline-cli.ts`, `src/shell/drive.ts`, `src/core/capability-table.ts`, `docs/security-trust-hardening.7.md`, `docs/cli-mcp-parity.7.md` (regen), `docs/project-index.md` (regen), matching `dist/**`, `test/telemetry-fail-closed-smoke.js` (extended, cases 5-6), `v2/conformance/cases/telemetry-require-manual-accept.case.js` (new) | Extended smoke: manual accept with no delegation is blocked under require (distinct code from the present-but-unattested case), `--allow-unattested` accepts + records exactly one audited override event. New conformance case drives the real black-box path (`plan` + `dispatch` + `worker output`): blocked without override, accepted + audited with `--allow-unattested`, default-off unaffected, override event chains cleanly under `audit verify`. | BUILD OK; conformance 102/102; `test:gate` full suite; `parity:check`/`gen:parity` OK (237 capabilities, 196 MCP tools on this branch's base) | no (PR batch, no release) |
+
 
 > Cut the release that ships the four PRs merged since v0.2.0 (#347-#350):
 > agent-hop failure diagnostics, USER env forwarding to the agent backend's

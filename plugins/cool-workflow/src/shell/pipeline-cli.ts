@@ -22,7 +22,7 @@ import { parseUsageFromArgs } from "./observability";
 import { loadRunFromCwd, saveCheckpoint } from "./run-store";
 import { writeReport } from "./report";
 import { WorkflowRun } from "../core/state/types";
-import { agentConfigured } from "./agent-config";
+import { agentConfigured, resolveAgentConfig } from "./agent-config";
 import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable, RemoteSource } from "./remote-source";
 import { recordTrustAuditEvent } from "./trust-audit";
 import { reportBundleCli, ReportBundleResult } from "./report-cli";
@@ -585,7 +585,10 @@ export function recordResultRun(args: Record<string, unknown>): Record<string, u
   const manifest = showWorkerManifest(run, workerId);
   fs.mkdirSync(path.dirname(manifest.resultPath), { recursive: true });
   fs.copyFileSync(absolute, manifest.resultPath);
-  const output = recordWorkerOutput(run, workerId, manifest.resultPath);
+  const output = recordWorkerOutput(run, workerId, manifest.resultPath, {
+    requireAttestedTelemetry: resolveAgentConfig(args).requireAttestedTelemetry,
+    allowUnattested: Boolean(args.allowUnattested ?? args["allow-unattested"]),
+  });
 
   // Host-attested token usage (v0.1.31): record it verbatim as provenance when
   // the operator supplied `--usage-*` flags; CW never synthesizes usage. The old
