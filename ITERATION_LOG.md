@@ -1,5 +1,75 @@
 # CW Iteration Log
 
+## Batch — split capability-table.ts's wiring into src/wiring/ (Unreleased)
+
+> Step 2 (the big one) of the architecture-improvement plan's structure
+> track: `core/capability-table.ts`'s remaining ~3,900-line wiring section
+> (`MCP_REAL_HANDLERS`, the `REGISTRY` construction, every
+> `attachCliBinding`/`addCliOnlyCapability` call, ~37 scattered `../shell/`
+> imports) moves to `src/wiring/capability-table/` — one shared
+> `registry-core.ts` (REGISTRY, REGISTRY_BY_CAPABILITY, attachCliBinding,
+> addCliOnlyCapability, the read-only query functions, plus the handful of
+> capability bodies that must be in scope when MCP_TOOL_DATA.map() builds
+> REGISTRY, to avoid a circular import) plus 9 domain slices matching the
+> file's own milestone boundaries (basics/state/exec-backend/pipeline/
+> trust-ledger/multi-agent/scheduling-registry/reporting/workflow-apps)
+> plus a parity.ts (pure report-building functions, no REGISTRY-mutating
+> side effects). `index.ts` composes them with plain side-effect imports
+> in the EXACT original order (Node's module system runs each slice's
+> top-level `attachCliBinding` calls exactly once, at first import, in
+> the order those imports are written — the same guarantee the original
+> single file's top-to-bottom statement order relied on). `core/
+> capability-table.ts` becomes a 20-line re-export shim.
+>
+> Extracted with `sed` line ranges throughout, never retyped, to rule out
+> transcription drift across ~3,900 lines. Every cross-reference gap
+> (a handler imported in one milestone section but only ever CALLED in a
+> much later one — `nextCli`, `appRunCli`, `graphText`, a local
+> `MultiAgentSummaryText` type alias needed by two different slices) was
+> found by iterating `npm run build`'s "cannot find name" errors, not by
+> manual review alone — TypeScript's own compiler was the safety net for
+> completeness. Proven behaviorally byte-identical the same way as the
+> previous batch: a full `REGISTRY` dump (every field, every handler
+> function's `.name`) diffed clean against a pre-split rebuild, plus
+> `gen:parity` reporting "unchanged."
+>
+> Found and fixed two smokes that broke from reading `core/
+> capability-table.ts`'s raw source TEXT for specific per-verb substrings
+> (`cli-command-surface-smoke.js`, expecting `path: ["feedback"` etc. to
+> appear in that one file's text; `cli-jsonmode-parity-smoke.js`,
+> assigning to a `CAPABILITY_REGISTRY` property that `export *` chains
+> turn into a read-only getter) — both now check the live, compiled
+> `REGISTRY` instead of one file's source text, which is both correct
+> again and more refactor-proof going forward.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Move `capability-table.ts`'s wiring section into `src/wiring/capability-table/` (`registry-core.ts` + 9 domain slices + `index.ts` + `parity.ts`); shrink `core/capability-table.ts` to a re-export shim; update `scripts/version-sync-check.js`'s 8 `checkIncludes` path references to the new slice homes; update `scripts/purity-baseline.json` (capability-table.ts's ~37 shell-import violations collapse to one `../wiring/capability-table` entry; 9 new `wiring/*.ts -> ../../cli/io` entries, matching the pre-existing precedent for that exact import); fix the 2 smokes that read capability-table.ts's raw source text. | `plugins/cool-workflow/src/wiring/capability-table/{index,registry-core,basics,state,exec-backend,pipeline,trust-ledger,multi-agent,scheduling-registry,reporting,workflow-apps,parity}.ts` (new), `src/core/capability-table.ts`, `scripts/version-sync-check.js`, `scripts/purity-baseline.json`, `test/cli-command-surface-smoke.js`, `test/cli-jsonmode-parity-smoke.js`, matching `dist/**` | Full `REGISTRY` dump (every field, every handler function's `.name`) diffed byte-identical against a pre-split rebuild (git-stashed the split, rebuilt, dumped, restored, diffed) — same technique as the previous batch, now proving the much larger move. | BUILD OK; `purity:check` passes on the updated baseline; `gen:parity` reports "unchanged" (238 capabilities, 197 MCP tools); `parity:check` clean; `version:sync` OK; conformance 102/102; `test:gate` 179/179; `test:unit` 150/152 (2 pre-existing, unrelated MCP-tool-count failures already fixed on `main`, present here only because this branch stacks on pre-fix history) | no (PR batch, no release) |
+
+## Batch — split capability-table.ts's pure data out (Unreleased)
+
+> From the architecture-improvement plan's structure track: `capability-table.ts`
+> (4,348 lines) is the hub every capability routes through, but its whole
+> weight lived in one file — a 371-line pure-data prefix (types + the
+> literal `MCP_TOOL_DATA` transcript + a few dependency-free helpers)
+> welded to the ~3,650-line wiring section (`MCP_REAL_HANDLERS`, the
+> `REGISTRY` construction, every `attachCliBinding` call, all importing
+> from `../shell/`). This batch is step 1 of the split (step 2, moving the
+> wiring under `src/wiring/`, is a separate, larger PR): the pure prefix
+> moves to a new `core/capability-data.ts` verbatim (extracted with `sed`
+> line ranges, not retyped, to rule out transcription drift across the
+> 196-row literal), `capability-table.ts` imports it back and re-exports
+> the type names external files already import from it. Proven
+> byte-identical two ways: a full `REGISTRY` dump (every row's capability/
+> summary/surface/cli/mcp/payloadIdentical/reason/entry fields, plus
+> separately every handler function's `.name`) diffed clean against the
+> pre-split build, and `gen:parity`'s own doc regeneration reporting
+> "unchanged."
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Move `capability-table.ts`'s pure-data prefix (types, `MCP_TOOL_DATA`, `PROPERTY_OVERRIDES`, `stringProperty`, `notYetImplemented`, `CapabilityNotImplementedError`) to a new `core/capability-data.ts`; `capability-table.ts` imports it and re-exports (`export type { ... }` for the pure types, a real `export { CapabilityNotImplementedError }` since the unit tests instantiate it via `instanceof`) so every existing import site is unchanged. | `plugins/cool-workflow/src/core/capability-data.ts` (new), `src/core/capability-table.ts`, matching `dist/**` | Full `REGISTRY` dump (every field, both handler function names) diffed byte-identical against a pre-split rebuild (git-stashed the split, rebuilt, dumped, restored, diffed). | BUILD OK; `gen:parity` reports "unchanged" (238 capabilities, 197 MCP tools); `parity:check` clean; `purity:check` clean (the new file is 100% pure, zero new violations); conformance 102/102; `test:gate` 179/179; `version:sync` OK; `test:unit` 150/152 (2 pre-existing, unrelated MCP-tool-count failures already fixed on `main` by #359, present here only because this branch stacks on pre-#359 history) | no (PR batch, no release) |
+
 ## Batch — move the executor-boundary weld's shell types into core/ (Unreleased)
 
 > From the architecture-improvement plan's structure track (shrinking the

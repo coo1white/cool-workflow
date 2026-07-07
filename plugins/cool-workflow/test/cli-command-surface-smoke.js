@@ -41,7 +41,6 @@ const srcEntrypoint = path.join(pluginRoot, "src", "cli.ts");
 // the old cli/command-surface.ts.
 const srcEntry = path.join(pluginRoot, "src", "cli", "entry.ts");
 const srcDispatch = path.join(pluginRoot, "src", "cli", "dispatch.ts");
-const srcCapabilityTable = path.join(pluginRoot, "src", "core", "capability-table.ts");
 
 const entrypoint = fs.readFileSync(srcEntrypoint, "utf8");
 const entrypointLines = entrypoint.trimEnd().split(/\r?\n/);
@@ -61,16 +60,21 @@ assert.match(entry, /parseArgv\(/, "cli/entry.ts must preserve parseArgv-based C
 // The operational families (feedback/metrics/migration/sandbox/backend/
 // contract/candidate) must NOT live as inline arms of a command switch —
 // the same anti-god-dispatch guard the old smoke enforced. In v2 they are
-// rows in the CAPABILITY TABLE (core/capability-table.ts), keyed by a
-// `path: ["<verb>", ...]`, and dispatched generically by cli/dispatch.ts.
-// So the v2-faithful form of "each verb delegates" is: each verb has at
-// least one capability-table row AND is not a real god-dispatch handler.
+// rows in the CAPABILITY TABLE, keyed by a `path: ["<verb>", ...]`, and
+// dispatched generically by cli/dispatch.ts. So the v2-faithful form of
+// "each verb delegates" is: each verb has at least one capability-table
+// row AND is not a real god-dispatch handler.
+//
+// Checked against the LIVE, compiled REGISTRY (not source text of one
+// file): the table's wiring is split across wiring/capability-table/*.ts
+// domain slices, so no single source file's raw text names every verb —
+// the compiled REGISTRY is the one place they are all guaranteed to show
+// up, regardless of which slice a verb's row happens to live in.
 const dispatch = fs.readFileSync(srcDispatch, "utf8");
-const capabilityTable = fs.readFileSync(srcCapabilityTable, "utf8");
+const { REGISTRY } = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
 for (const v of ["feedback", "metrics", "migration", "sandbox", "backend", "contract", "candidate"]) {
-  assert.match(
-    capabilityTable,
-    new RegExp('path:\\s*\\["' + v + '"'),
+  assert.ok(
+    REGISTRY.some((row) => row.cli && row.cli.path[0] === v),
     v + " is a capability-table row (not an inline god-dispatch arm)"
   );
 }
