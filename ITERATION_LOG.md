@@ -1,5 +1,22 @@
 # CW Iteration Log
 
+## Note — onramp gate did not recognize the WP1.1 unit-test layer
+
+> Found while landing this batch's CI run: `evaluateOnrampContract`'s
+> `runtime-smoke-required` check only counted `test/*-smoke.js` files as
+> proof of test coverage. WP1.1 (#360) added a second, equally real test
+> layer (`test/*.test.js` under `npm run test:unit`), but the gate never
+> learned about it — so a cycle that proves its fix with a unit test only
+> (this batch's `collate-stablecompare.test.js`, no smoke touched) failed
+> closed with a false "no test coverage" verdict. Widened the check to
+> accept either kind (`unitTestFiles.length === 0` added to the
+> smoke-required condition, alongside the existing `smokeFiles` check) —
+> a pure widening, so every diff that passed before still passes.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Make `evaluateOnrampContract`'s `runtime-smoke-required` rule accept a `test/*.test.js` unit-test change as valid coverage, not just `test/*-smoke.js`. | `plugins/cool-workflow/src/shell/onramp.ts`, matching `dist/**`, `plugins/cool-workflow/test/onramp-check-smoke.js` (new case) | New case: a runtime change plus only a matching `.test.js` file no longer trips `runtime-smoke-required`. | BUILD OK; `release:check --skip-tests` onramp contract now PASS (was FAIL); `npm test` 34/34; conformance 103/103 | no (gate fix, no release) |
+
 ## Batch — locale-independent cache-key ordering (Unreleased)
 
 > From the architecture-improvement plan's trust track (D-2): 53 bare
