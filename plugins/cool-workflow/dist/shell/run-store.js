@@ -50,6 +50,7 @@ exports.loadRunStateFile = loadRunStateFile;
 exports.checkRunStateFile = checkRunStateFile;
 exports.migrateRunStateFile = migrateRunStateFile;
 exports.loadRunFromCwd = loadRunFromCwd;
+exports.withRunStateLock = withRunStateLock;
 exports.saveCheckpoint = saveCheckpoint;
 exports.compactCheckpoint = compactCheckpoint;
 exports.createRun = createRun;
@@ -111,6 +112,22 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
         throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
     }
     return result.run;
+}
+/** Hold the state.json lock over a WHOLE load -> change -> save cycle.
+ *  A bare loadRunFromCwd + saveCheckpoint pair leaves a window where two
+ *  processes both load the same state and the later save silently drops
+ *  the earlier change (the same lost-update class PR #339 fixed for
+ *  queue.json / triggers.json). `fn` gets the run loaded UNDER the lock;
+ *  saveCheckpoint calls inside `fn` re-enter the same lock (withFileLock
+ *  is re-entrant in-process) and write exactly as before. The probe load
+ *  runs BEFORE the lock so an unknown run id throws the exact
+ *  loadRunFromCwd error without first creating the run directory as a
+ *  lock-file side effect — and it supplies `paths.state`, the same lock
+ *  target saveCheckpoint uses. Keep `fn` short: a critical section past
+ *  30s can be stolen as a stale lock. */
+function withRunStateLock(runId, cwd, fn) {
+    const probe = loadRunFromCwd(runId, cwd);
+    return (0, fs_atomic_1.withFileLock)(probe.paths.state, () => fn(loadRunFromCwd(runId, cwd)));
 }
 /** state.json is the single source of truth — set `updatedAt`, then write
  *  it DURABLY with a lock so concurrent processes never lose an update. */
