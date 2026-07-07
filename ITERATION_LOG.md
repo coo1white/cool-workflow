@@ -1,5 +1,28 @@
 # CW Iteration Log
 
+## Batch — locale-independent cache-key ordering (Unreleased)
+
+> From the architecture-improvement plan's trust track (D-2): 53 bare
+> `localeCompare` calls are left across 21 files, three left un-migrated
+> deliberately per the plan's staged rollout. This batch does step 1, the
+> worst-effect site: `shell/drive.ts:232`'s `previousPhaseResultsDigest`
+> sorts task ids with the HOST's default locale before hashing them into
+> the incremental cache key — a locale change (a different machine, a
+> different `LANG`) quietly moves the cache key with no visible error.
+> Adds `core/util/collate.ts`'s `stableCompare`, pinned to the `"en"`
+> locale — measured byte-identical to the bare `localeCompare()` under
+> both a stripped-env host (this repo's own conformance harness) and an
+> explicit `en_US.UTF-8`, so this migration changes no existing output;
+> measured to actually diverge under `cs_CZ.UTF-8`, so the bug is real,
+> not theoretical. Same diff: fixes `shell/drive.ts`'s stale file-header
+> comment, which still claimed the concurrent-round driver was "scoped
+> down to the serial driver" — it has been real (and pinned by
+> `pipeline-concurrent-round.case.js`) since the v0.2.0 rebuild.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Add `core/util/collate.ts` (`stableCompare`, locale-pinned to "en"); migrate the hash-feeding site `shell/drive.ts:232` off a bare `localeCompare`; correct the stale concurrent-driver header comment at the top of `drive.ts`. | `plugins/cool-workflow/src/core/util/collate.ts` (new), `src/shell/drive.ts`, matching `dist/**`, `test/collate-stablecompare.test.js` (new unit test) | New unit test: basic ordering, comparator sign/zero properties, and the real fix proof — two CHILD PROCESSES (ICU locale resolves at process start, not per-call) show a bare `localeCompare` genuinely diverges between `en_US.UTF-8` and `cs_CZ.UTF-8` while `stableCompare` gives the identical, fixed order in both. | BUILD OK; conformance 102/102; `test:gate` 179/179; `test:unit` 151/153 (the two pre-existing, unrelated MCP-tool-count failures are fixed by #362, not caused by this batch) | no (PR batch, no release) |
+
 ## Batch — trust-audit head anchor: make a cut-off audit-log tail visible (Unreleased)
 
 > From the architecture-improvement plan's trust track (highest-risk item):

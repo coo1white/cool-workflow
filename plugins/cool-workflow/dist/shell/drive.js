@@ -7,15 +7,10 @@
 // milestone). Byte-exact port of the old build's src/drive.ts's
 // imperative shell around the pure decision core now in
 // core/pipeline/drive-decide.ts. Sub-workflow nesting and `--incremental`
-// are ported; the concurrent-round driver (driveConcurrentRound) is
-// scoped down to the serial driver run through a width loop, since no
-// case in this milestone's combined gate exercises true concurrent-batch
-// recording order (that is `--concurrency`/parallel-phase-specific and is
-// authored as its own future conformance case per Open risk 5) — the
-// `mode:"parallel"` architecture-review phases still complete correctly
-// through the serial per-task loop, just without the wall-clock-parallel
-// spawn optimization; this is flagged here rather than silently ported as
-// if fully equivalent.
+// are ported; the concurrent-round driver (driveConcurrentRound, below)
+// dispatches and settles a whole round's tasks in one batch (see
+// `--concurrency`/`roundWidth`), pinned by
+// v2/conformance/cases/pipeline-concurrent-round.case.js.
 //
 // Evidence: SPEC/pipeline-run.md "Drive loop — src/drive.ts".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -77,6 +72,7 @@ const agent_config_1 = require("./agent-config");
 const registry_1 = require("./execution-backend/registry");
 const agent_1 = require("./execution-backend/agent");
 const hash_1 = require("../core/hash");
+const collate_1 = require("../core/util/collate");
 const pipeline_1 = require("./pipeline");
 const reporter_1 = require("./reporter");
 const fs_atomic_1 = require("./fs-atomic");
@@ -191,7 +187,10 @@ function previousPhaseResultsDigest(run, task) {
         return undefined;
     const previousTaskIds = new Set(run.phases.slice(0, phaseIndex).flatMap((p) => p.taskIds));
     const records = [];
-    for (const candidate of run.tasks.filter((t) => previousTaskIds.has(t.id)).sort((a, b) => a.id.localeCompare(b.id))) {
+    // stableCompare (not a bare localeCompare): this order feeds the sha256
+    // digest below, which feeds the incremental cache key — a host-locale-
+    // dependent order would silently move the cache key across machines.
+    for (const candidate of run.tasks.filter((t) => previousTaskIds.has(t.id)).sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
         if (candidate.status !== "completed" || !candidate.resultPath || !fs.existsSync(candidate.resultPath)) {
             records.push(undefined);
             continue;
