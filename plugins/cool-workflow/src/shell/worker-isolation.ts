@@ -120,6 +120,10 @@ export interface RecordWorkerOutputOptions {
   persist?: boolean;
   agentDelegation?: AgentDelegationRecordInput;
   requireAttestedTelemetry?: boolean;
+  /** Operator escape hatch for requireAttestedTelemetry: records the accept
+   *  ON THE AUDIT LOG (kind telemetry.gate-override) instead of blocking it.
+   *  Never silent -- see the gate below. */
+  allowUnattested?: boolean;
 }
 
 export interface AllocateWorkerScopeOptions {
@@ -571,13 +575,36 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
       })
     : undefined;
   // Opt-in fail-closed gate (default off): when the operator requires
-  // attested telemetry, a delegated hop whose verdict is not `attested`
-  // is REJECTED here — BEFORE any accept-side state mutation — so the
-  // drive parks it instead of recording unverifiable usage.
-  if (options.requireAttestedTelemetry && telemetry && telemetry.status !== "attested") {
-    const message = `Worker ${workerId} telemetry is ${telemetry.status} (${telemetry.reason || "unverified"}) and require-attested-telemetry is enabled — refusing to accept a hop whose usage cannot be cryptographically verified`;
-    recordWorkerFailure(run, workerId, message, { code: "telemetry-unattested-blocked", path: absoluteResultPath, retryable: false });
-    throw new Error(message);
+  // attested telemetry, an accept whose usage cannot be verified is
+  // REJECTED here — BEFORE any accept-side state mutation — so the drive
+  // parks it instead of recording unverifiable usage. This fires on BOTH
+  // shapes: a delegation present but not attested (telemetry.status !==
+  // "attested"), and NO delegation metadata at all. The second shape is
+  // the gap a manual `cw worker output` / `cw result` accept used to slip
+  // through silently: options.agentDelegation was simply absent, so
+  // `telemetry` was undefined and the old `telemetry &&` condition
+  // short-circuited false — an unattested result could be laundered
+  // through the manual accept path even with the require flag on.
+  // --allow-unattested is the operator's explicit way past this: it never
+  // skips the gate silently, it records a telemetry.gate-override event.
+  if (options.requireAttestedTelemetry && (!telemetry || telemetry.status !== "attested")) {
+    if (options.allowUnattested) {
+      recordTrustAuditEvent(run, {
+        kind: "telemetry.gate-override",
+        decision: "allowed",
+        source: "operator",
+        workerId,
+        taskId: task.id,
+        metadata: { reason: "--allow-unattested", telemetryStatus: telemetry ? telemetry.status : "absent" },
+      });
+    } else {
+      const code = telemetry ? "telemetry-unattested-blocked" : "telemetry-missing-blocked";
+      const message = telemetry
+        ? `Worker ${workerId} telemetry is ${telemetry.status} (${telemetry.reason || "unverified"}) and require-attested-telemetry is enabled — refusing to accept a hop whose usage cannot be cryptographically verified`
+        : `Worker ${workerId} carries no agent-delegation telemetry at all and require-attested-telemetry is enabled — refusing to accept an unattested manual result (pass --allow-unattested to record an audited override)`;
+      recordWorkerFailure(run, workerId, message, { code, path: absoluteResultPath, retryable: false });
+      throw new Error(message);
+    }
   }
   const agentDelegationMeta = delegation
     ? {
