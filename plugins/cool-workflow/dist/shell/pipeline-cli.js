@@ -552,84 +552,91 @@ function quickstartRun(args) {
 }
 function dispatchRun(args) {
     const runId = String(args.runId);
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    // parseArgv keys long flags in kebab-case; accept camelCase as a fallback.
-    const flag = (kebab, camel) => {
-        const v = args[kebab] ?? args[camel];
-        return typeof v === "string" && v.trim() ? v : undefined;
-    };
-    const manifest = (0, dispatch_1.createDispatchManifest)(run, args.limit !== undefined ? Number(args.limit) : undefined, {
-        sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined,
-        sandbox: typeof args.sandbox === "string" ? args.sandbox : undefined,
-        backendId: typeof args.backend === "string" ? args.backend : undefined,
-        multiAgentRunId: flag("multi-agent-run", "multiAgentRun"),
-        multiAgentGroupId: flag("multi-agent-group", "multiAgentGroup"),
-        multiAgentRoleId: flag("multi-agent-role", "multiAgentRole"),
-        multiAgentFanoutId: flag("multi-agent-fanout", "multiAgentFanout"),
+    // The whole load -> change -> save cycle holds the state.json lock so a
+    // concurrent dispatch/result on the same run cannot drop this update.
+    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => {
+        // parseArgv keys long flags in kebab-case; accept camelCase as a fallback.
+        const flag = (kebab, camel) => {
+            const v = args[kebab] ?? args[camel];
+            return typeof v === "string" && v.trim() ? v : undefined;
+        };
+        const manifest = (0, dispatch_1.createDispatchManifest)(run, args.limit !== undefined ? Number(args.limit) : undefined, {
+            sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined,
+            sandbox: typeof args.sandbox === "string" ? args.sandbox : undefined,
+            backendId: typeof args.backend === "string" ? args.backend : undefined,
+            multiAgentRunId: flag("multi-agent-run", "multiAgentRun"),
+            multiAgentGroupId: flag("multi-agent-group", "multiAgentGroup"),
+            multiAgentRoleId: flag("multi-agent-role", "multiAgentRole"),
+            multiAgentFanoutId: flag("multi-agent-fanout", "multiAgentFanout"),
+        });
+        if (manifest.dispatchId) {
+            (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
+            (0, run_store_1.saveCheckpoint)(run);
+            (0, report_1.writeReport)(run);
+        }
+        return manifest;
     });
-    if (manifest.dispatchId) {
-        (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
-        (0, run_store_1.saveCheckpoint)(run);
-        (0, report_1.writeReport)(run);
-    }
-    return manifest;
 }
 function recordResultRun(args) {
     const runId = String(args.runId);
     const taskId = String(args.taskId);
     const resultPath = String(args.resultPath);
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const task = run.tasks.find((t) => t.id === taskId);
-    if (!task || !task.workerId)
-        throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
-    const absolute = path.resolve(resultPath);
-    // A result path inside a system directory is never accepted (POLA): the
-    // operator file gets copied into the worker's result.md, so a /etc/passwd
-    // source would smuggle system content into a run. Byte-behavior port of the
-    // old build's recordResult system-directory blacklist.
-    if (/^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//.test(absolute)) {
-        throw new Error(`Result path must not be a system directory: ${resultPath}`);
-    }
-    if (!fs.existsSync(absolute))
-        throw new Error(`Result file does not exist: ${resultPath}`);
-    const workerId = String(task.workerId);
-    // Host-attested `cw result <run> <task> <file>` intake: the operator hands CW
-    // an EXTERNAL result file that lives OUTSIDE the worker's read-only write
-    // boundary. The old task-level recordResult (lifecycle-operations.ts:279-280)
-    // COPIED that external file into the run's results area and recorded the
-    // internal path — it never ran the external path through validateSandboxWrite.
-    // v2 collapsed the two intakes into recordWorkerOutput, which sandbox-validates
-    // its input against the worker boundary, so a bare external path is rejected
-    // ("write path is outside sandbox profile <id>"). Restore the copy-in: stage
-    // the operator file at the worker's OWN result.md (which IS inside the write
-    // boundary), then record that internal path exactly like a driven worker.
-    const manifest = (0, worker_isolation_1.showWorkerManifest)(run, workerId);
-    fs.mkdirSync(path.dirname(manifest.resultPath), { recursive: true });
-    fs.copyFileSync(absolute, manifest.resultPath);
-    const output = (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
-    // Host-attested token usage (v0.1.31): record it verbatim as provenance when
-    // the operator supplied `--usage-*` flags; CW never synthesizes usage. The old
-    // task-level recordResult set `task.usage = usage` (lifecycle-operations.ts:286)
-    // and its unit was the TASK. v2 records through recordWorkerOutput, which gives
-    // the worker an `output` record — so the observability usage UNIT becomes the
-    // WORKER (deriveUsageTotals reads worker.usage for workers with output, and
-    // EXCLUDES that task). Attach the usage to the worker scope so the report counts
-    // it as an attested unit; also stamp task.usage for byte-parity with the old
-    // task-level record.
-    const usage = (0, observability_1.parseUsageFromArgs)(args, new Date().toISOString());
-    if (usage) {
-        task.usage = usage;
-        const scope = (0, worker_isolation_1.getWorkerScope)(run, workerId);
-        if (scope)
-            scope.usage = usage;
-    }
-    // Byte-exact to the old build's orchestrator recordWorkerOutput()
-    // wrapper: an accepted result is its own checkpoint commit, not just a
-    // bare saveCheckpoint (SPEC/pipeline-run.md's persist-ordering rule).
-    (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-    (0, run_store_1.saveCheckpoint)(run);
-    (0, report_1.writeReport)(run);
-    return output;
+    // Two processes recording results for two tasks of the SAME run used to
+    // race: both loaded, and the later saveCheckpoint dropped the earlier
+    // task's completion. The lock now covers the whole cycle.
+    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => {
+        const task = run.tasks.find((t) => t.id === taskId);
+        if (!task || !task.workerId)
+            throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
+        const absolute = path.resolve(resultPath);
+        // A result path inside a system directory is never accepted (POLA): the
+        // operator file gets copied into the worker's result.md, so a /etc/passwd
+        // source would smuggle system content into a run. Byte-behavior port of the
+        // old build's recordResult system-directory blacklist.
+        if (/^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//.test(absolute)) {
+            throw new Error(`Result path must not be a system directory: ${resultPath}`);
+        }
+        if (!fs.existsSync(absolute))
+            throw new Error(`Result file does not exist: ${resultPath}`);
+        const workerId = String(task.workerId);
+        // Host-attested `cw result <run> <task> <file>` intake: the operator hands CW
+        // an EXTERNAL result file that lives OUTSIDE the worker's read-only write
+        // boundary. The old task-level recordResult (lifecycle-operations.ts:279-280)
+        // COPIED that external file into the run's results area and recorded the
+        // internal path — it never ran the external path through validateSandboxWrite.
+        // v2 collapsed the two intakes into recordWorkerOutput, which sandbox-validates
+        // its input against the worker boundary, so a bare external path is rejected
+        // ("write path is outside sandbox profile <id>"). Restore the copy-in: stage
+        // the operator file at the worker's OWN result.md (which IS inside the write
+        // boundary), then record that internal path exactly like a driven worker.
+        const manifest = (0, worker_isolation_1.showWorkerManifest)(run, workerId);
+        fs.mkdirSync(path.dirname(manifest.resultPath), { recursive: true });
+        fs.copyFileSync(absolute, manifest.resultPath);
+        const output = (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+        // Host-attested token usage (v0.1.31): record it verbatim as provenance when
+        // the operator supplied `--usage-*` flags; CW never synthesizes usage. The old
+        // task-level recordResult set `task.usage = usage` (lifecycle-operations.ts:286)
+        // and its unit was the TASK. v2 records through recordWorkerOutput, which gives
+        // the worker an `output` record — so the observability usage UNIT becomes the
+        // WORKER (deriveUsageTotals reads worker.usage for workers with output, and
+        // EXCLUDES that task). Attach the usage to the worker scope so the report counts
+        // it as an attested unit; also stamp task.usage for byte-parity with the old
+        // task-level record.
+        const usage = (0, observability_1.parseUsageFromArgs)(args, new Date().toISOString());
+        if (usage) {
+            task.usage = usage;
+            const scope = (0, worker_isolation_1.getWorkerScope)(run, workerId);
+            if (scope)
+                scope.usage = usage;
+        }
+        // Byte-exact to the old build's orchestrator recordWorkerOutput()
+        // wrapper: an accepted result is its own checkpoint commit, not just a
+        // bare saveCheckpoint (SPEC/pipeline-run.md's persist-ordering rule).
+        (0, commit_1.commitState)(run, `worker:${workerId}:result`);
+        (0, run_store_1.saveCheckpoint)(run);
+        (0, report_1.writeReport)(run);
+        return output;
+    });
 }
 /** `cw commit <run-id>` — byte-exact port of the old build's
  *  `orchestrator/lifecycle-operations.ts`'s `commit()`: the CLI/MCP
