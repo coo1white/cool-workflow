@@ -200,6 +200,10 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/dogfood-one-real-repo.7.md", "Dogfood One Real Repo", checks);
   checkIncludes("plugins/cool-workflow/docs/getting-started.md", "npm run release:check", checks);
   checkIncludes("plugins/cool-workflow/package.json", "eval:replay", checks);
+  checkIncludes("plugins/cool-workflow/docs/trust-audit-anchor.7.md", "Trust Audit Anchor", checks);
+  checkIncludes("plugins/cool-workflow/docs/trust-audit-anchor.7.md", VERSION, checks);
+  checkIncludes("plugins/cool-workflow/docs/index.md", "trust-audit-anchor.7.md", checks);
+  checkIncludes("plugins/cool-workflow/test/trust-audit-anchor-smoke.js", "trust-audit-anchor-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/release-and-migration.7.md", VERSION, checks);
   checkIncludes("CHANGELOG.md", `## ${VERSION}`, checks);
   checkIncludes("RELEASE.md", VERSION, checks);

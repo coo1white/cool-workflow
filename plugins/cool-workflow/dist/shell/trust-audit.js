@@ -58,6 +58,7 @@ exports.TRUST_AUDIT_SCHEMA_VERSION = void 0;
 exports.ensureTrustAudit = ensureTrustAudit;
 exports.trustAuditGenesis = trustAuditGenesis;
 exports.listTrustAuditEvents = listTrustAuditEvents;
+exports.trustAuditHead = trustAuditHead;
 exports.verifyTrustAudit = verifyTrustAudit;
 exports.recordTrustAuditEvent = recordTrustAuditEvent;
 exports.recordSandboxPathDecision = recordSandboxPathDecision;
@@ -136,6 +137,21 @@ function readEventsRaw(eventLogPath) {
 function listTrustAuditEvents(run) {
     return readEventsRaw(ensureTrustAudit(run).eventLogPath);
 }
+/** The current head of a run's trust-audit chain: the hash the NEXT
+ *  appended event will link from (genesis when the log is empty), plus
+ *  the event count. Read-only projection over existing data. Capture it
+ *  (e.g. right after a run, or at export time) and later hand it to
+ *  `verifyTrustAudit`'s anchor / `cw audit verify --expect-head` to
+ *  re-prove the log was not shortened since the capture. */
+function trustAuditHead(run) {
+    const audit = ensureTrustAudit(run);
+    const events = readEventsRaw(audit.eventLogPath);
+    let head = trustAuditGenesis(run.id);
+    for (const event of events) {
+        head = event.eventHash !== undefined ? event.eventHash : computeEventHash(event);
+    }
+    return { eventCount: events.length, headHash: head };
+}
 /** Re-prove the run's trust-audit chain: prevEventHash linkage (append
  *  order) + per-event hash recompute. A corrupt line, an edited event,
  *  or a removed event flips verified=false. Legacy events without a
@@ -147,8 +163,14 @@ function listTrustAuditEvents(run) {
  *  era) or all-legacy (pre-chain). An unchained (eventHash-less) line
  *  mixed into an otherwise-chained log is a forgery attempt — dropping
  *  the hash to be waved through as "legacy" — so it fails with
- *  `trust-audit-unchained-event`, never silently accepted. */
-function verifyTrustAudit(run) {
+ *  `trust-audit-unchained-event`, never silently accepted.
+ *
+ *  ANCHOR (optional): the walk alone cannot see tail truncation — see
+ *  TrustAuditAnchor. With an anchor, the head-hash trail (genesis plus
+ *  the hash after each event) must contain `expectHead`, and the log
+ *  must reach `expectCount` events; a shortfall fails closed with
+ *  `trust-audit-truncated`. Without an anchor, behavior is unchanged. */
+function verifyTrustAudit(run, anchor) {
     const audit = ensureTrustAudit(run);
     const { events, corruptLines } = readEventsRawCounted(audit.eventLogPath);
     const checks = [];
@@ -158,12 +180,14 @@ function verifyTrustAudit(run) {
     let chained = 0;
     let unchained = 0;
     let expectedPrev = trustAuditGenesis(run.id);
+    const headTrail = new Set([expectedPrev]);
     for (let i = 0; i < events.length; i++) {
         const event = events[i];
         const recomputed = computeEventHash(event);
         if (event.eventHash === undefined) {
             unchained += 1;
             expectedPrev = recomputed; // advance the chain over legacy events
+            headTrail.add(expectedPrev);
             continue;
         }
         chained += 1;
@@ -176,11 +200,26 @@ function verifyTrustAudit(run) {
             checks.push({ name: `chain-link[${i}]`, pass: false, code: "trust-audit-chain-broken" });
         }
         expectedPrev = event.eventHash;
+        headTrail.add(expectedPrev);
     }
     // Era rule: a log with ANY chained event must have EVERY event chained.
     if (chained > 0 && unchained > 0) {
         verified = false;
         checks.push({ name: "unchained-events", pass: false, code: "trust-audit-unchained-event" });
+    }
+    // Anchor rule: the captured head must still be ON the chain, and the log
+    // must be at least as long as it was at capture time. A truncated-then-
+    // appended log fails the head check (new events link from an earlier
+    // point, so the old head is no longer in the trail).
+    if (anchor) {
+        if (anchor.expectCount !== undefined && events.length < anchor.expectCount) {
+            verified = false;
+            checks.push({ name: "anchor-count", pass: false, code: "trust-audit-truncated" });
+        }
+        if (anchor.expectHead !== undefined && !headTrail.has(anchor.expectHead)) {
+            verified = false;
+            checks.push({ name: "anchor-head", pass: false, code: "trust-audit-truncated" });
+        }
     }
     return { present: events.length > 0, verified, eventCount: events.length, chained, unchained, corruptLines, checks };
 }
