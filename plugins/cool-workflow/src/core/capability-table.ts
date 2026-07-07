@@ -628,6 +628,41 @@ addCliOnlyCapability(
   "version is a local, no-run-state print; the old build never gave it an MCP peer."
 );
 
+/** `cw search <keyword>` — filters the SAME real app discovery `cw list`
+ *  shows, by id/title/summary (byte-behavior port of cli/dispatch.ts's
+ *  milestone-1 carry-over `search` arm, moved here so the dispatchLegacy
+ *  switch shrinks per its file header's rule). `hiddenFromHelp` keeps it
+ *  out of the per-verb help listing exactly as before (it never had one —
+ *  `search` only ever appeared in formatHelp's hard-coded "More commands"
+ *  index line, which this row does not touch), so `cw help search` keeps
+ *  its existing "Unknown command: search" text. */
+addCliOnlyCapability(
+  "search",
+  "Search bundled workflows by id/title/summary keyword.",
+  {
+    path: ["search"],
+    jsonMode: "flag",
+    hiddenFromHelp: true,
+    handler: (args) => {
+      const keyword = args.positionals.join(" ");
+      if (!keyword.trim()) {
+        throw new Error('Missing search keyword.\n  Tip: cw search architecture to find workflows about architecture.');
+      }
+      const lower = keyword.toLowerCase();
+      const results = listWorkflowApps()
+        .filter(
+          (a) =>
+            String(a.title).toLowerCase().includes(lower) ||
+            String(a.summary).toLowerCase().includes(lower) ||
+            String(a.id).toLowerCase().includes(lower)
+        )
+        .map((a) => ({ id: String(a.id), title: String(a.title), summary: String(a.summary) }));
+      return { json: results, text: formatSearchResults(keyword, results) };
+    },
+  },
+  "CLI-only discovery helper over the same real app data cw list shows; no MCP client needs a free-text search tool alongside cw_list's structured output."
+);
+
 attachCliBinding("list", {
   path: ["list"],
   jsonMode: "default",
@@ -3323,7 +3358,7 @@ import {
   showWorkflowApp,
   validateWorkflowAppTarget,
 } from "../shell/workflow-app-loader";
-import { formatInfo } from "./format/help";
+import { formatInfo, formatSearchResults } from "./format/help";
 import { readManPage } from "../shell/man-cli";
 
 attachCliBinding("app.list", {
@@ -4176,6 +4211,14 @@ export function declaredCliHelpTokens(): string[] {
   // row). Mirrors the parity smoke's HELP_INDEX_ONLY_TOKENS set so the
   // help-token parity stays balanced.
   tokens.delete("init");
+  // `search` is likewise help-index-only: its row is hiddenFromHelp (it
+  // never had its own `cw help search` row — only the frozen "More
+  // commands" index line, which this function does not build), and unlike
+  // a family such as `clones` it has no visible sibling row sharing the
+  // "search" first token to contribute it independently. Mirrors the
+  // parity smoke's HELP_INDEX_ONLY_TOKENS set so the help-token parity
+  // stays balanced.
+  tokens.delete("search");
   return [...tokens].sort();
 }
 

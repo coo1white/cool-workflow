@@ -1,5 +1,26 @@
 # CW Iteration Log
 
+## Batch — dispatchLegacy dead-arm burn-down (Unreleased)
+
+> From the architecture-improvement plan's structure track: `cli/dispatch.ts`'s
+> milestone-1 carry-over switch had shrunk in claim ("each arm here is
+> replaced by a capability-table row... nothing new is ever added here")
+> but not in fact — `next`, `gc`, and `migration` all had real
+> capability-table rows that `dispatchTable()` already matched first, so
+> their switch arms (placeholder text, fixed stub JSON) were unreachable
+> dead code. `search` was the opposite problem: a genuinely LIVE arm with
+> no capability-table row at all — a real parity gap (declared nowhere the
+> registry's own tooling could see it). This batch deletes the three dead
+> arms and moves `search` into the table (`hiddenFromHelp: true`, since it
+> never had its own `cw help search` row — only the frozen root "More
+> commands" index line, untouched by this move) as a genuine `cli-only`
+> capability, with its pure text formatter moved to `core/format/help.ts`
+> so the new row (core/) never has to import from `cli/`.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Delete `dispatchLegacy`'s unreachable `next`/`gc`/`migration` arms (confirmed dead via live CLI probes: dispatchTable() always wins first); move `search` into `core/capability-table.ts` as a cli-only, hiddenFromHelp capability; move `formatSearchResults` to `core/format/help.ts`; add `search` to `declaredCliHelpTokens()`'s help-index-only exclusion set (mirroring the existing `init` entry) so the parity gate's help-token check stays balanced now that `search` is a real dispatchable row. | `plugins/cool-workflow/src/cli/dispatch.ts`, `src/core/capability-table.ts`, `src/core/format/help.ts`, matching `dist/**`, `docs/cli-mcp-parity.7.md` (regen) | Byte-diffed every touched command before/after and confirmed identical: `cw help`, `cw help search`, `cw search architecture`, `cw search` (no keyword), `cw next`, `cw migration check <id>`, `cw gc verify <id>`, `cw ledger` (bare usage error). | BUILD OK; conformance 102/102; `test:gate` 179/179; `parity:check` clean (239 capabilities, 197 MCP tools); `test:unit` 150/152 (2 pre-existing, unrelated MCP-tool-count failures fixed by #362) | no (PR batch, no release) |
+
 ## Batch — trust-audit head anchor: make a cut-off audit-log tail visible (Unreleased)
 
 > From the architecture-improvement plan's trust track (highest-risk item):
