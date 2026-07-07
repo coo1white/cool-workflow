@@ -24,3 +24,14 @@ node run.js --bin ../../plugins/cool-workflow/dist/cli.js   # old build — must
 node run.js --bin <new build cli.js>                        # new build — the goal
 node run.js --bin ... --filter ledger                       # one area
 ```
+
+## Why `run.js` looks like `test/run-all.js`
+
+`run.js`'s discover-and-run shape is copied from the plugin's own
+`test/*-smoke.js` runner, `plugins/cool-workflow/test/run-all.js`, on
+purpose (see that file's own header note). This is by design, not an
+accident to clean up: this suite is the net that judges every change to
+the runtime, so it must never share code with the thing it judges. A bug
+in a shared runner could weaken the net at the exact time it needs to
+hold. Keep the copy; do not replace it with an `import`/`require` of
+`test/run-all.js`.

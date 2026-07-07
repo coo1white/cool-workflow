@@ -24,9 +24,12 @@ jobs:
           node-version: "22"
 
       - name: Install
-        # package-lock.json is gitignored in this repo (see .gitignore); the
-        # documented install path is `npm install --no-package-lock`, same as
-        # .github/workflows/ci.yml. `npm ci` would fail with no committed lock.
+        # package-lock.json IS tracked (scripts/version-sync-check.js checks
+        # its version fields stay in sync), but the documented install path
+        # stays `npm install --no-package-lock`, same as .github/workflows/
+        # ci.yml, since this package has zero runtime dependencies -- a lock
+        # buys no reproducibility here that the empty dependency list doesn't
+        # already give for free.
         run: npm install --no-package-lock --prefix plugins/cool-workflow
 
       - name: Run deterministic release gate
