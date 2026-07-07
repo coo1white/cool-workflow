@@ -24,6 +24,14 @@ when checks pass, or `gh pr merge --merge` after manually confirming CI
 is green. Never use `--admin` to bypass CI checks. Never merge with a
 red or pending CI run.
 
+`main` has branch protection turned on (as of 2026-07-07): the four
+CI checks (`cool-workflow` on `ubuntu-latest`/`ubuntu-24.04-arm`, each
+on Node 18 and 22) must be green before a merge, with `enforce_admins`
+on so there is no bypass, even for the repo owner. Force-pushes and
+branch deletion on `main` are also blocked. No required-review rule is
+set, since this repo has one lone collaborator and GitHub review gates
+cannot be met by a PR's own author.
+
 # Iteration Loop
 Each cycle MUST follow this sequence. Do not skip steps.
 
