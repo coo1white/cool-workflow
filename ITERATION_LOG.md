@@ -1175,3 +1175,40 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Close the read-modify-write race on `state.json`: add `withRunStateLock(runId, cwd, fn)` in `run-store.ts`, which holds the `state.json` lock over the WHOLE load -> change -> save cycle instead of just the write; make `withFileLock` (`fs-atomic.ts`) re-entrant inside one process so nested `saveCheckpoint`/worker-failure-persist calls inside `fn` keep working unchanged; wire `dispatchRun` and `recordResultRun` (`pipeline-cli.ts`) through it. Also re-ran `sync:project-index` (`docs/project-index.md`) so the new smoke count stays in sync with the doc-drift guard. | `plugins/cool-workflow/src/shell/fs-atomic.ts`, `plugins/cool-workflow/src/shell/run-store.ts`, `plugins/cool-workflow/src/shell/pipeline-cli.ts`, matching `dist/**`, `plugins/cool-workflow/test/run-state-lock-concurrency-smoke.js` (new), `plugins/cool-workflow/docs/durable-state-and-locking.7.md`, `plugins/cool-workflow/docs/project-index.md` (regenerated) | New `run-state-lock-concurrency-smoke.js`: part A proves `withFileLock` is re-entrant in-process (nested same-target call runs under the held lock, single release); part B spawns one real child process per dispatched task of a live `architecture-review` run, holds them at a start line, and asserts all concurrent `cw result` recordings survive (failed on the pre-fix build: 1/6 kept). | BUILD OK; new smoke run 3x clean; `npm test` fast 34/34; conformance 101/101; `npm run test:gate` full 179-smoke sequential suite: first pass caught a stale `project-index.md` (unrelated doc-drift guard tripped by the new test file, fixed via `sync:project-index`), full suite green after | no (bugfix, no release) |
+
+## Batch — restore the core/ unit-test layer lost at cutover (Unreleased)
+
+> WP1.1 of `docs/ARCHITECTURE_PLAN.md`. The v2 rebuild's 152 pure `core/`
+> unit tests (which caught 5 real bugs the black-box conformance suite
+> never would have) were deleted along with the rest of the pre-cutover
+> `v2/` staging tree once the rebuild shipped as `src/`. Nothing since has
+> replaced that safety net — the shipped build only carries 178 black-box
+> smoke tests and the 101-case conformance suite, both proving external
+> byte-behavior, not internal function correctness. Restoring the suite
+> also surfaced 9 tests that had drifted from real, deliberate behavior
+> that landed between the rebuild PR and the cutover PR (a loop-expansion
+> phase-naming fix, a commit-gate acceptance-rationale feature, a graph.ts
+> blackboard/critical-path fold-in, and the already-merged #355 removal of
+> the dead `update` verb) — those got their expectations updated to match
+> shipped reality, not the other way around; each was cross-checked against
+> the original v2 build at commit 84aac95 to confirm it once passed there
+> and drifted only because the code kept moving after that snapshot.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Restore the 152 `*.test.js` files from commit `84aac95:v2/test/` verbatim into `plugins/cool-workflow/test/` (same directory depth as the old `v2/test/` relative to `v2/dist/`, so every existing `require("../dist/...")` resolves unchanged — zero path rewriting). Add a small discovery-based runner `test/run-unit.js` (mirrors `run-all.js`'s fail-closed `test/*.test.js` discovery, but skips its sandbox isolation since these are pure functions of `dist/core/*` with no `.cw/`/`CW_HOME` dependency) and a new `test:unit` npm script, kept fully separate from `npm test`/`test:gate`/`test:ci` (which stay smoke-only, byte-for-byte unchanged). Wire `test:unit` into CI directly and into `release:check` as a new "unit tests" entry that `--skip-tests` also skips (so CI never runs it twice). Fix the 9 tests whose expectations had drifted from shipped behavior (3 `capability-table` milestone-narrative tests updated from "mid-build" to "shipped-release" invariants; 2 `formatapps-help-*` fixtures had the already-removed `update` verb dropped; 1 `commit-gate` fixture completed with the now-required `workerId`/`sandboxProfileId` fields; 1 `loop-expansion` test updated for the deliberate phase-naming fix; 2 `state-explosion` tests updated for the `BlackboardState.snapshots` field and the broader critical-path protection over candidate/selection/committed-commit kinds) — all 9 verified against the original 84aac95 build to confirm they were genuinely green there. | `plugins/cool-workflow/test/*.test.js` (152 new files, restored verbatim then 9 patched), `plugins/cool-workflow/test/run-unit.js` (new), `plugins/cool-workflow/package.json` (new `test:unit` script), `plugins/cool-workflow/scripts/release-check.js` (new "unit tests" check + skip-tests extended), `.github/workflows/ci.yml` (new `npm run test:unit` step), `docs/ARCHITECTURE_PLAN.md` (WP1.1 checked off) | `test:unit` 152/152 passed; full smoke suite `test:gate` 178/178 passed unchanged; conformance 101/101 unchanged | BUILD OK; conformance 101/101; `test:gate` 178/178; `test:unit` 152/152; `release:check --skip-tests` 13/13 (unit tests correctly SKIP, matching "tests") | no (safety-net restoration, no release) |
+
+## Note — pre-existing 196-vs-197 MCP tool count drift found while merging #359 and #360
+
+> Not a new goal on its own — a merge-time fix caught while landing the
+> `state.json` whole-cycle lock branch (#359) on top of `main` after #360
+> merged. #358 added a new MCP tool (`cw_audit_head`), moving the real
+> count from 196 to 197. #360's restored unit tests
+> (`captable-mcp-tool-definitions.test.js`,
+> `captable-projection-helpers.test.js`) still hardcoded 196 and pinned
+> `cw_history` as the last declared tool — a real drift already present
+> on `main` itself (confirmed on a clean `origin/main` checkout, not
+> introduced by #359). Both literals updated to 197 and the tail pin to
+> `cw_audit_head`, checked against the live `dist/core/capability-table.js`
+> output and a passing `scripts/parity-check.js`. `test:unit` 152/152
+> after the fix.
