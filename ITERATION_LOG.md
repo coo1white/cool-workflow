@@ -1,5 +1,20 @@
 # CW Iteration Log
 
+## Note — onramp gate also did not recognize a conformance case as coverage
+
+> Found while landing this batch's CI run, right after the WP1.1 unit-test
+> gap (previous note): `evaluateOnrampContract`'s `runtime-smoke-required`
+> check now accepted `test/*-smoke.js` or `test/*.test.js`, but this batch
+> proves its 52-site migration with a NEW `v2/conformance/cases/*.case.js`
+> file only — a third, equally real, CI-gated proof layer the check still
+> did not know about. Widened the check again to accept a conformance-case
+> change too (`conformanceCaseFiles.length === 0` added alongside the other
+> two). Pure widening, same discipline as the unit-test fix.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Make `evaluateOnrampContract`'s `runtime-smoke-required` rule also accept a `v2/conformance/cases/*.case.js` change as valid coverage. | `plugins/cool-workflow/src/shell/onramp.ts`, matching `dist/**`, `plugins/cool-workflow/test/onramp-check-smoke.js` (new case) | New case: a runtime change plus only a matching conformance case no longer trips `runtime-smoke-required`. | BUILD OK; `release:check --skip-tests` onramp contract PASS; `npm test` 34/34; conformance 104/104 | no (gate fix, no release) |
+
 ## Batch — finish the locale-independent ordering migration (Unreleased)
 
 > Step 2 of the D-2 finding, following the cache-key fix in the previous

@@ -301,10 +301,19 @@ function evaluateOnrampContract(files, options = {}) {
     // real, complete cycle — the gate must accept either kind, not just
     // the one that existed before the unit-test layer came back.
     const unitTestFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+\.test\.js$/.test(file));
+    // The black-box conformance suite (v2/conformance/cases/*.case.js) is a
+    // third, equally real proof layer — CI-gated on every push, and the one
+    // North Star Track C leans on. A cycle proven end to end by a new or
+    // changed conformance case (with no test/*-smoke.js or test/*.test.js
+    // touched) is a real, complete cycle too.
+    const conformanceCaseFiles = normalized.filter((file) => /^v2\/conformance\/cases\/.+\.case\.js$/.test(file));
     const docFiles = normalized.filter(isDocFile);
     const iterationFiles = normalized.filter((file) => file === "ITERATION_LOG.md");
     const sourceAppOrScript = runtimeFiles.length > 0 || typeFiles.length > 0 || appFiles.length > 0 || scriptFiles.length > 0;
-    if ((runtimeFiles.length > 0 || appFiles.length > 0) && smokeFiles.length === 0 && unitTestFiles.length === 0) {
+    if ((runtimeFiles.length > 0 || appFiles.length > 0) &&
+        smokeFiles.length === 0 &&
+        unitTestFiles.length === 0 &&
+        conformanceCaseFiles.length === 0) {
         issues.push({
             code: "runtime-smoke-required",
             detail: "Runtime or app changes must include at least one smoke test change.",
