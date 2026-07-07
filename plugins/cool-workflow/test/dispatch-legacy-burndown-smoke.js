@@ -1,0 +1,86 @@
+#!/usr/bin/env node
+"use strict";
+
+// dispatch-legacy-burndown-smoke: cli/dispatch.ts's milestone-1 carry-over
+// switch claimed "each arm here is replaced by a capability-table row when
+// its own build-order milestone lands" -- but next/gc/migration had all
+// grown real capability-table rows that dispatchTable() already matched
+// first, so their switch arms were dead code (proven live: their exact
+// placeholder text never appears). search was the mirror-image bug: a
+// genuinely live arm with NO capability-table row at all, so the
+// registry's own tooling had no way to see it. This pins:
+//   1. the dead arms are really gone (real error text, not the old
+//      "X is not implemented in this milestone" placeholder strings);
+//   2. search is now a real, hiddenFromHelp, cli-only capability-table row;
+//   3. cw search / cw help search / root help are byte-unchanged by the move.
+
+const assert = require("node:assert/strict");
+const path = require("node:path");
+const { execFileSync } = require("node:child_process");
+
+const pluginRoot = path.resolve(__dirname, "..");
+const node = process.execPath;
+const cli = path.join(pluginRoot, "dist", "cli.js");
+const { cliCapabilities, findCapabilityByCliPath } = require(path.join(pluginRoot, "dist", "core", "capability-table"));
+
+function run(args) {
+  try {
+    const stdout = execFileSync(node, [cli, ...args], { encoding: "utf8" });
+    return { status: 0, stdout, stderr: "" };
+  } catch (error) {
+    return { status: error.status, stdout: error.stdout || "", stderr: error.stderr || "" };
+  }
+}
+
+// ---- 1. dead arms are gone: real behavior, not the old placeholder text ----
+{
+  const next = run(["next"]);
+  assert.equal(next.status, 1);
+  assert.match(next.stderr, /Missing run id/, "next: the real capability's missing-run-id refusal, not the old placeholder");
+  assert.doesNotMatch(next.stderr, /is not implemented in this milestone/, "next: no trace of the dead placeholder text");
+}
+{
+  const migration = run(["migration", "check", "no-such-target"]);
+  assert.equal(migration.status, 1);
+  assert.match(migration.stderr, /Migration target not found: no-such-target/, "migration check: the real capability's not-found error");
+  assert.doesNotMatch(migration.stderr, /is not implemented in this milestone/);
+}
+{
+  const gc = run(["gc", "verify", "no-such-run"]);
+  assert.equal(gc.status, 0, "gc verify: the real capability's verdict, exit 0 for an unresolvable run (not a failure)");
+  assert.match(gc.stdout, /GC Verify no-such-run:/, "gc verify: real human-text verdict line");
+}
+
+// ---- 2. search is a real, hidden, cli-only capability-table row -----------
+{
+  const row = findCapabilityByCliPath(["search"]);
+  assert.ok(row, "search must resolve to a real capability-table row");
+  assert.equal(row.surface, "cli-only");
+  assert.equal(row.cli.hiddenFromHelp, true, "search must stay out of the per-verb help listing, exactly as before the move");
+  assert.ok(!cliCapabilities().some((cap) => cap.cli.hiddenFromHelp && cap.capability === "search" && cap.mcp), "search has no MCP peer");
+}
+
+// ---- 3. byte-unchanged CLI surface -----------------------------------------
+{
+  const noKeyword = run(["search"]);
+  assert.equal(noKeyword.status, 1);
+  assert.equal(noKeyword.stderr, 'cw: Missing search keyword.\n  Tip: cw search architecture to find workflows about architecture.\n');
+}
+{
+  const helpSearch = run(["help", "search"]);
+  assert.equal(helpSearch.status, 0);
+  assert.equal(helpSearch.stdout, "Unknown command: search\n  Did you mean:  cw search\n  Try:  cw help   (list all commands)\n", "search never had its own cw help row; hiddenFromHelp preserves that exactly");
+}
+{
+  const found = run(["search", "architecture"]);
+  assert.equal(found.status, 0);
+  assert.match(found.stdout, /workflows? matching "architecture"/);
+  assert.match(found.stdout, /architecture-review — Architecture Review/);
+}
+{
+  const rootHelp = run(["help"]);
+  assert.equal(rootHelp.status, 0);
+  assert.match(rootHelp.stdout, /list\|search\|info\|init\|plan\|status\|next\|dispatch/, "the frozen root 'More commands' index line is untouched by the move");
+}
+
+process.stdout.write("dispatch-legacy-burndown-smoke: ok\n");
