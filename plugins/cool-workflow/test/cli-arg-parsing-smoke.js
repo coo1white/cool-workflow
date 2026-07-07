@@ -48,4 +48,26 @@ console.log("argparse: --flag still consumes a normal (non-dash) value ok");
 }
 console.log("argparse: --key=-value and -- escape hatches keep dash-leading values usable ok");
 
+// 5. Regression: the dead `update` verb must not come back. The old build's help
+// offered `update` and KNOWN_COMMANDS had it, but no dispatch arm was behind it —
+// so `cw update` said "Unknown command: update. Did you mean: update?" (a hint
+// that points at itself) and `cw help` offered a verb that could not run. Guard
+// both surfaces, then pin the general rule: every "did you mean" candidate must
+// be a verb the help text offers ("help" itself is the one pass — the reader is
+// already looking at the help). The parity smoke's helpUndeclaredCliTokens check
+// then ties help tokens to real dispatch rows, closing the loop.
+{
+  const { KNOWN_COMMANDS } = require(path.resolve(__dirname, "..", "dist", "cli", "parseargv.js"));
+  const { formatHelp } = require(path.resolve(__dirname, "..", "dist", "core", "format", "help.js"));
+  const helpText = formatHelp();
+  const helpTokens = new Set(helpText.split(/[\s|]+/));
+  assert.ok(!KNOWN_COMMANDS.has("update"), "KNOWN_COMMANDS must not have the dead `update` verb");
+  assert.ok(!helpTokens.has("update"), "cw help must not offer the dead `update` verb");
+  for (const cmd of KNOWN_COMMANDS) {
+    if (cmd === "help") continue;
+    assert.ok(helpTokens.has(cmd), `did-you-mean candidate "${cmd}" must be a verb the help text offers`);
+  }
+}
+console.log("argparse: no dead verb in KNOWN_COMMANDS or cw help (update stays gone) ok");
+
 console.log("cli-arg-parsing-smoke: ok");

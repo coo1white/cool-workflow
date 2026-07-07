@@ -65,11 +65,15 @@ function cliDispatchTokens() {
 
 // Old-build top-level verbs kept in the frozen help "More commands" index line
 // (byte-pinned by v2/conformance/cases/fixtures/cli-help/_root.txt) but folded
-// in v2 into subcommands / the shell layer: `init`->app.init, `search`->run.search
-// (declaredCliHelpTokens collapses both to their first token app/run), and
-// `update` is a shell-level command with no capability-table row. They are
+// in v2 into subcommands: `init`->app.init, `search`->run.search
+// (declaredCliHelpTokens collapses both to their first token app/run). They are
 // help-index discovery text, not dispatch-parity tokens, so exclude them here.
-const HELP_INDEX_ONLY_TOKENS = new Set(["init", "search", "update"]);
+// NOTE: `update` was once in this set, hiding the fact that the help offered
+// a verb with no code behind it. It is now out of the help text, out of
+// KNOWN_COMMANDS, and out of this set — so if the help ever offers `update`
+// (or any other dead verb) again, the helpUndeclaredCliTokens check below
+// will fail. Keep it out.
+const HELP_INDEX_ONLY_TOKENS = new Set(["init", "search"]);
 
 function cliHelpTokens() {
   const lines = formatHelp().split(/\r?\n/);

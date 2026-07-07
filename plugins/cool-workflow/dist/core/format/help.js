@@ -29,8 +29,11 @@ exports.formatHelp = formatHelp;
 exports.formatCommandHelp = formatCommandHelp;
 exports.formatInfo = formatInfo;
 const capability_table_1 = require("../capability-table");
-/** src/orchestrator.ts:934-951 — the exact "More commands" token set, in
- *  this exact order (space-joined in the source, pipe-joined for display). */
+/** src/orchestrator.ts:934-951 — the "More commands" token set, in the old
+ *  build's order (space-joined in the source, pipe-joined for display).
+ *  One change from the old capture: `update` is gone. The verb had no code
+ *  behind it in this build (`cw update` said "Unknown command"), so the
+ *  help must not offer it. See parseargv.ts KNOWN_COMMANDS. */
 const MORE_COMMANDS_TOKENS = [
     "list", "search", "info", "init", "plan", "status", "next", "dispatch",
     "result", "state", "commit", "report", "app", "sandbox", "backend",
@@ -40,7 +43,7 @@ const MORE_COMMANDS_TOKENS = [
     "summary", "blackboard", "coordinator", "metrics", "operator", "sched",
     "gc", "telemetry", "migration", "demo", "workbench", "approve", "reject",
     "comment", "handoff", "ledger", "graph", "eval", "man", "version",
-    "update", "fix",
+    "fix",
 ];
 const MORE_COMMANDS_WRAP_WIDTH = 76;
 /** src/orchestrator.ts:940-951 — greedily pack pipe-joined tokens into
@@ -205,7 +208,9 @@ const COMMAND_HELP_ROWS = {
 /** src/orchestrator.ts:899-933 — the top-level `cw help` text. Color is
  *  intentionally NOT applied here (this milestone's conformance runs pipe
  *  stdout, so NO_COLOR/non-TTY always wins); byte content matches the
- *  plain-text capture at SPEC/cli-help/_root.txt exactly. */
+ *  plain-text capture at SPEC/cli-help/_root.txt, but for the dead
+ *  `update` lines, which were taken out on purpose (no code was behind
+ *  the verb — see MORE_COMMANDS_TOKENS note above). */
 function formatHelp() {
     const moreCommandsLines = wrapPipeJoined(MORE_COMMANDS_TOKENS, MORE_COMMANDS_WRAP_WIDTH);
     const lines = [
@@ -214,7 +219,6 @@ function formatHelp() {
         '  -q "question" [-claude|-codex|-gemini|-deepseek]  Ask a question, get a report',
         '  -q "question" --link <url>                 Review a remote repo by URL',
         "  version                                   Show version",
-        "  update                                    Update to latest release",
         "  doctor                                    Check setup",
         "  fix                                       Show fix commands for setup issues",
         "",
