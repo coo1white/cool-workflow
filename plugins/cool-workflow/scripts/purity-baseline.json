@@ -76,10 +76,6 @@
       "../shell/worker-cli",
       "../shell/worker-isolation",
       "../shell/workflow-app-loader"
-    ],
-    "core/types/boundary.ts": [
-      "../../shell/execution-backend/types",
-      "../../shell/observability"
     ]
   }
 }

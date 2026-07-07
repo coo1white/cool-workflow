@@ -64,7 +64,12 @@ const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-boundary-fixture-")
 const typesRoot = path.join(pluginRoot, "node_modules", "@types");
 const boundaryImport = path.join(pluginRoot, "src", "core", "types", "boundary").split(path.sep).join("/");
 // ExecutionResultEnvelope survived the rebuild; repointed to its real v2 home.
+// The real declaration lives at core/types/execution-backend.ts now (moved
+// out of shell/, since it is plain data with no dependency of its own);
+// shell/execution-backend/types.ts is a thin `export type *` re-export, so
+// this old import path must keep resolving exactly as before.
 const envelopeImport = path.join(pluginRoot, "src", "shell", "execution-backend", "types").split(path.sep).join("/");
+const envelopeCoreImport = path.join(pluginRoot, "src", "core", "types", "execution-backend").split(path.sep).join("/");
 
 function compile(name, source) {
   const file = path.join(fixtureDir, name);
@@ -117,6 +122,43 @@ function main() {
     );
     assert.equal(r.status, 0, `conforming fixture must compile clean; got:\n${r.out}`);
     console.log("one-way-boundary: conforming data + real envelope compile clean ok");
+  }
+
+  // ---- 3b. the core/ import path resolves the SAME real type -----------------
+  // core/types/boundary.ts itself now imports ExecutionResultEnvelope from
+  // this path (not the shell/ one) -- prove a fixture can too, so the move
+  // is a genuine equivalence, not just a re-export that happens to work.
+  {
+    const r = compile(
+      "conforming-core-path.ts",
+      `import type { AssertTrue, IsOneWayData } from "${boundaryImport}";\n` +
+        `import type { ExecutionResultEnvelope } from "${envelopeCoreImport}";\n` +
+        `export type EnvelopeStillDataViaCore = AssertTrue<IsOneWayData<ExecutionResultEnvelope>>;\n`
+    );
+    assert.equal(r.status, 0, `conforming fixture via the core/ import path must compile clean; got:\n${r.out}`);
+    console.log("one-way-boundary: core/types/execution-backend import path compiles clean ok");
+  }
+
+  // ---- 3c. the shell/ path is now a thin re-export shim -----------------------
+  // ExecutionResultEnvelope/ResultEnvelope/UsageRecord's real declarations
+  // moved to core/ (plain data, no dependency of their own); shell/ keeps
+  // the old import paths working via `export type *` / `export type { X }`
+  // so this is invisible to every existing importer.
+  {
+    const shellEnvelopeSrc = fs.readFileSync(path.join(pluginRoot, "src", "shell", "execution-backend", "types.ts"), "utf8");
+    assert.ok(shellEnvelopeSrc.includes('export type * from "../../core/types/execution-backend"'), "shell/execution-backend/types.ts must be a type-only re-export of the core/ module");
+    assert.ok(!shellEnvelopeSrc.includes("export interface ResultEnvelope"), "the real declaration must not still live in shell/");
+
+    const coreEnvelopeSrc = fs.readFileSync(path.join(pluginRoot, "src", "core", "types", "execution-backend.ts"), "utf8");
+    assert.ok(coreEnvelopeSrc.includes("export interface ExecutionResultEnvelope"), "the real ExecutionResultEnvelope declaration must live in core/");
+    assert.ok(coreEnvelopeSrc.includes("export interface ResultEnvelope"), "the real ResultEnvelope declaration must live in core/");
+
+    const coreObservabilitySrc = fs.readFileSync(path.join(pluginRoot, "src", "core", "types", "observability.ts"), "utf8");
+    assert.ok(coreObservabilitySrc.includes("export interface UsageRecord"), "the real UsageRecord declaration must live in core/");
+
+    const shellObservabilitySrc = fs.readFileSync(path.join(pluginRoot, "src", "shell", "observability.ts"), "utf8");
+    assert.ok(!shellObservabilitySrc.includes("export interface UsageRecord"), "the real UsageRecord declaration must not still live in shell/observability.ts");
+    console.log("one-way-boundary: shell/ paths are thin re-export shims, real declarations live in core/ ok");
   }
 
   // ---- 4. the welds stay present in source ----------------------------------
