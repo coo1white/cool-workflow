@@ -20,6 +20,7 @@ import { readJson, writeJson } from "./fs-atomic";
 import { WorkflowRun, RunTask } from "../core/state/types";
 import { WorkerScope } from "./worker-isolation";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
+import { stableCompare } from "../core/util/collate";
 
 export const METRICS_SCHEMA_VERSION = 1 as const;
 
@@ -217,22 +218,22 @@ function usageKey(usage?: UsageRecord): string {
 
 export function fingerprintMetricsSource(run: WorkflowRun): string {
   const parts: string[] = [`id:${run.id}`, `createdAt:${run.createdAt}`, `updatedAt:${run.updatedAt}`, `app:${(run.workflow.app as { id?: string } | undefined)?.id || run.workflow.id}`];
-  for (const task of [...run.tasks].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const task of [...run.tasks].sort((a, b) => stableCompare(a.id, b.id))) {
     parts.push(`task:${task.id}:${task.status}:${task.dispatchedAt || "-"}:${task.completedAt || "-"}:${usageKey((task as unknown as { usage?: UsageRecord }).usage)}:${task.backendId || "-"}`);
   }
-  for (const worker of [...((run.workers as unknown as WorkerScope[]) || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const worker of [...((run.workers as unknown as WorkerScope[]) || [])].sort((a, b) => stableCompare(a.id, b.id))) {
     parts.push(`worker:${worker.id}:${worker.status}:${(worker.output as { recordedAt?: string } | undefined)?.recordedAt || "-"}:${usageKey(worker.usage as UsageRecord | undefined)}:${worker.backendId || "-"}`);
   }
-  for (const node of [...(run.nodes || [])].filter((n) => n.kind === "verifier").sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const node of [...(run.nodes || [])].filter((n) => n.kind === "verifier").sort((a, b) => stableCompare(a.id, b.id))) {
     parts.push(`verifier:${node.id}:${node.status}`);
   }
-  for (const cand of [...((run.candidates as Array<{ id: string; status: string }>) || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const cand of [...((run.candidates as Array<{ id: string; status: string }>) || [])].sort((a, b) => stableCompare(a.id, b.id))) {
     parts.push(`candidate:${cand.id}:${cand.status}`);
   }
-  for (const fb of [...((run.feedback as Array<{ id: string; status: string }>) || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const fb of [...((run.feedback as Array<{ id: string; status: string }>) || [])].sort((a, b) => stableCompare(a.id, b.id))) {
     parts.push(`feedback:${fb.id}:${fb.status}`);
   }
-  for (const m of [...((run.multiAgent?.memberships as Array<{ id: string; status: string }>) || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const m of [...((run.multiAgent?.memberships as Array<{ id: string; status: string }>) || [])].sort((a, b) => stableCompare(a.id, b.id))) {
     parts.push(`membership:${m.id}:${m.status}`);
   }
   return fingerprintStrings(parts);
@@ -260,7 +261,7 @@ function usageUnits(run: WorkflowRun): Array<{ unit: string; kind: "task" | "wor
       units.push({ unit: task.id, kind: "task", usage: (task as unknown as { usage?: UsageRecord }).usage });
     }
   }
-  return units.sort((a, b) => a.unit.localeCompare(b.unit));
+  return units.sort((a, b) => stableCompare(a.unit, b.unit));
 }
 
 function tokenTotal(usage: UsageRecord): number {
@@ -461,13 +462,13 @@ export function deriveCandidateAcceptanceRate(run: WorkflowRun): RateMetric {
 function taskRows(run: WorkflowRun): MetricsDurationRow[] {
   return run.tasks
     .map((task: RunTask) => ({ id: task.id, kind: "task" as const, status: task.status, duration: duration(task.dispatchedAt, task.completedAt) }))
-    .sort((a, b) => a.id.localeCompare(b.id));
+    .sort((a, b) => stableCompare(a.id, b.id));
 }
 
 function workerRows(run: WorkflowRun): MetricsDurationRow[] {
   return ((run.workers as unknown as WorkerScope[]) || [])
     .map((worker) => ({ id: worker.id, kind: "worker" as const, status: worker.status, duration: duration(worker.createdAt, workerEndAt(worker)) }))
-    .sort((a, b) => a.id.localeCompare(b.id));
+    .sort((a, b) => stableCompare(a.id, b.id));
 }
 
 export interface DeriveMetricsOptions {
@@ -659,7 +660,7 @@ export function deriveMetricsSummary(inputs: SummaryRunInput[], options: { now: 
     const report = deriveMetricsReport(input.run, { now: options.now, policy: options.policy, persistedFingerprint: input.persistedFingerprint });
     perRun.push({ report, ref: { runId: report.runId, repo: input.repo, app: report.scope.app, backendIds: report.scope.backendIds, freshness: report.freshness.status, rates: report.rates, usage: report.usage, cost: report.cost } });
   }
-  perRun.sort((a, b) => a.report.runId.localeCompare(b.report.runId));
+  perRun.sort((a, b) => stableCompare(a.report.runId, b.report.runId));
 
   const groupBy = (keyOf: (r: MetricsReport) => string[]): MetricsGroupRollup[] => {
     const map = new Map<string, MetricsReport[]>();
@@ -671,7 +672,7 @@ export function deriveMetricsSummary(inputs: SummaryRunInput[], options: { now: 
       }
     }
     return [...map.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
+      .sort((a, b) => stableCompare(a[0], b[0]))
       .map(([key, reports]) => ({
         key,
         runCount: reports.length,

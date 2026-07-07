@@ -37,6 +37,7 @@ exports.buildCompactGraphFromView = buildCompactGraphFromView;
 const size_1 = require("./size");
 const helpers_1 = require("./helpers");
 Object.defineProperty(exports, "byId", { enumerable: true, get: function () { return helpers_1.byId; } });
+const collate_1 = require("../../util/collate");
 const runtime_1 = require("../../multi-agent/runtime");
 const coordinator_1 = require("../../multi-agent/coordinator");
 const topology_1 = require("../../multi-agent/topology");
@@ -144,8 +145,8 @@ function runToGraphView(run) {
         return true;
     });
     return {
-        nodes: [...nodes.values()].sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id)),
-        edges: dedupedEdges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || (a.label || "").localeCompare(b.label || "")),
+        nodes: [...nodes.values()].sort((a, b) => (0, collate_1.stableCompare)(a.kind, b.kind) || (0, collate_1.stableCompare)(a.id, b.id)),
+        edges: dedupedEdges.sort((a, b) => (0, collate_1.stableCompare)(a.from, b.from) || (0, collate_1.stableCompare)(a.to, b.to) || (0, collate_1.stableCompare)(a.label || "", b.label || "")),
     };
 }
 /** `buildCompactGraph(run, view, options)` — builds the graph view via
@@ -192,8 +193,8 @@ function runToGraphViewFromWorkflowRun(run) {
         edges.push(edge);
     }
     return {
-        nodes: [...nodes.values()].sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id)),
-        edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || (a.label || "").localeCompare(b.label || "")),
+        nodes: [...nodes.values()].sort((a, b) => (0, collate_1.stableCompare)(a.kind, b.kind) || (0, collate_1.stableCompare)(a.id, b.id)),
+        edges: edges.sort((a, b) => (0, collate_1.stableCompare)(a.from, b.from) || (0, collate_1.stableCompare)(a.to, b.to) || (0, collate_1.stableCompare)(a.label || "", b.label || "")),
     };
 }
 function collapseRuleFor() {
@@ -470,7 +471,7 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
     // critical-path — docs/rebuild/PLAN.md byte-compat item 9).
     const synthetic = [];
     const collapsedNodeIds = new Map(); // sourceNodeId -> syntheticId
-    for (const [bucketKey, ids] of [...buckets.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    for (const [bucketKey, ids] of [...buckets.entries()].sort((a, b) => (0, collate_1.stableCompare)(a[0], b[0]))) {
         if (view !== "critical-path" && ids.length < thresholds.collapseBucket) {
             for (const id of ids)
                 keep.add(id);
@@ -519,9 +520,9 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
         edges.push({ from, to, label: edge.label });
     }
     return finalizeGraphRecord(runId, view, options, full, {
-        nodes: nodes.sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id)),
-        edges: edges.sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || (a.label || "").localeCompare(b.label || "")),
-        syntheticNodes: synthetic.sort((a, b) => a.id.localeCompare(b.id)),
+        nodes: nodes.sort((a, b) => (0, collate_1.stableCompare)(a.kind, b.kind) || (0, collate_1.stableCompare)(a.id, b.id)),
+        edges: edges.sort((a, b) => (0, collate_1.stableCompare)(a.from, b.from) || (0, collate_1.stableCompare)(a.to, b.to) || (0, collate_1.stableCompare)(a.label || "", b.label || "")),
+        syntheticNodes: synthetic.sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id)),
         critical,
     });
 }

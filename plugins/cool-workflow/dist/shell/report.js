@@ -59,13 +59,14 @@ const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
 const multi_agent_io_1 = require("./multi-agent-io");
 const coordinator_io_1 = require("./coordinator-io");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
+const collate_1 = require("../core/util/collate");
 function formatInputList(value) {
     if (Array.isArray(value))
         return value.join("; ");
     return value ? String(value) : "";
 }
 function formatCounts(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+    const entries = Object.entries(counts).sort(([a], [b]) => (0, collate_1.stableCompare)(a, b));
     if (!entries.length)
         return "none";
     return entries.map(([k, v]) => `${k}=${v}`).join(", ");

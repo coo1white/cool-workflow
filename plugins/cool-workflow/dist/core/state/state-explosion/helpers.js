@@ -33,6 +33,7 @@ exports.slug = slug;
 const hash_1 = require("../../hash");
 Object.defineProperty(exports, "fingerprintRecords", { enumerable: true, get: function () { return hash_1.fingerprintRecords; } });
 Object.defineProperty(exports, "fingerprintStrings", { enumerable: true, get: function () { return hash_1.fingerprintStrings; } });
+const collate_1 = require("../../util/collate");
 /** True for `failed`, `blocked`, `rejected`, `conflicting` — the never-
  *  collapse status set (docs/rebuild/PLAN.md byte-compat item 9). */
 function isProtectedStatus(status) {
@@ -83,7 +84,7 @@ function unique(values) {
     return Array.from(new Set(values.filter(Boolean))).sort();
 }
 function byId(a, b) {
-    return a.id.localeCompare(b.id);
+    return (0, collate_1.stableCompare)(a.id, b.id);
 }
 /** Whitespace-collapsed; over 80 chars becomes the first 77 chars + `...`. */
 function truncate(value) {

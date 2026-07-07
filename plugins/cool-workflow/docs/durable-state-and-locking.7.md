@@ -45,6 +45,26 @@ not just within one: a newly-added queue task can no longer go missing under a
 concurrent drain, and two reclaimers can no longer lose a tombstone
 (freed-without-proof).
 
+### The whole-cycle run-state lock (unreleased)
+
+`saveCheckpoint` locks only the WRITE of `state.json`. A verb that does
+load → change → save on its own left a window where two processes both
+load the same state and the later save silently drops the earlier change
+— the same lost-update class the v0.2.1 fix closed for `queue.json`
+and `triggers.json`. Two additions close it for the run state itself:
+
+- **`withRunStateLock(runId, cwd, fn)`** (run-store) holds the
+  `state.json` lock over the whole load → change → save cycle. `fn` gets
+  the run loaded UNDER the lock. `cw dispatch` and `cw result` go
+  through it, so two `cw result` calls for two tasks of the same run can
+  no longer lose a completion. Keep `fn` short: a critical section past
+  the 30 s steal window can be stolen.
+- **`withFileLock` is now re-entrant inside one process**: a nested call
+  on the same target runs its `fn` under the already-held lock instead
+  of waiting on its own lockfile until the tries run out. Save paths
+  inside `fn` (`saveCheckpoint`, worker-failure persists) keep their own
+  lock calls unchanged. Cross-process behavior is untouched.
+
 ## Reclamation durability (the write-ahead seam, v0.1.40)
 
 The v0.1.39 reclamation transaction proved the *tombstone* crash-safe, but the

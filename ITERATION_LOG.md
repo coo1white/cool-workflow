@@ -25,6 +25,110 @@
 |-------|------|-------|-------|------|--------|
 | 1 | Add `scripts/purity-gate.js` (layer-boundary + core-only-builtin + clock/env-count checks, comment-stripped scan) and its committed `scripts/purity-baseline.json`; wire `purity:check` into `npm run ci` via `release-check.js`. | `plugins/cool-workflow/scripts/purity-gate.js` (new), `scripts/purity-baseline.json` (new), `package.json`, `scripts/release-check.js` | Manually verified all three ratchet directions: a synthetic new `core/hash.ts -> ../shell/fs-atomic` import fails closed; removing the real `run-paths.ts` `node:fs` import (without updating the baseline) fails closed as a stale entry; doubling a baselined `process.cwd()` occurrence fails closed as count drift — each reverted before committing. | BUILD OK; `purity:check` passes on today's `src/`; `npm run ci` green except the 2 pre-existing, unrelated MCP-tool-count unit-test failures fixed by #362 | no (PR batch, no release) |
 
+## Note — onramp gate also did not recognize a conformance case as coverage
+
+> Found while landing this batch's CI run, right after the WP1.1 unit-test
+> gap (previous note): `evaluateOnrampContract`'s `runtime-smoke-required`
+> check now accepted `test/*-smoke.js` or `test/*.test.js`, but this batch
+> proves its 52-site migration with a NEW `v2/conformance/cases/*.case.js`
+> file only — a third, equally real, CI-gated proof layer the check still
+> did not know about. Widened the check again to accept a conformance-case
+> change too (`conformanceCaseFiles.length === 0` added alongside the other
+> two). Pure widening, same discipline as the unit-test fix.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Make `evaluateOnrampContract`'s `runtime-smoke-required` rule also accept a `v2/conformance/cases/*.case.js` change as valid coverage. | `plugins/cool-workflow/src/shell/onramp.ts`, matching `dist/**`, `plugins/cool-workflow/test/onramp-check-smoke.js` (new case) | New case: a runtime change plus only a matching conformance case no longer trips `runtime-smoke-required`. | BUILD OK; `release:check --skip-tests` onramp contract PASS; `npm test` 34/34; conformance 104/104 | no (gate fix, no release) |
+
+## Batch — finish the locale-independent ordering migration (Unreleased)
+
+> Step 2 of the D-2 finding, following the cache-key fix in the previous
+> batch: the remaining 52 bare `localeCompare` sites across 20 files,
+> migrated to `core/util/collate.ts`'s `stableCompare`. Highest-value
+> targets: `state-explosion/helpers.ts`'s shared `byId` comparator (fixes
+> 13 call sites in `digest.ts` for one change), `graph.ts`'s node/edge/
+> synthetic-node sorts and `digest.ts`'s two inline comparators (these feed
+> `snapshot.normalized` — the exact eval-replay content the D-2 finding
+> warned could give a false-red regression across hosts with different
+> collation), `commit-gate.ts`'s latest-selection lookup (affects which
+> selection a commit picks, not just display), and every remaining
+> shell/-layer display-formatting site. `v2/conformance/lib.js`'s base env
+> now pins `LANG`/`LC_ALL` to `en_US.UTF-8` explicitly (was merely absent),
+> so the whole suite's byte-identity story no longer depends on whatever
+> the host happens to leave unset. New case
+> `locale-independent-ordering.case.js` takes a real eval snapshot, then
+> replays/compares/scores/gates it under `cs_CZ.UTF-8` and asserts a clean
+> pass throughout — proving the full eval-replay pipeline survives a host
+> locale change end to end (that workflow's own task ids don't happen to
+> contain a character `cs_CZ` collates differently, so the underlying bug
+> is proved by `collate-stablecompare.test.js`'s adversarial data, not by
+> this case — see that case's own header note).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Migrate all 52 remaining bare `localeCompare` call sites (core/ then shell/) to `stableCompare`; pin `LANG`/`LC_ALL` in the conformance harness's base env; add an end-to-end eval-replay locale case. | `plugins/cool-workflow/src/core/{pipeline/commit-gate,multi-agent/collaboration,multi-agent/coordinator,trust/ledger,state/state-explosion/{helpers,graph,digest}}.ts`, `src/shell/{worker-isolation,operator-ux,report,state-explosion-cli,topology-io,reclamation-io,observability,multi-agent-operator-ux,operator-ux-text,commit-summary,workflow-app-loader,evidence-reasoning,execution-backend/registry}.ts`, matching `dist/**`, `v2/conformance/lib.js`, `v2/conformance/cases/locale-independent-ordering.case.js` (new) | New conformance case: baseline snapshot under `en_US.UTF-8`, replay+compare+score+gate under `cs_CZ.UTF-8`, all report a clean pass with zero findings. `grep -rn '\.localeCompare(' src` confirms zero bare call sites remain outside `collate.ts`'s own prose comment. | BUILD OK; conformance 103/103; `test:gate` 179/179; `test:unit` 151/153 (2 pre-existing, unrelated failures fixed by #362) | no (PR batch, no release) |
+
+## Note — onramp gate did not recognize the WP1.1 unit-test layer
+
+> Found while landing this batch's CI run: `evaluateOnrampContract`'s
+> `runtime-smoke-required` check only counted `test/*-smoke.js` files as
+> proof of test coverage. WP1.1 (#360) added a second, equally real test
+> layer (`test/*.test.js` under `npm run test:unit`), but the gate never
+> learned about it — so a cycle that proves its fix with a unit test only
+> (this batch's `collate-stablecompare.test.js`, no smoke touched) failed
+> closed with a false "no test coverage" verdict. Widened the check to
+> accept either kind (`unitTestFiles.length === 0` added to the
+> smoke-required condition, alongside the existing `smokeFiles` check) —
+> a pure widening, so every diff that passed before still passes.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Make `evaluateOnrampContract`'s `runtime-smoke-required` rule accept a `test/*.test.js` unit-test change as valid coverage, not just `test/*-smoke.js`. | `plugins/cool-workflow/src/shell/onramp.ts`, matching `dist/**`, `plugins/cool-workflow/test/onramp-check-smoke.js` (new case) | New case: a runtime change plus only a matching `.test.js` file no longer trips `runtime-smoke-required`. | BUILD OK; `release:check --skip-tests` onramp contract now PASS (was FAIL); `npm test` 34/34; conformance 103/103 | no (gate fix, no release) |
+
+## Batch — locale-independent cache-key ordering (Unreleased)
+
+> From the architecture-improvement plan's trust track (D-2): 53 bare
+> `localeCompare` calls are left across 21 files, three left un-migrated
+> deliberately per the plan's staged rollout. This batch does step 1, the
+> worst-effect site: `shell/drive.ts:232`'s `previousPhaseResultsDigest`
+> sorts task ids with the HOST's default locale before hashing them into
+> the incremental cache key — a locale change (a different machine, a
+> different `LANG`) quietly moves the cache key with no visible error.
+> Adds `core/util/collate.ts`'s `stableCompare`, pinned to the `"en"`
+> locale — measured byte-identical to the bare `localeCompare()` under
+> both a stripped-env host (this repo's own conformance harness) and an
+> explicit `en_US.UTF-8`, so this migration changes no existing output;
+> measured to actually diverge under `cs_CZ.UTF-8`, so the bug is real,
+> not theoretical. Same diff: fixes `shell/drive.ts`'s stale file-header
+> comment, which still claimed the concurrent-round driver was "scoped
+> down to the serial driver" — it has been real (and pinned by
+> `pipeline-concurrent-round.case.js`) since the v0.2.0 rebuild.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Add `core/util/collate.ts` (`stableCompare`, locale-pinned to "en"); migrate the hash-feeding site `shell/drive.ts:232` off a bare `localeCompare`; correct the stale concurrent-driver header comment at the top of `drive.ts`. | `plugins/cool-workflow/src/core/util/collate.ts` (new), `src/shell/drive.ts`, matching `dist/**`, `test/collate-stablecompare.test.js` (new unit test) | New unit test: basic ordering, comparator sign/zero properties, and the real fix proof — two CHILD PROCESSES (ICU locale resolves at process start, not per-call) show a bare `localeCompare` genuinely diverges between `en_US.UTF-8` and `cs_CZ.UTF-8` while `stableCompare` gives the identical, fixed order in both. | BUILD OK; conformance 102/102; `test:gate` 179/179; `test:unit` 151/153 (the two pre-existing, unrelated MCP-tool-count failures are fixed by #362, not caused by this batch) | no (PR batch, no release) |
+
+## Batch — close the attested-telemetry manual-accept side door (Unreleased)
+
+> From the architecture-improvement plan's trust track: the opt-in
+> `requireAttestedTelemetry` gate (worker-isolation.ts) only fired when
+> `options.agentDelegation` was present. A MANUAL accept (`cw worker output`,
+> `cw result`) passes no delegation metadata at all, so `telemetry` was
+> `undefined` and the old `telemetry && telemetry.status !== "attested"`
+> condition short-circuited false — an unattested result could be laundered
+> through the manual accept path even with the operator's require flag on.
+> This batch closes that side door: the gate now also fires when telemetry
+> is fully absent (distinct code `telemetry-missing-blocked`), with an
+> explicit, always-audited `--allow-unattested` escape hatch (records a
+> `telemetry.gate-override` trust-audit event). A result-cache hit is never
+> re-blocked (it was already gated at first acceptance) but now records a
+> `telemetry.cache-accept` note when the require flag is on. With the flag
+> off (the default), behavior is unchanged.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Fix the manual-accept/cache-accept gaps in the attested-telemetry gate: `worker-isolation.ts`'s gate fires on missing telemetry too (new code `telemetry-missing-blocked`), gains `allowUnattested` (audited override, kind `telemetry.gate-override`); `worker-cli.ts`/`pipeline-cli.ts` thread `resolveAgentConfig(args).requireAttestedTelemetry` + `--allow-unattested` into the manual accept paths; `drive.ts`'s cache-hit accept records a `telemetry.cache-accept` note when the require flag is on (never blocks); `cw_result`/`cw_worker_output` gain the `allowUnattested` property; man page section in `docs/security-trust-hardening.7.md`. | `plugins/cool-workflow/src/shell/worker-isolation.ts`, `src/shell/worker-cli.ts`, `src/shell/pipeline-cli.ts`, `src/shell/drive.ts`, `src/core/capability-table.ts`, `docs/security-trust-hardening.7.md`, `docs/cli-mcp-parity.7.md` (regen), `docs/project-index.md` (regen), matching `dist/**`, `test/telemetry-fail-closed-smoke.js` (extended, cases 5-6), `v2/conformance/cases/telemetry-require-manual-accept.case.js` (new) | Extended smoke: manual accept with no delegation is blocked under require (distinct code from the present-but-unattested case), `--allow-unattested` accepts + records exactly one audited override event. New conformance case drives the real black-box path (`plan` + `dispatch` + `worker output`): blocked without override, accepted + audited with `--allow-unattested`, default-off unaffected, override event chains cleanly under `audit verify`. | BUILD OK; conformance 102/102; `test:gate` full suite; `parity:check`/`gen:parity` OK (237 capabilities, 196 MCP tools on this branch's base) | no (PR batch, no release) |
+
 ## Batch — trust-audit head anchor: make a cut-off audit-log tail visible (Unreleased)
 
 > From the architecture-improvement plan's trust track (highest-risk item):
@@ -1184,6 +1288,23 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 |-------|------|-------|-------|------|--------|
 | 1 | Take `update` out of every surface that offered it with no code behind it: the `cw help` row + "More commands" token (`core/format/help.ts`, with notes marking the on-purpose step away from the old SPEC capture), the KNOWN_COMMANDS did-you-mean list (`cli/parseargv.ts`, so the self-pointing hint is gone — `cw update` now gets the normal distance-rule hint), and the parity smoke's HELP_INDEX_ONLY_TOKENS pass (so `helpUndeclaredCliTokens` now guards against any dead verb in help). Park the "real self-update" idea in docs/BACKLOG.md per the North Star rule. | `plugins/cool-workflow/src/core/format/help.ts`, `plugins/cool-workflow/src/cli/parseargv.ts`, matching `dist/**`, `plugins/cool-workflow/test/cli-mcp-parity-smoke.js`, `plugins/cool-workflow/test/cli-arg-parsing-smoke.js` (extended, not new), `v2/conformance/cases/fixtures/cli-help/_root.txt` (help fixture updated for the intentional CLI surface change), `docs/BACKLOG.md` | Extended `cli-arg-parsing-smoke.js`: KNOWN_COMMANDS must not have `update`; `cw help` text must not offer `update`; and every did-you-mean candidate must be a verb the help text offers (except `help` itself) — so a dead verb can not hide in the hint list again. Parity smoke re-armed: help tokens minus init/search must all be declared registry commands. | BUILD OK; conformance 101/101 (after updating the `_root.txt` help fixture for the intentional surface change); `npm test` fast 34/34; `test:coverage` gate PASS (90.8% overall against the 80% floor; extended smoke, no smoke-count change) | no (bugfix batch, no release) |
 
+## Batch — close the last lock race on `state.json` itself (Unreleased)
+
+> An architecture-review pass over state, persistence, and concurrency
+> found that `saveCheckpoint` locks only the WRITE of `state.json`. Every
+> verb that does load -> change -> save on its own (`cw dispatch`,
+> `cw result`) left a window where two processes both load the same
+> state and the later save silently drops the earlier change — the same
+> lost-update class the v0.2.1 fix (#339) closed for `queue.json` and
+> `triggers.json`, still open on the single source of truth itself. A
+> new `run-state-lock-concurrency-smoke.js` reproduced it live: 6
+> concurrent `cw result` calls on 6 tasks of the same run kept only 1
+> completion before the fix.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Close the read-modify-write race on `state.json`: add `withRunStateLock(runId, cwd, fn)` in `run-store.ts`, which holds the `state.json` lock over the WHOLE load -> change -> save cycle instead of just the write; make `withFileLock` (`fs-atomic.ts`) re-entrant inside one process so nested `saveCheckpoint`/worker-failure-persist calls inside `fn` keep working unchanged; wire `dispatchRun` and `recordResultRun` (`pipeline-cli.ts`) through it. Also re-ran `sync:project-index` (`docs/project-index.md`) so the new smoke count stays in sync with the doc-drift guard. | `plugins/cool-workflow/src/shell/fs-atomic.ts`, `plugins/cool-workflow/src/shell/run-store.ts`, `plugins/cool-workflow/src/shell/pipeline-cli.ts`, matching `dist/**`, `plugins/cool-workflow/test/run-state-lock-concurrency-smoke.js` (new), `plugins/cool-workflow/docs/durable-state-and-locking.7.md`, `plugins/cool-workflow/docs/project-index.md` (regenerated) | New `run-state-lock-concurrency-smoke.js`: part A proves `withFileLock` is re-entrant in-process (nested same-target call runs under the held lock, single release); part B spawns one real child process per dispatched task of a live `architecture-review` run, holds them at a start line, and asserts all concurrent `cw result` recordings survive (failed on the pre-fix build: 1/6 kept). | BUILD OK; new smoke run 3x clean; `npm test` fast 34/34; conformance 101/101; `npm run test:gate` full 179-smoke sequential suite: first pass caught a stale `project-index.md` (unrelated doc-drift guard tripped by the new test file, fixed via `sync:project-index`), full suite green after | no (bugfix, no release) |
+
 ## Batch — restore the core/ unit-test layer lost at cutover (Unreleased)
 
 > WP1.1 of `docs/ARCHITECTURE_PLAN.md`. The v2 rebuild's 152 pure `core/`
@@ -1205,3 +1326,18 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Restore the 152 `*.test.js` files from commit `84aac95:v2/test/` verbatim into `plugins/cool-workflow/test/` (same directory depth as the old `v2/test/` relative to `v2/dist/`, so every existing `require("../dist/...")` resolves unchanged — zero path rewriting). Add a small discovery-based runner `test/run-unit.js` (mirrors `run-all.js`'s fail-closed `test/*.test.js` discovery, but skips its sandbox isolation since these are pure functions of `dist/core/*` with no `.cw/`/`CW_HOME` dependency) and a new `test:unit` npm script, kept fully separate from `npm test`/`test:gate`/`test:ci` (which stay smoke-only, byte-for-byte unchanged). Wire `test:unit` into CI directly and into `release:check` as a new "unit tests" entry that `--skip-tests` also skips (so CI never runs it twice). Fix the 9 tests whose expectations had drifted from shipped behavior (3 `capability-table` milestone-narrative tests updated from "mid-build" to "shipped-release" invariants; 2 `formatapps-help-*` fixtures had the already-removed `update` verb dropped; 1 `commit-gate` fixture completed with the now-required `workerId`/`sandboxProfileId` fields; 1 `loop-expansion` test updated for the deliberate phase-naming fix; 2 `state-explosion` tests updated for the `BlackboardState.snapshots` field and the broader critical-path protection over candidate/selection/committed-commit kinds) — all 9 verified against the original 84aac95 build to confirm they were genuinely green there. | `plugins/cool-workflow/test/*.test.js` (152 new files, restored verbatim then 9 patched), `plugins/cool-workflow/test/run-unit.js` (new), `plugins/cool-workflow/package.json` (new `test:unit` script), `plugins/cool-workflow/scripts/release-check.js` (new "unit tests" check + skip-tests extended), `.github/workflows/ci.yml` (new `npm run test:unit` step), `docs/ARCHITECTURE_PLAN.md` (WP1.1 checked off) | `test:unit` 152/152 passed; full smoke suite `test:gate` 178/178 passed unchanged; conformance 101/101 unchanged | BUILD OK; conformance 101/101; `test:gate` 178/178; `test:unit` 152/152; `release:check --skip-tests` 13/13 (unit tests correctly SKIP, matching "tests") | no (safety-net restoration, no release) |
+
+## Note — pre-existing 196-vs-197 MCP tool count drift found while merging #359 and #360
+
+> Not a new goal on its own — a merge-time fix caught while landing the
+> `state.json` whole-cycle lock branch (#359) on top of `main` after #360
+> merged. #358 added a new MCP tool (`cw_audit_head`), moving the real
+> count from 196 to 197. #360's restored unit tests
+> (`captable-mcp-tool-definitions.test.js`,
+> `captable-projection-helpers.test.js`) still hardcoded 196 and pinned
+> `cw_history` as the last declared tool — a real drift already present
+> on `main` itself (confirmed on a clean `origin/main` checkout, not
+> introduced by #359). Both literals updated to 197 and the tail pin to
+> `cw_audit_head`, checked against the live `dist/core/capability-table.js`
+> output and a passing `scripts/parity-check.js`. `test:unit` 152/152
+> after the fix.

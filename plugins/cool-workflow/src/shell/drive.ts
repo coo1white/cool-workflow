@@ -6,15 +6,10 @@
 // milestone). Byte-exact port of the old build's src/drive.ts's
 // imperative shell around the pure decision core now in
 // core/pipeline/drive-decide.ts. Sub-workflow nesting and `--incremental`
-// are ported; the concurrent-round driver (driveConcurrentRound) is
-// scoped down to the serial driver run through a width loop, since no
-// case in this milestone's combined gate exercises true concurrent-batch
-// recording order (that is `--concurrency`/parallel-phase-specific and is
-// authored as its own future conformance case per Open risk 5) — the
-// `mode:"parallel"` architecture-review phases still complete correctly
-// through the serial per-task loop, just without the wall-clock-parallel
-// spawn optimization; this is flagged here rather than silently ported as
-// if fully equivalent.
+// are ported; the concurrent-round driver (driveConcurrentRound, below)
+// dispatches and settles a whole round's tasks in one batch (see
+// `--concurrency`/`roundWidth`), pinned by
+// v2/conformance/cases/pipeline-concurrent-round.case.js.
 //
 // Evidence: SPEC/pipeline-run.md "Drive loop — src/drive.ts".
 
@@ -70,6 +65,7 @@ import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/ty
 import { runBackend } from "./execution-backend/registry";
 import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv } from "./execution-backend/agent";
 import { sha256, stableStringify } from "../core/hash";
+import { stableCompare } from "../core/util/collate";
 import { plan } from "./pipeline";
 import { reporter } from "./reporter";
 import { safeFileName } from "./fs-atomic";
@@ -229,7 +225,10 @@ function previousPhaseResultsDigest(run: WorkflowRun, task: { id: string; phase:
   if (phaseIndex < 0) return undefined;
   const previousTaskIds = new Set(run.phases.slice(0, phaseIndex).flatMap((p) => p.taskIds));
   const records: Array<[string, string] | undefined> = [];
-  for (const candidate of run.tasks.filter((t) => previousTaskIds.has(t.id)).sort((a, b) => a.id.localeCompare(b.id))) {
+  // stableCompare (not a bare localeCompare): this order feeds the sha256
+  // digest below, which feeds the incremental cache key — a host-locale-
+  // dependent order would silently move the cache key across machines.
+  for (const candidate of run.tasks.filter((t) => previousTaskIds.has(t.id)).sort((a, b) => stableCompare(a.id, b.id))) {
     if (candidate.status !== "completed" || !candidate.resultPath || !fs.existsSync(candidate.resultPath)) {
       records.push(undefined);
       continue;
@@ -353,7 +352,24 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
     try {
       fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
+      // Not gated by requireAttestedTelemetry here: the underlying result was
+      // already gated (attested or explicitly overridden) at its FIRST
+      // acceptance, before it was cached. Re-blocking a cache hit would only
+      // punish the operator for their own earlier, already-audited accept.
+      // Still made visible, not silent: when the operator requires attested
+      // telemetry, record that this particular accept came from the cache
+      // rather than a freshly re-verified hop.
       recordWorkerOutput(run, workerId, manifest.resultPath);
+      if (ctx.config.requireAttestedTelemetry) {
+        recordTrustAuditEvent(run, {
+          kind: "telemetry.cache-accept",
+          decision: "recorded",
+          source: "cw-validated",
+          workerId,
+          taskId: selected.id,
+          metadata: { reason: "result-cache hit; original attestation gate applied at first acceptance, not re-verified here" },
+        });
+      }
       // Advance the run lifecycle stage on accept, as the old build's
       // recordWorkerOutput wrapper did (run.loopStage = "observe").
       run.loopStage = "observe";
