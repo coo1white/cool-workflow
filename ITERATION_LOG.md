@@ -1,5 +1,26 @@
 # CW Iteration Log
 
+## Batch — release v0.2.1 (agent-hop diagnostics + question-aware review + generalized wording)
+
+> Cut the release that ships the four PRs merged since v0.2.0 (#347-#350):
+> agent-hop failure diagnostics, USER env forwarding to the agent backend's
+> real spawned child (single-task and concurrent dispatch paths),
+> architecture-review answering the real question asked in every phase, and
+> generalizing the shared result contract + onboarding docs beyond risk-only
+> wording — all already merged to main. `npm run bump:version -- 0.2.1
+> --content` stamped the version across every structured surface; CHANGELOG.md
+> gained the real 0.2.1 entry (the auto-appended placeholder landed at the
+> file's oldest-history tail since the script only appends — moved to the top
+> and written out, matching this file's newest-first convention).
+> `docs/HANDOFF_TODO.md`'s stale "cut v0.1.98" item (long since published;
+> npm is at 0.2.0) was removed and the remaining items' version references
+> updated. No behavior change beyond the version string — this is the
+> release-cut batch.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Bump to 0.2.1 + real CHANGELOG entry for the four merged PRs; stamp the version across all structured + content surfaces; clean up the stale HANDOFF_TODO item. | `CHANGELOG.md` + `RELEASE.md` + `docs/HANDOFF_TODO.md` + `plugins/cool-workflow/package.json` (+ package-lock) + `plugins/cool-workflow/src/core/version.ts` + the plugin manifests + `server.json` + `Formula/cool-workflow.rb` + the canonical `apps/*/app.json` + `scripts/canonical-apps.js`/`dogfood-release.js`/`golden-path.js` + the 20 `docs/*.7.md` version references + `docs/project-index.md` | Release gate re-runs the full suite; version-stamped smokes (`dogfood-release-smoke`, `canonical-workflow-apps-smoke`, `mcp-app-surface-smoke`, `operator-ux-smoke`, `workflow-app-framework-smoke`) rerun green after the bump. | BUILD OK; version:sync OK; parity/index/manifests/dist OK; `release:check` OK | yes (release cut — v0.2.1) |
+
 ## Batch — generalize the shared result contract + onboarding examples beyond "risk audit" (Unreleased)
 
 > Follow-up to the architecture-review question-aware fix. `severity`/`classification`
