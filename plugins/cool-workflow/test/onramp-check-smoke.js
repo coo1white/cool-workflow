@@ -63,6 +63,19 @@ function contract(files) {
   assert.ok(!codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
 }
 
+// Runtime behavior proven by a new/changed black-box conformance case
+// (v2/conformance/cases/*.case.js, no test/*-smoke.js or test/*.test.js
+// touched) also satisfies the same gate — a third equally valid proof
+// layer.
+{
+  const report = contract([
+    "plugins/cool-workflow/src/shell/drive.ts",
+    "v2/conformance/cases/locale-independent-ordering.case.js",
+    "ITERATION_LOG.md"
+  ]);
+  assert.ok(!codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
+}
+
 // Type-only source changes are invalid even if a smoke and log row exist.
 {
   const report = contract([

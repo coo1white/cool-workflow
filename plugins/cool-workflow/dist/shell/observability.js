@@ -66,6 +66,7 @@ const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
+const collate_1 = require("../core/util/collate");
 exports.METRICS_SCHEMA_VERSION = 1;
 const VERIFIER_PASS_STATUSES = new Set(["verified", "completed", "committed"]);
 const VERIFIER_FAIL_STATUSES = new Set(["failed", "rejected", "blocked"]);
@@ -105,22 +106,22 @@ function usageKey(usage) {
 }
 function fingerprintMetricsSource(run) {
     const parts = [`id:${run.id}`, `createdAt:${run.createdAt}`, `updatedAt:${run.updatedAt}`, `app:${run.workflow.app?.id || run.workflow.id}`];
-    for (const task of [...run.tasks].sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const task of [...run.tasks].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
         parts.push(`task:${task.id}:${task.status}:${task.dispatchedAt || "-"}:${task.completedAt || "-"}:${usageKey(task.usage)}:${task.backendId || "-"}`);
     }
-    for (const worker of [...(run.workers || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const worker of [...(run.workers || [])].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
         parts.push(`worker:${worker.id}:${worker.status}:${worker.output?.recordedAt || "-"}:${usageKey(worker.usage)}:${worker.backendId || "-"}`);
     }
-    for (const node of [...(run.nodes || [])].filter((n) => n.kind === "verifier").sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const node of [...(run.nodes || [])].filter((n) => n.kind === "verifier").sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
         parts.push(`verifier:${node.id}:${node.status}`);
     }
-    for (const cand of [...(run.candidates || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const cand of [...(run.candidates || [])].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
         parts.push(`candidate:${cand.id}:${cand.status}`);
     }
-    for (const fb of [...(run.feedback || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const fb of [...(run.feedback || [])].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
         parts.push(`feedback:${fb.id}:${fb.status}`);
     }
-    for (const m of [...(run.multiAgent?.memberships || [])].sort((a, b) => a.id.localeCompare(b.id))) {
+    for (const m of [...(run.multiAgent?.memberships || [])].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
         parts.push(`membership:${m.id}:${m.status}`);
     }
     return fingerprintStrings(parts);
@@ -148,7 +149,7 @@ function usageUnits(run) {
             units.push({ unit: task.id, kind: "task", usage: task.usage });
         }
     }
-    return units.sort((a, b) => a.unit.localeCompare(b.unit));
+    return units.sort((a, b) => (0, collate_1.stableCompare)(a.unit, b.unit));
 }
 function tokenTotal(usage) {
     if (typeof usage.totalTokens === "number")
@@ -349,12 +350,12 @@ function deriveCandidateAcceptanceRate(run) {
 function taskRows(run) {
     return run.tasks
         .map((task) => ({ id: task.id, kind: "task", status: task.status, duration: duration(task.dispatchedAt, task.completedAt) }))
-        .sort((a, b) => a.id.localeCompare(b.id));
+        .sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
 }
 function workerRows(run) {
     return (run.workers || [])
         .map((worker) => ({ id: worker.id, kind: "worker", status: worker.status, duration: duration(worker.createdAt, workerEndAt(worker)) }))
-        .sort((a, b) => a.id.localeCompare(b.id));
+        .sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
 }
 function targetCreatedAt(run, target) {
     if (target.kind === "candidate")
@@ -541,7 +542,7 @@ function deriveMetricsSummary(inputs, options) {
         const report = deriveMetricsReport(input.run, { now: options.now, policy: options.policy, persistedFingerprint: input.persistedFingerprint });
         perRun.push({ report, ref: { runId: report.runId, repo: input.repo, app: report.scope.app, backendIds: report.scope.backendIds, freshness: report.freshness.status, rates: report.rates, usage: report.usage, cost: report.cost } });
     }
-    perRun.sort((a, b) => a.report.runId.localeCompare(b.report.runId));
+    perRun.sort((a, b) => (0, collate_1.stableCompare)(a.report.runId, b.report.runId));
     const groupBy = (keyOf) => {
         const map = new Map();
         for (const { report } of perRun) {
@@ -552,7 +553,7 @@ function deriveMetricsSummary(inputs, options) {
             }
         }
         return [...map.entries()]
-            .sort((a, b) => a[0].localeCompare(b[0]))
+            .sort((a, b) => (0, collate_1.stableCompare)(a[0], b[0]))
             .map(([key, reports]) => ({
             key,
             runCount: reports.length,

@@ -1,5 +1,48 @@
 # CW Iteration Log
 
+## Note — onramp gate also did not recognize a conformance case as coverage
+
+> Found while landing this batch's CI run, right after the WP1.1 unit-test
+> gap (previous note): `evaluateOnrampContract`'s `runtime-smoke-required`
+> check now accepted `test/*-smoke.js` or `test/*.test.js`, but this batch
+> proves its 52-site migration with a NEW `v2/conformance/cases/*.case.js`
+> file only — a third, equally real, CI-gated proof layer the check still
+> did not know about. Widened the check again to accept a conformance-case
+> change too (`conformanceCaseFiles.length === 0` added alongside the other
+> two). Pure widening, same discipline as the unit-test fix.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Make `evaluateOnrampContract`'s `runtime-smoke-required` rule also accept a `v2/conformance/cases/*.case.js` change as valid coverage. | `plugins/cool-workflow/src/shell/onramp.ts`, matching `dist/**`, `plugins/cool-workflow/test/onramp-check-smoke.js` (new case) | New case: a runtime change plus only a matching conformance case no longer trips `runtime-smoke-required`. | BUILD OK; `release:check --skip-tests` onramp contract PASS; `npm test` 34/34; conformance 104/104 | no (gate fix, no release) |
+
+## Batch — finish the locale-independent ordering migration (Unreleased)
+
+> Step 2 of the D-2 finding, following the cache-key fix in the previous
+> batch: the remaining 52 bare `localeCompare` sites across 20 files,
+> migrated to `core/util/collate.ts`'s `stableCompare`. Highest-value
+> targets: `state-explosion/helpers.ts`'s shared `byId` comparator (fixes
+> 13 call sites in `digest.ts` for one change), `graph.ts`'s node/edge/
+> synthetic-node sorts and `digest.ts`'s two inline comparators (these feed
+> `snapshot.normalized` — the exact eval-replay content the D-2 finding
+> warned could give a false-red regression across hosts with different
+> collation), `commit-gate.ts`'s latest-selection lookup (affects which
+> selection a commit picks, not just display), and every remaining
+> shell/-layer display-formatting site. `v2/conformance/lib.js`'s base env
+> now pins `LANG`/`LC_ALL` to `en_US.UTF-8` explicitly (was merely absent),
+> so the whole suite's byte-identity story no longer depends on whatever
+> the host happens to leave unset. New case
+> `locale-independent-ordering.case.js` takes a real eval snapshot, then
+> replays/compares/scores/gates it under `cs_CZ.UTF-8` and asserts a clean
+> pass throughout — proving the full eval-replay pipeline survives a host
+> locale change end to end (that workflow's own task ids don't happen to
+> contain a character `cs_CZ` collates differently, so the underlying bug
+> is proved by `collate-stablecompare.test.js`'s adversarial data, not by
+> this case — see that case's own header note).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Migrate all 52 remaining bare `localeCompare` call sites (core/ then shell/) to `stableCompare`; pin `LANG`/`LC_ALL` in the conformance harness's base env; add an end-to-end eval-replay locale case. | `plugins/cool-workflow/src/core/{pipeline/commit-gate,multi-agent/collaboration,multi-agent/coordinator,trust/ledger,state/state-explosion/{helpers,graph,digest}}.ts`, `src/shell/{worker-isolation,operator-ux,report,state-explosion-cli,topology-io,reclamation-io,observability,multi-agent-operator-ux,operator-ux-text,commit-summary,workflow-app-loader,evidence-reasoning,execution-backend/registry}.ts`, matching `dist/**`, `v2/conformance/lib.js`, `v2/conformance/cases/locale-independent-ordering.case.js` (new) | New conformance case: baseline snapshot under `en_US.UTF-8`, replay+compare+score+gate under `cs_CZ.UTF-8`, all report a clean pass with zero findings. `grep -rn '\.localeCompare(' src` confirms zero bare call sites remain outside `collate.ts`'s own prose comment. | BUILD OK; conformance 103/103; `test:gate` 179/179; `test:unit` 151/153 (2 pre-existing, unrelated failures fixed by #362) | no (PR batch, no release) |
+
 ## Note — onramp gate did not recognize the WP1.1 unit-test layer
 
 > Found while landing this batch's CI run: `evaluateOnrampContract`'s

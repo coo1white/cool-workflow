@@ -16,6 +16,7 @@
 // collaboration.ts (byte-exact source).
 
 import { StateNodeError } from "../state/types";
+import { stableCompare } from "../util/collate";
 
 export const COLLABORATION_SCHEMA_VERSION = 1 as const;
 
@@ -371,7 +372,7 @@ function matchesAnyTarget(target: CollaborationTarget, related: CollaborationTar
   return related.some((entry) => sameTarget(target, entry));
 }
 function compareByCreated<T extends { createdAt: string; id: string }>(left: T, right: T): number {
-  return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+  return stableCompare(left.createdAt, right.createdAt) || stableCompare(left.id, right.id);
 }
 
 function disqualify(record: ApprovalRecord, policy: ReviewGatePolicy | undefined, selfIds: Set<string>): "unattributed" | "unauthorized-role" | "self-approval" | undefined {
@@ -643,7 +644,7 @@ export function distinctTargets(state: CollaborationState): CollaborationTarget[
   for (const record of state.approvals) seen.set(targetKey(record.target), record.target);
   for (const record of state.comments) seen.set(targetKey(record.target), record.target);
   for (const record of state.handoffs) seen.set(targetKey(record.target), record.target);
-  return [...seen.values()].sort((left, right) => targetKey(left).localeCompare(targetKey(right)));
+  return [...seen.values()].sort((left, right) => stableCompare(targetKey(left), targetKey(right)));
 }
 
 export function formatReviewStatus(report: ReviewStatusReport): string {

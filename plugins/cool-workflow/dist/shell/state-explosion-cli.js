@@ -66,6 +66,7 @@ const report_1 = require("../core/state/state-explosion/report");
 Object.defineProperty(exports, "buildStateExplosionReport", { enumerable: true, get: function () { return report_1.buildStateExplosionReport; } });
 const size_2 = require("../core/state/state-explosion/size");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
+const collate_1 = require("../core/util/collate");
 function summariesDir(run) {
     return path.join(run.paths.runDir, "summaries");
 }
@@ -134,7 +135,7 @@ function refreshStateExplosionSummaries(run, options = {}) {
         status: "valid",
         deterministic: true,
         nextAction: `node scripts/cw.js summary show ${run.id}`,
-        entries: entries.sort((a, b) => a.id.localeCompare(b.id)),
+        entries: entries.sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id)),
         views,
         paths: { summariesDir: dir, indexPath: path.join(dir, "index.json"), reportPath },
     };

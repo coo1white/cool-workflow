@@ -33,6 +33,7 @@ const container_1 = require("./container");
 const remote_1 = require("./remote");
 const ci_1 = require("./ci");
 const agent_1 = require("./agent");
+const collate_1 = require("../../core/util/collate");
 exports.EXECUTION_BACKEND_SCHEMA_VERSION = 1;
 exports.DEFAULT_BACKEND_ID = "node";
 exports.SANDBOX_DIMENSIONS = ["read", "write", "command", "network", "env"];
@@ -159,7 +160,7 @@ function registeredDrivers() {
 function listBackendDescriptors() {
     return registeredDrivers()
         .map((driver) => specDescriptor(driver.spec))
-        .sort((left, right) => left.id.localeCompare(right.id));
+        .sort((left, right) => (0, collate_1.stableCompare)(left.id, right.id));
 }
 function backendIds() {
     return registeredDrivers()
