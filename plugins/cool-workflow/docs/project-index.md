@@ -6,7 +6,7 @@ Generated from the current repository code on 2026-07-07 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.1`
-- Source modules: `131`
+- Source modules: `132`
 - Workflow apps: `8`
 - Docs: `62`
 - Smoke tests: `179`
@@ -82,6 +82,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [cli/entry.ts](../src/cli/entry.ts)
 - [cli/io.ts](../src/cli/io.ts)
 - [cli/parseargv.ts](../src/cli/parseargv.ts)
+- [core/capability-data.ts](../src/core/capability-data.ts)
 - [core/capability-table.ts](../src/core/capability-table.ts)
 - [core/format/help.ts](../src/core/format/help.ts)
 - [core/format/state-explosion-text.ts](../src/core/format/state-explosion-text.ts)

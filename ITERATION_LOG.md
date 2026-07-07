@@ -1,5 +1,29 @@
 # CW Iteration Log
 
+## Batch — split capability-table.ts's pure data out (Unreleased)
+
+> From the architecture-improvement plan's structure track: `capability-table.ts`
+> (4,348 lines) is the hub every capability routes through, but its whole
+> weight lived in one file — a 371-line pure-data prefix (types + the
+> literal `MCP_TOOL_DATA` transcript + a few dependency-free helpers)
+> welded to the ~3,650-line wiring section (`MCP_REAL_HANDLERS`, the
+> `REGISTRY` construction, every `attachCliBinding` call, all importing
+> from `../shell/`). This batch is step 1 of the split (step 2, moving the
+> wiring under `src/wiring/`, is a separate, larger PR): the pure prefix
+> moves to a new `core/capability-data.ts` verbatim (extracted with `sed`
+> line ranges, not retyped, to rule out transcription drift across the
+> 196-row literal), `capability-table.ts` imports it back and re-exports
+> the type names external files already import from it. Proven
+> byte-identical two ways: a full `REGISTRY` dump (every row's capability/
+> summary/surface/cli/mcp/payloadIdentical/reason/entry fields, plus
+> separately every handler function's `.name`) diffed clean against the
+> pre-split build, and `gen:parity`'s own doc regeneration reporting
+> "unchanged."
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Move `capability-table.ts`'s pure-data prefix (types, `MCP_TOOL_DATA`, `PROPERTY_OVERRIDES`, `stringProperty`, `notYetImplemented`, `CapabilityNotImplementedError`) to a new `core/capability-data.ts`; `capability-table.ts` imports it and re-exports (`export type { ... }` for the pure types, a real `export { CapabilityNotImplementedError }` since the unit tests instantiate it via `instanceof`) so every existing import site is unchanged. | `plugins/cool-workflow/src/core/capability-data.ts` (new), `src/core/capability-table.ts`, matching `dist/**` | Full `REGISTRY` dump (every field, both handler function names) diffed byte-identical against a pre-split rebuild (git-stashed the split, rebuilt, dumped, restored, diffed). | BUILD OK; `gen:parity` reports "unchanged" (238 capabilities, 197 MCP tools); `parity:check` clean; `purity:check` clean (the new file is 100% pure, zero new violations); conformance 102/102; `test:gate` 179/179; `version:sync` OK; `test:unit` 150/152 (2 pre-existing, unrelated MCP-tool-count failures already fixed on `main` by #359, present here only because this branch stacks on pre-#359 history) | no (PR batch, no release) |
+
 ## Batch — move the executor-boundary weld's shell types into core/ (Unreleased)
 
 > From the architecture-improvement plan's structure track (shrinking the
