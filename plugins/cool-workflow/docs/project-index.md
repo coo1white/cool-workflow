@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-07-07 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.1`
-- Source modules: `130`
+- Source modules: `129`
 - Workflow apps: `8`
-- Docs: `61`
-- Smoke tests: `178`
+- Docs: `62`
+- Smoke tests: `180`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -113,7 +113,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/trust/telemetry-ledger.ts](../src/core/trust/telemetry-ledger.ts)
 - [core/types.ts](../src/core/types.ts)
 - [core/types/boundary.ts](../src/core/types/boundary.ts)
-- [core/util/collate.ts](../src/core/util/collate.ts)
 - [mcp/dispatch.ts](../src/mcp/dispatch.ts)
 - [mcp/server.ts](../src/mcp/server.ts)
 - [shell/agent-config.ts](../src/shell/agent-config.ts)
@@ -252,6 +251,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [State Explosion Management](state-explosion-management.7.md)
 - [STATE-NODE(7)](state-node.7.md)
 - [Team Collaboration](team-collaboration.7.md)
+- [Trust Audit Anchor](trust-audit-anchor.7.md)
 - [Trust Model & Limitations](trust-model.md)
 - [Unix-Inspired Workflow Principles](unix-principles.md)
 - [Vendor Manifest Loadability](vendor-manifest-loadability.7.md)
@@ -410,6 +410,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-restore-failclosed-smoke.js](../test/run-restore-failclosed-smoke.js)
 - [run-resume-drive-smoke.js](../test/run-resume-drive-smoke.js)
 - [run-retention-reclamation-smoke.js](../test/run-retention-reclamation-smoke.js)
+- [run-state-lock-concurrency-smoke.js](../test/run-state-lock-concurrency-smoke.js)
 - [sample-determinism-smoke.js](../test/sample-determinism-smoke.js)
 - [sandbox-env-batch-hardening-smoke.js](../test/sandbox-env-batch-hardening-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)
@@ -433,6 +434,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [telemetry-metrics-coverage-smoke.js](../test/telemetry-metrics-coverage-smoke.js)
 - [telemetry-verify-signatures-smoke.js](../test/telemetry-verify-signatures-smoke.js)
 - [token-budget-enforcement-smoke.js](../test/token-budget-enforcement-smoke.js)
+- [trust-audit-anchor-smoke.js](../test/trust-audit-anchor-smoke.js)
 - [vendor-manifest-load-smoke.js](../test/vendor-manifest-load-smoke.js)
 - [vendor-preflight-smoke.js](../test/vendor-preflight-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)

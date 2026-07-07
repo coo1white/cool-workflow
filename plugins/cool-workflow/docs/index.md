@@ -49,6 +49,7 @@ advanced pages only when you need those parts.
 - [Durable State & Locking](durable-state-and-locking.7.md) - atomic writes, fsync durability, and portable file locks.
 - [Source Context Profiles](source-context-profiles.7.md) - opt-in JSONL source exports for context slimming.
 - [Security / Trust Hardening](security-trust-hardening.7.md) - audit records, provenance, sandbox attestations, and acceptance rationale.
+- [Trust Audit Anchor](trust-audit-anchor.7.md) - head anchor that makes a cut-off audit-log tail visible.
 - [State Explosion Management](state-explosion-management.7.md) - summaries, compact graph views, blackboard digests, and stale-aware compaction.
 - [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md) - why evidence was adopted or rejected.
 

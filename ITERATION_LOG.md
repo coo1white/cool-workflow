@@ -21,6 +21,28 @@
 |-------|------|-------|-------|------|--------|
 | 1 | Fix the manual-accept/cache-accept gaps in the attested-telemetry gate: `worker-isolation.ts`'s gate fires on missing telemetry too (new code `telemetry-missing-blocked`), gains `allowUnattested` (audited override, kind `telemetry.gate-override`); `worker-cli.ts`/`pipeline-cli.ts` thread `resolveAgentConfig(args).requireAttestedTelemetry` + `--allow-unattested` into the manual accept paths; `drive.ts`'s cache-hit accept records a `telemetry.cache-accept` note when the require flag is on (never blocks); `cw_result`/`cw_worker_output` gain the `allowUnattested` property; man page section in `docs/security-trust-hardening.7.md`. | `plugins/cool-workflow/src/shell/worker-isolation.ts`, `src/shell/worker-cli.ts`, `src/shell/pipeline-cli.ts`, `src/shell/drive.ts`, `src/core/capability-table.ts`, `docs/security-trust-hardening.7.md`, `docs/cli-mcp-parity.7.md` (regen), `docs/project-index.md` (regen), matching `dist/**`, `test/telemetry-fail-closed-smoke.js` (extended, cases 5-6), `v2/conformance/cases/telemetry-require-manual-accept.case.js` (new) | Extended smoke: manual accept with no delegation is blocked under require (distinct code from the present-but-unattested case), `--allow-unattested` accepts + records exactly one audited override event. New conformance case drives the real black-box path (`plan` + `dispatch` + `worker output`): blocked without override, accepted + audited with `--allow-unattested`, default-off unaffected, override event chains cleanly under `audit verify`. | BUILD OK; conformance 102/102; `test:gate` full suite; `parity:check`/`gen:parity` OK (237 capabilities, 196 MCP tools on this branch's base) | no (PR batch, no release) |
 
+## Batch — trust-audit head anchor: make a cut-off audit-log tail visible (Unreleased)
+
+> From the architecture-improvement plan's trust track (highest-risk item):
+> the trust-audit hash chain catches an edited event, a removed middle event,
+> a corrupt line, and a mixed-era forgery — but a pure chain walk is blind to
+> ONE tamper shape: delete the last N lines of `audit/events.jsonl` and what
+> is left is a shorter, fully consistent chain, so `cw audit verify` stays
+> green. That is a false-green on the tamper-evidence selling point. This
+> batch adds a head ANCHOR: `cw audit head` (new both-surface capability,
+> read-only) prints `{eventCount, headHash}`; `cw audit verify --expect-head
+> <hash> --expect-count <n>` fails closed with the distinct code
+> `trust-audit-truncated` when the log comes up short of that capture — and a
+> truncate-then-append forgery still fails the head check, because the new
+> events link from an earlier point so the old head is no longer on the
+> chain. POLA: with no anchor flags, `audit verify` output is byte-for-byte
+> unchanged (no `anchor` key). No new file, no new state, no new hash form —
+> the anchor rides on the existing eventHash chain.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Close the tail-truncation blind spot in trust-audit verification: new `trustAuditHead` projection + optional `TrustAuditAnchor` param on `verifyTrustAudit` (`trust-audit-truncated`, check names `anchor-count`/`anchor-head`); new both-surface capability `audit.head` (`cw audit head` / `cw_audit_head`, appended at the MCP table tail so every existing `tools/list` position is unmoved, wired into the run payload-parity probe); `--expect-head`/`--expect-count` on `cw audit verify` (`expectHead`/`expectCount` on `cw_audit_verify`), malformed values fail closed; man page `docs/trust-audit-anchor.7.md` + index/release-check/version-sync wiring. | `plugins/cool-workflow/src/shell/trust-audit.ts`, `src/shell/audit-cli.ts`, `src/core/capability-table.ts`, `docs/trust-audit-anchor.7.md`, `docs/index.md`, `docs/cli-mcp-parity.7.md` (regen), `docs/project-index.md` (regen), `scripts/release-check.js`, `scripts/version-sync-check.js`, matching `dist/**`, `test/trust-audit-anchor-smoke.js` (new), `test/freebsd-audit-fixes-smoke.js` (H4 gains the cut-tail shape), `v2/conformance/cases/trust-audit-anchor-truncation.case.js` (new) | New smoke: head projection (genesis on empty), anchored verify red on a cut tail + on a truncate-then-pad forgery, plain verify unchanged (POLA), `cw audit head` === `cw_audit_head` and anchored `audit verify` === `cw_audit_verify` (CLI<->MCP parity). New conformance case pins the same black-box: plain verify green AFTER truncation (the documented gap), anchored verify exit 1 with `trust-audit-truncated`, fail-closed flag errors. `freebsd-audit-fixes-smoke` H4(e) pins the gap + catch beside the other tamper shapes. | BUILD OK; conformance 102/102; `test:gate` full suite; parity/index/readme checks OK (`gen:parity`: 238 capabilities, 197 MCP tools) | no (PR batch, no release) |
+
 
 > Cut the release that ships the four PRs merged since v0.2.0 (#347-#350):
 > agent-hop failure diagnostics, USER env forwarding to the agent backend's
@@ -1157,3 +1179,57 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Take `update` out of every surface that offered it with no code behind it: the `cw help` row + "More commands" token (`core/format/help.ts`, with notes marking the on-purpose step away from the old SPEC capture), the KNOWN_COMMANDS did-you-mean list (`cli/parseargv.ts`, so the self-pointing hint is gone — `cw update` now gets the normal distance-rule hint), and the parity smoke's HELP_INDEX_ONLY_TOKENS pass (so `helpUndeclaredCliTokens` now guards against any dead verb in help). Park the "real self-update" idea in docs/BACKLOG.md per the North Star rule. | `plugins/cool-workflow/src/core/format/help.ts`, `plugins/cool-workflow/src/cli/parseargv.ts`, matching `dist/**`, `plugins/cool-workflow/test/cli-mcp-parity-smoke.js`, `plugins/cool-workflow/test/cli-arg-parsing-smoke.js` (extended, not new), `v2/conformance/cases/fixtures/cli-help/_root.txt` (help fixture updated for the intentional CLI surface change), `docs/BACKLOG.md` | Extended `cli-arg-parsing-smoke.js`: KNOWN_COMMANDS must not have `update`; `cw help` text must not offer `update`; and every did-you-mean candidate must be a verb the help text offers (except `help` itself) — so a dead verb can not hide in the hint list again. Parity smoke re-armed: help tokens minus init/search must all be declared registry commands. | BUILD OK; conformance 101/101 (after updating the `_root.txt` help fixture for the intentional surface change); `npm test` fast 34/34; `test:coverage` gate PASS (90.8% overall against the 80% floor; extended smoke, no smoke-count change) | no (bugfix batch, no release) |
+
+## Batch — close the last lock race on `state.json` itself (Unreleased)
+
+> An architecture-review pass over state, persistence, and concurrency
+> found that `saveCheckpoint` locks only the WRITE of `state.json`. Every
+> verb that does load -> change -> save on its own (`cw dispatch`,
+> `cw result`) left a window where two processes both load the same
+> state and the later save silently drops the earlier change — the same
+> lost-update class the v0.2.1 fix (#339) closed for `queue.json` and
+> `triggers.json`, still open on the single source of truth itself. A
+> new `run-state-lock-concurrency-smoke.js` reproduced it live: 6
+> concurrent `cw result` calls on 6 tasks of the same run kept only 1
+> completion before the fix.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Close the read-modify-write race on `state.json`: add `withRunStateLock(runId, cwd, fn)` in `run-store.ts`, which holds the `state.json` lock over the WHOLE load -> change -> save cycle instead of just the write; make `withFileLock` (`fs-atomic.ts`) re-entrant inside one process so nested `saveCheckpoint`/worker-failure-persist calls inside `fn` keep working unchanged; wire `dispatchRun` and `recordResultRun` (`pipeline-cli.ts`) through it. Also re-ran `sync:project-index` (`docs/project-index.md`) so the new smoke count stays in sync with the doc-drift guard. | `plugins/cool-workflow/src/shell/fs-atomic.ts`, `plugins/cool-workflow/src/shell/run-store.ts`, `plugins/cool-workflow/src/shell/pipeline-cli.ts`, matching `dist/**`, `plugins/cool-workflow/test/run-state-lock-concurrency-smoke.js` (new), `plugins/cool-workflow/docs/durable-state-and-locking.7.md`, `plugins/cool-workflow/docs/project-index.md` (regenerated) | New `run-state-lock-concurrency-smoke.js`: part A proves `withFileLock` is re-entrant in-process (nested same-target call runs under the held lock, single release); part B spawns one real child process per dispatched task of a live `architecture-review` run, holds them at a start line, and asserts all concurrent `cw result` recordings survive (failed on the pre-fix build: 1/6 kept). | BUILD OK; new smoke run 3x clean; `npm test` fast 34/34; conformance 101/101; `npm run test:gate` full 179-smoke sequential suite: first pass caught a stale `project-index.md` (unrelated doc-drift guard tripped by the new test file, fixed via `sync:project-index`), full suite green after | no (bugfix, no release) |
+
+## Batch — restore the core/ unit-test layer lost at cutover (Unreleased)
+
+> WP1.1 of `docs/ARCHITECTURE_PLAN.md`. The v2 rebuild's 152 pure `core/`
+> unit tests (which caught 5 real bugs the black-box conformance suite
+> never would have) were deleted along with the rest of the pre-cutover
+> `v2/` staging tree once the rebuild shipped as `src/`. Nothing since has
+> replaced that safety net — the shipped build only carries 178 black-box
+> smoke tests and the 101-case conformance suite, both proving external
+> byte-behavior, not internal function correctness. Restoring the suite
+> also surfaced 9 tests that had drifted from real, deliberate behavior
+> that landed between the rebuild PR and the cutover PR (a loop-expansion
+> phase-naming fix, a commit-gate acceptance-rationale feature, a graph.ts
+> blackboard/critical-path fold-in, and the already-merged #355 removal of
+> the dead `update` verb) — those got their expectations updated to match
+> shipped reality, not the other way around; each was cross-checked against
+> the original v2 build at commit 84aac95 to confirm it once passed there
+> and drifted only because the code kept moving after that snapshot.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Restore the 152 `*.test.js` files from commit `84aac95:v2/test/` verbatim into `plugins/cool-workflow/test/` (same directory depth as the old `v2/test/` relative to `v2/dist/`, so every existing `require("../dist/...")` resolves unchanged — zero path rewriting). Add a small discovery-based runner `test/run-unit.js` (mirrors `run-all.js`'s fail-closed `test/*.test.js` discovery, but skips its sandbox isolation since these are pure functions of `dist/core/*` with no `.cw/`/`CW_HOME` dependency) and a new `test:unit` npm script, kept fully separate from `npm test`/`test:gate`/`test:ci` (which stay smoke-only, byte-for-byte unchanged). Wire `test:unit` into CI directly and into `release:check` as a new "unit tests" entry that `--skip-tests` also skips (so CI never runs it twice). Fix the 9 tests whose expectations had drifted from shipped behavior (3 `capability-table` milestone-narrative tests updated from "mid-build" to "shipped-release" invariants; 2 `formatapps-help-*` fixtures had the already-removed `update` verb dropped; 1 `commit-gate` fixture completed with the now-required `workerId`/`sandboxProfileId` fields; 1 `loop-expansion` test updated for the deliberate phase-naming fix; 2 `state-explosion` tests updated for the `BlackboardState.snapshots` field and the broader critical-path protection over candidate/selection/committed-commit kinds) — all 9 verified against the original 84aac95 build to confirm they were genuinely green there. | `plugins/cool-workflow/test/*.test.js` (152 new files, restored verbatim then 9 patched), `plugins/cool-workflow/test/run-unit.js` (new), `plugins/cool-workflow/package.json` (new `test:unit` script), `plugins/cool-workflow/scripts/release-check.js` (new "unit tests" check + skip-tests extended), `.github/workflows/ci.yml` (new `npm run test:unit` step), `docs/ARCHITECTURE_PLAN.md` (WP1.1 checked off) | `test:unit` 152/152 passed; full smoke suite `test:gate` 178/178 passed unchanged; conformance 101/101 unchanged | BUILD OK; conformance 101/101; `test:gate` 178/178; `test:unit` 152/152; `release:check --skip-tests` 13/13 (unit tests correctly SKIP, matching "tests") | no (safety-net restoration, no release) |
+
+## Note — pre-existing 196-vs-197 MCP tool count drift found while merging #359 and #360
+
+> Not a new goal on its own — a merge-time fix caught while landing the
+> `state.json` whole-cycle lock branch (#359) on top of `main` after #360
+> merged. #358 added a new MCP tool (`cw_audit_head`), moving the real
+> count from 196 to 197. #360's restored unit tests
+> (`captable-mcp-tool-definitions.test.js`,
+> `captable-projection-helpers.test.js`) still hardcoded 196 and pinned
+> `cw_history` as the last declared tool — a real drift already present
+> on `main` itself (confirmed on a clean `origin/main` checkout, not
+> introduced by #359). Both literals updated to 197 and the tail pin to
+> `cw_audit_head`, checked against the live `dist/core/capability-table.js`
+> output and a passing `scripts/parity-check.js`. `test:unit` 152/152
+> after the fix.

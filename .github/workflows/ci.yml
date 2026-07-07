@@ -54,4 +54,8 @@ jobs:
       # the remaining parity, manifest, version-sync, golden-path, canonical-apps,
       # and eval gates without running the same suite a second time.
       - run: npm run test:coverage
+      # Pure core/ unit tests (test/*.test.js), separate from the smoke suite
+      # above — see test/run-unit.js's header. release:check --skip-tests also
+      # skips this by name, so it does not run twice.
+      - run: npm run test:unit
       - run: npm run release:check -- --skip-tests
