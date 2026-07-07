@@ -20,27 +20,14 @@ import { readJson, writeJson } from "./fs-atomic";
 import { WorkflowRun, RunTask } from "../core/state/types";
 import { WorkerScope } from "./worker-isolation";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
+import type { UsageRecord } from "../core/types/observability";
+export type { UsageRecord };
 
 export const METRICS_SCHEMA_VERSION = 1 as const;
 
 const VERIFIER_PASS_STATUSES = new Set(["verified", "completed", "committed"]);
 const VERIFIER_FAIL_STATUSES = new Set(["failed", "rejected", "blocked"]);
 const CANDIDATE_ACCEPTED_STATUSES = new Set(["selected", "verified"]);
-
-export interface UsageRecord {
-  schemaVersion?: 1;
-  source?: string;
-  model?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
-  cacheReadTokens?: number;
-  cacheWriteTokens?: number;
-  attestedAt?: string;
-  attestation?: "attested" | "unattested" | "absent";
-  attestationReason?: string;
-  note?: string;
-}
 
 export interface CostPolicy {
   schemaVersion: 1;

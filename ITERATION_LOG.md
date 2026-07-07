@@ -1,5 +1,29 @@
 # CW Iteration Log
 
+## Batch — move the executor-boundary weld's shell types into core/ (Unreleased)
+
+> From the architecture-improvement plan's structure track (shrinking the
+> purity-gate baseline added in the previous batch): `core/types/boundary.ts`
+> — the file that welds the executor-boundary rule INTO THE TYPE LAYER —
+> imported `ExecutionResultEnvelope`/`ResultEnvelope` and `UsageRecord` from
+> two `shell/` files, purely for their type declarations (`import type`,
+> fully erased at emit). Both source files were already 100% plain data:
+> `shell/execution-backend/types.ts` has zero imports of its own and its
+> own header already claimed it was "safe to import from both shell/ and
+> any future core/ caller"; `UsageRecord` is a flat, dependency-free
+> interface inside the otherwise-impure `shell/observability.ts`. Moving
+> them into `core/types/` makes that claim literally true and removes
+> `core/types/boundary.ts` from the purity baseline entirely — TypeScript's
+> `export type *` / `export type { X }` re-export forms mean the two
+> `shell/` files keep every existing import site working, with ZERO
+> runtime bytes changed (verified: their compiled `dist/*.js` output is
+> byte-identical before/after, and the two new core files compile to
+> nothing but the empty-module marker).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Move `shell/execution-backend/types.ts`'s full content (100% plain data, zero imports, needed as one piece since `ExecutionResultEnvelope`/`ResultEnvelope` can't be cherry-picked out of their dependency graph without also carrying `ExecutionProvenance`/`SandboxAttestation`/etc.) to `core/types/execution-backend.ts`; move the single `UsageRecord` interface out of `shell/observability.ts` to `core/types/observability.ts`; both shell files become re-export shims; `core/types/boundary.ts`'s imports repoint to `core/types/`; remove its now-fixed entry from `scripts/purity-baseline.json`. | `plugins/cool-workflow/src/core/types/execution-backend.ts` (new), `src/core/types/observability.ts` (new), `src/shell/execution-backend/types.ts`, `src/shell/observability.ts`, `src/core/types/boundary.ts`, `scripts/purity-baseline.json`, matching `dist/**` | `test/one-way-boundary-smoke.js` (the executor-boundary compile-time weld's own smoke) still passes unmodified — welds present, callables still refused, plain data still compiles clean. Confirmed byte-identical `dist/shell/observability.js` (zero diff) and `dist/core/types/boundary.js` (zero diff); confirmed the two new `dist/core/types/*.js` files and the shrunk `dist/shell/execution-backend/types.js` compile to nothing but the empty-module marker. | BUILD OK; `purity:check` passes with `core/types/boundary.ts` no longer in the baseline at all; conformance 102/102; `test:gate` 179/179; `test:unit` 150/152 (2 pre-existing, unrelated MCP-tool-count failures fixed by #362) | no (PR batch, no release) |
+
 ## Batch — a mechanical purity gate for the core/shell boundary (Unreleased)
 
 > From the architecture-improvement plan's structure track: `docs/rebuild/PLAN.md`
