@@ -20,7 +20,7 @@ const repoRoot = path.resolve(pluginRoot, "..", "..");
 // CI checks out HEAD, so HEAD === the tree it is releasing.
 //
 // Fallback to the filesystem only when we cannot read from HEAD: not a git work
-// tree, or the path is not tracked at HEAD (e.g. the gitignored package-lock).
+// tree, or the path is not tracked at HEAD.
 // node + git only — no ripgrep (CI portability rule).
 const insideGitWorkTree = (() => {
   const r = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: repoRoot, encoding: "utf8" });
@@ -36,7 +36,7 @@ function readReleaseSource(relativePath) {
       maxBuffer: 1024 * 1024 * 32
     });
     if (r.status === 0) return { text: r.stdout, exists: true, fromHead: true };
-    // Not tracked at HEAD — fall through to the working tree (e.g. package-lock).
+    // Not tracked at HEAD — fall through to the working tree.
   }
   const abs = path.join(repoRoot, relativePath);
   if (!fs.existsSync(abs)) return { text: null, exists: false, fromHead: false };
@@ -56,9 +56,14 @@ const canonicalApps = CANONICAL_APP_IDS;
 function main() {
   const checks = [];
   checkJson("plugins/cool-workflow/package.json", "version", VERSION, checks);
-  // package-lock.json is a gitignored install artifact (the documented install
-  // uses `npm install --no-package-lock`), so only validate it when present.
+  // package-lock.json is tracked now, but the documented install still works
+  // without it (`npm install --no-package-lock`), so only validate it when
+  // present. Check BOTH version fields: the top-level one and the root-package
+  // entry packages[""].version — the second one is the field npm keeps in step
+  // with package.json on `npm install`, and it is the one that went stale
+  // (0.1.97) through the v0.2.0/v0.2.1 cuts while only the first was checked.
   checkJsonIfPresent("plugins/cool-workflow/package-lock.json", "version", VERSION, checks);
+  checkNestedJsonIfPresent("plugins/cool-workflow/package-lock.json", ["packages", "", "version"], VERSION, checks);
   checkJson("plugins/cool-workflow/.codex-plugin/plugin.json", "version", VERSION, checks);
   checkJson("plugins/cool-workflow/server.json", "version", VERSION, checks);
   checkNestedJson("plugins/cool-workflow/server.json", ["packages", 0, "version"], VERSION, checks);
@@ -221,6 +226,18 @@ function checkJson(relativePath, key, expected, checks) {
 function checkNestedJson(relativePath, keyPath, expected, checks) {
   const src = readReleaseSource(relativePath);
   assert.ok(src.exists, `${relativePath} must exist`);
+  let value = JSON.parse(src.text);
+  for (const key of keyPath) value = value?.[key];
+  assert.equal(value, expected, `${relativePath}.${keyPath.join(".")} must be ${expected}`);
+  checks.push({ path: relativePath, key: keyPath.join("."), value });
+}
+
+function checkNestedJsonIfPresent(relativePath, keyPath, expected, checks) {
+  const src = readReleaseSource(relativePath);
+  if (!src.exists) {
+    checks.push({ path: relativePath, key: keyPath.join("."), skipped: "absent" });
+    return;
+  }
   let value = JSON.parse(src.text);
   for (const key of keyPath) value = value?.[key];
   assert.equal(value, expected, `${relativePath}.${keyPath.join(".")} must be ${expected}`);

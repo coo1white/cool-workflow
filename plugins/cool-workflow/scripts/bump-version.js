@@ -46,6 +46,23 @@ function replaceFirstVersionField(absPath, next) {
   return true;
 }
 
+function replaceLockfileVersions(absPath, next) {
+  // Move BOTH lockfile version fields with targeted string swaps, so the byte
+  // formatting npm wrote is kept as it is: the top-level "version" (the first
+  // one in the file) and the root-package entry `"": { "name": ..., "version": ... }`.
+  // Dependency entries are not touched — the second swap is keyed on the
+  // `"": {` root-package opening, which is present only once.
+  const text = fs.readFileSync(absPath, "utf8");
+  let updated = text.replace(/"version":\s*"[^"]*"/, `"version": "${next}"`);
+  updated = updated.replace(
+    /("":\s*\{\s*"name":\s*"[^"]*",\s*"version":\s*)"[^"]*"/,
+    `$1"${next}"`
+  );
+  if (updated === text) return false;
+  fs.writeFileSync(absPath, updated);
+  return true;
+}
+
 function setNestedVersion(absPath, next) {
   // For files where the first `"version"` is NOT the right one, parse + set.
   const json = JSON.parse(fs.readFileSync(absPath, "utf8"));
@@ -75,9 +92,13 @@ function main() {
   // 1. package.json (the single source of truth version:sync now reads from)
   if (replaceFirstVersionField(path.join(pluginRoot, "package.json"), next)) note("package.json");
 
-  // 2. package-lock.json (gitignored install artifact; only if present)
+  // 2. package-lock.json (tracked; only if present). The lockfile keeps the
+  //    version in TWO places: the top-level "version" and the root-package
+  //    entry packages[""].version. The old code moved only the first one, so
+  //    the root-package entry kept an old version till the next `npm install`
+  //    (the v0.1.97 drift seen after the v0.2.0/v0.2.1 cuts). Move both here.
   const lock = path.join(pluginRoot, "package-lock.json");
-  if (fs.existsSync(lock) && replaceFirstVersionField(lock, next)) note("package-lock.json");
+  if (fs.existsSync(lock) && replaceLockfileVersions(lock, next)) note("package-lock.json");
 
   // 2b. Official MCP Registry server metadata (top-level server version + npm package version).
   const serverJson = path.join(pluginRoot, "server.json");
