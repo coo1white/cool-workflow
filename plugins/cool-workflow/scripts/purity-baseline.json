@@ -8,10 +8,6 @@
     ]
   },
   "clockEnvCounts": {
-    "core/capability-table.ts": {
-      "process.cwd()": 4,
-      "process.env": 2
-    },
     "core/multi-agent/candidate-scoring.ts": {
       "new Date()": 1
     },
@@ -39,43 +35,34 @@
   },
   "layerViolations": {
     "core/capability-table.ts": [
-      "../cli/io",
-      "../shell/app-run-cli",
-      "../shell/audit-cli",
-      "../shell/collaboration-io",
-      "../shell/commit-summary",
-      "../shell/demo-cli",
-      "../shell/doctor",
-      "../shell/eval-text",
-      "../shell/exec-backend-cli",
-      "../shell/feedback-cli",
-      "../shell/ledger-cli",
-      "../shell/man-cli",
-      "../shell/metrics-cli",
-      "../shell/multi-agent-cli",
-      "../shell/observability",
-      "../shell/operator-ux",
-      "../shell/operator-ux-text",
-      "../shell/pipeline-cli",
-      "../shell/reclamation-io",
-      "../shell/registry-cli",
-      "../shell/report-cli",
-      "../shell/report-view-cli",
-      "../shell/run-export-cli",
-      "../shell/run-registry-io",
-      "../shell/run-store",
-      "../shell/scheduling-io",
-      "../shell/state-cli",
-      "../shell/state-explosion-cli",
-      "../shell/telemetry-cli",
-      "../shell/telemetry-demo",
-      "../shell/topology-io",
-      "../shell/workbench",
-      "../shell/workbench-host",
-      "../shell/workbench-text",
-      "../shell/worker-cli",
-      "../shell/worker-isolation",
-      "../shell/workflow-app-loader"
+      "../wiring/capability-table"
+    ],
+    "wiring/capability-table/exec-backend.ts": [
+      "../../cli/io"
+    ],
+    "wiring/capability-table/multi-agent.ts": [
+      "../../cli/io"
+    ],
+    "wiring/capability-table/pipeline.ts": [
+      "../../cli/io"
+    ],
+    "wiring/capability-table/registry-core.ts": [
+      "../../cli/io"
+    ],
+    "wiring/capability-table/reporting.ts": [
+      "../../cli/io"
+    ],
+    "wiring/capability-table/scheduling-registry.ts": [
+      "../../cli/io"
+    ],
+    "wiring/capability-table/state.ts": [
+      "../../cli/io"
+    ],
+    "wiring/capability-table/trust-ledger.ts": [
+      "../../cli/io"
+    ],
+    "wiring/capability-table/workflow-apps.ts": [
+      "../../cli/io"
     ]
   }
 }

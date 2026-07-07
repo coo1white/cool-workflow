@@ -1,0 +1,233 @@
+// wiring/capability-table/registry-core.ts — the shared machinery every
+// domain slice registers into: REGISTRY, REGISTRY_BY_CAPABILITY,
+// attachCliBinding, addCliOnlyCapability, and the read-only query
+// functions (findCapability*, cliCapabilities, mcpToolDefinitions,
+// declaredMcpTools). Also owns the small set of capability BODIES that
+// must be in scope when MCP_TOOL_DATA.map() builds REGISTRY at module
+// load (MCP_REAL_HANDLERS below) — kept here, not in a domain slice, to
+// avoid a circular import (a slice needing attachCliBinding from this
+// file, while this file would need a handler body FROM that slice).
+//
+// No slice file imports another slice file; every slice imports ONLY
+// from this file, core/capability-data.ts, and shell/core as needed.
+// index.ts imports this file plus every slice and composes them in the
+// exact original source order (REGISTRY order is a pinned behavior —
+// tools/list order, gen-parity-doc's byte-diff gate, cw help line order).
+//
+// Split out of core/capability-table.ts's "Public table-derived API"
+// section, byte-for-byte (this file's body is the ORIGINAL file's own
+// text, extracted with sed line ranges, not retyped).
+
+import {
+  MCP_TOOL_DATA,
+  McpToolRow,
+  PROPERTY_OVERRIDES,
+  stringProperty,
+  notYetImplemented,
+} from "../../core/capability-data";
+import type {
+  ParitySurface,
+  CliJsonMode,
+  McpPropertySchema,
+  McpToolDefinition,
+  CliHandlerResult,
+  CliBinding,
+  McpBinding,
+  CapabilityCliArgs,
+  Capability,
+} from "../../core/capability-data";
+import { required } from "../../cli/io";
+import { loadRunFromCwd as statusLoadRunFromCwd } from "../../shell/run-store";
+import { adviseNoRun as statusAdviseNoRun, summarizeRun as statusSummarizeRun } from "../../shell/operator-ux";
+import { listWorkflowsShallow } from "../../shell/workflow-app-loader";
+import { summaryRefreshCli, summaryShowCli } from "../../shell/state-explosion-cli";
+
+/** Real handlers implemented at THIS milestone, keyed by capability id.
+ *  Every tool row not listed here gets `notYetImplemented`. Kept as a
+ *  small side table (rather than inlined into MCP_TOOL_DATA above) so the
+ *  196-row literal above stays a pure, mechanically-checkable transcript
+ *  of the spec table — handler wiring is a separate, obviously-later-
+ *  editable concern. */
+const MCP_REAL_HANDLERS: Record<string, (args: Record<string, unknown>) => unknown> = {
+  list: () => listBundledWorkflows(),
+  "sandbox.list": () => listBundledSandboxProfiles(),
+  status: (args) => statusPayload(optionalString(args.runId)),
+  "summary.refresh": (args) => summaryRefreshCli(required(optionalString(args.runId), "run id"), args),
+  "summary.show": (args) => summaryShowCli(required(optionalString(args.runId), "run id"), args),
+};
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+// ---------------------------------------------------------------------
+// Real, minimal capability bodies (shared by both front doors when both
+// are wired; `list`/`sandbox.list`/`status` happen to share one function
+// today, but the row type keeps `cli.handler`/`mcp.handler` independent
+// per byte-compat item 5, so a later milestone can split any one of
+// these into two genuinely different functions without a table reshape).
+// ---------------------------------------------------------------------
+
+export interface WorkflowSummary {
+  id: string;
+  title: string;
+  summary: string;
+  file: string;
+}
+
+/** `cw list` / `cw_list` (MILESTONE 12) — the real discovery over every
+ *  `apps/*\/app.json` + legacy `workflows/*.workflow.js` on disk, per
+ *  `listWorkflowsShallow` (shell/workflow-app-loader.ts). */
+export function listBundledWorkflows(): WorkflowSummary[] {
+  return listWorkflowsShallow();
+}
+
+export interface SandboxProfileSummary {
+  schemaVersion: 1;
+  id: string;
+  title: string;
+}
+
+/** PLACEHOLDER (milestone 5, execution-backend/sandbox) — the real
+ *  `sandbox.list` resolves and stamps each of the 4 bundled profiles
+ *  (default/readonly/workspace-write/locked-down) with real path lists
+ *  via `resolveSandboxProfile` (SPEC/execution-backend.md). This
+ *  milestone reproduces only the id/title/schemaVersion subset that
+ *  mcp-basic.case.js checks. */
+export function listBundledSandboxProfiles(): SandboxProfileSummary[] {
+  return [
+    { schemaVersion: 1, id: "default", title: "Default Worker Boundary" },
+    { schemaVersion: 1, id: "readonly", title: "Readonly Workspace" },
+    { schemaVersion: 1, id: "workspace-write", title: "Workspace Write" },
+    { schemaVersion: 1, id: "locked-down", title: "Locked Down" },
+  ];
+}
+
+/** `cw status` / `cw_status` — SPEC/cli-surface.md pins the no-id JSON
+ *  shape exactly (`{runId:null, nextActions}`); a real run id resolves to
+ *  `summarizeRun`'s payload (MILESTONE 11, reporting/observability). */
+export function statusPayload(runId: string | undefined, cwd?: string): unknown {
+  if (!runId) {
+    return { runId: null, nextActions: statusAdviseNoRun() };
+  }
+  const run = statusLoadRunFromCwd(runId, cwd || process.cwd());
+  return statusSummarizeRun(run);
+}
+
+// ---------------------------------------------------------------------
+// Public table-derived API
+// ---------------------------------------------------------------------
+
+function buildMcpBinding(row: McpToolRow): McpBinding {
+  const handler = MCP_REAL_HANDLERS[row.capability] ?? notYetImplemented(row.capability);
+  // A transcript entry like "runId, workerId" is TWO AND-required args (the
+  // spec table's comma form), while "topicId|id" is one OR-group. mcp/dispatch's
+  // validator only splits on `|`, so expand each comma-joined transcript entry
+  // into its separate AND-groups here (the one place the row shape is turned
+  // into the runtime McpBinding.requiredArgs contract).
+  const requiredArgs = row.requiredArgs.flatMap((group) => group.split(",").map((entry) => entry.trim()).filter(Boolean));
+  return {
+    tool: row.tool,
+    requiredArgs: requiredArgs.length ? requiredArgs : undefined,
+    properties: row.properties,
+    description: row.description,
+    handler,
+  };
+}
+
+/** The full capability table: one row per MCP tool (196, per SPEC/mcp.md),
+ *  in the exact source order `tools/list` must report. CLI bindings are
+ *  layered on top for the small set of capabilities this milestone also
+ *  exposes on the CLI front door (see `CLI_ROWS` below); every other row
+ *  is MCP-only AT THIS MILESTONE (not a permanent `mcp-only` declaration —
+ *  just not yet CLI-wired; later milestones add the `cli` binding without
+ *  touching this array's mcp side). */
+export const REGISTRY: Capability[] = MCP_TOOL_DATA.map((row) => ({
+  capability: row.capability,
+  summary: row.description,
+  surface: "both" as ParitySurface,
+  mcp: buildMcpBinding(row),
+}));
+
+export const REGISTRY_BY_CAPABILITY: Map<string, Capability> = new Map(REGISTRY.map((row) => [row.capability, row]));
+
+/** Attach (or replace) a CLI binding for an already-declared MCP capability.
+ *  Used once below to wire `list`/`status`/`sandbox.list` onto the CLI
+ *  front door too, without duplicating their row data. */
+export function attachCliBinding(capability: string, cli: CliBinding): void {
+  const row = REGISTRY_BY_CAPABILITY.get(capability);
+  if (!row) throw new Error(`capability-table: cannot attach cli binding to undeclared capability ${capability}`);
+  row.cli = cli;
+}
+
+/** Declare a capability that is CLI-only at this milestone (`help`,
+ *  `version` — both are permanently `cli-only` per SPEC/mcp.md's
+ *  declared one-surface list, so no mcp row is created for them). */
+export function addCliOnlyCapability(capability: string, summary: string, cli: CliBinding, reason: string, entry?: string): void {
+  const row: Capability = { capability, summary, surface: "cli-only", cli, reason, ...(entry ? { entry } : {}) };
+  REGISTRY.push(row);
+  REGISTRY_BY_CAPABILITY.set(capability, row);
+}
+
+/** Returns the declared row for a capability id, or undefined. */
+export function findCapability(capability: string): Capability | undefined {
+  return REGISTRY_BY_CAPABILITY.get(capability);
+}
+
+/** Returns the declared row whose `cli.path` matches `path` exactly
+ *  (path[0] is the verb). Used by cli/dispatch.ts's generic executor.
+ *  A single-token command also matches a row's `caseTokens` alias list, so
+ *  an alias (e.g. `audit-run`) dispatches to the same handler as its verb. */
+export function findCapabilityByCliPath(path: string[]): Capability | undefined {
+  for (const row of REGISTRY) {
+    if (row.cli && row.cli.path.length === path.length && row.cli.path.every((p, i) => p === path[i])) {
+      return row;
+    }
+  }
+  if (path.length === 1) {
+    for (const row of REGISTRY) {
+      if (row.cli && row.cli.caseTokens && row.cli.caseTokens.includes(path[0])) return row;
+    }
+  }
+  return undefined;
+}
+
+/** A capability row known to carry a `cli` binding (narrowed for callers
+ *  like `cliCapabilities()` below, so `.cli` needs no non-null assertion
+ *  at the call site). */
+export type CliCapability = Capability & { cli: CliBinding };
+
+/** Every capability row that declares a `cli` binding, in registry order.
+ *  Used to derive `formatCommandHelp`'s per-verb subcommand rows. */
+export function cliCapabilities(): CliCapability[] {
+  return REGISTRY.filter((row): row is CliCapability => Boolean(row.cli));
+}
+
+/** `tools/list`'s exact array, in the pinned source order. */
+export function mcpToolDefinitions(): McpToolDefinition[] {
+  const definitions: McpToolDefinition[] = [];
+  for (const row of REGISTRY) {
+    if (!row.mcp) continue;
+    const overrides = PROPERTY_OVERRIDES[row.mcp.tool] ?? {};
+    const properties: Record<string, McpPropertySchema> = {};
+    for (const propName of row.mcp.properties) {
+      properties[propName] = overrides[propName] ?? stringProperty(propName);
+    }
+    definitions.push({
+      name: row.mcp.tool,
+      description: row.mcp.description,
+      inputSchema: { type: "object", properties, additionalProperties: true },
+    });
+  }
+  return definitions;
+}
+
+/** Every declared MCP tool name, in `tools/list` order. */
+export function declaredMcpTools(): string[] {
+  return REGISTRY.filter((row) => row.mcp).map((row) => row.mcp!.tool);
+}
+
+/** Look up a capability row by its MCP tool name. */
+export function findCapabilityByMcpTool(tool: string): Capability | undefined {
+  return REGISTRY.find((row) => row.mcp && row.mcp.tool === tool);
+}

@@ -6,7 +6,7 @@ Generated from the current repository code on 2026-07-07 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.1`
-- Source modules: `132`
+- Source modules: `144`
 - Workflow apps: `8`
 - Docs: `62`
 - Smoke tests: `179`
@@ -184,6 +184,18 @@ multi-agent host -> topology -> blackboard/coordinator
 - [shell/workbench-text.ts](../src/shell/workbench-text.ts)
 - [shell/workbench.ts](../src/shell/workbench.ts)
 - [shell/worker-cli.ts](../src/shell/worker-cli.ts)
+- [wiring/capability-table/basics.ts](../src/wiring/capability-table/basics.ts)
+- [wiring/capability-table/exec-backend.ts](../src/wiring/capability-table/exec-backend.ts)
+- [wiring/capability-table/index.ts](../src/wiring/capability-table/index.ts)
+- [wiring/capability-table/multi-agent.ts](../src/wiring/capability-table/multi-agent.ts)
+- [wiring/capability-table/parity.ts](../src/wiring/capability-table/parity.ts)
+- [wiring/capability-table/pipeline.ts](../src/wiring/capability-table/pipeline.ts)
+- [wiring/capability-table/registry-core.ts](../src/wiring/capability-table/registry-core.ts)
+- [wiring/capability-table/reporting.ts](../src/wiring/capability-table/reporting.ts)
+- [wiring/capability-table/scheduling-registry.ts](../src/wiring/capability-table/scheduling-registry.ts)
+- [wiring/capability-table/state.ts](../src/wiring/capability-table/state.ts)
+- [wiring/capability-table/trust-ledger.ts](../src/wiring/capability-table/trust-ledger.ts)
+- [wiring/capability-table/workflow-apps.ts](../src/wiring/capability-table/workflow-apps.ts)
 
 ## Workflow Apps
 

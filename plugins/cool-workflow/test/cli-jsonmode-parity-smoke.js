@@ -56,7 +56,11 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // human call; this smoke stays red until the v2 REGISTRY records cli bindings
 // for those verbs (or the probe set is narrowed to CLI-bound verbs).
 const registry = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
-registry.CAPABILITY_REGISTRY = registry.CAPABILITY_REGISTRY || registry.REGISTRY;
+// CAPABILITY_REGISTRY (an alias for REGISTRY) is always present now -- the
+// old defensive fallback assignment broke once capability-table.js became a
+// re-export shim (export * makes CAPABILITY_REGISTRY a read-only getter, so
+// assigning to it throws instead of silently no-op'ing).
+assert.ok(registry.CAPABILITY_REGISTRY, "dist/core/capability-table.js must export CAPABILITY_REGISTRY");
 
 // Read-only capabilities that are safe to invoke on a freshly planned run with
 // just a runId (RUN_PROBES) or with no run context at all (GLOBAL_PROBES). This
