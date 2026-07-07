@@ -1,0 +1,2 @@
+APPROVED 3d453dd7e28966f45ac429cd51adbb095fcb2451
+A failed agent hop now records its real reason (like "Not logged in") in logs/agent-stderr.log instead of a bare exit code, and USER now reaches the spawned agent child so a logged-in vendor CLI works in headless mode.
