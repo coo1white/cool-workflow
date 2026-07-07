@@ -158,7 +158,7 @@ core 现有 4 处真实违规:
 
 | WP | 内容 | 规模 | 归属 |
 |---|---|---|---|
-| **1.1** | **恢复 core 单测层**:从 `84aac95` 取回 94 个 `v2/test/*.test.js`(152 case),落位 `plugins/cool-workflow/test/unit/`,repoint require 路径到 `dist/core/*`,加 `test:unit` script,接 CI 与 release-check。其中 `captable-*.test.js` 是阶段 3 的硬前置。 | M | 护栏 |
+| **1.1** ✅ | **恢复 core 单测层**(已完成,见 ITERATION_LOG.md "restore the core/ unit-test layer lost at cutover"):从 `84aac95` 取回 152 个 `v2/test/*.test.js`,落位 `plugins/cool-workflow/test/`(与旧 `v2/test/` 同深度,require 路径零改动),加 `test:unit` script + `test/run-unit.js` 独立 runner,接 CI 与 release-check。9 个测试因中间已落地的真实行为演进(loop-expansion 相位命名修复、commit-gate acceptance-rationale、graph.ts blackboard 折叠、#355 移除 update verb)更新了预期值,均对照 `84aac95` 原始构建验证过曾经绿过。其中 `captable-*.test.js` 是阶段 3 的硬前置。 | M | 护栏 |
 | **1.2** | **新建 core 纯度 gate**:零依赖脚本 `scripts/core-purity-check.js`,静态扫 `src/core/**` 禁 `node:fs`/`node:child_process`/`process.env`/`process.cwd`/`Date.now`/`new Date(`/`Math.random`;带显式豁免清单(初始 4 条 = §1.4 存量),**豁免只减不增、过期即失败**。接 release-check + CI。 | S | 护栏 |
 | **1.3** | **parity 去自指 + Decision 2 补签**:删 `cliDispatchTokens` 自指比对(注明由 reachability 实跑 + payload + conformance 承担;删前 grep `missingCliTokens` 消费方);修 parity-check.js:13/:943 stale 引用;在 CUTOVER.md Decision 2 下补书面追认(日期 + 依据)。 | S | 护栏 |
 | **1.4** | **conformance 补洞 102 → ~140**:按 PLAN.md:587-596 点名的洞补 case——dispatch/commit-gate 错误码、drive/subWorkflow/loop、multi-agent/topology、workbench、ledger/trust-audit;**必须先补 `cw search` 与 list 系输出的钉字节 case**(WP2.1/2.4 的前置)。纯新增,不动 src。可拆 3-4 个 PR。 | L | 护栏 + Track B |
