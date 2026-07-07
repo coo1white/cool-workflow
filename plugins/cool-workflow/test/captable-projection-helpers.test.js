@@ -39,13 +39,16 @@ const { cliCapabilities, declaredMcpTools, REGISTRY } = require("../dist/core/ca
   assert.ok(ids.includes("app.run"), "cliCapabilities() must include app.run (it carries a cli binding at the shipped release)");
 }
 
-// declaredMcpTools(): returns exactly 196 tool names per SPEC/mcp.md's
-// "All 196 MCP tools" table, in the pinned tools/list source order.
+// declaredMcpTools(): returns exactly 197 tool names — SPEC/mcp.md's "All
+// 196 MCP tools" table (in its pinned tools/list source order) plus
+// cw_audit_head, appended after that transcript's last row post-rebuild
+// (never inserted, so every transcript position keeps its pinned order).
 {
   const tools = declaredMcpTools();
-  assert.equal(tools.length, 196, "declaredMcpTools() must report exactly 196 tool names");
+  assert.equal(tools.length, 197, "declaredMcpTools() must report exactly 197 tool names");
   assert.equal(tools[0], "cw_list", "the first declared tool must be cw_list");
-  assert.equal(tools[tools.length - 1], "cw_history", "the last declared tool must be cw_history");
+  assert.equal(tools[tools.length - 2], "cw_history", "the last SPEC-transcript tool must be cw_history");
+  assert.equal(tools[tools.length - 1], "cw_audit_head", "the one post-rebuild addition is appended last");
 }
 
 // declaredMcpTools(): every name is unique.
