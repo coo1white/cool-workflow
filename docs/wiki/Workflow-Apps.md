@@ -51,7 +51,7 @@ are examples or an internal proof. List them all with `cw app list`.
 ```bash
 cw quickstart architecture-review \
   --repo /path/to/repo \
-  --question "What are the main risks?" \
+  --question "How does the deploy pipeline work?" \
   --agent-command builtin:claude
 ```
 
@@ -61,7 +61,7 @@ shorter opt-in lane:
 ```bash
 cw quickstart architecture-review-fast \
   --repo /path/to/repo \
-  --question "What are the main risks?" \
+  --question "How does the deploy pipeline work?" \
   --agent-command builtin:claude
 ```
 
