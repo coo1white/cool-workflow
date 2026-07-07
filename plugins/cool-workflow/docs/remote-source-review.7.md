@@ -1,15 +1,15 @@
 # Remote-Source Review (`--link`)
 
 CW v0.1.91 lets you point a review at **any repository on the internet** instead
-of only a local path: `cw -q "what are the risks?" --link <url>`. CW materializes
+of only a local path: `cw -q "how does this work?" --link <url>`. CW materializes
 the remote into a local checkout and runs the **existing** review pipeline against
 it — identical downstream to reviewing a folder. A URL passed to `-dir`/`--repo`
 is auto-detected, so `--link <url>` and `-dir <url>` are equivalent.
 
 ```bash
-cw -q "What are the risks?" --link https://github.com/owner/repo
-cw -q "What are the risks?" --link git@gitlab.com:owner/repo.git --ref v1.2.0
-cw -q "What are the risks?" --link https://github.com/owner/repo/archive/refs/heads/main.tar.gz
+cw -q "How does auth work end-to-end here?" --link https://github.com/owner/repo
+cw -q "What are the security risks?" --link git@gitlab.com:owner/repo.git --ref v1.2.0
+cw -q "Is it safe to swap this queue for Redis?" --link https://github.com/owner/repo/archive/refs/heads/main.tar.gz
 cw -q "..." --link <url> --check     # validate the URL + tooling WITHOUT fetching
 ```
 

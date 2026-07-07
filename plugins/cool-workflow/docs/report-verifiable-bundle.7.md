@@ -127,7 +127,7 @@ npx cool-workflow demo bundle
 #      catching both offline with only the embedded public key.
 
 # Run the review AND get a shippable, client-verifiable bundle from ONE command:
-cw quickstart architecture-review --repo . --question "What are the risks?" \
+cw quickstart architecture-review --repo . --question "How does auth work end-to-end here?" \
   --agent-command "claude -p" --bundle --with-trust-key ./trust-pub.pem
 #   -> after the drive COMPLETES, the run is sealed into a self-verified bundle and
 #      the verdict is folded into the quickstart JSON (result.bundle). Exits non-zero

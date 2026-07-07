@@ -42,7 +42,7 @@ Run a real repository review with your own agent:
 ```bash
 npx cool-workflow quickstart architecture-review \
   --repo /path/to/your/project \
-  --question "What are the main risks in this codebase?" \
+  --question "How does auth work end-to-end here?" \
   --agent-command builtin:claude
 ```
 
