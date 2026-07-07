@@ -23,9 +23,10 @@ import {
   RunSummary,
 } from "./operator-ux";
 import { formatMultiAgentDependencies, formatMultiAgentEvidence, formatMultiAgentFailures } from "./multi-agent-operator-ux";
+import { stableCompare } from "../core/util/collate";
 
 function formatCounts(counts: Record<string, number>): string {
-  const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+  const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
   if (!entries.length) return "none";
   return entries.map(([k, v]) => `${k}=${v}`).join(", ");
 }

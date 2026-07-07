@@ -36,6 +36,7 @@ exports.listComments = listComments;
 exports.distinctTargets = distinctTargets;
 exports.formatReviewStatus = formatReviewStatus;
 exports.formatCommentList = formatCommentList;
+const collate_1 = require("../util/collate");
 exports.COLLABORATION_SCHEMA_VERSION = 1;
 /** The single, honest stand-in for an absent identity. */
 exports.UNATTRIBUTED_ACTOR = {
@@ -213,7 +214,7 @@ function matchesAnyTarget(target, related) {
     return related.some((entry) => sameTarget(target, entry));
 }
 function compareByCreated(left, right) {
-    return left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+    return (0, collate_1.stableCompare)(left.createdAt, right.createdAt) || (0, collate_1.stableCompare)(left.id, right.id);
 }
 function disqualify(record, policy, selfIds) {
     const actor = record.actor;
@@ -453,7 +454,7 @@ function distinctTargets(state) {
         seen.set(targetKey(record.target), record.target);
     for (const record of state.handoffs)
         seen.set(targetKey(record.target), record.target);
-    return [...seen.values()].sort((left, right) => targetKey(left).localeCompare(targetKey(right)));
+    return [...seen.values()].sort((left, right) => (0, collate_1.stableCompare)(targetKey(left), targetKey(right)));
 }
 function formatReviewStatus(report) {
     const lines = [];

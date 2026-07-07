@@ -59,6 +59,7 @@ const checks = [
   // `dist:check` builds from src/ AND fails closed if the committed dist/ drifted
   // from that fresh build — strictly stronger than a bare `npm run build`.
   { name: "dist freshness", command: ["npm", "run", "dist:check"] },
+  { name: "core/shell purity", command: ["npm", "run", "purity:check"] },
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "onramp contract", command: ["npm", "run", "onramp:check"] },
   { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.js"] },

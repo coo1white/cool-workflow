@@ -24,6 +24,7 @@ import { summarizeMultiAgent } from "./multi-agent-io";
 import { summarizeTopologies } from "./topology-io";
 import { summarizeTrustAudit } from "./trust-audit";
 import type { OperatorDigestInput } from "../core/state/state-explosion/report";
+import { stableCompare } from "../core/util/collate";
 
 export type MultiAgentOperatorEvidenceStatus =
   | "adopted"
@@ -357,7 +358,7 @@ function deriveDependencies(run: WorkflowRun): MultiAgentOperatorDependency[] {
   for (const commit of commitsOf(run)) {
     add(commit.selectionId ? `${run.id}:selection:${commit.selectionId}` : undefined, String(commit.stateNodeId || `${run.id}:commit:${commit.id}`), "commits", commit.verifierGated ? "committed" : "checkpoint");
   }
-  return rows.filter(uniqueById).sort((left, right) => left.from.localeCompare(right.from) || left.to.localeCompare(right.to));
+  return rows.filter(uniqueById).sort((left, right) => stableCompare(left.from, right.from) || stableCompare(left.to, right.to));
 }
 
 function deriveFailures(run: WorkflowRun, dependencies: MultiAgentOperatorDependency[]): MultiAgentOperatorFailure[] {
@@ -404,7 +405,7 @@ function deriveFailures(run: WorkflowRun, dependencies: MultiAgentOperatorDepend
   for (const dep of dependencies.filter((entry) => entry.status === "blocked")) add(dep.id, "ambiguous-dependency", dep.status, dep.reason || "dependency is blocked", dep.nextCommand || `node scripts/cw.js multi-agent status ${run.id} --json`);
   const readySelection = selectionsOf(run).find((selection) => !commitsOf(run).some((commit) => commit.selectionId === selection.id && commit.verifierGated));
   if (readySelection) add(String(readySelection.id), "commit-gate", "not-ready", `selection ${readySelection.id} has no verifier-gated commit`, `node scripts/cw.js commit ${run.id} --selection ${readySelection.id} --reason "<verified rationale>"`, readySelection.candidateId as string | undefined);
-  return rows.filter(uniqueByFailure).sort((left, right) => left.kind.localeCompare(right.kind) || left.id.localeCompare(right.id));
+  return rows.filter(uniqueByFailure).sort((left, right) => stableCompare(left.kind, right.kind) || stableCompare(left.id, right.id));
 }
 
 function deriveEvidence(run: WorkflowRun): MultiAgentOperatorEvidence[] {
@@ -499,7 +500,7 @@ function deriveEvidence(run: WorkflowRun): MultiAgentOperatorEvidence[] {
   return [...rows.values()]
     .map(normalizeEvidenceStatus)
     .map(withDisposition)
-    .sort((left, right) => statusRank(left.status) - statusRank(right.status) || left.id.localeCompare(right.id));
+    .sort((left, right) => statusRank(left.status) - statusRank(right.status) || stableCompare(left.id, right.id));
 }
 
 function formatDependencies(rows: MultiAgentOperatorDependency[]): string {

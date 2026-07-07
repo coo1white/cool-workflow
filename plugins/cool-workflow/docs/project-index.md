@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-07-07 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.1`
-- Source modules: `129`
+- Source modules: `130`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `180`
+- Smoke tests: `181`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -113,6 +113,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/trust/telemetry-ledger.ts](../src/core/trust/telemetry-ledger.ts)
 - [core/types.ts](../src/core/types.ts)
 - [core/types/boundary.ts](../src/core/types/boundary.ts)
+- [core/util/collate.ts](../src/core/util/collate.ts)
 - [mcp/dispatch.ts](../src/mcp/dispatch.ts)
 - [mcp/server.ts](../src/mcp/server.ts)
 - [shell/agent-config.ts](../src/shell/agent-config.ts)
@@ -411,6 +412,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-restore-failclosed-smoke.js](../test/run-restore-failclosed-smoke.js)
 - [run-resume-drive-smoke.js](../test/run-resume-drive-smoke.js)
 - [run-retention-reclamation-smoke.js](../test/run-retention-reclamation-smoke.js)
+- [run-state-lock-concurrency-smoke.js](../test/run-state-lock-concurrency-smoke.js)
 - [sample-determinism-smoke.js](../test/sample-determinism-smoke.js)
 - [sandbox-env-batch-hardening-smoke.js](../test/sandbox-env-batch-hardening-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)

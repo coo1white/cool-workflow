@@ -29,6 +29,7 @@ import { summarizeBlackboard, buildBlackboardGraph } from "./coordinator-io";
 import { buildTopologyGraph } from "./topology-io";
 import { summarizeMultiAgentOperator, MultiAgentOperatorStatus } from "./multi-agent-operator-ux";
 import { summarizeMultiAgentTrust } from "./trust-policy-io";
+import { stableCompare } from "../core/util/collate";
 
 export interface OperatorRecommendation {
   command: string;
@@ -184,8 +185,8 @@ interface CommitLike {
  *  verb and operator panel both read. */
 function summarizeOperatorCandidates(run: WorkflowRun): OperatorCandidateSummary {
   const counts = summarizeCandidatesCounts(run);
-  const candidates = [...((run.candidates as unknown as CandidateLike[]) || [])].sort((left, right) => left.id.localeCompare(right.id));
-  const selections = [...((run.candidateSelections as unknown as SelectionLike[]) || [])].sort((left, right) => left.id.localeCompare(right.id));
+  const candidates = [...((run.candidates as unknown as CandidateLike[]) || [])].sort((left, right) => stableCompare(left.id, right.id));
+  const selections = [...((run.candidateSelections as unknown as SelectionLike[]) || [])].sort((left, right) => stableCompare(left.id, right.id));
   const commits = (run.commits as unknown as CommitLike[]) || [];
   const selectedIds = new Set(selections.map((selection) => selection.candidateId));
   const readyForCommit = selections
@@ -245,7 +246,7 @@ export interface OperatorCommitSummary {
 }
 
 function summarizeOperatorCommits(run: WorkflowRun): OperatorCommitSummary {
-  const commits = [...(run.commits || [])].sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+  const commits = [...(run.commits || [])].sort((left, right) => stableCompare(left.createdAt, right.createdAt) || stableCompare(left.id, right.id));
   return {
     total: commits.length,
     verifierGated: commits.filter((c) => c.verifierGated).length,
@@ -262,7 +263,7 @@ export interface OperatorWorkerSummary {
 }
 
 function summarizeOperatorWorkers(run: WorkflowRun): OperatorWorkerSummary {
-  const workers = ((run.workers as unknown as WorkerScope[]) || []).slice().sort((a, b) => a.id.localeCompare(b.id));
+  const workers = ((run.workers as unknown as WorkerScope[]) || []).slice().sort((a, b) => stableCompare(a.id, b.id));
   return {
     total: workers.length,
     byStatus: countBy(workers, (w) => w.status),
@@ -520,7 +521,7 @@ export function buildOperatorGraph(run: WorkflowRun): OperatorGraph {
   for (const node of blackboardGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
   for (const edge of blackboardGraph.edges) addEdge(edge.from, edge.to, edge.label);
 
-  const sortedNodes = [...nodes.values()].sort((a, b) => a.kind.localeCompare(b.kind) || a.id.localeCompare(b.id));
-  const sortedEdges = edges.slice().sort((a, b) => a.from.localeCompare(b.from) || a.to.localeCompare(b.to) || (a.label || "").localeCompare(b.label || ""));
+  const sortedNodes = [...nodes.values()].sort((a, b) => stableCompare(a.kind, b.kind) || stableCompare(a.id, b.id));
+  const sortedEdges = edges.slice().sort((a, b) => stableCompare(a.from, b.from) || stableCompare(a.to, b.to) || stableCompare(a.label || "", b.label || ""));
   return { runId: run.id, nodes: sortedNodes, edges: sortedEdges };
 }

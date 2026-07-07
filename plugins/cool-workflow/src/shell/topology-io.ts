@@ -23,6 +23,7 @@ import * as topo from "../core/multi-agent/topology";
 import { createAgentFanout, createAgentGroup, createAgentRole, createMultiAgentRun, collectAgentFanin } from "./multi-agent-io";
 import { createBlackboardTopic, postBlackboardMessage, recordCoordinatorDecision, resolveBlackboard } from "./coordinator-io";
 import { AgentFanin } from "../core/multi-agent/runtime";
+import { stableCompare } from "../core/util/collate";
 
 export interface TopologyState {
   schemaVersion: 1;
@@ -363,7 +364,7 @@ export function buildTopologyGraph(run: WorkflowRun): topo.TopologyGraph {
 }
 
 function formatTopologyCounts(counts: Record<string, number>): string {
-  const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+  const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
   if (!entries.length) return "none";
   return entries.map(([k, v]) => `${k}=${v}`).join(", ");
 }
