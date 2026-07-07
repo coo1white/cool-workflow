@@ -3,7 +3,6 @@ Cool Workflow
   -q "question" [-claude|-codex|-gemini|-deepseek]  Ask a question, get a report
   -q "question" --link <url>                 Review a remote repo by URL
   version                                   Show version
-  update                                    Update to latest release
   doctor                                    Check setup
   fix                                       Show fix commands for setup issues
 
@@ -25,6 +24,6 @@ More commands
   loop|schedule|routine|registry|run|queue|clones|orphans|history|quickstart
   audit-run|multi-agent|topology|summary|blackboard|coordinator|metrics
   operator|sched|gc|telemetry|migration|demo|workbench|approve|reject
-  comment|handoff|ledger|graph|eval|man|version|update|fix
+  comment|handoff|ledger|graph|eval|man|version|fix
 
     Run  cw help <command>  for one command's subcommands and descriptions.

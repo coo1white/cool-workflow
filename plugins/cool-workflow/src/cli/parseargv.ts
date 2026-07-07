@@ -114,7 +114,10 @@ export function parseArgv(argv: string[]): ParsedArgv {
 /** src/orchestrator.ts:842-851 — every top-level command name, used for
  *  "did you mean". NOTE: this deliberately does NOT include "ledger" even
  *  though the dispatcher handles it and formatHelp lists it — a known,
- *  intentionally-preserved wart (see docs/rebuild/PLAN.md "Kept byte-for-byte"). */
+ *  intentionally-preserved wart (see docs/rebuild/PLAN.md "Kept byte-for-byte").
+ *  NOTE: "update" is gone from the old capture's list on purpose: no code
+ *  was behind the verb in this build, so having it here made `cw update`
+ *  say "Did you mean: update?" — a hint that points at itself. */
 export const KNOWN_COMMANDS: Set<string> = new Set([
   "help", "list", "doctor", "info", "search", "man", "init", "quickstart",
   "plan", "status", "next", "dispatch", "result", "state", "commit", "report",
@@ -123,7 +126,7 @@ export const KNOWN_COMMANDS: Set<string> = new Set([
   "run", "queue", "clones", "orphans", "history", "audit-run", "multi-agent",
   "topology", "summary", "blackboard", "coordinator", "metrics", "operator",
   "sched", "gc", "telemetry", "migration", "demo", "workbench", "approve",
-  "reject", "comment", "handoff", "graph", "eval", "version", "update", "fix",
+  "reject", "comment", "handoff", "graph", "eval", "version", "fix",
 ]);
 
 /** Levenshtein edit distance between two strings. */
