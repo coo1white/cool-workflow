@@ -82,7 +82,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 237 capabilities, 196 MCP tools.
+machine-complete by design: 238 capabilities, 197 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -284,6 +284,7 @@ machine-complete by design: 237 capabilities, 196 MCP tools.
 | `orphans.gc` | `cw orphans gc` | `cw_orphans_gc` | `orphans.gc` | both | projected |
 | `telemetry.verify` | `cw telemetry verify` | `cw_telemetry_verify` | `telemetry.verify` | both | identical |
 | `history` | `cw history` | `cw_history` | `history` | both | identical |
+| `audit.head` | `cw audit head` | `cw_audit_head` | `audit.head` | both | identical |
 | `version` | `cw version` | `—` | `version` | cli-only | cli-only |
 | `doctor` | `cw doctor` | `—` | `doctor` | cli-only | cli-only |
 | `fix` | `cw fix` | `—` | `fix` | cli-only | cli-only |

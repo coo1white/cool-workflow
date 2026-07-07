@@ -44,6 +44,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.auditVerifyCli = auditVerifyCli;
+exports.auditHeadCli = auditHeadCli;
 exports.auditSummaryCli = auditSummaryCli;
 exports.auditMultiAgentCli = auditMultiAgentCli;
 exports.auditPolicyCli = auditPolicyCli;
@@ -65,12 +66,36 @@ const sandbox_profile_1 = require("./sandbox-profile");
 function invocationCwd(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
+/** Parse the optional truncation anchor off the CLI options / MCP args
+ *  (`--expect-head <hash>` / `--expect-count <n>`; MCP: expectHead /
+ *  expectCount). Fail-closed on a malformed count — a flag given without
+ *  a usable value must never silently weaken the check it asked for. */
+function anchorOption(args) {
+    const headRaw = args["expect-head"] ?? args.expectHead;
+    const countRaw = args["expect-count"] ?? args.expectCount;
+    const expectHead = optionalString(headRaw);
+    if (headRaw !== undefined && headRaw !== null && expectHead === undefined) {
+        throw new Error("audit verify: --expect-head requires a hash value");
+    }
+    let expectCount;
+    if (countRaw !== undefined && countRaw !== null) {
+        const parsed = Number(countRaw);
+        if (countRaw === true || !Number.isInteger(parsed) || parsed < 0) {
+            throw new Error("audit verify: --expect-count requires a non-negative integer");
+        }
+        expectCount = parsed;
+    }
+    if (expectHead === undefined && expectCount === undefined)
+        return undefined;
+    return { expectHead, expectCount };
+}
 function auditVerifyCli(runId, args) {
     if (!runId)
         throw new Error("audit verify requires a run id (cw audit verify <run-id>)");
+    const anchor = anchorOption(args);
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const v = (0, trust_audit_1.verifyTrustAudit)(run);
-    return {
+    const v = (0, trust_audit_1.verifyTrustAudit)(run, anchor);
+    const result = {
         schemaVersion: 1,
         runId: run.id,
         present: v.present,
@@ -81,6 +106,25 @@ function auditVerifyCli(runId, args) {
         corruptLines: v.corruptLines,
         failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code })),
     };
+    if (anchor) {
+        result.anchor = {
+            ...(anchor.expectHead !== undefined ? { expectHead: anchor.expectHead } : {}),
+            ...(anchor.expectCount !== undefined ? { expectCount: anchor.expectCount } : {}),
+            satisfied: !v.checks.some((c) => c.code === "trust-audit-truncated"),
+        };
+    }
+    return result;
+}
+/** `cw audit head <run>` — the chain head anchor (read-only projection).
+ *  Capture it after a run (or before publishing/exporting); later,
+ *  `cw audit verify <run> --expect-head <hash> --expect-count <n>`
+ *  re-proves the log was not shortened since the capture. */
+function auditHeadCli(runId, args) {
+    if (!runId)
+        throw new Error("audit head requires a run id (cw audit head <run-id>)");
+    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const head = (0, trust_audit_1.trustAuditHead)(run);
+    return { schemaVersion: 1, runId: run.id, eventCount: head.eventCount, headHash: head.headHash };
 }
 /** MILESTONE 11 (reporting/observability, workbench audit panels) —
  *  `cw audit summary`/`audit multi-agent`/`audit policy`/`audit judge`.

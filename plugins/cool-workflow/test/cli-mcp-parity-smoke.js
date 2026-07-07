@@ -201,7 +201,7 @@ function openMcp() {
     assert.deepEqual(plan.duplicateClassifications, [], "payload probe classification must not duplicate capabilities");
     assert.deepEqual(plan.invalidClassifications, [], "payload probe classification must only reference payload-identical capabilities");
     assert.ok(plan.targets.length > 30, "payload probe plan must grow beyond the original read-only coverage");
-    assert.equal(plan.targets.length, 73, "payload probe plan must include all local scenario target batches");
+    assert.equal(plan.targets.length, 74, "payload probe plan must include all local scenario target batches");
     assert.ok(plan.deferred.length > 0, "complex payload-identical capabilities must be explicitly deferred with reasons");
     for (const deferred of plan.deferred) {
       assert.ok(deferred.reason && deferred.reason.trim(), `${deferred.capability}: deferred payload probe must record a reason`);
