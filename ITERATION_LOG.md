@@ -1,5 +1,45 @@
 # CW Iteration Log
 
+## Note — onramp gate did not recognize the WP1.1 unit-test layer
+
+> Found while landing this batch's CI run: `evaluateOnrampContract`'s
+> `runtime-smoke-required` check only counted `test/*-smoke.js` files as
+> proof of test coverage. WP1.1 (#360) added a second, equally real test
+> layer (`test/*.test.js` under `npm run test:unit`), but the gate never
+> learned about it — so a cycle that proves its fix with a unit test only
+> (this batch's `collate-stablecompare.test.js`, no smoke touched) failed
+> closed with a false "no test coverage" verdict. Widened the check to
+> accept either kind (`unitTestFiles.length === 0` added to the
+> smoke-required condition, alongside the existing `smokeFiles` check) —
+> a pure widening, so every diff that passed before still passes.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Make `evaluateOnrampContract`'s `runtime-smoke-required` rule accept a `test/*.test.js` unit-test change as valid coverage, not just `test/*-smoke.js`. | `plugins/cool-workflow/src/shell/onramp.ts`, matching `dist/**`, `plugins/cool-workflow/test/onramp-check-smoke.js` (new case) | New case: a runtime change plus only a matching `.test.js` file no longer trips `runtime-smoke-required`. | BUILD OK; `release:check --skip-tests` onramp contract now PASS (was FAIL); `npm test` 34/34; conformance 103/103 | no (gate fix, no release) |
+
+## Batch — locale-independent cache-key ordering (Unreleased)
+
+> From the architecture-improvement plan's trust track (D-2): 53 bare
+> `localeCompare` calls are left across 21 files, three left un-migrated
+> deliberately per the plan's staged rollout. This batch does step 1, the
+> worst-effect site: `shell/drive.ts:232`'s `previousPhaseResultsDigest`
+> sorts task ids with the HOST's default locale before hashing them into
+> the incremental cache key — a locale change (a different machine, a
+> different `LANG`) quietly moves the cache key with no visible error.
+> Adds `core/util/collate.ts`'s `stableCompare`, pinned to the `"en"`
+> locale — measured byte-identical to the bare `localeCompare()` under
+> both a stripped-env host (this repo's own conformance harness) and an
+> explicit `en_US.UTF-8`, so this migration changes no existing output;
+> measured to actually diverge under `cs_CZ.UTF-8`, so the bug is real,
+> not theoretical. Same diff: fixes `shell/drive.ts`'s stale file-header
+> comment, which still claimed the concurrent-round driver was "scoped
+> down to the serial driver" — it has been real (and pinned by
+> `pipeline-concurrent-round.case.js`) since the v0.2.0 rebuild.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Add `core/util/collate.ts` (`stableCompare`, locale-pinned to "en"); migrate the hash-feeding site `shell/drive.ts:232` off a bare `localeCompare`; correct the stale concurrent-driver header comment at the top of `drive.ts`. | `plugins/cool-workflow/src/core/util/collate.ts` (new), `src/shell/drive.ts`, matching `dist/**`, `test/collate-stablecompare.test.js` (new unit test) | New unit test: basic ordering, comparator sign/zero properties, and the real fix proof — two CHILD PROCESSES (ICU locale resolves at process start, not per-call) show a bare `localeCompare` genuinely diverges between `en_US.UTF-8` and `cs_CZ.UTF-8` while `stableCompare` gives the identical, fixed order in both. | BUILD OK; conformance 102/102; `test:gate` 179/179; `test:unit` 151/153 (the two pre-existing, unrelated MCP-tool-count failures are fixed by #362, not caused by this batch) | no (PR batch, no release) |
+
 ## Batch — close the attested-telemetry manual-accept side door (Unreleased)
 
 > From the architecture-improvement plan's trust track: the opt-in

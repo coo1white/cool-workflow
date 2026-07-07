@@ -294,10 +294,17 @@ function evaluateOnrampContract(files, options = {}) {
     const scriptFiles = normalized.filter((file) => file.startsWith("plugins/cool-workflow/scripts/"));
     const surfaceFiles = normalized.filter(isSurfaceFile);
     const smokeFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+-smoke\.js$/.test(file));
+    // WP1.1 (#360) restored a second, parallel test layer: pure `core/`
+    // logic proven by `test/*.test.js` under `npm run test:unit`, run and
+    // gated separately from the black-box `test/*-smoke.js` suite. A cycle
+    // that proves its fix with a unit test only (no smoke touched) is a
+    // real, complete cycle — the gate must accept either kind, not just
+    // the one that existed before the unit-test layer came back.
+    const unitTestFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+\.test\.js$/.test(file));
     const docFiles = normalized.filter(isDocFile);
     const iterationFiles = normalized.filter((file) => file === "ITERATION_LOG.md");
     const sourceAppOrScript = runtimeFiles.length > 0 || typeFiles.length > 0 || appFiles.length > 0 || scriptFiles.length > 0;
-    if ((runtimeFiles.length > 0 || appFiles.length > 0) && smokeFiles.length === 0) {
+    if ((runtimeFiles.length > 0 || appFiles.length > 0) && smokeFiles.length === 0 && unitTestFiles.length === 0) {
         issues.push({
             code: "runtime-smoke-required",
             detail: "Runtime or app changes must include at least one smoke test change.",
