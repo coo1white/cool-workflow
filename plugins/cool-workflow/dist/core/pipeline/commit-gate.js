@@ -20,6 +20,7 @@ exports.formatCommitId = formatCommitId;
 exports.gateFailureSeq = gateFailureSeq;
 const evidence_grounding_1 = require("../trust/evidence-grounding");
 const result_normalize_1 = require("./result-normalize");
+const collate_1 = require("../util/collate");
 /** The sandbox profile that accepted a candidate's worker output — the
  *  worker's own profile when present, else the backing task's. Pure port of
  *  the old build's src/gates.ts sandboxProfileForCandidate. */
@@ -97,7 +98,7 @@ function findSelectionNode(run, selectionId) {
 function latestSelectionForCandidate(run, candidateId) {
     return [...(run.candidateSelections || [])]
         .filter((s) => s.candidateId === candidateId)
-        .sort((a, b) => (b.selectedAt || "").localeCompare(a.selectedAt || ""))[0];
+        .sort((a, b) => (0, collate_1.stableCompare)(b.selectedAt || "", a.selectedAt || ""))[0];
 }
 function evidenceLocatorString(entry) {
     const ref = entry.locator || entry.path || entry.summary || entry.id;

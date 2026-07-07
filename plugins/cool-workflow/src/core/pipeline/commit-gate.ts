@@ -12,6 +12,7 @@
 import { StateEvidence, StateNode, StateNodeError, WorkflowRun } from "../state/types";
 import { hasGroundedEvidence } from "../trust/evidence-grounding";
 import { isEmptyCapture, ResultEnvelope } from "./result-normalize";
+import { stableCompare } from "../util/collate";
 
 export interface CommitStateOptions {
   reason: string;
@@ -141,7 +142,7 @@ function findSelectionNode(run: WorkflowRun, selectionId: string): StateNode | u
 function latestSelectionForCandidate(run: WorkflowRun, candidateId: string): CommitSelection | undefined {
   return [...((run.candidateSelections || []) as unknown as CommitSelection[])]
     .filter((s) => s.candidateId === candidateId)
-    .sort((a, b) => (b.selectedAt || "").localeCompare(a.selectedAt || ""))[0];
+    .sort((a, b) => stableCompare(b.selectedAt || "", a.selectedAt || ""))[0];
 }
 
 function evidenceLocatorString(entry: StateEvidence): string | undefined {

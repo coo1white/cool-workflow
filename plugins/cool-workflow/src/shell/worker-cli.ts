@@ -18,6 +18,7 @@ import { maybeExpandLoop } from "./drive";
 import { commitState } from "./commit";
 import { writeReport } from "./report";
 import { summarizeRun } from "./operator-ux";
+import { resolveAgentConfig } from "./agent-config";
 
 function cwdFor(args: Record<string, unknown>): string {
   return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
@@ -27,6 +28,11 @@ function req(value: unknown, label: string): string {
   const s = value === undefined || value === null ? "" : String(value);
   if (!s) throw new Error(`Missing ${label}`);
   return s;
+}
+
+/** `--allow-unattested` (CLI: dashed key; MCP: allowUnattested). */
+function allowUnattestedOption(args: Record<string, unknown>): boolean {
+  return Boolean(args.allowUnattested ?? args["allow-unattested"]);
 }
 
 export function workerListCli(args: Record<string, unknown>): unknown {
@@ -62,7 +68,10 @@ export function workerManifestCli(args: Record<string, unknown>): unknown {
  *  same steps itself around the bare accept, so it never routes through here. */
 export function workerOutputCli(args: Record<string, unknown>): unknown {
   const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
-  recordWorkerOutput(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {});
+  recordWorkerOutput(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
+    requireAttestedTelemetry: resolveAgentConfig(args).requireAttestedTelemetry,
+    allowUnattested: allowUnattestedOption(args),
+  });
   run.loopStage = "observe";
   updatePhaseStatuses(run);
   maybeExpandLoop(run);

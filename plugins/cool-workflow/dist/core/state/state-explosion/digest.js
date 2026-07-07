@@ -29,6 +29,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.summarizeBlackboardDigest = summarizeBlackboardDigest;
 const hash_1 = require("../../hash");
 const helpers_1 = require("./helpers");
+const collate_1 = require("../../util/collate");
 /** Deterministic structural summary of one (or the default) blackboard.
  *  Every list is sorted by id (`byId`); `recentChanges` is the last 10 by
  *  `updatedAt` desc, THEN re-sorted by id for the final list (matching the
@@ -63,7 +64,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         .map((topic) => {
         const topicMessages = messages
             .filter((m) => m.topicId === topic.id)
-            .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+            .sort((a, b) => (0, collate_1.stableCompare)(a.createdAt, b.createdAt) || (0, collate_1.stableCompare)(a.id, b.id));
         const last = topicMessages[topicMessages.length - 1];
         return {
             id: `thread:${topic.id}`,
@@ -181,7 +182,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         updatedAt: record.updatedAt,
         status: record.status,
     }))
-        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id))
+        .sort((a, b) => (0, collate_1.stableCompare)(b.updatedAt, a.updatedAt) || (0, collate_1.stableCompare)(a.id, b.id))
         .slice(0, 10)
         .map((record) => ({
         id: `recent:${record.id}`,

@@ -62,6 +62,7 @@ const coordinator_io_1 = require("./coordinator-io");
 const multi_agent_io_1 = require("./multi-agent-io");
 const topology_io_1 = require("./topology-io");
 const trust_audit_1 = require("./trust-audit");
+const collate_1 = require("../core/util/collate");
 function maOf(run) {
     return run.multiAgent || {};
 }
@@ -275,7 +276,7 @@ function deriveDependencies(run) {
     for (const commit of commitsOf(run)) {
         add(commit.selectionId ? `${run.id}:selection:${commit.selectionId}` : undefined, String(commit.stateNodeId || `${run.id}:commit:${commit.id}`), "commits", commit.verifierGated ? "committed" : "checkpoint");
     }
-    return rows.filter(uniqueById).sort((left, right) => left.from.localeCompare(right.from) || left.to.localeCompare(right.to));
+    return rows.filter(uniqueById).sort((left, right) => (0, collate_1.stableCompare)(left.from, right.from) || (0, collate_1.stableCompare)(left.to, right.to));
 }
 function deriveFailures(run, dependencies) {
     const rows = [];
@@ -337,7 +338,7 @@ function deriveFailures(run, dependencies) {
     const readySelection = selectionsOf(run).find((selection) => !commitsOf(run).some((commit) => commit.selectionId === selection.id && commit.verifierGated));
     if (readySelection)
         add(String(readySelection.id), "commit-gate", "not-ready", `selection ${readySelection.id} has no verifier-gated commit`, `node scripts/cw.js commit ${run.id} --selection ${readySelection.id} --reason "<verified rationale>"`, readySelection.candidateId);
-    return rows.filter(uniqueByFailure).sort((left, right) => left.kind.localeCompare(right.kind) || left.id.localeCompare(right.id));
+    return rows.filter(uniqueByFailure).sort((left, right) => (0, collate_1.stableCompare)(left.kind, right.kind) || (0, collate_1.stableCompare)(left.id, right.id));
 }
 function deriveEvidence(run) {
     const rows = new Map();
@@ -442,7 +443,7 @@ function deriveEvidence(run) {
     return [...rows.values()]
         .map(normalizeEvidenceStatus)
         .map(withDisposition)
-        .sort((left, right) => statusRank(left.status) - statusRank(right.status) || left.id.localeCompare(right.id));
+        .sort((left, right) => statusRank(left.status) - statusRank(right.status) || (0, collate_1.stableCompare)(left.id, right.id));
 }
 function formatDependencies(rows) {
     const lines = ["Dependencies"];

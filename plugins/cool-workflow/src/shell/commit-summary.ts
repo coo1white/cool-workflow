@@ -10,6 +10,7 @@
 import * as path from "node:path";
 import { WorkflowRun, StateCommit } from "../core/state/types";
 import { loadRunFromCwd } from "./run-store";
+import { stableCompare } from "../core/util/collate";
 
 export interface OperatorCommitSummary {
   total: number;
@@ -51,7 +52,7 @@ function formatCommitRow(commit: StateCommit): OperatorCommitRow {
  *  (src/operator-ux.ts:339-349). */
 export function summarizeOperatorCommits(run: WorkflowRun): OperatorCommitSummary {
   const commits = [...(run.commits || [])].sort(
-    (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)
+    (left, right) => stableCompare(left.createdAt, right.createdAt) || stableCompare(left.id, right.id)
   );
   const rows = commits.map(formatCommitRow);
   return {

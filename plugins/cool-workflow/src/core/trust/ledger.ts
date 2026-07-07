@@ -15,6 +15,7 @@
 // functions", "Edge cases"; plugins/cool-workflow/src/ledger.ts:1-429.
 
 import { ledgerStableStringify, sha256 } from "../hash";
+import { stableCompare } from "../util/collate";
 
 export type LedgerEntryKind = "proposal" | "review";
 export type LedgerVerdict = "APPROVED" | "REJECTED";
@@ -309,7 +310,7 @@ export function resolveLedgerInbox(entries: LedgerListEntry[]): LedgerInboxResol
         reviews: answering.map((r) => r.id as string).sort(),
       };
     })
-    .sort((a, b) => a.id.localeCompare(b.id));
+    .sort((a, b) => stableCompare(a.id, b.id));
   const tally = (s: LedgerResolutionState) => proposals.filter((p) => p.resolution === s).length;
   return {
     proposals,

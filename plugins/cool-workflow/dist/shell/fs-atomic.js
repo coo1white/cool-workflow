@@ -198,14 +198,25 @@ function durableAppendFileSync(file, data) {
 // only when still owned by this pid.
 // ---------------------------------------------------------------------------
 const FILE_LOCK_STALE_MS = 30_000;
+// Lock paths this process holds right now. A nested withFileLock on the
+// SAME target runs its fn directly (re-entrant) instead of waiting on its
+// own lock file until the 240 tries run out — that lets a whole
+// load -> change -> save cycle hold one lock while the save path inside
+// it keeps its own withFileLock call unchanged.
+const HELD_LOCKS = new Set();
 function sleepSync(ms) {
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 /** Run `fn` while holding an advisory lock for `targetPath`; always released
  *  (unless the lock was stolen mid-operation, in which case releasing would
- *  corrupt the thief's critical section, so it is deliberately NOT released). */
+ *  corrupt the thief's critical section, so it is deliberately NOT released).
+ *  Re-entrant inside one process: a nested call on the same target runs
+ *  `fn` under the already-held lock. */
 function withFileLock(targetPath, fn) {
     const lock = `${targetPath}.lock`;
+    const heldKey = path.resolve(lock);
+    if (HELD_LOCKS.has(heldKey))
+        return fn();
     fs.mkdirSync(path.dirname(lock), { recursive: true });
     const pid = String(process.pid);
     let acquired = false;
@@ -234,6 +245,7 @@ function withFileLock(targetPath, fn) {
     }
     if (!acquired)
         throw new Error(`could not acquire file lock for ${targetPath}`);
+    HELD_LOCKS.add(heldKey);
     // Refresh mtime right before the critical section.
     try {
         fs.utimesSync(lock, new Date(), new Date());
@@ -263,6 +275,7 @@ function withFileLock(targetPath, fn) {
         return result;
     }
     finally {
+        HELD_LOCKS.delete(heldKey);
         try {
             // Only release if we still own the lock.
             const current = fs.readFileSync(lock, "utf8");

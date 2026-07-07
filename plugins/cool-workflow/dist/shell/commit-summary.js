@@ -46,6 +46,7 @@ exports.commitSummaryCli = commitSummaryCli;
 exports.formatCommitSummaryText = formatCommitSummaryText;
 const path = __importStar(require("node:path"));
 const run_store_1 = require("./run-store");
+const collate_1 = require("../core/util/collate");
 function formatCommitRow(commit) {
     return {
         id: commit.id,
@@ -63,7 +64,7 @@ function formatCommitRow(commit) {
 /** Byte-exact port of the old build's `summarizeOperatorCommits`
  *  (src/operator-ux.ts:339-349). */
 function summarizeOperatorCommits(run) {
-    const commits = [...(run.commits || [])].sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+    const commits = [...(run.commits || [])].sort((left, right) => (0, collate_1.stableCompare)(left.createdAt, right.createdAt) || (0, collate_1.stableCompare)(left.id, right.id));
     const rows = commits.map(formatCommitRow);
     return {
         total: rows.length,

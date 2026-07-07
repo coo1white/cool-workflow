@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-07-07 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.1`
-- Source modules: `131`
+- Source modules: `132`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `179`
+- Smoke tests: `181`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -115,6 +115,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/types/boundary.ts](../src/core/types/boundary.ts)
 - [core/types/execution-backend.ts](../src/core/types/execution-backend.ts)
 - [core/types/observability.ts](../src/core/types/observability.ts)
+- [core/util/collate.ts](../src/core/util/collate.ts)
 - [mcp/dispatch.ts](../src/mcp/dispatch.ts)
 - [mcp/server.ts](../src/mcp/server.ts)
 - [shell/agent-config.ts](../src/shell/agent-config.ts)
@@ -316,6 +317,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [deferred-checkpoint-batching-smoke.js](../test/deferred-checkpoint-batching-smoke.js)
 - [demo-bundle-smoke.js](../test/demo-bundle-smoke.js)
 - [det-ids-b-smoke.js](../test/det-ids-b-smoke.js)
+- [dispatch-legacy-burndown-smoke.js](../test/dispatch-legacy-burndown-smoke.js)
 - [doctor-smoke.js](../test/doctor-smoke.js)
 - [dogfood-architecture-review-smoke.js](../test/dogfood-architecture-review-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
@@ -412,6 +414,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-restore-failclosed-smoke.js](../test/run-restore-failclosed-smoke.js)
 - [run-resume-drive-smoke.js](../test/run-resume-drive-smoke.js)
 - [run-retention-reclamation-smoke.js](../test/run-retention-reclamation-smoke.js)
+- [run-state-lock-concurrency-smoke.js](../test/run-state-lock-concurrency-smoke.js)
 - [sample-determinism-smoke.js](../test/sample-determinism-smoke.js)
 - [sandbox-env-batch-hardening-smoke.js](../test/sandbox-env-batch-hardening-smoke.js)
 - [sandbox-profile-smoke.js](../test/sandbox-profile-smoke.js)

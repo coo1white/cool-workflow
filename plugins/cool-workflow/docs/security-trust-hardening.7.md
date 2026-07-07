@@ -51,6 +51,34 @@ The agent host must still make certain of OS-level read isolation, write isolati
 limits on process execution, limits on network, and environment filtering.
 The audit layer lets you look at that boundary; it is not a kernel.
 
+## Requiring Attested Telemetry
+
+`CW_REQUIRE_ATTESTED_TELEMETRY=1` (or `--require-attested-telemetry`, or a
+durable `agent-config.json` field) is an opt-in, off-by-default gate: once
+on, CW refuses to accept ANY worker result whose usage telemetry is not
+cryptographically `attested` — a delegated hop whose signature does not
+verify, and now also a MANUAL accept (`cw worker output`, `cw result`) that
+carries no delegation telemetry at all. The manual shape used to slip past
+the gate silently; it is now blocked the same way, with its own code
+(`telemetry-missing-blocked`, distinct from a present-but-unverified hop's
+`telemetry-unattested-blocked`).
+
+An operator who genuinely needs to accept an unattested manual result under
+the require flag passes `--allow-unattested` (MCP: `allowUnattested`). This
+is never silent: it writes a `telemetry.gate-override` trust-audit event
+(`decision: "allowed"`, `source: "operator"`) into the same hash-chained log
+every other audit decision goes through, so the override itself is part of
+the auditable record, not a hole in it.
+
+A result-cache hit (the drive loop replaying a previously accepted result) is
+never re-blocked by this gate — the underlying result was already gated (or
+overridden) at its first acceptance. When the require flag is on, a cache
+accept still records a `telemetry.cache-accept` event, so the audit trail
+shows which accepts came from a fresh hop and which from the cache.
+
+With the require flag off (the default), none of this changes: a plain
+`cw worker output` / `cw result` behaves exactly as before.
+
 ## CLI
 
 ```bash
@@ -67,6 +95,8 @@ node scripts/cw.js audit decision <run-id> <worker-id> --path <path>
 node scripts/cw.js audit decision <run-id> <worker-id> --command "npm test"
 node scripts/cw.js audit decision <run-id> <worker-id> --network example.com
 node scripts/cw.js audit decision <run-id> <worker-id> --env SECRET_NAME
+node scripts/cw.js worker output <run-id> <worker-id> <result-file> [--allow-unattested]
+node scripts/cw.js result <run-id> <task-id> <result-file> [--allow-unattested]
 ```
 
 Denied audit decisions are put into audit files and joined to feedback/error

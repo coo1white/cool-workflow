@@ -63,6 +63,7 @@ const hash_2 = require("../core/hash");
 const topo = __importStar(require("../core/multi-agent/topology"));
 const multi_agent_io_1 = require("./multi-agent-io");
 const coordinator_io_1 = require("./coordinator-io");
+const collate_1 = require("../core/util/collate");
 function topologyRoot(run) {
     return run.paths.topologiesDir || path.join(run.paths.runDir, "topologies");
 }
@@ -307,7 +308,7 @@ function buildTopologyGraph(run) {
     return topo.buildTopologyGraphFromRuns(run.id, state.runs, (id) => topologyRunPath(run, id));
 }
 function formatTopologyCounts(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+    const entries = Object.entries(counts).sort(([a], [b]) => (0, collate_1.stableCompare)(a, b));
     if (!entries.length)
         return "none";
     return entries.map(([k, v]) => `${k}=${v}`).join(", ");

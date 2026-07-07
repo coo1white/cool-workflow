@@ -17,6 +17,7 @@ import { writeJson, safeFileName } from "./fs-atomic";
 import { MultiAgentOperatorEvidence, summarizeMultiAgentOperator } from "./multi-agent-operator-ux";
 import { listTrustAuditEvents } from "./trust-audit";
 import { policyForRole } from "../core/multi-agent/trust-policy";
+import { stableCompare } from "../core/util/collate";
 
 export const EVIDENCE_REASONING_SCHEMA_VERSION = 1;
 
@@ -197,7 +198,7 @@ export function buildEvidenceReasoningReport(run: WorkflowRun, options: { index?
 
   const chains = operator.evidence
     .map((evidence) => buildChain(run, evidence, { scores, auditEvents, counterfactuals }))
-    .sort((left, right) => statusRank(left.evidenceStatus) - statusRank(right.evidenceStatus) || left.id.localeCompare(right.id));
+    .sort((left, right) => statusRank(left.evidenceStatus) - statusRank(right.evidenceStatus) || stableCompare(left.id, right.id));
 
   const totals = summarizeTotals(chains);
   const currentFingerprint = fingerprintChains(chains);
@@ -497,7 +498,7 @@ export function refreshEvidenceReasoning(run: WorkflowRun): EvidenceReasoningInd
     generatedAt: new Date().toISOString(),
     sourceFingerprint: report.sourceFingerprint,
     totals: report.totals,
-    entries: entries.sort((a, b) => a.id.localeCompare(b.id)),
+    entries: entries.sort((a, b) => stableCompare(a.id, b.id)),
     paths: { reasoningDir: dir, indexPath, reportPath },
     nextAction: `node scripts/cw.js multi-agent reasoning ${run.id}`,
   };
@@ -743,5 +744,5 @@ function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean))).sort();
 }
 function byRef(a: EvidenceReasoningCounterfactual, b: EvidenceReasoningCounterfactual): number {
-  return a.ref.localeCompare(b.ref);
+  return stableCompare(a.ref, b.ref);
 }

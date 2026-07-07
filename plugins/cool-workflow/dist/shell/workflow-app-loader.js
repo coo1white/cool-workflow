@@ -75,6 +75,7 @@ const path = __importStar(require("node:path"));
 const app_schema_1 = require("../core/workflow-apps/app-schema");
 const sandbox_profile_1 = require("./sandbox-profile");
 const version_1 = require("../core/version");
+const collate_1 = require("../core/util/collate");
 class WorkflowAppNotFoundError extends Error {
     constructor(appId) {
         super(`Workflow app not found: ${appId}`);
@@ -421,10 +422,10 @@ function listWorkflowAppRecords() {
         ...loadWorkflowFiles(workflowsDir).map((file) => loadWorkflowAppFromEntrypoint(file)),
         ...loadAppManifestFiles(appsDir).map((file) => loadWorkflowAppFromManifest(file)),
     ].sort((left, right) => {
-        const byId = left.app.id.localeCompare(right.app.id);
+        const byId = (0, collate_1.stableCompare)(left.app.id, right.app.id);
         if (byId)
             return byId;
-        return sourcePathOf(left).localeCompare(sourcePathOf(right));
+        return (0, collate_1.stableCompare)(sourcePathOf(left), sourcePathOf(right));
     });
     const seen = new Map();
     for (const record of records) {

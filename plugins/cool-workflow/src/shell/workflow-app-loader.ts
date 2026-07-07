@@ -56,6 +56,7 @@ import {
 } from "../core/workflow-apps/app-schema";
 import { bundledSandboxProfileIds } from "./sandbox-profile";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
+import { stableCompare } from "../core/util/collate";
 
 export class WorkflowAppNotFoundError extends Error {
   constructor(appId: string) {
@@ -422,9 +423,9 @@ export function listWorkflowAppRecords(): LoadedWorkflowAppRecord[] {
     ...loadWorkflowFiles(workflowsDir).map((file) => loadWorkflowAppFromEntrypoint(file)),
     ...loadAppManifestFiles(appsDir).map((file) => loadWorkflowAppFromManifest(file)),
   ].sort((left, right) => {
-    const byId = left.app.id.localeCompare(right.app.id);
+    const byId = stableCompare(left.app.id, right.app.id);
     if (byId) return byId;
-    return sourcePathOf(left).localeCompare(sourcePathOf(right));
+    return stableCompare(sourcePathOf(left), sourcePathOf(right));
   });
   const seen = new Map<string, LoadedWorkflowAppRecord>();
   for (const record of records) {

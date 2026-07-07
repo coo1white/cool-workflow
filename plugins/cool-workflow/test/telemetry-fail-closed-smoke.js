@@ -10,6 +10,14 @@
 //     2. require ON + NO usage (absent)           ⇒ throws (parks both);
 //     3. require ON + correctly-signed (attested) ⇒ accepted;
 //     4. require OFF + unsigned (default)          ⇒ accepted as unattested;
+//     5. require ON + NO agentDelegation AT ALL (the manual-accept shape:
+//        `cw worker output` / `cw result` with no delegation option) ⇒ now
+//        ALSO throws, with a distinct code (telemetry-missing-blocked) —
+//        this used to slip through silently (options.agentDelegation absent
+//        meant `telemetry` was undefined, and the old gate's `telemetry &&`
+//        short-circuited false);
+//     6. same shape + allowUnattested:true ⇒ accepted, with an AUDITED
+//        telemetry.gate-override trust-audit event (never silent);
 //   CONFIG: flags > env > file resolution, off by default;
 //   END-TO-END: a drive with require ON + an unsigned agent PARKS (status !=
 //     complete) via the existing hop park path, never accepting unverified usage.
@@ -44,6 +52,7 @@ const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-a
 const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store"));
 const { drive } = require(path.join(pluginRoot, "dist/shell/drive"));
 const { allocateWorkerScope, recordWorkerOutput, showWorkerManifest } = require(path.join(pluginRoot, "dist/shell/worker-isolation"));
+const { listTrustAuditEvents } = require(path.join(pluginRoot, "dist/shell/trust-audit"));
 const ta = require(path.join(pluginRoot, "dist/core/trust/telemetry-attestation"));
 const { resolveAgentConfig } = require(path.join(pluginRoot, "dist/shell/agent-config"));
 
@@ -174,6 +183,40 @@ function main() {
     assert.equal(nodeAttestation(run, taskId), "unattested", "default: unsigned is recorded unattested, NOT blocked");
   });
 
+  // 5. require ON + NO agentDelegation at all (the manual-accept shape) ⇒
+  // throws, with the distinct code telemetry-missing-blocked — NOT the same
+  // code as case 1/2 (a delegation present but not attested).
+  withCwd(tmpWorkspace(), () => {
+    const work = process.cwd();
+    const { run, workerId, wm } = dispatchOne(work);
+    fs.writeFileSync(wm.resultPath, validResult(work), "utf8");
+    assert.throws(
+      () => recordWorkerOutput(run, workerId, wm.resultPath, { requireAttestedTelemetry: true }),
+      /no agent-delegation telemetry at all/i,
+      "a manual accept with no delegation metadata is blocked under require-attested-telemetry"
+    );
+    const scope = (run.workers || []).find((w) => w.id === workerId);
+    assert.ok(
+      (scope.errors || []).some((e) => e.code === "telemetry-missing-blocked"),
+      "the missing-telemetry shape carries its OWN code, distinct from telemetry-unattested-blocked"
+    );
+  });
+
+  // 6. same shape + allowUnattested:true ⇒ accepted, with an audited override
+  // event — the operator's escape hatch is never silent.
+  withCwd(tmpWorkspace(), () => {
+    const work = process.cwd();
+    const { run, workerId, taskId, wm } = dispatchOne(work);
+    fs.writeFileSync(wm.resultPath, validResult(work), "utf8");
+    recordWorkerOutput(run, workerId, wm.resultPath, { requireAttestedTelemetry: true, allowUnattested: true });
+    const task = run.tasks.find((t) => t.id === taskId);
+    assert.equal(task.status, "completed", "an --allow-unattested manual accept is NOT blocked");
+    const overrideEvents = listTrustAuditEvents(run).filter((e) => e.kind === "telemetry.gate-override");
+    assert.equal(overrideEvents.length, 1, "the override is recorded, not silent");
+    assert.equal(overrideEvents[0].workerId, workerId);
+    assert.equal(overrideEvents[0].decision, "allowed");
+  });
+
   // ---- END-TO-END: drive with require ON + unsigned agent PARKS ------------
   {
     const work = tmpWorkspace();
@@ -214,7 +257,7 @@ function main() {
   for (const dir of cleanups) {
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
-  console.log("telemetry-fail-closed-smoke: ok (opt-in off-by-default; unattested+absent parked; attested accepted; e2e drive parks)");
+  console.log("telemetry-fail-closed-smoke: ok (opt-in off-by-default; unattested+absent parked; attested accepted; manual-accept gap closed; e2e drive parks)");
 }
 
 main();
