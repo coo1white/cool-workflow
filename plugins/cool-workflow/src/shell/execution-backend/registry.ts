@@ -15,6 +15,7 @@ import { runContainer, containerHandle } from "./container";
 import { runHttpDelegation, remoteHandle } from "./remote";
 import { ciHandle, runCiDelegation } from "./ci";
 import { agentHandle, runAgentProcess } from "./agent";
+import { stableCompare } from "../../core/util/collate";
 import {
   BackendCapability,
   BackendDescriptor,
@@ -214,7 +215,7 @@ function registeredDrivers(): BackendDriver[] {
 export function listBackendDescriptors(): BackendDescriptor[] {
   return registeredDrivers()
     .map((driver) => specDescriptor(driver.spec))
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort((left, right) => stableCompare(left.id, right.id));
 }
 
 export function backendIds(): string[] {

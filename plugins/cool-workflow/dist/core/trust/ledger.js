@@ -22,6 +22,7 @@ exports.verifyLedgerEntry = verifyLedgerEntry;
 exports.applyLedgerProposal = applyLedgerProposal;
 exports.resolveLedgerInbox = resolveLedgerInbox;
 const hash_1 = require("../hash");
+const collate_1 = require("../util/collate");
 /** sha256 over the canonical content (every field except `id` and
  *  `digest`, which are derived FROM it). Returns the full `sha256:<hex>`
  *  form — the same prefixed spelling every other hash chain uses. */
@@ -187,7 +188,7 @@ function resolveLedgerInbox(entries) {
             reviews: answering.map((r) => r.id).sort(),
         };
     })
-        .sort((a, b) => a.id.localeCompare(b.id));
+        .sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
     const tally = (s) => proposals.filter((p) => p.resolution === s).length;
     return {
         proposals,

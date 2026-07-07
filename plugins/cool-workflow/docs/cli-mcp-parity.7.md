@@ -82,7 +82,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 238 capabilities, 197 MCP tools.
+machine-complete by design: 239 capabilities, 197 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -286,6 +286,7 @@ machine-complete by design: 238 capabilities, 197 MCP tools.
 | `history` | `cw history` | `cw_history` | `history` | both | identical |
 | `audit.head` | `cw audit head` | `cw_audit_head` | `audit.head` | both | identical |
 | `version` | `cw version` | `—` | `version` | cli-only | cli-only |
+| `search` | `cw search` | `—` | `search` | cli-only | cli-only |
 | `doctor` | `cw doctor` | `—` | `doctor` | cli-only | cli-only |
 | `fix` | `cw fix` | `—` | `fix` | cli-only | cli-only |
 | `quickstart` | `cw quickstart` | `—` | `quickstart` | cli-only | cli-only |
@@ -340,9 +341,10 @@ A capability may be on one surface only, but never without word of it — it mus
 carry a recorded reason in the registry.
 
 <!-- gen:parity:cliOnly -->
-41 capabilities are CLI-only:
+42 capabilities are CLI-only:
 
 - `version` — version is a local, no-run-state print; the old build never gave it an MCP peer.
+- `search` — CLI-only discovery helper over the same real app data cw list shows; no MCP client needs a free-text search tool alongside cw_list's structured output.
 - `doctor` — Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`.
 - `fix` — Environment fix commands are local diagnostics, same reasoning as doctor.
 - `quickstart` — quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.

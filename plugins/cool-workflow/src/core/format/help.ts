@@ -331,3 +331,25 @@ export function formatInfo(appId: string, data: Record<string, unknown>): string
   lines.push(`  Run: cw quickstart ${appId} --repo . --question "..."`);
   return lines.join("\n");
 }
+
+/** `cw search <keyword>`'s human text — byte-exact to the milestone-1
+ *  carry-over's own formatSearchResults (moved here from cli/dispatch.ts
+ *  so the search capability-table row, which lives in core/, can render
+ *  its own text without core importing from cli/). */
+export function formatSearchResults(
+  keyword: string,
+  results: Array<{ id: string; title: string; summary: string }>
+): string {
+  if (results.length === 0) {
+    return `No workflows matched "${keyword}".\n  Tip: cw list for all available workflows.`;
+  }
+  const lines: string[] = [`${results.length} workflow${results.length === 1 ? "" : "s"} matching "${keyword}"`];
+  for (const r of results) {
+    lines.push(`  ${r.id} — ${r.title}`);
+    const cut = r.summary.length > 120 ? `${r.summary.slice(0, 119)}…` : r.summary;
+    lines.push(`    ${cut}`);
+  }
+  lines.push("");
+  lines.push("Use cw info <id> for full details.");
+  return lines.join("\n");
+}

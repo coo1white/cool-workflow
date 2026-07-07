@@ -27,6 +27,7 @@
 
 import { fingerprintRecords } from "../../hash";
 import { byId, truncate, unique, slug } from "./helpers";
+import { stableCompare } from "../../util/collate";
 
 export interface BlackboardDigestEntry {
   id: string;
@@ -184,7 +185,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
     .map((topic) => {
       const topicMessages = messages
         .filter((m) => m.topicId === topic.id)
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+        .sort((a, b) => stableCompare(a.createdAt, b.createdAt) || stableCompare(a.id, b.id));
       const last = topicMessages[topicMessages.length - 1];
       return {
         id: `thread:${topic.id}`,
@@ -312,7 +313,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       updatedAt: record.updatedAt,
       status: record.status,
     }))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || a.id.localeCompare(b.id))
+    .sort((a, b) => stableCompare(b.updatedAt, a.updatedAt) || stableCompare(a.id, b.id))
     .slice(0, 10)
     .map((record) => ({
       id: `recent:${record.id}`,

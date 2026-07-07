@@ -39,6 +39,12 @@ function run(args, opts) {
     XDG_STATE_HOME: path.join(WORK, "home", ".state"),
     TMPDIR: path.join(WORK, "tmp"),
     NO_COLOR: "1",
+    // Pinned, not merely absent: the suite's whole byte-identity story
+    // depends on every run seeing the SAME collation, on any host. A case
+    // that wants to prove locale-independence overrides these via opts.env
+    // (see locale-independent-ordering.case.js).
+    LANG: "en_US.UTF-8",
+    LC_ALL: "en_US.UTF-8",
   };
   for (const d of [base.HOME, base.CW_HOME, base.XDG_STATE_HOME, base.TMPDIR]) {
     fs.mkdirSync(d, { recursive: true });

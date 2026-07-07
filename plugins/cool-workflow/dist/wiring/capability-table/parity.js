@@ -303,6 +303,14 @@ function declaredCliHelpTokens() {
     // row). Mirrors the parity smoke's HELP_INDEX_ONLY_TOKENS set so the
     // help-token parity stays balanced.
     tokens.delete("init");
+    // `search` is likewise help-index-only: its row is hiddenFromHelp (it
+    // never had its own `cw help search` row — only the frozen "More
+    // commands" index line, which this function does not build), and unlike
+    // a family such as `clones` it has no visible sibling row sharing the
+    // "search" first token to contribute it independently. Mirrors the
+    // parity smoke's HELP_INDEX_ONLY_TOKENS set so the help-token parity
+    // stays balanced.
+    tokens.delete("search");
     return [...tokens].sort();
 }
 /** Whether a row MUST carry a reason (surface-specific or payload-divergent). */

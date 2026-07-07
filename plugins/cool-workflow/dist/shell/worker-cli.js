@@ -51,6 +51,7 @@ const drive_1 = require("./drive");
 const commit_1 = require("./commit");
 const report_1 = require("./report");
 const operator_ux_1 = require("./operator-ux");
+const agent_config_1 = require("./agent-config");
 function cwdFor(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
@@ -59,6 +60,10 @@ function req(value, label) {
     if (!s)
         throw new Error(`Missing ${label}`);
     return s;
+}
+/** `--allow-unattested` (CLI: dashed key; MCP: allowUnattested). */
+function allowUnattestedOption(args) {
+    return Boolean(args.allowUnattested ?? args["allow-unattested"]);
 }
 function workerListCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
@@ -92,7 +97,10 @@ function workerManifestCli(args) {
  *  same steps itself around the bare accept, so it never routes through here. */
 function workerOutputCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {});
+    (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
+        requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
+        allowUnattested: allowUnattestedOption(args),
+    });
     run.loopStage = "observe";
     (0, dispatch_1.updatePhaseStatuses)(run);
     (0, drive_1.maybeExpandLoop)(run);
