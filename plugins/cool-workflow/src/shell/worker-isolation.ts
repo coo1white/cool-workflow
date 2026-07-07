@@ -67,6 +67,7 @@ function workerBlackboardManifest(run: WorkflowRun, task: RunTask | undefined): 
 import { taskRequiresEvidence } from "./verifier";
 import { runPipelineStage } from "../core/pipeline/runner";
 import { sha256 } from "../core/hash";
+import { stableCompare } from "../core/util/collate";
 import { normalizeReportedUsage, resolveTrustPublicKey, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation";
 import { appendTelemetryAttestation } from "./telemetry-ledger-io";
 
@@ -865,7 +866,7 @@ export function listWorkerScopes(run: WorkflowRun, options: { status?: string } 
   // silently drops workers whenever run.workers was reset.
   const merged = mergeScopes((run.workers as unknown as WorkerScope[]) || [], loadWorkerScopesFromDisk(run));
   run.workers = merged as unknown as WorkflowRun["workers"];
-  const workers = merged.slice().sort((a, b) => a.id.localeCompare(b.id));
+  const workers = merged.slice().sort((a, b) => stableCompare(a.id, b.id));
   return options.status ? workers.filter((w) => w.status === options.status) : workers;
 }
 
@@ -901,7 +902,7 @@ function countBucket(values: string[]): Record<string, number> {
 }
 
 function formatCountBucket(counts: Record<string, number>): string {
-  const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+  const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
   if (!entries.length) return "none";
   return entries.map(([k, v]) => `${k}=${v}`).join(", ");
 }

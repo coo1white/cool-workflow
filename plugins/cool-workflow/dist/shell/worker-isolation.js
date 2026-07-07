@@ -106,6 +106,7 @@ function workerBlackboardManifest(run, task) {
 const verifier_1 = require("./verifier");
 const runner_1 = require("../core/pipeline/runner");
 const hash_1 = require("../core/hash");
+const collate_1 = require("../core/util/collate");
 const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
 const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
 exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
@@ -797,7 +798,7 @@ function listWorkerScopes(run, options = {}) {
     // silently drops workers whenever run.workers was reset.
     const merged = mergeScopes(run.workers || [], loadWorkerScopesFromDisk(run));
     run.workers = merged;
-    const workers = merged.slice().sort((a, b) => a.id.localeCompare(b.id));
+    const workers = merged.slice().sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
     return options.status ? workers.filter((w) => w.status === options.status) : workers;
 }
 function countByStatus(workers) {
@@ -824,7 +825,7 @@ function countBucket(values) {
     return counts;
 }
 function formatCountBucket(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => a.localeCompare(b));
+    const entries = Object.entries(counts).sort(([a], [b]) => (0, collate_1.stableCompare)(a, b));
     if (!entries.length)
         return "none";
     return entries.map(([k, v]) => `${k}=${v}`).join(", ");

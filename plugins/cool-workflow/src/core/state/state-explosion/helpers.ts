@@ -19,6 +19,7 @@
 // Evidence: SPEC/state-core.md "Helpers (src/state-explosion/helpers.ts)".
 
 import { fingerprintRecords, fingerprintStrings } from "../../hash";
+import { stableCompare } from "../../util/collate";
 
 export { fingerprintRecords, fingerprintStrings };
 
@@ -75,7 +76,7 @@ export function unique(values: string[]): string[] {
 }
 
 export function byId(a: { id: string }, b: { id: string }): number {
-  return a.id.localeCompare(b.id);
+  return stableCompare(a.id, b.id);
 }
 
 /** Whitespace-collapsed; over 80 chars becomes the first 77 chars + `...`. */

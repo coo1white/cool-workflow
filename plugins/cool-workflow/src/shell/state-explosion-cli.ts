@@ -32,6 +32,7 @@ import {
 import { computeStateSizeWithGraph } from "../core/state/state-explosion/size";
 import { WorkflowRun } from "../core/state/types";
 import { operatorDigestInput } from "./multi-agent-operator-ux";
+import { stableCompare } from "../core/util/collate";
 
 export type { MultiAgentSummaryIndex, MultiAgentSummaryIndexEntry, StateExplosionReport };
 export { buildStateExplosionReport };
@@ -115,7 +116,7 @@ export function refreshStateExplosionSummaries(
     status: "valid",
     deterministic: true,
     nextAction: `node scripts/cw.js summary show ${run.id}`,
-    entries: entries.sort((a, b) => a.id.localeCompare(b.id)),
+    entries: entries.sort((a, b) => stableCompare(a.id, b.id)),
     views,
     paths: { summariesDir: dir, indexPath: path.join(dir, "index.json"), reportPath },
   };

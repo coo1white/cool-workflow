@@ -1,5 +1,33 @@
 # CW Iteration Log
 
+## Batch — finish the locale-independent ordering migration (Unreleased)
+
+> Step 2 of the D-2 finding, following the cache-key fix in the previous
+> batch: the remaining 52 bare `localeCompare` sites across 20 files,
+> migrated to `core/util/collate.ts`'s `stableCompare`. Highest-value
+> targets: `state-explosion/helpers.ts`'s shared `byId` comparator (fixes
+> 13 call sites in `digest.ts` for one change), `graph.ts`'s node/edge/
+> synthetic-node sorts and `digest.ts`'s two inline comparators (these feed
+> `snapshot.normalized` — the exact eval-replay content the D-2 finding
+> warned could give a false-red regression across hosts with different
+> collation), `commit-gate.ts`'s latest-selection lookup (affects which
+> selection a commit picks, not just display), and every remaining
+> shell/-layer display-formatting site. `v2/conformance/lib.js`'s base env
+> now pins `LANG`/`LC_ALL` to `en_US.UTF-8` explicitly (was merely absent),
+> so the whole suite's byte-identity story no longer depends on whatever
+> the host happens to leave unset. New case
+> `locale-independent-ordering.case.js` takes a real eval snapshot, then
+> replays/compares/scores/gates it under `cs_CZ.UTF-8` and asserts a clean
+> pass throughout — proving the full eval-replay pipeline survives a host
+> locale change end to end (that workflow's own task ids don't happen to
+> contain a character `cs_CZ` collates differently, so the underlying bug
+> is proved by `collate-stablecompare.test.js`'s adversarial data, not by
+> this case — see that case's own header note).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Migrate all 52 remaining bare `localeCompare` call sites (core/ then shell/) to `stableCompare`; pin `LANG`/`LC_ALL` in the conformance harness's base env; add an end-to-end eval-replay locale case. | `plugins/cool-workflow/src/core/{pipeline/commit-gate,multi-agent/collaboration,multi-agent/coordinator,trust/ledger,state/state-explosion/{helpers,graph,digest}}.ts`, `src/shell/{worker-isolation,operator-ux,report,state-explosion-cli,topology-io,reclamation-io,observability,multi-agent-operator-ux,operator-ux-text,commit-summary,workflow-app-loader,evidence-reasoning,execution-backend/registry}.ts`, matching `dist/**`, `v2/conformance/lib.js`, `v2/conformance/cases/locale-independent-ordering.case.js` (new) | New conformance case: baseline snapshot under `en_US.UTF-8`, replay+compare+score+gate under `cs_CZ.UTF-8`, all report a clean pass with zero findings. `grep -rn '\.localeCompare(' src` confirms zero bare call sites remain outside `collate.ts`'s own prose comment. | BUILD OK; conformance 103/103; `test:gate` 179/179; `test:unit` 151/153 (2 pre-existing, unrelated failures fixed by #362) | no (PR batch, no release) |
+
 ## Batch — locale-independent cache-key ordering (Unreleased)
 
 > From the architecture-improvement plan's trust track (D-2): 53 bare

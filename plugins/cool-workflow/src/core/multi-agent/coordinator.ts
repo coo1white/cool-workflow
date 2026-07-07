@@ -12,6 +12,8 @@
 // plugins/cool-workflow/src/coordinator.ts,
 // src/coordinator/{util,classify,paths}.ts (byte-exact source).
 
+import { stableCompare } from "../util/collate";
+
 export const BLACKBOARD_SCHEMA_VERSION = 1;
 
 export type BlackboardRecordStatus = "active" | "open" | "resolved" | "superseded" | "conflicting" | "rejected";
@@ -714,7 +716,7 @@ export function summarizeBlackboard(runId: string, state: BlackboardState, black
   ].sort();
   const readyForFanin = Boolean(board && !openQuestions.length && !conflicts.length && artifacts.length > 0 && missingEvidence.length === 0);
   const latestSnapshot = scoped(state.snapshots)
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+    .sort((left, right) => stableCompare(left.createdAt, right.createdAt))
     .at(-1);
   return {
     runId,
@@ -746,13 +748,13 @@ function nextAction(runId: string, board: Blackboard | undefined, openQuestions:
 export function listBlackboardMessages(state: BlackboardState, options: { topicId?: string; blackboardId?: string } = {}): BlackboardMessage[] {
   return state.messages
     .filter((message) => (!options.blackboardId || message.blackboardId === options.blackboardId) && (!options.topicId || message.topicId === options.topicId))
-    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+    .sort((left, right) => stableCompare(left.createdAt, right.createdAt) || stableCompare(left.id, right.id));
 }
 
 export function listBlackboardArtifacts(state: BlackboardState, options: { topicId?: string; blackboardId?: string } = {}): BlackboardArtifactRef[] {
   return state.artifacts
     .filter((artifact) => (!options.blackboardId || artifact.blackboardId === options.blackboardId) && (!options.topicId || artifact.topicId === options.topicId))
-    .sort((left, right) => left.id.localeCompare(right.id));
+    .sort((left, right) => stableCompare(left.id, right.id));
 }
 
 // ---------------------------------------------------------------------------

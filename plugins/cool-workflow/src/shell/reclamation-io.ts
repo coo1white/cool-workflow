@@ -36,6 +36,7 @@ import { snapshotNode } from "./node-store";
 import { loadNodeSnapshot } from "../core/state/node-snapshot";
 import { nodeProjectionDigestInput, replayStableStringify } from "../core/state/node-projection";
 import { sha256, sha256Bytes } from "../core/hash";
+import { stableCompare } from "../core/util/collate";
 import { StateNode, WorkflowRun } from "../core/state/types";
 import {
   compareBytes,
@@ -1519,7 +1520,7 @@ function readCloneEntries(root: string): CloneEntry[] {
       bytes: dirSize(dir),
     });
   }
-  entries.sort((a, b) => (a.fetchedAt || "").localeCompare(b.fetchedAt || ""));
+  entries.sort((a, b) => stableCompare(a.fetchedAt || "", b.fetchedAt || ""));
   return entries;
 }
 

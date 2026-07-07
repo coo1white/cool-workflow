@@ -47,6 +47,7 @@ exports.summarizeBlackboard = summarizeBlackboard;
 exports.listBlackboardMessages = listBlackboardMessages;
 exports.listBlackboardArtifacts = listBlackboardArtifacts;
 exports.buildBlackboardGraph = buildBlackboardGraph;
+const collate_1 = require("../util/collate");
 exports.BLACKBOARD_SCHEMA_VERSION = 1;
 /** Dedup, SORTS. Coordinator-side sorting `unique` — byte-identical
  *  behavior to core/multi-agent/runtime.ts's own copy, kept as a
@@ -420,7 +421,7 @@ function summarizeBlackboard(runId, state, blackboardId, defaultIndexPath) {
     ].sort();
     const readyForFanin = Boolean(board && !openQuestions.length && !conflicts.length && artifacts.length > 0 && missingEvidence.length === 0);
     const latestSnapshot = scoped(state.snapshots)
-        .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
+        .sort((left, right) => (0, collate_1.stableCompare)(left.createdAt, right.createdAt))
         .at(-1);
     return {
         runId,
@@ -454,12 +455,12 @@ function nextAction(runId, board, openQuestions, conflicts, artifacts) {
 function listBlackboardMessages(state, options = {}) {
     return state.messages
         .filter((message) => (!options.blackboardId || message.blackboardId === options.blackboardId) && (!options.topicId || message.topicId === options.topicId))
-        .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+        .sort((left, right) => (0, collate_1.stableCompare)(left.createdAt, right.createdAt) || (0, collate_1.stableCompare)(left.id, right.id));
 }
 function listBlackboardArtifacts(state, options = {}) {
     return state.artifacts
         .filter((artifact) => (!options.blackboardId || artifact.blackboardId === options.blackboardId) && (!options.topicId || artifact.topicId === options.topicId))
-        .sort((left, right) => left.id.localeCompare(right.id));
+        .sort((left, right) => (0, collate_1.stableCompare)(left.id, right.id));
 }
 function buildBlackboardGraph(runId, state, recordPath, messagesPath) {
     const nodes = [];

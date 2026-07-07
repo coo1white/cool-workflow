@@ -106,6 +106,7 @@ const node_store_1 = require("./node-store");
 const node_snapshot_1 = require("../core/state/node-snapshot");
 const node_projection_1 = require("../core/state/node-projection");
 const hash_1 = require("../core/hash");
+const collate_1 = require("../core/util/collate");
 const run_registry_io_1 = require("./run-registry-io");
 // ---------------------------------------------------------------------------
 // Content addressing + byte measurement (in-process, no `du`) — carried
@@ -1287,7 +1288,7 @@ function readCloneEntries(root) {
             bytes: dirSize(dir),
         });
     }
-    entries.sort((a, b) => (a.fetchedAt || "").localeCompare(b.fetchedAt || ""));
+    entries.sort((a, b) => (0, collate_1.stableCompare)(a.fetchedAt || "", b.fetchedAt || ""));
     return entries;
 }
 /** `cw clones list` — every cached remote checkout with its origin,

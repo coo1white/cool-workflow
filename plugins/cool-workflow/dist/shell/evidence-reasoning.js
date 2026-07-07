@@ -29,6 +29,7 @@ const fs_atomic_1 = require("./fs-atomic");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const trust_audit_1 = require("./trust-audit");
 const trust_policy_1 = require("../core/multi-agent/trust-policy");
+const collate_1 = require("../core/util/collate");
 exports.EVIDENCE_REASONING_SCHEMA_VERSION = 1;
 function candidatesOf(run) {
     return (run.candidates || []);
@@ -56,7 +57,7 @@ function buildEvidenceReasoningReport(run, options = {}) {
     const counterfactuals = deriveCounterfactuals(run, scores);
     const chains = operator.evidence
         .map((evidence) => buildChain(run, evidence, { scores, auditEvents, counterfactuals }))
-        .sort((left, right) => statusRank(left.evidenceStatus) - statusRank(right.evidenceStatus) || left.id.localeCompare(right.id));
+        .sort((left, right) => statusRank(left.evidenceStatus) - statusRank(right.evidenceStatus) || (0, collate_1.stableCompare)(left.id, right.id));
     const totals = summarizeTotals(chains);
     const currentFingerprint = fingerprintChains(chains);
     const persisted = options.index;
@@ -340,7 +341,7 @@ function refreshEvidenceReasoning(run) {
         generatedAt: new Date().toISOString(),
         sourceFingerprint: report.sourceFingerprint,
         totals: report.totals,
-        entries: entries.sort((a, b) => a.id.localeCompare(b.id)),
+        entries: entries.sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id)),
         paths: { reasoningDir: dir, indexPath, reportPath },
         nextAction: `node scripts/cw.js multi-agent reasoning ${run.id}`,
     };
@@ -601,5 +602,5 @@ function unique(values) {
     return Array.from(new Set(values.filter(Boolean))).sort();
 }
 function byRef(a, b) {
-    return a.ref.localeCompare(b.ref);
+    return (0, collate_1.stableCompare)(a.ref, b.ref);
 }
