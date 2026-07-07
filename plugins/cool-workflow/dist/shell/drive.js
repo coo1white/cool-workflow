@@ -302,7 +302,24 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
         try {
             fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
+            // Not gated by requireAttestedTelemetry here: the underlying result was
+            // already gated (attested or explicitly overridden) at its FIRST
+            // acceptance, before it was cached. Re-blocking a cache hit would only
+            // punish the operator for their own earlier, already-audited accept.
+            // Still made visible, not silent: when the operator requires attested
+            // telemetry, record that this particular accept came from the cache
+            // rather than a freshly re-verified hop.
             (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+            if (ctx.config.requireAttestedTelemetry) {
+                (0, trust_audit_1.recordTrustAuditEvent)(run, {
+                    kind: "telemetry.cache-accept",
+                    decision: "recorded",
+                    source: "cw-validated",
+                    workerId,
+                    taskId: selected.id,
+                    metadata: { reason: "result-cache hit; original attestation gate applied at first acceptance, not re-verified here" },
+                });
+            }
             // Advance the run lifecycle stage on accept, as the old build's
             // recordWorkerOutput wrapper did (run.loopStage = "observe").
             run.loopStage = "observe";
