@@ -1,5 +1,30 @@
 # CW Iteration Log
 
+## Batch — a mechanical purity gate for the core/shell boundary (Unreleased)
+
+> From the architecture-improvement plan's structure track: `docs/rebuild/PLAN.md`
+> and `AGENTS.md` both describe `core/` as pure (no IO) and `shell/` as the
+> only impure layer, and say this is "enforced by a lint rule." No such
+> lint exists anywhere in `scripts/` or `package.json` — only
+> `tsc --noEmit`, which does not check import direction. The rule is
+> already broken at the hub: `core/capability-table.ts` imports 37 modules
+> from `../shell` (plus one from `../cli/io`), and `core/types/boundary.ts`
+> imports 2 shell type modules. Rather than pretend a clean-slate rule was
+> always true, this batch adds a RATCHET: `scripts/purity-gate.js` scans
+> every import/require in `src/` (comment-stripped first — this codebase's
+> own file-header prose routinely quotes the exact patterns being checked,
+> e.g. "never a top-level `require(\"node:fs\")`", which a naive scan would
+> misread as a violation), and fails on anything not in the committed
+> `scripts/purity-baseline.json` — a NEW break, or a baseline entry that no
+> longer matches reality (fail-closed both directions, same discipline
+> `dist-drift-check.js` already uses for its added/changed/removed diff).
+> Bespoke node script, no new dependency, matching AGENTS.md's "tools, not
+> frameworks" — every other gate in this repo is the same shape.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Add `scripts/purity-gate.js` (layer-boundary + core-only-builtin + clock/env-count checks, comment-stripped scan) and its committed `scripts/purity-baseline.json`; wire `purity:check` into `npm run ci` via `release-check.js`. | `plugins/cool-workflow/scripts/purity-gate.js` (new), `scripts/purity-baseline.json` (new), `package.json`, `scripts/release-check.js` | Manually verified all three ratchet directions: a synthetic new `core/hash.ts -> ../shell/fs-atomic` import fails closed; removing the real `run-paths.ts` `node:fs` import (without updating the baseline) fails closed as a stale entry; doubling a baselined `process.cwd()` occurrence fails closed as count drift — each reverted before committing. | BUILD OK; `purity:check` passes on today's `src/`; `npm run ci` green except the 2 pre-existing, unrelated MCP-tool-count unit-test failures fixed by #362 | no (PR batch, no release) |
+
 ## Batch — trust-audit head anchor: make a cut-off audit-log tail visible (Unreleased)
 
 > From the architecture-improvement plan's trust track (highest-risk item):
