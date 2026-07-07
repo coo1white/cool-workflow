@@ -206,7 +206,7 @@ const MCP_TOOL_DATA = [
     { tool: "cw_coordinator_summary", capability: "coordinator.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the coordinator summary." },
     { tool: "cw_coordinator_decision", capability: "coordinator.decision", requiredArgs: ["runId"], properties: ["runId", "cwd", "id", "kind", "outcome", "reason", "subject", "evidence", "artifact", "message"], description: "Record a coordinator decision." },
     { tool: "cw_audit_summary", capability: "audit.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the trust/audit summary." },
-    { tool: "cw_audit_verify", capability: "audit.verify", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Re-prove a run's trust-audit hash chain (fail-closed exit)." },
+    { tool: "cw_audit_verify", capability: "audit.verify", requiredArgs: ["runId"], properties: ["runId", "cwd", "expectHead", "expectCount"], description: "Re-prove a run's trust-audit hash chain (fail-closed exit)." },
     { tool: "cw_audit_worker", capability: "audit.worker", requiredArgs: ["runId"], properties: ["runId", "cwd", "workerId"], description: "Read trust/audit for one worker." },
     { tool: "cw_audit_provenance", capability: "audit.provenance", requiredArgs: ["runId"], properties: ["runId", "cwd", "workerId", "worker", "candidateId", "candidate", "commitId", "commit"], description: "Inspect evidence provenance." },
     { tool: "cw_audit_multi_agent", capability: "audit.multi-agent", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the multi-agent trust/policy/provenance audit." },
@@ -319,6 +319,8 @@ const MCP_TOOL_DATA = [
     { tool: "cw_orphans_gc", capability: "orphans.gc", requiredArgs: [], properties: ["cwd", "scope", "minAgeMinutes", "all"], description: "Reclaim orphan run directories (no state.json): an age sweep (--min-age-minutes, default 60) or --all. Deletes only inside a scanned repo's .cw/runs/, never a run the registry knows about." },
     { tool: "cw_telemetry_verify", capability: "telemetry.verify", requiredArgs: ["runId"], properties: ["cwd", "runId", "pubkey"], description: "Re-prove a run's telemetry attestation ledger offline: chain linkage + independent hash recompute, and (with --pubkey / CW_AGENT_ATTEST_PUBKEY) re-verify each attested hop's ed25519 signature against the public key." },
     { tool: "cw_history", capability: "history", requiredArgs: [], properties: ["cwd", "scope", "app", "status", "limit", "offset"], description: "Read a cross-repo unified run timeline (newest first)." },
+    // --- post-rebuild additions (appended; see the header note above) ---
+    { tool: "cw_audit_head", capability: "audit.head", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the trust-audit chain head anchor (event count + head hash) for a later truncation-proof audit.verify." },
 ];
 /** Real handlers implemented at THIS milestone, keyed by capability id.
  *  Every tool row not listed here gets `notYetImplemented`. Kept as a
@@ -1173,6 +1175,15 @@ attachCliBinding("audit.verify", {
     },
 });
 REGISTRY_BY_CAPABILITY.get("audit.verify").mcp.handler = (args) => (0, audit_cli_1.auditVerifyCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
+attachCliBinding("audit.head", {
+    path: ["audit", "head"],
+    jsonMode: "default",
+    handler: (args) => {
+        const runId = (0, io_1.required)((0, io_3.optionalArg)(args.positionals[0]), "run id");
+        return { json: (0, audit_cli_1.auditHeadCli)(runId, args.options) };
+    },
+});
+REGISTRY_BY_CAPABILITY.get("audit.head").mcp.handler = (args) => (0, audit_cli_1.auditHeadCli)((0, io_1.required)((0, io_3.optionalArg)(args.runId), "run id"), args);
 addCliOnlyCapability("demo.tamper", "Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.", {
     path: ["demo", "tamper"],
     jsonMode: "flag",
@@ -3120,6 +3131,7 @@ const RUN_PAYLOAD_PROBE_CAPABILITIES = [
     "feedback.summary",
     "commit.summary",
     "audit.summary",
+    "audit.head",
     "multi-agent.summary",
     "workbench.view",
     "metrics.show",

@@ -19,7 +19,7 @@ const {
   appendTelemetryAttestation,
   TelemetryLedgerCorruptError
 } = require("../dist/shell/telemetry-ledger-io");
-const { recordTrustAuditEvent, verifyTrustAudit } = require("../dist/shell/trust-audit");
+const { recordTrustAuditEvent, verifyTrustAudit, trustAuditHead } = require("../dist/shell/trust-audit");
 const sandbox = require("../dist/shell/sandbox-profile");
 
 const cli = path.join(__dirname, "..", "dist", "cli.js");
@@ -127,6 +127,21 @@ function tmpRun(prefix) {
   assert.equal(v.verified, false, "H4: an unchained (hash-dropped) forged event is rejected, not treated as legacy");
   assert.ok(v.chained >= 1 && v.unchained >= 1, "H4: forged event counted unchained amid chained events");
   assert.ok(v.checks.some((c) => c.code === "trust-audit-unchained-event"), "H4: unchained-event check reported");
+
+  // (e) CUT the tail — the one tamper shape a pure chain walk cannot see: a
+  // shortened log is still a consistent chain, so the plain walk stays green.
+  // The head ANCHOR (trustAuditHead + verify's anchor param) catches it with
+  // the distinct code trust-audit-truncated. Full coverage lives in
+  // trust-audit-anchor-smoke.js; this pins the gap + the catch side by side
+  // with the other tamper shapes.
+  fs.writeFileSync(logPath, `${lines.join("\n")}\n`); // restore the clean 3-event chain
+  const anchor = trustAuditHead(run);
+  fs.writeFileSync(logPath, `${lines.slice(0, 2).join("\n")}\n`); // cut the last event
+  v = verifyTrustAudit(run);
+  assert.equal(v.verified, true, "H4: a plain chain walk is blind to tail truncation (the documented gap)");
+  v = verifyTrustAudit(run, { expectHead: anchor.headHash, expectCount: anchor.eventCount });
+  assert.equal(v.verified, false, "H4: the head anchor catches tail truncation");
+  assert.ok(v.checks.some((c) => c.code === "trust-audit-truncated"), "H4: trust-audit-truncated reported");
 })();
 
 // ---- H7: a custom sandbox profile FILE must be enforceable, not just validated -

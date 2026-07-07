@@ -10,7 +10,7 @@
 // plugins/cool-workflow/src/capability-core.ts:1223-1249.
 
 import * as path from "node:path";
-import { verifyTrustAudit, summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit";
+import { verifyTrustAudit, summarizeTrustAudit, listTrustAuditEvents, trustAuditHead, TrustAuditAnchor } from "./trust-audit";
 import { loadRunFromCwd, saveCheckpoint } from "./run-store";
 import { summarizeMultiAgentTrust } from "./trust-policy-io";
 import { writeReport } from "./report";
@@ -29,17 +29,44 @@ export interface AuditVerifyResult {
   unchained: number;
   corruptLines: number;
   failedChecks: Array<{ name: string; code?: string }>;
+  /** Present ONLY when the caller passed --expect-head / --expect-count —
+   *  a plain (un-anchored) verify keeps its exact pre-anchor output. */
+  anchor?: { expectHead?: string; expectCount?: number; satisfied: boolean };
 }
 
 function invocationCwd(args: Record<string, unknown>): string {
   return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
 
+/** Parse the optional truncation anchor off the CLI options / MCP args
+ *  (`--expect-head <hash>` / `--expect-count <n>`; MCP: expectHead /
+ *  expectCount). Fail-closed on a malformed count — a flag given without
+ *  a usable value must never silently weaken the check it asked for. */
+function anchorOption(args: Record<string, unknown>): TrustAuditAnchor | undefined {
+  const headRaw = args["expect-head"] ?? args.expectHead;
+  const countRaw = args["expect-count"] ?? args.expectCount;
+  const expectHead = optionalString(headRaw);
+  if (headRaw !== undefined && headRaw !== null && expectHead === undefined) {
+    throw new Error("audit verify: --expect-head requires a hash value");
+  }
+  let expectCount: number | undefined;
+  if (countRaw !== undefined && countRaw !== null) {
+    const parsed = Number(countRaw);
+    if (countRaw === true || !Number.isInteger(parsed) || parsed < 0) {
+      throw new Error("audit verify: --expect-count requires a non-negative integer");
+    }
+    expectCount = parsed;
+  }
+  if (expectHead === undefined && expectCount === undefined) return undefined;
+  return { expectHead, expectCount };
+}
+
 export function auditVerifyCli(runId: string, args: Record<string, unknown>): AuditVerifyResult {
   if (!runId) throw new Error("audit verify requires a run id (cw audit verify <run-id>)");
+  const anchor = anchorOption(args);
   const run = loadRunFromCwd(runId, invocationCwd(args));
-  const v = verifyTrustAudit(run);
-  return {
+  const v = verifyTrustAudit(run, anchor);
+  const result: AuditVerifyResult = {
     schemaVersion: 1,
     runId: run.id,
     present: v.present,
@@ -50,6 +77,32 @@ export function auditVerifyCli(runId: string, args: Record<string, unknown>): Au
     corruptLines: v.corruptLines,
     failedChecks: v.checks.filter((c) => !c.pass).map((c) => ({ name: c.name, code: c.code })),
   };
+  if (anchor) {
+    result.anchor = {
+      ...(anchor.expectHead !== undefined ? { expectHead: anchor.expectHead } : {}),
+      ...(anchor.expectCount !== undefined ? { expectCount: anchor.expectCount } : {}),
+      satisfied: !v.checks.some((c) => c.code === "trust-audit-truncated"),
+    };
+  }
+  return result;
+}
+
+export interface AuditHeadResult {
+  schemaVersion: 1;
+  runId: string;
+  eventCount: number;
+  headHash: string;
+}
+
+/** `cw audit head <run>` — the chain head anchor (read-only projection).
+ *  Capture it after a run (or before publishing/exporting); later,
+ *  `cw audit verify <run> --expect-head <hash> --expect-count <n>`
+ *  re-proves the log was not shortened since the capture. */
+export function auditHeadCli(runId: string, args: Record<string, unknown>): AuditHeadResult {
+  if (!runId) throw new Error("audit head requires a run id (cw audit head <run-id>)");
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const head = trustAuditHead(run);
+  return { schemaVersion: 1, runId: run.id, eventCount: head.eventCount, headHash: head.headHash };
 }
 
 /** MILESTONE 11 (reporting/observability, workbench audit panels) —

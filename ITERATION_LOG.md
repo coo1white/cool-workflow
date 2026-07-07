@@ -1,6 +1,27 @@
 # CW Iteration Log
 
-## Batch — release v0.2.1 (agent-hop diagnostics + question-aware review + generalized wording)
+## Batch — trust-audit head anchor: make a cut-off audit-log tail visible (Unreleased)
+
+> From the architecture-improvement plan's trust track (highest-risk item):
+> the trust-audit hash chain catches an edited event, a removed middle event,
+> a corrupt line, and a mixed-era forgery — but a pure chain walk is blind to
+> ONE tamper shape: delete the last N lines of `audit/events.jsonl` and what
+> is left is a shorter, fully consistent chain, so `cw audit verify` stays
+> green. That is a false-green on the tamper-evidence selling point. This
+> batch adds a head ANCHOR: `cw audit head` (new both-surface capability,
+> read-only) prints `{eventCount, headHash}`; `cw audit verify --expect-head
+> <hash> --expect-count <n>` fails closed with the distinct code
+> `trust-audit-truncated` when the log comes up short of that capture — and a
+> truncate-then-append forgery still fails the head check, because the new
+> events link from an earlier point so the old head is no longer on the
+> chain. POLA: with no anchor flags, `audit verify` output is byte-for-byte
+> unchanged (no `anchor` key). No new file, no new state, no new hash form —
+> the anchor rides on the existing eventHash chain.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Close the tail-truncation blind spot in trust-audit verification: new `trustAuditHead` projection + optional `TrustAuditAnchor` param on `verifyTrustAudit` (`trust-audit-truncated`, check names `anchor-count`/`anchor-head`); new both-surface capability `audit.head` (`cw audit head` / `cw_audit_head`, appended at the MCP table tail so every existing `tools/list` position is unmoved, wired into the run payload-parity probe); `--expect-head`/`--expect-count` on `cw audit verify` (`expectHead`/`expectCount` on `cw_audit_verify`), malformed values fail closed; man page `docs/trust-audit-anchor.7.md` + index/release-check/version-sync wiring. | `plugins/cool-workflow/src/shell/trust-audit.ts`, `src/shell/audit-cli.ts`, `src/core/capability-table.ts`, `docs/trust-audit-anchor.7.md`, `docs/index.md`, `docs/cli-mcp-parity.7.md` (regen), `docs/project-index.md` (regen), `scripts/release-check.js`, `scripts/version-sync-check.js`, matching `dist/**`, `test/trust-audit-anchor-smoke.js` (new), `test/freebsd-audit-fixes-smoke.js` (H4 gains the cut-tail shape), `v2/conformance/cases/trust-audit-anchor-truncation.case.js` (new) | New smoke: head projection (genesis on empty), anchored verify red on a cut tail + on a truncate-then-pad forgery, plain verify unchanged (POLA), `cw audit head` === `cw_audit_head` and anchored `audit verify` === `cw_audit_verify` (CLI<->MCP parity). New conformance case pins the same black-box: plain verify green AFTER truncation (the documented gap), anchored verify exit 1 with `trust-audit-truncated`, fail-closed flag errors. `freebsd-audit-fixes-smoke` H4(e) pins the gap + catch beside the other tamper shapes. | BUILD OK; conformance 102/102; `test:gate` full suite; parity/index/readme checks OK (`gen:parity`: 238 capabilities, 197 MCP tools) | no (PR batch, no release) |
+
 
 > Cut the release that ships the four PRs merged since v0.2.0 (#347-#350):
 > agent-hop failure diagnostics, USER env forwarding to the agent backend's

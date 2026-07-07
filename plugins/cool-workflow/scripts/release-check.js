@@ -39,6 +39,7 @@ const checks = [
         "docs/run-retention-reclamation.7.md",
         "docs/durable-state-and-locking.7.md",
         "docs/security-trust-hardening.7.md",
+        "docs/trust-audit-anchor.7.md",
         "../../CHANGELOG.md",
         "../../RELEASE.md"
       ]) {
