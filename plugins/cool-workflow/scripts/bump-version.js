@@ -239,6 +239,7 @@ function contentSurfaceFiles(next) {
     { path: "plugins/cool-workflow/docs/run-retention-reclamation.7.md",     needle: next, desc: "run retention doc" },
     { path: "plugins/cool-workflow/docs/durable-state-and-locking.7.md",     needle: next, desc: "durable state doc" },
     { path: "plugins/cool-workflow/docs/release-and-migration.7.md",         needle: next, desc: "release & migration doc" },
+    { path: "plugins/cool-workflow/docs/trust-audit-anchor.7.md",           needle: next, desc: "trust audit anchor doc" },
   ];
 }
 

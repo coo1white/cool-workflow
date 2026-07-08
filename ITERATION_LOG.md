@@ -1456,3 +1456,9 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 > `cw_audit_head`, checked against the live `dist/core/capability-table.js`
 > output and a passing `scripts/parity-check.js`. `test:unit` 152/152
 > after the fix.
+
+## Batch — v0.2.2 release prep (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Release prep: bump `0.2.1 → 0.2.2` across every structured + content surface (`src/core/version.ts`, manifests, `plugin.json`s, `server.json`, `app.json`s, the `docs/*.7.md` version markers, `RELEASE.md`) via `bump-version.js --content`, so `release-flow --cut`'s `bump:version` no-ops and `version-sync-check` stays green. `CHANGELOG.md` already carries the real 0.2.2 entry (landed separately via #370). | `src/core/version.ts`, `manifest/plugin.manifest.json`, `*/plugin.json`, `.claude-plugin/marketplace.json`, `apps/*/app.json`, `scripts/{canonical-apps,dogfood-release,golden-path}.js`, `test/*-smoke.js` (version literals), `Formula/cool-workflow.rb`, `RELEASE.md`, `docs/*.7.md`, matching `dist/**` | Existing `dogfood-release-smoke` reads HEAD and passes at 0.2.2 | bump gate OK (content surfaces auto-filled + re-verified); BUILD OK; dist `0.2.2` | tag via `release-flow --cut --version 0.2.2 --push` (later step) |
