@@ -357,4 +357,35 @@ assert.ok((record.backends || []).includes("shell"), "registry surfaces the back
 const cliBackendList = JSON.parse(execFileSync("node", [cli, "backend", "list"], { cwd: tmp, encoding: "utf8" }));
 assert.deepEqual(cliBackendList, JSON.parse(JSON.stringify(backendListPayload())), "cw backend list matches the core payload");
 
+// ---------------------------------------------------------------------------
+// 6. DEFAULT TIMEOUT. An unset timeoutMs must not mean "no timeout" — a hung
+//    child would otherwise block the local backend forever with no kill path.
+//    An explicit short timeoutMs proves the plumbing is wired to spawnSync at
+//    all; the fallback's exact value (600000ms) is pinned as a regression
+//    check against the compiled source rather than waited out live.
+// ---------------------------------------------------------------------------
+{
+  const timedOut = runBackend({
+    schemaVersion: 1,
+    backendId: "node",
+    command: "node",
+    args: ["-e", "setTimeout(() => {}, 5000)"],
+    cwd: pluginRoot,
+    sandboxPolicy: policy,
+    label: "timeout-test",
+    timeoutMs: 150
+  });
+  assert.equal(timedOut.status, "failed", "a slow child past its explicit timeoutMs must fail, not hang");
+  assert.ok(
+    timedOut.provenance.attestation.notes.some((n) => /ETIMEDOUT/.test(n)),
+    "the failure must be attributed to the timeout, not a different error"
+  );
+}
+{
+  const localSrc = fs.readFileSync(path.join(pluginRoot, "dist", "shell", "execution-backend", "local.js"), "utf8");
+  assert.match(localSrc, /timeout:\s*request\.timeoutMs\s*\|\|\s*600000/, "local backend must default an unset timeoutMs to 600000ms, not undefined (no timeout)");
+  const containerSrc = fs.readFileSync(path.join(pluginRoot, "dist", "shell", "execution-backend", "container.js"), "utf8");
+  assert.match(containerSrc, /timeout:\s*request\.timeoutMs\s*\|\|\s*600000/, "container backend must default an unset timeoutMs to 600000ms, not undefined (no timeout)");
+}
+
 process.stdout.write("execution-backends-smoke: ok\n");

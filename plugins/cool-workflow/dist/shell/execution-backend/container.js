@@ -56,7 +56,10 @@ function runContainer(descriptor, policy, request, label, handle, attestation) {
         }
     }
     runArgs.push(handle.ref, command, ...args);
-    const result = (0, node_child_process_1.spawnSync)(runtime, runArgs, { cwd, encoding: "utf8", timeout: request.timeoutMs, maxBuffer: 32 * 1024 * 1024 });
+    // An unset timeoutMs must not mean "no timeout" — spawnSync would then
+    // block forever on a hung container with no kill path. 600000 matches the
+    // agent backend's own default fallback (execution-backend/agent.ts).
+    const result = (0, node_child_process_1.spawnSync)(runtime, runArgs, { cwd, encoding: "utf8", timeout: request.timeoutMs || 600000, maxBuffer: 32 * 1024 * 1024 });
     if (result.error) {
         return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `${runtime} run failed: ${messageOf(result.error)}`, attestation);
     }
