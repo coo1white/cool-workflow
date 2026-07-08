@@ -46,7 +46,7 @@ jobs:
       # Pinned by commit SHA (not the moving @v5 tag) — this job holds the
       # npm Trusted Publishing OIDC token, so a compromise of the actions org
       # re-tagging @v5 to a malicious commit must not silently flow in here.
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # Check out the exact commit the gate ran on (a tag commit); on dispatch,
           # the operator-supplied tag. fetch-depth 0 + tags so we can resolve the
