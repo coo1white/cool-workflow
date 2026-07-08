@@ -98,8 +98,14 @@ jobs:
         # Require refs/tags/$REF to exist as a real tag object, require the
         # checked-out commit to be exactly that tag's commit (blocks a same-named
         # branch standing in for the tag), and re-run the same verdict check
-        # release-gate.yml runs on tag push — including its signature check, if
-        # .cw-release/verdict-signing.pub is committed (see verdict-keygen.js).
+        # release-gate.yml runs on tag push — including its signature check and
+        # its deterministic-bump-reproduction check (verify-bump-reproduction.sh),
+        # if .cw-release/verdict-signing.pub is committed (see verdict-keygen.js).
+        # A validly-signed verdict for the PARENT alone does not prove HEAD is
+        # the same mechanical bump release-flow.js's cut() would have produced —
+        # it could be an attacker's own commit smuggling arbitrary changes on
+        # top of an old, genuinely-approved parent, replaying that parent's
+        # already-public verdict + signature.
         #
         # .cw-release/ lives at the REPO ROOT, not under this job's
         # working-directory (plugins/cool-workflow) — anchor on
@@ -122,12 +128,20 @@ jobs:
           REPO_ROOT="$(git rev-parse --show-toplevel)"
           PUBKEY="$REPO_ROOT/.cw-release/verdict-signing.pub"
           for C in "$HEAD_SHA" "$(git rev-parse HEAD~1 2>/dev/null || echo none)"; do
-            VERDICT="$REPO_ROOT/.cw-release/review-$C.verdict"
+            VERDICT_REL=".cw-release/review-$C.verdict"
+            VERDICT="$REPO_ROOT/$VERDICT_REL"
             [ -f "$VERDICT" ] || continue
             grep -q '^APPROVED' "$VERDICT" || continue
             if [ -f "$PUBKEY" ]; then
               SIG="$VERDICT.sig"
+              SIG_REL="$VERDICT_REL.sig"
               if [ -f "$SIG" ] && node scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
+                if [ "$C" != "$HEAD_SHA" ]; then
+                  if ! bash scripts/verify-bump-reproduction.sh "$C" "$HEAD_SHA" "$VERDICT_REL" "$SIG_REL"; then
+                    echo "verdict for $C has a valid signature but HEAD does not reproduce as its deterministic bump — trying the other candidate"
+                    continue
+                  fi
+                fi
                 echo "verdict found + signature verified for $C"
                 exit 0
               fi

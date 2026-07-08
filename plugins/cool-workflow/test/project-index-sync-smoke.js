@@ -78,6 +78,7 @@ try {
     const r = runCheck({ CW_PROJECT_INDEX_PATH: redated });
     assert.equal(r.status, 0, `--check must ignore the now-derived generated date. exit=${r.status}\n${r.stderr}`);
   }
+
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
