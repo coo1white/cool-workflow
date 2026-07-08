@@ -75,7 +75,7 @@
     "validate:schema": "node scripts/validate-run-state-schema.js"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.1.0",
     "typescript": "^5.9.0"
   },
   "keywords": [
