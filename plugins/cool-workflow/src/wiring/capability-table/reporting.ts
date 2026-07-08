@@ -46,7 +46,11 @@ REGISTRY_BY_CAPABILITY.get("status")!.cli = {
   path: ["status"],
   jsonMode: "flag",
   handler: (args) => {
-    const runId = optionalArg(args.positionals[0]);
+    // `cw status <id>` (positional) and `cw status --run <id>` must both
+    // resolve the same run — the flag form used to be silently ignored
+    // (positionals[0] only), so a bogus id given via --run and a real one
+    // looked identical ("No run selected" for both).
+    const runId = optionalArg(args.positionals[0]) || optionalArg(args.options.run) || optionalArg(args.options.runId);
     if (!runId) return { json: statusCli(undefined, args.options), text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
     if (args.options.summary || args.options.brief) {
       return { json: statusCli(runId, args.options), text: `${statusSummaryText(runId, args.options)}\n` };

@@ -73,7 +73,11 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("status").cli = {
     path: ["status"],
     jsonMode: "flag",
     handler: (args) => {
-        const runId = (0, io_1.optionalArg)(args.positionals[0]);
+        // `cw status <id>` (positional) and `cw status --run <id>` must both
+        // resolve the same run — the flag form used to be silently ignored
+        // (positionals[0] only), so a bogus id given via --run and a real one
+        // looked identical ("No run selected" for both).
+        const runId = (0, io_1.optionalArg)(args.positionals[0]) || (0, io_1.optionalArg)(args.options.run) || (0, io_1.optionalArg)(args.options.runId);
         if (!runId)
             return { json: (0, report_view_cli_1.statusCli)(undefined, args.options), text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
         if (args.options.summary || args.options.brief) {
