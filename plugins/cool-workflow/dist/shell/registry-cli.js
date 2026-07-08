@@ -188,7 +188,7 @@ function runSearchCli(options = {}) {
         until: optionalString(options.until),
         includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
-        offset: options.offset === undefined ? undefined : Number(options.offset),
+        offset: (0, numeric_flag_1.requiredNumberFlag)(options.offset, "--offset"),
     });
 }
 function runListCli(options = {}) {
@@ -196,7 +196,7 @@ function runListCli(options = {}) {
         scope: scopeOf(options, "home"),
         includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
-        offset: options.offset === undefined ? undefined : Number(options.offset),
+        offset: (0, numeric_flag_1.requiredNumberFlag)(options.offset, "--offset"),
     });
 }
 function runShowCli(runId, options = {}) {
@@ -219,8 +219,8 @@ function runResumeCli(runId, options = {}) {
 function runArchiveCli(runId, options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
     if (!runId) {
-        const olderThanDays = Number(options.olderThanDays ?? options["older-than-days"]);
-        if (!Number.isFinite(olderThanDays))
+        const olderThanDays = (0, numeric_flag_1.requiredNumberFlag)(options.olderThanDays ?? options["older-than-days"], "--older-than-days");
+        if (olderThanDays === undefined)
             throw new Error("Missing run id (or --older-than-days N for the retention policy path).");
         const states = Array.isArray(options.state) ? options.state : options.state ? [options.state] : undefined;
         return registry.archiveByPolicy({
@@ -255,7 +255,7 @@ function historyCli(options = {}) {
         app: optionalString(options.app),
         status: optionalString(options.status),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
-        offset: options.offset === undefined ? undefined : Number(options.offset),
+        offset: (0, numeric_flag_1.requiredNumberFlag)(options.offset, "--offset"),
     });
 }
 function queueAddCli(options = {}) {
@@ -264,7 +264,7 @@ function queueAddCli(options = {}) {
         appId: optionalString(options.app || options.appId),
         workflowId: optionalString(options.workflow || options.workflowId),
         repo: optionalString(options.repo),
-        priority: options.priority === undefined ? undefined : Number(options.priority),
+        priority: (0, numeric_flag_1.requiredNumberFlag)(options.priority, "--priority"),
         note: optionalString(options.note),
         id: optionalString(options.id),
     });
@@ -286,8 +286,9 @@ function queueDrainCli(options = {}) {
 // ---------------------------------------------------------------------
 function gcPolicyOverridesFrom(options) {
     const overrides = {};
-    if (options.reclaimAfterArchiveDays !== undefined)
-        overrides.reclaimAfterArchiveDays = Number(options.reclaimAfterArchiveDays);
+    const reclaimAfterArchiveDays = (0, numeric_flag_1.requiredNumberFlag)(options.reclaimAfterArchiveDays, "--reclaimAfterArchiveDays");
+    if (reclaimAfterArchiveDays !== undefined)
+        overrides.reclaimAfterArchiveDays = reclaimAfterArchiveDays;
     if (options.keepScratch !== undefined)
         overrides.keepScratch = Boolean(options.keepScratch);
     if (options["keep-scratch"] !== undefined)
@@ -332,7 +333,7 @@ function orphansGcCli(options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
     return (0, reclamation_io_1.gcOrphanRuns)(registry, {
         scope: scopeOf(options, "home"),
-        minAgeMinutes: options.minAgeMinutes !== undefined ? Number(options.minAgeMinutes) : options["min-age-minutes"] !== undefined ? Number(options["min-age-minutes"]) : undefined,
+        minAgeMinutes: (0, numeric_flag_1.requiredNumberFlag)(options.minAgeMinutes ?? options["min-age-minutes"], "--min-age-minutes"),
         all: Boolean(options.all),
         now: optionalString(options.now),
     });

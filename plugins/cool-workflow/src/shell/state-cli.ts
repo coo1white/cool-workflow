@@ -22,6 +22,7 @@ import {
 } from "../core/state/contract-migration";
 import { diffNodeSnapshots, verifyNodeReplay } from "../core/state/node-snapshot";
 import { nextDispatchTasks } from "../core/pipeline/dispatch";
+import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { StateMigrationReport } from "../core/state/migrations";
 import { WorkflowRun } from "../core/state/types";
 
@@ -101,12 +102,6 @@ function loadRun(runId: string, options: Record<string, unknown> = {}): Workflow
   return loadRunFromCwd(runId, cwd);
 }
 
-function numberOption(value: unknown): number | undefined {
-  if (value === undefined || value === null || value === true) return undefined;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : undefined;
-}
-
 /** `cw next <run-id> [--limit N]` — the read-only "what would dispatch next"
  *  preview: the runnable tasks the next `cw dispatch` would pick, in order,
  *  without mutating state. A byte-behavior port of the old build's
@@ -114,7 +109,7 @@ function numberOption(value: unknown): number | undefined {
  *  the cw_next MCP tool render this same DispatchTask[] value, so their
  *  payloads stay identical. */
 export function nextCli(runId: string, options: Record<string, unknown> = {}) {
-  return nextDispatchTasks(loadRun(runId, options), numberOption(options.limit));
+  return nextDispatchTasks(loadRun(runId, options), requiredNumberFlag(options.limit, "--limit"));
 }
 
 export function listNodes(runId: string, options: Record<string, unknown> = {}): NonNullable<WorkflowRun["nodes"]> {

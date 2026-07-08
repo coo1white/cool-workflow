@@ -133,7 +133,7 @@ export function runSearchCli(options: Record<string, unknown> = {}) {
     until: optionalString(options.until),
     includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
     limit: requiredNumberFlag(options.limit, "--limit"),
-    offset: options.offset === undefined ? undefined : Number(options.offset),
+    offset: requiredNumberFlag(options.offset, "--offset"),
   });
 }
 export function runListCli(options: Record<string, unknown> = {}) {
@@ -141,7 +141,7 @@ export function runListCli(options: Record<string, unknown> = {}) {
     scope: scopeOf(options, "home"),
     includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
     limit: requiredNumberFlag(options.limit, "--limit"),
-    offset: options.offset === undefined ? undefined : Number(options.offset),
+    offset: requiredNumberFlag(options.offset, "--offset"),
   });
 }
 export function runShowCli(runId: string, options: Record<string, unknown> = {}) {
@@ -163,8 +163,8 @@ export function runResumeCli(runId: string, options: Record<string, unknown> = {
 export function runArchiveCli(runId: string | undefined, options: Record<string, unknown> = {}) {
   const registry = new RunRegistry(resolveCwd(options));
   if (!runId) {
-    const olderThanDays = Number(options.olderThanDays ?? options["older-than-days"]);
-    if (!Number.isFinite(olderThanDays)) throw new Error("Missing run id (or --older-than-days N for the retention policy path).");
+    const olderThanDays = requiredNumberFlag(options.olderThanDays ?? options["older-than-days"], "--older-than-days");
+    if (olderThanDays === undefined) throw new Error("Missing run id (or --older-than-days N for the retention policy path).");
     const states = Array.isArray(options.state) ? options.state : options.state ? [options.state] : undefined;
     return registry.archiveByPolicy(
       {
@@ -202,7 +202,7 @@ export function historyCli(options: Record<string, unknown> = {}) {
     app: optionalString(options.app),
     status: optionalString(options.status) as never,
     limit: requiredNumberFlag(options.limit, "--limit"),
-    offset: options.offset === undefined ? undefined : Number(options.offset),
+    offset: requiredNumberFlag(options.offset, "--offset"),
   });
 }
 
@@ -212,7 +212,7 @@ export function queueAddCli(options: Record<string, unknown> = {}) {
     appId: optionalString(options.app || options.appId),
     workflowId: optionalString(options.workflow || options.workflowId),
     repo: optionalString(options.repo),
-    priority: options.priority === undefined ? undefined : Number(options.priority),
+    priority: requiredNumberFlag(options.priority, "--priority"),
     note: optionalString(options.note),
     id: optionalString(options.id),
   });
@@ -236,7 +236,8 @@ export function queueDrainCli(options: Record<string, unknown> = {}) {
 
 function gcPolicyOverridesFrom(options: Record<string, unknown>) {
   const overrides: Record<string, unknown> = {};
-  if (options.reclaimAfterArchiveDays !== undefined) overrides.reclaimAfterArchiveDays = Number(options.reclaimAfterArchiveDays);
+  const reclaimAfterArchiveDays = requiredNumberFlag(options.reclaimAfterArchiveDays, "--reclaimAfterArchiveDays");
+  if (reclaimAfterArchiveDays !== undefined) overrides.reclaimAfterArchiveDays = reclaimAfterArchiveDays;
   if (options.keepScratch !== undefined) overrides.keepScratch = Boolean(options.keepScratch);
   if (options["keep-scratch"] !== undefined) overrides.keepScratch = Boolean(options["keep-scratch"]);
   if (options.keepSnapshots !== undefined) overrides.keepSnapshots = Boolean(options.keepSnapshots);
@@ -278,7 +279,7 @@ export function orphansGcCli(options: Record<string, unknown> = {}) {
   const registry = new RunRegistry(resolveCwd(options));
   return gcOrphanRuns(registry, {
     scope: scopeOf(options, "home"),
-    minAgeMinutes: options.minAgeMinutes !== undefined ? Number(options.minAgeMinutes) : options["min-age-minutes"] !== undefined ? Number(options["min-age-minutes"]) : undefined,
+    minAgeMinutes: requiredNumberFlag(options.minAgeMinutes ?? options["min-age-minutes"], "--min-age-minutes"),
     all: Boolean(options.all),
     now: optionalString(options.now),
   });

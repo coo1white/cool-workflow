@@ -15,11 +15,18 @@
 // like `.slice(0, limit)` silently drops trailing entries instead of
 // erroring. `requiredNumberFlag` closes all three holes: absent stays
 // absent (the caller's own default applies); a flag that WAS given but is
-// unusable (bare, or non-finite) throws instead of guessing.
+// unusable (bare, non-finite, or an empty/whitespace-only string — e.g.
+// `--flag=` or an unset shell variable interpolated into `--flag=$VAR`;
+// `Number("")`/`Number("   ")` are both 0, so this would otherwise be
+// indistinguishable from a genuinely-typed `--flag 0`) throws instead of
+// guessing.
 export function requiredNumberFlag(value: unknown, flagLabel: string): number | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value === "boolean") {
     throw new Error(`${flagLabel} requires a value (e.g. ${flagLabel} 4)`);
+  }
+  if (typeof value === "string" && value.trim() === "") {
+    throw new Error(`Invalid ${flagLabel} ${JSON.stringify(value)}: expected a number (e.g. ${flagLabel} 4)`);
   }
   const n = Number(value);
   if (!Number.isFinite(n)) {

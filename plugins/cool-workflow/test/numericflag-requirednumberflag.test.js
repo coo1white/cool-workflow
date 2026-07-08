@@ -29,6 +29,15 @@ const { requiredNumberFlag } = require("../dist/core/util/numeric-flag");
   assert.throws(() => requiredNumberFlag("NaN", "--limit"), /Invalid --limit/, "the literal string NaN must throw too");
 }
 
+// An empty or whitespace-only string throws too -- Number("") and
+// Number("   ") are both 0, which would otherwise be indistinguishable from
+// a genuinely-typed 0 (reachable via `--flag=` or an unset shell variable
+// interpolated into `--flag=$VAR`).
+{
+  assert.throws(() => requiredNumberFlag("", "--limit"), /Invalid --limit "": expected a number/, "an empty string must throw, not silently become 0");
+  assert.throws(() => requiredNumberFlag("   ", "--limit"), /Invalid --limit "   ": expected a number/, "a whitespace-only string must throw, not silently become 0");
+}
+
 // A genuine 0 is preserved -- never silently replaced by a fallback.
 {
   assert.equal(requiredNumberFlag(0, "--limit"), 0, "0 must be returned as 0, not treated as absent");

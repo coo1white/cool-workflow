@@ -86,6 +86,13 @@ function runFail(args, opts) {
   const badPolicy = runFail(["sched", "policy", "set", "--maxConcurrent", "abc"], opts);
   assert.match(badPolicy.stderr, /Invalid --maxConcurrent "abc": expected a number/, "numericFlag's delegation must preserve its pre-existing error wording");
 
+  // Empty-string case (reachable via `--limit=` or an unset shell variable
+  // interpolated into `--limit=$VAR`): Number("") is 0, which used to be
+  // indistinguishable from a genuinely-typed 0 -- must error, not silently
+  // grant a 0-limit lease.
+  const emptyLease = runFail(["sched", "lease", "--limit="], opts);
+  assert.match(emptyLease.stderr, /Invalid --limit "": expected a number/, "an empty --limit= on sched lease must error, not silently become 0");
+
   fs.rmSync(home, { recursive: true, force: true });
 }
 
@@ -94,7 +101,9 @@ function runFail(args, opts) {
 // (RunRegistry.search's OWN pagination floor separately clamps any
 // genuinely-given limit to >= 1 -- that floor is unrelated pre-existing
 // behavior, not part of this cycle; a genuinely-given --limit 3 must be
-// honored exactly, distinguishing it from the old silent-1 bug).
+// honored exactly, distinguishing it from the old silent-1 bug). Its
+// --offset (the same fix, on the sibling field the fix originally missed)
+// must also error on a bare flag, not silently drop every result.
 // ---------------------------------------------------------------------
 {
   const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-runlist-")));
@@ -107,7 +116,101 @@ function runFail(args, opts) {
   const three = runJson(["run", "list", "--limit", "3", "--json"], opts);
   assert.equal(three.query.limit, 3, "a genuinely-given --limit 3 on run list must be honored exactly, not silently become 1");
 
+  const bareOffset = runFail(["run", "list", "--offset"], opts);
+  assert.match(bareOffset.stderr, /--offset requires a value/, "a bare --offset on run list must error, not silently drop every result");
+
   fs.rmSync(home, { recursive: true, force: true });
+}
+
+// ---------------------------------------------------------------------
+// A confirmed adversarial-review finding: 5 of the 6 identical run.*/
+// queue.*/gc.* --limit call sites in registry-cli.ts (run search, run
+// resume, history, queue drain, gc run) had NO dedicated regression
+// coverage -- only run list did. All 6 are correctly wired today; this
+// closes the coverage gap so a future refactor of any of the other 5
+// can't silently regress without a test noticing. None of these need a
+// real run/queue fixture: requiredNumberFlag throws while building the
+// options object, before any registry lookup happens.
+// ---------------------------------------------------------------------
+{
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-registry-limit-")));
+  const env = { ...process.env, CW_HOME: home };
+  const opts = { cwd: home, env };
+
+  for (const args of [
+    ["run", "search", "--limit"],
+    ["run", "resume", "bogus-run-id", "--limit"],
+    ["history", "--limit"],
+    ["queue", "drain", "--limit"],
+    ["gc", "run", "bogus-run-id", "--limit"]
+  ]) {
+    const bare = runFail(args, opts);
+    assert.match(bare.stderr, /--limit requires a value/, `a bare --limit on "cw ${args.join(" ")}" must error`);
+  }
+
+  const garbage = runFail(["run", "search", "--limit", "abc"], opts);
+  assert.match(garbage.stderr, /Invalid --limit "abc": expected a number/, "an unparseable --limit on run search must error");
+
+  const garbageHistory = runFail(["history", "--limit", "abc"], opts);
+  assert.match(garbageHistory.stderr, /Invalid --limit "abc": expected a number/, "an unparseable --limit on history must error");
+
+  fs.rmSync(home, { recursive: true, force: true });
+}
+
+// ---------------------------------------------------------------------
+// A confirmed adversarial-review finding: registry-cli.ts's OTHER
+// numeric flags (queue add's --priority, gc plan/run's
+// --reclaimAfterArchiveDays, run archive's --older-than-days, orphans
+// gc's --minAgeMinutes/--min-age-minutes) shared the exact same
+// bare-flag-becomes-1 bug as --limit, just never named by the original
+// audit ("and friends" was scoped to pagination limit). All now route
+// through the same shared parser.
+// ---------------------------------------------------------------------
+{
+  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-registry-friends-")));
+  const env = { ...process.env, CW_HOME: home };
+  const opts = { cwd: home, env };
+
+  const barePriority = runFail(["queue", "add", "--runId", "x", "--priority"], opts);
+  assert.match(barePriority.stderr, /--priority requires a value/, "a bare --priority on queue add must error, not silently become 1");
+
+  const bareReclaim = runFail(["gc", "plan", "--reclaimAfterArchiveDays"], opts);
+  assert.match(bareReclaim.stderr, /--reclaimAfterArchiveDays requires a value/, "a bare --reclaimAfterArchiveDays on gc plan must error");
+
+  const bareOlderThanDays = runFail(["run", "archive", "--older-than-days"], opts);
+  assert.match(bareOlderThanDays.stderr, /--older-than-days requires a value/, "a bare --older-than-days on run archive must error");
+  // Absent entirely (neither a run id nor the retention flag) keeps its own,
+  // DIFFERENT pre-existing message -- proves the fix didn't disturb that path.
+  const neitherGiven = runFail(["run", "archive"], opts);
+  assert.match(neitherGiven.stderr, /Missing run id \(or --older-than-days N/, "omitting both the run id and --older-than-days must keep its own pre-existing message");
+
+  const bareMinAge = runFail(["orphans", "gc", "--minAgeMinutes"], opts);
+  assert.match(bareMinAge.stderr, /--min-age-minutes requires a value/, "a bare --minAgeMinutes on orphans gc must error");
+
+  fs.rmSync(home, { recursive: true, force: true });
+}
+
+// ---------------------------------------------------------------------
+// cw next / cw_next: a confirmed adversarial-review finding -- the ONE
+// OTHER caller of nextDispatchTasks (dispatch's sibling) still used its
+// own lenient local numberOption, silently ignoring a bare or garbage
+// --limit instead of throwing.
+// ---------------------------------------------------------------------
+{
+  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-next-")));
+  const opts = { cwd: tmp };
+  const plan = runJson(["plan", "end-to-end-golden-path", "--repo", tmp, "--question", "Prove numeric flag parsing on next."], opts);
+
+  const bare = runFail(["next", plan.runId, "--limit"], opts);
+  assert.match(bare.stderr, /--limit requires a value/, "a bare --limit on next must error, not silently return the unlimited list");
+
+  const garbage = runFail(["next", plan.runId, "--limit", "abc"], opts);
+  assert.match(garbage.stderr, /Invalid --limit "abc": expected a number/, "an unparseable --limit on next must error");
+
+  const one = runJson(["next", plan.runId, "--limit", "1", "--json"], opts);
+  assert.ok(Array.isArray(one), "a genuinely-given --limit 1 on next must still work normally");
+
+  fs.rmSync(tmp, { recursive: true, force: true });
 }
 
 // ---------------------------------------------------------------------
@@ -173,5 +276,7 @@ function runFail(args, opts) {
 }
 
 process.stdout.write(
-  "numeric-flag-parsing-smoke: ok (dispatch 0/-1/bare/garbage, sched lease + policy set, run list bare/exact, metrics summary, multi-agent fanout)\n"
+  "numeric-flag-parsing-smoke: ok (dispatch 0/-1/bare/garbage, sched lease + policy set + empty-string, run list bare/exact/offset, " +
+    "run search/resume/history/queue-drain/gc-run coverage, registry --priority/--reclaimAfterArchiveDays/--older-than-days/--minAgeMinutes, " +
+    "metrics summary, multi-agent fanout, cw next)\n"
 );
