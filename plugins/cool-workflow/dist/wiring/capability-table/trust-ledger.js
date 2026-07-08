@@ -92,6 +92,16 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.verify").mcp.handler = (args) 
     },
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.head").mcp.handler = (args) => (0, audit_cli_1.auditHeadCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+(0, registry_core_1.attachCliBinding)("audit.repair", {
+    path: ["audit", "repair"],
+    jsonMode: "default",
+    handler: (args) => {
+        const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
+        const result = (0, audit_cli_1.auditRepairCli)(runId, args.options);
+        return { json: result, exitCode: result.outcome === "refused" ? 1 : undefined };
+    },
+});
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) => (0, audit_cli_1.auditRepairCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.addCliOnlyCapability)("demo.tamper", "Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.", {
     path: ["demo", "tamper"],
     jsonMode: "flag",

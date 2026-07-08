@@ -27,6 +27,9 @@ import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveAgentConfig } from "./agent-config";
 import { buildDoctorOnramp, DoctorOnramp, optionEnabled } from "./onramp";
+import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store";
+import { verifyTrustAudit } from "./trust-audit";
+import { WorkflowRun } from "../core/state/types";
 import { bold, doctorGlyph, green, red } from "./term";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
@@ -203,6 +206,78 @@ export function runDoctor(
           status: "warn",
           detail: `Cannot write run state under ${cwState}.`,
           fix: "Run from a writable working directory, or pass --cwd PATH.",
+        }
+  );
+
+  // 7. Run-state integrity — every run under <cwd>/.cw/runs must have a
+  //    LOADABLE state.json: not corrupt, not an unsupported schema, not
+  //    suspected data loss (a wiped state.json next to real task/commit/
+  //    audit content). READ-ONLY: only dry-run loads each run's state,
+  //    same as `cw status`/`cw run show` would — never writes or repairs.
+  const runsDir = path.join(path.resolve(cwd), ".cw", "runs");
+  let runDirs: string[] = [];
+  try {
+    runDirs = fs.readdirSync(runsDir).filter((name) => !name.startsWith("."));
+  } catch {
+    runDirs = [];
+  }
+  const runStateProblems: string[] = [];
+  let runsScanned = 0;
+  const loadedRuns: Array<{ runId: string; run: WorkflowRun }> = [];
+  for (const runId of runDirs) {
+    const statePath = path.join(runsDir, runId, "state.json");
+    if (!fs.existsSync(statePath)) continue;
+    runsScanned += 1;
+    try {
+      const result = loadRunStateFile(statePath, { dryRun: true });
+      if (result.report.status === "unsupported") {
+        runStateProblems.push(`${runId}: ${result.report.errors.join("; ") || "unsupported run state"}`);
+        continue;
+      }
+      assertNotSuspectedDataLoss(runId, result);
+      loadedRuns.push({ runId, run: result.run });
+    } catch (error) {
+      runStateProblems.push(`${runId}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  checks.push(
+    runStateProblems.length === 0
+      ? {
+          name: "run-state-integrity",
+          status: "ok",
+          detail: runsScanned > 0 ? `${runsScanned} run(s) under .cw/runs all have a loadable state.json.` : "No runs under .cw/runs yet.",
+        }
+      : {
+          name: "run-state-integrity",
+          status: "warn",
+          detail: `${runStateProblems.length} of ${runsScanned} run(s) have a state.json problem: ${runStateProblems.slice(0, 3).join(" | ")}${runStateProblems.length > 3 ? ` (+${runStateProblems.length - 3} more)` : ""}`,
+          fix: "Inspect with `cw status <run-id>` for the specific reason; restore state.json from a backup, or remove the run directory to start over.",
+        }
+  );
+
+  // 8. Trust-audit integrity — a torn trailing write from a crash mid-append
+  //    can make a run's audit chain fail verification forever with no
+  //    repair path. Only checked for runs that passed check 7 (a run whose
+  //    state.json itself won't load has no `run` object to check audit for).
+  const auditProblems: string[] = [];
+  for (const { runId, run } of loadedRuns) {
+    const integrity = verifyTrustAudit(run);
+    if (integrity.present && !integrity.verified) {
+      auditProblems.push(`${runId}: ${integrity.checks.filter((c) => !c.pass).map((c) => c.code).join(", ")}`);
+    }
+  }
+  checks.push(
+    auditProblems.length === 0
+      ? {
+          name: "audit-integrity",
+          status: "ok",
+          detail: loadedRuns.length > 0 ? `Trust-audit log for all ${loadedRuns.length} loadable run(s) verifies clean.` : "No runs to check.",
+        }
+      : {
+          name: "audit-integrity",
+          status: "warn",
+          detail: `${auditProblems.length} run(s) fail trust-audit verification: ${auditProblems.slice(0, 3).join(" | ")}${auditProblems.length > 3 ? ` (+${auditProblems.length - 3} more)` : ""}`,
+          fix: "Run `cw audit repair <run-id>` to check for a repairable torn trailing write (a crash mid-append); anything else needs manual investigation, not an auto-fix.",
         }
   );
 

@@ -41,6 +41,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.writeJson = writeJson;
+exports.writeTextDurable = writeTextDurable;
 exports.readJson = readJson;
 exports.safeFileName = safeFileName;
 exports.assertSafeRunId = assertSafeRunId;
@@ -55,13 +56,13 @@ const path = __importStar(require("node:path"));
 // + "\n", written via temp-file + optional fsync + rename (atomic).
 // ---------------------------------------------------------------------------
 let atomicWriteCounter = 0;
-/** Atomic, optionally-durable JSON write. ORDER IS THE SAFETY PROPERTY: write
- *  the full bytes to a unique temp file, optionally fsync it, close, then
- *  rename over the target. `rename(2)` is atomic on POSIX, so a reader always
- *  sees either the old bytes or the new bytes, never a torn file. On a rename
- *  failure the temp file is removed (best-effort) and the error is rethrown —
- *  the old bytes at `file` are never touched. */
-function writeJson(file, value, options = {}) {
+/** Shared core of `writeJson`/`writeTextDurable`: write `contents` to a
+ *  unique temp file, optionally fsync it, close, then rename over `file`.
+ *  ORDER IS THE SAFETY PROPERTY — `rename(2)` is atomic on POSIX, so a
+ *  reader always sees either the old bytes or the new bytes, never a torn
+ *  file. On a rename failure the temp file is removed (best-effort) and
+ *  the error is rethrown — the old bytes at `file` are never touched. */
+function writeBytesAtomic(file, contents, durable) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = `${file}.tmp.${process.pid}.${atomicWriteCounter++}`;
     // 0o600: this is run/ledger/registry state, not a file meant to be shared
@@ -69,8 +70,8 @@ function writeJson(file, value, options = {}) {
     // this covers the final file too.
     const fd = fs.openSync(tmp, "w", 0o600);
     try {
-        fs.writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`, "utf8");
-        if (options.durable)
+        fs.writeFileSync(fd, contents, "utf8");
+        if (durable)
             fs.fsyncSync(fd);
     }
     finally {
@@ -88,7 +89,7 @@ function writeJson(file, value, options = {}) {
         }
         throw error;
     }
-    if (options.durable) {
+    if (durable) {
         try {
             const dirFd = fs.openSync(path.dirname(file), "r");
             try {
@@ -102,6 +103,17 @@ function writeJson(file, value, options = {}) {
             /* directory fsync is best-effort (not supported on every platform) */
         }
     }
+}
+/** Atomic, optionally-durable JSON write — see `writeBytesAtomic`. */
+function writeJson(file, value, options = {}) {
+    writeBytesAtomic(file, `${JSON.stringify(value, null, 2)}\n`, Boolean(options.durable));
+}
+/** Same atomic-write contract as `writeJson` (temp file + optional fsync +
+ *  rename), but for exact pre-built text instead of a value to serialize —
+ *  used by callers replacing an NDJSON-style file (e.g. a repaired
+ *  trust-audit event log) where the caller already has the final bytes. */
+function writeTextDurable(file, text, options = {}) {
+    writeBytesAtomic(file, text, Boolean(options.durable));
 }
 /** Read + JSON.parse a file. Throws `File not found: <file>` when absent,
  *  `Invalid JSON in <file>: <message>` on a parse error. */

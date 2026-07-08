@@ -60,6 +60,7 @@ exports.trustAuditGenesis = trustAuditGenesis;
 exports.listTrustAuditEvents = listTrustAuditEvents;
 exports.trustAuditHead = trustAuditHead;
 exports.verifyTrustAudit = verifyTrustAudit;
+exports.repairTrustAuditTornTail = repairTrustAuditTornTail;
 exports.recordTrustAuditEvent = recordTrustAuditEvent;
 exports.recordSandboxPathDecision = recordSandboxPathDecision;
 exports.normalizeEvidence = normalizeEvidence;
@@ -170,16 +171,17 @@ function trustAuditHead(run) {
  *  the hash after each event) must contain `expectHead`, and the log
  *  must reach `expectCount` events; a shortfall fails closed with
  *  `trust-audit-truncated`. Without an anchor, behavior is unchanged. */
-function verifyTrustAudit(run, anchor) {
-    const audit = ensureTrustAudit(run);
-    const { events, corruptLines } = readEventsRawCounted(audit.eventLogPath);
+/** Chain-walk core shared by `verifyTrustAudit` (reads from disk) and
+ *  `repairTrustAuditTornTail` (re-checks an in-memory candidate result
+ *  BEFORE ever writing it to disk). Pure — no fs. */
+function verifyEventsChain(runId, events, corruptLines, anchor) {
     const checks = [];
     let verified = corruptLines === 0;
     if (corruptLines > 0)
         checks.push({ name: "parse", pass: false, code: "trust-audit-corrupt-line" });
     let chained = 0;
     let unchained = 0;
-    let expectedPrev = trustAuditGenesis(run.id);
+    let expectedPrev = trustAuditGenesis(runId);
     const headTrail = new Set([expectedPrev]);
     for (let i = 0; i < events.length; i++) {
         const event = events[i];
@@ -222,6 +224,86 @@ function verifyTrustAudit(run, anchor) {
         }
     }
     return { present: events.length > 0, verified, eventCount: events.length, chained, unchained, corruptLines, checks };
+}
+function verifyTrustAudit(run, anchor) {
+    const audit = ensureTrustAudit(run);
+    const { events, corruptLines } = readEventsRawCounted(audit.eventLogPath);
+    return verifyEventsChain(run.id, events, corruptLines, anchor);
+}
+/** Repairs a torn TRAILING write in the audit event log — the ONE
+ *  corruption shape a crash mid-append can produce (`durableAppendFileSync`
+ *  only ever adds bytes at the current end of file, so an interruption can
+ *  only ever leave the LAST append incomplete; it can never touch earlier,
+ *  already-flushed lines). Every line is always actually parsed — the
+ *  file's trailing-newline byte says only whether the LAST WRITE
+ *  completed, nothing about whether any line parses: if a run is RESUMED
+ *  after a torn write (another event appended right after the garbled
+ *  remnant, with no separating newline of its own), the two merge into one
+ *  unparseable line and the file ends in a newline again, even though
+ *  content is still corrupt. Refuses (`outcome: "refused"`) rather than
+ *  touching anything when:
+ *   - more than one line is unparseable, or the sole bad line is NOT the
+ *     last one (not a shape a crash can produce — treated as possible
+ *     tampering, not auto-repaired);
+ *   - removing the bad trailing line still leaves an unverifiable chain,
+ *     OR (when `anchor` is given) the repaired chain doesn't reach
+ *     `anchor.expectCount`/contain `anchor.expectHead` — an anchor
+ *     captured before the corruption is the ONLY way to catch an attacker
+ *     deleting real historical events and leaving a torn-looking fragment
+ *     behind (an empty/short chain otherwise "verifies" trivially — the
+ *     same documented blind spot `verifyTrustAudit` itself has without an
+ *     anchor; this function must never launder that shape into a
+ *     confidently-"repaired" empty log).
+ *  `write: false` (default) reports what WOULD happen without touching
+ *  disk, matching this codebase's `cw state check [--write]` convention. */
+function repairTrustAuditTornTail(run, options = {}) {
+    const audit = ensureTrustAudit(run);
+    const raw = fs.readFileSync(audit.eventLogPath, "utf8");
+    const lines = raw.split("\n").filter((line) => line.trim() !== "");
+    const badIndexes = [];
+    const events = [];
+    lines.forEach((line, i) => {
+        try {
+            events.push(JSON.parse(line));
+        }
+        catch {
+            badIndexes.push(i);
+        }
+    });
+    if (badIndexes.length === 0) {
+        return { outcome: "clean", reason: "every line parses — no torn trailing write to repair" };
+    }
+    if (badIndexes.length > 1 || badIndexes[0] !== lines.length - 1) {
+        return {
+            outcome: "refused",
+            reason: "corruption is not confined to exactly the trailing line — this is not a shape a crash mid-append can produce and will not be auto-repaired (looks like tampering)",
+        };
+    }
+    // `events` already holds every line EXCEPT the one bad trailing line
+    // (JSON.parse threw for it, so nothing was pushed) — exactly the "good"
+    // set, in file order.
+    const recheck = verifyEventsChain(run.id, events, 0, options.anchor);
+    if (!recheck.verified) {
+        return {
+            outcome: "refused",
+            reason: options.anchor
+                ? "removing the torn trailing write still doesn't reach the given --expect-head/--expect-count anchor — refusing to repair (this looks like deleted history, not a crash)"
+                : "removing the torn trailing write still leaves an unverifiable chain — refusing to repair (this looks like tampering, not a crash)",
+        };
+    }
+    const removedBytes = Buffer.byteLength(lines[lines.length - 1], "utf8");
+    const repairedContent = events.length > 0 ? `${lines.slice(0, -1).join("\n")}\n` : "";
+    if (options.write) {
+        (0, fs_atomic_1.writeTextDurable)(audit.eventLogPath, repairedContent, { durable: true });
+    }
+    return {
+        outcome: "repaired",
+        reason: options.write
+            ? `removed a torn trailing write (${removedBytes} bytes) and restored a verified chain of ${events.length} event(s)`
+            : `would remove a torn trailing write (${removedBytes} bytes) and restore a verified chain of ${events.length} event(s) — pass --write to apply`,
+        removedLines: 1,
+        removedBytes,
+    };
 }
 function unique(values) {
     return Array.from(new Set(values.filter(Boolean)));

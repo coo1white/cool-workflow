@@ -10,7 +10,7 @@
 // plugins/cool-workflow/src/capability-core.ts:1223-1249.
 
 import * as path from "node:path";
-import { verifyTrustAudit, summarizeTrustAudit, listTrustAuditEvents, trustAuditHead, TrustAuditAnchor } from "./trust-audit";
+import { verifyTrustAudit, summarizeTrustAudit, listTrustAuditEvents, trustAuditHead, repairTrustAuditTornTail, TrustAuditAnchor, TrustAuditRepairResult } from "./trust-audit";
 import { loadRunFromCwd, saveCheckpoint } from "./run-store";
 import { summarizeMultiAgentTrust } from "./trust-policy-io";
 import { writeReport } from "./report";
@@ -41,19 +41,22 @@ function invocationCwd(args: Record<string, unknown>): string {
 /** Parse the optional truncation anchor off the CLI options / MCP args
  *  (`--expect-head <hash>` / `--expect-count <n>`; MCP: expectHead /
  *  expectCount). Fail-closed on a malformed count — a flag given without
- *  a usable value must never silently weaken the check it asked for. */
-function anchorOption(args: Record<string, unknown>): TrustAuditAnchor | undefined {
+ *  a usable value must never silently weaken the check it asked for.
+ *  `command` names the actual caller (`audit verify`/`audit repair`) in
+ *  the thrown message, so a bad flag always points at the command the
+ *  operator really ran. */
+function anchorOption(args: Record<string, unknown>, command = "audit verify"): TrustAuditAnchor | undefined {
   const headRaw = args["expect-head"] ?? args.expectHead;
   const countRaw = args["expect-count"] ?? args.expectCount;
   const expectHead = optionalString(headRaw);
   if (headRaw !== undefined && headRaw !== null && expectHead === undefined) {
-    throw new Error("audit verify: --expect-head requires a hash value");
+    throw new Error(`${command}: --expect-head requires a hash value`);
   }
   let expectCount: number | undefined;
   if (countRaw !== undefined && countRaw !== null) {
     const parsed = Number(countRaw);
     if (countRaw === true || !Number.isInteger(parsed) || parsed < 0) {
-      throw new Error("audit verify: --expect-count requires a non-negative integer");
+      throw new Error(`${command}: --expect-count requires a non-negative integer`);
     }
     expectCount = parsed;
   }
@@ -103,6 +106,35 @@ export function auditHeadCli(runId: string, args: Record<string, unknown>): Audi
   const run = loadRunFromCwd(runId, invocationCwd(args));
   const head = trustAuditHead(run);
   return { schemaVersion: 1, runId: run.id, eventCount: head.eventCount, headHash: head.headHash };
+}
+
+export interface AuditRepairResult extends TrustAuditRepairResult {
+  schemaVersion: 1;
+  runId: string;
+  write: boolean;
+}
+
+/** `cw audit repair <run> [--write] [--expect-head <hash>] [--expect-count <n>]`
+ *  — repairs a torn TRAILING write in the run's trust-audit event log (the
+ *  one corruption shape a crash mid-append can produce). Default is
+ *  dry-run (report only), matching this codebase's `cw state check
+ *  [--write]` convention: pass `--write` to actually replace the log on
+ *  disk. The SAME anchor flags `cw audit verify` accepts are honored here
+ *  too: without one, a truncated-then-torn log (real history deleted,
+ *  leaving only a torn-looking fragment) can "verify" as an empty chain
+ *  and be silently accepted — passing a `--expect-head`/`--expect-count`
+ *  captured before the corruption closes that hole, exactly like it does
+ *  for verify. Fails closed (outcome:"refused") when the corruption isn't
+ *  confined to exactly the trailing line, or the anchor isn't met — see
+ *  `repairTrustAuditTornTail`'s own doc comment for the full fail-closed
+ *  contract. */
+export function auditRepairCli(runId: string, args: Record<string, unknown>): AuditRepairResult {
+  if (!runId) throw new Error("audit repair requires a run id (cw audit repair <run-id>)");
+  const write = Boolean(args.write);
+  const anchor = anchorOption(args, "audit repair");
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const result = repairTrustAuditTornTail(run, { write, anchor });
+  return { schemaVersion: 1, runId: run.id, write, ...result };
 }
 
 /** MILESTONE 11 (reporting/observability, workbench audit panels) —
