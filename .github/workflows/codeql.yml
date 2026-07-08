@@ -1,0 +1,31 @@
+name: CodeQL
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1" # weekly, so new query packs still catch existing code
+
+permissions:
+  contents: read
+  security-events: write # required for CodeQL SARIF upload
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
+        with:
+          languages: javascript-typescript
+          build-mode: none # JS/TS analysis is source-based, no compile needed
+
+      - uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
