@@ -98,7 +98,15 @@ jobs:
         # Require refs/tags/$REF to exist as a real tag object, require the
         # checked-out commit to be exactly that tag's commit (blocks a same-named
         # branch standing in for the tag), and re-run the same verdict check
-        # release-gate.yml runs on tag push.
+        # release-gate.yml runs on tag push — including its signature check, if
+        # .cw-release/verdict-signing.pub is committed (see verdict-keygen.js).
+        #
+        # .cw-release/ lives at the REPO ROOT, not under this job's
+        # working-directory (plugins/cool-workflow) — anchor on
+        # `git rev-parse --show-toplevel` rather than a relative path, since a
+        # bare `.cw-release/...` here would silently resolve under
+        # plugins/cool-workflow/ and never match, failing every legitimate
+        # dispatch closed for the wrong reason.
         if: github.event_name == 'workflow_dispatch'
         run: |
           REF="$TAG_REF"
@@ -111,13 +119,25 @@ jobs:
             echo "::error::checked-out commit $HEAD_SHA does not match refs/tags/$REF ($TAG_SHA) — refusing to publish"
             exit 1
           fi
+          REPO_ROOT="$(git rev-parse --show-toplevel)"
+          PUBKEY="$REPO_ROOT/.cw-release/verdict-signing.pub"
           for C in "$HEAD_SHA" "$(git rev-parse HEAD~1 2>/dev/null || echo none)"; do
-            if [ -f ".cw-release/review-$C.verdict" ] && grep -q '^APPROVED' ".cw-release/review-$C.verdict"; then
-              echo "verdict found for $C"
-              exit 0
+            VERDICT="$REPO_ROOT/.cw-release/review-$C.verdict"
+            [ -f "$VERDICT" ] || continue
+            grep -q '^APPROVED' "$VERDICT" || continue
+            if [ -f "$PUBKEY" ]; then
+              SIG="$VERDICT.sig"
+              if [ -f "$SIG" ] && node scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
+                echo "verdict found + signature verified for $C"
+                exit 0
+              fi
+              echo "verdict for $C has no valid signature — trying the other candidate"
+              continue
             fi
+            echo "verdict found for $C (no verdict-signing.pub committed yet — signature not required)"
+            exit 0
           done
-          echo "::error::No committed APPROVED verdict for this tag. workflow_dispatch cannot be used to skip the gated release flow."
+          echo "::error::No committed APPROVED verdict for this tag (with a valid signature, if .cw-release/verdict-signing.pub is committed). workflow_dispatch cannot be used to skip the gated release flow."
           echo "::error::Expected: .cw-release/review-<sha>.verdict with first line 'APPROVED <sha>'"
           exit 1
         env:

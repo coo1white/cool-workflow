@@ -38,15 +38,31 @@ jobs:
         run: bash plugins/cool-workflow/scripts/release-gate.sh
 
       - name: Verify reviewer verdict was committed
+        # If .cw-release/verdict-signing.pub is committed (see
+        # scripts/verdict-keygen.js), ALSO require a valid ed25519 signature on
+        # the matched verdict — a plain `grep '^APPROVED'` can't tell a real
+        # reviewer verdict from a hand-written one, which is exactly the gap
+        # this closes. Until that public key exists in the repo, this is the
+        # original grep-only check, unchanged (opt-in, backward compatible).
         run: |
           SHA=$(git rev-parse HEAD^{commit})
+          PUBKEY=".cw-release/verdict-signing.pub"
           # The tag commit itself bumps version/changelog; the reviewed sha is its parent
           # Accept a verdict for HEAD or HEAD~1 to tolerate the release commit.
           for C in "$SHA" "$(git rev-parse HEAD~1 2>/dev/null || echo none)"; do
-            if [ -f ".cw-release/review-$C.verdict" ] && grep -q '^APPROVED' ".cw-release/review-$C.verdict"; then
-              echo "verdict found for $C"; exit 0
+            VERDICT=".cw-release/review-$C.verdict"
+            [ -f "$VERDICT" ] || continue
+            grep -q '^APPROVED' "$VERDICT" || continue
+            if [ -f "$PUBKEY" ]; then
+              SIG="$VERDICT.sig"
+              if [ -f "$SIG" ] && node plugins/cool-workflow/scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
+                echo "verdict found + signature verified for $C"; exit 0
+              fi
+              echo "verdict for $C has no valid signature — trying the other candidate"
+              continue
             fi
+            echo "verdict found for $C (no verdict-signing.pub committed yet — signature not required)"; exit 0
           done
-          echo "::error::No committed APPROVED verdict for this tag. The release flow was bypassed."
+          echo "::error::No committed APPROVED verdict for this tag (with a valid signature, if .cw-release/verdict-signing.pub is committed). The release flow was bypassed."
           echo "::error::Expected: .cw-release/review-<sha>.verdict with first line 'APPROVED <sha>' — auto-created by release-flow.js --cut"
           exit 1

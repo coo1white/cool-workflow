@@ -18,10 +18,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const HOOK = path.resolve(__dirname, "..", "scripts", "block-unapproved-tag.sh");
 assert.ok(fs.existsSync(HOOK), "block-unapproved-tag.sh must exist");
+const VERIFY_SCRIPT = path.resolve(__dirname, "..", "scripts", "verify-verdict-signature.js");
+assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.js must exist");
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-hook-"));
 function git(args) {
@@ -34,6 +37,12 @@ git(["config", "user.email", "t@t"]);
 git(["config", "user.name", "t"]);
 git(["config", "commit.gpgsign", "false"]);
 fs.writeFileSync(path.join(dir, "README.md"), "x\n");
+// The hook resolves the verify script at $REPO_ROOT/plugins/cool-workflow/scripts/
+// verify-verdict-signature.js — mirror that layout in this throwaway fixture so
+// the pubkey-committed cases below can actually reach it.
+const fixtureScriptsDir = path.join(dir, "plugins", "cool-workflow", "scripts");
+fs.mkdirSync(fixtureScriptsDir, { recursive: true });
+fs.copyFileSync(VERIFY_SCRIPT, path.join(fixtureScriptsDir, "verify-verdict-signature.js"));
 git(["add", "-A"]);
 git(["commit", "-q", "-m", "init"]);
 const sha = git(["rev-parse", "HEAD"]);
@@ -133,6 +142,75 @@ assert.equal(runHook({ command: "ls -la" }).code, 0, "unrelated command must be 
   clearMarkers();
   const r = runHook({ command: `git -C ${dir} tag v9.9.9` });
   assert.equal(r.code, 2, "a global flag before the tag subcommand must still be blocked");
+}
+
+// ---- Verdict signing (opt-in): once .cw-release/verdict-signing.pub is
+// committed, an APPROVED verdict with no valid signature must also block ----
+const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+const privatePem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+const publicPem = publicKey.export({ type: "spki", format: "pem" }).toString();
+function setPubkey() {
+  fs.mkdirSync(markerDir, { recursive: true });
+  fs.writeFileSync(path.join(markerDir, "verdict-signing.pub"), publicPem);
+}
+function signVerdict(verdictPath, pem) {
+  const key = crypto.createPrivateKey(pem);
+  const message = fs.readFileSync(verdictPath);
+  const signature = crypto.sign(null, message, key).toString("base64");
+  fs.writeFileSync(`${verdictPath}.sig`, `${signature}\n`);
+}
+
+// Baseline: pubkey NOT committed -> the earlier APPROVED-only case (above)
+// already proves this stays exactly grep-only. Now commit the pubkey.
+
+// ---- Pubkey committed + APPROVED verdict + valid signature -> ALLOW ----
+{
+  clearMarkers();
+  setGate();
+  setPubkey();
+  const verdictPath = path.join(markerDir, `review-${sha}.verdict`);
+  fs.writeFileSync(verdictPath, `APPROVED ${sha}\nUsers can now do X.\n`);
+  signVerdict(verdictPath, privatePem);
+  const r = runHook({ command: "git tag -a v9.9.9 -m x" });
+  assert.equal(r.code, 0, `gate + APPROVED + valid signature must allow the tag: ${r.err}`);
+}
+
+// ---- Pubkey committed + APPROVED verdict + NO signature -> BLOCK ----
+{
+  clearMarkers();
+  setGate();
+  setPubkey();
+  setVerdict(`APPROVED ${sha}\nUsers can now do X.\n`);
+  const r = runHook({ command: "git tag -a v9.9.9 -m x" });
+  assert.equal(r.code, 2, "an unsigned verdict must block once verdict-signing.pub is committed");
+  assert.match(r.err, /no valid signature/, "should explain the missing/invalid signature");
+}
+
+// ---- Pubkey committed + APPROVED verdict + TAMPERED text (stale sig) -> BLOCK ----
+{
+  clearMarkers();
+  setGate();
+  setPubkey();
+  const verdictPath = path.join(markerDir, `review-${sha}.verdict`);
+  fs.writeFileSync(verdictPath, `APPROVED ${sha}\nUsers can now do X.\n`);
+  signVerdict(verdictPath, privatePem);
+  // Tamper AFTER signing — the .sig no longer matches the bytes on disk.
+  fs.writeFileSync(verdictPath, `APPROVED ${sha}\nTAMPERED capability line.\n`);
+  const r = runHook({ command: "git tag -a v9.9.9 -m x" });
+  assert.equal(r.code, 2, "a verdict edited after signing must block (stale signature)");
+}
+
+// ---- Pubkey committed + APPROVED verdict signed with the WRONG key -> BLOCK ----
+{
+  clearMarkers();
+  setGate();
+  setPubkey();
+  const wrongKey = crypto.generateKeyPairSync("ed25519").privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+  const verdictPath = path.join(markerDir, `review-${sha}.verdict`);
+  fs.writeFileSync(verdictPath, `APPROVED ${sha}\nUsers can now do X.\n`);
+  signVerdict(verdictPath, wrongKey);
+  const r = runHook({ command: "git tag -a v9.9.9 -m x" });
+  assert.equal(r.code, 2, "a signature from a different keypair must block");
 }
 
 process.stdout.write("block-unapproved-tag-smoke: ok\n");

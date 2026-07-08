@@ -118,6 +118,33 @@ publish, and marketplace update are still separate steps you can see. Dry-run do
 mode never does them; execute-style flags must take in a clear
 target-version confirmation such as `--confirm-release-actions=0.1.24`.
 
+## Verdict Signing (optional)
+
+`grep -q '^APPROVED'` alone can't tell a real reviewer verdict from a
+hand-written one. Set up ed25519 signing once to close that gap:
+
+```bash
+node scripts/verdict-keygen.js --out-dir ~/.cw-keys
+# .cw-release/ lives at the REPO ROOT, not under plugins/cool-workflow (where
+# this checklist's cwd has been since the top) — anchor on the real root so
+# the public key lands where release-gate.yml/npm-publish.yml/
+# block-unapproved-tag.sh actually look for it, not silently under
+# plugins/cool-workflow/.cw-release/ where no verifier will ever find it.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cp ~/.cw-keys/verdict-signing.pub "$REPO_ROOT/.cw-release/verdict-signing.pub"
+git -C "$REPO_ROOT" add .cw-release/verdict-signing.pub
+git -C "$REPO_ROOT" commit -m "chore: add release-verdict signing public key"
+export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key   # keep this OFF the repo
+```
+
+Once `.cw-release/verdict-signing.pub` is committed, `release-flow.js`
+signs every verdict it writes (a `.sig` sidecar next to the `.verdict`
+file, included in the cut's verdict commit), and `release-gate.yml`,
+`npm-publish.yml`, and the local `block-unapproved-tag.sh` hook all start
+REQUIRING a valid signature on top of the existing `APPROVED` text check.
+Until that public key is committed, every check stays exactly as before
+(grep-only) — this is opt-in, not a breaking change.
+
 ## Cutting efficiently (wall-clock)
 
 The full ~4-minute test suite can run up to five times across one cut
