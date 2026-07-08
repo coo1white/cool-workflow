@@ -19,7 +19,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic";
-import { loadRunStateFile } from "./run-store";
+import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store";
 import { fingerprintStrings } from "../core/hash";
 import { LoopStage, WorkflowRun } from "../core/state/types";
 
@@ -984,6 +984,7 @@ export class RunRegistry {
     if (result.report.status === "unsupported") {
       throw new Error(`Unsupported run state for ${runId}: ${result.report.errors.join("; ")}`);
     }
+    assertNotSuspectedDataLoss(runId, result);
     return result.run;
   }
 

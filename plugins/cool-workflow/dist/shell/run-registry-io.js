@@ -734,6 +734,7 @@ class RunRegistry {
         if (result.report.status === "unsupported") {
             throw new Error(`Unsupported run state for ${runId}: ${result.report.errors.join("; ")}`);
         }
+        (0, run_store_1.assertNotSuspectedDataLoss)(runId, result);
         return result.run;
     }
     resume(runId, options = {}) {

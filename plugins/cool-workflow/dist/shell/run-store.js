@@ -49,6 +49,7 @@ exports.hashArtifactFile = hashArtifactFile;
 exports.loadRunStateFile = loadRunStateFile;
 exports.checkRunStateFile = checkRunStateFile;
 exports.migrateRunStateFile = migrateRunStateFile;
+exports.assertNotSuspectedDataLoss = assertNotSuspectedDataLoss;
 exports.loadRunFromCwd = loadRunFromCwd;
 exports.withRunStateLock = withRunStateLock;
 exports.saveCheckpoint = saveCheckpoint;
@@ -98,10 +99,72 @@ function migrateRunStateFile(statePath, options = {}) {
     }
     return result;
 }
+/** ONLY tasksDir/commitsDir (plus the audit event log, checked separately
+ *  below) — deliberately NOT every directory a run's `paths` can carry.
+ *  Verified empirically (via test/run-fixture-compat-smoke.js's real
+ *  fixtures) that several other candidate directories are unsafe signals:
+ *  a plain `cw status`/`cw graph` READ already writes cache/derived files
+ *  as a side effect — `audit/summary.json` + `audit/index.json`
+ *  (summarizeTrustAudit, called from the status/report path) are non-empty
+ *  the moment ANY read touches the run, and `blackboard/`/`candidates/`/
+ *  `topologies/` subdirectories get created (though left empty) the same
+ *  way. Using those as "real content" signals would refuse to load a
+ *  perfectly healthy, merely-already-viewed-once run — report.md is the
+ *  same story (a derived rendering of state, not independent evidence).
+ *  tasksDir/commitsDir are the two directories confirmed to hold content
+ *  ONLY from genuine task-dispatch/commit actions, never from an
+ *  otherwise-read-only command. */
+function contentDirs(paths) {
+    return [paths.tasksDir, paths.commitsDir];
+}
+/** True when the run directory already holds real task/commit files, or a
+ *  non-empty audit event log — i.e. this was NOT a brand-new run dir. Used
+ *  only to corroborate `report.suspectedDataLoss`: a bare
+ *  `{workflow, paths}`-less state.json is unremarkable for a run dir that
+ *  has nothing else in it either (e.g. a run whose creation crashed before
+ *  anything else was written), but is a strong corruption signal when real
+ *  content already sits next to it. A directory entry must not START WITH
+ *  "." to count — cw never writes dot-prefixed names into these
+ *  directories, so incidental filesystem debris (a stray `.DS_Store`) never
+ *  by itself makes a genuinely fresh run look corrupted. */
+function hasPreexistingRunContent(run) {
+    for (const dir of contentDirs(run.paths)) {
+        try {
+            if (fs.readdirSync(dir).some((name) => !name.startsWith(".")))
+                return true;
+        }
+        catch {
+            /* missing dir — not a signal either way */
+        }
+    }
+    try {
+        const eventLogPath = run.audit?.eventLogPath;
+        if (eventLogPath && fs.statSync(eventLogPath).size > 0)
+            return true;
+    }
+    catch {
+        /* missing/empty audit log — not a signal */
+    }
+    return false;
+}
+/** Throws when `result.report.suspectedDataLoss` is true AND the run
+ *  directory already has real content on disk — see
+ *  `hasPreexistingRunContent`. Shared by every state.json reader
+ *  (`loadRunFromCwd` here, `RunRegistry.loadRun` in run-registry-io.ts) so
+ *  a corrupted/wiped state.json is refused the same way regardless of
+ *  which entry point reached it. */
+function assertNotSuspectedDataLoss(runId, result) {
+    if (result.report.suspectedDataLoss && hasPreexistingRunContent(result.run)) {
+        throw new Error(`Refusing to load run ${runId}: state.json is missing its core fields (workflow, paths), but the run directory already has task, commit, or other content on disk. This looks like state.json was corrupted, truncated, or replaced by something outside cw, not a new run. Restore state.json from a backup, or remove the run directory to start over.`);
+    }
+}
 /** Refuses an empty id with `Missing run id`; loads
  *  `<cwd>/.cw/runs/<runId>/state.json` (dry-run — never writes); throws
  *  `Unsupported CW run state: <errors joined by "; ">` on an unsupported
- *  verdict; else returns the migrated WorkflowRun in memory. */
+ *  verdict; refuses a state.json that lost its core fields (workflow,
+ *  paths) while the run dir still has real content next to it, rather than
+ *  silently returning it as a fresh empty run; else returns the migrated
+ *  WorkflowRun in memory. */
 function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (!runId)
         throw new Error("Missing run id");
@@ -111,6 +174,7 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (result.report.status === "unsupported") {
         throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
     }
+    assertNotSuspectedDataLoss(runId, result);
     return result.run;
 }
 /** Hold the state.json lock over a WHOLE load -> change -> save cycle.

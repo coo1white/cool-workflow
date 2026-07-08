@@ -28,7 +28,11 @@ const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-verify-"));
 const runId = "audit-verify-run";
 const runDir = path.join(cwd, ".cw", "runs", runId);
 fs.mkdirSync(runDir, { recursive: true });
-fs.writeFileSync(path.join(runDir, "state.json"), JSON.stringify({ id: runId, schemaVersion: 1 }));
+// workflow/paths (even empty) must be present — a real run always has both
+// from creation onward; a state.json missing both, next to a run dir that
+// already has real audit content, now trips loadRunFromCwd's
+// suspected-data-loss guard (by design: see statecore-suspected-data-loss).
+fs.writeFileSync(path.join(runDir, "state.json"), JSON.stringify({ id: runId, schemaVersion: 1, workflow: {}, paths: {} }));
 
 // (1) Absent chain -> nothing to prove -> present:false / verified:true / exit 0.
 let r = runCli(cwd, ["audit", "verify", runId, "--json"]);
