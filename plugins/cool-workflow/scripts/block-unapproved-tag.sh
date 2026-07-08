@@ -16,8 +16,12 @@ INPUT="$(cat)"
 CMD="$(printf '%s' "$INPUT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s)?.tool_input?.command||""))}catch{process.stdout.write("")}})' 2>/dev/null)"
 [[ -z "$CMD" ]] && exit 0
 
-# Only care about tag creation / tag push
-if ! printf '%s' "$CMD" | grep -qE 'git\s+tag\s+(-a\s+)?v|git\s+push\b.*(--tags|refs/tags)'; then
+# Only care about tag creation / tag push. Widened from the original pattern,
+# which missed the single most natural bypass form: `git push origin v0.2.3`
+# (a bare tag-shaped ref, no --tags flag and no refs/tags/ prefix) matched
+# neither side of the old alternation. Also now tolerates a global flag before
+# the tag subcommand (`git -C dir tag ...`) and the `--annotate` long form.
+if ! printf '%s' "$CMD" | grep -qE 'git(\s+-[A-Za-z]+\s+\S+)*\s+tag\s+(-a\s+|--annotate\s+)?v[0-9]|git\s+push\b.*(--tags|refs/tags|[[:space:]]v[0-9])'; then
   exit 0
 fi
 

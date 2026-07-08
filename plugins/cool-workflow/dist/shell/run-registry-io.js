@@ -695,6 +695,7 @@ class RunRegistry {
         };
     }
     locate(runId, scope) {
+        (0, fs_atomic_1.assertSafeRunId)(runId);
         const here = this.deriveRecordForRun(this.repoRoot, runId);
         if (here)
             return { record: here, from: "repo" };
@@ -725,6 +726,7 @@ class RunRegistry {
         return undefined;
     }
     loadRun(repo, runId) {
+        (0, fs_atomic_1.assertSafeRunId)(runId);
         const statePath = path.join(this.repoRunsDir(repo), runId, "state.json");
         if (!fs.existsSync(statePath))
             throw new Error(`Run not found: ${runId}`);

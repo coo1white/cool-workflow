@@ -29,8 +29,10 @@ jobs:
         # stays `npm install --no-package-lock`, same as .github/workflows/
         # ci.yml, since this package has zero runtime dependencies -- a lock
         # buys no reproducibility here that the empty dependency list doesn't
-        # already give for free.
-        run: npm install --no-package-lock --prefix plugins/cool-workflow
+        # already give for free. --ignore-scripts: this job runs release-gate.sh
+        # and eventually feeds the publish job's OIDC-privileged install; a
+        # poisoned transitive install script must not get to run here either.
+        run: npm install --no-package-lock --ignore-scripts --prefix plugins/cool-workflow
 
       - name: Run deterministic release gate
         run: bash plugins/cool-workflow/scripts/release-gate.sh

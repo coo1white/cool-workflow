@@ -26,14 +26,21 @@ jobs:
         # Release (with changelog notes) before the tag push reached CI. If so,
         # skip — making it again is an HTTP 422 "tag_name already exists" and a
         # false red run. Only create when no Release exists for this tag yet.
+        #
+        # REF_NAME goes through env:, not a raw ${{ }} substitution into the
+        # script text — a tag name can contain shell metacharacters ($, `, ;,
+        # (), etc; GitHub ref names forbid spaces but not those), and `${{ }}`
+        # is textual substitution, not shell-quoted. Routing it through env:
+        # and referencing "$REF_NAME" lets the shell quote it safely instead.
         run: |
-          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
-            echo "Release ${{ github.ref_name }} already exists — nothing to do."
+          if gh release view "$REF_NAME" >/dev/null 2>&1; then
+            echo "Release $REF_NAME already exists — nothing to do."
           else
-            gh release create "${{ github.ref_name }}" \
-              --title "${{ github.ref_name }}" \
+            gh release create "$REF_NAME" \
+              --title "$REF_NAME" \
               --generate-notes \
               --verify-tag
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF_NAME: ${{ github.ref_name }}

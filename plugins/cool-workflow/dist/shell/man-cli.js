@@ -47,6 +47,7 @@ exports.ManPageNotFoundError = void 0;
 exports.readManPage = readManPage;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const fs_atomic_1 = require("./fs-atomic");
 class ManPageNotFoundError extends Error {
     topic;
     constructor(topic) {
@@ -77,6 +78,11 @@ function readManPage(topic) {
     const docsDir = path.join(pluginRoot(), "docs");
     const candidates = [path.join(docsDir, `${topic}.7.md`), path.join(docsDir, `${topic}.md`), path.join(docsDir, topic)];
     for (const candidate of candidates) {
+        // A topic containing `..` or an absolute-path escape must never resolve
+        // outside docsDir — this bare third candidate would otherwise read any
+        // file on disk (e.g. `cw man ../../../../etc/passwd`).
+        if (!(0, fs_atomic_1.isContainedPath)(candidate, docsDir))
+            continue;
         try {
             if (fs.statSync(candidate).isFile())
                 return fs.readFileSync(candidate, "utf8");

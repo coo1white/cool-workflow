@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-08 by `npm run sync:projec
 - Source modules: `145`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `181`
+- Smoke tests: `182`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -357,6 +357,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [ledger-resolution-smoke.js](../test/ledger-resolution-smoke.js)
 - [ledger-verify-smoke.js](../test/ledger-verify-smoke.js)
 - [loop-bounded-expansion-smoke.js](../test/loop-bounded-expansion-smoke.js)
+- [man-run-registry-traversal-smoke.js](../test/man-run-registry-traversal-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
 - [mcp-surface-registry-smoke.js](../test/mcp-surface-registry-smoke.js)
 - [mcp-tool-call-coverage-smoke.js](../test/mcp-tool-call-coverage-smoke.js)

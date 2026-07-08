@@ -69,12 +69,16 @@ export function replayNodeSnapshot(
   });
 }
 
-/** Scans every dir under `nodes/snapshots/` for `<snapshotId>.json`. */
+/** Scans every dir under `nodes/snapshots/` for `<snapshotId>.json`. Runs
+ *  `snapshotId` through `safeFileName` first (matching every write-side path
+ *  segment in this file) so a traversal-shaped id can never escape `nodeDir`
+ *  into an arbitrary file elsewhere on disk. */
 export function readNodeSnapshot(run: WorkflowRun, snapshotId: string): NodeSnapshot {
   const root = snapshotsRoot(run);
+  const safeId = safeFileName(snapshotId);
   if (fs.existsSync(root)) {
     for (const nodeDir of fs.readdirSync(root)) {
-      const file = path.join(root, nodeDir, `${snapshotId}.json`);
+      const file = path.join(root, nodeDir, `${safeId}.json`);
       if (fs.existsSync(file)) return validateNodeSnapshot(JSON.parse(fs.readFileSync(file, "utf8")));
     }
   }
@@ -83,12 +87,14 @@ export function readNodeSnapshot(run: WorkflowRun, snapshotId: string): NodeSnap
   });
 }
 
-/** Scans every dir under `nodes/snapshots/<nodeDir>/replays/` for `<replayId>.json`. */
+/** Scans every dir under `nodes/snapshots/<nodeDir>/replays/` for
+ *  `<replayId>.json`. Same `safeFileName` guard as `readNodeSnapshot`. */
 export function readNodeReplay(run: WorkflowRun, replayId: string): NodeReplayRun {
   const root = snapshotsRoot(run);
+  const safeId = safeFileName(replayId);
   if (fs.existsSync(root)) {
     for (const nodeDir of fs.readdirSync(root)) {
-      const file = path.join(root, nodeDir, "replays", `${replayId}.json`);
+      const file = path.join(root, nodeDir, "replays", `${safeId}.json`);
       if (fs.existsSync(file)) return validateNodeReplayRun(JSON.parse(fs.readFileSync(file, "utf8")));
     }
   }

@@ -31,7 +31,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: ${{ matrix.node-version }}
-      - run: npm install --no-package-lock
+      - run: npm install --no-package-lock --ignore-scripts
+      # Zero runtime deps means this only ever audits the 3 devDependencies
+      # (typescript, @types/node, undici-types), but a high/critical advisory
+      # in any of them still runs in CI and in every contributor's install —
+      # fail closed rather than finding out from an external report.
+      - run: npm audit --audit-level=high
       - run: npm run build
       # Committed dist/ must equal a fresh build of src/ (fail closed on drift).
       # `git status --porcelain` catches modified AND added/deleted dist files;

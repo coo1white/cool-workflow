@@ -108,4 +108,31 @@ assert.equal(runHook({ command: "ls -la" }).code, 0, "unrelated command must be 
   assert.equal(r.code, 2, "tag push with no markers must be blocked");
 }
 
+// ---- Bare tag-name push is also gated (previously a regex gap: the old
+// pattern required --tags or refs/tags/ literally in the command, so the
+// single most natural form `git push origin v0.2.3` slipped through) ----
+{
+  clearMarkers();
+  const r = runHook({ command: "git push origin v0.2.3" });
+  assert.equal(r.code, 2, "a bare tag-shaped ref push with no markers must be blocked");
+}
+{
+  // A normal branch push must stay allowed (no false-positive widening).
+  const r = runHook({ command: "git push origin release/v0.2.2-verdict" });
+  assert.equal(r.code, 0, "pushing a branch whose name merely contains v<digits> must stay allowed");
+}
+
+// ---- --annotate long form and a global flag before the subcommand are also
+// gated (previously missed: only `-a` short form and bare `git tag` matched) ----
+{
+  clearMarkers();
+  const r = runHook({ command: "git tag --annotate v9.9.9 -m x" });
+  assert.equal(r.code, 2, "--annotate long form with no markers must be blocked");
+}
+{
+  clearMarkers();
+  const r = runHook({ command: `git -C ${dir} tag v9.9.9` });
+  assert.equal(r.code, 2, "a global flag before the tag subcommand must still be blocked");
+}
+
 process.stdout.write("block-unapproved-tag-smoke: ok\n");

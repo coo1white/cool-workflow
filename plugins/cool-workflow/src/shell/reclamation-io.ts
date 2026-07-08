@@ -30,7 +30,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { realResolve, withFileLock, writeJson } from "./fs-atomic";
+import { isContainedPath, realResolve, withFileLock, writeJson } from "./fs-atomic";
 import { recordTrustAuditEvent, listTrustAuditEvents } from "./trust-audit";
 import { snapshotNode } from "./node-store";
 import { loadNodeSnapshot } from "../core/state/node-snapshot";
@@ -790,6 +790,16 @@ export function freeBulk(run: WorkflowRun, tombstone: ReclamationTombstone): num
   let freedBytes = 0;
   for (const entry of tombstone.freed) {
     const abs = path.join(runDir, entry.path);
+    // planReclamation always derives entry.path as a relative path already
+    // confined under runDir, but a tampered/imported state.json could carry a
+    // worker/artifact path that resolves outside it — re-check containment
+    // right before the recursive delete so that can never turn into an
+    // out-of-tree rmSync.
+    if (!isContainedPath(abs, runDir)) {
+      throw new ReclamationError("unsafe-free-path", `refusing to free path outside the run directory: ${entry.path}`, {
+        path: entry.path,
+      });
+    }
     const before = dirBytes(abs);
     fs.rmSync(abs, { recursive: true, force: true });
     freedBytes += before;
