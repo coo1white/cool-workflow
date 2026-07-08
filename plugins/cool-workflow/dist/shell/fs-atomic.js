@@ -64,7 +64,10 @@ let atomicWriteCounter = 0;
 function writeJson(file, value, options = {}) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = `${file}.tmp.${process.pid}.${atomicWriteCounter++}`;
-    const fd = fs.openSync(tmp, "w");
+    // 0o600: this is run/ledger/registry state, not a file meant to be shared
+    // with other local users. rename(2) preserves the mode set at creation, so
+    // this covers the final file too.
+    const fd = fs.openSync(tmp, "w", 0o600);
     try {
         fs.writeFileSync(fd, `${JSON.stringify(value, null, 2)}\n`, "utf8");
         if (options.durable)
@@ -172,7 +175,7 @@ function isContainedPath(candidate, allowed) {
 // ---------------------------------------------------------------------------
 function durableAppendFileSync(file, data) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    const fd = fs.openSync(file, "a");
+    const fd = fs.openSync(file, "a", 0o600);
     try {
         fs.writeFileSync(fd, data, "utf8");
         fs.fsyncSync(fd);
@@ -222,7 +225,7 @@ function withFileLock(targetPath, fn) {
     let acquired = false;
     for (let attempt = 0; attempt < 240 && !acquired; attempt++) {
         try {
-            const fd = fs.openSync(lock, "wx");
+            const fd = fs.openSync(lock, "wx", 0o600);
             fs.writeFileSync(fd, `${pid}@${new Date().toISOString()}\n`, "utf8");
             fs.closeSync(fd);
             acquired = true;

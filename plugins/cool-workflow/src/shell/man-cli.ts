@@ -11,6 +11,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { isContainedPath } from "./fs-atomic";
 
 export class ManPageNotFoundError extends Error {
   constructor(public readonly topic: string) {
@@ -39,6 +40,10 @@ export function readManPage(topic: string): string {
   const docsDir = path.join(pluginRoot(), "docs");
   const candidates = [path.join(docsDir, `${topic}.7.md`), path.join(docsDir, `${topic}.md`), path.join(docsDir, topic)];
   for (const candidate of candidates) {
+    // A topic containing `..` or an absolute-path escape must never resolve
+    // outside docsDir — this bare third candidate would otherwise read any
+    // file on disk (e.g. `cw man ../../../../etc/passwd`).
+    if (!isContainedPath(candidate, docsDir)) continue;
     try {
       if (fs.statSync(candidate).isFile()) return fs.readFileSync(candidate, "utf8");
     } catch {

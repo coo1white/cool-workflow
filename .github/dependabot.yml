@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # The only package.json in the repo (zero runtime deps; devDependencies are
+  # typescript, @types/node, undici-types).
+  - package-ecosystem: "npm"
+    directory: "/plugins/cool-workflow"
+    schedule:
+      interval: "weekly"
+
+  # Keep the pinned-by-SHA actions in .github/workflows/ current. Dependabot
+  # opens a PR for review — it does not auto-merge — so this does not weaken
+  # the "actions pinned by commit SHA" property in npm-publish.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

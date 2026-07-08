@@ -124,6 +124,9 @@ function main() {
     assert.ok(prompt.includes(RESULT_CONTRACT), "claude receives the shared canonical contract (no provider drift)");
     const allowed = argv[argv.indexOf("--allowedTools") + 1];
     assert.ok(allowed && !/write/i.test(allowed), `claude stays READ-ONLY (no Write tool): ${allowed}`);
+    // Bash is not read-only either — an allowlist that grants it would let a
+    // prompt-injected model run arbitrary shell despite the "read-only" claim.
+    assert.ok(allowed && !/\bbash\b/i.test(allowed), `claude stays READ-ONLY (no Bash tool): ${allowed}`);
     assert.equal(argv[argv.indexOf("--output-format") + 1], "stream-json", "default wrapper uses stream-json mode by default");
 
     assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "claude's result markdown persisted to result.md by the wrapper");

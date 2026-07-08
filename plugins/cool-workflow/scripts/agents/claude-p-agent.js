@@ -50,7 +50,7 @@ const traceEnabled = streamEnabled && Boolean(process.stderr.isTTY);
 if (!streamEnabled) {
   // Legacy default: --output-format json and verbatim stdout forwarding. This is
   // the public wrapper contract existing users already scripted against.
-  const child = spawnSync("claude", ["-p", prompt, "--output-format", "json", "--allowedTools", "Read,Grep,Glob,Bash"], {
+  const child = spawnSync("claude", ["-p", prompt, "--output-format", "json", "--allowedTools", "Read,Grep,Glob"], {
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
     shell: false
@@ -100,7 +100,7 @@ const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
 // non-zero exit.
 const child = spawn(
   "claude",
-  ["-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", "Read,Grep,Glob,Bash"],
+  ["-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", "Read,Grep,Glob"],
   { stdio: ["ignore", "pipe", "pipe"] }
 );
 

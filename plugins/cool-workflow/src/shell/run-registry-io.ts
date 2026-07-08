@@ -18,7 +18,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { readJson, withFileLock, writeJson } from "./fs-atomic";
+import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic";
 import { loadRunStateFile } from "./run-store";
 import { fingerprintStrings } from "../core/hash";
 import { LoopStage, WorkflowRun } from "../core/state/types";
@@ -949,6 +949,7 @@ export class RunRegistry {
   }
 
   locate(runId: string, scope: "repo" | "home"): { record: RunRecord; from: "repo" | "home" } | undefined {
+    assertSafeRunId(runId);
     const here = this.deriveRecordForRun(this.repoRoot, runId);
     if (here) return { record: here, from: "repo" };
     if (scope === "repo") return undefined;
@@ -976,6 +977,7 @@ export class RunRegistry {
   }
 
   loadRun(repo: string, runId: string): WorkflowRun {
+    assertSafeRunId(runId);
     const statePath = path.join(this.repoRunsDir(repo), runId, "state.json");
     if (!fs.existsSync(statePath)) throw new Error(`Run not found: ${runId}`);
     const result = loadRunStateFile(statePath, { dryRun: true });
