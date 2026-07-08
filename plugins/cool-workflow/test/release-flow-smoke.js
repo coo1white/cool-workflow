@@ -18,10 +18,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const FLOW = path.resolve(__dirname, "..", "scripts", "release-flow.js");
 assert.ok(fs.existsSync(FLOW), "release-flow.js must exist");
+const VERIFY_SCRIPT = path.resolve(__dirname, "..", "scripts", "verify-verdict-signature.js");
+assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.js must exist");
 
 // ---- red line (static): the orchestrator spawns shell:false and embeds no
 // model SDK / API key. Mirrors quickstart-smoke.js's guard.
@@ -69,7 +72,7 @@ process.exit(0);
   return stub;
 }
 
-function runFlow(dir, { agentCmd, fileCommand } = {}) {
+function runFlow(dir, { agentCmd, fileCommand, extraEnv } = {}) {
   // Self-hermetic env, correct whether this smoke runs bare (`node
   // test/release-flow-smoke.js`) or under run-all.js's sandbox:
   //   - CW_NO_AUTO_AGENT=1 stops resolveAgentConfig() from auto-detecting a real
@@ -90,7 +93,12 @@ function runFlow(dir, { agentCmd, fileCommand } = {}) {
   };
   delete env.CW_AGENT_COMMAND;
   delete env.CW_AGENT_ENDPOINT;
+  // A developer's own shell should never leak a real signing key into a
+  // sandboxed test run — every case gets this unset unless it opts in via
+  // extraEnv below.
+  delete env.CW_RELEASE_VERDICT_PRIVKEY;
   if (agentCmd !== undefined) env.CW_AGENT_COMMAND = agentCmd;
+  if (extraEnv) Object.assign(env, extraEnv);
   if (fileCommand !== undefined) {
     // Write the durable agent-config.json the way a builtin: expansion (or a
     // hand-written file) leaves it: a SINGLE multi-token `command` string with NO
@@ -533,6 +541,113 @@ function releaseFixture() {
   const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, env);
   assert.equal(r.code, 0, `escape hatch lets the cut proceed:\n${r.err}\n${r.out}`);
   assert.match(r.out, /vendor preflight — SKIPPED via CW_SKIP_VENDOR_PREFLIGHT/, "escape hatch is reported");
+}
+
+// ---- Verdict signing (opt-in — see scripts/verdict-keygen.js) --------------
+// NOTE: every case here uses --check (or --cut --dry-run, which signs BEFORE
+// cut()'s dry-run short-circuit) — never a real --cut. A non-dry-run --cut
+// runs `npm run bump:version`/`sync:project-index` against pluginRoot (the
+// REAL plugins/cool-workflow checkout, resolved from release-flow.js's own
+// __dirname, not the fixture), which would mutate this actual working tree.
+// Every existing --cut case in this file is --dry-run for the same reason;
+// the git-add-the-.sig-sidecar line inside cut() is verified by inspection
+// (it mirrors the adjacent, already-covered git-add-the-verdict line exactly).
+{
+  const dir = fixture();
+  const keyPath = path.join(dir, "verdict-signing.key");
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+  fs.writeFileSync(keyPath, privateKey.export({ type: "pkcs8", format: "pem" }));
+  const pubPem = publicKey.export({ type: "spki", format: "pem" }).toString();
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const verdictPath = path.join(dir, ".cw-release", `review-${sha}.verdict`);
+  const sigPath = `${verdictPath}.sig`;
+  const pubPath = path.join(dir, "verdict-signing.pub");
+  fs.writeFileSync(pubPath, pubPem);
+
+  // ---- Case: CW_RELEASE_VERDICT_PRIVKEY set -> .sig written + verifies ----
+  {
+    const stub = writeStub(dir);
+    const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} APPROVED`, extraEnv: { CW_RELEASE_VERDICT_PRIVKEY: keyPath } });
+    assert.equal(r.code, 0, `signed APPROVED check should pass:\n${r.err}\n${r.out}`);
+    assert.match(r.out, /verdict signed/, "flow should report the verdict was signed");
+    assert.ok(fs.existsSync(sigPath), ".sig sidecar must be written next to the verdict");
+    const verify = spawnSync("node", [VERIFY_SCRIPT, verdictPath, sigPath, pubPath], { encoding: "utf8" });
+    assert.equal(verify.status, 0, `verify-verdict-signature.js must accept a real signature: ${verify.stderr}`);
+  }
+
+  // ---- Case: verdict edited after signing -> verification now fails ----
+  // (proves the signature covers the verdict CONTENT, not just its existence)
+  {
+    fs.writeFileSync(verdictPath, `APPROVED ${sha}\nTAMPERED capability line.\n`);
+    const verify = spawnSync("node", [VERIFY_SCRIPT, verdictPath, sigPath, pubPath], { encoding: "utf8" });
+    assert.notEqual(verify.status, 0, "a verdict tampered after signing must fail signature verification");
+  }
+
+  // ---- Case: CW_RELEASE_VERDICT_PRIVKEY NOT set -> no .sig, unchanged default ----
+  {
+    fs.rmSync(path.join(dir, ".cw-release"), { recursive: true, force: true });
+    const stub = writeStub(dir);
+    const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} APPROVED` });
+    assert.equal(r.code, 0, `unsigned APPROVED check should still pass:\n${r.err}\n${r.out}`);
+    assert.doesNotMatch(r.out, /verdict signed/, "flow must not claim signing when no key is configured");
+    assert.ok(!fs.existsSync(sigPath), "no .sig sidecar without CW_RELEASE_VERDICT_PRIVKEY (opt-in, backward compatible)");
+  }
+
+  // ---- Case: CW_RELEASE_VERDICT_PRIVKEY points at garbage -> fail closed ----
+  {
+    fs.rmSync(path.join(dir, ".cw-release"), { recursive: true, force: true });
+    const badKeyPath = path.join(dir, "not-a-key.txt");
+    fs.writeFileSync(badKeyPath, "this is not a PEM key\n");
+    const stub = writeStub(dir);
+    const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} APPROVED`, extraEnv: { CW_RELEASE_VERDICT_PRIVKEY: badKeyPath } });
+    assert.notEqual(r.code, 0, "a misconfigured signing key must fail closed, not silently emit an unsigned verdict");
+    assert.match(r.err, /failed to sign the verdict/, "should explain the signing failure");
+  }
+
+  // ---- Case: CW_RELEASE_VERDICT_PRIVKEY is a real PEM key but the WRONG
+  // algorithm (RSA, not ed25519) -> fail closed at signing time -----------
+  // node:crypto's crypto.sign(null, ...) does NOT throw for an RSA/EC key; it
+  // silently signs with that algorithm's own default digest, producing a
+  // syntactically valid .sig that could never verify against the committed
+  // ed25519 public key. Without this check the operator would only find out
+  // at CI (or never, if no pubkey is committed yet) instead of right here.
+  {
+    fs.rmSync(path.join(dir, ".cw-release"), { recursive: true, force: true });
+    const rsaKeyPath = path.join(dir, "rsa.key");
+    const rsaKey = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
+    fs.writeFileSync(rsaKeyPath, rsaKey.export({ type: "pkcs8", format: "pem" }));
+    const stub = writeStub(dir);
+    const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} APPROVED`, extraEnv: { CW_RELEASE_VERDICT_PRIVKEY: rsaKeyPath } });
+    assert.notEqual(r.code, 0, "a non-ed25519 key must fail closed, not produce a signature that can never verify");
+    assert.match(r.err, /not ed25519/, "should name the wrong key type");
+    assert.ok(!fs.existsSync(sigPath), "no .sig sidecar must be written for a rejected key type");
+  }
+
+  // ---- Case: signing happens even under --cut --dry-run (before the
+  // dry-run short-circuit inside cut()), proving the ordering is sign-first ----
+  {
+    fs.rmSync(path.join(dir, ".cw-release"), { recursive: true, force: true });
+    const stub = writeStub(dir);
+    const home = path.join(dir, ".cw-home");
+    const env = {
+      ...process.env,
+      CW_RELEASE_FLOW_GATE_CMD: "true",
+      // --cut runs the LIVE vendor preflight unless skipped; the other --cut
+      // cases in this file all stub or skip it the same way.
+      CW_SKIP_VENDOR_PREFLIGHT: "1",
+      STUB_SHA: sha,
+      CW_NO_AUTO_AGENT: "1",
+      CW_HOME: home,
+      XDG_STATE_HOME: home,
+      CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`,
+      CW_RELEASE_VERDICT_PRIVKEY: keyPath
+    };
+    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, env);
+    assert.equal(r.code, 0, `signed --cut --dry-run should pass:\n${r.err}\n${r.out}`);
+    assert.ok(fs.existsSync(sigPath), "signing runs before cut()'s dry-run short-circuit");
+    const verify = spawnSync("node", [VERIFY_SCRIPT, verdictPath, sigPath, pubPath], { encoding: "utf8" });
+    assert.equal(verify.status, 0, "the --cut --dry-run signature must also verify");
+  }
 }
 
 process.stdout.write("release-flow-smoke: ok\n");

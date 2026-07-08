@@ -45,12 +45,21 @@ let checks = 0;
     /git\(\s*\[\s*"add"\s*,\s*"--"\s*,\s*path\.relative\(repoRoot,\s*resultPath\)\s*\]/.test(src),
     "release-flow.js cut() must explicitly add the verdict file (the only new path it may commit)"
   );
+  // The .sig sidecar (verdict signing, opt-in) must ride in the SAME commit as
+  // the verdict when present — every --cut test case is --dry-run (it would
+  // corrupt this real working tree otherwise, see release-flow-smoke.js's
+  // header), so this static guard is the ONLY thing that would catch a future
+  // edit silently dropping or breaking this line.
+  assert.ok(
+    /git\(\s*\[\s*"add"\s*,\s*"--"\s*,\s*path\.relative\(repoRoot,\s*sigPath\)\s*\]/.test(src),
+    "release-flow.js cut() must explicitly add the verdict's .sig sidecar when it exists"
+  );
   // The atomic push protects against a half-pushed main (commit lands, tag does not).
   assert.ok(
     /push"\s*,\s*"--atomic"/.test(src),
     "release-flow.js cut() must push HEAD and the tag atomically (`git push --atomic`)"
   );
-  checks += 4;
+  checks += 5;
 }
 
 // ---- Guard 2: npm-publish.yml ordering + tag derivation ----------------------

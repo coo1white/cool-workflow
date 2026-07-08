@@ -31,6 +31,17 @@
 //   Both release-flow.js --cut and CI's release-gate.yml verify this exact path and
 //   format. The file MUST be committed to the tag's history.
 //
+// VERDICT SIGNING (optional, opt-in — see scripts/verdict-keygen.js):
+//   Set CW_RELEASE_VERDICT_PRIVKEY (a path or inline PEM) and this script signs
+//   the verdict file's exact bytes, writing a sidecar
+//   .cw-release/review-<FULLSHA>.verdict.sig (base64 ed25519). Once
+//   .cw-release/verdict-signing.pub is committed to the repo, release-gate.yml,
+//   npm-publish.yml, and block-unapproved-tag.sh all start REQUIRING a valid
+//   signature in addition to the APPROVED text check — closing the gap where
+//   anyone with shell access could hand-write a passing verdict file. Until
+//   that public key is committed, every check stays exactly as before
+//   (grep-only) — this is inert by default, never a silent behavior change.
+//
 // Test seams (smoke/operator only, never the delegated agent):
 //   CW_RELEASE_FLOW_GATE_CMD  overrides the deterministic gate command
 //     (default: `bash <thisdir>/release-gate.sh`) so the smoke can exercise the
@@ -48,6 +59,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const https = require("node:https");
 const http = require("node:http");
+const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const scriptsDir = __dirname;
@@ -364,6 +376,46 @@ function verifyVerdict(resultPath) {
   return cap;
 }
 
+// ---- verdict signing (optional, opt-in — see the header comment) -----------
+function resolveVerdictPrivateKey(value) {
+  const trimmed = String(value).trim();
+  if (trimmed.includes("BEGIN") && trimmed.includes("KEY")) return trimmed;
+  if (fs.existsSync(trimmed)) return fs.readFileSync(trimmed, "utf8");
+  die(`CW_RELEASE_VERDICT_PRIVKEY does not point to a readable key file or inline PEM: ${trimmed}`);
+}
+
+/** Called only after verifyVerdict() has confirmed resultPath's bytes are a
+ *  genuine "APPROVED <HEAD>" verdict. A no-op unless CW_RELEASE_VERDICT_PRIVKEY
+ *  is set. When it IS set, a signing failure fails closed (die()) rather than
+ *  silently emitting an unsigned verdict — an operator who deliberately
+ *  configured a signing key should never end up with the same on-disk state
+ *  as one who didn't. */
+function signVerdictIfConfigured(resultPath) {
+  const raw = process.env.CW_RELEASE_VERDICT_PRIVKEY;
+  if (!raw || !raw.trim()) return;
+  const pem = resolveVerdictPrivateKey(raw);
+  const sigPath = `${resultPath}.sig`;
+  try {
+    const key = crypto.createPrivateKey(pem);
+    // crypto.sign(null, ...) does NOT throw for an RSA or EC key — it silently
+    // signs with that algorithm's own default digest, producing a
+    // syntactically valid signature that can never verify against the
+    // committed ed25519 public key. Catching that here, at signing time,
+    // means a misconfigured key dies closed locally instead of only being
+    // caught later by CI (or not at all, if the repo hasn't committed
+    // verdict-signing.pub yet).
+    if (key.asymmetricKeyType !== "ed25519") {
+      die(`CW_RELEASE_VERDICT_PRIVKEY is a ${key.asymmetricKeyType || "unknown"} key, not ed25519 — generate one with scripts/verdict-keygen.js`);
+    }
+    const message = fs.readFileSync(resultPath);
+    const signature = crypto.sign(null, message, key).toString("base64");
+    fs.writeFileSync(sigPath, `${signature}\n`);
+  } catch (error) {
+    die(`failed to sign the verdict with CW_RELEASE_VERDICT_PRIVKEY: ${error.message}`);
+  }
+  say(`verdict signed → ${path.relative(repoRoot, sigPath)}`);
+}
+
 // ---- GitHub Release (optional, presentation/distribution) ------------------
 // NOT a correctness gate: the load-bearing artifacts (the tag + the
 // provenance-attested npm publish) already exist when this runs. So `gh` is NOT
@@ -522,9 +574,12 @@ function cut(resultPath, capability) {
   // operator's local home path) must never ride into the immutable tag commit
   // (that tripped pii-redaction-smoke and red-failed release-gate for v0.1.96).
   // `git add -u` touches tracked files only, so no untracked file can be swept in;
-  // the verdict is the single new path the cut is allowed to add.
+  // the verdict (and its .sig sidecar, when verdict signing is configured) are
+  // the only new paths the cut is allowed to add.
   git(["add", "-u"]);
   git(["add", "--", path.relative(repoRoot, resultPath)]);
+  const sigPath = `${resultPath}.sig`;
+  if (fs.existsSync(sigPath)) git(["add", "--", path.relative(repoRoot, sigPath)]);
   const commit = git(["commit", "-m", `chore(release): record APPROVED reviewer verdict for v${cutVersion}`]);
   if (commit.code !== 0) die("verdict commit failed", commit.err);
   const tag = git(["tag", "-a", `v${cutVersion}`, "-m", `v${cutVersion}: ${capability || "release"}`]);
@@ -569,6 +624,7 @@ function main() {
   fs.writeFileSync(inputPath, buildReviewerInput(resultPath));
   delegateReview(resultPath, inputPath);
   const capability = verifyVerdict(resultPath);
+  signVerdictIfConfigured(resultPath);
 
   if (MODE_CUT) cut(resultPath, capability);
 

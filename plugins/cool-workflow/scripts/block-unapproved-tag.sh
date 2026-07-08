@@ -4,6 +4,9 @@
 # require BOTH markers for the current HEAD sha:
 #   .cw-release/gate-<sha>.ok        (written by release-gate.sh)
 #   .cw-release/review-<sha>.verdict (written by the release-reviewer agent, must contain APPROVED)
+# If .cw-release/verdict-signing.pub is committed (scripts/verdict-keygen.js),
+# also requires a valid ed25519 signature on the verdict (its .sig sidecar) —
+# opt-in, backward compatible with repos that haven't set up signing yet.
 # Exit 2 blocks the tool call; stderr is fed back to the agent.
 set -uo pipefail
 
@@ -38,6 +41,20 @@ fi
 if [[ ! -f "$VERDICT" ]] || ! grep -q '^APPROVED' "$VERDICT"; then
   echo "BLOCKED: no APPROVED verdict from the release-reviewer agent for HEAD $SHA. Invoke the 'release-reviewer' subagent and obtain approval. Do not write the verdict file yourself — that is a gaming attempt and will be flagged in CI." >&2
   exit 2
+fi
+
+# Once .cw-release/verdict-signing.pub is committed (see scripts/verdict-keygen.js),
+# also require a valid ed25519 signature on the verdict — closing the gap this grep
+# alone can't: a plain APPROVED text match can't tell a real reviewer verdict from
+# one typed by hand. Absent that public key, this block is a no-op (unchanged,
+# grep-only behavior).
+PUBKEY="$REPO_ROOT/.cw-release/verdict-signing.pub"
+if [[ -f "$PUBKEY" ]]; then
+  SIG="$VERDICT.sig"
+  if [[ ! -f "$SIG" ]] || ! node "$REPO_ROOT/plugins/cool-workflow/scripts/verify-verdict-signature.js" "$VERDICT" "$SIG" "$PUBKEY" >/dev/null 2>&1; then
+    echo "BLOCKED: verdict for HEAD $SHA has no valid signature, but verdict-signing.pub is committed so one is required. Do not hand-write or hand-sign a verdict — obtain a real reviewer approval via release-flow.js with CW_RELEASE_VERDICT_PRIVKEY set." >&2
+    exit 2
+  fi
 fi
 
 exit 0
