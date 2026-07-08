@@ -11,6 +11,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { plan } from "./pipeline";
 import { loadWorkflowApp, showWorkflowApp, loadWorkflowAppRecordById, WorkflowAppNotFoundError } from "./workflow-app-loader";
 import { LoadedWorkflowApp } from "../core/workflow-apps/app-schema";
@@ -539,7 +540,7 @@ export function dispatchRun(args: Record<string, unknown>): Record<string, unkno
       const v = args[kebab] ?? args[camel];
       return typeof v === "string" && v.trim() ? v : undefined;
     };
-    const manifest = createDispatchManifest(run, args.limit !== undefined ? Number(args.limit) : undefined, {
+    const manifest = createDispatchManifest(run, requiredNumberFlag(args.limit, "--limit"), {
       sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined,
       sandbox: typeof args.sandbox === "string" ? args.sandbox : undefined,
       backendId: typeof args.backend === "string" ? args.backend : undefined,

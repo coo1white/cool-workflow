@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-08 by `npm run sync:projec
 - Source modules: `146`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `189`
+- Smoke tests: `190`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -118,6 +118,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/types/execution-backend.ts](../src/core/types/execution-backend.ts)
 - [core/types/observability.ts](../src/core/types/observability.ts)
 - [core/util/collate.ts](../src/core/util/collate.ts)
+- [core/util/numeric-flag.ts](../src/core/util/numeric-flag.ts)
 - [mcp/dispatch.ts](../src/mcp/dispatch.ts)
 - [mcp/server.ts](../src/mcp/server.ts)
 - [shell/agent-config.ts](../src/shell/agent-config.ts)
@@ -379,6 +380,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [node-snapshot-diff-replay-smoke.js](../test/node-snapshot-diff-replay-smoke.js)
 - [npm-global-install-smoke.js](../test/npm-global-install-smoke.js)
 - [npm-trusted-publish-smoke.js](../test/npm-trusted-publish-smoke.js)
+- [numeric-flag-parsing-smoke.js](../test/numeric-flag-parsing-smoke.js)
 - [observability-cost-accounting-smoke.js](../test/observability-cost-accounting-smoke.js)
 - [one-way-boundary-smoke.js](../test/one-way-boundary-smoke.js)
 - [onramp-check-smoke.js](../test/onramp-check-smoke.js)

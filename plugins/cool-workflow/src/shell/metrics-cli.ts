@@ -8,6 +8,7 @@
 // summary".
 
 import * as path from "node:path";
+import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { loadRunFromCwd, loadRunStateFile } from "./run-store";
 import { loadCostPolicy, loadPersistedMetricsFingerprint, showMetricsReport, deriveMetricsSummary, SummaryRunInput } from "./observability";
 import { RunRegistry } from "./run-registry-io";
@@ -45,7 +46,7 @@ export function metricsSummaryCli(args: Record<string, unknown>): ReturnType<typ
   const cwd = invocationCwd(args);
   const scope = args.scope === "home" ? "home" : "repo";
   const registry = new RunRegistry(cwd);
-  const limit = args.limit === undefined ? undefined : Number(args.limit);
+  const limit = requiredNumberFlag(args.limit, "--limit");
   const listing = registry.list({ scope, includeArchived: true, limit });
   const inputs: SummaryRunInput[] = [];
   let unreadableRuns = 0;

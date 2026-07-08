@@ -69,12 +69,18 @@ function formatDispatchTask(task) {
     };
 }
 /** `nextDispatchTasks(run, limit?)` — pending tasks of the first runnable
- *  phase, capped, mapped through formatDispatchTask. */
+ *  phase, capped, mapped through formatDispatchTask. `??`, not `||`: an
+ *  explicit `limit: 0` (or a configured `maxConcurrentAgents: 0`) means
+ *  "dispatch nothing", not "no limit was given" — `0 || fallback` used to
+ *  silently replace a real zero with the fallback. Negative numbers are
+ *  clamped to 0 before reaching `.slice()`, which otherwise treats a
+ *  negative end index as "drop that many from the end" instead of "cap at
+ *  this many". */
 function nextDispatchTasks(run, limit) {
     const runnablePhase = firstRunnablePhase(run);
     if (!runnablePhase)
         return [];
-    const max = Number(limit || run.workflow.limits.maxConcurrentAgents || 4);
+    const max = Math.max(0, Math.floor(limit ?? run.workflow.limits.maxConcurrentAgents ?? 4));
     const runnableTaskIds = new Set(runnablePhase.taskIds);
     return run.tasks
         .filter((task) => task.status === "pending" && runnableTaskIds.has(task.id))

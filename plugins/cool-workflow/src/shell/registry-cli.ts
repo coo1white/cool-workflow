@@ -11,6 +11,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { RunPlanner, RunRegistry } from "./run-registry-io";
 import { plan as pipelinePlan } from "./pipeline";
 import { loadWorkflowApp } from "./workflow-app-loader";
@@ -131,7 +132,7 @@ export function runSearchCli(options: Record<string, unknown> = {}) {
     since: optionalString(options.since),
     until: optionalString(options.until),
     includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
-    limit: options.limit === undefined ? undefined : Number(options.limit),
+    limit: requiredNumberFlag(options.limit, "--limit"),
     offset: options.offset === undefined ? undefined : Number(options.offset),
   });
 }
@@ -139,7 +140,7 @@ export function runListCli(options: Record<string, unknown> = {}) {
   return new RunRegistry(resolveCwd(options)).list({
     scope: scopeOf(options, "home"),
     includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
-    limit: options.limit === undefined ? undefined : Number(options.limit),
+    limit: requiredNumberFlag(options.limit, "--limit"),
     offset: options.offset === undefined ? undefined : Number(options.offset),
   });
 }
@@ -153,7 +154,7 @@ export function runShowCli(runId: string, options: Record<string, unknown> = {})
 export function runResumeCli(runId: string, options: Record<string, unknown> = {}): Record<string, unknown> {
   const base = new RunRegistry(resolveCwd(options)).resume(runId, {
     scope: scopeOf(options, "home"),
-    limit: options.limit === undefined ? undefined : Number(options.limit),
+    limit: requiredNumberFlag(options.limit, "--limit"),
   });
   if (!options.drive && !options.once) return base as unknown as Record<string, unknown>;
   const drive = runDriveStep({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) });
@@ -200,7 +201,7 @@ export function historyCli(options: Record<string, unknown> = {}) {
     scope: scopeOf(options, "home"),
     app: optionalString(options.app),
     status: optionalString(options.status) as never,
-    limit: options.limit === undefined ? undefined : Number(options.limit),
+    limit: requiredNumberFlag(options.limit, "--limit"),
     offset: options.offset === undefined ? undefined : Number(options.offset),
   });
 }
@@ -224,7 +225,7 @@ export function queueShowCli(id: string, options: Record<string, unknown> = {}) 
 }
 export function queueDrainCli(options: Record<string, unknown> = {}) {
   return new RunRegistry(resolveCwd(options)).queueDrain({
-    limit: options.limit === undefined ? undefined : Number(options.limit),
+    limit: requiredNumberFlag(options.limit, "--limit"),
     repo: optionalString(options.repo),
   });
 }
@@ -261,7 +262,7 @@ export function gcRunCli(runId: string | undefined, options: Record<string, unkn
     policy: gcPolicyOverridesFrom(options),
     now: optionalString(options.now),
     actor: optionalString(options.actor),
-    limit: options.limit === undefined ? undefined : Number(options.limit),
+    limit: requiredNumberFlag(options.limit, "--limit"),
   });
 }
 export function gcVerifyCli(runId: string, options: Record<string, unknown> = {}) {

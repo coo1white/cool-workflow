@@ -113,6 +113,7 @@ exports.evalScoreCli = evalScoreCli;
 exports.evalGateCli = evalGateCli;
 exports.evalReportCli = evalReportCli;
 const path = __importStar(require("node:path"));
+const numeric_flag_1 = require("../core/util/numeric-flag");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const mai = __importStar(require("./multi-agent-io"));
@@ -621,7 +622,13 @@ function multiAgentFanoutCli(args) {
         workerIds: arrayArg(args.worker ?? args.workerId ?? args.workers),
         membershipIds: arrayArg(args.membership ?? args.membershipId ?? args.memberships),
         dispatchIds: arrayArg(args.dispatch ?? args.dispatchId ?? args.dispatches),
-        concurrencyLimit: numberArg(args.limit ?? args.concurrency ?? args.concurrencyLimit),
+        // This one flag (aliased --limit/--concurrency/--concurrencyLimit) goes
+        // through requiredNumberFlag, not the file's own lenient numberArg — a
+        // bare flag here used to silently mean "no limit" (fan out unbounded),
+        // the opposite of the "silently means 1" bug the same audit found in
+        // metrics-cli.ts/registry-cli.ts's own --limit handling; both now fail
+        // loud instead of guessing in either direction.
+        concurrencyLimit: (0, numeric_flag_1.requiredNumberFlag)(args.limit ?? args.concurrency ?? args.concurrencyLimit, "--limit"),
         sandboxProfileChoices: parseSandboxChoicesCli(args),
         expectedReturnShape: optionalString(args.expectedReturnShape ?? args["expected-return-shape"]),
         blackboardId: blackboardIdArg(args),

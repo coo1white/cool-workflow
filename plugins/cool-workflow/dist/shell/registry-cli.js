@@ -82,6 +82,7 @@ exports.clonesListCli = clonesListCli;
 exports.clonesGcCli = clonesGcCli;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const numeric_flag_1 = require("../core/util/numeric-flag");
 const run_registry_io_1 = require("./run-registry-io");
 const pipeline_1 = require("./pipeline");
 const workflow_app_loader_1 = require("./workflow-app-loader");
@@ -186,7 +187,7 @@ function runSearchCli(options = {}) {
         since: optionalString(options.since),
         until: optionalString(options.until),
         includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
-        limit: options.limit === undefined ? undefined : Number(options.limit),
+        limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
         offset: options.offset === undefined ? undefined : Number(options.offset),
     });
 }
@@ -194,7 +195,7 @@ function runListCli(options = {}) {
     return new run_registry_io_1.RunRegistry(resolveCwd(options)).list({
         scope: scopeOf(options, "home"),
         includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
-        limit: options.limit === undefined ? undefined : Number(options.limit),
+        limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
         offset: options.offset === undefined ? undefined : Number(options.offset),
     });
 }
@@ -208,7 +209,7 @@ function runShowCli(runId, options = {}) {
 function runResumeCli(runId, options = {}) {
     const base = new run_registry_io_1.RunRegistry(resolveCwd(options)).resume(runId, {
         scope: scopeOf(options, "home"),
-        limit: options.limit === undefined ? undefined : Number(options.limit),
+        limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
     });
     if (!options.drive && !options.once)
         return base;
@@ -253,7 +254,7 @@ function historyCli(options = {}) {
         scope: scopeOf(options, "home"),
         app: optionalString(options.app),
         status: optionalString(options.status),
-        limit: options.limit === undefined ? undefined : Number(options.limit),
+        limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
         offset: options.offset === undefined ? undefined : Number(options.offset),
     });
 }
@@ -276,7 +277,7 @@ function queueShowCli(id, options = {}) {
 }
 function queueDrainCli(options = {}) {
     return new run_registry_io_1.RunRegistry(resolveCwd(options)).queueDrain({
-        limit: options.limit === undefined ? undefined : Number(options.limit),
+        limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
         repo: optionalString(options.repo),
     });
 }
@@ -316,7 +317,7 @@ function gcRunCli(runId, options = {}) {
         policy: gcPolicyOverridesFrom(options),
         now: optionalString(options.now),
         actor: optionalString(options.actor),
-        limit: options.limit === undefined ? undefined : Number(options.limit),
+        limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
     });
 }
 function gcVerifyCli(runId, options = {}) {
