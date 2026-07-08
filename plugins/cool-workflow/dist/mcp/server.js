@@ -40,10 +40,18 @@
 //   - fail-closed input framing: MAX_LINE_BYTES = 16 * 1024 * 1024; when
 //     the unconsumed buffer exceeds this with no newline yet, the partial
 //     bytes are DROPPED and a -32700 "Parse error: request line exceeds
-//     16777216 bytes" is sent with id: null (mcp.md:291,418).
+//     16777216 bytes" is sent with id: null (mcp.md:291,418);
+//   - outbound size cap (post-v0.2.2 robustness hardening, not in the
+//     original mcp.md): content[0].text goes through core/format/
+//     safe-json.ts's safeJsonStringify, so a result over 10MB (an
+//     aggregate/dashboard tool on a very large run, or anything that would
+//     blow V8's per-string limit) becomes a small overflow notice instead
+//     of a multi-hundred-MB payload — every result under the cap is
+//     untouched, so this never affects the parity gate's own fixtures.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startServer = startServer;
 const version_1 = require("../core/version");
+const safe_json_1 = require("../core/format/safe-json");
 const dispatch_1 = require("./dispatch");
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 // Tools whose result carries free-form text ORIGINALLY AUTHORED by a
@@ -144,7 +152,7 @@ function handleRequest(message) {
                 }
                 const args = params.arguments;
                 const coreResult = (0, dispatch_1.callTool)(name, args ?? {});
-                const content = [{ type: "text", text: JSON.stringify(coreResult, null, 2) }];
+                const content = [{ type: "text", text: (0, safe_json_1.safeJsonStringify)(coreResult) }];
                 const advisory = untrustedContentAdvisory(name);
                 if (advisory)
                     content.push({ type: "text", text: advisory });

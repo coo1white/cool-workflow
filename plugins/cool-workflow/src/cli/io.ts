@@ -10,6 +10,7 @@
 // shell/term.ts's env/TTY read.
 
 import { formatHelp } from "../core/format/help";
+import { safeJsonStringify } from "../core/format/safe-json";
 import { bold } from "../shell/term";
 
 /** Bold ONLY the fixed "Cool Workflow" header line of `formatHelp()`'s
@@ -34,9 +35,12 @@ export function optionalArg(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-/** Machine payload to stdout (stdout = data; never colored, never chrome). */
+/** Machine payload to stdout (stdout = data; never colored, never chrome).
+ *  Byte-capped via safeJsonStringify — an aggregate result too large to be
+ *  useful (or large enough to blow V8's string limit) prints a small
+ *  overflow notice instead of hundreds of MB. */
 export function printJson(value: unknown): void {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  process.stdout.write(`${safeJsonStringify(value)}\n`);
 }
 
 /** True when the caller asked for JSON output (`--json` or `--format json`). */

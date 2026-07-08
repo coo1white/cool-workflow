@@ -16,6 +16,7 @@ exports.optionalArg = optionalArg;
 exports.printJson = printJson;
 exports.wantsJson = wantsJson;
 const help_1 = require("../core/format/help");
+const safe_json_1 = require("../core/format/safe-json");
 const term_1 = require("../shell/term");
 /** Bold ONLY the fixed "Cool Workflow" header line of `formatHelp()`'s
  *  plain text. */
@@ -34,9 +35,12 @@ function required(value, label) {
 function optionalArg(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
-/** Machine payload to stdout (stdout = data; never colored, never chrome). */
+/** Machine payload to stdout (stdout = data; never colored, never chrome).
+ *  Byte-capped via safeJsonStringify — an aggregate result too large to be
+ *  useful (or large enough to blow V8's string limit) prints a small
+ *  overflow notice instead of hundreds of MB. */
 function printJson(value) {
-    process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+    process.stdout.write(`${(0, safe_json_1.safeJsonStringify)(value)}\n`);
 }
 /** True when the caller asked for JSON output (`--json` or `--format json`). */
 function wantsJson(options) {
