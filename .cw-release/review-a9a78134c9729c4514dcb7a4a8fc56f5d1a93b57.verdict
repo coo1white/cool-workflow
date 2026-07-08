@@ -1,0 +1,2 @@
+APPROVED a9a78134c9729c4514dcb7a4a8fc56f5d1a93b57
+Ships three closed trust/safety gaps (audit tail-truncation now caught by `cw audit head --expect-head/--expect-count`, the manual-accept telemetry side door now blocked under `--require-attested-telemetry` with an audited `--allow-unattested` override, and a whole-cycle `state.json` lock that stops concurrent result recordings from dropping a task's completion), plus locale-pinned replay determinism and `cw search` as a real declared capability.
