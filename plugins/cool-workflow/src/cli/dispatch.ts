@@ -59,8 +59,14 @@ function renderCliResult(result: CliHandlerResult, jsonMode: CliJsonMode, option
 /** Tries the capability table for `args`. Matches the row whose
  *  `cli.path` is `[command]` or `[command, positionals[0]]` (the only two
  *  path lengths any milestone-2 row uses); returns true when a table row
- *  handled the command. */
-function dispatchTable(args: ParsedArgv): boolean {
+ *  handled the command. `await`ing the handler's result is a no-op for
+ *  the ~199 rows whose handler returns a plain CliHandlerResult (an
+ *  `await` on a non-Promise value just resolves on the next microtask,
+ *  invisible to any caller that itself awaits dispatch()) -- it only
+ *  matters for the live drive rows, which return a real Promise so their
+ *  round loop can actually stay interruptible (see shell/drive.ts's
+ *  driveAsync). */
+async function dispatchTable(args: ParsedArgv): Promise<boolean> {
   const candidates: string[][] = [[args.command]];
   if (args.positionals.length > 0) candidates.push([args.command, args.positionals[0]]);
 
@@ -72,7 +78,7 @@ function dispatchTable(args: ParsedArgv): boolean {
       positionals: args.positionals.slice(consumed),
       options: args.options,
     };
-    const result = row.cli.handler(cliArgs);
+    const result = await row.cli.handler(cliArgs);
     renderCliResult(result, row.cli.jsonMode, args.options);
     return true;
   }
@@ -176,8 +182,8 @@ function dispatchLegacy(args: ParsedArgv): void {
  *
  *  Tries the capability table FIRST (real rows always win), then falls
  *  back to the milestone-1 legacy switch for verbs not yet migrated. */
-export function dispatch(args: ParsedArgv): DispatchResult {
-  if (dispatchTable(args)) return;
+export async function dispatch(args: ParsedArgv): Promise<DispatchResult> {
+  if (await dispatchTable(args)) return;
   dispatchLegacy(args);
 }
 

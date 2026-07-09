@@ -96,7 +96,10 @@ function maxOverlap(events) {
   return max;
 }
 
-function driveOnce(runId, agentCommand, concurrencyArg) {
+// v2 runDriveStep(args) is now async (driveAsync -- shell/drive.ts -- keeps a
+// live drive loop interruptible by a real SIGINT/SIGTERM), so this helper
+// awaits it; the rest of the smoke's timing/overlap assertions are unchanged.
+async function driveOnce(runId, agentCommand, concurrencyArg) {
   const timingLog = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cw-conc-flag-log-")), "timing.jsonl");
   process.env.CW_TIMING_LOG = timingLog;
   // v2 runDriveStep(args): args.run continues an already-planned run; the run
@@ -105,12 +108,12 @@ function driveOnce(runId, agentCommand, concurrencyArg) {
   // exactly as the real `cw run --drive --concurrency N` argv would.
   const args = { run: runId, now: FIXED_NOW, "agent-command": agentCommand };
   if (concurrencyArg !== undefined) args.concurrency = concurrencyArg;
-  const result = runDriveStep(args);
+  const result = await runDriveStep(args);
   delete process.env.CW_TIMING_LOG;
   return { result, overlap: maxOverlap(readTimingLog(timingLog)) };
 }
 
-function main() {
+async function main() {
   for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-conc-flag-")));
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
@@ -121,7 +124,7 @@ function main() {
     // ---- (a) numeric override beats a low limits.maxConcurrentAgents -------
     {
       const run = planLowCapApp(work);
-      const { result, overlap } = driveOnce(run.id, agentCommand, 8);
+      const { result, overlap } = await driveOnce(run.id, agentCommand, 8);
       assert.equal(result.status, "complete", "run completes with the override");
       assert.equal(result.completedWorkers, N, "every task fulfilled");
       assert.equal(overlap, N, `numeric --concurrency 8 overrides maxConcurrentAgents=${LOW_CAP}, got overlap ${overlap}`);
@@ -131,7 +134,7 @@ function main() {
     // ---- (b) string override (exactly what real CLI argv produces) ---------
     {
       const run = planLowCapApp(work);
-      const { result, overlap } = driveOnce(run.id, agentCommand, "8");
+      const { result, overlap } = await driveOnce(run.id, agentCommand, "8");
       assert.equal(result.status, "complete", "run completes with a string override");
       assert.equal(overlap, N, `string --concurrency "8" overrides maxConcurrentAgents=${LOW_CAP}, got overlap ${overlap}`);
       console.log("drive-concurrency-flag: string override (real CLI argv shape) ok");
@@ -140,7 +143,7 @@ function main() {
     // ---- (c) no flag: default behavior is unchanged (bounded by the cap) ---
     {
       const run = planLowCapApp(work);
-      const { result, overlap } = driveOnce(run.id, agentCommand, undefined);
+      const { result, overlap } = await driveOnce(run.id, agentCommand, undefined);
       assert.equal(result.status, "complete", "run completes with no override");
       assert.equal(overlap, LOW_CAP, `no --concurrency flag: overlap stays bounded by maxConcurrentAgents=${LOW_CAP}, got ${overlap}`);
       console.log(`drive-concurrency-flag: no flag leaves default behavior unchanged (overlap ${overlap}) ok`);
@@ -152,4 +155,7 @@ function main() {
   console.log("drive-concurrency-flag-smoke: ok (--concurrency now reaches drive() through the real runDrive() surface)");
 }
 
-main();
+main().catch((e) => {
+  process.stderr.write(`FAIL  drive-concurrency-flag-smoke.js — ${String((e && e.message) || e)}\n`);
+  process.exit(1);
+});

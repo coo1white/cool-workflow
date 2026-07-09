@@ -57,7 +57,9 @@ function toLoadedApp(nested) {
 }
 const lifecycle = { plan: (nestedApp, options) => planApp(toLoadedApp(nestedApp), options) };
 // runDrive(runner, args) -> runDriveStep(args) (cwd resolved from args.run's own repo).
-function runDrive(_runner, args) { return runDriveStep(args); }
+// runDriveStep is now async (driveAsync keeps a live drive loop interruptible
+// by a real SIGINT/SIGTERM -- shell/drive.ts), so this wrapper is too.
+async function runDrive(_runner, args) { return runDriveStep(args); }
 const CoolWorkflowRunner = function () {
   let lastCwd = process.cwd();
   return {
@@ -121,7 +123,7 @@ function planParallelApp(work) {
   );
 }
 
-function main() {
+async function main() {
   for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-onramp-")));
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
@@ -142,7 +144,7 @@ function main() {
       const timingLog = path.join(work, "parallel-timing.jsonl");
       process.env.CW_TIMING_LOG = timingLog;
       const started = Date.now();
-      const result = runDrive(runner, { run: run.id, now: FIXED_NOW, "agent-command": agentCommand, "agent-model": "config-m" });
+      const result = await runDrive(runner, { run: run.id, now: FIXED_NOW, "agent-command": agentCommand, "agent-model": "config-m" });
       const elapsed = Date.now() - started;
       delete process.env.CW_TIMING_LOG;
 
@@ -186,7 +188,7 @@ function main() {
       const timingLog = path.join(work, "sequential-timing.jsonl");
       process.env.CW_TIMING_LOG = timingLog;
       const started = Date.now();
-      const result = runDrive(runner, { run: run.id, now: FIXED_NOW, "agent-command": agentCommand });
+      const result = await runDrive(runner, { run: run.id, now: FIXED_NOW, "agent-command": agentCommand });
       const elapsed = Date.now() - started;
       delete process.env.CW_TIMING_LOG;
       assert.equal(result.status, "complete", "sequential run completes");
@@ -220,4 +222,7 @@ function assertSequential(events, expectedCount, label) {
   assert.ok(starts[1] >= ends[0], `${label}: second worker starts after first worker ends`);
 }
 
-main();
+main().catch((e) => {
+  process.stderr.write(`FAIL  parallel-onramp-smoke.js — ${String((e && e.message) || e)}\n`);
+  process.exit(1);
+});

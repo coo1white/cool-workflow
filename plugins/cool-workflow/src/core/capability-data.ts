@@ -96,8 +96,12 @@ export interface CliBinding {
   /** Called with the parsed argv for this command; returns what to print
    *  (see `CliHandlerResult`) or throws on a recoverable failure (the
    *  entry point's top-level catch turns that into the `cw: <message>`
-   *  stderr shape + exit 1, per cli/entry.ts's `main`). */
-  handler: (args: CapabilityCliArgs) => CliHandlerResult;
+   *  stderr shape + exit 1, per cli/entry.ts's `main`). A handler MAY
+   *  return a Promise (cli/dispatch.ts's dispatchTable always awaits the
+   *  result) -- only `run.drive.step`/`quickstart`, whose live drive loop
+   *  needs a real event-loop turn to stay interruptible, actually do; every
+   *  other handler keeps returning a plain CliHandlerResult unchanged. */
+  handler: (args: CapabilityCliArgs) => CliHandlerResult | Promise<CliHandlerResult>;
   /** MILESTONE 10 addition. A 1-token `path` row (e.g. `["clones"]`) that
    *  exists ONLY to own the unknown-subcommand usage error for a verb
    *  whose real subcommands are each their own 2-token row (e.g.

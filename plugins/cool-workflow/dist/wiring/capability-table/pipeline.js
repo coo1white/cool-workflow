@@ -47,7 +47,7 @@ function loadCommitSummary() {
     path: ["run"],
     helpPath: ["run", "drive"],
     jsonMode: "default",
-    handler: (args) => {
+    handler: async (args) => {
         const registrySubcommands = new Set(["drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive", "restore"]);
         const target = args.positionals[0];
         if (args.options.drive && !registrySubcommands.has(String(target || ""))) {
@@ -59,7 +59,7 @@ function loadCommitSummary() {
                 driveArgs.runId = runId;
             else
                 driveArgs.appId = target;
-            return { json: loadPipelineCli().runDriveStep(driveArgs) };
+            return { json: await loadPipelineCli().runDriveStep(driveArgs) };
         }
         const [subcommand, id] = args.positionals;
         if (subcommand === "drive") {
@@ -67,7 +67,7 @@ function loadCommitSummary() {
                 const driveArgs = { ...args.options };
                 if (id)
                     driveArgs.runId = id;
-                return { json: loadPipelineCli().runDriveStep(driveArgs) };
+                return { json: await loadPipelineCli().runDriveStep(driveArgs) };
             }
             return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, io_1.required)(id, "run id") }) };
         }
@@ -111,13 +111,13 @@ function loadCommitSummary() {
 (0, registry_core_1.attachCliBinding)("run.drive", {
     path: ["run", "drive"],
     jsonMode: "default",
-    handler: (args) => {
+    handler: async (args) => {
         const id = args.positionals[0];
         if (args.options.step) {
             const driveArgs = { ...args.options };
             if (id)
                 driveArgs.runId = id;
-            return { json: loadPipelineCli().runDriveStep(driveArgs) };
+            return { json: await loadPipelineCli().runDriveStep(driveArgs) };
         }
         return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, io_1.required)(id, "run id") }) };
     },
@@ -236,9 +236,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     // wrapper (byte-behavior port of the old build's caseTokens).
     caseTokens: ["quickstart", "audit-run"],
     jsonMode: "default",
-    handler: (args) => {
+    handler: async (args) => {
         const appId = (0, io_2.optionalArg)(args.positionals[0]);
-        const result = loadPipelineCli().quickstartRun({ ...args.options, appId });
+        const result = (await loadPipelineCli().quickstartRun({ ...args.options, appId }));
         // Fail closed on both known bad outcomes: a --check preflight that
         // found a blocking gap, OR a --bundle that did not self-verify.
         const bundle = result.bundle;

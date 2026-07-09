@@ -206,14 +206,14 @@ function runShowCli(runId, options = {}) {
  *  is read-only and byte-identical to the registry resume payload; with
  *  `--drive`/`--once` the SAME run (nothing re-planned) is handed to the
  *  real drive loop and the payload gains a `drive: DriveResult` field. */
-function runResumeCli(runId, options = {}) {
+async function runResumeCli(runId, options = {}) {
     const base = new run_registry_io_1.RunRegistry(resolveCwd(options)).resume(runId, {
         scope: scopeOf(options, "home"),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
     });
     if (!options.drive && !options.once)
         return base;
-    const drive = (0, pipeline_cli_1.runDriveStep)({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) });
+    const drive = await (0, pipeline_cli_1.runDriveStep)({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) });
     return { ...base, drive };
 }
 function runArchiveCli(runId, options = {}) {

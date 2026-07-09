@@ -51,6 +51,7 @@ exports.MAX_SUB_WORKFLOW_DEPTH = exports.DRIVE_SCHEMA_VERSION = void 0;
 exports.maybeExpandLoop = maybeExpandLoop;
 exports.driveStep = driveStep;
 exports.drive = drive;
+exports.driveAsync = driveAsync;
 exports.drivePreview = drivePreview;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
@@ -780,28 +781,30 @@ function driveConcurrentRound(ctx, limit) {
 // the state.json or trust-audit-log lock in run-store.ts/trust-audit.ts),
 // the lock's release `finally` never ran either, leaving a stale `.lock`
 // file that makes the NEXT command retry for ~6s before failing outright
-// (well under the 30s stale-lock steal window). The fix below can only
-// close this between iterations of THIS loop, not mid-spawnSync (a
-// synchronously-spawned agent child blocks the event loop, so no signal
-// callback runs until that call returns) -- an already-documented,
-// deliberately out-of-scope limit; see ITERATION_LOG.md.
+// (well under the 30s stale-lock steal window).
+//
+// The FIRST fix for this (installing onStopSignal below) assumed the
+// signal would at least be caught BETWEEN rounds, only missing it
+// mid-spawnSync. That assumption was wrong: Node.js does not dispatch a
+// queued POSIX signal to a JS `process.on(signal, ...)` listener until
+// the event loop actually gets a turn, and drive()'s whole multi-round
+// loop -- every round's agent spawn uses spawnSync, and nothing between
+// rounds ever awaits anything -- is ONE continuous synchronous span with
+// no such turn anywhere inside it. A signal landing at any point during
+// that whole span (confirmed live: even a plain CPU-only busy loop with
+// no spawnSync at all drops it the same way) sits queued until the loop
+// finishes on its own, by which point the `finally` below has already
+// removed the listener -- so it is never invoked at all. `drive()` keeps
+// this exact (buggy but byte-identical) shape for full backward
+// compatibility; `driveAsync()` below is the actual fix, for callers
+// that need a live run to really respond to Ctrl-C/SIGTERM.
 const DRIVE_STOP_SIGNALS = ["SIGINT", "SIGTERM"];
 const DRIVE_STOP_EXIT_CODE = { SIGINT: 130, SIGTERM: 143 };
-/** Drive a run: `--once` advances exactly one step; otherwise run to
- *  completion, park, or a blocked stop. A SIGINT/SIGTERM received between
- *  iterations stops the loop after the CURRENT step finishes (never
- *  mid-step) and returns a normal "blocked" DriveResult naming the
- *  interruption, so the run can be resumed the same way a max-iteration
- *  block already is. A SECOND signal means the caller wants out right
- *  now, not a graceful stop -- exits immediately. Handlers are installed
- *  and removed on every call (this function recurses for nested
- *  sub-workflow runs, and many tests call it repeatedly in one process),
- *  so nothing accumulates on `process`'s listener list across calls. */
-function drive(runId, cwd, options = {}) {
+function buildDriveContext(runId, cwd, options) {
     const now = options.now || new Date().toISOString();
     const config = options.agentConfig || (0, agent_config_1.resolveAgentConfig)(options.args || {});
     const policy = { ...drive_decide_1.DEFAULT_SCHEDULING_POLICY, ...(options.policy || {}) };
-    const ctx = {
+    return {
         runId,
         cwd,
         now,
@@ -812,20 +815,19 @@ function drive(runId, cwd, options = {}) {
         visitedAppIds: options.visitedAppIds || [],
         policy,
     };
-    const steps = [];
-    const run0 = loadRun(ctx);
-    const plannedWorkers = run0.tasks.length;
-    const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), policy);
-    // Phase-boundary progress (brew-style): announce each phase when it
-    // becomes active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess
-    // ⇉ (3/6)`. Describes CW's OWN phases (vendor-neutral); goes to stderr
-    // via emitProgress so stdout stays clean data. Byte-exact port of the
-    // old build's src/drive.ts emitPhaseProgress. term.phaseProgressLine
-    // renders the line; this closure decides WHEN to emit each boundary.
+}
+// Phase-boundary progress (brew-style): announce each phase when it becomes
+// active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess ⇉ (3/6)`.
+// Describes CW's OWN phases (vendor-neutral); goes to stderr via
+// emitProgress so stdout stays clean data. Byte-exact port of the old
+// build's src/drive.ts emitPhaseProgress. term.phaseProgressLine renders
+// the line; the returned closure decides WHEN to emit each boundary.
+// Shared by drive() and driveAsync() so the two never drift apart.
+function createPhaseProgressEmitter() {
     const announcedPhaseComplete = new Set();
     let activePhaseId;
     const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-    const emitPhaseProgress = (run) => {
+    return (run) => {
         for (const ph of run.phases || []) {
             const phaseTaskIds = new Set(ph.taskIds);
             const phaseTasks = run.tasks.filter((task) => phaseTaskIds.has(task.id));
@@ -848,7 +850,53 @@ function drive(runId, cwd, options = {}) {
             return; // only the first not-yet-complete phase is "active"
         }
     };
-    let exhaustedMaxIterations = !options.once;
+}
+/** Runs exactly one round -- a single driveStep, or a full concurrent
+ *  round when width>1 -- and records its steps. Returns false when the
+ *  round loop should stop (a terminal step, or `--once`'s single-round
+ *  contract), true to go on to another round. Shared by drive()'s plain
+ *  loop and driveAsync()'s interruptible one so the two never drift
+ *  apart. */
+function driveOneRound(ctx, options, steps, emitPhaseProgress) {
+    // One round-cache scope for the WHOLE round, not just driveConcurrentRound's
+    // own batch: the width check and (for a serial round) driveStep/
+    // processSelectedTask's several loadRun(ctx) calls otherwise each
+    // re-read+re-parse state.json even though nothing on disk changed
+    // between them — reads that only reflect the mutations THIS round's
+    // own steps make, which the shared in-memory object already carries.
+    const roundSteps = withRoundCache(ctx, () => {
+        const width = (0, drive_decide_1.roundWidth)(loadRun(ctx), options.concurrency);
+        // width>1 (an explicit --concurrency>1, or an auto-width parallel
+        // phase) runs the whole round through driveConcurrentRound — one or
+        // more steps recorded in deterministic batch order, one flush at round
+        // end. `--once` still stops after this ONE round even though a round
+        // can yield multiple steps.
+        return width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
+    });
+    for (const stepResult of roundSteps)
+        steps.push(stepResult);
+    // Brew-style phase boundaries: after each round, announce a newly-active
+    // phase and any phase that just finished. Cheap — reuses the run we just
+    // advanced; goes to stderr so stdout stays clean.
+    emitPhaseProgress(loadRun(ctx));
+    const last = roundSteps[roundSteps.length - 1];
+    if (options.once)
+        return false;
+    if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked"))
+        return false;
+    return true;
+}
+/** One JS EventEmitter listener per SIGINT/SIGTERM, installed for the span
+ *  of one drive()/driveAsync() call and removed by that caller's own
+ *  `finally` (this function recurses for nested sub-workflow runs, and
+ *  many tests call it repeatedly in one process, so nothing must
+ *  accumulate on `process`'s listener list across calls). The FIRST
+ *  signal sets a flag the round loop checks at the top of its next
+ *  iteration -- never mid-round -- so the in-flight round always
+ *  finishes its own bookkeeping first. A SECOND signal means the caller
+ *  wants out right now, not a graceful stop, and force-exits immediately
+ *  with the conventional 128+signum code. */
+function createStopSignalController() {
     let interruptedBy;
     let stopSignalHits = 0;
     const onStopSignal = (signal) => {
@@ -862,48 +910,34 @@ function drive(runId, cwd, options = {}) {
         emitProgress(`received a second ${signal} — exiting immediately`);
         process.exit(DRIVE_STOP_EXIT_CODE[signal] ?? 1);
     };
-    for (const signal of DRIVE_STOP_SIGNALS)
-        process.on(signal, onStopSignal);
-    try {
-        for (let i = 0; i < maxIter; i++) {
-            if (interruptedBy)
-                break;
-            // One round-cache scope for the WHOLE round, not just driveConcurrentRound's
-            // own batch: the width check and (for a serial round) driveStep/
-            // processSelectedTask's several loadRun(ctx) calls otherwise each
-            // re-read+re-parse state.json even though nothing on disk changed
-            // between them — reads that only reflect the mutations THIS round's
-            // own steps make, which the shared in-memory object already carries.
-            const roundSteps = withRoundCache(ctx, () => {
-                const width = (0, drive_decide_1.roundWidth)(loadRun(ctx), options.concurrency);
-                // width>1 (an explicit --concurrency>1, or an auto-width parallel
-                // phase) runs the whole round through driveConcurrentRound — one or
-                // more steps recorded in deterministic batch order, one flush at
-                // round end. `--once` still stops after this ONE outer-loop
-                // iteration even though a round can yield multiple steps.
-                return width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
-            });
-            for (const stepResult of roundSteps)
-                steps.push(stepResult);
-            // Brew-style phase boundaries: after each round, announce a
-            // newly-active phase and any phase that just finished. Cheap — reuses
-            // the run we just advanced; goes to stderr so stdout stays clean.
-            emitPhaseProgress(loadRun(ctx));
-            const last = roundSteps[roundSteps.length - 1];
-            if (options.once) {
-                exhaustedMaxIterations = false;
-                break;
-            }
-            if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) {
-                exhaustedMaxIterations = false;
-                break;
-            }
-        }
-    }
-    finally {
-        for (const signal of DRIVE_STOP_SIGNALS)
-            process.off(signal, onStopSignal);
-    }
+    return {
+        install: () => {
+            for (const signal of DRIVE_STOP_SIGNALS)
+                process.on(signal, onStopSignal);
+        },
+        remove: () => {
+            for (const signal of DRIVE_STOP_SIGNALS)
+                process.off(signal, onStopSignal);
+        },
+        getInterruptedBy: () => interruptedBy,
+    };
+}
+/** Forces one real turn of the Node.js event loop. `setImmediate` (a
+ *  genuine macrotask, unlike a bare Promise microtask, which never leaves
+ *  the current turn) is the only thing that actually lets libuv's poll
+ *  phase run and dispatch a queued SIGINT/SIGTERM to its JS listener --
+ *  confirmed live: a real external `kill -INT` sent to a busy synchronous
+ *  process is dropped for as long as the process never yields, and fires
+ *  within ~1ms of the very next event-loop turn once it does. */
+function yieldToEventLoop() {
+    return new Promise((resolve) => setImmediate(resolve));
+}
+/** Everything drive()/driveAsync() do once their round loop has stopped:
+ *  fold the interrupted/exhausted-iterations signal into the right
+ *  "blocked" step, then assemble the DriveResult. Shared so the two
+ *  loops can never report status differently for the same outcome. */
+function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterationsAtLoopExit, interruptedBy) {
+    let exhaustedMaxIterations = exhaustedMaxIterationsAtLoopExit;
     const run = loadRun(ctx);
     const completedWorkers = (0, drive_decide_1.countCompleted)(run);
     const parkedWorkers = (0, drive_decide_1.countParked)(run);
@@ -918,11 +952,11 @@ function drive(runId, cwd, options = {}) {
     if (interruptedBy) {
         exhaustedMaxIterations = false;
         if (!alreadyComplete) {
-            steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId, reason: `drive interrupted by ${interruptedBy} — run again with the same run id to resume` }));
+            steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — run again with the same run id to resume` }));
         }
     }
     else if (exhaustedMaxIterations) {
-        steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state` }));
+        steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state` }));
     }
     const statusInputs = {
         once: Boolean(options.once),
@@ -939,7 +973,7 @@ function drive(runId, cwd, options = {}) {
     const committedCommit = (run.commits || []).find((c) => c.reason && c.reason.startsWith("agent-delegation-drive"));
     return {
         schemaVersion: 1,
-        runId,
+        runId: ctx.runId,
         workflowId: run.workflow.id,
         status,
         steps,
@@ -949,8 +983,91 @@ function drive(runId, cwd, options = {}) {
         commitId: committedCommit?.id,
         reportPath: run.paths.report,
         statePath: run.paths.state,
-        agentConfigured: agentConfigured(config),
+        agentConfigured: agentConfigured(ctx.config),
     };
+}
+/** Drive a run: `--once` advances exactly one step; otherwise run to
+ *  completion, park, or a blocked stop. Fully synchronous, byte-identical
+ *  to every prior release -- see the file comment above DRIVE_STOP_SIGNALS
+ *  for why a real SIGINT/SIGTERM sent during a live multi-round call is
+ *  queued but never actually reaches onStopSignal below; that limitation
+ *  is deliberately kept here for backward compatibility (recursive
+ *  sub-workflow runs, and every existing caller/test that depends on this
+ *  exact synchronous shape) and fixed only in driveAsync(). */
+function drive(runId, cwd, options = {}) {
+    const ctx = buildDriveContext(runId, cwd, options);
+    const steps = [];
+    const run0 = loadRun(ctx);
+    const plannedWorkers = run0.tasks.length;
+    const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
+    const emitPhaseProgress = createPhaseProgressEmitter();
+    let exhaustedMaxIterations = !options.once;
+    const stopSignal = createStopSignalController();
+    stopSignal.install();
+    try {
+        for (let i = 0; i < maxIter; i++) {
+            if (stopSignal.getInterruptedBy())
+                break;
+            if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
+                exhaustedMaxIterations = false;
+                break;
+            }
+        }
+    }
+    finally {
+        stopSignal.remove();
+    }
+    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+}
+/** Same contract and same DriveResult as drive() -- but actually
+ *  interruptible. After every round it awaits yieldToEventLoop(), a real
+ *  setImmediate-based turn of the event loop, giving Node.js an actual
+ *  chance to dispatch a queued SIGINT/SIGTERM to onStopSignal before the
+ *  next round's synchronous spawnSync work begins; the loop then sees
+ *  the interrupted flag at the top of its next iteration exactly like
+ *  drive() already checks it. Shares driveOneRound/createStopSignalController/
+ *  finalizeDriveResult with drive(), so the two can only ever differ in
+ *  this one respect. Intended for the live, potentially-long-running
+ *  entry points (CLI `--drive`, the MCP run.drive.step tool) where a
+ *  user's Ctrl-C or a supervisor's SIGTERM must actually be able to stop
+ *  the run; internal/recursive/test callers that don't need this keep
+ *  calling the plain drive() above, unaffected.
+ *
+ *  A signal arriving while a NESTED sub-workflow's own drive() call
+ *  (runSubWorkflow, below) is running is still not caught until that
+ *  nested call finishes on its own -- an accepted, documented limitation:
+ *  the same "cannot interrupt an already in-flight blocking operation,
+ *  only checked at explicit boundaries" shape as the pre-existing
+ *  cannot-interrupt-mid-spawnSync limit, just one level of recursion
+ *  deeper. Fixing that would require threading interruptibility through
+ *  the entire recursive call graph (driveStep/processSelectedTask/
+ *  runSubWorkflow/handleHop), a materially larger change left for a
+ *  future cycle if it proves needed in practice. */
+async function driveAsync(runId, cwd, options = {}) {
+    const ctx = buildDriveContext(runId, cwd, options);
+    const steps = [];
+    const run0 = loadRun(ctx);
+    const plannedWorkers = run0.tasks.length;
+    const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
+    const emitPhaseProgress = createPhaseProgressEmitter();
+    let exhaustedMaxIterations = !options.once;
+    const stopSignal = createStopSignalController();
+    stopSignal.install();
+    try {
+        for (let i = 0; i < maxIter; i++) {
+            if (stopSignal.getInterruptedBy())
+                break;
+            if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
+                exhaustedMaxIterations = false;
+                break;
+            }
+            await yieldToEventLoop();
+        }
+    }
+    finally {
+        stopSignal.remove();
+    }
+    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
 }
 function drivePreview(runId, cwd, args = {}) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, cwd);

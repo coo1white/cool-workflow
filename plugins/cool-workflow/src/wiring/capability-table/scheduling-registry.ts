@@ -620,10 +620,10 @@ REGISTRY_BY_CAPABILITY.get("run.show")!.mcp!.handler = (args) => loadRegistryCli
 attachCliBinding("run.resume", {
   path: ["run", "resume"],
   jsonMode: "flag",
-  handler: (args) => {
+  handler: async (args) => {
     const runId = required(args.positionals[0], "run id");
     const runRegistryIo = loadRunRegistryIo();
-    const result = loadRegistryCli().runResumeCli(runId, args.options);
+    const result = await loadRegistryCli().runResumeCli(runId, args.options);
     return { json: result, text: runRegistryIo.formatResume(result as unknown as Parameters<typeof runRegistryIo.formatResume>[0]) };
   },
 });
