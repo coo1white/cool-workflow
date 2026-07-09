@@ -31,11 +31,24 @@ import {
   ledgerVerifyCli,
   ledgerVerifyEntry,
 } from "../../shell/ledger-cli";
-import { telemetryVerifyCli } from "../../shell/telemetry-cli";
-import { auditHeadCli, auditRepairCli, auditVerifyCli } from "../../shell/audit-cli";
-import { demoBundleCli, demoTamperCli } from "../../shell/demo-cli";
-import { formatTamperDemo, formatBundleDemo, formatTelemetryVerify } from "../../shell/telemetry-demo";
-import { reportBundleCli, reportVerifyBundleCli } from "../../shell/report-cli";
+// This file is required at startup for every command. Loading these shell
+// modules only when their handler runs, not at import time, keeps that
+// load cost out of commands that never touch telemetry/audit/demo/report.
+function loadTelemetryCli(): typeof import("../../shell/telemetry-cli") {
+  return require("../../shell/telemetry-cli") as typeof import("../../shell/telemetry-cli");
+}
+function loadAuditCli(): typeof import("../../shell/audit-cli") {
+  return require("../../shell/audit-cli") as typeof import("../../shell/audit-cli");
+}
+function loadDemoCli(): typeof import("../../shell/demo-cli") {
+  return require("../../shell/demo-cli") as typeof import("../../shell/demo-cli");
+}
+function loadTelemetryDemo(): typeof import("../../shell/telemetry-demo") {
+  return require("../../shell/telemetry-demo") as typeof import("../../shell/telemetry-demo");
+}
+function loadReportCli(): typeof import("../../shell/report-cli") {
+  return require("../../shell/report-cli") as typeof import("../../shell/report-cli");
+}
 
 attachCliBinding("ledger.propose", {
   path: ["ledger", "propose"],
@@ -86,47 +99,47 @@ attachCliBinding("telemetry.verify", {
   jsonMode: "flag",
   handler: (args) => {
     const runId = required(optionalArg(args.positionals[0]) || optionalArg(args.options.runId) || optionalArg(args.options.run), "run id");
-    const result = telemetryVerifyCli(runId, args.options);
-    return { json: result, text: formatTelemetryVerify(result), exitCode: result.verified ? undefined : 1 };
+    const result = loadTelemetryCli().telemetryVerifyCli(runId, args.options);
+    return { json: result, text: loadTelemetryDemo().formatTelemetryVerify(result), exitCode: result.verified ? undefined : 1 };
   },
 });
 REGISTRY_BY_CAPABILITY.get("telemetry.verify")!.mcp!.handler = (args) =>
-  telemetryVerifyCli(required(optionalArg(args.runId), "run id"), args);
+  loadTelemetryCli().telemetryVerifyCli(required(optionalArg(args.runId), "run id"), args);
 
 attachCliBinding("audit.verify", {
   path: ["audit", "verify"],
   jsonMode: "default",
   handler: (args) => {
     const runId = required(optionalArg(args.positionals[0]), "run id");
-    const result = auditVerifyCli(runId, args.options);
+    const result = loadAuditCli().auditVerifyCli(runId, args.options);
     return { json: result, exitCode: result.verified ? undefined : 1 };
   },
 });
 REGISTRY_BY_CAPABILITY.get("audit.verify")!.mcp!.handler = (args) =>
-  auditVerifyCli(required(optionalArg(args.runId), "run id"), args);
+  loadAuditCli().auditVerifyCli(required(optionalArg(args.runId), "run id"), args);
 
 attachCliBinding("audit.head", {
   path: ["audit", "head"],
   jsonMode: "default",
   handler: (args) => {
     const runId = required(optionalArg(args.positionals[0]), "run id");
-    return { json: auditHeadCli(runId, args.options) };
+    return { json: loadAuditCli().auditHeadCli(runId, args.options) };
   },
 });
 REGISTRY_BY_CAPABILITY.get("audit.head")!.mcp!.handler = (args) =>
-  auditHeadCli(required(optionalArg(args.runId), "run id"), args);
+  loadAuditCli().auditHeadCli(required(optionalArg(args.runId), "run id"), args);
 
 attachCliBinding("audit.repair", {
   path: ["audit", "repair"],
   jsonMode: "default",
   handler: (args) => {
     const runId = required(optionalArg(args.positionals[0]), "run id");
-    const result = auditRepairCli(runId, args.options);
+    const result = loadAuditCli().auditRepairCli(runId, args.options);
     return { json: result, exitCode: result.outcome === "refused" ? 1 : undefined };
   },
 });
 REGISTRY_BY_CAPABILITY.get("audit.repair")!.mcp!.handler = (args) =>
-  auditRepairCli(required(optionalArg(args.runId), "run id"), args);
+  loadAuditCli().auditRepairCli(required(optionalArg(args.runId), "run id"), args);
 
 addCliOnlyCapability(
   "demo.tamper",
@@ -135,8 +148,8 @@ addCliOnlyCapability(
     path: ["demo", "tamper"],
     jsonMode: "flag",
     handler: (args) => {
-      const result = demoTamperCli();
-      return { json: result, text: formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
+      const result = loadDemoCli().demoTamperCli();
+      return { json: result, text: loadTelemetryDemo().formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
     },
   },
   "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo."
@@ -149,8 +162,8 @@ addCliOnlyCapability(
     path: ["demo", "bundle"],
     jsonMode: "flag",
     handler: (args) => {
-      const result = demoBundleCli();
-      return { json: result, text: formatBundleDemo(result), exitCode: result.proven ? undefined : 1 };
+      const result = loadDemoCli().demoBundleCli();
+      return { json: result, text: loadTelemetryDemo().formatBundleDemo(result), exitCode: result.proven ? undefined : 1 };
     },
   },
   "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo."
@@ -161,24 +174,24 @@ attachCliBinding("report.bundle", {
   jsonMode: "default",
   handler: (args) => {
     const runId = required(optionalArg(args.positionals[0]), "run id");
-    const result = reportBundleCli(runId, args.options);
+    const result = loadReportCli().reportBundleCli(runId, args.options);
     return { json: result, exitCode: result.ok ? undefined : 1 };
   },
 });
 REGISTRY_BY_CAPABILITY.get("report.bundle")!.mcp!.handler = (args) =>
-  reportBundleCli(required(optionalArg(args.runId), "run id"), args);
+  loadReportCli().reportBundleCli(required(optionalArg(args.runId), "run id"), args);
 
 attachCliBinding("report.verify-bundle", {
   path: ["report", "verify-bundle"],
   jsonMode: "default",
   handler: (args) => {
     const archivePath = required(optionalArg(args.positionals[0]), "bundle path");
-    const result = reportVerifyBundleCli({ ...args.options, archive: archivePath });
+    const result = loadReportCli().reportVerifyBundleCli({ ...args.options, archive: archivePath });
     return { json: result, exitCode: result.ok ? undefined : 1 };
   },
 });
 REGISTRY_BY_CAPABILITY.get("report.verify-bundle")!.mcp!.handler = (args) => {
-  const result = reportVerifyBundleCli(args);
+  const result = loadReportCli().reportVerifyBundleCli(args);
   return result;
 };
 

@@ -16,8 +16,14 @@ const registry_core_1 = require("./registry-core");
 // cli/dispatch.ts's generic executor performs the actual write.
 // ---------------------------------------------------------------------
 const version_1 = require("../../core/version");
-const workflow_app_loader_1 = require("../../shell/workflow-app-loader");
 const help_1 = require("../../core/format/help");
+// This whole module is required unconditionally at startup for EVERY
+// command (see wiring/capability-table/index.ts) — a top-level import of
+// `shell/workflow-app-loader` here means even `cw --version` pays its
+// load cost, though only `search`'s handler ever calls it.
+function loadWorkflowAppLoader() {
+    return require("../../shell/workflow-app-loader");
+}
 (0, registry_core_1.addCliOnlyCapability)("version", "Print the current cool-workflow version.", {
     path: ["version"],
     jsonMode: "default",
@@ -41,7 +47,7 @@ const help_1 = require("../../core/format/help");
             throw new Error('Missing search keyword.\n  Tip: cw search architecture to find workflows about architecture.');
         }
         const lower = keyword.toLowerCase();
-        const results = (0, workflow_app_loader_1.listWorkflowApps)()
+        const results = loadWorkflowAppLoader().listWorkflowApps()
             .filter((a) => String(a.title).toLowerCase().includes(lower) ||
             String(a.summary).toLowerCase().includes(lower) ||
             String(a.id).toLowerCase().includes(lower))
