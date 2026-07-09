@@ -183,11 +183,12 @@ REGISTRY_BY_CAPABILITY.get("report.bundle")!.mcp!.handler = (args) =>
 
 attachCliBinding("report.verify-bundle", {
   path: ["report", "verify-bundle"],
-  jsonMode: "default",
+  jsonMode: "flag",
   handler: (args) => {
     const archivePath = required(optionalArg(args.positionals[0]), "bundle path");
-    const result = loadReportCli().reportVerifyBundleCli({ ...args.options, archive: archivePath });
-    return { json: result, exitCode: result.ok ? undefined : 1 };
+    const reportCli = loadReportCli();
+    const result = reportCli.reportVerifyBundleCli({ ...args.options, archive: archivePath });
+    return { json: result, text: reportCli.formatReportVerifyBundle(result), exitCode: result.ok ? undefined : 1 };
   },
 });
 REGISTRY_BY_CAPABILITY.get("report.verify-bundle")!.mcp!.handler = (args) => {

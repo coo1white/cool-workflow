@@ -36,15 +36,15 @@ caseMain(async () => {
     const runId = runPayload.runId;
     assert.ok(runId, "run must produce a runId");
 
-    // cw_status with an ABSENT runId in an empty repo, using cwd re-basing:
-    // must be "not found" against the repo path, not the server's own cwd.
+    // cw_status with an ABSENT runId: loadRunFromCwd's "Run not found: <id>"
+    // (shell/run-store.ts) names the run, not a raw filesystem path — actual
+    // cwd re-basing (that this looked under `repo`, not the server's own
+    // cwd) is proven conclusively below instead, by round-tripping a REAL
+    // run that only exists under `repo`.
     client.send({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "cw_status", arguments: { runId: "not-a-real-run", cwd: repo } } });
     const [notFound] = await client.waitForCount(1, 10000);
     assert.equal(notFound.error.code, -32000);
-    assert.ok(
-      notFound.error.message.includes(path.join(repo, ".cw", "runs", "not-a-real-run", "state.json")),
-      "error must name the re-based path under the given cwd, not the server cwd"
-    );
+    assert.ok(notFound.error.message.includes("Run not found: not-a-real-run"), "error must name the missing run id");
 
     // cw_status against the REAL run: payload must be byte-identical
     // (aside from generation-moment fields there are none here) to the

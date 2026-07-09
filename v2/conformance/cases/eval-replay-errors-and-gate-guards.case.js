@@ -4,7 +4,7 @@
 // Error-path and fail-closed-guard pins for the eval/replay harness:
 //  - missing required args on snapshot/replay/compare give the fixed
 //    "Missing ... id or path" usage strings;
-//  - snapshot on an unknown run id fails closed with "File not found";
+//  - snapshot on an unknown run id fails closed with "Run not found: <id>";
 //  - eval gate on a suite dir missing all four required artifacts refuses
 //    with the exact "missing required artifact(s)" message, listing exactly
 //    snapshot.json, replay-run.json, comparison.json, score.json (NOT
@@ -27,7 +27,7 @@ caseMain(() => {
   // --- unknown run id on snapshot: fails closed, does not fabricate a run ---
   const unknownRun = run(["eval", "snapshot", "no-such-run-id"], { cwd: repo });
   assert.equal(unknownRun.status, 1);
-  assert.match(unknownRun.stderr, /^cw: File not found: .*no-such-run-id.*state\.json\n/);
+  assert.equal(unknownRun.stderr, "cw: Run not found: no-such-run-id\n  Try: cw run list\n");
 
   // --- missing snapshot id/path on replay ---
   const noReplayTarget = run(["eval", "replay"], { cwd: repo });

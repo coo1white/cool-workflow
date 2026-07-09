@@ -7,7 +7,6 @@
 // default (no signed usage from the stub agent -> attestation "absent",
 // never silently trusted) and the exact human-readable telemetry lines.
 
-const path = require("node:path");
 const { run, gitRepo, caseMain, assert, stubAgentEnv } = require("../lib");
 
 caseMain(() => {
@@ -55,9 +54,9 @@ caseMain(() => {
   const emptyRepo = gitRepo({ "b.txt": "hi\n" });
   const bareAuditVerify = run(["audit", "verify", "no-such-run"], { cwd: emptyRepo });
   assert.equal(bareAuditVerify.status, 1);
-  // the CLI may realpath the cwd (e.g. macOS /tmp -> /private/tmp), so match
-  // the tail of the path rather than a byte-exact prefix.
-  const expectedTail = path.join(".cw", "runs", "no-such-run", "state.json");
-  assert.match(bareAuditVerify.stderr, /^cw: File not found: .*no-such-run\/state\.json\n$/);
-  assert.ok(bareAuditVerify.stderr.includes(expectedTail));
+  // loadRunFromCwd (shell/run-store.ts) names the run and gives a
+  // deterministic "Try: cw run list" hint instead of leaking the raw
+  // internal state.json path (see report-status-operator.case.js's
+  // fuller comment on this fix).
+  assert.equal(bareAuditVerify.stderr, "cw: Run not found: no-such-run\n  Try: cw run list\n");
 });

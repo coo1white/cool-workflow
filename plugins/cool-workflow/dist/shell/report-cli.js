@@ -43,9 +43,11 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportBundleCli = reportBundleCli;
 exports.reportVerifyBundleCli = reportVerifyBundleCli;
+exports.formatReportVerifyBundle = formatReportVerifyBundle;
 const path = __importStar(require("node:path"));
 const run_export_1 = require("./run-export");
 const run_store_1 = require("./run-store");
+const term_1 = require("./term");
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -98,4 +100,47 @@ function reportVerifyBundleCli(args) {
         strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
         requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs),
     });
+}
+/** `cw report verify-bundle`'s human render (default; `--json` prints
+ *  `ReportBundleVerification` verbatim instead). Mirrors `doctor`'s
+ *  checks-list-then-verdict shape (`shell/doctor.ts`'s
+ *  `formatDoctorReport`) rather than `demo bundle`'s narrative one
+ *  (`shell/telemetry-demo.ts`'s `formatBundleDemo`) — verify-bundle is a
+ *  flat set of pass/fail checks on one already-sealed archive, not a
+ *  multi-step forge-and-catch demonstration. */
+function formatReportVerifyBundle(r) {
+    const lines = [(0, term_1.bold)(`cw report verify-bundle ${r.archivePath}`), ""];
+    const checks = [
+        [r.archiveOk, "archive intact — file digests match, no tamper"],
+        [r.telemetryVerified, "telemetry hash chain verifies"],
+        [r.trustAuditVerified, "trust-audit chain verifies"],
+        [r.reportFindingsVerified, "report.md matches every signed result"],
+    ];
+    for (const [ok, label] of checks)
+        lines.push(`  ${(0, term_1.doctorGlyph)(ok ? "ok" : "fail")} ${label}`);
+    const sigDetail = r.signatureKeyProvided
+        ? `${r.signaturesReverified}/${r.signaturesChecked} signature(s) reverified (key source: ${r.trustKeySource})`
+        : "no public key available — signatures not checked";
+    lines.push(`  trust: ${r.trustLevel} — ${sigDetail}`);
+    if (r.reportExtractedTo)
+        lines.push(`  report.md extracted to: ${r.reportExtractedTo}`);
+    if (r.failedChecks.length > 0) {
+        lines.push("");
+        lines.push("  Failed checks");
+        for (const c of r.failedChecks) {
+            // Most check sites in run-export.ts's verifyReportBundle set `code`
+            // to a short slug (e.g. "digest-mismatch"); the top-level restore
+            // catch-all sets it to the caught error's full message instead
+            // (run-export.ts's "restore" failedChecks.push) — too long/sentence-
+            // shaped to cram into "name [code]" without reading as a run-on.
+            // Give it its own indented line instead.
+            const isSlug = c.code !== undefined && c.code.length <= 40 && !c.code.includes(" ");
+            lines.push(`    - ${c.name}${isSlug ? ` [${c.code}]` : ""}`);
+            if (c.code !== undefined && !isSlug)
+                lines.push(`      ${c.code}`);
+        }
+    }
+    lines.push("");
+    lines.push(`${(0, term_1.doctorGlyph)(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
+    return lines.join("\n");
 }
