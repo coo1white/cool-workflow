@@ -368,9 +368,71 @@ async function main() {
     console.log("quickstart: README cross-directory CLI shape fails closed with the documented payload ok");
   }
 
+  // ---- 8. interactive TTY prompt for a missing --question -------------------
+  // SPEC/cli-surface.md:34,502 (old-build ground truth): quickstart/audit-run
+  // with no --question ON A TTY asks "Question: " on stderr and waits; a
+  // blank answer leaves `question` unset. The conformance harness spawns
+  // every case piped (no TTY) by design and cannot exercise this, so it is
+  // tested here in-process instead, by swapping process.stdin for a fake
+  // Readable with isTTY:true — quickstartRun() only checks
+  // process.stdin.isTTY, so this exercises the REAL prompt/readline code
+  // path (shell/pipeline-cli.ts's promptForQuestion), not a stand-in.
+  {
+    const { Readable } = require("node:stream");
+    const originalStdinDescriptor = Object.getOwnPropertyDescriptor(process, "stdin");
+    function withFakeTty(answerLine) {
+      const fake = new Readable({ read() {} });
+      fake.isTTY = true;
+      Object.defineProperty(process, "stdin", { value: fake, configurable: true });
+      setTimeout(() => fake.push(`${answerLine}\n`), 20);
+      return () => Object.defineProperty(process, "stdin", originalStdinDescriptor);
+    }
+
+    // (a) a real answer typed at the prompt flows through to run.inputs.question.
+    {
+      const work = tmpWorkspace();
+      const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
+      process.chdir(work);
+      const restore = withFakeTty("what are the interactive-prompt risks?");
+      try {
+        const result = await quickstartRun({
+          appId: GOLDEN_APP,
+          repo: work,
+          agentCommand: `${process.execPath} ${stub} {{result}}`
+        });
+        assert.equal(result.status, "complete", "TTY-prompted question still drives to completion");
+        const run = loadRunAt(result.runId, work);
+        assert.equal(run.inputs.question, "what are the interactive-prompt risks?", "the typed answer reached run.inputs.question");
+      } finally {
+        restore();
+        process.chdir(cwd0);
+      }
+    }
+
+    // (b) a blank answer (bare Enter) leaves question unset, so the SAME
+    // "Missing required input: question" fail-closed error fires as when
+    // --question was never passed at all (piped or TTY).
+    {
+      const work = tmpWorkspace();
+      process.chdir(work);
+      const restore = withFakeTty("");
+      try {
+        await assert.rejects(
+          quickstartRun({ appId: GOLDEN_APP, repo: work }),
+          /Missing required input: question/,
+          "a blank TTY answer still fails closed, same message as the piped path"
+        );
+      } finally {
+        restore();
+        process.chdir(cwd0);
+      }
+    }
+    console.log("quickstart: TTY prompt fills --question; blank answer still fails closed ok");
+  }
+
   for (const dir of cleanups) fs.rmSync(dir, { recursive: true, force: true });
   process.stdout.write(
-    "quickstart-smoke: ok (one command plans+drives+reports; fail-closed on unconfigured agent; deterministic --preview; default app + audit-run alias; delegates, no private executor; README cross-directory CLI shape)\n"
+    "quickstart-smoke: ok (one command plans+drives+reports; fail-closed on unconfigured agent; deterministic --preview; default app + audit-run alias; delegates, no private executor; README cross-directory CLI shape; TTY question prompt)\n"
   );
 }
 

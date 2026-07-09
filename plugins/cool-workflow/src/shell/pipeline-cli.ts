@@ -11,6 +11,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as readlinePromises from "node:readline/promises";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { plan } from "./pipeline";
 import { loadWorkflowApp, showWorkflowApp, loadWorkflowAppRecordById, WorkflowAppNotFoundError } from "./workflow-app-loader";
@@ -365,6 +366,21 @@ function remoteQuickstartCheck(appId: string, args: Record<string, unknown>, can
 
 type QuickstartResult = ReturnType<typeof drive> & { appId: string; hint?: string; resumedFrom?: string; bundle?: ReportBundleResult };
 
+/** Prompts `Question: ` on STDERR (stdout stays data-only, matching the
+ *  Rule of Silence) and reads one line from stdin. Returns the trimmed
+ *  answer, or `undefined` for a blank line. Callers must only invoke this
+ *  when `process.stdin.isTTY` — it would otherwise block forever on a
+ *  piped/CI invocation. */
+async function promptForQuestion(): Promise<string | undefined> {
+  const rl = readlinePromises.createInterface({ input: process.stdin, output: process.stderr });
+  try {
+    const answer = await rl.question("Question: ");
+    return answer.trim() || undefined;
+  } finally {
+    rl.close();
+  }
+}
+
 /** `cw quickstart [app] --question ...` — composes plan -> runDrive ->
  *  report in one call. Default app is architecture-review. `--check` is a
  *  read-only preflight that never plans/drives/writes (see
@@ -386,6 +402,20 @@ export async function quickstartRun(
   const remoteCandidate = linkArg || (repoArgRaw && isRemoteUrl(repoArgRaw) ? repoArgRaw : undefined);
   if (!remoteCandidate && !args.repo && !args.cwd) args.repo = invocationCwd(args);
   if (Boolean(args.check)) return quickstartCheck(appId, args, remoteCandidate);
+
+  // On an interactive TTY with no --question, ask for one instead of
+  // failing closed with "Missing required input: question" (byte-behavior
+  // port of the old build's TTY prompt — SPEC/cli-surface.md:34,502). A
+  // blank/empty answer leaves `question` unset, same as never passing
+  // --question at all — plan()'s own required-input check still fails
+  // closed for an app that declares `question` required. Never fires
+  // under --check (returned above; --check reports a missing question as
+  // a preflight issue, not something to prompt for) or off a TTY (a piped
+  // invocation must never block on stdin).
+  if (process.stdin.isTTY && !(typeof args.question === "string" && args.question.trim())) {
+    const answer = await promptForQuestion();
+    if (answer) args.question = answer;
+  }
 
   // Materialize the remote NOW — after `--check` (never fetches) and before any
   // plan/drive — so the core only ever sees the local checkout. Fails closed: a
