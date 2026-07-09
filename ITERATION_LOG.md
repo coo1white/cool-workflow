@@ -53,10 +53,27 @@
 >    left the existing positive check (a REAL run created under `repo`,
 >    round-tripped through both the CLI and MCP with `cwd: repo`) as the
 >    actual proof of correct cwd re-basing, which it already was.
+>
+> A follow-up multi-agent review (correctness incl. TOCTOU/edge-case
+> checks, and test-coverage/consistency verification, each independently
+> verified against a live driven run) found no bugs in the changed code,
+> confirmed `assertSafeRunId` still runs before the new existence check
+> (an unsafe run id is unaffected), confirmed the TOCTOU gap between the
+> new pre-check and the underlying `readJson` degrades to the old error
+> rather than masking a real problem, and confirmed no other call site
+> needed updating. It did catch one pre-existing wart the new human
+> render made visible for the first time: `run-export.ts`'s top-level
+> "restore" catch-all puts the caught error's full message into
+> `failedChecks[].code` (every other check site there uses a short slug),
+> so it rendered as a long run-on sentence crammed into `name [code]`.
+> Fixed in `formatReportVerifyBundle` (not `run-export.ts` — the data
+> shape is unchanged, only the render): a `code` over 40 chars or
+> containing a space now gets its own indented detail line instead of
+> being forced into brackets.
 
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
-| 3 | Give `cw report verify-bundle` a human-readable default render (matching `doctor`/`demo bundle`'s dual-render pattern) and fix `loadRunFromCwd` (used by ~19 files) to throw a clear "Run not found: `<id>`" instead of leaking `.cw/runs/<id>/state.json`. | `plugins/cool-workflow/src/{shell/{report-cli,run-store},wiring/capability-table/trust-ledger}.ts` + matching `dist/**`, `v2/conformance/cases/{report-bundle,state-report-bundle,report-status-operator,state-audit-telemetry-verify,eval-replay-errors-and-gate-guards,mcp-cwd-and-payload}.case.js`, new `v2/conformance/cases/report-verify-bundle-human-render.case.js`. | Live-CLI spot checks against a real stub-agent-driven run (bare `report verify-bundle` human render, `--json` payload, missing-archive failure render, `report`/`status`/`audit verify`/`eval snapshot` on a bad run id). | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
+| 3 | Give `cw report verify-bundle` a human-readable default render (matching `doctor`/`demo bundle`'s dual-render pattern) and fix `loadRunFromCwd` (used by ~19 files) to throw a clear "Run not found: `<id>`" instead of leaking `.cw/runs/<id>/state.json`. | `plugins/cool-workflow/src/{shell/{report-cli,run-store},wiring/capability-table/trust-ledger}.ts` + matching `dist/**`, `v2/conformance/cases/{report-bundle,state-report-bundle,report-status-operator,state-audit-telemetry-verify,eval-replay-errors-and-gate-guards,mcp-cwd-and-payload}.case.js`, new `v2/conformance/cases/report-verify-bundle-human-render.case.js`. | Live-CLI spot checks against a real stub-agent-driven run (bare `report verify-bundle` human render on clean/tampered/`--require-signatures`-refused bundles, `--json` payload, missing-archive and malformed-archive failure renders, `report`/`status`/`audit verify`/`eval snapshot` on a bad run id, an unsafe run id unaffected, a permission-denied `state.json` unaffected). A follow-up multi-agent review (correctness + test-coverage/consistency, each independently verified live) found no bugs, confirmed the fix's scope was complete, and caught one pre-existing wart the new render exposed — fixed in the same PR. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
 
 ## Batch — fix 3 `cw help` regressions found by diffing against the v0.1.98 ground truth (Unreleased)
 

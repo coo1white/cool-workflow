@@ -102,7 +102,17 @@ export function formatReportVerifyBundle(r: ReportBundleVerification): string {
   if (r.failedChecks.length > 0) {
     lines.push("");
     lines.push("  Failed checks");
-    for (const c of r.failedChecks) lines.push(`    - ${c.name}${c.code ? ` [${c.code}]` : ""}`);
+    for (const c of r.failedChecks) {
+      // Most check sites in run-export.ts's verifyReportBundle set `code`
+      // to a short slug (e.g. "digest-mismatch"); the top-level restore
+      // catch-all sets it to the caught error's full message instead
+      // (run-export.ts's "restore" failedChecks.push) — too long/sentence-
+      // shaped to cram into "name [code]" without reading as a run-on.
+      // Give it its own indented line instead.
+      const isSlug = c.code !== undefined && c.code.length <= 40 && !c.code.includes(" ");
+      lines.push(`    - ${c.name}${isSlug ? ` [${c.code}]` : ""}`);
+      if (c.code !== undefined && !isSlug) lines.push(`      ${c.code}`);
+    }
   }
   lines.push("");
   lines.push(`${doctorGlyph(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
