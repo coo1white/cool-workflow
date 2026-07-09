@@ -46,7 +46,8 @@ export function makeStep(action: DriveStepAction, status: DriveStepStatus, field
 export function selectDriveTask(run: WorkflowRun): RunTask | undefined {
   const phase = firstRunnablePhase(run);
   if (!phase) return undefined;
-  const phaseTasks = run.tasks.filter((task) => phase.taskIds.includes(task.id));
+  const taskIds = new Set(phase.taskIds);
+  const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
   return phaseTasks.find((task) => task.status === "running") || phaseTasks.find((task) => task.status === "pending");
 }
 

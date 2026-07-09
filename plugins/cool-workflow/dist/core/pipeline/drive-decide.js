@@ -45,7 +45,8 @@ function selectDriveTask(run) {
     const phase = (0, dispatch_1.firstRunnablePhase)(run);
     if (!phase)
         return undefined;
-    const phaseTasks = run.tasks.filter((task) => phase.taskIds.includes(task.id));
+    const taskIds = new Set(phase.taskIds);
+    const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
     return phaseTasks.find((task) => task.status === "running") || phaseTasks.find((task) => task.status === "pending");
 }
 function countCompleted(run) {

@@ -20,7 +20,14 @@ exports.formatDispatchId = formatDispatchId;
  *  everything after it (`null`). */
 function firstRunnablePhase(run) {
     for (const phase of run.phases) {
-        const phaseTasks = run.tasks.filter((task) => phase.taskIds.includes(task.id));
+        // A Set lookup, not `taskIds.includes()` re-scanned per task: this loop is
+        // O(phases x tasks), not O(phases x tasks x taskIds-per-phase) -- the
+        // latter degrades to O(tasks^2) since total taskIds across phases scales
+        // with total tasks, and this function is called several times per drive
+        // hop (once per hop directly, again inside selectDriveTask, again inside
+        // driveConcurrentRound), compounding to O(tasks^3) over a whole run.
+        const taskIds = new Set(phase.taskIds);
+        const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
         if (phaseTasks.some((task) => task.status === "running"))
             return phase;
         if (phaseTasks.some((task) => task.status === "pending"))
@@ -34,7 +41,8 @@ function firstRunnablePhase(run) {
  *  running when some task is running or completed, else pending. */
 function updatePhaseStatuses(run) {
     for (const phase of run.phases) {
-        const phaseTasks = run.tasks.filter((task) => phase.taskIds.includes(task.id));
+        const taskIds = new Set(phase.taskIds);
+        const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
         if (phaseTasks.length > 0 && phaseTasks.every((task) => task.status === "completed")) {
             phase.status = "completed";
         }

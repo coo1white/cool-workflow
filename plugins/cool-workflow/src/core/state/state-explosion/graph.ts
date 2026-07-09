@@ -644,6 +644,11 @@ export function buildCompactGraphFromView(
   const rule = collapseRuleFor();
   const keep = new Set<string>();
   const buckets = new Map<string, string[]>();
+  const addToBucket = (bucketKey: string, id: string): void => {
+    const list = buckets.get(bucketKey);
+    if (list) list.push(id);
+    else buckets.set(bucketKey, [id]);
+  };
   for (const node of scopeNodes) {
     if (protectedIds.has(node.id) || (focusKeep && focusKeep.has(node.id))) {
       keep.add(node.id);
@@ -651,16 +656,14 @@ export function buildCompactGraphFromView(
     }
     if (view === "critical-path") {
       // Collapse everything not on the critical path into one bucket per kind.
-      const bucketKey = `critical-context:${node.kind}`;
-      buckets.set(bucketKey, [...(buckets.get(bucketKey) || []), node.id]);
+      addToBucket(`critical-context:${node.kind}`, node.id);
       continue;
     }
     if (!shouldCollapseKind(node.kind)) {
       keep.add(node.id);
       continue;
     }
-    const bucketKey = rule.bucketBy(node, parentOf);
-    buckets.set(bucketKey, [...(buckets.get(bucketKey) || []), node.id]);
+    addToBucket(rule.bucketBy(node, parentOf), node.id);
   }
 
   // Buckets smaller than the collapse threshold stay expanded (unless
@@ -672,8 +675,9 @@ export function buildCompactGraphFromView(
       for (const id of ids) keep.add(id);
       continue;
     }
-    const members = scopeNodes.filter((node) => ids.includes(node.id));
-    const internalEdges = scopeEdges.filter((edge) => ids.includes(edge.from) && ids.includes(edge.to));
+    const idSet = new Set(ids);
+    const members = scopeNodes.filter((node) => idSet.has(node.id));
+    const internalEdges = scopeEdges.filter((edge) => idSet.has(edge.from) && idSet.has(edge.to));
     const syntheticId = `${runId}:summary:${slug(bucketKey)}`;
     const dominant = dominantStatus(members.map((m) => m.status));
     const blocked = members.find((m) => isProtectedStatus(m.status));

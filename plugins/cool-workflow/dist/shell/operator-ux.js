@@ -123,7 +123,8 @@ function adviseNoRun() {
 }
 function summarizePhases(run) {
     return run.phases.map((phase) => {
-        const phaseTasks = run.tasks.filter((t) => phase.taskIds.includes(t.id));
+        const taskIds = new Set(phase.taskIds);
+        const phaseTasks = run.tasks.filter((t) => taskIds.has(t.id));
         const byStatus = countBy(phaseTasks, (t) => t.status);
         return { id: phase.id, name: phase.name, status: phase.status, tasks: { total: phaseTasks.length, ...byStatus } };
     });
