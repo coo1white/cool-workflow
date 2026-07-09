@@ -33,10 +33,28 @@ exports.declaredMcpTools = declaredMcpTools;
 exports.findCapabilityByMcpTool = findCapabilityByMcpTool;
 const capability_data_1 = require("../../core/capability-data");
 const io_1 = require("../../cli/io");
-const run_store_1 = require("../../shell/run-store");
-const operator_ux_1 = require("../../shell/operator-ux");
-const workflow_app_loader_1 = require("../../shell/workflow-app-loader");
-const state_explosion_cli_1 = require("../../shell/state-explosion-cli");
+// Every capability-table module (this file plus each domain slice) is
+// required unconditionally at CLI/MCP startup, for every single command
+// (index.ts's whole point is to populate REGISTRY before dispatch can
+// look anything up) — so a top-level `import` of a shell module here
+// means EVERY invocation pays that module's full load cost, even the
+// 99% of commands that never touch `status`/`summary.refresh`/`list`.
+// Requiring these 4 lazily (inside the handler that actually uses them)
+// measured live: this file alone was ~30-45ms of a ~75-100ms `cw --version`
+// require chain, the single largest slice. The 8 domain slices have the
+// same shape and are a natural follow-up, not attempted here.
+function loadRunStore() {
+    return require("../../shell/run-store");
+}
+function loadOperatorUx() {
+    return require("../../shell/operator-ux");
+}
+function loadWorkflowAppLoader() {
+    return require("../../shell/workflow-app-loader");
+}
+function loadStateExplosionCli() {
+    return require("../../shell/state-explosion-cli");
+}
 /** Real handlers implemented at THIS milestone, keyed by capability id.
  *  Every tool row not listed here gets `notYetImplemented`. Kept as a
  *  small side table (rather than inlined into MCP_TOOL_DATA above) so the
@@ -47,8 +65,8 @@ const MCP_REAL_HANDLERS = {
     list: () => listBundledWorkflows(),
     "sandbox.list": () => listBundledSandboxProfiles(),
     status: (args) => statusPayload(optionalString(args.runId)),
-    "summary.refresh": (args) => (0, state_explosion_cli_1.summaryRefreshCli)((0, io_1.required)(optionalString(args.runId), "run id"), args),
-    "summary.show": (args) => (0, state_explosion_cli_1.summaryShowCli)((0, io_1.required)(optionalString(args.runId), "run id"), args),
+    "summary.refresh": (args) => loadStateExplosionCli().summaryRefreshCli((0, io_1.required)(optionalString(args.runId), "run id"), args),
+    "summary.show": (args) => loadStateExplosionCli().summaryShowCli((0, io_1.required)(optionalString(args.runId), "run id"), args),
 };
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -57,7 +75,7 @@ function optionalString(value) {
  *  `apps/*\/app.json` + legacy `workflows/*.workflow.js` on disk, per
  *  `listWorkflowsShallow` (shell/workflow-app-loader.ts). */
 function listBundledWorkflows() {
-    return (0, workflow_app_loader_1.listWorkflowsShallow)();
+    return loadWorkflowAppLoader().listWorkflowsShallow();
 }
 /** PLACEHOLDER (milestone 5, execution-backend/sandbox) — the real
  *  `sandbox.list` resolves and stamps each of the 4 bundled profiles
@@ -77,11 +95,12 @@ function listBundledSandboxProfiles() {
  *  shape exactly (`{runId:null, nextActions}`); a real run id resolves to
  *  `summarizeRun`'s payload (MILESTONE 11, reporting/observability). */
 function statusPayload(runId, cwd) {
+    const operatorUx = loadOperatorUx();
     if (!runId) {
-        return { runId: null, nextActions: (0, operator_ux_1.adviseNoRun)() };
+        return { runId: null, nextActions: operatorUx.adviseNoRun() };
     }
-    const run = (0, run_store_1.loadRunFromCwd)(runId, cwd || process.cwd());
-    return (0, operator_ux_1.summarizeRun)(run);
+    const run = loadRunStore().loadRunFromCwd(runId, cwd || process.cwd());
+    return operatorUx.summarizeRun(run);
 }
 // ---------------------------------------------------------------------
 // Public table-derived API

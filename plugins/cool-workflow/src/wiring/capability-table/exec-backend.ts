@@ -27,9 +27,17 @@ import {
   showSandboxProfileCli,
   validateSandboxProfileCli,
 } from "../../shell/exec-backend-cli";
-import { formatDoctorFixes, formatDoctorReport, runDoctor } from "../../shell/doctor";
 import { optionalArg, required, wantsJson } from "../../cli/io";
-import { appRunCli, sandboxChooseCli } from "../../shell/app-run-cli";
+
+// This slice is required unconditionally at startup for every command;
+// load doctor/app-run-cli lazily so only doctor/fix/sandbox.choose/
+// sandbox.resolve/app.run handlers pay their require cost.
+function loadDoctor(): typeof import("../../shell/doctor") {
+  return require("../../shell/doctor") as typeof import("../../shell/doctor");
+}
+function loadAppRunCli(): typeof import("../../shell/app-run-cli") {
+  return require("../../shell/app-run-cli") as typeof import("../../shell/app-run-cli");
+}
 
 attachCliBinding("sandbox.list", {
   path: ["sandbox", "list"],
@@ -41,9 +49,9 @@ REGISTRY_BY_CAPABILITY.get("sandbox.list")!.mcp!.handler = (args) => listSandbox
 // GAP #24: cw_sandbox_choose / cw_sandbox_resolve + cw_app_run were declared
 // MCP-only rows with the notYetImplemented placeholder handler. Wire them to
 // the ported shell bodies (both are MCP-only in the old build — no CLI path).
-REGISTRY_BY_CAPABILITY.get("sandbox.choose")!.mcp!.handler = (args) => sandboxChooseCli(args);
-REGISTRY_BY_CAPABILITY.get("sandbox.resolve")!.mcp!.handler = (args) => sandboxChooseCli(args);
-REGISTRY_BY_CAPABILITY.get("app.run")!.mcp!.handler = (args) => appRunCli(args);
+REGISTRY_BY_CAPABILITY.get("sandbox.choose")!.mcp!.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
+REGISTRY_BY_CAPABILITY.get("sandbox.resolve")!.mcp!.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
+REGISTRY_BY_CAPABILITY.get("app.run")!.mcp!.handler = (args) => loadAppRunCli().appRunCli(args);
 
 attachCliBinding("sandbox.show", {
   path: ["sandbox", "show"],
@@ -74,12 +82,12 @@ REGISTRY_BY_CAPABILITY.get("sandbox.validate")!.mcp!.handler = (args) =>
 attachCliBinding("sandbox.choose", {
   path: ["sandbox", "choose"],
   jsonMode: "default",
-  handler: (args) => ({ json: sandboxChooseCli(args.options) }),
+  handler: (args) => ({ json: loadAppRunCli().sandboxChooseCli(args.options) }),
 });
 attachCliBinding("sandbox.resolve", {
   path: ["sandbox", "resolve"],
   jsonMode: "default",
-  handler: (args) => ({ json: sandboxChooseCli(args.options) }),
+  handler: (args) => ({ json: loadAppRunCli().sandboxChooseCli(args.options) }),
 });
 
 attachCliBinding("backend.list", {
@@ -157,7 +165,8 @@ addCliOnlyCapability(
     path: ["doctor"],
     jsonMode: "flag",
     handler: (args) => {
-      const report = runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
+      const doctor = loadDoctor();
+      const report = doctor.runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
       // Byte-exact port of src/cli/command-surface.ts:170-176: both text
       // branches are written as `${formatX(report)}\n` UNCONDITIONALLY —
       // formatDoctorFixes already ends in its own "\n" (its last joined
@@ -166,7 +175,7 @@ addCliOnlyCapability(
       // renderer only appends "\n" when the text does NOT already end in
       // one, so a bare `formatDoctorFixes(report)` here would silently
       // drop the old build's trailing blank line.
-      const text = wantsJson(args.options) ? undefined : args.options.fix ? `${formatDoctorFixes(report)}\n` : formatDoctorReport(report);
+      const text = wantsJson(args.options) ? undefined : args.options.fix ? `${doctor.formatDoctorFixes(report)}\n` : doctor.formatDoctorReport(report);
       return { json: report, text, exitCode: report.ok ? undefined : 1 };
     },
   },
@@ -180,12 +189,13 @@ addCliOnlyCapability(
     path: ["fix"],
     jsonMode: "human",
     handler: (args) => {
-      const report = runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
+      const doctor = loadDoctor();
+      const report = doctor.runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
       // See the "doctor" handler's comment above: formatDoctorFixes
       // already ends in "\n", so one more explicit "\n" here reproduces
       // src/cli/command-surface.ts:126-130's unconditional
       // `${formatDoctorFixes(report)}\n` write.
-      return { text: `${formatDoctorFixes(report)}\n`, exitCode: report.ok ? undefined : 1 };
+      return { text: `${doctor.formatDoctorFixes(report)}\n`, exitCode: report.ok ? undefined : 1 };
     },
   },
   "Environment fix commands are local diagnostics, same reasoning as doctor."

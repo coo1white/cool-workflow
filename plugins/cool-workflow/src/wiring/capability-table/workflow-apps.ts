@@ -7,8 +7,17 @@
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
 import { required, optionalArg } from "../../cli/io";
 import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
-import { nextCli } from "../../shell/state-cli";
-import { appRunCli } from "../../shell/app-run-cli";
+
+// This whole module is required unconditionally at startup for EVERY
+// command (see wiring/capability-table/index.ts) — loading `next`'s and
+// `app.run`'s shell modules lazily, inside the handler that actually
+// calls them, keeps other commands from paying their load cost.
+function loadStateCli(): typeof import("../../shell/state-cli") {
+  return require("../../shell/state-cli") as typeof import("../../shell/state-cli");
+}
+function loadAppRunCli(): typeof import("../../shell/app-run-cli") {
+  return require("../../shell/app-run-cli") as typeof import("../../shell/app-run-cli");
+}
 
 // MILESTONE 12 (workflow-apps). Handler BODIES live in
 // shell/workflow-app-loader.ts (impure — they scan apps/*/app.json +
@@ -19,46 +28,47 @@ import { appRunCli } from "../../shell/app-run-cli";
 // exitCode 1 on `valid:false` — both the "not found" id case and a
 // structurally-broken manifest case fail this same way.
 
-import {
-  initWorkflowApp,
-  listWorkflowApps,
-  packageWorkflowApp,
-  showWorkflowApp,
-  validateWorkflowAppTarget,
-} from "../../shell/workflow-app-loader";
+// Loaded lazily so the app.* handlers below pay this module's load cost
+// only when actually invoked, not on every CLI/MCP startup.
+function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader") {
+  return require("../../shell/workflow-app-loader") as typeof import("../../shell/workflow-app-loader");
+}
 import { formatInfo } from "../../core/format/help";
-import { readManPage } from "../../shell/man-cli";
+// Loaded lazily so only the `man` handler below pays its load cost.
+function loadManCli(): typeof import("../../shell/man-cli") {
+  return require("../../shell/man-cli") as typeof import("../../shell/man-cli");
+}
 
 attachCliBinding("app.list", {
   path: ["app", "list"],
   jsonMode: "default",
-  handler: () => ({ json: listWorkflowApps() }),
+  handler: () => ({ json: loadWorkflowAppLoader().listWorkflowApps() }),
 });
-REGISTRY_BY_CAPABILITY.get("app.list")!.mcp!.handler = () => listWorkflowApps();
+REGISTRY_BY_CAPABILITY.get("app.list")!.mcp!.handler = () => loadWorkflowAppLoader().listWorkflowApps();
 
 attachCliBinding("app.show", {
   path: ["app", "show"],
   jsonMode: "default",
-  handler: (args) => ({ json: showWorkflowApp(required(args.positionals[0], "workflow app id")) }),
+  handler: (args) => ({ json: loadWorkflowAppLoader().showWorkflowApp(required(args.positionals[0], "workflow app id")) }),
 });
-REGISTRY_BY_CAPABILITY.get("app.show")!.mcp!.handler = (args) => showWorkflowApp(required(optionalArg(args.appId), "workflow app id"));
+REGISTRY_BY_CAPABILITY.get("app.show")!.mcp!.handler = (args) => loadWorkflowAppLoader().showWorkflowApp(required(optionalArg(args.appId), "workflow app id"));
 
 attachCliBinding("app.validate", {
   path: ["app", "validate"],
   jsonMode: "default",
   handler: (args) => {
-    const result = validateWorkflowAppTarget(required(args.positionals[0], "workflow app path or id"));
+    const result = loadWorkflowAppLoader().validateWorkflowAppTarget(required(args.positionals[0], "workflow app path or id"));
     return { json: result, exitCode: result.valid ? undefined : 1 };
   },
 });
-REGISTRY_BY_CAPABILITY.get("app.validate")!.mcp!.handler = (args) => validateWorkflowAppTarget(required(optionalArg(args.target ?? args.appId), "workflow app path or id"));
+REGISTRY_BY_CAPABILITY.get("app.validate")!.mcp!.handler = (args) => loadWorkflowAppLoader().validateWorkflowAppTarget(required(optionalArg(args.target ?? args.appId), "workflow app path or id"));
 
 attachCliBinding("app.init", {
   path: ["app", "init"],
   jsonMode: "default",
-  handler: (args) => ({ json: initWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
+  handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
 });
-REGISTRY_BY_CAPABILITY.get("app.init")!.mcp!.handler = (args) => initWorkflowApp(required(optionalArg(args.appId), "app id"), args);
+REGISTRY_BY_CAPABILITY.get("app.init")!.mcp!.handler = (args) => loadWorkflowAppLoader().initWorkflowApp(required(optionalArg(args.appId), "app id"), args);
 
 // `cw init <id>` — the standalone scaffold verb. v2 folds `init` into
 // `app.init` (the old build's legacy `.workflow.js` scaffold is gone), so
@@ -69,16 +79,16 @@ REGISTRY_BY_CAPABILITY.get("app.init")!.mcp!.handler = (args) => initWorkflowApp
 attachCliBinding("init", {
   path: ["init"],
   jsonMode: "default",
-  handler: (args) => ({ json: initWorkflowApp(required(optionalArg(args.positionals[0]), "workflow id"), args.options) }),
+  handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp(required(optionalArg(args.positionals[0]), "workflow id"), args.options) }),
 });
-REGISTRY_BY_CAPABILITY.get("init")!.mcp!.handler = (args) => initWorkflowApp(required(optionalArg(args.workflowId ?? args.appId), "workflow id"), args);
+REGISTRY_BY_CAPABILITY.get("init")!.mcp!.handler = (args) => loadWorkflowAppLoader().initWorkflowApp(required(optionalArg(args.workflowId ?? args.appId), "workflow id"), args);
 
 attachCliBinding("app.package", {
   path: ["app", "package"],
   jsonMode: "default",
-  handler: (args) => ({ json: packageWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
+  handler: (args) => ({ json: loadWorkflowAppLoader().packageWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
 });
-REGISTRY_BY_CAPABILITY.get("app.package")!.mcp!.handler = (args) => packageWorkflowApp(required(optionalArg(args.appId), "app id"), args);
+REGISTRY_BY_CAPABILITY.get("app.package")!.mcp!.handler = (args) => loadWorkflowAppLoader().packageWorkflowApp(required(optionalArg(args.appId), "app id"), args);
 
 // `cw app run <app-id>` — plan+drive+report an app in one call. 2-token
 // cli.path found before the ["app"] usage catch-all; `appRunCli` reads the
@@ -87,7 +97,7 @@ REGISTRY_BY_CAPABILITY.get("app.package")!.mcp!.handler = (args) => packageWorkf
 attachCliBinding("app.run", {
   path: ["app", "run"],
   jsonMode: "default",
-  handler: (args) => ({ json: appRunCli({ ...args.options, appId: required(args.positionals[0], "app id") }) }),
+  handler: (args) => ({ json: loadAppRunCli().appRunCli({ ...args.options, appId: required(args.positionals[0], "app id") }) }),
 });
 
 // A 1-token `["app"]` row that exists ONLY to own the fixed usage string
@@ -469,7 +479,7 @@ addCliOnlyCapability(
       if (!topic) {
         throw new Error("Missing topic.\n  Tip: cw man release-tooling for the release tooling manual.");
       }
-      process.stdout.write(readManPage(topic));
+      process.stdout.write(loadManCli().readManPage(topic));
       return {};
     },
   },
@@ -486,7 +496,7 @@ addCliOnlyCapability(
     jsonMode: "flag",
     handler: (args) => {
       const appId = required(args.positionals[0], "workflow app id");
-      const data = showWorkflowApp(appId);
+      const data = loadWorkflowAppLoader().showWorkflowApp(appId);
       return { json: data, text: `${formatInfo(appId, data)}\n` };
     },
   },
@@ -510,9 +520,9 @@ addCliOnlyCapability(
 attachCliBinding("next", {
   path: ["next"],
   jsonMode: "default",
-  handler: (args) => ({ json: nextCli(required(optionalArg(args.positionals[0]), "run id"), args.options) }),
+  handler: (args) => ({ json: loadStateCli().nextCli(required(optionalArg(args.positionals[0]), "run id"), args.options) }),
 });
-REGISTRY_BY_CAPABILITY.get("next")!.mcp!.handler = (args) => nextCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("next")!.mcp!.handler = (args) => loadStateCli().nextCli(required(optionalArg(args.runId), "run id"), args);
 
 // `ledger.propose`/`.review`/`.verify`/`.apply`/`.list` are documented
 // payload-probe opt-outs in the old build (each mints a fresh timestamped/

@@ -17,9 +17,16 @@ const registry_core_1 = require("./registry-core");
 // as milestones 3/4 did for their own rows.
 // ---------------------------------------------------------------------
 const exec_backend_cli_1 = require("../../shell/exec-backend-cli");
-const doctor_1 = require("../../shell/doctor");
 const io_1 = require("../../cli/io");
-const app_run_cli_1 = require("../../shell/app-run-cli");
+// This slice is required unconditionally at startup for every command;
+// load doctor/app-run-cli lazily so only doctor/fix/sandbox.choose/
+// sandbox.resolve/app.run handlers pay their require cost.
+function loadDoctor() {
+    return require("../../shell/doctor");
+}
+function loadAppRunCli() {
+    return require("../../shell/app-run-cli");
+}
 (0, registry_core_1.attachCliBinding)("sandbox.list", {
     path: ["sandbox", "list"],
     jsonMode: "default",
@@ -29,9 +36,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.list").mcp.handler = (args) 
 // GAP #24: cw_sandbox_choose / cw_sandbox_resolve + cw_app_run were declared
 // MCP-only rows with the notYetImplemented placeholder handler. Wire them to
 // the ported shell bodies (both are MCP-only in the old build — no CLI path).
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.choose").mcp.handler = (args) => (0, app_run_cli_1.sandboxChooseCli)(args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.resolve").mcp.handler = (args) => (0, app_run_cli_1.sandboxChooseCli)(args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.run").mcp.handler = (args) => (0, app_run_cli_1.appRunCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.choose").mcp.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.resolve").mcp.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("app.run").mcp.handler = (args) => loadAppRunCli().appRunCli(args);
 (0, registry_core_1.attachCliBinding)("sandbox.show", {
     path: ["sandbox", "show"],
     jsonMode: "default",
@@ -57,12 +64,12 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (ar
 (0, registry_core_1.attachCliBinding)("sandbox.choose", {
     path: ["sandbox", "choose"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, app_run_cli_1.sandboxChooseCli)(args.options) }),
+    handler: (args) => ({ json: loadAppRunCli().sandboxChooseCli(args.options) }),
 });
 (0, registry_core_1.attachCliBinding)("sandbox.resolve", {
     path: ["sandbox", "resolve"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, app_run_cli_1.sandboxChooseCli)(args.options) }),
+    handler: (args) => ({ json: loadAppRunCli().sandboxChooseCli(args.options) }),
 });
 (0, registry_core_1.attachCliBinding)("backend.list", {
     path: ["backend", "list"],
@@ -134,7 +141,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
     path: ["doctor"],
     jsonMode: "flag",
     handler: (args) => {
-        const report = (0, doctor_1.runDoctor)(args.options, process.env, String(args.options.cwd || process.cwd()));
+        const doctor = loadDoctor();
+        const report = doctor.runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
         // Byte-exact port of src/cli/command-surface.ts:170-176: both text
         // branches are written as `${formatX(report)}\n` UNCONDITIONALLY —
         // formatDoctorFixes already ends in its own "\n" (its last joined
@@ -143,7 +151,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
         // renderer only appends "\n" when the text does NOT already end in
         // one, so a bare `formatDoctorFixes(report)` here would silently
         // drop the old build's trailing blank line.
-        const text = (0, io_1.wantsJson)(args.options) ? undefined : args.options.fix ? `${(0, doctor_1.formatDoctorFixes)(report)}\n` : (0, doctor_1.formatDoctorReport)(report);
+        const text = (0, io_1.wantsJson)(args.options) ? undefined : args.options.fix ? `${doctor.formatDoctorFixes(report)}\n` : doctor.formatDoctorReport(report);
         return { json: report, text, exitCode: report.ok ? undefined : 1 };
     },
 }, "Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`.");
@@ -151,12 +159,13 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
     path: ["fix"],
     jsonMode: "human",
     handler: (args) => {
-        const report = (0, doctor_1.runDoctor)(args.options, process.env, String(args.options.cwd || process.cwd()));
+        const doctor = loadDoctor();
+        const report = doctor.runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
         // See the "doctor" handler's comment above: formatDoctorFixes
         // already ends in "\n", so one more explicit "\n" here reproduces
         // src/cli/command-surface.ts:126-130's unconditional
         // `${formatDoctorFixes(report)}\n` write.
-        return { text: `${(0, doctor_1.formatDoctorFixes)(report)}\n`, exitCode: report.ok ? undefined : 1 };
+        return { text: `${doctor.formatDoctorFixes(report)}\n`, exitCode: report.ok ? undefined : 1 };
     },
 }, "Environment fix commands are local diagnostics, same reasoning as doctor.");
 // ---------------------------------------------------------------------

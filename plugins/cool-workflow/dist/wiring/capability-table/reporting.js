@@ -41,8 +41,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 const io_1 = require("../../cli/io");
 const state_explosion_text_1 = require("../../core/format/state-explosion-text");
-const state_explosion_cli_1 = require("../../shell/state-explosion-cli");
-const run_store_1 = require("../../shell/run-store");
+// This file is required at startup for every command. Loading these shell
+// modules only when their handler runs, not at import time, keeps that
+// load cost out of commands that never touch reporting/status/graph.
+function loadStateExplosionCli() {
+    return require("../../shell/state-explosion-cli");
+}
+function loadRunStore() {
+    return require("../../shell/run-store");
+}
 // MILESTONE 11 (reporting, observability, doctor/fix, workbench, run
 // export/bundle) CLI bindings: report, status (real run id), graph,
 // operator.status|report|graph. Handler bodies live in shell/report-
@@ -50,22 +57,27 @@ const run_store_1 = require("../../shell/run-store");
 // report`, re-write report.md); this table only wires argv shape ->
 // handler call, per cli/dispatch.ts's generic executor contract.
 // ---------------------------------------------------------------------
-const report_view_cli_1 = require("../../shell/report-view-cli");
-const operator_ux_text_1 = require("../../shell/operator-ux-text");
+function loadReportViewCli() {
+    return require("../../shell/report-view-cli");
+}
+function loadOperatorUxText() {
+    return require("../../shell/operator-ux-text");
+}
 (0, registry_core_1.attachCliBinding)("report", {
     path: ["report"],
     jsonMode: "flag",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        const result = (0, report_view_cli_1.reportWriteCli)(runId, args.options);
+        const reportViewCli = loadReportViewCli();
+        const result = reportViewCli.reportWriteCli(runId, args.options);
         if (args.options.show || args.options.summary) {
-            const stateExplosion = (0, state_explosion_text_1.formatStateExplosionReport)((0, state_explosion_cli_1.summaryShowCli)(runId, args.options));
-            return { json: result, text: `${(0, report_view_cli_1.operatorReportText)(runId, args.options)}\n\n${stateExplosion}\n` };
+            const stateExplosion = (0, state_explosion_text_1.formatStateExplosionReport)(loadStateExplosionCli().summaryShowCli(runId, args.options));
+            return { json: result, text: `${reportViewCli.operatorReportText(runId, args.options)}\n\n${stateExplosion}\n` };
         }
         return { json: result, text: `${result.path}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("report").mcp.handler = (args) => (0, report_view_cli_1.reportWriteCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("report").mcp.handler = (args) => loadReportViewCli().reportWriteCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 // `status` already carries a milestone-2 CLI binding (`attachCliBinding("status", ...)`
 // above); replace its handler here with the real run-id-aware body while
 // keeping the same row/path (no reshape needed — see byte-compat item 5).
@@ -78,15 +90,16 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("status").cli = {
         // (positionals[0] only), so a bogus id given via --run and a real one
         // looked identical ("No run selected" for both).
         const runId = (0, io_1.optionalArg)(args.positionals[0]) || (0, io_1.optionalArg)(args.options.run) || (0, io_1.optionalArg)(args.options.runId);
+        const reportViewCli = loadReportViewCli();
         if (!runId)
-            return { json: (0, report_view_cli_1.statusCli)(undefined, args.options), text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
+            return { json: reportViewCli.statusCli(undefined, args.options), text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
         if (args.options.summary || args.options.brief) {
-            return { json: (0, report_view_cli_1.statusCli)(runId, args.options), text: `${(0, report_view_cli_1.statusSummaryText)(runId, args.options)}\n` };
+            return { json: reportViewCli.statusCli(runId, args.options), text: `${reportViewCli.statusSummaryText(runId, args.options)}\n` };
         }
-        return { json: (0, report_view_cli_1.statusCli)(runId, args.options), text: `${(0, report_view_cli_1.statusFullText)(runId, args.options)}\n` };
+        return { json: reportViewCli.statusCli(runId, args.options), text: `${reportViewCli.statusFullText(runId, args.options)}\n` };
     },
 };
-registry_core_1.REGISTRY_BY_CAPABILITY.get("status").mcp.handler = (args) => (0, report_view_cli_1.statusCli)((0, io_1.optionalArg)(args.runId), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("status").mcp.handler = (args) => loadReportViewCli().statusCli((0, io_1.optionalArg)(args.runId), args);
 function adviseNoRunLines() {
     return "  node scripts/cw.js plan <workflow-id> --repo <path>\n    reason: No run id is available yet; create a workflow run before dispatching or recording evidence.\n";
 }
@@ -95,65 +108,74 @@ function adviseNoRunLines() {
     jsonMode: "flag",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        return { json: (0, report_view_cli_1.graphCli)(runId, args.options), text: `${(0, report_view_cli_1.graphText)(runId, args.options)}\n` };
+        const reportViewCli = loadReportViewCli();
+        return { json: reportViewCli.graphCli(runId, args.options), text: `${reportViewCli.graphText(runId, args.options)}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("graph").mcp.handler = (args) => (0, report_view_cli_1.graphCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("graph").mcp.handler = (args) => loadReportViewCli().graphCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("operator.status", {
     path: ["operator", "status"],
     jsonMode: "flag",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
+        const reportViewCli = loadReportViewCli();
         if (args.options.summary || args.options.brief) {
-            return { json: (0, report_view_cli_1.operatorStatusCli)(runId, args.options), text: `${(0, report_view_cli_1.statusSummaryText)(runId, args.options)}\n` };
+            return { json: reportViewCli.operatorStatusCli(runId, args.options), text: `${reportViewCli.statusSummaryText(runId, args.options)}\n` };
         }
-        return { json: (0, report_view_cli_1.operatorStatusCli)(runId, args.options), text: `${(0, report_view_cli_1.statusFullText)(runId, args.options)}\n` };
+        return { json: reportViewCli.operatorStatusCli(runId, args.options), text: `${reportViewCli.statusFullText(runId, args.options)}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("operator.status").mcp.handler = (args) => (0, report_view_cli_1.operatorStatusCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("operator.status").mcp.handler = (args) => loadReportViewCli().operatorStatusCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("operator.report", {
     path: ["operator", "report"],
     jsonMode: "flag",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        return { json: (0, report_view_cli_1.operatorReportCli)(runId, args.options), text: `${(0, report_view_cli_1.operatorReportText)(runId, args.options)}\n` };
+        const reportViewCli = loadReportViewCli();
+        return { json: reportViewCli.operatorReportCli(runId, args.options), text: `${reportViewCli.operatorReportText(runId, args.options)}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("operator.report").mcp.handler = (args) => (0, report_view_cli_1.operatorReportCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("operator.report").mcp.handler = (args) => loadReportViewCli().operatorReportCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 // ---- metrics.show / metrics.summary -----------------------------------
-const metrics_cli_1 = require("../../shell/metrics-cli");
-const observability_1 = require("../../shell/observability");
+function loadMetricsCli() {
+    return require("../../shell/metrics-cli");
+}
+function loadObservability() {
+    return require("../../shell/observability");
+}
 (0, registry_core_1.attachCliBinding)("metrics.show", {
     path: ["metrics", "show"],
     jsonMode: "flag",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        const report = (0, metrics_cli_1.metricsShowCli)(runId, args.options);
-        return { json: report, text: `${(0, observability_1.formatMetricsReport)(report)}\n` };
+        const report = loadMetricsCli().metricsShowCli(runId, args.options);
+        return { json: report, text: `${loadObservability().formatMetricsReport(report)}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("metrics.show").mcp.handler = (args) => (0, metrics_cli_1.metricsShowCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("metrics.show").mcp.handler = (args) => loadMetricsCli().metricsShowCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("metrics.summary", {
     path: ["metrics", "summary"],
     jsonMode: "flag",
     handler: (args) => {
-        const report = (0, metrics_cli_1.metricsSummaryCli)(args.options);
-        return { json: report, text: `${(0, observability_1.formatMetricsSummary)(report)}\n` };
+        const report = loadMetricsCli().metricsSummaryCli(args.options);
+        return { json: report, text: `${loadObservability().formatMetricsSummary(report)}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("metrics.summary").mcp.handler = (args) => (0, metrics_cli_1.metricsSummaryCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("metrics.summary").mcp.handler = (args) => loadMetricsCli().metricsSummaryCli(args);
 // ---- worker.summary (the workbench worker panel + `cw worker summary`) ----
-const worker_isolation_1 = require("../../shell/worker-isolation");
+function loadWorkerIsolation() {
+    return require("../../shell/worker-isolation");
+}
 const workerPath = __importStar(require("node:path"));
 function workerSummaryCli(args) {
     const runId = (0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id");
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwdFor(args));
-    return (0, worker_isolation_1.summarizeWorkers)(run);
+    const run = loadRunStore().loadRunFromCwd(runId, invocationCwdFor(args));
+    return loadWorkerIsolation().summarizeWorkers(run);
 }
 function workerSummaryText(args) {
     const runId = (0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id");
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwdFor(args));
-    return (0, worker_isolation_1.formatWorkerSummaryText)(run);
+    const run = loadRunStore().loadRunFromCwd(runId, invocationCwdFor(args));
+    return loadWorkerIsolation().formatWorkerSummaryText(run);
 }
 function invocationCwdFor(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? workerPath.resolve(args.cwd) : process.cwd();
@@ -174,114 +196,125 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.summary").mcp.handler = (args
 // via src/cli/handlers/worker.ts; v2 shipped only worker.summary bound, so the
 // rest fell through to the worker.usage error. positionals: [runId, workerId,
 // resultFile].
-const worker_cli_1 = require("../../shell/worker-cli");
+function loadWorkerCli() {
+    return require("../../shell/worker-cli");
+}
 (0, registry_core_1.attachCliBinding)("worker.list", {
     path: ["worker", "list"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, worker_cli_1.workerListCli)({ ...args.options, runId: args.positionals[0] }) }),
+    handler: (args) => ({ json: loadWorkerCli().workerListCli({ ...args.options, runId: args.positionals[0] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.list").mcp.handler = (args) => (0, worker_cli_1.workerListCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.list").mcp.handler = (args) => loadWorkerCli().workerListCli(args);
 (0, registry_core_1.attachCliBinding)("worker.show", {
     path: ["worker", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, worker_cli_1.workerShowCli)({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1] }) }),
+    handler: (args) => ({ json: loadWorkerCli().workerShowCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.show").mcp.handler = (args) => (0, worker_cli_1.workerShowCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.show").mcp.handler = (args) => loadWorkerCli().workerShowCli(args);
 (0, registry_core_1.attachCliBinding)("worker.manifest", {
     path: ["worker", "manifest"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, worker_cli_1.workerManifestCli)({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1] }) }),
+    handler: (args) => ({ json: loadWorkerCli().workerManifestCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.manifest").mcp.handler = (args) => (0, worker_cli_1.workerManifestCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.manifest").mcp.handler = (args) => loadWorkerCli().workerManifestCli(args);
 (0, registry_core_1.attachCliBinding)("worker.output", {
     path: ["worker", "output"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, worker_cli_1.workerOutputCli)({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] }) }),
+    handler: (args) => ({ json: loadWorkerCli().workerOutputCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.output").mcp.handler = (args) => (0, worker_cli_1.workerOutputCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.output").mcp.handler = (args) => loadWorkerCli().workerOutputCli(args);
 (0, registry_core_1.attachCliBinding)("worker.fail", {
     path: ["worker", "fail"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, worker_cli_1.workerFailCli)({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] }) }),
+    handler: (args) => ({ json: loadWorkerCli().workerFailCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.fail").mcp.handler = (args) => (0, worker_cli_1.workerFailCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.fail").mcp.handler = (args) => loadWorkerCli().workerFailCli(args);
 (0, registry_core_1.attachCliBinding)("worker.validate", {
     path: ["worker", "validate"],
     jsonMode: "default",
     handler: (args) => {
-        const { violation, exitCode } = (0, worker_cli_1.workerValidateCli)({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] });
+        const { violation, exitCode } = loadWorkerCli().workerValidateCli({ ...args.options, runId: args.positionals[0], workerId: args.positionals[1], resultPath: args.positionals[2] });
         return { json: violation, exitCode };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.validate").mcp.handler = (args) => (0, worker_cli_1.workerValidateCli)(args).violation;
+registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.validate").mcp.handler = (args) => loadWorkerCli().workerValidateCli(args).violation;
 // ---- feedback list|show|summary|collect|task|resolve (CLI + MCP) ---------
 // The operator feedback lifecycle. MCP rows were declared but stubbed
 // (notYetImplemented) and no CLI verb was bound; the old build routed all of
 // these. positionals: [runId, feedbackId].
-const feedback_cli_1 = require("../../shell/feedback-cli");
+function loadFeedbackCli() {
+    return require("../../shell/feedback-cli");
+}
 // jsonMode "flag": human `Feedback` panel by default, canonical JSON under
 // --json (old build's feedback.summary was flag).
 (0, registry_core_1.attachCliBinding)("feedback.summary", {
     path: ["feedback", "summary"],
     jsonMode: "flag",
     handler: (args) => {
-        const summary = (0, feedback_cli_1.feedbackSummaryCli)({ ...args.options, runId: args.positionals[0] });
-        return { json: summary, text: `${(0, operator_ux_text_1.formatFeedbackSummaryText)(summary)}\n` };
+        const summary = loadFeedbackCli().feedbackSummaryCli({ ...args.options, runId: args.positionals[0] });
+        return { json: summary, text: `${loadOperatorUxText().formatFeedbackSummaryText(summary)}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.summary").mcp.handler = (args) => (0, feedback_cli_1.feedbackSummaryCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.summary").mcp.handler = (args) => loadFeedbackCli().feedbackSummaryCli(args);
 (0, registry_core_1.attachCliBinding)("feedback.list", {
     path: ["feedback", "list"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, feedback_cli_1.feedbackListCli)({ ...args.options, runId: args.positionals[0] }) }),
+    handler: (args) => ({ json: loadFeedbackCli().feedbackListCli({ ...args.options, runId: args.positionals[0] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.list").mcp.handler = (args) => (0, feedback_cli_1.feedbackListCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.list").mcp.handler = (args) => loadFeedbackCli().feedbackListCli(args);
 (0, registry_core_1.attachCliBinding)("feedback.show", {
     path: ["feedback", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, feedback_cli_1.feedbackShowCli)({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
+    handler: (args) => ({ json: loadFeedbackCli().feedbackShowCli({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.show").mcp.handler = (args) => (0, feedback_cli_1.feedbackShowCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.show").mcp.handler = (args) => loadFeedbackCli().feedbackShowCli(args);
 (0, registry_core_1.attachCliBinding)("feedback.collect", {
     path: ["feedback", "collect"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, feedback_cli_1.feedbackCollectCli)({ ...args.options, runId: args.positionals[0] }) }),
+    handler: (args) => ({ json: loadFeedbackCli().feedbackCollectCli({ ...args.options, runId: args.positionals[0] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.collect").mcp.handler = (args) => (0, feedback_cli_1.feedbackCollectCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.collect").mcp.handler = (args) => loadFeedbackCli().feedbackCollectCli(args);
 (0, registry_core_1.attachCliBinding)("feedback.task", {
     path: ["feedback", "task"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, feedback_cli_1.feedbackTaskCli)({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
+    handler: (args) => ({ json: loadFeedbackCli().feedbackTaskCli({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.task").mcp.handler = (args) => (0, feedback_cli_1.feedbackTaskCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.task").mcp.handler = (args) => loadFeedbackCli().feedbackTaskCli(args);
 (0, registry_core_1.attachCliBinding)("feedback.resolve", {
     path: ["feedback", "resolve"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, feedback_cli_1.feedbackResolveCli)({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
+    handler: (args) => ({ json: loadFeedbackCli().feedbackResolveCli({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.resolve").mcp.handler = (args) => (0, feedback_cli_1.feedbackResolveCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("feedback.resolve").mcp.handler = (args) => loadFeedbackCli().feedbackResolveCli(args);
 // ---- workbench.view / workbench.serve ---------------------------------
-const workbench_1 = require("../../shell/workbench");
-const workbench_text_1 = require("../../shell/workbench-text");
-const workbench_host_1 = require("../../shell/workbench-host");
+function loadWorkbench() {
+    return require("../../shell/workbench");
+}
+function loadWorkbenchText() {
+    return require("../../shell/workbench-text");
+}
+function loadWorkbenchHost() {
+    return require("../../shell/workbench-host");
+}
 (0, registry_core_1.attachCliBinding)("workbench.view", {
     path: ["workbench", "view"],
     jsonMode: "flag",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        const view = (0, workbench_1.buildWorkbenchRunView)(runId, args.options);
-        return { json: view, text: `${(0, workbench_text_1.formatWorkbenchView)(view)}\n` };
+        const view = loadWorkbench().buildWorkbenchRunView(runId, args.options);
+        return { json: view, text: `${loadWorkbenchText().formatWorkbenchView(view)}\n` };
     },
 });
 // The MCP path is CLI-facing byte-identical (buildWorkbenchRunView takes
 // the same args shape either way) — required here since `.cli` and
 // `.mcp` never share a handler object per byte-compat item 5.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.view").mcp.handler = (args) => (0, workbench_1.buildWorkbenchRunView)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.view").mcp.handler = (args) => loadWorkbench().buildWorkbenchRunView((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("workbench.serve", {
     path: ["workbench", "serve"],
     jsonMode: "flag",
     handler: (args) => {
-        const host = new workbench_host_1.WorkbenchHost(args.options);
+        const { WorkbenchHost } = loadWorkbenchHost();
+        const host = new WorkbenchHost(args.options);
         if (args.options.once || (0, io_1.wantsJson)(args.options)) {
             return { json: host.descriptor(true) };
         }
@@ -300,7 +333,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.view").mcp.handler = (args
 // `once: true` unconditionally, per SPEC/reporting-ux.md's "one declared
 // divergence": an MCP client must never be able to make the server
 // process open a persistent listening socket.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.serve").mcp.handler = (args) => new workbench_host_1.WorkbenchHost(args).descriptor(true);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.serve").mcp.handler = (args) => new (loadWorkbenchHost().WorkbenchHost)(args).descriptor(true);
 // PARITY: both surfaces route through the single core entry
 // buildWorkbenchServeDescriptor and return the IDENTICAL serve
 // descriptor under `cw workbench serve --json`/`--once` and
@@ -313,41 +346,45 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.serve").payloadIdentical =
 registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.serve").reason =
     "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host, which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.";
 // ---- audit.summary / audit.multi-agent / audit.policy / audit.judge ----
-const audit_cli_1 = require("../../shell/audit-cli");
-const operator_ux_text_2 = require("../../shell/operator-ux-text");
+function loadAuditCli() {
+    return require("../../shell/audit-cli");
+}
+function loadEvalText() {
+    return require("../../shell/eval-text");
+}
 (0, registry_core_1.attachCliBinding)("audit.summary", {
     path: ["audit", "summary"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, audit_cli_1.auditSummaryCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+    handler: (args) => ({ json: loadAuditCli().auditSummaryCli((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.summary").mcp.handler = (args) => (0, audit_cli_1.auditSummaryCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.summary").mcp.handler = (args) => loadAuditCli().auditSummaryCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.multi-agent", {
     path: ["audit", "multi-agent"],
     jsonMode: "flag",
     handler: (args) => {
-        const view = (0, audit_cli_1.auditMultiAgentCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
+        const view = loadAuditCli().auditMultiAgentCli((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.multi-agent").mcp.handler = (args) => (0, audit_cli_1.auditMultiAgentCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.multi-agent").mcp.handler = (args) => loadAuditCli().auditMultiAgentCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.policy", {
     path: ["audit", "policy"],
     jsonMode: "flag",
     handler: (args) => {
-        const view = (0, audit_cli_1.auditPolicyCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
+        const view = loadAuditCli().auditPolicyCli((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.policy").mcp.handler = (args) => (0, audit_cli_1.auditPolicyCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.policy").mcp.handler = (args) => loadAuditCli().auditPolicyCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.judge", {
     path: ["audit", "judge"],
     jsonMode: "flag",
     handler: (args) => {
-        const view = (0, audit_cli_1.auditJudgeCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
+        const view = loadAuditCli().auditJudgeCli((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.judge").mcp.handler = (args) => (0, audit_cli_1.auditJudgeCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.judge").mcp.handler = (args) => loadAuditCli().auditJudgeCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 // GAP: `cw audit worker|provenance|role|blackboard|attest|decision` — the MCP
 // tool rows (cw_audit_worker/provenance/role/blackboard/attest/decision) were
 // declared but had no CLI path binding and their mcp.handler was still
@@ -356,43 +393,43 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.judge").mcp.handler = (args) =
 (0, registry_core_1.attachCliBinding)("audit.worker", {
     path: ["audit", "worker"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, audit_cli_1.auditWorkerCli)((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "worker id"), args.options) }),
+    handler: (args) => ({ json: loadAuditCli().auditWorkerCli((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "worker id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.worker").mcp.handler = (args) => (0, audit_cli_1.auditWorkerCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_1.optionalArg)(args.workerId ?? args.worker), "worker id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.worker").mcp.handler = (args) => loadAuditCli().auditWorkerCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_1.optionalArg)(args.workerId ?? args.worker), "worker id"), args);
 (0, registry_core_1.attachCliBinding)("audit.provenance", {
     path: ["audit", "provenance"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, audit_cli_1.auditProvenanceCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+    handler: (args) => ({ json: loadAuditCli().auditProvenanceCli((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.provenance").mcp.handler = (args) => (0, audit_cli_1.auditProvenanceCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.provenance").mcp.handler = (args) => loadAuditCli().auditProvenanceCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.role", {
     path: ["audit", "role"],
     jsonMode: "flag",
     handler: (args) => {
-        const view = (0, audit_cli_1.auditRoleCli)((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "role id"), args.options);
-        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
+        const view = loadAuditCli().auditRoleCli((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "role id"), args.options);
+        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.role").mcp.handler = (args) => (0, audit_cli_1.auditRoleCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_1.optionalArg)(args.roleId ?? args.id), "role id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.role").mcp.handler = (args) => loadAuditCli().auditRoleCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_1.optionalArg)(args.roleId ?? args.id), "role id"), args);
 (0, registry_core_1.attachCliBinding)("audit.blackboard", {
     path: ["audit", "blackboard"],
     jsonMode: "flag",
     handler: (args) => {
-        const view = (0, audit_cli_1.auditBlackboardCli)((0, io_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: (0, operator_ux_text_2.formatMultiAgentTrustAudit)(view) };
+        const view = loadAuditCli().auditBlackboardCli((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.blackboard").mcp.handler = (args) => (0, audit_cli_1.auditBlackboardCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.blackboard").mcp.handler = (args) => loadAuditCli().auditBlackboardCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.attest", {
     path: ["audit", "attest"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, audit_cli_1.auditAttestCli)((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+    handler: (args) => ({ json: loadAuditCli().auditAttestCli((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.attest").mcp.handler = (args) => (0, audit_cli_1.auditAttestCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.attest").mcp.handler = (args) => loadAuditCli().auditAttestCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.decision", {
     path: ["audit", "decision"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, audit_cli_1.auditDecisionCli)((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "worker id"), args.options) }),
+    handler: (args) => ({ json: loadAuditCli().auditDecisionCli((0, io_1.required)(args.positionals[0], "run id"), (0, io_1.required)(args.positionals[1], "worker id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.decision").mcp.handler = (args) => (0, audit_cli_1.auditDecisionCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_1.optionalArg)(args.workerId), "worker id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.decision").mcp.handler = (args) => loadAuditCli().auditDecisionCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), (0, io_1.required)((0, io_1.optionalArg)(args.workerId), "worker id"), args);
 // ---- app.list / app.show / app.validate / app.init / app.package -------

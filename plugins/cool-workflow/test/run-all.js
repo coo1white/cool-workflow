@@ -149,14 +149,59 @@ function sampleHash(str) {
   return h >>> 0;
 }
 
-/** Pick `count` items from `files` deterministically: rank by file-name hash,
- *  take the lowest N, return in alphabetical run order. A pure function of the
- *  file SET (order-independent); count >= length returns all files sorted. */
+// A static, committed snapshot of each smoke's last-observed elapsedMs (see
+// smoke-durations.json next to this file), used purely as a SCHEDULING hint —
+// never a correctness gate, never required to be fresh. Two real problems this
+// closes, both found by measuring an actual run rather than guessing:
+//   1. The parallel pool used to pull pooledSmokes in plain alphabetical
+//      (filesystem discovery) order. The single slowest smoke (36s) landed
+//      near the END of that order; once the other workers ran dry of shorter
+//      work near the tail, they sat idle waiting on it alone instead of
+//      overlapping its 36s with other work from the start.
+//   2. `--sample N` (the fast-estimation subset `npm test`/coverage-gate use)
+//      ranked candidates by file-name hash alone, with zero signal about
+//      actual runtime cost -- purely by hash luck, a future slow smoke could
+//      land in the "fast" sample and silently make the everyday feedback loop
+//      slow, with nothing to notice or prevent it.
+// Fails open on any read/parse error -- a missing or stale snapshot degrades
+// to the neutral (median) default below, never to a crash; this file is a
+// scheduling hint, not run-state.
+function loadKnownDurations() {
+  try {
+    const raw = fs.readFileSync(path.join(testDir, "smoke-durations.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+  } catch {
+    // missing/corrupt snapshot -- fall through to an empty map (median default for everything)
+  }
+  return {};
+}
+const knownDurations = loadKnownDurations();
+const knownDurationValues = Object.values(knownDurations)
+  .filter((v) => typeof v === "number" && Number.isFinite(v) && v > 0)
+  .sort((a, b) => a - b);
+const MEDIAN_KNOWN_DURATION_MS = knownDurationValues.length ? knownDurationValues[Math.floor(knownDurationValues.length / 2)] : 1000;
+/** A file with no recorded duration (new, renamed, or a stale/missing
+ *  snapshot) defaults to the median of every OTHER known duration -- not the
+ *  fastest (which would wrongly favor it for --sample) nor the slowest
+ *  (which would always push it to the very front of the parallel pool), a
+ *  neutral middle-of-the-road guess until a real measurement exists for it. */
+function durationOf(file) {
+  const known = knownDurations[file];
+  return typeof known === "number" && Number.isFinite(known) && known > 0 ? known : MEDIAN_KNOWN_DURATION_MS;
+}
+
+/** Pick `count` items from `files` deterministically: rank by KNOWN DURATION
+ *  first (fastest first, so the fast-estimation subset stays fast even as
+ *  slower smokes are added elsewhere in the suite), then by file-name hash as
+ *  a tie-breaker among equal/unknown-duration files (still a pure, reproducible
+ *  function of the file SET -- never a per-run random shuffle). count >= length
+ *  returns all files sorted. */
 function deterministicSample(files, count) {
   const n = Math.max(0, Math.min(Number(count) || 0, files.length));
   if (n >= files.length) return [...files].sort();
   return [...files]
-    .sort((a, b) => sampleHash(a) - sampleHash(b) || (a < b ? -1 : a > b ? 1 : 0))
+    .sort((a, b) => durationOf(a) - durationOf(b) || sampleHash(a) - sampleHash(b) || (a < b ? -1 : a > b ? 1 : 0))
     .slice(0, n)
     .sort();
 }
@@ -214,7 +259,15 @@ for (const file of smokes) {
 // thresholds.
 const serialEnv = (process.env.CW_TEST_SERIAL_ONLY || "").trim();
 const SERIAL_ONLY = new Set(serialEnv ? serialEnv.split(",").map((s) => s.trim()).filter(Boolean) : []);
-const pooledSmokes = eligibleSmokes.filter((file) => !SERIAL_ONLY.has(file));
+// Longest-known-duration first: a worker pool drains a shared queue in order,
+// so whichever file sits at the tail only starts once every worker ahead of
+// it is free -- a slow file stranded near the end (alphabetical discovery
+// order has no relationship to runtime cost) runs alone on an otherwise-idle
+// pool instead of overlapping with the rest of the suite's work from the
+// start. Ties (equal or both-unknown/median duration) keep their stable
+// relative order (Array.prototype.sort is a stable sort), so this never
+// disturbs anything for files with no measured difference.
+const pooledSmokes = eligibleSmokes.filter((file) => !SERIAL_ONLY.has(file)).sort((a, b) => durationOf(b) - durationOf(a));
 const serialSmokes = eligibleSmokes.filter((file) => SERIAL_ONLY.has(file));
 
 // Ambient agent/backend configuration must NEVER leak from the parent env into a
