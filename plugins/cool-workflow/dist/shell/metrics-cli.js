@@ -44,6 +44,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.metricsShowCli = metricsShowCli;
 exports.metricsSummaryCli = metricsSummaryCli;
 const path = __importStar(require("node:path"));
+const numeric_flag_1 = require("../core/util/numeric-flag");
 const run_store_1 = require("./run-store");
 const observability_1 = require("./observability");
 const run_registry_io_1 = require("./run-registry-io");
@@ -78,7 +79,7 @@ function metricsSummaryCli(args) {
     const cwd = invocationCwd(args);
     const scope = args.scope === "home" ? "home" : "repo";
     const registry = new run_registry_io_1.RunRegistry(cwd);
-    const limit = args.limit === undefined ? undefined : Number(args.limit);
+    const limit = (0, numeric_flag_1.requiredNumberFlag)(args.limit, "--limit");
     const listing = registry.list({ scope, includeArchived: true, limit });
     const inputs = [];
     let unreadableRuns = 0;

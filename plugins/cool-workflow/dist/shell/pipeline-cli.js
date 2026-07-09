@@ -52,6 +52,7 @@ exports.recordResultRun = recordResultRun;
 exports.commitRun = commitRun;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const numeric_flag_1 = require("../core/util/numeric-flag");
 const pipeline_1 = require("./pipeline");
 const workflow_app_loader_1 = require("./workflow-app-loader");
 const drive_1 = require("./drive");
@@ -560,7 +561,7 @@ function dispatchRun(args) {
             const v = args[kebab] ?? args[camel];
             return typeof v === "string" && v.trim() ? v : undefined;
         };
-        const manifest = (0, dispatch_1.createDispatchManifest)(run, args.limit !== undefined ? Number(args.limit) : undefined, {
+        const manifest = (0, dispatch_1.createDispatchManifest)(run, (0, numeric_flag_1.requiredNumberFlag)(args.limit, "--limit"), {
             sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined,
             sandbox: typeof args.sandbox === "string" ? args.sandbox : undefined,
             backendId: typeof args.backend === "string" ? args.backend : undefined,

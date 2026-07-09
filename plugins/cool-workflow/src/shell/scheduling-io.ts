@@ -15,6 +15,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { readJson, withFileLock, writeJson } from "./fs-atomic";
 import { compareQueue, RunQueueEntry, RunRegistry } from "./run-registry-io";
+import { requiredNumberFlag } from "../core/util/numeric-flag";
 
 export const SCHEDULING_SCHEMA_VERSION = 1;
 
@@ -236,13 +237,7 @@ function loadSchedulingPolicy(registry: RunRegistry): SchedulingPolicyReport {
 }
 
 function numericFlag(options: Record<string, unknown>, key: string): number | undefined {
-  if (!(key in options)) return undefined;
-  const raw = options[key];
-  const n = Number(raw);
-  if (!Number.isFinite(n)) {
-    throw new Error(`Invalid --${key} "${raw}": expected a number (e.g. --${key} 4)`);
-  }
-  return n;
+  return requiredNumberFlag(options[key], `--${key}`);
 }
 
 export function schedPlanCli(options: Record<string, unknown> = {}): SchedulingLeasePlan {
@@ -255,7 +250,7 @@ export function schedLeaseCli(options: Record<string, unknown> = {}): { schemaVe
   const registry = new RunRegistry(resolveCwd(options));
   const now = nowIso(options);
   const policy = loadSchedulingPolicy(registry).policy;
-  const limit = options.limit === undefined ? undefined : Number(options.limit);
+  const limit = requiredNumberFlag(options.limit, "--limit");
   return withFileLock(registry.queueFilePath(), () => {
     const { entries, leases } = applyLease(registry.loadQueueEntries(), policy, now, limit);
     registry.saveQueueEntries(entries);

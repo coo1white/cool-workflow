@@ -67,6 +67,7 @@ const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const run_registry_io_1 = require("./run-registry-io");
+const numeric_flag_1 = require("../core/util/numeric-flag");
 exports.SCHEDULING_SCHEMA_VERSION = 1;
 /** Conservative fail-closed defaults: serial, bounded retries, exponential backoff. */
 exports.DEFAULT_SCHEDULING_POLICY = {
@@ -232,14 +233,7 @@ function loadSchedulingPolicy(registry) {
     return { schemaVersion: 1, policy: normalizeSchedulingPolicy(parsed), source: "file" };
 }
 function numericFlag(options, key) {
-    if (!(key in options))
-        return undefined;
-    const raw = options[key];
-    const n = Number(raw);
-    if (!Number.isFinite(n)) {
-        throw new Error(`Invalid --${key} "${raw}": expected a number (e.g. --${key} 4)`);
-    }
-    return n;
+    return (0, numeric_flag_1.requiredNumberFlag)(options[key], `--${key}`);
 }
 function schedPlanCli(options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
@@ -250,7 +244,7 @@ function schedLeaseCli(options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
     const now = nowIso(options);
     const policy = loadSchedulingPolicy(registry).policy;
-    const limit = options.limit === undefined ? undefined : Number(options.limit);
+    const limit = (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit");
     return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
         const { entries, leases } = applyLease(registry.loadQueueEntries(), policy, now, limit);
         registry.saveQueueEntries(entries);

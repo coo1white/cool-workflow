@@ -10,6 +10,7 @@
 // Evidence: SPEC/multi-agent.md section J ("CLI verbs and MCP tools").
 
 import * as path from "node:path";
+import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { WorkflowRun } from "../core/state/types";
 import { loadRunFromCwd, saveCheckpoint } from "./run-store";
 import { writeReport } from "./report";
@@ -535,7 +536,13 @@ export function multiAgentFanoutCli(args: Record<string, unknown>): unknown {
     workerIds: arrayArg(args.worker ?? args.workerId ?? args.workers),
     membershipIds: arrayArg(args.membership ?? args.membershipId ?? args.memberships),
     dispatchIds: arrayArg(args.dispatch ?? args.dispatchId ?? args.dispatches),
-    concurrencyLimit: numberArg(args.limit ?? args.concurrency ?? args.concurrencyLimit),
+    // This one flag (aliased --limit/--concurrency/--concurrencyLimit) goes
+    // through requiredNumberFlag, not the file's own lenient numberArg — a
+    // bare flag here used to silently mean "no limit" (fan out unbounded),
+    // the opposite of the "silently means 1" bug the same audit found in
+    // metrics-cli.ts/registry-cli.ts's own --limit handling; both now fail
+    // loud instead of guessing in either direction.
+    concurrencyLimit: requiredNumberFlag(args.limit ?? args.concurrency ?? args.concurrencyLimit, "--limit"),
     sandboxProfileChoices: parseSandboxChoicesCli(args),
     expectedReturnShape: optionalString(args.expectedReturnShape ?? args["expected-return-shape"]),
     blackboardId: blackboardIdArg(args),

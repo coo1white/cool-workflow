@@ -4,7 +4,8 @@
 // cw queue add/list/drain: list is sorted priority asc, then enqueuedAt;
 // drain marks the next N pending|ready entries drained with ONE shared
 // drainedAt, under lock, and returns {drained, remaining}; a non-finite
-// --priority silently falls back to the default 100 rather than erroring.
+// --priority is rejected outright (fail closed) rather than silently
+// falling back to a default.
 
 const { run, gitRepo, caseMain, assert } = require("../lib");
 
@@ -36,10 +37,13 @@ caseMain(() => {
   assert.match(listHuman.stdout, /^Run Queue: 3 entry\(ies\) \[priority asc\]\n/);
   assert.match(listHuman.stdout, /#10 .* \[pending\] high /);
 
-  // Non-finite --priority silently falls back to the default 100.
+  // A non-finite --priority is rejected outright, not silently defaulted --
+  // no entry is added.
   const badPriority = run(["queue", "add", "--app", "bad", "--priority", "notanumber", "--json"], { cwd: repo });
-  assert.equal(badPriority.status, 0);
-  assert.equal(JSON.parse(badPriority.stdout).priority, 100, "a non-numeric --priority falls back to default 100");
+  assert.equal(badPriority.status, 1, "a non-numeric --priority must be rejected, not defaulted");
+  assert.match(badPriority.stderr, /Invalid --priority "notanumber": expected a number/);
+  const listAfterBad = run(["queue", "list", "--json"], { cwd: repo });
+  assert.equal(JSON.parse(listAfterBad.stdout).total, 3, "the rejected --priority entry must not have been added");
 
   // drain --limit 2 marks the two lowest-priority-number entries drained
   // with a SHARED drainedAt, and reports the count still pending.
@@ -55,7 +59,7 @@ caseMain(() => {
   );
   assert.ok(drainReport.drained.every((e) => e.status === "drained"));
   assert.equal(drainReport.drained[0].drainedAt, drainReport.drained[1].drainedAt, "one shared drainedAt");
-  assert.equal(drainReport.remaining, 2, "2 entries remain pending: low + bad");
+  assert.equal(drainReport.remaining, 1, "1 entry remains pending: low");
 
   // queue show resolves a single entry, or throws for an unknown id.
   const anyId = drainReport.drained[0].id;
