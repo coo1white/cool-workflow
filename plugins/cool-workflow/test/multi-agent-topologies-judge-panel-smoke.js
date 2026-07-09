@@ -25,7 +25,7 @@ const {
 //   cw worker manifest <run> <worker>
 //   cw worker output   <run> <worker> <result>
 // and BOTH fall through to the fixed usage error
-//   "cw.js worker list|summary|show|manifest|output|fail|validate ..."
+//   "cw worker list|summary|show|manifest|output|fail|validate ..."
 //
 // Root cause in v2 src: src/core/capability-table.ts declares MCP tool
 // rows for cw_worker_list/show/manifest/output/fail/validate (lines

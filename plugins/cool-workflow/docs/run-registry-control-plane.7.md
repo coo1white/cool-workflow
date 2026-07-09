@@ -251,25 +251,25 @@ freshness, and provenance back to its `.cw/runs/<id>/`. Filter with `--app` and
 ## CLI
 
 ```text
-node scripts/cw.js registry refresh [--scope repo|home] [--json]
-node scripts/cw.js registry show [--scope repo|home] [--json]
-node scripts/cw.js run search [--app ID] [--status STATE] [--text Q] [--repo PATH] [--since ISO] [--until ISO] [--limit N] [--offset N] [--scope repo|home] [--json]
-node scripts/cw.js run list [--scope repo|home] [--json]
-node scripts/cw.js run show <run-id> [--scope repo|home] [--json]
-node scripts/cw.js run resume <run-id> [--limit N] [--drive [--once]] [--json]
-node scripts/cw.js run archive <run-id> [--reason TEXT] [--unarchive]
-node scripts/cw.js run archive --older-than-days N [--state completed --state failed]
-node scripts/cw.js run rerun <run-id> [--reason TEXT]
-node scripts/cw.js run export <run-id> --output PATH
-node scripts/cw.js run import PATH --target DIR
-node scripts/cw.js run verify-import <run-id> [--cwd DIR]
-node scripts/cw.js run inspect-archive PATH [--json]
-node scripts/cw.js run restore PATH --target DIR [--json]
-node scripts/cw.js queue add [--app ID|--workflow ID|--runId ID] [--repo PATH] [--priority N] [--note TEXT]
-node scripts/cw.js queue list [--status STATE] [--repo PATH] [--json]
-node scripts/cw.js queue show <queue-id>
-node scripts/cw.js queue drain [--limit N] [--repo PATH]
-node scripts/cw.js history [--app ID] [--status STATE] [--limit N] [--offset N] [--scope repo|home] [--json]
+cw registry refresh [--scope repo|home] [--json]
+cw registry show [--scope repo|home] [--json]
+cw run search [--app ID] [--status STATE] [--text Q] [--repo PATH] [--since ISO] [--until ISO] [--limit N] [--offset N] [--scope repo|home] [--json]
+cw run list [--scope repo|home] [--json]
+cw run show <run-id> [--scope repo|home] [--json]
+cw run resume <run-id> [--limit N] [--drive [--once]] [--json]
+cw run archive <run-id> [--reason TEXT] [--unarchive]
+cw run archive --older-than-days N [--state completed --state failed]
+cw run rerun <run-id> [--reason TEXT]
+cw run export <run-id> --output PATH
+cw run import PATH --target DIR
+cw run verify-import <run-id> [--cwd DIR]
+cw run inspect-archive PATH [--json]
+cw run restore PATH --target DIR [--json]
+cw queue add [--app ID|--workflow ID|--runId ID] [--repo PATH] [--priority N] [--note TEXT]
+cw queue list [--status STATE] [--repo PATH] [--json]
+cw queue show <queue-id>
+cw queue drain [--limit N] [--repo PATH]
+cw history [--app ID] [--status STATE] [--limit N] [--offset N] [--scope repo|home] [--json]
 ```
 
 Read commands print short human panels by default (lifecycle, freshness, counts,

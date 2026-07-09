@@ -236,15 +236,15 @@ Host `performed` values: `"applied-topology"`, `"attached-topology"`, `"none"`, 
 Host next-action commands, per state (src/multi-agent-host.ts:607-640):
 
 ```text
-needs-run:            node scripts/cw.js multi-agent run <runId> --topology map-reduce
-ready-for-dispatch:   node scripts/cw.js multi-agent step <runId>
-awaiting-worker-output: node scripts/cw.js worker output <runId> <worker-id> <result.md>
-ready-for-fanin:      node scripts/cw.js multi-agent step <runId>
-ready-for-scoring:    node scripts/cw.js multi-agent score <runId> --candidate <candidate-id> --criterion correctness=1 --evidence <path-or-ref>
-ready-for-selection:  node scripts/cw.js multi-agent select <runId> --candidate <candidate-id> --reason "<rationale>"
-ready-for-commit:     node scripts/cw.js commit <runId> --selection <selectionId> --reason "<verified rationale>"
-complete:             node scripts/cw.js report <runId> --show
-failed/blocked:       node scripts/cw.js multi-agent status <runId>
+needs-run:            cw multi-agent run <runId> --topology map-reduce
+ready-for-dispatch:   cw multi-agent step <runId>
+awaiting-worker-output: cw worker output <runId> <worker-id> <result.md>
+ready-for-fanin:      cw multi-agent step <runId>
+ready-for-scoring:    cw multi-agent score <runId> --candidate <candidate-id> --criterion correctness=1 --evidence <path-or-ref>
+ready-for-selection:  cw multi-agent select <runId> --candidate <candidate-id> --reason "<rationale>"
+ready-for-commit:     cw commit <runId> --selection <selectionId> --reason "<verified rationale>"
+complete:             cw report <runId> --show
+failed/blocked:       cw multi-agent status <runId>
 ```
 
 When `requiredHostAction` is set the single next action is `{ "command": "host-action", "reason": <requiredHostAction>, "priority": "high" }` (src/multi-agent-host.ts:614).
@@ -314,7 +314,7 @@ group <group-id> has no fanin record
 ```
 (src/multi-agent.ts:805-806,817,338-339,344)
 
-`summarizeMultiAgent().nextAction` (in order): no runs → `` node scripts/cw.js multi-agent run <run-id> --id <multi-agent-run-id> ``; any blocked reason → `` node scripts/cw.js multi-agent fanin <run-id> --group <group-id> --fanout <fanout-id> ``; a running membership with a worker → `` node scripts/cw.js worker manifest <run-id> <worker-id> ``; a group with memberships and no fanin → `` node scripts/cw.js multi-agent fanin <run-id> --group <group-id> ``; else absent (src/multi-agent.ts:1122-1131).
+`summarizeMultiAgent().nextAction` (in order): no runs → `` cw multi-agent run <run-id> --id <multi-agent-run-id> ``; any blocked reason → `` cw multi-agent fanin <run-id> --group <group-id> --fanout <fanout-id> ``; a running membership with a worker → `` cw worker manifest <run-id> <worker-id> ``; a group with memberships and no fanin → `` cw multi-agent fanin <run-id> --group <group-id> ``; else absent (src/multi-agent.ts:1122-1131).
 
 Fanout default `expectedReturnShape`:
 
@@ -342,12 +342,12 @@ Unknown topology run id: <id>
 Apply-time blackboard message body: `` `${definition.title} topology applied. Roles=${roleIds.join(", ")} fanout=${fanout.id}.` `` — coordinator decision: kind `"context-update"`, outcome `"accepted"`, reason `` `${definition.title} topology materialized on multi-agent runtime and blackboard.` `` (src/topology.ts:287-304). Topology-run `status` is `"blocked"` if the initial fanin blocked, else `"planned"`; `missingEvidence` = the fanin's blocked reasons or, with no initial fanin, the definition's `requiredEvidence` (src/topology.ts:338,353). `nextActions` (exact, src/topology.ts:533-539):
 
 ```text
-node scripts/cw.js dispatch <run-id> --multi-agent-fanout <fanout-id>
-node scripts/cw.js multi-agent fanin <run-id> <topology-run-id>-fanin --fanout <fanout-id>
-node scripts/cw.js topology summary <run-id>
+cw dispatch <run-id> --multi-agent-fanout <fanout-id>
+cw multi-agent fanin <run-id> <topology-run-id>-fanin --fanout <fanout-id>
+cw topology summary <run-id>
 ```
 
-`summarizeTopologies` per-run derived fields: `status` becomes `"ready"` if any inferred fanin is verifier-ready, else `"blocked"` if any is blocked; `readiness` is `"fanin ready"` | `"missing evidence"` | `"awaiting worker output"`; when ready `nextActions` = `[ "node scripts/cw.js candidate register <run-id> --result-node <reducer-or-panel-result>" ]`; summary `nextAction` falls back to `` node scripts/cw.js topology apply <run-id> map-reduce --task <task-id> `` (src/topology.ts:395-428).
+`summarizeTopologies` per-run derived fields: `status` becomes `"ready"` if any inferred fanin is verifier-ready, else `"blocked"` if any is blocked; `readiness` is `"fanin ready"` | `"missing evidence"` | `"awaiting worker output"`; when ready `nextActions` = `[ "cw candidate register <run-id> --result-node <reducer-or-panel-result>" ]`; summary `nextAction` falls back to `` cw topology apply <run-id> map-reduce --task <task-id> `` (src/topology.ts:395-428).
 
 ### Coordinator error strings
 
@@ -381,7 +381,7 @@ Indexed <kind> artifact <artifact-id>
 ```
 (src/coordinator.ts:519-521,619)
 
-`summarizeBlackboard` fields: `{ runId, blackboardId, topics, messages, contexts, artifacts, snapshots, decisions, openQuestions, conflicts, missingEvidence, readyForFanin, latestSnapshotPath, indexPath, nextAction }`. `missingEvidence` rows (sorted): `` question <ctx-id> has no indexed evidence `` and `` context <ctx-id> has no indexed evidence ``. `readyForFanin` is true only when a board exists, there are no open questions, no conflicts, at least one artifact, and no missing evidence (src/coordinator.ts:800-831). `nextAction` (in order): no board → `` node scripts/cw.js blackboard topic create <run-id> --id <topic-id> --title "<title>" ``; conflicts → `` node scripts/cw.js coordinator decision <run-id> --kind conflict-resolution --outcome accepted --subject <ctx-id> --reason "<reason>" ``; open questions → `` node scripts/cw.js blackboard message post <run-id> --topic <topic-id> --body "<answer with evidence>" ``; no artifacts → `` node scripts/cw.js blackboard artifact add <run-id> --path <path> --kind <kind> ``; else `` node scripts/cw.js blackboard snapshot <run-id> `` (src/coordinator.ts:1129-1135).
+`summarizeBlackboard` fields: `{ runId, blackboardId, topics, messages, contexts, artifacts, snapshots, decisions, openQuestions, conflicts, missingEvidence, readyForFanin, latestSnapshotPath, indexPath, nextAction }`. `missingEvidence` rows (sorted): `` question <ctx-id> has no indexed evidence `` and `` context <ctx-id> has no indexed evidence ``. `readyForFanin` is true only when a board exists, there are no open questions, no conflicts, at least one artifact, and no missing evidence (src/coordinator.ts:800-831). `nextAction` (in order): no board → `` cw blackboard topic create <run-id> --id <topic-id> --title "<title>" ``; conflicts → `` cw coordinator decision <run-id> --kind conflict-resolution --outcome accepted --subject <ctx-id> --reason "<reason>" ``; open questions → `` cw blackboard message post <run-id> --topic <topic-id> --body "<answer with evidence>" ``; no artifacts → `` cw blackboard artifact add <run-id> --path <path> --kind <kind> ``; else `` cw blackboard snapshot <run-id> `` (src/coordinator.ts:1129-1135).
 
 Graph node id patterns (all graphs): run root `<run-id>:run`; multi-agent run `<run-id>:multi-agent:<id>`; role/group/membership/fanout/fanin `<run-id>:multi-agent:role|group|membership|fanout|fanin:<id>`; topology `<run-id>:topology:<id>`; blackboard `<run-id>:blackboard:<id>`; topic/context/artifact/message/snapshot `<run-id>:blackboard:topic|context|artifact|message|snapshot:<id>`; decision `<run-id>:coordinator:decision:<id>`; task `<run-id>:task:<id>`; dispatch `<run-id>:dispatch:<id>`; worker `<run-id>:worker:<id>`; candidate node `<run-id>:candidate:<safe-id>:<stage>` (src/multi-agent/graph.ts:24-65; src/coordinator.ts:1100-1104; src/topology.ts:436-446; src/candidate-scoring.ts:512,543). Message labels in graphs are the body truncated at 64 chars to 61 + `"..."` (src/coordinator/util.ts:80-82).
 
@@ -398,7 +398,7 @@ operation <op> requires evidence refs: <ref>, <ref>
 ```
 Allowed reason: `allowed by explicit multi-agent policy` (src/multi-agent-trust.ts:440-458,163-167). `policyRef` formats: `multiAgent.roles.<id>.policy`, `multiAgent.groups.<id>.policy`, `multiAgent.memberships.<id>.policy`, `multiAgent.runs.<id>.policy`, `multiAgent.fanouts.<id>.policy`, `multiAgent.fanins.<id>.policy` (src/multi-agent-trust.ts:46,78,110; src/multi-agent.ts:266,628,849).
 
-`summarizeMultiAgentTrust().nextAction`: with violations `` node scripts/cw.js audit policy <run-id> ``, else `` node scripts/cw.js audit multi-agent <run-id> --json `` (src/multi-agent-trust.ts:390-393).
+`summarizeMultiAgentTrust().nextAction`: with violations `` cw audit policy <run-id> ``, else `` cw audit multi-agent <run-id> --json `` (src/multi-agent-trust.ts:390-393).
 
 ### Candidate scoring exact outputs
 

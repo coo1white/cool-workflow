@@ -139,7 +139,7 @@ export function stateExplosionReportLines(report: StateExplosionReport): string[
   for (const reason of size.reasons) lines.push(`  - ${reason}`);
   if (report.compactGraph.collapsedNodeCount > 0) {
     lines.push(`- Graph compacted: ${report.compactGraph.collapsedNodeCount} nodes collapsed into ${report.compactGraph.syntheticNodes.length} summary nodes`);
-    lines.push(`  - Use: \`node scripts/cw.js multi-agent graph ${report.runId} --view full --json\``);
+    lines.push(`  - Use: \`cw multi-agent graph ${report.runId} --view full --json\``);
   }
   if (report.hiddenSourceRecords.length) {
     for (const hidden of report.hiddenSourceRecords) {

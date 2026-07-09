@@ -115,7 +115,7 @@ export function refreshStateExplosionSummaries(
     generatedAt: now,
     status: "valid",
     deterministic: true,
-    nextAction: `node scripts/cw.js summary show ${run.id}`,
+    nextAction: `cw summary show ${run.id}`,
     entries: entries.sort((a, b) => stableCompare(a.id, b.id)),
     views,
     paths: { summariesDir: dir, indexPath: path.join(dir, "index.json"), reportPath },

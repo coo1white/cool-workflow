@@ -293,10 +293,10 @@ function bfsNeighborhood(focus, nodes, edges, depth) {
 }
 function expansionCommandFor(runId, key) {
     if (key === "messages" || key.startsWith("thread"))
-        return `node scripts/cw.js blackboard message list ${runId}`;
+        return `cw blackboard message list ${runId}`;
     if (key.startsWith("memberships"))
-        return `node scripts/cw.js multi-agent graph ${runId} --view full --json`;
-    return `node scripts/cw.js multi-agent graph ${runId} --view full --focus ${key} --json`;
+        return `cw multi-agent graph ${runId} --view full --json`;
+    return `cw multi-agent graph ${runId} --view full --focus ${key} --json`;
 }
 function filterByView(runId, view, full, protectedIds) {
     const keepKinds = (kinds) => {
@@ -396,8 +396,8 @@ function finalizeGraphRecord(runId, view, options, full, built) {
         status: "valid",
         deterministic: true,
         nextAction: collapsedNodeCount > 0
-            ? `node scripts/cw.js multi-agent graph ${runId} --view full --json`
-            : `node scripts/cw.js multi-agent graph ${runId} --view ${view} --json`,
+            ? `cw multi-agent graph ${runId} --view full --json`
+            : `cw multi-agent graph ${runId} --view ${view} --json`,
     };
 }
 /** The collapse-rule core, generic over any `{ nodes, edges }` graph view

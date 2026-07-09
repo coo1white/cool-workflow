@@ -80,7 +80,7 @@ caseMain(() => {
   assert.match(human.stdout, /  verifier-pass: {3}100\.0% \(1\/1\)\n/);
   assert.match(human.stdout, /  cand-acceptance: n\/a \(0 samples\)\n/);
   assert.match(human.stdout, /  cost: {2}state=unpriced\n/);
-  assert.ok(human.stdout.includes(`next: node scripts/cw.js metrics show ${runId} --json`));
+  assert.ok(human.stdout.includes(`next: cw metrics show ${runId} --json`));
 
   // --- cw metrics summary --scope repo: cross-run rollup over this repo ---
   const summary = run(["metrics", "summary", "--json", "--now", "2026-01-01T00:00:00.000Z"], { cwd: repo });

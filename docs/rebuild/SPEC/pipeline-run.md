@@ -231,7 +231,7 @@ sub-<parent-run-id>-<safe-task-id>   # sub-workflow child run id
 ### Dispatch manifest instructions string (verbatim)
 
 ```text
-Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw.js result <run-id> <task-id> <file>`.
+Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw result <run-id> <task-id> <file>`.
 ```
 
 (src/dispatch.ts:117-118)
@@ -345,7 +345,7 @@ Example dispatch manifest (shape):
   "dispatchId": "dispatch-20260703T101501Z-0001",
   "createdAt": "2026-07-03T10:15:01.000Z",
   "phase": "map",
-  "instructions": "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw.js result <run-id> <task-id> <file>`.",
+  "instructions": "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw result <run-id> <task-id> <file>`.",
   "tasks": [{ "id": "map:entrypoints", "kind": "map", "phase": "map", "status": "running",
               "taskPath": ".../tasks/map-entrypoints.md", "prompt": "...", "workerId": "...",
               "workerManifestPath": ".../workers/<id>/manifest.json", "workerDir": ".../workers/<id>",

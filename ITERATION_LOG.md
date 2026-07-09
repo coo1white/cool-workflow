@@ -1,5 +1,61 @@
 # CW Iteration Log
 
+## Batch — stop leaking the `scripts/cw.js` entry-point name into user-facing text (Unreleased)
+
+> UI/UX audit finding: ~190 user-facing strings (next-action hints, thrown
+> `Usage: ...` errors, and help-projected usage summaries) said
+> `node scripts/cw.js <verb> ...` or `cw.js <verb> ...` instead of the
+> shipped binary name `cw`. A user who copy-pasted these strings got a
+> command that does not exist on PATH. Two families were affected: the
+> ~140 free-form next-action/instruction strings across `operator-ux.ts`,
+> `audit-cli.ts`, `core/multi-agent/*`, `core/state/state-explosion/*`,
+> `reclamation-io.ts`, `run-registry-io.ts`, `topology-io.ts`, and
+> `dispatch.ts`; and the ~30 handler-family `Usage: cw.js <verb> ...`
+> fallback strings in `wiring/capability-table/workflow-apps.ts` and
+> `scheduling-registry.ts`, which turned out to be a deliberate, byte-pinned
+> spec (`docs/rebuild/SPEC/cli-surface.md`'s "Usage strings" section,
+> `v2/conformance/cases/cli-usage-strings.case.js`) — `ledger` was the one
+> family already spelling it `cw ledger ...`, called out in that
+> conformance case as the deliberate exception. After this fix every
+> family, including `ledger`, spells its usage prefix `cw <verb> ...`, so
+> `ledger` is no longer an exception — the conformance case's comments and
+> the SPEC's "Exact strings" line were updated to say so.
+>
+> Mechanical two-pattern fix (`node scripts/cw.js ` → `cw `, `Usage: cw.js `
+> → `Usage: cw `) applied across `src/`, the `docs/rebuild/SPEC/*.md`
+> files that document this exact behavior, `cli-surface.surface.json`,
+> every `v2/conformance/cases/*.case.js` and `test/*.js`/`test/*.test.js`
+> that asserted on the old byte-pinned text (including JS regex literals
+> using `cw\.js`, which the plain-string sed pass missed on the first try
+> and were fixed in a second pass), and the currently-shipped man pages
+> (`docs/*.7.md`) and `docs/getting-started.md`. Left untouched: genuine
+> file-path references (`scripts/cw.js:1-4` line citations, `package.json`
+> bin-map descriptions, `path.join(pluginRoot, "scripts", "cw.js")` in
+> tests that actually invoke that file), the frozen historical
+> `docs/readme-v0.1.87-full.md` snapshot, and `docs/rebuild/SPEC/orchestrator.md`'s
+> `Run cw.js from the cool-workflow plugin directory` line, which already
+> describes a `src/orchestrator.ts` that no longer exists at that path and
+> was stale independent of this fix.
+>
+> A follow-up multi-agent review (3 independent dimensions, each verified
+> by a second agent) confirmed the fix works end-to-end on a live build
+> and found no correctness bugs, but caught an under-reach: 5 of the
+> `docs/rebuild/SPEC/*.surface.json` machine-readable mirrors still quoted
+> the pre-fix `cw.js`/`node scripts/cw.js` text for behavior whose paired
+> `.md` file this same commit had already corrected (`pipeline-run.
+> surface.json:67`, `state-core.surface.json:62,89`, `ledger-trust.
+> surface.json:106`, `orchestrator.surface.json:645`, `multi-agent.
+> surface.json:53,99`), plus a top-level `docs/dogfood-one-real-repo.7.md`
+> duplicate (outside the swept `plugins/cool-workflow/docs/` directory)
+> that still pointed at the old commands. All 7 confirmed instances fixed
+> in a follow-up commit; `orchestrator.surface.json`'s two dead-code
+> `Run cw.js from the cool-workflow plugin directory` lines (the disclosed
+> exception above) were correctly left alone.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Replace every user-facing `node scripts/cw.js ...` / `cw.js ...` string with the shipped `cw` binary name, across source, the conformance-locked SPEC, the conformance suite, unit/smoke tests, and the currently-shipped docs. | `plugins/cool-workflow/src/{core/format/state-explosion-text,core/multi-agent/{collaboration,coordinator,runtime,topology},core/state/state-explosion/{digest,graph,report},shell/{audit-cli,dispatch,eval-text,evidence-reasoning,multi-agent-host,multi-agent-operator-ux,observability,operator-ux-text,operator-ux,reclamation-io,run-registry-io,state-explosion-cli,topology-io,trust-policy-io},wiring/capability-table/{pipeline,reporting,scheduling-registry,workflow-apps}}.ts` + matching `dist/**`, `docs/rebuild/SPEC/{cli-surface.md,cli-surface.surface.json,ledger-trust,multi-agent,pipeline-run,reporting-ux,scheduling-registry,state-core}.md`, `v2/conformance/cases/{cli-usage-strings,sched-registry-after-run,sched-usage-errors,state-unsafe-ids-usage,stateexplosion-freshness-and-digest-bytes,multiagent-host-envelope,multiagent-topology-apply,report-metrics,cli-status-search-run-guard}.case.js`, `plugins/cool-workflow/test/{blackboard-state-explosion-management-smoke,cli-handler-eval-node-smoke,operator-ux-smoke,coordinator-blackboard-smoke,team-collaboration-smoke,run-inspect-archive-smoke,canonical-workflow-apps-smoke,multi-agent-topologies-judge-panel-smoke,stateexplosion-*,maruntime-*}.js`, `plugins/cool-workflow/docs/*.7.md`, `plugins/cool-workflow/docs/getting-started.md`; follow-up: `docs/rebuild/SPEC/{pipeline-run,state-core,ledger-trust,orchestrator,multi-agent}.surface.json`, `docs/dogfood-one-real-repo.7.md`. | Targeted: the 9 directly-touched smoke/unit files individually, plus `cw-help-per-command-smoke`, `captable-shared-path-and-helppath.test`, `formatapps-help-*.test`, `cli-command-surface-smoke`, `cli-jsonmode-parity-smoke`, `cli-mcp-parity-smoke`, `parity-doc-sync-smoke` — all pass; a 3-dimension multi-agent review with independent verification confirmed the live CLI fix and found the `.surface.json`/dogfood-doc gaps fixed in the follow-up commit. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; conformance 104/104 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%); `release:check --skip-tests` all green; follow-up `.surface.json`/doc fixes re-verified with `check`, `dist:check`, and conformance (104/104, doc-only changes so no regression risk). | no (PR batch, no release) |
+
 ## Batch — split capability-table.ts's wiring into src/wiring/ (Unreleased)
 
 > Step 2 (the big one) of the architecture-improvement plan's structure

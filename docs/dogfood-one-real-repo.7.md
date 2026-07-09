@@ -13,8 +13,8 @@ From `plugins/cool-workflow`:
 
 ```bash
 npm run dogfood:release
-node scripts/cw.js status <run-id>
-node scripts/cw.js report <run-id> --show
-node scripts/cw.js audit summary <run-id>
-node scripts/cw.js audit provenance <run-id>
+cw status <run-id>
+cw report <run-id> --show
+cw audit summary <run-id>
+cw audit provenance <run-id>
 ```

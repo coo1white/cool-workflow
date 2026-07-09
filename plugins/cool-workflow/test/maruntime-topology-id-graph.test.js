@@ -97,9 +97,9 @@ const { stableHash } = require("../dist/core/hash");
 {
   const actions = nextActionsFor("run-1", "map-reduce-abc123", "fanout-0001");
   assert.deepEqual(actions, [
-    "node scripts/cw.js dispatch run-1 --multi-agent-fanout fanout-0001",
-    "node scripts/cw.js multi-agent fanin run-1 map-reduce-abc123-fanin --fanout fanout-0001",
-    "node scripts/cw.js topology summary run-1",
+    "cw dispatch run-1 --multi-agent-fanout fanout-0001",
+    "cw multi-agent fanin run-1 map-reduce-abc123-fanin --fanout fanout-0001",
+    "cw topology summary run-1",
   ]);
 }
 

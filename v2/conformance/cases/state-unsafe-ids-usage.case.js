@@ -31,12 +31,12 @@ caseMain(() => {
 
   // wrong subcommand -> fixed Usage: strings, exit 1, empty stdout
   const cases = [
-    { args: ["state", "nope"], usage: "cw.js state check <run-id> [--state PATH] [--write]" },
+    { args: ["state", "nope"], usage: "cw state check <run-id> [--state PATH] [--write]" },
     {
       args: ["migration", "nope"],
-      usage: "cw.js migration list|check|prove [target] [--contract run-state|workflow-app]",
+      usage: "cw migration list|check|prove [target] [--contract run-state|workflow-app]",
     },
-    { args: ["summary", "nope"], usage: "cw.js summary refresh|show <run-id> [--json]" },
+    { args: ["summary", "nope"], usage: "cw summary refresh|show <run-id> [--json]" },
     { args: ["ledger", "nope"], usage: "cw ledger propose|review|verify|apply|list [options]" },
   ];
   for (const { args, usage } of cases) {

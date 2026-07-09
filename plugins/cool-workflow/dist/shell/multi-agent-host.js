@@ -294,27 +294,27 @@ function hostNextActions(run, state, active, requiredHostAction, readyForCommit)
     const runId = run.id;
     switch (state) {
         case "needs-run":
-            return [{ command: `node scripts/cw.js multi-agent run ${runId} --topology map-reduce`, reason: "Materialize a host-facing multi-agent topology.", priority: "high" }];
+            return [{ command: `cw multi-agent run ${runId} --topology map-reduce`, reason: "Materialize a host-facing multi-agent topology.", priority: "high" }];
         case "ready-for-dispatch":
-            return [{ command: `node scripts/cw.js multi-agent step ${runId}`, reason: "Create the next dispatch manifest without spawning workers.", priority: "high" }];
+            return [{ command: `cw multi-agent step ${runId}`, reason: "Create the next dispatch manifest without spawning workers.", priority: "high" }];
         case "awaiting-worker-output":
-            return [{ command: `node scripts/cw.js worker output ${runId} <worker-id> <result.md>`, reason: "A host-executed worker must report result evidence.", priority: "high" }];
+            return [{ command: `cw worker output ${runId} <worker-id> <result.md>`, reason: "A host-executed worker must report result evidence.", priority: "high" }];
         case "ready-for-fanin":
-            return [{ command: `node scripts/cw.js multi-agent step ${runId}`, reason: "Collect fanin once required worker evidence is present.", priority: "high" }];
+            return [{ command: `cw multi-agent step ${runId}`, reason: "Collect fanin once required worker evidence is present.", priority: "high" }];
         case "ready-for-scoring":
-            return [{ command: `node scripts/cw.js multi-agent score ${runId} --candidate <candidate-id> --criterion correctness=1 --evidence <path-or-ref>`, reason: "Score a candidate with explicit evidence.", priority: "high" }];
+            return [{ command: `cw multi-agent score ${runId} --candidate <candidate-id> --criterion correctness=1 --evidence <path-or-ref>`, reason: "Score a candidate with explicit evidence.", priority: "high" }];
         case "ready-for-selection":
-            return [{ command: `node scripts/cw.js multi-agent select ${runId} --candidate <candidate-id> --reason "<rationale>"`, reason: "Select a scored candidate after verifier gates pass.", priority: "high" }];
+            return [{ command: `cw multi-agent select ${runId} --candidate <candidate-id> --reason "<rationale>"`, reason: "Select a scored candidate after verifier gates pass.", priority: "high" }];
         case "ready-for-commit": {
             const ready = readyForCommit[0];
-            return [{ command: `node scripts/cw.js commit ${runId} --selection ${ready.selectionId} --reason "<verified rationale>"`, reason: "Create a verifier-gated CW state commit.", priority: "high" }];
+            return [{ command: `cw commit ${runId} --selection ${ready.selectionId} --reason "<verified rationale>"`, reason: "Create a verifier-gated CW state commit.", priority: "high" }];
         }
         case "complete":
-            return [{ command: `node scripts/cw.js report ${runId} --show`, reason: "Review the completed run report.", priority: "normal" }];
+            return [{ command: `cw report ${runId} --show`, reason: "Review the completed run report.", priority: "normal" }];
         case "failed":
         case "blocked":
         default:
-            return [{ command: `node scripts/cw.js multi-agent status ${runId}`, reason: active.length > 1 ? "Resolve ambiguous active topology state." : "Inspect specific blocked reasons.", priority: "high" }];
+            return [{ command: `cw multi-agent status ${runId}`, reason: active.length > 1 ? "Resolve ambiguous active topology state." : "Inspect specific blocked reasons.", priority: "high" }];
     }
 }
 function envelope(run, command, options = {}) {

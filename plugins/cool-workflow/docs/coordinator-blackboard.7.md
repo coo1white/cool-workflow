@@ -119,18 +119,18 @@ required role memberships have no blackboard message or artifact refs.
 ## CLI
 
 ```bash
-node scripts/cw.js blackboard summary <run-id>
-node scripts/cw.js blackboard graph <run-id>
-node scripts/cw.js blackboard resolve <run-id> --id bb --title "Shared state"
-node scripts/cw.js blackboard topic create <run-id> --id topic --title "Synthesis"
-node scripts/cw.js blackboard message post <run-id> --topic topic --body "..."
-node scripts/cw.js blackboard message list <run-id> [--topic topic]
-node scripts/cw.js blackboard context put <run-id> --topic topic --kind fact --key k --value v
-node scripts/cw.js blackboard artifact add <run-id> --topic topic --path result.md --kind worker-result
-node scripts/cw.js blackboard artifact list <run-id>
-node scripts/cw.js blackboard snapshot <run-id>
-node scripts/cw.js coordinator summary <run-id>
-node scripts/cw.js coordinator decision <run-id> --kind conflict-resolution --outcome accepted --reason "..."
+cw blackboard summary <run-id>
+cw blackboard graph <run-id>
+cw blackboard resolve <run-id> --id bb --title "Shared state"
+cw blackboard topic create <run-id> --id topic --title "Synthesis"
+cw blackboard message post <run-id> --topic topic --body "..."
+cw blackboard message list <run-id> [--topic topic]
+cw blackboard context put <run-id> --topic topic --kind fact --key k --value v
+cw blackboard artifact add <run-id> --topic topic --path result.md --kind worker-result
+cw blackboard artifact list <run-id>
+cw blackboard snapshot <run-id>
+cw coordinator summary <run-id>
+cw coordinator decision <run-id> --kind conflict-resolution --outcome accepted --reason "..."
 ```
 
 The CLI gives JSON by default for focused blackboard and coordinator
@@ -167,11 +167,11 @@ suggested action.
 Use:
 
 ```bash
-node scripts/cw.js status <run-id>
-node scripts/cw.js graph <run-id>
-node scripts/cw.js report <run-id> --show
-node scripts/cw.js audit summary <run-id>
-node scripts/cw.js audit provenance <run-id>
+cw status <run-id>
+cw graph <run-id>
+cw report <run-id> --show
+cw audit summary <run-id>
+cw audit provenance <run-id>
 ```
 
 ## Migration

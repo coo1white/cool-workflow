@@ -10,7 +10,7 @@ deterministic summaries for people, while it keeps JSON for scripts and MCP.
 Human status is the default:
 
 ```bash
-node scripts/cw.js status <run-id>
+cw status <run-id>
 ```
 
 The status view gives you run id, workflow/app id and version, loop stage, active
@@ -21,8 +21,8 @@ path, and the next command it puts forward.
 Machine-readable status is still there for you:
 
 ```bash
-node scripts/cw.js status <run-id> --json
-node scripts/cw.js status <run-id> --format json
+cw status <run-id> --json
+cw status <run-id> --format json
 ```
 
 `CoolWorkflowRunner.status()` and MCP `cw_status` still give back structured
@@ -39,19 +39,19 @@ The things it puts forward are deterministic and use only commands that are in
 the CW CLI. Examples:
 
 ```text
-node scripts/cw.js dispatch <run-id> --limit 4
+cw dispatch <run-id> --limit 4
   reason: pending tasks are ready for the active phase
 
-node scripts/cw.js worker manifest <run-id> <worker-id>
+cw worker manifest <run-id> <worker-id>
   reason: running workers need their manifests inspected
 
-node scripts/cw.js feedback show <run-id> <feedback-id>
+cw feedback show <run-id> <feedback-id>
   reason: open feedback should be resolved before more dispatch
 
-node scripts/cw.js candidate register <run-id> --worker <worker-id>
+cw candidate register <run-id> --worker <worker-id>
   reason: a completed worker result has not been registered as a candidate
 
-node scripts/cw.js commit <run-id> --selection <selection-id>
+cw commit <run-id> --selection <selection-id>
   reason: a verified selected candidate is ready for a verifier-gated commit
 ```
 
@@ -63,15 +63,15 @@ work is done, the advisor points to `cw report <run-id> --show`.
 Use the top-level graph command for a small console map:
 
 ```bash
-node scripts/cw.js graph <run-id>
-node scripts/cw.js graph <run-id> --json
+cw graph <run-id>
+cw graph <run-id> --json
 ```
 
 The legacy node command still works:
 
 ```bash
-node scripts/cw.js node graph <run-id>
-node scripts/cw.js node graph <run-id> --json
+cw node graph <run-id>
+cw node graph <run-id> --json
 ```
 
 The human graph puts phases, tasks, dispatches, workers, result nodes,
@@ -90,10 +90,10 @@ v0.1.21 adds clear multi-agent operator views that answer who is dependent on
 whom, who is blocked, and which evidence went into the accepted result:
 
 ```bash
-node scripts/cw.js multi-agent graph <run-id>
-node scripts/cw.js multi-agent dependencies <run-id>
-node scripts/cw.js multi-agent failures <run-id>
-node scripts/cw.js multi-agent evidence <run-id>
+cw multi-agent graph <run-id>
+cw multi-agent dependencies <run-id>
+cw multi-agent failures <run-id>
+cw multi-agent evidence <run-id>
 ```
 
 The same derived model is in `status`, `report --show`, and
@@ -106,14 +106,14 @@ trace from agent membership to verifier-gated commit.
 `cw report` still writes the Markdown report file and prints its path:
 
 ```bash
-node scripts/cw.js report <run-id>
+cw report <run-id>
 ```
 
 Use `--show` or `--summary` when the operator needs a console report that is easy to read:
 
 ```bash
-node scripts/cw.js report <run-id> --show
-node scripts/cw.js report <run-id> --summary
+cw report <run-id> --show
+cw report <run-id> --summary
 ```
 
 The console report gives the same high-value status panels plus active and
@@ -124,25 +124,25 @@ pending tasks, evidence paths and locators, and resource inspection commands.
 The chief run resources have human summaries by default and JSON when you ask for it:
 
 ```bash
-node scripts/cw.js worker summary <run-id>
-node scripts/cw.js worker summary <run-id> --json
+cw worker summary <run-id>
+cw worker summary <run-id> --json
 
-node scripts/cw.js candidate summary <run-id>
-node scripts/cw.js candidate summary <run-id> --json
+cw candidate summary <run-id>
+cw candidate summary <run-id> --json
 
-node scripts/cw.js feedback summary <run-id>
-node scripts/cw.js feedback summary <run-id> --json
+cw feedback summary <run-id>
+cw feedback summary <run-id> --json
 
-node scripts/cw.js commit summary <run-id>
-node scripts/cw.js commit summary <run-id> --json
+cw commit summary <run-id>
+cw commit summary <run-id> --json
 
-node scripts/cw.js multi-agent summary <run-id>
-node scripts/cw.js multi-agent summary <run-id> --json
-node scripts/cw.js multi-agent graph <run-id>
-node scripts/cw.js multi-agent graph <run-id> --json
-node scripts/cw.js multi-agent dependencies <run-id>
-node scripts/cw.js multi-agent failures <run-id>
-node scripts/cw.js multi-agent evidence <run-id>
+cw multi-agent summary <run-id>
+cw multi-agent summary <run-id> --json
+cw multi-agent graph <run-id>
+cw multi-agent graph <run-id> --json
+cw multi-agent dependencies <run-id>
+cw multi-agent failures <run-id>
+cw multi-agent evidence <run-id>
 ```
 
 Worker summaries show allocated/running/verified/failed/rejected counts,

@@ -26,19 +26,19 @@ absolute plugin script path. Run data is written to `.cw/runs/<run-id>/` under
 ## Discovery & apps
 
 ```bash
-node scripts/cw.js list
-node scripts/cw.js app list
-node scripts/cw.js app show architecture-review
-node scripts/cw.js app show pr-review-fix-ci
-node scripts/cw.js app show release-cut
-node scripts/cw.js app show research-synthesis
-node scripts/cw.js app validate apps/architecture-review/app.json
-node scripts/cw.js app show workflow-app-framework-demo
-node scripts/cw.js app validate apps/workflow-app-framework-demo/app.json
-node scripts/cw.js app validate end-to-end-golden-path
-node scripts/cw.js app package workflow-app-framework-demo
-node scripts/cw.js app init my-app --title "My App"
-node scripts/cw.js init my-workflow --title "My Workflow"
+cw list
+cw app list
+cw app show architecture-review
+cw app show pr-review-fix-ci
+cw app show release-cut
+cw app show research-synthesis
+cw app validate apps/architecture-review/app.json
+cw app show workflow-app-framework-demo
+cw app validate apps/workflow-app-framework-demo/app.json
+cw app validate end-to-end-golden-path
+cw app package workflow-app-framework-demo
+cw app init my-app --title "My App"
+cw init my-workflow --title "My Workflow"
 ```
 
 The canonical app ids are `architecture-review`, `pr-review-fix-ci`,
@@ -62,16 +62,16 @@ harness; the reviewer is delegated via `CW_AGENT_COMMAND`/`CW_AGENT_ENDPOINT`
 ## Plan / dispatch / result / report
 
 ```bash
-node scripts/cw.js plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
-node scripts/cw.js status <run-id>
-node scripts/cw.js status <run-id> --json
-node scripts/cw.js graph <run-id>
-node scripts/cw.js graph <run-id> --json
-node scripts/cw.js dispatch <run-id> --limit 6
-node scripts/cw.js dispatch <run-id> --sandbox readonly
-node scripts/cw.js result <run-id> <task-id> /path/to/result.md
-node scripts/cw.js report <run-id>
-node scripts/cw.js report <run-id> --show
+cw plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
+cw status <run-id>
+cw status <run-id> --json
+cw graph <run-id>
+cw graph <run-id> --json
+cw dispatch <run-id> --limit 6
+cw dispatch <run-id> --sandbox readonly
+cw result <run-id> <task-id> /path/to/result.md
+cw report <run-id>
+cw report <run-id> --show
 ```
 
 Operator UX is human-readable by default for `status`, `graph`, report
@@ -87,12 +87,12 @@ role, group, fanout/fanin, blackboard, coordinator, candidate, commit, and audit
 records — deterministic recipes, not hidden autonomous coordination.
 
 ```bash
-node scripts/cw.js topology list
-node scripts/cw.js topology show map-reduce
-node scripts/cw.js topology validate map-reduce
-node scripts/cw.js topology apply <run-id> map-reduce --task task-id --mapper-count 2
-node scripts/cw.js topology summary <run-id>
-node scripts/cw.js topology graph <run-id>
+cw topology list
+cw topology show map-reduce
+cw topology validate map-reduce
+cw topology apply <run-id> map-reduce --task task-id --mapper-count 2
+cw topology summary <run-id>
+cw topology graph <run-id>
 ```
 
 ## Multi-agent host surface
@@ -103,22 +103,22 @@ plumbing. It wraps the topology, multi-agent, blackboard, candidate, commit, and
 audit primitives; it does not replace them.
 
 ```bash
-node scripts/cw.js multi-agent run <run-id> --topology judge-panel --task task-id
-node scripts/cw.js multi-agent status <run-id>
-node scripts/cw.js multi-agent step <run-id> --sandbox readonly
-node scripts/cw.js multi-agent blackboard <run-id> summary
-node scripts/cw.js multi-agent score <run-id> candidate-id --criterion correctness=1 --evidence ref
-node scripts/cw.js multi-agent select <run-id> candidate-id --reason "verified winner"
+cw multi-agent run <run-id> --topology judge-panel --task task-id
+cw multi-agent status <run-id>
+cw multi-agent step <run-id> --sandbox readonly
+cw multi-agent blackboard <run-id> summary
+cw multi-agent score <run-id> candidate-id --criterion correctness=1 --evidence ref
+cw multi-agent select <run-id> candidate-id --reason "verified winner"
 ```
 
 Operator views (who depends on whom, who is blocked, which evidence was adopted):
 
 ```bash
-node scripts/cw.js multi-agent summary <run-id>
-node scripts/cw.js multi-agent graph <run-id>
-node scripts/cw.js multi-agent dependencies <run-id>
-node scripts/cw.js multi-agent failures <run-id>
-node scripts/cw.js multi-agent evidence <run-id>
+cw multi-agent summary <run-id>
+cw multi-agent graph <run-id>
+cw multi-agent dependencies <run-id>
+cw multi-agent failures <run-id>
+cw multi-agent evidence <run-id>
 ```
 
 State Explosion Management — when a run grows too large to read, use derived,
@@ -126,11 +126,11 @@ provenance-backed digests (they never delete raw records and fail closed when
 stale; every synthetic node carries source ids and an expansion command):
 
 ```bash
-node scripts/cw.js summary refresh <run-id>
-node scripts/cw.js summary show <run-id>
-node scripts/cw.js blackboard summarize <run-id>
-node scripts/cw.js multi-agent summarize <run-id>
-node scripts/cw.js multi-agent graph <run-id> --view compact|critical-path|failures|... [--focus <id>] [--depth <n>]
+cw summary refresh <run-id>
+cw summary show <run-id>
+cw blackboard summarize <run-id>
+cw multi-agent summarize <run-id>
+cw multi-agent graph <run-id> --view compact|critical-path|failures|... [--focus <id>] [--depth <n>]
 ```
 
 Trust / Policy / Audit — inspect role authority, message provenance, blackboard
@@ -138,11 +138,11 @@ write decisions, judge rationale, panel decisions, and why a result is trusted
 (missing policy/evidence/provenance/rationale fail closed):
 
 ```bash
-node scripts/cw.js audit multi-agent <run-id>
-node scripts/cw.js audit policy <run-id>
-node scripts/cw.js audit role <run-id>
-node scripts/cw.js audit blackboard <run-id>
-node scripts/cw.js audit judge <run-id>
+cw audit multi-agent <run-id>
+cw audit policy <run-id>
+cw audit role <run-id>
+cw audit blackboard <run-id>
+cw audit judge <run-id>
 ```
 
 ## Multi-agent low-level state
@@ -154,12 +154,12 @@ transitions, duplicate memberships, ambiguous dispatch attachment, and missing
 fanin evidence fail closed.
 
 ```bash
-node scripts/cw.js multi-agent run <run-id> --id ma --objective "coordinated work"
-node scripts/cw.js multi-agent role <run-id> role --multi-agent-run ma --responsibility "do work" --required-evidence "result evidence"
-node scripts/cw.js multi-agent group <run-id> group --multi-agent-run ma --task task-id
-node scripts/cw.js multi-agent fanout <run-id> fanout --group group --reason "split work" --role role --task task-id
-node scripts/cw.js dispatch <run-id> --multi-agent-run ma --multi-agent-group group --multi-agent-role role --multi-agent-fanout fanout
-node scripts/cw.js multi-agent fanin <run-id> fanin --group group --fanout fanout --required-role role
+cw multi-agent run <run-id> --id ma --objective "coordinated work"
+cw multi-agent role <run-id> role --multi-agent-run ma --responsibility "do work" --required-evidence "result evidence"
+cw multi-agent group <run-id> group --multi-agent-run ma --task task-id
+cw multi-agent fanout <run-id> fanout --group group --reason "split work" --role role --task task-id
+cw dispatch <run-id> --multi-agent-run ma --multi-agent-group group --multi-agent-role role --multi-agent-fanout fanout
+cw multi-agent fanin <run-id> fanin --group group --fanout fanout --required-role role
 ```
 
 ## Eval & replay
@@ -168,12 +168,12 @@ Use when a topology-backed multi-agent run needs release-gate evidence.
 Artifacts live under `.cw/evals/<suite-id>/` as plain JSON plus `report.md`.
 
 ```bash
-node scripts/cw.js eval snapshot <run-id> --id suite-id
-node scripts/cw.js eval replay .cw/evals/suite-id/snapshot.json
-node scripts/cw.js eval compare .cw/evals/suite-id/snapshot.json .cw/evals/suite-id/replay-run.json
-node scripts/cw.js eval score .cw/evals/suite-id/replay-run.json
-node scripts/cw.js eval gate .cw/evals/suite-id
-node scripts/cw.js eval report .cw/evals/suite-id/replay-run.json
+cw eval snapshot <run-id> --id suite-id
+cw eval replay .cw/evals/suite-id/snapshot.json
+cw eval compare .cw/evals/suite-id/snapshot.json .cw/evals/suite-id/replay-run.json
+cw eval score .cw/evals/suite-id/replay-run.json
+cw eval gate .cw/evals/suite-id
+cw eval report .cw/evals/suite-id/replay-run.json
 ```
 
 ## Blackboard & coordinator
@@ -183,14 +183,14 @@ context frames, artifact refs, snapshots, and coordinator decisions under
 `.cw/runs/<run-id>/blackboard/`.
 
 ```bash
-node scripts/cw.js blackboard summary <run-id>
-node scripts/cw.js blackboard topic create <run-id> --id topic --title "Shared context"
-node scripts/cw.js blackboard message post <run-id> --topic topic --body "message"
-node scripts/cw.js blackboard context put <run-id> --topic topic --kind fact --key finding --value "evidence-backed fact"
-node scripts/cw.js blackboard artifact add <run-id> --topic topic --path /path/to/result.md --kind worker-result
-node scripts/cw.js blackboard snapshot <run-id>
-node scripts/cw.js coordinator summary <run-id>
-node scripts/cw.js coordinator decision <run-id> --kind conflict-resolution --outcome accepted --reason "evidence supports this"
+cw blackboard summary <run-id>
+cw blackboard topic create <run-id> --id topic --title "Shared context"
+cw blackboard message post <run-id> --topic topic --body "message"
+cw blackboard context put <run-id> --topic topic --kind fact --key finding --value "evidence-backed fact"
+cw blackboard artifact add <run-id> --topic topic --path /path/to/result.md --kind worker-result
+cw blackboard snapshot <run-id>
+cw coordinator summary <run-id>
+cw coordinator decision <run-id> --kind conflict-resolution --outcome accepted --reason "evidence supports this"
 ```
 
 ## Sandbox profiles
@@ -201,10 +201,10 @@ CW enforces profile validation and worker result acceptance; the agent host
 enforces OS/process/network/environment controls.
 
 ```bash
-node scripts/cw.js sandbox list
-node scripts/cw.js sandbox show readonly
-node scripts/cw.js sandbox validate ./site-sandbox.json
-node scripts/cw.js worker manifest <run-id> <worker-id>
+cw sandbox list
+cw sandbox show readonly
+cw sandbox validate ./site-sandbox.json
+cw worker manifest <run-id> <worker-id>
 ```
 
 ## Commit, state & summaries
@@ -214,14 +214,14 @@ dry-runs migration and normalization; newer unsupported schemas fail closed and
 unknown user data is preserved.
 
 ```bash
-node scripts/cw.js commit <run-id> --verifier <node-id> --reason "verified result"
-node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified winner"
-node scripts/cw.js commit <run-id> --allow-unverified-checkpoint --reason "manual checkpoint"
-node scripts/cw.js worker summary <run-id>
-node scripts/cw.js candidate summary <run-id>
-node scripts/cw.js feedback summary <run-id>
-node scripts/cw.js commit summary <run-id>
-node scripts/cw.js state check <run-id>
+cw commit <run-id> --verifier <node-id> --reason "verified result"
+cw commit <run-id> --selection <selection-id> --reason "verified winner"
+cw commit <run-id> --allow-unverified-checkpoint --reason "manual checkpoint"
+cw worker summary <run-id>
+cw candidate summary <run-id>
+cw feedback summary <run-id>
+cw commit summary <run-id>
+cw state check <run-id>
 ```
 
 ## Scheduling & routines
@@ -232,12 +232,12 @@ prompt is handled. `routine create`/`routine fire` handle API/GitHub trigger
 events.
 
 ```bash
-node scripts/cw.js loop --intervalMinutes 30 --prompt "Continue this workflow."
-node scripts/cw.js schedule create --kind loop --intervalMinutes 30 --prompt "Continue this workflow."
-node scripts/cw.js schedule due
-node scripts/cw.js schedule daemon --once
-node scripts/cw.js routine create --kind github --prompt "Handle this GitHub event."
-node scripts/cw.js routine fire github payload.json
+cw loop --intervalMinutes 30 --prompt "Continue this workflow."
+cw schedule create --kind loop --intervalMinutes 30 --prompt "Continue this workflow."
+cw schedule due
+cw schedule daemon --once
+cw routine create --kind github --prompt "Handle this GitHub event."
+cw routine fire github payload.json
 ```
 
 ## Release & maintenance npm scripts

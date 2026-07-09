@@ -15,7 +15,7 @@
 // list / show / manifest / output / fail / validate — have MCP tool rows
 // (cw_worker_manifest, cw_worker_output, ... ~lines 310-315) but NO CLI
 // path binding, so `cw worker manifest|output|...` all fall through to the
-// usage error "Usage: cw.js worker list|summary|show|manifest|...".
+// usage error "Usage: cw worker list|summary|show|manifest|...".
 //
 // The old build routed every one of these via src/cli/handlers/worker.ts
 // (git 7ee3215: switch over list/summary/show/manifest/output/fail/validate).

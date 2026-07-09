@@ -232,7 +232,7 @@ function auditRoleCli(runId, roleId, args) {
         panelDecisions: events.filter((event) => event.kind === "judge.panel-decision"),
         policyViolations: events.filter((event) => event.kind === "policy.violation"),
         events,
-        nextAction: `node scripts/cw.js audit multi-agent ${run.id} --json`,
+        nextAction: `cw audit multi-agent ${run.id} --json`,
     };
 }
 /** `cw audit blackboard <run>` — blackboard write/provenance audit. */

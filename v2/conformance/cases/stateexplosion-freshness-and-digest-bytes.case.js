@@ -95,7 +95,7 @@ caseMain(() => {
   assert.equal(absentReport.freshness.status, "absent");
   assert.equal(absentReport.freshness.persistedFingerprint, undefined);
   assert.match(absentReport.freshness.currentFingerprint, FP32);
-  assert.equal(absentReport.nextAction, `node scripts/cw.js summary refresh ${runId}`);
+  assert.equal(absentReport.nextAction, `cw summary refresh ${runId}`);
 
   // Refresh: freshness becomes "valid", persisted === current.
   const refresh = run(["summary", "refresh", runId, "--json"], { cwd: repo });
@@ -128,7 +128,7 @@ caseMain(() => {
   const staleReport = JSON.parse(showStale.stdout);
   assert.equal(staleReport.freshness.status, "stale");
   assert.notEqual(staleReport.freshness.persistedFingerprint, staleReport.freshness.currentFingerprint);
-  assert.equal(staleReport.nextAction, `node scripts/cw.js summary refresh ${runId}`);
+  assert.equal(staleReport.nextAction, `cw summary refresh ${runId}`);
 
   // Human text (no --json): exact first lines.
   const showText = run(["summary", "show", runId], { cwd: repo });

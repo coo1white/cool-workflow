@@ -86,20 +86,20 @@ verifier-gated commit readiness where those gates lean on judge evidence.
 The commands that are already there still work the same way:
 
 ```bash
-node scripts/cw.js audit summary <run-id>
-node scripts/cw.js audit provenance <run-id>
-node scripts/cw.js multi-agent status <run-id>
-node scripts/cw.js multi-agent evidence <run-id>
+cw audit summary <run-id>
+cw audit provenance <run-id>
+cw multi-agent status <run-id>
+cw multi-agent evidence <run-id>
 ```
 
 Focused views:
 
 ```bash
-node scripts/cw.js audit multi-agent <run-id>
-node scripts/cw.js audit policy <run-id>
-node scripts/cw.js audit role <run-id> <role-id>
-node scripts/cw.js audit blackboard <run-id>
-node scripts/cw.js audit judge <run-id>
+cw audit multi-agent <run-id>
+cw audit policy <run-id>
+cw audit role <run-id> <role-id>
+cw audit blackboard <run-id>
+cw audit judge <run-id>
 ```
 
 Use `--json` or `--format json` for deterministic machine output.
@@ -121,8 +121,8 @@ Human output has stable panels:
 so it cannot gate a script. `audit verify` is the gate:
 
 ```bash
-node scripts/cw.js audit verify <run-id>        # exit 1 if the chain is forged
-node scripts/cw.js audit verify <run-id> --json
+cw audit verify <run-id>        # exit 1 if the chain is forged
+cw audit verify <run-id> --json
 ```
 
 It proves the run's trust-audit hash chain again offline: it works out every event

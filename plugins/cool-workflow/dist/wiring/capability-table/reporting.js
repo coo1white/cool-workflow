@@ -101,7 +101,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("status").cli = {
 };
 registry_core_1.REGISTRY_BY_CAPABILITY.get("status").mcp.handler = (args) => loadReportViewCli().statusCli((0, io_1.optionalArg)(args.runId), args);
 function adviseNoRunLines() {
-    return "  node scripts/cw.js plan <workflow-id> --repo <path>\n    reason: No run id is available yet; create a workflow run before dispatching or recording evidence.\n";
+    return "  cw plan <workflow-id> --repo <path>\n    reason: No run id is available yet; create a workflow run before dispatching or recording evidence.\n";
 }
 (0, registry_core_1.attachCliBinding)("graph", {
     path: ["graph"],

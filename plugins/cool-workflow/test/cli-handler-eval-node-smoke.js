@@ -29,11 +29,11 @@ function runFail(args) {
 // --- eval routing through handleEval -----------------------------------------
 let r = runFail(["eval"]);
 assert.notEqual(r.code, 0, "cw eval (no subcommand) exits non-zero");
-assert.match(r.stderr, /Usage: cw\.js eval snapshot/, "eval no-subcommand hits the handler usage throw");
+assert.match(r.stderr, /Usage: cw eval snapshot/, "eval no-subcommand hits the handler usage throw");
 
 r = runFail(["eval", "bogus"]);
 assert.notEqual(r.code, 0, "cw eval bogus exits non-zero");
-assert.match(r.stderr, /Usage: cw\.js eval snapshot/, "eval bogus hits the handler usage throw");
+assert.match(r.stderr, /Usage: cw eval snapshot/, "eval bogus hits the handler usage throw");
 
 r = runFail(["eval", "snapshot"]);
 assert.notEqual(r.code, 0, "cw eval snapshot (no run id) exits non-zero");
@@ -44,7 +44,7 @@ assert.notEqual(r.code, 0, "cw eval gate (no suite id) exits non-zero");
 assert.match(r.stderr, /Missing suite id or path/, "eval gate routes to required(suite id or path)");
 
 // --- node routing through handleNode -----------------------------------------
-const nodeUsage = /Usage: cw\.js node list\|show\|graph/;
+const nodeUsage = /Usage: cw node list\|show\|graph/;
 
 r = runFail(["node"]);
 assert.notEqual(r.code, 0, "cw node (no subcommand) exits non-zero");

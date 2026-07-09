@@ -415,16 +415,16 @@ function buildTimeline(state) {
 function buildNextActions(runId, states, policy) {
     const actions = [];
     if (!policy) {
-        actions.push(`node scripts/cw.js review policy ${runId} --requiredApprovals 1 --authorizedRoles reviewer --appliesTo commit`);
+        actions.push(`cw review policy ${runId} --requiredApprovals 1 --authorizedRoles reviewer --appliesTo commit`);
         return actions;
     }
     for (const state of states) {
         if (state.status === "pending" || state.status === "blocked" || state.status === "unattributed") {
-            actions.push(`node scripts/cw.js approve ${state.target.kind} ${runId} ${state.target.id} --role <authorized-role> --actor <id> --attested`);
+            actions.push(`cw approve ${state.target.kind} ${runId} ${state.target.id} --role <authorized-role> --actor <id> --attested`);
         }
     }
     if (!actions.length)
-        actions.push(`node scripts/cw.js review status ${runId} --json`);
+        actions.push(`cw review status ${runId} --json`);
     return actions;
 }
 /** Self ids for a candidate/selection target: its producing worker +

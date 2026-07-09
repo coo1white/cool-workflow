@@ -81,7 +81,7 @@ function firstPositionalArg(args, index = 0) {
                 return {};
             }
             default:
-                throw new Error("Usage: cw.js schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon");
+                throw new Error("Usage: cw schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon");
         }
     },
 }, "cw schedule is the desktop wall-clock scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_schedule_*), each wired below.");
@@ -136,7 +136,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("schedule.delete").mcp.handler = (arg
             case "events":
                 return { json: registryCli.routineEventsCli(idOrKind, args.options) };
             default:
-                throw new Error("Usage: cw.js routine create|list|delete|fire|events");
+                throw new Error("Usage: cw routine create|list|delete|fire|events");
         }
     },
 }, "cw routine is the API/GitHub-style trigger bridge; SPEC/mcp.md declares its MCP peers per verb (cw_routine_*), each wired below.");
@@ -194,7 +194,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("routine.events").mcp.handler = (args
                 return { json: schedulingIo.schedPolicyShowCli(args.options) };
             }
             default:
-                throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
+                throw new Error("Usage: cw sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
         }
     },
 }, "cw sched is the durable-queue lease scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_sched_*), each wired below.");
@@ -243,7 +243,7 @@ function schedPolicyHandler(args) {
         else if (subcommand === "show")
             report = registryCli.registryShowCli(args.options);
         else
-            throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
+            throw new Error("Usage: cw registry refresh|show [--scope repo|home] [--json]");
         return { json: report, text: loadRunRegistryIo().formatRegistryReport(report) };
     },
 }, "cw registry is the derived run-registry index; SPEC/mcp.md declares its MCP peers (cw_registry_refresh|show), each wired below.");
@@ -293,7 +293,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("registry.show").mcp.handler = (args)
             case "show":
                 return { json: registryCli.queueShowCli((0, io_1.required)(id, "queue id"), args.options) };
             default:
-                throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
+                throw new Error("Usage: cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
         }
     },
 }, "cw queue is the durable run queue; SPEC/mcp.md declares its MCP peers (cw_queue_add|list|drain|show), each wired below.");
@@ -357,7 +357,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("queue.show").mcp.handler = (args) =>
                 return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
             }
             default:
-                throw new Error("Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
+                throw new Error("Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
         }
     },
 }, "cw gc is run retention & provable reclamation; SPEC/mcp.md declares its MCP peers (cw_gc_plan|run|verify), each wired below.");
@@ -432,7 +432,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("gc.run").reason =
                 return (0, io_1.wantsJson)(args.options) ? { json: result } : { json: result, text: reclamationIo.formatOrphanRunsGc(result) };
             }
             default:
-                throw new Error("Usage: cw.js orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)");
+                throw new Error("Usage: cw orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)");
         }
     },
 }, "cw orphans reclaims killed-process run dirs with no state.json; SPEC/mcp.md declares its MCP peers (cw_orphans_list|gc), each wired below.");
@@ -485,7 +485,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("orphans.gc").reason =
                 return (0, io_1.wantsJson)(args.options) ? { json: result } : { json: result, text: reclamationIo.formatClonesGc(result) };
             }
             default:
-                throw new Error("Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
+                throw new Error("Usage: cw clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
         }
     },
 }, "cw clones is the cached remote-source checkout cache; SPEC/mcp.md declares its MCP peers (cw_clones_list|gc), each wired below.");

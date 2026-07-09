@@ -536,7 +536,7 @@ export function deriveMetricsReport(run: WorkflowRun, options: DeriveMetricsOpti
     collaboration: deriveCollaborationMetrics(run),
     nextAction: totals.unreportedUnits > 0 && totals.attestedUnits === 0
       ? "No attested usage yet — record host usage on result/worker intake (cw result ... --usage-input-tokens N --usage-output-tokens M --usage-model ID)."
-      : `node scripts/cw.js metrics show ${run.id} --json`,
+      : `cw metrics show ${run.id} --json`,
   };
 }
 

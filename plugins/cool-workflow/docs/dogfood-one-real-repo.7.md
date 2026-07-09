@@ -54,22 +54,22 @@ commit/checkpoint provenance.
 Use the standard operator commands:
 
 ```bash
-node scripts/cw.js status <run-id>
-node scripts/cw.js graph <run-id>
-node scripts/cw.js report <run-id> --show
-node scripts/cw.js worker summary <run-id>
-node scripts/cw.js candidate summary <run-id>
-node scripts/cw.js feedback summary <run-id>
-node scripts/cw.js commit summary <run-id>
+cw status <run-id>
+cw graph <run-id>
+cw report <run-id> --show
+cw worker summary <run-id>
+cw candidate summary <run-id>
+cw feedback summary <run-id>
+cw commit summary <run-id>
 ```
 
 Inspect trust records:
 
 ```bash
-node scripts/cw.js audit summary <run-id>
-node scripts/cw.js audit provenance <run-id>
-node scripts/cw.js audit provenance <run-id> --candidate dogfood-release-0.1.18
-node scripts/cw.js audit provenance <run-id> --commit <commit-id>
+cw audit summary <run-id>
+cw audit provenance <run-id>
+cw audit provenance <run-id> --candidate dogfood-release-0.1.18
+cw audit provenance <run-id> --commit <commit-id>
 ```
 
 The report tells why the candidate is trusted by showing sandbox profiles,

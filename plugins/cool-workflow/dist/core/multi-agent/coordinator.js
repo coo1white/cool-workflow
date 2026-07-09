@@ -443,14 +443,14 @@ function summarizeBlackboard(runId, state, blackboardId, defaultIndexPath) {
 }
 function nextAction(runId, board, openQuestions, conflicts, artifacts) {
     if (!board)
-        return `node scripts/cw.js blackboard topic create ${runId} --id <topic-id> --title "<title>"`;
+        return `cw blackboard topic create ${runId} --id <topic-id> --title "<title>"`;
     if (conflicts.length)
-        return `node scripts/cw.js coordinator decision ${runId} --kind conflict-resolution --outcome accepted --subject ${conflicts[0].id} --reason "<reason>"`;
+        return `cw coordinator decision ${runId} --kind conflict-resolution --outcome accepted --subject ${conflicts[0].id} --reason "<reason>"`;
     if (openQuestions.length)
-        return `node scripts/cw.js blackboard message post ${runId} --topic ${openQuestions[0].topicId} --body "<answer with evidence>"`;
+        return `cw blackboard message post ${runId} --topic ${openQuestions[0].topicId} --body "<answer with evidence>"`;
     if (!artifacts.length)
-        return `node scripts/cw.js blackboard artifact add ${runId} --path <path> --kind <kind>`;
-    return `node scripts/cw.js blackboard snapshot ${runId}`;
+        return `cw blackboard artifact add ${runId} --path <path> --kind <kind>`;
+    return `cw blackboard snapshot ${runId}`;
 }
 function listBlackboardMessages(state, options = {}) {
     return state.messages

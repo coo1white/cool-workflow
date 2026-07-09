@@ -45,9 +45,9 @@ caseMain(() => {
     "reducer synthesis",
   ]);
   assert.deepEqual(topoRun.nextActions, [
-    `node scripts/cw.js dispatch ${runId1} --multi-agent-fanout ${id}-fanout`,
-    `node scripts/cw.js multi-agent fanin ${runId1} ${id}-fanin --fanout ${id}-fanout`,
-    `node scripts/cw.js topology summary ${runId1}`,
+    `cw dispatch ${runId1} --multi-agent-fanout ${id}-fanout`,
+    `cw multi-agent fanin ${runId1} ${id}-fanin --fanout ${id}-fanout`,
+    `cw topology summary ${runId1}`,
   ]);
 
   // --- judge-panel with --judge-count 1: floors to 2, mints judge-1/judge-2 ---

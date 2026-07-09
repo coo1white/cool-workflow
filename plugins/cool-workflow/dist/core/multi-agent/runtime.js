@@ -841,15 +841,15 @@ function summarizeMultiAgent(run) {
 function nextMultiAgentAction(run, blockedReasons) {
     const state = ensureMultiAgentState(run);
     if (!state.runs.length)
-        return `node scripts/cw.js multi-agent run ${run.id} --id <multi-agent-run-id>`;
+        return `cw multi-agent run ${run.id} --id <multi-agent-run-id>`;
     if (blockedReasons.length)
-        return `node scripts/cw.js multi-agent fanin ${run.id} --group <group-id> --fanout <fanout-id>`;
+        return `cw multi-agent fanin ${run.id} --group <group-id> --fanout <fanout-id>`;
     const running = state.memberships.find((membership) => membership.status === "running");
     if (running?.workerId)
-        return `node scripts/cw.js worker manifest ${run.id} ${running.workerId}`;
+        return `cw worker manifest ${run.id} ${running.workerId}`;
     const groupWithoutFanin = state.groups.find((group) => group.membershipIds.length && !group.faninIds.length);
     if (groupWithoutFanin)
-        return `node scripts/cw.js multi-agent fanin ${run.id} --group ${groupWithoutFanin.id}`;
+        return `cw multi-agent fanin ${run.id} --group ${groupWithoutFanin.id}`;
     return undefined;
 }
 function buildMultiAgentGraph(run) {

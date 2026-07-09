@@ -9,7 +9,7 @@
 // thresholds?, index? }) — ... freshness.status valid|stale|absent
 // computed against the persisted index fingerprint (absent index ->
 // absent; mismatch or any stale scope -> stale) and nextAction becoming
-// 'node scripts/cw.js summary refresh <runId>' when stale or absent".
+// 'cw summary refresh <runId>' when stale or absent".
 
 const assert = require("node:assert/strict");
 const { buildStateExplosionReport } = require("../dist/core/state/state-explosion/report");
@@ -32,7 +32,7 @@ function minimalRun() {
 {
   const report = buildStateExplosionReport(minimalRun(), { now: NOW });
   assert.equal(report.freshness.status, "absent", "no persisted index -> freshness absent");
-  assert.equal(report.nextAction, "node scripts/cw.js summary refresh run-1", "absent freshness redirects nextAction to summary refresh");
+  assert.equal(report.nextAction, "cw summary refresh run-1", "absent freshness redirects nextAction to summary refresh");
   assert.equal(report.freshness.persistedFingerprint, undefined, "no persisted index -> no persistedFingerprint");
   assert.equal(report.index, undefined, "no persisted index -> report.index is undefined");
 }
@@ -103,7 +103,7 @@ function minimalRun() {
   };
   const report = buildStateExplosionReport(runValue, { now: NOW, index: staleIndex });
   assert.equal(report.freshness.status, "stale", "a mismatched top-level sourceFingerprint marks freshness stale");
-  assert.equal(report.nextAction, "node scripts/cw.js summary refresh run-1", "stale freshness redirects nextAction to summary refresh");
+  assert.equal(report.nextAction, "cw summary refresh run-1", "stale freshness redirects nextAction to summary refresh");
 }
 
 // A per-entry stale scope (entry fingerprint mismatch) also flips overall

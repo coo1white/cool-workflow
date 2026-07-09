@@ -33,7 +33,7 @@ Any other subcommand throws `Usage: cw ledger propose|review|verify|apply|list [
 - With `--pubkey` (or env `CW_AGENT_ATTEST_PUBKEY`): also RE-RUNS the ed25519 check over each record the ledger marks `attested`, using the raw `reportedUsage` stored on the record (`src/capability-core.ts:1186-1196`, `src/telemetry-attestation.ts:257-318`).
 - A supplied key that resolves to nothing adds a failed check `{name:"signature-key", code:"telemetry-pubkey-unreadable"}` and `verified` goes false (`src/capability-core.ts:1193-1195`).
 - Exit 1 when `verified:false`. An absent ledger is `present:false` / `verified:true` and exits 0 (`src/cli/handlers/maintenance.ts:64-68`).
-- Other subcommands throw `Usage: cw.js telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]` (`src/cli/handlers/maintenance.ts:71`).
+- Other subcommands throw `Usage: cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]` (`src/cli/handlers/maintenance.ts:71`).
 
 ### CLI: `cw audit verify` (src/cli/handlers/audit.ts:19-30)
 
@@ -43,7 +43,7 @@ Any other subcommand throws `Usage: cw ledger propose|review|verify|apply|list [
 
 - `cw demo tamper` runs `runTamperDemo()`: hermetic, ephemeral ed25519 keypair, private tmpdir, no network, no model. Exit 1 when `proven:false`.
 - `cw demo bundle` runs `runBundleDemo()`: same discipline for the portable bundle. Exit 1 when `proven:false`.
-- Other subcommands throw `Usage: cw.js demo tamper|bundle [--json]`.
+- Other subcommands throw `Usage: cw demo tamper|bundle [--json]`.
 
 ### CLI: `cw report verify-bundle` and `cw report bundle` (src/cli/handlers/operator.ts:19-41)
 
@@ -330,7 +330,7 @@ Builds a real run tree under a tmpdir (`.cw/runs/demo-bundle-run`), signs the sa
 - A chain step with a decision but no recorded reason renders rationale `{ "status": "unexplained" }`; an adopted/rejected item with NO decision step at all gets one explicit unexplained step — the gap is shown, never guessed away (`src/evidence-reasoning.ts:182-186,418-435`).
 - Roll-up rule: `explained` ONLY when every decision-bearing step is explained; ANY unexplained decision step makes the whole chain `unexplained`; no decision steps = `not-applicable` (`src/evidence-reasoning.ts:716-723`).
 - Unexplained reason text, exact: `` `${gate}: no recorded rationale for ${decision} adoption` `` (`src/evidence-reasoning.ts:190-192`).
-- Freshness: `absent` (no persisted index), `valid`, or `stale` (persisted `sourceFingerprint` differs) (`src/evidence-reasoning.ts:91-93`). `nextAction` strings: `` `node scripts/cw.js multi-agent reasoning ${run.id} --refresh` `` (stale/absent), `` `... --json` `` (unexplained > 0), else `` `node scripts/cw.js multi-agent evidence ${run.id} --json` `` (`src/evidence-reasoning.ts:96-100`).
+- Freshness: `absent` (no persisted index), `valid`, or `stale` (persisted `sourceFingerprint` differs) (`src/evidence-reasoning.ts:91-93`). `nextAction` strings: `` `cw multi-agent reasoning ${run.id} --refresh` `` (stale/absent), `` `... --json` `` (unexplained > 0), else `` `cw multi-agent evidence ${run.id} --json` `` (`src/evidence-reasoning.ts:96-100`).
 - Fingerprint: `sha256:` + first 32 hex of a sha256 over the sorted chain lines (`src/evidence-reasoning.ts:762-774`).
 - Human render header lines: `` `Evidence Adoption Reasoning: ${runId}` ``, `` `Freshness: ${status}` ``, section `Adoption Rationale`, tally line `` `  chains=${..}; explained=${..}; unexplained=${..}; n/a=${..}; adopted=${..}; rejected=${..}` ``, at most 60 chains then `` `  ... ${n} more` ``, then `Next Action` (`src/evidence-reasoning.ts:646-677`).
 - Malformed or unreadable score records are SKIPPED at read; the score gate then fails closed (`src/evidence-reasoning.ts:743-760`).

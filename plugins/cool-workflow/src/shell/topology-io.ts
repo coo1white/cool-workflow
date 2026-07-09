@@ -378,7 +378,7 @@ export function summarizeTopologies(run: WorkflowRun): TopologySummary {
       missingEvidence,
       conflicts: record.conflicts,
       readiness: ready ? "fanin ready" : missingEvidence.length ? "missing evidence" : "awaiting worker output",
-      nextActions: ready ? [`node scripts/cw.js candidate register ${run.id} --result-node <reducer-or-panel-result>`] : record.nextActions,
+      nextActions: ready ? [`cw candidate register ${run.id} --result-node <reducer-or-panel-result>`] : record.nextActions,
     };
   });
   return {
@@ -387,7 +387,7 @@ export function summarizeTopologies(run: WorkflowRun): TopologySummary {
     runsByStatus: countBy(active, (record) => record.status),
     officialTopologies: topo.listTopologyDefinitions().map((definition) => definition.id),
     active,
-    nextAction: active.find((record) => record.nextActions.length)?.nextActions[0] || `node scripts/cw.js topology apply ${run.id} map-reduce --task <task-id>`,
+    nextAction: active.find((record) => record.nextActions.length)?.nextActions[0] || `cw topology apply ${run.id} map-reduce --task <task-id>`,
   };
 }
 

@@ -201,7 +201,7 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
     assert.ok(syn.collapsedNodeCount >= 1);
     assert.ok(Array.isArray(syn.sourceIds) && syn.sourceIds.length >= 1, "synthetic node must expose source ids");
     assert.ok(typeof syn.dominantStatus === "string");
-    assert.ok(syn.expansionCommand.includes("cw.js"), "synthetic node must expose an expansion command");
+    assert.ok(syn.expansionCommand.startsWith("cw "), "synthetic node must expose an expansion command");
   }
   // Critical path preserved across compact and critical-path views.
   const criticalView = runJson(["multi-agent", "graph", runId, "--view", "critical-path", "--json"]);
@@ -250,7 +250,7 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
     "Next Action"
   ]) assert.match(human, new RegExp(panel.replace(/[/]/g, "\\/")), `missing panel ${panel}`);
   assert.match(human, /Graph compacted: \d+ nodes collapsed into \d+ summary nodes/);
-  assert.match(human, /node scripts\/cw\.js multi-agent graph .* --view full/);
+  assert.match(human, /cw multi-agent graph .* --view full/);
 
   // --- CLI JSON is deterministic ----------------------------------------------
   const showA = stripVolatile(report);
@@ -344,7 +344,7 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
   assert.equal(mcp.summaryShow.runId, runId);
   assert.ok(Array.isArray(mcp.summaryShow.compactGraph.syntheticNodes));
   assert.ok(mcp.blackboardDigest.topicRollups.length >= 1, "MCP blackboard digest must include source-linked rollups");
-  assert.ok(mcp.blackboardDigest.topicRollups[0].expansionCommand.includes("cw.js"), "MCP digest must include expansion hints");
+  assert.ok(mcp.blackboardDigest.topicRollups[0].expansionCommand.startsWith("cw "), "MCP digest must include expansion hints");
   assert.ok(mcp.graphCompact.compactNodeCount < mcp.graphCompact.fullNodeCount);
   assert.ok(mcp.graphCompact.syntheticNodes.every((syn) => syn.sourceIds.length >= 1), "MCP compact graph must keep source refs");
 

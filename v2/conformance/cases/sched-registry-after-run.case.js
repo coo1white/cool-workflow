@@ -36,7 +36,7 @@ caseMain(() => {
   assert.equal(report.counts.total, 1);
   assert.equal(report.counts.completed, 1);
   assert.equal(report.counts.failed, 0);
-  assert.equal(report.nextAction, "node scripts/cw.js run search");
+  assert.equal(report.nextAction, "cw run search");
   const record = report.index.records.find((r) => r.runId === runId);
   assert.ok(record, "refreshed index must contain the run");
   assert.equal(record.derivedLifecycle, "completed");

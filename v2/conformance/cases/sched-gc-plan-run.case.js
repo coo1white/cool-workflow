@@ -38,7 +38,7 @@ caseMain(() => {
   assert.deepEqual(cleanRunReport.reclaimed, []);
   assert.deepEqual(cleanRunReport.refused, []);
   assert.equal(cleanRunReport.totalBytesFreed, 0);
-  assert.equal(cleanRunReport.nextAction, "node scripts/cw.js gc plan");
+  assert.equal(cleanRunReport.nextAction, "cw gc plan");
 
   // Now establish one real completed run.
   const pipe = run(["-q", "What are the risks?"], { cwd: repo, env: stubAgentEnv("a.txt:1") });

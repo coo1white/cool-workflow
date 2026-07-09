@@ -122,7 +122,7 @@ const workerExists = () => true;
 {
   const run = makeRun("run-1");
   const summary = summarizeMultiAgent(run);
-  assert.equal(summary.nextAction, "node scripts/cw.js multi-agent run run-1 --id <multi-agent-run-id>");
+  assert.equal(summary.nextAction, "cw multi-agent run run-1 --id <multi-agent-run-id>");
 }
 
 // nextAction ladder: a group with memberships and no fanin -> fanin command.
@@ -137,7 +137,7 @@ const workerExists = () => true;
   // ran once, status is "running" here so the running-membership branch
   // fires before the no-fanin branch — assert whichever the ladder picks,
   // matching the SPEC's own stated priority order.
-  assert.equal(summary.nextAction, `node scripts/cw.js worker manifest run-1 w1`, "a running membership with a worker takes priority over the no-fanin branch");
+  assert.equal(summary.nextAction, `cw worker manifest run-1 w1`, "a running membership with a worker takes priority over the no-fanin branch");
 }
 
 process.stdout.write("maruntime-worker-output-summary: ok\n");

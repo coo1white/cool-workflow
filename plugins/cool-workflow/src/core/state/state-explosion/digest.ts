@@ -18,7 +18,7 @@
 // `nextAction`'s fallback mirrors the old build's own fallback (its
 // `summary.nextAction` came from `summarizeBlackboard`; this milestone has
 // no blackboard summary of its own yet, so the digest always uses ITS OWN
-// nextAction fallback: `node scripts/cw.js blackboard summary <runId>` —
+// nextAction fallback: `cw blackboard summary <runId>` —
 // this is not a behavior change, since the old build's fallback was
 // ALSO exactly that string whenever `summarizeBlackboard`'s own
 // `nextAction` was falsy).
@@ -176,7 +176,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
         status: topic.status,
         sourceIds: [topic.id, ...topicMessages.map((m) => m.id)],
         evidenceRefs: unique(topicMessages.flatMap((m) => m.linkedEvidenceRefs || [])),
-        expansionCommand: `node scripts/cw.js blackboard message list ${run.id} --topic ${topic.id}`,
+        expansionCommand: `cw blackboard message list ${run.id} --topic ${topic.id}`,
       };
     })
     .sort(byId);
@@ -193,7 +193,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
         status: topic.status,
         sourceIds: topicMessages.map((m) => m.id),
         evidenceRefs: unique(topicMessages.flatMap((m) => m.linkedEvidenceRefs || [])),
-        expansionCommand: `node scripts/cw.js blackboard message list ${run.id} --topic ${topic.id}`,
+        expansionCommand: `cw blackboard message list ${run.id} --topic ${topic.id}`,
       };
     })
     .filter((entry) => entry.sourceIds.length)
@@ -207,7 +207,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: c.status,
       sourceIds: [c.id],
       evidenceRefs: unique([...(c.evidenceRefs || []), ...(c.artifactRefIds || [])]),
-      expansionCommand: `node scripts/cw.js blackboard message post ${run.id} --topic ${c.topicId} --body "<answer with evidence>"`,
+      expansionCommand: `cw blackboard message post ${run.id} --topic ${c.topicId} --body "<answer with evidence>"`,
     }))
     .sort(byId);
 
@@ -219,7 +219,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: c.status,
       sourceIds: [c.id, ...(c.conflictingContextIds || [])],
       evidenceRefs: unique([...(c.evidenceRefs || []), ...(c.artifactRefIds || [])]),
-      expansionCommand: `node scripts/cw.js coordinator decision ${run.id} --kind conflict-resolution --outcome accepted --subject ${c.id} --reason "<reason>"`,
+      expansionCommand: `cw coordinator decision ${run.id} --kind conflict-resolution --outcome accepted --subject ${c.id} --reason "<reason>"`,
     }))
     .sort(byId);
 
@@ -230,7 +230,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: d.status,
       sourceIds: [d.id, ...(d.subjectIds || [])],
       evidenceRefs: unique([...(d.evidenceRefs || []), ...(d.artifactRefIds || [])]),
-      expansionCommand: `node scripts/cw.js node show ${run.id} ${run.id}:coordinator:decision:${d.id}`,
+      expansionCommand: `cw node show ${run.id} ${run.id}:coordinator:decision:${d.id}`,
     }))
     .sort(byId);
 
@@ -241,7 +241,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: a.status,
       sourceIds: [a.id],
       evidenceRefs: unique(a.evidenceRefs || []),
-      expansionCommand: `node scripts/cw.js blackboard artifact list ${run.id}`,
+      expansionCommand: `cw blackboard artifact list ${run.id}`,
     }))
     .sort(byId);
 
@@ -253,7 +253,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: a.status,
       sourceIds: [a.id],
       evidenceRefs: unique([a.locator || a.path || a.id, ...(a.evidenceRefs || [])]),
-      expansionCommand: `node scripts/cw.js audit blackboard ${run.id} --json`,
+      expansionCommand: `cw audit blackboard ${run.id} --json`,
     }))
     .sort(byId);
 
@@ -279,7 +279,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: "missing",
       sourceIds: [] as string[],
       evidenceRefs: [] as string[],
-      expansionCommand: `node scripts/cw.js multi-agent failures ${run.id}`,
+      expansionCommand: `cw multi-agent failures ${run.id}`,
     }))
     .sort(byId);
 
@@ -291,7 +291,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: d.status,
       sourceIds: [d.id],
       evidenceRefs: unique(d.evidenceRefs || []),
-      expansionCommand: `node scripts/cw.js audit policy ${run.id} --json`,
+      expansionCommand: `cw audit policy ${run.id} --json`,
     }))
     .sort(byId);
 
@@ -303,7 +303,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: m.status,
       sourceIds: [m.id],
       evidenceRefs: unique(m.linkedEvidenceRefs || []),
-      expansionCommand: `node scripts/cw.js audit judge ${run.id} --json`,
+      expansionCommand: `cw audit judge ${run.id} --json`,
     }))
     .sort(byId);
 
@@ -321,7 +321,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
       status: record.status,
       sourceIds: [record.id],
       evidenceRefs: [] as string[],
-      expansionCommand: `node scripts/cw.js node show ${run.id} ${record.id}`,
+      expansionCommand: `cw node show ${run.id} ${record.id}`,
     }))
     .sort(byId);
 
@@ -361,7 +361,7 @@ export function summarizeBlackboardDigest(run: BlackboardDigestRunView, blackboa
     generatedAt: now || new Date().toISOString(),
     status: "valid",
     deterministic: true,
-    nextAction: `node scripts/cw.js blackboard summary ${run.id}`,
+    nextAction: `cw blackboard summary ${run.id}`,
     topicRollups,
     threadSummaries,
     unresolvedQuestions,

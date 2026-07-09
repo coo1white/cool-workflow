@@ -19,7 +19,7 @@
 // `nextAction`'s fallback mirrors the old build's own fallback (its
 // `summary.nextAction` came from `summarizeBlackboard`; this milestone has
 // no blackboard summary of its own yet, so the digest always uses ITS OWN
-// nextAction fallback: `node scripts/cw.js blackboard summary <runId>` —
+// nextAction fallback: `cw blackboard summary <runId>` —
 // this is not a behavior change, since the old build's fallback was
 // ALSO exactly that string whenever `summarizeBlackboard`'s own
 // `nextAction` was falsy).
@@ -56,7 +56,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
             status: topic.status,
             sourceIds: [topic.id, ...topicMessages.map((m) => m.id)],
             evidenceRefs: (0, helpers_1.unique)(topicMessages.flatMap((m) => m.linkedEvidenceRefs || [])),
-            expansionCommand: `node scripts/cw.js blackboard message list ${run.id} --topic ${topic.id}`,
+            expansionCommand: `cw blackboard message list ${run.id} --topic ${topic.id}`,
         };
     })
         .sort(helpers_1.byId);
@@ -72,7 +72,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
             status: topic.status,
             sourceIds: topicMessages.map((m) => m.id),
             evidenceRefs: (0, helpers_1.unique)(topicMessages.flatMap((m) => m.linkedEvidenceRefs || [])),
-            expansionCommand: `node scripts/cw.js blackboard message list ${run.id} --topic ${topic.id}`,
+            expansionCommand: `cw blackboard message list ${run.id} --topic ${topic.id}`,
         };
     })
         .filter((entry) => entry.sourceIds.length)
@@ -85,7 +85,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: c.status,
         sourceIds: [c.id],
         evidenceRefs: (0, helpers_1.unique)([...(c.evidenceRefs || []), ...(c.artifactRefIds || [])]),
-        expansionCommand: `node scripts/cw.js blackboard message post ${run.id} --topic ${c.topicId} --body "<answer with evidence>"`,
+        expansionCommand: `cw blackboard message post ${run.id} --topic ${c.topicId} --body "<answer with evidence>"`,
     }))
         .sort(helpers_1.byId);
     const conflicts = contexts
@@ -96,7 +96,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: c.status,
         sourceIds: [c.id, ...(c.conflictingContextIds || [])],
         evidenceRefs: (0, helpers_1.unique)([...(c.evidenceRefs || []), ...(c.artifactRefIds || [])]),
-        expansionCommand: `node scripts/cw.js coordinator decision ${run.id} --kind conflict-resolution --outcome accepted --subject ${c.id} --reason "<reason>"`,
+        expansionCommand: `cw coordinator decision ${run.id} --kind conflict-resolution --outcome accepted --subject ${c.id} --reason "<reason>"`,
     }))
         .sort(helpers_1.byId);
     const decisionEntries = decisions
@@ -106,7 +106,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: d.status,
         sourceIds: [d.id, ...(d.subjectIds || [])],
         evidenceRefs: (0, helpers_1.unique)([...(d.evidenceRefs || []), ...(d.artifactRefIds || [])]),
-        expansionCommand: `node scripts/cw.js node show ${run.id} ${run.id}:coordinator:decision:${d.id}`,
+        expansionCommand: `cw node show ${run.id} ${run.id}:coordinator:decision:${d.id}`,
     }))
         .sort(helpers_1.byId);
     const artifactEntries = artifacts
@@ -116,7 +116,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: a.status,
         sourceIds: [a.id],
         evidenceRefs: (0, helpers_1.unique)(a.evidenceRefs || []),
-        expansionCommand: `node scripts/cw.js blackboard artifact list ${run.id}`,
+        expansionCommand: `cw blackboard artifact list ${run.id}`,
     }))
         .sort(helpers_1.byId);
     const adoptedEvidence = artifacts
@@ -127,7 +127,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: a.status,
         sourceIds: [a.id],
         evidenceRefs: (0, helpers_1.unique)([a.locator || a.path || a.id, ...(a.evidenceRefs || [])]),
-        expansionCommand: `node scripts/cw.js audit blackboard ${run.id} --json`,
+        expansionCommand: `cw audit blackboard ${run.id} --json`,
     }))
         .sort(helpers_1.byId);
     // The old build's missingEvidence came from `summarizeBlackboard`'s own
@@ -151,7 +151,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: "missing",
         sourceIds: [],
         evidenceRefs: [],
-        expansionCommand: `node scripts/cw.js multi-agent failures ${run.id}`,
+        expansionCommand: `cw multi-agent failures ${run.id}`,
     }))
         .sort(helpers_1.byId);
     const policyViolations = decisions
@@ -162,7 +162,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: d.status,
         sourceIds: [d.id],
         evidenceRefs: (0, helpers_1.unique)(d.evidenceRefs || []),
-        expansionCommand: `node scripts/cw.js audit policy ${run.id} --json`,
+        expansionCommand: `cw audit policy ${run.id} --json`,
     }))
         .sort(helpers_1.byId);
     const judgeRationale = messages
@@ -173,7 +173,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: m.status,
         sourceIds: [m.id],
         evidenceRefs: (0, helpers_1.unique)(m.linkedEvidenceRefs || []),
-        expansionCommand: `node scripts/cw.js audit judge ${run.id} --json`,
+        expansionCommand: `cw audit judge ${run.id} --json`,
     }))
         .sort(helpers_1.byId);
     const recentChanges = [...messages, ...contexts, ...artifacts, ...decisions]
@@ -190,7 +190,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         status: record.status,
         sourceIds: [record.id],
         evidenceRefs: [],
-        expansionCommand: `node scripts/cw.js node show ${run.id} ${record.id}`,
+        expansionCommand: `cw node show ${run.id} ${record.id}`,
     }))
         .sort(helpers_1.byId);
     const highSignal = [...conflicts, ...unresolvedQuestions, ...policyViolations, ...missingEvidence].sort(helpers_1.byId);
@@ -227,7 +227,7 @@ function summarizeBlackboardDigest(run, blackboardId, now) {
         generatedAt: now || new Date().toISOString(),
         status: "valid",
         deterministic: true,
-        nextAction: `node scripts/cw.js blackboard summary ${run.id}`,
+        nextAction: `cw blackboard summary ${run.id}`,
         topicRollups,
         threadSummaries,
         unresolvedQuestions,

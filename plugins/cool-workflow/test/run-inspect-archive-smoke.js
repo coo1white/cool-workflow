@@ -156,7 +156,7 @@ function writeCopy(tag, mutate) {
   // An unknown subcommand throws the inner default Usage string (the carved switch's default).
   const bogus = spawnSync(node, [cli, "run", "bogusverb"], { cwd: src, encoding: "utf8" });
   assert.notEqual(bogus.status, 0, "run <bogusverb> exits non-zero");
-  assert.match(bogus.stderr, /Usage: cw\.js run search\|list\|show\|resume\|archive\|rerun\|drive\|export\|import\|verify-import\|inspect-archive/, "run <bogusverb> throws the inner default Usage string");
+  assert.match(bogus.stderr, /Usage: cw run search\|list\|show\|resume\|archive\|rerun\|drive\|export\|import\|verify-import\|inspect-archive/, "run <bogusverb> throws the inner default Usage string");
   // A non-required verb still works through the handler: `run list` succeeds (exit 0)
   // and returns the registry result whose `records` is an array — proving the route
   // isn't only exercised on the error path.

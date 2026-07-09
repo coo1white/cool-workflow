@@ -99,7 +99,7 @@ const canonicalApps = [
 const workflowList = run(["list"]);
 assertUniqueIds(workflowList, "workflow list");
 for (const app of canonicalApps) {
-  assert.ok(workflowList.some((entry) => entry.id === app.id), `${app.id} must appear in cw.js list`);
+  assert.ok(workflowList.some((entry) => entry.id === app.id), `${app.id} must appear in cw list`);
 }
 
 const appList = run(["app", "list"]);
@@ -107,7 +107,7 @@ assertUniqueIds(appList, "app list");
 
 for (const app of canonicalApps) {
   const summary = appList.find((entry) => entry.id === app.id);
-  assert.ok(summary, `${app.id} must appear in cw.js app list`);
+  assert.ok(summary, `${app.id} must appear in cw app list`);
   assert.equal(summary.sourceKind, "app-directory");
   assert.equal(summary.legacy, false);
   assert.equal(summary.version, "0.2.2");

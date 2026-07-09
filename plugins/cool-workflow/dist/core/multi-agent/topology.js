@@ -244,9 +244,9 @@ function topologyRunId(definition, taskIds, runId, sequence, hash) {
 }
 function nextActionsFor(runId, topologyRunId, fanoutId) {
     return [
-        `node scripts/cw.js dispatch ${runId} --multi-agent-fanout ${fanoutId}`,
-        `node scripts/cw.js multi-agent fanin ${runId} ${topologyRunId}-fanin --fanout ${fanoutId}`,
-        `node scripts/cw.js topology summary ${runId}`,
+        `cw dispatch ${runId} --multi-agent-fanout ${fanoutId}`,
+        `cw multi-agent fanin ${runId} ${topologyRunId}-fanin --fanout ${fanoutId}`,
+        `cw topology summary ${runId}`,
     ];
 }
 function statusToNodeStatus(status) {

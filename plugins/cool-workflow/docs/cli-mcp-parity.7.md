@@ -1,7 +1,7 @@
 # CLI ↔ MCP Parity
 
 CW v0.1.27 adds CLI ↔ MCP Parity. CW has two front doors. The CLI
-(`node scripts/cw.js ...`, `dist/cli.js`) is built for human speed: short,
+(`cw ...`, `dist/cli.js`) is built for human speed: short,
 easy-to-read text with exit codes that have clear sense. The MCP server
 (`cw_*` JSON-RPC tools) is built for machine context: full, fixed, ordered JSON.
 This release makes the two doors two views of one body of data — named, made from

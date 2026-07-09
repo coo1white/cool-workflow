@@ -738,11 +738,11 @@ export function summarizeBlackboard(runId: string, state: BlackboardState, black
 }
 
 function nextAction(runId: string, board: Blackboard | undefined, openQuestions: BlackboardContext[], conflicts: BlackboardContext[], artifacts: BlackboardArtifactRef[]): string | undefined {
-  if (!board) return `node scripts/cw.js blackboard topic create ${runId} --id <topic-id> --title "<title>"`;
-  if (conflicts.length) return `node scripts/cw.js coordinator decision ${runId} --kind conflict-resolution --outcome accepted --subject ${conflicts[0].id} --reason "<reason>"`;
-  if (openQuestions.length) return `node scripts/cw.js blackboard message post ${runId} --topic ${openQuestions[0].topicId} --body "<answer with evidence>"`;
-  if (!artifacts.length) return `node scripts/cw.js blackboard artifact add ${runId} --path <path> --kind <kind>`;
-  return `node scripts/cw.js blackboard snapshot ${runId}`;
+  if (!board) return `cw blackboard topic create ${runId} --id <topic-id> --title "<title>"`;
+  if (conflicts.length) return `cw coordinator decision ${runId} --kind conflict-resolution --outcome accepted --subject ${conflicts[0].id} --reason "<reason>"`;
+  if (openQuestions.length) return `cw blackboard message post ${runId} --topic ${openQuestions[0].topicId} --body "<answer with evidence>"`;
+  if (!artifacts.length) return `cw blackboard artifact add ${runId} --path <path> --kind <kind>`;
+  return `cw blackboard snapshot ${runId}`;
 }
 
 export function listBlackboardMessages(state: BlackboardState, options: { topicId?: string; blackboardId?: string } = {}): BlackboardMessage[] {

@@ -236,7 +236,7 @@ export function auditRoleCli(runId: string, roleId: string, args: Record<string,
     panelDecisions: events.filter((event) => event.kind === "judge.panel-decision"),
     policyViolations: events.filter((event) => event.kind === "policy.violation"),
     events,
-    nextAction: `node scripts/cw.js audit multi-agent ${run.id} --json`,
+    nextAction: `cw audit multi-agent ${run.id} --json`,
   };
 }
 

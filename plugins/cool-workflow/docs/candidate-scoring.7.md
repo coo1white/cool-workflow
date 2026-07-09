@@ -80,7 +80,7 @@ Operators can record an unverified selection only with a clear option. That
 records selection state but does not make the candidate into committed state.
 
 Committed state has a harder rule. A candidate can be moved up by
-`cw.js commit --candidate` or `cw.js commit --selection` only when it has score
+`cw commit --candidate` or `cw commit --selection` only when it has score
 evidence, a verified selection, and a linked verifier node with evidence.
 Rejected, failed, unscored, unselected, and unverified candidates are stopped
 and produce ErrorFeedback.

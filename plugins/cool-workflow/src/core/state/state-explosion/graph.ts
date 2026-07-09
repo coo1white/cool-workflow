@@ -473,9 +473,9 @@ function bfsNeighborhood(focus: string, nodes: Array<{ id: string }>, edges: Arr
 }
 
 function expansionCommandFor(runId: string, key: string): string {
-  if (key === "messages" || key.startsWith("thread")) return `node scripts/cw.js blackboard message list ${runId}`;
-  if (key.startsWith("memberships")) return `node scripts/cw.js multi-agent graph ${runId} --view full --json`;
-  return `node scripts/cw.js multi-agent graph ${runId} --view full --focus ${key} --json`;
+  if (key === "messages" || key.startsWith("thread")) return `cw blackboard message list ${runId}`;
+  if (key.startsWith("memberships")) return `cw multi-agent graph ${runId} --view full --json`;
+  return `cw multi-agent graph ${runId} --view full --focus ${key} --json`;
 }
 
 function filterByView(runId: string, view: GraphView, full: GraphViewInput, protectedIds: Set<string>): GraphViewInput {
@@ -581,8 +581,8 @@ function finalizeGraphRecord(
     deterministic: true,
     nextAction:
       collapsedNodeCount > 0
-        ? `node scripts/cw.js multi-agent graph ${runId} --view full --json`
-        : `node scripts/cw.js multi-agent graph ${runId} --view ${view} --json`,
+        ? `cw multi-agent graph ${runId} --view full --json`
+        : `cw multi-agent graph ${runId} --view ${view} --json`,
   };
 }
 

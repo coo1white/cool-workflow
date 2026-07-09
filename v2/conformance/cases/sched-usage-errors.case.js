@@ -2,7 +2,7 @@
 "use strict";
 
 // Byte-exact usage-error strings for every command family in this area.
-// An unknown/missing subcommand must print the fixed "Usage: cw.js ..."
+// An unknown/missing subcommand must print the fixed "Usage: cw ..."
 // line to stderr and exit 1, stdout empty. These strings are pinned
 // verbatim in the spec's "Exact outputs" section.
 
@@ -20,30 +20,30 @@ caseMain(() => {
 
   assertUsage(
     ["schedule", "bogus"],
-    "cw: Usage: cw.js schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon\n",
+    "cw: Usage: cw schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon\n",
     repo
   );
-  assertUsage(["routine", "bogus"], "cw: Usage: cw.js routine create|list|delete|fire|events\n", repo);
+  assertUsage(["routine", "bogus"], "cw: Usage: cw routine create|list|delete|fire|events\n", repo);
   assertUsage(
     ["sched", "bogus"],
-    "cw: Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]\n",
+    "cw: Usage: cw sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]\n",
     repo
   );
-  assertUsage(["registry", "bogus"], "cw: Usage: cw.js registry refresh|show [--scope repo|home] [--json]\n", repo);
-  assertUsage(["queue", "bogus"], "cw: Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]\n", repo);
+  assertUsage(["registry", "bogus"], "cw: Usage: cw registry refresh|show [--scope repo|home] [--json]\n", repo);
+  assertUsage(["queue", "bogus"], "cw: Usage: cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]\n", repo);
   assertUsage(
     ["gc", "bogus"],
-    "cw: Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]\n",
+    "cw: Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]\n",
     repo
   );
   assertUsage(
     ["orphans", "bogus"],
-    'cw: Usage: cw.js orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)\n',
+    'cw: Usage: cw orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)\n',
     repo
   );
   assertUsage(
     ["clones", "bogus"],
-    "cw: Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]\n",
+    "cw: Usage: cw clones list [--json] | clones gc [--older-than-days N] [--all] [--json]\n",
     repo
   );
 

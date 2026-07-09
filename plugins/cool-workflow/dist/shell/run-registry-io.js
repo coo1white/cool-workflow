@@ -616,7 +616,7 @@ class RunRegistry {
             if (staleRuns.length || missingRuns.length)
                 status = "stale";
         }
-        const refreshCmd = scope === "home" ? "node scripts/cw.js registry refresh --scope home" : "node scripts/cw.js registry refresh";
+        const refreshCmd = scope === "home" ? "cw registry refresh --scope home" : "cw registry refresh";
         return {
             schemaVersion: 1,
             scope,
@@ -631,7 +631,7 @@ class RunRegistry {
             },
             index: current,
             counts: current.counts,
-            nextAction: status === "valid" ? "node scripts/cw.js run search" : refreshCmd,
+            nextAction: status === "valid" ? "cw run search" : refreshCmd,
         };
     }
     search(raw = {}) {
@@ -664,7 +664,7 @@ class RunRegistry {
             offset: query.offset,
             limit: query.limit,
             records: page,
-            nextAction: report.freshness.status === "valid" ? "node scripts/cw.js run show <run-id>" : "node scripts/cw.js registry refresh",
+            nextAction: report.freshness.status === "valid" ? "cw run show <run-id>" : "cw registry refresh",
         };
     }
     list(options = {}) {
@@ -687,7 +687,7 @@ class RunRegistry {
                 resolvedFrom: located.from,
                 repo: located.record.repo,
                 record: located.record,
-                nextAction: located.record.archived ? "node scripts/cw.js run resume " + runId : "node scripts/cw.js run show " + runId,
+                nextAction: located.record.archived ? "cw run resume " + runId : "cw run show " + runId,
             };
         }
         const persisted = this.findPersisted(runId, scope);
@@ -698,7 +698,7 @@ class RunRegistry {
             freshness: "missing",
             repo: persisted?.repo,
             persisted,
-            nextAction: "node scripts/cw.js registry refresh" + (scope === "home" ? " --scope home" : ""),
+            nextAction: "cw registry refresh" + (scope === "home" ? " --scope home" : ""),
         };
     }
     locate(runId, scope) {
@@ -788,23 +788,23 @@ class RunRegistry {
         const nextActions = [];
         if (nextTasks.length) {
             nextActions.push({
-                command: `node scripts/cw.js dispatch ${runId} --cwd ${record.repo}`,
+                command: `cw dispatch ${runId} --cwd ${record.repo}`,
                 reason: `Continue ${nextTasks.length} pending/running task(s) from durable state.`,
             });
             nextActions.push({
-                command: `node scripts/cw.js multi-agent step ${runId} --cwd ${record.repo}`,
+                command: `cw multi-agent step ${runId} --cwd ${record.repo}`,
                 reason: "Take one deterministic host step without spawning agents.",
             });
         }
         else if (record.derivedLifecycle === "failed") {
             nextActions.push({
-                command: `node scripts/cw.js run rerun ${runId}`,
+                command: `cw run rerun ${runId}`,
                 reason: "Run terminated as failed with no runnable tasks; rerun as a new linked run.",
             });
         }
         else {
             nextActions.push({
-                command: `node scripts/cw.js status ${runId} --cwd ${record.repo} --json`,
+                command: `cw status ${runId} --cwd ${record.repo} --json`,
                 reason: "No runnable tasks remain; inspect status.",
             });
         }
@@ -920,8 +920,8 @@ class RunRegistry {
             pendingTasks: newRun.tasks.filter((t) => t.status === "pending").length,
             provenance,
             nextActions: [
-                { command: `node scripts/cw.js run resume ${newRun.id}`, reason: "Continue the new linked run." },
-                { command: `node scripts/cw.js run show ${runId}`, reason: "The original failed run is preserved for audit." },
+                { command: `cw run resume ${newRun.id}`, reason: "Continue the new linked run." },
+                { command: `cw run show ${runId}`, reason: "The original failed run is preserved for audit." },
             ],
         };
     }
@@ -961,7 +961,7 @@ class RunRegistry {
             limit,
             repos: index.repos,
             entries,
-            nextAction: report.freshness.status === "valid" ? "node scripts/cw.js run show <run-id>" : "node scripts/cw.js registry refresh --scope home",
+            nextAction: report.freshness.status === "valid" ? "cw run show <run-id>" : "cw registry refresh --scope home",
         };
     }
 }

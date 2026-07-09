@@ -209,7 +209,7 @@ function summarizeMultiAgentTrust(run) {
         judgeRationales: byKind("judge.rationale"),
         panelDecisions: byKind("judge.panel-decision"),
         policyViolations,
-        nextAction: policyViolations.length ? `node scripts/cw.js audit policy ${run.id}` : `node scripts/cw.js audit multi-agent ${run.id} --json`,
+        nextAction: policyViolations.length ? `cw audit policy ${run.id}` : `cw audit multi-agent ${run.id} --json`,
     };
 }
 function hasAcceptedJudgeRationale(run, input = {}) {

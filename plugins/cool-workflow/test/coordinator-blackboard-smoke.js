@@ -316,7 +316,7 @@ const evidenceLocator = `${evidencePath}:1`;
   // is a well-formed path missing a required positional → `cw: Missing run id.`
   // (the POLA-consistent refusal, io.ts:required). Only an UNKNOWN token
   // (no capability path) falls through to the 1-token blackboard.usage row and
-  // prints the trailing "Usage: cw.js blackboard …" index. The conformance
+  // prints the trailing "Usage: cw blackboard …" index. The conformance
   // suite endorses exactly this split (v2/conformance/cases/cli-usage-strings:
   // an unknown action-word yields the Usage line). `topic` is now a real path
   // ["blackboard","topic"], so it joins the Missing-run-id set — the old
@@ -328,10 +328,10 @@ const evidenceLocator = `${evidencePath}:1`;
     assert.match(fail.stderr, /Missing run id/);
   }
   // An unknown subcommand has no capability path → the blackboard.usage row's
-  // trailing "Usage: cw.js blackboard …" index.
+  // trailing "Usage: cw blackboard …" index.
   const bogusFail = runFail(["blackboard", "bogusverb"]);
   assert.notEqual(bogusFail.status, 0);
-  assert.match(bogusFail.stderr, /Usage: cw\.js blackboard /);
+  assert.match(bogusFail.stderr, /Usage: cw blackboard /);
   for (const verb of ["summary", "decision"]) {
     const fail = runFail(["coordinator", verb]);
     assert.notEqual(fail.status, 0);
@@ -339,7 +339,7 @@ const evidenceLocator = `${evidencePath}:1`;
   }
   const coordBogus = runFail(["coordinator", "bogusverb"]);
   assert.notEqual(coordBogus.status, 0);
-  assert.match(coordBogus.stderr, /Usage: cw\.js coordinator /);
+  assert.match(coordBogus.stderr, /Usage: cw coordinator /);
 
   process.stdout.write("coordinator-blackboard-smoke: ok\n");
 })().catch((error) => {

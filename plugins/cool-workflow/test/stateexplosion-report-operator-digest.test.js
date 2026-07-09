@@ -71,8 +71,8 @@ function buildDigestFixture() {
 {
   const { compact, blackboard, stateSize } = buildDigestFixture();
   const digest = buildOperatorDigest({ id: "run-1" }, compact, blackboard, stateSize, NOW);
-  assert.ok(digest.expansionCommands.includes("node scripts/cw.js multi-agent graph run-1 --view full --json"), "expansionCommands includes the fixed 'view full' command");
-  assert.ok(digest.expansionCommands.includes("node scripts/cw.js multi-agent failures run-1 --json"), "expansionCommands includes the fixed 'failures' command");
+  assert.ok(digest.expansionCommands.includes("cw multi-agent graph run-1 --view full --json"), "expansionCommands includes the fixed 'view full' command");
+  assert.ok(digest.expansionCommands.includes("cw multi-agent failures run-1 --json"), "expansionCommands includes the fixed 'failures' command");
   assert.equal(new Set(digest.expansionCommands).size, digest.expansionCommands.length, "expansionCommands has no duplicate entries");
 }
 

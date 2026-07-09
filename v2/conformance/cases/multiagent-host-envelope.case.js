@@ -49,7 +49,7 @@ caseMain(() => {
   assert.equal("data" in statusPayload, false);
   assert.equal(
     statusPayload.nextAction,
-    `node scripts/cw.js multi-agent run ${runId} --topology map-reduce`
+    `cw multi-agent run ${runId} --topology map-reduce`
   );
   assert.deepEqual(statusPayload.blockedReasons, []);
   assert.deepEqual(statusPayload.evidenceRequirements, []);
