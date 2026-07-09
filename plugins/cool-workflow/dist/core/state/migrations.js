@@ -49,6 +49,7 @@ exports.RUN_STATE_MIGRATIONS = void 0;
 exports.findMigrationPath = findMigrationPath;
 exports.migrateRunState = migrateRunState;
 exports.reverseRunState = reverseRunState;
+exports.derivePhases = derivePhases;
 const path = __importStar(require("node:path"));
 const version_1 = require("../version");
 const schema_1 = require("./schema");
@@ -438,7 +439,11 @@ function derivePhases(tasks) {
         const taskId = stringValue(task.id);
         if (!taskId)
             continue;
-        byPhase.set(phase, [...(byPhase.get(phase) || []), taskId]);
+        const taskIds = byPhase.get(phase);
+        if (taskIds)
+            taskIds.push(taskId);
+        else
+            byPhase.set(phase, [taskId]);
     }
     if (byPhase.size === 0)
         return [];

@@ -123,7 +123,11 @@ function detectTies(candidates) {
     const groups = new Map();
     for (const candidate of candidates) {
         const key = String(candidate.normalized);
-        groups.set(key, [...(groups.get(key) || []), candidate.candidateId]);
+        const group = groups.get(key);
+        if (group)
+            group.push(candidate.candidateId);
+        else
+            groups.set(key, [candidate.candidateId]);
     }
     return Array.from(groups.values()).filter((group) => group.length > 1);
 }
