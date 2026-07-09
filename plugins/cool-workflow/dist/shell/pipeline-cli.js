@@ -52,6 +52,7 @@ exports.recordResultRun = recordResultRun;
 exports.commitRun = commitRun;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const readlinePromises = __importStar(require("node:readline/promises"));
 const numeric_flag_1 = require("../core/util/numeric-flag");
 const pipeline_1 = require("./pipeline");
 const workflow_app_loader_1 = require("./workflow-app-loader");
@@ -389,6 +390,21 @@ function remoteQuickstartCheck(appId, args, candidate) {
     const nextCommand = `cw quickstart ${shellWord(appId)} --link ${shellWord(validation.url)}${question ? ` --question ${shellWord(question)}` : ""}`;
     return { schemaVersion: 1, mode: "check", ok, appId, repo: validation.url, checks, nextCommand };
 }
+/** Prompts `Question: ` on STDERR (stdout stays data-only, matching the
+ *  Rule of Silence) and reads one line from stdin. Returns the trimmed
+ *  answer, or `undefined` for a blank line. Callers must only invoke this
+ *  when `process.stdin.isTTY` — it would otherwise block forever on a
+ *  piped/CI invocation. */
+async function promptForQuestion() {
+    const rl = readlinePromises.createInterface({ input: process.stdin, output: process.stderr });
+    try {
+        const answer = await rl.question("Question: ");
+        return answer.trim() || undefined;
+    }
+    finally {
+        rl.close();
+    }
+}
 /** `cw quickstart [app] --question ...` — composes plan -> runDrive ->
  *  report in one call. Default app is architecture-review. `--check` is a
  *  read-only preflight that never plans/drives/writes (see
@@ -410,6 +426,37 @@ async function quickstartRun(args) {
         args.repo = invocationCwd(args);
     if (Boolean(args.check))
         return quickstartCheck(appId, args, remoteCandidate);
+    // `--resume`: a discoverability flag over the existing continuation. With no
+    // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
+    // copy-pasteable continue line; with `--run <id>`, continue that run to
+    // completion (the default drive). It adds no new execution path. Byte-exact to
+    // the old build's src/capability-core.ts quickstart(). Hoisted above the TTY
+    // prompt below: `existingRunId` is the one fact (mirrored at both the
+    // `--preview` branch's `if (!previewRunId)` and the main path's `if
+    // (existingRunId) {...} else { run = plan(...) }`) that decides whether THIS
+    // invocation plans a fresh run at all — an existing run never needs a
+    // question, no matter which mode (--preview/--resume/plain) is asking for it.
+    const resume = Boolean(args.resume);
+    const existingRunId = String(args.runId || args.run || "");
+    const resumeRunId = resume && existingRunId ? existingRunId : undefined;
+    // On an interactive TTY with no --question, ask for one instead of
+    // failing closed with "Missing required input: question" (byte-behavior
+    // port of the old build's TTY prompt — SPEC/cli-surface.md:34,502). A
+    // blank/empty answer leaves `question` unset, same as never passing
+    // --question at all — plan()'s own required-input check still fails
+    // closed for an app that declares `question` required. Never fires
+    // under --check (returned above; --check reports a missing question as
+    // a preflight issue, not something to prompt for), off a TTY (a piped
+    // invocation must never block on stdin), or when `existingRunId` is set
+    // (a `--preview --run <id>` or `--resume --run <id>` continues an
+    // already-planned run and never calls `plan()` again, so it never
+    // needs a question — prompting there would block on stdin for no
+    // reason; a review on this cycle caught exactly that regression).
+    if (process.stdin.isTTY && !existingRunId && !(typeof args.question === "string" && args.question.trim())) {
+        const answer = await promptForQuestion();
+        if (answer)
+            args.question = answer;
+    }
     // Materialize the remote NOW — after `--check` (never fetches) and before any
     // plan/drive — so the core only ever sees the local checkout. Fails closed: a
     // bad URL / blocked scheme / missing git / fetch failure throws here.
@@ -428,14 +475,6 @@ async function quickstartRun(args) {
         if (remoteSource.ref)
             args.sourceRef = remoteSource.ref;
     }
-    // `--resume`: a discoverability flag over the existing continuation. With no
-    // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
-    // copy-pasteable continue line; with `--run <id>`, continue that run to
-    // completion (the default drive). It adds no new execution path. Byte-exact to
-    // the old build's src/capability-core.ts quickstart().
-    const resume = Boolean(args.resume);
-    const existingRunId = String(args.runId || args.run || "");
-    const resumeRunId = resume && existingRunId ? existingRunId : undefined;
     // `--preview`: read-only, deterministic next-step projection (no spawn, no
     // commit). Plan a fresh run (the read-only first verb) then project the next
     // drive step. Never drives.

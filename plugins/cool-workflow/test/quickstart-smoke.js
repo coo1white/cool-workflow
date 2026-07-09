@@ -368,9 +368,123 @@ async function main() {
     console.log("quickstart: README cross-directory CLI shape fails closed with the documented payload ok");
   }
 
+  // ---- 8. interactive TTY prompt for a missing --question -------------------
+  // SPEC/cli-surface.md:34,502 (old-build ground truth): quickstart/audit-run
+  // with no --question ON A TTY asks "Question: " on stderr and waits; a
+  // blank answer leaves `question` unset. The conformance harness spawns
+  // every case piped (no TTY) by design and cannot exercise this, so it is
+  // tested here in-process instead, by swapping process.stdin for a fake
+  // Readable with isTTY:true — quickstartRun() only checks
+  // process.stdin.isTTY, so this exercises the REAL prompt/readline code
+  // path (shell/pipeline-cli.ts's promptForQuestion), not a stand-in.
+  {
+    const { Readable } = require("node:stream");
+    const originalStdinDescriptor = Object.getOwnPropertyDescriptor(process, "stdin");
+    function withFakeTty(answerLine) {
+      const fake = new Readable({ read() {} });
+      fake.isTTY = true;
+      Object.defineProperty(process, "stdin", { value: fake, configurable: true });
+      setTimeout(() => fake.push(`${answerLine}\n`), 20);
+      return () => Object.defineProperty(process, "stdin", originalStdinDescriptor);
+    }
+
+    // (a) a real answer typed at the prompt flows through to run.inputs.question.
+    {
+      const work = tmpWorkspace();
+      const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
+      process.chdir(work);
+      const restore = withFakeTty("what are the interactive-prompt risks?");
+      try {
+        const result = await quickstartRun({
+          appId: GOLDEN_APP,
+          repo: work,
+          agentCommand: `${process.execPath} ${stub} {{result}}`
+        });
+        assert.equal(result.status, "complete", "TTY-prompted question still drives to completion");
+        const run = loadRunAt(result.runId, work);
+        assert.equal(run.inputs.question, "what are the interactive-prompt risks?", "the typed answer reached run.inputs.question");
+      } finally {
+        restore();
+        process.chdir(cwd0);
+      }
+    }
+
+    // (b) a blank answer (bare Enter) leaves question unset, so the SAME
+    // "Missing required input: question" fail-closed error fires as when
+    // --question was never passed at all (piped or TTY).
+    {
+      const work = tmpWorkspace();
+      process.chdir(work);
+      const restore = withFakeTty("");
+      try {
+        await assert.rejects(
+          quickstartRun({ appId: GOLDEN_APP, repo: work }),
+          /Missing required input: question/,
+          "a blank TTY answer still fails closed, same message as the piped path"
+        );
+      } finally {
+        restore();
+        process.chdir(cwd0);
+      }
+    }
+
+    // (c) REGRESSION GUARD: --preview --run <id> and --resume --run <id>
+    // must NEVER prompt, even on a TTY with no --question — an existing
+    // run id skips plan() entirely (both the --preview branch's own
+    // `if (!previewRunId)` and the main path's `if (existingRunId) {...}
+    // else { plan(...) }` agree on this), so a question is never needed.
+    // A caught-then-fixed bug on this cycle had the prompt gate fire
+    // BEFORE these branches, so a TTY session invoking either would hang
+    // forever waiting for input neither needs. Nothing is ever pushed to
+    // the fake stdin here — if the regression came back, quickstartRun
+    // would hang on rl.question() forever, so this races against a short
+    // timeout instead of actually hanging the suite. A bogus run id is
+    // enough: loadRunFromCwd's fail-closed "Run not found" (immediate, not
+    // a hang) is proof the prompt was skipped and control reached the
+    // run-lookup, not evidence about the id itself.
+    function withTimeout(promise, ms, onTimeoutMessage) {
+      let timer;
+      const timeout = new Promise((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(onTimeoutMessage)), ms);
+      });
+      return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+    }
+    {
+      const work = tmpWorkspace();
+      process.chdir(work);
+      const fake = new Readable({ read() {} });
+      fake.isTTY = true;
+      Object.defineProperty(process, "stdin", { value: fake, configurable: true });
+      try {
+        await assert.rejects(
+          withTimeout(
+            quickstartRun({ appId: GOLDEN_APP, repo: work, preview: true, run: "no-such-run" }),
+            2000,
+            "quickstart --preview --run <id> blocked on stdin instead of failing closed (regression)"
+          ),
+          /Run not found: no-such-run/,
+          "--preview --run <id> never prompts; fails closed on the bogus id immediately"
+        );
+        await assert.rejects(
+          withTimeout(
+            quickstartRun({ appId: GOLDEN_APP, repo: work, resume: true, run: "no-such-run" }),
+            2000,
+            "quickstart --resume --run <id> blocked on stdin instead of failing closed (regression)"
+          ),
+          /Run not found: no-such-run/,
+          "--resume --run <id> never prompts; fails closed on the bogus id immediately"
+        );
+      } finally {
+        Object.defineProperty(process, "stdin", originalStdinDescriptor);
+        process.chdir(cwd0);
+      }
+    }
+    console.log("quickstart: TTY prompt fills --question; blank answer still fails closed; --preview/--resume --run <id> never prompt ok");
+  }
+
   for (const dir of cleanups) fs.rmSync(dir, { recursive: true, force: true });
   process.stdout.write(
-    "quickstart-smoke: ok (one command plans+drives+reports; fail-closed on unconfigured agent; deterministic --preview; default app + audit-run alias; delegates, no private executor; README cross-directory CLI shape)\n"
+    "quickstart-smoke: ok (one command plans+drives+reports; fail-closed on unconfigured agent; deterministic --preview; default app + audit-run alias; delegates, no private executor; README cross-directory CLI shape; TTY question prompt)\n"
   );
 }
 

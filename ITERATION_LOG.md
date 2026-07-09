@@ -1,5 +1,82 @@
 # CW Iteration Log
 
+## Batch — restore the interactive `Question: ` TTY prompt on bare `quickstart` (Unreleased)
+
+> UI/UX audit finding: `cw quickstart` with no `--question` immediately
+> fails closed with `Missing required input: question`, even on an
+> interactive terminal. `docs/rebuild/SPEC/cli-surface.md:34,502`
+> document the OLD build's ground truth: "`quickstart` / `audit-run` with
+> no `--question` on a TTY: the CLI asks `Question: ` on stderr through
+> readline and waits" / "a blank answer leaves `question` unset." Grepped
+> the whole `src/` tree for `readline` — zero hits outside test files'
+> MCP JSON-RPC line readers, confirming this was dropped somewhere during
+> the rebuild and never restored, not a deliberate removal (no
+> ITERATION_LOG/BACKLOG entry disclaims it, unlike the `update` verb's
+> documented removal).
+>
+> Added `promptForQuestion()` to `shell/pipeline-cli.ts` (`node:readline/
+> promises`, `Question: ` on stderr per the Rule of Silence — stdout
+> stays data-only) and wired it into `quickstartRun` right after the
+> `--check` early return (so `--check` keeps reporting a missing question
+> as a preflight issue, never prompts — a piped preflight script must
+> never block on stdin) and gated on `process.stdin.isTTY` (so a piped/CI
+> invocation keeps failing closed immediately, unchanged). A blank answer
+> leaves `question` unset, so `plan()`'s own required-input check still
+> fails closed with the same message as before — matching the documented
+> "a blank answer leaves question unset" behavior exactly.
+>
+> The conformance harness (`v2/conformance/lib.js`) spawns every case
+> piped by design ("no TTY" is in its own file header) and cannot
+> simulate a real TTY, so first verified manually via `expect` driving a
+> real pty against the built CLI with a real stub-agent-driven run: (1) a
+> real answer typed at the prompt flows through to `run.inputs.question`
+> and the run completes; (2) a blank answer (bare Enter) falls through to
+> the same `Missing required input: question` error as before; (3)
+> `--check` under a real pty still returns its preflight JSON without
+> ever prompting. Then, since `quickstart-smoke.js` already calls
+> `quickstartRun` in-process (not via subprocess spawn) and the new
+> prompt gate only checks `process.stdin.isTTY`, added an automated
+> section that swaps `process.stdin` for a fake `Readable` with
+> `isTTY:true` — this exercises the REAL `promptForQuestion`/readline code
+> path in-process, no pty or subprocess needed, and needed no new test
+> infrastructure the codebase doesn't already have. Confirmed stable
+> across repeated runs (no flakiness from the timer that feeds the fake
+> stream) and that `process.stdin` is restored via its original property
+> descriptor in a `finally`, so no state leaks to the rest of the file's
+> sections. The onramp gate's `runtime-smoke-required` check (a runtime
+> file changed with no smoke-test change) caught the initial commit
+> before this automated coverage was added — exactly the gate doing its
+> job.
+>
+> A follow-up 2-dimension adversarial review (correctness, and scope/SPEC
+> fidelity, each independently verified) confirmed the SPEC-fidelity and
+> non-TTY-safety claims, but caught one real correctness bug: the prompt
+> gate sat BEFORE the `--preview` and `--resume` branches, so on a real
+> TTY, `cw quickstart --preview` (documented read-only, "never drives")
+> and `cw quickstart --resume --run <id>` (continuing an existing run,
+> which never calls `plan()` again) both blocked on stdin for a question
+> neither needed — reproduced live via `script`-driven pty sessions for
+> both. Fixed by hoisting `existingRunId`'s computation (already the
+> single fact both the `--preview` branch's own `if (!previewRunId)` and
+> the main path's `if (existingRunId) {...} else { plan(...) }` agree
+> decides whether a fresh `plan()` happens at all) above the prompt gate
+> and adding `!existingRunId` to the condition — `--preview`/`--resume`
+> WITHOUT an existing run id (a genuinely fresh plan) still correctly
+> prompt; WITH one, never do. Re-verified live via the same pty technique
+> for all three cases (fresh `--preview` still prompts and completes;
+> `--preview --run <id>` and `--resume --run <id>` both resolve
+> immediately with no prompt). Added a regression-guard test to the same
+> `quickstart-smoke.js` section, racing `quickstartRun` against a short
+> timeout (since a reintroduced bug would hang forever on `rl.question()`
+> with nothing pushed to the fake stdin, not just fail) — confirmed this
+> new test actually catches the bug by temporarily reverting the fix and
+> watching it fail with the exact expected message, then restored the fix
+> and confirmed it passes again, stable across repeated runs.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 7 | Restore the old build's documented interactive `Question: ` TTY prompt on a bare `cw quickstart`/`audit-run` (no `--question`), dropped somewhere during the rebuild with no disclaimed removal. | `plugins/cool-workflow/src/shell/pipeline-cli.ts` + matching `dist/**`, `plugins/cool-workflow/test/quickstart-smoke.js`. | New in-process `quickstart-smoke.js` section (fake `process.stdin` with `isTTY:true`, exercises the real prompt code path): real-answer flow-through to `run.inputs.question`, blank-answer fail-closed with the same message as the piped path, and a timeout-raced regression guard proving `--preview --run <id>`/`--resume --run <id>` never prompt. Manual `expect`-driven real-pty verification confirmed all of the above plus `--check` never prompting, on a real terminal. `cli-recoverable-errors-smoke.js` and the rest of `quickstart-smoke.js` (piped/non-TTY path) pass unmodified. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%); `release:check --skip-tests` all green (including the `runtime-smoke-required` onramp check). A follow-up adversarial review (correctness + scope/SPEC fidelity, each independently verified) found one real bug (`--preview`/`--resume --run <id>` blocking on stdin), fixed and regression-tested in the same PR. | no (PR batch, no release) |
+
 ## Batch — add a documented `--quiet` flag (Unreleased)
 
 > UI/UX audit finding: silencing drive progress lines only worked through
