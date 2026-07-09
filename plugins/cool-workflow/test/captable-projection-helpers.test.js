@@ -39,11 +39,11 @@ const { cliCapabilities, declaredMcpTools, REGISTRY } = require("../dist/core/ca
   assert.ok(ids.includes("app.run"), "cliCapabilities() must include app.run (it carries a cli binding at the shipped release)");
 }
 
-// declaredMcpTools(): returns exactly 197 tool names per SPEC/mcp.md's
-// "All 197 MCP tools" table, in the pinned tools/list source order.
+// declaredMcpTools(): returns exactly 198 tool names (197 + cw_audit_repair,
+// added by this cycle), in the pinned tools/list source order.
 {
   const tools = declaredMcpTools();
-  assert.equal(tools.length, 197, "declaredMcpTools() must report exactly 197 tool names");
+  assert.equal(tools.length, 198, "declaredMcpTools() must report exactly 198 tool names");
   assert.equal(tools[0], "cw_list", "the first declared tool must be cw_list");
   assert.equal(tools[tools.length - 1], "cw_audit_head", "the last declared tool must be cw_audit_head");
 }
