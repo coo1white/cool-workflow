@@ -449,6 +449,13 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
     const rule = collapseRuleFor();
     const keep = new Set();
     const buckets = new Map();
+    const addToBucket = (bucketKey, id) => {
+        const list = buckets.get(bucketKey);
+        if (list)
+            list.push(id);
+        else
+            buckets.set(bucketKey, [id]);
+    };
     for (const node of scopeNodes) {
         if (protectedIds.has(node.id) || (focusKeep && focusKeep.has(node.id))) {
             keep.add(node.id);
@@ -456,16 +463,14 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
         }
         if (view === "critical-path") {
             // Collapse everything not on the critical path into one bucket per kind.
-            const bucketKey = `critical-context:${node.kind}`;
-            buckets.set(bucketKey, [...(buckets.get(bucketKey) || []), node.id]);
+            addToBucket(`critical-context:${node.kind}`, node.id);
             continue;
         }
         if (!shouldCollapseKind(node.kind)) {
             keep.add(node.id);
             continue;
         }
-        const bucketKey = rule.bucketBy(node, parentOf);
-        buckets.set(bucketKey, [...(buckets.get(bucketKey) || []), node.id]);
+        addToBucket(rule.bucketBy(node, parentOf), node.id);
     }
     // Buckets smaller than the collapse threshold stay expanded (unless
     // critical-path — docs/rebuild/PLAN.md byte-compat item 9).
@@ -477,8 +482,9 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
                 keep.add(id);
             continue;
         }
-        const members = scopeNodes.filter((node) => ids.includes(node.id));
-        const internalEdges = scopeEdges.filter((edge) => ids.includes(edge.from) && ids.includes(edge.to));
+        const idSet = new Set(ids);
+        const members = scopeNodes.filter((node) => idSet.has(node.id));
+        const internalEdges = scopeEdges.filter((edge) => idSet.has(edge.from) && idSet.has(edge.to));
         const syntheticId = `${runId}:summary:${(0, helpers_1.slug)(bucketKey)}`;
         const dominant = (0, helpers_1.dominantStatus)(members.map((m) => m.status));
         const blocked = members.find((m) => (0, helpers_1.isProtectedStatus)(m.status));

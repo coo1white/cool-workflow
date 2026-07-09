@@ -493,11 +493,32 @@ function countBy(values, key) {
  *  here — the old build's extra workers/candidates/commits/multiAgent/
  *  blackboard rollups are milestone 9's own summarizeMultiAgent/
  *  candidate-scoring-io/coordinator-io surfaces, not duplicated here. */
+/** Groups events by a key field once, so each row below is an O(1) Map
+ *  lookup instead of an O(events) `.filter()` re-scan per id -- found
+ *  alongside the id.find() version of this same shape while pinning perf
+ *  cycle P1-1's review-fix regression test (O(ids x events) otherwise). */
+function groupEventsBy(events, key) {
+    const groups = new Map();
+    for (const event of events) {
+        const k = key(event);
+        if (!k)
+            continue;
+        const list = groups.get(k);
+        if (list)
+            list.push(event);
+        else
+            groups.set(k, [event]);
+    }
+    return groups;
+}
 function workerRows(events, run) {
-    const workerIds = unique([...(run.workers || []).map((w) => w.id), ...events.map((e) => e.workerId || "")]).sort();
+    const workers = run.workers || [];
+    const workersById = new Map(workers.map((w) => [w.id, w]));
+    const eventsByWorkerId = groupEventsBy(events, (e) => e.workerId);
+    const workerIds = unique([...workers.map((w) => w.id), ...events.map((e) => e.workerId || "")]).sort();
     return workerIds.filter(Boolean).map((workerId) => {
-        const worker = (run.workers || []).find((w) => w.id === workerId);
-        const scoped = events.filter((e) => e.workerId === workerId);
+        const worker = workersById.get(workerId);
+        const scoped = eventsByWorkerId.get(workerId) || [];
         return {
             workerId,
             taskId: worker?.taskId || scoped.find((e) => e.taskId)?.taskId,
@@ -511,11 +532,21 @@ function workerRows(events, run) {
 function candidateRows(events, run) {
     const cands = run.candidates || [];
     const selectionsAll = run.candidateSelections || [];
+    const candsById = new Map(cands.map((c) => [c.id, c]));
+    const selectionsByCandidateId = new Map();
+    for (const selection of selectionsAll) {
+        const list = selectionsByCandidateId.get(selection.candidateId);
+        if (list)
+            list.push(selection);
+        else
+            selectionsByCandidateId.set(selection.candidateId, [selection]);
+    }
+    const eventsByCandidateId = groupEventsBy(events, (e) => e.candidateId);
     const ids = unique([...cands.map((c) => c.id), ...events.map((e) => e.candidateId || "")]).sort();
     return ids.filter(Boolean).map((candidateId) => {
-        const candidate = cands.find((c) => c.id === candidateId);
-        const selections = selectionsAll.filter((s) => s.candidateId === candidateId);
-        const scoped = events.filter((e) => e.candidateId === candidateId);
+        const candidate = candsById.get(candidateId);
+        const selections = selectionsByCandidateId.get(candidateId) || [];
+        const scoped = eventsByCandidateId.get(candidateId) || [];
         return {
             candidateId,
             scoreIds: unique([...(candidate?.scores || []), ...scoped.map((e) => e.scoreId || "")]).filter(Boolean).sort(),
@@ -525,9 +556,11 @@ function candidateRows(events, run) {
     });
 }
 function commitRows(events, run) {
-    const ids = unique([...(run.commits || []).map((c) => c.id), ...events.map((e) => e.commitId || "")]).sort();
+    const commits = run.commits || [];
+    const commitsById = new Map(commits.map((c) => [c.id, c]));
+    const ids = unique([...commits.map((c) => c.id), ...events.map((e) => e.commitId || "")]).sort();
     return ids.filter(Boolean).map((commitId) => {
-        const commit = (run.commits || []).find((c) => c.id === commitId);
+        const commit = commitsById.get(commitId);
         return {
             commitId,
             verifierGated: Boolean(commit?.verifierGated),

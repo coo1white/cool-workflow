@@ -34,7 +34,14 @@ export interface DispatchTask {
  *  everything after it (`null`). */
 export function firstRunnablePhase(run: WorkflowRun): RunPhase | null {
   for (const phase of run.phases) {
-    const phaseTasks = run.tasks.filter((task) => phase.taskIds.includes(task.id));
+    // A Set lookup, not `taskIds.includes()` re-scanned per task: this loop is
+    // O(phases x tasks), not O(phases x tasks x taskIds-per-phase) -- the
+    // latter degrades to O(tasks^2) since total taskIds across phases scales
+    // with total tasks, and this function is called several times per drive
+    // hop (once per hop directly, again inside selectDriveTask, again inside
+    // driveConcurrentRound), compounding to O(tasks^3) over a whole run.
+    const taskIds = new Set(phase.taskIds);
+    const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
     if (phaseTasks.some((task) => task.status === "running")) return phase;
     if (phaseTasks.some((task) => task.status === "pending")) return phase;
     if (!phaseTasks.every((task) => task.status === "completed")) return null;
@@ -46,7 +53,8 @@ export function firstRunnablePhase(run: WorkflowRun): RunPhase | null {
  *  running when some task is running or completed, else pending. */
 export function updatePhaseStatuses(run: WorkflowRun): void {
   for (const phase of run.phases) {
-    const phaseTasks = run.tasks.filter((task) => phase.taskIds.includes(task.id));
+    const taskIds = new Set(phase.taskIds);
+    const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
     if (phaseTasks.length > 0 && phaseTasks.every((task) => task.status === "completed")) {
       phase.status = "completed";
     } else if (phaseTasks.some((task) => task.status === "running" || task.status === "completed")) {

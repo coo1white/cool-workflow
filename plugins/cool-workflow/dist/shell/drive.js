@@ -551,7 +551,8 @@ function maybeExpandLoop(run) {
         const latest = loopPhases.reduce((a, b) => ((b.loopRound || 1) >= (a.loopRound || 1) ? b : a));
         if (phase.id !== latest.id)
             continue;
-        const roundTasks = run.tasks.filter((t) => latest.taskIds.includes(t.id));
+        const latestTaskIds = new Set(latest.taskIds);
+        const roundTasks = run.tasks.filter((t) => latestTaskIds.has(t.id));
         if (roundTasks.length === 0 || !roundTasks.every((t) => t.status === "completed"))
             continue;
         const round = latest.loopRound || 1;
@@ -560,7 +561,8 @@ function maybeExpandLoop(run) {
             .sort((a, b) => compareBytes(a.id, b.id))
             .map((t) => t.result);
         const roundResults = ordered(roundTasks);
-        const allLoopTasks = run.tasks.filter((t) => t.status === "completed" && loopPhases.some((p) => p.taskIds.includes(t.id)));
+        const loopTaskIds = new Set(loopPhases.flatMap((p) => p.taskIds));
+        const allLoopTasks = run.tasks.filter((t) => t.status === "completed" && loopTaskIds.has(t.id));
         const allResults = ordered(allLoopTasks);
         const ctx = {
             round,
@@ -597,7 +599,8 @@ function maybeExpandLoop(run) {
         // Expand: clone the ROUND-1 template tasks into a fresh phase appended
         // right after the latest round.
         const nextRound = round + 1;
-        const templateTasks = run.tasks.filter((t) => origin.taskIds.includes(t.id));
+        const originTaskIds = new Set(origin.taskIds);
+        const templateTasks = run.tasks.filter((t) => originTaskIds.has(t.id));
         const { phase: nextPhase, tasks: newTasks } = (0, loop_expansion_1.cloneLoopRoundTasks)(origin, templateTasks, nextRound);
         const insertAt = run.phases.findIndex((p) => p.id === latest.id);
         run.phases.splice(insertAt + 1, 0, nextPhase);
@@ -732,8 +735,9 @@ function driveConcurrentRound(ctx, limit) {
             return [driveStep(ctx)];
         const phase = (0, dispatch_1.firstRunnablePhase)(run);
         const width = Math.max(1, Math.floor(limit) || 1);
+        const phaseTaskIds = new Set(phase.taskIds);
         const batch = run.tasks
-            .filter((task) => phase.taskIds.includes(task.id) && (task.status === "pending" || task.status === "running"))
+            .filter((task) => phaseTaskIds.has(task.id) && (task.status === "pending" || task.status === "running"))
             .slice(0, width)
             .map((task) => task.id);
         const prepared = prepareConcurrentOutcomes(ctx, batch);
@@ -816,7 +820,8 @@ function drive(runId, cwd, options = {}) {
     const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
     const emitPhaseProgress = (run) => {
         for (const ph of run.phases || []) {
-            const phaseTasks = run.tasks.filter((task) => ph.taskIds.includes(task.id));
+            const phaseTaskIds = new Set(ph.taskIds);
+            const phaseTasks = run.tasks.filter((task) => phaseTaskIds.has(task.id));
             const total = phaseTasks.length;
             if (total === 0)
                 continue;
