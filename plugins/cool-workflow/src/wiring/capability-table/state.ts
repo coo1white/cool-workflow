@@ -6,7 +6,18 @@
 
 import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core";
 import { optionalArg } from "../../cli/io";
-import { graphText } from "../../shell/report-view-cli";
+
+// This slice is required unconditionally at startup for every command;
+// load these shell modules only when a handler that actually needs them runs.
+function loadReportViewCli(): typeof import("../../shell/report-view-cli") {
+  return require("../../shell/report-view-cli") as typeof import("../../shell/report-view-cli");
+}
+function loadStateCli(): typeof import("../../shell/state-cli") {
+  return require("../../shell/state-cli") as typeof import("../../shell/state-cli");
+}
+function loadStateExplosionCli(): typeof import("../../shell/state-explosion-cli") {
+  return require("../../shell/state-explosion-cli") as typeof import("../../shell/state-explosion-cli");
+}
 
 // MILESTONE 3 (state kernel) CLI bindings: state.check, migration.list|
 // check|prove, node.list|show|graph|snapshot|diff|replay|replay.verify.
@@ -20,27 +31,13 @@ import { graphText } from "../../shell/report-view-cli";
 // ---------------------------------------------------------------------
 
 import { required } from "../../cli/io";
-import {
-  checkState,
-  graphNodes,
-  listNodes,
-  migrationCheck,
-  migrationList,
-  migrationProve,
-  nextCli,
-  nodeDiffCli,
-  nodeReplayCli,
-  nodeReplayVerifyCli,
-  nodeSnapshotCli,
-  showNode,
-} from "../../shell/state-cli";
 
 attachCliBinding("state.check", {
   path: ["state", "check"],
   jsonMode: "default",
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
-    const report = checkState(runId, args.options);
+    const report = loadStateCli().checkState(runId, args.options);
     return { json: report, exitCode: report.status === "unsupported" ? 1 : undefined };
   },
 });
@@ -48,7 +45,7 @@ attachCliBinding("state.check", {
 attachCliBinding("migration.list", {
   path: ["migration", "list"],
   jsonMode: "default",
-  handler: () => ({ json: migrationList() }),
+  handler: () => ({ json: loadStateCli().migrationList() }),
 });
 
 attachCliBinding("migration.check", {
@@ -56,7 +53,7 @@ attachCliBinding("migration.check", {
   jsonMode: "default",
   handler: (args) => {
     const target = required(args.positionals[0], "target (run-id or state/app file)");
-    const report = migrationCheck(target, args.options);
+    const report = loadStateCli().migrationCheck(target, args.options);
     return { json: report, exitCode: report.status === "unsupported" ? 1 : undefined };
   },
 });
@@ -66,7 +63,7 @@ attachCliBinding("migration.prove", {
   jsonMode: "default",
   handler: (args) => {
     const target = required(args.positionals[0], "target (run-id or state/app file)");
-    const proof = migrationProve(target, args.options);
+    const proof = loadStateCli().migrationProve(target, args.options);
     return { json: proof, exitCode: proof.pass ? undefined : 1 };
   },
 });
@@ -74,7 +71,7 @@ attachCliBinding("migration.prove", {
 attachCliBinding("node.list", {
   path: ["node", "list"],
   jsonMode: "default",
-  handler: (args) => ({ json: listNodes(required(args.positionals[0], "run id"), args.options) }),
+  handler: (args) => ({ json: loadStateCli().listNodes(required(args.positionals[0], "run id"), args.options) }),
 });
 
 attachCliBinding("node.show", {
@@ -83,7 +80,7 @@ attachCliBinding("node.show", {
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
     const nodeId = required(args.positionals[1], "node id");
-    return { json: showNode(runId, nodeId, args.options) };
+    return { json: loadStateCli().showNode(runId, nodeId, args.options) };
   },
 });
 
@@ -95,7 +92,7 @@ attachCliBinding("node.graph", {
   jsonMode: "flag",
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
-    return { json: graphNodes(runId, args.options), text: `${graphText(runId, args.options)}\n` };
+    return { json: loadStateCli().graphNodes(runId, args.options), text: `${loadReportViewCli().graphText(runId, args.options)}\n` };
   },
 });
 
@@ -105,7 +102,7 @@ attachCliBinding("node.snapshot", {
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
     const nodeId = required(args.positionals[1], "node id");
-    return { json: nodeSnapshotCli(runId, nodeId, args.options) };
+    return { json: loadStateCli().nodeSnapshotCli(runId, nodeId, args.options) };
   },
 });
 
@@ -116,7 +113,7 @@ attachCliBinding("node.diff", {
     const runId = required(args.positionals[0], "run id");
     const baselineSnapshotId = required(args.positionals[1], "baseline snapshot id");
     const candidateSnapshotId = required(args.positionals[2], "candidate snapshot id");
-    return { json: nodeDiffCli(runId, baselineSnapshotId, candidateSnapshotId, args.options) };
+    return { json: loadStateCli().nodeDiffCli(runId, baselineSnapshotId, candidateSnapshotId, args.options) };
   },
 });
 
@@ -126,7 +123,7 @@ attachCliBinding("node.replay", {
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
     const snapshotId = required(args.positionals[1], "snapshot id");
-    return { json: nodeReplayCli(runId, snapshotId, args.options) };
+    return { json: loadStateCli().nodeReplayCli(runId, snapshotId, args.options) };
   },
 });
 
@@ -136,7 +133,7 @@ attachCliBinding("node.replay.verify", {
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
     const replayId = required(args.positionals[1], "replay id");
-    const verdict = nodeReplayVerifyCli(runId, replayId, args.options);
+    const verdict = loadStateCli().nodeReplayVerifyCli(runId, replayId, args.options);
     return { json: verdict, exitCode: verdict.pass ? undefined : 1 };
   },
 });
@@ -144,17 +141,17 @@ attachCliBinding("node.replay.verify", {
 // GAP #24: mirror the state-kernel CLI shell fns as MCP handlers (they were
 // declared MCP tool rows but left on notYetImplemented). Arg-name reads copied
 // byte-for-byte from the old build's mcp/tool-call.ts switch arms.
-REGISTRY_BY_CAPABILITY.get("state.check")!.mcp!.handler = (args) => checkState(required(optionalArg(args.runId), "run id"), args);
-REGISTRY_BY_CAPABILITY.get("migration.list")!.mcp!.handler = () => migrationList();
-REGISTRY_BY_CAPABILITY.get("migration.check")!.mcp!.handler = (args) => migrationCheck(required(optionalArg(args.target ?? args.runId), "target (run-id or state/app file)"), args);
-REGISTRY_BY_CAPABILITY.get("migration.prove")!.mcp!.handler = (args) => migrationProve(required(optionalArg(args.target ?? args.runId), "target (run-id or state/app file)"), args);
-REGISTRY_BY_CAPABILITY.get("node.list")!.mcp!.handler = (args) => listNodes(required(optionalArg(args.runId), "run id"), args);
-REGISTRY_BY_CAPABILITY.get("node.show")!.mcp!.handler = (args) => showNode(required(optionalArg(args.runId), "run id"), required(optionalArg(args.nodeId), "node id"), args);
-REGISTRY_BY_CAPABILITY.get("node.graph")!.mcp!.handler = (args) => graphNodes(required(optionalArg(args.runId), "run id"), args);
-REGISTRY_BY_CAPABILITY.get("node.snapshot")!.mcp!.handler = (args) => nodeSnapshotCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.nodeId), "node id"), args);
-REGISTRY_BY_CAPABILITY.get("node.diff")!.mcp!.handler = (args) => nodeDiffCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.baselineSnapshotId ?? args.baseline), "baseline snapshot id"), required(optionalArg(args.candidateSnapshotId ?? args.candidate), "candidate snapshot id"), args);
-REGISTRY_BY_CAPABILITY.get("node.replay")!.mcp!.handler = (args) => nodeReplayCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.snapshotId), "snapshot id"), args);
-REGISTRY_BY_CAPABILITY.get("node.replay.verify")!.mcp!.handler = (args) => nodeReplayVerifyCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.replayId), "replay id"), args);
+REGISTRY_BY_CAPABILITY.get("state.check")!.mcp!.handler = (args) => loadStateCli().checkState(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("migration.list")!.mcp!.handler = () => loadStateCli().migrationList();
+REGISTRY_BY_CAPABILITY.get("migration.check")!.mcp!.handler = (args) => loadStateCli().migrationCheck(required(optionalArg(args.target ?? args.runId), "target (run-id or state/app file)"), args);
+REGISTRY_BY_CAPABILITY.get("migration.prove")!.mcp!.handler = (args) => loadStateCli().migrationProve(required(optionalArg(args.target ?? args.runId), "target (run-id or state/app file)"), args);
+REGISTRY_BY_CAPABILITY.get("node.list")!.mcp!.handler = (args) => loadStateCli().listNodes(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("node.show")!.mcp!.handler = (args) => loadStateCli().showNode(required(optionalArg(args.runId), "run id"), required(optionalArg(args.nodeId), "node id"), args);
+REGISTRY_BY_CAPABILITY.get("node.graph")!.mcp!.handler = (args) => loadStateCli().graphNodes(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("node.snapshot")!.mcp!.handler = (args) => loadStateCli().nodeSnapshotCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.nodeId), "node id"), args);
+REGISTRY_BY_CAPABILITY.get("node.diff")!.mcp!.handler = (args) => loadStateCli().nodeDiffCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.baselineSnapshotId ?? args.baseline), "baseline snapshot id"), required(optionalArg(args.candidateSnapshotId ?? args.candidate), "candidate snapshot id"), args);
+REGISTRY_BY_CAPABILITY.get("node.replay")!.mcp!.handler = (args) => loadStateCli().nodeReplayCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.snapshotId), "snapshot id"), args);
+REGISTRY_BY_CAPABILITY.get("node.replay.verify")!.mcp!.handler = (args) => loadStateCli().nodeReplayVerifyCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.replayId), "replay id"), args);
 
 // `contract.show` is not yet a declared MCP_TOOL_DATA row with a CLI peer
 // wired here (it IS in MCP_TOOL_DATA already); no milestone-3 conformance
@@ -172,7 +169,6 @@ REGISTRY_BY_CAPABILITY.get("node.replay.verify")!.mcp!.handler = (args) => nodeR
 // ---------------------------------------------------------------------
 
 import { formatStateExplosionReport, formatCompactGraph } from "../../core/format/state-explosion-text";
-import { summaryRefreshCli, summaryShowCli } from "../../shell/state-explosion-cli";
 import { wantsJson } from "../../cli/io";
 
 attachCliBinding("summary.refresh", {
@@ -180,14 +176,14 @@ attachCliBinding("summary.refresh", {
   jsonMode: "flag",
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
-    const index = summaryRefreshCli(runId, args.options);
+    const index = loadStateExplosionCli().summaryRefreshCli(runId, args.options);
     // Byte-exact port of the old build's handleSummary "refresh": the
     // human-text branch re-reads via a fresh summaryShow call rather than
     // formatting the refresh's own index record (src/cli/handlers/
     // operator.ts:118-127); only computed when actually needed, so a
     // --json call does exactly the one read the old build's if/else did.
     if (wantsJson(args.options)) return { json: index };
-    return { json: index, text: formatStateExplosionReport(summaryShowCli(runId, args.options)) };
+    return { json: index, text: formatStateExplosionReport(loadStateExplosionCli().summaryShowCli(runId, args.options)) };
   },
 });
 
@@ -196,7 +192,7 @@ attachCliBinding("summary.show", {
   jsonMode: "flag",
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
-    const report = summaryShowCli(runId, args.options);
+    const report = loadStateExplosionCli().summaryShowCli(runId, args.options);
     return { json: report, text: formatStateExplosionReport(report) };
   },
 });

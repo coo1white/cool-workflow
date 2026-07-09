@@ -17,8 +17,15 @@ import { attachCliBinding, addCliOnlyCapability, listBundledWorkflows, listBundl
 // ---------------------------------------------------------------------
 
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../../core/version";
-import { listWorkflowApps } from "../../shell/workflow-app-loader";
 import { formatSearchResults } from "../../core/format/help";
+
+// This whole module is required unconditionally at startup for EVERY
+// command (see wiring/capability-table/index.ts) — a top-level import of
+// `shell/workflow-app-loader` here means even `cw --version` pays its
+// load cost, though only `search`'s handler ever calls it.
+function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader") {
+  return require("../../shell/workflow-app-loader") as typeof import("../../shell/workflow-app-loader");
+}
 
 addCliOnlyCapability(
   "version",
@@ -52,7 +59,7 @@ addCliOnlyCapability(
         throw new Error('Missing search keyword.\n  Tip: cw search architecture to find workflows about architecture.');
       }
       const lower = keyword.toLowerCase();
-      const results = listWorkflowApps()
+      const results = loadWorkflowAppLoader().listWorkflowApps()
         .filter(
           (a) =>
             String(a.title).toLowerCase().includes(lower) ||
