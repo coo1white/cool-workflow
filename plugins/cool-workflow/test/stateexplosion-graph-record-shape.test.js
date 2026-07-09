@@ -64,11 +64,11 @@ const { fingerprintStrings } = require("../dist/core/hash");
 // something collapsed, points at --view full instead.
 {
   const noCollapse = buildCompactGraphFromView("run-1", { nodes: [{ id: "a", kind: "task", status: "completed", label: "a" }], edges: [] }, "compact", { now: "x" });
-  assert.equal(noCollapse.nextAction, "node scripts/cw.js multi-agent graph run-1 --view compact --json", "no collapse: nextAction points at the same view");
+  assert.equal(noCollapse.nextAction, "cw multi-agent graph run-1 --view compact --json", "no collapse: nextAction points at the same view");
 
   const workers = Array.from({ length: 10 }, (_, i) => ({ id: `w${i}`, kind: "worker", status: "completed", label: `w${i}` }));
   const withCollapse = buildCompactGraphFromView("run-1", { nodes: workers, edges: [] }, "compact", { now: "x" });
-  assert.equal(withCollapse.nextAction, "node scripts/cw.js multi-agent graph run-1 --view full --json", "with collapse: nextAction redirects to --view full");
+  assert.equal(withCollapse.nextAction, "cw multi-agent graph run-1 --view full --json", "with collapse: nextAction redirects to --view full");
 }
 
 // fullNodeCount/fullEdgeCount reflect the UNFILTERED input; compactNodeCount/compactEdgeCount reflect the scoped+collapsed output.

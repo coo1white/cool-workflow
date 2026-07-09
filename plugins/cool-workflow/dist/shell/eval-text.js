@@ -167,7 +167,7 @@ function formatMultiAgentEval(value) {
             `  replay=${value.paths.replayRunPath}`,
             "",
             "Next Action",
-            `  node scripts/cw.js eval compare ${value.paths.snapshotPath} ${value.paths.replayRunPath}`,
+            `  cw eval compare ${value.paths.snapshotPath} ${value.paths.replayRunPath}`,
         ].join("\n");
     }
     if (isSnapshot(value)) {
@@ -201,7 +201,7 @@ function formatMultiAgentEval(value) {
             "  snapshot-ready",
             "",
             "Next Action",
-            `  node scripts/cw.js eval replay ${value.paths.snapshotPath}`,
+            `  cw eval replay ${value.paths.snapshotPath}`,
         ].join("\n");
     }
     if (isReport(value)) {

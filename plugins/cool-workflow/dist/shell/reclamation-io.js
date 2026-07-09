@@ -877,7 +877,7 @@ function gcPlan(host, options = {}) {
         eligibleCount,
         bytesToFree,
         entries,
-        nextAction: eligibleCount ? "node scripts/cw.js gc run" : "node scripts/cw.js run search",
+        nextAction: eligibleCount ? "cw gc run" : "cw run search",
     };
 }
 function gcRun(host, options = {}) {
@@ -946,7 +946,7 @@ function gcRun(host, options = {}) {
         reclaimed,
         refused,
         totalBytesFreed,
-        nextAction: reclaimed.length ? "node scripts/cw.js gc verify <run-id>" : "node scripts/cw.js gc plan",
+        nextAction: reclaimed.length ? "cw gc verify <run-id>" : "cw gc plan",
     };
 }
 function gcVerify(host, runId, options = {}) {
@@ -962,7 +962,7 @@ function gcVerify(host, runId, options = {}) {
             capability: "re-runnable",
             chainLength: 0,
             checks: [{ name: "located", pass: false, code: "not-reclaimed", detail: "run source not found" }],
-            nextAction: "node scripts/cw.js registry refresh" + (scope === "home" ? " --scope home" : ""),
+            nextAction: "cw registry refresh" + (scope === "home" ? " --scope home" : ""),
         };
     }
     const run = host.loadRun(located.record.repo, runId);
@@ -995,7 +995,7 @@ function gcVerify(host, runId, options = {}) {
         tombstoneHash: last?.tombstoneHash,
         chainLength: result.tombstones.length,
         checks,
-        nextAction: verified ? "node scripts/cw.js run show " + runId : "node scripts/cw.js gc plan",
+        nextAction: verified ? "cw run show " + runId : "cw gc plan",
     };
 }
 // ---------------------------------------------------------------------------

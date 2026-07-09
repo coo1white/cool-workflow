@@ -83,29 +83,29 @@ Fanin does not quietly take missing evidence for required roles.
 Present dispatch and worker flows are still valid:
 
 ```bash
-node scripts/cw.js dispatch <run-id> --limit 1 --sandbox readonly
+cw dispatch <run-id> --limit 1 --sandbox readonly
 ```
 
 To tie dispatch to clear multi-agent state:
 
 ```bash
-node scripts/cw.js multi-agent run <run-id> --id ma-release --objective "release verification"
-node scripts/cw.js multi-agent role <run-id> verifier \
+cw multi-agent run <run-id> --id ma-release --objective "release verification"
+cw multi-agent role <run-id> verifier \
   --multi-agent-run ma-release \
   --responsibility "verify release evidence" \
   --required-evidence "release-check log"
-node scripts/cw.js multi-agent group <run-id> release-group \
+cw multi-agent group <run-id> release-group \
   --multi-agent-run ma-release \
   --phase "Verify" \
   --task verify:package
-node scripts/cw.js multi-agent fanout <run-id> release-fanout \
+cw multi-agent fanout <run-id> release-fanout \
   --group release-group \
   --reason "split release verification" \
   --role verifier \
   --task verify:package \
   --limit 1 \
   --sandbox-choice verifier=readonly
-node scripts/cw.js dispatch <run-id> \
+cw dispatch <run-id> \
   --limit 1 \
   --sandbox readonly \
   --multi-agent-run ma-release \
@@ -136,7 +136,7 @@ multi-agent trust audit events.
 Gather fanin after worker output:
 
 ```bash
-node scripts/cw.js multi-agent fanin <run-id> release-fanin \
+cw multi-agent fanin <run-id> release-fanin \
   --group release-group \
   --fanout release-fanout \
   --required-role verifier
@@ -151,26 +151,26 @@ missing evidence is a state error, not a quiet success.
 Use the everyday operator commands:
 
 ```bash
-node scripts/cw.js status <run-id>
-node scripts/cw.js graph <run-id>
-node scripts/cw.js report <run-id> --show
-node scripts/cw.js audit summary <run-id>
-node scripts/cw.js audit provenance <run-id>
+cw status <run-id>
+cw graph <run-id>
+cw report <run-id> --show
+cw audit summary <run-id>
+cw audit provenance <run-id>
 ```
 
 Use the more pointed multi-agent commands:
 
 ```bash
-node scripts/cw.js multi-agent summary <run-id>
-node scripts/cw.js multi-agent summary <run-id> --json
-node scripts/cw.js multi-agent graph <run-id>
-node scripts/cw.js multi-agent graph <run-id> --json
-node scripts/cw.js multi-agent show <run-id> <multi-agent-run-id>
-node scripts/cw.js multi-agent role <run-id> <role-id>
-node scripts/cw.js multi-agent group <run-id> <group-id>
-node scripts/cw.js multi-agent membership <run-id> <membership-id>
-node scripts/cw.js multi-agent fanout <run-id> <fanout-id>
-node scripts/cw.js multi-agent fanin <run-id> <fanin-id>
+cw multi-agent summary <run-id>
+cw multi-agent summary <run-id> --json
+cw multi-agent graph <run-id>
+cw multi-agent graph <run-id> --json
+cw multi-agent show <run-id> <multi-agent-run-id>
+cw multi-agent role <run-id> <role-id>
+cw multi-agent group <run-id> <group-id>
+cw multi-agent membership <run-id> <membership-id>
+cw multi-agent fanout <run-id> <fanout-id>
+cw multi-agent fanin <run-id> <fanin-id>
 ```
 
 The status and report Multi-Agent panel shows group status, role coverage,

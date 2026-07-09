@@ -21,7 +21,7 @@ Map out a repository architecture, weigh the risks, check the important
 findings, and put together an evidence-backed verdict.
 
 ```bash
-node scripts/cw.js plan architecture-review \
+cw plan architecture-review \
   --repo /path/to/repo \
   --question "Is this architecture sound?" \
   --invariant "public API stays stable" \
@@ -72,7 +72,7 @@ you can act on, patch when `--mode fix` is allowed, check the outcomes, and
 give a short account with evidence.
 
 ```bash
-node scripts/cw.js plan pr-review-fix-ci \
+cw plan pr-review-fix-ci \
   --repo /path/to/repo \
   --pr 123 \
   --base main \
@@ -86,7 +86,7 @@ Get a release ready with checklist discipline: version checks, changelog, tests,
 packaging, release notes, and a last verification.
 
 ```bash
-node scripts/cw.js plan release-cut \
+cw plan release-cut \
   --repo /path/to/repo \
   --version 0.1.13 \
   --previousVersion 0.1.11 \
@@ -104,7 +104,7 @@ papers — not only a git code repo. The working directory is the corpus,
 so the agent can back its answer with your own files.
 
 ```bash
-node scripts/cw.js plan research-synthesis \
+cw plan research-synthesis \
   --cwd /tmp/research-run \
   --question "What does the evidence support?" \
   --source "official-docs" \
@@ -179,8 +179,8 @@ easy to inspect, and useful.
 Use the Operator UX commands to look at any canonical app run:
 
 ```bash
-node scripts/cw.js status <run-id>
-node scripts/cw.js graph <run-id>
-node scripts/cw.js report <run-id> --summary
+cw status <run-id>
+cw graph <run-id>
+cw report <run-id> --summary
 ```
 0.1.51

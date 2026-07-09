@@ -94,7 +94,7 @@ attachCliBinding("run.drive.step", {
       return { json: result, exitCode: result.ok ? undefined : 1 };
     }
     throw new Error(
-      "Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]"
+      "Usage: cw run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw run <app> --drive [--once] [--incremental] [--repo R --question Q]"
     );
   },
 });

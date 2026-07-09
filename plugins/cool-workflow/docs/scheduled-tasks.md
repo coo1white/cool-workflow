@@ -14,7 +14,7 @@ CW keeps schedules in:
 Make a `/loop`-ready schedule:
 
 ```bash
-node scripts/cw.js loop \
+cw loop \
   --intervalMinutes 30 \
   --prompt "Check this workflow and continue if work is due."
 ```
@@ -22,7 +22,7 @@ node scripts/cw.js loop \
 Make a loop:
 
 ```bash
-node scripts/cw.js schedule create \
+cw schedule create \
   --kind loop \
   --intervalMinutes 30 \
   --prompt "Check this workflow and continue if work is due."
@@ -31,7 +31,7 @@ node scripts/cw.js schedule create \
 Make a cron schedule:
 
 ```bash
-node scripts/cw.js schedule create \
+cw schedule create \
   --kind cron \
   --cron "*/15 * * * *" \
   --prompt "Run the due workflow scan."
@@ -40,7 +40,7 @@ node scripts/cw.js schedule create \
 Make a reminder:
 
 ```bash
-node scripts/cw.js schedule create \
+cw schedule create \
   --kind reminder \
   --delayMinutes 60 \
   --prompt "Remind me to inspect the report."
@@ -49,26 +49,26 @@ node scripts/cw.js schedule create \
 List and look through:
 
 ```bash
-node scripts/cw.js schedule list
-node scripts/cw.js schedule due
-node scripts/cw.js schedule complete <schedule-id>
-node scripts/cw.js schedule pause <schedule-id>
-node scripts/cw.js schedule resume <schedule-id>
-node scripts/cw.js schedule run-now <schedule-id>
-node scripts/cw.js schedule history <schedule-id>
-node scripts/cw.js schedule delete <schedule-id>
+cw schedule list
+cw schedule due
+cw schedule complete <schedule-id>
+cw schedule pause <schedule-id>
+cw schedule resume <schedule-id>
+cw schedule run-now <schedule-id>
+cw schedule history <schedule-id>
+cw schedule delete <schedule-id>
 ```
 
 Run the local desktop-like daemon one time:
 
 ```bash
-node scripts/cw.js schedule daemon --once
+cw schedule daemon --once
 ```
 
 Run it without stopping:
 
 ```bash
-node scripts/cw.js schedule daemon --intervalSeconds 60
+cw schedule daemon --intervalSeconds 60
 ```
 
 ## Notes

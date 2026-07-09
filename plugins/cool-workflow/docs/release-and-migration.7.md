@@ -9,7 +9,7 @@ Maintainers cutting CW releases should use `npm run release:check` from
 files can check compatibility with:
 
 ```bash
-node scripts/cw.js state check <run-id>
+cw state check <run-id>
 ```
 
 Use `--state /path/to/state.json` when checking a state file outside the

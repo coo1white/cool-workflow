@@ -114,7 +114,7 @@ commit-selection-not-verified
 commit-verifier-linkage-mismatch
 ```
 
-Use `cw.js feedback list <run-id>` and `cw.js node graph <run-id>` to look at
+Use `cw feedback list <run-id>` and `cw node graph <run-id>` to look at
 the failed transition.
 
 ## CANDIDATES

@@ -50,28 +50,28 @@ The model is derived from:
 Use the normal status and report commands for the wide view:
 
 ```bash
-node scripts/cw.js status <run-id>
-node scripts/cw.js graph <run-id>
-node scripts/cw.js report <run-id> --show
+cw status <run-id>
+cw graph <run-id>
+cw report <run-id> --show
 ```
 
 Use the focused multi-agent views when the operator needs the process table.
 
 ```bash
-node scripts/cw.js multi-agent status <run-id>
-node scripts/cw.js multi-agent graph <run-id>
-node scripts/cw.js multi-agent dependencies <run-id>
-node scripts/cw.js multi-agent failures <run-id>
-node scripts/cw.js multi-agent evidence <run-id>
+cw multi-agent status <run-id>
+cw multi-agent graph <run-id>
+cw multi-agent dependencies <run-id>
+cw multi-agent failures <run-id>
+cw multi-agent evidence <run-id>
 ```
 
 Every focused command can give deterministic JSON:
 
 ```bash
-node scripts/cw.js multi-agent status <run-id> --json
-node scripts/cw.js multi-agent dependencies <run-id> --json
-node scripts/cw.js multi-agent failures <run-id> --format json
-node scripts/cw.js multi-agent evidence <run-id> --json
+cw multi-agent status <run-id> --json
+cw multi-agent dependencies <run-id> --json
+cw multi-agent failures <run-id> --format json
+cw multi-agent evidence <run-id> --json
 ```
 
 The compact human output uses six stable panels:
@@ -175,13 +175,13 @@ derived operator model under `summaries.multiAgentOperator`.
 ## Example Trace
 
 ```bash
-node scripts/cw.js multi-agent graph "$RUN"
-node scripts/cw.js multi-agent dependencies "$RUN" --json
-node scripts/cw.js multi-agent failures "$RUN"
-node scripts/cw.js multi-agent evidence "$RUN"
-node scripts/cw.js audit provenance "$RUN" --candidate "$CANDIDATE"
-node scripts/cw.js commit "$RUN" --selection "$SELECTION" --reason "verified winner"
-node scripts/cw.js report "$RUN" --show
+cw multi-agent graph "$RUN"
+cw multi-agent dependencies "$RUN" --json
+cw multi-agent failures "$RUN"
+cw multi-agent evidence "$RUN"
+cw audit provenance "$RUN" --candidate "$CANDIDATE"
+cw commit "$RUN" --selection "$SELECTION" --reason "verified winner"
+cw report "$RUN" --show
 ```
 
 The operator can start at an agent membership, follow `depends-on` to its task

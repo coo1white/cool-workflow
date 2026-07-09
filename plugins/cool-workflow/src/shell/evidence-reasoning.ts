@@ -208,10 +208,10 @@ export function buildEvidenceReasoningReport(run: WorkflowRun, options: { index?
 
   const nextAction =
     status === "stale" || status === "absent"
-      ? `node scripts/cw.js multi-agent reasoning ${run.id} --refresh`
+      ? `cw multi-agent reasoning ${run.id} --refresh`
       : totals.unexplained > 0
-        ? `node scripts/cw.js multi-agent reasoning ${run.id} --json`
-        : `node scripts/cw.js multi-agent evidence ${run.id} --json`;
+        ? `cw multi-agent reasoning ${run.id} --json`
+        : `cw multi-agent evidence ${run.id} --json`;
 
   return {
     schemaVersion: EVIDENCE_REASONING_SCHEMA_VERSION,
@@ -500,7 +500,7 @@ export function refreshEvidenceReasoning(run: WorkflowRun): EvidenceReasoningInd
     totals: report.totals,
     entries: entries.sort((a, b) => stableCompare(a.id, b.id)),
     paths: { reasoningDir: dir, indexPath, reportPath },
-    nextAction: `node scripts/cw.js multi-agent reasoning ${run.id}`,
+    nextAction: `cw multi-agent reasoning ${run.id}`,
   };
   writeJson(indexPath, index);
   writeJson(reportPath, { ...report, freshness: { ...report.freshness, status: "valid", persistedFingerprint: report.sourceFingerprint } });

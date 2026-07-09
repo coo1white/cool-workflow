@@ -23,7 +23,7 @@ caseMain(() => {
   assert.equal(statusHuman.status, 0);
   assert.equal(
     statusHuman.stdout,
-    "No run selected\n\nNext Action\n  node scripts/cw.js plan <workflow-id> --repo <path>\n    reason: No run id is available yet; create a workflow run before dispatching or recording evidence.\n"
+    "No run selected\n\nNext Action\n  cw plan <workflow-id> --repo <path>\n    reason: No run id is available yet; create a workflow run before dispatching or recording evidence.\n"
   );
 
   const statusJson = run(["status", "--json"]);
@@ -33,7 +33,7 @@ caseMain(() => {
     runId: null,
     nextActions: [
       {
-        command: "node scripts/cw.js plan <workflow-id> --repo <path>",
+        command: "cw plan <workflow-id> --repo <path>",
         reason: "No run id is available yet; create a workflow run before dispatching or recording evidence.",
         priority: "high",
       },

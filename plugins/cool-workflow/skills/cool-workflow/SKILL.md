@@ -62,16 +62,16 @@ Use this loop to explain workflow progress when reporting status.
 ## Operating Loop
 
 1. Pick or create a workflow.
-2. `node scripts/cw.js plan <workflow-id> ...` from the plugin root (or the
+2. `cw plan <workflow-id> ...` from the plugin root (or the
    absolute plugin script path).
-3. `node scripts/cw.js dispatch <run-id> --limit N` to create a dispatch
+3. `cw dispatch <run-id> --limit N` to create a dispatch
    manifest for the current phase. Add `--sandbox <profile-id>` when an explicit
    worker policy profile is needed.
 4. If — and only if — the user explicitly asked for agents, spawn one subagent
    per dispatched task with disjoint scopes.
 5. Save each subagent summary to `.cw/runs/<run-id>/results/<task-id>.md`.
-6. `node scripts/cw.js result <run-id> <task-id> <result-file>`.
-7. When all required work is complete, `node scripts/cw.js report <run-id>`.
+6. `cw result <run-id> <task-id> <result-file>`.
+7. When all required work is complete, `cw report <run-id>`.
 8. Synthesize the final user-facing answer from the report and verified
    evidence.
 
@@ -114,11 +114,11 @@ report chain. See `references/commands.md` for the exact invocations.
 ## Essential Commands
 
 ```bash
-node scripts/cw.js list
-node scripts/cw.js plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
-node scripts/cw.js dispatch <run-id> --limit 6
-node scripts/cw.js result <run-id> <task-id> /path/to/result.md
-node scripts/cw.js report <run-id> --show
+cw list
+cw plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
+cw dispatch <run-id> --limit 6
+cw result <run-id> <task-id> /path/to/result.md
+cw report <run-id> --show
 ```
 
 When working in this repository, the plugin root is `plugins/cool-workflow`.

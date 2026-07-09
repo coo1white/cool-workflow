@@ -15,7 +15,7 @@ CW keeps routine data in:
 Create an API trigger:
 
 ```bash
-node scripts/cw.js routine create \
+cw routine create \
   --kind api \
   --prompt "Handle this API event."
 ```
@@ -23,7 +23,7 @@ node scripts/cw.js routine create \
 Create a GitHub trigger:
 
 ```bash
-node scripts/cw.js routine create \
+cw routine create \
   --kind github \
   --prompt "Review this GitHub event." \
   --match '{"action":"opened"}'
@@ -32,13 +32,13 @@ node scripts/cw.js routine create \
 Fire a trigger from a payload file:
 
 ```bash
-node scripts/cw.js routine fire github payload.json
+cw routine fire github payload.json
 ```
 
 Inspect events:
 
 ```bash
-node scripts/cw.js routine events
+cw routine events
 ```
 
 ## Long Architecture Reviews

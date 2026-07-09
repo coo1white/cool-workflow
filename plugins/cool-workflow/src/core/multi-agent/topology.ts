@@ -325,9 +325,9 @@ export function topologyRunId(
 
 export function nextActionsFor(runId: string, topologyRunId: string, fanoutId: string): string[] {
   return [
-    `node scripts/cw.js dispatch ${runId} --multi-agent-fanout ${fanoutId}`,
-    `node scripts/cw.js multi-agent fanin ${runId} ${topologyRunId}-fanin --fanout ${fanoutId}`,
-    `node scripts/cw.js topology summary ${runId}`,
+    `cw dispatch ${runId} --multi-agent-fanout ${fanoutId}`,
+    `cw multi-agent fanin ${runId} ${topologyRunId}-fanin --fanout ${fanoutId}`,
+    `cw topology summary ${runId}`,
   ];
 }
 

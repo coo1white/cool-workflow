@@ -106,7 +106,7 @@ function summarizeMultiAgentOperator(run) {
         multiAgent.nextAction ||
         blackboard.nextAction ||
         readyCommitCommand(run) ||
-        `node scripts/cw.js multi-agent status ${run.id} --json`;
+        `cw multi-agent status ${run.id} --json`;
     return {
         schemaVersion: 1,
         runId: run.id,
@@ -261,7 +261,7 @@ function deriveDependencies(run) {
     for (const fanin of state.fanins || []) {
         add(fanin.fanoutId ? `${run.id}:multi-agent:fanout:${fanin.fanoutId}` : `${run.id}:multi-agent:group:${fanin.groupId}`, `${run.id}:multi-agent:fanin:${fanin.id}`, "fanin");
         for (const coverage of fanin.evidenceCoverage || []) {
-            add(`${run.id}:multi-agent:membership:${coverage.membershipId}`, `${run.id}:multi-agent:fanin:${fanin.id}`, coverage.complete ? "adopted-by" : "blocks", coverage.complete ? "ready" : "blocked", coverage.complete ? undefined : "membership has not reported required evidence", `node scripts/cw.js worker manifest ${run.id} ${coverage.workerId || "<worker-id>"}`);
+            add(`${run.id}:multi-agent:membership:${coverage.membershipId}`, `${run.id}:multi-agent:fanin:${fanin.id}`, coverage.complete ? "adopted-by" : "blocks", coverage.complete ? "ready" : "blocked", coverage.complete ? undefined : "membership has not reported required evidence", `cw worker manifest ${run.id} ${coverage.workerId || "<worker-id>"}`);
         }
     }
     for (const candidate of candidatesOf(run)) {
@@ -300,57 +300,57 @@ function deriveFailures(run, dependencies) {
     for (const role of state.roles || []) {
         const memberships = membershipsByRole.get(role.id) || [];
         if (!memberships.length && role.status !== "completed" && role.status !== "cancelled") {
-            add(role.id, "missing-role-coverage", role.status, `role ${role.id} has no membership`, `node scripts/cw.js multi-agent step ${run.id}`, role.id);
+            add(role.id, "missing-role-coverage", role.status, `role ${role.id} has no membership`, `cw multi-agent step ${run.id}`, role.id);
         }
         if (role.status === "blocked" || role.status === "cancelled")
-            add(role.id, "agent-role", role.status, `role ${role.id} is ${role.status}`, `node scripts/cw.js multi-agent status ${run.id} --json`, role.id);
+            add(role.id, "agent-role", role.status, `role ${role.id} is ${role.status}`, `cw multi-agent status ${run.id} --json`, role.id);
     }
     for (const membership of state.memberships || []) {
         const worker = membership.workerId ? workersById.get(membership.workerId) : undefined;
         if (membership.status === "failed" || membership.status === "cancelled")
-            add(membership.id, "agent-membership", membership.status, `membership ${membership.id} is ${membership.status}`, `node scripts/cw.js multi-agent membership ${run.id} ${membership.id}`, membership.roleId, membership.workerId);
+            add(membership.id, "agent-membership", membership.status, `membership ${membership.id} is ${membership.status}`, `cw multi-agent membership ${run.id} ${membership.id}`, membership.roleId, membership.workerId);
         if (!membership.workerId)
-            add(membership.id, "missing-worker", membership.status, `membership ${membership.id} has no worker`, `node scripts/cw.js multi-agent step ${run.id}`, membership.roleId, membership.taskId);
+            add(membership.id, "missing-worker", membership.status, `membership ${membership.id} has no worker`, `cw multi-agent step ${run.id}`, membership.roleId, membership.taskId);
         if (worker && (worker.status === "failed" || worker.status === "rejected"))
-            add(String(worker.id), "worker", String(worker.status), worker.errors?.[0]?.message || `worker ${worker.id} is ${worker.status}`, `node scripts/cw.js worker show ${run.id} ${worker.id}`, membership.roleId, membership.id);
+            add(String(worker.id), "worker", String(worker.status), worker.errors?.[0]?.message || `worker ${worker.id} is ${worker.status}`, `cw worker show ${run.id} ${worker.id}`, membership.roleId, membership.id);
         if (worker && (worker.status === "allocated" || worker.status === "running"))
-            add(String(worker.id), "worker-output", String(worker.status), `worker ${worker.id} has not reported output`, `node scripts/cw.js worker manifest ${run.id} ${worker.id}`, membership.roleId, membership.id);
+            add(String(worker.id), "worker-output", String(worker.status), `worker ${worker.id} has not reported output`, `cw worker manifest ${run.id} ${worker.id}`, membership.roleId, membership.id);
     }
     for (const fanin of state.fanins || []) {
         for (const reason of fanin.blockedReasons || [])
-            add(fanin.id, "fanin", fanin.status, reason, `node scripts/cw.js multi-agent failures ${run.id}`, fanin.groupId, fanin.fanoutId);
+            add(fanin.id, "fanin", fanin.status, reason, `cw multi-agent failures ${run.id}`, fanin.groupId, fanin.fanoutId);
         for (const roleId of fanin.missingRoleIds || [])
-            add(`${fanin.id}:${roleId}`, "missing-role-evidence", "missing", `fanin ${fanin.id} is missing role ${roleId}`, `node scripts/cw.js multi-agent step ${run.id}`, roleId, fanin.id);
+            add(`${fanin.id}:${roleId}`, "missing-role-evidence", "missing", `fanin ${fanin.id} is missing role ${roleId}`, `cw multi-agent step ${run.id}`, roleId, fanin.id);
         for (const membershipId of fanin.missingMembershipIds || [])
-            add(`${fanin.id}:${membershipId}`, "missing-membership-evidence", "missing", `fanin ${fanin.id} is missing membership ${membershipId}`, `node scripts/cw.js multi-agent membership ${run.id} ${membershipId}`, membershipId, fanin.id);
+            add(`${fanin.id}:${membershipId}`, "missing-membership-evidence", "missing", `fanin ${fanin.id} is missing membership ${membershipId}`, `cw multi-agent membership ${run.id} ${membershipId}`, membershipId, fanin.id);
     }
     for (const topology of topologyRunsOf(run)) {
         for (const missing of topology.missingEvidence || [])
-            add(`${topology.id}:${missing}`, "missing-topology-evidence", "missing", missing, topology.nextActions?.[0] || `node scripts/cw.js topology summary ${run.id}`, String(topology.id));
+            add(`${topology.id}:${missing}`, "missing-topology-evidence", "missing", missing, topology.nextActions?.[0] || `cw topology summary ${run.id}`, String(topology.id));
         if (topology.status === "blocked" || topology.status === "failed")
-            add(String(topology.id), "topology", String(topology.status), `topology ${topology.id} is ${topology.status}`, `node scripts/cw.js topology summary ${run.id}`, String(topology.id));
+            add(String(topology.id), "topology", String(topology.status), `topology ${topology.id} is ${topology.status}`, `cw topology summary ${run.id}`, String(topology.id));
     }
     for (const feedback of feedbackOf(run)) {
         if (feedback.status === "open" || feedback.status === "tasked")
-            add(String(feedback.id), String(feedback.classification), String(feedback.status), String(feedback.message), `node scripts/cw.js feedback show ${run.id} ${feedback.id}`, feedback.taskId, feedback.nodeId);
+            add(String(feedback.id), String(feedback.classification), String(feedback.status), String(feedback.message), `cw feedback show ${run.id} ${feedback.id}`, feedback.taskId, feedback.nodeId);
     }
     for (const candidate of candidatesOf(run)) {
         const scores = candidate.scores || [];
         if (candidate.status === "rejected" || candidate.status === "failed")
-            add(String(candidate.id), "candidate", String(candidate.status), candidate.feedbackIds?.[0] || `candidate ${candidate.id} is ${candidate.status}`, `node scripts/cw.js candidate show ${run.id} ${candidate.id}`, candidate.workerId, candidate.taskId);
+            add(String(candidate.id), "candidate", String(candidate.status), candidate.feedbackIds?.[0] || `candidate ${candidate.id} is ${candidate.status}`, `cw candidate show ${run.id} ${candidate.id}`, candidate.workerId, candidate.taskId);
         if (!scores.length && candidate.status !== "rejected" && candidate.status !== "failed")
-            add(String(candidate.id), "candidate-score-gap", String(candidate.status), `candidate ${candidate.id} has no score`, `node scripts/cw.js multi-agent score ${run.id} --candidate ${candidate.id} --evidence <path-or-ref>`, candidate.workerId, candidate.taskId);
+            add(String(candidate.id), "candidate-score-gap", String(candidate.status), `candidate ${candidate.id} has no score`, `cw multi-agent score ${run.id} --candidate ${candidate.id} --evidence <path-or-ref>`, candidate.workerId, candidate.taskId);
         if (!candidate.verifierNodeId)
-            add(`${candidate.id}:verifier`, "candidate-verifier-gap", String(candidate.status), `candidate ${candidate.id} has no verifier gate`, `node scripts/cw.js candidate show ${run.id} ${candidate.id}`, candidate.workerId, candidate.taskId);
+            add(`${candidate.id}:verifier`, "candidate-verifier-gap", String(candidate.status), `candidate ${candidate.id} has no verifier gate`, `cw candidate show ${run.id} ${candidate.id}`, candidate.workerId, candidate.taskId);
     }
     if (candidatesOf(run).some((candidate) => (candidate.scores || []).length) && !selectionsOf(run).length) {
-        add("selection-gap", "selection", "missing", "scored candidates exist but no selection is recorded", `node scripts/cw.js multi-agent select ${run.id} --candidate <candidate-id> --reason "<rationale>"`);
+        add("selection-gap", "selection", "missing", "scored candidates exist but no selection is recorded", `cw multi-agent select ${run.id} --candidate <candidate-id> --reason "<rationale>"`);
     }
     for (const dep of dependencies.filter((entry) => entry.status === "blocked"))
-        add(dep.id, "ambiguous-dependency", dep.status, dep.reason || "dependency is blocked", dep.nextCommand || `node scripts/cw.js multi-agent status ${run.id} --json`);
+        add(dep.id, "ambiguous-dependency", dep.status, dep.reason || "dependency is blocked", dep.nextCommand || `cw multi-agent status ${run.id} --json`);
     const readySelection = firstUngatedSelection(run);
     if (readySelection)
-        add(String(readySelection.id), "commit-gate", "not-ready", `selection ${readySelection.id} has no verifier-gated commit`, `node scripts/cw.js commit ${run.id} --selection ${readySelection.id} --reason "<verified rationale>"`, readySelection.candidateId);
+        add(String(readySelection.id), "commit-gate", "not-ready", `selection ${readySelection.id} has no verifier-gated commit`, `cw commit ${run.id} --selection ${readySelection.id} --reason "<verified rationale>"`, readySelection.candidateId);
     return uniqueByFailure(rows).sort((left, right) => (0, collate_1.stableCompare)(left.kind, right.kind) || (0, collate_1.stableCompare)(left.id, right.id));
 }
 function deriveEvidence(run) {
@@ -517,7 +517,7 @@ function firstUngatedSelection(run) {
 }
 function readyCommitCommand(run) {
     const selection = firstUngatedSelection(run);
-    return selection ? `node scripts/cw.js commit ${run.id} --selection ${selection.id} --reason "<verified rationale>"` : undefined;
+    return selection ? `cw commit ${run.id} --selection ${selection.id} --reason "<verified rationale>"` : undefined;
 }
 function normalizeEvidenceStatus(row) {
     if (row.rejectedBy.length)

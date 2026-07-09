@@ -286,7 +286,7 @@ Unknown command: <verb>
 No run selected
 
 Next Action
-  node scripts/cw.js plan <workflow-id> --repo <path>
+  cw plan <workflow-id> --repo <path>
     reason: No run id is available yet; create a workflow run before dispatching or recording evidence.
 ```
 (src/cli/command-surface.ts:261; src/operator-ux.ts:222-230). Under `--json`: `{ "runId": null, "nextActions": [ { "command": ..., "reason": ..., "priority": "high" } ] }`.
@@ -396,40 +396,40 @@ apply (ledger.ts:102):
 ### Usage strings (thrown; land on stderr as `cw: Usage: ...`)
 
 ```
-Usage: cw.js app list|show|validate|init|package|run [app-id|path]
-Usage: cw.js state check <run-id> [--state PATH] [--write]
-Usage: cw.js audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]
-Usage: cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>
-Usage: cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT
-Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]
-Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]
-Usage: cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]
-Usage: cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection
-Usage: cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>
+Usage: cw app list|show|validate|init|package|run [app-id|path]
+Usage: cw state check <run-id> [--state PATH] [--write]
+Usage: cw audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]
+Usage: cw blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>
+Usage: cw coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT
+Usage: cw candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]
+Usage: cw clones list [--json] | clones gc [--older-than-days N] [--all] [--json]
+Usage: cw comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]
+Usage: cw review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection
+Usage: cw eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>
 Usage: cw ledger propose|review|verify|apply|list [options]
-Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]
-Usage: cw.js telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]
-Usage: cw.js demo tamper|bundle [--json]
-Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]
-Usage: cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]
-Usage: cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]
-Usage: cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]
-Usage: cw.js contract show <run-id> [contract-id]
-Usage: cw.js migration list|check|prove [target] [--contract run-state|workflow-app]
-Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]
-Usage: cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]
-Usage: cw.js operator status|report <run-id> [--json]
-Usage: cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>
-Usage: cw.js summary refresh|show <run-id> [--json]
-Usage: cw.js orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)
-Usage: cw.js registry refresh|show [--scope repo|home] [--json]
-Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]
-Usage: cw.js run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw.js run <app> --drive [--once] [--incremental] [--repo R --question Q]
-Usage: cw.js schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon
-Usage: cw.js routine create|list|delete|fire|events
-Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]
-Usage: cw.js workbench serve [--port N] [--once] | view <run-id> [--json]
-Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]
+Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]
+Usage: cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]
+Usage: cw demo tamper|bundle [--json]
+Usage: cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]
+Usage: cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]
+Usage: cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]
+Usage: cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]
+Usage: cw contract show <run-id> [contract-id]
+Usage: cw migration list|check|prove [target] [--contract run-state|workflow-app]
+Usage: cw feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]
+Usage: cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--json]
+Usage: cw operator status|report <run-id> [--json]
+Usage: cw topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>
+Usage: cw summary refresh|show <run-id> [--json]
+Usage: cw orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)
+Usage: cw registry refresh|show [--scope repo|home] [--json]
+Usage: cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]
+Usage: cw run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw run <app> --drive [--once] [--incremental] [--repo R --question Q]
+Usage: cw schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon
+Usage: cw routine create|list|delete|fire|events
+Usage: cw sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]
+Usage: cw workbench serve [--port N] [--once] | view <run-id> [--json]
+Usage: cw worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]
 ```
 
 ### `update` (stderr)
@@ -537,7 +537,7 @@ Every claim above carries its pointer inline. Key anchors: src/cli.ts:5-29; src/
 2. **Exit-code sites.** 25+ separate fail-closed exits with different conditions (`--strict` only, `reclaimed && !verified`, two sites in `eval gate`, absent-vs-corrupt in `audit verify`/`telemetry verify`). Merging or "cleaning up" any one changes behavior.
 3. **Channel split.** Human chrome on stderr, TTY-gated; data on stdout, never styled, byte-exact under `FORCE_COLOR`; the summary fully off under `--json`. Any styled write to stdout breaks the parity and render tests.
 4. **JSON-mode per verb.** Which verbs are always-JSON, flag-gated, or human-only is registry-declared and test-enforced; hand-copying it wrongly for even one verb trips `cli-jsonmode-parity-smoke`.
-5. **Exact strings.** Usage lines say `cw.js ...` (one says `cw ledger ...`); the help text, `Try:`/`Next:` lines, `Missing <label>.` tip, and clones/findings tables are byte-pinned by tests and by the parity help-token parser (2-space rule).
+5. **Exact strings.** Usage lines say `cw ...` (every family, including `ledger`); the help text, `Try:`/`Next:` lines, `Missing <label>.` tip, and clones/findings tables are byte-pinned by tests and by the parity help-token parser (2-space rule).
 6. **The `run` verb's two faces.** The `--drive` intercept must NOT fire when the first positional is a registry keyword; and `run drive <id>` is a preview unless `--step`.
 7. **Shorthand and precedence.** `-dir` works because unknown single-dash names keep their name; `--repo` beats `dir`; `-q` as the COMMAND consumes its positional; vendor flags rewrite `agent-command`.
 8. **Ledger byte fidelity.** The proposal `--diff` must pass through untrimmed, and bad-JSON input must yield the exact refusal objects with exit 1, not a crash.

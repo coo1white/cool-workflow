@@ -33,26 +33,26 @@ The harness is file-first by design:
 Create a snapshot from a multi-agent run:
 
 ```bash
-node scripts/cw.js eval snapshot <run-id> --id <suite-id>
-node scripts/cw.js eval snapshot <run-id> --id <suite-id> --json
+cw eval snapshot <run-id> --id <suite-id>
+cw eval snapshot <run-id> --id <suite-id> --json
 ```
 
 Replay without live agents:
 
 ```bash
-node scripts/cw.js eval replay .cw/evals/<suite-id>/snapshot.json
+cw eval replay .cw/evals/<suite-id>/snapshot.json
 ```
 
 Compare, score, gate, and report:
 
 ```bash
-node scripts/cw.js eval compare \
+cw eval compare \
   .cw/evals/<suite-id>/snapshot.json \
   .cw/evals/<suite-id>/replay-run.json
 
-node scripts/cw.js eval score .cw/evals/<suite-id>/replay-run.json
-node scripts/cw.js eval gate .cw/evals/<suite-id>
-node scripts/cw.js eval report .cw/evals/<suite-id>/replay-run.json
+cw eval score .cw/evals/<suite-id>/replay-run.json
+cw eval gate .cw/evals/<suite-id>
+cw eval report .cw/evals/<suite-id>/replay-run.json
 ```
 
 `npm run eval:replay` runs the deterministic smoke suite. It is part of
@@ -172,12 +172,12 @@ Use this harness after a topology-backed run gets a score, a selection, and a
 verifier-gated commit:
 
 ```bash
-node scripts/cw.js eval snapshot <run-id> --id release-replay
-node scripts/cw.js eval replay .cw/evals/release-replay/snapshot.json
-node scripts/cw.js eval compare .cw/evals/release-replay/snapshot.json .cw/evals/release-replay/replay-run.json
-node scripts/cw.js eval score .cw/evals/release-replay/replay-run.json
-node scripts/cw.js eval gate .cw/evals/release-replay
-node scripts/cw.js eval report .cw/evals/release-replay/replay-run.json
+cw eval snapshot <run-id> --id release-replay
+cw eval replay .cw/evals/release-replay/snapshot.json
+cw eval compare .cw/evals/release-replay/snapshot.json .cw/evals/release-replay/replay-run.json
+cw eval score .cw/evals/release-replay/replay-run.json
+cw eval gate .cw/evals/release-replay
+cw eval report .cw/evals/release-replay/replay-run.json
 ```
 
 The gate proves the replay finished, graph/dependencies stayed stable,

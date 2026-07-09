@@ -103,7 +103,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js app list|show|validate|init|package|run [app-id|path]");
+        throw new Error("Usage: cw app list|show|validate|init|package|run [app-id|path]");
     },
 }, "app.usage exists only to own the fixed usage-error text for an unrecognized app subcommand; every real app.* action is its own capability row above.");
 // ---------------------------------------------------------------------
@@ -115,188 +115,188 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
 // only ever reached when no 2-token real row for that family matched.
 // `hiddenFromHelp` keeps each off its own `cw help <verb>` line.
 // ---------------------------------------------------------------------
-(0, registry_core_1.addCliOnlyCapability)("sandbox.usage", "cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]", {
+(0, registry_core_1.addCliOnlyCapability)("sandbox.usage", "cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]", {
     path: ["sandbox"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
+        throw new Error("Usage: cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
     },
 }, "sandbox.usage exists only to own the fixed usage-error text for an unrecognized sandbox subcommand; every real sandbox.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("state.usage", "cw.js state check <run-id> [--state PATH] [--write]", {
+(0, registry_core_1.addCliOnlyCapability)("state.usage", "cw state check <run-id> [--state PATH] [--write]", {
     path: ["state"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js state check <run-id> [--state PATH] [--write]");
+        throw new Error("Usage: cw state check <run-id> [--state PATH] [--write]");
     },
 }, "state.usage exists only to own the fixed usage-error text for an unrecognized state subcommand; every real state.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("audit.usage", "cw.js audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]", {
+(0, registry_core_1.addCliOnlyCapability)("audit.usage", "cw audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]", {
     path: ["audit"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]");
+        throw new Error("Usage: cw audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]");
     },
 }, "audit.usage exists only to own the fixed usage-error text for an unrecognized audit subcommand; every real audit.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("blackboard.usage", "cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>", {
+(0, registry_core_1.addCliOnlyCapability)("blackboard.usage", "cw blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>", {
     path: ["blackboard"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
+        throw new Error("Usage: cw blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
     },
 }, "blackboard.usage exists only to own the fixed usage-error text for an unrecognized blackboard subcommand; every real blackboard.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("candidate.usage", "cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]", {
+(0, registry_core_1.addCliOnlyCapability)("candidate.usage", "cw candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]", {
     path: ["candidate"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
+        throw new Error("Usage: cw candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
     },
 }, "candidate.usage exists only to own the fixed usage-error text for an unrecognized candidate subcommand; every real candidate.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("comment.usage", "cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]", {
+(0, registry_core_1.addCliOnlyCapability)("comment.usage", "cw comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]", {
     path: ["comment"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]");
+        throw new Error("Usage: cw comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]");
     },
 }, "comment.usage exists only to own the fixed usage-error text for an unrecognized comment subcommand; every real comment.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("eval.usage", "cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>", {
+(0, registry_core_1.addCliOnlyCapability)("eval.usage", "cw eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>", {
     path: ["eval"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>");
+        throw new Error("Usage: cw eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>");
     },
 }, "eval.usage exists only to own the fixed usage-error text for an unrecognized eval subcommand; every real eval.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("telemetry.usage", "cw.js telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]", {
+(0, registry_core_1.addCliOnlyCapability)("telemetry.usage", "cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]", {
     path: ["telemetry"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]");
+        throw new Error("Usage: cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]");
     },
 }, "telemetry.usage exists only to own the fixed usage-error text for an unrecognized telemetry subcommand; every real telemetry.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("demo.usage", "cw.js demo tamper|bundle [--json]", {
+(0, registry_core_1.addCliOnlyCapability)("demo.usage", "cw demo tamper|bundle [--json]", {
     path: ["demo"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js demo tamper|bundle [--json]");
+        throw new Error("Usage: cw demo tamper|bundle [--json]");
     },
 }, "demo.usage exists only to own the fixed usage-error text for an unrecognized demo subcommand; every real demo.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("multi-agent.usage", "cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]", {
+(0, registry_core_1.addCliOnlyCapability)("multi-agent.usage", "cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]", {
     path: ["multi-agent"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]");
+        throw new Error("Usage: cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]");
     },
 }, "multi-agent.usage exists only to own the fixed usage-error text for an unrecognized multi-agent subcommand; every real multi-agent.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("node.usage", "cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]", {
+(0, registry_core_1.addCliOnlyCapability)("node.usage", "cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]", {
     path: ["node"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
+        throw new Error("Usage: cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
     },
 }, "node.usage exists only to own the fixed usage-error text for an unrecognized node subcommand; every real node.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("backend.usage", "cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]", {
+(0, registry_core_1.addCliOnlyCapability)("backend.usage", "cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]", {
     path: ["backend"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js backend list|show|probe [backend-id]  |  cw.js backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]");
+        throw new Error("Usage: cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]");
     },
 }, "backend.usage exists only to own the fixed usage-error text for an unrecognized backend subcommand; every real backend.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("contract.usage", "cw.js contract show <run-id> [contract-id]", {
+(0, registry_core_1.addCliOnlyCapability)("contract.usage", "cw contract show <run-id> [contract-id]", {
     path: ["contract"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js contract show <run-id> [contract-id]");
+        throw new Error("Usage: cw contract show <run-id> [contract-id]");
     },
 }, "contract.usage exists only to own the fixed usage-error text for an unrecognized contract subcommand; every real contract.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("migration.usage", "cw.js migration list|check|prove [target] [--contract run-state|workflow-app]", {
+(0, registry_core_1.addCliOnlyCapability)("migration.usage", "cw migration list|check|prove [target] [--contract run-state|workflow-app]", {
     path: ["migration"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js migration list|check|prove [target] [--contract run-state|workflow-app]");
+        throw new Error("Usage: cw migration list|check|prove [target] [--contract run-state|workflow-app]");
     },
 }, "migration.usage exists only to own the fixed usage-error text for an unrecognized migration subcommand; every real migration.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("feedback.usage", "cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]", {
+(0, registry_core_1.addCliOnlyCapability)("feedback.usage", "cw feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]", {
     path: ["feedback"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
+        throw new Error("Usage: cw feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
     },
 }, "feedback.usage exists only to own the fixed usage-error text for an unrecognized feedback subcommand; every real feedback.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("metrics.usage", "cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]", {
+(0, registry_core_1.addCliOnlyCapability)("metrics.usage", "cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]", {
     path: ["metrics"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]");
+        throw new Error("Usage: cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]");
     },
 }, "metrics.usage exists only to own the fixed usage-error text for an unrecognized metrics subcommand; every real metrics.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("operator.usage", "cw.js operator status|report <run-id> [--json]", {
+(0, registry_core_1.addCliOnlyCapability)("operator.usage", "cw operator status|report <run-id> [--json]", {
     path: ["operator"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js operator status|report <run-id> [--json]");
+        throw new Error("Usage: cw operator status|report <run-id> [--json]");
     },
 }, "operator.usage exists only to own the fixed usage-error text for an unrecognized operator subcommand; every real operator.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("topology.usage", "cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>", {
+(0, registry_core_1.addCliOnlyCapability)("topology.usage", "cw topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>", {
     path: ["topology"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>");
+        throw new Error("Usage: cw topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>");
     },
 }, "topology.usage exists only to own the fixed usage-error text for an unrecognized topology subcommand; every real topology.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("summary.usage", "cw.js summary refresh|show <run-id> [--json]", {
+(0, registry_core_1.addCliOnlyCapability)("summary.usage", "cw summary refresh|show <run-id> [--json]", {
     path: ["summary"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js summary refresh|show <run-id> [--json]");
+        throw new Error("Usage: cw summary refresh|show <run-id> [--json]");
     },
 }, "summary.usage exists only to own the fixed usage-error text for an unrecognized summary subcommand; every real summary.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("workbench.usage", "cw.js workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]", {
+(0, registry_core_1.addCliOnlyCapability)("workbench.usage", "cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]", {
     path: ["workbench"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]");
+        throw new Error("Usage: cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]");
     },
 }, "workbench.usage exists only to own the fixed usage-error text for an unrecognized workbench subcommand; every real workbench.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("worker.usage", "cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]", {
+(0, registry_core_1.addCliOnlyCapability)("worker.usage", "cw worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]", {
     path: ["worker"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
+        throw new Error("Usage: cw worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
     },
 }, "worker.usage exists only to own the fixed usage-error text for an unrecognized worker subcommand; every real worker.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("review.usage", "cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection", {
+(0, registry_core_1.addCliOnlyCapability)("review.usage", "cw review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection", {
     path: ["review"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection");
+        throw new Error("Usage: cw review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection");
     },
 }, "review.usage exists only to own the fixed usage-error text for an unrecognized review subcommand; every real review.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("coordinator.usage", "cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT", {
+(0, registry_core_1.addCliOnlyCapability)("coordinator.usage", "cw coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT", {
     path: ["coordinator"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw.js coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT");
+        throw new Error("Usage: cw coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT");
     },
 }, "coordinator.usage exists only to own the fixed usage-error text for an unrecognized coordinator subcommand; every real coordinator.* action is its own capability row above.");
 // ---- man (CLI-only; raw manual-page bytes to stdout, no MCP peer) -----

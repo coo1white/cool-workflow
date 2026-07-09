@@ -93,10 +93,10 @@ commit stage.
 Commands that look at runs print stable JSON:
 
 ```text
-cw.js contract show <run-id> [contract-id]
-cw.js node list <run-id>
-cw.js node show <run-id> <node-id>
-cw.js node graph <run-id>
+cw contract show <run-id> [contract-id]
+cw node list <run-id>
+cw node show <run-id> <node-id>
+cw node graph <run-id>
 ```
 
 ## EXAMPLES

@@ -30,21 +30,21 @@ drive a run.
 Make or join a topology-backed run without starting up workers:
 
 ```bash
-node scripts/cw.js multi-agent run <run-id> --topology judge-panel --task <task-id>
-node scripts/cw.js multi-agent run --app architecture-review --repo /path/to/repo --question "Review this" --topology map-reduce
+cw multi-agent run <run-id> --topology judge-panel --task <task-id>
+cw multi-agent run --app architecture-review --repo /path/to/repo --question "Review this" --topology map-reduce
 ```
 
 Read the joined host status:
 
 ```bash
-node scripts/cw.js multi-agent status <run-id>
-node scripts/cw.js multi-agent status <run-id> --json
+cw multi-agent status <run-id>
+cw multi-agent status <run-id> --json
 ```
 
 Do one deterministic step at a time:
 
 ```bash
-node scripts/cw.js multi-agent step <run-id> --sandbox readonly
+cw multi-agent step <run-id> --sandbox readonly
 ```
 
 `step` may make a dispatch manifest, get fanin, snapshot the blackboard,
@@ -55,19 +55,19 @@ command. It never starts up agents on its own.
 Work with the active blackboard when it is clear which one it is:
 
 ```bash
-node scripts/cw.js multi-agent blackboard <run-id> summary
-node scripts/cw.js multi-agent blackboard <run-id> topics
-node scripts/cw.js multi-agent blackboard <run-id> post --topic <topic-id> --body "finding" --evidence <ref>
-node scripts/cw.js multi-agent blackboard <run-id> add-artifact --topic <topic-id> --kind worker-result --path result.md
-node scripts/cw.js multi-agent blackboard <run-id> snapshot
+cw multi-agent blackboard <run-id> summary
+cw multi-agent blackboard <run-id> topics
+cw multi-agent blackboard <run-id> post --topic <topic-id> --body "finding" --evidence <ref>
+cw multi-agent blackboard <run-id> add-artifact --topic <topic-id> --kind worker-result --path result.md
+cw multi-agent blackboard <run-id> snapshot
 ```
 
 Score and select in a clear way:
 
 ```bash
-node scripts/cw.js multi-agent score <run-id> <candidate-id> --criterion correctness=1 --criterion evidence=1 --evidence <ref>
-node scripts/cw.js multi-agent select <run-id> <candidate-id> --score <score-id> --reason "verifier-backed candidate"
-node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified winner"
+cw multi-agent score <run-id> <candidate-id> --criterion correctness=1 --criterion evidence=1 --evidence <ref>
+cw multi-agent select <run-id> <candidate-id> --score <score-id> --reason "verifier-backed candidate"
+cw commit <run-id> --selection <selection-id> --reason "verified winner"
 ```
 
 ## Operator Inspection
@@ -75,10 +75,10 @@ node scripts/cw.js commit <run-id> --selection <selection-id> --reason "verified
 v0.1.21 adds to the host loop these pointed operator commands:
 
 ```bash
-node scripts/cw.js multi-agent graph <run-id>
-node scripts/cw.js multi-agent dependencies <run-id>
-node scripts/cw.js multi-agent failures <run-id>
-node scripts/cw.js multi-agent evidence <run-id>
+cw multi-agent graph <run-id>
+cw multi-agent dependencies <run-id>
+cw multi-agent failures <run-id>
+cw multi-agent evidence <run-id>
 ```
 
 The human output is short and ready to use: agent graph, dependencies, failed

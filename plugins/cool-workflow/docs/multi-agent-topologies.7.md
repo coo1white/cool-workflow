@@ -44,12 +44,12 @@ candidates, selections, commits, and trust audit events.
 ## CLI
 
 ```bash
-node scripts/cw.js topology list
-node scripts/cw.js topology show map-reduce
-node scripts/cw.js topology validate map-reduce
-node scripts/cw.js topology apply <run-id> map-reduce --task map:server-api --mapper-count 2
-node scripts/cw.js topology summary <run-id>
-node scripts/cw.js topology graph <run-id>
+cw topology list
+cw topology show map-reduce
+cw topology validate map-reduce
+cw topology apply <run-id> map-reduce --task map:server-api --mapper-count 2
+cw topology summary <run-id>
+cw topology graph <run-id>
 ```
 
 Apply commands are JSON-first. `summary` and `graph` also give human output

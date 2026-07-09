@@ -16,13 +16,13 @@ const {
 ```
 
 ```bash
-node scripts/cw.js app list
-node scripts/cw.js app show workflow-app-framework-demo
-node scripts/cw.js app validate apps/workflow-app-framework-demo/app.json
-node scripts/cw.js app show architecture-review
+cw app list
+cw app show workflow-app-framework-demo
+cw app validate apps/workflow-app-framework-demo/app.json
+cw app show architecture-review
 npm run canonical-apps
-node scripts/cw.js app init my-app --title "My App"
-node scripts/cw.js plan my-app --question "What should happen?"
+cw app init my-app --title "My App"
+cw plan my-app --question "What should happen?"
 ```
 
 ## Description
@@ -170,7 +170,7 @@ App loading fails closed. CW checks:
 - sandbox profile references on the app, workflow, and tasks
 - compatibility limits against the current CW runtime
 
-`cw.js app validate` prints a structured result. Apps that are not valid return nonzero:
+`cw app validate` prints a structured result. Apps that are not valid return nonzero:
 
 ```json
 {
@@ -190,14 +190,14 @@ CW does not quietly change broken apps into workflows that can run.
 ## CLI
 
 ```bash
-node scripts/cw.js app list
-node scripts/cw.js app show <app-id>
-node scripts/cw.js app validate <path-or-app-id>
-node scripts/cw.js app init <app-id> --title "Title"
-node scripts/cw.js app package <app-id> --output app.cwapp.json
+cw app list
+cw app show <app-id>
+cw app validate <path-or-app-id>
+cw app init <app-id> --title "Title"
+cw app package <app-id> --output app.cwapp.json
 ```
 
-`cw.js list`, `cw.js init`, and `cw.js plan` still work the same way. `list` shows
+`cw list`, `cw init`, and `cw plan` still work the same way. `list` shows
 legacy workflow files and first-class app directories. `plan` takes either
 kind by id.
 

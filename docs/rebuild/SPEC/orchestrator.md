@@ -300,7 +300,7 @@ Rules with exact strings:
 
 - `collaborationCommentList` → `{ "schemaVersion": 1, "surface": "collaboration", "runId", "target"?, "count", "comments" }` (src/orchestrator/collaboration-operations.ts:67-78).
 - `reviewPolicy` → `{ "schemaVersion": 1, "surface": "collaboration", "runId", "policy" }` (src/orchestrator/collaboration-operations.ts:125).
-- `auditPolicy` → `{ "schemaVersion": 1, "runId", "rolePolicies", "permissionDecisions", "policyViolations", "nextAction" }`; `auditRole` adds `roleId`, `role`, `blackboardWrites`, `messageProvenance`, `judgeRationales`, `panelDecisions`, `events`, and its `nextAction` is exactly `node scripts/cw.js audit multi-agent <runId> --json`; `auditBlackboard` and `auditJudge` are filtered projections with `schemaVersion: 1` (src/orchestrator/audit-operations.ts:38-93).
+- `auditPolicy` → `{ "schemaVersion": 1, "runId", "rolePolicies", "permissionDecisions", "policyViolations", "nextAction" }`; `auditRole` adds `roleId`, `role`, `blackboardWrites`, `messageProvenance`, `judgeRationales`, `panelDecisions`, `events`, and its `nextAction` is exactly `cw audit multi-agent <runId> --json`; `auditBlackboard` and `auditJudge` are filtered projections with `schemaVersion: 1` (src/orchestrator/audit-operations.ts:38-93).
 - `migrationList` → `{ "contracts": [...] }` (src/orchestrator/migration-operations.ts:9-11).
 - `report(runId)` → `{ "path": "<report.md path>" }` (src/orchestrator.ts:371-374).
 - `init` → `{ "id", "path" }`; `initApp` → `{ "id", "manifestPath", "entrypointPath" }`; `packageApp` → `{ "id", "version", "path" }`; `commit` → `{ "runId", "commit" }` (src/orchestrator.ts:135-148, src/orchestrator/app-operations.ts:170, 203, src/orchestrator/lifecycle-operations.ts:57-60, 455).

@@ -105,14 +105,14 @@ JSON commands print `JSON.stringify(value, null, 2)` plus `"\n"` (src/cli/io.ts:
 Usage errors (exact `Error` messages, printed after `cw: `):
 
 ```text
-Usage: cw.js schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon
-Usage: cw.js routine create|list|delete|fire|events
-Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]
-Usage: cw.js registry refresh|show [--scope repo|home] [--json]
-Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]
-Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]
-Usage: cw.js orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)
-Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]
+Usage: cw schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon
+Usage: cw routine create|list|delete|fire|events
+Usage: cw sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]
+Usage: cw registry refresh|show [--scope repo|home] [--json]
+Usage: cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]
+Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]
+Usage: cw orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)
+Usage: cw clones list [--json] | clones gc [--older-than-days N] [--all] [--json]
 ```
 
 (src/cli/handlers/scheduling.ts:70,102,139; registry.ts:39,64; maintenance.ts:52; orphans.ts:34-37; clones.ts:29)
@@ -225,12 +225,12 @@ Reclaimed ${n} checkout(s) (${scope}) — freed ${humanBytes}; ${kept} kept
 Key JSON result shapes (keys, in code):
 
 - `sched plan`: `{ "schemaVersion":1, "now", "maxConcurrent", "inFlight", "available", "leases":[{ "id","leaseId","leaseExpiresAt","attempts","priority" }], "skipped":[{ "id","reason" }] }`; `reason` ∈ `"concurrency-ceiling"|"parked"|"backoff"|"leased"|"terminal"` (src/types/run-registry.ts:193-206).
-- `registry show/refresh` (`RunRegistryReport`): `{ "schemaVersion":1, "scope", "root", "generatedAt", "freshness":{ "status","persistedFingerprint","currentFingerprint","staleRuns","missingRuns" }, "index", "counts", "nextAction" }`; `status` ∈ `"valid"|"stale"|"absent"`; `nextAction` is `"node scripts/cw.js run search"` when valid, else `"node scripts/cw.js registry refresh"` (`--scope home` added at home scope) (src/run-registry.ts:520-555).
+- `registry show/refresh` (`RunRegistryReport`): `{ "schemaVersion":1, "scope", "root", "generatedAt", "freshness":{ "status","persistedFingerprint","currentFingerprint","staleRuns","missingRuns" }, "index", "counts", "nextAction" }`; `status` ∈ `"valid"|"stale"|"absent"`; `nextAction` is `"cw run search"` when valid, else `"cw registry refresh"` (`--scope home` added at home scope) (src/run-registry.ts:520-555).
 - `orphans list`: `{ "schemaVersion":1, "scope", "repos", "count", "totalBytes", "entries":[{ "repo","runId","path","ageMinutes","bytes" }] }` (src/run-registry/orphans.ts:39-53).
 - `orphans gc`: `{ "schemaVersion":1, "scope", "removed":[{ "repo","runId","path","bytes" }], "freedBytes", "keptCount", "minAgeMinutes", "all" }`; `minAgeMinutes` is `null` with `--all` (src/run-registry/orphans.ts:54-62,190-198).
 - `clones list`: `{ "schemaVersion":1, "clonesDir", "count", "totalBytes", "entries":[{ "hash","url","kind","ref","fetchedAt","commit","bytes" }] }` (src/clones.ts:120-130).
 - `clones gc`: `{ "schemaVersion":1, "clonesDir", "removed":[{ "hash","url","bytes" }], "freedBytes", "keptCount", "olderThanDays", "all" }` (src/clones.ts:173).
-- `gc run` (`GcRunResult`): `{ "schemaVersion":1, "scope", "generatedAt", "dryRun":false, "reclaimed":[{ "runId","bytesFreed","tombstoneHash","capability","capabilityReason" }], "refused":[{ "runId","code" }], "totalBytesFreed", "nextAction" }`; `nextAction` = `"node scripts/cw.js gc verify <run-id>"` when anything was reclaimed, else `"node scripts/cw.js gc plan"` (src/run-registry/gc.ts:212-221).
+- `gc run` (`GcRunResult`): `{ "schemaVersion":1, "scope", "generatedAt", "dryRun":false, "reclaimed":[{ "runId","bytesFreed","tombstoneHash","capability","capabilityReason" }], "refused":[{ "runId","code" }], "totalBytesFreed", "nextAction" }`; `nextAction` = `"cw gc verify <run-id>"` when anything was reclaimed, else `"cw gc plan"` (src/run-registry/gc.ts:212-221).
 - daemon tick: `{ "checkedAt", "dueCount", "dueIds", "inboxPath" }` — single line per tick in daemon mode (src/daemon.ts:12-17,49-52).
 - Routine fire event: `{ "id","triggerId","kind","receivedAt","matched","prompt"?,"payloadPath" }`; matched prompt = `` `${trigger.prompt}\n\ncw:routine\n${JSON.stringify({triggerId,kind,source,workflowId,runId,payload}, null, 2)}` `` (src/triggers.ts:89-97,143-152).
 

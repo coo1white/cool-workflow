@@ -36,26 +36,26 @@ needs evidence, with the `readonly` sandbox profile.
 The runner runs the same public commands that an operator would use:
 
 ```bash
-node scripts/cw.js app validate end-to-end-golden-path
-node scripts/cw.js plan end-to-end-golden-path --repo <tmp> --question "..."
-node scripts/cw.js dispatch <run-id> --limit 1 --sandbox readonly
-node scripts/cw.js worker manifest <run-id> <worker-id>
-node scripts/cw.js worker output <run-id> <worker-id> <result.md>
-node scripts/cw.js candidate register <run-id> --worker <worker-id> --id golden-candidate
-node scripts/cw.js candidate score <run-id> golden-candidate \
+cw app validate end-to-end-golden-path
+cw plan end-to-end-golden-path --repo <tmp> --question "..."
+cw dispatch <run-id> --limit 1 --sandbox readonly
+cw worker manifest <run-id> <worker-id>
+cw worker output <run-id> <worker-id> <result.md>
+cw candidate register <run-id> --worker <worker-id> --id golden-candidate
+cw candidate score <run-id> golden-candidate \
   --criterion correctness=4 \
   --criterion evidence=4 \
   --criterion fit=2 \
   --maxTotal 10 \
   --evidence <file:line>
-node scripts/cw.js candidate rank <run-id>
-node scripts/cw.js candidate select <run-id> golden-candidate --reason "golden path verified"
-node scripts/cw.js commit <run-id> --selection <selection-id> \
+cw candidate rank <run-id>
+cw candidate select <run-id> golden-candidate --reason "golden path verified"
+cw commit <run-id> --selection <selection-id> \
   --reason "golden path verifier-gated commit"
-node scripts/cw.js report <run-id>
-node scripts/cw.js status <run-id>
-node scripts/cw.js graph <run-id>
-node scripts/cw.js report <run-id> --show
+cw report <run-id>
+cw status <run-id>
+cw graph <run-id>
+cw report <run-id> --show
 ```
 
 After dispatch, the script reads the worker manifest it made, and writes a

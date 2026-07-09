@@ -143,10 +143,10 @@ export function buildOperatorDigest(
     expansionCommand: syn.expansionCommand,
   }));
   const expansionCommands = unique([
-    `node scripts/cw.js multi-agent graph ${run.id} --view full --json`,
-    `node scripts/cw.js blackboard message list ${run.id} --topic <topic-id>`,
-    `node scripts/cw.js multi-agent graph ${run.id} --view critical-path`,
-    `node scripts/cw.js multi-agent failures ${run.id} --json`,
+    `cw multi-agent graph ${run.id} --view full --json`,
+    `cw blackboard message list ${run.id} --topic <topic-id>`,
+    `cw multi-agent graph ${run.id} --view critical-path`,
+    `cw multi-agent failures ${run.id} --json`,
     ...compact.syntheticNodes.map((syn) => syn.expansionCommand),
   ]);
   const evidence = operator?.evidence || [];
@@ -187,7 +187,7 @@ export function buildOperatorDigest(
         status: e.status,
         sourceIds: [e.sourceId || e.id].filter(Boolean) as string[],
         evidenceRefs: [e.ref || e.id].filter(Boolean) as string[],
-        expansionCommand: `node scripts/cw.js multi-agent evidence ${run.id} --json`,
+        expansionCommand: `cw multi-agent evidence ${run.id} --json`,
       })),
     },
     trustDigest: {
@@ -273,7 +273,7 @@ export function buildStateExplosionReport(
     if (staleScopes.length) status = "stale";
   }
 
-  const nextAction = status === "stale" || status === "absent" ? `node scripts/cw.js summary refresh ${run.id}` : operatorDigest.nextAction;
+  const nextAction = status === "stale" || status === "absent" ? `cw summary refresh ${run.id}` : operatorDigest.nextAction;
 
   return {
     schemaVersion: STATE_EXPLOSION_SCHEMA_VERSION,

@@ -65,10 +65,10 @@ function buildEvidenceReasoningReport(run, options = {}) {
     if (persisted && persisted.sourceFingerprint !== currentFingerprint)
         status = "stale";
     const nextAction = status === "stale" || status === "absent"
-        ? `node scripts/cw.js multi-agent reasoning ${run.id} --refresh`
+        ? `cw multi-agent reasoning ${run.id} --refresh`
         : totals.unexplained > 0
-            ? `node scripts/cw.js multi-agent reasoning ${run.id} --json`
-            : `node scripts/cw.js multi-agent evidence ${run.id} --json`;
+            ? `cw multi-agent reasoning ${run.id} --json`
+            : `cw multi-agent evidence ${run.id} --json`;
     return {
         schemaVersion: exports.EVIDENCE_REASONING_SCHEMA_VERSION,
         runId: run.id,
@@ -343,7 +343,7 @@ function refreshEvidenceReasoning(run) {
         totals: report.totals,
         entries: entries.sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id)),
         paths: { reasoningDir: dir, indexPath, reportPath },
-        nextAction: `node scripts/cw.js multi-agent reasoning ${run.id}`,
+        nextAction: `cw multi-agent reasoning ${run.id}`,
     };
     (0, fs_atomic_1.writeJson)(indexPath, index);
     (0, fs_atomic_1.writeJson)(reportPath, { ...report, freshness: { ...report.freshness, status: "valid", persistedFingerprint: report.sourceFingerprint } });

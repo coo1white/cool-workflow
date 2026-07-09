@@ -84,14 +84,14 @@ folded.
 ## CLI
 
 ```text
-node scripts/cw.js summary refresh <run-id> [--json] [--view <view> ...]
-node scripts/cw.js summary show <run-id> [--json]
-node scripts/cw.js blackboard summarize <run-id> [--json]
-node scripts/cw.js multi-agent summarize <run-id> [--json]
-node scripts/cw.js multi-agent graph <run-id> --view compact [--json]
-node scripts/cw.js multi-agent graph <run-id> --view critical-path [--json]
-node scripts/cw.js multi-agent graph <run-id> --focus <id> --depth <n> [--json]
-node scripts/cw.js report <run-id> --show
+cw summary refresh <run-id> [--json] [--view <view> ...]
+cw summary show <run-id> [--json]
+cw blackboard summarize <run-id> [--json]
+cw multi-agent summarize <run-id> [--json]
+cw multi-agent graph <run-id> --view compact [--json]
+cw multi-agent graph <run-id> --view critical-path [--json]
+cw multi-agent graph <run-id> --focus <id> --depth <n> [--json]
+cw report <run-id> --show
 ```
 
 Every command supports deterministic JSON with `--json` or `--format json`.
@@ -106,8 +106,8 @@ summaries and tells the operator how to look at the full data, for example:
 
 ```text
 Graph compacted: 420 nodes collapsed into 18 summary nodes
-Use: node scripts/cw.js multi-agent graph <run-id> --view full --json
-Use: node scripts/cw.js blackboard message list <run-id> --topic <topic-id>
+Use: cw multi-agent graph <run-id> --view full --json
+Use: cw blackboard message list <run-id> --topic <topic-id>
 ```
 
 ## MCP parity

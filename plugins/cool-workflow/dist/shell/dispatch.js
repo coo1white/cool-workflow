@@ -145,7 +145,7 @@ function createDispatchManifest(run, limit, options = {}) {
         dispatchId,
         createdAt: now,
         phase: tasks[0].phase,
-        instructions: "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw.js result <run-id> <task-id> <file>`.",
+        instructions: "Spawn one worker per task when the user explicitly authorized agent/parallel/background work. Save each final summary as Markdown and record it with `cw result <run-id> <task-id> <file>`.",
         tasks: selectedRunTasks.map(dispatch_1.formatDispatchTask),
         manifestPath,
         stateNodeId: dispatchNode.id,

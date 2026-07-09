@@ -82,21 +82,21 @@ With the require flag off (the default), none of this changes: a plain
 ## CLI
 
 ```bash
-node scripts/cw.js audit summary <run-id>
-node scripts/cw.js audit worker <run-id> <worker-id>
-node scripts/cw.js audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]
-node scripts/cw.js audit multi-agent <run-id>
-node scripts/cw.js audit policy <run-id>
-node scripts/cw.js audit role <run-id> <role-id>
-node scripts/cw.js audit blackboard <run-id>
-node scripts/cw.js audit judge <run-id>
-node scripts/cw.js audit attest <run-id> --worker <worker-id> --hostEnforced true
-node scripts/cw.js audit decision <run-id> <worker-id> --path <path>
-node scripts/cw.js audit decision <run-id> <worker-id> --command "npm test"
-node scripts/cw.js audit decision <run-id> <worker-id> --network example.com
-node scripts/cw.js audit decision <run-id> <worker-id> --env SECRET_NAME
-node scripts/cw.js worker output <run-id> <worker-id> <result-file> [--allow-unattested]
-node scripts/cw.js result <run-id> <task-id> <result-file> [--allow-unattested]
+cw audit summary <run-id>
+cw audit worker <run-id> <worker-id>
+cw audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]
+cw audit multi-agent <run-id>
+cw audit policy <run-id>
+cw audit role <run-id> <role-id>
+cw audit blackboard <run-id>
+cw audit judge <run-id>
+cw audit attest <run-id> --worker <worker-id> --hostEnforced true
+cw audit decision <run-id> <worker-id> --path <path>
+cw audit decision <run-id> <worker-id> --command "npm test"
+cw audit decision <run-id> <worker-id> --network example.com
+cw audit decision <run-id> <worker-id> --env SECRET_NAME
+cw worker output <run-id> <worker-id> <result-file> [--allow-unattested]
+cw result <run-id> <task-id> <result-file> [--allow-unattested]
 ```
 
 Denied audit decisions are put into audit files and joined to feedback/error

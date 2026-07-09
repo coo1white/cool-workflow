@@ -94,7 +94,7 @@ addCliOnlyCapability(
           return {};
         }
         default:
-          throw new Error("Usage: cw.js schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon");
+          throw new Error("Usage: cw schedule create|list|delete|due|complete|pause|resume|run-now|history|daemon");
       }
     },
   },
@@ -157,7 +157,7 @@ addCliOnlyCapability(
         case "events":
           return { json: registryCli.routineEventsCli(idOrKind, args.options) };
         default:
-          throw new Error("Usage: cw.js routine create|list|delete|fire|events");
+          throw new Error("Usage: cw routine create|list|delete|fire|events");
       }
     },
   },
@@ -221,7 +221,7 @@ addCliOnlyCapability(
           return { json: schedulingIo.schedPolicyShowCli(args.options) };
         }
         default:
-          throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
+          throw new Error("Usage: cw sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
       }
     },
   },
@@ -273,7 +273,7 @@ addCliOnlyCapability(
       let report;
       if (subcommand === "refresh") report = registryCli.registryRefreshCli(args.options);
       else if (subcommand === "show") report = registryCli.registryShowCli(args.options);
-      else throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
+      else throw new Error("Usage: cw registry refresh|show [--scope repo|home] [--json]");
       return { json: report, text: loadRunRegistryIo().formatRegistryReport(report) };
     },
   },
@@ -330,7 +330,7 @@ addCliOnlyCapability(
         case "show":
           return { json: registryCli.queueShowCli(required(id, "queue id"), args.options) };
         default:
-          throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
+          throw new Error("Usage: cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
       }
     },
   },
@@ -401,7 +401,7 @@ addCliOnlyCapability(
           return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
         }
         default:
-          throw new Error("Usage: cw.js gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
+          throw new Error("Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
       }
     },
   },
@@ -485,7 +485,7 @@ addCliOnlyCapability(
         }
         default:
           throw new Error(
-            "Usage: cw.js orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)"
+            "Usage: cw orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)"
           );
       }
     },
@@ -546,7 +546,7 @@ addCliOnlyCapability(
           return wantsJson(args.options) ? { json: result } : { json: result, text: reclamationIo.formatClonesGc(result) };
         }
         default:
-          throw new Error("Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
+          throw new Error("Usage: cw clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
       }
     },
   },

@@ -52,7 +52,7 @@ assert.match(status, /Feedback/);
 assert.match(status, /Commits/);
 assert.match(status, /Trust Audit/);
 assert.match(status, /Next Action/);
-assert.match(status, /node scripts\/cw\.js dispatch .* --limit 1/);
+assert.match(status, /cw dispatch .* --limit 1/);
 
 const statusJson = runJson(["status", plan.runId, "--json"], tmp);
 assert.equal(statusJson.runId, plan.runId);
@@ -66,7 +66,7 @@ assert.ok(workerId);
 
 status = runText(["status", plan.runId], tmp);
 assert.match(status, /Stage: act/);
-assert.match(status, /node scripts\/cw\.js worker manifest/);
+assert.match(status, /cw worker manifest/);
 assert.match(status, new RegExp(workerId));
 
 let workerSummary = runText(["worker", "summary", plan.runId], tmp);
@@ -81,12 +81,12 @@ writeWorkerResult(workerManifest.resultPath, evidenceLocator);
 runJson(["worker", "output", plan.runId, workerId, workerManifest.resultPath], tmp);
 
 status = runText(["status", plan.runId], tmp);
-assert.match(status, /node scripts\/cw\.js candidate register/);
+assert.match(status, /cw candidate register/);
 
 const candidate = runJson(["candidate", "register", plan.runId, "--worker", workerId, "--id", "operator-candidate"], tmp);
 assert.equal(candidate.status, "registered");
 status = runText(["status", plan.runId], tmp);
-assert.match(status, /node scripts\/cw\.js candidate score/);
+assert.match(status, /cw candidate score/);
 
 const score = runJson(
   [
@@ -109,19 +109,19 @@ const score = runJson(
 );
 assert.equal(score.verdict, "pass");
 status = runText(["status", plan.runId], tmp);
-assert.match(status, /node scripts\/cw\.js candidate rank/);
-assert.match(status, /node scripts\/cw\.js candidate select/);
+assert.match(status, /cw candidate rank/);
+assert.match(status, /cw candidate select/);
 
 runJson(["candidate", "rank", plan.runId], tmp);
 const selection = runJson(["candidate", "select", plan.runId, "operator-candidate", "--reason", "operator smoke selected"], tmp);
 status = runText(["status", plan.runId], tmp);
 assert.match(status, /ready for commit=operator-candidate/);
-assert.match(status, /node scripts\/cw\.js commit .* --selection/);
+assert.match(status, /cw commit .* --selection/);
 
 runJson(["commit", plan.runId, "--selection", selection.id, "--reason", "operator smoke verifier-gated commit"], tmp);
 status = runText(["status", plan.runId], tmp);
 assert.match(status, /verifier-gated=1/);
-assert.match(status, /node scripts\/cw\.js report .* --show/);
+assert.match(status, /cw report .* --show/);
 
 const graph = runText(["graph", plan.runId], tmp);
 assert.match(graph, /Run Graph:/);

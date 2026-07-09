@@ -195,7 +195,7 @@ metrics <runId>  [valid|stale|absent]  app=<app|->
   usage: attested=1/2 units (coverage 50%), unreported=1; tokens in=12000 out=3400 total=15400
   cost:  state=unpriced
   models: claude-opus-4-8
-  next: node scripts/cw.js metrics show <runId> --json
+  next: cw metrics show <runId> --json
 ```
 
 Rates render as `n/a (0 samples)` or `<pp.p>% (<count>/<total>)`; times as `—`, `<n>ms` under one second, else `<s.s>s`. Cost renders as `state=<s>` plus `attested=<cur> <n>`, `estimated=<cur> <n>`, `unpriced-models=<a,b>` only when present (format.ts:8-25). The summary head line is `metrics summary  scope=<s>  runs=<n>` plus ` (+<n> unreadable)` when some runs did not load; then per-app lines `  app <id>: runs=… verifier=… cost=…` and per-backend lines `  backend <id>: runs=… failure=…` (format.ts:52-68).
@@ -236,7 +236,7 @@ Import throw messages (byte-pinned, src/run-export.ts:814-823): `Archive digest 
 
 - `cw status <id> --summary` (src/operator-ux/format.ts:60-73): `Run: <id>`, `Workflow: <id> (<app>@<version>)`, `Phase: <name|none> | Stage: <stage> | Blocked: <reasons|no>`, `Tasks: <k=v, …>; total=<n>`, one line per phase `  <name>: <status> (<done>/<total> completed)`, empty line, `Next Action`, `  <command>` + `    reason: <reason>` per action, empty line, dim `(use --verbose for full worker/candidate/feedback/commit/trust panels)`.
 - The full `cw status <id>` adds panels in this order: `Workers`, `Candidates`, `Feedback`, `Commits`, `Topologies`, `Multi-Agent`, `Multi-Agent Operator UX`, `Blackboard / Coordinator`, `Trust Audit`, `Multi-Agent Trust: <run>`, then `Report: <path>` (src/operator-ux/format.ts:26-55).
-- `cw report <id> --show` adds `Active and Pending Tasks`, `Evidence` (or `  none recorded`), the multi-agent dependency/failure/evidence panels, and a fixed `Resource Commands` list of 18 `node scripts/cw.js …` lines (src/operator-ux/format.ts:75-114).
+- `cw report <id> --show` adds `Active and Pending Tasks`, `Evidence` (or `  none recorded`), the multi-agent dependency/failure/evidence panels, and a fixed `Resource Commands` list of 18 `cw …` lines (src/operator-ux/format.ts:75-114).
 - `cw graph <id>` human form: `Run Graph: <id>`, `Nodes`, groups by kind sorted, `    [<status>] <id> (<label>) -> <path>`, then `Edges` with `  <from> -> <to> (<label>)` or `  none` (src/operator-ux/format.ts:116-132).
 - The graph JSON is `{ runId, nodes[], edges[] }`; nodes sort by kind then id; edges are made unique on `from<US>to<US>label` and sort by from/to/label (src/operator-ux.ts:421-425,723-747). Node kinds seen: `run`, `phase`, `task`, `dispatch`, `worker`, `candidate`, `selection`, `commit`, `feedback`, plus every state node and the multi-agent / topology / blackboard graphs merged in (src/operator-ux.ts:362-419).
 - Next-action advice order (first match wins): open feedback → failed worker → running tasks → active topology → pending tasks (`dispatch … --limit <n>`) → blackboard not ready → topology next action → all complete with gated commit (`report --show`) → completed worker with no candidate → unscored candidate → scored without selection → ready-for-commit → fallback `report --show` (src/operator-ux.ts:434-577).

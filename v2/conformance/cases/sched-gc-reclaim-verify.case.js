@@ -45,7 +45,7 @@ caseMain(() => {
   assert.equal(reclaimed.capability, "re-runnable");
   assert.equal(reclaimed.capabilityReason, "scratch-only-reclaimed");
   assert.equal(gcRunReport.totalBytesFreed, reclaimed.bytesFreed);
-  assert.equal(gcRunReport.nextAction, "node scripts/cw.js gc verify <run-id>");
+  assert.equal(gcRunReport.nextAction, "cw gc verify <run-id>");
 
   const verify = run(["gc", "verify", runId, "--json"], { cwd: repo });
   assert.equal(verify.status, 0);

@@ -372,10 +372,10 @@ function expectFail(args, re, why) {
 expectFail(["approve"], /Missing run id/, "approve no-args -> required(run id)");
 expectFail(["reject"], /Missing run id/, "reject no-args -> required(run id)");
 // comment with no subcommand falls past add/list to the Usage throw (NOT required).
-expectFail(["comment"], /Usage: cw\.js comment add/, "comment no-subcommand -> Usage throw");
+expectFail(["comment"], /Usage: cw comment add/, "comment no-subcommand -> Usage throw");
 // handoff: first required() is on the target-kind positional → "Missing target kind".
 expectFail(["handoff"], /Missing target kind/, "handoff no-args -> required(target kind)");
 // review with no subcommand falls past status/policy to the Usage throw (NOT required).
-expectFail(["review"], /Usage: cw\.js review status/, "review no-subcommand -> Usage throw");
+expectFail(["review"], /Usage: cw review status/, "review no-subcommand -> Usage throw");
 
 process.stdout.write("team-collaboration-smoke: ok\n");
