@@ -147,6 +147,7 @@ Flags
   --verbose              Show full agent narration live (default: compact)
   --full                 Verbose, plus the report printed inline at the end
   --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)
+  --json                 Print JSON for commands that support it
 
 More commands
   <pipe-joined command tokens, 2-space indent, wrapped at 76 columns>
