@@ -156,7 +156,7 @@ More commands
     Run  cw help <command>  for one command's subcommands and descriptions.
 ```
 
-The "More commands" token list is this exact space-separated set, then pipe-joined with no spaces: `list search info init plan status next dispatch result state commit report app sandbox backend contract node feedback worker audit candidate review loop schedule routine registry run queue clones orphans history quickstart audit-run multi-agent topology summary blackboard coordinator metrics operator sched gc telemetry migration demo workbench approve reject comment handoff ledger graph eval man version update fix`. The last note line has a 4-space indent ON PURPOSE so the parity help-token check (which only parses 2-space lines) never reads it as a command (src/orchestrator.ts:931-981).
+The "More commands" token list is this exact space-separated set, then pipe-joined with no spaces: `list search info init plan status next dispatch result state commit report app sandbox backend contract node feedback worker audit candidate review loop schedule routine registry run queue clones orphans history quickstart audit-run multi-agent topology summary blackboard coordinator metrics operator sched gc telemetry migration demo workbench approve reject comment handoff ledger graph eval man version fix completion`. The last note line has a 4-space indent ON PURPOSE so the parity help-token check (which only parses 2-space lines) never reads it as a command (src/orchestrator.ts:931-981).
 
 ### `formatCommandHelp(verb)`
 

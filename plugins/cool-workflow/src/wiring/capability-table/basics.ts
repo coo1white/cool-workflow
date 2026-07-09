@@ -18,6 +18,8 @@ import { attachCliBinding, addCliOnlyCapability, listBundledWorkflows, listBundl
 
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../../core/version";
 import { formatSearchResults } from "../../core/format/help";
+import { formatCompletionScript } from "../../core/format/completion";
+import { optionalArg } from "../../cli/io";
 
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — a top-level import of
@@ -36,6 +38,24 @@ addCliOnlyCapability(
     handler: () => ({ text: `${CURRENT_COOL_WORKFLOW_VERSION}\n` }),
   },
   "version is a local, no-run-state print; the old build never gave it an MCP peer."
+);
+
+/** `cw completion <bash|zsh|fish>` — a static shell-completion script for
+ *  the top-level command word list (core/format/completion.ts). CLI-only:
+ *  a shell-integration script is meaningless as an MCP tool result. */
+addCliOnlyCapability(
+  "completion",
+  "Print a shell-completion script for the top-level cw commands (bash, zsh, or fish).",
+  {
+    path: ["completion"],
+    jsonMode: "human",
+    handler: (args) => {
+      const shell = optionalArg(args.positionals[0]);
+      if (!shell) throw new Error('Missing shell name.\n  Try: cw completion bash|zsh|fish');
+      return { text: formatCompletionScript(shell) };
+    },
+  },
+  "shell-completion output is a script for the user's OWN shell to source, not data an MCP client could use — CLI-only, same reasoning as doctor/fix."
 );
 
 /** `cw search <keyword>` — filters the SAME real app discovery `cw list`

@@ -37,6 +37,9 @@
     "core/capability-table.ts": [
       "../wiring/capability-table"
     ],
+    "wiring/capability-table/basics.ts": [
+      "../../cli/io"
+    ],
     "wiring/capability-table/exec-backend.ts": [
       "../../cli/io"
     ],

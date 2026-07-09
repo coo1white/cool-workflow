@@ -127,6 +127,7 @@ export const KNOWN_COMMANDS: Set<string> = new Set([
   "topology", "summary", "blackboard", "coordinator", "metrics", "operator",
   "sched", "gc", "telemetry", "migration", "demo", "workbench", "approve",
   "reject", "comment", "handoff", "graph", "eval", "version", "fix",
+  "completion",
 ]);
 
 /** Levenshtein edit distance between two strings. */

@@ -37,8 +37,12 @@ export interface CommandHelpRow {
  *  build's order (space-joined in the source, pipe-joined for display).
  *  One change from the old capture: `update` is gone. The verb had no code
  *  behind it in this build (`cw update` said "Unknown command"), so the
- *  help must not offer it. See parseargv.ts KNOWN_COMMANDS. */
-const MORE_COMMANDS_TOKENS: string[] = [
+ *  help must not offer it. See parseargv.ts KNOWN_COMMANDS. Exported (only
+ *  as a read-only source list, `formatHelp` below still owns the byte-
+ *  pinned display format) so `core/format/completion.ts` can build a
+ *  shell-completion word list from the SAME data instead of a third
+ *  hand-maintained copy. */
+export const MORE_COMMANDS_TOKENS: string[] = [
   "list", "search", "info", "init", "plan", "status", "next", "dispatch",
   "result", "state", "commit", "report", "app", "sandbox", "backend",
   "contract", "node", "feedback", "worker", "audit", "candidate", "review",
@@ -47,7 +51,7 @@ const MORE_COMMANDS_TOKENS: string[] = [
   "summary", "blackboard", "coordinator", "metrics", "operator", "sched",
   "gc", "telemetry", "migration", "demo", "workbench", "approve", "reject",
   "comment", "handoff", "ledger", "graph", "eval", "man", "version",
-  "fix",
+  "fix", "completion",
 ];
 
 const MORE_COMMANDS_WRAP_WIDTH = 76;

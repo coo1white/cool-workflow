@@ -17,6 +17,8 @@ const registry_core_1 = require("./registry-core");
 // ---------------------------------------------------------------------
 const version_1 = require("../../core/version");
 const help_1 = require("../../core/format/help");
+const completion_1 = require("../../core/format/completion");
+const io_1 = require("../../cli/io");
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — a top-level import of
 // `shell/workflow-app-loader` here means even `cw --version` pays its
@@ -29,6 +31,19 @@ function loadWorkflowAppLoader() {
     jsonMode: "default",
     handler: () => ({ text: `${version_1.CURRENT_COOL_WORKFLOW_VERSION}\n` }),
 }, "version is a local, no-run-state print; the old build never gave it an MCP peer.");
+/** `cw completion <bash|zsh|fish>` — a static shell-completion script for
+ *  the top-level command word list (core/format/completion.ts). CLI-only:
+ *  a shell-integration script is meaningless as an MCP tool result. */
+(0, registry_core_1.addCliOnlyCapability)("completion", "Print a shell-completion script for the top-level cw commands (bash, zsh, or fish).", {
+    path: ["completion"],
+    jsonMode: "human",
+    handler: (args) => {
+        const shell = (0, io_1.optionalArg)(args.positionals[0]);
+        if (!shell)
+            throw new Error('Missing shell name.\n  Try: cw completion bash|zsh|fish');
+        return { text: (0, completion_1.formatCompletionScript)(shell) };
+    },
+}, "shell-completion output is a script for the user's OWN shell to source, not data an MCP client could use — CLI-only, same reasoning as doctor/fix.");
 /** `cw search <keyword>` — filters the SAME real app discovery `cw list`
  *  shows, by id/title/summary (byte-behavior port of cli/dispatch.ts's
  *  milestone-1 carry-over `search` arm, moved here so the dispatchLegacy

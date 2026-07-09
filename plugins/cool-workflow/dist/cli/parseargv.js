@@ -116,6 +116,7 @@ exports.KNOWN_COMMANDS = new Set([
     "topology", "summary", "blackboard", "coordinator", "metrics", "operator",
     "sched", "gc", "telemetry", "migration", "demo", "workbench", "approve",
     "reject", "comment", "handoff", "graph", "eval", "version", "fix",
+    "completion",
 ]);
 /** Levenshtein edit distance between two strings. */
 function levenshtein(a, b) {

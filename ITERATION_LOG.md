@@ -1,5 +1,67 @@
 # CW Iteration Log
 
+## Batch — add `cw completion <bash|zsh|fish>` (Unreleased)
+
+> UI/UX audit finding: the CLI had no shell-completion support at all —
+> a new user typing `cw <TAB>` got nothing, with no way to discover the
+> ~60-command surface except reading `cw help`. Added a genuinely new
+> capability (not a fix): `cw completion <bash|zsh|fish>` prints a
+> static completion script for the top-level command word list.
+>
+> Deliberately shallow scope: completes only TOP-LEVEL command names, not
+> subcommands or flags — the single most common completion need (typing
+> the verb) without a second, deeper, hand-maintained copy of the
+> capability table's subcommand shape. The word list itself has NO new
+> hand-maintained copy either: `core/format/completion.ts`'s
+> `completionWords()` builds it from `help.ts`'s existing
+> `MORE_COMMANDS_TOKENS` (now exported) plus `help`/`doctor` (the two
+> top-level verbs that list doesn't carry — see `formatHelp`'s own
+> comment on why `help` is absent from both places), so the completion
+> list can never drift out of sync with what `cw help` itself advertises.
+>
+> New top-level verb, so it needed adding to the SAME 5 places
+> `MORE_COMMANDS_TOKENS` is byte-pinned/documented (learned from Cycles
+> 4/5/9's near-misses — grepped for every copy before assuming complete):
+> `core/format/help.ts` (source), `test/formatapps-help-toplevel-
+> layout.test.js` and `test/formatapps-help-more-commands-wrap.test.js`
+> (both byte-pin the full token list, one via full-text equality, one via
+> an order-checked `deepEqual`), `v2/conformance/cases/fixtures/cli-help/
+> _root.txt` (the live-gated fixture), and `docs/rebuild/SPEC/{cli-
+> surface,orchestrator}.md`'s prose token-list citations — appended
+> `completion` at the very end of the existing order in every copy
+> (Cycle 8's investigation specifically blocked REORDERING or inserting
+> mid-stream content; appending one token at the tail changes neither).
+> Also added `completion` to `cli/parseargv.ts`'s `KNOWN_COMMANDS` so a
+> typo gets a "Did you mean" suggestion, matching every other real,
+> dispatchable top-level verb.
+>
+> New `wiring/capability-table/basics.ts` import of `cli/io`'s
+> `optionalArg` tripped `purity-gate.js`'s layer-violation ratchet (every
+> OTHER wiring file already imports from `cli/io`; `basics.ts` simply
+> hadn't needed to before) — added the new, now-conscious entry to
+> `scripts/purity-baseline.json`, the gate's own documented "update it
+> consciously" mechanism, not a workaround. New source files also tripped
+> `project-index-sync-smoke.js` (source module count) and `parity-doc-
+> sync-smoke.js` (capability count) — regenerated both via their own
+> `npm run sync:project-index` / `node scripts/gen-parity-doc.js`
+> commands, exactly as their own failure messages instruct.
+>
+> New `v2/conformance/cases/cli-completion.case.js` covers: missing/
+> unrecognized shell name errors, exit codes, that all 3 shells' output
+> actually contains the real `cw` binary name and the real word list
+> (not a stale/truncated copy — checks for `quickstart`/`doctor`/
+> `audit-run`/`completion` by name), shell-specific shape spot checks
+> (bash's `complete -F`, zsh's `#compdef` header, fish's `complete -c`),
+> that `--json` has no effect (jsonMode:"human", same as `cw fix`), the
+> new "Did you mean: completion?" suggestion, and discoverability via
+> both `cw help` and `cw help completion`. Verified bash and zsh output
+> parses as syntactically valid shell script (`bash -n`, `zsh -n`); fish
+> wasn't installed in this environment to cross-check the same way.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 10 | Add `cw completion` (bash/zsh/fish), a static top-level-command completion script generator, built from the same token list `cw help` already displays (no new hand-maintained command list). | `plugins/cool-workflow/src/{core/format/completion,core/format/help,cli/parseargv,wiring/capability-table/basics}.ts` (new file: `core/format/completion.ts`) + matching `dist/**`, `plugins/cool-workflow/scripts/purity-baseline.json`, `plugins/cool-workflow/docs/project-index.md`, `plugins/cool-workflow/docs/cli-mcp-parity.7.md`, `plugins/cool-workflow/test/formatapps-help-{toplevel-layout,more-commands-wrap}.test.js`, `v2/conformance/cases/fixtures/cli-help/_root.txt`, new `v2/conformance/cases/cli-completion.case.js`, `docs/rebuild/SPEC/{cli-surface,orchestrator}.md`. | New `cli-completion.case.js` (missing/bad shell errors, exit codes, real word list per shell, shell-specific shape checks, `--json` no-op, did-you-mean, `cw help`/`cw help completion` discoverability). `formatapps-help-toplevel-layout.test.js`, `formatapps-help-more-commands-wrap.test.js`, `headline-commands-smoke.js`, `cli-arg-parsing-smoke.js`, `cli-mcp-parity-smoke.js` (now 241 capabilities) all pass. Manually verified `bash -n`/`zsh -n` accept the generated scripts. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK (baseline consciously updated); `parity:check` OK; conformance 106/106 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.6% line coverage, floor 80%); `release:check --skip-tests` all green after regenerating `project-index.md`/`cli-mcp-parity.7.md`. | no (PR batch, no release) |
+
 ## Batch — point a bare `cw doctor` at `--onramp`'s 3-step quick start (Unreleased)
 
 > UI/UX audit finding: the rich "Quick start (3 steps)"/"Recommended

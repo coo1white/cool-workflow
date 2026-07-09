@@ -267,7 +267,7 @@ More commands
 The "More commands" list is this space-joined string, split and re-wrapped to lines of at most 76 columns, pipe-joined with a 2-space indent (src/orchestrator.ts:934-951):
 
 ```
-list search info init plan status next dispatch result state commit report app sandbox backend contract node feedback worker audit candidate review loop schedule routine registry run queue clones orphans history quickstart audit-run multi-agent topology summary blackboard coordinator metrics operator sched gc telemetry migration demo workbench approve reject comment handoff ledger graph eval man version update fix
+list search info init plan status next dispatch result state commit report app sandbox backend contract node feedback worker audit candidate review loop schedule routine registry run queue clones orphans history quickstart audit-run multi-agent topology summary blackboard coordinator metrics operator sched gc telemetry migration demo workbench approve reject comment handoff ledger graph eval man version fix completion
 ```
 
 The last note line uses a 4-space indent ON PURPOSE so the CLI/MCP parity help-token check (which only reads 2-space lines) never sees it as a command (src/orchestrator.ts:977-979). "Cool Workflow", "Flags", "More commands" are bold on a color stdout.

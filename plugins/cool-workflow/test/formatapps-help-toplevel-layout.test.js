@@ -42,7 +42,7 @@ const { formatHelp } = require("../dist/core/format/help");
     "  loop|schedule|routine|registry|run|queue|clones|orphans|history|quickstart",
     "  audit-run|multi-agent|topology|summary|blackboard|coordinator|metrics",
     "  operator|sched|gc|telemetry|migration|demo|workbench|approve|reject",
-    "  comment|handoff|ledger|graph|eval|man|version|fix",
+    "  comment|handoff|ledger|graph|eval|man|version|fix|completion",
     "",
     "    Run  cw help <command>  for one command's subcommands and descriptions.",
   ].join("\n") + "\n";
