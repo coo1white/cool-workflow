@@ -34,6 +34,7 @@ const { formatHelp } = require("../dist/core/format/help");
     "  --full                 Verbose, plus the report printed inline at the end",
     "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
     "  --json                 Print JSON for commands that support it",
+    "  --quiet                Suppress [drive] progress lines (not agent output)",
     "",
     "More commands",
     "  list|search|info|init|plan|status|next|dispatch|result|state|commit|report",

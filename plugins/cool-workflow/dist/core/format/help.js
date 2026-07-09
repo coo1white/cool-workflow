@@ -218,10 +218,12 @@ const COMMAND_HELP_ROWS = {
  *  stdout, so NO_COLOR/non-TTY always wins); byte content matches the
  *  plain-text capture at SPEC/cli-help/_root.txt, but for the dead
  *  `update` lines, which were taken out on purpose (no code was behind
- *  the verb — see MORE_COMMANDS_TOKENS note above), and for a `--json`
+ *  the verb — see MORE_COMMANDS_TOKENS note above), for a `--json`
  *  Flags row, added because the old build's capture predates the ~68
  *  capability-table rows that now support `--json`/`--format json`
- *  (io.ts's wantsJson) — the flag existed but was never documented here. */
+ *  (io.ts's wantsJson) — the flag existed but was never documented here —
+ *  and for a `--quiet` Flags row, a new CLI spelling of the existing
+ *  CW_DRIVE_PROGRESS=0 env var (see cli/entry.ts). */
 function formatHelp() {
     const moreCommandsLines = wrapPipeJoined(MORE_COMMANDS_TOKENS, MORE_COMMANDS_WRAP_WIDTH);
     const lines = [
@@ -245,6 +247,7 @@ function formatHelp() {
         "  --full                 Verbose, plus the report printed inline at the end",
         "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
         "  --json                 Print JSON for commands that support it",
+        "  --quiet                Suppress [drive] progress lines (not agent output)",
         "",
         "More commands",
         ...moreCommandsLines,

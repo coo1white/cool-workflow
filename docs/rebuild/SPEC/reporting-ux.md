@@ -35,7 +35,7 @@ A registry keyword (`drive`, `search`, `list`, `show`, `resume`, `archive`, `rer
 
 - `NO_COLOR`, `CW_NO_COLOR` — any non-empty value turns all ANSI color off; the `--no-color` flag sets `CW_NO_COLOR=1` (src/term.ts:19-23, src/cli/command-surface.ts:74).
 - `FORCE_COLOR` — non-empty and not `"0"` forces color on for human text even when piped; machine payloads use no styling at all (src/term.ts:21, src/reporter.ts:9-11).
-- `CW_DRIVE_PROGRESS` — `"0"` forces drive progress off, `"1"` forces it on; unset means "on only when stderr is a TTY" (src/drive.ts:136-142).
+- `CW_DRIVE_PROGRESS` — `"0"` forces drive progress off, `"1"` forces it on; unset means "on only when stderr is a TTY" (src/drive.ts:136-142). Set to `"0"` by the `--quiet` flag (src/cli/entry.ts) — this is the only Rule of Silence gate point a flag can force; the end-of-run summary's own TTY check has no override.
 - `CW_VERBOSE=1` — set by `--verbose`; presentation only, passed to the agent wrapper (src/cli/command-surface.ts:73).
 - `CW_OUTPUT=full` — set by `--full`; also prints the report inline at run end (src/cli/command-surface.ts:75, src/cli/run-summary.ts:35-38).
 - `CW_HOME` — home registry root for the doctor check; default `$HOME/.local/state/cool-workflow` (src/doctor.ts:134-136).
@@ -326,7 +326,7 @@ Every claim above carries its pointer inline. Chief anchors: src/reporter.ts:42-
 
 ## Rebuild risks
 
-1. **The Rule of Silence gate points.** Silence is decided in three places, not one: the reporter checks its own stream's `isTTY`, drive progress checks `process.stderr.isTTY` + `CW_DRIVE_PROGRESS`, and the quickstart path also skips the summary under `--json`. Miss one and piped output grows chrome.
+1. **The Rule of Silence gate points.** Silence is decided in three places, not one: the reporter checks its own stream's `isTTY`, drive progress checks `process.stderr.isTTY` + `CW_DRIVE_PROGRESS`, and the quickstart path also skips the summary under `--json`. Miss one and piped output grows chrome. Two MORE `isTTY`-gated narration channels exist outside this list and are NOT covered by `CW_DRIVE_PROGRESS`/`--quiet`: `shell/execution-backend/agent.ts`'s `shouldStreamAgentStderr` (live raw agent stderr, gated by `CW_AGENT_STREAM`/`CW_NO_STREAM`/`isTTY`) and `shell/execution-backend/local.ts`'s `"● Running…"`/`"✓ Done"` lines (gated on `isTTY` with no env override at all). A user reaching for `--quiet` to silence an interactive `cw drive` run will still see both — this is documented, not a bug, but a rebuild adding a "quiet everything" flag would need to touch these two sites as well.
 2. **`cw fix` has no `--json`** even though `docs/fix.7.md` says it does. A rebuild from the docs would add a branch the old code does not have; a conformance test on the old binary would then differ.
 3. **The `### <taskId>` result shape in `report.md` is load-bearing.** Bundle verify anchors on `### <id>\n\nResult: <path>\n\n<body>` body-first. Change a space or the blank lines in `renderResults` and every signed bundle stops verifying.
 4. **Sort orders that feed hashes must be code-point order, not locale order.** The export manifest digest and the archive file list use `compareBytes`; using `localeCompare` there makes digests differ across hosts. Display sorts (operator panels) DO use `localeCompare`. Do not swap them.

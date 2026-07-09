@@ -64,4 +64,17 @@ caseMain(() => {
     env: Object.assign({}, stubAgentEnv("a.txt:1"), { CW_DRIVE_PROGRESS: "0" }),
   });
   assert.equal(suppressed.stderr, "");
+
+  // --- --quiet is the documented CLI spelling of CW_DRIVE_PROGRESS=0
+  // (src/cli/entry.ts) — it must win even over an explicit
+  // CW_DRIVE_PROGRESS=1 in the environment, since the flag is applied
+  // after argv parsing but before the drive spawns. ---
+  const repo6 = gitRepo({ "a.txt": "hello\n" });
+  const quiet = run(
+    ["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", repo6, "--quiet"],
+    { env: Object.assign({}, stubAgentEnv("a.txt:1"), { CW_DRIVE_PROGRESS: "1" }) }
+  );
+  assert.equal(quiet.status, 0);
+  assert.equal(quiet.stderr, "", "--quiet must override an explicit CW_DRIVE_PROGRESS=1");
+  assert.equal(JSON.parse(quiet.stdout).status, "complete", "stdout is unaffected by --quiet");
 });

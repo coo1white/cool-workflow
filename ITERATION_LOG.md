@@ -1,5 +1,61 @@
 # CW Iteration Log
 
+## Batch — add a documented `--quiet` flag (Unreleased)
+
+> UI/UX audit finding: silencing drive progress lines only worked through
+> the undocumented `CW_DRIVE_PROGRESS=0` env var — there was a `--verbose`/
+> `--full` axis to turn output UP, but no flag axis to turn it DOWN.
+> `docs/rebuild/SPEC/reporting-ux.md`'s "Rule of Silence gate points" note
+> already documents that silence is decided in 3 independent places
+> (the reporter's own `isTTY` check, drive progress's `isTTY` +
+> `CW_DRIVE_PROGRESS` check, and quickstart's `--json` skip) — `--quiet`
+> only needed to touch the one gate point that already had an env-var
+> override (drive progress), matching how `--verbose`/`--full` also don't
+> reach into the other two gate points.
+>
+> Added `if (args.options.quiet) process.env.CW_DRIVE_PROGRESS = "0";`
+> to `cli/entry.ts`, alongside the existing `--verbose`/`--full`/
+> `--no-color` presentation-flag handling — no changes needed in
+> `parseargv.ts` (bare `--flag` → `options.flag = true` is already
+> generic). Verified live that `--quiet` overrides even an explicit
+> `CW_DRIVE_PROGRESS=1` in the environment (flag application happens
+> after argv parsing, before any agent spawn). Documented the flag in
+> `formatHelp()`'s Flags block; learned from the prior `--json` cycle
+> that this text is byte-pinned in 4 separate places (a live-gated test,
+> a live-gated conformance fixture, and 2 SPEC docs) — updated all 4 in
+> one pass this time instead of discovering the 4th via a follow-up
+> review. Cross-referenced `--quiet` → `CW_DRIVE_PROGRESS=0` in
+> `cli-surface.md`'s flag-to-env-var table and `reporting-ux.md`'s env
+> var list, matching how `--verbose`/`--full` are already documented
+> there. Extended `report-rule-of-silence.case.js` (the conformance case
+> that already covers `CW_DRIVE_PROGRESS=0/1` and the `--full`/`--json`
+> Rule-of-Silence interactions) with a new case proving `--quiet` wins
+> over an explicit `CW_DRIVE_PROGRESS=1`.
+>
+> A follow-up 2-dimension adversarial review (correctness, and scope/
+> docs, each independently verified) confirmed all of the above and found
+> no functional bugs, but surfaced a real scope-naming gap: two OTHER
+> `isTTY`-gated narration channels exist that `--quiet` does not reach and
+> that `reporting-ux.md`'s own "3 gate points" note doesn't count — live
+> raw agent stderr streaming (`shell/execution-backend/agent.ts`'s
+> `shouldStreamAgentStderr`, gated by `CW_AGENT_STREAM`/`CW_NO_STREAM`/
+> `isTTY`) and the local backend's `"● Running…"`/`"✓ Done"` lines
+> (`shell/execution-backend/local.ts`, gated on `isTTY` with no env
+> override at all) — both are typically the LOUDEST output during an
+> interactive drive. Rather than expand `--quiet` into those two separate
+> subsystems (a larger change, each with its own existing env-var
+> conventions), tightened the help text to `"Suppress [drive] progress
+> lines (not agent output)"` so the flag's own description sets accurate
+> expectations, added a comment in `cli/entry.ts` documenting the two
+> untouched channels for the next person who touches this, and extended
+> `reporting-ux.md`'s "Rule of Silence gate points" rebuild-risk item to
+> name both — the SPEC's own 3-gate-point framing was genuinely
+> incomplete, independent of this flag.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 5 | Add a documented `--quiet` flag (maps to the existing `CW_DRIVE_PROGRESS=0` env var) alongside `--verbose`/`--full`/`--no-color`, and document it everywhere those are documented. | `plugins/cool-workflow/src/{cli/entry,core/format/help}.ts` + matching `dist/**`, `plugins/cool-workflow/test/formatapps-help-toplevel-layout.test.js`, `v2/conformance/cases/{fixtures/cli-help/_root.txt,report-rule-of-silence.case.js}`, `docs/rebuild/SPEC/{cli-surface,reporting-ux,orchestrator}.md`. | `formatapps-help-toplevel-layout.test.js`, `headline-commands-smoke.js`, `cli-help-topics.case.js`, `report-rule-of-silence.case.js` (new `--quiet`-overrides-`CW_DRIVE_PROGRESS=1` case) — all pass. Live-CLI spot check: `--quiet` suppresses all `[drive]` progress lines even with `CW_DRIVE_PROGRESS=1` set in the environment; composes cleanly with `--verbose --full`. A follow-up review (correctness + scope/docs, each independently verified) found no functional bugs but a real scope-naming gap, fixed in the same PR via tightened help text and expanded SPEC documentation (see above). | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
+
 ## Batch — document `--json` in `cw help`'s top-level Flags block (Unreleased)
 
 > UI/UX audit finding: `cw help`'s Flags section lists `-q`, `-r`, `-d`,
