@@ -206,9 +206,9 @@ export function summarizeMultiAgentOperator(run: WorkflowRun): MultiAgentOperato
   return {
     schemaVersion: 1,
     runId: run.id,
-    activeMultiAgentRunIds: [...activeMultiAgentRunIds, ...((state.runs || []).filter((entry) => !isTerminal(entry.status)).map((entry) => entry.id))].filter(uniqueFilter),
+    activeMultiAgentRunIds: [...new Set([...activeMultiAgentRunIds, ...((state.runs || []).filter((entry) => !isTerminal(entry.status)).map((entry) => entry.id))])],
     topologyRunIds: [...activeTopologyIds],
-    topologyIds: topologies.active.map((entry) => entry.topologyId).filter(uniqueFilter),
+    topologyIds: [...new Set(topologies.active.map((entry) => entry.topologyId))],
     groups: (state.groups || []).map((entry) => entry.id).sort(),
     roles: (state.roles || []).map((entry) => entry.id).sort(),
     memberships: (state.memberships || []).map((entry) => entry.id).sort(),
@@ -358,7 +358,7 @@ function deriveDependencies(run: WorkflowRun): MultiAgentOperatorDependency[] {
   for (const commit of commitsOf(run)) {
     add(commit.selectionId ? `${run.id}:selection:${commit.selectionId}` : undefined, String(commit.stateNodeId || `${run.id}:commit:${commit.id}`), "commits", commit.verifierGated ? "committed" : "checkpoint");
   }
-  return rows.filter(uniqueById).sort((left, right) => stableCompare(left.from, right.from) || stableCompare(left.to, right.to));
+  return uniqueById(rows).sort((left, right) => stableCompare(left.from, right.from) || stableCompare(left.to, right.to));
 }
 
 function deriveFailures(run: WorkflowRun, dependencies: MultiAgentOperatorDependency[]): MultiAgentOperatorFailure[] {
@@ -367,15 +367,26 @@ function deriveFailures(run: WorkflowRun, dependencies: MultiAgentOperatorDepend
     rows.push({ id, kind, status, owner, linked, reason, nextCommand });
   };
   const state = maOf(run);
+  // Grouped/indexed once instead of re-filtering/re-scanning the whole
+  // memberships/workers array per role/membership below (O(roles x
+  // memberships) and O(memberships x workers) otherwise -- the same
+  // array-scan-per-item shape 024b007 fixed for phase/task selection).
+  const membershipsByRole = new Map<string, typeof state.memberships>();
+  for (const entry of state.memberships || []) {
+    const list = membershipsByRole.get(entry.roleId);
+    if (list) list.push(entry);
+    else membershipsByRole.set(entry.roleId, [entry]);
+  }
+  const workersById = new Map(workersOf(run).map((entry) => [entry.id, entry]));
   for (const role of state.roles || []) {
-    const memberships = (state.memberships || []).filter((entry) => entry.roleId === role.id);
+    const memberships = membershipsByRole.get(role.id) || [];
     if (!memberships.length && role.status !== "completed" && role.status !== "cancelled") {
       add(role.id, "missing-role-coverage", role.status, `role ${role.id} has no membership`, `node scripts/cw.js multi-agent step ${run.id}`, role.id);
     }
     if (role.status === "blocked" || role.status === "cancelled") add(role.id, "agent-role", role.status, `role ${role.id} is ${role.status}`, `node scripts/cw.js multi-agent status ${run.id} --json`, role.id);
   }
   for (const membership of state.memberships || []) {
-    const worker = membership.workerId ? workersOf(run).find((entry) => entry.id === membership.workerId) : undefined;
+    const worker = membership.workerId ? workersById.get(membership.workerId) : undefined;
     if (membership.status === "failed" || membership.status === "cancelled") add(membership.id, "agent-membership", membership.status, `membership ${membership.id} is ${membership.status}`, `node scripts/cw.js multi-agent membership ${run.id} ${membership.id}`, membership.roleId, membership.workerId);
     if (!membership.workerId) add(membership.id, "missing-worker", membership.status, `membership ${membership.id} has no worker`, `node scripts/cw.js multi-agent step ${run.id}`, membership.roleId, membership.taskId);
     if (worker && (worker.status === "failed" || worker.status === "rejected")) add(String(worker.id), "worker", String(worker.status), (worker.errors as Array<{ message?: string }> | undefined)?.[0]?.message || `worker ${worker.id} is ${worker.status}`, `node scripts/cw.js worker show ${run.id} ${worker.id}`, membership.roleId, membership.id);
@@ -403,9 +414,9 @@ function deriveFailures(run: WorkflowRun, dependencies: MultiAgentOperatorDepend
     add("selection-gap", "selection", "missing", "scored candidates exist but no selection is recorded", `node scripts/cw.js multi-agent select ${run.id} --candidate <candidate-id> --reason "<rationale>"`);
   }
   for (const dep of dependencies.filter((entry) => entry.status === "blocked")) add(dep.id, "ambiguous-dependency", dep.status, dep.reason || "dependency is blocked", dep.nextCommand || `node scripts/cw.js multi-agent status ${run.id} --json`);
-  const readySelection = selectionsOf(run).find((selection) => !commitsOf(run).some((commit) => commit.selectionId === selection.id && commit.verifierGated));
+  const readySelection = firstUngatedSelection(run);
   if (readySelection) add(String(readySelection.id), "commit-gate", "not-ready", `selection ${readySelection.id} has no verifier-gated commit`, `node scripts/cw.js commit ${run.id} --selection ${readySelection.id} --reason "<verified rationale>"`, readySelection.candidateId as string | undefined);
-  return rows.filter(uniqueByFailure).sort((left, right) => stableCompare(left.kind, right.kind) || stableCompare(left.id, right.id));
+  return uniqueByFailure(rows).sort((left, right) => stableCompare(left.kind, right.kind) || stableCompare(left.id, right.id));
 }
 
 function deriveEvidence(run: WorkflowRun): MultiAgentOperatorEvidence[] {
@@ -546,8 +557,18 @@ function readScores(run: WorkflowRun, candidateId: string): CandidateScore[] {
     .map((file) => JSON.parse(fs.readFileSync(path.join(dir, file), "utf8")) as CandidateScore);
 }
 
+/** The first selection with no verifier-gated commit yet, if any -- shared
+ *  by deriveFailures and readyCommitCommand. A Set of already-gated
+ *  selection ids, built once, replaces re-scanning ALL commits per
+ *  selection (O(selections x commits) otherwise -- the same array-scan-
+ *  per-item shape 024b007 fixed for phase/task selection). */
+function firstUngatedSelection(run: WorkflowRun): ReturnType<typeof selectionsOf>[number] | undefined {
+  const gatedSelectionIds = new Set(commitsOf(run).filter((commit) => commit.verifierGated).map((commit) => commit.selectionId));
+  return selectionsOf(run).find((entry) => !gatedSelectionIds.has(entry.id));
+}
+
 function readyCommitCommand(run: WorkflowRun): string | undefined {
-  const selection = selectionsOf(run).find((entry) => !commitsOf(run).some((commit) => commit.selectionId === entry.id && commit.verifierGated));
+  const selection = firstUngatedSelection(run);
   return selection ? `node scripts/cw.js commit ${run.id} --selection ${selection.id} --reason "<verified rationale>"` : undefined;
 }
 
@@ -606,19 +627,36 @@ function isTerminal(status: string): boolean {
 }
 
 function unique(values: string[]): string[] {
-  return values.filter(Boolean).filter(uniqueFilter).sort();
+  return [...new Set(values.filter(Boolean))].sort();
 }
 
-function uniqueFilter(value: string, index: number, values: string[]): boolean {
-  return values.indexOf(value) === index;
+// Each dedup below keeps the FIRST occurrence of a duplicate key, same as
+// the `values.findIndex(...) === index` shape it replaces -- a Set of seen
+// keys does this in one O(N) pass instead of an O(N) findIndex per item
+// (O(N^2) total; this was the dominant cost of deriveDependencies/
+// deriveFailures at large membership counts, found while pinning perf
+// cycle P1-1's review-fix regression test).
+function uniqueById<T extends { id: string }>(values: T[]): T[] {
+  const seen = new Set<string>();
+  const result: T[] = [];
+  for (const value of values) {
+    if (seen.has(value.id)) continue;
+    seen.add(value.id);
+    result.push(value);
+  }
+  return result;
 }
 
-function uniqueById<T extends { id: string }>(value: T, index: number, values: T[]): boolean {
-  return values.findIndex((entry) => entry.id === value.id) === index;
-}
-
-function uniqueByFailure(value: MultiAgentOperatorFailure, index: number, values: MultiAgentOperatorFailure[]): boolean {
-  return values.findIndex((entry) => entry.id === value.id && entry.kind === value.kind) === index;
+function uniqueByFailure(values: MultiAgentOperatorFailure[]): MultiAgentOperatorFailure[] {
+  const seen = new Set<string>();
+  const result: MultiAgentOperatorFailure[] = [];
+  for (const value of values) {
+    const key = `${value.id}\0${value.kind}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(value);
+  }
+  return result;
 }
 
 function uniqueEdges(edges: MultiAgentOperatorGraph["edges"]): MultiAgentOperatorGraph["edges"] {

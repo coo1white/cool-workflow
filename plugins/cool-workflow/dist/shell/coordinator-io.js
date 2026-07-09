@@ -124,15 +124,22 @@ function requireContext(run, id) {
 }
 function requireArtifactRefs(run, ids) {
     const state = ensureBlackboardState(run);
+    // state.artifacts grows monotonically with run activity and this runs on
+    // essentially every blackboard write -- a Set built once here replaces
+    // re-scanning the whole (growing) artifacts array per referenced id
+    // (the same array-scan-per-item shape 024b007 fixed for phase/task
+    // selection).
+    const artifactIds = new Set(state.artifacts.map((artifact) => artifact.id));
     for (const id of ids)
-        if (!state.artifacts.some((artifact) => artifact.id === id))
+        if (!artifactIds.has(id))
             throw new Error(`Unknown BlackboardArtifactRef id: ${id}`);
     return cb.unique(ids);
 }
 function requireMessages(run, ids) {
     const state = ensureBlackboardState(run);
+    const messageIds = new Set(state.messages.map((message) => message.id));
     for (const id of ids)
-        if (!state.messages.some((message) => message.id === id))
+        if (!messageIds.has(id))
             throw new Error(`Unknown BlackboardMessage id: ${id}`);
     return cb.unique(ids);
 }
