@@ -11,8 +11,13 @@
 // registry's own tooling had no way to see it. This pins:
 //   1. the dead arms are really gone (real error text, not the old
 //      "X is not implemented in this milestone" placeholder strings);
-//   2. search is now a real, hiddenFromHelp, cli-only capability-table row;
-//   3. cw search / cw help search / root help are byte-unchanged by the move.
+//   2. search is now a real, cli-only capability-table row;
+//   3. cw search / root help are byte-unchanged by the move; cw help
+//      search now shows a real row, matching the true v0.1.98 ground
+//      truth (docs/rebuild/SPEC/cli-help/search.txt) — this smoke
+//      originally pinned `hiddenFromHelp: true` as "byte-unchanged," but
+//      that was itself a regression this move introduced, not a
+//      preserved old-build behavior. Fixed along with the source.
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
@@ -51,12 +56,16 @@ function run(args) {
   assert.match(gc.stdout, /GC Verify no-such-run:/, "gc verify: real human-text verdict line");
 }
 
-// ---- 2. search is a real, hidden, cli-only capability-table row -----------
+// ---- 2. search is a real, cli-only capability-table row --------------------
 {
   const row = findCapabilityByCliPath(["search"]);
   assert.ok(row, "search must resolve to a real capability-table row");
   assert.equal(row.surface, "cli-only");
-  assert.equal(row.cli.hiddenFromHelp, true, "search must stay out of the per-verb help listing, exactly as before the move");
+  // The old v0.1.98 CLI DID have its own `cw help search` row
+  // (docs/rebuild/SPEC/cli-help/search.txt); `hiddenFromHelp: true` was a
+  // rebuild regression this smoke had baked in as "exactly as before the
+  // move" — it was not. Fixed to match the true old-build ground truth.
+  assert.notEqual(row.cli.hiddenFromHelp, true, "search must appear in the per-verb help listing, matching the old build's cw help search row");
   assert.ok(!cliCapabilities().some((cap) => cap.cli.hiddenFromHelp && cap.capability === "search" && cap.mcp), "search has no MCP peer");
 }
 
@@ -69,7 +78,7 @@ function run(args) {
 {
   const helpSearch = run(["help", "search"]);
   assert.equal(helpSearch.status, 0);
-  assert.equal(helpSearch.stdout, "Unknown command: search\n  Did you mean:  cw search\n  Try:  cw help   (list all commands)\n", "search never had its own cw help row; hiddenFromHelp preserves that exactly");
+  assert.equal(helpSearch.stdout, "cw search\n\n  cw search  Search bundled workflows by id/title/summary keyword.\n", "search has its own cw help row, matching the old v0.1.98 ground truth");
 }
 {
   const found = run(["search", "architecture"]);

@@ -381,9 +381,15 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("gc.run").reason =
 // capabilities for the payload-identity probe. `gc.run` stays reachable
 // only via the ["gc"] catch-all (it is a documented payload-probe
 // opt-out above, so it does not need its own dual-bound row).
+// `hiddenFromHelp` keeps `cw help gc`'s rows coming from the single
+// literal COMMAND_HELP_ROWS.gc entries, same as `gc.run` below — without
+// it these rows double-print alongside those literal rows (a rebuild
+// regression the old build's `docs/rebuild/SPEC/cli-help/gc.txt` ground
+// truth does not show; fixed here to match `gc.run`'s existing pattern).
 (0, registry_core_1.attachCliBinding)("gc.plan", {
     path: ["gc", "plan"],
     jsonMode: "flag",
+    hiddenFromHelp: true,
     handler: (args) => {
         const result = loadRegistryCli().gcPlanCli(args.positionals[0], args.options);
         return (0, io_1.wantsJson)(args.options) ? { json: result } : { json: result, text: loadReclamationIo().formatGcPlan(result) };
@@ -392,6 +398,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("gc.run").reason =
 (0, registry_core_1.attachCliBinding)("gc.verify", {
     path: ["gc", "verify"],
     jsonMode: "flag",
+    hiddenFromHelp: true,
     handler: (args) => {
         const result = loadRegistryCli().gcVerifyCli((0, io_1.required)(args.positionals[0], "run id"), args.options);
         const text = loadReclamationIo().formatGcVerify(result);

@@ -1,5 +1,59 @@
 # CW Iteration Log
 
+## Batch — fix 3 `cw help` regressions found by diffing against the v0.1.98 ground truth (Unreleased)
+
+> UI/UX audit finding: `cw help search` said "Unknown command: search"
+> even though `cw search <keyword>` works, and `cw help gc` printed `gc
+> plan`/`gc verify` twice with byte-identical text. Before touching
+> anything, diffed live `cw help <verb>` output for all 59 documented
+> verbs against `docs/rebuild/SPEC/cli-help/*.txt` — a byte-exact capture
+> of the pre-rebuild v0.1.98 CLI kept as this rebuild's own ground truth —
+> because `docs/rebuild/SPEC/cli-probe.md`'s "Odd things a rebuild must
+> copy or fix on purpose" section documents several look-like-bugs as
+> deliberately preserved old-build quirks (`cw help audit-run` also says
+> "Unknown command" in the OLD build too — confirmed unchanged, left
+> alone; `backend agent config`/`run drive`/`sched policy`/`run resume`/
+> several `multi-agent` subcommands are explicitly required to print the
+> same command string twice with different summaries, "A rebuild's help
+> printer must keep these doubled rows" — all confirmed unchanged, left
+> alone). Of 10 verbs that diverged from the ground truth, 4 were
+> confirmed-expected (documented new features/removals with their own
+> ITERATION_LOG entries: `audit head`/`audit repair`, `update`'s removal,
+> `workbench serve --require-token`) or harmless wording drift (`info`,
+> `loop`, `schedule daemon` — left alone), and 2 (`multi-agent role`'s
+> misfiled "Create a MultiAgentRun state record." row and the live,
+> undocumented `cw multi-agent transition` top-level command) are deeper
+> handler/id-mismatch design questions flagged for separate follow-up, not
+> touched here. The remaining 3 are confirmed regressions with safe,
+> narrow fixes, done in this batch:
+>
+> 1. **`cw help search`** — `src/wiring/capability-table/basics.ts`'s
+>    `search` capability had `hiddenFromHelp: true` with a comment
+>    claiming "it never had one" (a `cw help search` row). False: the
+>    ground truth (`cli-help/search.txt`) shows the old build printed
+>    `cw search  Search workflow apps by keyword (title, description,
+>    id).`. Removed the flag; `test/dispatch-legacy-burndown-smoke.js`
+>    (the smoke that introduced the wrong assumption while burning down a
+>    dead dispatch arm) asserted the old broken behavior as "byte-unchanged"
+>    — updated its 3 affected assertions and header comment to match the
+>    corrected, ground-truth-verified behavior.
+> 2. **`cw help gc`** — `gc.plan`/`gc.verify` in `scheduling-registry.ts`
+>    were missing the `hiddenFromHelp: true` their sibling `gc.run` already
+>    has (with a comment explaining exactly why: `cw help gc`'s rows
+>    should come only from the literal `COMMAND_HELP_ROWS.gc` table, not
+>    also from the real capability rows). Added the flag to both, matching
+>    `gc.run`'s existing pattern; `cli-help/gc.txt` confirms the old build
+>    never doubled these rows.
+> 3. **`cw help sched`** — `COMMAND_HELP_ROWS.sched`'s `policy` entry in
+>    `core/format/help.ts` had been merged into one row ("Show or set the
+>    scheduling policy..."), losing the show/set doubling `cli-probe.md`
+>    explicitly requires be kept. Split back into two rows using the old
+>    ground truth's exact wording (`cli-help/sched.txt`).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 2 | Fix 3 confirmed `cw help` regressions (search hidden, gc plan/verify doubled, sched policy merged) found by diffing all 59 documented verbs' live help output against the v0.1.98 ground truth capture; leave the other 7 divergences alone (4 confirmed-expected/cosmetic, 2 flagged as deeper design questions for later, 1 confirmed-intentional). | `plugins/cool-workflow/src/wiring/capability-table/{basics,scheduling-registry}.ts`, `src/core/format/help.ts` + matching `dist/**`, `plugins/cool-workflow/test/dispatch-legacy-burndown-smoke.js`. | `dispatch-legacy-burndown-smoke` (was failing after the source fix, now passes with corrected assertions), plus `cw-help-per-command-smoke`, `formatapps-help-{command-help,more-commands-wrap,toplevel-layout}.test`, `captable-shared-path-and-helppath.test`, `cli-command-surface-smoke`, `cli-jsonmode-parity-smoke`, `cli-mcp-parity-smoke`, `parity-doc-sync-smoke`, `sched-policy-validation-smoke` — all pass. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; conformance 104/104 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
+
 ## Batch — stop leaking the `scripts/cw.js` entry-point name into user-facing text (Unreleased)
 
 > UI/UX audit finding: ~190 user-facing strings (next-action hints, thrown
