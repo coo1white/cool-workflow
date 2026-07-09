@@ -462,6 +462,13 @@ class RunRegistry {
             const result = (0, run_store_1.loadRunStateFile)(statePath, { dryRun: true });
             if (result.report.status === "unsupported")
                 return null;
+            // Bulk scans (refreshRegistry, below) call deriveRecord directly and
+            // tolerate a null the same way as missing/unsupported — one bad run
+            // must not stop a listing of everything else. Single-run lookups
+            // (deriveRecordForRun, below) re-check this same condition WITHOUT
+            // swallowing it, so `cw run show`/`archive`/`rerun` on THIS run
+            // specifically get a clear reason instead of a misleading "not found."
+            (0, run_store_1.assertNotSuspectedDataLoss)(path.basename(runDir), result);
             run = result.run;
         }
         catch {
@@ -712,9 +719,35 @@ class RunRegistry {
     }
     deriveRecordForRun(repo, runId) {
         const runDir = path.join(this.repoRunsDir(repo), runId);
-        if (!fs.existsSync(path.join(runDir, "state.json")))
+        const statePath = path.join(runDir, "state.json");
+        if (!fs.existsSync(statePath))
             return null;
-        return this.deriveRecord(repo, runDir);
+        const record = this.deriveRecord(repo, runDir);
+        if (record)
+            return record;
+        // deriveRecord returned null even though state.json existed a moment
+        // ago: it failed to parse, was flagged unsupported, tripped
+        // suspected-data-loss corroboration, or (a narrow race) a concurrent
+        // process deleted it in between. Re-derive without swallowing so a
+        // genuine corruption reaches THIS single-run lookup (backing `cw run
+        // show`/`archive`/`rerun`) instead of the misleading "not found" a bulk
+        // scan is content with — but if the file is ACTUALLY gone by the time
+        // we check again, that is genuinely missing, not corrupt, and must
+        // resolve to null like everywhere else, never a raw "File not found"
+        // exception surfacing from this fallback re-read.
+        try {
+            const result = (0, run_store_1.loadRunStateFile)(statePath, { dryRun: true });
+            if (result.report.status === "unsupported") {
+                throw new Error(`Run state for ${runId} is corrupt (fail closed): ${result.report.errors.join("; ") || "unsupported run state"}. Restore ${statePath} from a backup, or remove the run directory to start over.`);
+            }
+            (0, run_store_1.assertNotSuspectedDataLoss)(runId, result);
+            return record;
+        }
+        catch (error) {
+            if (!fs.existsSync(statePath))
+                return null;
+            throw error;
+        }
     }
     findPersisted(runId, scope) {
         for (const s of scope === "home" ? ["home", "repo"] : ["repo"]) {
@@ -810,7 +843,14 @@ class RunRegistry {
             }
             (0, fs_atomic_1.writeJson)(file, overlay, { durable: true });
         });
-        const record = this.deriveRecord(repo, located.record.runDir);
+        // deriveRecordForRun (not a bare deriveRecord(...)!) so a run that
+        // became corrupt/unsupported/suspected-data-loss in the narrow window
+        // between locate() above and this re-fetch gets the same clear,
+        // specific error every other single-run lookup gets, instead of a raw
+        // TypeError from a non-null assertion on a surprise null.
+        const record = this.deriveRecordForRun(repo, runId);
+        if (!record)
+            throw new Error(`Cannot archive: run ${runId} state became unavailable while archiving (fail closed).`);
         return {
             runId,
             repo,
