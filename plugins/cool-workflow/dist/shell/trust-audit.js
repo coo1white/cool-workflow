@@ -255,55 +255,59 @@ function verifyTrustAudit(run, anchor) {
  *     anchor; this function must never launder that shape into a
  *     confidently-"repaired" empty log).
  *  `write: false` (default) reports what WOULD happen without touching
- *  disk, matching this codebase's `cw state check [--write]` convention. */
+ *  disk, matching this codebase's `cw state check [--write]` convention.
+ *  Held under the SAME `withFileLock` as `recordTrustAuditEvent` (below),
+ *  so a repair can never interleave with a live append. */
 function repairTrustAuditTornTail(run, options = {}) {
     const audit = ensureTrustAudit(run);
-    const raw = fs.readFileSync(audit.eventLogPath, "utf8");
-    const lines = raw.split("\n").filter((line) => line.trim() !== "");
-    const badIndexes = [];
-    const events = [];
-    lines.forEach((line, i) => {
-        try {
-            events.push(JSON.parse(line));
+    return (0, fs_atomic_1.withFileLock)(audit.eventLogPath, () => {
+        const raw = fs.readFileSync(audit.eventLogPath, "utf8");
+        const lines = raw.split("\n").filter((line) => line.trim() !== "");
+        const badIndexes = [];
+        const events = [];
+        lines.forEach((line, i) => {
+            try {
+                events.push(JSON.parse(line));
+            }
+            catch {
+                badIndexes.push(i);
+            }
+        });
+        if (badIndexes.length === 0) {
+            return { outcome: "clean", reason: "every line parses — no torn trailing write to repair" };
         }
-        catch {
-            badIndexes.push(i);
+        if (badIndexes.length > 1 || badIndexes[0] !== lines.length - 1) {
+            return {
+                outcome: "refused",
+                reason: "corruption is not confined to exactly the trailing line — this is not a shape a crash mid-append can produce and will not be auto-repaired (looks like tampering)",
+            };
         }
+        // `events` already holds every line EXCEPT the one bad trailing line
+        // (JSON.parse threw for it, so nothing was pushed) — exactly the "good"
+        // set, in file order.
+        const recheck = verifyEventsChain(run.id, events, 0, options.anchor);
+        if (!recheck.verified) {
+            return {
+                outcome: "refused",
+                reason: options.anchor
+                    ? "removing the torn trailing write still doesn't reach the given --expect-head/--expect-count anchor — refusing to repair (this looks like deleted history, not a crash)"
+                    : "removing the torn trailing write still leaves an unverifiable chain — refusing to repair (this looks like tampering, not a crash)",
+            };
+        }
+        const removedBytes = Buffer.byteLength(lines[lines.length - 1], "utf8");
+        const repairedContent = events.length > 0 ? `${lines.slice(0, -1).join("\n")}\n` : "";
+        if (options.write) {
+            (0, fs_atomic_1.writeTextDurable)(audit.eventLogPath, repairedContent, { durable: true });
+        }
+        return {
+            outcome: "repaired",
+            reason: options.write
+                ? `removed a torn trailing write (${removedBytes} bytes) and restored a verified chain of ${events.length} event(s)`
+                : `would remove a torn trailing write (${removedBytes} bytes) and restore a verified chain of ${events.length} event(s) — pass --write to apply`,
+            removedLines: 1,
+            removedBytes,
+        };
     });
-    if (badIndexes.length === 0) {
-        return { outcome: "clean", reason: "every line parses — no torn trailing write to repair" };
-    }
-    if (badIndexes.length > 1 || badIndexes[0] !== lines.length - 1) {
-        return {
-            outcome: "refused",
-            reason: "corruption is not confined to exactly the trailing line — this is not a shape a crash mid-append can produce and will not be auto-repaired (looks like tampering)",
-        };
-    }
-    // `events` already holds every line EXCEPT the one bad trailing line
-    // (JSON.parse threw for it, so nothing was pushed) — exactly the "good"
-    // set, in file order.
-    const recheck = verifyEventsChain(run.id, events, 0, options.anchor);
-    if (!recheck.verified) {
-        return {
-            outcome: "refused",
-            reason: options.anchor
-                ? "removing the torn trailing write still doesn't reach the given --expect-head/--expect-count anchor — refusing to repair (this looks like deleted history, not a crash)"
-                : "removing the torn trailing write still leaves an unverifiable chain — refusing to repair (this looks like tampering, not a crash)",
-        };
-    }
-    const removedBytes = Buffer.byteLength(lines[lines.length - 1], "utf8");
-    const repairedContent = events.length > 0 ? `${lines.slice(0, -1).join("\n")}\n` : "";
-    if (options.write) {
-        (0, fs_atomic_1.writeTextDurable)(audit.eventLogPath, repairedContent, { durable: true });
-    }
-    return {
-        outcome: "repaired",
-        reason: options.write
-            ? `removed a torn trailing write (${removedBytes} bytes) and restored a verified chain of ${events.length} event(s)`
-            : `would remove a torn trailing write (${removedBytes} bytes) and restore a verified chain of ${events.length} event(s) — pass --write to apply`,
-        removedLines: 1,
-        removedBytes,
-    };
 }
 function unique(values) {
     return Array.from(new Set(values.filter(Boolean)));
@@ -331,9 +335,14 @@ function scrubMetadata(value) {
 function compact(value) {
     return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
 }
-function createEventId(run, kind) {
-    const count = readEventsRaw(trustAuditPaths(run).eventLogPath).length + 1;
-    return `audit-${(0, fs_atomic_1.safeFileName)(kind)}-${String(count).padStart(4, "0")}`;
+/** `count` must be the number of PRIOR events, read under the SAME lock
+ *  the append itself happens under (see `recordTrustAuditEvent`) — an
+ *  earlier version read this count separately, outside any lock, so two
+ *  concurrent writers could mint the SAME id for two different events
+ *  (the hash chain still forked-proof, but the id — referenced elsewhere
+ *  as `auditEventIds`/`parentEventIds` for provenance — was not unique). */
+function createEventId(kind, count) {
+    return `audit-${(0, fs_atomic_1.safeFileName)(kind)}-${String(count + 1).padStart(4, "0")}`;
 }
 /** Correlation-id keys copied verbatim (and no others) — byte-exact list/
  *  order to the old build's CORRELATION_ID_FIELDS. */
@@ -376,11 +385,20 @@ function indexCorrelationIds(event) {
     }
     return picked;
 }
+/** Read-modify-append: computes `prevEventHash` from the CURRENT last event
+ *  and appends. Held under `withFileLock` (like every other read-modify-
+ *  write in this codebase) so two processes recording events for the same
+ *  run at once can never both read the same tail and compute the same
+ *  `prevEventHash` — that would fork the hash chain, and a forked chain
+ *  fails `verifyTrustAudit` for good, with no repair for THAT shape (unlike
+ *  a torn trailing write, a fork is not confined to the last line). */
 function recordTrustAuditEvent(run, input) {
     const audit = ensureTrustAudit(run);
+    // `id` is NOT set here — it depends on the prior event count, which (like
+    // prevEventHash) must be read under the lock below, or two concurrent
+    // writers could mint the same id for two different events.
     const event = compact({
         schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
-        id: createEventId(run, input.kind),
         createdAt: new Date().toISOString(),
         runId: run.id,
         kind: input.kind,
@@ -404,11 +422,17 @@ function recordTrustAuditEvent(run, input) {
         parentEventIds: unique(input.parentEventIds || []).sort(),
         metadata: scrubMetadata(input.metadata || {}),
     });
-    const prior = readEventsRaw(audit.eventLogPath);
-    event.prevEventHash = prior.length ? prior[prior.length - 1].eventHash || computeEventHash(prior[prior.length - 1]) : trustAuditGenesis(run.id);
-    event.eventHash = computeEventHash(event);
-    (0, fs_atomic_1.durableAppendFileSync)(audit.eventLogPath, `${JSON.stringify(event)}\n`);
-    return event;
+    return (0, fs_atomic_1.withFileLock)(audit.eventLogPath, () => {
+        // ONE read under the lock feeds BOTH the id (count-based) and
+        // prevEventHash (last-event-based) — reading it twice (once for each)
+        // was itself a second, redundant full-log parse on every append.
+        const prior = readEventsRaw(audit.eventLogPath);
+        event.id = createEventId(input.kind, prior.length);
+        event.prevEventHash = prior.length ? prior[prior.length - 1].eventHash || computeEventHash(prior[prior.length - 1]) : trustAuditGenesis(run.id);
+        event.eventHash = computeEventHash(event);
+        (0, fs_atomic_1.durableAppendFileSync)(audit.eventLogPath, `${JSON.stringify(event)}\n`);
+        return event;
+    });
 }
 function recordSandboxPathDecision(run, input) {
     return recordTrustAuditEvent(run, {
