@@ -518,14 +518,16 @@ function setValue(
   context.changes.push({ path: reportPath, before, after: value, reason });
 }
 
-function derivePhases(tasks: unknown[]): Array<{ id: string; name: string; status: string; taskIds: string[] }> {
+export function derivePhases(tasks: unknown[]): Array<{ id: string; name: string; status: string; taskIds: string[] }> {
   const byPhase = new Map<string, string[]>();
   for (const task of tasks) {
     if (!isRecord(task)) continue;
     const phase = stringValue(task.phase) || "Workflow";
     const taskId = stringValue(task.id);
     if (!taskId) continue;
-    byPhase.set(phase, [...(byPhase.get(phase) || []), taskId]);
+    const taskIds = byPhase.get(phase);
+    if (taskIds) taskIds.push(taskId);
+    else byPhase.set(phase, [taskId]);
   }
   if (byPhase.size === 0) return [];
   return Array.from(byPhase.entries()).map(([name, taskIds]) => ({

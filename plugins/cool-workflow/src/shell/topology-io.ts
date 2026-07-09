@@ -351,7 +351,15 @@ export function summarizeTopologies(run: WorkflowRun): TopologySummary {
   const multi = (run.multiAgent as unknown as { fanins?: AgentFanin[] } | undefined) || {};
   const fanins = multi.fanins || [];
   const active: TopologyActiveSummary[] = state.runs.map((record) => {
-    const inferredFanins = fanins.filter((fanin) => record.groupIds.includes(fanin.groupId) || record.fanoutIds.includes(fanin.fanoutId || ""));
+    // `fanins` (multi.fanins) grows with total fan-in activity across the
+    // whole run, re-scanned here once per topology record -- Sets built
+    // from each record's own small groupIds/fanoutIds replace an
+    // O(fanins) `.includes()` scan per fanin with an O(1) lookup (the
+    // same array-scan-per-item shape 024b007 fixed for phase/task
+    // selection).
+    const groupIdSet = new Set(record.groupIds);
+    const fanoutIdSet = new Set(record.fanoutIds);
+    const inferredFanins = fanins.filter((fanin) => groupIdSet.has(fanin.groupId) || fanoutIdSet.has(fanin.fanoutId || ""));
     const allFaninIds = topo.unique([...record.faninIds, ...inferredFanins.map((fanin) => fanin.id)]);
     const blocked = inferredFanins.filter((fanin) => fanin.status === "blocked" || !fanin.verifierReady);
     const ready = inferredFanins.some((fanin) => fanin.verifierReady);
