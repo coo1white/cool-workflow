@@ -47,10 +47,35 @@
 > file changed with no smoke-test change) caught the initial commit
 > before this automated coverage was added — exactly the gate doing its
 > job.
+>
+> A follow-up 2-dimension adversarial review (correctness, and scope/SPEC
+> fidelity, each independently verified) confirmed the SPEC-fidelity and
+> non-TTY-safety claims, but caught one real correctness bug: the prompt
+> gate sat BEFORE the `--preview` and `--resume` branches, so on a real
+> TTY, `cw quickstart --preview` (documented read-only, "never drives")
+> and `cw quickstart --resume --run <id>` (continuing an existing run,
+> which never calls `plan()` again) both blocked on stdin for a question
+> neither needed — reproduced live via `script`-driven pty sessions for
+> both. Fixed by hoisting `existingRunId`'s computation (already the
+> single fact both the `--preview` branch's own `if (!previewRunId)` and
+> the main path's `if (existingRunId) {...} else { plan(...) }` agree
+> decides whether a fresh `plan()` happens at all) above the prompt gate
+> and adding `!existingRunId` to the condition — `--preview`/`--resume`
+> WITHOUT an existing run id (a genuinely fresh plan) still correctly
+> prompt; WITH one, never do. Re-verified live via the same pty technique
+> for all three cases (fresh `--preview` still prompts and completes;
+> `--preview --run <id>` and `--resume --run <id>` both resolve
+> immediately with no prompt). Added a regression-guard test to the same
+> `quickstart-smoke.js` section, racing `quickstartRun` against a short
+> timeout (since a reintroduced bug would hang forever on `rl.question()`
+> with nothing pushed to the fake stdin, not just fail) — confirmed this
+> new test actually catches the bug by temporarily reverting the fix and
+> watching it fail with the exact expected message, then restored the fix
+> and confirmed it passes again, stable across repeated runs.
 
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
-| 7 | Restore the old build's documented interactive `Question: ` TTY prompt on a bare `cw quickstart`/`audit-run` (no `--question`), dropped somewhere during the rebuild with no disclaimed removal. | `plugins/cool-workflow/src/shell/pipeline-cli.ts` + matching `dist/**`, `plugins/cool-workflow/test/quickstart-smoke.js`. | New in-process `quickstart-smoke.js` section (fake `process.stdin` with `isTTY:true`, exercises the real prompt code path): real-answer flow-through to `run.inputs.question`, blank-answer fail-closed with the same message as the piped path. Manual `expect`-driven real-pty verification confirmed the same plus `--check` never prompting. `cli-recoverable-errors-smoke.js` and the rest of `quickstart-smoke.js` (piped/non-TTY path) pass unmodified. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%); `release:check --skip-tests` all green (including the `runtime-smoke-required` onramp check). | no (PR batch, no release) |
+| 7 | Restore the old build's documented interactive `Question: ` TTY prompt on a bare `cw quickstart`/`audit-run` (no `--question`), dropped somewhere during the rebuild with no disclaimed removal. | `plugins/cool-workflow/src/shell/pipeline-cli.ts` + matching `dist/**`, `plugins/cool-workflow/test/quickstart-smoke.js`. | New in-process `quickstart-smoke.js` section (fake `process.stdin` with `isTTY:true`, exercises the real prompt code path): real-answer flow-through to `run.inputs.question`, blank-answer fail-closed with the same message as the piped path, and a timeout-raced regression guard proving `--preview --run <id>`/`--resume --run <id>` never prompt. Manual `expect`-driven real-pty verification confirmed all of the above plus `--check` never prompting, on a real terminal. `cli-recoverable-errors-smoke.js` and the rest of `quickstart-smoke.js` (piped/non-TTY path) pass unmodified. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%); `release:check --skip-tests` all green (including the `runtime-smoke-required` onramp check). A follow-up adversarial review (correctness + scope/SPEC fidelity, each independently verified) found one real bug (`--preview`/`--resume --run <id>` blocking on stdin), fixed and regression-tested in the same PR. | no (PR batch, no release) |
 
 ## Batch — add a documented `--quiet` flag (Unreleased)
 
