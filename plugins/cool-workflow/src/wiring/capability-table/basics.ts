@@ -45,7 +45,12 @@ addCliOnlyCapability(
  *  have its own `cw help search` row (`docs/rebuild/SPEC/cli-help/
  *  search.txt`: "cw search  Search workflow apps by keyword (title,
  *  description, id)."); `hiddenFromHelp` here was a rebuild regression
- *  that hid it, not a preserved old-build quirk — removed. */
+ *  that hid it, not a preserved old-build quirk — removed so the row
+ *  shows again. The summary text below is intentionally NOT byte-matched
+ *  to that old capture: the old wording says "description," but the
+ *  filter below matches `summary` (there is no `description` field) — so
+ *  the summary text stays accurate to current fields rather than
+ *  reproducing the old capture's stale terminology. */
 addCliOnlyCapability(
   "search",
   "Search bundled workflows by id/title/summary keyword.",

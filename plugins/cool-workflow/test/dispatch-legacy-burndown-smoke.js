@@ -13,11 +13,15 @@
 //      "X is not implemented in this milestone" placeholder strings);
 //   2. search is now a real, cli-only capability-table row;
 //   3. cw search / root help are byte-unchanged by the move; cw help
-//      search now shows a real row, matching the true v0.1.98 ground
-//      truth (docs/rebuild/SPEC/cli-help/search.txt) — this smoke
-//      originally pinned `hiddenFromHelp: true` as "byte-unchanged," but
-//      that was itself a regression this move introduced, not a
-//      preserved old-build behavior. Fixed along with the source.
+//      search now shows a real row again (this smoke originally pinned
+//      `hiddenFromHelp: true` as "byte-unchanged," but that was itself a
+//      regression this move introduced, not a preserved old-build
+//      behavior — fixed along with the source). The row's wording is
+//      NOT byte-matched to the old v0.1.98 capture (docs/rebuild/SPEC/
+//      cli-help/search.txt says "title, description, id" — a stale
+//      field name; the real filter uses `summary`, not `description` —
+//      see basics.ts's search capability for why the current wording
+//      was kept instead).
 
 const assert = require("node:assert/strict");
 const path = require("node:path");
@@ -78,7 +82,7 @@ function run(args) {
 {
   const helpSearch = run(["help", "search"]);
   assert.equal(helpSearch.status, 0);
-  assert.equal(helpSearch.stdout, "cw search\n\n  cw search  Search bundled workflows by id/title/summary keyword.\n", "search has its own cw help row, matching the old v0.1.98 ground truth");
+  assert.equal(helpSearch.stdout, "cw search\n\n  cw search  Search bundled workflows by id/title/summary keyword.\n", "search has its own cw help row again (visibility restored; wording intentionally not byte-matched to the old capture — see basics.ts)");
 }
 {
   const found = run(["search", "architecture"]);

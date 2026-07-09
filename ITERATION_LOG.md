@@ -32,11 +32,19 @@
 >    claiming "it never had one" (a `cw help search` row). False: the
 >    ground truth (`cli-help/search.txt`) shows the old build printed
 >    `cw search  Search workflow apps by keyword (title, description,
->    id).`. Removed the flag; `test/dispatch-legacy-burndown-smoke.js`
->    (the smoke that introduced the wrong assumption while burning down a
->    dead dispatch arm) asserted the old broken behavior as "byte-unchanged"
->    — updated its 3 affected assertions and header comment to match the
->    corrected, ground-truth-verified behavior.
+>    id).`. Removed the flag so the row shows again; kept the current
+>    summary wording ("Search bundled workflows by id/title/summary
+>    keyword.") rather than byte-matching the old capture — the old text
+>    says "description," but the filter matches `summary` (there is no
+>    `description` field), so the old wording is itself stale. Updated
+>    `test/dispatch-legacy-burndown-smoke.js`'s 3 affected assertions and
+>    header comment to match (visibility restored, wording intentionally
+>    kept current); added `cw search` to `skills/cool-workflow/references/
+>    commands.md`'s discovery-commands list, which had never mentioned it.
+>    (A first version of this fix and its commit message overclaimed an
+>    exact ground-truth wording match that was never actually done —
+>    caught by the follow-up review below and corrected in the same PR
+>    before merge.)
 > 2. **`cw help gc`** — `gc.plan`/`gc.verify` in `scheduling-registry.ts`
 >    were missing the `hiddenFromHelp: true` their sibling `gc.run` already
 >    has (with a comment explaining exactly why: `cw help gc`'s rows
@@ -52,7 +60,7 @@
 
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
-| 2 | Fix 3 confirmed `cw help` regressions (search hidden, gc plan/verify doubled, sched policy merged) found by diffing all 59 documented verbs' live help output against the v0.1.98 ground truth capture; leave the other 7 divergences alone (4 confirmed-expected/cosmetic, 2 flagged as deeper design questions for later, 1 confirmed-intentional). | `plugins/cool-workflow/src/wiring/capability-table/{basics,scheduling-registry}.ts`, `src/core/format/help.ts` + matching `dist/**`, `plugins/cool-workflow/test/dispatch-legacy-burndown-smoke.js`. | `dispatch-legacy-burndown-smoke` (was failing after the source fix, now passes with corrected assertions), plus `cw-help-per-command-smoke`, `formatapps-help-{command-help,more-commands-wrap,toplevel-layout}.test`, `captable-shared-path-and-helppath.test`, `cli-command-surface-smoke`, `cli-jsonmode-parity-smoke`, `cli-mcp-parity-smoke`, `parity-doc-sync-smoke`, `sched-policy-validation-smoke` — all pass. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; conformance 104/104 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
+| 2 | Fix 3 confirmed `cw help` regressions (search hidden, gc plan/verify doubled, sched policy merged) found by diffing all 59 documented verbs' live help output against the v0.1.98 ground truth capture; leave the other 7 divergences alone (4 confirmed-expected/cosmetic, 2 flagged as deeper design questions for later, 1 confirmed-intentional). | `plugins/cool-workflow/src/wiring/capability-table/{basics,scheduling-registry}.ts`, `src/core/format/help.ts` + matching `dist/**`, `plugins/cool-workflow/test/dispatch-legacy-burndown-smoke.js`, `plugins/cool-workflow/skills/cool-workflow/references/commands.md`. | `dispatch-legacy-burndown-smoke` (was failing after the source fix, now passes with corrected assertions), plus `cw-help-per-command-smoke`, `formatapps-help-{command-help,more-commands-wrap,toplevel-layout}.test`, `captable-shared-path-and-helppath.test`, `cli-command-surface-smoke`, `cli-jsonmode-parity-smoke`, `cli-mcp-parity-smoke`, `parity-doc-sync-smoke`, `sched-policy-validation-smoke` — all pass. A follow-up multi-agent review (correctness + evidence-chain verification, each independently verified) confirmed the gc/sched fixes are byte-exact against ground truth and audit-run/multi-agent were correctly left alone, and caught the search-wording overclaim described above (plus a stale `hiddenFromHelp` comment in `cli/dispatch.ts`, reverted rather than fixed since it's non-functional and the only thing that would have required a docs-surface touch) — fixed in the same PR. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 104/104 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%); `release:check --skip-tests` all green. | no (PR batch, no release) |
 
 ## Batch — stop leaking the `scripts/cw.js` entry-point name into user-facing text (Unreleased)
 
