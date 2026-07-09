@@ -51,7 +51,9 @@ function makeRunner() {
 const CoolWorkflowRunner = function () { return makeRunner(); };
 // Old quickstart(runner, opts) -> v2 quickstartRun(opts); the `bundle`/withTrustKey/
 // strictSignatures branch that produced result.bundle is simply gone in v2.
-function quickstart(_runner, opts) { return quickstartRun(opts); }
+// quickstartRun is now async (driveAsync keeps a live drive loop interruptible
+// by a real SIGINT/SIGTERM -- shell/drive.ts), so this wrapper is too.
+async function quickstart(_runner, opts) { return quickstartRun(opts); }
 function runVerifyReportBundle(_runner, opts) {
   return verifyReportBundle(opts.archive, { cwd: opts.cwd });
 }
@@ -68,6 +70,12 @@ function tmpWorkspace() {
 }
 function clearAgentEnv() {
   for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"]) delete process.env[v];
+  // Pre-existing environment-dependent flake (unrelated to driveAsync): this
+  // clear left CW_NO_AUTO_AGENT unset, so resolveAgentConfig's PATH auto-
+  // detect could silently pick up a REAL claude/codex/gemini/opencode CLI
+  // when one happens to be installed, inverting section 3's "unconfigured
+  // agent" premise. Matches the fix already applied to doctor-smoke.js.
+  process.env.CW_NO_AUTO_AGENT = "1";
 }
 // Unsigned inner agent: writes a valid evidence-gated result.md and reports a model
 // (+ usage). The wrapper adds the signature when a private key is configured.
@@ -85,6 +93,10 @@ function writeStub(file, withUsage) {
   return file;
 }
 
+// quickstart() awaits the now-async quickstartRun (driveAsync keeps a live
+// drive loop interruptible by a real SIGINT/SIGTERM -- shell/drive.ts), so the
+// whole body below (previously top-level) is wrapped in an async main().
+async function main() {
 const cwd0 = process.cwd();
 clearAgentEnv();
 
@@ -101,7 +113,7 @@ clearAgentEnv();
   process.chdir(work);
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
-    const result = quickstart(runner, {
+    const result = await quickstart(runner, {
       appId: BUNDLE_APP,
       repo: work,
       question: "What are the architecture risks?",
@@ -130,7 +142,7 @@ clearAgentEnv();
   process.chdir(work);
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
-    const result = quickstart(runner, {
+    const result = await quickstart(runner, {
       appId: BUNDLE_APP,
       repo: work,
       question: "risks?",
@@ -151,7 +163,7 @@ clearAgentEnv();
   process.chdir(work);
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
-    const result = quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", bundle: true });
+    const result = await quickstart(runner, { appId: "architecture-review", repo: work, question: "risks?", bundle: true });
     assert.notEqual(result.status, "complete", "an unconfigured agent does not complete");
     assert.equal(Object.prototype.hasOwnProperty.call(result, "bundle"), false, "an incomplete run is never sealed");
     assert.match(result.hint || "", /--bundle skipped/, "the operator is told the bundle was skipped (not silence)");
@@ -174,7 +186,7 @@ clearAgentEnv();
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
     const agentCommand = `${process.execPath} ${stub} {{result}}`;
-    const first = quickstart(runner, {
+    const first = await quickstart(runner, {
       appId: BUNDLE_APP,
       repo: work,
       question: "risks?",
@@ -188,7 +200,7 @@ clearAgentEnv();
     assert.match(first.hint || "", /--run .* --resume --bundle/, "continue hint keeps the bundle intent");
     assert.match(first.hint || "", /--bundle skipped/, "the skip is explicit");
 
-    const done = quickstart(runner, {
+    const done = await quickstart(runner, {
       appId: BUNDLE_APP,
       repo: work,
       question: "risks?",
@@ -250,7 +262,7 @@ clearAgentEnv();
   process.chdir(work);
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
-    const result = quickstart(runner, { appId: BUNDLE_APP, runId, repo: work, bundle: true, strictSignatures: true });
+    const result = await quickstart(runner, { appId: BUNDLE_APP, runId, repo: work, bundle: true, strictSignatures: true });
     assert.equal(result.status, "complete", "the already-complete run stays complete");
     assert.ok(result.bundle, "bundle attempted on the completed run");
     assert.equal(result.bundle.ok, false, "strict + attested + no key => not shippable");
@@ -287,7 +299,7 @@ clearAgentEnv();
   process.chdir(caller);
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
-    const result = quickstart(runner, {
+    const result = await quickstart(runner, {
       appId: BUNDLE_APP,
       repo, // analyzed repo != process.cwd()
       question: "What are the risks?",
@@ -318,3 +330,9 @@ for (const dir of cleanups) {
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
 }
 process.stdout.write("quickstart-bundle-smoke: ok\n");
+}
+
+main().catch((e) => {
+  process.stderr.write(`FAIL  quickstart-bundle-smoke.js — ${String((e && e.message) || e)}\n`);
+  process.exit(1);
+});

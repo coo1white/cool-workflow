@@ -40,7 +40,7 @@ const commit_summary_1 = require("../../shell/commit-summary");
     path: ["run"],
     helpPath: ["run", "drive"],
     jsonMode: "default",
-    handler: (args) => {
+    handler: async (args) => {
         const registrySubcommands = new Set(["drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive", "restore"]);
         const target = args.positionals[0];
         if (args.options.drive && !registrySubcommands.has(String(target || ""))) {
@@ -52,7 +52,7 @@ const commit_summary_1 = require("../../shell/commit-summary");
                 driveArgs.runId = runId;
             else
                 driveArgs.appId = target;
-            return { json: (0, pipeline_cli_1.runDriveStep)(driveArgs) };
+            return { json: await (0, pipeline_cli_1.runDriveStep)(driveArgs) };
         }
         const [subcommand, id] = args.positionals;
         if (subcommand === "drive") {
@@ -60,7 +60,7 @@ const commit_summary_1 = require("../../shell/commit-summary");
                 const driveArgs = { ...args.options };
                 if (id)
                     driveArgs.runId = id;
-                return { json: (0, pipeline_cli_1.runDriveStep)(driveArgs) };
+                return { json: await (0, pipeline_cli_1.runDriveStep)(driveArgs) };
             }
             return { json: (0, pipeline_cli_1.runDrivePreview)({ ...args.options, runId: (0, io_1.required)(id, "run id") }) };
         }
@@ -104,13 +104,13 @@ const commit_summary_1 = require("../../shell/commit-summary");
 (0, registry_core_1.attachCliBinding)("run.drive", {
     path: ["run", "drive"],
     jsonMode: "default",
-    handler: (args) => {
+    handler: async (args) => {
         const id = args.positionals[0];
         if (args.options.step) {
             const driveArgs = { ...args.options };
             if (id)
                 driveArgs.runId = id;
-            return { json: (0, pipeline_cli_1.runDriveStep)(driveArgs) };
+            return { json: await (0, pipeline_cli_1.runDriveStep)(driveArgs) };
         }
         return { json: (0, pipeline_cli_1.runDrivePreview)({ ...args.options, runId: (0, io_1.required)(id, "run id") }) };
     },
@@ -225,9 +225,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     // wrapper (byte-behavior port of the old build's caseTokens).
     caseTokens: ["quickstart", "audit-run"],
     jsonMode: "default",
-    handler: (args) => {
+    handler: async (args) => {
         const appId = (0, io_2.optionalArg)(args.positionals[0]);
-        const result = (0, pipeline_cli_1.quickstartRun)({ ...args.options, appId });
+        const result = (await (0, pipeline_cli_1.quickstartRun)({ ...args.options, appId }));
         // Fail closed on both known bad outcomes: a --check preflight that
         // found a blocking gap, OR a --bundle that did not self-verify.
         const bundle = result.bundle;

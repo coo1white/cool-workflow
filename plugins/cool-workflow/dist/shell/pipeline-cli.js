@@ -224,8 +224,11 @@ function runDrivePreview(args) {
     return (0, drive_1.drivePreview)(runId, cwd, args);
 }
 /** `cw run <app|--run id> --drive [--once]` — plans a fresh run (unless
- *  `--run` continues an existing one) and drives it. */
-function runDriveStep(args) {
+ *  `--run` continues an existing one) and drives it. Uses driveAsync (not
+ *  the plain synchronous drive()) so a live multi-round run actually
+ *  responds to Ctrl-C/SIGTERM instead of silently ignoring it — see
+ *  shell/drive.ts's driveAsync doc comment. */
+async function runDriveStep(args) {
     const existingRunId = String(args.runId || args.run || "");
     const options = {
         once: Boolean(args.once),
@@ -237,7 +240,7 @@ function runDriveStep(args) {
     if (existingRunId) {
         const cwd = invocationCwd(args);
         const run = (0, run_store_1.loadRunFromCwd)(existingRunId, cwd);
-        return (0, drive_1.drive)(existingRunId, run.cwd, options);
+        return (0, drive_1.driveAsync)(existingRunId, run.cwd, options);
     }
     const appId = String(args.appId || args.app || args.positionalApp || "");
     if (!appId)
@@ -246,7 +249,7 @@ function runDriveStep(args) {
         args.repo = invocationCwd(args);
     const app = (0, workflow_app_loader_1.loadWorkflowApp)(appId);
     const run = (0, pipeline_1.plan)(app, planInputsFor(args));
-    return (0, drive_1.drive)(run.id, run.cwd, options);
+    return (0, drive_1.driveAsync)(run.id, run.cwd, options);
 }
 /** `cw quickstart [app] --check` — read-only preflight: does the app
  *  resolve, is the repo readable/writable, is a question set, is an
@@ -393,7 +396,7 @@ function remoteQuickstartCheck(appId, args, candidate) {
  *  projection (never drives), `--resume` advances one step (no --run) or
  *  continues a named run to completion (--run <id>) — both ported byte-for-
  *  byte from the old build's src/capability-core.ts quickstart(). */
-function quickstartRun(args) {
+async function quickstartRun(args) {
     const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
     // Remote source: a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
     // materialized to a LOCAL checkout HERE (capability/shell layer). Cloning is
@@ -465,7 +468,7 @@ function quickstartRun(args) {
     else {
         run = (0, pipeline_1.plan)(resolveWorkflowAppForPlan(appId), planInputsFor(args));
     }
-    const result = (0, drive_1.drive)(run.id, run.cwd, options);
+    const result = await (0, drive_1.driveAsync)(run.id, run.cwd, options);
     const finalRun = (0, run_store_1.loadRunFromCwd)(run.id, run.cwd);
     (0, report_1.writeReport)(finalRun);
     // Tamper-evident provenance: bind the remote origin (url@sha) into the run's

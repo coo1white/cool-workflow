@@ -118,7 +118,7 @@ function writeStub(file, model) {
   return file;
 }
 
-function main() {
+async function main() {
   clearAgentEnv();
   const cwd0 = process.cwd();
 
@@ -128,7 +128,7 @@ function main() {
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
     process.chdir(work);
     try {
-      const result = quickstartRun({
+      const result = await quickstartRun({
         appId: "architecture-review",
         repo: work,
         question: "What are the architecture risks?",
@@ -173,7 +173,7 @@ function main() {
     try {
       const agentCommand = `${process.execPath} ${stub} {{result}}`;
       // (a) --resume, no --run: advance exactly ONE step and print a continue line.
-      const step1 = quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true });
+      const step1 = await quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true });
       assert.equal(step1.status, "in-progress", "--resume advances one step, not the whole drive");
       assert.ok(step1.completedWorkers < step1.plannedWorkers, "one resume step leaves work pending");
       assert.ok(!step1.commitId, "an in-progress resume step has not committed");
@@ -181,7 +181,7 @@ function main() {
       assert.ok(step1.hint && /--run .* --resume/.test(step1.hint), "hint is a copy-pasteable --resume continue line");
       assert.ok(!/--once/.test(step1.hint), "the resume hint uses --resume, not --once");
       // (b) --resume --run <id>: continue THAT run to completion.
-      const done = quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true, run: step1.runId });
+      const done = await quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true, run: step1.runId });
       assert.equal(done.runId, step1.runId, "resume --run continues the SAME run");
       assert.equal(done.status, "complete", "resume --run drives to completion");
       assert.equal(done.completedWorkers, done.plannedWorkers, "all workers completed after resume");
@@ -198,7 +198,7 @@ function main() {
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
     process.chdir(work);
     try {
-      const result = quickstartRun({ appId: GOLDEN_APP, repo: work, question: "risks?", agentCommand: `${process.execPath} ${stub} {{result}}` });
+      const result = await quickstartRun({ appId: GOLDEN_APP, repo: work, question: "risks?", agentCommand: `${process.execPath} ${stub} {{result}}` });
       assert.equal(Object.prototype.hasOwnProperty.call(result, "resumedFrom"), false, "default (no --resume) output has no resumedFrom key");
       assert.ok(result.hint === undefined, "clean default completion still has no hint (unchanged wording)");
     } finally {
@@ -211,7 +211,7 @@ function main() {
     const work = tmpWorkspace();
     process.chdir(work);
     try {
-      const blocked = quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", resume: true });
+      const blocked = await quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", resume: true });
       assert.notEqual(blocked.status, "complete", "--resume with no agent never reports complete");
       assert.equal(blocked.completedWorkers, 0, "no fabricated completion under --resume");
       assert.equal(Object.prototype.hasOwnProperty.call(blocked, "resumedFrom"), false, "blocked fresh resume carries no resumedFrom");
@@ -231,7 +231,7 @@ function main() {
     process.chdir(work);
     try {
       clearAgentEnv();
-      const result = quickstartRun({ appId: "architecture-review", repo: work, question: "risks?" });
+      const result = await quickstartRun({ appId: "architecture-review", repo: work, question: "risks?" });
       assert.equal(result.status, "blocked", "unconfigured agent BLOCKS (fail closed)");
       assert.equal(result.agentConfigured, false, "agentConfigured=false reported");
       assert.equal(result.completedWorkers, 0, "no fabricated completion");
@@ -259,7 +259,7 @@ function main() {
     try {
       clearAgentEnv();
       // Preview a FRESH app -> plans one run, projects its next step.
-      const p1 = quickstartRun({ appId: "architecture-review", repo: work, question: "risks?", preview: true });
+      const p1 = await quickstartRun({ appId: "architecture-review", repo: work, question: "risks?", preview: true });
       assert.equal(p1.nextAction, "blocked", "unconfigured -> next action is blocked");
       assert.equal(p1.agentConfigured, false);
       assert.equal(p1.completedWorkers, 0, "preview mutates nothing");
@@ -267,7 +267,7 @@ function main() {
       // Re-previewing the SAME run is deterministic (counts derived from state; no
       // now-derived numeric field). A fresh-app preview only differs by the planned
       // runId, so we re-preview p1's run to assert the projection is byte-stable.
-      const p2 = quickstartRun({ repo: work, question: "risks?", preview: true, runId: p1.runId });
+      const p2 = await quickstartRun({ repo: work, question: "risks?", preview: true, runId: p1.runId });
       assert.equal(JSON.stringify(p1), JSON.stringify(p2), "preview of the same run is deterministic (no now-derived numeric field)");
       for (const [k, v] of Object.entries(p1)) if (typeof v === "number") assert.ok(Number.isInteger(v), `${k} is an integer count`);
       // the preview's run was NOT driven: only the initial-plan checkpoint exists,
@@ -286,7 +286,7 @@ function main() {
     process.chdir(work);
     try {
       clearAgentEnv();
-      const result = quickstartRun({ repo: work, question: "risks?" });
+      const result = await quickstartRun({ repo: work, question: "risks?" });
       assert.equal(result.appId, QUICKSTART_DEFAULT_APP, "defaults to architecture-review");
       assert.equal(result.appId, "architecture-review");
     } finally {
@@ -322,13 +322,17 @@ function main() {
 
   // ---- 6. RED LINE: the wrapper has NO private executor (delegates only) -----
   // The quickstart core must route through the existing drive() core (v2:
-  // drive(run.id, run.cwd, …) in src/shell/pipeline-cli.ts — the old build's
-  // runDrive(runner, …)), not spawn a child or import a model SDK. Structurally:
-  // the only spawn path is the agent backend, and there is no model-SDK import in
-  // the quickstart core.
+  // driveAsync(run.id, run.cwd, …) in src/shell/pipeline-cli.ts — the old
+  // build's runDrive(runner, …)), not spawn a child or import a model SDK.
+  // driveAsync (not the plain synchronous drive()) is what a live multi-round
+  // quickstart run actually calls, so it responds to Ctrl-C/SIGTERM instead of
+  // silently ignoring it (shell/drive.ts) — it shares every other line of
+  // drive()'s own logic, so this is still the SAME shared core, not a second
+  // implementation. Structurally: the only spawn path is the agent backend,
+  // and there is no model-SDK import in the quickstart core.
   {
     const coreSrc = fs.readFileSync(path.join(pluginRoot, "src/shell/pipeline-cli.ts"), "utf8");
-    assert.ok(/drive\(run\.id, run\.cwd/.test(coreSrc), "quickstart composes the existing drive() core");
+    assert.ok(/driveAsync\(run\.id, run\.cwd/.test(coreSrc), "quickstart composes the existing drive() core (via driveAsync)");
     const SDK_PKGS = ["@anthropic-ai", "openai", "@google/generative-ai", "ollama", "cohere", "mistralai"];
     for (const sdk of SDK_PKGS) assert.ok(!coreSrc.includes(sdk), `quickstart core must not import a model SDK: ${sdk}`);
     assert.ok(!/child_process|spawn\(|execFile/.test(coreSrc), "quickstart does not spawn its own executor (delegation goes through the agent backend)");
@@ -370,4 +374,7 @@ function main() {
   );
 }
 
-main();
+main().catch((e) => {
+  process.stderr.write(`FAIL  quickstart-smoke.js — ${String((e && e.message) || e)}\n`);
+  process.exit(1);
+});

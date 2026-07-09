@@ -43,7 +43,7 @@ attachCliBinding("run.drive.step", {
   path: ["run"],
   helpPath: ["run", "drive"],
   jsonMode: "default",
-  handler: (args) => {
+  handler: async (args) => {
     const registrySubcommands = new Set(["drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive", "restore"]);
     const target = args.positionals[0];
     if (args.options.drive && !registrySubcommands.has(String(target || ""))) {
@@ -52,14 +52,14 @@ attachCliBinding("run.drive.step", {
       const driveArgs: Record<string, unknown> = { ...args.options };
       if (runId) driveArgs.runId = runId;
       else driveArgs.appId = target;
-      return { json: runDriveStep(driveArgs) };
+      return { json: await runDriveStep(driveArgs) };
     }
     const [subcommand, id] = args.positionals;
     if (subcommand === "drive") {
       if (args.options.step) {
         const driveArgs: Record<string, unknown> = { ...args.options };
         if (id) driveArgs.runId = id;
-        return { json: runDriveStep(driveArgs) };
+        return { json: await runDriveStep(driveArgs) };
       }
       return { json: runDrivePreview({ ...args.options, runId: required(id, "run id") }) };
     }
@@ -106,12 +106,12 @@ attachCliBinding("run.drive.step", {
 attachCliBinding("run.drive", {
   path: ["run", "drive"],
   jsonMode: "default",
-  handler: (args) => {
+  handler: async (args) => {
     const id = args.positionals[0];
     if (args.options.step) {
       const driveArgs: Record<string, unknown> = { ...args.options };
       if (id) driveArgs.runId = id;
-      return { json: runDriveStep(driveArgs) };
+      return { json: await runDriveStep(driveArgs) };
     }
     return { json: runDrivePreview({ ...args.options, runId: required(id, "run id") }) };
   },
@@ -234,9 +234,9 @@ addCliOnlyCapability(
     // wrapper (byte-behavior port of the old build's caseTokens).
     caseTokens: ["quickstart", "audit-run"],
     jsonMode: "default",
-    handler: (args) => {
+    handler: async (args) => {
       const appId = optionalArg(args.positionals[0]);
-      const result = quickstartRun({ ...args.options, appId }) as unknown as Record<string, unknown>;
+      const result = (await quickstartRun({ ...args.options, appId })) as unknown as Record<string, unknown>;
       // Fail closed on both known bad outcomes: a --check preflight that
       // found a blocking gap, OR a --bundle that did not self-verify.
       const bundle = result.bundle as { ok?: boolean } | undefined;

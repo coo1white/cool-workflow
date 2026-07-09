@@ -19,6 +19,7 @@ import { dispatch } from "./dispatch";
 import { formatCommandHelp } from "../core/format/help";
 import { suggestCommand } from "./parseargv";
 import { findCapability } from "../core/capability-table";
+import type { CliHandlerResult } from "../core/capability-data";
 import { bold, dim, red } from "../shell/term";
 import { styledHelp } from "./io";
 
@@ -30,7 +31,10 @@ import { styledHelp } from "./io";
  *  comes from core/format/help.ts either way. */
 function printVersion(): void {
   const row = findCapability("version");
-  const result = row?.cli?.handler({ positionals: [], options: {} });
+  // `version`'s own handler is a pure, synchronous projection (never one of
+  // the live drive rows) -- safe to read `.text` straight off it rather than
+  // route through the generic (possibly-async) dispatch path.
+  const result = row?.cli?.handler({ positionals: [], options: {} }) as CliHandlerResult | undefined;
   process.stdout.write(result?.text ?? "");
 }
 
@@ -94,7 +98,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     args.command = "quickstart";
   }
 
-  dispatch(args);
+  await dispatch(args);
 }
 
 /** Top-level run wrapper matching src/cli.ts's catch shape byte-for-byte:

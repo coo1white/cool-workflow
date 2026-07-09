@@ -129,8 +129,17 @@ function resultMessage(id: unknown, result: unknown): { jsonrpc: "2.0"; id?: unk
 }
 
 /** Handles one already-parsed JSON-RPC request object. May write zero or
- *  one reply line to stdout. */
-function handleRequest(message: JsonRpcRequest): void {
+ *  one reply line to stdout. `await`ing callTool's result is a no-op for
+ *  the ~197 tools whose handler returns a plain value already (an `await`
+ *  on a non-Promise resolves on the next microtask, invisible to a
+ *  caller that already awaits handleRequest) -- it only matters for
+ *  `cw_run`, whose live drive loop returns a real Promise so it can
+ *  actually stay interruptible (see shell/drive.ts's driveAsync). This
+ *  must stay inside the existing try/catch: an async tool handler throws
+ *  by REJECTING its returned Promise rather than throwing synchronously,
+ *  and an unawaited rejection here would be an unhandled rejection
+ *  instead of the normal `-32000` JSON-RPC error reply. */
+async function handleRequest(message: JsonRpcRequest): Promise<void> {
   const hasId = Object.prototype.hasOwnProperty.call(message, "id");
   const id = message.id;
 
@@ -164,7 +173,7 @@ function handleRequest(message: JsonRpcRequest): void {
           throw new Error("MCP tools/call missing required field: name");
         }
         const args = (params as Record<string, unknown>).arguments;
-        const coreResult = callTool(name, args ?? {});
+        const coreResult = await callTool(name, args ?? {});
         const content: Array<{ type: "text"; text: string }> = [{ type: "text", text: safeJsonStringify(coreResult) }];
         const advisory = untrustedContentAdvisory(name);
         if (advisory) content.push({ type: "text", text: advisory });
@@ -183,7 +192,7 @@ function handleRequest(message: JsonRpcRequest): void {
 }
 
 /** Handles one raw (already-trimmed, non-empty) stdin line. */
-function handleLine(line: string): void {
+async function handleLine(line: string): Promise<void> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(line);
@@ -198,15 +207,23 @@ function handleLine(line: string): void {
     return;
   }
 
-  handleRequest(parsed as JsonRpcRequest);
+  await handleRequest(parsed as JsonRpcRequest);
 }
 
 /** Starts the stdio read loop. Never resolves — the server is long-lived
- *  and stops only when its stdin closes / the process exits. */
+ *  and stops only when its stdin closes / the process exits.
+ *
+ *  Requests are run through one promise chain (`queue`), never
+ *  concurrently: most lines resolve on the very next microtask (every
+ *  tool but `cw_run` is still a plain synchronous handler), so this adds
+ *  no real delay, but it keeps replies in the same order the requests
+ *  arrived even now that one tool (`cw_run`'s live drive loop) can take
+ *  many real event-loop turns to answer. */
 export function startServer(): void {
   process.stdin.setEncoding("utf8");
 
   let buffer = "";
+  let queue: Promise<void> = Promise.resolve();
   process.stdin.on("data", (chunk: string) => {
     buffer += chunk;
     for (;;) {
@@ -215,11 +232,13 @@ export function startServer(): void {
       const line = buffer.slice(0, newlineIndex);
       buffer = buffer.slice(newlineIndex + 1);
       const trimmed = line.trim();
-      if (trimmed) handleLine(trimmed);
+      if (trimmed) queue = queue.then(() => handleLine(trimmed));
     }
     if (buffer.length > MAX_LINE_BYTES) {
       buffer = "";
-      writeMessage(errorMessage(null, -32700, `Parse error: request line exceeds ${MAX_LINE_BYTES} bytes`));
+      queue = queue.then(() => {
+        writeMessage(errorMessage(null, -32700, `Parse error: request line exceeds ${MAX_LINE_BYTES} bytes`));
+      });
     }
   });
 }

@@ -33,6 +33,9 @@ const io_1 = require("./io");
  *  comes from core/format/help.ts either way. */
 function printVersion() {
     const row = (0, capability_table_1.findCapability)("version");
+    // `version`'s own handler is a pure, synchronous projection (never one of
+    // the live drive rows) -- safe to read `.text` straight off it rather than
+    // route through the generic (possibly-async) dispatch path.
     const result = row?.cli?.handler({ positionals: [], options: {} });
     process.stdout.write(result?.text ?? "");
 }
@@ -103,7 +106,7 @@ async function runCli(argv = process.argv.slice(2)) {
     else if (!args.command && typeof args.options.question === "string") {
         args.command = "quickstart";
     }
-    (0, dispatch_1.dispatch)(args);
+    await (0, dispatch_1.dispatch)(args);
 }
 /** Top-level run wrapper matching src/cli.ts's catch shape byte-for-byte:
  *  `cw: <message>\n` then, only when a hint matches, `  Try: <hint>\n` on

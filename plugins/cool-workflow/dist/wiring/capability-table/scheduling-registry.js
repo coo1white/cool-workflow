@@ -526,9 +526,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.show").mcp.handler = (args) => (
 (0, registry_core_1.attachCliBinding)("run.resume", {
     path: ["run", "resume"],
     jsonMode: "flag",
-    handler: (args) => {
+    handler: async (args) => {
         const runId = (0, io_1.required)(args.positionals[0], "run id");
-        const result = (0, registry_cli_1.runResumeCli)(runId, args.options);
+        const result = await (0, registry_cli_1.runResumeCli)(runId, args.options);
         return { json: result, text: (0, run_registry_io_1.formatResume)(result) };
     },
 });

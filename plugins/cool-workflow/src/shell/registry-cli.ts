@@ -151,13 +151,13 @@ export function runShowCli(runId: string, options: Record<string, unknown> = {})
  *  is read-only and byte-identical to the registry resume payload; with
  *  `--drive`/`--once` the SAME run (nothing re-planned) is handed to the
  *  real drive loop and the payload gains a `drive: DriveResult` field. */
-export function runResumeCli(runId: string, options: Record<string, unknown> = {}): Record<string, unknown> {
+export async function runResumeCli(runId: string, options: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
   const base = new RunRegistry(resolveCwd(options)).resume(runId, {
     scope: scopeOf(options, "home"),
     limit: requiredNumberFlag(options.limit, "--limit"),
   });
   if (!options.drive && !options.once) return base as unknown as Record<string, unknown>;
-  const drive = runDriveStep({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) });
+  const drive = await runDriveStep({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) });
   return { ...base, drive };
 }
 export function runArchiveCli(runId: string | undefined, options: Record<string, unknown> = {}) {

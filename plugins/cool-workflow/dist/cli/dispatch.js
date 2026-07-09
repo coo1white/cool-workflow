@@ -54,8 +54,14 @@ function renderCliResult(result, jsonMode, options) {
 /** Tries the capability table for `args`. Matches the row whose
  *  `cli.path` is `[command]` or `[command, positionals[0]]` (the only two
  *  path lengths any milestone-2 row uses); returns true when a table row
- *  handled the command. */
-function dispatchTable(args) {
+ *  handled the command. `await`ing the handler's result is a no-op for
+ *  the ~199 rows whose handler returns a plain CliHandlerResult (an
+ *  `await` on a non-Promise value just resolves on the next microtask,
+ *  invisible to any caller that itself awaits dispatch()) -- it only
+ *  matters for the live drive rows, which return a real Promise so their
+ *  round loop can actually stay interruptible (see shell/drive.ts's
+ *  driveAsync). */
+async function dispatchTable(args) {
     const candidates = [[args.command]];
     if (args.positionals.length > 0)
         candidates.push([args.command, args.positionals[0]]);
@@ -68,7 +74,7 @@ function dispatchTable(args) {
             positionals: args.positionals.slice(consumed),
             options: args.options,
         };
-        const result = row.cli.handler(cliArgs);
+        const result = await row.cli.handler(cliArgs);
         renderCliResult(result, row.cli.jsonMode, args.options);
         return true;
     }
@@ -161,8 +167,8 @@ function dispatchLegacy(args) {
  *
  *  Tries the capability table FIRST (real rows always win), then falls
  *  back to the milestone-1 legacy switch for verbs not yet migrated. */
-function dispatch(args) {
-    if (dispatchTable(args))
+async function dispatch(args) {
+    if (await dispatchTable(args))
         return;
     dispatchLegacy(args);
 }

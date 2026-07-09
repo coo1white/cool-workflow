@@ -656,9 +656,9 @@ REGISTRY_BY_CAPABILITY.get("run.show")!.mcp!.handler = (args) => runShowCli(requ
 attachCliBinding("run.resume", {
   path: ["run", "resume"],
   jsonMode: "flag",
-  handler: (args) => {
+  handler: async (args) => {
     const runId = required(args.positionals[0], "run id");
-    const result = runResumeCli(runId, args.options);
+    const result = await runResumeCli(runId, args.options);
     return { json: result, text: formatResume(result as unknown as Parameters<typeof formatResume>[0]) };
   },
 });

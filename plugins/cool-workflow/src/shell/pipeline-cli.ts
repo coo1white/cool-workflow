@@ -15,7 +15,7 @@ import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { plan } from "./pipeline";
 import { loadWorkflowApp, showWorkflowApp, loadWorkflowAppRecordById, WorkflowAppNotFoundError } from "./workflow-app-loader";
 import { LoadedWorkflowApp } from "../core/workflow-apps/app-schema";
-import { drive, DriveOptions, drivePreview } from "./drive";
+import { drive, driveAsync, DriveOptions, drivePreview } from "./drive";
 import { createDispatchManifest } from "./dispatch";
 import { commitState } from "./commit";
 import { recordWorkerOutput, showWorkerManifest, getWorkerScope } from "./worker-isolation";
@@ -182,8 +182,11 @@ export function runDrivePreview(args: Record<string, unknown>): ReturnType<typeo
 }
 
 /** `cw run <app|--run id> --drive [--once]` — plans a fresh run (unless
- *  `--run` continues an existing one) and drives it. */
-export function runDriveStep(args: Record<string, unknown>): ReturnType<typeof drive> {
+ *  `--run` continues an existing one) and drives it. Uses driveAsync (not
+ *  the plain synchronous drive()) so a live multi-round run actually
+ *  responds to Ctrl-C/SIGTERM instead of silently ignoring it — see
+ *  shell/drive.ts's driveAsync doc comment. */
+export async function runDriveStep(args: Record<string, unknown>): Promise<ReturnType<typeof drive>> {
   const existingRunId = String(args.runId || args.run || "");
   const options: DriveOptions = {
     once: Boolean(args.once),
@@ -195,14 +198,14 @@ export function runDriveStep(args: Record<string, unknown>): ReturnType<typeof d
   if (existingRunId) {
     const cwd = invocationCwd(args);
     const run = loadRunFromCwd(existingRunId, cwd);
-    return drive(existingRunId, run.cwd, options);
+    return driveAsync(existingRunId, run.cwd, options);
   }
   const appId = String(args.appId || args.app || args.positionalApp || "");
   if (!appId) throw new Error("run --drive requires an app id (or --run <run-id> to continue)");
   if (!args.repo && !args.cwd) args.repo = invocationCwd(args);
   const app = loadWorkflowApp(appId);
   const run = plan(app, planInputsFor(args));
-  return drive(run.id, run.cwd, options);
+  return driveAsync(run.id, run.cwd, options);
 }
 
 interface QuickstartCheck {
@@ -369,9 +372,9 @@ type QuickstartResult = ReturnType<typeof drive> & { appId: string; hint?: strin
  *  projection (never drives), `--resume` advances one step (no --run) or
  *  continues a named run to completion (--run <id>) — both ported byte-for-
  *  byte from the old build's src/capability-core.ts quickstart(). */
-export function quickstartRun(
+export async function quickstartRun(
   args: Record<string, unknown>
-): QuickstartResult | QuickstartCheckResult | ReturnType<typeof drivePreview> {
+): Promise<QuickstartResult | QuickstartCheckResult | ReturnType<typeof drivePreview>> {
   const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
   // Remote source: a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
   // materialized to a LOCAL checkout HERE (capability/shell layer). Cloning is
@@ -443,7 +446,7 @@ export function quickstartRun(
   } else {
     run = plan(resolveWorkflowAppForPlan(appId), planInputsFor(args));
   }
-  const result = drive(run.id, run.cwd, options);
+  const result = await driveAsync(run.id, run.cwd, options);
   const finalRun = loadRunFromCwd(run.id, run.cwd);
   writeReport(finalRun);
 

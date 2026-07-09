@@ -35,18 +35,29 @@ const { REGISTRY, CapabilityNotImplementedError, findCapabilityByMcpTool } = req
 // while wiring incrementally, but no row should still fall through to it
 // in a tagged release. A broad sweep, not just one named example: every
 // mcp-bound row's handler must be a real implementation.
-{
+//
+// run.drive.step's handler is now async (driveAsync keeps a live drive
+// loop interruptible by a real SIGINT/SIGTERM -- shell/drive.ts), so an
+// invalid-args call rejects its returned Promise instead of throwing
+// synchronously; `await`ing a plain (non-Promise) return from every other
+// still-synchronous handler is a no-op, so the same loop covers both.
+async function main() {
   const mcpRows = REGISTRY.filter((row) => row.mcp);
   assert.ok(mcpRows.length > 100, "the mcp surface must be present");
   const stillUnimplemented = [];
   for (const row of mcpRows) {
     try {
-      row.mcp.handler({});
+      await row.mcp.handler({});
     } catch (e) {
       if (e instanceof CapabilityNotImplementedError) stillUnimplemented.push(row.capability);
     }
   }
   assert.deepEqual(stillUnimplemented, [], "no mcp row should still throw CapabilityNotImplementedError at the shipped release");
+
+  process.stdout.write("captable-not-implemented-handler: ok\n");
 }
 
-process.stdout.write("captable-not-implemented-handler: ok\n");
+main().catch((e) => {
+  process.stderr.write(`FAIL  captable-not-implemented-handler.test.js — ${String((e && e.message) || e)}\n`);
+  process.exit(1);
+});

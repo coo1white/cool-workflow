@@ -83,6 +83,10 @@ function regFor(repo) {
   return new RunRegistry(repo);
 }
 
+// runResumeCli awaits the now-async runDriveStep (driveAsync keeps a live
+// drive loop interruptible by a real SIGINT/SIGTERM -- shell/drive.ts), so
+// the whole body below (previously top-level) is wrapped in an async main().
+async function main() {
 const cwd0 = process.cwd();
 
 // (1)+(2): drive ONE step, then `resume --drive` continues the SAME run to completion.
@@ -98,7 +102,7 @@ const cwd0 = process.cwd();
     assert.ok(step1.completedWorkers < step1.plannedWorkers, "pending work remains after one step");
     const runId = step1.runId;
 
-    const resumed = runResumeCli(runId, { scope: "repo", cwd: repo, drive: true, agentCommand });
+    const resumed = await runResumeCli(runId, { scope: "repo", cwd: repo, drive: true, agentCommand });
     assert.ok(resumed.drive, "resume --drive augments the result with a drive outcome");
     assert.equal(resumed.drive.runId, runId, "resume --drive CONTINUES the same run, not a new one");
     assert.equal(resumed.drive.status, "complete", "resume --drive reaches completion");
@@ -115,7 +119,7 @@ const cwd0 = process.cwd();
   try {
     const planned = planAndDrive({ appId: "architecture-review", repo, question: "risks?" }); // no agent -> blocked
     const runId = planned.runId;
-    const resumed = runResumeCli(runId, { scope: "repo", cwd: repo, drive: true });
+    const resumed = await runResumeCli(runId, { scope: "repo", cwd: repo, drive: true });
     assert.ok(resumed.drive, "fail-closed path still returns a drive outcome");
     assert.equal(resumed.drive.status, "blocked", "unconfigured agent -> drive blocked (fail-closed)");
     assert.equal(resumed.drive.completedWorkers, 0, "no fabricated completion");
@@ -133,7 +137,7 @@ const cwd0 = process.cwd();
     const reg = regFor(repo);
     const before = loadRunFromCwd(runId, repo).tasks.filter((t) => t.status === "pending").length;
     const base = reg.resume(runId, { scope: "repo" });
-    const noFlag = runResumeCli(runId, { scope: "repo", cwd: repo });
+    const noFlag = await runResumeCli(runId, { scope: "repo", cwd: repo });
     assert.equal(Object.prototype.hasOwnProperty.call(noFlag, "drive"), false, "default resume has NO drive field");
     assert.deepEqual(noFlag.nextActions, base.nextActions, "default resume nextActions byte-identical to reg.resume");
     const after = loadRunFromCwd(runId, repo).tasks.filter((t) => t.status === "pending").length;
@@ -175,3 +179,9 @@ const cwd0 = process.cwd();
 }
 
 process.stdout.write("run-resume-drive-smoke: ok (resume --drive continues to completion; fail-closed blocked; default byte-identical; CLI routing not misread as app)\n");
+}
+
+main().catch((e) => {
+  process.stderr.write(`FAIL  run-resume-drive-smoke.js — ${String((e && e.message) || e)}\n`);
+  process.exit(1);
+});
