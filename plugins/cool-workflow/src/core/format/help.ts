@@ -258,7 +258,7 @@ export function formatHelp(): string {
     "  --full                 Verbose, plus the report printed inline at the end",
     "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
     "  --json                 Print JSON for commands that support it",
-    "  --quiet                Suppress drive progress lines",
+    "  --quiet                Suppress [drive] progress lines (not agent output)",
     "",
     "More commands",
     ...moreCommandsLines,
