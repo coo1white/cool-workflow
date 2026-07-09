@@ -220,7 +220,17 @@ function humanizeKey(key) {
   return key.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
 }
 
-function renderEventGroups(data, eventKeys) {
+function renderEventGroups(data, confirmedEventKeys) {
+  // At least one sibling array on this object is confirmed TrustAuditEvent-
+  // shaped -- so its OTHER array fields that happen to be empty (e.g. a
+  // healthy `policyViolations: []`) are almost certainly the same family
+  // and read better as their own "(0)" table than buried in the raw
+  // "other fields" JSON below. An empty array can't self-identify by
+  // content, so this only widens the match within an already-confirmed
+  // object, never anywhere else.
+  const eventKeys = Object.keys(data).filter(
+    (key) => confirmedEventKeys.includes(key) || (Array.isArray(data[key]) && data[key].length === 0)
+  );
   const wrap = el("div");
   for (const key of eventKeys) {
     const events = [...data[key]].sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
