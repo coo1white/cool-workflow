@@ -48,8 +48,17 @@ fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
 
 const cwd0 = process.cwd();
 // v2 drive resolves the agent config from options.agentConfig OR the ambient
-// CW_AGENT_* / --agent-* inputs. Clear the env so "not configured" holds
-// regardless of the caller's shell (the harness may export CW_* vars).
+// CW_AGENT_* / --agent-* inputs (via resolveAgentConfig, which ALSO
+// auto-detects an agent CLI on PATH when no explicit command/endpoint is
+// set — see shell/agent-config.ts's detectAgentFromPath). Clearing the env
+// vars alone is not airtight: on any machine/CI where a supported agent CLI
+// (e.g. `claude`) is already on PATH, that auto-detect would still resolve a
+// command and this test's "not configured" precondition would be false —
+// so drive() would dispatch a REAL agent child process instead of hitting
+// the intended fail-closed blocked guard. Pass an explicit empty
+// agentConfig so drive() (src/shell/drive.ts: `options.agentConfig ||
+// resolveAgentConfig(...)`) uses it as-is and never calls resolveAgentConfig
+// at all, bypassing PATH auto-detection regardless of the host environment.
 const savedEnv = {};
 for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) {
   savedEnv[v] = process.env[v];
@@ -63,7 +72,7 @@ try {
 
   // Non-once drive with NO agent configured: the drive selects the pending
   // worker but refuses to spawn, hitting the explicit blocked guard.
-  const result = drive(p.id, work, { now: "2026-07-01T00:00:00.000Z" });
+  const result = drive(p.id, work, { now: "2026-07-01T00:00:00.000Z", agentConfig: { schemaVersion: 1 } });
 
   assert.equal(result.status, "blocked", "a drive that cannot make terminal progress reports blocked");
   assert.equal(result.commitId, undefined, "a blocked drive does not commit");
