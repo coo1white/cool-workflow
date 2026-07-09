@@ -642,7 +642,7 @@
   {
     "kind": "stdout_format",
     "id": "audit-envelopes",
-    "behavior": "auditPolicy/auditRole/auditBlackboard/auditJudge return schemaVersion:1 projections; auditRole.nextAction = 'node scripts/cw.js audit multi-agent <runId> --json'",
+    "behavior": "auditPolicy/auditRole/auditBlackboard/auditJudge return schemaVersion:1 projections; auditRole.nextAction = 'cw audit multi-agent <runId> --json'",
     "evidence": "src/orchestrator/audit-operations.ts:38",
     "tests": [
       "test/multi-agent-trust-policy-audit-smoke.js"
