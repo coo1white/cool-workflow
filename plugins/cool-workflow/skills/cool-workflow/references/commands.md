@@ -27,6 +27,7 @@ absolute plugin script path. Run data is written to `.cw/runs/<run-id>/` under
 
 ```bash
 cw list
+cw search architecture
 cw app list
 cw app show architecture-review
 cw app show pr-review-fix-ci

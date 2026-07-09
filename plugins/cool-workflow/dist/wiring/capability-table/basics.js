@@ -32,15 +32,19 @@ function loadWorkflowAppLoader() {
 /** `cw search <keyword>` — filters the SAME real app discovery `cw list`
  *  shows, by id/title/summary (byte-behavior port of cli/dispatch.ts's
  *  milestone-1 carry-over `search` arm, moved here so the dispatchLegacy
- *  switch shrinks per its file header's rule). `hiddenFromHelp` keeps it
- *  out of the per-verb help listing exactly as before (it never had one —
- *  `search` only ever appeared in formatHelp's hard-coded "More commands"
- *  index line, which this row does not touch), so `cw help search` keeps
- *  its existing "Unknown command: search" text. */
+ *  switch shrinks per its file header's rule). The old v0.1.98 CLI DID
+ *  have its own `cw help search` row (`docs/rebuild/SPEC/cli-help/
+ *  search.txt`: "cw search  Search workflow apps by keyword (title,
+ *  description, id)."); `hiddenFromHelp` here was a rebuild regression
+ *  that hid it, not a preserved old-build quirk — removed so the row
+ *  shows again. The summary text below is intentionally NOT byte-matched
+ *  to that old capture: the old wording says "description," but the
+ *  filter below matches `summary` (there is no `description` field) — so
+ *  the summary text stays accurate to current fields rather than
+ *  reproducing the old capture's stale terminology. */
 (0, registry_core_1.addCliOnlyCapability)("search", "Search bundled workflows by id/title/summary keyword.", {
     path: ["search"],
     jsonMode: "flag",
-    hiddenFromHelp: true,
     handler: (args) => {
         const keyword = args.positionals.join(" ");
         if (!keyword.trim()) {

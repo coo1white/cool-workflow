@@ -135,7 +135,14 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
     { command: "cw sched complete", summary: "Complete a held lease (terminal success)." },
     { command: "cw sched reclaim", summary: "Reclaim expired leases (each counts a failed attempt)." },
     { command: "cw sched reset", summary: "Reset a parked entry to ready (operator recovery)." },
-    { command: "cw sched policy", summary: "Show or set the scheduling policy (concurrency/attempts/backoff/TTL)." },
+    // Two rows for one command string, on purpose — SPEC/cli-probe.md's
+    // "Odd things a rebuild must copy or fix on purpose" item 5 names
+    // `sched policy` as one of the show/set pairs a rebuild's help
+    // printer must keep doubled; this single merged row was a regression
+    // that lost the doubling (docs/rebuild/SPEC/cli-help/sched.txt has
+    // both), restored here with the old ground truth's exact wording.
+    { command: "cw sched policy", summary: "Show the scheduling policy (file or default)." },
+    { command: "cw sched policy", summary: "Set scheduling policy fields (concurrency/attempts/backoff/TTL)." },
   ],
   registry: [
     { command: "cw registry refresh", summary: "Recompute and persist the derived run registry index." },
