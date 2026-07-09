@@ -322,7 +322,8 @@ export function writeReport(run: WorkflowRun): string {
     "| Phase | Status | Completed | Total |",
     "| --- | --- | ---: | ---: |",
     ...run.phases.map((phase) => {
-      const phaseTasks = run.tasks.filter((t) => phase.taskIds.includes(t.id));
+      const taskIds = new Set(phase.taskIds);
+      const phaseTasks = run.tasks.filter((t) => taskIds.has(t.id));
       const completed = phaseTasks.filter((t) => t.status === "completed").length;
       return `| ${phase.name} | ${phase.status} | ${completed} | ${phaseTasks.length} |`;
     }),
