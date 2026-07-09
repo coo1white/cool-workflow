@@ -177,6 +177,7 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "coordinator.summary",
             "coordinator.decision",
             "audit.verify",
+            "audit.repair",
             "audit.worker",
             "audit.provenance",
             "audit.multi-agent",

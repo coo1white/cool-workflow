@@ -32,7 +32,7 @@ import {
   ledgerVerifyEntry,
 } from "../../shell/ledger-cli";
 import { telemetryVerifyCli } from "../../shell/telemetry-cli";
-import { auditHeadCli, auditVerifyCli } from "../../shell/audit-cli";
+import { auditHeadCli, auditRepairCli, auditVerifyCli } from "../../shell/audit-cli";
 import { demoBundleCli, demoTamperCli } from "../../shell/demo-cli";
 import { formatTamperDemo, formatBundleDemo, formatTelemetryVerify } from "../../shell/telemetry-demo";
 import { reportBundleCli, reportVerifyBundleCli } from "../../shell/report-cli";
@@ -115,6 +115,18 @@ attachCliBinding("audit.head", {
 });
 REGISTRY_BY_CAPABILITY.get("audit.head")!.mcp!.handler = (args) =>
   auditHeadCli(required(optionalArg(args.runId), "run id"), args);
+
+attachCliBinding("audit.repair", {
+  path: ["audit", "repair"],
+  jsonMode: "default",
+  handler: (args) => {
+    const runId = required(optionalArg(args.positionals[0]), "run id");
+    const result = auditRepairCli(runId, args.options);
+    return { json: result, exitCode: result.outcome === "refused" ? 1 : undefined };
+  },
+});
+REGISTRY_BY_CAPABILITY.get("audit.repair")!.mcp!.handler = (args) =>
+  auditRepairCli(required(optionalArg(args.runId), "run id"), args);
 
 addCliOnlyCapability(
   "demo.tamper",

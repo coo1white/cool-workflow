@@ -217,6 +217,7 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: strin
       "coordinator.summary",
       "coordinator.decision",
       "audit.verify",
+      "audit.repair",
       "audit.worker",
       "audit.provenance",
       "audit.multi-agent",

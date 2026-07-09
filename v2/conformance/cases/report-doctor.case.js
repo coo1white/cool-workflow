@@ -51,7 +51,7 @@ caseMain(() => {
   assert.equal(report.summary, "ready, with 2 warnings");
   assert.deepEqual(
     report.checks.map((c) => c.name),
-    ["node", "agent", "sandbox-enforceability", "git", "home-registry", "repo-state"]
+    ["node", "agent", "sandbox-enforceability", "git", "home-registry", "repo-state", "run-state-integrity", "audit-integrity"]
   );
   const byName = Object.fromEntries(report.checks.map((c) => [c.name, c]));
   assert.equal(byName.node.status, "ok");
@@ -60,6 +60,10 @@ caseMain(() => {
   assert.equal(byName["sandbox-enforceability"].status, "ok", "sandbox-enforceability is a fixed fact, always ok, never warn");
   assert.equal(byName["sandbox-enforceability"].fix, undefined, "an ok check must not carry a fix line");
   assert.equal(byName.git.status, "warn");
+  // A fresh cwd has no runs at all -- both new integrity checks are "ok"
+  // ("nothing to check yet"), never contributing a warning of their own.
+  assert.equal(byName["run-state-integrity"].status, "ok", "no runs yet: run-state-integrity is ok, not a warning");
+  assert.equal(byName["audit-integrity"].status, "ok", "no runs yet: audit-integrity is ok, not a warning");
   assert.equal(byName.node.fix, undefined, "an ok check must not carry a fix line");
   assert.equal(report.onramp, undefined, "no --onramp means no onramp block");
 

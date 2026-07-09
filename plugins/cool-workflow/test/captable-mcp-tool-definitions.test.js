@@ -13,7 +13,7 @@ const { mcpToolDefinitions } = require("../dist/core/capability-table");
 // inputSchema:{type:"object", properties, additionalProperties:true}.
 {
   const defs = mcpToolDefinitions();
-  assert.equal(defs.length, 197, "mcpToolDefinitions() must return exactly 197 entries");
+  assert.equal(defs.length, 198, "mcpToolDefinitions() must return exactly 198 entries");
   for (const def of defs) {
     assert.equal(typeof def.name, "string", `${def.name}: name must be a string`);
     assert.equal(typeof def.description, "string", `${def.name}: description must be a string`);

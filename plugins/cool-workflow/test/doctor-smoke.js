@@ -68,6 +68,11 @@ function run(args, env, cwd) {
   const env = { ...process.env, CW_HOME: home };
   delete env.CW_AGENT_COMMAND;
   delete env.CW_AGENT_ENDPOINT;
+  // Also block auto-detection of a real agent CLI (claude/codex/gemini/
+  // deepseek) that may genuinely be on $PATH in the test environment —
+  // without this, "no agent configured" silently becomes "auto-detected",
+  // flipping this case's whole premise.
+  env.CW_NO_AUTO_AGENT = "1";
   const r = run(["--json"], env, home);
   assert.equal(r.code, 0, "no agent is not a blocking failure");
   const report = JSON.parse(r.stdout);
@@ -148,7 +153,14 @@ function run(args, env, cwd) {
 
 // --fix consolidated fix commands
 (() => {
-  const { stdout } = run(["--fix"], process.env, pluginRoot);
+  // Force the "no agent configured" case regardless of whether a real
+  // agent CLI happens to be on $PATH in the test environment — this test
+  // is about the --fix rendering for that case, not about real PATH
+  // contents (same class of guard as the noAgentWarns case above).
+  const env = { ...process.env, CW_NO_AUTO_AGENT: "1" };
+  delete env.CW_AGENT_COMMAND;
+  delete env.CW_AGENT_ENDPOINT;
+  const { stdout } = run(["--fix"], env, pluginRoot);
   assert.match(stdout, /Fix Commands/, "doctor --fix shows Fix Commands header");
   assert.match(stdout, /cw_agent_command/i, "doctor --fix includes agent fix suggestion");
 })();
