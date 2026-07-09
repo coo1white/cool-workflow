@@ -762,8 +762,30 @@ function driveConcurrentRound(ctx, limit) {
         return steps.length > 0 ? steps : [driveStep(ctx)];
     });
 }
+// A bare Ctrl-C (SIGINT) or an external SIGTERM used to kill the process
+// outright between steps -- no handler was ever installed, so the default
+// kernel action ran: instant termination, no `finally` anywhere gets a
+// chance to run. If that landed mid-`withFileLock` critical section (e.g.
+// the state.json or trust-audit-log lock in run-store.ts/trust-audit.ts),
+// the lock's release `finally` never ran either, leaving a stale `.lock`
+// file that makes the NEXT command retry for ~6s before failing outright
+// (well under the 30s stale-lock steal window). The fix below can only
+// close this between iterations of THIS loop, not mid-spawnSync (a
+// synchronously-spawned agent child blocks the event loop, so no signal
+// callback runs until that call returns) -- an already-documented,
+// deliberately out-of-scope limit; see ITERATION_LOG.md.
+const DRIVE_STOP_SIGNALS = ["SIGINT", "SIGTERM"];
+const DRIVE_STOP_EXIT_CODE = { SIGINT: 130, SIGTERM: 143 };
 /** Drive a run: `--once` advances exactly one step; otherwise run to
- *  completion, park, or a blocked stop. */
+ *  completion, park, or a blocked stop. A SIGINT/SIGTERM received between
+ *  iterations stops the loop after the CURRENT step finishes (never
+ *  mid-step) and returns a normal "blocked" DriveResult naming the
+ *  interruption, so the run can be resumed the same way a max-iteration
+ *  block already is. A SECOND signal means the caller wants out right
+ *  now, not a graceful stop -- exits immediately. Handlers are installed
+ *  and removed on every call (this function recurses for nested
+ *  sub-workflow runs, and many tests call it repeatedly in one process),
+ *  so nothing accumulates on `process`'s listener list across calls. */
 function drive(runId, cwd, options = {}) {
     const now = options.now || new Date().toISOString();
     const config = options.agentConfig || (0, agent_config_1.resolveAgentConfig)(options.args || {});
@@ -815,36 +837,71 @@ function drive(runId, cwd, options = {}) {
         }
     };
     let exhaustedMaxIterations = !options.once;
-    for (let i = 0; i < maxIter; i++) {
-        const width = (0, drive_decide_1.roundWidth)(loadRun(ctx), options.concurrency);
-        // width>1 (an explicit --concurrency>1, or an auto-width parallel
-        // phase) runs the whole round through driveConcurrentRound — one or
-        // more steps recorded in deterministic batch order, one flush at
-        // round end. `--once` still stops after this ONE outer-loop
-        // iteration even though a round can yield multiple steps.
-        const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
-        for (const stepResult of roundSteps)
-            steps.push(stepResult);
-        // Brew-style phase boundaries: after each round, announce a
-        // newly-active phase and any phase that just finished. Cheap — reuses
-        // the run we just advanced; goes to stderr so stdout stays clean.
-        emitPhaseProgress(loadRun(ctx));
-        const last = roundSteps[roundSteps.length - 1];
-        if (options.once) {
-            exhaustedMaxIterations = false;
-            break;
+    let interruptedBy;
+    let stopSignalHits = 0;
+    const onStopSignal = (signal) => {
+        stopSignalHits += 1;
+        if (stopSignalHits === 1) {
+            interruptedBy = signal;
+            emitProgress(`received ${signal} — stopping after the current step (run again with the same run id to resume)`);
+            return;
         }
-        if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) {
-            exhaustedMaxIterations = false;
-            break;
+        // A second signal means the caller wants out right now, not a graceful stop.
+        emitProgress(`received a second ${signal} — exiting immediately`);
+        process.exit(DRIVE_STOP_EXIT_CODE[signal] ?? 1);
+    };
+    for (const signal of DRIVE_STOP_SIGNALS)
+        process.on(signal, onStopSignal);
+    try {
+        for (let i = 0; i < maxIter; i++) {
+            if (interruptedBy)
+                break;
+            const width = (0, drive_decide_1.roundWidth)(loadRun(ctx), options.concurrency);
+            // width>1 (an explicit --concurrency>1, or an auto-width parallel
+            // phase) runs the whole round through driveConcurrentRound — one or
+            // more steps recorded in deterministic batch order, one flush at
+            // round end. `--once` still stops after this ONE outer-loop
+            // iteration even though a round can yield multiple steps.
+            const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
+            for (const stepResult of roundSteps)
+                steps.push(stepResult);
+            // Brew-style phase boundaries: after each round, announce a
+            // newly-active phase and any phase that just finished. Cheap — reuses
+            // the run we just advanced; goes to stderr so stdout stays clean.
+            emitPhaseProgress(loadRun(ctx));
+            const last = roundSteps[roundSteps.length - 1];
+            if (options.once) {
+                exhaustedMaxIterations = false;
+                break;
+            }
+            if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) {
+                exhaustedMaxIterations = false;
+                break;
+            }
         }
+    }
+    finally {
+        for (const signal of DRIVE_STOP_SIGNALS)
+            process.off(signal, onStopSignal);
     }
     const run = loadRun(ctx);
     const completedWorkers = (0, drive_decide_1.countCompleted)(run);
     const parkedWorkers = (0, drive_decide_1.countParked)(run);
     const committed = (0, drive_decide_1.hasTerminalCommit)(run);
     const last = steps[steps.length - 1];
-    if (exhaustedMaxIterations) {
+    // A signal can land on the very last step (the terminal commit itself) --
+    // the run is already fully done, same "complete" check the `once` branch
+    // of finalDriveStatus below already uses. Reporting "blocked" here anyway
+    // would be a real user-visible lie (e.g. pipeline-cli.ts's `--bundle` gate
+    // reads status, so a genuinely finished run would wrongly skip sealing).
+    const alreadyComplete = completedWorkers === plannedWorkers && committed;
+    if (interruptedBy) {
+        exhaustedMaxIterations = false;
+        if (!alreadyComplete) {
+            steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId, reason: `drive interrupted by ${interruptedBy} — run again with the same run id to resume` }));
+        }
+    }
+    else if (exhaustedMaxIterations) {
         steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state` }));
     }
     const statusInputs = {

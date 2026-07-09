@@ -21,6 +21,34 @@
 //
 // THE RED LINE: this child only `spawn`s the operator-resolved agent binary with
 // shell:false. It imports NO model SDK and reads NO credentials.
+//
+// A direct kill of THIS process (e.g. the parent's spawnSync `timeout` option,
+// or a signal that reaches this child but not the grandchildren it spawned)
+// used to orphan every still-running job -- no SIGINT/SIGTERM handler existed
+// here, so the kernel default (instant termination) left them running with no
+// one left to reap them. Now the first stop signal forwards SIGTERM to every
+// still-tracked child (same escalation shape the per-job timeout below
+// already uses) and lets each one's own `close` handler settle it normally;
+// a second signal escalates straight to SIGKILL and exits immediately.
+const children = new Set();
+function killAllChildren(signal) {
+  for (const child of children) {
+    try { child.kill(signal); } catch {}
+  }
+}
+let stopSignalReceived = false;
+function onStopSignal(signal) {
+  if (stopSignalReceived) {
+    killAllChildren("SIGKILL");
+    process.exit(signal === "SIGINT" ? 130 : 143);
+    return;
+  }
+  stopSignalReceived = true;
+  killAllChildren("SIGTERM");
+  setTimeout(() => killAllChildren("SIGKILL"), 5000).unref();
+}
+process.on("SIGINT", () => onStopSignal("SIGINT"));
+process.on("SIGTERM", () => onStopSignal("SIGTERM"));
 
 const { spawn } = require("node:child_process");
 let raw = "";
@@ -54,6 +82,7 @@ process.stdin.on("end", () => {
       settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
       return;
     }
+    children.add(child);
     const term = setTimeout(() => { try { child.kill("SIGTERM"); } catch {} }, job.timeoutMs);
     const kill = setTimeout(() => { try { child.kill("SIGKILL"); } catch {} }, job.timeoutMs + 5000);
     child.stdout.on("data", (d) => {
@@ -71,10 +100,12 @@ process.stdin.on("end", () => {
     child.stderr.on("data", () => {});
     child.on("error", (error) => {
       clearTimeout(term); clearTimeout(kill);
+      children.delete(child);
       settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout });
     });
     child.on("close", (code) => {
       clearTimeout(term); clearTimeout(kill);
+      children.delete(child);
       if (stdoutTruncated) {
         settle({ spawnError: `stdout exceeded ${CAP} byte cap (${stdoutBytes} bytes)`, exitCode: null, stdout: "" });
         return;
