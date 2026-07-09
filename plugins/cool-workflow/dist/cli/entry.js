@@ -91,6 +91,13 @@ async function runCli(argv = process.argv.slice(2)) {
         process.env.CW_NO_COLOR = "1";
     if (args.options.full)
         process.env.CW_OUTPUT = "full";
+    // --quiet is a documented CLI spelling of the existing CW_DRIVE_PROGRESS=0
+    // env var (shell/drive.ts's emitProgress) — it only silences drive
+    // progress lines, not the end-of-run summary or any other Rule of
+    // Silence gate point (SPEC/reporting-ux.md's 3 gate points are each
+    // independent; --verbose/--full don't touch them either).
+    if (args.options.quiet)
+        process.env.CW_DRIVE_PROGRESS = "0";
     // `cw <verb> --help` / `-h` -> per-command help
     // (src/cli/command-surface.ts:80-83).
     if ((args.options.help || args.options.h) && args.command && !args.command.startsWith("-")) {

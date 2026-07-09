@@ -35,7 +35,7 @@ A registry keyword (`drive`, `search`, `list`, `show`, `resume`, `archive`, `rer
 
 - `NO_COLOR`, `CW_NO_COLOR` — any non-empty value turns all ANSI color off; the `--no-color` flag sets `CW_NO_COLOR=1` (src/term.ts:19-23, src/cli/command-surface.ts:74).
 - `FORCE_COLOR` — non-empty and not `"0"` forces color on for human text even when piped; machine payloads use no styling at all (src/term.ts:21, src/reporter.ts:9-11).
-- `CW_DRIVE_PROGRESS` — `"0"` forces drive progress off, `"1"` forces it on; unset means "on only when stderr is a TTY" (src/drive.ts:136-142).
+- `CW_DRIVE_PROGRESS` — `"0"` forces drive progress off, `"1"` forces it on; unset means "on only when stderr is a TTY" (src/drive.ts:136-142). Set to `"0"` by the `--quiet` flag (src/cli/entry.ts) — this is the only Rule of Silence gate point a flag can force; the end-of-run summary's own TTY check has no override.
 - `CW_VERBOSE=1` — set by `--verbose`; presentation only, passed to the agent wrapper (src/cli/command-surface.ts:73).
 - `CW_OUTPUT=full` — set by `--full`; also prints the report inline at run end (src/cli/command-surface.ts:75, src/cli/run-summary.ts:35-38).
 - `CW_HOME` — home registry root for the doctor check; default `$HOME/.local/state/cool-workflow` (src/doctor.ts:134-136).

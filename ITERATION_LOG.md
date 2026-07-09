@@ -1,5 +1,41 @@
 # CW Iteration Log
 
+## Batch — add a documented `--quiet` flag (Unreleased)
+
+> UI/UX audit finding: silencing drive progress lines only worked through
+> the undocumented `CW_DRIVE_PROGRESS=0` env var — there was a `--verbose`/
+> `--full` axis to turn output UP, but no flag axis to turn it DOWN.
+> `docs/rebuild/SPEC/reporting-ux.md`'s "Rule of Silence gate points" note
+> already documents that silence is decided in 3 independent places
+> (the reporter's own `isTTY` check, drive progress's `isTTY` +
+> `CW_DRIVE_PROGRESS` check, and quickstart's `--json` skip) — `--quiet`
+> only needed to touch the one gate point that already had an env-var
+> override (drive progress), matching how `--verbose`/`--full` also don't
+> reach into the other two gate points.
+>
+> Added `if (args.options.quiet) process.env.CW_DRIVE_PROGRESS = "0";`
+> to `cli/entry.ts`, alongside the existing `--verbose`/`--full`/
+> `--no-color` presentation-flag handling — no changes needed in
+> `parseargv.ts` (bare `--flag` → `options.flag = true` is already
+> generic). Verified live that `--quiet` overrides even an explicit
+> `CW_DRIVE_PROGRESS=1` in the environment (flag application happens
+> after argv parsing, before any agent spawn). Documented the flag in
+> `formatHelp()`'s Flags block; learned from the prior `--json` cycle
+> that this text is byte-pinned in 4 separate places (a live-gated test,
+> a live-gated conformance fixture, and 2 SPEC docs) — updated all 4 in
+> one pass this time instead of discovering the 4th via a follow-up
+> review. Cross-referenced `--quiet` → `CW_DRIVE_PROGRESS=0` in
+> `cli-surface.md`'s flag-to-env-var table and `reporting-ux.md`'s env
+> var list, matching how `--verbose`/`--full` are already documented
+> there. Extended `report-rule-of-silence.case.js` (the conformance case
+> that already covers `CW_DRIVE_PROGRESS=0/1` and the `--full`/`--json`
+> Rule-of-Silence interactions) with a new case proving `--quiet` wins
+> over an explicit `CW_DRIVE_PROGRESS=1`.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 5 | Add a documented `--quiet` flag (maps to the existing `CW_DRIVE_PROGRESS=0` env var) alongside `--verbose`/`--full`/`--no-color`, and document it everywhere those are documented. | `plugins/cool-workflow/src/{cli/entry,core/format/help}.ts` + matching `dist/**`, `plugins/cool-workflow/test/formatapps-help-toplevel-layout.test.js`, `v2/conformance/cases/{fixtures/cli-help/_root.txt,report-rule-of-silence.case.js}`, `docs/rebuild/SPEC/{cli-surface,reporting-ux,orchestrator}.md`. | `formatapps-help-toplevel-layout.test.js`, `headline-commands-smoke.js`, `cli-help-topics.case.js`, `report-rule-of-silence.case.js` (new `--quiet`-overrides-`CW_DRIVE_PROGRESS=1` case) — all pass. Live-CLI spot check: `--quiet` suppresses all `[drive]` progress lines even with `CW_DRIVE_PROGRESS=1` set in the environment. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
+
 ## Batch — document `--json` in `cw help`'s top-level Flags block (Unreleased)
 
 > UI/UX audit finding: `cw help`'s Flags section lists `-q`, `-r`, `-d`,
