@@ -160,6 +160,61 @@ interface RawEventsRead {
   corruptLines: number;
 }
 
+// Perf cycle P1-2: `recordTrustAuditEvent` needs only the PRIOR event count
+// and the last event's hash to append the next one -- both were re-derived
+// by parsing the ENTIRE log on every single append (O(events) per append,
+// O(events^2) over a run's life; a live audit measured 80ms/append at 50k
+// events). This sidecar caches exactly those two numbers, keyed by the
+// log's own byte size so any external change (a repair, a torn write, a
+// different process's append landing between reads) is caught and falls
+// back to the full parse -- fail closed, never guessed. Deliberately NOT
+// part of the persisted `run.audit`/`RunAuditPaths` shape (a typed,
+// serialized field) since this is a purely-derived, rebuildable path, not
+// run state; keeping it out avoids any state.json schema change.
+interface AuditTailCache {
+  schemaVersion: 1;
+  logBytes: number;
+  count: number;
+  lastHash: string;
+}
+
+function tailCachePathFor(eventLogPath: string): string {
+  return path.join(path.dirname(eventLogPath), "tail-cache.json");
+}
+
+function readAuditTailCache(tailCachePath: string): AuditTailCache | undefined {
+  if (!fs.existsSync(tailCachePath)) return undefined;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(tailCachePath, "utf8"));
+    if (parsed && parsed.schemaVersion === 1 && typeof parsed.logBytes === "number" && typeof parsed.count === "number" && typeof parsed.lastHash === "string") {
+      return parsed as AuditTailCache;
+    }
+  } catch {
+    // Corrupt/unreadable cache -- fall back to the full parse below.
+  }
+  return undefined;
+}
+
+function writeAuditTailCache(tailCachePath: string, cache: AuditTailCache): void {
+  try {
+    writeJson(tailCachePath, cache);
+  } catch {
+    // Best-effort: a failed cache write must never break the real append.
+  }
+}
+
+/** Deletes the tail cache so the NEXT append always re-derives ground
+ *  truth from the real log, rather than trusting a byte-size coincidence.
+ *  Called whenever something OTHER than a plain append changes the log's
+ *  content (currently: repair). */
+function invalidateAuditTailCache(eventLogPath: string): void {
+  try {
+    fs.unlinkSync(tailCachePathFor(eventLogPath));
+  } catch {
+    // Nothing to invalidate (no cache existed yet) -- fine.
+  }
+}
+
 /** Read events in FILE (append) order, tolerating corrupt lines — one
  *  bad line must not brick the whole audit read surface (it is counted,
  *  not thrown). The chain links append order, so this is the order
@@ -402,6 +457,10 @@ export function repairTrustAuditTornTail(run: WorkflowRun, options: { write?: bo
     const repairedContent = events.length > 0 ? `${lines.slice(0, -1).join("\n")}\n` : "";
     if (options.write) {
       writeTextDurable(audit.eventLogPath, repairedContent, { durable: true });
+      // The log's bytes just changed out from under the append tail cache
+      // (perf cycle P1-2) -- invalidate rather than rely on the size check
+      // alone catching every case.
+      invalidateAuditTailCache(audit.eventLogPath);
     }
     return {
       outcome: "repaired",
@@ -530,14 +589,31 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     metadata: scrubMetadata(input.metadata || {}),
   }) as unknown as TrustAuditEvent;
   return withFileLock(audit.eventLogPath, () => {
-    // ONE read under the lock feeds BOTH the id (count-based) and
-    // prevEventHash (last-event-based) — reading it twice (once for each)
-    // was itself a second, redundant full-log parse on every append.
-    const prior = readEventsRaw(audit.eventLogPath);
-    event.id = createEventId(input.kind, prior.length);
-    event.prevEventHash = prior.length ? prior[prior.length - 1].eventHash || computeEventHash(prior[prior.length - 1]) : trustAuditGenesis(run.id);
+    // The prior event count and last-event hash are the ONLY two things
+    // this append needs from the existing log. A tail cache (keyed on the
+    // log's own byte size) serves both without a full parse when nothing
+    // else has touched the log since it was written; any size mismatch
+    // (a repair, a torn write, this being the very first append) falls
+    // back to the full parse, same as before this cache existed.
+    const tailCachePath = tailCachePathFor(audit.eventLogPath);
+    const currentBytes = fs.existsSync(audit.eventLogPath) ? fs.statSync(audit.eventLogPath).size : 0;
+    const cached = readAuditTailCache(tailCachePath);
+    let count: number;
+    let prevHash: string;
+    if (cached && cached.logBytes === currentBytes) {
+      count = cached.count;
+      prevHash = cached.lastHash;
+    } else {
+      const prior = readEventsRaw(audit.eventLogPath);
+      count = prior.length;
+      prevHash = prior.length ? prior[prior.length - 1].eventHash || computeEventHash(prior[prior.length - 1]) : trustAuditGenesis(run.id);
+    }
+    event.id = createEventId(input.kind, count);
+    event.prevEventHash = prevHash;
     event.eventHash = computeEventHash(event);
-    durableAppendFileSync(audit.eventLogPath, `${JSON.stringify(event)}\n`);
+    const line = `${JSON.stringify(event)}\n`;
+    durableAppendFileSync(audit.eventLogPath, line);
+    writeAuditTailCache(tailCachePath, { schemaVersion: 1, logBytes: currentBytes + Buffer.byteLength(line, "utf8"), count: count + 1, lastHash: event.eventHash });
     return event;
   });
 }
