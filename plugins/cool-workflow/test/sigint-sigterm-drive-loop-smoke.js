@@ -116,6 +116,85 @@ function planApp(appsDir, id, inputs) {
   process.env.CW_APPS_DIR = appsDir;
   return plan(loadWorkflowApp(id), inputs);
 }
+// A single task: exactly 2 outer-loop iterations (task dispatch+accept, then
+// the run's own terminal commit gate).
+function writeOneTaskApp(appsDir, id) {
+  const dir = path.join(appsDir, id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "app.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id,
+      title: id,
+      summary: id,
+      version: "0.1.0",
+      author: "test",
+      inputs: [{ name: "question", type: "string" }],
+      sandboxProfiles: ["readonly"],
+      compatibility: { minVersion: "0.1.9" },
+      workflow: { entrypoint: "workflow.js" }
+    }),
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(dir, "workflow.js"),
+    `module.exports = ({ workflow, phase, agent, input }) => workflow({
+  id: ${JSON.stringify(id)}, title: ${JSON.stringify(id)}, summary: ${JSON.stringify(id)},
+  limits: { maxAgents: 20, maxConcurrentAgents: 1 },
+  inputs: [input("question", { type: "string" })],
+  sandboxProfiles: ["readonly"],
+  phases: [
+    phase("Solo", [
+      agent("solo:one", "Do the one step on {{question}}", { sandboxProfileId: "readonly" })
+    ])
+  ]
+});
+`,
+    "utf8"
+  );
+}
+// A parallel phase with maxConcurrentAgents matching the task count: all 3
+// tasks settle in ONE driveConcurrentRound call (width=3), not 3 separate
+// outer-loop iterations.
+function writeParallelThreeTaskApp(appsDir, id) {
+  const dir = path.join(appsDir, id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "app.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id,
+      title: id,
+      summary: id,
+      version: "0.1.0",
+      author: "test",
+      inputs: [{ name: "question", type: "string" }],
+      sandboxProfiles: ["readonly"],
+      compatibility: { minVersion: "0.1.9" },
+      workflow: { entrypoint: "workflow.js" }
+    }),
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(dir, "workflow.js"),
+    `module.exports = ({ workflow, parallel, agent, input }) => workflow({
+  id: ${JSON.stringify(id)}, title: ${JSON.stringify(id)}, summary: ${JSON.stringify(id)},
+  limits: { maxAgents: 20, maxConcurrentAgents: 3 },
+  inputs: [input("question", { type: "string" })],
+  sandboxProfiles: ["readonly"],
+  phases: [
+    parallel("Round", [
+      agent("round:one", "Do round task one on {{question}}", { sandboxProfileId: "readonly" }),
+      agent("round:two", "Do round task two on {{question}}", { sandboxProfileId: "readonly" }),
+      agent("round:three", "Do round task three on {{question}}", { sandboxProfileId: "readonly" })
+    ])
+  ]
+});
+`,
+    "utf8"
+  );
+}
 
 // ---------------------------------------------------------------------
 // 1. A single stop signal breaks the loop AFTER the in-flight step, not
@@ -177,7 +256,135 @@ testGracefulSingleSignal("SIGINT");
 testGracefulSingleSignal("SIGTERM");
 
 // ---------------------------------------------------------------------
-// 2. A SECOND stop signal (an impatient double Ctrl-C) force-exits
+// 2. A confirmed adversarial-review must-fix: a signal landing on the run's
+//    OWN terminal commit step (the run is already fully done at that exact
+//    point) must not still misreport "blocked" -- finalDriveStatus would
+//    otherwise fall through to the interrupted step's status instead of
+//    ever reaching its "complete" branch, and pipeline-cli.ts's --bundle
+//    gate reads status, so a genuinely-finished run would wrongly skip
+//    sealing its bundle. First drive an uninterrupted run to learn exactly
+//    which saveCheckpoint call is the terminal one (its LAST), then fire
+//    the signal on that exact call on a fresh replan of the same app.
+// ---------------------------------------------------------------------
+function testInterruptOnTerminalCommitReportsComplete(signal) {
+  clearAgentEnv();
+  const cwd0 = process.cwd();
+  try {
+    const baselineAppsDir = tmp(`cw-sigloop-terminal-baseline-apps-${signal}-`);
+    const baselineWork = tmp(`cw-sigloop-terminal-baseline-work-${signal}-`);
+    fs.writeFileSync(path.join(baselineWork, "README.md"), "# t\n", "utf8");
+    const baselineStub = writeStub(path.join(baselineWork, "stub.js"));
+    writeOneTaskApp(baselineAppsDir, "sigloop-terminal-baseline");
+    process.chdir(baselineWork);
+    const baselineRun = planApp(baselineAppsDir, "sigloop-terminal-baseline", { repo: baselineWork, question: "Q?" });
+    assert.equal(baselineRun.tasks.length, 1, "fixture app must have exactly 1 task");
+
+    const originalSaveCheckpoint = runStore.saveCheckpoint;
+    let baselineHits = 0;
+    runStore.saveCheckpoint = function (...args) {
+      const result = originalSaveCheckpoint.apply(this, args);
+      baselineHits += 1;
+      return result;
+    };
+    let baselineResult;
+    try {
+      baselineResult = drive(baselineRun.id, baselineWork, { now: FIXED_NOW, agentConfig: agentConfig(baselineStub) });
+    } finally {
+      runStore.saveCheckpoint = originalSaveCheckpoint;
+    }
+    assert.equal(baselineResult.status, "complete", "the uninterrupted baseline run must complete normally");
+    assert.ok(baselineHits >= 2, "a 1-task run must checkpoint at least twice (its own progress, then its terminal commit)");
+
+    const appsDir = tmp(`cw-sigloop-terminal-apps-${signal}-`);
+    const work = tmp(`cw-sigloop-terminal-work-${signal}-`);
+    fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
+    const stub = writeStub(path.join(work, "stub.js"));
+    writeOneTaskApp(appsDir, "sigloop-terminal-app");
+    process.chdir(work);
+    const p = planApp(appsDir, "sigloop-terminal-app", { repo: work, question: "Q?" });
+
+    let hits = 0;
+    runStore.saveCheckpoint = function (...args) {
+      const result = originalSaveCheckpoint.apply(this, args);
+      hits += 1;
+      if (hits === baselineHits) process.emit(signal, signal);
+      return result;
+    };
+    let result;
+    try {
+      result = drive(p.id, work, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
+    } finally {
+      runStore.saveCheckpoint = originalSaveCheckpoint;
+    }
+
+    assert.equal(result.status, "complete", `a ${signal} landing on the run's own terminal commit step must still report complete, not a misleading blocked`);
+    assert.equal(result.completedWorkers, 1);
+    assert.ok(result.commitId, "the real terminal commit must be present");
+  } finally {
+    process.chdir(cwd0);
+  }
+}
+
+testInterruptOnTerminalCommitReportsComplete("SIGINT");
+testInterruptOnTerminalCommitReportsComplete("SIGTERM");
+
+// ---------------------------------------------------------------------
+// 3. A confirmed adversarial-review should-fix: driveConcurrentRound's OWN
+//    once-per-round saveCheckpoint call (the width>1 path) was never
+//    exercised by any signal test. A signal mid-round does NOT stop the
+//    round's own in-flight tasks -- this is documented, accepted,
+//    round-granularity behavior (refuted as a bug by the same review), but
+//    it must still be pinned by a real test so a future change to that
+//    behavior is visible. The loop still correctly stops before the NEXT
+//    round/commit step, and resuming finishes the run.
+// ---------------------------------------------------------------------
+function testConcurrentRoundInterruptGranularity(signal) {
+  clearAgentEnv();
+  const cwd0 = process.cwd();
+  const appsDir = tmp(`cw-sigloop-round-apps-${signal}-`);
+  const work = tmp(`cw-sigloop-round-work-${signal}-`);
+  fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
+  const stub = writeStub(path.join(work, "stub.js"));
+  writeParallelThreeTaskApp(appsDir, "sigloop-round-app");
+  process.chdir(work);
+  try {
+    const p = planApp(appsDir, "sigloop-round-app", { repo: work, question: "Q?" });
+    assert.equal(p.tasks.length, 3, "fixture app must have exactly 3 parallel tasks in one round");
+
+    const before = process.listenerCount(signal);
+    const originalSaveCheckpoint = runStore.saveCheckpoint;
+    let hits = 0;
+    runStore.saveCheckpoint = function (...args) {
+      const result = originalSaveCheckpoint.apply(this, args);
+      hits += 1;
+      if (hits === 1) process.emit(signal, signal);
+      return result;
+    };
+    let result;
+    try {
+      result = drive(p.id, work, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
+    } finally {
+      runStore.saveCheckpoint = originalSaveCheckpoint;
+    }
+
+    assert.equal(process.listenerCount(signal), before, `drive() must remove its own ${signal} listener after a concurrent-round drive too`);
+    assert.equal(result.completedWorkers, 3, "a signal mid-round does not stop the round's OWN in-flight tasks -- round granularity is the accepted, documented behavior");
+    assert.equal(result.status, "blocked", "the run must still stop before its NEXT round/commit step, even though this round finished");
+    const last = result.steps[result.steps.length - 1];
+    assert.match(last.reason || "", new RegExp(`drive interrupted by ${signal}`));
+
+    const resumed = drive(p.id, work, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
+    assert.equal(resumed.status, "complete", "re-driving after a round-boundary interruption resumes to completion");
+  } finally {
+    process.chdir(cwd0);
+  }
+}
+
+testConcurrentRoundInterruptGranularity("SIGINT");
+testConcurrentRoundInterruptGranularity("SIGTERM");
+
+// ---------------------------------------------------------------------
+// 4. A SECOND stop signal (an impatient double Ctrl-C) force-exits
 //    immediately with the conventional 128+signum code, rather than
 //    waiting for the graceful stop. Run as a real child process since
 //    this path calls process.exit().
@@ -218,4 +425,7 @@ testForcedDoubleSignal("SIGINT", 130);
 testForcedDoubleSignal("SIGTERM", 143);
 
 for (const d of cleanups) fs.rmSync(d, { recursive: true, force: true });
-process.stdout.write("sigint-sigterm-drive-loop-smoke: ok (graceful single-signal stop + resume, listener cleanup, forced double-signal exit codes)\n");
+process.stdout.write(
+  "sigint-sigterm-drive-loop-smoke: ok (graceful single-signal stop + resume, listener cleanup, " +
+    "terminal-commit interrupt still reports complete, concurrent-round interrupt granularity, forced double-signal exit codes)\n"
+);

@@ -889,9 +889,17 @@ function drive(runId, cwd, options = {}) {
     const parkedWorkers = (0, drive_decide_1.countParked)(run);
     const committed = (0, drive_decide_1.hasTerminalCommit)(run);
     const last = steps[steps.length - 1];
+    // A signal can land on the very last step (the terminal commit itself) --
+    // the run is already fully done, same "complete" check the `once` branch
+    // of finalDriveStatus below already uses. Reporting "blocked" here anyway
+    // would be a real user-visible lie (e.g. pipeline-cli.ts's `--bundle` gate
+    // reads status, so a genuinely finished run would wrongly skip sealing).
+    const alreadyComplete = completedWorkers === plannedWorkers && committed;
     if (interruptedBy) {
         exhaustedMaxIterations = false;
-        steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId, reason: `drive interrupted by ${interruptedBy} — run again with the same run id to resume` }));
+        if (!alreadyComplete) {
+            steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId, reason: `drive interrupted by ${interruptedBy} — run again with the same run id to resume` }));
+        }
     }
     else if (exhaustedMaxIterations) {
         steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state` }));

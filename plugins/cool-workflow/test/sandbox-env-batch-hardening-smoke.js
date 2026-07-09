@@ -11,7 +11,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
-const { spawnSync } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 
@@ -25,7 +25,7 @@ const adapterCore = require(path.join(pluginRoot, "scripts/agents/agent-adapter-
 const batchChildScript = path.join(pluginRoot, "scripts", "children", "batch-delegate-child.js");
 const httpChildScript = path.join(pluginRoot, "scripts", "children", "http-delegate-child.js");
 
-function main() {
+async function main() {
   // ---- 1. buildChildEnv respects inherit ---------------------------------------
   {
     const env = buildChildEnv({ env: { inherit: true, expose: [], deny: [] } });
@@ -138,12 +138,45 @@ function main() {
     const profiles = JSON.parse(out);
     assert.ok(Array.isArray(profiles) && profiles.length > 0, "sandbox profiles enumerated");
   }
+
+  // ---- 12. batch-delegate-child forwards a stop signal to its own spawned
+  //          children instead of orphaning them (P2-6 review fix) --------------
+  {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-batch-sig-"));
+    const marker = path.join(tmp, "alive.marker");
+    const jobScript = path.join(tmp, "job.js");
+    fs.writeFileSync(
+      jobScript,
+      ['const fs = require("fs");', `const marker = ${JSON.stringify(marker)};`, 'setInterval(() => { try { fs.appendFileSync(marker, "x"); } catch {} }, 50);'].join(
+        "\n"
+      ),
+      "utf8"
+    );
+    const jobs = [{ binary: process.execPath, args: [jobScript], cwd: tmp, timeoutMs: 60000 }];
+    const child = spawn(process.execPath, [batchChildScript], { stdio: ["pipe", "pipe", "pipe"] });
+    child.stdin.write(JSON.stringify(jobs));
+    child.stdin.end();
+
+    const deadline = Date.now() + 5000;
+    while (!fs.existsSync(marker) && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert.ok(fs.existsSync(marker), "the spawned job process started writing its alive-marker");
+
+    child.kill("SIGTERM");
+    await new Promise((r) => setTimeout(r, 400));
+    const sizeA = fs.statSync(marker).size;
+    await new Promise((r) => setTimeout(r, 400));
+    const sizeB = fs.statSync(marker).size;
+    assert.equal(sizeA, sizeB, "the spawned job process must actually stop once the batch child is signaled -- continued growth would mean it was left orphaned");
+
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
-try {
-  main();
-  process.stdout.write("PASS  sandbox-env-batch-hardening-smoke.js\n");
-} catch (e) {
-  process.stderr.write(`FAIL  sandbox-env-batch-hardening-smoke.js — ${String(e && e.message || e)}\n`);
-  process.exit(1);
-}
+main()
+  .then(() => process.stdout.write("PASS  sandbox-env-batch-hardening-smoke.js\n"))
+  .catch((e) => {
+    process.stderr.write(`FAIL  sandbox-env-batch-hardening-smoke.js — ${String(e && e.message || e)}\n`);
+    process.exit(1);
+  });
