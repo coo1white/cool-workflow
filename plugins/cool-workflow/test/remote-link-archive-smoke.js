@@ -254,6 +254,19 @@ function runAsync(args, home) {
   }
 
   for (const d of cleanups) fs.rmSync(d, { recursive: true, force: true });
+  // Regression pin (post-v0.2.2 robustness hardening, found by review of the
+  // local/container backend timeout fix): listArchive, declaredUncompressedSize,
+  // and the real unzip/tar extraction all now carry the same 120000ms fallback
+  // timeout as this file's own git() helper, instead of running unbounded on
+  // downloaded, attacker-influenced bytes. A real hang is infeasible to force
+  // deterministically here (tar/unzip on a tiny test archive never actually
+  // takes 120s), so this pins the compiled wiring instead.
+  {
+    const src = fs.readFileSync(path.join(pluginRoot, "dist", "shell", "remote-source.js"), "utf8");
+    const timeoutSites = (src.match(/timeout:\s*(?:timeoutMs|opts\.timeoutMs)\s*\|\|\s*120000/g) || []).length;
+    assert.ok(timeoutSites >= 4, `expected at least 4 timeout-guarded spawnSync calls in remote-source.js (listArchive, declaredUncompressedSize, unzip extract, tar extract), found ${timeoutSites}`);
+  }
+
   console.log("remote-link-archive-smoke: ok");
 })().catch((e) => {
   console.error(e);

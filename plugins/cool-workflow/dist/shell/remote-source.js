@@ -310,9 +310,12 @@ function fetchArchiveBytes(rawUrl, sanitizedUrl, dest, opts) {
 }
 /** List an archive's entry NAMES WITHOUT extracting (the zip-slip/tar-slip name guard runs on
  *  this). Symlinks/specials and decompression bombs are caught separately (below). */
-function listArchive(file, isZip) {
+function listArchive(file, isZip, timeoutMs) {
     const cmd = isZip ? ["unzip", "-Z1", "--", file] : ["tar", "-tf", file];
-    const result = (0, node_child_process_1.spawnSync)(cmd[0], cmd.slice(1), { encoding: "utf8" });
+    // Same unset-timeout hazard as a hung local/container task (post-v0.2.2
+    // robustness hardening): a pathological archive must not hang the CLI
+    // forever with no kill path. Matches git()'s own fallback below.
+    const result = (0, node_child_process_1.spawnSync)(cmd[0], cmd.slice(1), { encoding: "utf8", timeout: timeoutMs || 120000 });
     if (result.status !== 0) {
         // Distinguish "unzip not installed" (ENOENT) from "archive is corrupt" — never conflate the
         // two (a corrupt .tar mislabeled .zip used to surface a bogus "unzip not found").
@@ -338,10 +341,10 @@ function assertNoTraversal(entries, sanitizedUrl) {
 /** Declared uncompressed size, read WITHOUT extracting — gzip's ISIZE trailer for `.tar.gz`/
  *  `.tgz`, or `unzip -l`'s total for `.zip`. Best-effort (undefined when unknown); the
  *  post-extraction walk is authoritative. Lets us reject a bomb BEFORE it fills the disk. */
-function declaredUncompressedSize(file, isZip) {
+function declaredUncompressedSize(file, isZip, timeoutMs) {
     try {
         if (isZip) {
-            const r = (0, node_child_process_1.spawnSync)("unzip", ["-l", "--", file], { encoding: "utf8" });
+            const r = (0, node_child_process_1.spawnSync)("unzip", ["-l", "--", file], { encoding: "utf8", timeout: timeoutMs || 120000 });
             if (r.status !== 0)
                 return undefined;
             const lines = String(r.stdout || "").trim().split(/\r?\n/);
@@ -421,15 +424,17 @@ function downloadArchive(rawUrl, sanitizedUrl, opts) {
         const commit = (0, node_crypto_1.createHash)("sha256").update(node_fs_1.default.readFileSync(tmpFile)).digest("hex"); // content address
         // Bomb defense (BEFORE extracting, to avoid filling the disk): reject a declared
         // uncompressed size over the cap. assertSafeTree re-checks the ACTUAL size afterward.
-        const declared = declaredUncompressedSize(tmpFile, isZip);
+        const declared = declaredUncompressedSize(tmpFile, isZip, opts.timeoutMs);
         if (declared !== undefined && declared > MAX_EXTRACTED_BYTES) {
             throw new Error(`refusing archive ${sanitizedUrl}: declared uncompressed size ${declared} exceeds ${MAX_EXTRACTED_BYTES} bytes (possible decompression bomb)`);
         }
-        assertNoTraversal(listArchive(tmpFile, isZip), sanitizedUrl);
+        assertNoTraversal(listArchive(tmpFile, isZip, opts.timeoutMs), sanitizedUrl);
         const extractDir = node_fs_1.default.mkdtempSync(node_path_1.default.join(staging, "x-"));
+        // Same unset-timeout hazard as above: extraction runs on downloaded,
+        // attacker-influenced bytes and must not hang forever.
         const ex = isZip
-            ? (0, node_child_process_1.spawnSync)("unzip", ["-q", "-o", "-d", extractDir, "--", tmpFile], { encoding: "utf8" })
-            : (0, node_child_process_1.spawnSync)("tar", ["-xf", tmpFile, "-C", extractDir], { encoding: "utf8" });
+            ? (0, node_child_process_1.spawnSync)("unzip", ["-q", "-o", "-d", extractDir, "--", tmpFile], { encoding: "utf8", timeout: opts.timeoutMs || 120000 })
+            : (0, node_child_process_1.spawnSync)("tar", ["-xf", tmpFile, "-C", extractDir], { encoding: "utf8", timeout: opts.timeoutMs || 120000 });
         if (ex.status !== 0)
             throw new Error(`could not extract archive ${sanitizedUrl}: ${String(ex.stderr || "").trim() || `exit ${ex.status}`}`);
         // Fail closed on symlinks/specials and on an over-cap actual extracted size.

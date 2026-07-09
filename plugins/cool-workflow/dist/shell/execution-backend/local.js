@@ -65,7 +65,10 @@ function executeLocal(descriptor, request, label, attestation, spawnStyle) {
         cwd: request.cwd,
         env,
         encoding: "utf8",
-        timeout: request.timeoutMs,
+        // An unset timeoutMs must not mean "no timeout" — spawnSync would then
+        // block forever on a hung child with no kill path. 600000 matches the
+        // agent backend's own default fallback (execution-backend/agent.ts).
+        timeout: request.timeoutMs || 600000,
         maxBuffer: 32 * 1024 * 1024,
     };
     if (spawnStyle === "shell") {
