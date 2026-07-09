@@ -143,11 +143,12 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) 
 registry_core_1.REGISTRY_BY_CAPABILITY.get("report.bundle").mcp.handler = (args) => loadReportCli().reportBundleCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("report.verify-bundle", {
     path: ["report", "verify-bundle"],
-    jsonMode: "default",
+    jsonMode: "flag",
     handler: (args) => {
         const archivePath = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "bundle path");
-        const result = loadReportCli().reportVerifyBundleCli({ ...args.options, archive: archivePath });
-        return { json: result, exitCode: result.ok ? undefined : 1 };
+        const reportCli = loadReportCli();
+        const result = reportCli.reportVerifyBundleCli({ ...args.options, archive: archivePath });
+        return { json: result, text: reportCli.formatReportVerifyBundle(result), exitCode: result.ok ? undefined : 1 };
     },
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("report.verify-bundle").mcp.handler = (args) => {

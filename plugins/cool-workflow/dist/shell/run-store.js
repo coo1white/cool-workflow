@@ -160,16 +160,24 @@ function assertNotSuspectedDataLoss(runId, result) {
 }
 /** Refuses an empty id with `Missing run id`; loads
  *  `<cwd>/.cw/runs/<runId>/state.json` (dry-run — never writes); throws
- *  `Unsupported CW run state: <errors joined by "; ">` on an unsupported
- *  verdict; refuses a state.json that lost its core fields (workflow,
- *  paths) while the run dir still has real content next to it, rather than
- *  silently returning it as a fresh empty run; else returns the migrated
+ *  `Run not found: <runId>` when no such run directory has a state.json
+ *  (every caller — report, status, audit, eval snapshot, and more — used
+ *  to leak the raw `readJson` message, "File not found: <absolute
+ *  path>/state.json", which named neither the run nor a next step, and
+ *  didn't contain any of the words `cli/entry.ts`'s `recoveryHint` scans
+ *  for, so no `Try: cw run list` line ever appeared); throws `Unsupported
+ *  CW run state: <errors joined by "; ">` on an unsupported verdict;
+ *  refuses a state.json that lost its core fields (workflow, paths) while
+ *  the run dir still has real content next to it, rather than silently
+ *  returning it as a fresh empty run; else returns the migrated
  *  WorkflowRun in memory. */
 function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (!runId)
         throw new Error("Missing run id");
     (0, fs_atomic_1.assertSafeRunId)(runId);
     const statePath = path.join(cwd, ".cw", "runs", runId, "state.json");
+    if (!fs.existsSync(statePath))
+        throw new Error(`Run not found: ${runId}`);
     const result = loadRunStateFile(statePath, { dryRun: true });
     if (result.report.status === "unsupported") {
         throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);

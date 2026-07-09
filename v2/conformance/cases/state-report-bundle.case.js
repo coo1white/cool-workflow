@@ -50,7 +50,7 @@ caseMain(() => {
   assert.match(archive.integrity.manifestSha256, BARE_SHA256);
 
   // clean offline verify-bundle on the untouched archive
-  const verifyClean = run(["report", "verify-bundle", archivePath]);
+  const verifyClean = run(["report", "verify-bundle", archivePath, "--json"]);
   assert.equal(verifyClean.status, 0);
   const cleanVerification = JSON.parse(verifyClean.stdout);
   assert.equal(cleanVerification.ok, true);
@@ -62,7 +62,7 @@ caseMain(() => {
   tamperedArchive.files[0].contentBase64 = Buffer.from("tampered bytes").toString("base64");
   fs.writeFileSync(tamperedPath, JSON.stringify(tamperedArchive));
 
-  const verifyTampered = run(["report", "verify-bundle", tamperedPath]);
+  const verifyTampered = run(["report", "verify-bundle", tamperedPath, "--json"]);
   assert.equal(verifyTampered.status, 1);
   const tamperedVerification = JSON.parse(verifyTampered.stdout);
   assert.equal(tamperedVerification.ok, false);

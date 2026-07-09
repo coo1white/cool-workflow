@@ -41,8 +41,10 @@ caseMain(() => {
   assert.deepEqual(v.failedChecks, []);
 
   // --- cw report verify-bundle <path>: byte-identical verification,
-  // callable standalone from just the archive on disk ---
-  const standalone = run(["report", "verify-bundle", bundleResult.archivePath], { cwd: repo });
+  // callable standalone from just the archive on disk (--json for the
+  // stable machine payload; a bare call now renders a human summary —
+  // see report-verify-bundle-human-render.case.js) ---
+  const standalone = run(["report", "verify-bundle", bundleResult.archivePath, "--json"], { cwd: repo });
   assert.equal(standalone.status, 0);
   assert.equal(standalone.stderr, "");
   assert.deepEqual(JSON.parse(standalone.stdout), v);
@@ -51,7 +53,7 @@ caseMain(() => {
   const extractDir = freshDir("extract");
   const extractPath = path.join(extractDir, "extracted-report.md");
   const withExtract = run(
-    ["report", "verify-bundle", bundleResult.archivePath, "--extract-report", extractPath],
+    ["report", "verify-bundle", bundleResult.archivePath, "--extract-report", extractPath, "--json"],
     { cwd: repo }
   );
   assert.equal(withExtract.status, 0);
@@ -61,7 +63,7 @@ caseMain(() => {
   assert.match(fs.readFileSync(extractPath, "utf8"), /^# End-to-End Golden Path\n/);
 
   // --- --require-signatures refuses this unsigned bundle ---
-  const requireSig = run(["report", "verify-bundle", bundleResult.archivePath, "--require-signatures"], {
+  const requireSig = run(["report", "verify-bundle", bundleResult.archivePath, "--require-signatures", "--json"], {
     cwd: repo,
   });
   assert.equal(requireSig.status, 1);
@@ -82,7 +84,7 @@ caseMain(() => {
   const tamperedPath = path.join(repo, "tampered-bundle.cwrun.json");
   fs.writeFileSync(tamperedPath, JSON.stringify(archive, null, 2));
 
-  const tamperedVerify = run(["report", "verify-bundle", tamperedPath], { cwd: repo });
+  const tamperedVerify = run(["report", "verify-bundle", tamperedPath, "--json"], { cwd: repo });
   assert.equal(tamperedVerify.status, 1, "a tampered bundle must fail closed with exit 1");
   const tamperedResult = JSON.parse(tamperedVerify.stdout);
   assert.equal(tamperedResult.ok, false);
@@ -95,7 +97,7 @@ caseMain(() => {
   // --- bundle verify restores into an auto-removed temp dir; nothing is
   // left behind under the caller's own tmp after a verify call.
   const tmpBefore = fs.readdirSync(require("node:os").tmpdir()).filter((n) => n.startsWith("cw-verify-bundle-"));
-  run(["report", "verify-bundle", bundleResult.archivePath], { cwd: repo });
+  run(["report", "verify-bundle", bundleResult.archivePath, "--json"], { cwd: repo });
   const tmpAfter = fs.readdirSync(require("node:os").tmpdir()).filter((n) => n.startsWith("cw-verify-bundle-"));
   assert.equal(tmpAfter.length, tmpBefore.length, "verify-bundle must clean up its temp restore dir");
 });

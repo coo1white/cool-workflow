@@ -10,6 +10,7 @@
 import * as path from "node:path";
 import { exportRun, verifyReportBundle, ReportBundleVerification } from "./run-export";
 import { loadRunFromCwd } from "./run-store";
+import { bold, doctorGlyph } from "./term";
 
 export interface ReportBundleResult {
   schemaVersion: 1;
@@ -75,4 +76,35 @@ export function reportVerifyBundleCli(args: Record<string, unknown>): ReportBund
     strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
     requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs),
   });
+}
+
+/** `cw report verify-bundle`'s human render (default; `--json` prints
+ *  `ReportBundleVerification` verbatim instead). Mirrors `doctor`'s
+ *  checks-list-then-verdict shape (`shell/doctor.ts`'s
+ *  `formatDoctorReport`) rather than `demo bundle`'s narrative one
+ *  (`shell/telemetry-demo.ts`'s `formatBundleDemo`) — verify-bundle is a
+ *  flat set of pass/fail checks on one already-sealed archive, not a
+ *  multi-step forge-and-catch demonstration. */
+export function formatReportVerifyBundle(r: ReportBundleVerification): string {
+  const lines: string[] = [bold(`cw report verify-bundle ${r.archivePath}`), ""];
+  const checks: Array<[boolean, string]> = [
+    [r.archiveOk, "archive intact — file digests match, no tamper"],
+    [r.telemetryVerified, "telemetry hash chain verifies"],
+    [r.trustAuditVerified, "trust-audit chain verifies"],
+    [r.reportFindingsVerified, "report.md matches every signed result"],
+  ];
+  for (const [ok, label] of checks) lines.push(`  ${doctorGlyph(ok ? "ok" : "fail")} ${label}`);
+  const sigDetail = r.signatureKeyProvided
+    ? `${r.signaturesReverified}/${r.signaturesChecked} signature(s) reverified (key source: ${r.trustKeySource})`
+    : "no public key available — signatures not checked";
+  lines.push(`  trust: ${r.trustLevel} — ${sigDetail}`);
+  if (r.reportExtractedTo) lines.push(`  report.md extracted to: ${r.reportExtractedTo}`);
+  if (r.failedChecks.length > 0) {
+    lines.push("");
+    lines.push("  Failed checks");
+    for (const c of r.failedChecks) lines.push(`    - ${c.name}${c.code ? ` [${c.code}]` : ""}`);
+  }
+  lines.push("");
+  lines.push(`${doctorGlyph(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
+  return lines.join("\n");
 }

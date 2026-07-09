@@ -1,5 +1,63 @@
 # CW Iteration Log
 
+## Batch — human-readable `report verify-bundle` + a real "run not found" error (Unreleased)
+
+> UI/UX audit finding: `cw report verify-bundle <archive>` was
+> `jsonMode: "default"` — always raw JSON on stdout, even on a TTY, with
+> no ✓/✗ summary (`cw doctor` and `cw demo bundle` already do this dual
+> render for the same kind of pass/fail-checks result; verify-bundle
+> never got it). Separately, `cw report verify` turned out not to be a
+> real subcommand at all — the earlier audit had misread it; `report`
+> takes a single run-id positional, so "verify" was being consumed AS a
+> run id, and any nonexistent run id (not just "verify") threw a raw
+> internal path: `cw: File not found: <abs>/.cw/runs/<id>/state.json`.
+> This came from `loadRunFromCwd` (`shell/run-store.ts`), the single
+> choke point ~19 files/~50 call sites go through to load a run by id
+> (`status`, `report`, `audit`, `eval snapshot`, and more) — the raw
+> message named neither the run nor a next step, and didn't contain any
+> word `cli/entry.ts`'s `recoveryHint` scans for, so no `Try:` line ever
+> appeared (one conformance case's own comment already documented this as
+> a known wart, working around it by accepting either form since the
+> harness's random tmp dir name could accidentally spell a trigger word).
+>
+> 1. **`report verify-bundle` human render** — added
+>    `formatReportVerifyBundle` (`shell/report-cli.ts`), mirroring
+>    `doctor`'s checks-list-then-verdict shape rather than `demo bundle`'s
+>    narrative one (verify-bundle is a flat set of pass/fail checks on an
+>    already-sealed archive, not a multi-step forge-and-catch demo).
+>    Switched `report.verify-bundle`'s `jsonMode` from `"default"` to
+>    `"flag"` (`wiring/capability-table/trust-ledger.ts`) — `--json` keeps
+>    the exact same `ReportBundleVerification` payload; a bare call now
+>    prints the human summary. 7 conformance-case call sites that relied
+>    on the old always-JSON default (`report-bundle.case.js` ×5,
+>    `state-report-bundle.case.js` ×2) now pass `--json` explicitly. New
+>    `report-verify-bundle-human-render.case.js` covers both the bare-call
+>    human render and the `--json` payload, plus the failure-path render
+>    (a missing archive is caught internally as an `archive-unreadable`
+>    failed check, not thrown — the human failure form renders correctly
+>    too).
+> 2. **"Run not found" error** — `loadRunFromCwd` now checks
+>    `fs.existsSync(statePath)` before loading and throws `Run not found:
+>    <runId>` instead of leaking the raw `readJson` message. This message
+>    contains "run not found", so `recoveryHint` now reliably attaches
+>    `Try: cw run list` every time, not by accident. Every affected
+>    conformance-case assertion updated to the new deterministic message:
+>    `report-status-operator.case.js` (status), `state-audit-telemetry-
+>    verify.case.js` (audit verify), `eval-replay-errors-and-gate-
+>    guards.case.js` (eval snapshot). `mcp-cwd-and-payload.case.js`'s
+>    negative "not found" check used to assert the error message *contained
+>    the resolved cwd-relative path* as its only proof that MCP's `cwd`
+>    argument correctly re-based the search — that incidentally worked
+>    only because the old message happened to be a raw path; with the
+>    path gone, changed the assertion to check the run id is named, and
+>    left the existing positive check (a REAL run created under `repo`,
+>    round-tripped through both the CLI and MCP with `cwd: repo`) as the
+>    actual proof of correct cwd re-basing, which it already was.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 3 | Give `cw report verify-bundle` a human-readable default render (matching `doctor`/`demo bundle`'s dual-render pattern) and fix `loadRunFromCwd` (used by ~19 files) to throw a clear "Run not found: `<id>`" instead of leaking `.cw/runs/<id>/state.json`. | `plugins/cool-workflow/src/{shell/{report-cli,run-store},wiring/capability-table/trust-ledger}.ts` + matching `dist/**`, `v2/conformance/cases/{report-bundle,state-report-bundle,report-status-operator,state-audit-telemetry-verify,eval-replay-errors-and-gate-guards,mcp-cwd-and-payload}.case.js`, new `v2/conformance/cases/report-verify-bundle-human-render.case.js`. | Live-CLI spot checks against a real stub-agent-driven run (bare `report verify-bundle` human render, `--json` payload, missing-archive failure render, `report`/`status`/`audit verify`/`eval snapshot` on a bad run id). | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
+
 ## Batch — fix 3 `cw help` regressions found by diffing against the v0.1.98 ground truth (Unreleased)
 
 > UI/UX audit finding: `cw help search` said "Unknown command: search"

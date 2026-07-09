@@ -97,21 +97,17 @@ caseMain(() => {
   assert.ok(graphHuman.stdout.includes("Edges"));
 
   // --- an unknown run id fails the same way for status/report/graph:
-  // "cw: File not found: ..." plus exit 1, never a made-up view.
-  //
-  // The trailing "  Try: cw ...\n" recovery-hint line is content-based
-  // (cli.js recoveryHint scans the lowercased message for words like
-  // "app"/"not found"/"run id"). It is normally absent for a plain file-not-found
-  // path, but the harness's own random tmp dir name (cw-conf-XXXXXX) can
-  // incidentally spell a trigger word (e.g. "...UApPOP..." contains "app"),
-  // which then adds a "Try: cw app list" line. That is real old-build
-  // behavior driven by path contents, not a run-id-shaped failure, so accept
-  // either form here instead of asserting the hint line is always absent.
+  // "cw: Run not found: <id>" plus a deterministic "Try: cw run list"
+  // hint, exit 1, never a made-up view. `loadRunFromCwd` (shell/
+  // run-store.ts) used to leak the raw `readJson` message, "File not
+  // found: <absolute path>/state.json" — it named neither the run nor a
+  // next step, and didn't contain any word `cli/entry.ts`'s recoveryHint
+  // scans for, so the "Try:" line only appeared by accident when the
+  // harness's own random tmp dir name happened to spell a trigger word.
+  // Fixed at the loadRunFromCwd choke point, so every caller (status,
+  // report, audit, eval snapshot, ...) gets the same reliable message.
   const missing = run(["status", "no-such-run-id", "--json"], { cwd: repo });
   assert.equal(missing.status, 1);
-  assert.match(
-    missing.stderr,
-    /^cw: File not found: .*no-such-run-id.*state\.json\n(  Try: cw [^\n]+\n)?$/
-  );
+  assert.equal(missing.stderr, "cw: Run not found: no-such-run-id\n  Try: cw run list\n");
   assert.equal(missing.stdout, "");
 });
