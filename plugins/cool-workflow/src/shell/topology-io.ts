@@ -83,6 +83,25 @@ function topologyRunPath(run: WorkflowRun, id: string): string {
   return path.join(topologyRoot(run), "runs", `${safe}.json`);
 }
 
+// Dirty-id tracking for persistTopologyState, mirroring coordinator-io.ts's
+// blackboard dirty tracking: without it, every persist call rewrote every
+// topology run's OWN file (topologyRunPath), even ones untouched this call —
+// O(N) writes per call, O(N^2) across N applyTopology calls. Kept off the
+// serialized TopologyState itself (a WeakMap keyed by the state object) so it
+// can never leak into state.json's bytes. applyTopology is the only place
+// state.runs is pushed to or an existing record mutated, so it is the only
+// call site that needs to mark a run id dirty.
+const topologyDirtyIds = new WeakMap<TopologyState, Set<string>>();
+
+function dirtyTopologyIds(state: TopologyState): Set<string> {
+  let ids = topologyDirtyIds.get(state);
+  if (!ids) {
+    ids = new Set();
+    topologyDirtyIds.set(state, ids);
+  }
+  return ids;
+}
+
 export function ensureTopologyState(run: WorkflowRun): TopologyState {
   run.paths.topologiesDir = topologyRoot(run);
   fs.mkdirSync(run.paths.topologiesDir, { recursive: true });
@@ -103,7 +122,12 @@ export function persistTopologyState(run: WorkflowRun): void {
     counts: { runs: state.runs.length },
     runs: state.runs.map((record) => ({ id: record.id, topologyId: record.topologyId, status: record.status, updatedAt: record.updatedAt })),
   });
-  for (const record of state.runs) writeJson(topologyRunPath(run, record.id), record);
+  const dirty = dirtyTopologyIds(state);
+  for (const id of dirty) {
+    const record = state.runs.find((entry) => entry.id === id);
+    if (record) writeJson(topologyRunPath(run, id), record);
+  }
+  dirty.clear();
 }
 
 function now(): string {
@@ -265,6 +289,7 @@ export function applyTopology(run: WorkflowRun, topologyId: string, input: topo.
     metadata: compact({ ...(input.metadata || {}), topology: definition as unknown as Record<string, unknown> }),
   };
   state.runs.push(record);
+  dirtyTopologyIds(state).add(record.id);
   appendTopologyNode(run, record, topo.statusToNodeStatus(record.status));
   recordTrustAuditEvent(run, {
     kind: "topology.verdict",
