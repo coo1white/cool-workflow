@@ -319,7 +319,15 @@ function formatDoctorReport(report) {
     lines.push("");
     const summaryGlyph = report.ok ? (0, term_1.green)("✓") : (0, term_1.red)("✗");
     lines.push(`${summaryGlyph} ${report.summary}`);
-    if (report.onramp) {
+    if (!report.onramp) {
+        // A first-time (or just not-yet-discovered) `cw doctor` never mentions
+        // the richer onramp content below without this pointer — the "Quick
+        // start (3 steps)"/"Recommended Checks"/per-scenario sections only ever
+        // render behind the `--onramp` opt-in flag, so a user who never reads
+        // `cw help doctor` has no way to find them otherwise.
+        lines.push(`  ${(0, term_1.nextHint)("cw doctor --onramp")} for the 3-step quick start`);
+    }
+    else {
         lines.push("");
         lines.push("Quick start (3 steps):");
         lines.push("  1. cw demo tamper        — prove trust checks work (30s)");

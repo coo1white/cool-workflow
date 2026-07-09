@@ -1,5 +1,42 @@
 # CW Iteration Log
 
+## Batch — point a bare `cw doctor` at `--onramp`'s 3-step quick start (Unreleased)
+
+> UI/UX audit finding: the rich "Quick start (3 steps)"/"Recommended
+> Checks"/per-scenario onboarding content in `formatDoctorReport`
+> (`shell/doctor.ts`) only ever renders behind the `cw doctor --onramp`
+> opt-in flag. A first-time user who runs bare `cw doctor` (the
+> documented first step in multiple onboarding docs) sees the checks and
+> a summary line, but no hint that a richer onboarding view exists at
+> all unless they already know to read `cw help doctor` or the docs.
+>
+> Investigated Cycle 8's lesson before touching anything: is
+> `formatDoctorReport`'s non-onramp output byte-pinned anywhere in a way
+> that would make even an additive line change (never mind reordering)
+> risky? `v2/conformance/cases/report-doctor.case.js` uses `assert.match`
+> (partial regex) for every check line — safe to extend — but its final
+> assertion, `/\n✓ ready, with 2 warnings\n$/`, anchors the summary line
+> as the LAST line of stdout with `$`. Adding any line after the summary
+> breaks that one anchor specifically (confirmed live: reran the case
+> before touching the test and watched it fail with exactly that
+> mismatch), but nothing else — `--json` output is a separate code path
+> entirely untouched, `--fix`/`cw fix` render through
+> `formatDoctorFixes` (untouched), and `doctor-smoke.js`/
+> `exec-doctor-agent-config.case.js` don't anchor on doctor's trailing
+> line at all. A materially smaller, safer footprint than Cycle 8's.
+>
+> Added one `nextHint("cw doctor --onramp")` line, styled the same way as
+> every other `Try:`/`Next:` hint in this codebase (`shell/term.ts`),
+> immediately after the summary line and ONLY when `report.onramp` is
+> absent (a real `--onramp` run's own richer content already covers this
+> — the two are mutually exclusive in the existing `if (report.onramp)`
+> branch, now an `if/else`). Updated `report-doctor.case.js`'s one broken
+> anchor to match the new trailing line instead of the bare summary.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 9 | Add a `Next: cw doctor --onramp` pointer to bare `cw doctor`'s human-text output, so the existing richer onboarding content (already built, opt-in-only) is discoverable without already knowing the flag exists. | `plugins/cool-workflow/src/shell/doctor.ts` + matching `dist/**`, `v2/conformance/cases/report-doctor.case.js`. | `report-doctor.case.js` (updated one `$`-anchored regex, the only break), `exec-doctor-agent-config.case.js`, `doctor-smoke.js` (all pass unmodified). Live-CLI spot check: bare `cw doctor` shows the new hint; `cw doctor --onramp` unchanged; `cw fix`/`cw doctor --fix` unaffected (separate render function). | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
+
 ## Batch — restore the interactive `Question: ` TTY prompt on bare `quickstart` (Unreleased)
 
 > UI/UX audit finding: `cw quickstart` with no `--question` immediately
