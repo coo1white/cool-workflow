@@ -62,20 +62,22 @@ async function loadIndex() {
   const reg = view.registry || {};
   const fresh = document.getElementById("registry-freshness");
   fresh.innerHTML = "";
-  fresh.append("registry ", freshnessBadge(reg.freshness), ` · scope ${view.scope}`);
+  fresh.append("registry ", freshnessBadge(reg.freshness && reg.freshness.status), ` · scope ${view.scope}`);
   const records = (view.runs && view.runs.records) || [];
   if (!records.length) {
     list.appendChild(el("li", { class: "muted", text: "no runs indexed in this scope" }));
     return;
   }
   for (const record of records) {
+    const lifecycle = record.lifecycle || record.status || "";
     const li = el("li", { class: state.activeRunId === record.runId ? "active" : "" }, [
-      el("div", { class: "rid", text: record.runId }),
+      el("div", { class: "rid" }, [
+        el("span", { class: `status-dot ${lifecycle}`, title: lifecycle || "unknown" }),
+        document.createTextNode(record.runId)
+      ]),
       el("div", {
         class: "meta",
-        text: [record.appId || record.workflowId, record.lifecycle || record.status, record.repo]
-          .filter(Boolean)
-          .join(" · ")
+        text: [record.appId || record.workflowId, lifecycle, record.repo].filter(Boolean).join(" · ")
       })
     ]);
     li.addEventListener("click", () => selectRun(record.runId));
@@ -138,11 +140,117 @@ function renderPanel(name, panel) {
   card.appendChild(head);
   card.appendChild(el("div", { class: "kv" }, [el("span", { class: "src", text: panel.cli }), el("span", { class: "src", text: panel.mcp })]));
   if (panel.status === "present") {
-    card.appendChild(el("pre", { class: "json", text: JSON.stringify(panel.data, null, 2) }));
+    card.appendChild(renderStructured(panel.data) || el("pre", { class: "json", text: JSON.stringify(panel.data, null, 2) }));
   } else {
     card.appendChild(el("div", { class: "absent-note", text: `absent — ${panel.error || "source unreadable"}` }));
   }
   return card;
+}
+
+// Purely presentational shape-detection: recognizes the two payload shapes
+// that recur across several capabilities (a nodes/edges graph, and one or
+// more TrustAuditEvent[] arrays) and tables them instead of dumping raw
+// JSON. Anything that doesn't match either shape falls back to the plain
+// JSON dump in renderPanel — no per-capability special-casing.
+function isNodeEdgeGraph(data) {
+  return !!data && Array.isArray(data.nodes) && Array.isArray(data.edges);
+}
+
+function isEventArray(value) {
+  return (
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.every((item) => item && typeof item === "object" && typeof item.kind === "string" && typeof item.decision === "string")
+  );
+}
+
+function renderStructured(data) {
+  if (isNodeEdgeGraph(data)) return renderGraph(data);
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const eventKeys = Object.keys(data).filter((key) => isEventArray(data[key]));
+    if (eventKeys.length > 0) return renderEventGroups(data, eventKeys);
+  }
+  return null;
+}
+
+function renderGraph(data) {
+  const wrap = el("div");
+  const nodesBlock = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: `nodes (${data.nodes.length})` })]);
+  if (data.nodes.length === 0) {
+    nodesBlock.appendChild(el("div", { class: "struct-empty", text: "none" }));
+  } else {
+    const table = el("table", { class: "struct-table" }, [
+      el("tr", {}, ["id", "kind", "status", "label"].map((h) => el("th", { text: h })))
+    ]);
+    for (const node of data.nodes) {
+      table.appendChild(
+        el("tr", {}, [
+          el("td", { text: node.id }),
+          el("td", { text: node.kind }),
+          el("td", { text: node.status }),
+          el("td", { text: node.label })
+        ])
+      );
+    }
+    nodesBlock.appendChild(table);
+  }
+  wrap.appendChild(nodesBlock);
+
+  const edgesBlock = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: `edges (${data.edges.length})` })]);
+  if (data.edges.length === 0) {
+    edgesBlock.appendChild(el("div", { class: "struct-empty", text: "none" }));
+  } else {
+    const list = el("ul", { class: "struct-edges" });
+    for (const edge of data.edges) {
+      list.appendChild(
+        el("li", {}, [
+          document.createTextNode(edge.from),
+          el("span", { class: "arrow", text: edge.label ? `--${edge.label}-->` : "-->" }),
+          document.createTextNode(edge.to)
+        ])
+      );
+    }
+    edgesBlock.appendChild(list);
+  }
+  wrap.appendChild(edgesBlock);
+  return wrap;
+}
+
+function humanizeKey(key) {
+  return key.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+}
+
+function renderEventGroups(data, eventKeys) {
+  const wrap = el("div");
+  for (const key of eventKeys) {
+    const events = [...data[key]].sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+    const block = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: `${humanizeKey(key)} (${events.length})` })]);
+    const table = el("table", { class: "struct-table" }, [
+      el("tr", {}, ["time", "kind", "decision", "source", "actor"].map((h) => el("th", { text: h })))
+    ]);
+    for (const event of events) {
+      table.appendChild(
+        el("tr", {}, [
+          el("td", { text: event.createdAt || "" }),
+          el("td", { text: event.kind || "" }),
+          el("td", { text: event.decision || "" }),
+          el("td", { text: event.source || "" }),
+          el("td", { text: event.actor || event.workerId || event.taskId || "" })
+        ])
+      );
+    }
+    block.appendChild(table);
+    wrap.appendChild(block);
+  }
+  const rest = Object.keys(data).filter((key) => !eventKeys.includes(key) && key !== "schemaVersion" && key !== "runId");
+  const restData = {};
+  for (const key of rest) restData[key] = data[key];
+  if (Object.keys(restData).length > 0) {
+    const block = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: "other fields" })]);
+    block.appendChild(el("pre", { class: "json", text: JSON.stringify(restData, null, 2) }));
+    wrap.appendChild(block);
+  }
+  return wrap;
 }
 
 document.getElementById("refresh").addEventListener("click", loadIndex);
