@@ -1,5 +1,32 @@
 # CW Iteration Log
 
+## Batch — document `--json` in `cw help`'s top-level Flags block (Unreleased)
+
+> UI/UX audit finding: `cw help`'s Flags section lists `-q`, `-r`, `-d`,
+> `-claude`/`-codex`/`-gemini`/`-deepseek`, `--verbose`, `--full`, and
+> `--no-color`, but not `--json`, despite ~68 capability-table rows
+> supporting it (`jsonMode: "flag"`; `wantsJson` in `cli/io.ts` accepts
+> both `--json` and `--format json`). Confirmed via the old build's own
+> ground-truth capture (`docs/rebuild/SPEC/cli-help/_root.txt`) that
+> `--json` was NEVER documented here, even before the rebuild — this is a
+> longstanding gap, not a regression, so a straightforward additive fix.
+>
+> Added one `--json` row to `formatHelp()` (`core/format/help.ts`). First
+> pass used a longer description mentioning the `--format json` alias,
+> which broke `headline-commands-smoke.js`'s 80-column no-ragged-wrap
+> check (95 chars) — shortened to "Print JSON for commands that support
+> it" (64 chars incl. the padded flag column), matching every other
+> Flags row's terseness. `formatHelp()`'s output is byte-pinned by
+> `test/formatapps-help-toplevel-layout.test.js` (evidence: `docs/
+> rebuild/SPEC/cli-surface.md`'s own "formatHelp() (stdout)" block) and
+> by `v2/conformance/cases/cli-help-topics.case.js` (evidence: `v2/
+> conformance/cases/fixtures/cli-help/_root.txt`, a live-gate copy of the
+> SPEC capture) — updated all three in lockstep with the source.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 4 | Add a `--json` row to `cw help`'s top-level Flags block; the flag has worked on ~68 commands since early in the rebuild but was never documented there. | `plugins/cool-workflow/src/core/format/help.ts` + matching `dist/**`, `plugins/cool-workflow/test/formatapps-help-toplevel-layout.test.js`, `v2/conformance/cases/fixtures/cli-help/_root.txt`, `docs/rebuild/SPEC/cli-surface.md`. | `formatapps-help-toplevel-layout.test.js`, `headline-commands-smoke.js` (its 80-column no-ragged-wrap check caught the first, too-long description), `cli-help-topics.case.js`. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 105/105 against `dist/cli.js`; `test:unit` 160/160; `test:coverage` 198/198 (91.7% line coverage, floor 80%). | no (PR batch, no release) |
+
 ## Batch — human-readable `report verify-bundle` + a real "run not found" error (Unreleased)
 
 > UI/UX audit finding: `cw report verify-bundle <archive>` was
