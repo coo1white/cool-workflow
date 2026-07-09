@@ -39,7 +39,10 @@ caseMain(() => {
   assert.match(human.stdout, /  ! git: git is not available/);
   assert.match(human.stdout, /  ✓ home-registry: Home registry location is writable \(.*\)\.\n/);
   assert.match(human.stdout, /  ✓ repo-state: Run state location is writable \(.*\)\.\n/);
-  assert.match(human.stdout, /\n✓ ready, with 2 warnings\n$/);
+  assert.match(human.stdout, /\n✓ ready, with 2 warnings\n/);
+  // A bare (non-`--onramp`) doctor now ends with a pointer to the richer
+  // onramp content, which otherwise only ever renders behind that flag.
+  assert.match(human.stdout, /\n {2}Next: cw doctor --onramp for the 3-step quick start\n$/);
 
   // --- --json, same warn scenario ---
   const json = run(["doctor", "--json"], { cwd, env: { PATH: nodeOnlyPath() } });

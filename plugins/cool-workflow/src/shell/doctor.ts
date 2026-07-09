@@ -30,7 +30,7 @@ import { buildDoctorOnramp, DoctorOnramp, optionEnabled } from "./onramp";
 import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store";
 import { verifyTrustAudit } from "./trust-audit";
 import { WorkflowRun } from "../core/state/types";
-import { bold, doctorGlyph, green, red } from "./term";
+import { bold, doctorGlyph, green, nextHint, red } from "./term";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
 
@@ -319,7 +319,14 @@ export function formatDoctorReport(report: DoctorReport): string {
   lines.push("");
   const summaryGlyph = report.ok ? green("✓") : red("✗");
   lines.push(`${summaryGlyph} ${report.summary}`);
-  if (report.onramp) {
+  if (!report.onramp) {
+    // A first-time (or just not-yet-discovered) `cw doctor` never mentions
+    // the richer onramp content below without this pointer — the "Quick
+    // start (3 steps)"/"Recommended Checks"/per-scenario sections only ever
+    // render behind the `--onramp` opt-in flag, so a user who never reads
+    // `cw help doctor` has no way to find them otherwise.
+    lines.push(`  ${nextHint("cw doctor --onramp")} for the 3-step quick start`);
+  } else {
     lines.push("");
     lines.push("Quick start (3 steps):");
     lines.push("  1. cw demo tamper        — prove trust checks work (30s)");
