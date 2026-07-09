@@ -174,10 +174,14 @@ export function summaryRefreshCli(runId: string, options: Record<string, unknown
   return index;
 }
 
-/** `cw summary show <run-id> [--json]` — also runs `saveCheckpoint`. */
+/** `cw summary show <run-id> [--json]` — a plain read: `showStateExplosionSummary`
+ *  only loads the persisted summary index and builds a report from it, it
+ *  never mutates `run`, so there is nothing here for a checkpoint write to
+ *  durably persist. No `saveCheckpoint` call (dropped one, see ITERATION_LOG
+ *  — it used to durably rewrite the whole unchanged state.json on every
+ *  `summary show`, only bumping `run.updatedAt` as a side effect of a
+ *  command whose whole job is to look, not touch). */
 export function summaryShowCli(runId: string, options: Record<string, unknown> = {}): StateExplosionReport {
   const run = loadRun(runId, options);
-  const report = showStateExplosionSummary(run);
-  saveCheckpoint(run);
-  return report;
+  return showStateExplosionSummary(run);
 }
