@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-09 by `npm run sync:projec
 - Source modules: `147`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `193`
+- Smoke tests: `198`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -341,6 +341,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [drive-async-real-signal-smoke.js](../test/drive-async-real-signal-smoke.js)
 - [drive-concurrency-flag-smoke.js](../test/drive-concurrency-flag-smoke.js)
 - [drive-exhaustion-blocked-smoke.js](../test/drive-exhaustion-blocked-smoke.js)
+- [drive-round-cache-serial-smoke.js](../test/drive-round-cache-serial-smoke.js)
 - [durable-atomic-write-smoke.js](../test/durable-atomic-write-smoke.js)
 - [end-to-end-demo-smoke.js](../test/end-to-end-demo-smoke.js)
 - [end-to-end-golden-path-smoke.js](../test/end-to-end-golden-path-smoke.js)
@@ -447,11 +448,13 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [security-trust-hardening-smoke.js](../test/security-trust-hardening-smoke.js)
 - [self-audit-hardening-smoke.js](../test/self-audit-hardening-smoke.js)
 - [sigint-sigterm-drive-loop-smoke.js](../test/sigint-sigterm-drive-loop-smoke.js)
+- [smoke-duration-scheduling-smoke.js](../test/smoke-duration-scheduling-smoke.js)
 - [source-context-batch-smoke.js](../test/source-context-batch-smoke.js)
 - [source-context-profile-smoke.js](../test/source-context-profile-smoke.js)
 - [state-node-smoke.js](../test/state-node-smoke.js)
 - [status-run-flag-smoke.js](../test/status-run-flag-smoke.js)
 - [sub-workflow-nesting-smoke.js](../test/sub-workflow-nesting-smoke.js)
+- [summary-show-no-checkpoint-write-smoke.js](../test/summary-show-no-checkpoint-write-smoke.js)
 - [surface-explicit-cwd-smoke.js](../test/surface-explicit-cwd-smoke.js)
 - [tamper-evidence-demo-smoke.js](../test/tamper-evidence-demo-smoke.js)
 - [team-collaboration-smoke.js](../test/team-collaboration-smoke.js)
@@ -464,6 +467,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [token-budget-enforcement-smoke.js](../test/token-budget-enforcement-smoke.js)
 - [trust-audit-anchor-smoke.js](../test/trust-audit-anchor-smoke.js)
 - [trust-audit-append-lock-concurrency-smoke.js](../test/trust-audit-append-lock-concurrency-smoke.js)
+- [trust-audit-append-tail-cache-smoke.js](../test/trust-audit-append-tail-cache-smoke.js)
 - [vendor-manifest-load-smoke.js](../test/vendor-manifest-load-smoke.js)
 - [vendor-preflight-smoke.js](../test/vendor-preflight-smoke.js)
 - [verdict-signing-workflow-smoke.js](../test/verdict-signing-workflow-smoke.js)
@@ -471,6 +475,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [verify-bump-reproduction-smoke.js](../test/verify-bump-reproduction-smoke.js)
 - [verify-import-audit-chain-smoke.js](../test/verify-import-audit-chain-smoke.js)
 - [web-desktop-workbench-smoke.js](../test/web-desktop-workbench-smoke.js)
+- [wiring-lazy-shell-imports-smoke.js](../test/wiring-lazy-shell-imports-smoke.js)
 - [worker-accept-path-architecture-smoke.js](../test/worker-accept-path-architecture-smoke.js)
 - [worker-isolation-smoke.js](../test/worker-isolation-smoke.js)
 - [worker-retry-count-smoke.js](../test/worker-retry-count-smoke.js)

@@ -19,11 +19,24 @@ const io_1 = require("../../cli/io");
 // row — a known, preserved wart.
 // ---------------------------------------------------------------------
 const ledger_cli_1 = require("../../shell/ledger-cli");
-const telemetry_cli_1 = require("../../shell/telemetry-cli");
-const audit_cli_1 = require("../../shell/audit-cli");
-const demo_cli_1 = require("../../shell/demo-cli");
-const telemetry_demo_1 = require("../../shell/telemetry-demo");
-const report_cli_1 = require("../../shell/report-cli");
+// This file is required at startup for every command. Loading these shell
+// modules only when their handler runs, not at import time, keeps that
+// load cost out of commands that never touch telemetry/audit/demo/report.
+function loadTelemetryCli() {
+    return require("../../shell/telemetry-cli");
+}
+function loadAuditCli() {
+    return require("../../shell/audit-cli");
+}
+function loadDemoCli() {
+    return require("../../shell/demo-cli");
+}
+function loadTelemetryDemo() {
+    return require("../../shell/telemetry-demo");
+}
+function loadReportCli() {
+    return require("../../shell/report-cli");
+}
 (0, registry_core_1.attachCliBinding)("ledger.propose", {
     path: ["ledger", "propose"],
     jsonMode: "default",
@@ -68,54 +81,54 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.list").mcp.handler = (args) =
     jsonMode: "flag",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]) || (0, io_1.optionalArg)(args.options.runId) || (0, io_1.optionalArg)(args.options.run), "run id");
-        const result = (0, telemetry_cli_1.telemetryVerifyCli)(runId, args.options);
-        return { json: result, text: (0, telemetry_demo_1.formatTelemetryVerify)(result), exitCode: result.verified ? undefined : 1 };
+        const result = loadTelemetryCli().telemetryVerifyCli(runId, args.options);
+        return { json: result, text: loadTelemetryDemo().formatTelemetryVerify(result), exitCode: result.verified ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("telemetry.verify").mcp.handler = (args) => (0, telemetry_cli_1.telemetryVerifyCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("telemetry.verify").mcp.handler = (args) => loadTelemetryCli().telemetryVerifyCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.verify", {
     path: ["audit", "verify"],
     jsonMode: "default",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        const result = (0, audit_cli_1.auditVerifyCli)(runId, args.options);
+        const result = loadAuditCli().auditVerifyCli(runId, args.options);
         return { json: result, exitCode: result.verified ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.verify").mcp.handler = (args) => (0, audit_cli_1.auditVerifyCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.verify").mcp.handler = (args) => loadAuditCli().auditVerifyCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.head", {
     path: ["audit", "head"],
     jsonMode: "default",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        return { json: (0, audit_cli_1.auditHeadCli)(runId, args.options) };
+        return { json: loadAuditCli().auditHeadCli(runId, args.options) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.head").mcp.handler = (args) => (0, audit_cli_1.auditHeadCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.head").mcp.handler = (args) => loadAuditCli().auditHeadCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.repair", {
     path: ["audit", "repair"],
     jsonMode: "default",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        const result = (0, audit_cli_1.auditRepairCli)(runId, args.options);
+        const result = loadAuditCli().auditRepairCli(runId, args.options);
         return { json: result, exitCode: result.outcome === "refused" ? 1 : undefined };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) => (0, audit_cli_1.auditRepairCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) => loadAuditCli().auditRepairCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.addCliOnlyCapability)("demo.tamper", "Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.", {
     path: ["demo", "tamper"],
     jsonMode: "flag",
     handler: (args) => {
-        const result = (0, demo_cli_1.demoTamperCli)();
-        return { json: result, text: (0, telemetry_demo_1.formatTamperDemo)(result), exitCode: result.proven ? undefined : 1 };
+        const result = loadDemoCli().demoTamperCli();
+        return { json: result, text: loadTelemetryDemo().formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
     },
 }, "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo.");
 (0, registry_core_1.addCliOnlyCapability)("demo.bundle", "Prove portable-bundle verification: export a sealed report bundle, forge it two ways, watch report verify-bundle catch both offline with only the embedded public key.", {
     path: ["demo", "bundle"],
     jsonMode: "flag",
     handler: (args) => {
-        const result = (0, demo_cli_1.demoBundleCli)();
-        return { json: result, text: (0, telemetry_demo_1.formatBundleDemo)(result), exitCode: result.proven ? undefined : 1 };
+        const result = loadDemoCli().demoBundleCli();
+        return { json: result, text: loadTelemetryDemo().formatBundleDemo(result), exitCode: result.proven ? undefined : 1 };
     },
 }, "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo.");
 (0, registry_core_1.attachCliBinding)("report.bundle", {
@@ -123,22 +136,22 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) 
     jsonMode: "default",
     handler: (args) => {
         const runId = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id");
-        const result = (0, report_cli_1.reportBundleCli)(runId, args.options);
+        const result = loadReportCli().reportBundleCli(runId, args.options);
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("report.bundle").mcp.handler = (args) => (0, report_cli_1.reportBundleCli)((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("report.bundle").mcp.handler = (args) => loadReportCli().reportBundleCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("report.verify-bundle", {
     path: ["report", "verify-bundle"],
     jsonMode: "default",
     handler: (args) => {
         const archivePath = (0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "bundle path");
-        const result = (0, report_cli_1.reportVerifyBundleCli)({ ...args.options, archive: archivePath });
+        const result = loadReportCli().reportVerifyBundleCli({ ...args.options, archive: archivePath });
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("report.verify-bundle").mcp.handler = (args) => {
-    const result = (0, report_cli_1.reportVerifyBundleCli)(args);
+    const result = loadReportCli().reportVerifyBundleCli(args);
     return result;
 };
 // ---------------------------------------------------------------------

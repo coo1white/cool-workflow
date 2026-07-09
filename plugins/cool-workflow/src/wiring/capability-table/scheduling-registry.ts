@@ -21,72 +21,23 @@ import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-
 // clones}.ts.
 // ---------------------------------------------------------------------
 
-import {
-  clonesGcCli,
-  clonesListCli,
-  gcPlanCli,
-  gcRunCli,
-  gcVerifyCli,
-  historyCli,
-  orphansGcCli,
-  orphansListCli,
-  queueAddCli,
-  queueDrainCli,
-  queueListCli,
-  queueShowCli,
-  registryRefreshCli,
-  registryShowCli,
-  resolveRoutineFirePayload,
-  routineCreateCli,
-  routineDeleteCli,
-  routineEventsCli,
-  routineFireCli,
-  routineListCli,
-  runArchiveCli,
-  runListCli,
-  runRerunCli,
-  runResumeCli,
-  runSearchCli,
-  runShowCli,
-  scheduleCompleteCli,
-  scheduleCreateCli,
-  scheduleDaemonRunForever,
-  scheduleDaemonTickCli,
-  scheduleDeleteCli,
-  scheduleDueCli,
-  scheduleHistoryCli,
-  schedulePauseCli,
-  scheduleResumeCli,
-  scheduleRunNowCli,
-  scheduleListCli,
-} from "../../shell/registry-cli";
-import {
-  formatClonesGc,
-  formatClonesList,
-  formatGcPlan,
-  formatGcRun,
-  formatGcVerify,
-  formatOrphanRunsGc,
-  formatOrphanRunsList,
-} from "../../shell/reclamation-io";
-import {
-  formatHistory,
-  formatQueueList,
-  formatRegistryReport,
-  formatResume,
-  formatRunSearch,
-  formatRunShow,
-} from "../../shell/run-registry-io";
-import {
-  schedCompleteCli,
-  schedLeaseCli,
-  schedPlanCli,
-  schedPolicySetCli,
-  schedPolicyShowCli,
-  schedReclaimCli,
-  schedReleaseCli,
-  schedResetCli,
-} from "../../shell/scheduling-io";
+// This whole module is required unconditionally at CLI/MCP startup for
+// EVERY command; loading these 4 shell modules lazily (only inside the
+// handler that actually calls into them) keeps that load cost off every
+// invocation that never touches schedule/routine/sched/registry/queue/
+// gc/orphans/clones/run/history.
+function loadRegistryCli(): typeof import("../../shell/registry-cli") {
+  return require("../../shell/registry-cli") as typeof import("../../shell/registry-cli");
+}
+function loadReclamationIo(): typeof import("../../shell/reclamation-io") {
+  return require("../../shell/reclamation-io") as typeof import("../../shell/reclamation-io");
+}
+function loadRunRegistryIo(): typeof import("../../shell/run-registry-io") {
+  return require("../../shell/run-registry-io") as typeof import("../../shell/run-registry-io");
+}
+function loadSchedulingIo(): typeof import("../../shell/scheduling-io") {
+  return require("../../shell/scheduling-io") as typeof import("../../shell/scheduling-io");
+}
 
 function firstPositionalArg(args: CapabilityCliArgs, index = 0): string | undefined {
   return args.positionals[index];
@@ -100,7 +51,7 @@ addCliOnlyCapability(
   {
     path: ["loop"],
     jsonMode: "default",
-    handler: (args) => ({ json: scheduleCreateCli({ ...args.options, kind: "loop" }) }),
+    handler: (args) => ({ json: loadRegistryCli().scheduleCreateCli({ ...args.options, kind: "loop" }) }),
   },
   "loop is CLI-only sugar over schedule.create; the old build never gave it an MCP tool of its own (SPEC/scheduling-registry.md section I)."
 );
@@ -114,31 +65,32 @@ addCliOnlyCapability(
     hiddenFromHelp: true,
     handler: (args) => {
       const [subcommand, id] = args.positionals;
+      const registryCli = loadRegistryCli();
       switch (subcommand) {
         case "create":
-          return { json: scheduleCreateCli(args.options) };
+          return { json: registryCli.scheduleCreateCli(args.options) };
         case "list":
-          return { json: scheduleListCli(args.options) };
+          return { json: registryCli.scheduleListCli(args.options) };
         case "delete":
-          return { json: scheduleDeleteCli(required(id, "schedule id"), args.options) };
+          return { json: registryCli.scheduleDeleteCli(required(id, "schedule id"), args.options) };
         case "due":
-          return { json: scheduleDueCli(args.options) };
+          return { json: registryCli.scheduleDueCli(args.options) };
         case "complete":
-          return { json: scheduleCompleteCli(required(id, "schedule id"), args.options) };
+          return { json: registryCli.scheduleCompleteCli(required(id, "schedule id"), args.options) };
         case "pause":
-          return { json: schedulePauseCli(required(id, "schedule id"), args.options) };
+          return { json: registryCli.schedulePauseCli(required(id, "schedule id"), args.options) };
         case "resume":
-          return { json: scheduleResumeCli(required(id, "schedule id"), args.options) };
+          return { json: registryCli.scheduleResumeCli(required(id, "schedule id"), args.options) };
         case "run-now":
-          return { json: scheduleRunNowCli(required(id, "schedule id"), args.options) };
+          return { json: registryCli.scheduleRunNowCli(required(id, "schedule id"), args.options) };
         case "history":
-          return { json: scheduleHistoryCli(id, args.options) };
+          return { json: registryCli.scheduleHistoryCli(id, args.options) };
         case "daemon": {
-          if (args.options.once) return { json: scheduleDaemonTickCli(args.options) };
+          if (args.options.once) return { json: registryCli.scheduleDaemonTickCli(args.options) };
           // Never returns (matches the old build's forever daemon loop);
           // the process stays alive via the DesktopSchedulerDaemon's own
           // setInterval, printing one tick line per interval.
-          void scheduleDaemonRunForever(args.options);
+          void registryCli.scheduleDaemonRunForever(args.options);
           return {};
         }
         default:
@@ -153,30 +105,30 @@ addCliOnlyCapability(
 // notYetImplemented placeholder (the "each wired below" comment was never
 // satisfied). Mirror the CLI switch's shell fns; arg-name reads (id/status)
 // copied from the old build's mcp/tool-call.ts scheduler arms.
-REGISTRY_BY_CAPABILITY.get("schedule.create")!.mcp!.handler = (args) => scheduleCreateCli(args);
-REGISTRY_BY_CAPABILITY.get("schedule.list")!.mcp!.handler = (args) => scheduleListCli(args);
-REGISTRY_BY_CAPABILITY.get("schedule.due")!.mcp!.handler = (args) => scheduleDueCli(args);
-REGISTRY_BY_CAPABILITY.get("schedule.complete")!.mcp!.handler = (args) => scheduleCompleteCli(required(optionalArg(args.id), "schedule id"), args);
-REGISTRY_BY_CAPABILITY.get("schedule.pause")!.mcp!.handler = (args) => schedulePauseCli(required(optionalArg(args.id), "schedule id"), args);
-REGISTRY_BY_CAPABILITY.get("schedule.resume")!.mcp!.handler = (args) => scheduleResumeCli(required(optionalArg(args.id), "schedule id"), args);
-REGISTRY_BY_CAPABILITY.get("schedule.run-now")!.mcp!.handler = (args) => scheduleRunNowCli(required(optionalArg(args.id), "schedule id"), args);
-REGISTRY_BY_CAPABILITY.get("schedule.history")!.mcp!.handler = (args) => scheduleHistoryCli(optionalArg(args.id), args);
-REGISTRY_BY_CAPABILITY.get("schedule.delete")!.mcp!.handler = (args) => scheduleDeleteCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.create")!.mcp!.handler = (args) => loadRegistryCli().scheduleCreateCli(args);
+REGISTRY_BY_CAPABILITY.get("schedule.list")!.mcp!.handler = (args) => loadRegistryCli().scheduleListCli(args);
+REGISTRY_BY_CAPABILITY.get("schedule.due")!.mcp!.handler = (args) => loadRegistryCli().scheduleDueCli(args);
+REGISTRY_BY_CAPABILITY.get("schedule.complete")!.mcp!.handler = (args) => loadRegistryCli().scheduleCompleteCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.pause")!.mcp!.handler = (args) => loadRegistryCli().schedulePauseCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.resume")!.mcp!.handler = (args) => loadRegistryCli().scheduleResumeCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.run-now")!.mcp!.handler = (args) => loadRegistryCli().scheduleRunNowCli(required(optionalArg(args.id), "schedule id"), args);
+REGISTRY_BY_CAPABILITY.get("schedule.history")!.mcp!.handler = (args) => loadRegistryCli().scheduleHistoryCli(optionalArg(args.id), args);
+REGISTRY_BY_CAPABILITY.get("schedule.delete")!.mcp!.handler = (args) => loadRegistryCli().scheduleDeleteCli(required(optionalArg(args.id), "schedule id"), args);
 // Each `schedule <verb>` sub-action is its own two-token cli row (found
 // before the ["schedule"] catch-all per the reversed candidate order), so
 // each capability is a real both-surface dual-bound row. Same shell fns and
 // [subcommand, id] positional mapping as the catch-all switch above.
 // `hiddenFromHelp` keeps `cw help schedule`'s rows coming from the single
 // literal COMMAND_HELP_ROWS.schedule block.
-attachCliBinding("schedule.create", { path: ["schedule", "create"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleCreateCli(args.options) }) });
-attachCliBinding("schedule.list", { path: ["schedule", "list"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleListCli(args.options) }) });
-attachCliBinding("schedule.delete", { path: ["schedule", "delete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleDeleteCli(required(args.positionals[0], "schedule id"), args.options) }) });
-attachCliBinding("schedule.due", { path: ["schedule", "due"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleDueCli(args.options) }) });
-attachCliBinding("schedule.complete", { path: ["schedule", "complete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleCompleteCli(required(args.positionals[0], "schedule id"), args.options) }) });
-attachCliBinding("schedule.pause", { path: ["schedule", "pause"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedulePauseCli(required(args.positionals[0], "schedule id"), args.options) }) });
-attachCliBinding("schedule.resume", { path: ["schedule", "resume"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleResumeCli(required(args.positionals[0], "schedule id"), args.options) }) });
-attachCliBinding("schedule.run-now", { path: ["schedule", "run-now"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleRunNowCli(required(args.positionals[0], "schedule id"), args.options) }) });
-attachCliBinding("schedule.history", { path: ["schedule", "history"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: scheduleHistoryCli(args.positionals[0], args.options) }) });
+attachCliBinding("schedule.create", { path: ["schedule", "create"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().scheduleCreateCli(args.options) }) });
+attachCliBinding("schedule.list", { path: ["schedule", "list"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().scheduleListCli(args.options) }) });
+attachCliBinding("schedule.delete", { path: ["schedule", "delete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().scheduleDeleteCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.due", { path: ["schedule", "due"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().scheduleDueCli(args.options) }) });
+attachCliBinding("schedule.complete", { path: ["schedule", "complete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().scheduleCompleteCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.pause", { path: ["schedule", "pause"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().schedulePauseCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.resume", { path: ["schedule", "resume"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().scheduleResumeCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.run-now", { path: ["schedule", "run-now"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().scheduleRunNowCli(required(args.positionals[0], "schedule id"), args.options) }) });
+attachCliBinding("schedule.history", { path: ["schedule", "history"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().scheduleHistoryCli(args.positionals[0], args.options) }) });
 
 // ---- routine ------------------------------------------------------------
 
@@ -189,20 +141,21 @@ addCliOnlyCapability(
     hiddenFromHelp: true,
     handler: (args) => {
       const [subcommand, idOrKind, payloadPath] = args.positionals;
+      const registryCli = loadRegistryCli();
       switch (subcommand) {
         case "create":
-          return { json: routineCreateCli(args.options) };
+          return { json: registryCli.routineCreateCli(args.options) };
         case "list":
-          return { json: routineListCli(args.options) };
+          return { json: registryCli.routineListCli(args.options) };
         case "delete":
-          return { json: routineDeleteCli(required(idOrKind, "trigger id"), args.options) };
+          return { json: registryCli.routineDeleteCli(required(idOrKind, "trigger id"), args.options) };
         case "fire": {
           const kind = required(idOrKind, "trigger kind");
-          const payload = resolveRoutineFirePayload(payloadPath, args.options);
-          return { json: routineFireCli(kind, payload, args.options) };
+          const payload = registryCli.resolveRoutineFirePayload(payloadPath, args.options);
+          return { json: registryCli.routineFireCli(kind, payload, args.options) };
         }
         case "events":
-          return { json: routineEventsCli(idOrKind, args.options) };
+          return { json: registryCli.routineEventsCli(idOrKind, args.options) };
         default:
           throw new Error("Usage: cw.js routine create|list|delete|fire|events");
       }
@@ -210,19 +163,19 @@ addCliOnlyCapability(
   },
   "cw routine is the API/GitHub-style trigger bridge; SPEC/mcp.md declares its MCP peers per verb (cw_routine_*), each wired below."
 );
-REGISTRY_BY_CAPABILITY.get("routine.create")!.mcp!.handler = (args) => routineCreateCli(args);
-REGISTRY_BY_CAPABILITY.get("routine.list")!.mcp!.handler = (args) => routineListCli(args);
-REGISTRY_BY_CAPABILITY.get("routine.delete")!.mcp!.handler = (args) => routineDeleteCli(required(optionalArg(args.id), "trigger id"), args);
-REGISTRY_BY_CAPABILITY.get("routine.fire")!.mcp!.handler = (args) => routineFireCli(required(optionalArg(args.kind), "trigger kind"), args.payload, args);
-REGISTRY_BY_CAPABILITY.get("routine.events")!.mcp!.handler = (args) => routineEventsCli(optionalArg(args.id), args);
+REGISTRY_BY_CAPABILITY.get("routine.create")!.mcp!.handler = (args) => loadRegistryCli().routineCreateCli(args);
+REGISTRY_BY_CAPABILITY.get("routine.list")!.mcp!.handler = (args) => loadRegistryCli().routineListCli(args);
+REGISTRY_BY_CAPABILITY.get("routine.delete")!.mcp!.handler = (args) => loadRegistryCli().routineDeleteCli(required(optionalArg(args.id), "trigger id"), args);
+REGISTRY_BY_CAPABILITY.get("routine.fire")!.mcp!.handler = (args) => loadRegistryCli().routineFireCli(required(optionalArg(args.kind), "trigger kind"), args.payload, args);
+REGISTRY_BY_CAPABILITY.get("routine.events")!.mcp!.handler = (args) => loadRegistryCli().routineEventsCli(optionalArg(args.id), args);
 // Each `routine <verb>` sub-action is its own two-token cli row. The
 // catch-all read [subcommand, idOrKind, payloadPath], so after the
 // dispatcher consumes the sub-verb positionals[0]=idOrKind,
 // positionals[1]=payloadPath. `hiddenFromHelp` keeps `cw help routine`'s
 // rows coming from the single literal COMMAND_HELP_ROWS.routine block.
-attachCliBinding("routine.create", { path: ["routine", "create"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: routineCreateCli(args.options) }) });
-attachCliBinding("routine.list", { path: ["routine", "list"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: routineListCli(args.options) }) });
-attachCliBinding("routine.delete", { path: ["routine", "delete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: routineDeleteCli(required(args.positionals[0], "trigger id"), args.options) }) });
+attachCliBinding("routine.create", { path: ["routine", "create"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().routineCreateCli(args.options) }) });
+attachCliBinding("routine.list", { path: ["routine", "list"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().routineListCli(args.options) }) });
+attachCliBinding("routine.delete", { path: ["routine", "delete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().routineDeleteCli(required(args.positionals[0], "trigger id"), args.options) }) });
 attachCliBinding("routine.fire", {
   path: ["routine", "fire"],
   jsonMode: "default",
@@ -230,11 +183,12 @@ attachCliBinding("routine.fire", {
   handler: (args) => {
     const kind = required(args.positionals[0], "trigger kind");
     const payloadPath = args.positionals[1];
-    const payload = resolveRoutineFirePayload(payloadPath, args.options);
-    return { json: routineFireCli(kind, payload, args.options) };
+    const registryCli = loadRegistryCli();
+    const payload = registryCli.resolveRoutineFirePayload(payloadPath, args.options);
+    return { json: registryCli.routineFireCli(kind, payload, args.options) };
   },
 });
-attachCliBinding("routine.events", { path: ["routine", "events"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: routineEventsCli(args.positionals[0], args.options) }) });
+attachCliBinding("routine.events", { path: ["routine", "events"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadRegistryCli().routineEventsCli(args.positionals[0], args.options) }) });
 
 // ---- sched (control-plane leases over the durable queue) ---------------
 
@@ -247,23 +201,24 @@ addCliOnlyCapability(
     hiddenFromHelp: true,
     handler: (args) => {
       const [subcommand, idArg] = args.positionals;
+      const schedulingIo = loadSchedulingIo();
       switch (subcommand) {
         case "plan":
-          return { json: schedPlanCli(args.options) };
+          return { json: schedulingIo.schedPlanCli(args.options) };
         case "lease":
-          return { json: schedLeaseCli(args.options) };
+          return { json: schedulingIo.schedLeaseCli(args.options) };
         case "release":
-          return { json: schedReleaseCli(String(args.options.leaseId || idArg || ""), args.options) };
+          return { json: schedulingIo.schedReleaseCli(String(args.options.leaseId || idArg || ""), args.options) };
         case "complete":
-          return { json: schedCompleteCli(String(args.options.leaseId || idArg || ""), args.options) };
+          return { json: schedulingIo.schedCompleteCli(String(args.options.leaseId || idArg || ""), args.options) };
         case "reclaim":
-          return { json: schedReclaimCli(args.options) };
+          return { json: schedulingIo.schedReclaimCli(args.options) };
         case "reset":
-          return { json: schedResetCli(String(args.options.id || idArg || ""), args.options) };
+          return { json: schedulingIo.schedResetCli(String(args.options.id || idArg || ""), args.options) };
         case "policy": {
           const action = args.positionals[1];
-          if (action === "set") return { json: schedPolicySetCli(args.options) };
-          return { json: schedPolicyShowCli(args.options) };
+          if (action === "set") return { json: schedulingIo.schedPolicySetCli(args.options) };
+          return { json: schedulingIo.schedPolicyShowCli(args.options) };
         }
         default:
           throw new Error("Usage: cw.js sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]");
@@ -272,14 +227,14 @@ addCliOnlyCapability(
   },
   "cw sched is the durable-queue lease scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_sched_*), each wired below."
 );
-REGISTRY_BY_CAPABILITY.get("sched.plan")!.mcp!.handler = (args) => schedPlanCli(args);
-REGISTRY_BY_CAPABILITY.get("sched.lease")!.mcp!.handler = (args) => schedLeaseCli(args);
-REGISTRY_BY_CAPABILITY.get("sched.release")!.mcp!.handler = (args) => schedReleaseCli(String(args.leaseId || ""), args);
-REGISTRY_BY_CAPABILITY.get("sched.complete")!.mcp!.handler = (args) => schedCompleteCli(String(args.leaseId || ""), args);
-REGISTRY_BY_CAPABILITY.get("sched.reclaim")!.mcp!.handler = (args) => schedReclaimCli(args);
-REGISTRY_BY_CAPABILITY.get("sched.reset")!.mcp!.handler = (args) => schedResetCli(String(args.id || ""), args);
-REGISTRY_BY_CAPABILITY.get("sched.policy.show")!.mcp!.handler = (args) => schedPolicyShowCli(args);
-REGISTRY_BY_CAPABILITY.get("sched.policy.set")!.mcp!.handler = (args) => schedPolicySetCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.plan")!.mcp!.handler = (args) => loadSchedulingIo().schedPlanCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.lease")!.mcp!.handler = (args) => loadSchedulingIo().schedLeaseCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.release")!.mcp!.handler = (args) => loadSchedulingIo().schedReleaseCli(String(args.leaseId || ""), args);
+REGISTRY_BY_CAPABILITY.get("sched.complete")!.mcp!.handler = (args) => loadSchedulingIo().schedCompleteCli(String(args.leaseId || ""), args);
+REGISTRY_BY_CAPABILITY.get("sched.reclaim")!.mcp!.handler = (args) => loadSchedulingIo().schedReclaimCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.reset")!.mcp!.handler = (args) => loadSchedulingIo().schedResetCli(String(args.id || ""), args);
+REGISTRY_BY_CAPABILITY.get("sched.policy.show")!.mcp!.handler = (args) => loadSchedulingIo().schedPolicyShowCli(args);
+REGISTRY_BY_CAPABILITY.get("sched.policy.set")!.mcp!.handler = (args) => loadSchedulingIo().schedPolicySetCli(args);
 // Each `sched <verb>` sub-action is its own two-token cli row. The
 // catch-all read [subcommand, idArg]; after the dispatcher consumes the
 // sub-verb, positionals[0]=idArg (release/complete read --leaseId or that
@@ -288,16 +243,17 @@ REGISTRY_BY_CAPABILITY.get("sched.policy.set")!.mcp!.handler = (args) => schedPo
 // from the first positional (like blackboard.message.post/list).
 // `hiddenFromHelp` keeps `cw help sched`'s rows coming from the single
 // literal COMMAND_HELP_ROWS.sched block.
-attachCliBinding("sched.plan", { path: ["sched", "plan"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedPlanCli(args.options) }) });
-attachCliBinding("sched.lease", { path: ["sched", "lease"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedLeaseCli(args.options) }) });
-attachCliBinding("sched.release", { path: ["sched", "release"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedReleaseCli(String(args.options.leaseId || args.positionals[0] || ""), args.options) }) });
-attachCliBinding("sched.complete", { path: ["sched", "complete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedCompleteCli(String(args.options.leaseId || args.positionals[0] || ""), args.options) }) });
-attachCliBinding("sched.reclaim", { path: ["sched", "reclaim"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedReclaimCli(args.options) }) });
-attachCliBinding("sched.reset", { path: ["sched", "reset"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: schedResetCli(String(args.options.id || args.positionals[0] || ""), args.options) }) });
+attachCliBinding("sched.plan", { path: ["sched", "plan"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadSchedulingIo().schedPlanCli(args.options) }) });
+attachCliBinding("sched.lease", { path: ["sched", "lease"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadSchedulingIo().schedLeaseCli(args.options) }) });
+attachCliBinding("sched.release", { path: ["sched", "release"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadSchedulingIo().schedReleaseCli(String(args.options.leaseId || args.positionals[0] || ""), args.options) }) });
+attachCliBinding("sched.complete", { path: ["sched", "complete"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadSchedulingIo().schedCompleteCli(String(args.options.leaseId || args.positionals[0] || ""), args.options) }) });
+attachCliBinding("sched.reclaim", { path: ["sched", "reclaim"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadSchedulingIo().schedReclaimCli(args.options) }) });
+attachCliBinding("sched.reset", { path: ["sched", "reset"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadSchedulingIo().schedResetCli(String(args.options.id || args.positionals[0] || ""), args.options) }) });
 function schedPolicyHandler(args: CapabilityCliArgs): CliHandlerResult {
   const action = args.positionals[0];
-  if (action === "set") return { json: schedPolicySetCli(args.options) };
-  return { json: schedPolicyShowCli(args.options) };
+  const schedulingIo = loadSchedulingIo();
+  if (action === "set") return { json: schedulingIo.schedPolicySetCli(args.options) };
+  return { json: schedulingIo.schedPolicyShowCli(args.options) };
 }
 attachCliBinding("sched.policy.show", { path: ["sched", "policy"], helpPath: ["sched", "policy"], jsonMode: "default", hiddenFromHelp: true, handler: schedPolicyHandler });
 attachCliBinding("sched.policy.set", { path: ["sched", "policy"], helpPath: ["sched", "policy"], jsonMode: "default", hiddenFromHelp: true, handler: schedPolicyHandler });
@@ -313,17 +269,18 @@ addCliOnlyCapability(
     hiddenFromHelp: true,
     handler: (args) => {
       const subcommand = firstPositionalArg(args);
+      const registryCli = loadRegistryCli();
       let report;
-      if (subcommand === "refresh") report = registryRefreshCli(args.options);
-      else if (subcommand === "show") report = registryShowCli(args.options);
+      if (subcommand === "refresh") report = registryCli.registryRefreshCli(args.options);
+      else if (subcommand === "show") report = registryCli.registryShowCli(args.options);
       else throw new Error("Usage: cw.js registry refresh|show [--scope repo|home] [--json]");
-      return { json: report, text: formatRegistryReport(report) };
+      return { json: report, text: loadRunRegistryIo().formatRegistryReport(report) };
     },
   },
   "cw registry is the derived run-registry index; SPEC/mcp.md declares its MCP peers (cw_registry_refresh|show), each wired below."
 );
-REGISTRY_BY_CAPABILITY.get("registry.refresh")!.mcp!.handler = (args) => registryRefreshCli(args);
-REGISTRY_BY_CAPABILITY.get("registry.show")!.mcp!.handler = (args) => registryShowCli(args);
+REGISTRY_BY_CAPABILITY.get("registry.refresh")!.mcp!.handler = (args) => loadRegistryCli().registryRefreshCli(args);
+REGISTRY_BY_CAPABILITY.get("registry.show")!.mcp!.handler = (args) => loadRegistryCli().registryShowCli(args);
 // `registry.refresh`/`registry.show` each carry their own two-token
 // cli.path (found before the ["registry"] catch-all). `hiddenFromHelp`
 // keeps `cw help registry`'s rows coming from the single literal
@@ -335,8 +292,8 @@ attachCliBinding("registry.refresh", {
   jsonMode: "flag",
   hiddenFromHelp: true,
   handler: (args) => {
-    const report = registryRefreshCli(args.options);
-    return wantsJson(args.options) ? { json: report } : { json: report, text: formatRegistryReport(report) };
+    const report = loadRegistryCli().registryRefreshCli(args.options);
+    return wantsJson(args.options) ? { json: report } : { json: report, text: loadRunRegistryIo().formatRegistryReport(report) };
   },
 });
 attachCliBinding("registry.show", {
@@ -344,8 +301,8 @@ attachCliBinding("registry.show", {
   jsonMode: "flag",
   hiddenFromHelp: true,
   handler: (args) => {
-    const report = registryShowCli(args.options);
-    return wantsJson(args.options) ? { json: report } : { json: report, text: formatRegistryReport(report) };
+    const report = loadRegistryCli().registryShowCli(args.options);
+    return wantsJson(args.options) ? { json: report } : { json: report, text: loadRunRegistryIo().formatRegistryReport(report) };
   },
 });
 
@@ -360,17 +317,18 @@ addCliOnlyCapability(
     hiddenFromHelp: true,
     handler: (args) => {
       const [subcommand, id] = args.positionals;
+      const registryCli = loadRegistryCli();
       switch (subcommand) {
         case "add":
-          return { json: queueAddCli(args.options) };
+          return { json: registryCli.queueAddCli(args.options) };
         case "list": {
-          const result = queueListCli(args.options);
-          return wantsJson(args.options) ? { json: result } : { json: result, text: formatQueueList(result) };
+          const result = registryCli.queueListCli(args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: loadRunRegistryIo().formatQueueList(result) };
         }
         case "drain":
-          return { json: queueDrainCli(args.options) };
+          return { json: registryCli.queueDrainCli(args.options) };
         case "show":
-          return { json: queueShowCli(required(id, "queue id"), args.options) };
+          return { json: registryCli.queueShowCli(required(id, "queue id"), args.options) };
         default:
           throw new Error("Usage: cw.js queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]");
       }
@@ -378,10 +336,10 @@ addCliOnlyCapability(
   },
   "cw queue is the durable run queue; SPEC/mcp.md declares its MCP peers (cw_queue_add|list|drain|show), each wired below."
 );
-REGISTRY_BY_CAPABILITY.get("queue.add")!.mcp!.handler = (args) => queueAddCli(args);
-REGISTRY_BY_CAPABILITY.get("queue.list")!.mcp!.handler = (args) => queueListCli(args);
-REGISTRY_BY_CAPABILITY.get("queue.drain")!.mcp!.handler = (args) => queueDrainCli(args);
-REGISTRY_BY_CAPABILITY.get("queue.show")!.mcp!.handler = (args) => queueShowCli(required(optionalArg(args.id), "queue id"), args);
+REGISTRY_BY_CAPABILITY.get("queue.add")!.mcp!.handler = (args) => loadRegistryCli().queueAddCli(args);
+REGISTRY_BY_CAPABILITY.get("queue.list")!.mcp!.handler = (args) => loadRegistryCli().queueListCli(args);
+REGISTRY_BY_CAPABILITY.get("queue.drain")!.mcp!.handler = (args) => loadRegistryCli().queueDrainCli(args);
+REGISTRY_BY_CAPABILITY.get("queue.show")!.mcp!.handler = (args) => loadRegistryCli().queueShowCli(required(optionalArg(args.id), "queue id"), args);
 // `queue add|list|drain|show` each carry their own two-token cli.path
 // (found before the ["queue"] catch-all). `hiddenFromHelp` keeps `cw help
 // queue`'s rows coming from the single literal COMMAND_HELP_ROWS.queue
@@ -391,28 +349,28 @@ attachCliBinding("queue.add", {
   path: ["queue", "add"],
   jsonMode: "default",
   hiddenFromHelp: true,
-  handler: (args) => ({ json: queueAddCli(args.options) }),
+  handler: (args) => ({ json: loadRegistryCli().queueAddCli(args.options) }),
 });
 attachCliBinding("queue.list", {
   path: ["queue", "list"],
   jsonMode: "flag",
   hiddenFromHelp: true,
   handler: (args) => {
-    const result = queueListCli(args.options);
-    return wantsJson(args.options) ? { json: result } : { json: result, text: formatQueueList(result) };
+    const result = loadRegistryCli().queueListCli(args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: loadRunRegistryIo().formatQueueList(result) };
   },
 });
 attachCliBinding("queue.drain", {
   path: ["queue", "drain"],
   jsonMode: "default",
   hiddenFromHelp: true,
-  handler: (args) => ({ json: queueDrainCli(args.options) }),
+  handler: (args) => ({ json: loadRegistryCli().queueDrainCli(args.options) }),
 });
 attachCliBinding("queue.show", {
   path: ["queue", "show"],
   jsonMode: "default",
   hiddenFromHelp: true,
-  handler: (args) => ({ json: queueShowCli(required(args.positionals[0], "queue id"), args.options) }),
+  handler: (args) => ({ json: loadRegistryCli().queueShowCli(required(args.positionals[0], "queue id"), args.options) }),
 });
 
 // ---- gc (plan|run|verify) ------------------------------------------------
@@ -426,18 +384,20 @@ addCliOnlyCapability(
     hiddenFromHelp: true,
     handler: (args) => {
       const [subcommand, id] = args.positionals;
+      const registryCli = loadRegistryCli();
+      const reclamationIo = loadReclamationIo();
       switch (subcommand) {
         case "plan": {
-          const result = gcPlanCli(id, args.options);
-          return wantsJson(args.options) ? { json: result } : { json: result, text: formatGcPlan(result) };
+          const result = registryCli.gcPlanCli(id, args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: reclamationIo.formatGcPlan(result) };
         }
         case "run": {
-          const result = gcRunCli(id, args.options);
-          return wantsJson(args.options) ? { json: result } : { json: result, text: formatGcRun(result) };
+          const result = registryCli.gcRunCli(id, args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: reclamationIo.formatGcRun(result) };
         }
         case "verify": {
-          const result = gcVerifyCli(required(id, "run id"), args.options);
-          const text = formatGcVerify(result);
+          const result = registryCli.gcVerifyCli(required(id, "run id"), args.options);
+          const text = reclamationIo.formatGcVerify(result);
           return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
         }
         default:
@@ -447,9 +407,9 @@ addCliOnlyCapability(
   },
   "cw gc is run retention & provable reclamation; SPEC/mcp.md declares its MCP peers (cw_gc_plan|run|verify), each wired below."
 );
-REGISTRY_BY_CAPABILITY.get("gc.plan")!.mcp!.handler = (args) => gcPlanCli(optionalArg(args.runId), args);
-REGISTRY_BY_CAPABILITY.get("gc.run")!.mcp!.handler = (args) => gcRunCli(optionalArg(args.runId), args);
-REGISTRY_BY_CAPABILITY.get("gc.verify")!.mcp!.handler = (args) => gcVerifyCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("gc.plan")!.mcp!.handler = (args) => loadRegistryCli().gcPlanCli(optionalArg(args.runId), args);
+REGISTRY_BY_CAPABILITY.get("gc.run")!.mcp!.handler = (args) => loadRegistryCli().gcRunCli(optionalArg(args.runId), args);
+REGISTRY_BY_CAPABILITY.get("gc.verify")!.mcp!.handler = (args) => loadRegistryCli().gcVerifyCli(required(optionalArg(args.runId), "run id"), args);
 // PARITY: `gc.run` frees disk and appends a tombstone; both surfaces run
 // the identical transaction but the payload reports now-derived
 // bytesFreed/tombstone, so it is a documented opt-out, not drift.
@@ -472,16 +432,16 @@ attachCliBinding("gc.plan", {
   path: ["gc", "plan"],
   jsonMode: "flag",
   handler: (args) => {
-    const result = gcPlanCli(args.positionals[0], args.options);
-    return wantsJson(args.options) ? { json: result } : { json: result, text: formatGcPlan(result) };
+    const result = loadRegistryCli().gcPlanCli(args.positionals[0], args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: loadReclamationIo().formatGcPlan(result) };
   },
 });
 attachCliBinding("gc.verify", {
   path: ["gc", "verify"],
   jsonMode: "flag",
   handler: (args) => {
-    const result = gcVerifyCli(required(args.positionals[0], "run id"), args.options);
-    const text = formatGcVerify(result);
+    const result = loadRegistryCli().gcVerifyCli(required(args.positionals[0], "run id"), args.options);
+    const text = loadReclamationIo().formatGcVerify(result);
     return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
   },
 });
@@ -496,8 +456,8 @@ attachCliBinding("gc.run", {
   jsonMode: "flag",
   hiddenFromHelp: true,
   handler: (args) => {
-    const result = gcRunCli(args.positionals[0], args.options);
-    return wantsJson(args.options) ? { json: result } : { json: result, text: formatGcRun(result) };
+    const result = loadRegistryCli().gcRunCli(args.positionals[0], args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: loadReclamationIo().formatGcRun(result) };
   },
 });
 
@@ -512,14 +472,16 @@ addCliOnlyCapability(
     hiddenFromHelp: true,
     handler: (args) => {
       const subcommand = firstPositionalArg(args);
+      const registryCli = loadRegistryCli();
+      const reclamationIo = loadReclamationIo();
       switch (subcommand) {
         case "list": {
-          const result = orphansListCli(args.options);
-          return wantsJson(args.options) ? { json: result } : { json: result, text: formatOrphanRunsList(result) };
+          const result = registryCli.orphansListCli(args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: reclamationIo.formatOrphanRunsList(result) };
         }
         case "gc": {
-          const result = orphansGcCli(args.options);
-          return wantsJson(args.options) ? { json: result } : { json: result, text: formatOrphanRunsGc(result) };
+          const result = registryCli.orphansGcCli(args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: reclamationIo.formatOrphanRunsGc(result) };
         }
         default:
           throw new Error(
@@ -530,8 +492,8 @@ addCliOnlyCapability(
   },
   "cw orphans reclaims killed-process run dirs with no state.json; SPEC/mcp.md declares its MCP peers (cw_orphans_list|gc), each wired below."
 );
-REGISTRY_BY_CAPABILITY.get("orphans.list")!.mcp!.handler = (args) => orphansListCli(args);
-REGISTRY_BY_CAPABILITY.get("orphans.gc")!.mcp!.handler = (args) => orphansGcCli(args);
+REGISTRY_BY_CAPABILITY.get("orphans.list")!.mcp!.handler = (args) => loadRegistryCli().orphansListCli(args);
+REGISTRY_BY_CAPABILITY.get("orphans.gc")!.mcp!.handler = (args) => loadRegistryCli().orphansGcCli(args);
 // `orphans.list`/`orphans.gc` each carry their own two-token cli.path
 // (found before the ["orphans"] catch-all per the reversed-candidate
 // order), so both are real both-surface dual-bound rows. `hiddenFromHelp`
@@ -544,8 +506,8 @@ attachCliBinding("orphans.list", {
   jsonMode: "flag",
   hiddenFromHelp: true,
   handler: (args) => {
-    const result = orphansListCli(args.options);
-    return wantsJson(args.options) ? { json: result } : { json: result, text: formatOrphanRunsList(result) };
+    const result = loadRegistryCli().orphansListCli(args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: loadReclamationIo().formatOrphanRunsList(result) };
   },
 });
 attachCliBinding("orphans.gc", {
@@ -553,8 +515,8 @@ attachCliBinding("orphans.gc", {
   jsonMode: "flag",
   hiddenFromHelp: true,
   handler: (args) => {
-    const result = orphansGcCli(args.options);
-    return wantsJson(args.options) ? { json: result } : { json: result, text: formatOrphanRunsGc(result) };
+    const result = loadRegistryCli().orphansGcCli(args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: loadReclamationIo().formatOrphanRunsGc(result) };
   },
 });
 REGISTRY_BY_CAPABILITY.get("orphans.gc")!.payloadIdentical = false;
@@ -572,14 +534,16 @@ addCliOnlyCapability(
     hiddenFromHelp: true,
     handler: (args) => {
       const subcommand = firstPositionalArg(args);
+      const registryCli = loadRegistryCli();
+      const reclamationIo = loadReclamationIo();
       switch (subcommand) {
         case "list": {
-          const result = clonesListCli();
-          return wantsJson(args.options) ? { json: result } : { json: result, text: formatClonesList(result) };
+          const result = registryCli.clonesListCli();
+          return wantsJson(args.options) ? { json: result } : { json: result, text: reclamationIo.formatClonesList(result) };
         }
         case "gc": {
-          const result = clonesGcCli(args.options);
-          return wantsJson(args.options) ? { json: result } : { json: result, text: formatClonesGc(result) };
+          const result = registryCli.clonesGcCli(args.options);
+          return wantsJson(args.options) ? { json: result } : { json: result, text: reclamationIo.formatClonesGc(result) };
         }
         default:
           throw new Error("Usage: cw.js clones list [--json] | clones gc [--older-than-days N] [--all] [--json]");
@@ -588,8 +552,8 @@ addCliOnlyCapability(
   },
   "cw clones is the cached remote-source checkout cache; SPEC/mcp.md declares its MCP peers (cw_clones_list|gc), each wired below."
 );
-REGISTRY_BY_CAPABILITY.get("clones.list")!.mcp!.handler = () => clonesListCli();
-REGISTRY_BY_CAPABILITY.get("clones.gc")!.mcp!.handler = (args) => clonesGcCli(args);
+REGISTRY_BY_CAPABILITY.get("clones.list")!.mcp!.handler = () => loadRegistryCli().clonesListCli();
+REGISTRY_BY_CAPABILITY.get("clones.gc")!.mcp!.handler = (args) => loadRegistryCli().clonesGcCli(args);
 // `clones.list`/`clones.gc` each carry their own two-token cli.path (found
 // before the ["clones"] catch-all). `hiddenFromHelp` keeps the byte-pinned
 // `cw help clones` fixture's rows coming from the single literal
@@ -600,8 +564,8 @@ attachCliBinding("clones.list", {
   jsonMode: "flag",
   hiddenFromHelp: true,
   handler: (args) => {
-    const result = clonesListCli();
-    return wantsJson(args.options) ? { json: result } : { json: result, text: formatClonesList(result) };
+    const result = loadRegistryCli().clonesListCli();
+    return wantsJson(args.options) ? { json: result } : { json: result, text: loadReclamationIo().formatClonesList(result) };
   },
 });
 attachCliBinding("clones.gc", {
@@ -609,8 +573,8 @@ attachCliBinding("clones.gc", {
   jsonMode: "flag",
   hiddenFromHelp: true,
   handler: (args) => {
-    const result = clonesGcCli(args.options);
-    return wantsJson(args.options) ? { json: result } : { json: result, text: formatClonesGc(result) };
+    const result = loadRegistryCli().clonesGcCli(args.options);
+    return wantsJson(args.options) ? { json: result } : { json: result, text: loadReclamationIo().formatClonesGc(result) };
   },
 });
 REGISTRY_BY_CAPABILITY.get("clones.gc")!.payloadIdentical = false;
@@ -626,57 +590,58 @@ attachCliBinding("run.search", {
   path: ["run", "search"],
   jsonMode: "flag",
   handler: (args) => {
-    const result = runSearchCli(args.options);
-    return { json: result, text: formatRunSearch(result) };
+    const result = loadRegistryCli().runSearchCli(args.options);
+    return { json: result, text: loadRunRegistryIo().formatRunSearch(result) };
   },
 });
-REGISTRY_BY_CAPABILITY.get("run.search")!.mcp!.handler = (args) => runSearchCli(args);
+REGISTRY_BY_CAPABILITY.get("run.search")!.mcp!.handler = (args) => loadRegistryCli().runSearchCli(args);
 
 attachCliBinding("run.list", {
   path: ["run", "list"],
   jsonMode: "flag",
   handler: (args) => {
-    const result = runListCli(args.options);
-    return { json: result, text: formatRunSearch(result) };
+    const result = loadRegistryCli().runListCli(args.options);
+    return { json: result, text: loadRunRegistryIo().formatRunSearch(result) };
   },
 });
-REGISTRY_BY_CAPABILITY.get("run.list")!.mcp!.handler = (args) => runListCli(args);
+REGISTRY_BY_CAPABILITY.get("run.list")!.mcp!.handler = (args) => loadRegistryCli().runListCli(args);
 
 attachCliBinding("run.show", {
   path: ["run", "show"],
   jsonMode: "flag",
   handler: (args) => {
     const runId = required(args.positionals[0], "run id");
-    const result = runShowCli(runId, args.options);
-    return { json: result, text: formatRunShow(result) };
+    const result = loadRegistryCli().runShowCli(runId, args.options);
+    return { json: result, text: loadRunRegistryIo().formatRunShow(result) };
   },
 });
-REGISTRY_BY_CAPABILITY.get("run.show")!.mcp!.handler = (args) => runShowCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("run.show")!.mcp!.handler = (args) => loadRegistryCli().runShowCli(required(optionalArg(args.runId), "run id"), args);
 
 attachCliBinding("run.resume", {
   path: ["run", "resume"],
   jsonMode: "flag",
   handler: async (args) => {
     const runId = required(args.positionals[0], "run id");
-    const result = await runResumeCli(runId, args.options);
-    return { json: result, text: formatResume(result as unknown as Parameters<typeof formatResume>[0]) };
+    const runRegistryIo = loadRunRegistryIo();
+    const result = await loadRegistryCli().runResumeCli(runId, args.options);
+    return { json: result, text: runRegistryIo.formatResume(result as unknown as Parameters<typeof runRegistryIo.formatResume>[0]) };
   },
 });
-REGISTRY_BY_CAPABILITY.get("run.resume")!.mcp!.handler = (args) => runResumeCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("run.resume")!.mcp!.handler = (args) => loadRegistryCli().runResumeCli(required(optionalArg(args.runId), "run id"), args);
 
 attachCliBinding("run.archive", {
   path: ["run", "archive"],
   jsonMode: "default",
-  handler: (args) => ({ json: runArchiveCli(optionalArg(args.positionals[0]), args.options) }),
+  handler: (args) => ({ json: loadRegistryCli().runArchiveCli(optionalArg(args.positionals[0]), args.options) }),
 });
-REGISTRY_BY_CAPABILITY.get("run.archive")!.mcp!.handler = (args) => runArchiveCli(optionalArg(args.runId), args);
+REGISTRY_BY_CAPABILITY.get("run.archive")!.mcp!.handler = (args) => loadRegistryCli().runArchiveCli(optionalArg(args.runId), args);
 
 attachCliBinding("run.rerun", {
   path: ["run", "rerun"],
   jsonMode: "default",
-  handler: (args) => ({ json: runRerunCli(required(args.positionals[0], "run id"), args.options) }),
+  handler: (args) => ({ json: loadRegistryCli().runRerunCli(required(args.positionals[0], "run id"), args.options) }),
 });
-REGISTRY_BY_CAPABILITY.get("run.rerun")!.mcp!.handler = (args) => runRerunCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("run.rerun")!.mcp!.handler = (args) => loadRegistryCli().runRerunCli(required(optionalArg(args.runId), "run id"), args);
 
 // ---- history ---------------------------------------------------------
 
@@ -684,10 +649,10 @@ attachCliBinding("history", {
   path: ["history"],
   jsonMode: "flag",
   handler: (args) => {
-    const result = historyCli(args.options);
-    return { json: result, text: formatHistory(result) };
+    const result = loadRegistryCli().historyCli(args.options);
+    return { json: result, text: loadRunRegistryIo().formatHistory(result) };
   },
 });
-REGISTRY_BY_CAPABILITY.get("history")!.mcp!.handler = (args) => historyCli(args);
+REGISTRY_BY_CAPABILITY.get("history")!.mcp!.handler = (args) => loadRegistryCli().historyCli(args);
 
 // ---------------------------------------------------------------------

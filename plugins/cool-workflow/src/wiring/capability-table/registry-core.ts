@@ -37,10 +37,29 @@ import type {
   Capability,
 } from "../../core/capability-data";
 import { required } from "../../cli/io";
-import { loadRunFromCwd as statusLoadRunFromCwd } from "../../shell/run-store";
-import { adviseNoRun as statusAdviseNoRun, summarizeRun as statusSummarizeRun } from "../../shell/operator-ux";
-import { listWorkflowsShallow } from "../../shell/workflow-app-loader";
-import { summaryRefreshCli, summaryShowCli } from "../../shell/state-explosion-cli";
+
+// Every capability-table module (this file plus each domain slice) is
+// required unconditionally at CLI/MCP startup, for every single command
+// (index.ts's whole point is to populate REGISTRY before dispatch can
+// look anything up) — so a top-level `import` of a shell module here
+// means EVERY invocation pays that module's full load cost, even the
+// 99% of commands that never touch `status`/`summary.refresh`/`list`.
+// Requiring these 4 lazily (inside the handler that actually uses them)
+// measured live: this file alone was ~30-45ms of a ~75-100ms `cw --version`
+// require chain, the single largest slice. The 8 domain slices have the
+// same shape and are a natural follow-up, not attempted here.
+function loadRunStore(): typeof import("../../shell/run-store") {
+  return require("../../shell/run-store") as typeof import("../../shell/run-store");
+}
+function loadOperatorUx(): typeof import("../../shell/operator-ux") {
+  return require("../../shell/operator-ux") as typeof import("../../shell/operator-ux");
+}
+function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader") {
+  return require("../../shell/workflow-app-loader") as typeof import("../../shell/workflow-app-loader");
+}
+function loadStateExplosionCli(): typeof import("../../shell/state-explosion-cli") {
+  return require("../../shell/state-explosion-cli") as typeof import("../../shell/state-explosion-cli");
+}
 
 /** Real handlers implemented at THIS milestone, keyed by capability id.
  *  Every tool row not listed here gets `notYetImplemented`. Kept as a
@@ -52,8 +71,8 @@ const MCP_REAL_HANDLERS: Record<string, (args: Record<string, unknown>) => unkno
   list: () => listBundledWorkflows(),
   "sandbox.list": () => listBundledSandboxProfiles(),
   status: (args) => statusPayload(optionalString(args.runId)),
-  "summary.refresh": (args) => summaryRefreshCli(required(optionalString(args.runId), "run id"), args),
-  "summary.show": (args) => summaryShowCli(required(optionalString(args.runId), "run id"), args),
+  "summary.refresh": (args) => loadStateExplosionCli().summaryRefreshCli(required(optionalString(args.runId), "run id"), args),
+  "summary.show": (args) => loadStateExplosionCli().summaryShowCli(required(optionalString(args.runId), "run id"), args),
 };
 
 function optionalString(value: unknown): string | undefined {
@@ -79,7 +98,7 @@ export interface WorkflowSummary {
  *  `apps/*\/app.json` + legacy `workflows/*.workflow.js` on disk, per
  *  `listWorkflowsShallow` (shell/workflow-app-loader.ts). */
 export function listBundledWorkflows(): WorkflowSummary[] {
-  return listWorkflowsShallow();
+  return loadWorkflowAppLoader().listWorkflowsShallow();
 }
 
 export interface SandboxProfileSummary {
@@ -107,11 +126,12 @@ export function listBundledSandboxProfiles(): SandboxProfileSummary[] {
  *  shape exactly (`{runId:null, nextActions}`); a real run id resolves to
  *  `summarizeRun`'s payload (MILESTONE 11, reporting/observability). */
 export function statusPayload(runId: string | undefined, cwd?: string): unknown {
+  const operatorUx = loadOperatorUx();
   if (!runId) {
-    return { runId: null, nextActions: statusAdviseNoRun() };
+    return { runId: null, nextActions: operatorUx.adviseNoRun() };
   }
-  const run = statusLoadRunFromCwd(runId, cwd || process.cwd());
-  return statusSummarizeRun(run);
+  const run = loadRunStore().loadRunFromCwd(runId, cwd || process.cwd());
+  return operatorUx.summarizeRun(run);
 }
 
 // ---------------------------------------------------------------------

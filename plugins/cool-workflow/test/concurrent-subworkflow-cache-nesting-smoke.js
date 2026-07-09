@@ -73,7 +73,7 @@ function planApp(work, def) {
 }
 
 function main() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_APPS_DIR"]) delete process.env[v];
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-subwf-cache-")));
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   const stub = writeStub(path.join(work, "stub.js"));
@@ -105,15 +105,18 @@ function main() {
       phases: [api.parallel("ParentFan", parentTasks)]
     });
 
-    // The child app must be resolvable by appId when the sub-workflow task
-    // recursively calls runner.plan("cache-nesting-child", ...) — register it
-    // as a real app on disk under pluginRoot/apps/ isn't appropriate for a
-    // throwaway smoke run, so use the SAME lifecycle.plan() manifest path the
-    // runner itself resolves through: loadWorkflowAppById reads from
-    // pluginRoot/apps/<id>/app.json. Instead, drive through a stub loader by
-    // writing a throwaway app directory and cleaning it up afterward.
-    const childAppDir = path.join(pluginRoot, "apps", "cache-nesting-child");
+    // The sub-workflow task must find this child app by its id when it calls
+    // loadWorkflowApp("cache-nesting-child", ...) at drive time. `apps/` is
+    // the one real folder that every running smoke uses for `cw list` and
+    // `cw app list`. If we put a throw-away app there, another smoke's
+    // `cw list`, running at the same time, could see it while it is being
+    // made or taken away. So use CW_APPS_DIR instead (the same way
+    // sub-workflow-nesting-smoke.js does it): put the app under this smoke's
+    // own `work` folder, so it never touches the shared apps/ tree.
+    const appsDir = path.join(work, "apps");
+    const childAppDir = path.join(appsDir, "cache-nesting-child");
     fs.mkdirSync(childAppDir, { recursive: true });
+    process.env.CW_APPS_DIR = appsDir;
     fs.writeFileSync(
       path.join(childAppDir, "app.json"),
       JSON.stringify({ schemaVersion: 1, id: childDef.id, title: childDef.title, summary: "throwaway", version: "0.0.0", inputs: [{ name: "repo", type: "path", required: true }], workflow: { entrypoint: "workflow.js" } }, null, 2),
@@ -155,7 +158,7 @@ function main() {
       assert.deepEqual(completedIds, ["map:sibling1", "map:sibling2", "map:sub"], "every sibling AND the sub-workflow task persisted to disk");
       console.log("concurrent-subworkflow-cache-nesting: nested concurrent sub-workflow does not clobber sibling tasks' persisted state ok");
     } finally {
-      fs.rmSync(childAppDir, { recursive: true, force: true });
+      delete process.env.CW_APPS_DIR;
     }
   } finally {
     process.chdir(cwd0);
