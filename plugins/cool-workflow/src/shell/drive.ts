@@ -194,14 +194,19 @@ function loadRun(ctx: DriveContext): WorkflowRun {
 /** Runs `fn` with `runId`'s loadRun calls served from one shared cached
  *  object (seeded fresh from disk), and always clears the cache entry
  *  afterward — even on throw — so a round never leaks its cache into a
- *  later, unrelated drive call. */
+ *  later, unrelated drive call. Re-entrant: a nested call (e.g. the
+ *  serial drive loop's own round-cache wrapping a driveStep that itself
+ *  runs inside a caller's round cache) reuses the outer seed instead of
+ *  re-reading disk, and only the OUTERMOST call clears the entry — so
+ *  nesting never re-reads a run mid-round nor drops the cache early out
+ *  from under an enclosing scope. */
 function withRoundCache<T>(ctx: DriveContext, fn: () => T): T {
-  const seed = loadRunFromCwd(ctx.runId, ctx.cwd);
-  roundCache.set(ctx.runId, seed);
+  const alreadyActive = roundCache.has(ctx.runId);
+  if (!alreadyActive) roundCache.set(ctx.runId, loadRunFromCwd(ctx.runId, ctx.cwd));
   try {
     return fn();
   } finally {
-    roundCache.delete(ctx.runId);
+    if (!alreadyActive) roundCache.delete(ctx.runId);
   }
 }
 
@@ -956,13 +961,21 @@ export function drive(runId: string, cwd: string, options: DriveOptions = {}): D
   try {
     for (let i = 0; i < maxIter; i++) {
       if (interruptedBy) break;
-      const width = roundWidth(loadRun(ctx), options.concurrency);
-      // width>1 (an explicit --concurrency>1, or an auto-width parallel
-      // phase) runs the whole round through driveConcurrentRound — one or
-      // more steps recorded in deterministic batch order, one flush at
-      // round end. `--once` still stops after this ONE outer-loop
-      // iteration even though a round can yield multiple steps.
-      const roundSteps = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
+      // One round-cache scope for the WHOLE round, not just driveConcurrentRound's
+      // own batch: the width check and (for a serial round) driveStep/
+      // processSelectedTask's several loadRun(ctx) calls otherwise each
+      // re-read+re-parse state.json even though nothing on disk changed
+      // between them — reads that only reflect the mutations THIS round's
+      // own steps make, which the shared in-memory object already carries.
+      const roundSteps = withRoundCache(ctx, () => {
+        const width = roundWidth(loadRun(ctx), options.concurrency);
+        // width>1 (an explicit --concurrency>1, or an auto-width parallel
+        // phase) runs the whole round through driveConcurrentRound — one or
+        // more steps recorded in deterministic batch order, one flush at
+        // round end. `--once` still stops after this ONE outer-loop
+        // iteration even though a round can yield multiple steps.
+        return width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
+      });
       for (const stepResult of roundSteps) steps.push(stepResult);
       // Brew-style phase boundaries: after each round, announce a
       // newly-active phase and any phase that just finished. Cheap — reuses
