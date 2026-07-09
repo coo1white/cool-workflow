@@ -118,6 +118,12 @@ function findMigrationPath(steps, fromVersion, toVersion) {
     }
     return { reachable: false, path: [], error: `no migration path from schemaVersion ${fromVersion} to ${toVersion}` };
 }
+/** Shared by migrateRunState/reverseRunState: missing EITHER `workflow` OR
+ *  `paths` (or both) is the signal — a real run always has both together,
+ *  so a lone surviving one of the two is not proof the rest wasn't lost. */
+function computeSuspectedDataLoss(input) {
+    return !("workflow" in input) || !("paths" in input);
+}
 function migrateRunState(input, options = {}) {
     const report = {
         status: "current",
@@ -130,12 +136,14 @@ function migrateRunState(input, options = {}) {
         changes: [],
         warnings: [],
         errors: [],
+        suspectedDataLoss: false,
     };
     if (!isRecord(input)) {
         report.status = "unsupported";
         report.errors.push("Run state must be a JSON object.");
         return { run: {}, report };
     }
+    report.suspectedDataLoss = computeSuspectedDataLoss(input);
     if (report.detectedSchemaVersion < version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
         report.errors.push(`Unsupported run-state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)}.`);
@@ -185,12 +193,14 @@ function reverseRunState(input, targetSchemaVersion, options = {}) {
         changes: [],
         warnings: [],
         errors: [],
+        suspectedDataLoss: false,
     };
     if (!isRecord(input)) {
         report.status = "unsupported";
         report.errors.push("Run state must be a JSON object.");
         return { run: {}, report };
     }
+    report.suspectedDataLoss = computeSuspectedDataLoss(input);
     if (targetSchemaVersion < version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
         report.errors.push(`Target schemaVersion ${targetSchemaVersion} is below the minimum supported ${version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION}.`);

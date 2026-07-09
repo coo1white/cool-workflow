@@ -40,6 +40,19 @@ export interface StateMigrationReport {
   changes: StateMigrationChange[];
   warnings: string[];
   errors: string[];
+  /** True when the raw input is missing `workflow` OR `paths` (or both) —
+   *  fields a real cw-created run always gets TOGETHER at creation time,
+   *  before any drive iteration ever runs, so a real run never has just
+   *  one. A state.json missing either one (e.g. `{}`, or a partial wipe
+   *  that left only one top-level key behind) cannot come from cw's own
+   *  write path; it normalizes clean (every missing field gets a default)
+   *  with no `errors`, so callers who only check `status !== "unsupported"`
+   *  would otherwise treat externally-corrupted content as a fresh, healthy
+   *  run. Pure signal only — this module never touches fs, so it cannot
+   *  itself tell a truly-new run dir from a wiped one; the shell layer
+   *  (run-store.ts) does that by checking for pre-existing run content on
+   *  disk. */
+  suspectedDataLoss: boolean;
 }
 
 export interface StateMigrationResult {
@@ -147,6 +160,13 @@ export function findMigrationPath(
   return { reachable: false, path: [], error: `no migration path from schemaVersion ${fromVersion} to ${toVersion}` };
 }
 
+/** Shared by migrateRunState/reverseRunState: missing EITHER `workflow` OR
+ *  `paths` (or both) is the signal — a real run always has both together,
+ *  so a lone surviving one of the two is not proof the rest wasn't lost. */
+function computeSuspectedDataLoss(input: Record<string, unknown>): boolean {
+  return !("workflow" in input) || !("paths" in input);
+}
+
 export function migrateRunState(
   input: unknown,
   options: { statePath?: string; dryRun?: boolean } = {}
@@ -162,6 +182,7 @@ export function migrateRunState(
     changes: [],
     warnings: [],
     errors: [],
+    suspectedDataLoss: false,
   };
 
   if (!isRecord(input)) {
@@ -169,6 +190,8 @@ export function migrateRunState(
     report.errors.push("Run state must be a JSON object.");
     return { run: {} as WorkflowRun, report };
   }
+
+  report.suspectedDataLoss = computeSuspectedDataLoss(input);
 
   if (report.detectedSchemaVersion < MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
     report.status = "unsupported";
@@ -226,6 +249,7 @@ export function reverseRunState(
     changes: [],
     warnings: [],
     errors: [],
+    suspectedDataLoss: false,
   };
 
   if (!isRecord(input)) {
@@ -233,6 +257,8 @@ export function reverseRunState(
     report.errors.push("Run state must be a JSON object.");
     return { run: {} as WorkflowRun, report };
   }
+
+  report.suspectedDataLoss = computeSuspectedDataLoss(input);
 
   if (targetSchemaVersion < MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
     report.status = "unsupported";
