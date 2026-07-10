@@ -1,5 +1,33 @@
 # CW Iteration Log
 
+## Batch — serialize the stale-lock steal through a single-winner guard (Unreleased)
+
+> The linkSync acquire fix (#418) did not fully close the withFileLock
+> steal race: PR #420's CI (arm64, Node 22) saw 2 concurrent holds again
+> at trial 10 of `fs-atomic-lock-steal-race-smoke`. The last hole was the
+> steal path itself. Every steal design so far judged the lock stale and
+> then deleted it as two steps with no exclusion around them, and every
+> narrowing of that gap (unlinkSync over rmSync, liveness gate,
+> content-equality re-read) still lost a CI run eventually: under load,
+> the judging process can be preempted between its last read and its
+> unlink, a second stealer completes a whole steal-and-reacquire in that
+> gap, and the sleeper's unlink then removes the NEW owner's lock. POSIX
+> has no compare-and-delete, so the gap cannot be closed from the judging
+> side. The fix closes it by exclusion instead: only the holder of a
+> `<lock>.steal` guard file — acquired with the same single-winner
+> linkSync used for the lock itself — may judge and delete, and before
+> the unlink the verdict is pinned to the exact file it judged (same
+> inode, same mtime). A guard left by a stealer that crashed inside the
+> guarded window is cleaned up after FILE_LOCK_STEAL_GUARD_STALE_MS so
+> stealing cannot wedge. Measured under the Cycle-17 artificial-load rig
+> (N=24 processes, 6-core load): the pre-guard code (origin/main) failed
+> at trial 11 with 2 concurrent holds; the guarded build ran 60/60 trials
+> clean.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 23 | Close the residual steal-path TOCTOU in `withFileLock`: judging a stale lock and unlinking it now happen only while holding a single-winner `<lock>.steal` guard (same linkSync acquire), with the verdict pinned to the judged inode+mtime before the unlink — measured red (baseline: 2 concurrent holds at trial 11) then green (60/60 trials clean at N=24 under 6-core load) on the same rig. | `plugins/cool-workflow/src/shell/fs-atomic.ts` + matching `dist/**`, `plugins/cool-workflow/test/fs-atomic-lock-steal-race-smoke.js` (doc header). | A/B stress rig (N=24, 60 trials, 6-core artificial load): origin/main build FAILS at trial 11, fixed build 60/60 clean; `fs-atomic-lock-steal-race-smoke` green. | BUILD OK; `check` (tsc --noEmit) OK; full local gate before PR. | no (PR batch, no release) |
+
 ## Batch — exit quietly on EPIPE when a pipe reader goes away early (Unreleased)
 
 > Bug-hunt finding (verified by direct repro): `cw <verb> --json | head -1`

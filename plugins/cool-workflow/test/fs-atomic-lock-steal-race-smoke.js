@@ -37,9 +37,23 @@
 // primitive for exactly this lockfile race (the classic Unix "lock via
 // link" idiom), and it measured 0 double-winners across 15 trials at
 // N=24 processes under the same artificial-load rig that reproduced the
-// `wx`-open double-winner within single-digit trials. See fs-atomic.ts's
-// withFileLock doc comment for the full account. This test asserts the
-// critical section is never entered by more than one process at a time.
+// `wx`-open double-winner within single-digit trials.
+//
+// Even the linkSync acquire was not the end: PR #420's CI (arm64, Node 22)
+// saw 2 concurrent holds again. The last hole was the steal path itself —
+// judging a lock stale and unlinking it were still two steps with no
+// exclusion between them, and unlink is not single-winner, so under enough
+// load a slow judge could delete a NEW owner's lock. That gap cannot be
+// closed from the judging side (there is no compare-and-delete), so it is
+// now closed by exclusion: only the single-winner holder of a
+// `<lock>.steal` guard (taken with the same linkSync acquire) may judge
+// and delete, and the verdict is pinned to the exact judged file (same
+// inode, same mtime) before the unlink. Under the same load rig (N=24,
+// 6-core artificial load), the pre-guard code failed at trial 11 with 2
+// concurrent holds; the guarded version ran 60/60 trials clean. See
+// fs-atomic.ts's withFileLock doc comment for the full account. This test
+// asserts the critical section is never entered by more than one process
+// at a time.
 //
 // Included in `npm test`.
 

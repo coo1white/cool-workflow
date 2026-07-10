@@ -199,11 +199,14 @@ function durableAppendFileSync(file, data) {
 // ---------------------------------------------------------------------------
 // withFileLock — portable advisory cross-process lock.
 //
-// Lock file: `<targetPath>.lock`, created with O_EXCL (`wx`), body
-// `"<pid>@<ISO>\n"`. Up to 240 tries; on EEXIST, a lock whose mtime is older
-// than FILE_LOCK_STALE_MS (30_000) is stolen (deleted) and retried AT ONCE;
-// else sleep 25ms (Atomics.wait busy-safe sleep) and retry. Any non-EEXIST
-// open error is rethrown. No lock after 240 tries throws
+// Lock file: `<targetPath>.lock`, created by hard-linking a per-attempt temp
+// file onto the lock path (single-winner `link(2)`), body `"<pid>@<ISO>\n"`.
+// Up to 240 tries; on EEXIST, a lock whose mtime is older than
+// FILE_LOCK_STALE_MS (30_000) is stolen — judged and deleted only while
+// holding the single-winner `<lock>.steal` guard (see
+// stealStaleLockUnderGuard) — and retried AT ONCE; else sleep 25ms
+// (Atomics.wait busy-safe sleep) and retry. Any non-EEXIST link error is
+// rethrown. No lock after 240 tries throws
 // `could not acquire file lock for <targetPath>`.
 //
 // Right before fn() the lock mtime is refreshed (utimesSync, best-effort).
@@ -220,6 +223,10 @@ const FILE_LOCK_STALE_MS = 30_000;
 // permanently. 10x the normal window keeps this astronomically unlikely to
 // fire against a genuinely still-working holder.
 const FILE_LOCK_FORCE_STALE_MS = FILE_LOCK_STALE_MS * 10;
+// A steal guard older than this belongs to a stealer that crashed inside the
+// guarded window (which is a handful of syscalls, microseconds for any live
+// process) — remove it so stealing cannot wedge forever.
+const FILE_LOCK_STEAL_GUARD_STALE_MS = FILE_LOCK_STALE_MS;
 // Lock paths this process holds right now. A nested withFileLock on the
 // SAME target runs its fn directly (re-entrant) instead of waiting on its
 // own lock file until the 240 tries run out — that lets a whole
@@ -257,6 +264,103 @@ function isLockOwnerAlive(lockBody) {
     catch (error) {
         return Boolean(error && typeof error === "object" && error.code === "EPERM");
     }
+}
+/** Steal a stale lock, serialized through a single-winner guard file.
+ *
+ *  Every earlier steal design judged the lock and then deleted it as two
+ *  separate steps with no exclusion around them, and every narrowing of
+ *  that gap (content-equality re-read, liveness gate, unlinkSync over
+ *  rmSync) still lost a CI run eventually: under load, the judging
+ *  process can be preempted between its last read and its unlink, a
+ *  concurrent stealer completes the whole steal-and-reacquire in that
+ *  gap, and the sleeper's unlink then removes the NEW owner's lock —
+ *  two processes end up inside the critical section (reproduced in PR
+ *  #420's CI on arm64 Node 22, trial 10, after the linkSync acquire fix
+ *  landed). The gap cannot be closed from the judging side; POSIX has no
+ *  compare-and-delete.
+ *
+ *  So close it by exclusion instead: only the holder of `<lock>.steal`
+ *  (acquired with the same single-winner linkSync used for the lock
+ *  itself) may judge and delete. While the judged lock file still
+ *  exists, no waiter can link-acquire the lock path, so nothing can
+ *  replace the lock between a guard-held verdict and the unlink; and no
+ *  second stealer exists to double-delete. Before the unlink, the
+ *  verdict is additionally pinned to the exact file it judged (same
+ *  inode, same mtime) — insurance for the force-stale path, where an
+ *  owner release + fresh re-acquire between the guard's stat and read
+ *  could otherwise slip through.
+ *
+ *  A guard whose holder crashed inside the guarded window (microseconds
+ *  of syscalls for any live process) is removed after
+ *  FILE_LOCK_STEAL_GUARD_STALE_MS so stealing cannot wedge; that cleanup
+ *  is itself a plain stat-and-unlink, but reintroducing the original
+ *  race through it needs a crashed stealer AND two cleaners AND a fresh
+ *  guard all colliding inside one syscall-wide window — compounded odds
+ *  the hot path never sees.
+ *
+ *  Returns true when this process held the guard and rendered a verdict
+ *  (steal done or judged-not-stale) — the caller should retry the
+ *  acquire at once. Returns false when the guard was busy — the caller
+ *  should back off like ordinary contention. */
+function stealStaleLockUnderGuard(lock, pid, attempt) {
+    const guard = `${lock}.steal`;
+    try {
+        const guardAge = Date.now() - fs.statSync(guard).mtimeMs;
+        if (guardAge > FILE_LOCK_STEAL_GUARD_STALE_MS)
+            fs.unlinkSync(guard);
+    }
+    catch {
+        /* no guard, or another cleaner beat us to it */
+    }
+    const tmp = `${guard}.${pid}.${attempt}.tmp`;
+    let haveGuard = false;
+    try {
+        fs.writeFileSync(tmp, `${pid}@${new Date().toISOString()}\n`, { mode: 0o600 });
+        fs.linkSync(tmp, guard);
+        haveGuard = true;
+    }
+    catch {
+        /* EEXIST — another stealer holds the guard */
+    }
+    finally {
+        try {
+            fs.unlinkSync(tmp);
+        }
+        catch {
+            /* already gone */
+        }
+    }
+    if (!haveGuard)
+        return false;
+    try {
+        // Re-judge INSIDE the guard: only what is verified here counts.
+        const judged = fs.statSync(lock);
+        const age = Date.now() - judged.mtimeMs;
+        if (age <= FILE_LOCK_STALE_MS)
+            return true;
+        const body = fs.readFileSync(lock, "utf8");
+        if (!(age > FILE_LOCK_FORCE_STALE_MS || !isLockOwnerAlive(body)))
+            return true;
+        // Pin the verdict to the exact file it judged: a lock re-acquired in
+        // the stat->read gap is a NEW inode (every acquire links a fresh tmp
+        // file) with a fresh mtime, so either check catches it.
+        const current = fs.statSync(lock);
+        if (current.ino === judged.ino && current.mtimeMs === judged.mtimeMs) {
+            fs.unlinkSync(lock);
+        }
+    }
+    catch {
+        /* lock vanished — nothing left to steal */
+    }
+    finally {
+        try {
+            fs.unlinkSync(guard);
+        }
+        catch {
+            /* guard already cleaned up */
+        }
+    }
+    return true;
 }
 /** Run `fn` while holding an advisory lock for `targetPath`; always released
  *  (unless the lock was stolen mid-operation, in which case releasing would
@@ -314,57 +418,13 @@ function withFileLock(targetPath, fn) {
         try {
             const age = Date.now() - fs.statSync(lock).mtimeMs;
             if (age > FILE_LOCK_STALE_MS) {
-                // mtime alone is a snapshot: by the time anything here runs, the
-                // real owner can already have finished and a brand-new legitimate
-                // owner can already be in its place, so acting on "was stale a
-                // moment ago" is how two processes end up in the critical section
-                // at once. Gate the actual steal on the recorded pid being
-                // confirmed DEAD — that cannot be true for a currently running
-                // holder no matter how the timing lines up, which is what closes
-                // the race rather than just narrowing it. Past
-                // FILE_LOCK_FORCE_STALE_MS, steal regardless (see its doc
-                // comment) — the one case liveness cannot resolve: a recycled
-                // pid.
-                let body = "";
-                try {
-                    body = fs.readFileSync(lock, "utf8");
-                }
-                catch {
-                    continue; // vanished — another waiter/the owner beat us to it
-                }
-                if (age > FILE_LOCK_FORCE_STALE_MS || !isLockOwnerAlive(body)) {
-                    // Confirming the owner dead still leaves one gap: between that
-                    // read and the delete, a brand-new legitimate owner can appear
-                    // (different pid, different timestamp) and this would delete
-                    // THEIRS. Close it with a content-equality check immediately
-                    // before the delete — only proceed if the file's bytes are
-                    // still EXACTLY what was just read (same pid, same instant of
-                    // creation); any real new owner's body necessarily differs, so
-                    // an exact match is strong evidence nothing has touched this
-                    // file since. Delete via `unlinkSync`, not `fs.rmSync` —
-                    // `rmSync`'s generic file-or-directory handling is measurably
-                    // heavier than the direct syscall, and that extra time IS a
-                    // TOCTOU window in its own right: an 8-process contention
-                    // repro (see test/fs-atomic-lock-steal-race-smoke.js)
-                    // reproduced the double-acquire far more often with `rmSync`
-                    // than with `unlinkSync`, all else unchanged. A rename-based
-                    // "capture, verify, restore-if-wrong" version was also tried
-                    // and measured WORSE than plain `rmSync` — the extra
-                    // directory-entry churn it introduces widens the window
-                    // rather than closing it.
-                    try {
-                        if (fs.readFileSync(lock, "utf8") === body) {
-                            fs.unlinkSync(lock);
-                        }
-                    }
-                    catch {
-                        /* vanished or changed between the checks */
-                    }
+                // The steal itself runs under a single-winner guard lock — see
+                // stealStaleLockUnderGuard for why judging staleness and deleting
+                // the lock without one can never be made safe from here.
+                if (stealStaleLockUnderGuard(lock, pid, attempt))
                     continue;
-                }
-                // Owner confirmed alive despite an old mtime (e.g. a long-running
-                // fn() that has not refreshed it) — do not steal; fall through to
-                // the same backoff as ordinary contention.
+                // Guard was busy — another process is mid-steal. Back off like
+                // ordinary contention instead of hot-spinning the attempt budget.
             }
         }
         catch {
