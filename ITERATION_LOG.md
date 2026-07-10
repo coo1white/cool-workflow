@@ -1,6 +1,20 @@
 # CW Iteration Log
 
-## Batch — serialize the stale-lock steal through a single-winner guard (Unreleased)
+## Batch — v0.2.3 version bump (Unreleased)
+
+> Release prep for v0.2.3: bump every structured surface with
+> `bump:version -- 0.2.3` (package.json, lockfile, plugin manifests,
+> app.json files, `src/core/version.ts` + dist, Formula, server.json)
+> and add the version to the gated content surfaces (CHANGELOG.md with
+> the real release prose, RELEASE.md and 12 docs/*.7.md version lists).
+> The bump lands as its OWN PR before the cut so the cut's own
+> bump:version step is a no-op — this avoids the gitignored-lockfile
+> vs HEAD skew that blocked earlier cuts (v0.1.93 / v0.2.2 lesson).
+> No behavior change; the version constant is the only src edit.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 24 | Bump to v0.2.3 across all structured + content surfaces as a standalone PR ahead of `release-flow --cut`, with the CHANGELOG entry covering the 10-fix concurrency/robustness batch, the CLI UX cycles, and the security/CI hardening since v0.2.2. | `plugins/cool-workflow/package.json` + lockfile + manifests + `src/core/version.ts` + matching `dist/**`, `CHANGELOG.md`, `RELEASE.md`, `plugins/cool-workflow/docs/*.7.md` version lists, bumped test fixtures. | Full suite re-run on the bumped tree (conformance, unit, coverage smokes). | BUILD OK; `check` OK; `dist-drift-check` OK; `purity-gate` OK; full gate before PR. | no (bump PR; the tag comes from release-flow --cut) |
 
 > The linkSync acquire fix (#418) did not fully close the withFileLock
 > steal race: PR #420's CI (arm64, Node 22) saw 2 concurrent holds again
