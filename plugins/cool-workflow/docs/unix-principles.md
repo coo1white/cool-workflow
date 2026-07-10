@@ -214,7 +214,9 @@ never in core. Core may send a vendor's stream on; it never reads one apart.
 **Rule of Silence.** stdout is data, stderr is diagnostics, and a
 non-interactive run says nothing on success. Anything friendly to a person is TTY-gated
 and can be turned off; `--json` output is fixed and with nothing added so it goes together
-in pipes.
+in pipes. A broken pipe is not an error: when the reader at the other end
+goes away early (`cw list --json | head -1`), the CLI stops quietly with
+exit 0 — no stack trace, no error text (both `--json` and human output).
 
 **Fail closed, conservative defaults.** Backends not yet configured probe as
 `unverified`, telemetry that cannot be verified is made known loudly (or turned away in strict

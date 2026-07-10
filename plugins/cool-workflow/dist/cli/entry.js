@@ -123,11 +123,33 @@ async function runCli(argv = process.argv.slice(2)) {
     }
     await (0, dispatch_1.dispatch)(args);
 }
+/** Broken pipe (`cw ... --json | head`): when the reader at the other end
+ *  of a pipe goes away early, a write to stdout gives an async 'error'
+ *  event that no promise .catch can see — without a listener node comes
+ *  down hard with a stack trace. Raw writes are all over the CLI (help,
+ *  version, printJson, human text), so ONE process-level listener here
+ *  covers every write point: EPIPE says "the reader has all it needs",
+ *  so stop quietly with code 0. Any other stream error is thrown again
+ *  and still comes up as an uncaughtException, same as before. */
+function exitQuietOnEpipe(stream) {
+    stream.on("error", (error) => {
+        if (error && error.code === "EPIPE")
+            process.exit(0);
+        throw error;
+    });
+}
 /** Top-level run wrapper matching src/cli.ts's catch shape byte-for-byte:
  *  `cw: <message>\n` then, only when a hint matches, `  Try: <hint>\n` on
  *  stderr; `process.exitCode = 1` (never a hard `process.exit`). */
 function main(argv = process.argv.slice(2)) {
+    exitQuietOnEpipe(process.stdout);
+    exitQuietOnEpipe(process.stderr);
     return runCli(argv).catch((error) => {
+        // On some platforms a broken-pipe write throws EPIPE in the write call
+        // itself (not as a stream 'error' event) — same broken pipe, same quiet
+        // exit 0, never a `cw: write EPIPE` line.
+        if (error?.code === "EPIPE")
+            return;
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`${(0, term_1.bold)("cw:", process.stderr)} ${(0, term_1.red)(message, process.stderr)}\n`);
         const hint = recoveryHint(message);

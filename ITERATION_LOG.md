@@ -1,5 +1,30 @@
 # CW Iteration Log
 
+## Batch — exit quietly on EPIPE when a pipe reader goes away early (Unreleased)
+
+> Bug-hunt finding (verified by direct repro): `cw <verb> --json | head -1`
+> — or any reader that takes the front of the output and then goes away —
+> made the CLI come down hard with an unhandled `write EPIPE` stack trace
+> and exit 1, in place of a quiet stop. Root cause: `printJson` and the
+> other raw `process.stdout.write` points have no error handling, and a
+> broken-pipe write comes back as an async 'error' event on
+> process.stdout — an event that `main()`'s promise `.catch` in
+> `cli/entry.ts` never sees, so node turned it into an uncaughtException.
+> There was NO EPIPE handling anywhere in src/. Because raw writes are all
+> over the CLI (help, version, printJson, human text), the fix is ONE
+> process-level 'error' listener installed at the top of `main()` for both
+> process.stdout and process.stderr: on `err.code === "EPIPE"` the CLI
+> stops quietly with exit 0; any other stream error is thrown again and
+> still comes up exactly as before. `main()`'s catch also treats a
+> synchronously-thrown EPIPE the same quiet way, so both forms of the
+> broken pipe give the same clean exit and never a `cw: write EPIPE` line.
+> Normal (non-broken-pipe) runs are byte-identical before and after the
+> fix (checked by shasum of `cw help` and `cw list --json` output).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 22 | Make the CLI stop quietly (exit 0, no stack trace, no error text) when a piped reader closes early (`cw <verb> --json \| head -1`), for both --json and human-text output, in place of the unhandled `write EPIPE` crash — one process-level stdout/stderr 'error' listener in `cli/entry.ts`'s `main()`, plus the same quiet treatment for a synchronously-thrown EPIPE in its catch; non-EPIPE errors still surface as before. | `plugins/cool-workflow/src/cli/entry.ts` + matching `dist/**`, new `plugins/cool-workflow/test/cli-epipe-smoke.js`. | New `cli-epipe-smoke.js`: spawns the real `dist/cli.js` with stdout piped and the read end closed before the child boots (the deterministic form of `\| head -1`), for BOTH `list --json` and `help`; asserts exit 0 and empty stderr, 3 runs per verb. Verified FAILS against the pre-fix build (exit 1 + `write EPIPE` stack, 3/3 red runs) and PASSES after the fix (3/3 green runs). Normal-run output bytes unchanged (shasum-equal before/after). | BUILD OK; `check` (tsc --noEmit) OK; `dist-drift-check` OK; `onramp-check --changed-from origin/main` OK; `cw list` / `cw help` sanity OK. | no (PR batch, no release) |
+
 ## Batch — report a real agent timeout and SIGKILL a stuck agent (Unreleased)
 
 > Two verified bugs in `runAgentProcess`'s serial real-spawn path
