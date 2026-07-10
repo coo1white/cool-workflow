@@ -83,8 +83,18 @@ const concurrency = resolveConcurrency();
 const jsonSummaryPath = argValue("--json-summary");
 
 // --filter <regex> | CW_TEST_FILTER — run only smokes whose filename matches.
+// The pattern is a developer-facing regex BY DESIGN (author == runner, no
+// trust boundary crossed) — an invalid one gets a clear error, not a stack.
 const filterRaw = argValue("--filter") ?? process.env.CW_TEST_FILTER;
-const filterPattern = filterRaw ? new RegExp(filterRaw) : null;
+let filterPattern = null;
+if (filterRaw) {
+  try {
+    filterPattern = new RegExp(filterRaw);
+  } catch (error) {
+    process.stderr.write(`run-all: invalid --filter regex: ${error.message}\n`);
+    process.exit(2);
+  }
+}
 
 // --retry <n> | CW_TEST_RETRY — retry a failed smoke up to n more times.
 const retryRaw = argValue("--retry") ?? process.env.CW_TEST_RETRY;

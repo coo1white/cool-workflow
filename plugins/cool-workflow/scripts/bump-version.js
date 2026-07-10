@@ -167,9 +167,11 @@ function main() {
   // and a RegExp string (`0\\.1\\.32`, from `new RegExp(\`...@0\\.1\\.32\`)`).
   // A plain replace silently misses the escaped forms — the exact "escaped-dot"
   // surface that fails version:sync mid-release. Replace all three, most-escaped
-  // first so the forms can never overlap.
-  const esc1 = (v) => v.replace(/\./g, "\\.");
-  const esc2 = (v) => v.replace(/\./g, "\\\\.");
+  // first so the forms can never overlap. No regex is ever built from these —
+  // the forms feed the plain split/join TEXT replacement below (which is also
+  // why split/join, not a regex-escape-shaped replace, builds them).
+  const esc1 = (v) => v.split(".").join("\\.");
+  const esc2 = (v) => v.split(".").join("\\\\.");
   const forms = [[esc2(current), esc2(next)], [esc1(current), esc1(next)], [current, next]];
   for (const rel of targeted) {
     const abs = path.join(pluginRoot, rel);

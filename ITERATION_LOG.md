@@ -1,5 +1,35 @@
 # CW Iteration Log
 
+## Batch — zero out the 7 CodeQL code-scanning alerts (Unreleased)
+
+> GitHub code scanning held 7 open alerts (1 medium + 6 high). Each was
+> checked against source: none is a true hole an outside attacker can
+> reach — all sit in release scripts and test code, with inputs either
+> SEMVER-gated or authored by the developer running their own tests.
+> Still, a zero-noise scan is worth keeping (a NEW alert only stands out
+> on a clean list), so: 4 alerts get behavior-identical code fixes —
+> `release-flow.js`'s `changelogSection` now escapes the version with a
+> full `escapeRegExp` (all metacharacters, same shape as
+> parity-check.js's helper) before building its RegExp;
+> `bump-version.js`'s `esc1`/`esc2` become `split(".").join(...)`
+> (byte-identical output; no regex is ever built from them — they feed
+> plain split/join text replacement, which the old replace-shaped code
+> made look like incomplete regex escaping); the blackboard smoke's
+> panel check drops its needless RegExp for a strict
+> `human.includes(panel)`; and `fs-atomic-file-lock.test.js`'s releaser
+> child no longer builds code from a path — the `-e` script is static
+> and the lock path + delay ride as argv. The 2 remaining alerts
+> (`--filter <regex>` in test/run-all.js and v2/conformance/run.js) are
+> the feature itself — the regex author IS the test runner, no trust
+> boundary is crossed, and escaping the input would kill the feature —
+> so both get a friendly invalid-regex error (exit 2 with a clear
+> message instead of a raw stack) and are dismissed via the code-scanning
+> API with an audit comment ("used in tests").
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 26 | Clear the code-scanning list to zero: 4 behavior-identical fixes (full `escapeRegExp` in `changelogSection`, split/join version forms in bump-version, literal `includes` panel asserts, argv-fed releaser child) + friendly invalid `--filter` errors in both test runners; the 2 by-design `--filter` regex alerts dismissed via API with audit comments after merge. | `plugins/cool-workflow/scripts/release-flow.js`, `plugins/cool-workflow/scripts/bump-version.js`, `plugins/cool-workflow/test/blackboard-state-explosion-management-smoke.js`, `plugins/cool-workflow/test/fs-atomic-file-lock.test.js`, `plugins/cool-workflow/test/run-all.js`, `v2/conformance/run.js`. | Behavior pinned by existing suites: `release-flow-smoke` (releaseFixture drives changelogSection), `bump-version-idempotent-smoke` (three-form replacement), `blackboard-state-explosion-management-smoke`, `fs-atomic-file-lock.test`, full run-all + conformance runs exercise both runners' filter paths. | BUILD OK; `check` OK; `dist-drift-check` OK; `onramp-check --changed-from origin/main` OK; full local gate before PR. | no (dev loop, no release) |
+
 ## Batch — one-command release: cut preflight, tag-only push, orchestrator (Unreleased)
 
 > The v0.2.3 release took hours and two rewrites of a public tag because

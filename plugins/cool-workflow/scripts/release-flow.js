@@ -457,13 +457,22 @@ function prevTagOf(version) {
   return git(["describe", "--tags", "--abbrev=0", `v${version}^`]).out || "";
 }
 
+// Full regex escape (same shape as parity-check.js's helper — scripts stay
+// zero-dependency single files, so it is copied, not required). The version
+// is SEMVER-validated on every path that reaches here, but escaping every
+// metacharacter costs nothing and keeps the RegExp construction safe on its
+// own terms.
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 // Extract the `## <version>` section body from the CHANGELOG AS SHIPPED AT THE
 // TAG (git show), so the notes reflect what that tag actually carried.
 function changelogSection(version) {
   const show = git(["show", `v${version}:CHANGELOG.md`]);
   if (show.code !== 0 || !show.out) return "";
   const lines = show.out.split(/\r?\n/);
-  const esc = version.replace(/\./g, "\\.");
+  const esc = escapeRegExp(version);
   const startRe = new RegExp(`^## \\[?${esc}\\b`);
   let start = -1;
   for (let i = 0; i < lines.length; i++) if (startRe.test(lines[i])) { start = i; break; }
