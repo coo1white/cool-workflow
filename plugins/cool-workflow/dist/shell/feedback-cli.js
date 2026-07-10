@@ -67,15 +67,15 @@ function feedbackSummaryCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
     return (0, error_feedback_1.summarizeFeedback)((0, feedback_operations_1.listFeedback)(run));
 }
+// collect/task/resolve mutate the run and saveCheckpoint (transitively,
+// in feedback-operations -> error-feedback-io), so they hold the state.json
+// lock across the whole load -> change -> save cycle (lost-update class).
 function feedbackCollectCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    return (0, feedback_operations_1.collectFeedback)(run);
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => (0, feedback_operations_1.collectFeedback)(run));
 }
 function feedbackTaskCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    return (0, feedback_operations_1.createFeedbackTask)(run, req(args.feedbackId, "feedback id"), args);
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => (0, feedback_operations_1.createFeedbackTask)(run, req(args.feedbackId, "feedback id"), args));
 }
 function feedbackResolveCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    return (0, feedback_operations_1.resolveFeedback)(run, req(args.feedbackId, "feedback id"), args);
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => (0, feedback_operations_1.resolveFeedback)(run, req(args.feedbackId, "feedback id"), args));
 }

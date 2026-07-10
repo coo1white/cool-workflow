@@ -77,13 +77,14 @@ function workerShowCli(args) {
     return scope;
 }
 function workerManifestCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    const scope = (0, worker_isolation_1.getWorkerScope)(run, req(args.workerId, "worker id"));
-    if (!scope)
-        throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
-    const manifest = (0, worker_isolation_1.writeWorkerManifest)(run, scope);
-    (0, run_store_1.saveCheckpoint)(run);
-    return manifest;
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => {
+        const scope = (0, worker_isolation_1.getWorkerScope)(run, req(args.workerId, "worker id"));
+        if (!scope)
+            throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
+        const manifest = (0, worker_isolation_1.writeWorkerManifest)(run, scope);
+        (0, run_store_1.saveCheckpoint)(run);
+        return manifest;
+    });
 }
 /** `cw worker output <run> <worker> <result>` — records the worker's result
  *  and returns the full RunSummary, a byte-behavior port of the old build's
@@ -96,37 +97,40 @@ function workerManifestCli(args) {
  *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
  *  same steps itself around the bare accept, so it never routes through here. */
 function workerOutputCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
-        requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
-        allowUnattested: allowUnattestedOption(args),
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => {
+        (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
+            requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
+            allowUnattested: allowUnattestedOption(args),
+        });
+        run.loopStage = "observe";
+        (0, dispatch_1.updatePhaseStatuses)(run);
+        (0, drive_1.maybeExpandLoop)(run);
+        (0, commit_1.commitState)(run, `worker:${req(args.workerId, "worker id")}:result`);
+        (0, report_1.writeReport)(run);
+        (0, run_store_1.saveCheckpoint)(run);
+        return (0, operator_ux_1.summarizeRun)(run);
     });
-    run.loopStage = "observe";
-    (0, dispatch_1.updatePhaseStatuses)(run);
-    (0, drive_1.maybeExpandLoop)(run);
-    (0, commit_1.commitState)(run, `worker:${req(args.workerId, "worker id")}:result`);
-    (0, report_1.writeReport)(run);
-    (0, run_store_1.saveCheckpoint)(run);
-    return (0, operator_ux_1.summarizeRun)(run);
 }
 function workerFailCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    const message = String(args.message || req(args.resultPath, "failure message"));
-    const scope = (0, worker_isolation_1.recordWorkerFailure)(run, req(args.workerId, "worker id"), message, {
-        code: typeof args.code === "string" ? args.code : undefined,
-        path: typeof args.path === "string" ? args.path : undefined,
-        retryable: args.retryable !== undefined ? Boolean(args.retryable) : undefined,
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => {
+        const message = String(args.message || req(args.resultPath, "failure message"));
+        const scope = (0, worker_isolation_1.recordWorkerFailure)(run, req(args.workerId, "worker id"), message, {
+            code: typeof args.code === "string" ? args.code : undefined,
+            path: typeof args.path === "string" ? args.path : undefined,
+            retryable: args.retryable !== undefined ? Boolean(args.retryable) : undefined,
+        });
+        (0, run_store_1.saveCheckpoint)(run);
+        return scope;
     });
-    (0, run_store_1.saveCheckpoint)(run);
-    return scope;
 }
 /** validate returns the boundary violation (null when the write path is
  *  allowed) and signals a violation through a non-zero exit code, not just
  *  stdout — a validate verb must report an invalid verdict via its exit code. */
 function workerValidateCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
-    const target = args.path || args.resultPath;
-    const violation = (0, worker_isolation_1.validateWorkerBoundary)(run, req(args.workerId, "worker id"), target ? { path: String(target) } : {});
-    (0, run_store_1.saveCheckpoint)(run);
-    return { violation, exitCode: violation ? 1 : undefined };
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => {
+        const target = args.path || args.resultPath;
+        const violation = (0, worker_isolation_1.validateWorkerBoundary)(run, req(args.workerId, "worker id"), target ? { path: String(target) } : {});
+        (0, run_store_1.saveCheckpoint)(run);
+        return { violation, exitCode: violation ? 1 : undefined };
+    });
 }

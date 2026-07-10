@@ -184,10 +184,14 @@ function loadRun(runId, options = {}) {
  *  only (the run-state checkpoint write is real and load-bearing today;
  *  report.md rendering is not). */
 function summaryRefreshCli(runId, options = {}) {
-    const run = loadRun(runId, options);
-    const index = refreshStateExplosionSummaries(run);
-    (0, run_store_1.saveCheckpoint)(run);
-    return index;
+    // Hold the state.json lock across the whole load -> refresh -> save so a
+    // concurrent run mutation cannot drop this summary refresh (lost-update class).
+    const cwd = options.cwd ? path.resolve(String(options.cwd)) : process.cwd();
+    return (0, run_store_1.withRunStateLock)(runId, cwd, (run) => {
+        const index = refreshStateExplosionSummaries(run);
+        (0, run_store_1.saveCheckpoint)(run);
+        return index;
+    });
 }
 /** `cw summary show <run-id> [--json]` — a plain read: `showStateExplosionSummary`
  *  only loads the persisted summary index and builds a report from it, it

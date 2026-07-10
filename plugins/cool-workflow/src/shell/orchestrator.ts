@@ -22,7 +22,7 @@ import { loadWorkflowApp } from "./workflow-app-loader";
 import { plan as planRun } from "./pipeline";
 import { createDispatchManifest } from "./dispatch";
 import { getWorkerScope, writeWorkerManifest, recordWorkerOutput as recordWorkerOutputImpl } from "./worker-isolation";
-import { saveCheckpoint } from "./run-store";
+import { saveCheckpoint, withRunStateLock } from "./run-store";
 import { summarizeTrustAudit } from "./trust-audit";
 import { evidenceProvenance } from "./audit-provenance";
 import { auditAttestCli, auditDecisionCli } from "./audit-cli";
@@ -78,18 +78,22 @@ export class CoolWorkflowRunner {
   /** `dispatch` — build the next dispatch manifest (persisting through
    *  createDispatchManifest's own writes) and checkpoint. */
   dispatch(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof createDispatchManifest> {
-    const run = this.loadRun(runId);
-    const limit = numberOption(options.limit);
-    const manifest = createDispatchManifest(run, limit, {
-      sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
-      backendId: stringOption(options.backend) || stringOption(options.backendId) || stringOption(options.executionBackend),
-      multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-      multiAgentGroupId: stringOption(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
-      multiAgentRoleId: stringOption(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
-      multiAgentFanoutId: stringOption(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"]),
+    // Hold the state.json lock across the whole load -> change -> save so a
+    // concurrent run mutation cannot drop this dispatch (lost-update class,
+    // matching pipeline-cli.ts's dispatchRun).
+    return withRunStateLock(runId, this.cwd(), (run) => {
+      const limit = numberOption(options.limit);
+      const manifest = createDispatchManifest(run, limit, {
+        sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
+        backendId: stringOption(options.backend) || stringOption(options.backendId) || stringOption(options.executionBackend),
+        multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
+        multiAgentGroupId: stringOption(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
+        multiAgentRoleId: stringOption(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
+        multiAgentFanoutId: stringOption(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"]),
+      });
+      saveCheckpoint(run);
+      return manifest;
     });
-    saveCheckpoint(run);
-    return manifest;
   }
 
   /** `showWorkerManifest` — write + return a worker's manifest. */
@@ -103,10 +107,13 @@ export class CoolWorkflowRunner {
   /** `recordWorkerOutput` — accept a worker's result and checkpoint. Mirrors
    *  v2's workerOutputCli: recordWorkerOutput + saveCheckpoint. */
   recordWorkerOutput(runId: string, workerId: string, resultPath: string, options: Record<string, unknown> = {}): ReturnType<typeof recordWorkerOutputImpl> {
-    const run = this.loadRun(runId);
-    const output = recordWorkerOutputImpl(run, workerId, this.resolveFromBase(resultPath), options);
-    saveCheckpoint(run);
-    return output;
+    // Hold the state.json lock across the whole load -> change -> save so a
+    // concurrent run mutation cannot drop this worker output (lost-update class).
+    return withRunStateLock(runId, this.cwd(), (run) => {
+      const output = recordWorkerOutputImpl(run, workerId, this.resolveFromBase(resultPath), options);
+      saveCheckpoint(run);
+      return output;
+    });
   }
 
   /** `auditSummary` — the trust-audit rollup. */
@@ -157,28 +164,32 @@ export class CoolWorkflowRunner {
    *  `{ runId, commit }` to match the old orchestrator's shape (the scripts
    *  read `commitResult.commit`). */
   commit(runId: string, input: string | Record<string, unknown> = {}): { runId: string; commit: ReturnType<typeof commitState> } {
-    const run = this.loadRun(runId);
-    const options = typeof input === "string" ? { reason: input } : input;
-    const allowCheckpoint = Boolean(options.allowUnverifiedCheckpoint || options["allow-unverified-checkpoint"]);
-    const hasGateOption = Boolean(options.verifier || options.verifierNode || options["verifier-node"] || options.candidate || options.selection);
-    try {
-      const commit = commitState(run, {
-        reason: stringOption(options.reason) || "manual",
-        verifierNodeId: stringOption(options.verifier) || stringOption(options.verifierNode) || stringOption(options["verifier-node"]),
-        candidateId: stringOption(options.candidate),
-        selectionId: stringOption(options.selection),
-        verifierGated: hasGateOption || !allowCheckpoint,
-        allowUnverifiedCheckpoint: allowCheckpoint,
-        source: "cli",
-      });
-      writeReport(run);
-      saveCheckpoint(run);
-      return { runId: run.id, commit };
-    } catch (error) {
-      writeReport(run);
-      saveCheckpoint(run);
-      throw error;
-    }
+    // Hold the state.json lock across the whole load -> commit -> save (both
+    // the success and the fail-closed catch persist) so a concurrent run
+    // mutation cannot drop this commit (lost-update class).
+    return withRunStateLock(runId, this.cwd(), (run) => {
+      const options = typeof input === "string" ? { reason: input } : input;
+      const allowCheckpoint = Boolean(options.allowUnverifiedCheckpoint || options["allow-unverified-checkpoint"]);
+      const hasGateOption = Boolean(options.verifier || options.verifierNode || options["verifier-node"] || options.candidate || options.selection);
+      try {
+        const commit = commitState(run, {
+          reason: stringOption(options.reason) || "manual",
+          verifierNodeId: stringOption(options.verifier) || stringOption(options.verifierNode) || stringOption(options["verifier-node"]),
+          candidateId: stringOption(options.candidate),
+          selectionId: stringOption(options.selection),
+          verifierGated: hasGateOption || !allowCheckpoint,
+          allowUnverifiedCheckpoint: allowCheckpoint,
+          source: "cli",
+        });
+        writeReport(run);
+        saveCheckpoint(run);
+        return { runId: run.id, commit };
+      } catch (error) {
+        writeReport(run);
+        saveCheckpoint(run);
+        throw error;
+      }
+    });
   }
 
   /** `report` — write the run's report.md; returns `{ path }` (old shape). */

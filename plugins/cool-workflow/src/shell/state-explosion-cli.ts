@@ -15,7 +15,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { writeJson, safeFileName } from "./fs-atomic";
-import { loadRunFromCwd, saveCheckpoint } from "./run-store";
+import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
 import { fingerprintStrings } from "../core/hash";
 import { DEFAULT_STATE_EXPLOSION_THRESHOLDS, StateExplosionThresholds } from "../core/state/state-explosion/size";
 import { GRAPH_VIEWS, GraphView, buildCompactGraphFromView, runToGraphViewFromWorkflowRun } from "../core/state/state-explosion/graph";
@@ -168,10 +168,14 @@ function loadRun(runId: string, options: Record<string, unknown> = {}): Workflow
  *  only (the run-state checkpoint write is real and load-bearing today;
  *  report.md rendering is not). */
 export function summaryRefreshCli(runId: string, options: Record<string, unknown> = {}): MultiAgentSummaryIndex {
-  const run = loadRun(runId, options);
-  const index = refreshStateExplosionSummaries(run);
-  saveCheckpoint(run);
-  return index;
+  // Hold the state.json lock across the whole load -> refresh -> save so a
+  // concurrent run mutation cannot drop this summary refresh (lost-update class).
+  const cwd = options.cwd ? path.resolve(String(options.cwd)) : process.cwd();
+  return withRunStateLock(runId, cwd, (run) => {
+    const index = refreshStateExplosionSummaries(run);
+    saveCheckpoint(run);
+    return index;
+  });
 }
 
 /** `cw summary show <run-id> [--json]` — a plain read: `showStateExplosionSummary`

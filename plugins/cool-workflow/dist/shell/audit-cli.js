@@ -251,33 +251,38 @@ function auditBlackboardCli(runId, args) {
 /** `cw audit attest <run> [--worker …] [--command|--network|--env|--note …]`
  *  — record a host/operator sandbox attestation. */
 function auditAttestCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const workerId = optionalString(args.worker ?? args.workerId);
-    const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
-    const event = (0, audit_provenance_1.recordHostAttestation)(run, {
-        actor: optionalString(args.actor) || "host",
-        workerId,
-        taskId: worker?.taskId || optionalString(args.task ?? args.taskId),
-        sandboxProfileId: worker?.sandboxProfileId || optionalString(args.sandboxProfileId),
-        policySnapshot: worker?.sandboxPolicy,
-        command: optionalString(args.command),
-        networkTarget: optionalString(args.network ?? args.networkTarget),
-        metadata: {
-            note: optionalString(args.note ?? args.message),
-            hostEnforced: args.hostEnforced === undefined ? undefined : Boolean(args.hostEnforced),
-            envVars: valuesOption(args.env ?? args.envVar ?? args.envVars),
-        },
+    // Hold the state.json lock across the whole load -> record -> save so a
+    // concurrent run mutation cannot drop this attestation (lost-update class).
+    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => {
+        const workerId = optionalString(args.worker ?? args.workerId);
+        const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
+        const event = (0, audit_provenance_1.recordHostAttestation)(run, {
+            actor: optionalString(args.actor) || "host",
+            workerId,
+            taskId: worker?.taskId || optionalString(args.task ?? args.taskId),
+            sandboxProfileId: worker?.sandboxProfileId || optionalString(args.sandboxProfileId),
+            policySnapshot: worker?.sandboxPolicy,
+            command: optionalString(args.command),
+            networkTarget: optionalString(args.network ?? args.networkTarget),
+            metadata: {
+                note: optionalString(args.note ?? args.message),
+                hostEnforced: args.hostEnforced === undefined ? undefined : Boolean(args.hostEnforced),
+                envVars: valuesOption(args.env ?? args.envVar ?? args.envVars),
+            },
+        });
+        (0, run_store_1.saveCheckpoint)(run);
+        return event;
     });
-    (0, run_store_1.saveCheckpoint)(run);
-    return event;
 }
 /** `cw audit decision <run> <worker> --path|--command|--network|--env <t>`
  *  — validate a sandbox decision against the worker's policy, record it
  *  (fail-closed: a denied decision records a structured worker failure), and
  *  return the audit event. Byte-behavior port of the old recordAuditDecision. */
 function auditDecisionCli(runId, workerId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    return recordAuditDecision(run, workerId, args);
+    // recordAuditDecision does a load -> mutate -> saveCheckpoint; hold the
+    // state.json lock across the whole cycle so a concurrent run mutation
+    // cannot drop the recorded decision/failure (lost-update class).
+    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => recordAuditDecision(run, workerId, args));
 }
 function recordAuditDecision(run, workerId, options) {
     const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);

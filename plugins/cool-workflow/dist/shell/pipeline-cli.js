@@ -692,29 +692,33 @@ function recordResultRun(args) {
  *  still leaves the run's report/state current on disk. */
 function commitRun(args) {
     const runId = String(args.runId);
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const allowCheckpoint = Boolean(args.allowUnverifiedCheckpoint || args["allow-unverified-checkpoint"]);
-    const hasGateOption = Boolean(args.verifier || args.verifierNode || args["verifier-node"] || args.candidate || args.selection);
-    try {
-        const commit = (0, commit_1.commitState)(run, {
-            reason: typeof args.reason === "string" && args.reason ? args.reason : "manual",
-            verifierNodeId: (typeof args.verifier === "string" && args.verifier) ||
-                (typeof args.verifierNode === "string" && args.verifierNode) ||
-                (typeof args["verifier-node"] === "string" && args["verifier-node"]) ||
-                undefined,
-            candidateId: typeof args.candidate === "string" ? args.candidate : undefined,
-            selectionId: typeof args.selection === "string" ? args.selection : undefined,
-            verifierGated: hasGateOption || !allowCheckpoint,
-            allowUnverifiedCheckpoint: allowCheckpoint,
-            source: "cli",
-        });
-        (0, report_1.writeReport)(run);
-        (0, run_store_1.saveCheckpoint)(run);
-        return { runId: run.id, commit };
-    }
-    catch (error) {
-        (0, report_1.writeReport)(run);
-        (0, run_store_1.saveCheckpoint)(run);
-        throw error;
-    }
+    // Hold the state.json lock across the whole load -> commit -> save (both the
+    // success and the fail-closed catch persist) so a concurrent run mutation
+    // cannot drop this commit (lost-update class, matching dispatchRun/recordResultRun).
+    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => {
+        const allowCheckpoint = Boolean(args.allowUnverifiedCheckpoint || args["allow-unverified-checkpoint"]);
+        const hasGateOption = Boolean(args.verifier || args.verifierNode || args["verifier-node"] || args.candidate || args.selection);
+        try {
+            const commit = (0, commit_1.commitState)(run, {
+                reason: typeof args.reason === "string" && args.reason ? args.reason : "manual",
+                verifierNodeId: (typeof args.verifier === "string" && args.verifier) ||
+                    (typeof args.verifierNode === "string" && args.verifierNode) ||
+                    (typeof args["verifier-node"] === "string" && args["verifier-node"]) ||
+                    undefined,
+                candidateId: typeof args.candidate === "string" ? args.candidate : undefined,
+                selectionId: typeof args.selection === "string" ? args.selection : undefined,
+                verifierGated: hasGateOption || !allowCheckpoint,
+                allowUnverifiedCheckpoint: allowCheckpoint,
+                source: "cli",
+            });
+            (0, report_1.writeReport)(run);
+            (0, run_store_1.saveCheckpoint)(run);
+            return { runId: run.id, commit };
+        }
+        catch (error) {
+            (0, report_1.writeReport)(run);
+            (0, run_store_1.saveCheckpoint)(run);
+            throw error;
+        }
+    });
 }
