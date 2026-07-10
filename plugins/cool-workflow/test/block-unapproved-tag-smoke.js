@@ -213,4 +213,24 @@ function signVerdict(verdictPath, pem) {
   assert.equal(r.code, 2, "a signature from a different keypair must block");
 }
 
+// ---- HEAD~1 tolerance: markers keyed on the PARENT sha -> ALLOW ------------
+// cut() commits the verdict ON TOP of the reviewed commit, so at tag time the
+// marker files carry HEAD~1's sha, not HEAD's — the same tolerance
+// release-gate.yml has. The pre-fix hook only ever looked at HEAD, so a
+// manual retag of a cut-produced commit was always blocked (v0.2.3 recovery).
+{
+  clearMarkers();
+  // A child commit on top of the reviewed one — like cut()'s verdict commit.
+  fs.mkdirSync(markerDir, { recursive: true });
+  fs.writeFileSync(path.join(markerDir, `gate-${sha}.ok`), "ok\n");
+  fs.writeFileSync(path.join(markerDir, `review-${sha}.verdict`), `APPROVED ${sha}\nUsers can now do X.\n`);
+  git(["add", "-A"]);
+  git(["commit", "-q", "-m", "record verdict (parent = reviewed commit)"]);
+  const r = runHook({ command: "git tag -a v9.9.9 -m x" });
+  assert.equal(r.code, 0, "markers keyed on HEAD~1 (the reviewed parent) must allow the tag");
+  // Reset the fixture back to the reviewed commit so any case added later
+  // still sees the original sha at HEAD.
+  git(["reset", "-q", "--hard", sha]);
+}
+
 process.stdout.write("block-unapproved-tag-smoke: ok\n");

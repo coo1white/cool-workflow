@@ -77,12 +77,18 @@ function main() {
 
   const current = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8")).version;
   if (next === current) {
-    // Idempotent: re-running the bump for the same version is a no-op (exit 0)
-    // rather than a hard fail. Required by `release-flow --cut --version X` when
-    // the bump was already landed in a prior PR (e.g. a release-prep PR that
-    // committed the version surfaces, then a follow-up fix on top — cut should
-    // still be able to commit the verdict and tag without re-bumping).
-    process.stdout.write(`bump:version: already at ${next}, no surfaces to update\n`);
+    // Idempotent for the STRUCTURED surfaces: re-running the bump for the same
+    // version skips the writes (exit 0) rather than hard-failing. Required by
+    // `release-flow --cut --version X` when the bump was already landed in a
+    // prior PR — cut should still be able to commit the verdict and tag
+    // without re-bumping. But the CONTENT-surface gate must still run: the
+    // v0.2.3 cut hit exactly this hole — package.json was already bumped, so
+    // this early-exit skipped the content check entirely and `--content`
+    // never filled the missing docs/RELEASE references. Same-version reruns
+    // now gate (or fill) content exactly like a fresh bump does.
+    process.stdout.write(`bump:version: structured surfaces already at ${next}\n`);
+    const sameVersionContent = handleContentSurfaces(current, next);
+    if (!sameVersionContent.ok) fail(sameVersionContent.error);
     process.exit(0);
   }
 

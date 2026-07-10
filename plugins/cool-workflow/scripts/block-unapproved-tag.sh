@@ -30,16 +30,31 @@ fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)"
-GATE="$REPO_ROOT/.cw-release/gate-$SHA.ok"
-VERDICT="$REPO_ROOT/.cw-release/review-$SHA.verdict"
+# cut() commits the verdict ON TOP of the reviewed commit, so at tag time the
+# verdict filename is keyed on HEAD~1's sha, not HEAD's — the same
+# HEAD-or-HEAD~1 tolerance release-gate.yml uses. Without this, a manual
+# retag of a cut-produced commit was always blocked (v0.2.3 recovery).
+PARENT="$(git -C "$REPO_ROOT" rev-parse HEAD~1 2>/dev/null || echo none)"
+GATE=""
+VERDICT=""
+for C in "$SHA" "$PARENT"; do
+  [[ "$C" == "none" ]] && continue
+  if [[ -f "$REPO_ROOT/.cw-release/review-$C.verdict" ]]; then
+    GATE="$REPO_ROOT/.cw-release/gate-$C.ok"
+    VERDICT="$REPO_ROOT/.cw-release/review-$C.verdict"
+    break
+  fi
+done
+[[ -z "$VERDICT" ]] && VERDICT="$REPO_ROOT/.cw-release/review-$SHA.verdict"
+[[ -z "$GATE" ]] && GATE="$REPO_ROOT/.cw-release/gate-$SHA.ok"
 
 if [[ ! -f "$GATE" ]]; then
-  echo "BLOCKED: no release-gate pass for HEAD $SHA. Run plugins/cool-workflow/scripts/release-gate.sh first. Tagging without a green gate is forbidden." >&2
+  echo "BLOCKED: no release-gate pass for HEAD $SHA (or its parent). Run plugins/cool-workflow/scripts/release-gate.sh first. Tagging without a green gate is forbidden." >&2
   exit 2
 fi
 
 if [[ ! -f "$VERDICT" ]] || ! grep -q '^APPROVED' "$VERDICT"; then
-  echo "BLOCKED: no APPROVED verdict from the release-reviewer agent for HEAD $SHA. Invoke the 'release-reviewer' subagent and obtain approval. Do not write the verdict file yourself — that is a gaming attempt and will be flagged in CI." >&2
+  echo "BLOCKED: no APPROVED verdict from the release-reviewer agent for HEAD $SHA (or its parent). Invoke the 'release-reviewer' subagent and obtain approval. Do not write the verdict file yourself — that is a gaming attempt and will be flagged in CI." >&2
   exit 2
 fi
 

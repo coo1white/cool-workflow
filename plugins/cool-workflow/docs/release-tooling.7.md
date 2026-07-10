@@ -170,13 +170,31 @@ model you set up does the review. CW starts the agent argv-style (`shell:false`)
 takes on the agent's own credentials, and pulls in no model SDK — the red line.
 
 ```bash
+# the operator's one-command release (scripts/release-oneclick.js — preflight,
+# gated cut, tag-only push, CI wait, npm confirmation, verdict-record PR):
+npm run release -- 0.2.4
 # check only (gate + independent review, no mutation):
 node plugins/cool-workflow/scripts/release-flow.js --check
 # cut a tag once review is green (when --push, also creates the GitHub Release):
 node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 [--push] [--no-release]
+# run ONLY the cut's fail-fast preflight (seconds; used by release-oneclick.js):
+node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 --push --preflight-only
 # backfill / re-create the GitHub Release for an already-pushed tag (no gate/cut):
 node plugins/cool-workflow/scripts/release-flow.js --release --version 0.1.77 [--soft]
 ```
+
+A `--cut` starts with a fail-fast **preflight** (added after the v0.2.3 cut,
+where each of these fired only AFTER the gate/vendor/reviewer had already
+spent real time and tokens): the version flag, the signing key (present AND
+matching the committed `verdict-signing.pub` — once that pubkey is in the
+repo, an unsigned cut is refused up front instead of failing later in CI),
+no pre-existing `vX.Y.Z` tag (local or on origin), a `## X.Y.Z` CHANGELOG
+section, a clean tracked tree, and — for `--push` — HEAD equal to the
+`origin/main` tip (`--allow-stale-head` skips that one check for a
+deliberate re-cut). The push at the end moves ONLY `refs/tags/vX.Y.Z`: the
+verdict commit is a one-hop leaf on the reviewed commit, reachable through
+the tag alone, so main's branch protection is never in the path and no
+stray remote branch is created.
 
 The per-platform difference is config, not code — set the reviewer agent here:
 

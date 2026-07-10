@@ -99,8 +99,31 @@ Only use `--write` when you have a mind to normalize a state file in place.
 
 ## Publish Steps
 
-After the dry-run gate and manual review pass, cutting the release is a
-maintainer action taken through the gated tool — never a raw `git push`:
+The normal release is TWO steps (since the v0.2.3 tooling work):
+
+**Step 1 — prepare (agent-friendly, no secrets needed).** Write the
+`## x.y.z` CHANGELOG.md section, then land a version-bump PR onto `main`
+(`npm run bump:version -- x.y.z --content`, `npm run sync:project-index --
+--repo-only`, a fresh build, an ITERATION_LOG entry). With the bump merged,
+the cut's own `bump:version` step is a no-op.
+
+**Step 2 — one command, run by the release operator** (the shell must have
+`CW_RELEASE_VERDICT_PRIVKEY` set — see Verdict Signing below):
+
+```bash
+npm run release -- x.y.z
+```
+
+This runs `scripts/release-oneclick.js`: a fail-fast preflight (seconds — a
+missing CHANGELOG section, a missing/wrong signing key, a stale tag, a dirty
+tree, or a HEAD that is not the origin/main tip all stop the run BEFORE the
+gate/vendor-preflight/reviewer spend anything), then the full gated cut
+(`release-flow.js --cut --version x.y.z --push`), then it waits for the
+tag's `release-gate` and `npm-publish` CI runs, confirms `npm view` shows
+the new version, and opens an informational PR recording the verdict +
+signature on `main`.
+
+The lower-level tool is still there for manual control:
 
 ```bash
 node scripts/release-flow.js --cut --version x.y.z --push
@@ -108,9 +131,12 @@ node scripts/release-flow.js --cut --version x.y.z --push
 
 This re-runs the deterministic gate, delegates to the independent reviewer,
 bumps every version surface, commits the reviewer verdict, creates the tag,
-and (because of `--push`) pushes the tag and the verdict commit and creates
-the GitHub Release — all in one gated step. Leave off `--push` for a local-only
-cut (tag created but nothing pushed or published).
+and (because of `--push`) pushes ONLY the tag (`refs/tags/vx.y.z`) and
+creates the GitHub Release. The verdict commit is a one-hop leaf on the
+reviewed `main`-tip commit, reachable through the tag alone — it is NOT
+pushed to any branch (main's branch protection blocks direct pushes, and
+the tag's own history is what CI verifies). Leave off `--push` for a
+local-only cut (tag created but nothing pushed or published).
 
 Package publication, marketplace updates, or plugin cache updates should be run
 only when the maintainer has a mind to publish. Local tag creation, push, package
