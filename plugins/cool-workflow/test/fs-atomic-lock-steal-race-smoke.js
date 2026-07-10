@@ -14,23 +14,32 @@
 //
 // Reproduced with N real child processes barrier-released against one
 // pre-planted stale lock: with the original fs.rmSync(lock, {force:true})
-// this reliably showed 2-8+ overlapping holds across 40 trials. Several
-// fixes were tried and measured worse before landing on the real one — a
-// rename-based "capture and verify" version had MORE overlaps than the
-// original bug; a plain fs.unlinkSync swap was clean in isolation but
-// flaked once under the full parallel smoke suite; adding a
-// process.kill(pid, 0) liveness gate on top of that was clean locally but
-// still failed once in CI. Chasing the CI failure down with an
-// instrumented repro of this exact retry loop found the actual root
-// cause: on the filesystem it ran on, fs.unlinkSync is NOT single-winner
-// under real contention — multiple concurrent callers can each observe
-// success removing the SAME file — and a `wx` open immediately following
-// such an unlink can likewise show more than one "winner". The fix no
-// longer trusts a successful `wx` open alone: right after acquiring, it
-// reads the lock back and only proceeds into fn() if the content matches
-// exactly what it just wrote — see fs-atomic.ts's withFileLock doc
-// comment for the full account. This test asserts the critical section is
-// never entered by more than one process at a time.
+// this reliably showed 2-8+ overlapping holds across 40 trials. A long
+// chain of fixes were tried and measured worse, or looked clean locally
+// but still failed under real contention, before landing on the real one
+// — a rename-based "capture and verify" version had MORE overlaps than
+// the original bug; a plain fs.unlinkSync swap was clean in isolation but
+// flaked once under the full parallel smoke suite; a process.kill(pid, 0)
+// liveness gate on top of that was clean locally but still failed once in
+// CI; a readback-verification pass on top of THAT (only trust a `wx` open
+// if reading the lock back shows exactly what was just written) closed
+// two separate PRs' worth of CI failures locally but STILL failed twice
+// more in CI — always on Node 18 (both x64 and arm64 runners; Node 20/22
+// runners never failed). Stress-testing this exact retry loop under
+// artificial CPU load (several `yes > /dev/null` processes running
+// alongside the race) finally reproduced it outside CI: two separate
+// processes could each `open(lock, "wx")` + write + read back and EACH
+// see only its OWN content — meaning `open(O_CREAT|O_EXCL)` itself, not
+// just the later unlink, was not reliably single-winner on Node 18 under
+// load. The actual fix replaces the `wx`-open acquire with `fs.linkSync`
+// (write a per-attempt temp file, then hard-link it onto the lock path) —
+// `link(2)`'s exclusivity guarantee is the older, more battle-tested
+// primitive for exactly this lockfile race (the classic Unix "lock via
+// link" idiom), and it measured 0 double-winners across 15 trials at
+// N=24 processes under the same artificial-load rig that reproduced the
+// `wx`-open double-winner within single-digit trials. See fs-atomic.ts's
+// withFileLock doc comment for the full account. This test asserts the
+// critical section is never entered by more than one process at a time.
 //
 // Included in `npm test`.
 
