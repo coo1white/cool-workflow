@@ -14,19 +14,23 @@
 //
 // Reproduced with N real child processes barrier-released against one
 // pre-planted stale lock: with the original fs.rmSync(lock, {force:true})
-// this reliably showed 2-8+ overlapping holds across 40 trials. The fix
-// gates the actual steal on process.kill(pid, 0) confirming the recorded
-// owner is DEAD, not just mtime-stale — a lock belonging to a currently
-// running process can never read back as dead no matter how a timing
-// window lines up, which closes the race rather than narrowing it — and
-// deletes via fs.unlinkSync rather than the measurably heavier fs.rmSync.
-// A rename-based "capture and verify" version, and a liveness-free
-// unlinkSync-only version, were both tried first and measured worse (the
-// rename version had MORE overlaps than the original bug; the unlinkSync-
-// only version was clean in isolation but flaked once under the full
-// parallel smoke suite's heavier load) — see fs-atomic.ts's withFileLock
-// doc comment for the full account. This test asserts the critical
-// section is never entered by more than one process at a time.
+// this reliably showed 2-8+ overlapping holds across 40 trials. Several
+// fixes were tried and measured worse before landing on the real one — a
+// rename-based "capture and verify" version had MORE overlaps than the
+// original bug; a plain fs.unlinkSync swap was clean in isolation but
+// flaked once under the full parallel smoke suite; adding a
+// process.kill(pid, 0) liveness gate on top of that was clean locally but
+// still failed once in CI. Chasing the CI failure down with an
+// instrumented repro of this exact retry loop found the actual root
+// cause: on the filesystem it ran on, fs.unlinkSync is NOT single-winner
+// under real contention — multiple concurrent callers can each observe
+// success removing the SAME file — and a `wx` open immediately following
+// such an unlink can likewise show more than one "winner". The fix no
+// longer trusts a successful `wx` open alone: right after acquiring, it
+// reads the lock back and only proceeds into fn() if the content matches
+// exactly what it just wrote — see fs-atomic.ts's withFileLock doc
+// comment for the full account. This test asserts the critical section is
+// never entered by more than one process at a time.
 //
 // Included in `npm test`.
 

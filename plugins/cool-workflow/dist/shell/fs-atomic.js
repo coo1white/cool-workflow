@@ -273,10 +273,24 @@ function withFileLock(targetPath, fn) {
     let acquired = false;
     for (let attempt = 0; attempt < 240 && !acquired; attempt++) {
         try {
+            const body = `${pid}@${new Date().toISOString()}\n`;
             const fd = fs.openSync(lock, "wx", 0o600);
-            fs.writeFileSync(fd, `${pid}@${new Date().toISOString()}\n`, "utf8");
+            fs.writeFileSync(fd, body, "utf8");
             fs.closeSync(fd);
-            acquired = true;
+            // Read back immediately rather than trusting `wx` alone: directly
+            // testing this exact retry loop under contention showed that
+            // `fs.unlinkSync` on a shared path is NOT single-winner on every
+            // filesystem this runs on — multiple concurrent callers can each
+            // observe success removing the SAME file — and a `wx` open that
+            // immediately follows such an unlink can likewise show more than one
+            // "winner" in a tight enough race (see
+            // test/fs-atomic-lock-steal-race-smoke.js for the reproduction).
+            // `acquired = true` alone is therefore not sufficient proof of
+            // exclusive ownership here. Only one process's write can be the
+            // surviving content on disk; whichever process reads back a body
+            // other than its own was not actually the winner and must retry
+            // instead of proceeding into fn().
+            acquired = fs.readFileSync(lock, "utf8") === body;
         }
         catch (error) {
             if (!(error && typeof error === "object" && error.code === "EEXIST")) {
@@ -304,28 +318,32 @@ function withFileLock(targetPath, fn) {
                         continue; // vanished — another waiter/the owner beat us to it
                     }
                     if (age > FILE_LOCK_FORCE_STALE_MS || !isLockOwnerAlive(body)) {
-                        // Re-check staleness immediately before deleting, as close to
-                        // the delete as possible, and delete via `unlinkSync`, not
-                        // `fs.rmSync` — `rmSync`'s generic file-or-directory handling
-                        // is measurably heavier than the direct syscall, and that
-                        // extra time IS a TOCTOU window in its own right: an
-                        // 8-process contention repro (see
-                        // test/fs-atomic-lock-steal-race-smoke.js) reproduced the
-                        // double-acquire far more often with `rmSync` than with
-                        // `unlinkSync`, all else unchanged. A rename-based "capture,
-                        // verify, restore-if-wrong" version was also tried and
-                        // measured WORSE than plain `rmSync` — the extra directory-
-                        // entry churn it introduces widens the window rather than
-                        // closing it. Keeping this to the fewest, fastest syscalls is
-                        // what narrows the residual window down to the pid-liveness
-                        // gate above actually closing it.
+                        // Confirming the owner dead still leaves one gap: between that
+                        // read and the delete, a brand-new legitimate owner can appear
+                        // (different pid, different timestamp) and this would delete
+                        // THEIRS. Close it with a content-equality check immediately
+                        // before the delete — only proceed if the file's bytes are
+                        // still EXACTLY what was just read (same pid, same instant of
+                        // creation); any real new owner's body necessarily differs, so
+                        // an exact match is strong evidence nothing has touched this
+                        // file since. Delete via `unlinkSync`, not `fs.rmSync` —
+                        // `rmSync`'s generic file-or-directory handling is measurably
+                        // heavier than the direct syscall, and that extra time IS a
+                        // TOCTOU window in its own right: an 8-process contention
+                        // repro (see test/fs-atomic-lock-steal-race-smoke.js)
+                        // reproduced the double-acquire far more often with `rmSync`
+                        // than with `unlinkSync`, all else unchanged. A rename-based
+                        // "capture, verify, restore-if-wrong" version was also tried
+                        // and measured WORSE than plain `rmSync` — the extra
+                        // directory-entry churn it introduces widens the window
+                        // rather than closing it.
                         try {
-                            if (Date.now() - fs.statSync(lock).mtimeMs > FILE_LOCK_STALE_MS) {
+                            if (fs.readFileSync(lock, "utf8") === body) {
                                 fs.unlinkSync(lock);
                             }
                         }
                         catch {
-                            /* vanished between the checks, or already gone */
+                            /* vanished or changed between the checks */
                         }
                         continue;
                     }
