@@ -88,6 +88,18 @@ function writeStub(file) {
     "  }",
     '  process.stdout.write(JSON.stringify({ model: "stub-m" }));',
     "  process.exit(0);",
+    '} else if (behavior === "escape-heavy") {',
+    "  // 20MB RAW of a control char: UNDER the child's 32MB raw-stdout cap,",
+    "  // but JSON-escaping turns each byte into \\u0001 (6 bytes), so the",
+    "  // serialized NDJSON line is ~120MB.",
+    '  const chunk = "\\u0001".repeat(1024 * 1024);',
+    "  let remaining = 20 * 1024 * 1024;",
+    "  while (remaining > 0) {",
+    "    const n = Math.min(chunk.length, remaining);",
+    "    fs.writeSync(1, chunk.slice(0, n));",
+    "    remaining -= n;",
+    "  }",
+    "  process.exit(0);",
     "} else {",
     '  process.stdout.write(JSON.stringify({ model: "stub-m" }));',
     "  process.exit(0);",
@@ -167,6 +179,50 @@ function integrationLevelCapExceeded() {
   }
 }
 
+function integrationLevelEscapedLineCap() {
+  // The child used to cap only the RAW stdout bytes (32MB) but wrote the
+  // ESCAPED serialization — JSON escaping grows bytes (quotes/backslashes
+  // 2x, control chars up to 6x), while the parent grants only
+  // maxBuffer = 34MB * jobs.length for the COMBINED NDJSON stream. So a job
+  // whose raw output was comfortably under the raw cap could still emit a
+  // serialized line far past the parent's budget: spawnSync threw ENOBUFS
+  // and the WHOLE batch (including small, innocent siblings) failed with
+  // "batch delegate failed: ...ENOBUFS". This is a REAL 3-job batch through
+  // runAgentBatchOutcomes: 20MB raw of a control char (under the 32MB raw
+  // cap) escapes to a ~120MB line against a 3-job 102MB parent budget.
+  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-escape-")));
+  try {
+    const stub = writeStub(path.join(work, "stub.js"));
+    const jobFor = (behavior, timeoutMs) => ({
+      binary: process.execPath,
+      args: [stub, path.join(work, `${behavior}-result.md`), behavior],
+      cwd: work,
+      timeoutMs
+    });
+    const settled = runAgentBatchOutcomes([
+      jobFor("small", 10000),
+      jobFor("escape-heavy", 30000),
+      jobFor("small", 10000)
+    ]);
+    assert.equal(settled.length, 3, "outcomes stay index-aligned with an escape-heavy job");
+    assert.equal(settled[1].exitCode, null, "escape-heavy job fails closed");
+    assert.match(
+      settled[1].spawnError || "",
+      /exceeded .* byte cap/,
+      `escape-heavy job names the line cap, not a batch-wide ENOBUFS (got: ${settled[1].spawnError})`
+    );
+    assert.equal(settled[1].stdout, "", "oversized escaped output is not treated as evidence");
+    for (const index of [0, 2]) {
+      assert.equal(settled[index].spawnError, undefined, `small sibling ${index} is not stranded by the escape-heavy job (got: ${settled[index].spawnError})`);
+      assert.equal(settled[index].exitCode, 0, `small sibling ${index} keeps its real exit code`);
+      assert.match(settled[index].stdout, /stub-m/, `small sibling ${index} keeps its real stdout`);
+    }
+    console.log("batch-output-overflow-smoke: escape-heavy output is capped on the SERIALIZED line, batch survives ok");
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
 function unitLevelPastV8StringLimit() {
   const jobCount = 20;
   const perJobChars = 30 * 1024 * 1024; // 30MB per job, under the delegate's 32MB cap
@@ -197,6 +253,7 @@ function main() {
   unitLevelReconciliation();
   integrationLevelLargeOutput();
   integrationLevelCapExceeded();
+  integrationLevelEscapedLineCap();
   unitLevelPastV8StringLimit();
   console.log("batch-output-overflow-smoke: ok (streamed NDJSON recovers per-job outcomes even under batch-level failure)");
 }

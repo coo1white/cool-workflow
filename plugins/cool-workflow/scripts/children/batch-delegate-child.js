@@ -8,7 +8,8 @@
 //
 // Reads jobs JSON on stdin, spawns ALL concurrently (shell:false, inherited env —
 // the agent's own credentials resolve; CW never reads them), per-job SIGTERM at
-// timeoutMs + SIGKILL at +5s, caps each captured stdout at 32MB. Streams ONE
+// timeoutMs + SIGKILL at +5s, caps each captured stdout at 32MB RAW and each
+// written NDJSON line at 33MB SERIALIZED (see LINE_CAP below). Streams ONE
 // NDJSON line per job — `{i, spawnError?, exitCode, stdout}\n` — the INSTANT
 // that job settles (not once at the end): the parent's spawnSync call has its
 // own combined-output cap, so writing incrementally means a job whose line
@@ -65,6 +66,16 @@ process.stdin.on("end", () => {
   }
   if (!jobs.length) { process.stdout.write("[]"); return; }
   const CAP = 32 * 1024 * 1024;
+  // The parent (runAgentBatchOutcomes) grants maxBuffer = 34MB PER JOB for
+  // the COMBINED NDJSON stream it captures from this child. CAP above bounds
+  // each job's RAW stdout bytes, but the line written by settle() is the
+  // ESCAPED serialization — JSON escaping grows bytes (quotes and
+  // backslashes 2x, control chars up to 6x as \uXXXX), so a raw-capped
+  // stdout could still serialize into a line far past the parent's per-job
+  // budget, push the combined stream over maxBuffer, and ENOBUFS the WHOLE
+  // batch. LINE_CAP bounds the SERIALIZED line itself, held under the
+  // parent's 34MB per-job grant with a small safety margin.
+  const LINE_CAP = 33 * 1024 * 1024;
   jobs.forEach((job, i) => {
     let stdout = "";
     let stdoutBytes = 0;
@@ -73,7 +84,15 @@ process.stdin.on("end", () => {
     const settle = (o) => {
       if (settled) return;
       settled = true;
-      process.stdout.write(JSON.stringify({ i, ...o }) + "\n");
+      let line = JSON.stringify({ i, ...o }) + "\n";
+      const lineBytes = Buffer.byteLength(line);
+      if (lineBytes > LINE_CAP) {
+        // Same fail-closed shape as the raw-cap path in the close handler
+        // below: capped output is never evidence, so drop it entirely and
+        // name the cap — never ship a line the parent's buffer cannot hold.
+        line = JSON.stringify({ i, spawnError: `serialized stdout line exceeded ${LINE_CAP} byte cap (${lineBytes} bytes)`, exitCode: null, stdout: "" }) + "\n";
+      }
+      process.stdout.write(line);
     };
     let child;
     try {
