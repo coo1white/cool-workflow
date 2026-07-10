@@ -31,6 +31,29 @@
 |-------|------|-------|-------|------|--------|
 | 20 | Fix two timeout bugs in the serial agent spawn path: pass `killSignal: "SIGKILL"` so an agent that ignores SIGTERM cannot block spawnSync forever, and classify spawnSync's ETIMEDOUT error as a real timeout ("agent process timed out after Nms and was killed (SIGKILL)") instead of the misleading "agent process failed to spawn: ...ETIMEDOUT". | `plugins/cool-workflow/src/shell/execution-backend/agent.ts` + matching `dist/**`, `plugins/cool-workflow/test/execution-backend-agent-smoke.js`. | New real-spawn timeout case in `execution-backend-agent-smoke.js`: red before (spawn-failure message + full 8s stub lifetime), green after (timeout message + settles near the 500ms limit); `agent-backend-user-env-smoke.js` still green. | BUILD OK; `check` (tsc --noEmit) OK; `dist-drift-check` OK; `onramp-check --changed-from origin/main` OK; touched smokes green. | no (PR batch, no release) |
 
+## Batch — fail closed on a chained event with no prevEventHash (Unreleased)
+
+> `verifyEventsChain` in `src/shell/trust-audit.ts` had a guard that let a
+> chained event with no `prevEventHash` go past the chain-link check:
+> `event.prevEventHash !== undefined && ...`. The event hash has no key and
+> covers every field but `eventHash` itself, so an attacker who takes out
+> or re-orders an earlier event could simply DROP `prevEventHash` from the
+> event after it and make its `eventHash` again — then the event-hash check
+> is green, the chain-link check is SKIPPED, and the event still counts as
+> chained, so the era rule does not fire. The "a removed event flips
+> verified=false" property was quietly lost. There is no true `undefined`
+> case: the writer `recordTrustAuditEvent` sets `event.prevEventHash` on
+> every event before it computes `eventHash` — the first event gets
+> `trustAuditGenesis(run.id)` — and the verifier's `expectedPrev` starts at
+> the genesis hash and is never `undefined`. The fix takes the
+> `!== undefined` guard out, so a missing `prevEventHash` now compares as a
+> mismatch and fails closed with `trust-audit-chain-broken`. Smallest
+> possible change; nothing else moved.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 19 | Close the trust-audit chain-verify bypass: a chained event with a dropped `prevEventHash` and a re-made `eventHash` verified green; now it fails closed with `trust-audit-chain-broken` (the `!== undefined` skip in `verifyEventsChain` is removed — the writer always sets the field, so `undefined` is never honest). | `plugins/cool-workflow/src/shell/trust-audit.ts` + matching `dist/**`, `plugins/cool-workflow/test/freebsd-audit-fixes-smoke.js`. | New case (f) in `freebsd-audit-fixes-smoke.js`: remove the middle event, drop `prevEventHash` from its successor, re-make that event's `eventHash` the same way the code does; asserts `verified:false` + `trust-audit-chain-broken`. Verified RED against the pre-fix build (the forged chain verified true) and GREEN after the fix. Adjacent smokes re-run clean: `trust-audit-anchor`, `doctor-audit-integrity-repair`, `audit-verify`, `verify-import-audit-chain`, `multi-agent-trust-policy-audit`, `security-trust-hardening`. | BUILD OK; `check` (tsc --noEmit) OK; `dist-drift-check` OK; `onramp-check --changed-from origin/main` OK; `freebsd-audit-fixes-smoke` PASS. | no (PR batch, no release) |
+
 ## Batch — lock the sched policy read-modify-write (Unreleased)
 
 > Concurrency bug-hunt finding (P2): `schedPolicySetCli`
