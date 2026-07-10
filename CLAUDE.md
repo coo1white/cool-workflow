@@ -31,6 +31,27 @@ magic or broad framework behavior.
 If this file and `AGENTS.md` ever differ, `AGENTS.md` is the source of
 truth. Update both files in the same PR when the project memory changes.
 
+## Shipping a release (two steps)
+
+Full rules in `AGENTS.md` ("Shipping a release") and `RELEASE.md`.
+The short form:
+
+1. **Agent prep**: write the `## X.Y.Z` CHANGELOG.md entry (short —
+   it goes into the GitHub Release as-is), land the version bump as
+   its OWN PR (`npm run bump:version -- X.Y.Z --content` + project
+   index + ITERATION_LOG entry + clean rebuild).
+2. **Operator command**: the operator runs `npm run release -- X.Y.Z`
+   in their own terminal. The script fail-fasts on every known
+   precondition first, then does the gated cut, a tag-only push, the
+   GitHub Release, and waits for CI + npm confirmation. A re-run
+   after a failure resumes.
+
+Never `git tag` by hand. The verdict signing key
+(`CW_RELEASE_VERDICT_PRIVKEY`) stays with the operator — an agent
+must never read it. The tag commit's first parent must be exactly
+the reviewed sha; recut instead of retagging or merge-fixing the
+tag's line.
+
 ## Resolving merge conflicts
 
 When the base branch has moved on and a rebase or merge hits a
