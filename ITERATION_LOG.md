@@ -25,6 +25,37 @@
 |-------|------|-------|-------|------|--------|
 | 22 | Make the CLI stop quietly (exit 0, no stack trace, no error text) when a piped reader closes early (`cw <verb> --json \| head -1`), for both --json and human-text output, in place of the unhandled `write EPIPE` crash — one process-level stdout/stderr 'error' listener in `cli/entry.ts`'s `main()`, plus the same quiet treatment for a synchronously-thrown EPIPE in its catch; non-EPIPE errors still surface as before. | `plugins/cool-workflow/src/cli/entry.ts` + matching `dist/**`, new `plugins/cool-workflow/test/cli-epipe-smoke.js`. | New `cli-epipe-smoke.js`: spawns the real `dist/cli.js` with stdout piped and the read end closed before the child boots (the deterministic form of `\| head -1`), for BOTH `list --json` and `help`; asserts exit 0 and empty stderr, 3 runs per verb. Verified FAILS against the pre-fix build (exit 1 + `write EPIPE` stack, 3/3 red runs) and PASSES after the fix (3/3 green runs). Normal-run output bytes unchanged (shasum-equal before/after). | BUILD OK; `check` (tsc --noEmit) OK; `dist-drift-check` OK; `onramp-check --changed-from origin/main` OK; `cw list` / `cw help` sanity OK. | no (PR batch, no release) |
 
+## Batch — cap the batch child's escaped NDJSON line, not raw stdout (Unreleased)
+
+> Verified batch-buffer mismatch:
+> `scripts/children/batch-delegate-child.js` capped each job's RAW
+> stdout at 32MB (`CAP`) but wrote the ESCAPED serialization
+> (`JSON.stringify({ i, ...o }) + "\n"`) to the parent. JSON escaping
+> grows bytes — quotes and backslashes 2x, control chars up to 6x as
+> `\uXXXX` — while the parent (`runAgentBatchOutcomes`) grants only
+> `maxBuffer: 34MB * jobs.length` for the COMBINED NDJSON stream. So a
+> job whose raw output sat comfortably under the raw cap could still
+> emit a serialized line far past the parent's per-job budget, push the
+> combined stream over maxBuffer, and ENOBUFS the WHOLE batch — every
+> sibling failed with "batch delegate failed: ...ENOBUFS". Enlarging
+> the parent's buffer cannot fix this (worst-case escaping is 6x); the
+> fix is in the CHILD: settle() now measures the SERIALIZED line and,
+> when it exceeds a new `LINE_CAP` (33MB, under the parent's 34MB
+> per-job grant with a small margin), fails THAT job closed in the same
+> shape the existing raw-cap path already uses (a `spawnError` naming
+> the cap, exitCode null, stdout "" — capped output is never evidence)
+> instead of shipping a line the parent's buffer cannot hold. Zero
+> runtime dependencies; the parent is untouched. Regression test: a new
+> REAL 3-job case in `batch-output-overflow-smoke.js` (20MB raw of a
+> control char — under the raw cap — escaping to a ~120MB line against
+> the 3-job 102MB parent budget) reproduced the batch-wide ENOBUFS
+> before the fix and now settles as one fail-closed job with both small
+> siblings keeping their real outcomes.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 21 | Close the batch buffer mismatch: the batch delegate child capped RAW stdout (32MB) but wrote the ESCAPED NDJSON line, which JSON escaping can grow up to 6x past the parent's `maxBuffer` (34MB/job) — escape-heavy output ENOBUFSed the whole batch. The child now also caps the SERIALIZED line (`LINE_CAP` 33MB) and fails just that job closed, same shape as the existing raw-cap path. | `plugins/cool-workflow/scripts/children/batch-delegate-child.js`, `plugins/cool-workflow/test/batch-output-overflow-smoke.js`. | New `integrationLevelEscapedLineCap` case through the real `runAgentBatchOutcomes` path: red before (batch-wide "spawnSync ENOBUFS"), green after (one fail-closed job naming the line cap, small siblings keep exitCode 0 and real stdout); all prior overflow cases still green. | BUILD OK; `check` (tsc --noEmit) OK; `dist-drift-check` OK; `onramp-check --changed-from origin/main` OK; touched smoke green. | no (PR batch, no release) |
+
 ## Batch — report a real agent timeout and SIGKILL a stuck agent (Unreleased)
 
 > Two verified bugs in `runAgentProcess`'s serial real-spawn path
