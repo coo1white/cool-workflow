@@ -1,5 +1,49 @@
 # CW Iteration Log
 
+## Batch — replace withFileLock's `open(wx)` acquire with `linkSync` (Unreleased)
+
+> Follow-up to the lock-steal TOCTOU fix (#416): that fix (mtime re-check +
+> `unlinkSync` + a `process.kill(pid, 0)` liveness gate, later hardened
+> with a readback-verification pass right after `open(lock, "wx")`) still
+> flaked in CI twice more after merging — always on Node 18 (both x64 and
+> arm64 runners; Node 20/22 runners never failed once). Local isolated
+> stress runs stayed clean, so the CI-only failures pointed at something
+> load-dependent that a quiet local machine could not reproduce.
+>
+> Reproduced it locally by adding artificial CPU contention (several
+> `yes > /dev/null` processes alongside the existing 8-process lock race)
+> and instrumenting the retry loop directly: under that load, TWO SEPARATE
+> processes could each `open(lock, "wx")` + write + read back and each see
+> ONLY ITS OWN content — meaning `open(O_CREAT|O_EXCL)` itself, not just
+> the later `unlinkSync`, was not reliably single-winner on this Node
+> version under contention. The readback-verification pass added on top of
+> `open(wx)` in the prior fix could not close this, because the create
+> step it was trying to verify was the unreliable one.
+>
+> Fix replaces the acquire step with `fs.linkSync`: write a per-attempt
+> temp file with the lock body, then hard-link it onto the lock path.
+> `link(2)`'s exclusivity guarantee is the older, more battle-tested
+> primitive for exactly this class of lockfile race (the classic Unix
+> "lock via link" idiom, historically used specifically because
+> `open(O_EXCL)` has had reliability gaps on some filesystems/versions).
+> Stress-tested directly under the same artificial-load rig that
+> reproduced the `open(wx)` double-winner within single-digit trials:
+> 15/15 clean trials at 24-process contention via `linkSync`, plus the
+> existing regression test's 8-process/12-trial rig run 8 more times back
+> to back under the same CPU load (96 additional trials, 0 overlaps). The
+> steal-path staleness/liveness logic (mtime check, `isLockOwnerAlive`,
+> content-equality-before-delete) is unchanged — only the acquire
+> mechanism changed.
+>
+> `test/fs-atomic-lock-steal-race-smoke.js` (the existing regression test
+> from #416) still exercises the same scenario unchanged and passes;
+> updated its header comment to record the full chain of fixes tried and
+> why each intermediate one still wasn't enough.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 17 | Close the remaining lock-steal race that survived #416's fix and kept flaking in CI on Node 18: replace `withFileLock`'s `open(lock, "wx")` acquire (found to be non-single-winner under load on Node 18) with `fs.linkSync` (write a per-attempt temp file, hard-link it onto the lock path), the classic atomic Unix lockfile primitive. | `plugins/cool-workflow/src/shell/fs-atomic.ts` + matching `dist/**`, `plugins/cool-workflow/test/fs-atomic-lock-steal-race-smoke.js` (header comment only). | Existing `fs-atomic-lock-steal-race-smoke.js` (12 trials x 8 processes) still passes, run 8 more times under artificial CPU load (96 extra trials, 0 overlaps). Isolated `linkSync`-only stress rig: 15/15 clean at 24-process contention, where the same rig reproduced the pre-fix `open(wx)` double-winner within single-digit trials. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 106/106 against `dist/cli.js`; `test:unit` 160/160; full smoke gate 200/200; `release:check --skip-tests` all green. | no (PR batch, no release) |
+
 ## Batch — close the lock-steal TOCTOU race in withFileLock (Unreleased)
 
 > Concurrency bug-hunt finding (P1, reproduced 5/5): on `EEXIST`, if the
