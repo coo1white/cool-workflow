@@ -1,19 +1,30 @@
 #!/usr/bin/env node
 "use strict";
 
-// scheduling-routine-lock-concurrency-smoke — regression guard for two
-// unlocked read-modify-write races found by an architecture review:
+// scheduling-routine-lock-concurrency-smoke — regression guard for three
+// unlocked/racy read-modify-write bugs:
 //
 //   A. cw sched lease/release/complete/reclaim/reset mutated queue.json
 //      without holding the lock queueAdd/queueDrain already use, so two
 //      concurrent leasers could clobber each other's grant.
 //   B. RoutineTriggerBridge.create/delete/fire mutated triggers.json (and
 //      its monotonic nextTriggerSeq) without any lock at all.
+//   C. queueAdd's auto-generated id (q-${stamp14}-${NNN}) used a counter
+//      that resets to 0 in every fresh `cw` process, so two SEPARATE
+//      processes calling `queue add` within the same second minted the
+//      IDENTICAL id. sched lease then keys grants by id, so both entries
+//      were treated as one, breaking through maxConcurrent; a single
+//      complete drained both. Reproduced on the first try (bug-hunt P2).
 //
-// Both are now serialized through the same withFileLock helper Scheduler
-// already uses for tasks.json. Each part below spawns real child processes
-// racing the SAME store concurrently and asserts no lost update — following
-// the concurrentSchedulerWrites() pattern in robustness-failclosed-smoke.js.
+// A and B are now serialized through the same withFileLock helper
+// Scheduler already uses for tasks.json. C is fixed by checking the
+// candidate id against the queue file's OWN current entries (loaded inside
+// queueAdd's existing file lock) before accepting it, so any process that
+// completes its add later always sees every earlier-completed add's id and
+// bumps past a collision, regardless of which process's counter produced
+// it. Each part below spawns real child processes racing the SAME store
+// concurrently and asserts no lost update / no collision — following the
+// concurrentSchedulerWrites() pattern in robustness-failclosed-smoke.js.
 //
 // Included in `npm test`.
 
@@ -25,7 +36,7 @@ const { spawn } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const { RunRegistry } = require(path.join(pluginRoot, "dist", "shell", "run-registry-io.js"));
-const { schedPolicySetCli } = require(path.join(pluginRoot, "dist", "shell", "scheduling-io.js"));
+const { schedPolicySetCli, schedLeaseCli } = require(path.join(pluginRoot, "dist", "shell", "scheduling-io.js"));
 const { RoutineTriggerBridge } = require(path.join(pluginRoot, "dist", "shell", "scheduler-io.js"));
 
 function spawnAllAndWait(procs) {
@@ -92,10 +103,74 @@ async function concurrentRoutineTriggerCreate() {
   assert.equal(ids.size, N, `all ${N} trigger ids are unique (got ${ids.size} unique of ${all.length}) — nextTriggerSeq race`);
 }
 
+// ---- C. concurrent queueAdd (no explicit id) across SEPARATE processes
+// never mints a duplicate id, and a subsequent lease grants one lease per
+// entry rather than silently collapsing collided entries into one. ------
+async function concurrentQueueAddNoIdCollision() {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "cw-qidrace-repo-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "cw-qidrace-home-"));
+  const env = { ...process.env, CW_HOME: home };
+  const N = 8;
+
+  const child = path.join(repo, "add-one.js");
+  fs.writeFileSync(child, `
+    const fs = require("node:fs");
+    const { RunRegistry } = require(${JSON.stringify(path.join(pluginRoot, "dist", "shell", "run-registry-io.js"))});
+    const [repo, readyFile, goFile] = process.argv.slice(2);
+    function sleep(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+    fs.writeFileSync(readyFile, "ready", "utf8");
+    while (!fs.existsSync(goFile)) { sleep(2); }
+    process.stdout.write(new RunRegistry(repo).queueAdd({ appId: "demo" }).id + "\\n");
+  `, "utf8");
+
+  const goFile = path.join(repo, "go");
+  const kids = Array.from({ length: N }, (_, i) => {
+    const readyFile = path.join(repo, `ready-${i}`);
+    let out = "";
+    const proc = spawn(process.execPath, [child, repo, readyFile, goFile], { stdio: ["ignore", "pipe", "inherit"], env });
+    proc.stdout.on("data", (d) => { out += d; });
+    return { readyFile, proc, getId: () => out.trim() };
+  });
+
+  const deadline = Date.now() + 15_000;
+  while (kids.some((k) => !fs.existsSync(k.readyFile))) {
+    if (Date.now() > deadline) throw new Error("children never readied up");
+    await new Promise((res) => setTimeout(res, 5));
+  }
+  fs.writeFileSync(goFile, "go", "utf8");
+  await spawnAllAndWait(kids.map((k) => k.proc));
+
+  const ids = kids.map((k) => k.getId());
+  const uniqueIds = new Set(ids);
+  assert.equal(
+    uniqueIds.size,
+    N,
+    `all ${N} concurrent queueAdd calls (no explicit id) from SEPARATE processes produced distinct ids (got ${uniqueIds.size} unique of ${N}) — cross-process queueId collision`
+  );
+
+  const prevHome = process.env.CW_HOME;
+  process.env.CW_HOME = home;
+  try {
+    schedPolicySetCli({ cwd: repo, maxConcurrent: N });
+    const leaseResult = schedLeaseCli({ cwd: repo, limit: N });
+    assert.equal(
+      leaseResult.granted,
+      N,
+      `sched lease grants exactly ${N} (one per distinct queue entry), got ${leaseResult.granted} — a collided id would silently drop grants`
+    );
+    const leaseIds = new Set(leaseResult.leases.map((l) => l.leaseId));
+    assert.equal(leaseIds.size, N, `each grant gets its own leaseId (got ${leaseIds.size} unique of ${N})`);
+  } finally {
+    if (prevHome === undefined) delete process.env.CW_HOME;
+    else process.env.CW_HOME = prevHome;
+  }
+}
+
 (async () => {
   await concurrentSchedLease();
   await concurrentRoutineTriggerCreate();
-  process.stdout.write("scheduling-routine-lock-concurrency-smoke: ok (concurrent sched lease + routine trigger create lose nothing)\n");
+  await concurrentQueueAddNoIdCollision();
+  process.stdout.write("scheduling-routine-lock-concurrency-smoke: ok (concurrent sched lease + routine trigger create + queueAdd id generation lose/collide nothing)\n");
 })().catch((error) => {
   process.stderr.write(`scheduling-routine-lock-concurrency-smoke: FAIL ${error && error.stack ? error.stack : error}\n`);
   process.exit(1);

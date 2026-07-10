@@ -395,10 +395,25 @@ export function clampInt(value: unknown, fallback: number, min: number): number 
 }
 
 let queueCounter = 0;
-export function queueId(): string {
-  queueCounter += 1;
+/** Byte format is `q-${stamp14}-${NNN}` (SPEC/scheduling-registry.md "Id
+ *  formats"), unchanged. `queueCounter` alone is not enough to keep ids
+ *  unique: it resets to 0 for every fresh `cw` process, so two SEPARATE
+ *  processes calling `queue add` within the same second both compute
+ *  `queueCounter === 1` and mint the IDENTICAL id — `sched lease` then
+ *  keys grants by id, so both queue entries get treated as one, breaking
+ *  through `maxConcurrent`. `existingIds` is the current queue file's ids
+ *  (read inside queueAdd's own file lock, so this sees every entry any
+ *  earlier-completed `queue add` — same process or not — has already
+ *  saved); bumping past any collision against that real, shared state
+ *  keeps ids unique across processes without changing the format. */
+export function queueId(existingIds?: ReadonlySet<string>): string {
   const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
-  return `q-${stamp}-${String(queueCounter).padStart(3, "0")}`;
+  let candidate: string;
+  do {
+    queueCounter += 1;
+    candidate = `q-${stamp}-${String(queueCounter).padStart(3, "0")}`;
+  } while (existingIds && existingIds.has(candidate));
+  return candidate;
 }
 
 export function isRunLifecycleState(value: unknown): value is RunLifecycleState {
@@ -651,7 +666,7 @@ export class RunRegistry {
       const entries = this.loadQueueEntries();
       const entry: RunQueueEntry = {
         schemaVersion: 1,
-        id: options.id || queueId(),
+        id: options.id || queueId(new Set(entries.map((e) => e.id))),
         runId: options.runId,
         appId: options.appId,
         workflowId: options.workflowId,
