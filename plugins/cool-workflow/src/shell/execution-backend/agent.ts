@@ -430,15 +430,34 @@ export function runAgentProcess(
       const built = buildAgentChildEnv(policy);
       const childEnv = built.env;
       forwardedEnvVars = built.forwarded;
+      const timeoutMs = resolved.timeoutMs || 600000;
       const child = spawnSync(resolved.binary, realArgs, {
         cwd: request.cwd,
         env: childEnv,
         encoding: "utf8",
-        timeout: resolved.timeoutMs || 600000,
+        timeout: timeoutMs,
         maxBuffer: 32 * 1024 * 1024,
         shell: false,
+        // SIGKILL, not the default SIGTERM: an agent wrapper that ignores
+        // SIGTERM would leave this blocking spawnSync waiting forever (no
+        // second-stage escalation is possible from inside a sync call), and
+        // a timed-out agent's output is discarded by the refusal below
+        // anyway — so a hard kill loses nothing and cannot wedge cw.
+        killSignal: "SIGKILL",
         stdio: ["ignore", "pipe", streamStderr ? "inherit" : "pipe"],
       });
+      // A timeout surfaces as child.error with code ETIMEDOUT (status null,
+      // signal set). Classify it FIRST: without this, the generic spawnError
+      // branch below reported "agent process failed to spawn: ...ETIMEDOUT"
+      // and the null-exit-code "timed out or killed" branch was dead code
+      // for real timeouts.
+      if (child.error && (child.error as NodeJS.ErrnoException).code === "ETIMEDOUT") {
+        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+        return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
+          ...attestation,
+          handle: handleOut,
+        });
+      }
       outcome = {
         ...(child.error ? { spawnError: messageOf(child.error) } : {}),
         exitCode: typeof child.status === "number" ? child.status : null,
