@@ -1,5 +1,68 @@
 # CW Iteration Log
 
+## Batch — close the lock-steal TOCTOU race in withFileLock (Unreleased)
+
+> Concurrency bug-hunt finding (P1, reproduced 5/5): on `EEXIST`, if the
+> lock's mtime looked older than `FILE_LOCK_STALE_MS`, the code did a
+> blind `fs.rmSync(lock, { force: true })` on whatever file was AT THAT
+> PATH and retried. Between the staleness check and the delete, the real
+> owner can finish and a brand-new, legitimate owner can take the spot —
+> the delete then removes THAT fresh lock instead of the stale one it
+> judged, so two processes end up inside the critical section at once
+> with no error from either side. An 8-process barrier-synced repro
+> (racing a pre-planted stale lock) showed this reliably: 2-8+ trials out
+> of 40 landed two or more concurrent holders.
+>
+> The direction suggested by the bug report — steal via an atomic
+> `renameSync` capture, inspect the captured file's own mtime, and put it
+> back if it turns out not to be stale — was implemented and measured
+> FIRST. It made things WORSE, not better: 35-40/40 trials overlapped,
+> with concurrency depth up to 5 (vs the original bug's depth-2-only,
+> 4-8/40). A from-scratch investigation (isolated `renameSync`-only
+> syscall races, content tracing across every steal branch, an
+> apples-to-apples same-session baseline re-run to rule out machine-load
+> noise) pinned the cause down to `fs.rmSync` itself: its generic file-or-
+> directory handling is measurably heavier than a direct `fs.unlinkSync`,
+> and that extra time IS the TOCTOU window — ANY variant that added a
+> `renameSync` call (even paired with a fast `unlinkSync` cleanup)
+> reintroduced the same regression, because the extra directory-entry
+> churn widens the window rather than closing it.
+>
+> Swapping the delete to `fs.unlinkSync` (plus a second, cheap `statSync`
+> re-check immediately before it) alone measured 0/40 overlaps across 3
+> isolated 40-trial runs (120 trials) and 60 more via the original bug-
+> hunt repro script — but under the full parallel smoke suite's heavier
+> real machine load it still hit one flaky overlap in 200 tests, proving
+> the window was narrowed, not closed. The actual fix adds a
+> `process.kill(pid, 0)`-based liveness check as the real gate: a lock is
+> only stolen once the pid recorded in its body is confirmed DEAD (or the
+> lock has been stale for 10x the normal window, the fallback for a
+> recycled pid, which would otherwise make a dead owner look "alive"
+> forever). This closes the race rather than narrowing it — a lock
+> belonging to a currently running process can never read back as "dead"
+> no matter how a timing window lines up, so it can never be the target of
+> a steal. `fs.unlinkSync` over `fs.rmSync` is kept for the now-rare
+> confirmed-dead case. Re-ran the full 200-test smoke suite after adding
+> the gate: 200/200, no flake.
+>
+> New regression test spawns 8 real child processes barrier-released
+> against one pre-planted stale lock and asserts the critical section is
+> never held by more than one process at once; verified it FAILS against
+> the pre-fix `rmSync` code (2 concurrent holders) and PASSES against the
+> fix (12/12 trials, 0 overlap, run repeatedly). Existing lock-protocol and
+> lock-concurrency smoke tests (`fs-atomic-file-lock.test.js`,
+> `run-state-lock-concurrency-smoke.js`,
+> `multi-agent-state-lock-concurrency-smoke.js`,
+> `scheduling-routine-lock-concurrency-smoke.js`,
+> `trust-audit-append-lock-concurrency-smoke.js`) all still pass
+> unchanged — the observable lock protocol (file name, body format, 240
+> tries, 25ms sleep, refresh-before, verify-after "stolen" detection) is
+> untouched; only the internal steal mechanism changed.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 15 | Close the lock-steal TOCTOU race in `withFileLock`'s stale-lock steal path: gate the actual steal on `process.kill(pid, 0)` confirming the recorded owner is dead (not just mtime-stale), with a 10x force-steal fallback for a recycled pid, and delete via `fs.unlinkSync` instead of the measurably heavier `fs.rmSync`. | `plugins/cool-workflow/src/shell/fs-atomic.ts` + matching `dist/**`, new `plugins/cool-workflow/test/fs-atomic-lock-steal-race-smoke.js`. | New `fs-atomic-lock-steal-race-smoke.js`: 12 trials x 8 real child processes barrier-released against one pre-planted stale lock, asserts max concurrent holds == 1. Verified FAILS against the pre-fix `rmSync` code (2 concurrent holders) and PASSES against the fix (0/12 overlap, run repeatedly). Also independently verified via a 120-trial + 60-trial stress harness outside the test suite, and via 2 full 200-test smoke-gate runs (the unlinkSync-only intermediate design flaked once at 199/200 under that heavier load; the liveness-gated final design was clean at 200/200 both times). All 5 existing lock-protocol/concurrency smoke tests still pass unchanged. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 106/106 against `dist/cli.js`; `test:unit` 160/160; full smoke gate 200/200; `release:check --skip-tests` all green. | no (PR batch, no release) |
+
 ## Batch — fix the state.json lost-update across the run-mutating CLI verbs (Unreleased)
 
 > Concurrency bug-hunt finding (P1, reproduced): almost every
