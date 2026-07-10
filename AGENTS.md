@@ -207,6 +207,35 @@ for DeepSeek/HTTP) — CW spawns it argv-style (shell:false), holds no key, and
 imports no model SDK. Never write the verdict file yourself. Presets:
 `plugins/cool-workflow/docs/release-tooling.7.md`.
 
+## Shipping a release (two steps, as of v0.2.3+)
+
+A release is TWO steps — see `RELEASE.md` for the full checklist:
+
+1. **Agent prep**: write the `## X.Y.Z` CHANGELOG.md entry (short — its
+   text goes into the GitHub Release as-is), then land the version bump
+   as its OWN PR (`npm run bump:version -- X.Y.Z --content`, regenerate
+   the project index, an ITERATION_LOG entry, a full clean rebuild).
+2. **Operator command**: the release operator runs `npm run release --
+   X.Y.Z` in their own terminal (`scripts/release-oneclick.js`). It
+   fail-fasts on every known precondition BEFORE the gate/vendor/
+   reviewer spend anything, runs the gated cut, pushes ONLY the tag
+   (`refs/tags/vX.Y.Z` — the verdict commit is a one-hop leaf on the
+   reviewed commit; no branch push, so branch protection never blocks
+   it), creates the GitHub Release, then waits for `release-gate` +
+   `npm-publish` and confirms `npm view`. A re-run after any failure
+   RESUMES (an already-cut tag goes straight to the CI wait).
+
+Hard rules the tooling enforces (do not work around them by hand):
+
+- The verdict must be SIGNED. The ed25519 private key stays with the
+  operator (`CW_RELEASE_VERDICT_PRIVKEY`, normally
+  `~/.cw-keys/verdict-signing.key`) and is NEVER read by an agent or
+  committed. The committed public key makes CI reject unsigned cuts.
+- The tag commit's first parent must be EXACTLY the reviewed sha (one
+  hop). Never retag by hand, never route a fix onto the tag's line with
+  a merge commit — recut instead (`release-oneclick` handles this).
+- Never `git tag` directly; never bypass `release-flow.js`.
+
 ## Resolving merge conflicts
 
 When the base branch has moved on and a rebase or merge hits a
