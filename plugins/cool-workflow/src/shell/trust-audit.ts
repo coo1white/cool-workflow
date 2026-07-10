@@ -338,7 +338,11 @@ function verifyEventsChain(runId: string, events: TrustAuditEvent[], corruptLine
       verified = false;
       checks.push({ name: `event-hash[${i}]`, pass: false, code: "trust-audit-digest-mismatch" });
     }
-    if (event.prevEventHash !== undefined && event.prevEventHash !== expectedPrev) {
+    // No `undefined` skip here: the writer ALWAYS sets prevEventHash (the
+    // first event gets the genesis hash), so a chained event without it is
+    // a forgery — dropping the field and re-making eventHash must NOT let a
+    // cut or re-ordered chain verify green. Fail closed on the mismatch.
+    if (event.prevEventHash !== expectedPrev) {
       verified = false;
       checks.push({ name: `chain-link[${i}]`, pass: false, code: "trust-audit-chain-broken" });
     }

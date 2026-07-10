@@ -20,6 +20,7 @@ const {
   TelemetryLedgerCorruptError
 } = require("../dist/shell/telemetry-ledger-io");
 const { recordTrustAuditEvent, verifyTrustAudit, trustAuditHead } = require("../dist/shell/trust-audit");
+const { sha256, eventHashInput } = require("../dist/core/hash");
 const sandbox = require("../dist/shell/sandbox-profile");
 
 const cli = path.join(__dirname, "..", "dist", "cli.js");
@@ -142,6 +143,23 @@ function tmpRun(prefix) {
   v = verifyTrustAudit(run, { expectHead: anchor.headHash, expectCount: anchor.eventCount });
   assert.equal(v.verified, false, "H4: the head anchor catches tail truncation");
   assert.ok(v.checks.some((c) => c.code === "trust-audit-truncated"), "H4: trust-audit-truncated reported");
+
+  // (f) REMOVE the middle event, then DROP prevEventHash from its successor
+  // and recompute the successor's eventHash the same way the code does. The
+  // event-hash check passes (the hash is keyless and covers what is left),
+  // and the old guard SKIPPED the chain-link check when prevEventHash was
+  // undefined — so the removal in (b) could be hidden by just dropping the
+  // stale link field. The writer always sets prevEventHash (the first event
+  // gets the genesis hash), so an event without it must fail closed as
+  // trust-audit-chain-broken.
+  const noLink = JSON.parse(lines[2]);
+  delete noLink.prevEventHash;
+  delete noLink.eventHash;
+  noLink.eventHash = sha256(eventHashInput(noLink));
+  fs.writeFileSync(logPath, `${[lines[0], JSON.stringify(noLink)].join("\n")}\n`);
+  v = verifyTrustAudit(run);
+  assert.equal(v.verified, false, "H4: a dropped prevEventHash with a re-made eventHash is rejected");
+  assert.ok(v.checks.some((c) => c.code === "trust-audit-chain-broken"), "H4: chain-broken reported for the missing link");
 })();
 
 // ---- H7: a custom sandbox profile FILE must be enforceable, not just validated -
