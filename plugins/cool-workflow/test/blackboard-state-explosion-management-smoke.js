@@ -248,7 +248,7 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
     "Hidden Source Records",
     "Expansion Commands",
     "Next Action"
-  ]) assert.match(human, new RegExp(panel.replace(/[/]/g, "\\/")), `missing panel ${panel}`);
+  ]) assert.ok(human.includes(panel), `missing panel ${panel}`); // literal match — no regex needed for fixed panel names
   assert.match(human, /Graph compacted: \d+ nodes collapsed into \d+ summary nodes/);
   assert.match(human, /cw multi-agent graph .* --view full/);
 

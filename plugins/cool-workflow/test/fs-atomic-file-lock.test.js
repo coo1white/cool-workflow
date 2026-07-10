@@ -85,9 +85,16 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-v2-fs-lock-"));
   // an in-process timer (an in-process timer cannot fire during a
   // synchronous busy/blocking wait).
   const releaseAfterMs = 50;
+  // The -e code is a static string; the lock path and delay ride as argv —
+  // never build code from a path.
   const releaser = require("node:child_process").spawn(
     process.execPath,
-    ["-e", `setTimeout(() => { try { require("fs").rmSync(${JSON.stringify(lock)}, { force: true }); } catch {} }, ${releaseAfterMs});`],
+    [
+      "-e",
+      'setTimeout(() => { try { require("fs").rmSync(process.argv[1], { force: true }); } catch {} }, Number(process.argv[2]));',
+      lock,
+      String(releaseAfterMs)
+    ],
     { stdio: "ignore" }
   );
 

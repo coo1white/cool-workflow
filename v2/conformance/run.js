@@ -42,8 +42,18 @@ if (!fs.existsSync(bin)) {
   process.exit(2);
 }
 
+// --filter is a developer-facing regex BY DESIGN (author == runner, no trust
+// boundary crossed) — an invalid one gets a clear error, not a stack.
 const filterRaw = argValue("--filter");
-const filter = filterRaw ? new RegExp(filterRaw) : null;
+let filter = null;
+if (filterRaw) {
+  try {
+    filter = new RegExp(filterRaw);
+  } catch (error) {
+    process.stderr.write(`run: invalid --filter regex: ${error.message}\n`);
+    process.exit(2);
+  }
+}
 const jsonSummaryPath = argValue("--json-summary");
 
 function resolveConcurrency() {
