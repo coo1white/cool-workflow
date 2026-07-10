@@ -31,6 +31,14 @@
 //                    no gate implications) + poll release-gate/npm-publish +
 //                    confirm `npm view` shows the new version
 //
+// Resume: when the vX.Y.Z tag already exists (local or on origin), the cut
+// already happened — stages 0-2 are skipped and the run goes STRAIGHT to
+// stage 3. This is what makes a re-run after a stage-3 death (a red CI run,
+// a network drop, a Ctrl-C mid-wait) pick the release back up instead of
+// being refused by the preflight's own already-tagged check. Every wait has
+// a hard deadline and dies loudly after repeated gh/git failures — a hung
+// wait is indistinguishable from a dead release otherwise.
+//
 // Test seam: CW_ONECLICK_GH_CMD / CW_ONECLICK_GIT_CMD override the gh/git
 // binaries (single executable token, spawned shell:false) for smoke stubs.
 
@@ -64,6 +72,14 @@ function git(args, opts = {}) {
   const r = spawnSync(GIT_BIN, args, { cwd: repoRoot, encoding: "utf8", shell: false, ...opts });
   return { code: r.status, out: (r.stdout || "").trim(), err: (r.stderr || "").trim() };
 }
+// Like git(), but stdout is returned VERBATIM — no trim. The record stage
+// copies verdict/.sig bytes out of the tag commit, and those bytes must stay
+// exactly what was signed (a trimmed copy next to the same .sig could never
+// verify again).
+function gitRaw(args, opts = {}) {
+  const r = spawnSync(GIT_BIN, args, { cwd: repoRoot, encoding: "buffer", shell: false, ...opts });
+  return { code: r.status, out: r.stdout || Buffer.alloc(0), err: (r.stderr || "").toString().trim() };
+}
 function gh(args, opts = {}) {
   const r = spawnSync(GH_BIN, args, { cwd: repoRoot, encoding: "utf8", shell: false, ...opts });
   return { code: r.status, out: (r.stdout || "").trim(), err: (r.stderr || "").trim() };
@@ -71,9 +87,37 @@ function gh(args, opts = {}) {
 function sleep(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
+// Shared poll helper: every wait in this script has a hard deadline (a wait
+// that can spin forever hides a dead release) and dies after too many gh/git
+// failures in a row (an expired auth or dead network must surface, not hang).
+function poll({ label, timeoutMs, intervalMs, probe }) {
+  const deadline = Date.now() + timeoutMs;
+  let consecutiveErrors = 0;
+  for (;;) {
+    const r = probe();
+    if (r && r.done) return r.value;
+    consecutiveErrors = r && r.error ? consecutiveErrors + 1 : 0;
+    if (consecutiveErrors >= 10) die(`${label}: 10 gh/git probes in a row failed — check network/auth and re-run to resume.`);
+    if (Date.now() > deadline) die(`${label}: still not done after ${Math.round(timeoutMs / 60000)} minutes — inspect manually, then re-run to resume.`);
+    sleep(intervalMs);
+  }
+}
 
 if (!version) {
   die("usage: node scripts/release-oneclick.js X.Y.Z [--dry-run]");
+}
+
+// ---- resume detection (before anything else) --------------------------------
+// After a successful cut, the vX.Y.Z tag exists — release-flow's preflight
+// would then (correctly, for a FRESH cut) refuse to run. But a re-run of THIS
+// script after a stage-3 failure (a red CI run, a network drop, a Ctrl-C
+// during the wait) must not be told "pick the next version": the release is
+// mid-flight, not done. So: tag already cut -> skip straight to stage 3.
+function alreadyCut() {
+  if (git(["tag", "-l", `v${version}`]).out) return true;
+  if (DRY_RUN) return false; // offline decision only in dry-run
+  const remote = git(["ls-remote", "origin", `refs/tags/v${version}`]);
+  return remote.code === 0 && Boolean(remote.out);
 }
 
 // ---- stage 0: preflight -----------------------------------------------------
@@ -106,7 +150,8 @@ function runBumpStage() {
     return;
   }
 
-  git(["fetch", "origin", "main", "--quiet"]);
+  const fetch = git(["fetch", "origin", "main", "--quiet"]);
+  if (fetch.code !== 0) die("git fetch origin main failed — the bump branch must start from the REAL main tip", fetch.err);
   const branch = `release/v${version}-bump`;
   const co = git(["checkout", "-B", branch, "origin/main"]);
   if (co.code !== 0) die("could not branch from origin/main for the bump PR", co.err);
@@ -145,11 +190,20 @@ function runBumpStage() {
   ].join("\n");
   fs.writeFileSync(logPath, `${entry}\n\n${log.replace(/^# CW Iteration Log\n\n?/, "")}`);
 
-  git(["add", "-A"], { cwd: repoRoot });
+  // Tracked files only — NEVER `git add -A` here. Everything the bump stage
+  // touches is already tracked (bump surfaces, docs appends, ITERATION_LOG,
+  // dist), and an untracked stray (a scratch file, a reviewer transcript with
+  // the operator's home path) must not ride into a PR onto main — the exact
+  // incident cut()'s staging comment documents from v0.1.96.
+  git(["add", "-u"], { cwd: repoRoot });
   const commit = git(["commit", "-m", `chore(release): bump version to ${version}`], { cwd: repoRoot });
   if (commit.code !== 0) die("bump commit failed", commit.err);
 
-  const push = git(["push", "-u", "origin", branch], { cwd: repoRoot });
+  // --force-with-lease: a prior run may have pushed this branch and then died
+  // before the PR merged; the re-run rebuilds the branch from origin/main with
+  // a new sha, and a plain push would be rejected non-fast-forward. The lease
+  // keeps this safe: it only replaces the remote branch we saw at fetch time.
+  const push = git(["push", "-u", "--force-with-lease", "origin", branch], { cwd: repoRoot });
   if (push.code !== 0) die("bump branch push failed", push.err);
 
   const pr = gh(["pr", "create", "--base", "main", "--head", branch, "--title", `chore(release): bump version to ${version}`, "--body", "Automated version bump ahead of the gated cut. Generated by release-oneclick.js."]);
@@ -160,15 +214,24 @@ function runBumpStage() {
   if (merge.code !== 0) die("gh pr merge --auto failed for the bump PR", merge.err);
 
   say("waiting for the bump PR to merge...");
-  for (;;) {
-    const view = gh(["pr", "view", branch, "--json", "state"]);
-    if (view.code === 0) {
-      const state = JSON.parse(view.out).state;
-      if (state === "MERGED") break;
+  poll({
+    label: "bump PR merge wait",
+    timeoutMs: 30 * 60 * 1000,
+    intervalMs: 15000,
+    probe: () => {
+      const view = gh(["pr", "view", branch, "--json", "state"]);
+      if (view.code !== 0) return { error: true };
+      let state;
+      try {
+        state = JSON.parse(view.out).state;
+      } catch {
+        return { error: true };
+      }
+      if (state === "MERGED") return { done: true };
       if (state === "CLOSED") die("the bump PR was closed without merging");
+      return {};
     }
-    sleep(15000);
-  }
+  });
   say("bump PR merged.");
 }
 
@@ -212,91 +275,133 @@ function runRecordAndWaitStage() {
   }
 
   const { tagCommit, reviewedParent, verdict, sig } = verdictPaths();
-  if (fs.existsSync(verdict)) {
-    git(["fetch", "origin", "main", "--quiet"], { cwd: repoRoot });
-    const branch = `release/v${version}-record`;
-    const co = git(["checkout", "-B", branch, "origin/main"], { cwd: repoRoot });
-    if (co.code === 0) {
-      const relVerdict = path.relative(repoRoot, verdict);
-      const relSig = path.relative(repoRoot, sig);
-      fs.mkdirSync(path.dirname(verdict), { recursive: true });
-      const verdictBytes = git(["show", `${tagCommit}:${relVerdict}`], { cwd: repoRoot });
-      if (verdictBytes.code === 0) fs.writeFileSync(verdict, `${verdictBytes.out}\n`);
-      const sigBytes = fs.existsSync(sig) ? null : git(["show", `${tagCommit}:${relSig}`], { cwd: repoRoot });
-      if (sigBytes && sigBytes.code === 0) fs.writeFileSync(sig, `${sigBytes.out}\n`);
-      git(["add", "--", relVerdict], { cwd: repoRoot });
-      if (fs.existsSync(sig)) git(["add", "--", relSig], { cwd: repoRoot });
-      const status = git(["status", "--porcelain"], { cwd: repoRoot });
-      if (status.out) {
-        const commit = git(["commit", "-m", `chore(release): record the v${version} reviewer verdict on main`], { cwd: repoRoot });
-        if (commit.code === 0) {
-          git(["push", "-u", "origin", branch], { cwd: repoRoot });
-          const pr = gh(["pr", "create", "--base", "main", "--head", branch, "--title", `chore(release): record the v${version} reviewer verdict on main`, "--body", `Informational — lands the tagged v${version} verdict + signature onto main for the repo's own audit trail. No gate implications (main's required checks don't include release-gate). Reviewed commit: ${reviewedParent}.`]);
-          if (pr.code === 0) {
-            say(pr.out);
-            gh(["pr", "merge", branch, "--auto", "--squash"]);
-          } else {
-            say(`WARN: could not open the record PR (${pr.err}) — continuing, this is informational only.`);
+  const relVerdict = path.relative(repoRoot, verdict);
+  const relSig = path.relative(repoRoot, sig);
+  // Byte-exact copies from the TAG commit — the .sig was made over the
+  // verdict file's exact bytes, so a trimmed/normalized copy on main could
+  // never verify against the same signature again.
+  const verdictBytes = gitRaw(["show", `${tagCommit}:${relVerdict}`], { cwd: repoRoot });
+  if (verdictBytes.code === 0) {
+    const fetch = git(["fetch", "origin", "main", "--quiet"], { cwd: repoRoot });
+    if (fetch.code !== 0) {
+      say(`WARN: git fetch failed (${fetch.err}) — skipping the main-record PR (informational only).`);
+    } else {
+      const branch = `release/v${version}-record`;
+      const co = git(["checkout", "-B", branch, "origin/main"], { cwd: repoRoot });
+      if (co.code === 0) {
+        fs.mkdirSync(path.dirname(verdict), { recursive: true });
+        fs.writeFileSync(verdict, verdictBytes.out);
+        const sigBytes = gitRaw(["show", `${tagCommit}:${relSig}`], { cwd: repoRoot });
+        if (sigBytes.code === 0) fs.writeFileSync(sig, sigBytes.out);
+        git(["add", "--", relVerdict], { cwd: repoRoot });
+        if (fs.existsSync(sig)) git(["add", "--", relSig], { cwd: repoRoot });
+        const status = git(["status", "--porcelain"], { cwd: repoRoot });
+        if (status.out) {
+          const commit = git(["commit", "-m", `chore(release): record the v${version} reviewer verdict on main`], { cwd: repoRoot });
+          if (commit.code === 0) {
+            git(["push", "-u", "--force-with-lease", "origin", branch], { cwd: repoRoot });
+            const pr = gh(["pr", "create", "--base", "main", "--head", branch, "--title", `chore(release): record the v${version} reviewer verdict on main`, "--body", `Informational — lands the tagged v${version} verdict + signature onto main for the repo's own audit trail. No gate implications (main's required checks don't include release-gate). Reviewed commit: ${reviewedParent}.`]);
+            if (pr.code === 0) {
+              say(pr.out);
+              gh(["pr", "merge", branch, "--auto", "--squash"]);
+            } else {
+              say(`WARN: could not open the record PR (${pr.err}) — continuing, this is informational only.`);
+            }
           }
+        } else {
+          say("main already has this verdict recorded — nothing to do.");
         }
-      } else {
-        say("main already has this verdict recorded — nothing to do.");
       }
     }
   } else {
-    say(`WARN: no local verdict file at ${verdict} — skipping the main-record PR (informational only, not release-blocking).`);
+    say(`WARN: no verdict at ${relVerdict} in the tag commit — skipping the main-record PR (informational only, not release-blocking).`);
   }
 
   say(`waiting for release-gate on tag v${version}...`);
-  let gateRunId = null;
-  for (;;) {
-    const list = gh(["run", "list", "--limit", "10", "--json", "databaseId,workflowName,headBranch,status,conclusion"]);
-    if (list.code === 0) {
-      const runs = JSON.parse(list.out);
-      const gateRun = runs.find((r) => r.headBranch === `v${version}` && r.workflowName === "release-gate");
-      if (gateRun) {
-        gateRunId = gateRun.databaseId;
-        if (gateRun.status === "completed") {
-          if (gateRun.conclusion === "success") { say("release-gate: SUCCESS"); break; }
-          die(`release-gate FAILED — inspect: gh run view ${gateRun.databaseId} --log-failed`);
-        }
+  const gateRunId = poll({
+    label: "release-gate wait",
+    timeoutMs: 45 * 60 * 1000,
+    intervalMs: 20000,
+    probe: () => {
+      const list = gh(["run", "list", "--workflow", "release-gate", "--limit", "10", "--json", "databaseId,headBranch,status,conclusion"]);
+      if (list.code !== 0) return { error: true };
+      let runs;
+      try {
+        runs = JSON.parse(list.out);
+      } catch {
+        return { error: true };
       }
+      const gateRun = runs.find((r) => r.headBranch === `v${version}`);
+      if (gateRun && gateRun.status === "completed") {
+        if (gateRun.conclusion === "success") return { done: true, value: gateRun.databaseId };
+        die(`release-gate FAILED — inspect: gh run view ${gateRun.databaseId} --log-failed`);
+      }
+      return {};
     }
-    sleep(20000);
-  }
+  });
+  say(`release-gate: SUCCESS (run ${gateRunId})`);
 
+  // npm-publish is created only AFTER release-gate completes (workflow_run
+  // trigger), so the run to wait for may not exist yet — and the newest
+  // completed npm-publish run at this moment is usually the PREVIOUS
+  // release's. Only accept a run created at-or-after the moment the gate
+  // finished (small clock-skew allowance), and keep waiting until that run
+  // exists and completes.
   say("waiting for npm-publish...");
-  for (;;) {
-    const list = gh(["run", "list", "--limit", "10", "--json", "workflowName,status,conclusion,createdAt"]);
-    if (list.code === 0) {
-      const runs = JSON.parse(list.out).filter((r) => r.workflowName === "npm-publish");
-      runs.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-      const latest = runs[0];
-      if (latest && latest.status === "completed") {
-        if (latest.conclusion === "success") { say("npm-publish: SUCCESS"); break; }
-        die(`npm-publish FAILED (conclusion: ${latest.conclusion}) — check the Actions tab.`);
+  const gateDoneMs = Date.now();
+  poll({
+    label: "npm-publish wait",
+    timeoutMs: 30 * 60 * 1000,
+    intervalMs: 20000,
+    probe: () => {
+      const list = gh(["run", "list", "--workflow", "npm-publish", "--limit", "5", "--json", "databaseId,status,conclusion,createdAt"]);
+      if (list.code !== 0) return { error: true };
+      let runs;
+      try {
+        runs = JSON.parse(list.out);
+      } catch {
+        return { error: true };
       }
+      const fresh = runs
+        .filter((r) => Date.parse(r.createdAt) >= gateDoneMs - 120000)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+      if (fresh && fresh.status === "completed") {
+        if (fresh.conclusion === "success") return { done: true };
+        die(`npm-publish FAILED (conclusion: ${fresh.conclusion}) — inspect: gh run view ${fresh.databaseId} --log-failed`);
+      }
+      return {};
     }
-    sleep(20000);
-  }
+  });
+  say("npm-publish: SUCCESS");
 
   say("confirming npm...");
-  for (let i = 0; i < 12; i++) {
-    const view = spawnSync("npm", ["view", "cool-workflow", "version"], { encoding: "utf8" });
-    if (view.status === 0 && view.stdout.trim() === version) {
-      say(`npm view cool-workflow version -> ${version} — confirmed live.`);
-      const releaseUrl = gh(["release", "view", `v${version}`, "--json", "url", "--jq", ".url"]);
-      say(`\nRELEASE COMPLETE: v${version}`);
-      if (releaseUrl.code === 0) say(`GitHub Release: ${releaseUrl.out}`);
-      say(`npm:            https://www.npmjs.com/package/cool-workflow/v/${version}`);
-      return;
+  poll({
+    label: "npm registry confirmation",
+    timeoutMs: 10 * 60 * 1000,
+    intervalMs: 15000,
+    probe: () => {
+      const view = spawnSync("npm", ["view", "cool-workflow", "version"], { encoding: "utf8" });
+      if (view.status !== 0) return { error: true };
+      return view.stdout.trim() === version ? { done: true } : {};
     }
-    sleep(10000);
-  }
-  die(`npm still does not report ${version} after waiting — check the npm-publish run manually.`);
+  });
+  say(`npm view cool-workflow version -> ${version} — confirmed live.`);
+  const releaseUrl = gh(["release", "view", `v${version}`, "--json", "url", "--jq", ".url"]);
+  say(`\nRELEASE COMPLETE: v${version}`);
+  if (releaseUrl.code === 0) say(`GitHub Release: ${releaseUrl.out}`);
+  say(`npm:            https://www.npmjs.com/package/cool-workflow/v/${version}`);
 }
 
-runPreflight();
-runBumpStage();
-runCutStage();
-runRecordAndWaitStage();
+if (alreadyCut()) {
+  say(`tag v${version} already exists — the cut already happened; resuming at stage 3 (CI wait + record + confirm).`);
+  if (DRY_RUN) {
+    say("[dry-run] would resume at stage 3: record PR + wait for release-gate/npm-publish + npm view confirmation.");
+  } else {
+    runRecordAndWaitStage();
+  }
+} else {
+  runPreflight();
+  runBumpStage();
+  runCutStage();
+  runRecordAndWaitStage();
+}

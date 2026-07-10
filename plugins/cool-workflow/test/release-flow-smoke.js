@@ -764,6 +764,45 @@ function releaseFixture() {
     assert.doesNotMatch(r.out, /GATE_RAN/, "--preflight-only must never reach the gate");
   }
 
+  // ---- Case: --preflight-only WITHOUT --cut is refused (no silent ok:true) ----
+  {
+    const dir = fixture();
+    const r = run("node", [FLOW, "--preflight-only"], dir, preflightEnv(dir));
+    assert.notEqual(r.code, 0, "--preflight-only without --cut must be refused, not answer ok:true with zero checks run");
+    assert.match(r.err, /--preflight-only requires --cut/, "should name the missing mode");
+  }
+
+  // ---- Cases: the network-dependent preflight checks (block f), fully offline
+  // via a local bare `origin`: remote-tag-exists, stale HEAD, and the
+  // --allow-stale-head escape. These lines had zero test execution before. ----
+  {
+    const dir = fixture();
+    // a bare origin whose `main` is the fixture's current commit
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), `cw-flow-origin-${caseId++}-`));
+    run("git", ["init", "-q", "--bare", "-b", "main", bare], dir);
+    run("git", ["remote", "add", "origin", bare], dir);
+    run("git", ["push", "-q", "origin", "HEAD:main"], dir);
+
+    // (f1) remote tag exists -> die before the gate
+    run("git", ["push", "-q", "origin", "HEAD:refs/tags/v9.9.9"], dir);
+    const r1 = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--preflight-only"], dir, preflightEnv(dir));
+    assert.notEqual(r1.code, 0, "a tag already on origin must fail the preflight");
+    assert.match(r1.err, /already exists on origin/, "should say the version is already published");
+    run("git", ["push", "-q", "origin", ":refs/tags/v9.9.9"], dir);
+
+    // (f2) HEAD behind origin/main -> die; --allow-stale-head -> pass
+    fs.writeFileSync(path.join(dir, "extra.txt"), "x\n");
+    run("git", ["add", "-A"], dir);
+    run("git", ["commit", "-q", "-m", "ahead"], dir);
+    run("git", ["push", "-q", "origin", "HEAD:main"], dir);
+    run("git", ["reset", "-q", "--hard", "HEAD~1"], dir); // HEAD now behind origin/main
+    const r2 = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--preflight-only"], dir, preflightEnv(dir));
+    assert.notEqual(r2.code, 0, "a HEAD behind the origin/main tip must fail the preflight");
+    assert.match(r2.err, /not the origin\/main tip/, "should say HEAD is stale");
+    const r3 = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--preflight-only", "--allow-stale-head"], dir, preflightEnv(dir));
+    assert.equal(r3.code, 0, `--allow-stale-head must skip only the tip check:\n${r3.err}\n${r3.out}`);
+  }
+
   // ---- Case: --dry-run cut pushes the TAG ONLY (no HEAD / branch push) ----
   // The old refspec (`git push --atomic origin HEAD v<x>`) either hit main's
   // branch protection or minted a stray remote branch named after the local

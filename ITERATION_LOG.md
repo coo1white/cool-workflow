@@ -33,6 +33,32 @@
 > key itself. (5) block-unapproved-tag.sh gains the same HEAD-or-HEAD~1
 > verdict tolerance release-gate.yml has, so a manual retag of a
 > cut-produced commit is no longer always blocked.
+>
+> A 16-agent adversarial-review Workflow (3 lenses: fail-closed,
+> correctness, coverage; every finding independently verified) confirmed
+> 12 findings against the first commit, all applied: a P1 — after a cut,
+> a re-run died in the preflight's own already-tagged check with wrong
+> advice ("pick the next version") instead of resuming the stage-3 CI
+> wait — fixed with an alreadyCut() probe that routes straight to stage
+> 3 (offline local-tag decision in --dry-run); the npm-publish wait
+> could adopt the PREVIOUS release's completed run (no workflow filter,
+> no created-after-gate bound) — now filtered by --workflow and a
+> created-at >= gate-completion timestamp; all three wait loops were
+> unbounded `for(;;)` that silently swallowed gh failures — replaced by
+> a shared poll() with hard deadlines and a die after 10 consecutive
+> probe failures; the bump stage used `git add -A` (the exact untracked
+> -stray incident class cut() documents from v0.1.96) — now `git add
+> -u`; `--preflight-only` without `--cut` answered ok:true with zero
+> checks run — now refused; a stage-1 re-run died non-fast-forward —
+> pushes now use --force-with-lease and fetch exit codes are checked;
+> the record stage re-wrote verdict/.sig from TRIMMED `git show` output,
+> which could break signature verification of the recorded pair — now
+> byte-exact buffer copies. Coverage gaps closed: the network preflight
+> checks (remote tag, stale HEAD, --allow-stale-head) now run against a
+> local bare origin fixture; the same-version `--content` FILL path (the
+> exact v0.2.3 incident) is pinned; the oneclick resume path has an
+> offline dry-run case; the hook's parent-sha tolerance has a fail-closed
+> case (parent verdict with NO parent gate marker must still block).
 
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|

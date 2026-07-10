@@ -64,6 +64,25 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
   });
   assert.notEqual(gate.status, 0, "same-version re-run must still FAIL the content gate when a surface is missing (pre-fix: silent exit 0)");
   assert.match(`${gate.stdout}${gate.stderr}`, /RELEASE\.md/, "the failure must name the missing surface");
+
+  // And --content on the same-version re-run must actually FILL the missing
+  // surface — the exact v0.2.3 incident: `bump:version -- 0.2.3 --content`
+  // early-exited without appending anything, leaving the content gap in
+  // place. --content re-runs `npm run version:sync` afterwards, so give the
+  // fixture a stub script for it.
+  const pkg = JSON.parse(fs.readFileSync(path.join(fixPlugin, "package.json"), "utf8"));
+  pkg.scripts["version:sync"] = "exit 0";
+  fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
+  const fill = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.js"), "9.9.9", "--content"], {
+    cwd: fixPlugin,
+    encoding: "utf8"
+  });
+  assert.equal(fill.status, 0, `same-version --content must fill and exit 0:\n${fill.stdout}${fill.stderr}`);
+  assert.match(
+    fs.readFileSync(path.join(root, "RELEASE.md"), "utf8"),
+    /9\.9\.9/,
+    "--content on a same-version re-run must append the version to the missing surface (pre-fix: it never did)"
+  );
 }
 
 process.stdout.write("bump-version-idempotent-smoke: ok (re-bump is a structured no-op exit 0; surfaces untouched; bad version fails closed; same-version re-run still gates content)\n");

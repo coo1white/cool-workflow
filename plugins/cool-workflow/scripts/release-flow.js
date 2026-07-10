@@ -720,7 +720,10 @@ function main() {
 
   // Fail-fast checks FIRST — nothing below (gate, live vendor calls, the
   // reviewer) runs until every cheap precondition holds. --preflight-only
-  // lets an orchestrator (release-oneclick.js) run just this step.
+  // lets an orchestrator (release-oneclick.js) run just this step. Without
+  // --cut there is no preflight to run, so answering ok:true would be a
+  // green light with zero checks done — refuse instead.
+  if (has("--preflight-only") && !MODE_CUT) die("--preflight-only requires --cut (there is no preflight to run in check/release mode)");
   if (MODE_CUT) preflightCut();
   if (has("--preflight-only")) {
     process.stdout.write(`${JSON.stringify({ ok: true, mode: "preflight", version: cutVersion || null }, null, 2)}\n`);

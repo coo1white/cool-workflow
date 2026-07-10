@@ -82,4 +82,29 @@ function treeState() {
   assert.equal(branchAfter, branchBefore, "a failed preflight must not switch branches");
 }
 
-process.stdout.write("release-oneclick-smoke: ok (usage + stage-0 fail-fast leave the tree untouched; red lines hold)\n");
+// ---- Case: an already-cut version resumes at stage 3 (dry-run, offline) -----
+// After a successful cut the vX.Y.Z tag exists, and release-flow's preflight
+// would refuse a fresh cut of it ("already exists"). A re-run of oneclick for
+// that version must NOT be refused — it must skip stages 0-2 and go straight
+// to the stage-3 wait/record work (that is what makes a re-run after a
+// stage-3 death a resume). In --dry-run the decision uses the LOCAL tag only,
+// so this case is fully offline. Uses whatever release tag this checkout has;
+// skipped (loudly) when none is visible (e.g. a shallow CI clone).
+{
+  const tags = spawnSync("git", ["tag", "-l", "v[0-9]*"], { cwd: repoRoot, encoding: "utf8" })
+    .stdout.trim().split("\n").filter((t) => /^v\d+\.\d+\.\d+$/.test(t));
+  if (tags.length === 0) {
+    process.stdout.write("release-oneclick-smoke: NOTE no local release tag visible — resume case skipped\n");
+  } else {
+    const cutVersion = tags[tags.length - 1].slice(1);
+    const before = treeState();
+    const r = run([cutVersion, "--dry-run"], { CW_ONECLICK_GH_CMD: "false" });
+    assert.equal(r.code, 0, `an already-cut version must resume, not be refused:\n${r.err}\n${r.out}`);
+    assert.match(r.out, /already exists — the cut already happened; resuming at stage 3/, "must announce the resume");
+    assert.match(r.out, /would resume at stage 3/, "dry-run must stop at the resume plan");
+    assert.doesNotMatch(r.out, /\[0\/4\] preflight/, "resume must not run the fresh-cut preflight (it would refuse the existing tag)");
+    assert.equal(treeState(), before, "a dry-run resume must leave the tree untouched");
+  }
+}
+
+process.stdout.write("release-oneclick-smoke: ok (usage + stage-0 fail-fast leave the tree untouched; resume path; red lines hold)\n");

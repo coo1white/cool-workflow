@@ -233,4 +233,20 @@ function signVerdict(verdictPath, pem) {
   git(["reset", "-q", "--hard", sha]);
 }
 
+// ---- HEAD~1 tolerance is NOT a hole: parent verdict WITHOUT the parent's
+// gate marker -> BLOCK. The tolerance keys BOTH markers on the sha whose
+// verdict was found; a verdict alone (no gate-<parent>.ok) must still block. --
+{
+  clearMarkers();
+  fs.mkdirSync(markerDir, { recursive: true });
+  // verdict at the parent sha, but NO gate-<sha>.ok anywhere
+  fs.writeFileSync(path.join(markerDir, `review-${sha}.verdict`), `APPROVED ${sha}\nUsers can now do X.\n`);
+  git(["add", "-A"]);
+  git(["commit", "-q", "-m", "verdict only, no gate marker"]);
+  const r = runHook({ command: "git tag -a v9.9.9 -m x" });
+  assert.equal(r.code, 2, "a parent verdict with NO parent gate marker must still BLOCK (the tolerance must not fail open)");
+  assert.match(r.err, /no release-gate pass/, "should name the missing gate");
+  git(["reset", "-q", "--hard", sha]);
+}
+
 process.stdout.write("block-unapproved-tag-smoke: ok\n");
