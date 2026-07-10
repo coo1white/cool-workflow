@@ -44,6 +44,49 @@
 |-------|------|-------|-------|------|--------|
 | 17 | Close the remaining lock-steal race that survived #416's fix and kept flaking in CI on Node 18: replace `withFileLock`'s `open(lock, "wx")` acquire (found to be non-single-winner under load on Node 18) with `fs.linkSync` (write a per-attempt temp file, hard-link it onto the lock path), the classic atomic Unix lockfile primitive. | `plugins/cool-workflow/src/shell/fs-atomic.ts` + matching `dist/**`, `plugins/cool-workflow/test/fs-atomic-lock-steal-race-smoke.js` (header comment only). | Existing `fs-atomic-lock-steal-race-smoke.js` (12 trials x 8 processes) still passes, run 8 more times under artificial CPU load (96 extra trials, 0 overlaps). Isolated `linkSync`-only stress rig: 15/15 clean at 24-process contention, where the same rig reproduced the pre-fix `open(wx)` double-winner within single-digit trials. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 106/106 against `dist/cli.js`; `test:unit` 160/160; full smoke gate 200/200; `release:check --skip-tests` all green. | no (PR batch, no release) |
 
+## Batch — fix queue-id collision breaking through maxConcurrent (Unreleased)
+
+> Concurrency bug-hunt finding (P2, reproduced on first try): `queueId()`
+> (`run-registry-io.ts`) built its `q-${stamp14}-${NNN}` id from a
+> second-granularity timestamp plus a MODULE-LEVEL counter that starts at
+> 0 in every fresh `cw` process. Two SEPARATE processes calling `queue add`
+> within the same wall-clock second each compute `queueCounter === 1` and
+> mint the IDENTICAL id. `sched lease` (maxConcurrent=1) then plans exactly
+> one grant but keys it by id, so BOTH queue entries get marked `leased`
+> sharing one `leaseId`, breaking through the concurrency cap; one
+> `complete` call later drains both entries at once. Confirmed with a
+> direct repro: two child processes racing `queue add` in the same second
+> produced two entries sharing one id; a single `sched lease` (cap=1)
+> reported `granted=1` but left BOTH entries `leased`, and one `complete`
+> drained both.
+>
+> Fix keeps the exact SPEC byte format (`q-${stamp14}-${NNN}`,
+> SPEC/scheduling-registry.md "Id formats") but derives uniqueness from
+> real shared state instead of a process-local counter alone: `queueId()`
+> now accepts the queue file's current ids (loaded inside `queueAdd`'s
+> existing `withFileLock` hold, so it always reflects the entries any
+> earlier-completed `queue add` — same process or not — already saved) and
+> bumps its counter past any collision before accepting a candidate. Since
+> `queueAdd`'s whole `load -> generate id -> push -> save` cycle already
+> runs under one file lock, this closes the race completely: whichever
+> process's `queueAdd` call completes second, even a brand-new process
+> with its own counter reset to 0, will see the first one's just-saved
+> entry and correctly avoid colliding with it.
+>
+> Extended `scheduling-routine-lock-concurrency-smoke.js` (already covers
+> two related queue/routine races) with a third arm: 8 real child
+> processes barrier-released together, each calling `queue add` with no
+> explicit id, asserting all 8 resulting ids are distinct AND that a
+> subsequent `sched lease` (limit=8, maxConcurrent=8) grants exactly 8
+> distinct leases. Verified it FAILS against the pre-fix code (8 processes
+> collapsed to 1 unique id) and PASSES against the fix (run repeatedly).
+> `run-registry-control-plane-smoke.js` (the other existing queue-touching
+> smoke test) still passes unchanged.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 16 | Fix the cross-process queue-id collision that broke through `maxConcurrent`: `queueId()` now bumps past any id already present in the queue file (checked inside `queueAdd`'s existing file lock) instead of relying solely on a process-local counter that resets every invocation. | `plugins/cool-workflow/src/shell/run-registry-io.ts` + matching `dist/**`, `plugins/cool-workflow/test/scheduling-routine-lock-concurrency-smoke.js`. | New arm in `scheduling-routine-lock-concurrency-smoke.js`: 8 real child processes barrier-released together, each `queue add` with no explicit id; asserts 8 distinct ids and that a subsequent `sched lease` (limit=8) grants exactly 8 distinct leases. Verified FAILS against the pre-fix code (8 processes collapsed to 1 unique id, confirmed via direct repro) and PASSES against the fix (run repeatedly). `run-registry-control-plane-smoke.js` still passes unchanged. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 106/106 against `dist/cli.js`; `test:unit` 160/160; full smoke gate 200/200; `release:check --skip-tests` all green. | no (PR batch, no release) |
+
 ## Batch — close the lock-steal TOCTOU race in withFileLock (Unreleased)
 
 > Concurrency bug-hunt finding (P1, reproduced 5/5): on `EEXIST`, if the
