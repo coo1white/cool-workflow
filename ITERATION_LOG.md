@@ -1,5 +1,43 @@
 # CW Iteration Log
 
+## Batch — fix the state.json lost-update across the run-mutating CLI verbs (Unreleased)
+
+> Concurrency bug-hunt finding (P1, reproduced): almost every
+> run-mutating CLI verb did a bare `load -> change -> saveCheckpoint`.
+> `saveCheckpoint`'s lock covers ONLY the write, so two processes
+> mutating the SAME run at once both load the same state and the later
+> save silently drops the earlier change. Reproduced deterministically:
+> 6 concurrent `blackboard topic create` on one run kept 1 topic, lost 5,
+> every child reporting success. PR #359 had fixed exactly this class but
+> only wired `withRunStateLock` into two verbs (`dispatch`/`result`);
+> every other mutator was left on the racy path.
+>
+> The fix routes each `load -> change -> persist` verb through
+> `withRunStateLock` (run-store), which holds the state.json lock across
+> the WHOLE cycle; the nested `saveCheckpoint`/`writeReport`/worker-save
+> paths re-enter the same re-entrant `withFileLock` unchanged. In
+> `multi-agent-cli.ts` this is a one-line `mutateRun` helper wrapping
+> `withRunStateLock` that every `persist()`-calling verb now runs through;
+> read-only verbs keep the lock-free `loadRun` (a durable atomic write
+> never exposes a torn read, so reads need no lock).
+>
+> Scope was found by tracing every entry point that reaches a
+> `saveCheckpoint`, NOT by trusting the hunt's file list — that surfaced
+> three mutators the report missed (`worker-cli.ts`'s
+> `manifest`/`output`/`fail`/`validate` verbs and `pipeline-cli.ts`'s
+> `commitRun`). Deliberately NOT wrapped, with reasons: `drive.ts`'s loop
+> internals (the single writer during an active `cw run --drive`, with its
+> own `roundCache`/`deferPersist` checkpoint cadence — a manual mutation
+> racing an active drive is a separate, larger design question);
+> `run-export.ts`'s archive restore (a create-from-archive, not a
+> load-from-state read-modify-write, and its write is already atomically
+> locked); and `worker-isolation.ts`'s leaf mutators (they take an
+> already-loaded `run` and their entry-point callers now hold the lock).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 14 | Close the state.json lost-update: route every run-mutating CLI verb's whole `load -> change -> persist` cycle through `withRunStateLock` (was only wired into `dispatch`/`result`), so concurrent mutations of one run stop silently dropping each other. | `plugins/cool-workflow/src/shell/{multi-agent-cli,audit-cli,orchestrator,worker-cli,state-explosion-cli,pipeline-cli}.ts` + matching `dist/**`, new `plugins/cool-workflow/test/multi-agent-state-lock-concurrency-smoke.js`, `plugins/cool-workflow/docs/project-index.md`. | New `multi-agent-state-lock-concurrency-smoke.js` spawns 6 real processes each doing `blackboard topic create` on one run, releases them together, and asserts all 6 topics survive with distinct ids — verified it FAILS when the lock is bypassed and PASSES with the fix. Reproduced the original loss (1/6 kept) and confirmed the fix (6/6 kept, 5/5 trials) against a built `dist`. Existing `run-state-lock-concurrency-smoke.js` (the `dispatch`/`result` sibling) still passes. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 106/106 against `dist/cli.js`; `test:unit` 160/160; full smoke gate 199/199 after regenerating `project-index.md`; `release:check --skip-tests` all green. | no (PR batch, no release) |
+
 ## Batch — add `cw completion <bash|zsh|fish>` (Unreleased)
 
 > UI/UX audit finding: the CLI had no shell-completion support at all —

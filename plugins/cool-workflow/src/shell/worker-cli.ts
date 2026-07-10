@@ -4,7 +4,7 @@
 // worker-isolation shell. Impure: loads run state, mutates, persists.
 
 import * as path from "node:path";
-import { loadRunFromCwd, saveCheckpoint } from "./run-store";
+import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
 import {
   getWorkerScope,
   listWorkerScopes,
@@ -48,12 +48,13 @@ export function workerShowCli(args: Record<string, unknown>): unknown {
 }
 
 export function workerManifestCli(args: Record<string, unknown>): unknown {
-  const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
-  const scope = getWorkerScope(run, req(args.workerId, "worker id"));
-  if (!scope) throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
-  const manifest = writeWorkerManifest(run, scope);
-  saveCheckpoint(run);
-  return manifest;
+  return withRunStateLock(req(args.runId, "run id"), cwdFor(args), (run) => {
+    const scope = getWorkerScope(run, req(args.workerId, "worker id"));
+    if (!scope) throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
+    const manifest = writeWorkerManifest(run, scope);
+    saveCheckpoint(run);
+    return manifest;
+  });
 }
 
 /** `cw worker output <run> <worker> <result>` — records the worker's result
@@ -67,39 +68,42 @@ export function workerManifestCli(args: Record<string, unknown>): unknown {
  *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
  *  same steps itself around the bare accept, so it never routes through here. */
 export function workerOutputCli(args: Record<string, unknown>): unknown {
-  const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
-  recordWorkerOutput(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
-    requireAttestedTelemetry: resolveAgentConfig(args).requireAttestedTelemetry,
-    allowUnattested: allowUnattestedOption(args),
+  return withRunStateLock(req(args.runId, "run id"), cwdFor(args), (run) => {
+    recordWorkerOutput(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
+      requireAttestedTelemetry: resolveAgentConfig(args).requireAttestedTelemetry,
+      allowUnattested: allowUnattestedOption(args),
+    });
+    run.loopStage = "observe";
+    updatePhaseStatuses(run);
+    maybeExpandLoop(run);
+    commitState(run, `worker:${req(args.workerId, "worker id")}:result`);
+    writeReport(run);
+    saveCheckpoint(run);
+    return summarizeRun(run);
   });
-  run.loopStage = "observe";
-  updatePhaseStatuses(run);
-  maybeExpandLoop(run);
-  commitState(run, `worker:${req(args.workerId, "worker id")}:result`);
-  writeReport(run);
-  saveCheckpoint(run);
-  return summarizeRun(run);
 }
 
 export function workerFailCli(args: Record<string, unknown>): unknown {
-  const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
-  const message = String(args.message || req(args.resultPath, "failure message"));
-  const scope = recordWorkerFailure(run, req(args.workerId, "worker id"), message, {
-    code: typeof args.code === "string" ? args.code : undefined,
-    path: typeof args.path === "string" ? args.path : undefined,
-    retryable: args.retryable !== undefined ? Boolean(args.retryable) : undefined,
+  return withRunStateLock(req(args.runId, "run id"), cwdFor(args), (run) => {
+    const message = String(args.message || req(args.resultPath, "failure message"));
+    const scope = recordWorkerFailure(run, req(args.workerId, "worker id"), message, {
+      code: typeof args.code === "string" ? args.code : undefined,
+      path: typeof args.path === "string" ? args.path : undefined,
+      retryable: args.retryable !== undefined ? Boolean(args.retryable) : undefined,
+    });
+    saveCheckpoint(run);
+    return scope;
   });
-  saveCheckpoint(run);
-  return scope;
 }
 
 /** validate returns the boundary violation (null when the write path is
  *  allowed) and signals a violation through a non-zero exit code, not just
  *  stdout — a validate verb must report an invalid verdict via its exit code. */
 export function workerValidateCli(args: Record<string, unknown>): { violation: unknown; exitCode?: number } {
-  const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
-  const target = args.path || args.resultPath;
-  const violation = validateWorkerBoundary(run, req(args.workerId, "worker id"), target ? { path: String(target) } : {});
-  saveCheckpoint(run);
-  return { violation, exitCode: violation ? 1 : undefined };
+  return withRunStateLock(req(args.runId, "run id"), cwdFor(args), (run) => {
+    const target = args.path || args.resultPath;
+    const violation = validateWorkerBoundary(run, req(args.workerId, "worker id"), target ? { path: String(target) } : {});
+    saveCheckpoint(run);
+    return { violation, exitCode: violation ? 1 : undefined };
+  });
 }

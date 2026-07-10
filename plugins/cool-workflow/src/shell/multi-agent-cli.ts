@@ -12,7 +12,7 @@
 import * as path from "node:path";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { WorkflowRun } from "../core/state/types";
-import { loadRunFromCwd, saveCheckpoint } from "./run-store";
+import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
 import { writeReport } from "./report";
 import * as mai from "./multi-agent-io";
 import * as topio from "./topology-io";
@@ -48,6 +48,19 @@ function invocationCwd(args: Record<string, unknown>): string {
 
 function loadRun(args: Record<string, unknown>, runId: string): WorkflowRun {
   return loadRunFromCwd(runId, invocationCwd(args));
+}
+
+/** Hold the run's state.json lock across the WHOLE load -> change ->
+ *  persist cycle. A bare loadRun + persist pair races: two processes both
+ *  load the same state and the later persist silently drops the earlier
+ *  change (reproduced — N concurrent `blackboard topic create` on one run
+ *  kept only 1). withRunStateLock loads the run UNDER the lock, and the
+ *  saveCheckpoint inside persist re-enters that same lock (withFileLock is
+ *  in-process re-entrant), exactly as pipeline-cli.ts's dispatchRun /
+ *  recordResultRun already do. Every persist()-calling verb in this file
+ *  runs through here; read-only verbs keep the lock-free loadRun. */
+function mutateRun<T>(args: Record<string, unknown>, runId: string, fn: (run: WorkflowRun) => T): T {
+  return withRunStateLock(runId, invocationCwd(args), fn);
 }
 
 function persist(run: WorkflowRun): void {
@@ -198,27 +211,28 @@ export function topologyValidateCli(topologyId: string): { valid: boolean; topol
 export function topologyApplyCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
   const topologyId = requireArg(args.topologyId ?? args.id, "topology id");
-  const run = loadRun(args, runId);
-  const record = topio.applyTopology(run, topologyId, {
-    // #30: `topology apply <run> <topology> --id <custom>` — the custom
-    // topology-run id arrives as `--id` (parseArgv key `id`), NOT `id2`
-    // (which no CLI/MCP surface ever emits). On CLI the topology id comes
-    // from positional[1] (capability-table), so `args.id` is free for the
-    // run-id override; on MCP the handler pre-maps topologyId from
-    // `topologyId ?? id`. Byte-exact to the old build's
-    // `id: stringOption(options.id)` (orchestrator/topology-operations.ts).
-    id: optionalString(args.id),
-    task: undefined,
-    taskIds: arrayArg(args.task ?? args.taskId),
-    mapperCount: numberArg(args.mapperCount ?? args["mapper-count"] ?? args.mappers ?? args.mapper),
-    judgeCount: numberArg(args.judgeCount ?? args["judge-count"] ?? args.judges ?? args.judge),
-    debateRounds: numberArg(args.debateRounds ?? args["debate-rounds"] ?? args.rounds),
-    blackboardId: blackboardIdArg(args),
-    multiAgentRunId: multiAgentRunArg(args),
-    collectInitialFanin: boolArg(args.collectInitialFanin ?? args["collect-initial-fanin"]),
-  } as never);
-  persist(run);
-  return record;
+  return mutateRun(args, runId, (run) => {
+    const record = topio.applyTopology(run, topologyId, {
+      // #30: `topology apply <run> <topology> --id <custom>` — the custom
+      // topology-run id arrives as `--id` (parseArgv key `id`), NOT `id2`
+      // (which no CLI/MCP surface ever emits). On CLI the topology id comes
+      // from positional[1] (capability-table), so `args.id` is free for the
+      // run-id override; on MCP the handler pre-maps topologyId from
+      // `topologyId ?? id`. Byte-exact to the old build's
+      // `id: stringOption(options.id)` (orchestrator/topology-operations.ts).
+      id: optionalString(args.id),
+      task: undefined,
+      taskIds: arrayArg(args.task ?? args.taskId),
+      mapperCount: numberArg(args.mapperCount ?? args["mapper-count"] ?? args.mappers ?? args.mapper),
+      judgeCount: numberArg(args.judgeCount ?? args["judge-count"] ?? args.judges ?? args.judge),
+      debateRounds: numberArg(args.debateRounds ?? args["debate-rounds"] ?? args.rounds),
+      blackboardId: blackboardIdArg(args),
+      multiAgentRunId: multiAgentRunArg(args),
+      collectInitialFanin: boolArg(args.collectInitialFanin ?? args["collect-initial-fanin"]),
+    } as never);
+    persist(run);
+    return record;
+  });
 }
 
 export function topologySummaryCli(args: Record<string, unknown>): unknown {
@@ -247,57 +261,58 @@ export function topologyRunShowCli(args: Record<string, unknown>, topologyRunId:
 
 export function multiAgentRunCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const topology = optionalString(args.topology);
-  // `multi-agent run <run> <id> --status <status>` — port of the old CLI
-  // handler's `id && args.options.status` arm (cli/handlers/multi-agent.ts):
-  // transition the MultiAgentRun lifecycle (the core cascades completion to
-  // owned roles/groups/fanouts/fanins, or fails closed when a fanin is not
-  // verifier-ready). `multiAgentRunId` is the positional entity id the CLI
-  // binding forwards (or the `--id`/`--multi-agent-run` alias the MCP peer
-  // sends).
-  const transitionId = optionalString(args.multiAgentRunId ?? args.id ?? args.multiAgentRun);
-  const status = optionalString(args.status);
-  const app = optionalString(args.app ?? args.appId);
-  const workflow = optionalString(args.workflow ?? args.workflowId);
-  const isHostRun = !runId || topology !== undefined || app !== undefined || workflow !== undefined;
-  if (!isHostRun && transitionId && status && args.title === undefined && args.objective === undefined) {
-    const record = mai.transitionMultiAgentRun(run, transitionId, status as never, {
-      reason: optionalString(args.reason),
-      actor: optionalString(args.actor),
-    });
+  return mutateRun(args, runId, (run) => {
+    const topology = optionalString(args.topology);
+    // `multi-agent run <run> <id> --status <status>` — port of the old CLI
+    // handler's `id && args.options.status` arm (cli/handlers/multi-agent.ts):
+    // transition the MultiAgentRun lifecycle (the core cascades completion to
+    // owned roles/groups/fanouts/fanins, or fails closed when a fanin is not
+    // verifier-ready). `multiAgentRunId` is the positional entity id the CLI
+    // binding forwards (or the `--id`/`--multi-agent-run` alias the MCP peer
+    // sends).
+    const transitionId = optionalString(args.multiAgentRunId ?? args.id ?? args.multiAgentRun);
+    const status = optionalString(args.status);
+    const app = optionalString(args.app ?? args.appId);
+    const workflow = optionalString(args.workflow ?? args.workflowId);
+    const isHostRun = !runId || topology !== undefined || app !== undefined || workflow !== undefined;
+    if (!isHostRun && transitionId && status && args.title === undefined && args.objective === undefined) {
+      const record = mai.transitionMultiAgentRun(run, transitionId, status as never, {
+        reason: optionalString(args.reason),
+        actor: optionalString(args.actor),
+      });
+      persist(run);
+      return record;
+    }
+    if (!isHostRun && transitionId && !status && args.title === undefined && args.objective === undefined && args.id === undefined) {
+      // `multi-agent run <run> <id>` (positional id, no status/create flags) —
+      // SHOW the MultiAgentRun record (old handler's showMultiAgentRun arm).
+      const record = getMultiAgentRun(run, transitionId);
+      if (!record) throw new Error(`Unknown MultiAgentRun id: ${transitionId}`);
+      return record;
+    }
+    let result: unknown;
+    if (topology === undefined && (args.id !== undefined || args.title !== undefined)) {
+      // #28: forward `--blackboard`/`--topic` (plus the old build's
+      // objective/parent/phase reads) into the kernel input so a plain
+      // `multi-agent run <run> --id ma --blackboard bb --topic t` carries the
+      // blackboard linkage. Byte-exact to the old build's createMultiAgentRun
+      // option map (orchestrator/multi-agent-operations.ts).
+      result = mai.createMultiAgentRun(run, {
+        id: optionalString(args.id),
+        title: optionalString(args.title),
+        objective: optionalString(args.objective ?? args.reason),
+        parentMultiAgentRunId: optionalString(args.parent ?? args.parentMultiAgentRunId),
+        phase: optionalString(args.phase),
+        phaseId: optionalString(args.phaseId),
+        blackboardId: blackboardIdArg(args),
+        topicIds: topicIdsArg(args),
+      });
+    } else {
+      result = host.hostRun(run, args);
+    }
     persist(run);
-    return record;
-  }
-  if (!isHostRun && transitionId && !status && args.title === undefined && args.objective === undefined && args.id === undefined) {
-    // `multi-agent run <run> <id>` (positional id, no status/create flags) —
-    // SHOW the MultiAgentRun record (old handler's showMultiAgentRun arm).
-    const record = getMultiAgentRun(run, transitionId);
-    if (!record) throw new Error(`Unknown MultiAgentRun id: ${transitionId}`);
-    return record;
-  }
-  let result: unknown;
-  if (topology === undefined && (args.id !== undefined || args.title !== undefined)) {
-    // #28: forward `--blackboard`/`--topic` (plus the old build's
-    // objective/parent/phase reads) into the kernel input so a plain
-    // `multi-agent run <run> --id ma --blackboard bb --topic t` carries the
-    // blackboard linkage. Byte-exact to the old build's createMultiAgentRun
-    // option map (orchestrator/multi-agent-operations.ts).
-    result = mai.createMultiAgentRun(run, {
-      id: optionalString(args.id),
-      title: optionalString(args.title),
-      objective: optionalString(args.objective ?? args.reason),
-      parentMultiAgentRunId: optionalString(args.parent ?? args.parentMultiAgentRunId),
-      phase: optionalString(args.phase),
-      phaseId: optionalString(args.phaseId),
-      blackboardId: blackboardIdArg(args),
-      topicIds: topicIdsArg(args),
-    });
-  } else {
-    result = host.hostRun(run, args);
-  }
-  persist(run);
-  return result;
+    return result;
+  });
 }
 
 export function multiAgentStatusCli(args: Record<string, unknown>): unknown {
@@ -359,14 +374,15 @@ export function multiAgentEvidenceCli(args: Record<string, unknown>): unknown {
  *  the old runner.multiAgentReasoning / multiAgentReasoningRefresh. */
 export function multiAgentReasoningCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
   const evidenceId = optionalString(args.evidence ?? args.evidenceId ?? args.id);
   if (args.refresh && !evidenceId) {
-    const index = reasoning.refreshEvidenceReasoning(run);
-    persist(run);
-    return index;
+    return mutateRun(args, runId, (run) => {
+      const index = reasoning.refreshEvidenceReasoning(run);
+      persist(run);
+      return index;
+    });
   }
-  return reasoning.showEvidenceReasoning(run, { evidenceId });
+  return reasoning.showEvidenceReasoning(loadRun(args, runId), { evidenceId });
 }
 export function multiAgentReasoningText(args: Record<string, unknown>): string {
   const runId = requireArg(args.runId, "run id");
@@ -376,10 +392,11 @@ export function multiAgentReasoningText(args: Record<string, unknown>): string {
 }
 export function multiAgentReasoningRefreshCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const index = reasoning.refreshEvidenceReasoning(run);
-  persist(run);
-  return index;
+  return mutateRun(args, runId, (run) => {
+    const index = reasoning.refreshEvidenceReasoning(run);
+    persist(run);
+    return index;
+  });
 }
 export function multiAgentEvidenceText(args: Record<string, unknown>): string {
   const runId = requireArg(args.runId, "run id");
@@ -393,191 +410,200 @@ export function multiAgentEvidenceText(args: Record<string, unknown>): string {
 
 export function multiAgentStepCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const result = host.hostStep(run, args);
-  persist(run);
-  return result;
+  return mutateRun(args, runId, (run) => {
+    const result = host.hostStep(run, args);
+    persist(run);
+    return result;
+  });
 }
 
 export function multiAgentBlackboardCli(args: Record<string, unknown>, action: string | undefined): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const result = host.hostBlackboard(run, action, args);
-  persist(run);
-  return result;
+  return mutateRun(args, runId, (run) => {
+    const result = host.hostBlackboard(run, action, args);
+    persist(run);
+    return result;
+  });
 }
 
 export function multiAgentScoreCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const result = host.hostScore(run, args);
-  persist(run);
-  return result;
+  return mutateRun(args, runId, (run) => {
+    const result = host.hostScore(run, args);
+    persist(run);
+    return result;
+  });
 }
 
 export function multiAgentSelectCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const result = host.hostSelect(run, args);
-  persist(run);
-  return result;
+  return mutateRun(args, runId, (run) => {
+    const result = host.hostSelect(run, args);
+    persist(run);
+    return result;
+  });
 }
 
 export function multiAgentRoleCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const roleId = optionalString(args.roleId);
-  const multiAgentRunId = multiAgentRunArg(args);
-  if (roleId && !args.id && !multiAgentRunId) {
-    const role = getAgentRole(run, roleId);
-    if (!role) throw new Error(`Unknown AgentRole id: ${roleId}`);
+  return mutateRun(args, runId, (run) => {
+    const roleId = optionalString(args.roleId);
+    const multiAgentRunId = multiAgentRunArg(args);
+    if (roleId && !args.id && !multiAgentRunId) {
+      const role = getAgentRole(run, roleId);
+      if (!role) throw new Error(`Unknown AgentRole id: ${roleId}`);
+      return role;
+    }
+    // #29: parseArgv keeps `--required-evidence` etc. as their literal kebab
+    // keys, so the old camelCase-only reads folded to []. Read BOTH the kebab
+    // CLI key and the camelCase MCP alias, byte-exact to the old build's
+    // createAgentRole option map (orchestrator/multi-agent-operations.ts).
+    const role = mai.createAgentRole(run, {
+      id: optionalString(args.id) ?? roleId,
+      multiAgentRunId: requireArg(multiAgentRunId, "multi-agent run id"),
+      title: optionalString(args.title),
+      responsibilities: arrayArg(args.responsibility ?? args.responsibilities),
+      requiredEvidence: arrayArg(args.requiredEvidence ?? args["required-evidence"]),
+      sandboxProfileHints: arrayArg(args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileHint ?? args["sandbox-profile"]),
+      expectedArtifacts: arrayArg(args.expectedArtifact ?? args.expectedArtifacts ?? args["expected-artifact"]),
+      faninObligations: arrayArg(args.faninObligation ?? args.faninObligations ?? args["fanin-obligation"]),
+      parentRoleId: optionalString(args.parent ?? args.parentRoleId),
+      blackboardId: blackboardIdArg(args),
+      topicIds: topicIdsArg(args),
+    });
+    persist(run);
     return role;
-  }
-  // #29: parseArgv keeps `--required-evidence` etc. as their literal kebab
-  // keys, so the old camelCase-only reads folded to []. Read BOTH the kebab
-  // CLI key and the camelCase MCP alias, byte-exact to the old build's
-  // createAgentRole option map (orchestrator/multi-agent-operations.ts).
-  const role = mai.createAgentRole(run, {
-    id: optionalString(args.id) ?? roleId,
-    multiAgentRunId: requireArg(multiAgentRunId, "multi-agent run id"),
-    title: optionalString(args.title),
-    responsibilities: arrayArg(args.responsibility ?? args.responsibilities),
-    requiredEvidence: arrayArg(args.requiredEvidence ?? args["required-evidence"]),
-    sandboxProfileHints: arrayArg(args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileHint ?? args["sandbox-profile"]),
-    expectedArtifacts: arrayArg(args.expectedArtifact ?? args.expectedArtifacts ?? args["expected-artifact"]),
-    faninObligations: arrayArg(args.faninObligation ?? args.faninObligations ?? args["fanin-obligation"]),
-    parentRoleId: optionalString(args.parent ?? args.parentRoleId),
-    blackboardId: blackboardIdArg(args),
-    topicIds: topicIdsArg(args),
   });
-  persist(run);
-  return role;
 }
 
 export function multiAgentGroupCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const groupId = optionalString(args.groupId);
-  const multiAgentRunId = multiAgentRunArg(args);
-  if (groupId && !args.id && !multiAgentRunId) {
-    const group = getAgentGroup(run, groupId);
-    if (!group) throw new Error(`Unknown AgentGroup id: ${groupId}`);
+  return mutateRun(args, runId, (run) => {
+    const groupId = optionalString(args.groupId);
+    const multiAgentRunId = multiAgentRunArg(args);
+    if (groupId && !args.id && !multiAgentRunId) {
+      const group = getAgentGroup(run, groupId);
+      if (!group) throw new Error(`Unknown AgentGroup id: ${groupId}`);
+      return group;
+    }
+    // #28: forward `--blackboard`/`--topic` (plus phaseId/parent) into the
+    // kernel input. Byte-exact to the old createAgentGroup option map.
+    const group = mai.createAgentGroup(run, {
+      id: optionalString(args.id) ?? groupId,
+      multiAgentRunId: requireArg(multiAgentRunId, "multi-agent run id"),
+      title: optionalString(args.title),
+      phase: optionalString(args.phase),
+      phaseId: optionalString(args.phaseId),
+      taskIds: arrayArg(args.task ?? args.taskId ?? args.tasks),
+      parentGroupId: optionalString(args.parent ?? args.parentGroupId),
+      blackboardId: blackboardIdArg(args),
+      topicIds: topicIdsArg(args),
+    });
+    persist(run);
     return group;
-  }
-  // #28: forward `--blackboard`/`--topic` (plus phaseId/parent) into the
-  // kernel input. Byte-exact to the old createAgentGroup option map.
-  const group = mai.createAgentGroup(run, {
-    id: optionalString(args.id) ?? groupId,
-    multiAgentRunId: requireArg(multiAgentRunId, "multi-agent run id"),
-    title: optionalString(args.title),
-    phase: optionalString(args.phase),
-    phaseId: optionalString(args.phaseId),
-    taskIds: arrayArg(args.task ?? args.taskId ?? args.tasks),
-    parentGroupId: optionalString(args.parent ?? args.parentGroupId),
-    blackboardId: blackboardIdArg(args),
-    topicIds: topicIdsArg(args),
   });
-  persist(run);
-  return group;
 }
 
 export function multiAgentMembershipCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const membershipId = optionalString(args.membershipId);
-  const groupId = groupArg(args);
-  const roleId = optionalString(args.roleId ?? args.role);
-  if (membershipId && !args.id && !groupId && !roleId) {
-    const membership = getAgentMembership(run, membershipId);
-    if (!membership) throw new Error(`Unknown AgentMembership id: ${membershipId}`);
+  return mutateRun(args, runId, (run) => {
+    const membershipId = optionalString(args.membershipId);
+    const groupId = groupArg(args);
+    const roleId = optionalString(args.roleId ?? args.role);
+    if (membershipId && !args.id && !groupId && !roleId) {
+      const membership = getAgentMembership(run, membershipId);
+      if (!membership) throw new Error(`Unknown AgentMembership id: ${membershipId}`);
+      return membership;
+    }
+    // #28: forward `--blackboard`/`--topic` (plus multiAgentRunId/status) into
+    // the kernel input. Byte-exact to the old assignAgentMembership option map.
+    const membership = mai.assignAgentMembership(run, {
+      id: optionalString(args.id) ?? membershipId,
+      multiAgentRunId: multiAgentRunArg(args),
+      groupId: requireArg(groupId, "group id"),
+      roleId: requireArg(roleId, "role id"),
+      taskId: requireArg(args.taskId ?? args.task, "task id"),
+      workerId: optionalString(args.workerId ?? args.worker),
+      dispatchId: optionalString(args.dispatchId ?? args.dispatch),
+      fanoutId: optionalString(args.fanoutId ?? args.fanout ?? args["multi-agent-fanout"]),
+      status: optionalString(args.status) as never,
+      blackboardId: blackboardIdArg(args),
+      topicIds: topicIdsArg(args),
+    });
+    persist(run);
     return membership;
-  }
-  // #28: forward `--blackboard`/`--topic` (plus multiAgentRunId/status) into
-  // the kernel input. Byte-exact to the old assignAgentMembership option map.
-  const membership = mai.assignAgentMembership(run, {
-    id: optionalString(args.id) ?? membershipId,
-    multiAgentRunId: multiAgentRunArg(args),
-    groupId: requireArg(groupId, "group id"),
-    roleId: requireArg(roleId, "role id"),
-    taskId: requireArg(args.taskId ?? args.task, "task id"),
-    workerId: optionalString(args.workerId ?? args.worker),
-    dispatchId: optionalString(args.dispatchId ?? args.dispatch),
-    fanoutId: optionalString(args.fanoutId ?? args.fanout ?? args["multi-agent-fanout"]),
-    status: optionalString(args.status) as never,
-    blackboardId: blackboardIdArg(args),
-    topicIds: topicIdsArg(args),
   });
-  persist(run);
-  return membership;
 }
 
 export function multiAgentFanoutCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const fanoutId = optionalString(args.fanoutId);
-  const groupId = groupArg(args);
-  if (fanoutId && !args.id && !groupId) {
-    const fanout = getAgentFanout(run, fanoutId);
-    if (!fanout) throw new Error(`Unknown AgentFanout id: ${fanoutId}`);
+  return mutateRun(args, runId, (run) => {
+    const fanoutId = optionalString(args.fanoutId);
+    const groupId = groupArg(args);
+    if (fanoutId && !args.id && !groupId) {
+      const fanout = getAgentFanout(run, fanoutId);
+      if (!fanout) throw new Error(`Unknown AgentFanout id: ${fanoutId}`);
+      return fanout;
+    }
+    // #28: forward `--blackboard`/`--topic` so `fanout.blackboardId` inherits
+    // the board (kernel: input.blackboardId || group.blackboardId ||
+    // multiAgentRun.blackboardId). Also port the old build's fuller fanout
+    // reads (multiAgentRunId, workerIds/membershipIds/dispatchIds,
+    // sandboxProfileChoices, expectedReturnShape).
+    const fanout = mai.createAgentFanout(run, {
+      id: optionalString(args.id) ?? fanoutId,
+      multiAgentRunId: multiAgentRunArg(args),
+      groupId: requireArg(groupId, "group id"),
+      reason: requireArg(args.reason, "reason"),
+      roleIds: arrayArg(args.role ?? args.roleId ?? args.roles),
+      taskIds: arrayArg(args.task ?? args.taskId ?? args.tasks),
+      workerIds: arrayArg(args.worker ?? args.workerId ?? args.workers),
+      membershipIds: arrayArg(args.membership ?? args.membershipId ?? args.memberships),
+      dispatchIds: arrayArg(args.dispatch ?? args.dispatchId ?? args.dispatches),
+      // This one flag (aliased --limit/--concurrency/--concurrencyLimit) goes
+      // through requiredNumberFlag, not the file's own lenient numberArg — a
+      // bare flag here used to silently mean "no limit" (fan out unbounded),
+      // the opposite of the "silently means 1" bug the same audit found in
+      // metrics-cli.ts/registry-cli.ts's own --limit handling; both now fail
+      // loud instead of guessing in either direction.
+      concurrencyLimit: requiredNumberFlag(args.limit ?? args.concurrency ?? args.concurrencyLimit, "--limit"),
+      sandboxProfileChoices: parseSandboxChoicesCli(args),
+      expectedReturnShape: optionalString(args.expectedReturnShape ?? args["expected-return-shape"]),
+      blackboardId: blackboardIdArg(args),
+      topicIds: topicIdsArg(args),
+    });
+    persist(run);
     return fanout;
-  }
-  // #28: forward `--blackboard`/`--topic` so `fanout.blackboardId` inherits
-  // the board (kernel: input.blackboardId || group.blackboardId ||
-  // multiAgentRun.blackboardId). Also port the old build's fuller fanout
-  // reads (multiAgentRunId, workerIds/membershipIds/dispatchIds,
-  // sandboxProfileChoices, expectedReturnShape).
-  const fanout = mai.createAgentFanout(run, {
-    id: optionalString(args.id) ?? fanoutId,
-    multiAgentRunId: multiAgentRunArg(args),
-    groupId: requireArg(groupId, "group id"),
-    reason: requireArg(args.reason, "reason"),
-    roleIds: arrayArg(args.role ?? args.roleId ?? args.roles),
-    taskIds: arrayArg(args.task ?? args.taskId ?? args.tasks),
-    workerIds: arrayArg(args.worker ?? args.workerId ?? args.workers),
-    membershipIds: arrayArg(args.membership ?? args.membershipId ?? args.memberships),
-    dispatchIds: arrayArg(args.dispatch ?? args.dispatchId ?? args.dispatches),
-    // This one flag (aliased --limit/--concurrency/--concurrencyLimit) goes
-    // through requiredNumberFlag, not the file's own lenient numberArg — a
-    // bare flag here used to silently mean "no limit" (fan out unbounded),
-    // the opposite of the "silently means 1" bug the same audit found in
-    // metrics-cli.ts/registry-cli.ts's own --limit handling; both now fail
-    // loud instead of guessing in either direction.
-    concurrencyLimit: requiredNumberFlag(args.limit ?? args.concurrency ?? args.concurrencyLimit, "--limit"),
-    sandboxProfileChoices: parseSandboxChoicesCli(args),
-    expectedReturnShape: optionalString(args.expectedReturnShape ?? args["expected-return-shape"]),
-    blackboardId: blackboardIdArg(args),
-    topicIds: topicIdsArg(args),
   });
-  persist(run);
-  return fanout;
 }
 
 export function multiAgentFaninCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const faninId = optionalString(args.faninId);
-  const groupId = groupArg(args);
-  const fanoutId = optionalString(args.fanoutId ?? args.fanout);
-  if (faninId && !args.id && !groupId && !fanoutId) {
-    const fanin = getAgentFanin(run, faninId);
-    if (!fanin) throw new Error(`Unknown AgentFanin id: ${faninId}`);
+  return mutateRun(args, runId, (run) => {
+    const faninId = optionalString(args.faninId);
+    const groupId = groupArg(args);
+    const fanoutId = optionalString(args.fanoutId ?? args.fanout);
+    if (faninId && !args.id && !groupId && !fanoutId) {
+      const fanin = getAgentFanin(run, faninId);
+      if (!fanin) throw new Error(`Unknown AgentFanin id: ${faninId}`);
+      return fanin;
+    }
+    // #29: `--required-role` folds to the kebab key `required-role`; read the
+    // kebab + camelCase aliases. #28: forward `--blackboard`/`--topic` +
+    // multiAgentRunId. Byte-exact to the old collectAgentFanin option map.
+    const fanin = mai.collectAgentFanin(run, {
+      id: optionalString(args.id) ?? faninId,
+      multiAgentRunId: multiAgentRunArg(args),
+      groupId,
+      fanoutId,
+      requiredRoleIds: arrayArg(args.requiredRole ?? args.requiredRoleId ?? args["required-role"]),
+      strategy: optionalString(args.strategy),
+      blackboardId: blackboardIdArg(args),
+      topicIds: topicIdsArg(args),
+    });
+    persist(run);
     return fanin;
-  }
-  // #29: `--required-role` folds to the kebab key `required-role`; read the
-  // kebab + camelCase aliases. #28: forward `--blackboard`/`--topic` +
-  // multiAgentRunId. Byte-exact to the old collectAgentFanin option map.
-  const fanin = mai.collectAgentFanin(run, {
-    id: optionalString(args.id) ?? faninId,
-    multiAgentRunId: multiAgentRunArg(args),
-    groupId,
-    fanoutId,
-    requiredRoleIds: arrayArg(args.requiredRole ?? args.requiredRoleId ?? args["required-role"]),
-    strategy: optionalString(args.strategy),
-    blackboardId: blackboardIdArg(args),
-    topicIds: topicIdsArg(args),
   });
-  persist(run);
-  return fanin;
 }
 
 export function multiAgentShowCli(args: Record<string, unknown>, id: string): unknown {
@@ -668,26 +694,29 @@ export function blackboardGraphCli(args: Record<string, unknown>): unknown {
 
 export function blackboardResolveCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const board = coord.resolveBlackboard(run, { id: optionalString(args.id), title: optionalString(args.title), multiAgentRunId: optionalString(args.multiAgentRunId), groupId: optionalString(args.groupId), roleId: optionalString(args.roleId), membershipId: optionalString(args.membershipId) });
-  persist(run);
-  return board;
+  return mutateRun(args, runId, (run) => {
+    const board = coord.resolveBlackboard(run, { id: optionalString(args.id), title: optionalString(args.title), multiAgentRunId: optionalString(args.multiAgentRunId), groupId: optionalString(args.groupId), roleId: optionalString(args.roleId), membershipId: optionalString(args.membershipId) });
+    persist(run);
+    return board;
+  });
 }
 
 export function blackboardTopicCreateCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const topic = coord.createBlackboardTopic(run, { id: optionalString(args.id), title: requireArg(args.title, "topic title"), description: optionalString(args.description), blackboardId: optionalString(args.blackboardId), author: parseBlackboardAuthorCli(args) as never, scope: parseBlackboardScopeCli(args) as never, tags: arrayArg(args.tag) });
-  persist(run);
-  return topic;
+  return mutateRun(args, runId, (run) => {
+    const topic = coord.createBlackboardTopic(run, { id: optionalString(args.id), title: requireArg(args.title, "topic title"), description: optionalString(args.description), blackboardId: optionalString(args.blackboardId), author: parseBlackboardAuthorCli(args) as never, scope: parseBlackboardScopeCli(args) as never, tags: arrayArg(args.tag) });
+    persist(run);
+    return topic;
+  });
 }
 
 export function blackboardMessagePostCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const message = coord.postBlackboardMessage(run, { id: optionalString(args.id), topicId: requireArg(args.topic ?? args.topicId, "topic id"), blackboardId: optionalString(args.blackboardId), body: requireArg(args.body, "message body"), replyToId: optionalString(args.replyTo), visibility: optionalString(args.visibility) as never, author: parseBlackboardAuthorCli(args) as never, scope: parseBlackboardScopeCli(args) as never, links: parseBlackboardLinksCli(runId, args) as never, tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact) });
-  persist(run);
-  return message;
+  return mutateRun(args, runId, (run) => {
+    const message = coord.postBlackboardMessage(run, { id: optionalString(args.id), topicId: requireArg(args.topic ?? args.topicId, "topic id"), blackboardId: optionalString(args.blackboardId), body: requireArg(args.body, "message body"), replyToId: optionalString(args.replyTo), visibility: optionalString(args.visibility) as never, author: parseBlackboardAuthorCli(args) as never, scope: parseBlackboardScopeCli(args) as never, links: parseBlackboardLinksCli(runId, args) as never, tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact) });
+    persist(run);
+    return message;
+  });
 }
 
 export function blackboardMessageListCli(args: Record<string, unknown>): unknown {
@@ -698,18 +727,20 @@ export function blackboardMessageListCli(args: Record<string, unknown>): unknown
 
 export function blackboardContextPutCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const context = coord.putBlackboardContext(run, { id: optionalString(args.id), topicId: requireArg(args.topic ?? args.topicId, "topic id"), kind: requireArg(args.kind, "context kind") as never, key: optionalString(args.key), value: requireArg(args.value ?? args.body, "context value"), blackboardId: optionalString(args.blackboardId), supersedesContextIds: arrayArg(args.supersedes), author: parseBlackboardAuthorCli(args) as never, scope: parseBlackboardScopeCli(args) as never, links: parseBlackboardLinksCli(runId, args) as never, tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact) });
-  persist(run);
-  return context;
+  return mutateRun(args, runId, (run) => {
+    const context = coord.putBlackboardContext(run, { id: optionalString(args.id), topicId: requireArg(args.topic ?? args.topicId, "topic id"), kind: requireArg(args.kind, "context kind") as never, key: optionalString(args.key), value: requireArg(args.value ?? args.body, "context value"), blackboardId: optionalString(args.blackboardId), supersedesContextIds: arrayArg(args.supersedes), author: parseBlackboardAuthorCli(args) as never, scope: parseBlackboardScopeCli(args) as never, links: parseBlackboardLinksCli(runId, args) as never, tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact) });
+    persist(run);
+    return context;
+  });
 }
 
 export function blackboardArtifactAddCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const artifact = coord.addBlackboardArtifact(run, { id: optionalString(args.id), topicId: optionalString(args.topic ?? args.topicId), kind: requireArg(args.kind, "artifact kind"), path: optionalString(args.path), locator: optionalString(args.locator), blackboardId: optionalString(args.blackboardId), source: optionalString(args.source), author: parseBlackboardAuthorCli(args) as never, scope: parseBlackboardScopeCli(args) as never, links: parseBlackboardLinksCli(runId, args) as never, tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence) });
-  persist(run);
-  return artifact;
+  return mutateRun(args, runId, (run) => {
+    const artifact = coord.addBlackboardArtifact(run, { id: optionalString(args.id), topicId: optionalString(args.topic ?? args.topicId), kind: requireArg(args.kind, "artifact kind"), path: optionalString(args.path), locator: optionalString(args.locator), blackboardId: optionalString(args.blackboardId), source: optionalString(args.source), author: parseBlackboardAuthorCli(args) as never, scope: parseBlackboardScopeCli(args) as never, links: parseBlackboardLinksCli(runId, args) as never, tags: arrayArg(args.tag), evidenceRefs: arrayArg(args.evidence) });
+    persist(run);
+    return artifact;
+  });
 }
 
 export function blackboardArtifactListCli(args: Record<string, unknown>): unknown {
@@ -720,10 +751,11 @@ export function blackboardArtifactListCli(args: Record<string, unknown>): unknow
 
 export function blackboardSnapshotCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const snapshot = coord.createBlackboardSnapshot(run, optionalString(args.blackboardId));
-  persist(run);
-  return snapshot;
+  return mutateRun(args, runId, (run) => {
+    const snapshot = coord.createBlackboardSnapshot(run, optionalString(args.blackboardId));
+    persist(run);
+    return snapshot;
+  });
 }
 
 export function coordinatorSummaryCli(args: Record<string, unknown>): unknown {
@@ -734,10 +766,11 @@ export function coordinatorSummaryCli(args: Record<string, unknown>): unknown {
 
 export function coordinatorDecisionCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const decision = coord.recordCoordinatorDecision(run, { id: optionalString(args.id), blackboardId: optionalString(args.blackboardId), kind: requireArg(args.kind, "decision kind") as never, outcome: requireArg(args.outcome, "decision outcome") as never, reason: requireArg(args.reason, "decision reason"), subjectIds: arrayArg(args.subject), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact), messageIds: arrayArg(args.message) });
-  persist(run);
-  return decision;
+  return mutateRun(args, runId, (run) => {
+    const decision = coord.recordCoordinatorDecision(run, { id: optionalString(args.id), blackboardId: optionalString(args.blackboardId), kind: requireArg(args.kind, "decision kind") as never, outcome: requireArg(args.outcome, "decision outcome") as never, reason: requireArg(args.reason, "decision reason"), subjectIds: arrayArg(args.subject), evidenceRefs: arrayArg(args.evidence), artifactRefIds: arrayArg(args.artifact), messageIds: arrayArg(args.message) });
+    persist(run);
+    return decision;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -760,32 +793,33 @@ export function candidateShowCli(args: Record<string, unknown>, candidateId: str
 
 export function candidateRegisterCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  // `candidate register --worker <id>` — derive the worker's accepted
-  // result/verifier state nodes (and result path) from the worker scope +
-  // its backing task, so a candidate registered from a verified worker
-  // carries the verifier gate the selection gate requires. Port of the old
-  // orchestrator/candidate-operations.ts registerCandidate worker read
-  // (v2's candidateRegisterCli only forwarded --result-node/--verifier-node).
-  const workerId = optionalString(args.worker ?? args.workerId);
-  const worker = workerId ? getWorkerScope(run, workerId) : undefined;
-  if (workerId && !worker) throw new Error(`Unknown worker id for run ${run.id}: ${workerId}`);
-  const workerOutput = worker?.output as { verifierNodeId?: string; resultPath?: string } | undefined;
-  const task = worker ? run.tasks.find((entry) => entry.id === worker.taskId) : undefined;
-  const resultNodeId = optionalString(args.resultNode) || worker?.resultNodeId || task?.resultNodeId;
-  const verifierNodeId = optionalString(args.verifierNode) || workerOutput?.verifierNodeId || task?.verifierNodeId;
-  const resultPath = optionalString(args.resultPath) || workerOutput?.resultPath || task?.resultPath;
-  const candidate = cs.registerCandidate(run, {
-    id: optionalString(args.id),
-    kind: optionalString(args.kind) as never,
-    workerId,
-    taskId: optionalString(args.task ?? args.taskId) || worker?.taskId,
-    resultNodeId,
-    verifierNodeId,
-    resultPath,
+  return mutateRun(args, runId, (run) => {
+    // `candidate register --worker <id>` — derive the worker's accepted
+    // result/verifier state nodes (and result path) from the worker scope +
+    // its backing task, so a candidate registered from a verified worker
+    // carries the verifier gate the selection gate requires. Port of the old
+    // orchestrator/candidate-operations.ts registerCandidate worker read
+    // (v2's candidateRegisterCli only forwarded --result-node/--verifier-node).
+    const workerId = optionalString(args.worker ?? args.workerId);
+    const worker = workerId ? getWorkerScope(run, workerId) : undefined;
+    if (workerId && !worker) throw new Error(`Unknown worker id for run ${run.id}: ${workerId}`);
+    const workerOutput = worker?.output as { verifierNodeId?: string; resultPath?: string } | undefined;
+    const task = worker ? run.tasks.find((entry) => entry.id === worker.taskId) : undefined;
+    const resultNodeId = optionalString(args.resultNode) || worker?.resultNodeId || task?.resultNodeId;
+    const verifierNodeId = optionalString(args.verifierNode) || workerOutput?.verifierNodeId || task?.verifierNodeId;
+    const resultPath = optionalString(args.resultPath) || workerOutput?.resultPath || task?.resultPath;
+    const candidate = cs.registerCandidate(run, {
+      id: optionalString(args.id),
+      kind: optionalString(args.kind) as never,
+      workerId,
+      taskId: optionalString(args.task ?? args.taskId) || worker?.taskId,
+      resultNodeId,
+      verifierNodeId,
+      resultPath,
+    });
+    persist(run);
+    return candidate;
   });
-  persist(run);
-  return candidate;
 }
 
 function parseCriteriaCli(args: Record<string, unknown>): Record<string, number> {
@@ -809,35 +843,39 @@ function parseCriteriaCli(args: Record<string, unknown>): Record<string, number>
 
 export function candidateScoreCli(args: Record<string, unknown>, candidateId: string): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const evidence = arrayArg(args.evidence).map((entry, index) => ({ id: `score:${index + 1}`, source: "cli", locator: entry, summary: entry }));
-  const score = cs.scoreCandidate(run, candidateId, { id: optionalString(args.id), scorer: optionalString(args.scorer), criteria: parseCriteriaCli(args), maxTotal: numberArg(args.maxTotal ?? args.max), verdict: optionalString(args.verdict) as never, evidence, notes: optionalString(args.notes) });
-  persist(run);
-  return score;
+  return mutateRun(args, runId, (run) => {
+    const evidence = arrayArg(args.evidence).map((entry, index) => ({ id: `score:${index + 1}`, source: "cli", locator: entry, summary: entry }));
+    const score = cs.scoreCandidate(run, candidateId, { id: optionalString(args.id), scorer: optionalString(args.scorer), criteria: parseCriteriaCli(args), maxTotal: numberArg(args.maxTotal ?? args.max), verdict: optionalString(args.verdict) as never, evidence, notes: optionalString(args.notes) });
+    persist(run);
+    return score;
+  });
 }
 
 export function candidateRankCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const ranking = cs.rankCandidates(run, { includeRejected: boolArg(args.includeRejected), policy: { minNormalized: numberArg(args.minNormalized), requireEvidence: args.requireEvidence === undefined ? undefined : boolArg(args.requireEvidence), requireVerifierGate: args.requireVerifierGate === undefined ? undefined : boolArg(args.requireVerifierGate), tieBreaker: optionalString(args.tieBreaker) as never } });
-  persist(run);
-  return ranking;
+  return mutateRun(args, runId, (run) => {
+    const ranking = cs.rankCandidates(run, { includeRejected: boolArg(args.includeRejected), policy: { minNormalized: numberArg(args.minNormalized), requireEvidence: args.requireEvidence === undefined ? undefined : boolArg(args.requireEvidence), requireVerifierGate: args.requireVerifierGate === undefined ? undefined : boolArg(args.requireVerifierGate), tieBreaker: optionalString(args.tieBreaker) as never } });
+    persist(run);
+    return ranking;
+  });
 }
 
 export function candidateSelectCli(args: Record<string, unknown>, candidateId: string): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const selection = cs.selectCandidate(run, candidateId, { selectedBy: optionalString(args.selectedBy ?? args.by), reason: optionalString(args.reason), scoreId: optionalString(args.score), allowUnverified: boolArg(args.allowUnverified) }, { policy: { minNormalized: numberArg(args.minNormalized), requireVerifierGate: args.requireVerifierGate === undefined ? undefined : boolArg(args.requireVerifierGate) } });
-  persist(run);
-  return selection;
+  return mutateRun(args, runId, (run) => {
+    const selection = cs.selectCandidate(run, candidateId, { selectedBy: optionalString(args.selectedBy ?? args.by), reason: optionalString(args.reason), scoreId: optionalString(args.score), allowUnverified: boolArg(args.allowUnverified) }, { policy: { minNormalized: numberArg(args.minNormalized), requireVerifierGate: args.requireVerifierGate === undefined ? undefined : boolArg(args.requireVerifierGate) } });
+    persist(run);
+    return selection;
+  });
 }
 
 export function candidateRejectCli(args: Record<string, unknown>, candidateId: string): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const candidate = cs.rejectCandidate(run, candidateId, requireArg(args.reason, "reject reason"));
-  persist(run);
-  return candidate;
+  return mutateRun(args, runId, (run) => {
+    const candidate = cs.rejectCandidate(run, candidateId, requireArg(args.reason, "reject reason"));
+    persist(run);
+    return candidate;
+  });
 }
 
 export function candidateSummaryCli(args: Record<string, unknown>): unknown {
