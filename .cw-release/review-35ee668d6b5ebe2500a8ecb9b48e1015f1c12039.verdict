@@ -1,0 +1,2 @@
+APPROVED 35ee668d6b5ebe2500a8ecb9b48e1015f1c12039
+CW is now safe to run from many concurrent processes: state.json, the scheduler policy file, and the trust-audit log no longer lose updates or double-mint queue ids under a race, a mid-drive Ctrl-C/SIGTERM stops cleanly and resumes to completion, and a stuck agent times out and is SIGKILLed instead of hanging.
