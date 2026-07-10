@@ -1,5 +1,36 @@
 # CW Iteration Log
 
+## Batch — report a real agent timeout and SIGKILL a stuck agent (Unreleased)
+
+> Two verified bugs in `runAgentProcess`'s serial real-spawn path
+> (`src/shell/execution-backend/agent.ts`). First: the spawnSync there
+> passed no `killSignal`, so Node's default SIGTERM applied — an agent
+> process that ignores SIGTERM left the parent blocked inside spawnSync
+> forever (no second-stage escalation is possible from inside a sync
+> call). Since a timed-out agent's output is discarded by the refusal
+> path anyway, the fix passes `killSignal: "SIGKILL"` — a hard kill
+> loses nothing and cannot wedge cw. (The batch child,
+> `scripts/children/batch-delegate-child.js`, already does its own
+> SIGTERM→SIGKILL escalation per job and is untouched.) Second: on
+> timeout, spawnSync returns `error` with code ETIMEDOUT (`status`
+> null, `signal` set), and the outcome classification treated that as
+> a spawn failure — the envelope said "agent process failed to spawn:
+> ...ETIMEDOUT" while the intended "timed out or killed" branch was
+> dead code for real timeouts. The fix detects ETIMEDOUT first and
+> returns a truthful refusal ("agent process timed out after Nms and
+> was killed (SIGKILL)") through the same `refusedEnvelope` /
+> `delegation-failed` mechanism — only the classification and message
+> changed. Regression test: a new REAL-spawn case in
+> `execution-backend-agent-smoke.js` (a stub that ignores SIGTERM and
+> would exit on its own only after 8s, under a 500ms `timeoutMs`) was
+> red before the fix on both counts — the message said "failed to
+> spawn" and the run lasted the stub's full 8s — and is green after,
+> settling near the 500ms limit with a timeout message.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 20 | Fix two timeout bugs in the serial agent spawn path: pass `killSignal: "SIGKILL"` so an agent that ignores SIGTERM cannot block spawnSync forever, and classify spawnSync's ETIMEDOUT error as a real timeout ("agent process timed out after Nms and was killed (SIGKILL)") instead of the misleading "agent process failed to spawn: ...ETIMEDOUT". | `plugins/cool-workflow/src/shell/execution-backend/agent.ts` + matching `dist/**`, `plugins/cool-workflow/test/execution-backend-agent-smoke.js`. | New real-spawn timeout case in `execution-backend-agent-smoke.js`: red before (spawn-failure message + full 8s stub lifetime), green after (timeout message + settles near the 500ms limit); `agent-backend-user-env-smoke.js` still green. | BUILD OK; `check` (tsc --noEmit) OK; `dist-drift-check` OK; `onramp-check --changed-from origin/main` OK; touched smokes green. | no (PR batch, no release) |
+
 ## Batch — lock the sched policy read-modify-write (Unreleased)
 
 > Concurrency bug-hunt finding (P2): `schedPolicySetCli`

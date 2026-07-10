@@ -12,6 +12,8 @@
 // `runBackend({ backendId: "agent" })` directly with a prepared outcome.
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
@@ -164,7 +166,50 @@ function main() {
     assert.equal(code(agentTimedOut), "delegation-failed", "null exit code is delegation-failed (timed out or killed)");
   }
 
-  process.stdout.write("execution-backend-agent-smoke: ok (fail-closed refusals + prepared-outcome success path + driver contract + probe readiness)\n");
+  // ---- 8. REAL SPAWN: a timeout is reported as a timeout, and SIGKILL ends
+  // a child that ignores SIGTERM ---------------------------------------------
+  // No preparedAgentOutcome: this takes the REAL spawnSync path (same harness
+  // shape as agent-backend-user-env-smoke). The stub ignores SIGTERM, like a
+  // wedged agent wrapper. Before the fix this case failed two ways: spawnSync
+  // passed no killSignal, so the default SIGTERM never ended the child and
+  // spawnSync sat blocked until the child's own 8s exit; and the ETIMEDOUT
+  // spawn `error` was classified as "agent process failed to spawn", so the
+  // "timed out or killed" branch was dead code for real timeouts.
+  {
+    const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-timeout-"));
+    try {
+      const stub = path.join(work, "stubborn-agent.js");
+      fs.writeFileSync(
+        stub,
+        ['process.on("SIGTERM", () => {});', "setInterval(() => {}, 1000);", "setTimeout(() => process.exit(0), 8000);"].join("\n"),
+        "utf8"
+      );
+      const started = Date.now();
+      const agentTimeout = runBackend({
+        ...base,
+        backendId: "agent",
+        delegation: { command: process.execPath, args: [stub] },
+        timeoutMs: 500
+      });
+      const elapsed = Date.now() - started;
+      assert.equal(agentTimeout.status, "refused", "a timed-out agent is refused");
+      assert.equal(code(agentTimeout), "delegation-failed", "timeout refusal code is delegation-failed");
+      assert.match(
+        agentTimeout.result.summary,
+        /timed out after 500ms/,
+        `a real timeout is reported as a timeout, not a spawn failure (got: ${agentTimeout.result.summary})`
+      );
+      assert.ok(!/failed to spawn/.test(agentTimeout.result.summary), "an ETIMEDOUT kill is not misreported as a spawn failure");
+      assert.ok(
+        elapsed < 5000,
+        `SIGKILL ends a SIGTERM-ignoring child near its 500ms limit, not at the child's own 8s exit (took ${elapsed}ms)`
+      );
+    } finally {
+      fs.rmSync(work, { recursive: true, force: true });
+    }
+  }
+
+  process.stdout.write("execution-backend-agent-smoke: ok (fail-closed refusals + prepared-outcome success path + driver contract + probe readiness + real-spawn timeout)\n");
 }
 
 main();
