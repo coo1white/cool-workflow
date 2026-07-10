@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// scheduling-routine-lock-concurrency-smoke — regression guard for three
+// scheduling-routine-lock-concurrency-smoke — regression guard for four
 // unlocked/racy read-modify-write bugs:
 //
 //   A. cw sched lease/release/complete/reclaim/reset mutated queue.json
@@ -15,6 +15,10 @@
 //      IDENTICAL id. sched lease then keys grants by id, so both entries
 //      were treated as one, breaking through maxConcurrent; a single
 //      complete drained both. Reproduced on the first try (bug-hunt P2).
+//   D. schedPolicySetCli read the policy file, merged the flag patch, and
+//      wrote the result back with no lock at all, so two concurrent
+//      `sched policy set` calls patching DIFFERENT fields dropped one
+//      another's write (last writer wins on the whole file).
 //
 // A and B are now serialized through the same withFileLock helper
 // Scheduler already uses for tasks.json. C is fixed by checking the
@@ -22,9 +26,11 @@
 // queueAdd's existing file lock) before accepting it, so any process that
 // completes its add later always sees every earlier-completed add's id and
 // bumps past a collision, regardless of which process's counter produced
-// it. Each part below spawns real child processes racing the SAME store
-// concurrently and asserts no lost update / no collision — following the
-// concurrentSchedulerWrites() pattern in robustness-failclosed-smoke.js.
+// it. D holds withFileLock on the policy file itself for the whole
+// load-merge-write cycle. Each part below spawns real child processes
+// racing the SAME store concurrently and asserts no lost update / no
+// collision — following the concurrentSchedulerWrites() pattern in
+// robustness-failclosed-smoke.js.
 //
 // Included in `npm test`.
 
@@ -166,11 +172,72 @@ async function concurrentQueueAddNoIdCollision() {
   }
 }
 
+// ---- D. concurrent sched policy set calls patching DIFFERENT fields all
+// land: the load-merge-write cycle holds the policy file's lock, so no
+// last-writer-wins can drop another process's field. --------------------
+async function concurrentPolicySetNoLostField() {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "cw-policyrace-repo-"));
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), "cw-policyrace-home-"));
+  const env = { ...process.env, CW_HOME: home };
+  const fields = {
+    maxConcurrent: 11,
+    maxAttempts: 12,
+    leaseTtlMs: 13000,
+    backoffBaseMs: 14000,
+    backoffFactor: 15,
+    backoffCapMs: 16000,
+  };
+  const keys = Object.keys(fields);
+
+  const child = path.join(repo, "set-one-field.js");
+  fs.writeFileSync(child, `
+    const fs = require("node:fs");
+    const { schedPolicySetCli } = require(${JSON.stringify(path.join(pluginRoot, "dist", "shell", "scheduling-io.js"))});
+    const [repo, key, value, readyFile, goFile] = process.argv.slice(2);
+    function sleep(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
+    fs.writeFileSync(readyFile, "ready", "utf8");
+    while (!fs.existsSync(goFile)) { sleep(2); }
+    schedPolicySetCli({ cwd: repo, [key]: Number(value) });
+  `, "utf8");
+
+  const goFile = path.join(repo, "go");
+  const kids = keys.map((key, i) => {
+    const readyFile = path.join(repo, `ready-${i}`);
+    return { readyFile, proc: spawn(process.execPath, [child, repo, key, String(fields[key]), readyFile, goFile], { stdio: "ignore", env }) };
+  });
+
+  const deadline = Date.now() + 15_000;
+  while (kids.some((k) => !fs.existsSync(k.readyFile))) {
+    if (Date.now() > deadline) throw new Error("children never readied up");
+    await new Promise((res) => setTimeout(res, 5));
+  }
+  fs.writeFileSync(goFile, "go", "utf8");
+  await spawnAllAndWait(kids.map((k) => k.proc));
+
+  const prevHome = process.env.CW_HOME;
+  process.env.CW_HOME = home;
+  try {
+    const { schedPolicyShowCli } = require(path.join(pluginRoot, "dist", "shell", "scheduling-io.js"));
+    const { policy } = schedPolicyShowCli({ cwd: repo });
+    for (const key of keys) {
+      assert.equal(
+        policy[key],
+        fields[key],
+        `policy.${key} holds the value its setter wrote (expected ${fields[key]}, got ${policy[key]}) — lost update in schedPolicySetCli`
+      );
+    }
+  } finally {
+    if (prevHome === undefined) delete process.env.CW_HOME;
+    else process.env.CW_HOME = prevHome;
+  }
+}
+
 (async () => {
   await concurrentSchedLease();
   await concurrentRoutineTriggerCreate();
   await concurrentQueueAddNoIdCollision();
-  process.stdout.write("scheduling-routine-lock-concurrency-smoke: ok (concurrent sched lease + routine trigger create + queueAdd id generation lose/collide nothing)\n");
+  await concurrentPolicySetNoLostField();
+  process.stdout.write("scheduling-routine-lock-concurrency-smoke: ok (concurrent sched lease + routine trigger create + queueAdd id generation + policy set lose/collide nothing)\n");
 })().catch((error) => {
   process.stderr.write(`scheduling-routine-lock-concurrency-smoke: FAIL ${error && error.stack ? error.stack : error}\n`);
   process.exit(1);

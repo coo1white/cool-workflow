@@ -1,5 +1,29 @@
 # CW Iteration Log
 
+## Batch — lock the sched policy read-modify-write (Unreleased)
+
+> Concurrency bug-hunt finding (P2): `schedPolicySetCli`
+> (`scheduling-io.ts`) read the policy file, merged the flag patch, and
+> wrote the result back with NO lock — the only mutator in that file not
+> wrapped in `withFileLock` (lease/release/complete/reclaim/reset all hold
+> the queue file's lock). Two concurrent `cw sched policy set` calls
+> patching DIFFERENT fields raced last-writer-wins on the whole file, so
+> one call's field was silently dropped. Reproduced on the first try: six
+> barrier-released child processes each setting one distinct field left
+> `maxAttempts` at its default (expected 12, got 3) — red 3/3 runs.
+>
+> Fix holds `withFileLock(registry.schedulingPolicyPath(), ...)` for the
+> whole load-merge-write cycle (the policy file itself is the raced
+> resource, so it — not the queue file — is the lock target; flag parsing
+> stays outside the lock so a bad flag still fails without touching it).
+> New arm D in `scheduling-routine-lock-concurrency-smoke.js` races six
+> real child processes, one per policy field, and asserts every field
+> survives — failed 3/3 against the unfixed build, passes 5/5 after.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 18 | Close the `sched policy set` lost-update race: hold `withFileLock` on the policy file for `schedPolicySetCli`'s whole load-merge-write cycle, matching the locking discipline every sibling mutator in `scheduling-io.ts` already follows. | `plugins/cool-workflow/src/shell/scheduling-io.ts` + matching `dist/**`, `plugins/cool-workflow/test/scheduling-routine-lock-concurrency-smoke.js` (new arm D). | New arm D (6 barrier-released processes, one distinct policy field each): red 3/3 before the fix (`maxAttempts` expected 12, got 3), green 5/5 after; arms A-C unchanged and passing. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; onramp contract OK; full suite left to CI (parallel-lane batch). | no (PR batch, no release) |
+
 ## Batch — replace withFileLock's `open(wx)` acquire with `linkSync` (Unreleased)
 
 > Follow-up to the lock-steal TOCTOU fix (#416): that fix (mtime re-check +
