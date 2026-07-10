@@ -1,6 +1,68 @@
 # CW Iteration Log
 
-## Batch — v0.2.3 version bump (Unreleased)
+## Batch — one-command release: cut preflight, tag-only push, orchestrator (Unreleased)
+
+> The v0.2.3 release took hours and two rewrites of a public tag because
+> five release-tooling defects each fired AFTER the expensive steps (gate,
+> live vendor preflight, independent reviewer) had already run: a missing
+> `--version` was only checked inside `cut()`; a committed
+> `verdict-signing.pub` with no `CW_RELEASE_VERDICT_PRIVKEY` let an
+> UNSIGNED verdict tag and push, failing only in CI; `git push --atomic
+> origin HEAD v<x>` either hit main's branch protection or minted a stray
+> remote branch named after the cut branch; the merge-commit recovery for
+> that then broke release-gate's strict "tag's HEAD~1 == reviewed sha"
+> topology rule; and bump-version's same-version early-exit skipped the
+> content-surface gate entirely (even with `--content`). Fixes: (1) a new
+> `preflightCut()` in release-flow.js runs FIRST — version, signing key
+> present + ed25519 + derived-pubkey byte-equal to the committed pub, no
+> existing local/remote tag, `## <version>` present in CHANGELOG.md, clean
+> tracked tree, and (with --push) HEAD == origin/main tip
+> (`--allow-stale-head` escape; `--preflight-only` runs just this step) —
+> every check is presence-gated so bare smoke fixtures pass through
+> untouched. (2) The cut's push is now TAG-ONLY (`git push origin
+> refs/tags/v<x>`) — the verdict commit is a one-hop leaf on the reviewed
+> main-tip commit, reachable through the tag alone (the exact shape the
+> v0.2.3 recovery proved against live CI), so branch protection is out of
+> the path and the HEAD~1 topology holds by construction. (3)
+> bump-version's same-version early-exit now still runs the
+> content-surface gate/fill. (4) A new `scripts/release-oneclick.js`
+> (`npm run release -- x.y.z`) sequences the whole operator flow: preflight
+> → optional bump PR (skipped when the prep PR already landed) → the gated
+> cut → wait for release-gate + npm-publish → `npm view` confirmation → an
+> informational verdict-record PR onto main. It never reads the signing
+> key itself. (5) block-unapproved-tag.sh gains the same HEAD-or-HEAD~1
+> verdict tolerance release-gate.yml has, so a manual retag of a
+> cut-produced commit is no longer always blocked.
+>
+> A 16-agent adversarial-review Workflow (3 lenses: fail-closed,
+> correctness, coverage; every finding independently verified) confirmed
+> 12 findings against the first commit, all applied: a P1 — after a cut,
+> a re-run died in the preflight's own already-tagged check with wrong
+> advice ("pick the next version") instead of resuming the stage-3 CI
+> wait — fixed with an alreadyCut() probe that routes straight to stage
+> 3 (offline local-tag decision in --dry-run); the npm-publish wait
+> could adopt the PREVIOUS release's completed run (no workflow filter,
+> no created-after-gate bound) — now filtered by --workflow and a
+> created-at >= gate-completion timestamp; all three wait loops were
+> unbounded `for(;;)` that silently swallowed gh failures — replaced by
+> a shared poll() with hard deadlines and a die after 10 consecutive
+> probe failures; the bump stage used `git add -A` (the exact untracked
+> -stray incident class cut() documents from v0.1.96) — now `git add
+> -u`; `--preflight-only` without `--cut` answered ok:true with zero
+> checks run — now refused; a stage-1 re-run died non-fast-forward —
+> pushes now use --force-with-lease and fetch exit codes are checked;
+> the record stage re-wrote verdict/.sig from TRIMMED `git show` output,
+> which could break signature verification of the recorded pair — now
+> byte-exact buffer copies. Coverage gaps closed: the network preflight
+> checks (remote tag, stale HEAD, --allow-stale-head) now run against a
+> local bare origin fixture; the same-version `--content` FILL path (the
+> exact v0.2.3 incident) is pinned; the oneclick resume path has an
+> offline dry-run case; the hook's parent-sha tolerance has a fail-closed
+> case (parent verdict with NO parent gate marker must still block).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 25 | One-command release: fail-fast cut preflight (version/signing/tag/CHANGELOG/clean-tree/main-tip, all before the gate + reviewer spend anything), tag-only push (no branch-protection collision, no stray remote branch, HEAD~1 topology by construction), bump-version same-version content gate, `npm run release -- x.y.z` orchestrator, and the local tag hook's HEAD~1 tolerance. | `plugins/cool-workflow/scripts/release-flow.js`, `plugins/cool-workflow/scripts/bump-version.js`, `plugins/cool-workflow/scripts/release-oneclick.js` (new), `plugins/cool-workflow/scripts/block-unapproved-tag.sh`, `plugins/cool-workflow/package.json` (`release` script), `RELEASE.md`, `plugins/cool-workflow/docs/release-tooling.7.md`. | 8 new preflight/push cases in `release-flow-smoke.js` (each RED against origin/main's release-flow.js — the poison-gate marker proves the old code reached the gate — and green now); new same-version content-gate case in `bump-version-idempotent-smoke.js` (old code exited 0 silently, new exits 1 naming the surface); new `release-oneclick-smoke.js` (usage + stage-0 fail-fast leave the tree untouched, red lines); new HEAD~1 tolerance case in `block-unapproved-tag-smoke.js`. | BUILD n/a (scripts only); `bash -n` OK; all four touched smokes green; full local gate before PR. | no (tooling; the next real release is the live acceptance) |
 
 > Release prep for v0.2.3: bump every structured surface with
 > `bump:version -- 0.2.3` (package.json, lockfile, plugin manifests,

@@ -63,6 +63,7 @@
     "onramp:check": "node scripts/onramp-check.js --check",
     "version:sync": "node scripts/version-sync-check.js",
     "release:check": "node scripts/release-check.js",
+    "release": "node scripts/release-oneclick.js",
     "test": "node dist/cli.js version > /dev/null && node test/run-all.js --fast --sample 35",
     "test:full": "node dist/cli.js version > /dev/null && node test/run-all.js --sample 55",
     "test:gate": "node dist/cli.js version > /dev/null && node test/run-all.js",

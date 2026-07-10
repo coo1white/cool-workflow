@@ -650,4 +650,184 @@ function releaseFixture() {
   }
 }
 
+// ---- Cut preflight (fail fast BEFORE the gate/vendor/reviewer) --------------
+// Each case here was a REAL post-reviewer failure in the v0.2.3 cut: the check
+// must fire before the gate command runs. The gate stub is a POISON command
+// (exit 1 with a marker) — if any preflight case ever reaches the gate, the
+// output shows GATE_RAN and the assertion names the ordering regression.
+{
+  const poisonGate = "echo GATE_RAN; exit 1";
+  const preflightEnv = (dir, extra = {}) => {
+    const home = path.join(dir, ".cw-home");
+    const env = {
+      ...process.env,
+      CW_RELEASE_FLOW_GATE_CMD: poisonGate,
+      CW_NO_AUTO_AGENT: "1",
+      CW_HOME: home,
+      XDG_STATE_HOME: home
+    };
+    // Scrub host leakage FIRST, then apply the case's own opt-ins — the
+    // wrong-key case passes CW_RELEASE_VERDICT_PRIVKEY via `extra` and it
+    // must survive the scrub.
+    delete env.CW_RELEASE_VERDICT_PRIVKEY;
+    delete env.CW_AGENT_COMMAND;
+    delete env.CW_AGENT_ENDPOINT;
+    return { ...env, ...extra };
+  };
+
+  // ---- Case: --cut with no --version dies BEFORE the gate ----
+  {
+    const dir = fixture();
+    const r = run("node", [FLOW, "--cut", "--dry-run"], dir, preflightEnv(dir));
+    assert.notEqual(r.code, 0, "--cut without --version must fail");
+    assert.match(r.err, /--cut requires --version/, "should name the missing flag");
+    assert.doesNotMatch(r.out, /GATE_RAN/, "the version check must fire BEFORE the gate (was: after the reviewer)");
+  }
+
+  // ---- Case: committed pubkey + no CW_RELEASE_VERDICT_PRIVKEY dies BEFORE the gate ----
+  {
+    const dir = fixture();
+    const { publicKey } = crypto.generateKeyPairSync("ed25519");
+    fs.mkdirSync(path.join(dir, ".cw-release"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".cw-release", "verdict-signing.pub"), publicKey.export({ type: "spki", format: "pem" }));
+    run("git", ["add", "-A"], dir);
+    run("git", ["commit", "-q", "-m", "pubkey"], dir);
+    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, preflightEnv(dir));
+    assert.notEqual(r.code, 0, "a committed pubkey with no private key must fail the cut up front");
+    assert.match(r.err, /requires a SIGNED verdict/, "should explain the signing requirement");
+    assert.match(r.err, /CW_RELEASE_VERDICT_PRIVKEY/, "should name the fix");
+    assert.doesNotMatch(r.out, /GATE_RAN/, "the signing check must fire BEFORE the gate (v0.2.3 failed only in CI)");
+  }
+
+  // ---- Case: privkey set but does NOT match the committed pubkey -> dies ----
+  {
+    const dir = fixture();
+    const { publicKey } = crypto.generateKeyPairSync("ed25519");
+    const wrongKey = crypto.generateKeyPairSync("ed25519").privateKey;
+    fs.mkdirSync(path.join(dir, ".cw-release"), { recursive: true });
+    fs.writeFileSync(path.join(dir, ".cw-release", "verdict-signing.pub"), publicKey.export({ type: "spki", format: "pem" }));
+    const wrongKeyPath = path.join(dir, "wrong.key");
+    fs.writeFileSync(wrongKeyPath, wrongKey.export({ type: "pkcs8", format: "pem" }));
+    run("git", ["add", "-A"], dir);
+    run("git", ["commit", "-q", "-m", "pubkey"], dir);
+    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir,
+      preflightEnv(dir, { CW_RELEASE_VERDICT_PRIVKEY: wrongKeyPath }));
+    assert.notEqual(r.code, 0, "a wrong signing key must fail up front (it signs fine but CI rejects it)");
+    assert.match(r.err, /does not match the committed/, "should say the key does not match");
+    assert.doesNotMatch(r.out, /GATE_RAN/, "the key-match check must fire BEFORE the gate");
+  }
+
+  // ---- Case: tag already exists locally -> dies BEFORE the gate ----
+  {
+    const dir = fixture();
+    run("git", ["tag", "-a", "v9.9.9", "-m", "stale"], dir);
+    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, preflightEnv(dir));
+    assert.notEqual(r.code, 0, "a pre-existing local tag must fail the cut up front");
+    assert.match(r.err, /already exists locally/, "should name the stale tag");
+    assert.doesNotMatch(r.out, /GATE_RAN/, "the tag check must fire BEFORE the gate (v0.2.3 died at the last step)");
+  }
+
+  // ---- Case: CHANGELOG.md present but missing the section -> dies BEFORE the gate ----
+  {
+    const dir = fixture();
+    fs.writeFileSync(path.join(dir, "CHANGELOG.md"), "# Changelog\n\n## 0.0.1\n\nold notes\n");
+    run("git", ["add", "-A"], dir);
+    run("git", ["commit", "-q", "-m", "changelog"], dir);
+    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, preflightEnv(dir));
+    assert.notEqual(r.code, 0, "a CHANGELOG without the release section must fail up front");
+    assert.match(r.err, /CHANGELOG\.md has no "## 9\.9\.9" section/, "should name the missing section");
+    assert.doesNotMatch(r.out, /GATE_RAN/, "the CHANGELOG check must fire BEFORE the gate");
+  }
+
+  // ---- Case: dirty tracked tree -> dies BEFORE the gate; untracked strays are fine ----
+  {
+    const dir = fixture();
+    fs.writeFileSync(path.join(dir, "README.md"), "modified\n"); // tracked, dirty
+    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, preflightEnv(dir));
+    assert.notEqual(r.code, 0, "tracked modifications must fail the cut up front");
+    assert.match(r.err, /tracked modifications/, "should say what is dirty");
+    assert.doesNotMatch(r.out, /GATE_RAN/, "the clean-tree check must fire BEFORE the gate");
+
+    // untracked files are NOT a cut hazard (git add -u never sweeps them in)
+    run("git", ["checkout", "--", "README.md"], dir);
+    fs.writeFileSync(path.join(dir, "untracked-stray.txt"), "x\n");
+    const r2 = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--preflight-only"], dir, preflightEnv(dir));
+    assert.equal(r2.code, 0, `an untracked stray must NOT block the preflight:\n${r2.err}\n${r2.out}`);
+  }
+
+  // ---- Case: clean fixture passes --preflight-only and stops (no gate) ----
+  {
+    const dir = fixture();
+    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--preflight-only"], dir, preflightEnv(dir));
+    assert.equal(r.code, 0, `a clean preflight-only run should pass:\n${r.err}\n${r.out}`);
+    assert.match(r.out, /"mode": "preflight"/, "preflight-only reports its mode");
+    assert.doesNotMatch(r.out, /GATE_RAN/, "--preflight-only must never reach the gate");
+  }
+
+  // ---- Case: --preflight-only WITHOUT --cut is refused (no silent ok:true) ----
+  {
+    const dir = fixture();
+    const r = run("node", [FLOW, "--preflight-only"], dir, preflightEnv(dir));
+    assert.notEqual(r.code, 0, "--preflight-only without --cut must be refused, not answer ok:true with zero checks run");
+    assert.match(r.err, /--preflight-only requires --cut/, "should name the missing mode");
+  }
+
+  // ---- Cases: the network-dependent preflight checks (block f), fully offline
+  // via a local bare `origin`: remote-tag-exists, stale HEAD, and the
+  // --allow-stale-head escape. These lines had zero test execution before. ----
+  {
+    const dir = fixture();
+    // a bare origin whose `main` is the fixture's current commit
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), `cw-flow-origin-${caseId++}-`));
+    run("git", ["init", "-q", "--bare", "-b", "main", bare], dir);
+    run("git", ["remote", "add", "origin", bare], dir);
+    run("git", ["push", "-q", "origin", "HEAD:main"], dir);
+
+    // (f1) remote tag exists -> die before the gate
+    run("git", ["push", "-q", "origin", "HEAD:refs/tags/v9.9.9"], dir);
+    const r1 = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--preflight-only"], dir, preflightEnv(dir));
+    assert.notEqual(r1.code, 0, "a tag already on origin must fail the preflight");
+    assert.match(r1.err, /already exists on origin/, "should say the version is already published");
+    run("git", ["push", "-q", "origin", ":refs/tags/v9.9.9"], dir);
+
+    // (f2) HEAD behind origin/main -> die; --allow-stale-head -> pass
+    fs.writeFileSync(path.join(dir, "extra.txt"), "x\n");
+    run("git", ["add", "-A"], dir);
+    run("git", ["commit", "-q", "-m", "ahead"], dir);
+    run("git", ["push", "-q", "origin", "HEAD:main"], dir);
+    run("git", ["reset", "-q", "--hard", "HEAD~1"], dir); // HEAD now behind origin/main
+    const r2 = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--preflight-only"], dir, preflightEnv(dir));
+    assert.notEqual(r2.code, 0, "a HEAD behind the origin/main tip must fail the preflight");
+    assert.match(r2.err, /not the origin\/main tip/, "should say HEAD is stale");
+    const r3 = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--preflight-only", "--allow-stale-head"], dir, preflightEnv(dir));
+    assert.equal(r3.code, 0, `--allow-stale-head must skip only the tip check:\n${r3.err}\n${r3.out}`);
+  }
+
+  // ---- Case: --dry-run cut pushes the TAG ONLY (no HEAD / branch push) ----
+  // The old refspec (`git push --atomic origin HEAD v<x>`) either hit main's
+  // branch protection or minted a stray remote branch named after the local
+  // branch. The dry-run line is the pinned contract for the new shape.
+  {
+    const dir = fixture();
+    const stub = writeStub(dir);
+    const home = path.join(dir, ".cw-home");
+    const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+    const env = {
+      ...process.env,
+      CW_RELEASE_FLOW_GATE_CMD: "true",
+      CW_SKIP_VENDOR_PREFLIGHT: "1",
+      STUB_SHA: sha,
+      CW_NO_AUTO_AGENT: "1",
+      CW_HOME: home,
+      XDG_STATE_HOME: home,
+      CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`
+    };
+    delete env.CW_RELEASE_VERDICT_PRIVKEY;
+    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--push", "--dry-run"], dir, env);
+    assert.equal(r.code, 0, `dry-run cut with --push should pass:\n${r.err}\n${r.out}`);
+    assert.match(r.out, /push refs\/tags\/v9\.9\.9 \(tag only, no branch\)/, "the push must be tag-only");
+    assert.doesNotMatch(r.out, /would:.*push HEAD|push.*HEAD.*v9\.9\.9/, "no HEAD/branch push may remain in the plan line");
+  }
+}
+
 process.stdout.write("release-flow-smoke: ok\n");

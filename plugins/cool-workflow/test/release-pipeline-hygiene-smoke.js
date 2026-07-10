@@ -54,12 +54,22 @@ let checks = 0;
     /git\(\s*\[\s*"add"\s*,\s*"--"\s*,\s*path\.relative\(repoRoot,\s*sigPath\)\s*\]/.test(src),
     "release-flow.js cut() must explicitly add the verdict's .sig sidecar when it exists"
   );
-  // The atomic push protects against a half-pushed main (commit lands, tag does not).
+  // The push must be TAG-ONLY (refs/tags/v<version>). The old shape —
+  // `git push --atomic origin HEAD v<x>` — either hit main's branch
+  // protection (enforce_admins blocks even the owner) or minted a stray
+  // remote branch named after whatever branch the cut ran from, and its
+  // "half-pushed main" hazard does not exist when no branch ref is pushed
+  // at all (a single-ref push is atomic by itself). The verdict commit is
+  // a one-hop leaf on the reviewed commit, carried by the tag alone.
   assert.ok(
-    /push"\s*,\s*"--atomic"/.test(src),
-    "release-flow.js cut() must push HEAD and the tag atomically (`git push --atomic`)"
+    /push"\s*,\s*"origin"\s*,\s*`refs\/tags\/v\$\{cutVersion\}`/.test(src),
+    "release-flow.js cut() must push ONLY the tag ref (refs/tags/v<version>)"
   );
-  checks += 5;
+  assert.ok(
+    !/push"\s*,\s*"--atomic"\s*,\s*"origin"\s*,\s*"HEAD"/.test(src),
+    "release-flow.js cut() must NOT push HEAD/a branch (branch protection + stray-branch hazard)"
+  );
+  checks += 6;
 }
 
 // ---- Guard 2: npm-publish.yml ordering + tag derivation ----------------------
