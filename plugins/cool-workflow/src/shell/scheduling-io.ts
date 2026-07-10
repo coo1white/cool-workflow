@@ -308,15 +308,20 @@ export function schedPolicyShowCli(options: Record<string, unknown> = {}): Sched
 
 export function schedPolicySetCli(options: Record<string, unknown> = {}): SchedulingPolicyReport {
   const registry = new RunRegistry(resolveCwd(options));
-  const current = loadSchedulingPolicy(registry).policy;
   const patch: Partial<SchedulingPolicy> = {};
   for (const key of ["maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"] as const) {
     const value = numericFlag(options, key);
     if (value !== undefined) patch[key] = value;
   }
-  const policy = normalizeSchedulingPolicy({ ...current, ...patch });
-  writeJson(registry.schedulingPolicyPath(), policy);
-  return { schemaVersion: 1, policy, source: "file" };
+  // Read-modify-write under the policy file's own lock: two concurrent
+  // `sched policy set` calls patching different fields must not drop each
+  // other's write.
+  return withFileLock(registry.schedulingPolicyPath(), () => {
+    const current = loadSchedulingPolicy(registry).policy;
+    const policy = normalizeSchedulingPolicy({ ...current, ...patch });
+    writeJson(registry.schedulingPolicyPath(), policy);
+    return { schemaVersion: 1, policy, source: "file" };
+  });
 }
 
 function isTrue(value: unknown): boolean {

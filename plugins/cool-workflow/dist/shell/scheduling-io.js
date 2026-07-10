@@ -299,16 +299,21 @@ function schedPolicyShowCli(options = {}) {
 }
 function schedPolicySetCli(options = {}) {
     const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
-    const current = loadSchedulingPolicy(registry).policy;
     const patch = {};
     for (const key of ["maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"]) {
         const value = numericFlag(options, key);
         if (value !== undefined)
             patch[key] = value;
     }
-    const policy = normalizeSchedulingPolicy({ ...current, ...patch });
-    (0, fs_atomic_1.writeJson)(registry.schedulingPolicyPath(), policy);
-    return { schemaVersion: 1, policy, source: "file" };
+    // Read-modify-write under the policy file's own lock: two concurrent
+    // `sched policy set` calls patching different fields must not drop each
+    // other's write.
+    return (0, fs_atomic_1.withFileLock)(registry.schedulingPolicyPath(), () => {
+        const current = loadSchedulingPolicy(registry).policy;
+        const policy = normalizeSchedulingPolicy({ ...current, ...patch });
+        (0, fs_atomic_1.writeJson)(registry.schedulingPolicyPath(), policy);
+        return { schemaVersion: 1, policy, source: "file" };
+    });
 }
 function isTrue(value) {
     return value === true || value === "true" || value === "1";
