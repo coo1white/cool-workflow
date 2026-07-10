@@ -18,10 +18,17 @@
 // lock across the whole cycle; the nested saveCheckpoint re-enters the
 // same re-entrant lock.
 //
-// This test spawns N real child processes, each calling
-// blackboardTopicCreateCli on one shared run, holds them at a start
-// line, releases them together, and asserts all N topics survive in
-// state.json — before the fix this kept far fewer than N.
+// This test spawns N real child processes on one shared run, holds them
+// at a start line, releases them together, and asserts no write is lost.
+// It covers TWO save paths on purpose:
+//   A. blackboardTopicCreateCli — a mutator that saveCheckpoints directly
+//      in its own file (multi-agent-cli.ts).
+//   B. commentAddCli — a mutator whose saveCheckpoint is TRANSITIVE
+//      (collaboration-io's persist()). The first pass of this fix missed
+//      every transitive-save verb (feedback + collaboration) because a
+//      same-file grep for saveCheckpoint could not see them; this arm
+//      guards that whole class.
+// Before the fix each arm kept far fewer than N.
 //
 // Included in `npm test`.
 
@@ -45,35 +52,21 @@ function spawnAllAndWait(procs) {
   })));
 }
 
-async function concurrentTopicCreate() {
-  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-marace-")));
+// Run N children of one `childSrc` against a fresh run, all released
+// together, then read the final state.json and return it.
+async function raceOnOneRun(prefix, childSrc, argvFor) {
+  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   const runId = "race-run";
   const runDir = path.join(workspace, ".cw", "runs", runId);
   createRun(runDir, runId, "wf-demo", workspace);
 
-  // Each child readies up, then busy-waits for one shared "go" file so all
-  // topic creations hit the load -> save window at the same time.
-  const child = path.join(workspace, "create-one-topic.js");
-  fs.writeFileSync(
-    child,
-    `
-    const fs = require("node:fs");
-    const { blackboardTopicCreateCli } = require(${JSON.stringify(path.join(dist, "shell", "multi-agent-cli.js"))});
-    const [runId, cwd, title, readyFile, goFile] = process.argv.slice(2);
-    fs.writeFileSync(readyFile, "ready", "utf8");
-    while (!fs.existsSync(goFile)) {
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
-    }
-    const topic = blackboardTopicCreateCli({ runId, cwd, title });
-    process.stdout.write(topic.id + "\\n");
-    `,
-    "utf8"
-  );
+  const child = path.join(workspace, "child.js");
+  fs.writeFileSync(child, childSrc, "utf8");
 
   const goFile = path.join(workspace, "go");
   const procs = Array.from({ length: N }, (_, i) => {
     const readyFile = path.join(workspace, `ready-${i}`);
-    return { readyFile, proc: spawn(node, [child, runId, workspace, `topic-${i}`, readyFile, goFile], { stdio: "ignore" }) };
+    return { readyFile, proc: spawn(node, [child, ...argvFor(runId, workspace, i, readyFile, goFile)], { stdio: "ignore" }) };
   });
 
   const deadline = Date.now() + 30_000;
@@ -84,21 +77,53 @@ async function concurrentTopicCreate() {
   fs.writeFileSync(goFile, "go", "utf8");
   await spawnAllAndWait(procs.map((p) => p.proc));
 
-  const state = JSON.parse(fs.readFileSync(path.join(runDir, "state.json"), "utf8"));
+  return JSON.parse(fs.readFileSync(path.join(runDir, "state.json"), "utf8"));
+}
+
+// A. direct-save mutator: blackboardTopicCreateCli.
+async function concurrentTopicCreate() {
+  const state = await raceOnOneRun(
+    "cw-marace-topic-",
+    `
+    const fs = require("node:fs");
+    const { blackboardTopicCreateCli } = require(${JSON.stringify(path.join(dist, "shell", "multi-agent-cli.js"))});
+    const [runId, cwd, title, readyFile, goFile] = process.argv.slice(2);
+    fs.writeFileSync(readyFile, "ready", "utf8");
+    while (!fs.existsSync(goFile)) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5); }
+    blackboardTopicCreateCli({ runId, cwd, title });
+    `,
+    (runId, cwd, i, readyFile, goFile) => [runId, cwd, `topic-${i}`, readyFile, goFile]
+  );
   const board = (state.blackboard && state.blackboard.boards && state.blackboard.boards[0]) || {};
   const topicIds = board.topicIds || [];
-  assert.equal(
-    topicIds.length,
-    N,
-    `all ${N} concurrent topic creations kept (got ${topicIds.length}) — lost update in a multi-agent CLI mutator`
-  );
-  // Ids must be distinct — a shared-id collision would also read as a loss.
+  assert.equal(topicIds.length, N, `all ${N} concurrent topic creations kept (got ${topicIds.length}) — lost update in a direct-save mutator`);
   assert.equal(new Set(topicIds).size, N, "the persisted topic ids are all distinct");
+}
+
+// B. transitive-save mutator: commentAddCli (saveCheckpoint lives in
+// collaboration-io's persist(), not in multi-agent-cli.ts itself).
+async function concurrentCommentAdd() {
+  const state = await raceOnOneRun(
+    "cw-marace-comment-",
+    `
+    const fs = require("node:fs");
+    const { commentAddCli } = require(${JSON.stringify(path.join(dist, "shell", "multi-agent-cli.js"))});
+    const [runId, cwd, body, readyFile, goFile] = process.argv.slice(2);
+    fs.writeFileSync(readyFile, "ready", "utf8");
+    while (!fs.existsSync(goFile)) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5); }
+    commentAddCli({ runId, cwd, body, targetKind: "run", target: runId }, "run", runId);
+    `,
+    (runId, cwd, i, readyFile, goFile) => [runId, cwd, `comment-${i}`, readyFile, goFile]
+  );
+  const comments = (state.collaboration && state.collaboration.comments) || [];
+  assert.equal(comments.length, N, `all ${N} concurrent comment adds kept (got ${comments.length}) — lost update in a transitive-save mutator`);
+  assert.equal(new Set(comments.map((c) => c.id)).size, N, "the persisted comment ids are all distinct");
 }
 
 (async () => {
   await concurrentTopicCreate();
-  process.stdout.write(`multi-agent-state-lock-concurrency-smoke: ok (${N} concurrent topic creations lose nothing)\n`);
+  await concurrentCommentAdd();
+  process.stdout.write(`multi-agent-state-lock-concurrency-smoke: ok (${N} concurrent direct-save + ${N} transitive-save mutations lose nothing)\n`);
 })().catch((error) => {
   process.stderr.write(`multi-agent-state-lock-concurrency-smoke: FAIL ${error && error.stack ? error.stack : error}\n`);
   process.exit(1);

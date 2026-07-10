@@ -900,26 +900,26 @@ function targetFromArgs(args: Record<string, unknown>, positionalKind?: string, 
 
 export function approveCli(args: Record<string, unknown>, positionalKind?: string, positionalId?: string): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const target = targetFromArgs(args, positionalKind, positionalId);
-  const record = collab.recordApproval(run, { target: target as never, decision: "approve", actor: optionalString(args.actor), actorKind: optionalString(args.actorKind), role: optionalString(args.role), displayName: optionalString(args.displayName), attested: boolArg(args.attested), attestation: optionalString(args.attestation) as never, rationale: optionalString(args.rationale), supersedes: optionalString(args.supersedes) });
-  return record;
+  return mutateRun(args, runId, (run) => {
+    const target = targetFromArgs(args, positionalKind, positionalId);
+    return collab.recordApproval(run, { target: target as never, decision: "approve", actor: optionalString(args.actor), actorKind: optionalString(args.actorKind), role: optionalString(args.role), displayName: optionalString(args.displayName), attested: boolArg(args.attested), attestation: optionalString(args.attestation) as never, rationale: optionalString(args.rationale), supersedes: optionalString(args.supersedes) });
+  });
 }
 
 export function rejectCollabCli(args: Record<string, unknown>, positionalKind?: string, positionalId?: string): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const target = targetFromArgs(args, positionalKind, positionalId);
-  const record = collab.recordApproval(run, { target: target as never, decision: "reject", actor: optionalString(args.actor), actorKind: optionalString(args.actorKind), role: optionalString(args.role), displayName: optionalString(args.displayName), attested: boolArg(args.attested), attestation: optionalString(args.attestation) as never, rationale: optionalString(args.rationale) });
-  return record;
+  return mutateRun(args, runId, (run) => {
+    const target = targetFromArgs(args, positionalKind, positionalId);
+    return collab.recordApproval(run, { target: target as never, decision: "reject", actor: optionalString(args.actor), actorKind: optionalString(args.actorKind), role: optionalString(args.role), displayName: optionalString(args.displayName), attested: boolArg(args.attested), attestation: optionalString(args.attestation) as never, rationale: optionalString(args.rationale) });
+  });
 }
 
 export function commentAddCli(args: Record<string, unknown>, positionalKind?: string, positionalId?: string): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const target = targetFromArgs(args, positionalKind, positionalId);
-  const record = collab.recordComment(run, { target: target as never, body: requireArg(args.body ?? args.message ?? args.text, "comment body"), actor: optionalString(args.actor), actorKind: optionalString(args.actorKind), role: optionalString(args.role), threadId: optionalString(args.thread), parentId: optionalString(args.parent) });
-  return record;
+  return mutateRun(args, runId, (run) => {
+    const target = targetFromArgs(args, positionalKind, positionalId);
+    return collab.recordComment(run, { target: target as never, body: requireArg(args.body ?? args.message ?? args.text, "comment body"), actor: optionalString(args.actor), actorKind: optionalString(args.actorKind), role: optionalString(args.role), threadId: optionalString(args.thread), parentId: optionalString(args.parent) });
+  });
 }
 
 export function commentListCli(args: Record<string, unknown>): unknown {
@@ -932,10 +932,10 @@ export function commentListCli(args: Record<string, unknown>): unknown {
 
 export function handoffCli(args: Record<string, unknown>, positionalKind?: string, positionalId?: string): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  const target = targetFromArgs(args, positionalKind, positionalId);
-  const record = collab.recordHandoff(run, { target: target as never, toActor: optionalString(args.to ?? args.toActor), toRole: optionalString(args.toRole), fromActor: optionalString(args.from), reason: requireArg(args.reason, "handoff reason"), actor: optionalString(args.actor), actorKind: optionalString(args.actorKind), role: optionalString(args.role) });
-  return record;
+  return mutateRun(args, runId, (run) => {
+    const target = targetFromArgs(args, positionalKind, positionalId);
+    return collab.recordHandoff(run, { target: target as never, toActor: optionalString(args.to ?? args.toActor), toRole: optionalString(args.toRole), fromActor: optionalString(args.from), reason: requireArg(args.reason, "handoff reason"), actor: optionalString(args.actor), actorKind: optionalString(args.actorKind), role: optionalString(args.role) });
+  });
 }
 
 export function reviewStatusCli(args: Record<string, unknown>): unknown {
@@ -948,19 +948,19 @@ export function reviewStatusCli(args: Record<string, unknown>): unknown {
 
 export function reviewPolicyCli(args: Record<string, unknown>): unknown {
   const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  // Read BOTH the MCP camelCase keys and the CLI kebab-case flags: the CLI
-  // parser emits `--required-approvals` as `required-approvals`, not
-  // `requiredApprovals`, so without the fallback every flag was silently
-  // dropped and the CLI wrote the default policy (caught by parity-check's
-  // cw --json vs cw_review_policy payload probe).
-  const requiredApprovals = args.requiredApprovals ?? args["required-approvals"];
-  const authorizedRoles = args.authorizedRoles ?? args["authorized-roles"];
-  const allowSelfApproval = args.allowSelfApproval ?? args["allow-self-approval"];
-  const requireAttestedActor = args.requireAttestedActor ?? args["require-attested-actor"];
-  const appliesTo = args.appliesTo ?? args["applies-to"];
-  const policy = collab.setReviewPolicy(run, { requiredApprovals: numberArg(requiredApprovals), authorizedRoles: arrayArg(authorizedRoles).length ? arrayArg(authorizedRoles) : optionalString(authorizedRoles), allowSelfApproval: allowSelfApproval === undefined ? undefined : boolArg(allowSelfApproval), requireAttestedActor: requireAttestedActor === undefined ? undefined : boolArg(requireAttestedActor), appliesTo: arrayArg(appliesTo).length ? (arrayArg(appliesTo) as never) : (optionalString(appliesTo) as never) });
-  return policy;
+  return mutateRun(args, runId, (run) => {
+    // Read BOTH the MCP camelCase keys and the CLI kebab-case flags: the CLI
+    // parser emits `--required-approvals` as `required-approvals`, not
+    // `requiredApprovals`, so without the fallback every flag was silently
+    // dropped and the CLI wrote the default policy (caught by parity-check's
+    // cw --json vs cw_review_policy payload probe).
+    const requiredApprovals = args.requiredApprovals ?? args["required-approvals"];
+    const authorizedRoles = args.authorizedRoles ?? args["authorized-roles"];
+    const allowSelfApproval = args.allowSelfApproval ?? args["allow-self-approval"];
+    const requireAttestedActor = args.requireAttestedActor ?? args["require-attested-actor"];
+    const appliesTo = args.appliesTo ?? args["applies-to"];
+    return collab.setReviewPolicy(run, { requiredApprovals: numberArg(requiredApprovals), authorizedRoles: arrayArg(authorizedRoles).length ? arrayArg(authorizedRoles) : optionalString(authorizedRoles), allowSelfApproval: allowSelfApproval === undefined ? undefined : boolArg(allowSelfApproval), requireAttestedActor: requireAttestedActor === undefined ? undefined : boolArg(requireAttestedActor), appliesTo: arrayArg(appliesTo).length ? (arrayArg(appliesTo) as never) : (optionalString(appliesTo) as never) });
+  });
 }
 
 // ---------------------------------------------------------------------------

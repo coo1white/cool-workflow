@@ -25,18 +25,35 @@
 > `saveCheckpoint`, NOT by trusting the hunt's file list — that surfaced
 > three mutators the report missed (`worker-cli.ts`'s
 > `manifest`/`output`/`fail`/`validate` verbs and `pipeline-cli.ts`'s
-> `commitRun`). Deliberately NOT wrapped, with reasons: `drive.ts`'s loop
-> internals (the single writer during an active `cw run --drive`, with its
-> own `roundCache`/`deferPersist` checkpoint cadence — a manual mutation
+> `commitRun`). The adversarial review then caught a whole blind spot in
+> that first sweep: it only saw verbs whose `saveCheckpoint` was in the
+> SAME function body, so it missed verbs that persist TRANSITIVELY through
+> an `-io` helper. A precise transitive sweep + a runtime probe (patch
+> `saveCheckpoint`, invoke each candidate, see which actually write) then
+> found the rest: `feedback-cli.ts`'s `collect`/`task`/`resolve` (save via
+> `error-feedback-io`) and `multi-agent-cli.ts`'s collaboration verbs
+> `approve`/`reject`/`comment`/`handoff`/`review policy` (save via
+> `collaboration-io`'s `persist()`). All now wrapped. The runtime probe
+> also confirmed every remaining run-loading verb (`*summary`/`*show`/
+> `*list`/`*status`/`*graph`, `evalSnapshot`, the `state node` verbs) does
+> NOT `saveCheckpoint` — genuinely read-only, correctly left lock-free.
+>
+> Deliberately NOT wrapped, with reasons: `drive.ts`'s loop internals (the
+> single writer during an active `cw run --drive`, with its own
+> `roundCache`/`deferPersist` checkpoint cadence — a manual mutation
 > racing an active drive is a separate, larger design question);
-> `run-export.ts`'s archive restore (a create-from-archive, not a
-> load-from-state read-modify-write, and its write is already atomically
-> locked); and `worker-isolation.ts`'s leaf mutators (they take an
-> already-loaded `run` and their entry-point callers now hold the lock).
+> `run-export.ts`'s archive restore and `app run`/`quickstart`'s `plan()`
+> (create-from-scratch, not a load-from-state read-modify-write, writes
+> already atomically locked); `worker-isolation.ts` / the `-io` leaf
+> mutators (they take an already-loaded `run` and their entry-point
+> callers now hold the lock); `reclamation-io.ts`'s `gcOrphanRuns` (its
+> own comment documents it already runs under the state.json lock); and
+> the `state node`/`eval snapshot` verbs (they `writeJson` to separate
+> `snapshots/*.json`, never `saveCheckpoint`).
 
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
-| 14 | Close the state.json lost-update: route every run-mutating CLI verb's whole `load -> change -> persist` cycle through `withRunStateLock` (was only wired into `dispatch`/`result`), so concurrent mutations of one run stop silently dropping each other. | `plugins/cool-workflow/src/shell/{multi-agent-cli,audit-cli,orchestrator,worker-cli,state-explosion-cli,pipeline-cli}.ts` + matching `dist/**`, new `plugins/cool-workflow/test/multi-agent-state-lock-concurrency-smoke.js`, `plugins/cool-workflow/docs/project-index.md`. | New `multi-agent-state-lock-concurrency-smoke.js` spawns 6 real processes each doing `blackboard topic create` on one run, releases them together, and asserts all 6 topics survive with distinct ids — verified it FAILS when the lock is bypassed and PASSES with the fix. Reproduced the original loss (1/6 kept) and confirmed the fix (6/6 kept, 5/5 trials) against a built `dist`. Existing `run-state-lock-concurrency-smoke.js` (the `dispatch`/`result` sibling) still passes. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 106/106 against `dist/cli.js`; `test:unit` 160/160; full smoke gate 199/199 after regenerating `project-index.md`; `release:check --skip-tests` all green. | no (PR batch, no release) |
+| 14 | Close the state.json lost-update: route every run-mutating CLI verb's whole `load -> change -> persist` cycle through `withRunStateLock` (was only wired into `dispatch`/`result`), so concurrent mutations of one run stop silently dropping each other. Covers direct-save AND transitive-save (`-io`-persisting) verbs. | `plugins/cool-workflow/src/shell/{multi-agent-cli,audit-cli,orchestrator,worker-cli,state-explosion-cli,pipeline-cli,feedback-cli}.ts` + matching `dist/**`, new `plugins/cool-workflow/test/multi-agent-state-lock-concurrency-smoke.js`, `plugins/cool-workflow/docs/project-index.md`. | New `multi-agent-state-lock-concurrency-smoke.js` spawns 6 real processes twice — once on `blackboard topic create` (direct-save) and once on `comment add` (transitive-save via `collaboration-io`) — releases each batch together, and asserts all 6 writes survive with distinct ids. Verified BOTH arms FAIL when the lock is bypassed and PASS with the fix. Reproduced the original loss (1/6 kept) and confirmed the fix (6/6, 5/5 trials). A runtime `saveCheckpoint` probe confirmed the fixed verbs write under the held lock and every remaining run-loading verb is read-only. Existing `run-state-lock-concurrency-smoke.js` still passes. | BUILD OK; `check` (tsc --noEmit) OK; `dist:check` OK; `purity:check` OK; `parity:check` OK; conformance 106/106 against `dist/cli.js`; `test:unit` 160/160; full smoke gate 199/199 after regenerating `project-index.md`; `release:check --skip-tests` all green. | no (PR batch, no release) |
 
 ## Batch — add `cw completion <bash|zsh|fish>` (Unreleased)
 
