@@ -186,6 +186,14 @@ export function durableAppendFileSync(file: string, data: string): void {
 
 const FILE_LOCK_STALE_MS = 30_000;
 
+// A lock stale for this long is stolen regardless of what `isLockOwnerAlive`
+// says — the fallback for the one case a liveness check cannot resolve: the
+// recorded pid has been recycled by an unrelated live process, which would
+// otherwise make a dead owner's pid look "alive" forever and wedge the lock
+// permanently. 10x the normal window keeps this astronomically unlikely to
+// fire against a genuinely still-working holder.
+const FILE_LOCK_FORCE_STALE_MS = FILE_LOCK_STALE_MS * 10;
+
 // Lock paths this process holds right now. A nested withFileLock on the
 // SAME target runs its fn directly (re-entrant) instead of waiting on its
 // own lock file until the 240 tries run out — that lets a whole
@@ -195,6 +203,33 @@ const HELD_LOCKS = new Set<string>();
 
 function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** Whether the pid recorded in a lock body ("<pid>@<ISO>\n") is still a
+ *  live process on this machine. Locks here are local-advisory only (no
+ *  network-shared run directories in this tool's model), so
+ *  `process.kill(pid, 0)` — signal 0 delivers nothing, it just probes
+ *  existence/permission — gives a direct, same-instant answer, unlike
+ *  mtime, which is a snapshot a caller can act on after it is already
+ *  outdated. This is the property that actually closes the steal race: a
+ *  lock belonging to a currently running process can never pass this
+ *  check, no matter how a mtime-based timing window lines up, because its
+ *  owner really is alive right now. Malformed content or a missing pid is
+ *  treated as "not verifiably alive" so the mtime-only path still applies.
+ *  `EPERM` (a process with that pid exists but this process cannot signal
+ *  it) is treated as alive — the conservative, never-wrongly-steal
+ *  direction. */
+function isLockOwnerAlive(lockBody: string): boolean {
+  const match = /^(\d+)@/.exec(lockBody);
+  if (!match) return false;
+  const pid = Number(match[1]);
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return Boolean(error && typeof error === "object" && (error as { code?: string }).code === "EPERM");
+  }
 }
 
 /** Run `fn` while holding an advisory lock for `targetPath`; always released
@@ -211,18 +246,80 @@ export function withFileLock<T>(targetPath: string, fn: () => T): T {
   let acquired = false;
   for (let attempt = 0; attempt < 240 && !acquired; attempt++) {
     try {
+      const body = `${pid}@${new Date().toISOString()}\n`;
       const fd = fs.openSync(lock, "wx", 0o600);
-      fs.writeFileSync(fd, `${pid}@${new Date().toISOString()}\n`, "utf8");
+      fs.writeFileSync(fd, body, "utf8");
       fs.closeSync(fd);
-      acquired = true;
+      // Read back immediately rather than trusting `wx` alone: directly
+      // testing this exact retry loop under contention showed that
+      // `fs.unlinkSync` on a shared path is NOT single-winner on every
+      // filesystem this runs on — multiple concurrent callers can each
+      // observe success removing the SAME file — and a `wx` open that
+      // immediately follows such an unlink can likewise show more than one
+      // "winner" in a tight enough race (see
+      // test/fs-atomic-lock-steal-race-smoke.js for the reproduction).
+      // `acquired = true` alone is therefore not sufficient proof of
+      // exclusive ownership here. Only one process's write can be the
+      // surviving content on disk; whichever process reads back a body
+      // other than its own was not actually the winner and must retry
+      // instead of proceeding into fn().
+      acquired = fs.readFileSync(lock, "utf8") === body;
     } catch (error) {
       if (!(error && typeof error === "object" && (error as { code?: string }).code === "EEXIST")) {
         throw error;
       }
       try {
-        if (Date.now() - fs.statSync(lock).mtimeMs > FILE_LOCK_STALE_MS) {
-          fs.rmSync(lock, { force: true });
-          continue;
+        const age = Date.now() - fs.statSync(lock).mtimeMs;
+        if (age > FILE_LOCK_STALE_MS) {
+          // mtime alone is a snapshot: by the time anything here runs, the
+          // real owner can already have finished and a brand-new legitimate
+          // owner can already be in its place, so acting on "was stale a
+          // moment ago" is how two processes end up in the critical section
+          // at once. Gate the actual steal on the recorded pid being
+          // confirmed DEAD — that cannot be true for a currently running
+          // holder no matter how the timing lines up, which is what closes
+          // the race rather than just narrowing it. Past
+          // FILE_LOCK_FORCE_STALE_MS, steal regardless (see its doc
+          // comment) — the one case liveness cannot resolve: a recycled
+          // pid.
+          let body = "";
+          try {
+            body = fs.readFileSync(lock, "utf8");
+          } catch {
+            continue; // vanished — another waiter/the owner beat us to it
+          }
+          if (age > FILE_LOCK_FORCE_STALE_MS || !isLockOwnerAlive(body)) {
+            // Confirming the owner dead still leaves one gap: between that
+            // read and the delete, a brand-new legitimate owner can appear
+            // (different pid, different timestamp) and this would delete
+            // THEIRS. Close it with a content-equality check immediately
+            // before the delete — only proceed if the file's bytes are
+            // still EXACTLY what was just read (same pid, same instant of
+            // creation); any real new owner's body necessarily differs, so
+            // an exact match is strong evidence nothing has touched this
+            // file since. Delete via `unlinkSync`, not `fs.rmSync` —
+            // `rmSync`'s generic file-or-directory handling is measurably
+            // heavier than the direct syscall, and that extra time IS a
+            // TOCTOU window in its own right: an 8-process contention
+            // repro (see test/fs-atomic-lock-steal-race-smoke.js)
+            // reproduced the double-acquire far more often with `rmSync`
+            // than with `unlinkSync`, all else unchanged. A rename-based
+            // "capture, verify, restore-if-wrong" version was also tried
+            // and measured WORSE than plain `rmSync` — the extra
+            // directory-entry churn it introduces widens the window
+            // rather than closing it.
+            try {
+              if (fs.readFileSync(lock, "utf8") === body) {
+                fs.unlinkSync(lock);
+              }
+            } catch {
+              /* vanished or changed between the checks */
+            }
+            continue;
+          }
+          // Owner confirmed alive despite an old mtime (e.g. a long-running
+          // fn() that has not refreshed it) — do not steal; fall through to
+          // the same backoff as ordinary contention.
         }
       } catch {
         continue;

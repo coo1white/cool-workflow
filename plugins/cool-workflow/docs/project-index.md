@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-10 by `npm run sync:projec
 - Source modules: `148`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `199`
+- Smoke tests: `200`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -355,6 +355,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [execution-backends-smoke.js](../test/execution-backends-smoke.js)
 - [feedback-ops-unit-smoke.js](../test/feedback-ops-unit-smoke.js)
 - [freebsd-audit-fixes-smoke.js](../test/freebsd-audit-fixes-smoke.js)
+- [fs-atomic-lock-steal-race-smoke.js](../test/fs-atomic-lock-steal-race-smoke.js)
 - [gemini-agent-wrapper-smoke.js](../test/gemini-agent-wrapper-smoke.js)
 - [gemini-opencode-agent-wrapper-smoke.js](../test/gemini-opencode-agent-wrapper-smoke.js)
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
