@@ -1,6 +1,14 @@
 # CW Iteration Log
 
-## Batch — v0.2.4 release prep (Unreleased)
+## Batch — fix prevTagOf's ancestry-walk bug (Unreleased)
+
+> Dev-loop fix, not a release cut: no `npm run release`, no tag. Found live
+> right after the v0.2.4 cut: the published GitHub Release notes' "Full
+> diff" line read `v0.2.2...v0.2.4` instead of the correct `v0.2.3...v0.2.4`.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 35 | Fix `prevTagOf(version)` in `release-flow.js`, used by `buildReleaseNotes` for the GitHub Release "Full diff" compare link. It called `git describe --tags --abbrev=0 v<version>^`, which walks ancestry backward from the reviewed commit — but every release-cut tag in this repo lives on an ephemeral release-cut branch that never merges into `main` as an ancestor (`main` instead gets a separate small "record the reviewer verdict" PR built on its own history, confirmed live via `git merge-base --is-ancestor v0.2.3 <v0.2.4's reviewed sha>` -> NO). So the ancestry walk silently skips the true previous release tag and lands one version further back — confirmed impact: the already-published v0.2.4 Release notes read `v0.2.2...v0.2.4`. Replaced the ancestry walk with a pure semver comparison: list every `v*` tag in the repo (`git tag --list`, no ancestry requirement) and pick the highest one strictly below the target version. | `plugins/cool-workflow/scripts/release-flow.js` (`prevTagOf`, new `parseSemverTag`/`compareSemver` helpers), `plugins/cool-workflow/test/release-flow-smoke.js` (new `releaseFixtureNonAncestorPrevTag` fixture + Case 6b). | New Case 6b fixture reproduces the exact real-world shape: v9.9.7 is a real ancestor of the release commit (an older release, pre-branch-point); v9.9.8 sits on a sibling branch the release commit's history never merges — confirmed the new test FAILS against the pre-fix code (`Full diff` resolved to `v9.9.7...v9.9.9`, skipping the non-ancestor v9.9.8) and PASSES after the fix (`v9.9.8...v9.9.9`). All existing release-flow-smoke cases (prior-tag-is-ancestor shape, idempotency, signing, preflight) still green. `npm run build`; full local smoke suite unsampled. | BUILD OK; `check` OK; `onramp-check --changed-from origin/main` OK (after this entry); full local smoke suite green. | no (dev loop fix, no release) |
 
 > Standalone bump PR ahead of the operator's `npm run release -- 0.2.4`,
 > per the two-step flow in RELEASE.md: land the version + CHANGELOG first

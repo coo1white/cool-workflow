@@ -321,6 +321,53 @@ function releaseFixture() {
   return { dir, contentSha };
 }
 
+// Fixture proving prevTagOf must find the true previous tag even when it is
+// NOT an ancestor of the release commit — the real shape of this repo's
+// release process: every release-cut tag lives on an ephemeral branch that
+// never merges into main as an ancestor (main instead gets a separate small
+// "record the reviewer verdict" PR built on its own history). v9.9.7 sits in
+// the real ancestry (an older release, from before the branch point);
+// v9.9.8 sits on a sibling branch that v9.9.9's history never merges — a
+// naive ancestry walk (`git describe`) skips v9.9.8 and wrongly lands on
+// v9.9.7, one version further back than the correct previous release.
+function releaseFixtureNonAncestorPrevTag() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-rel-na-${caseId++}-`));
+  run("git", ["init", "-q", "-b", "work"], dir);
+  run("git", ["config", "user.email", "t@t"], dir);
+  run("git", ["config", "user.name", "t"], dir);
+  run("git", ["config", "commit.gpgsign", "false"], dir);
+  run("git", ["remote", "add", "origin", "https://github.com/test-owner/test-repo.git"], dir);
+  fs.writeFileSync(path.join(dir, "README.md"), "x\n");
+  run("git", ["add", "-A"], dir);
+  run("git", ["commit", "-q", "-m", "init"], dir);
+  run("git", ["tag", "-a", "v9.9.7", "-m", "v9.9.7"], dir);
+  fs.writeFileSync(path.join(dir, "later.txt"), "x\n");
+  run("git", ["add", "-A"], dir);
+  run("git", ["commit", "-q", "-m", "later main work"], dir);
+  const mainlineSha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+
+  // v9.9.8 is tagged on a sibling branch that never merges back into "work".
+  run("git", ["checkout", "-q", "-b", "cut/9.9.8", mainlineSha], dir);
+  fs.writeFileSync(path.join(dir, "release-998.txt"), "x\n");
+  run("git", ["add", "-A"], dir);
+  run("git", ["commit", "-q", "-m", "release content for 9.9.8"], dir);
+  run("git", ["tag", "-a", "v9.9.8", "-m", "v9.9.8"], dir);
+  run("git", ["checkout", "-q", "work"], dir);
+
+  fs.writeFileSync(path.join(dir, "CHANGELOG.md"),
+    "# Changelog\n\n## 9.9.9\n\nTest release body line.\n\n- bullet one\n- bullet two\n\n## 9.9.7\n\nold.\n");
+  run("git", ["add", "-A"], dir);
+  run("git", ["commit", "-q", "-m", "content"], dir);
+  const contentSha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  fs.mkdirSync(path.join(dir, ".cw-release"), { recursive: true });
+  fs.writeFileSync(path.join(dir, ".cw-release", `review-${contentSha}.verdict`),
+    `APPROVED ${contentSha}\nStub capability: resume + verify.\n`);
+  run("git", ["add", "-A", "-f"], dir);
+  run("git", ["commit", "-q", "-m", "record verdict"], dir);
+  run("git", ["tag", "-a", "v9.9.9", "-m", "v9.9.9"], dir);
+  return { dir, contentSha };
+}
+
 // ---- Case 6: --release creates the Release; notes carry capability + links ----
 {
   const { dir, contentSha } = releaseFixture();
@@ -347,6 +394,29 @@ function releaseFixture() {
   assert.match(notes, /blob\/v9\.9\.9\/\.cw-release\/review-/, "notes link the committed verdict at the tag");
   assert.match(notes, /compare\/v9\.9\.8\.\.\.v9\.9\.9/, "notes link the full diff against the prior tag");
   assert.match(notes, /npmjs\.com\/package\/cool-workflow\/v\/9\.9\.9/, "notes link the provenance-attested npm version");
+}
+
+// ---- Case 6b: prevTagOf finds the true previous tag even when it is NOT an
+// ancestor of the release commit (v0.2.4's "Full diff" landed on v0.2.2...v0.2.4
+// instead of v0.2.3...v0.2.4 in production — this is that exact shape) --------
+{
+  const { dir } = releaseFixtureNonAncestorPrevTag();
+  const stub = writeGhStub(dir);
+  const notesOut = path.join(dir, "captured-notes.md");
+  const env = {
+    ...process.env,
+    CW_RELEASE_FLOW_GH_CMD: stub,
+    GH_STUB_REC: path.join(dir, "gh-rec.txt"),
+    GH_STUB_SENTINEL: path.join(dir, "gh-sentinel"),
+    GH_STUB_NOTES_OUT: notesOut
+  };
+  const r = run("node", [FLOW, "--release", "--version", "9.9.9"], dir, env);
+  assert.equal(r.code, 0, `--release should succeed:\n${r.err}\n${r.out}`);
+  const notes = fs.readFileSync(notesOut, "utf8");
+  assert.match(notes, /compare\/v9\.9\.8\.\.\.v9\.9\.9/,
+    "the true previous tag (v9.9.8, not an ancestor) must back the compare link");
+  assert.doesNotMatch(notes, /compare\/v9\.9\.7\.\.\.v9\.9\.9/,
+    "must not skip past the non-ancestor tag to the older ancestor tag");
 }
 
 // ---- Case 7: idempotent — a second --release skips, does not re-create ----

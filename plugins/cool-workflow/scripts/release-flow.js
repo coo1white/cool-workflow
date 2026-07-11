@@ -451,10 +451,42 @@ function repoSlug() {
   return m ? { owner: m[1], repo: m[2] } : null;
 }
 
+// Parse a "v1.2.3" tag into a [major, minor, patch] tuple, or null if it does
+// not match. Kept local (not required) — same zero-dependency-script
+// convention as escapeRegExp below.
+function parseSemverTag(tag) {
+  const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag || "");
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+function compareSemver(a, b) {
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+}
+
 // The previous release tag relative to a SPECIFIC tag (not HEAD) — for the
-// compare link in the notes.
+// compare link in the notes. This is the highest `v*` semver tag anywhere in
+// the repo that is strictly below `version`, NOT "the nearest tag reachable
+// by walking ancestry from v<version>^" (`git describe`'s approach). Every
+// release-cut tag in this repo lives on an ephemeral branch that never merges
+// into main as an ancestor (main instead gets a separate small "record the
+// reviewer verdict" PR) — so an ancestry walk silently skips the true
+// previous release tag and lands one version further back.
 function prevTagOf(version) {
-  return git(["describe", "--tags", "--abbrev=0", `v${version}^`]).out || "";
+  const target = parseSemverTag(`v${version}`);
+  if (!target) return "";
+  const tags = git(["tag", "--list", "v*"]).out.split("\n").filter(Boolean);
+  let best = "";
+  let bestParsed = null;
+  for (const tag of tags) {
+    const parsed = parseSemverTag(tag);
+    if (!parsed || compareSemver(parsed, target) >= 0) continue;
+    if (!bestParsed || compareSemver(parsed, bestParsed) > 0) {
+      best = tag;
+      bestParsed = parsed;
+    }
+  }
+  return best;
 }
 
 // Full regex escape (same shape as parity-check.js's helper — scripts stay
