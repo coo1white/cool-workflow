@@ -69,3 +69,5 @@ security-trust-hardening(7), cli-mcp-parity(7), report-verifiable-bundle(7)
 0.2.2
 
 0.2.3
+
+0.2.4

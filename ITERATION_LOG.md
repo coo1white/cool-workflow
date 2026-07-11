@@ -1,6 +1,15 @@
 # CW Iteration Log
 
-## Batch — close the wiring -> cli/io purity-gate layer violation (Unreleased)
+## Batch — v0.2.4 release prep (Unreleased)
+
+> Standalone bump PR ahead of the operator's `npm run release -- 0.2.4`,
+> per the two-step flow in RELEASE.md: land the version + CHANGELOG first
+> so the cut's own bump:version no-ops (see the v0.2.2/v0.2.3 precedent).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 33 | Bump to v0.2.4 across all structured + content surfaces as a standalone PR ahead of the release cut, with the CHANGELOG entry covering the architecture-review fix series (PRs #432–#437: workflow-app trust boundary P1, env.deny finality, concurrent-dispatch crash-safety, commit-snapshot reclamation, resume discoverability, wiring→cli/io purity boundary), the one-command release tooling (#429), and the CodeQL alert clearing (#431). | `plugins/cool-workflow/package.json` + lockfile + manifests + plugin.json surfaces + `src/core/version.ts` + matching `dist/**`, `CHANGELOG.md`, `RELEASE.md`, `plugins/cool-workflow/docs/*.7.md` version lists, `plugins/cool-workflow/apps/*/app.json`, `plugins/cool-workflow/scripts/{canonical-apps,dogfood-release,golden-path}.js`, `plugins/cool-workflow/docs/project-index.md` (version line). | Full suite re-run on the bumped tree: conformance 106/106, `test:unit` 161/161, full unsampled smoke suite. | BUILD OK; `check` OK; `dist:check` OK; `purity:check` OK; `index:check` OK (after resync); `onramp:check --changed-from origin/main` OK (after this entry); full gate before PR. | no (bump PR; the tag comes from the operator's `npm run release -- 0.2.4`) |
+
 
 > Architecture-review P2 (CLI-surface-sprawl dimension): `scripts/purity-gate.js`'s
 > layer rule forbids `wiring/` from importing `cli/`, but all 10
