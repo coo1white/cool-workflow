@@ -269,7 +269,16 @@ function handleContentSurfaces(current, next) {
     const abs = path.join(repoRoot, rel);
     if (!fs.existsSync(abs)) { missing.push({ rel, reason: "file missing" }); continue; }
     const text = fs.readFileSync(abs, "utf8");
-    if (!text.includes(needle)) missing.push({ rel, needle });
+    // Own-line match, not a plain substring: every entry here is a line this
+    // function itself appends (`\n${needle}\n`) when missing, and a bare
+    // version number can otherwise coincidentally already appear in the
+    // doc's unrelated prose (an example command, a cross-reference) without
+    // the real version-history line actually being present. See
+    // version-sync-check.js's checkIncludesOwnLine for the matching CI-side
+    // gate (found live: v0.2.4's bump masked a real missing footer line in
+    // release-tooling.7.md this way).
+    const hasOwnLine = text.split("\n").some((line) => line.trim() === needle);
+    if (!hasOwnLine) missing.push({ rel, needle });
   }
 
   if (missing.length === 0) {
