@@ -159,6 +159,24 @@ function planInputsFor(args) {
 function invocationCwd(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
+/** Same as invocationCwd, but ALSO falls back to `--repo` before
+ *  process.cwd() -- for resolving an EXISTING run's directory specifically
+ *  (loadRunFromCwd's target), never for a fresh plan()'s repo input (see
+ *  planRun's own comment on why THAT path deliberately never auto-fills
+ *  repo from cwd). A caller resuming a run they didn't originally start
+ *  from this exact directory (the common case: `cw run resume <id>
+ *  --drive` or `cw quickstart <app> --resume --run <id>` typed from
+ *  wherever the terminal happens to be, not necessarily the run's own
+ *  --repo) must not have that already-known fact silently discarded in
+ *  favor of process.cwd() -- this mirrors the --preview branch's own
+ *  repoCwd fallback a few lines below, which already gets this right. */
+function existingRunCwd(args) {
+    if (typeof args.cwd === "string" && args.cwd.trim())
+        return path.resolve(args.cwd);
+    if (typeof args.repo === "string" && args.repo.trim())
+        return path.resolve(args.repo);
+    return process.cwd();
+}
 /** True for a value that counts as "not supplied" — byte-exact to the old
  *  build's cli-options.isMissing (undefined / null / empty string). */
 function isMissingInput(value) {
@@ -239,7 +257,7 @@ async function runDriveStep(args) {
         incremental: Boolean(args.incremental),
     };
     if (existingRunId) {
-        const cwd = invocationCwd(args);
+        const cwd = existingRunCwd(args);
         const run = (0, run_store_1.loadRunFromCwd)(existingRunId, cwd);
         return (0, drive_1.driveAsync)(existingRunId, run.cwd, options);
     }
@@ -502,7 +520,7 @@ async function quickstartRun(args) {
     };
     let run;
     if (existingRunId) {
-        run = (0, run_store_1.loadRunFromCwd)(existingRunId, invocationCwd(args));
+        run = (0, run_store_1.loadRunFromCwd)(existingRunId, existingRunCwd(args));
     }
     else {
         run = (0, pipeline_1.plan)(resolveWorkflowAppForPlan(appId), planInputsFor(args));

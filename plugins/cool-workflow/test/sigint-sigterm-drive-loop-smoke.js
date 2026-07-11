@@ -237,6 +237,13 @@ function testGracefulSingleSignal(signal) {
     assert.equal(result.completedWorkers, 1, `exactly 1 task should complete before ${signal} stopped the NEXT iteration from starting`);
     const last = result.steps[result.steps.length - 1];
     assert.match(last.reason || "", new RegExp(`drive interrupted by ${signal}`), "the terminal step must name the interrupting signal");
+    // architecture-review-driven fix: the blocked reason must carry the
+    // ACTUAL, copy-pasteable resume command (with this run's real id), not
+    // just vague "run again" prose a user has to translate themselves.
+    assert.ok(
+      (last.reason || "").includes(`cw run resume ${p.id} --drive`),
+      `blocked reason must contain the literal resume command (got: ${last.reason})`
+    );
 
     const runAfter = runStore.loadRunFromCwd(p.id, work);
     const remaining = runAfter.tasks.filter((t) => t.id !== "step:one");
@@ -372,6 +379,10 @@ function testConcurrentRoundInterruptGranularity(signal) {
     assert.equal(result.status, "blocked", "the run must still stop before its NEXT round/commit step, even though this round finished");
     const last = result.steps[result.steps.length - 1];
     assert.match(last.reason || "", new RegExp(`drive interrupted by ${signal}`));
+    assert.ok(
+      (last.reason || "").includes(`cw run resume ${p.id} --drive`),
+      `blocked reason must contain the literal resume command (got: ${last.reason})`
+    );
 
     const resumed = drive(p.id, work, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
     assert.equal(resumed.status, "complete", "re-driving after a round-boundary interruption resumes to completion");

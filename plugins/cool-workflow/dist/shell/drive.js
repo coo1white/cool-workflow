@@ -904,14 +904,14 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
  *  finishes its own bookkeeping first. A SECOND signal means the caller
  *  wants out right now, not a graceful stop, and force-exits immediately
  *  with the conventional 128+signum code. */
-function createStopSignalController() {
+function createStopSignalController(runId) {
     let interruptedBy;
     let stopSignalHits = 0;
     const onStopSignal = (signal) => {
         stopSignalHits += 1;
         if (stopSignalHits === 1) {
             interruptedBy = signal;
-            emitProgress(`received ${signal} — stopping after the current step (run again with the same run id to resume)`);
+            emitProgress(`received ${signal} — stopping after the current step (resume: cw run resume ${runId} --drive)`);
             return;
         }
         // A second signal means the caller wants out right now, not a graceful stop.
@@ -960,11 +960,11 @@ function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhau
     if (interruptedBy) {
         exhaustedMaxIterations = false;
         if (!alreadyComplete) {
-            steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — run again with the same run id to resume` }));
+            steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — resume: cw run resume ${ctx.runId} --drive` }));
         }
     }
     else if (exhaustedMaxIterations) {
-        steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state` }));
+        steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state — resume: cw run resume ${ctx.runId} --drive` }));
     }
     const statusInputs = {
         once: Boolean(options.once),
@@ -1010,7 +1010,7 @@ function drive(runId, cwd, options = {}) {
     const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
     const emitPhaseProgress = createPhaseProgressEmitter();
     let exhaustedMaxIterations = !options.once;
-    const stopSignal = createStopSignalController();
+    const stopSignal = createStopSignalController(runId);
     stopSignal.install();
     try {
         for (let i = 0; i < maxIter; i++) {
@@ -1059,7 +1059,7 @@ async function driveAsync(runId, cwd, options = {}) {
     const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
     const emitPhaseProgress = createPhaseProgressEmitter();
     let exhaustedMaxIterations = !options.once;
-    const stopSignal = createStopSignalController();
+    const stopSignal = createStopSignalController(runId);
     stopSignal.install();
     try {
         for (let i = 0; i < maxIter; i++) {

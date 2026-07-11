@@ -995,14 +995,14 @@ function driveOneRound(ctx: DriveContext, options: DriveOptions, steps: DriveSte
  *  finishes its own bookkeeping first. A SECOND signal means the caller
  *  wants out right now, not a graceful stop, and force-exits immediately
  *  with the conventional 128+signum code. */
-function createStopSignalController(): { install: () => void; remove: () => void; getInterruptedBy: () => NodeJS.Signals | undefined } {
+function createStopSignalController(runId: string): { install: () => void; remove: () => void; getInterruptedBy: () => NodeJS.Signals | undefined } {
   let interruptedBy: NodeJS.Signals | undefined;
   let stopSignalHits = 0;
   const onStopSignal = (signal: NodeJS.Signals): void => {
     stopSignalHits += 1;
     if (stopSignalHits === 1) {
       interruptedBy = signal;
-      emitProgress(`received ${signal} — stopping after the current step (run again with the same run id to resume)`);
+      emitProgress(`received ${signal} — stopping after the current step (resume: cw run resume ${runId} --drive)`);
       return;
     }
     // A second signal means the caller wants out right now, not a graceful stop.
@@ -1059,10 +1059,10 @@ function finalizeDriveResult(
   if (interruptedBy) {
     exhaustedMaxIterations = false;
     if (!alreadyComplete) {
-      steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — run again with the same run id to resume` }));
+      steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — resume: cw run resume ${ctx.runId} --drive` }));
     }
   } else if (exhaustedMaxIterations) {
-    steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state` }));
+    steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state — resume: cw run resume ${ctx.runId} --drive` }));
   }
   const statusInputs: DriveResultStatusInputs = {
     once: Boolean(options.once),
@@ -1111,7 +1111,7 @@ export function drive(runId: string, cwd: string, options: DriveOptions = {}): D
   const emitPhaseProgress = createPhaseProgressEmitter();
 
   let exhaustedMaxIterations = !options.once;
-  const stopSignal = createStopSignalController();
+  const stopSignal = createStopSignalController(runId);
   stopSignal.install();
   try {
     for (let i = 0; i < maxIter; i++) {
@@ -1161,7 +1161,7 @@ export async function driveAsync(runId: string, cwd: string, options: DriveOptio
   const emitPhaseProgress = createPhaseProgressEmitter();
 
   let exhaustedMaxIterations = !options.once;
-  const stopSignal = createStopSignalController();
+  const stopSignal = createStopSignalController(runId);
   stopSignal.install();
   try {
     for (let i = 0; i < maxIter; i++) {

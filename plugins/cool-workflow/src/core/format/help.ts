@@ -238,7 +238,12 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
  *  capability-table rows that now support `--json`/`--format json`
  *  (io.ts's wantsJson) — the flag existed but was never documented here —
  *  and for a `--quiet` Flags row, a new CLI spelling of the existing
- *  CW_DRIVE_PROGRESS=0 env var (see cli/entry.ts). */
+ *  CW_DRIVE_PROGRESS=0 env var (see cli/entry.ts); and for a `--resume`
+ *  Flags row (architecture-review-driven fix), documenting the existing
+ *  `--resume --run <id>` continuation flag (shell/pipeline-cli.ts's
+ *  quickstartRun) that previously existed only in code comments and an
+ *  auto-generated continue hint — a user who never happened to type it
+ *  first had no way to discover it via `cw help`. */
 export function formatHelp(): string {
   const moreCommandsLines = wrapPipeJoined(MORE_COMMANDS_TOKENS, MORE_COMMANDS_WRAP_WIDTH);
   const lines: string[] = [
@@ -263,6 +268,7 @@ export function formatHelp(): string {
     "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
     "  --json                 Print JSON for commands that support it",
     "  --quiet                Suppress [drive] progress lines (not agent output)",
+    "  --resume --run <id>    Continue an interrupted run to completion",
     "",
     "More commands",
     ...moreCommandsLines,

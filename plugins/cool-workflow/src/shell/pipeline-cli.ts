@@ -115,6 +115,23 @@ function invocationCwd(args: Record<string, unknown>): string {
   return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
 
+/** Same as invocationCwd, but ALSO falls back to `--repo` before
+ *  process.cwd() -- for resolving an EXISTING run's directory specifically
+ *  (loadRunFromCwd's target), never for a fresh plan()'s repo input (see
+ *  planRun's own comment on why THAT path deliberately never auto-fills
+ *  repo from cwd). A caller resuming a run they didn't originally start
+ *  from this exact directory (the common case: `cw run resume <id>
+ *  --drive` or `cw quickstart <app> --resume --run <id>` typed from
+ *  wherever the terminal happens to be, not necessarily the run's own
+ *  --repo) must not have that already-known fact silently discarded in
+ *  favor of process.cwd() -- this mirrors the --preview branch's own
+ *  repoCwd fallback a few lines below, which already gets this right. */
+function existingRunCwd(args: Record<string, unknown>): string {
+  if (typeof args.cwd === "string" && args.cwd.trim()) return path.resolve(args.cwd);
+  if (typeof args.repo === "string" && args.repo.trim()) return path.resolve(args.repo);
+  return process.cwd();
+}
+
 /** True for a value that counts as "not supplied" — byte-exact to the old
  *  build's cli-options.isMissing (undefined / null / empty string). */
 function isMissingInput(value: unknown): boolean {
@@ -197,7 +214,7 @@ export async function runDriveStep(args: Record<string, unknown>): Promise<Retur
     incremental: Boolean(args.incremental),
   };
   if (existingRunId) {
-    const cwd = invocationCwd(args);
+    const cwd = existingRunCwd(args);
     const run = loadRunFromCwd(existingRunId, cwd);
     return driveAsync(existingRunId, run.cwd, options);
   }
@@ -481,7 +498,7 @@ export async function quickstartRun(
   };
   let run: WorkflowRun;
   if (existingRunId) {
-    run = loadRunFromCwd(existingRunId, invocationCwd(args));
+    run = loadRunFromCwd(existingRunId, existingRunCwd(args));
   } else {
     run = plan(resolveWorkflowAppForPlan(appId), planInputsFor(args));
   }
