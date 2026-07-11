@@ -141,13 +141,36 @@ function candidateWorkflowsRoots() {
     roots.push(path.join(process.cwd(), "workflows"));
     return roots;
 }
+/** Whether `candidate` resolves to `root` itself or a real descendant of it
+ *  (not an ancestor, sibling, or anywhere reached only via `..` segments). */
+function isWithinRoot(root, candidate) {
+    const relative = path.relative(root, candidate);
+    return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
 function findAppDir(appId) {
     for (const root of candidateAppsRoots()) {
         const dir = path.join(root, appId);
+        // appId is caller-controlled (MCP app.run, `cw plan`/`run --drive`, a
+        // sub-workflow's spec.appId). Without this check a traversal id like
+        // "../../../tmp/evil-app" walks path.join right out of every trusted
+        // root and loadWorkflowApp below require()s whatever app.json it finds
+        // there with NO manifest/entrypoint validation — the fast path this
+        // function feeds skips validateWorkflowApp entirely (see loadWorkflowApp).
+        if (!isWithinRoot(root, dir))
+            continue;
         if (fs.existsSync(path.join(dir, "app.json")))
             return dir;
     }
     return undefined;
+}
+/** Every root candidateAppsRoots()/candidateWorkflowsRoots() would search:
+ *  bundled apps/workflows, an installed package's apps/workflows, an
+ *  operator-set CW_APPS_DIR/CW_WORKFLOWS_DIR, and the caller's cwd/apps +
+ *  cwd/workflows (the "cw app init" default — must stay unwarned, it is
+ *  the normal flow for a user's own local apps). */
+function isTrustedAppSourcePath(resolvedPath) {
+    const roots = [...candidateAppsRoots(), ...candidateWorkflowsRoots()];
+    return roots.some((root) => isWithinRoot(path.resolve(root), resolvedPath));
 }
 function validationContext() {
     return { bundledSandboxProfileIds: (0, sandbox_profile_1.bundledSandboxProfileIds)(), currentCoolWorkflowVersion: version_1.CURRENT_COOL_WORKFLOW_VERSION };
@@ -451,6 +474,31 @@ function loadWorkflowAppRecordTarget(target) {
         throw new Error("Missing workflow app path or id");
     const resolved = path.resolve(target);
     if (fs.existsSync(resolved)) {
+        // `validate`/`show` on a real path is the one loader entrypoint whose
+        // whole point is to let a caller inspect an app BEFORE deciding to
+        // trust it — but inspecting it means require()-ing its workflow.js
+        // (validateWorkflowApp needs the returned WorkflowDefinition, which
+        // only exists after the factory runs). A path outside every root CW
+        // already trusts (bundled apps, an installed package, CW_APPS_DIR, or
+        // the caller's own cwd/apps from `cw app init`) gets arbitrary code
+        // executed by "validate", with no OS-level containment — a warning
+        // printed after that require() call would be too late to matter, so
+        // this fails closed instead: refuse by default, and only proceed
+        // (still with a visible warning) when the caller explicitly opts in.
+        // Mirrors the existing --allow-unattested precedent in
+        // worker-isolation.ts: unsafe-but-explicit, never silent.
+        if (!isTrustedAppSourcePath(resolved)) {
+            if (!process.env.CW_ALLOW_EXTERNAL_APP_CODE) {
+                throw new app_schema_1.WorkflowAppValidationError("Untrusted workflow app source", [
+                    {
+                        code: "workflow-app-untrusted-source",
+                        message: `Refusing to load workflow app code outside CW's trusted app roots: ${resolved}. Its workflow.js would run as ordinary Node.js code with full host privileges — CW does not sandbox app code, only delegated agent workers. Set CW_ALLOW_EXTERNAL_APP_CODE=1 to load and execute it anyway.`,
+                        path: resolved,
+                    },
+                ]);
+            }
+            process.stderr.write(`cw: loading external workflow app code from ${resolved} — its workflow.js runs as ordinary Node.js code with full host privileges, not sandboxed.\n`);
+        }
         const stat = fs.statSync(resolved);
         if (stat.isDirectory())
             return loadWorkflowAppFromManifest(path.join(resolved, "app.json"));
@@ -593,6 +641,24 @@ function renderManifestTemplate(id, title) {
 function renderEntrypointTemplate(id, title) {
     return `module.exports = ({ workflow, phase, agent, artifact, input }) => {\n  const inputs = [\n    input("question", { type: "string", required: true, description: "Question or task this workflow should answer." })\n  ];\n\n  return workflow({\n    id: ${JSON.stringify(id)},\n    title: ${JSON.stringify(title)},\n    summary: "Describe what this workflow app does.",\n    limits: {\n      maxAgents: 8,\n      maxConcurrentAgents: 4\n    },\n    inputs,\n    sandboxProfiles: ["readonly"],\n    phases: [\n      phase("Map", [\n        agent("map:context", "Map the task context, constraints, and evidence needed for {{question}}.", { sandboxProfileId: "readonly" })\n      ]),\n      phase("Assess", [\n        agent("assess:risks", "Assess risks, tradeoffs, and unknowns for {{question}}.", { sandboxProfileId: "readonly" })\n      ]),\n      phase("Synthesize", [\n        artifact("synthesis:report", "Synthesize the final answer for {{question}}.", { requiresEvidence: true, sandboxProfileId: "readonly" })\n      ])\n    ]\n  });\n};\n`;
 }
+/** Validates a manifest CW itself just wrote to disk (from `initWorkflowApp`
+ *  below) — deliberately bypasses `loadWorkflowAppRecordTarget`'s
+ *  untrusted-source gate. That gate exists for `cw app validate <path>`,
+ *  where the caller is inspecting code someone else wrote before deciding
+ *  whether to trust it; `app init --directory <anywhere>` is the opposite
+ *  case (the caller is authoring new code, from CW's own template, in a
+ *  location they chose on purpose) and must keep working regardless of
+ *  where `--directory` points. */
+function validateGeneratedManifest(manifestPath) {
+    try {
+        const record = loadWorkflowAppFromManifest(manifestPath);
+        const result = (0, app_schema_1.validateWorkflowApp)(record.app, validationContext(), { appPath: sourcePathOf(record) });
+        return { ...result, summary: summarizeWorkflowAppRecord(record) };
+    }
+    catch (error) {
+        return { valid: false, appId: manifestPath, appPath: path.resolve(manifestPath), issues: (0, app_schema_1.validationIssuesFromError)(error) };
+    }
+}
 /** `cw app init <id>` / `cw_app_init`. Writes `app.json` + `workflow.js`
  *  from the templates, refusing system directories and (without
  *  `--force`) an existing app. Ported from `initApp`. */
@@ -614,7 +680,7 @@ function initWorkflowApp(appId, options = {}) {
     fs.mkdirSync(destinationDir, { recursive: true });
     fs.writeFileSync(manifestPath, renderManifestTemplate(id, title), "utf8");
     fs.writeFileSync(entrypointPath, renderEntrypointTemplate(id, title), "utf8");
-    const validation = validateWorkflowAppTarget(manifestPath);
+    const validation = validateGeneratedManifest(manifestPath);
     if (!validation.valid) {
         throw new app_schema_1.WorkflowAppValidationError("Generated workflow app is invalid", validation.issues);
     }

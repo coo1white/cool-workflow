@@ -84,12 +84,21 @@ Important fields:
 | --- | --- |
 | `id` | Stable app id used by CLI and MCP. |
 | `inputs` | Declared operator inputs such as `repo` and `question`. |
-| `sandboxProfiles` | Named sandbox policy hints the app may request. |
+| `sandboxProfiles` | Named sandbox policies for the app's DELEGATED AGENT WORKERS — see below. |
 | `workflow` | Phases and tasks to plan. |
 | `compatibility` | Runtime and workflow schema constraints. |
 
 App loading fails closed on duplicate ids, invalid inputs, incompatible versions,
 bad sandbox references, and malformed phase or task definitions.
+
+`sandboxProfiles` constrains agent workers CW delegates to while driving the
+app — it does not sandbox the app's own `workflow.js`. That file runs
+in-process, as ordinary Node.js code with full host privileges, the moment
+CW loads the app (list, show, validate, plan, or run) — before any sandbox
+profile applies to anything. Only load an app whose `workflow.js` you trust.
+`cw app validate <path>` on a path outside CW's known app roots (bundled
+apps, an installed package, `CW_APPS_DIR`, or the current directory's own
+`apps/`) refuses to load it unless `CW_ALLOW_EXTERNAL_APP_CODE=1` is set.
 
 ## Related Source Docs
 

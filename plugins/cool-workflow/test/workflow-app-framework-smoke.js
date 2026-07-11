@@ -9,17 +9,23 @@ const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist/cli.js");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-workflow-app-framework-"));
 
-function run(args, cwd = pluginRoot) {
-  return JSON.parse(execFileSync("node", [cli, ...args], { cwd, encoding: "utf8" }));
+function execOptions(cwd, env) {
+  const options = { cwd, encoding: "utf8" };
+  if (env) options.env = { ...process.env, ...env };
+  return options;
+}
+
+function run(args, cwd = pluginRoot, env) {
+  return JSON.parse(execFileSync("node", [cli, ...args], execOptions(cwd, env)));
 }
 
 function runText(args, cwd = pluginRoot) {
   return execFileSync("node", [cli, ...args], { cwd, encoding: "utf8" });
 }
 
-function runInvalid(args, cwd = pluginRoot) {
+function runInvalid(args, cwd = pluginRoot, env) {
   try {
-    execFileSync("node", [cli, ...args], { cwd, encoding: "utf8", stdio: "pipe" });
+    execFileSync("node", [cli, ...args], { ...execOptions(cwd, env), stdio: "pipe" });
   } catch (error) {
     return {
       stdout: String(error.stdout || ""),
@@ -106,7 +112,15 @@ const generated = run([
 assert.equal(generated.id, "smoke-sdk-app");
 assert.ok(fs.existsSync(generated.manifestPath));
 assert.ok(fs.existsSync(generated.entrypointPath));
-assert.equal(run(["app", "validate", generated.manifestPath]).valid, true);
+// `app init --directory` can point anywhere outside CW's trusted app roots
+// (that is the flag's whole purpose), and `initWorkflowApp`'s OWN internal
+// self-check already validated this exact manifest at creation time
+// (validateGeneratedManifest, gate-free — see workflow-app-loader.ts) — but a
+// SEPARATE, later `cw app validate <path>` call is a fresh process with no
+// memory of who wrote that file, so it is indistinguishable from "someone
+// handed me a suspicious app" and correctly requires the same explicit
+// opt-in an external app would (architecture-review P1 fix).
+assert.equal(run(["app", "validate", generated.manifestPath], pluginRoot, { CW_ALLOW_EXTERNAL_APP_CODE: "1" }).valid, true);
 
 const packagePath = path.join(tmp, "workflow-app-framework-demo.cwapp.json");
 const packaged = run(["app", "package", "workflow-app-framework-demo", "--output", packagePath]);
@@ -154,7 +168,12 @@ fs.writeFileSync(
 };\n`,
   "utf8"
 );
-const duplicateValidation = JSON.parse(runInvalid(["app", "validate", path.join(duplicateDir, "app.json")]).stdout);
+// This fixture lives under a plain tmpdir (untrusted source) and exercises
+// SCHEMA validation (duplicate task ids), not the trust-boundary gate itself
+// — opt in so the schema check actually runs (architecture-review P1 fix).
+const duplicateValidation = JSON.parse(
+  runInvalid(["app", "validate", path.join(duplicateDir, "app.json")], pluginRoot, { CW_ALLOW_EXTERNAL_APP_CODE: "1" }).stdout
+);
 assert.equal(duplicateValidation.valid, false);
 assert.ok(duplicateValidation.issues.some((entry) => entry.code === "workflow-task-duplicate"));
 
@@ -165,7 +184,11 @@ fs.writeFileSync(
   JSON.stringify({ schemaVersion: 1, id: "missing-fields-app", workflow: { entrypoint: "workflow.js" } }, null, 2),
   "utf8"
 );
-const missingValidation = JSON.parse(runInvalid(["app", "validate", path.join(missingDir, "app.json")]).stdout);
+// Same reasoning as duplicateValidation above: untrusted-tmpdir fixture,
+// opt in so the missing-fields schema check runs instead of the gate.
+const missingValidation = JSON.parse(
+  runInvalid(["app", "validate", path.join(missingDir, "app.json")], pluginRoot, { CW_ALLOW_EXTERNAL_APP_CODE: "1" }).stdout
+);
 assert.equal(missingValidation.valid, false);
 assert.ok(missingValidation.issues.some((entry) => entry.code === "workflow-app-title"));
 assert.ok(missingValidation.issues.some((entry) => entry.code === "workflow-app-version"));
@@ -189,5 +212,104 @@ assert.equal(dispatch.tasks[0].sandboxProfileId, "readonly");
 
 const reportPath = runText(["report", appPlan.runId], tmp).trim();
 assert.equal(reportPath, appPlan.reportPath);
+
+// --- architecture-review P1 fix: untrusted external app source is fail-closed ---
+
+const externalAppDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-external-app-"));
+const externalMarker = path.join(externalAppDir, "executed.marker");
+fs.writeFileSync(
+  path.join(externalAppDir, "app.json"),
+  JSON.stringify(
+    {
+      schemaVersion: 1,
+      id: "external-fixture-app",
+      title: "External Fixture App",
+      summary: "Fixture living outside every CW-trusted app root.",
+      version: "0.1.0",
+      inputs: [],
+      sandboxProfiles: ["readonly"],
+      compatibility: { minVersion: "0.1.9" },
+      workflow: { entrypoint: "workflow.js" }
+    },
+    null,
+    2
+  ),
+  "utf8"
+);
+fs.writeFileSync(
+  path.join(externalAppDir, "workflow.js"),
+  `require("node:fs").writeFileSync(${JSON.stringify(externalMarker)}, "executed\\n");
+module.exports = ({ workflow, phase, artifact }) => workflow({
+  id: "external-fixture-app",
+  title: "External Fixture App",
+  summary: "Fixture living outside every CW-trusted app root.",
+  limits: { maxAgents: 1, maxConcurrentAgents: 1 },
+  inputs: [],
+  sandboxProfiles: ["readonly"],
+  phases: [phase("Only", [artifact("only:report", "Report.", { sandboxProfileId: "readonly" })])]
+});
+`,
+  "utf8"
+);
+const externalManifestPath = path.join(externalAppDir, "app.json");
+
+const blockedValidation = JSON.parse(runInvalid(["app", "validate", externalManifestPath]).stdout);
+assert.equal(blockedValidation.valid, false);
+assert.ok(blockedValidation.issues.some((entry) => entry.code === "workflow-app-untrusted-source"));
+assert.ok(!fs.existsSync(externalMarker), "workflow.js must not execute when its source is untrusted and unauthorized");
+
+const allowedValidation = run(["app", "validate", externalManifestPath], pluginRoot, { CW_ALLOW_EXTERNAL_APP_CODE: "1" });
+assert.equal(allowedValidation.valid, true);
+assert.ok(fs.existsSync(externalMarker), "workflow.js must execute once CW_ALLOW_EXTERNAL_APP_CODE opts in");
+
+// --- architecture-review P1 fix: findAppDir must not resolve a path-traversal appId ---
+
+const traversalBase = fs.mkdtempSync(path.join(os.tmpdir(), "cw-traversal-"));
+const trustedAppsDir = path.join(traversalBase, "trusted-apps");
+fs.mkdirSync(trustedAppsDir, { recursive: true });
+const evilAppDir = path.join(traversalBase, "evil-app");
+fs.mkdirSync(evilAppDir, { recursive: true });
+const evilMarker = path.join(evilAppDir, "executed.marker");
+fs.writeFileSync(
+  path.join(evilAppDir, "app.json"),
+  JSON.stringify(
+    {
+      schemaVersion: 1,
+      id: "evil-app",
+      title: "Evil App",
+      summary: "Reached only via appId path traversal.",
+      version: "0.1.0",
+      inputs: [],
+      sandboxProfiles: ["readonly"],
+      compatibility: { minVersion: "0.1.9" },
+      workflow: { entrypoint: "workflow.js" }
+    },
+    null,
+    2
+  ),
+  "utf8"
+);
+fs.writeFileSync(
+  path.join(evilAppDir, "workflow.js"),
+  `require("node:fs").writeFileSync(${JSON.stringify(evilMarker)}, "executed\\n");
+module.exports = ({ workflow, phase, artifact }) => workflow({
+  id: "evil-app",
+  title: "Evil App",
+  summary: "Reached only via appId path traversal.",
+  limits: { maxAgents: 1, maxConcurrentAgents: 1 },
+  inputs: [],
+  sandboxProfiles: ["readonly"],
+  phases: [phase("Only", [artifact("only:report", "Report.", { sandboxProfileId: "readonly" })])]
+});
+`,
+  "utf8"
+);
+const traversalResult = runInvalid(
+  ["plan", "../evil-app", "--repo", tmp, "--question", "should never run"],
+  pluginRoot,
+  { CW_APPS_DIR: trustedAppsDir }
+);
+assert.match(traversalResult.stderr, /Workflow app not found/);
+assert.ok(!fs.existsSync(evilMarker), "workflow.js must not execute for an appId that path-traverses out of its configured root");
 
 process.stdout.write("workflow-app-framework-smoke: ok\n");
