@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-07-10 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-07-11 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-10 by `npm run sync:projec
 - Source modules: `148`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `202`
+- Smoke tests: `203`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -284,6 +284,7 @@ multi-agent host -> topology -> blackboard/coordinator
 Smoke tests mirror the public contracts. The high-signal suites are:
 
 - [agent-backend-concurrent-user-env-smoke.js](../test/agent-backend-concurrent-user-env-smoke.js)
+- [agent-backend-sandbox-deny-smoke.js](../test/agent-backend-sandbox-deny-smoke.js)
 - [agent-backend-user-env-smoke.js](../test/agent-backend-user-env-smoke.js)
 - [agent-config-atomic-write-smoke.js](../test/agent-config-atomic-write-smoke.js)
 - [agent-delegation-drive-smoke.js](../test/agent-delegation-drive-smoke.js)

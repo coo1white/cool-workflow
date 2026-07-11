@@ -39,6 +39,15 @@ async function main() {
     assert.equal(env.SECRET_TOKEN, undefined, "denied var excluded");
   }
 
+  // ---- 2b. buildChildEnv deny wins even under inherit:true (architecture-review P2) --
+  {
+    process.env.__CW_TEST_INHERIT_DENY__ = "should-be-removed-even-though-inherited";
+    const env = buildChildEnv({ env: { inherit: true, expose: [], deny: ["__CW_TEST_INHERIT_DENY__"] } });
+    assert.equal(env.PATH, process.env.PATH, "inherit still keeps PATH when deny is unrelated");
+    assert.equal(env.__CW_TEST_INHERIT_DENY__, undefined, "deny wins over inherit, not just over expose");
+    delete process.env.__CW_TEST_INHERIT_DENY__;
+  }
+
   // ---- 3. buildChildEnv respects expose ----------------------------------------
   {
     process.env.__CW_TEST__ = "hello";

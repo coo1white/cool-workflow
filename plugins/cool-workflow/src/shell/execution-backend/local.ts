@@ -17,12 +17,18 @@ function messageOf(error: unknown): string {
 }
 
 export function buildChildEnv(policy: ResolvedSandboxPolicy, baseEnv: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  if (policy.env.inherit) return { ...baseEnv };
-  const env: NodeJS.ProcessEnv = {};
-  if (baseEnv.PATH !== undefined) env.PATH = baseEnv.PATH;
-  if (baseEnv.HOME !== undefined) env.HOME = baseEnv.HOME;
-  for (const name of policy.env.expose || []) {
-    if (baseEnv[name] !== undefined) env[name] = baseEnv[name];
+  // deny must win regardless of inherit: a custom profile combining
+  // inherit:true with deny:[...] (a valid, normalized combination — see
+  // sandbox-profile.ts's normalizeEnv) means "everything EXCEPT these".
+  // An early return on inherit before this loop ran meant deny was
+  // silently skipped whenever inherit was true.
+  const env: NodeJS.ProcessEnv = policy.env.inherit ? { ...baseEnv } : {};
+  if (!policy.env.inherit) {
+    if (baseEnv.PATH !== undefined) env.PATH = baseEnv.PATH;
+    if (baseEnv.HOME !== undefined) env.HOME = baseEnv.HOME;
+    for (const name of policy.env.expose || []) {
+      if (baseEnv[name] !== undefined) env[name] = baseEnv[name];
+    }
   }
   for (const name of policy.env.deny || []) {
     delete env[name];
