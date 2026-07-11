@@ -176,15 +176,21 @@ assertUniqueIds(matrix, "post-plan app list");
   assert.ok(fs.existsSync(created.manifestPath), "initApp must write the manifest to disk");
   assert.ok(fs.existsSync(created.entrypointPath), "initApp must write the entrypoint to disk");
 
-  const initValidation = run(["app", "validate", created.manifestPath]);
+  // Scaffolded into an os.tmpdir() location outside CW's trusted app roots —
+  // a standalone `validate` call afterward is a fresh process with no memory
+  // of who wrote it, so it needs the same explicit opt-in an external app
+  // would (architecture-review P1 fix; see workflow-app-loader.ts).
+  const initValidation = run(["app", "validate", created.manifestPath], { CW_ALLOW_EXTERNAL_APP_CODE: "1" });
   assert.equal(initValidation.valid, true, "scaffolded app must validate");
   assert.equal(initValidation.summary.id, initId, "validated scaffold id");
 }
 
 process.stdout.write("canonical-workflow-apps-smoke: ok\n");
 
-function run(args) {
-  return JSON.parse(execFileSync(node, [cli, ...args], { cwd: pluginRoot, encoding: "utf8" }));
+function run(args, env) {
+  const options = { cwd: pluginRoot, encoding: "utf8" };
+  if (env) options.env = { ...process.env, ...env };
+  return JSON.parse(execFileSync(node, [cli, ...args], options));
 }
 
 function assertUniqueIds(entries, label) {

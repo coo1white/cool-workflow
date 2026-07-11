@@ -1,5 +1,35 @@
 # CW Iteration Log
 
+## Batch — close the workflow-app trust boundary (Unreleased)
+
+> Architecture-review P1: `workflow-app-loader.ts` `require()`s an app's
+> `workflow.js` in-process, with full host privileges, before any sandbox
+> profile or trust gate applies — `sandboxProfiles` in `app.json` only
+> constrains delegated agent workers, never the app's own factory code.
+> Two concrete instances closed: (1) `findAppDir` joined a caller-supplied
+> `appId` (from `cw_app_run`/MCP, `cw plan`/`run --drive`, and a
+> sub-workflow's `spec.appId`) onto each trusted root with no bounds check,
+> so a traversal id like `../../../tmp/evil-app` could `require()` code
+> from anywhere on disk with NO manifest/entrypoint validation (the fast
+> path this fed skips `validateWorkflowApp` entirely) — now rejected via an
+> `isWithinRoot` check before the `fs.existsSync` probe. (2) `cw app
+> validate <path>` / MCP `app.validate` — the one loader entrypoint whose
+> job is inspecting code before deciding to trust it — executed that code
+> unconditionally, even for a path outside every root CW already trusts;
+> a stderr warning printed after the fact would be too late to matter, so
+> it now fails closed by default (`workflow-app-untrusted-source`) and
+> requires an explicit `CW_ALLOW_EXTERNAL_APP_CODE=1` opt-in, mirroring the
+> existing `--allow-unattested` precedent in `worker-isolation.ts`.
+> `initWorkflowApp`'s own self-check on a manifest it just wrote (which can
+> live anywhere via `--directory`) is authoring, not inspection, so it now
+> validates through a dedicated gate-free path instead of the public
+> `validateWorkflowAppTarget`. Docs corrected: `docs/wiki/Workflow-Apps.md`
+> no longer implies `sandboxProfiles` covers the app's own code.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 27 | Close the workflow-app trust boundary (architecture-review P1): bounds-check `findAppDir`'s appId-to-root join (path-traversal), fail-closed `CW_ALLOW_EXTERNAL_APP_CODE` gate on `cw app validate <path>`/MCP `app.validate` for sources outside CW's trusted app roots, a gate-free self-validation path for `app init`'s own freshly-written manifest, and corrected `sandboxProfiles` docs. | `plugins/cool-workflow/src/shell/workflow-app-loader.ts` + matching `dist/**`, `plugins/cool-workflow/test/workflow-app-framework-smoke.js`, `plugins/cool-workflow/test/canonical-workflow-apps-smoke.js`, `docs/wiki/Workflow-Apps.md`. | New cases in `workflow-app-framework-smoke.js`: an external-fixture app outside every trusted root is blocked by default (`workflow-app-untrusted-source`, workflow.js never executes — asserted via a marker-file side effect) and proceeds once `CW_ALLOW_EXTERNAL_APP_CODE=1` is set; a traversal `appId` (`../evil-app` against a `CW_APPS_DIR` fixture) resolves to "not found" with its workflow.js never executed. Existing `app init --directory <tmp>` + follow-up `validate` flows in `workflow-app-framework-smoke.js` and `canonical-workflow-apps-smoke.js` updated to the new fail-closed default (opt in, since a standalone `validate` call is a fresh process with no memory of who wrote the file). Full targeted run (`workflow-app`, `canonical-workflow`, `mcp-app-surface`, `sandbox`, `trust-audit`, `worker-isolation`) green; `test:unit` 160/160 green. | BUILD OK; `check` OK; `purity-gate` OK; `onramp-check --changed-from origin/main` OK (after this entry); full local gate before PR. | no (dev loop, no release) |
+
 ## Batch — zero out the 7 CodeQL code-scanning alerts (Unreleased)
 
 > GitHub code scanning held 7 open alerts (1 medium + 6 high). Each was
