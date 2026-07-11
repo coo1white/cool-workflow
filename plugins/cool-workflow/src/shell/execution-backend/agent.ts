@@ -54,14 +54,22 @@ export function buildAgentChildEnv(
   baseEnv: NodeJS.ProcessEnv = process.env
 ): { env: NodeJS.ProcessEnv; forwarded: string[] } {
   const env = buildChildEnv(policy, baseEnv);
+  // deny must win here too: buildChildEnv already applied it above, but the
+  // provider-key/USER re-add below exists specifically to put vars BACK
+  // that buildChildEnv's readonly/locked-down defaults strip — without this
+  // check that re-add silently overrode an operator's explicit deny (e.g.
+  // deny:["AWS_SECRET_ACCESS_KEY"] still forwarded it, since AWS_ matches
+  // AGENT_PROVIDER_KEY_ENV_RE).
+  const denied = new Set(policy.env.deny || []);
   const forwarded: string[] = [];
   for (const key of Object.keys(baseEnv)) {
+    if (denied.has(key)) continue;
     if (AGENT_PROVIDER_KEY_ENV_RE.test(key)) {
       env[key] = baseEnv[key];
       forwarded.push(key);
     }
   }
-  if (baseEnv.USER !== undefined && env.USER === undefined) {
+  if (!denied.has("USER") && baseEnv.USER !== undefined && env.USER === undefined) {
     env.USER = baseEnv.USER;
     forwarded.push("USER");
   }

@@ -1,5 +1,30 @@
 # CW Iteration Log
 
+## Batch — make env.deny the final word for a spawned agent child (Unreleased)
+
+> Architecture-review P2: `env.deny` was not actually the last word for a
+> real spawned agent child, in two independent ways. (1) `buildChildEnv`
+> (`execution-backend/local.ts`) returned `{ ...baseEnv }` immediately when
+> `policy.env.inherit` was true, before its own `deny` loop ever ran — a
+> custom profile combining `inherit:true` with `deny:[...]` (a valid,
+> normalized combination) silently ignored `deny` entirely. (2)
+> `buildAgentChildEnv` (`execution-backend/agent.ts`) called `buildChildEnv`
+> (which DOES apply `deny` in the non-inherit case), then unconditionally
+> re-added every var matching the provider-key pattern (`CW_`/`ANTHROPIC_`/
+> `OPENAI_`/.../`AWS_` prefixes) plus `USER` — overriding an explicit deny
+> on any of those, e.g. `deny:["AWS_SECRET_ACCESS_KEY"]` still forwarded it
+> to the agent child. Both fixed at the source: `buildChildEnv` now applies
+> `deny` once, after either branch; `buildAgentChildEnv`'s re-add step now
+> skips anything in `policy.env.deny`. None of the 4 bundled sandbox
+> profiles set `deny` today, so no bundled-profile behavior changes — this
+> only affects custom profiles, which is exactly where the gap mattered.
+> Bonus: `execution-backend/remote.ts`'s HTTP-delegation path also calls
+> `buildChildEnv` directly and gets the inherit+deny fix for free.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 28 | Make `env.deny` win over both `inherit:true` and the agent-backend's provider-key/USER re-add (architecture-review P2), for a real spawned agent child, not just a synthetic `buildChildEnv()` call. | `plugins/cool-workflow/src/shell/execution-backend/local.ts`, `plugins/cool-workflow/src/shell/execution-backend/agent.ts` + matching `dist/**`, `plugins/cool-workflow/test/sandbox-env-batch-hardening-smoke.js` (new inherit+deny case), `plugins/cool-workflow/test/agent-backend-sandbox-deny-smoke.js` (new file). | New real-spawn smoke `agent-backend-sandbox-deny-smoke.js`: a `deny:["AWS_SECRET_ACCESS_KEY"]` policy proves that key absent from a REAL spawned agent child while an undenied provider key and USER still reach it; a `inherit:true, deny:["__CW_INHERIT_ONLY__"]` policy proves that var absent while everything else inherited normally — both verified via `stdoutSha256` evidence digest, following `agent-backend-user-env-smoke.js`'s house pattern. New synthetic case in `sandbox-env-batch-hardening-smoke.js` (deny wins over inherit, deterministic, no real spawn). All existing env/sandbox/execution-backend smokes (9 files) and `test:unit` (160/160) still green — the restructured `buildChildEnv` is behaviorally identical for every existing caller when `deny` is unset/empty. | BUILD OK; `check` OK; `purity-gate` OK; `dist-drift-check` OK; conformance 106/106; full local smoke suite; `onramp-check --changed-from origin/main` OK (after this entry). | no (dev loop, no release) |
+
 ## Batch — close the workflow-app trust boundary (Unreleased)
 
 > Architecture-review P1: `workflow-app-loader.ts` `require()`s an app's
