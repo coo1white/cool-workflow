@@ -429,19 +429,22 @@ Parity is checked by `scripts/parity-check.js --check`, run by
 the registry, lists the live CLI commands and MCP tools, and fails closed on any
 of the rules above.
 
-The CLI dispatcher (`src/cli/command-surface.ts`) is being decomposed out of one
-large `switch` into per-command handler modules under `src/cli/handlers/`
-(`handle<Group>(args, runner)`), with `command-surface.ts` left as the thin
-router; shared helpers live in `src/cli/io.ts` (arg/JSON) and `src/cli/format.ts`
-(render). Carved so far: `workbench`, `clones`, `audit`, `worker`, `schedule`, `routine`,
-`sched`, `registry`, `queue`, `history`, `report`, `operator`, `graph`,
-`topology`, `summary`, `multi-agent`, `run`, `approve`, `reject`, `comment`,
-`handoff`, `review`, `blackboard`, `coordinator`, `eval`, `node`, `gc`,
-`telemetry`, `demo`, `feedback`, `metrics`, `migration`, `sandbox`, `backend`,
-`contract`, `candidate`. This is a pure code-move
-— the command surface is unchanged — and the parity scanner reads
-`dist/cli/handlers/*` so a subcommand `case` in a handler module still counts as a
-live CLI token.
+The CLI dispatch surface is table-driven, not a hand-kept `switch`. The source
+tree is small: `src/cli/entry.ts` (process entry), `src/cli/parseargv.ts`
+(argv reading), `src/cli/dispatch.ts` (the one dispatcher), and `src/cli/io.ts`
+(output helpers: `printJson`, `styledHelp`). `dispatch(args)` looks the parsed
+command up in the capability table (`src/core/capability-table.ts`, put
+together from the slices under `src/wiring/capability-table/`) and runs that
+row's `cli.handler` — a new capability is a new table row, never a new `case`.
+The shared arg helpers (`required`, `optionalArg`, `wantsJson`) live in
+`src/core/util/cli-args.ts`, a pure module used by the CLI and MCP sides of
+every wiring slice; they were moved out of `cli/io.ts` because the purity
+gate's layer rule says `wiring/` may not take imports from `cli/`. The parity
+scanner works the same way: `cliDispatchTokens()` gets the live token list
+straight from the registry's CLI capabilities (`cli.caseTokens` when a row
+names more than one first token, else `cli.path`), then makes sure each
+declared path resolves through the live dispatcher — there is no grep over
+built dispatch source.
 
 `test/cli-mcp-parity-smoke.js` proves the contract from end to end. It checks
 registry ⇄ CLI ⇄ MCP coverage (every declared capability is found on its declared
