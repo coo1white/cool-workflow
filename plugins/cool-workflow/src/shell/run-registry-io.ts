@@ -113,6 +113,7 @@ export interface RunRegistryPolicy {
   reclaimStates?: RunLifecycleState[];
   keepSnapshots?: boolean;
   keepScratch?: boolean;
+  keepCommits?: boolean;
   maxReclaimRuns?: number;
   maxReclaimBytes?: number;
 }
@@ -128,6 +129,7 @@ export const DEFAULT_RUN_REGISTRY_POLICY: RunRegistryPolicy = {
   reclaimStates: ["completed", "failed"],
   keepSnapshots: false,
   keepScratch: false,
+  keepCommits: false,
   maxReclaimRuns: 0,
   maxReclaimBytes: 0,
 };

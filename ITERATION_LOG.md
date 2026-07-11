@@ -1,5 +1,53 @@
 # CW Iteration Log
 
+## Batch — reclaim superseded commit snapshots (Unreleased)
+
+> Architecture-review P2: `commitState` (`shell/commit.ts`) embeds the FULL
+> run into `commits/<id>.json` on every commit, so these grow unbounded in
+> both count and per-file size with no cap — `planReclamation`
+> (`shell/reclamation-io.ts`) never considered `run.paths.commitsDir` a
+> freeable kind at all. Fixed by adding a third reclaim kind,
+> `commit-snapshot`, reusing the SAME eligibility/apply/tombstone machinery
+> `cw gc plan|run|verify` already has (terminal + archived + retention-window
+> gate, write-ahead skeleton, tamper-evident tombstone chain) — no new
+> subsystem. Only a superseded, non-`verifierGated` "checkpoint" commit's
+> snapshot FILE is freed; the run's LATEST commit and every `verifierGated`
+> commit (the audit-significant milestones) are always kept.
+> `run.commits`' own lightweight metadata (id, `verifierGated`, evidence
+> digests, acceptance rationale — everything `extractSkeleton` already seals
+> into the tombstone) lives in `state.json`, not the snapshot file, so it
+> stays fully intact regardless of which files were freed.
+>
+> Design review caught a real gap the initial plan missed: each commit's
+> snapshot path is ALSO permanently referenced by that commit's own
+> `StateNode.artifacts[]` (`recordCommitNode`), and `prepareFree`'s
+> dangling-reference proof — the mechanism that fails closed if any
+> surviving node still points at a freed path — only ever checked scratch
+> paths, not this new kind. Fixed by extending `prepareFree` to strip the
+> dangling `"snapshot"` artifact from a reclaimed commit's node (no
+> retained alternative to re-point to, unlike scratch's "result" copy)
+> before the SAME dangling-reference scan now also covers commit-snapshot
+> paths. A reclaimed commit snapshot is never reconstructable (a genuine
+> point-in-time capture, no `ReconstructionRecipe`), so it downgrades
+> capability to `verify-only` — reusing an existing, previously-unreachable
+> enum value, not a new tier. `--keep-commits` opts out, matching
+> `--keep-scratch`/`--keep-snapshots`'s existing convention (default:
+> reclaim).
+>
+> 3 pre-existing conformance cases needed updated expectations to match
+> this new, intentional, additive behavior (not weakened — the core
+> invariants they test are unaffected): 2 usage-string cases (the new
+> `--keep-commits` flag), and one real happy-path case whose default `gc
+> run` now also reclaims this pipeline's superseded checkpoint commits,
+> correctly downgrading `capability` from `re-runnable` to `verify-only`. A
+> fourth case's "freed set == worker paths only" assumption was narrowed to
+> the `workers/` subset specifically, since `commits/` now legitimately
+> sorts into the same manifest (byte-wise before `workers/`).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 30 | Give `planReclamation` a third freeable kind, `commit-snapshot`, so superseded non-verifier-gated commit snapshots have a reclamation path at last (architecture-review P2); extend `prepareFree`'s dangling-reference proof to cover it; thread `--keep-commits` through the full CLI/MCP/policy surface matching `--keep-scratch`/`--keep-snapshots`. | `plugins/cool-workflow/src/shell/reclamation-io.ts`, `plugins/cool-workflow/src/shell/run-registry-io.ts`, `plugins/cool-workflow/src/shell/registry-cli.ts`, `plugins/cool-workflow/src/wiring/capability-table/scheduling-registry.ts`, `plugins/cool-workflow/src/core/capability-data.ts` + matching `dist/**`, `plugins/cool-workflow/docs/run-retention-reclamation.7.md`, `plugins/cool-workflow/test/run-retention-reclamation-smoke.js` (new section J), `v2/conformance/cases/{tombstonesort-freed-manifest-path-order,cli-usage-strings,sched-usage-errors,sched-gc-reclaim-verify}.case.js` (updated expectations). | New section J in `run-retention-reclamation-smoke.js`: a 3-commit fixture (1 superseded non-gated, 1 verifier-gated, 1 latest non-gated) proves `gcPlan` dry-run lists exactly the superseded one, `gcRun` frees exactly that file while the gated and latest commits' files and ALL 3 commits' `state.json` metadata survive, the reclaimed commit's `StateNode` had its dangling artifact stripped while the retained ones kept theirs, `gcVerify` still passes, and `--keep-commits` frees zero commit bytes. Verified FAILS against the pre-fix build (confirmed by hand via `git stash`) and PASSES after the fix. All existing reclamation/registry/parity smokes still green; `test:unit` 160/160. Conformance 106/106 after updating 3 pre-existing cases' expectations to the new, intentional behavior (see batch note). | BUILD OK; `check` OK; `purity-gate` OK; `dist-drift-check` OK; conformance 106/106; full local smoke suite; `onramp-check --changed-from origin/main` OK (after this entry). | no (dev loop, no release) |
+
 ## Batch — make a concurrent drive round's dispatch crash-safe (Unreleased)
 
 > Architecture-review P2: `driveConcurrentRound` (`shell/drive.ts`) dispatched

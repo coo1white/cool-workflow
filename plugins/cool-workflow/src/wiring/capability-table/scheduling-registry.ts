@@ -377,7 +377,7 @@ attachCliBinding("queue.show", {
 
 addCliOnlyCapability(
   "gc",
-  "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json] — run retention & provable reclamation.",
+  "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--limit N] [--json] — run retention & provable reclamation.",
   {
     path: ["gc"],
     jsonMode: "flag",
@@ -401,7 +401,7 @@ addCliOnlyCapability(
           return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
         }
         default:
-          throw new Error("Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
+          throw new Error("Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--limit N] [--json]");
       }
     },
   },

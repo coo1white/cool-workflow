@@ -472,6 +472,31 @@ function planReclamation(run, policy = {}) {
             }
         }
     }
+    // (3) Superseded, non-verifier-gated commit snapshots. Each commitState()
+    // call embeds the FULL run into commits/<id>.json, so these grow without
+    // bound (both in count and per-file size) with no reclamation path today.
+    // Only the run's LATEST commit and any verifier-gated commit (the actual
+    // audit-significant milestones) are kept — an intermediate, non-gated
+    // "checkpoint" commit's only value is as a point-in-time snapshot, and
+    // state.json (not commits/) is the source of truth for resume. Not
+    // reconstructable (no recipe): a commit snapshot is a genuine
+    // point-in-time capture, not a projection derivable from retained data.
+    let reclaimedCommitSnapshot = false;
+    if (!policy.keepCommits) {
+        const commits = run.commits || [];
+        for (let i = 0; i < commits.length - 1; i++) {
+            const commit = commits[i];
+            if (commit.verifierGated)
+                continue;
+            if (!commit.snapshotPath || !fs.existsSync(commit.snapshotPath))
+                continue;
+            const bytes = dirBytes(commit.snapshotPath);
+            if (bytes <= 0)
+                continue;
+            freeable.push({ path: rel(commit.snapshotPath), absPath: commit.snapshotPath, kind: "commit-snapshot", bytes });
+            reclaimedCommitSnapshot = true;
+        }
+    }
     // Determinism (HARD constraint): sort by path BEFORE anything hashes it,
     // so tombstoneHash is reproducible across hosts regardless of
     // fs.readdirSync's filesystem-dependent order.
@@ -484,7 +509,15 @@ function planReclamation(run, policy = {}) {
     }
     let capability = "re-runnable";
     let capabilityReason = "scratch-only-reclaimed";
-    if (reclaimedSnapshot && reconstructableSnapshot) {
+    // A reclaimed commit snapshot is never reconstructable (a genuine
+    // point-in-time capture, no recipe) — it caps capability at "verify-only"
+    // regardless of what node-snapshot reclamation achieved, same as an
+    // unreconstructable node snapshot would.
+    if (reclaimedCommitSnapshot) {
+        capability = "verify-only";
+        capabilityReason = "snapshot-reclaimed-no-reconstruction";
+    }
+    else if (reclaimedSnapshot && reconstructableSnapshot) {
         capability = "re-runnable-by-reconstruction";
         capabilityReason = "inputs-and-expectdigest-retained";
     }
@@ -595,13 +628,22 @@ function commitTombstone(run, tombstone) {
 function prepareFree(run, tombstone) {
     const runDir = run.paths.runDir;
     const scratchDirs = tombstone.freed.filter((f) => f.kind === "scratch").map((f) => (0, fs_atomic_1.realResolve)(path.join(runDir, f.path)));
-    if (!scratchDirs.length)
+    const commitSnapshotPaths = tombstone.freed.filter((f) => f.kind === "commit-snapshot").map((f) => (0, fs_atomic_1.realResolve)(path.join(runDir, f.path)));
+    if (!scratchDirs.length && !commitSnapshotPaths.length)
         return;
     const repointed = new Set();
     for (const scratchDir of scratchDirs) {
         for (const id of repointResultNodeArtifacts(run, scratchDir))
             repointed.add(id);
     }
+    // Unlike scratch (which has a retained "result" artifact to repoint to),
+    // a reclaimed commit snapshot has no surviving alternative — its OWN
+    // StateNode's "snapshot" artifact (recordCommitNode, shell/commit.ts) is
+    // the only reference to it, so it is stripped outright rather than
+    // repointed. node.outputs.snapshotPath (a plain metadata string, not an
+    // artifact the check below inspects) is left as a historical record,
+    // same as commit.snapshotPath itself staying in state.json.
+    stripCommitSnapshotArtifacts(run, commitSnapshotPaths);
     persistRunDurable(run);
     for (const node of run.nodes || []) {
         for (const artifact of node.artifacts || []) {
@@ -612,6 +654,9 @@ function prepareFree(run, tombstone) {
                 if (resolved === scratchDir || resolved.startsWith(scratchDir + path.sep)) {
                     throw new ReclamationError("repoint-incomplete", `node ${node.id} artifact ${artifact.id} still references freed scratch path ${artifact.path}`, { nodeId: node.id, artifactId: artifact.id, path: artifact.path });
                 }
+            }
+            if (commitSnapshotPaths.includes(resolved)) {
+                throw new ReclamationError("repoint-incomplete", `node ${node.id} artifact ${artifact.id} still references freed commit snapshot ${artifact.path}`, { nodeId: node.id, artifactId: artifact.id, path: artifact.path });
             }
         }
     }
@@ -676,6 +721,28 @@ function repointResultNodeArtifacts(run, freedScratchDir) {
             }
         }
         if (changed) {
+            node.updatedAt = new Date().toISOString();
+            changedIds.push(node.id);
+        }
+    }
+    return changedIds;
+}
+/** Removes the "snapshot" artifact entry from any node that references one
+ *  of `freedCommitSnapshotPaths` — there is no retained alternative to
+ *  repoint to (unlike a scratch dir's "result" copy), so the reference is
+ *  dropped outright. StateArtifact.path is a required string, so the
+ *  artifact entry is filtered out rather than nulled. */
+function stripCommitSnapshotArtifacts(run, freedCommitSnapshotPaths) {
+    if (!freedCommitSnapshotPaths.length)
+        return [];
+    const freedSet = new Set(freedCommitSnapshotPaths);
+    const changedIds = [];
+    for (const node of run.nodes || []) {
+        if (!node.artifacts || !node.artifacts.length)
+            continue;
+        const before = node.artifacts.length;
+        node.artifacts = node.artifacts.filter((artifact) => !artifact.path || !freedSet.has((0, fs_atomic_1.realResolve)(artifact.path)));
+        if (node.artifacts.length !== before) {
             node.updatedAt = new Date().toISOString();
             changedIds.push(node.id);
         }
@@ -827,7 +894,7 @@ function gcPlan(host, options = {}) {
         let plan;
         try {
             const run = host.loadRun(record.repo, record.runId);
-            plan = planReclamation(run, { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots });
+            plan = planReclamation(run, { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots, keepCommits: policy.keepCommits });
         }
         catch {
             entries.push({
@@ -871,6 +938,7 @@ function gcPlan(host, options = {}) {
             reclaimAfterArchiveDays: policy.reclaimAfterArchiveDays ?? 0,
             keepSnapshots: Boolean(policy.keepSnapshots),
             keepScratch: Boolean(policy.keepScratch),
+            keepCommits: Boolean(policy.keepCommits),
             reclaimStates: policy.reclaimStates && policy.reclaimStates.length ? policy.reclaimStates : ["completed", "failed"],
         },
         total: entries.length,
@@ -911,8 +979,8 @@ function gcRun(host, options = {}) {
             const result = runReclamation(run, {
                 now: nowIso,
                 actor: options.actor,
-                policy: { reclaimAfterArchiveDays: policy.reclaimAfterArchiveDays, keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots },
-                reclaimPolicy: { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots },
+                policy: { reclaimAfterArchiveDays: policy.reclaimAfterArchiveDays, keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots, keepCommits: policy.keepCommits },
+                reclaimPolicy: { keepScratch: policy.keepScratch, keepSnapshots: policy.keepSnapshots, keepCommits: policy.keepCommits },
             });
             reclaimed.push({
                 runId: record.runId,
@@ -1004,7 +1072,7 @@ function gcVerify(host, runId, options = {}) {
 function formatGcPlan(result) {
     const lines = [
         `GC Plan (${result.scope}): ${result.eligibleCount}/${result.total} eligible, ${result.bytesToFree} byte(s) would be freed [DRY-RUN, frees nothing]`,
-        `  policy: reclaimAfterArchiveDays=${result.policy.reclaimAfterArchiveDays} keepScratch=${result.policy.keepScratch} keepSnapshots=${result.policy.keepSnapshots}`,
+        `  policy: reclaimAfterArchiveDays=${result.policy.reclaimAfterArchiveDays} keepScratch=${result.policy.keepScratch} keepSnapshots=${result.policy.keepSnapshots} keepCommits=${result.policy.keepCommits}`,
     ];
     for (const entry of result.entries) {
         if (entry.eligible) {
