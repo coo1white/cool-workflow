@@ -717,6 +717,14 @@ function prepareConcurrentOutcomes(ctx, batch) {
     }
     if (jobs.length) {
         emitProgress(`⇉ concurrent round: ${jobs.length} agent${jobs.length > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
+        // Every task above that reached "pending" got dispatched (workerId
+        // assigned) in the round-cached run object, but nothing durable was
+        // written for it — unlike the serial path's own dispatch branch, which
+        // always checkpoints immediately. Flush now, BEFORE the batch's long
+        // spawn window opens: a crash mid-spawn (which can run for minutes)
+        // then leaves state.json correctly showing these tasks as dispatched,
+        // instead of losing the dispatch entirely.
+        (0, run_store_1.saveCheckpoint)(loadRun(ctx));
     }
     const settled = (0, agent_1.runAgentBatchOutcomes)(jobs);
     const outcomes = new Map();
