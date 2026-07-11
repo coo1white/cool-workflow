@@ -334,7 +334,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("queue.show").mcp.handler = (args) =>
     handler: (args) => ({ json: loadRegistryCli().queueShowCli((0, io_1.required)(args.positionals[0], "queue id"), args.options) }),
 });
 // ---- gc (plan|run|verify) ------------------------------------------------
-(0, registry_core_1.addCliOnlyCapability)("gc", "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json] — run retention & provable reclamation.", {
+(0, registry_core_1.addCliOnlyCapability)("gc", "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--limit N] [--json] — run retention & provable reclamation.", {
     path: ["gc"],
     jsonMode: "flag",
     hiddenFromHelp: true,
@@ -357,7 +357,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("queue.show").mcp.handler = (args) =>
                 return { json: result, text, exitCode: result.reclaimed && !result.verified ? 1 : undefined };
             }
             default:
-                throw new Error("Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]");
+                throw new Error("Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--limit N] [--json]");
         }
     },
 }, "cw gc is run retention & provable reclamation; SPEC/mcp.md declares its MCP peers (cw_gc_plan|run|verify), each wired below.");

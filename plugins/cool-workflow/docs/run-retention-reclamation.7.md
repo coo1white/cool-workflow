@@ -107,6 +107,22 @@ scratch dir) is **re-pointed** to the retained `results/<task-id>.md` copy, and 
 result-node snapshot is shown to stay `valid` (not `absent`) — so no surviving
 node points to a freed path. Opt out with `--keep-scratch`.
 
+## Commit snapshots — never reconstructable, always downgrades to verify-only
+
+`commitState` embeds the FULL run into `commits/<id>.json` on every commit, so
+these grow unbounded in both count and per-file size with no cap. Reclaiming them
+frees the run's superseded, non-`verifierGated` "checkpoint" commit snapshots —
+the run's LATEST commit and every `verifierGated` commit (the actual
+audit-significant milestones) are always kept. `run.commits`' own lightweight
+metadata (id, `verifierGated`, evidence digests, acceptance rationale — everything
+`extractSkeleton` seals) lives in `state.json`, not the snapshot file, so it stays
+fully intact and queryable regardless. Unlike a node snapshot, a commit snapshot is
+a genuine point-in-time capture with no `ReconstructionRecipe` — reclaiming even
+one downgrades capability to `verify-only`, never `re-runnable-by-reconstruction`.
+Each reclaimed commit's own `StateNode` had its `snapshot` artifact stripped (not
+re-pointed — there is no retained alternative) before the free, so `prepareFree`'s
+dangling-reference proof covers this kind too. Opt out with `--keep-commits`.
+
 ## Orphan runs — a second pure-scratch case, OUTSIDE this transaction
 
 A run directory can also be pure scratch a different way: a process killed or
@@ -131,8 +147,8 @@ class of run; it is left `retained` indefinitely rather than guessed at.
 ## CLI
 
 ```
-cw gc plan   [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--scope repo|home] [--json]
-cw gc run    [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--actor NAME] [--json]
+cw gc plan   [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--scope repo|home] [--json]
+cw gc run    [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--limit N] [--actor NAME] [--json]
 cw gc verify <run-id> [--scope repo|home] [--json]
 ```
 
@@ -163,7 +179,8 @@ rule: only ISO timestamps may be now-derived.
 
 Retention/reclamation thresholds extend `RunRegistryPolicy` (alongside
 `archiveOlderThanDays`), never a new policy file: `reclaimAfterArchiveDays`,
-`keepSnapshots`, `keepScratch`, `reclaimStates`, `maxReclaimRuns`, `maxReclaimBytes`.
+`keepSnapshots`, `keepScratch`, `keepCommits`, `reclaimStates`, `maxReclaimRuns`,
+`maxReclaimBytes`.
 Back-compatible defaults reclaim nothing; pre-v0.1.39 runs load unchanged.
 
 ## Compatibility

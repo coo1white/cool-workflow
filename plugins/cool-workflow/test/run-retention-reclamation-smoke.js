@@ -23,8 +23,9 @@ const { allocateWorkerScope, recordWorkerOutput } = require("../dist/shell/worke
 // re-runnable-by-reconstruction downgrade. (The core snapshotNode is pure; its
 // `persist` is a callback, so `persist:true` there writes nothing.)
 // loadNodeSnapshot stays the pure freshness check from core.
-const { snapshotNode } = require("../dist/shell/node-store");
+const { snapshotNode, appendRunNode } = require("../dist/shell/node-store");
 const { loadNodeSnapshot } = require("../dist/core/state/node-snapshot");
+const { createStateNode } = require("../dist/core/state/state-node");
 const { RunRegistry } = require("../dist/shell/run-registry-io");
 const { listTrustAuditEvents } = require("../dist/shell/trust-audit");
 const {
@@ -151,6 +152,46 @@ function makeAcceptedRun(repo, runId, options = {}) {
   }
   saveCheckpoint(run);
   return { run, paths, scope, resultNodeId: run.tasks[0].resultNodeId };
+}
+
+/** Pushes a real commit onto `run.commits` with an ACTUAL commits/<id>.json
+ *  snapshot file on disk (byte-shape close enough to commitState's own
+ *  writeJson(snapshotPath, {commit, run}) for reclamation purposes) and a
+ *  matching commit StateNode carrying the "snapshot" artifact, mirroring
+ *  recordCommitNode's checkpoint branch (shell/commit.ts) — needed to
+ *  exercise prepareFree's dangling-artifact strip for commit-snapshot
+ *  reclamation, which the other fixtures in this file never touch. */
+function addCommitWithSnapshot(run, index, options = {}) {
+  const id = `${run.id}:commit:${index}`;
+  fs.mkdirSync(run.paths.commitsDir, { recursive: true });
+  const snapshotPath = path.join(run.paths.commitsDir, `${index}.json`);
+  const commit = {
+    id,
+    createdAt: new Date(Date.now() - 1000 * (SEQ += 1)).toISOString(),
+    reason: options.reason || `checkpoint-${index}`,
+    loopStage: "checkpoint",
+    statePath: run.paths.state,
+    reportPath: run.paths.report,
+    snapshotPath,
+    verifierGated: Boolean(options.verifierGated),
+    checkpoint: !options.verifierGated,
+    evidence: []
+  };
+  fs.writeFileSync(snapshotPath, JSON.stringify({ commit, run }, null, 2), "utf8");
+  const node = createStateNode({
+    id: `${run.id}:checkpoint:${id}`,
+    kind: "commit",
+    status: "completed",
+    loopStage: "checkpoint",
+    inputs: { reason: commit.reason, commitId: id },
+    outputs: { snapshotPath, verifierGated: commit.verifierGated, checkpoint: commit.checkpoint },
+    artifacts: [{ id: "snapshot", kind: "json", path: snapshotPath }],
+    metadata: { verifierGated: commit.verifierGated, checkpoint: commit.checkpoint }
+  });
+  appendRunNode(run, node);
+  commit.stateNodeId = node.id;
+  run.commits.push(commit);
+  return commit;
 }
 
 function fileManifest(root) {
@@ -486,6 +527,74 @@ function fileManifest(root) {
   // Simulate an extraction that drops evidence digests the run has.
   const droppedEvidence = { ...skeleton, evidenceDigests: [] };
   assert.ok(validateSkeletonAgainstRun(run, droppedEvidence).includes("evidence-dropped"), "dropping sealed evidence the run has is flagged");
+}
+
+// ===========================================================================
+// J — Commit-snapshot reclaim (architecture-review P2): commitState's
+// full-run-per-commit snapshots grow unbounded with no reclamation path.
+// Only a superseded, non-verifierGated "checkpoint" commit's snapshot FILE
+// is freeable; the run's LATEST commit and every verifierGated commit are
+// always kept, and run.commits' own metadata (loaded fresh from disk) is
+// never dropped regardless of which files were freed.
+// ===========================================================================
+{
+  const repo = makeRepo();
+  const { run } = makeAcceptedRun(repo, "commit-reclaim", { commit: false });
+  const first = addCommitWithSnapshot(run, 1, { reason: "first", verifierGated: false });
+  const gated = addCommitWithSnapshot(run, 2, { reason: "gated", verifierGated: true });
+  const last = addCommitWithSnapshot(run, 3, { reason: "last", verifierGated: false });
+  saveCheckpoint(run);
+
+  // Dry-run: freeable lists exactly the one superseded non-gated commit.
+  const plan = planReclamation(run, {});
+  const commitFreeable = plan.freeable.filter((f) => f.kind === "commit-snapshot");
+  assert.equal(commitFreeable.length, 1, "only the superseded non-gated commit is freeable");
+  assert.equal(commitFreeable[0].absPath, first.snapshotPath, "the superseded commit's own snapshot file is the one listed");
+
+  const reg = new RunRegistry(repo);
+  reg.archive("commit-reclaim", { scope: "repo", reason: "test" });
+  const result = gcRun(reg, { scope: "repo", runId: "commit-reclaim", policy: { keepScratch: true, keepSnapshots: true } });
+  assert.equal(result.reclaimed.length, 1, "the run was reclaimed");
+  assert.equal(result.reclaimed[0].capability, "verify-only", "a reclaimed commit snapshot is never reconstructable — downgrades to verify-only");
+  assert.equal(result.reclaimed[0].capabilityReason, "snapshot-reclaimed-no-reconstruction", "matching closed-enum reason");
+
+  // The superseded commit's file is gone; the gated and latest commits' files survive.
+  assert.ok(!fs.existsSync(first.snapshotPath), "the superseded non-gated commit's snapshot file was freed");
+  assert.ok(fs.existsSync(gated.snapshotPath), "the verifier-gated commit's snapshot file is never reclaimed");
+  assert.ok(fs.existsSync(last.snapshotPath), "the run's LATEST commit's snapshot file is never reclaimed, gated or not");
+
+  // run.commits' own metadata (id, verifierGated, evidence, ...) is untouched —
+  // reclaiming the bulk FILE never drops the lightweight audit record.
+  const reloaded = require("../dist/shell/run-store").loadRunFromCwd("commit-reclaim", repo);
+  assert.equal(reloaded.commits.length, 3, "all 3 commits' metadata survives in state.json regardless of which snapshot files were freed");
+  assert.deepEqual(
+    reloaded.commits.map((c) => c.id),
+    [first.id, gated.id, last.id],
+    "commit metadata order and identity is untouched"
+  );
+
+  // The freed commit's own StateNode had its dangling "snapshot" artifact
+  // stripped (prepareFree); the retained commits' nodes still carry theirs.
+  const firstNode = reloaded.nodes.find((n) => n.id === first.stateNodeId);
+  const gatedNode = reloaded.nodes.find((n) => n.id === gated.stateNodeId);
+  const lastNode = reloaded.nodes.find((n) => n.id === last.stateNodeId);
+  assert.ok(!(firstNode.artifacts || []).some((a) => a.id === "snapshot"), "the reclaimed commit's node no longer references the freed file");
+  assert.ok((gatedNode.artifacts || []).some((a) => a.id === "snapshot" && fs.existsSync(a.path)), "the gated commit's node still references its surviving file");
+  assert.ok((lastNode.artifacts || []).some((a) => a.id === "snapshot" && fs.existsSync(a.path)), "the latest commit's node still references its surviving file");
+
+  // gc verify still passes: no dangling reference, tombstone chain intact.
+  const verify = gcVerify(reg, "commit-reclaim", { scope: "repo" });
+  assert.ok(verify.verified, "commit-snapshot reclaim verifies cleanly");
+
+  // --keep-commits opts out entirely: a second run with the identical
+  // fixture, reclaimed with keepCommits:true, must free zero commit bytes.
+  const { run: run2 } = makeAcceptedRun(repo, "commit-reclaim-kept", { commit: false });
+  const keptFirst = addCommitWithSnapshot(run2, 1, { reason: "first", verifierGated: false });
+  addCommitWithSnapshot(run2, 2, { reason: "last", verifierGated: false });
+  saveCheckpoint(run2);
+  const plan2 = planReclamation(run2, { keepCommits: true });
+  assert.equal(plan2.freeable.filter((f) => f.kind === "commit-snapshot").length, 0, "--keep-commits frees zero commit snapshots");
+  assert.ok(fs.existsSync(keptFirst.snapshotPath), "the superseded commit's file is untouched under keepCommits");
 }
 
 process.stdout.write("run-retention-reclamation-smoke: ok\n");

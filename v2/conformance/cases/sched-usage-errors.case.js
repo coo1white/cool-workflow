@@ -33,7 +33,7 @@ caseMain(() => {
   assertUsage(["queue", "bogus"], "cw: Usage: cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]\n", repo);
   assertUsage(
     ["gc", "bogus"],
-    "cw: Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]\n",
+    "cw: Usage: cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--limit N] [--json]\n",
     repo
   );
   assertUsage(

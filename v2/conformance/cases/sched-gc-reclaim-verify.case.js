@@ -42,8 +42,12 @@ caseMain(() => {
   assert.equal(reclaimed.runId, runId);
   assert.ok(reclaimed.bytesFreed > 0);
   assert.match(reclaimed.tombstoneHash, /^sha256:[0-9a-f]{64}$/);
-  assert.equal(reclaimed.capability, "re-runnable");
-  assert.equal(reclaimed.capabilityReason, "scratch-only-reclaimed");
+  // Under the default policy this pipeline run's superseded, non-verifier-
+  // gated commit snapshots are ALSO reclaimed (architecture-review-driven
+  // cycle 4), not just worker scratch — a commit snapshot is never
+  // reconstructable, so that downgrades capability past "re-runnable".
+  assert.equal(reclaimed.capability, "verify-only");
+  assert.equal(reclaimed.capabilityReason, "snapshot-reclaimed-no-reconstruction");
   assert.equal(gcRunReport.totalBytesFreed, reclaimed.bytesFreed);
   assert.equal(gcRunReport.nextAction, "cw gc verify <run-id>");
 

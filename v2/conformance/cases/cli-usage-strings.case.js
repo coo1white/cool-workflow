@@ -27,7 +27,7 @@ caseMain(() => {
     ["clones", "cw clones list [--json] | clones gc [--older-than-days N] [--all] [--json]"],
     ["comment", "cw comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]"],
     ["eval", "cw eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>"],
-    ["gc", "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--limit N] [--json]"],
+    ["gc", "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--limit N] [--json]"],
     ["telemetry", "cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]"],
     ["demo", "cw demo tamper|bundle [--json]"],
     ["multi-agent", "cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]"],

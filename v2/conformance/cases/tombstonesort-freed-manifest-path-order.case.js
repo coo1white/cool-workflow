@@ -63,25 +63,35 @@ caseMain(() => {
   // genuinely different order: map:* tasks are costed/executed first,
   // but "assess:" < "map:" byte-wise, so a path-sorted manifest cannot
   // equal creation order. This rules out "coincidentally already sorted".
+  //
+  // freedPaths also includes this run's superseded, non-verifier-gated
+  // commit-snapshot files (architecture-review-driven cycle 4 added their
+  // reclamation) alongside worker scratch dirs — "commits/" sorts before
+  // "workers/" byte-wise, so those lead the FULL sorted list. The
+  // worker-vs-creation-order comparisons below are scoped to the workers/
+  // subset specifically, since that is the set the ORIGINAL creation-order
+  // claim (costRecord.tasks) is about; the commits/ entries have no
+  // creation-order analogue to compare against here.
   const creationTaskIds = tomb.skeleton.costRecord.tasks.map((t) => t.taskId);
   const creationWorkerPaths = creationTaskIds.map((id) => `workers/worker-${id}-0001`);
+  const freedWorkerPaths = freedPaths.filter((p) => p.startsWith("workers/"));
   assert.notDeepEqual(
-    freedPaths,
+    freedWorkerPaths,
     creationWorkerPaths,
-    "path-sorted freed manifest must differ from raw task-creation order"
+    "path-sorted freed worker manifest must differ from raw task-creation order"
   );
 
-  // Sanity: the two orderings are still permutations of the same set —
-  // this is a re-order, not a different/missing set of files.
-  assert.deepEqual(freedPaths.slice().sort(), creationWorkerPaths.slice().sort());
+  // Sanity: the two worker orderings are still permutations of the same
+  // set — this is a re-order, not a different/missing set of files.
+  assert.deepEqual(freedWorkerPaths.slice().sort(), creationWorkerPaths.slice().sort());
 
   // Concretely: creation order starts with a "map:*" worker (first task
-  // costed), but the path-sorted manifest starts with an "assess:*"
+  // costed), but the path-sorted WORKER manifest starts with an "assess:*"
   // worker, since "assess:" sorts before "map:" byte-wise. This is the
   // single clearest signature that the sort key is the path, not the
   // order workers were made in.
   assert.match(creationWorkerPaths[0], /^workers\/worker-map:/, "pipeline creates map tasks first");
-  assert.match(freedPaths[0], /^workers\/worker-assess:/, "sorted manifest leads with assess: (byte order), not the first-created map: worker");
+  assert.match(freedWorkerPaths[0], /^workers\/worker-assess:/, "sorted worker manifest leads with assess: (byte order), not the first-created map: worker");
 
   // gc verify recomputes tombstoneHash independently and must agree,
   // proving the hash itself (not just the stored value) is a function of

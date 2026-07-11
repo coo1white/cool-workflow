@@ -87,6 +87,7 @@ exports.DEFAULT_RUN_REGISTRY_POLICY = {
     reclaimStates: ["completed", "failed"],
     keepSnapshots: false,
     keepScratch: false,
+    keepCommits: false,
     maxReclaimRuns: 0,
     maxReclaimBytes: 0,
 };

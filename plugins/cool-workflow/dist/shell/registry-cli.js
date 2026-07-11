@@ -297,6 +297,10 @@ function gcPolicyOverridesFrom(options) {
         overrides.keepSnapshots = Boolean(options.keepSnapshots);
     if (options["keep-snapshots"] !== undefined)
         overrides.keepSnapshots = Boolean(options["keep-snapshots"]);
+    if (options.keepCommits !== undefined)
+        overrides.keepCommits = Boolean(options.keepCommits);
+    if (options["keep-commits"] !== undefined)
+        overrides.keepCommits = Boolean(options["keep-commits"]);
     if (options.state !== undefined)
         overrides.reclaimStates = Array.isArray(options.state) ? options.state : [options.state];
     return overrides;
