@@ -1,5 +1,26 @@
 # CW Iteration Log
 
+## Batch — close the wiring -> cli/io purity-gate layer violation (Unreleased)
+
+> Architecture-review P2 (CLI-surface-sprawl dimension): `scripts/purity-gate.js`'s
+> layer rule forbids `wiring/` from importing `cli/`, but all 10
+> `wiring/capability-table/*.ts` slices imported `required`/`optionalArg`/
+> `wantsJson` straight from `cli/io.ts`, so `purity-baseline.json` carried
+> 10 of the repo's baselined layer waivers just for this one edge. A
+> 2-lens design critique (correctness + fit) confirmed the 3 functions are
+> genuinely pure and named 2 real gaps in the first draft: `test/cli-io-smoke.js`
+> was an uncounted 13th consumer whose coverage needed splitting, and a
+> blanket re-export from `cli/io.ts` would have left `required`/`optionalArg`
+> re-exported with zero live `src/` callers — dropped in favor of one
+> direct import at `dispatch.ts`'s single real call site (`wantsJson`).
+> The other, separate baselined layer entry (`core/capability-table.ts` ->
+> `../wiring/capability-table`, a documented, genuinely load-bearing
+> re-export shim) is explicitly OUT of scope here — untouched.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 32 | Move `required`/`optionalArg`/`wantsJson` out of `cli/io.ts` into a new `core/util/cli-args.ts` (matching `numeric-flag.ts`'s pure-helper precedent), repoint all 10 `wiring/capability-table/*.ts` slices' imports there directly (13 import lines total — `state.ts` and `pipeline.ts` each split the same import across multiple lines), and drop `cli/dispatch.ts`'s only real remaining need (`wantsJson`) to a direct import instead of a `cli/io.ts` re-export (architecture-review P2). `purity-baseline.json`'s 10 now-fixed `wiring/capability-table/*.ts` layer-violation entries removed; the separate, deliberately deferred `core/capability-table.ts` entry is untouched. | `plugins/cool-workflow/src/core/util/cli-args.ts` (new), `plugins/cool-workflow/src/cli/io.ts`, `plugins/cool-workflow/src/cli/dispatch.ts`, `plugins/cool-workflow/src/wiring/capability-table/{basics,exec-backend,pipeline,multi-agent,registry-core,state,reporting,trust-ledger,scheduling-registry,workflow-apps}.ts` + matching `dist/**`, `plugins/cool-workflow/scripts/purity-baseline.json`, `plugins/cool-workflow/test/cli-io-smoke.js` (shrunk to `printJson` only), `plugins/cool-workflow/test/cliargs-requiredoptionalargwantsjson.test.js` (new), `plugins/cool-workflow/docs/project-index.md` (sourceModules 148->149; the smoke-test count stays 204 — the new test file is a `*.test.js`, and the index counts only `*-smoke.js` files). | New `cliargs-requiredoptionalargwantsjson.test.js` pins `required`/`optionalArg`/`wantsJson`'s exact behavior (byte-identical assertions moved from the old `cli-io-smoke.js`) against `dist/core/util/cli-args`; `cli-io-smoke.js` now pins only `printJson` against `dist/cli/io`. `npm run purity:check` clean against the trimmed baseline (confirms the layer edge is genuinely fixed, not just moved); verified live (`git stash` the baseline edit alone, keeping the source move) that reverting it reproduces exactly 10 STALE-baseline-entry failures (exit 1), confirming the baseline change is load-bearing, not cosmetic. Full unsampled `test:gate` 204/204; `test:unit` 161/161 (+1 new); conformance 106/106; `npm run check`/`dist:check`/`purity:check`/`parity:check` all clean. | BUILD OK; `check` OK; `purity-gate` OK (0 layer violations left for this edge); `dist-drift-check` OK; conformance 106/106; full local smoke suite 204/204; `onramp-check --changed-from origin/main` OK (after this entry). | no (dev loop, no release) |
+
 ## Batch — make resuming an interrupted run discoverable (Unreleased)
 
 > Architecture-review P2 (CLI/POLA dimension): the project's own mantra is

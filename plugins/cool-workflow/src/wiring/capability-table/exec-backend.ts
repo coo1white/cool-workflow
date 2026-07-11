@@ -27,7 +27,7 @@ import {
   showSandboxProfileCli,
   validateSandboxProfileCli,
 } from "../../shell/exec-backend-cli";
-import { optionalArg, required, wantsJson } from "../../cli/io";
+import { optionalArg, required, wantsJson } from "../../core/util/cli-args";
 
 // This slice is required unconditionally at startup for every command;
 // load doctor/app-run-cli lazily so only doctor/fix/sandbox.choose/

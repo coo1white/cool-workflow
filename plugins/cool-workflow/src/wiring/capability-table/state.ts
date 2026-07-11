@@ -5,7 +5,7 @@
 // (extracted with sed, not retyped).
 
 import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { optionalArg } from "../../cli/io";
+import { optionalArg } from "../../core/util/cli-args";
 
 // This slice is required unconditionally at startup for every command;
 // load these shell modules only when a handler that actually needs them runs.
@@ -24,13 +24,13 @@ function loadStateExplosionCli(): typeof import("../../shell/state-explosion-cli
 // Handler BODIES live in shell/state-cli.ts (impure — they read/write
 // run state on disk); this table only wires argv shape -> handler call
 // and the row's own exit-code rule, per cli/dispatch.ts's generic
-// executor contract. `required`/`optionalArg` are cli/io.ts's shared
-// coercion helpers, imported here so the wiring stays a thin adapter
+// executor contract. `required`/`optionalArg` are core/util/cli-args.ts's
+// shared coercion helpers, imported here so the wiring stays a thin adapter
 // (Usage-error strings copied byte-for-byte from the old build's
 // handlers/*.ts).
 // ---------------------------------------------------------------------
 
-import { required } from "../../cli/io";
+import { required } from "../../core/util/cli-args";
 
 attachCliBinding("state.check", {
   path: ["state", "check"],
@@ -169,7 +169,7 @@ REGISTRY_BY_CAPABILITY.get("node.replay.verify")!.mcp!.handler = (args) => loadS
 // ---------------------------------------------------------------------
 
 import { formatStateExplosionReport, formatCompactGraph } from "../../core/format/state-explosion-text";
-import { wantsJson } from "../../cli/io";
+import { wantsJson } from "../../core/util/cli-args";
 
 attachCliBinding("summary.refresh", {
   path: ["summary", "refresh"],

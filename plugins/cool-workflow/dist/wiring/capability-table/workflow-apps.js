@@ -6,7 +6,7 @@
 // sed, not retyped).
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
-const io_1 = require("../../cli/io");
+const cli_args_1 = require("../../core/util/cli-args");
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — loading `next`'s and
 // `app.run`'s shell modules lazily, inside the handler that actually
@@ -44,24 +44,24 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.list").mcp.handler = () => loadW
 (0, registry_core_1.attachCliBinding)("app.show", {
     path: ["app", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadWorkflowAppLoader().showWorkflowApp((0, io_1.required)(args.positionals[0], "workflow app id")) }),
+    handler: (args) => ({ json: loadWorkflowAppLoader().showWorkflowApp((0, cli_args_1.required)(args.positionals[0], "workflow app id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.show").mcp.handler = (args) => loadWorkflowAppLoader().showWorkflowApp((0, io_1.required)((0, io_1.optionalArg)(args.appId), "workflow app id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("app.show").mcp.handler = (args) => loadWorkflowAppLoader().showWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.appId), "workflow app id"));
 (0, registry_core_1.attachCliBinding)("app.validate", {
     path: ["app", "validate"],
     jsonMode: "default",
     handler: (args) => {
-        const result = loadWorkflowAppLoader().validateWorkflowAppTarget((0, io_1.required)(args.positionals[0], "workflow app path or id"));
+        const result = loadWorkflowAppLoader().validateWorkflowAppTarget((0, cli_args_1.required)(args.positionals[0], "workflow app path or id"));
         return { json: result, exitCode: result.valid ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.validate").mcp.handler = (args) => loadWorkflowAppLoader().validateWorkflowAppTarget((0, io_1.required)((0, io_1.optionalArg)(args.target ?? args.appId), "workflow app path or id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("app.validate").mcp.handler = (args) => loadWorkflowAppLoader().validateWorkflowAppTarget((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.target ?? args.appId), "workflow app path or id"));
 (0, registry_core_1.attachCliBinding)("app.init", {
     path: ["app", "init"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp((0, io_1.required)(args.positionals[0], "app id"), args.options) }),
+    handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp((0, cli_args_1.required)(args.positionals[0], "app id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.init").mcp.handler = (args) => loadWorkflowAppLoader().initWorkflowApp((0, io_1.required)((0, io_1.optionalArg)(args.appId), "app id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("app.init").mcp.handler = (args) => loadWorkflowAppLoader().initWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.appId), "app id"), args);
 // `cw init <id>` — the standalone scaffold verb. v2 folds `init` into
 // `app.init` (the old build's legacy `.workflow.js` scaffold is gone), so
 // both surfaces route through initWorkflowApp, same as `cw app init`. The
@@ -71,15 +71,15 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.init").mcp.handler = (args) => l
 (0, registry_core_1.attachCliBinding)("init", {
     path: ["init"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp((0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "workflow id"), args.options) }),
+    handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "workflow id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("init").mcp.handler = (args) => loadWorkflowAppLoader().initWorkflowApp((0, io_1.required)((0, io_1.optionalArg)(args.workflowId ?? args.appId), "workflow id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("init").mcp.handler = (args) => loadWorkflowAppLoader().initWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.workflowId ?? args.appId), "workflow id"), args);
 (0, registry_core_1.attachCliBinding)("app.package", {
     path: ["app", "package"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadWorkflowAppLoader().packageWorkflowApp((0, io_1.required)(args.positionals[0], "app id"), args.options) }),
+    handler: (args) => ({ json: loadWorkflowAppLoader().packageWorkflowApp((0, cli_args_1.required)(args.positionals[0], "app id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) => loadWorkflowAppLoader().packageWorkflowApp((0, io_1.required)((0, io_1.optionalArg)(args.appId), "app id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) => loadWorkflowAppLoader().packageWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.appId), "app id"), args);
 // `cw app run <app-id>` — plan+drive+report an app in one call. 2-token
 // cli.path found before the ["app"] usage catch-all; `appRunCli` reads the
 // app id from `appId`, so the first positional after "run" is forwarded as
@@ -87,7 +87,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
 (0, registry_core_1.attachCliBinding)("app.run", {
     path: ["app", "run"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadAppRunCli().appRunCli({ ...args.options, appId: (0, io_1.required)(args.positionals[0], "app id") }) }),
+    handler: (args) => ({ json: loadAppRunCli().appRunCli({ ...args.options, appId: (0, cli_args_1.required)(args.positionals[0], "app id") }) }),
 });
 // A 1-token `["app"]` row that exists ONLY to own the fixed usage string
 // for an unrecognized `app` subcommand (`app run` is not yet CLI-wired at
@@ -329,7 +329,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
     path: ["info"],
     jsonMode: "flag",
     handler: (args) => {
-        const appId = (0, io_1.required)(args.positionals[0], "workflow app id");
+        const appId = (0, cli_args_1.required)(args.positionals[0], "workflow app id");
         const data = loadWorkflowAppLoader().showWorkflowApp(appId);
         return { json: data, text: `${(0, help_1.formatInfo)(appId, data)}\n` };
     },
@@ -351,9 +351,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
 (0, registry_core_1.attachCliBinding)("next", {
     path: ["next"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadStateCli().nextCli((0, io_1.required)((0, io_1.optionalArg)(args.positionals[0]), "run id"), args.options) }),
+    handler: (args) => ({ json: loadStateCli().nextCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "run id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("next").mcp.handler = (args) => loadStateCli().nextCli((0, io_1.required)((0, io_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("next").mcp.handler = (args) => loadStateCli().nextCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
 // `ledger.propose`/`.review`/`.verify`/`.apply`/`.list` are documented
 // payload-probe opt-outs in the old build (each mints a fresh timestamped/
 // digested entry, or reads args that arrive by --file/stdin on the CLI vs

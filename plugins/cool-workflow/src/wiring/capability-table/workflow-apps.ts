@@ -5,7 +5,7 @@
 // sed, not retyped).
 
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg } from "../../cli/io";
+import { required, optionalArg } from "../../core/util/cli-args";
 import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
 
 // This whole module is required unconditionally at startup for EVERY

@@ -6,7 +6,7 @@
 // (extracted with sed, not retyped).
 
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg, wantsJson } from "../../cli/io";
+import { required, optionalArg, wantsJson } from "../../core/util/cli-args";
 import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
 
 // MILESTONE 10 (scheduling, registry, gc/reclamation, orphans, clones)
