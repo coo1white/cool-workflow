@@ -1,5 +1,39 @@
 # CW Iteration Log
 
+## Batch — make a concurrent drive round's dispatch crash-safe (Unreleased)
+
+> Architecture-review P2: `driveConcurrentRound` (`shell/drive.ts`) dispatched
+> a whole batch of tasks and spawned every agent child concurrently — a
+> window the code's own progress message calls "may take minutes" — with the
+> dispatch (workerId assignment) never flushed to disk until one deferred
+> checkpoint after the entire batch settled. A crash anywhere in that long
+> spawn window lost the round's dispatch bookkeeping entirely; on resume the
+> tasks looked never-dispatched and were re-spawned into fresh worker
+> directories, orphaning the originals. Fixed: `prepareConcurrentOutcomes`
+> now flushes dispatch (`saveCheckpoint`) once, right before the batch's
+> agents are spawned — one call per ROUND, not per task, so it stays O(1) in
+> batch size.
+>
+> A second half of this fix — also flushing each task's ACCEPT immediately
+> after it settles, instead of only at round end — was implemented, tested,
+> and then REVERTED before this PR: it broke `deferred-checkpoint-batching-
+> smoke.js`, a pre-existing test protecting a deliberate, measured prior fix
+> (dispatch+accept used to each do their own full-run durable rewrite per
+> task — ~350ms/task at N=20 growing to ~1000ms+/task at N=300, over 99% of
+> wall time at scale — batched down to one flush per round on purpose). The
+> per-task accept flush is a genuine O(N) regression of that fix, not a
+> free win; the two goals (crash-safety and O(1) checkpoint cost per round)
+> are in real tension for the accept path specifically, and undoing a
+> measured perf fix to partially improve a narrower, comparatively short
+> crash window (the gap between all agents finishing and the round-end
+> flush, not the whole spawn window) is not the right trade for one cycle.
+> That gap remains, tracked as a known, deliberate accepted tradeoff of the
+> round-batching design.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 29 | Make `driveConcurrentRound`'s DISPATCH durable before its batch of agents spawns, closing the largest crash window (architecture-review P2); the accept-side half was implemented, found to regress a pre-existing O(1)-per-round perf fix, and reverted (see batch note). | `plugins/cool-workflow/src/shell/drive.ts` + matching `dist/**`, `plugins/cool-workflow/test/drive-concurrent-round-sigkill-smoke.js` (new). | New `drive-concurrent-round-sigkill-smoke.js`: a REAL, kernel-delivered, untrappable SIGKILL sent to a separate OS process while all 3 of a batch's agent stubs are provably still running (mid-spawn, none finished) — `state.json` after the kill shows every task's dispatch (status `running` + `workerId`) durably survived. Verified FAILS against the pre-fix build (tasks revert to `pending`, no `workerId` — confirmed by hand via `git stash`) and PASSES after the fix. `deferred-checkpoint-batching-smoke.js` (pre-existing) still asserts O(1) `saveCheckpoint` calls per round regardless of batch size — confirmed still flat (3 calls at both N=5 and N=15; +1 constant from this fix's own dispatch flush, not scaling with N). All existing concurrent/drive/signal smokes and `test:unit` (160/160) still green. | BUILD OK; `check` OK; `purity-gate` OK; `dist-drift-check` OK; conformance 106/106; full local smoke suite; `onramp-check --changed-from origin/main` OK (after this entry). | no (dev loop, no release) |
+
 ## Batch — make env.deny the final word for a spawned agent child (Unreleased)
 
 > Architecture-review P2: `env.deny` was not actually the last word for a
