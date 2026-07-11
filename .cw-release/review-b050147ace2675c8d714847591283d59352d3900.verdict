@@ -1,0 +1,2 @@
+APPROVED b050147ace2675c8d714847591283d59352d3900
+A crashed or interrupted drive run now recovers cleanly — a mid-spawn SIGKILL no longer loses the round's dispatched work, the interrupt prints the exact `cw run resume <id> --drive` command, and `cw gc` reclaims superseded commit snapshots — while untrusted workflow-app code and an operator's `env.deny` are now enforced fail-closed.
