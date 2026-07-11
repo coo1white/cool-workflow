@@ -1,5 +1,43 @@
 # CW Iteration Log
 
+## Batch — make resuming an interrupted run discoverable (Unreleased)
+
+> Architecture-review P2 (CLI/POLA dimension): the project's own mantra is
+> "ask simple -> run simple -> verify simple -> resume simple", but a
+> drive() interrupted by SIGINT/SIGTERM or a max-iteration backstop left
+> only vague prose — "run again with the same run id to resume" — with no
+> literal, copy-pasteable command, and no runId reminder either. A second,
+> real resume path (`cw run resume <id> --drive`) existed but was
+> undocumented anywhere `cw help` shows, so a user who never happened to
+> already know `--resume`/`--run` had no way to discover either path. Fixed
+> narrowly: the interrupted/exhausted blocked-step reasons and the
+> mid-signal progress line now embed the actual `cw run resume <runId>
+> --drive` command with this run's real id; `cw help`'s root Flags block
+> now documents `--resume --run <id>`. Deliberately out of scope for this
+> cycle: the broader P1 finding (57 top-level verbs, no tiering between a
+> newcomer's 3 commands and ~50 internal primitives; `sched`/`schedule`
+> near-homonym confusion; `ledger` invisible to "did you mean") — that is a
+> much larger, more subjective UX redesign with no crisp single fix, left
+> for a dedicated future cycle rather than folded in here.
+>
+> Adversarial review caught a real bug in the command this cycle set out to
+> surface: both existing-run resume paths (`run --drive`'s `--run <id>`
+> branch, and quickstart's own `--resume --run <id>`) resolved the run's
+> directory from `--cwd` ONLY, silently ignoring `--repo` even though the
+> caller (`runResumeCli`) already passed it through — so a copy-pasted `cw
+> run resume <id> --drive`, typed from anywhere other than the run's own
+> `--repo`, would throw "Run not found" instead of resuming. Embedding a
+> broken command as "the answer" would have been worse than the vague prose
+> it replaced. Fixed at the root (`shell/pipeline-cli.ts`'s new
+> `existingRunCwd` helper, mirroring the `--preview` branch's own already-
+> correct cwd/repo fallback a few lines away) rather than routing the
+> message around it — this benefits every caller of both resume paths, not
+> just the new message.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 31 | Make an interrupted drive's resume path literal, discoverable, and actually cwd-independent: embed the real `cw run resume <runId> --drive` command in the blocked-step reason and mid-signal progress line; document `--resume --run <id>` in `cw help`'s root Flags block; fix both existing-run resume paths (`run --drive`, quickstart `--resume`) to fall back to `--repo` instead of silently discarding it when `--cwd` isn't set (architecture-review P2, narrow slice of a larger CLI-surface finding; the cwd fix was a real gap adversarial review caught in the fix itself). | `plugins/cool-workflow/src/shell/drive.ts`, `plugins/cool-workflow/src/core/format/help.ts`, `plugins/cool-workflow/src/shell/pipeline-cli.ts` (new `existingRunCwd` helper) + matching `dist/**`, `plugins/cool-workflow/test/sigint-sigterm-drive-loop-smoke.js` (2 new assertions), `plugins/cool-workflow/test/formatapps-help-toplevel-layout.test.js` (golden text), `plugins/cool-workflow/test/run-resume-drive-smoke.js` (new case 6), `v2/conformance/cases/fixtures/cli-help/_root.txt` (golden fixture). | `sigint-sigterm-drive-loop-smoke.js` asserts the blocked reason literally contains `cw run resume <runId> --drive`. `run-resume-drive-smoke.js`'s new case spawns the real CLI from a DIFFERENT directory than the run's own repo, `--scope home`, no `--cwd`/`--repo` passed to the resume call itself, and confirms it still finds and drives the run (was "Run not found" before). Both verified FAILS against the pre-fix build (confirmed by hand via `git stash`) and PASS after the fix. Golden-text/fixture files updated for the new Flags row. All existing help/resume/signal/drive-exhaustion/quickstart smokes still green; `test:unit` 160/160. | BUILD OK; `check` OK; `purity-gate` OK; `dist-drift-check` OK; conformance 106/106; full local smoke suite; `onramp-check --changed-from origin/main` OK (after this entry). | no (dev loop, no release) |
+
 ## Batch — reclaim superseded commit snapshots (Unreleased)
 
 > Architecture-review P2: `commitState` (`shell/commit.ts`) embeds the FULL

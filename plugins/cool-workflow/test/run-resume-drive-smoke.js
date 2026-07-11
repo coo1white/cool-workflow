@@ -178,7 +178,41 @@ const cwd0 = process.cwd();
   } finally { process.chdir(cwd0); }
 }
 
-process.stdout.write("run-resume-drive-smoke: ok (resume --drive continues to completion; fail-closed blocked; default byte-identical; CLI routing not misread as app)\n");
+// (6) architecture-review-driven fix: `cw run resume <id> --drive` must
+// find the run when invoked from a DIFFERENT directory than the run's own
+// repo -- the realistic case for a copy-pasted resume command (typed from
+// wherever the terminal happens to be, not necessarily back in --repo).
+// --scope home so the lookup doesn't depend on the repo-local index; no
+// --repo/--cwd passed to the resume call itself -- it must find its own
+// way back via the registry record's OWN repo field.
+{
+  const { spawnSync } = require("node:child_process");
+  const cli = path.join(pluginRoot, "dist", "cli.js");
+  clearAgentEnv();
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-drive-home-"));
+  const childEnv = { ...process.env, CW_NO_AUTO_AGENT: "1", CW_HOME: homeDir };
+  const repo = tmpRepo();
+  const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-drive-elsewhere-"));
+  process.chdir(repo);
+  try {
+    process.env.CW_HOME = homeDir;
+    const runId = planAndDrive({ appId: "architecture-review", repo, question: "risks?" }).runId; // planned/blocked, no agent
+    new RunRegistry(repo).refresh({ scope: "repo" }); // also populates the home index (refresh's own side effect)
+
+    process.chdir(elsewhere);
+    const r = spawnSync(process.execPath, [cli, "run", "resume", runId, "--drive", "--scope", "home", "--json"], { cwd: elsewhere, encoding: "utf8", env: childEnv });
+    assert.doesNotMatch(r.stderr || "", /Run not found/, `resume --drive from a different cwd must still find the run (stderr: ${r.stderr})`);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.runId, runId, "resume --drive from elsewhere still reaches the SAME run");
+    assert.ok(Object.prototype.hasOwnProperty.call(out, "drive"), "resume --drive from elsewhere still carries a drive outcome");
+    assert.equal(out.drive.status, "blocked", "no agent -> drive blocked (fail-closed), cwd-independent lookup confirmed");
+  } finally {
+    delete process.env.CW_HOME;
+    process.chdir(cwd0);
+  }
+}
+
+process.stdout.write("run-resume-drive-smoke: ok (resume --drive continues to completion; fail-closed blocked; default byte-identical; CLI routing not misread as app; cwd-independent lookup)\n");
 }
 
 main().catch((e) => {
