@@ -4,7 +4,7 @@
 // byte-for-byte (extracted with sed, not retyped).
 
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg } from "../../cli/io";
+import { required, optionalArg } from "../../core/util/cli-args";
 import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
 import type { OperatorCandidateSummary, OperatorRunSummary } from "../../shell/operator-ux";
 import { formatCompactGraph, formatStateExplosionReport } from "../../core/format/state-explosion-text";

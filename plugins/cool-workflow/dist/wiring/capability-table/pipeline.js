@@ -6,8 +6,8 @@
 // retyped).
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
-const io_1 = require("../../cli/io");
-const io_2 = require("../../cli/io");
+const cli_args_1 = require("../../core/util/cli-args");
+const cli_args_2 = require("../../core/util/cli-args");
 // MILESTONE 6+7 (combined; see docs/rebuild/PLAN.md Open risk 10) CLI bindings:
 // plan, quickstart, run --drive, run drive (preview), dispatch, result,
 // commit. Handler BODIES live in shell/pipeline-cli.ts (impure — they
@@ -28,7 +28,7 @@ function loadCommitSummary() {
     path: ["plan"],
     jsonMode: "default",
     handler: (args) => {
-        const workflowId = (0, io_2.optionalArg)(args.positionals[0]);
+        const workflowId = (0, cli_args_2.optionalArg)(args.positionals[0]);
         if (!workflowId) {
             throw new Error('Missing workflow id.\n  Tip: plan an architecture review with "cw plan architecture-review"');
         }
@@ -51,7 +51,7 @@ function loadCommitSummary() {
         const registrySubcommands = new Set(["drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive", "restore"]);
         const target = args.positionals[0];
         if (args.options.drive && !registrySubcommands.has(String(target || ""))) {
-            const runId = (0, io_2.optionalArg)(args.options.run) || (0, io_2.optionalArg)(args.options.runId);
+            const runId = (0, cli_args_2.optionalArg)(args.options.run) || (0, cli_args_2.optionalArg)(args.options.runId);
             if (args.options.preview)
                 return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: runId || target }) };
             const driveArgs = { ...args.options };
@@ -69,29 +69,29 @@ function loadCommitSummary() {
                     driveArgs.runId = id;
                 return { json: await loadPipelineCli().runDriveStep(driveArgs) };
             }
-            return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, io_1.required)(id, "run id") }) };
+            return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, cli_args_1.required)(id, "run id") }) };
         }
         // MILESTONE 11 (reporting/run-export) — the archive family. Handler
         // bodies live in shell/run-export-cli.ts; this arm only wires argv
         // shape -> handler call.
         if (subcommand === "export") {
-            const result = loadRunExportCli().runExportCli((0, io_1.required)(id, "run id"), args.options);
+            const result = loadRunExportCli().runExportCli((0, cli_args_1.required)(id, "run id"), args.options);
             return { json: result };
         }
         if (subcommand === "import") {
-            const result = loadRunExportCli().runImportCli((0, io_1.required)(id, "archive path"), args.options);
+            const result = loadRunExportCli().runImportCli((0, cli_args_1.required)(id, "archive path"), args.options);
             return { json: result };
         }
         if (subcommand === "verify-import") {
-            const result = loadRunExportCli().runVerifyImportCli((0, io_1.required)(id, "run id"), args.options);
+            const result = loadRunExportCli().runVerifyImportCli((0, cli_args_1.required)(id, "run id"), args.options);
             return { json: result, exitCode: args.options.strict && !result.ok ? 1 : undefined };
         }
         if (subcommand === "inspect-archive") {
-            const result = loadRunExportCli().runInspectArchiveCli((0, io_1.required)(id, "archive path"), args.options);
+            const result = loadRunExportCli().runInspectArchiveCli((0, cli_args_1.required)(id, "archive path"), args.options);
             return { json: result, exitCode: result.ok ? undefined : 1 };
         }
         if (subcommand === "restore") {
-            const result = loadRunExportCli().runRestoreCli((0, io_1.required)(id, "archive path"), args.options);
+            const result = loadRunExportCli().runRestoreCli((0, cli_args_1.required)(id, "archive path"), args.options);
             return { json: result, exitCode: result.ok ? undefined : 1 };
         }
         throw new Error("Usage: cw run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw run <app> --drive [--once] [--incremental] [--repo R --question Q]");
@@ -119,7 +119,7 @@ function loadCommitSummary() {
                 driveArgs.runId = id;
             return { json: await loadPipelineCli().runDriveStep(driveArgs) };
         }
-        return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, io_1.required)(id, "run id") }) };
+        return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, cli_args_1.required)(id, "run id") }) };
     },
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive").mcp.handler = (args) => loadPipelineCli().runDrivePreview(args);
@@ -180,11 +180,11 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").reason =
 function loadRunExportCli() {
     return require("../../shell/run-export-cli");
 }
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.export").mcp.handler = (args) => loadRunExportCli().runExportCli((0, io_1.required)((0, io_2.optionalArg)(args.runId), "run id"), args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.import").mcp.handler = (args) => loadRunExportCli().runImportCli((0, io_1.required)((0, io_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.verify-import").mcp.handler = (args) => loadRunExportCli().runVerifyImportCli((0, io_1.required)((0, io_2.optionalArg)(args.runId), "run id"), args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.inspect-archive").mcp.handler = (args) => loadRunExportCli().runInspectArchiveCli((0, io_1.required)((0, io_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) => loadRunExportCli().runRestoreCli((0, io_1.required)((0, io_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("run.export").mcp.handler = (args) => loadRunExportCli().runExportCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("run.import").mcp.handler = (args) => loadRunExportCli().runImportCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("run.verify-import").mcp.handler = (args) => loadRunExportCli().runVerifyImportCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("run.inspect-archive").mcp.handler = (args) => loadRunExportCli().runInspectArchiveCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) => loadRunExportCli().runRestoreCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
 // `run export|import|verify-import|inspect-archive|restore` each carry their
 // own two-token cli.path (found before the ["run"] run.drive.step catch-all
 // per the reversed candidate order), calling the same shell fns with the
@@ -195,20 +195,20 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     path: ["run", "export"],
     jsonMode: "default",
     hiddenFromHelp: true,
-    handler: (args) => ({ json: loadRunExportCli().runExportCli((0, io_1.required)(args.positionals[0], "run id"), args.options) }),
+    handler: (args) => ({ json: loadRunExportCli().runExportCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options) }),
 });
 (0, registry_core_1.attachCliBinding)("run.import", {
     path: ["run", "import"],
     jsonMode: "default",
     hiddenFromHelp: true,
-    handler: (args) => ({ json: loadRunExportCli().runImportCli((0, io_1.required)(args.positionals[0], "archive path"), args.options) }),
+    handler: (args) => ({ json: loadRunExportCli().runImportCli((0, cli_args_1.required)(args.positionals[0], "archive path"), args.options) }),
 });
 (0, registry_core_1.attachCliBinding)("run.verify-import", {
     path: ["run", "verify-import"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: (args) => {
-        const result = loadRunExportCli().runVerifyImportCli((0, io_1.required)(args.positionals[0], "run id"), args.options);
+        const result = loadRunExportCli().runVerifyImportCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options);
         return { json: result, exitCode: args.options.strict && !result.ok ? 1 : undefined };
     },
 });
@@ -217,7 +217,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: (args) => {
-        const result = loadRunExportCli().runInspectArchiveCli((0, io_1.required)(args.positionals[0], "archive path"), args.options);
+        const result = loadRunExportCli().runInspectArchiveCli((0, cli_args_1.required)(args.positionals[0], "archive path"), args.options);
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
@@ -226,7 +226,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: (args) => {
-        const result = loadRunExportCli().runRestoreCli((0, io_1.required)(args.positionals[0], "archive path"), args.options);
+        const result = loadRunExportCli().runRestoreCli((0, cli_args_1.required)(args.positionals[0], "archive path"), args.options);
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
@@ -237,7 +237,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     caseTokens: ["quickstart", "audit-run"],
     jsonMode: "default",
     handler: async (args) => {
-        const appId = (0, io_2.optionalArg)(args.positionals[0]);
+        const appId = (0, cli_args_2.optionalArg)(args.positionals[0]);
         const result = (await loadPipelineCli().quickstartRun({ ...args.options, appId }));
         // Fail closed on both known bad outcomes: a --check preflight that
         // found a blocking gap, OR a --bundle that did not self-verify.
@@ -251,7 +251,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     path: ["dispatch"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, io_1.required)((0, io_2.optionalArg)(args.positionals[0]), "run id");
+        const runId = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[0]), "run id");
         return { json: loadPipelineCli().dispatchRun({ ...args.options, runId }) };
     },
 });
@@ -259,9 +259,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     path: ["result"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, io_1.required)((0, io_2.optionalArg)(args.positionals[0]), "run id");
-        const taskId = (0, io_1.required)((0, io_2.optionalArg)(args.positionals[1]), "task id");
-        const resultPath = (0, io_1.required)((0, io_2.optionalArg)(args.positionals[2]), "result file path");
+        const runId = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[0]), "run id");
+        const taskId = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[1]), "task id");
+        const resultPath = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[2]), "result file path");
         return { json: loadPipelineCli().recordResultRun({ ...args.options, runId, taskId, resultPath }) };
     },
 });
@@ -269,7 +269,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     path: ["commit"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, io_1.required)((0, io_2.optionalArg)(args.positionals[0]), "run id");
+        const runId = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[0]), "run id");
         return { json: loadPipelineCli().commitRun({ ...args.options, runId }) };
     },
 });
@@ -284,7 +284,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
     jsonMode: "flag",
     handler: (args) => {
         const commitSummary = loadCommitSummary();
-        const summary = commitSummary.commitSummaryCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") });
+        const summary = commitSummary.commitSummaryCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") });
         return { json: summary, text: `${commitSummary.formatCommitSummaryText(summary)}\n` };
     },
 });

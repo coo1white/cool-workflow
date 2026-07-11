@@ -27,7 +27,8 @@ import {
   findCapabilityByCliPath,
 } from "../core/capability-table";
 import { KNOWN_COMMANDS, ParsedArgv, suggestCommand } from "./parseargv";
-import { printJson, styledHelp, wantsJson } from "./io";
+import { printJson, styledHelp } from "./io";
+import { wantsJson } from "../core/util/cli-args";
 
 /** Thrown errors carry only a message; the entry point decides exit code
  *  and the recovery hint, matching src/cli.ts's top-level catch. */

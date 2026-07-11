@@ -18,7 +18,7 @@ const registry_core_1 = require("./registry-core");
 const version_1 = require("../../core/version");
 const help_1 = require("../../core/format/help");
 const completion_1 = require("../../core/format/completion");
-const io_1 = require("../../cli/io");
+const cli_args_1 = require("../../core/util/cli-args");
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — a top-level import of
 // `shell/workflow-app-loader` here means even `cw --version` pays its
@@ -38,7 +38,7 @@ function loadWorkflowAppLoader() {
     path: ["completion"],
     jsonMode: "human",
     handler: (args) => {
-        const shell = (0, io_1.optionalArg)(args.positionals[0]);
+        const shell = (0, cli_args_1.optionalArg)(args.positionals[0]);
         if (!shell)
             throw new Error('Missing shell name.\n  Try: cw completion bash|zsh|fish');
         return { text: (0, completion_1.formatCompletionScript)(shell) };

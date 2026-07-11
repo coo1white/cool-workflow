@@ -5,7 +5,7 @@
 // retyped).
 
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg, wantsJson } from "../../cli/io";
+import { required, optionalArg, wantsJson } from "../../core/util/cli-args";
 import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
 import { formatStateExplosionReport } from "../../core/format/state-explosion-text";
 // This file is required at startup for every command. Loading these shell

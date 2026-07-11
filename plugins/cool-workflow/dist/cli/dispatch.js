@@ -27,6 +27,7 @@ const capability_table_1 = require("../core/capability-table");
 const parseargv_1 = require("./parseargv");
 Object.defineProperty(exports, "KNOWN_COMMANDS", { enumerable: true, get: function () { return parseargv_1.KNOWN_COMMANDS; } });
 const io_1 = require("./io");
+const cli_args_1 = require("../core/util/cli-args");
 function firstPositional(args, index = 0) {
     return args.positionals[index];
 }
@@ -38,7 +39,7 @@ function firstPositional(args, index = 0) {
  *     `--json`/`--format json`.
  *   - `"human"` — always prints `result.text`; there is no JSON form. */
 function renderCliResult(result, jsonMode, options) {
-    const useJson = jsonMode === "default" || (jsonMode === "flag" && (0, io_1.wantsJson)(options));
+    const useJson = jsonMode === "default" || (jsonMode === "flag" && (0, cli_args_1.wantsJson)(options));
     if (useJson && result.json !== undefined) {
         (0, io_1.printJson)(result.json);
     }

@@ -17,7 +17,7 @@ const registry_core_1 = require("./registry-core");
 // as milestones 3/4 did for their own rows.
 // ---------------------------------------------------------------------
 const exec_backend_cli_1 = require("../../shell/exec-backend-cli");
-const io_1 = require("../../cli/io");
+const cli_args_1 = require("../../core/util/cli-args");
 // This slice is required unconditionally at startup for every command;
 // load doctor/app-run-cli lazily so only doctor/fix/sandbox.choose/
 // sandbox.resolve/app.run handlers pay their require cost.
@@ -42,18 +42,18 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.run").mcp.handler = (args) => lo
 (0, registry_core_1.attachCliBinding)("sandbox.show", {
     path: ["sandbox", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, exec_backend_cli_1.showSandboxProfileCli)((0, io_1.required)(args.positionals[0], "profile id"), args.options) }),
+    handler: (args) => ({ json: (0, exec_backend_cli_1.showSandboxProfileCli)((0, cli_args_1.required)(args.positionals[0], "profile id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.show").mcp.handler = (args) => (0, exec_backend_cli_1.showSandboxProfileCli)((0, io_1.required)((0, io_1.optionalArg)(args.profileId), "profile id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.show").mcp.handler = (args) => (0, exec_backend_cli_1.showSandboxProfileCli)((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileId), "profile id"), args);
 (0, registry_core_1.attachCliBinding)("sandbox.validate", {
     path: ["sandbox", "validate"],
     jsonMode: "default",
     handler: (args) => {
-        const result = (0, exec_backend_cli_1.validateSandboxProfileCli)((0, io_1.required)(args.positionals[0], "profile file"), args.options);
+        const result = (0, exec_backend_cli_1.validateSandboxProfileCli)((0, cli_args_1.required)(args.positionals[0], "profile file"), args.options);
         return { json: result, exitCode: result.valid ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (args) => (0, exec_backend_cli_1.validateSandboxProfileCli)((0, io_1.required)((0, io_1.optionalArg)(args.profileFile), "profile file"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (args) => (0, exec_backend_cli_1.validateSandboxProfileCli)((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileFile), "profile file"), args);
 // PARITY: `sandbox.choose`/`sandbox.resolve` are BOTH-surface capabilities
 // per SPEC/mcp.md (old build cli.path ["sandbox","choose"]/["sandbox",
 // "resolve"]) — they were left MCP-only at GAP #24 (see the comment
@@ -80,15 +80,15 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.list").mcp.handler = () => (
 (0, registry_core_1.attachCliBinding)("backend.show", {
     path: ["backend", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, exec_backend_cli_1.showBackendCli)((0, io_1.required)(args.positionals[0], "backend id")) }),
+    handler: (args) => ({ json: (0, exec_backend_cli_1.showBackendCli)((0, cli_args_1.required)(args.positionals[0], "backend id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.show").mcp.handler = (args) => (0, exec_backend_cli_1.showBackendCli)((0, io_1.required)((0, io_1.optionalArg)(args.backendId), "backend id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.show").mcp.handler = (args) => (0, exec_backend_cli_1.showBackendCli)((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.backendId), "backend id"));
 (0, registry_core_1.attachCliBinding)("backend.probe", {
     path: ["backend", "probe"],
     jsonMode: "default",
     handler: (args) => ({ json: (0, exec_backend_cli_1.probeBackendCli)(args.positionals[0], args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args) => (0, exec_backend_cli_1.probeBackendCli)((0, io_1.optionalArg)(args.backendId), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args) => (0, exec_backend_cli_1.probeBackendCli)((0, cli_args_1.optionalArg)(args.backendId), args);
 // `backend agent config [show]` = read-only; `backend agent config set
 // ...` = mutating. CLI path is ["backend", "agent"] (2 tokens, matching
 // dispatchTable's supported path lengths); the remaining positionals
@@ -151,7 +151,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
         // renderer only appends "\n" when the text does NOT already end in
         // one, so a bare `formatDoctorFixes(report)` here would silently
         // drop the old build's trailing blank line.
-        const text = (0, io_1.wantsJson)(args.options) ? undefined : args.options.fix ? `${doctor.formatDoctorFixes(report)}\n` : doctor.formatDoctorReport(report);
+        const text = (0, cli_args_1.wantsJson)(args.options) ? undefined : args.options.fix ? `${doctor.formatDoctorFixes(report)}\n` : doctor.formatDoctorReport(report);
         return { json: report, text, exitCode: report.ok ? undefined : 1 };
     },
 }, "Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`.");

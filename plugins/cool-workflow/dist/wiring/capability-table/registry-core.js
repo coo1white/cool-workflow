@@ -32,7 +32,7 @@ exports.mcpToolDefinitions = mcpToolDefinitions;
 exports.declaredMcpTools = declaredMcpTools;
 exports.findCapabilityByMcpTool = findCapabilityByMcpTool;
 const capability_data_1 = require("../../core/capability-data");
-const io_1 = require("../../cli/io");
+const cli_args_1 = require("../../core/util/cli-args");
 // Every capability-table module (this file plus each domain slice) is
 // required unconditionally at CLI/MCP startup, for every single command
 // (index.ts's whole point is to populate REGISTRY before dispatch can
@@ -65,8 +65,8 @@ const MCP_REAL_HANDLERS = {
     list: () => listBundledWorkflows(),
     "sandbox.list": () => listBundledSandboxProfiles(),
     status: (args) => statusPayload(optionalString(args.runId)),
-    "summary.refresh": (args) => loadStateExplosionCli().summaryRefreshCli((0, io_1.required)(optionalString(args.runId), "run id"), args),
-    "summary.show": (args) => loadStateExplosionCli().summaryShowCli((0, io_1.required)(optionalString(args.runId), "run id"), args),
+    "summary.refresh": (args) => loadStateExplosionCli().summaryRefreshCli((0, cli_args_1.required)(optionalString(args.runId), "run id"), args),
+    "summary.show": (args) => loadStateExplosionCli().summaryShowCli((0, cli_args_1.required)(optionalString(args.runId), "run id"), args),
 };
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;

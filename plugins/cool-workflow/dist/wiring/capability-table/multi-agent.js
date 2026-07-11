@@ -5,7 +5,7 @@
 // byte-for-byte (extracted with sed, not retyped).
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
-const io_1 = require("../../cli/io");
+const cli_args_1 = require("../../core/util/cli-args");
 const state_explosion_text_1 = require("../../core/format/state-explosion-text");
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — a top-level import of
@@ -31,23 +31,23 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.list").mcp.handler = () => 
 (0, registry_core_1.attachCliBinding)("topology.show", {
     path: ["topology", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().topologyShowCli((0, io_1.required)(args.positionals[0], "topology id")) }),
+    handler: (args) => ({ json: loadMultiAgentCli().topologyShowCli((0, cli_args_1.required)(args.positionals[0], "topology id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.show").mcp.handler = (args) => loadMultiAgentCli().topologyShowCli((0, io_1.required)((0, io_1.optionalArg)(args.topologyId ?? args.id), "topology id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.show").mcp.handler = (args) => loadMultiAgentCli().topologyShowCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.topologyId ?? args.id), "topology id"));
 (0, registry_core_1.attachCliBinding)("topology.validate", {
     path: ["topology", "validate"],
     jsonMode: "default",
     handler: (args) => {
-        const result = loadMultiAgentCli().topologyValidateCli((0, io_1.required)(args.positionals[0], "topology id"));
+        const result = loadMultiAgentCli().topologyValidateCli((0, cli_args_1.required)(args.positionals[0], "topology id"));
         return { json: result, exitCode: result.valid ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.validate").mcp.handler = (args) => loadMultiAgentCli().topologyValidateCli((0, io_1.required)((0, io_1.optionalArg)(args.topologyId ?? args.id), "topology id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.validate").mcp.handler = (args) => loadMultiAgentCli().topologyValidateCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.topologyId ?? args.id), "topology id"));
 (0, registry_core_1.attachCliBinding)("topology.apply", {
     path: ["topology", "apply"],
     jsonMode: "default",
     handler: (args) => ({
-        json: loadMultiAgentCli().topologyApplyCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), topologyId: (0, io_1.required)(args.positionals[1], "topology id") }),
+        json: loadMultiAgentCli().topologyApplyCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id"), topologyId: (0, cli_args_1.required)(args.positionals[1], "topology id") }),
     }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.apply").mcp.handler = (args) => loadMultiAgentCli().topologyApplyCli({ ...args, topologyId: args.topologyId ?? args.id });
@@ -57,7 +57,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.apply").mcp.handler = (args
     path: ["topology", "summary"],
     jsonMode: "flag",
     handler: (args) => {
-        const summary = loadMultiAgentCli().topologySummaryCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        const summary = loadMultiAgentCli().topologySummaryCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options });
         return { json: summary, text: `${loadTopologyIo().formatTopologySummaryText(summary)}\n` };
     },
 });
@@ -68,7 +68,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.summary").mcp.handler = (ar
     path: ["topology", "graph"],
     jsonMode: "flag",
     handler: (args) => {
-        const runId = (0, io_1.required)(args.positionals[0], "run id");
+        const runId = (0, cli_args_1.required)(args.positionals[0], "run id");
         const graph = loadMultiAgentCli().topologyGraphCli({ runId, ...args.options });
         return { json: graph, text: `${loadTopologyIo().formatTopologyGraphText(runId, graph)}\n` };
     },
@@ -86,7 +86,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("topology.graph").mcp.handler = (args
     handler: (args) => ({
         json: loadMultiAgentCli().multiAgentRunCli({
             ...args.options,
-            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            runId: (0, cli_args_1.required)(args.positionals[0], "run id"),
             multiAgentRunId: args.options.id === undefined ? (args.positionals[1] ?? args.options.multiAgentRunId) : args.options.multiAgentRunId,
         }),
     }),
@@ -96,33 +96,33 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.run").mcp.handler = (arg
     path: ["multi-agent", "status"],
     jsonMode: "flag",
     handler: (args) => ({
-        json: loadMultiAgentCli().multiAgentStatusCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
-        text: loadMultiAgentCli().multiAgentStatusText({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+        json: loadMultiAgentCli().multiAgentStatusCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }),
+        text: loadMultiAgentCli().multiAgentStatusText({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }),
     }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.status").mcp.handler = (args) => loadMultiAgentCli().multiAgentStatusCli(args);
 (0, registry_core_1.attachCliBinding)("multi-agent.step", {
     path: ["multi-agent", "step"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentStepCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentStepCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.step").mcp.handler = (args) => loadMultiAgentCli().multiAgentStepCli(args);
 (0, registry_core_1.attachCliBinding)("multi-agent.blackboard", {
     path: ["multi-agent", "blackboard"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentBlackboardCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }, args.positionals[1]) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentBlackboardCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }, args.positionals[1]) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.blackboard").mcp.handler = (args) => loadMultiAgentCli().multiAgentBlackboardCli(args, args.action);
 (0, registry_core_1.attachCliBinding)("multi-agent.score", {
     path: ["multi-agent", "score"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentScoreCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), candidate: args.options.candidate ?? args.positionals[1] }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentScoreCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id"), candidate: args.options.candidate ?? args.positionals[1] }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.score").mcp.handler = (args) => loadMultiAgentCli().multiAgentScoreCli(args);
 (0, registry_core_1.attachCliBinding)("multi-agent.select", {
     path: ["multi-agent", "select"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentSelectCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), candidate: args.options.candidate ?? args.positionals[1] }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentSelectCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id"), candidate: args.options.candidate ?? args.positionals[1] }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.select").mcp.handler = (args) => loadMultiAgentCli().multiAgentSelectCli(args);
 // jsonMode "flag": human `Multi-Agent` panel by default, canonical JSON
@@ -131,7 +131,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.select").mcp.handler = (
     path: ["multi-agent", "summary"],
     jsonMode: "flag",
     handler: (args) => {
-        const summary = loadMultiAgentCli().multiAgentSummaryCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        const summary = loadMultiAgentCli().multiAgentSummaryCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options });
         return { json: summary, text: `${loadOperatorUxText().formatMultiAgentSummaryText(summary)}\n` };
     },
 });
@@ -143,7 +143,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.summary").mcp.handler = 
 // second row exists so both capabilities carry a cli binding (the
 // both-surface pairing) and `cw help multi-agent` can list both forms.
 function multiAgentGraphHandler(args) {
-    const call = { runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options };
+    const call = { runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options };
     if (args.options.view !== undefined || args.options.focus !== undefined || args.options.depth !== undefined) {
         const compact = loadMultiAgentCli().multiAgentGraphCompactCli(call);
         return { json: compact, text: (0, state_explosion_text_1.formatCompactGraph)(compact) };
@@ -162,8 +162,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.graph").mcp.handler = (a
     path: ["multi-agent", "dependencies"],
     jsonMode: "flag",
     handler: (args) => ({
-        json: loadMultiAgentCli().multiAgentDependenciesCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
-        text: loadMultiAgentCli().multiAgentDependenciesText({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+        json: loadMultiAgentCli().multiAgentDependenciesCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }),
+        text: loadMultiAgentCli().multiAgentDependenciesText({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }),
     }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.dependencies").mcp.handler = (args) => loadMultiAgentCli().multiAgentDependenciesCli(args);
@@ -171,8 +171,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.dependencies").mcp.handl
     path: ["multi-agent", "failures"],
     jsonMode: "flag",
     handler: (args) => ({
-        json: loadMultiAgentCli().multiAgentFailuresCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
-        text: loadMultiAgentCli().multiAgentFailuresText({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+        json: loadMultiAgentCli().multiAgentFailuresCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }),
+        text: loadMultiAgentCli().multiAgentFailuresText({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }),
     }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.failures").mcp.handler = (args) => loadMultiAgentCli().multiAgentFailuresCli(args);
@@ -180,8 +180,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.failures").mcp.handler =
     path: ["multi-agent", "evidence"],
     jsonMode: "flag",
     handler: (args) => ({
-        json: loadMultiAgentCli().multiAgentEvidenceCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
-        text: loadMultiAgentCli().multiAgentEvidenceText({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }),
+        json: loadMultiAgentCli().multiAgentEvidenceCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }),
+        text: loadMultiAgentCli().multiAgentEvidenceText({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }),
     }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.evidence").mcp.handler = (args) => loadMultiAgentCli().multiAgentEvidenceCli(args);
@@ -192,7 +192,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.evidence").mcp.handler =
 // matching the old handler's printJson refresh arm); otherwise it prints the
 // report (text, or JSON under --json).
 function multiAgentReasoningHandler(args) {
-    const call = { runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options };
+    const call = { runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options };
     if (args.options.refresh && args.options.evidence === undefined && args.options.evidenceId === undefined) {
         return { json: loadMultiAgentCli().multiAgentReasoningRefreshCli(call) };
     }
@@ -215,7 +215,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.reasoning.refresh").mcp.
     path: ["multi-agent", "summarize"],
     jsonMode: "flag",
     handler: (args) => {
-        const result = loadMultiAgentCli().multiAgentSummarizeCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        const result = loadMultiAgentCli().multiAgentSummarizeCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options });
         return { json: result, text: (0, state_explosion_text_1.formatStateExplosionReport)(result) };
     },
 });
@@ -224,13 +224,13 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.graph.compact").mcp.hand
 (0, registry_core_1.attachCliBinding)("blackboard.summarize", {
     path: ["blackboard", "summarize"],
     jsonMode: "flag",
-    handler: (args) => ({ json: loadMultiAgentCli().blackboardSummarizeCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().blackboardSummarizeCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("blackboard.summarize").mcp.handler = (args) => loadMultiAgentCli().blackboardSummarizeCli(args);
 (0, registry_core_1.attachCliBinding)("contract.show", {
     path: ["contract", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().contractShowCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }, args.positionals[1]) }),
+    handler: (args) => ({ json: loadMultiAgentCli().contractShowCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }, args.positionals[1]) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("contract.show").mcp.handler = (args) => loadMultiAgentCli().contractShowCli(args);
 (0, registry_core_1.attachCliBinding)("multi-agent.run.create", {
@@ -240,7 +240,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("contract.show").mcp.handler = (args)
     handler: (args) => ({
         json: loadMultiAgentCli().multiAgentRoleCli({
             ...args.options,
-            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            runId: (0, cli_args_1.required)(args.positionals[0], "run id"),
             roleId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.roleId,
         }),
     }),
@@ -252,7 +252,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("contract.show").mcp.handler = (args)
     handler: (args) => ({
         json: loadMultiAgentCli().multiAgentGroupCli({
             ...args.options,
-            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            runId: (0, cli_args_1.required)(args.positionals[0], "run id"),
             groupId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.groupId,
         }),
     }),
@@ -264,7 +264,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("contract.show").mcp.handler = (args)
     handler: (args) => ({
         json: loadMultiAgentCli().multiAgentMembershipCli({
             ...args.options,
-            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            runId: (0, cli_args_1.required)(args.positionals[0], "run id"),
             membershipId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.membershipId,
         }),
     }),
@@ -276,7 +276,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("contract.show").mcp.handler = (args)
     handler: (args) => ({
         json: loadMultiAgentCli().multiAgentFanoutCli({
             ...args.options,
-            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            runId: (0, cli_args_1.required)(args.positionals[0], "run id"),
             fanoutId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.fanoutId,
         }),
     }),
@@ -288,7 +288,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("contract.show").mcp.handler = (args)
     handler: (args) => ({
         json: loadMultiAgentCli().multiAgentFaninCli({
             ...args.options,
-            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            runId: (0, cli_args_1.required)(args.positionals[0], "run id"),
             faninId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.faninId,
         }),
     }),
@@ -319,7 +319,7 @@ function multiAgentRoleHandler(args) {
     return {
         json: loadMultiAgentCli().multiAgentRoleCli({
             ...args.options,
-            runId: (0, io_1.required)(args.positionals[0], "run id"),
+            runId: (0, cli_args_1.required)(args.positionals[0], "run id"),
             roleId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.roleId,
         }),
     };
@@ -330,55 +330,55 @@ function multiAgentRoleHandler(args) {
     path: ["multi-agent", "group"],
     helpPath: ["multi-agent", "group"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentGroupCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), groupId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.groupId }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentGroupCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id"), groupId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.groupId }) }),
 });
 (0, registry_core_1.attachCliBinding)("multi-agent.membership.show", {
     path: ["multi-agent", "membership"],
     helpPath: ["multi-agent", "membership"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentMembershipCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), membershipId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.membershipId }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentMembershipCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id"), membershipId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.membershipId }) }),
 });
 (0, registry_core_1.attachCliBinding)("multi-agent.fanout.show", {
     path: ["multi-agent", "fanout"],
     helpPath: ["multi-agent", "fanout"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentFanoutCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), fanoutId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.fanoutId }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentFanoutCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id"), fanoutId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.fanoutId }) }),
 });
 (0, registry_core_1.attachCliBinding)("multi-agent.fanin.show", {
     path: ["multi-agent", "fanin"],
     helpPath: ["multi-agent", "fanin"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentFaninCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id"), faninId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.faninId }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentFaninCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id"), faninId: args.options.id === undefined && args.positionals.length >= 2 ? args.positionals[1] : args.options.faninId }) }),
 });
 (0, registry_core_1.attachCliBinding)("multi-agent.run.transition", {
     path: ["multi-agent", "transition"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentRunCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentRunCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.run.transition").mcp.handler = (args) => loadMultiAgentCli().multiAgentRunCli(args);
 (0, registry_core_1.attachCliBinding)("multi-agent.run.show", {
     path: ["multi-agent", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().multiAgentShowCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }, (0, io_1.required)(args.positionals[1], "id")) }),
+    handler: (args) => ({ json: loadMultiAgentCli().multiAgentShowCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }, (0, cli_args_1.required)(args.positionals[1], "id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.run.show").mcp.handler = (args) => loadMultiAgentCli().multiAgentShowCli(args, (0, io_1.required)((0, io_1.optionalArg)(args.multiAgentRunId ?? args.id), "id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("multi-agent.run.show").mcp.handler = (args) => loadMultiAgentCli().multiAgentShowCli(args, (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.multiAgentRunId ?? args.id), "id"));
 // ---- blackboard / coordinator -------------------------------------------
 (0, registry_core_1.attachCliBinding)("blackboard.summary", {
     path: ["blackboard", "summary"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().blackboardSummaryCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().blackboardSummaryCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("blackboard.summary").mcp.handler = (args) => loadMultiAgentCli().blackboardSummaryCli(args);
 (0, registry_core_1.attachCliBinding)("blackboard.graph", {
     path: ["blackboard", "graph"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().blackboardGraphCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().blackboardGraphCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("blackboard.graph").mcp.handler = (args) => loadMultiAgentCli().blackboardGraphCli(args);
 (0, registry_core_1.attachCliBinding)("blackboard.resolve", {
     path: ["blackboard", "resolve"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().blackboardResolveCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().blackboardResolveCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("blackboard.resolve").mcp.handler = (args) => loadMultiAgentCli().blackboardResolveCli(args);
 // GAP: the blackboard write/read verbs accept the sub-verb's ACTION word
@@ -398,9 +398,9 @@ const BLACKBOARD_ACTION_WORDS = new Set(["create", "post", "put", "add", "list",
 function blackboardRunAndAction(args) {
     const [first, second] = args.positionals;
     if (first !== undefined && BLACKBOARD_ACTION_WORDS.has(first)) {
-        return { runId: (0, io_1.required)(second, "run id"), action: first };
+        return { runId: (0, cli_args_1.required)(second, "run id"), action: first };
     }
-    return { runId: (0, io_1.required)(first, "run id"), action: second };
+    return { runId: (0, cli_args_1.required)(first, "run id"), action: second };
 }
 (0, registry_core_1.attachCliBinding)("blackboard.topic.create", {
     path: ["blackboard", "topic"],
@@ -439,71 +439,71 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("blackboard.artifact.list").mcp.handl
 (0, registry_core_1.attachCliBinding)("blackboard.snapshot", {
     path: ["blackboard", "snapshot"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().blackboardSnapshotCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().blackboardSnapshotCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("blackboard.snapshot").mcp.handler = (args) => loadMultiAgentCli().blackboardSnapshotCli(args);
 (0, registry_core_1.attachCliBinding)("coordinator.summary", {
     path: ["coordinator", "summary"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().coordinatorSummaryCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().coordinatorSummaryCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("coordinator.summary").mcp.handler = (args) => loadMultiAgentCli().coordinatorSummaryCli(args);
 (0, registry_core_1.attachCliBinding)("coordinator.decision", {
     path: ["coordinator", "decision"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().coordinatorDecisionCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().coordinatorDecisionCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("coordinator.decision").mcp.handler = (args) => loadMultiAgentCli().coordinatorDecisionCli(args);
 // ---- candidate scoring ----------------------------------------------------
 (0, registry_core_1.attachCliBinding)("candidate.list", {
     path: ["candidate", "list"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().candidateListCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().candidateListCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.list").mcp.handler = (args) => loadMultiAgentCli().candidateListCli(args);
 (0, registry_core_1.attachCliBinding)("candidate.show", {
     path: ["candidate", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().candidateShowCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }, (0, io_1.required)(args.positionals[1], "candidate id")) }),
+    handler: (args) => ({ json: loadMultiAgentCli().candidateShowCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }, (0, cli_args_1.required)(args.positionals[1], "candidate id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.show").mcp.handler = (args) => loadMultiAgentCli().candidateShowCli(args, (0, io_1.required)((0, io_1.optionalArg)(args.candidateId), "candidate id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.show").mcp.handler = (args) => loadMultiAgentCli().candidateShowCli(args, (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.candidateId), "candidate id"));
 (0, registry_core_1.attachCliBinding)("candidate.register", {
     path: ["candidate", "register"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().candidateRegisterCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().candidateRegisterCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.register").mcp.handler = (args) => loadMultiAgentCli().candidateRegisterCli(args);
 (0, registry_core_1.attachCliBinding)("candidate.score", {
     path: ["candidate", "score"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().candidateScoreCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }, (0, io_1.required)(args.positionals[1], "candidate id")) }),
+    handler: (args) => ({ json: loadMultiAgentCli().candidateScoreCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }, (0, cli_args_1.required)(args.positionals[1], "candidate id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.score").mcp.handler = (args) => loadMultiAgentCli().candidateScoreCli(args, (0, io_1.required)((0, io_1.optionalArg)(args.candidateId), "candidate id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.score").mcp.handler = (args) => loadMultiAgentCli().candidateScoreCli(args, (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.candidateId), "candidate id"));
 (0, registry_core_1.attachCliBinding)("candidate.rank", {
     path: ["candidate", "rank"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().candidateRankCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().candidateRankCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.rank").mcp.handler = (args) => loadMultiAgentCli().candidateRankCli(args);
 (0, registry_core_1.attachCliBinding)("candidate.select", {
     path: ["candidate", "select"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().candidateSelectCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }, (0, io_1.required)(args.positionals[1], "candidate id")) }),
+    handler: (args) => ({ json: loadMultiAgentCli().candidateSelectCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }, (0, cli_args_1.required)(args.positionals[1], "candidate id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.select").mcp.handler = (args) => loadMultiAgentCli().candidateSelectCli(args, (0, io_1.required)((0, io_1.optionalArg)(args.candidateId), "candidate id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.select").mcp.handler = (args) => loadMultiAgentCli().candidateSelectCli(args, (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.candidateId), "candidate id"));
 (0, registry_core_1.attachCliBinding)("candidate.reject", {
     path: ["candidate", "reject"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().candidateRejectCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }, (0, io_1.required)(args.positionals[1], "candidate id")) }),
+    handler: (args) => ({ json: loadMultiAgentCli().candidateRejectCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }, (0, cli_args_1.required)(args.positionals[1], "candidate id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.reject").mcp.handler = (args) => loadMultiAgentCli().candidateRejectCli(args, (0, io_1.required)((0, io_1.optionalArg)(args.candidateId), "candidate id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.reject").mcp.handler = (args) => loadMultiAgentCli().candidateRejectCli(args, (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.candidateId), "candidate id"));
 // jsonMode "flag": human `Candidates` panel by default, canonical JSON under
 // --json (old build's candidate.summary was flag).
 (0, registry_core_1.attachCliBinding)("candidate.summary", {
     path: ["candidate", "summary"],
     jsonMode: "flag",
     handler: (args) => {
-        const summary = loadMultiAgentCli().candidateSummaryCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        const summary = loadMultiAgentCli().candidateSummaryCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options });
         return { json: summary, text: `${loadOperatorUxText().formatCandidateSummaryText(summary)}\n` };
     },
 });
@@ -512,19 +512,19 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("candidate.summary").mcp.handler = (a
 (0, registry_core_1.attachCliBinding)("approve", {
     path: ["approve"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().approveCli({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id"), body: args.positionals[3] }, args.positionals[0], args.positionals[2]) }),
+    handler: (args) => ({ json: loadMultiAgentCli().approveCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[1], "run id"), body: args.positionals[3] }, args.positionals[0], args.positionals[2]) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("approve").mcp.handler = (args) => loadMultiAgentCli().approveCli(args);
 (0, registry_core_1.attachCliBinding)("reject", {
     path: ["reject"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().rejectCollabCli({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id") }, args.positionals[0], args.positionals[2]) }),
+    handler: (args) => ({ json: loadMultiAgentCli().rejectCollabCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[1], "run id") }, args.positionals[0], args.positionals[2]) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("reject").mcp.handler = (args) => loadMultiAgentCli().rejectCollabCli(args);
 (0, registry_core_1.attachCliBinding)("comment.add", {
     path: ["comment", "add"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().commentAddCli({ ...args.options, runId: (0, io_1.required)(args.positionals[1], "run id"), body: args.options.body ?? args.positionals[3] }, args.positionals[0], args.positionals[2]) }),
+    handler: (args) => ({ json: loadMultiAgentCli().commentAddCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[1], "run id"), body: args.options.body ?? args.positionals[3] }, args.positionals[0], args.positionals[2]) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("comment.add").mcp.handler = (args) => loadMultiAgentCli().commentAddCli(args);
 // jsonMode "flag": human comment list by default, canonical JSON under
@@ -533,7 +533,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("comment.add").mcp.handler = (args) =
     path: ["comment", "list"],
     jsonMode: "flag",
     handler: (args) => {
-        const report = loadMultiAgentCli().commentListCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        const report = loadMultiAgentCli().commentListCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options });
         return { json: report, text: `${loadCollaborationIo().formatCommentList(report)}\n` };
     },
 });
@@ -546,8 +546,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("comment.list").mcp.handler = (args) 
     // positional, so a bare `cw handoff` fails with "Missing target kind" — not
     // "Missing run id". The kind check must fire before the run-id read.
     handler: (args) => {
-        const kind = (0, io_1.required)(args.positionals[0], "target kind");
-        const runId = (0, io_1.required)(args.positionals[1], "run id");
+        const kind = (0, cli_args_1.required)(args.positionals[0], "target kind");
+        const runId = (0, cli_args_1.required)(args.positionals[1], "run id");
         return { json: loadMultiAgentCli().handoffCli({ ...args.options, runId }, kind, args.positionals[2]) };
     },
 });
@@ -558,7 +558,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("handoff").mcp.handler = (args) => lo
     path: ["review", "status"],
     jsonMode: "flag",
     handler: (args) => {
-        const report = loadMultiAgentCli().reviewStatusCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        const report = loadMultiAgentCli().reviewStatusCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options });
         return { json: report, text: `${loadCollaborationIo().formatReviewStatus(report)}\n` };
     },
 });
@@ -566,7 +566,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("review.status").mcp.handler = (args)
 (0, registry_core_1.attachCliBinding)("review.policy", {
     path: ["review", "policy"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadMultiAgentCli().reviewPolicyCli({ ...args.options, runId: (0, io_1.required)(args.positionals[0], "run id") }) }),
+    handler: (args) => ({ json: loadMultiAgentCli().reviewPolicyCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") }) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("review.policy").mcp.handler = (args) => loadMultiAgentCli().reviewPolicyCli(args);
 // ---- eval replay harness ---------------------------------------------------
@@ -577,7 +577,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("review.policy").mcp.handler = (args)
     path: ["eval", "snapshot"],
     jsonMode: "flag",
     handler: (args) => {
-        const result = loadMultiAgentCli().evalSnapshotCli({ runId: (0, io_1.required)(args.positionals[0], "run id"), ...args.options });
+        const result = loadMultiAgentCli().evalSnapshotCli({ runId: (0, cli_args_1.required)(args.positionals[0], "run id"), ...args.options });
         return { json: result, text: loadEvalText().formatMultiAgentEval(result) };
     },
 });

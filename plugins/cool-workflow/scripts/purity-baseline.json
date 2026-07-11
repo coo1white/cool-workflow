@@ -36,36 +36,6 @@
   "layerViolations": {
     "core/capability-table.ts": [
       "../wiring/capability-table"
-    ],
-    "wiring/capability-table/basics.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/exec-backend.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/multi-agent.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/pipeline.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/registry-core.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/reporting.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/scheduling-registry.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/state.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/trust-ledger.ts": [
-      "../../cli/io"
-    ],
-    "wiring/capability-table/workflow-apps.ts": [
-      "../../cli/io"
     ]
   }
 }

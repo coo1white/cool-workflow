@@ -5,7 +5,7 @@
 // retyped).
 
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg } from "../../cli/io";
+import { required, optionalArg } from "../../core/util/cli-args";
 
 // MILESTONE 8 (ledger, telemetry, trust-audit, tamper/bundle demos) CLI
 // bindings: ledger propose|review|verify|apply|list, telemetry verify,

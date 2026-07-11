@@ -36,7 +36,7 @@ import type {
   CapabilityCliArgs,
   Capability,
 } from "../../core/capability-data";
-import { required } from "../../cli/io";
+import { required } from "../../core/util/cli-args";
 
 // Every capability-table module (this file plus each domain slice) is
 // required unconditionally at CLI/MCP startup, for every single command

@@ -19,7 +19,7 @@ import { attachCliBinding, addCliOnlyCapability, listBundledWorkflows, listBundl
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../../core/version";
 import { formatSearchResults } from "../../core/format/help";
 import { formatCompletionScript } from "../../core/format/completion";
-import { optionalArg } from "../../cli/io";
+import { optionalArg } from "../../core/util/cli-args";
 
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — a top-level import of
