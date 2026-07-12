@@ -900,4 +900,39 @@ function releaseFixtureNonAncestorPrevTag() {
   }
 }
 
+// ---- Case 14: resolvePrevTag() (PREV_TAG, distinct from prevTagOf(version)
+// covered by Case 6b) finds the true previous release tag relative to HEAD
+// even when it is NOT an ancestor of HEAD — the same real-repo shape, but for
+// the gate/JSON-summary path (`--check`), not the notes-building path
+// (`--release`). PREV_TAG feeds the reviewer's "Diff range" line and the
+// final JSON summary's `prevTag` field; before this fix it used the same
+// `git describe --tags --abbrev=0` ancestry walk as the (already-fixed)
+// prevTagOf(version), so it had the identical bug. v9.9.8 is tagged on a
+// branch that is thrown away, never merged back into `work`, so it is
+// genuinely not an ancestor of `work`'s HEAD.
+{
+  const dir = fixture();
+  const initSha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+
+  run("git", ["checkout", "-q", "-b", "ephemeral-cut-v998"], dir);
+  fs.writeFileSync(path.join(dir, "cut-only.txt"), "ephemeral cut artifact\n");
+  run("git", ["add", "-A"], dir);
+  run("git", ["commit", "-q", "-m", "record v9.9.8 verdict (ephemeral, never merged)"], dir);
+  run("git", ["tag", "-a", "v9.9.8", "-m", "v9.9.8"], dir);
+
+  run("git", ["checkout", "-q", "work"], dir);
+  assert.equal(run("git", ["rev-parse", "HEAD"], dir).out.trim(), initSha, "work must not include the ephemeral cut commit");
+  fs.writeFileSync(path.join(dir, "more.txt"), "later work on the release branch\n");
+  run("git", ["add", "-A"], dir);
+  run("git", ["commit", "-q", "-m", "more work"], dir);
+  assert.equal(run("git", ["merge-base", "--is-ancestor", "v9.9.8", "HEAD"], dir).code, 1,
+    "fixture sanity: v9.9.8 must NOT be an ancestor of HEAD (this is the bug this case proves)");
+
+  const stub = writeStub(dir);
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} APPROVED` });
+  assert.equal(r.code, 0, `APPROVED stub should pass:\n${r.err}\n${r.out}`);
+  assert.match(r.out, /"prevTag": "v9\.9\.8"/,
+    "resolvePrevTag() must find v9.9.8 by version order, even though it is not an ancestor of HEAD");
+}
+
 process.stdout.write("release-flow-smoke: ok\n");
