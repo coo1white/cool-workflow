@@ -3,13 +3,19 @@ name: npm-publish
 # Publish cool-workflow to npm when a release tag is pushed (or on manual
 # dispatch for an existing tag). A v* tag can only land after the gated release
 # flow (deterministic gate -> independent reviewer -> verdict -> the
-# block-unapproved-tag hook). The workflow_run trigger only fires after
-# release-gate succeeds, so that path already implies an approved release.
-# workflow_dispatch accepts an arbitrary operator-given ref, so it gets its own
-# checks: the ref must resolve to a real refs/tags/v* commit (not a same-named
-# branch), and the same committed-verdict check release-gate.yml runs on tag
-# push is re-run here. On top of both paths, the tag must match the committed
-# package version, so a stray tag can never publish a mismatched artifact.
+# block-unapproved-tag hook). This job does NOT trust the workflow_run
+# trigger's "release-gate succeeded" report by itself -- release-gate.yml runs
+# FROM THE PUSHED TAG'S OWN TREE, which for a tag push IS attacker-controlled
+# input; a tag that rewrote release-gate.yml to `exit 0` would make that report
+# say "success" with no real check ever run. So this job independently
+# re-verifies the committed, signed verdict itself, on EVERY trigger (both
+# workflow_run and workflow_dispatch), against .cw-release/verdict-signing.pub
+# as committed on origin/main (a ref the tag being judged cannot rewrite) --
+# see the "Verify the dispatched ref is a real, gated release tag" step below,
+# which despite its name now runs unconditionally and is the true source of
+# truth for this job, not release-gate.yml's reported conclusion. On top of
+# that, the tag must match the committed package version, so a stray tag can
+# never publish a mismatched artifact.
 # Publishes through npm Trusted Publishing with provenance — a
 # cryptographic attestation that this exact version was built from this public
 # repo in CI, on-brand for an auditable control-plane and impossible to forge
@@ -58,7 +64,10 @@ jobs:
         with:
           node-version: "22"
       - name: Use npm with Trusted Publishing support
-        run: npm install -g npm@^11.5.1
+        # Exact pin (no ^ range): this job holds the npm Trusted Publishing
+        # OIDC token, so npm itself is code we do not want to float on a
+        # compromised upstream release.
+        run: npm install -g npm@11.5.1
       - name: Resolve the release tag from the commit
         id: tagref
         # INPUT_REF/HEAD_SHA go through env:, not raw ${{ }} text substitution —
@@ -91,15 +100,22 @@ jobs:
         env:
           TAG_REF: ${{ steps.tagref.outputs.ref }}
       - name: Verify the dispatched ref is a real, gated release tag
-        # workflow_dispatch lets an operator name any ref. Without this check, a
-        # branch named e.g. "v9.9.9" with a matching package.json version and a
-        # fresh dist/ would sail through every check above and publish with no
-        # release-gate run and no committed reviewer verdict ever having existed.
-        # Require refs/tags/$REF to exist as a real tag object, require the
-        # checked-out commit to be exactly that tag's commit (blocks a same-named
-        # branch standing in for the tag), and re-run the same verdict check
-        # release-gate.yml runs on tag push — including its signature check and
-        # its deterministic-bump-reproduction check (verify-bump-reproduction.sh),
+        # This step now runs on EVERY invocation of this job (both the normal
+        # workflow_run path after a tag push, and workflow_dispatch), not just
+        # on dispatch. It is the actual source of truth for "was this release
+        # really gated and reviewed" -- release-gate.yml's reported conclusion
+        # (checked in the job-level `if:` above) is NOT enough by itself,
+        # because release-gate.yml runs from the pushed tag's OWN tree, which
+        # for a tag push is attacker-controlled input; a tag that rewrote that
+        # workflow file to `exit 0` would still report "success" with no real
+        # check ever having run. So this step independently re-derives the tag
+        # ($TAG_REF, already resolved correctly for BOTH trigger types by the
+        # earlier "Resolve the release tag from the commit" step), requires
+        # refs/tags/$TAG_REF to exist as a real tag object, requires the
+        # checked-out commit to be exactly that tag's commit (blocks a
+        # same-named branch standing in for the tag), and re-runs the full
+        # verdict check -- including its signature check and its
+        # deterministic-bump-reproduction check (verify-bump-reproduction.sh),
         # if .cw-release/verdict-signing.pub is committed (see verdict-keygen.js).
         # A validly-signed verdict for the PARENT alone does not prove HEAD is
         # the same mechanical bump release-flow.js's cut() would have produced —
@@ -113,11 +129,10 @@ jobs:
         # bare `.cw-release/...` here would silently resolve under
         # plugins/cool-workflow/ and never match, failing every legitimate
         # dispatch closed for the wrong reason.
-        if: github.event_name == 'workflow_dispatch'
         run: |
           REF="$TAG_REF"
           TAG_SHA="$(git rev-parse --verify "refs/tags/$REF^{commit}" 2>/dev/null)" || {
-            echo "::error::refs/tags/$REF does not exist — workflow_dispatch must name a real, pushed release tag, not a branch"
+            echo "::error::refs/tags/$REF does not exist — the ref being published must be a real, pushed release tag, not a branch"
             exit 1
           }
           HEAD_SHA="$(git rev-parse HEAD)"
@@ -126,13 +141,24 @@ jobs:
             exit 1
           fi
           REPO_ROOT="$(git rev-parse --show-toplevel)"
-          PUBKEY="$REPO_ROOT/.cw-release/verdict-signing.pub"
+          # Read the pubkey from origin/main, NOT from the checked-out tree. The
+          # checked-out tree IS the tag under judgment -- a tag that deletes
+          # .cw-release/verdict-signing.pub would otherwise silently fall back to
+          # a no-signature check. origin/main is a ref the tag being judged cannot
+          # rewrite. fetch-depth: 0 on the checkout step above already gives us
+          # this ref with no extra fetch.
+          PUBKEY=""
+          if PUBKEY_CONTENT="$(git show origin/main:.cw-release/verdict-signing.pub 2>/dev/null)" && [ -n "$PUBKEY_CONTENT" ]; then
+            PUBKEY="$(mktemp)"
+            printf '%s\n' "$PUBKEY_CONTENT" > "$PUBKEY"
+          fi
           for C in "$HEAD_SHA" "$(git rev-parse HEAD~1 2>/dev/null || echo none)"; do
             VERDICT_REL=".cw-release/review-$C.verdict"
             VERDICT="$REPO_ROOT/$VERDICT_REL"
             [ -f "$VERDICT" ] || continue
-            grep -q '^APPROVED' "$VERDICT" || continue
-            if [ -f "$PUBKEY" ]; then
+            FIRST_LINE="$(head -n1 "$VERDICT")"
+            [ "$FIRST_LINE" = "APPROVED $C" ] || continue
+            if [ -n "$PUBKEY" ]; then
               SIG="$VERDICT.sig"
               SIG_REL="$VERDICT_REL.sig"
               if [ -f "$SIG" ] && node scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
@@ -151,14 +177,19 @@ jobs:
             echo "verdict found for $C (no verdict-signing.pub committed yet — signature not required)"
             exit 0
           done
-          echo "::error::No committed APPROVED verdict for this tag (with a valid signature, if .cw-release/verdict-signing.pub is committed). workflow_dispatch cannot be used to skip the gated release flow."
+          echo "::error::No committed APPROVED verdict for this tag (with a valid signature, if .cw-release/verdict-signing.pub is committed). Publishing cannot be used to skip the gated release flow."
           echo "::error::Expected: .cw-release/review-<sha>.verdict with first line 'APPROVED <sha>'"
           exit 1
         env:
           TAG_REF: ${{ steps.tagref.outputs.ref }}
       - name: Verify committed dist/ matches source (fail closed on drift)
         run: |
-          npm install --no-package-lock --ignore-scripts
+          # npm ci (not `npm install --no-package-lock`): this job holds the npm
+          # Trusted Publishing OIDC token, so the dev tooling `npm run build`
+          # runs next (tsc, etc) is code we want pinned to the tracked, reviewed
+          # package-lock.json, not floating. --ignore-scripts: a poisoned
+          # transitive install script must not get to run here either.
+          npm ci --ignore-scripts
           npm run build
           drift="$(git status --porcelain -- dist)"
           if [ -n "$drift" ]; then
