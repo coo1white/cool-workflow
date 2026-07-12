@@ -107,15 +107,44 @@ if (top.status !== 0) die("not inside a git work tree");
 const repoRoot = top.stdout.trim();
 
 const HEAD = git(["rev-parse", "HEAD"]).out;
-// Previous tag, excluding any tag that already points at HEAD (so this works
-// whether run before tagging or re-run on a freshly tagged commit — same fix
-// as release-gate.sh).
+
+// ---- release-tag lookup (semver-ordered, NOT git-ancestry-walked) ---------
+// A cut's own tag commit lives on an ephemeral line that is NEVER merged as
+// an ancestor of `main` — `cut()` tags the verdict-record commit directly,
+// and `main` only ever gets a separate, later "record the verdict on main"
+// PR built on top of whatever main's tip is at merge time, not on top of
+// the tag's own commit chain. So `git describe --tags --abbrev=0 <ref>`,
+// which walks ONLY ancestors of <ref>, always skips the true previous
+// release tag and silently lands one release further back. "What was the
+// last release" is a semver question, not an ancestry question — list every
+// v* tag and pick by version order instead.
+function parseSemverTag(tag) {
+  const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+function compareSemver(a, b) {
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+}
+function listReleaseTagsDesc() {
+  const out = git(["tag", "-l", "v*"]).out;
+  if (!out) return [];
+  return out
+    .split("\n")
+    .filter(Boolean)
+    .map((tag) => ({ tag, semver: parseSemverTag(tag) }))
+    .filter((t) => t.semver)
+    .sort((a, b) => compareSemver(b.semver, a.semver));
+}
+
+// The most recent ALREADY-RELEASED tag as of right now, excluding any tag
+// that already points at HEAD (so this works whether run before tagging or
+// re-run on a freshly tagged commit — same intent as release-gate.sh).
 function resolvePrevTag() {
   if (prevTagArg) return prevTagArg;
-  const headTags = git(["tag", "--points-at", "HEAD"]).out.split("\n").filter(Boolean);
-  let prev = git(["describe", "--tags", "--abbrev=0"]).out;
-  if (prev && headTags.includes(prev)) prev = git(["describe", "--tags", "--abbrev=0", "HEAD^"]).out;
-  return prev || "";
+  const headTags = new Set(git(["tag", "--points-at", "HEAD"]).out.split("\n").filter(Boolean));
+  const found = listReleaseTagsDesc().find((t) => !headTags.has(t.tag));
+  return found ? found.tag : "";
 }
 const PREV_TAG = resolvePrevTag();
 
@@ -451,42 +480,14 @@ function repoSlug() {
   return m ? { owner: m[1], repo: m[2] } : null;
 }
 
-// Parse a "v1.2.3" tag into a [major, minor, patch] tuple, or null if it does
-// not match. Kept local (not required) — same zero-dependency-script
-// convention as escapeRegExp below.
-function parseSemverTag(tag) {
-  const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag || "");
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
-}
-
-function compareSemver(a, b) {
-  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i];
-  return 0;
-}
-
-// The previous release tag relative to a SPECIFIC tag (not HEAD) — for the
-// compare link in the notes. This is the highest `v*` semver tag anywhere in
-// the repo that is strictly below `version`, NOT "the nearest tag reachable
-// by walking ancestry from v<version>^" (`git describe`'s approach). Every
-// release-cut tag in this repo lives on an ephemeral branch that never merges
-// into main as an ancestor (main instead gets a separate small "record the
-// reviewer verdict" PR) — so an ancestry walk silently skips the true
-// previous release tag and lands one version further back.
+// The previous release tag relative to a SPECIFIC target version (not HEAD's
+// ancestry) — for the compare link in the notes. See listReleaseTagsDesc's
+// header comment above for why this is a semver lookup, not `git describe`.
 function prevTagOf(version) {
   const target = parseSemverTag(`v${version}`);
   if (!target) return "";
-  const tags = git(["tag", "--list", "v*"]).out.split("\n").filter(Boolean);
-  let best = "";
-  let bestParsed = null;
-  for (const tag of tags) {
-    const parsed = parseSemverTag(tag);
-    if (!parsed || compareSemver(parsed, target) >= 0) continue;
-    if (!bestParsed || compareSemver(parsed, bestParsed) > 0) {
-      best = tag;
-      bestParsed = parsed;
-    }
-  }
-  return best;
+  const found = listReleaseTagsDesc().find((t) => compareSemver(t.semver, target) < 0);
+  return found ? found.tag : "";
 }
 
 // Full regex escape (same shape as parity-check.js's helper — scripts stay
