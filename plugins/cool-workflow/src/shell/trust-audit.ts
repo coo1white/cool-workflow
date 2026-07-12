@@ -555,6 +555,30 @@ function indexCorrelationIds(event: TrustAuditEvent): Record<string, string | un
   return picked;
 }
 
+/** True when the event log's final byte is "\n". A COMPLETED
+ *  `durableAppendFileSync` always leaves the log ending in "\n" (it writes
+ *  `<json>\n`), so a non-newline last byte means the previous append was
+ *  torn by a crash — its bytes were never a confirmed event. Reads ONLY the
+ *  last byte at `size-1`, so the append path stays O(1) and never re-reads
+ *  the whole log (keeping the tail-cache perf win). A read failure returns
+ *  false (treat as "not newline-terminated") — the safe side: an extra
+ *  leading newline is harmless (readEventsRaw skips blank lines), while a
+ *  MISSED torn boundary would merge two events into one unparseable line. */
+function logEndsWithNewline(file: string, size: number): boolean {
+  if (size <= 0) return false;
+  let fd: number | undefined;
+  try {
+    fd = fs.openSync(file, "r");
+    const buf = Buffer.alloc(1);
+    fs.readSync(fd, buf, 0, 1, size - 1);
+    return buf[0] === 0x0a; // "\n"
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
 /** Read-modify-append: computes `prevEventHash` from the CURRENT last event
  *  and appends. Held under `withFileLock` (like every other read-modify-
  *  write in this codebase) so two processes recording events for the same
@@ -615,7 +639,22 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     event.id = createEventId(input.kind, count);
     event.prevEventHash = prevHash;
     event.eventHash = computeEventHash(event);
-    const line = `${JSON.stringify(event)}\n`;
+    // Newline-boundary safety (fail-closed). `durableAppendFileSync` only ever
+    // ADDS bytes at the end of file and never writes a separator of its own. A
+    // completed append always leaves the log ending in "\n"; if the last byte
+    // is NOT "\n", the previous append was torn by a crash (its bytes were
+    // never a confirmed event — the append never returned). Writing this new,
+    // already-cross-linked event straight onto that partial byte-run would
+    // MERGE the two into one line that no longer parses — losing THIS event and
+    // poisoning the forward chain (the next append's prevEventHash would point
+    // into an unparseable blob), with no repair for that shape. So put the new
+    // event on its own clean line: prepend a "\n" when the log does not already
+    // end in one, confining any crash artifact to its own now-orphaned line.
+    // (Reads only the last byte, so the O(1) tail-cache path is preserved.)
+    // An empty log (currentBytes === 0, e.g. the first append) has no tail to
+    // merge with, so it never needs a leading newline.
+    const leadingNewline = currentBytes > 0 && !logEndsWithNewline(audit.eventLogPath, currentBytes) ? "\n" : "";
+    const line = `${leadingNewline}${JSON.stringify(event)}\n`;
     durableAppendFileSync(audit.eventLogPath, line);
     writeAuditTailCache(tailCachePath, { schemaVersion: 1, logBytes: currentBytes + Buffer.byteLength(line, "utf8"), count: count + 1, lastHash: event.eventHash });
     return event;

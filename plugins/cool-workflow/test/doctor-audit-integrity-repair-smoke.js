@@ -25,7 +25,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 const { runDoctor } = require(path.join(pluginRoot, "dist", "shell", "doctor.js"));
 const { createRunPaths, ensureRunDirs, saveCheckpoint } = require(path.join(pluginRoot, "dist", "shell", "run-store.js"));
-const { recordTrustAuditEvent, verifyTrustAudit, repairTrustAuditTornTail, trustAuditHead } = require(path.join(pluginRoot, "dist", "shell", "trust-audit.js"));
+const { recordTrustAuditEvent, verifyTrustAudit, repairTrustAuditTornTail, trustAuditHead, listTrustAuditEvents } = require(path.join(pluginRoot, "dist", "shell", "trust-audit.js"));
 
 function freshCwd() {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-audit-")));
@@ -209,36 +209,52 @@ function doctorEnv() {
   assert.deepEqual(cliResult, mcpResult, "cw audit repair --json === cw_audit_repair");
 }
 
-// ---- 9. regression: a torn write survives a RESUME (another event appended
-// right after the torn remnant, merging into one bad line) must still be
-// detected, not waved through as "clean" just because the file ends in a
-// newline again. (adversarial review finding) ----
+// ---- 9. regression: a torn write that survives a RESUME (another event
+// appended right after the torn remnant) must (a) still be DETECTED, not
+// waved through as "clean" just because the file ends in a newline again,
+// and (b) -- finding B5/#15 -- NOT lose the resumed event. recordTrustAuditEvent
+// now puts the new, already-cross-linked event on its OWN clean line (it
+// prepends a newline when the log does not end in one) instead of merging it
+// into the torn remnant. The remnant is left as its own now-orphaned corrupt
+// line: verify still flags it (fail-closed), and auto-repair conservatively
+// REFUSES it -- a non-trailing corruption looks like tampering, not a plain
+// crash tail, so a human decides. (adversarial review finding + B5) ----
 {
   const cwd = freshCwd();
   const run = makeRun(cwd, "resumed-after-tear-run");
-  recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "allowed", source: "cw-validated", workerId: "w1" });
+  const e1 = recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "allowed", source: "cw-validated", workerId: "w1" });
   recordTrustAuditEvent(run, { kind: "commit.gate", decision: "recorded", source: "cw-validated" });
   const logPath = path.join(run.paths.auditDir, "events.jsonl");
   const content = fs.readFileSync(logPath, "utf8");
   fs.writeFileSync(logPath, content.slice(0, content.length - 25)); // torn, no trailing newline
+  assert.ok(!fs.readFileSync(logPath, "utf8").endsWith("\n"), "the tear leaves the log without a trailing newline");
 
-  // Simulate a resume: another event gets appended right after the torn
-  // remnant (durableAppendFileSync never inserts a leading newline of its
-  // own), merging into one unparseable line -- the file now DOES end in a
-  // newline again, even though it is still genuinely corrupt.
-  recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "denied", source: "cw-validated", workerId: "w2" });
+  // Simulate a resume: another event gets appended. With the B5 fix it lands
+  // on its own clean line instead of merging into the torn remnant.
+  const e3 = recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "denied", source: "cw-validated", workerId: "w2" });
 
+  // (a) the resumed event survived and is correctly cross-linked -- it did NOT
+  // merge into the torn remnant (before B5 this line was lost, merged into an
+  // unparseable blob).
+  const events = listTrustAuditEvents(run);
+  assert.equal(events.length, 2, "the resumed event must survive as its own parseable line, not merge into the torn remnant");
+  assert.equal(events[events.length - 1].id, e3.id, "the last parseable event is the resumed one");
+  assert.equal(events[events.length - 1].prevEventHash, e1.eventHash, "the resumed event links to the last INTACT event, skipping the torn remnant");
+
+  // (b) the torn remnant is still DETECTED (fail-closed), not laundered clean
+  // just because the file ends in a newline again.
   const integrity = verifyTrustAudit(run);
-  assert.equal(integrity.verified, false, "the merged post-resume line must still fail verification");
+  assert.equal(integrity.verified, false, "the orphaned torn remnant must still fail verification");
+  assert.ok(integrity.corruptLines >= 1, "the torn remnant is counted as a corrupt line, not silently dropped");
 
+  // (c) auto-repair conservatively refuses a now-NON-trailing corruption and
+  // leaves the file untouched for a human to judge.
+  const before = fs.readFileSync(logPath, "utf8");
   const dry = repairTrustAuditTornTail(run, { write: false });
   assert.notEqual(dry.outcome, "clean", "a torn-then-resumed log must NOT be reported clean just because the file ends in a newline again");
-  assert.equal(dry.outcome, "repaired", "the merged bad line is still exactly the trailing entry, so it is still repairable");
-
+  assert.equal(dry.outcome, "refused", "a mid-file (non-trailing) torn remnant is refused, not silently auto-repaired");
   repairTrustAuditTornTail(run, { write: true });
-  const after = verifyTrustAudit(run);
-  assert.equal(after.verified, true, "after repair, the surviving 1 pre-tear event must verify clean");
-  assert.equal(after.eventCount, 1, "the resumed (merged, unrecoverable) event is gone; only the pre-tear event survives");
+  assert.equal(fs.readFileSync(logPath, "utf8"), before, "a refused repair, even with --write, must never touch the file");
 }
 
 // ---- 10. regression: deleted history behind a torn-looking fragment must
