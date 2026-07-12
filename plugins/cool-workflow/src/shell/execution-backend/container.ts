@@ -22,6 +22,30 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** buildContainerEnvArgs — build the `-e NAME=value` args passed into the
+ *  container run command. Pulled out as its own pure function so it can be
+ *  checked without a real docker/podman on the box (see local.ts's
+ *  buildChildEnv for the same shape of test-only split).
+ *
+ *  deny must win here too: an operator who sets inherit:true plus a deny
+ *  list (a valid, normalized combination — see sandbox-profile.ts's
+ *  normalizeEnv) means "everything EXCEPT these". Before this fix, deny was
+ *  never read here, so a secret like AWS_SECRET_ACCESS_KEY that the operator
+ *  named in deny still got copied into the container's `-e` args. */
+export function buildContainerEnvArgs(policy: ResolvedSandboxPolicy, baseEnv: NodeJS.ProcessEnv = process.env): string[] {
+  const args: string[] = [];
+  if (policy.env.inherit || (policy.env.expose && policy.env.expose.length)) {
+    const deny = new Set(policy.env.deny || []);
+    for (const name of policy.env.inherit ? Object.keys(baseEnv) : policy.env.expose || []) {
+      if (name === "PATH" || name === "HOME") continue;
+      if (deny.has(name)) continue;
+      const value = baseEnv[name];
+      if (value !== undefined) args.push("-e", `${name}=${value}`);
+    }
+  }
+  return args;
+}
+
 export function containerHandle(request: ExecutionRequest, env: NodeJS.ProcessEnv = process.env): BackendExecutionHandle | undefined {
   const delegation = request.delegation || {};
   const image = delegation.image || (env.CW_CONTAINER_IMAGE || "").trim() || undefined;
@@ -60,13 +84,7 @@ export function runContainer(
   const runArgs = ["run", "--rm"];
   if (policy.network.mode !== "any") runArgs.push("--network", "none");
   runArgs.push("-v", `${cwd}:${cwd}:ro`, "-w", cwd);
-  if (policy.env.inherit || (policy.env.expose && policy.env.expose.length)) {
-    for (const name of policy.env.inherit ? Object.keys(process.env) : policy.env.expose || []) {
-      if (name === "PATH" || name === "HOME") continue;
-      const value = process.env[name];
-      if (value !== undefined) runArgs.push("-e", `${name}=${value}`);
-    }
-  }
+  runArgs.push(...buildContainerEnvArgs(policy));
   runArgs.push(handle.ref, command, ...args);
 
   // An unset timeoutMs must not mean "no timeout" — spawnSync would then
