@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-12 by `npm run sync:projec
 - Source modules: `149`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `208`
+- Smoke tests: `209`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -472,6 +472,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [telemetry-attest-wrap-smoke.js](../test/telemetry-attest-wrap-smoke.js)
 - [telemetry-attestation-smoke.js](../test/telemetry-attestation-smoke.js)
 - [telemetry-fail-closed-smoke.js](../test/telemetry-fail-closed-smoke.js)
+- [telemetry-ledger-append-lock-concurrency-smoke.js](../test/telemetry-ledger-append-lock-concurrency-smoke.js)
 - [telemetry-ledger-smoke.js](../test/telemetry-ledger-smoke.js)
 - [telemetry-metrics-coverage-smoke.js](../test/telemetry-metrics-coverage-smoke.js)
 - [telemetry-verify-signatures-smoke.js](../test/telemetry-verify-signatures-smoke.js)
