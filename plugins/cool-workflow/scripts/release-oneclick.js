@@ -120,6 +120,28 @@ function alreadyCut() {
   return remote.code === 0 && Boolean(remote.out);
 }
 
+// A cut tags the verdict commit LOCALLY and only then pushes the tag. If that
+// push dies (a network drop, an auth expiry) the tag is left local-only:
+// alreadyCut() still sees it and resumes at stage 3, but stage 3 would then
+// wait 45 minutes for a release-gate run CI never started, because the tag
+// never reached origin. So on resume, before the CI wait, make sure the tag is
+// actually on origin — re-push it (the same tag-only refspec cut() uses) when
+// it is only local. This keeps the tag-only-push contract: no branch is pushed,
+// and the tag commit's first parent is untouched (it is exactly what was cut).
+function ensureTagPushedOnResume() {
+  const remote = git(["ls-remote", "origin", `refs/tags/v${version}`]);
+  if (remote.code !== 0) {
+    die("could not reach origin to check the tag — fix network/auth and re-run to resume.", remote.err);
+  }
+  if (remote.out) return; // already on origin — nothing to do
+  say(`tag v${version} is local-only (the cut's tag push must have failed) — re-pushing refs/tags/v${version}.`);
+  const push = git(["push", "origin", `refs/tags/v${version}`]);
+  if (push.code !== 0) {
+    die("re-push of the local-only tag failed (nothing else was done) — fix the issue and re-run to resume.", push.err);
+  }
+  say(`re-pushed refs/tags/v${version} to origin.`);
+}
+
 // ---- stage 0: preflight -----------------------------------------------------
 function runPreflight() {
   stage(0, "preflight");
@@ -318,12 +340,12 @@ function runRecordAndWaitStage() {
   }
 
   say(`waiting for release-gate on tag v${version}...`);
-  const gateRunId = poll({
+  const gate = poll({
     label: "release-gate wait",
     timeoutMs: 45 * 60 * 1000,
     intervalMs: 20000,
     probe: () => {
-      const list = gh(["run", "list", "--workflow", "release-gate", "--limit", "10", "--json", "databaseId,headBranch,status,conclusion"]);
+      const list = gh(["run", "list", "--workflow", "release-gate", "--limit", "10", "--json", "databaseId,headBranch,status,conclusion,updatedAt"]);
       if (list.code !== 0) return { error: true };
       let runs;
       try {
@@ -333,22 +355,29 @@ function runRecordAndWaitStage() {
       }
       const gateRun = runs.find((r) => r.headBranch === `v${version}`);
       if (gateRun && gateRun.status === "completed") {
-        if (gateRun.conclusion === "success") return { done: true, value: gateRun.databaseId };
+        // Carry the gate's OWN completion time out of the poll — the npm-publish
+        // cutoff below must key off when the gate actually finished, not off the
+        // wall clock now (a resume can start long after the gate completed).
+        if (gateRun.conclusion === "success") return { done: true, value: { id: gateRun.databaseId, completedMs: Date.parse(gateRun.updatedAt) } };
         die(`release-gate FAILED — inspect: gh run view ${gateRun.databaseId} --log-failed`);
       }
       return {};
     }
   });
-  say(`release-gate: SUCCESS (run ${gateRunId})`);
+  say(`release-gate: SUCCESS (run ${gate.id})`);
 
   // npm-publish is created only AFTER release-gate completes (workflow_run
   // trigger), so the run to wait for may not exist yet — and the newest
   // completed npm-publish run at this moment is usually the PREVIOUS
   // release's. Only accept a run created at-or-after the moment the gate
-  // finished (small clock-skew allowance), and keep waiting until that run
-  // exists and completes.
+  // FINISHED (small clock-skew allowance), and keep waiting until that run
+  // exists and completes. The cutoff is the gate run's own completion time,
+  // NOT Date.now(): on a resume minutes/days later, a now-based cutoff sits in
+  // the future relative to an already-completed npm-publish run and would drop
+  // it, hanging the wait for a publish that is already done. Fall back to now
+  // only if the gate run reported no parseable completion time.
   say("waiting for npm-publish...");
-  const gateDoneMs = Date.now();
+  const gateDoneMs = Number.isFinite(gate.completedMs) ? gate.completedMs : Date.now();
   poll({
     label: "npm-publish wait",
     timeoutMs: 30 * 60 * 1000,
@@ -396,7 +425,9 @@ if (alreadyCut()) {
   say(`tag v${version} already exists — the cut already happened; resuming at stage 3 (CI wait + record + confirm).`);
   if (DRY_RUN) {
     say("[dry-run] would resume at stage 3: record PR + wait for release-gate/npm-publish + npm view confirmation.");
+    say("[dry-run] would first re-push refs/tags/v" + version + " if it is only local (the cut's tag push had failed).");
   } else {
+    ensureTagPushedOnResume();
     runRecordAndWaitStage();
   }
 } else {

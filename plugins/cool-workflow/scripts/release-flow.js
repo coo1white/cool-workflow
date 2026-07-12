@@ -209,10 +209,21 @@ function runVendorPreflight() {
 const REVIEWER_TIMEOUT_MS = 1800000;
 function reviewerPromptBody() {
   // Reuse the committed reviewer spec as the prompt; strip YAML frontmatter.
+  // Fail closed if the spec is gone or empty: a missing/empty spec used to
+  // yield "", which shipped the reviewer an EMPTY review prompt (only the
+  // candidate context, no instructions) — a review with no rubric is worse
+  // than no review, since it still produces a signable verdict. This project's
+  // rule is to refuse the unverifiable, not fabricate a pass.
   const specPath = path.join(pluginRoot, "agents", "release-reviewer.md");
-  let body = fs.existsSync(specPath) ? fs.readFileSync(specPath, "utf8") : "";
-  body = body.replace(/^---[\s\S]*?---\n/, "");
-  return body.trim();
+  const rel = path.relative(repoRoot, specPath);
+  if (!fs.existsSync(specPath)) {
+    die(`reviewer prompt file is missing at ${rel} — will not run a review with an empty prompt. Restore agents/release-reviewer.md.`);
+  }
+  const body = fs.readFileSync(specPath, "utf8").replace(/^---[\s\S]*?---\n/, "").trim();
+  if (!body) {
+    die(`reviewer prompt file at ${rel} is empty after its header is removed — will not run a review with an empty prompt.`);
+  }
+  return body;
 }
 
 function buildReviewerInput(resultPath) {
@@ -747,11 +758,19 @@ function cut(resultPath, capability) {
   // (that tripped pii-redaction-smoke and red-failed release-gate for v0.1.96).
   // `git add -u` touches tracked files only, so no untracked file can be swept in;
   // the verdict (and its .sig sidecar, when verdict signing is configured) are
-  // the only new paths the cut is allowed to add.
-  git(["add", "-u"]);
-  git(["add", "--", path.relative(repoRoot, resultPath)]);
+  // the only new paths the cut is allowed to add. Check every add's exit code:
+  // a swallowed git-add failure (a read-only object store, a locked index) used
+  // to surface only later as a confusing "verdict commit failed" — a cut that
+  // fails to stage the SIGNED verdict must die right here, before the commit.
+  const addTracked = git(["add", "-u"]);
+  if (addTracked.code !== 0) die("git add -u failed while staging the cut", addTracked.err);
+  const addVerdict = git(["add", "--", path.relative(repoRoot, resultPath)]);
+  if (addVerdict.code !== 0) die("git add of the verdict file failed", addVerdict.err);
   const sigPath = `${resultPath}.sig`;
-  if (fs.existsSync(sigPath)) git(["add", "--", path.relative(repoRoot, sigPath)]);
+  if (fs.existsSync(sigPath)) {
+    const addSig = git(["add", "--", path.relative(repoRoot, sigPath)]);
+    if (addSig.code !== 0) die("git add of the verdict signature failed", addSig.err);
+  }
   const commit = git(["commit", "-m", `chore(release): record APPROVED reviewer verdict for v${cutVersion}`]);
   if (commit.code !== 0) die("verdict commit failed", commit.err);
   const tag = git(["tag", "-a", `v${cutVersion}`, "-m", `v${cutVersion}: ${capability || "release"}`]);
