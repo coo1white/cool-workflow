@@ -19,6 +19,29 @@ import { loadRunFromCwd } from "./run-store";
 export const WORKBENCH_DEFAULT_PORT = 7717;
 export const WORKBENCH_UI_RELATIVE = "ui/workbench";
 
+/** Parse and range-check a workbench `--port` value. Returns `undefined`
+ *  when no port was given (the caller then uses WORKBENCH_DEFAULT_PORT),
+ *  the validated integer otherwise. Throws a clear Error on a bad value —
+ *  a non-number (`NaN`), a float, a negative, or a number over 65535 — so
+ *  callers fail closed with an actionable line instead of node's opaque
+ *  ERR_SOCKET_BAD_PORT or a `"port": null` descriptor. A valid port is an
+ *  integer in [0, 65535]; 0 is the legitimately-supported ephemeral port. */
+export function parseWorkbenchPort(raw: unknown): number | undefined {
+  if (raw === undefined) return undefined;
+  const reject = () => {
+    throw new Error(`workbench serve --port must be an integer 0-65535 (got ${JSON.stringify(raw)})`);
+  };
+  // Only a string (the argv form) or a number is a real port. A valueless
+  // `--port` flag parses to boolean `true`; reject it rather than let
+  // Number(true) === 1 silently bind to port 1. A blank string is bad input
+  // too — Number("") === 0 would otherwise pass as the ephemeral port.
+  if (typeof raw !== "string" && typeof raw !== "number") reject();
+  if (typeof raw === "string" && raw.trim() === "") reject();
+  const port = Number(raw);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) reject();
+  return port;
+}
+
 export type WorkbenchPanelStatus = "present" | "absent";
 
 export interface WorkbenchPanel {
@@ -156,7 +179,10 @@ export function buildWorkbenchServeDescriptor(args: Record<string, unknown> = {}
     surface: "workbench",
     command: "serve",
     host: "127.0.0.1",
-    port: boundPort ?? (args.port !== undefined ? Number(args.port) : WORKBENCH_DEFAULT_PORT),
+    // `boundPort` (from a real listen()) is already a valid port. Otherwise
+    // validate the requested `--port` so the `--once`/`--json`/MCP descriptor
+    // path fails closed with a clear line instead of emitting `"port": null`.
+    port: boundPort ?? (parseWorkbenchPort(args.port) ?? WORKBENCH_DEFAULT_PORT),
     once: Boolean(args.once),
     readOnly: true,
     scope: args.scope === "home" ? "home" : "repo",
