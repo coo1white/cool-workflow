@@ -49,6 +49,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.reapRecordedVendor = reapRecordedVendor;
 exports.buildAgentChildEnv = buildAgentChildEnv;
 exports.resolveAgentInvocation = resolveAgentInvocation;
 exports.stripSecretArgs = stripSecretArgs;
@@ -65,6 +66,7 @@ exports.shouldStreamAgentStderr = shouldStreamAgentStderr;
 exports.runAgentProcess = runAgentProcess;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const os = __importStar(require("node:os"));
 const node_child_process_1 = require("node:child_process");
 const local_1 = require("./local");
 const envelopes_1 = require("./envelopes");
@@ -85,6 +87,46 @@ const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CO
  *  call it, so the allowlist cannot drift into a second silent copy again.
  *  Returns the forwarded var NAMES too (never values) for the
  *  worker.agent-env trust-audit event. */
+/** A unique sidecar path a shipped wrapper writes its vendor child's PID to
+ *  (via the env CW_AGENT_VENDOR_PIDFILE we set below), so cw can reap the
+ *  vendor if it has to SIGKILL the wrapper on a timeout. */
+function vendorPidFilePath() {
+    return path.join(os.tmpdir(), `cw-agent-vendor-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.pid`);
+}
+/** Reap the vendor process a shipped wrapper recorded, then remove the sidecar.
+ *  A wrapper that exited cleanly already removed the file, so this is a no-op
+ *  then; only a wrapper cw SIGKILLed on a timeout leaves a live vendor PID
+ *  here. Best-effort and race-tolerant: a missing file, an unparseable/too-low
+ *  PID, or an already-gone process are all silently fine. Scope: kills the
+ *  vendor process itself (the token spender), not a deeper grandchild tree,
+ *  and only for the shipped vendor wrappers (claude, codex, gemini, and
+ *  opencode/deepseek) -- an arbitrary CW_AGENT_COMMAND records no PID and is
+ *  not covered. Returns true only if it
+ *  actually signalled a process. Exported for tests; agent.ts is not part of
+ *  the package public surface (index.ts). */
+function reapRecordedVendor(pidFile) {
+    let raw;
+    try {
+        raw = fs.readFileSync(pidFile, "utf8");
+    }
+    catch {
+        return false; // no sidecar => the wrapper cleaned up (or never recorded one)
+    }
+    try {
+        fs.unlinkSync(pidFile);
+    }
+    catch { /* already gone */ }
+    const pid = Number(raw.trim());
+    if (!Number.isInteger(pid) || pid <= 1)
+        return false;
+    try {
+        process.kill(pid, "SIGKILL");
+        return true;
+    }
+    catch {
+        return false; // already exited, or a pid we may not signal
+    }
+}
 function buildAgentChildEnv(policy, baseEnv = process.env) {
     const env = (0, local_1.buildChildEnv)(policy, baseEnv);
     // deny must win here too: buildChildEnv already applied it above, but the
@@ -423,9 +465,15 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
         else {
             const streamStderr = shouldStreamAgentStderr(process.env, Boolean(process.stderr.isTTY));
             const built = buildAgentChildEnv(policy);
-            const childEnv = built.env;
             forwardedEnvVars = built.forwarded;
             const timeoutMs = resolved.timeoutMs || 600000;
+            // A shipped wrapper (claude/codex/gemini) records its vendor child's PID
+            // here so we can reap the vendor if the timeout below SIGKILLs the
+            // wrapper -- a SIGKILL is uncatchable, so the wrapper cannot forward the
+            // stop itself. Not a forwarded secret; it is cw plumbing, so it stays out
+            // of `built.forwarded` / the trust-audit forwarded list.
+            const vendorPidFile = vendorPidFilePath();
+            const childEnv = { ...built.env, CW_AGENT_VENDOR_PIDFILE: vendorPidFile };
             const child = (0, node_child_process_1.spawnSync)(resolved.binary, realArgs, {
                 cwd: request.cwd,
                 env: childEnv,
@@ -447,19 +495,30 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             // and the null-exit-code "timed out or killed" branch was dead code
             // for real timeouts.
             if (child.error && child.error.code === "ETIMEDOUT") {
-                // NOTE (follow-up): spawnSync SIGKILLed the wrapper, but a vendor
-                // grandchild the wrapper spawned survives as an orphan and keeps
-                // spending. Reaping it needs proper parent-side group-signal
-                // forwarding; `detached:true` here was rejected because it also makes
-                // the wrapper its own group leader, so an interactive Ctrl-C / a group
-                // SIGINT to cw would no longer reach the wrapper — strictly worse.
-                // Left as a documented follow-up, not fixed in this PR.
+                // spawnSync SIGKILLed the wrapper (uncatchable, so the wrapper could
+                // not forward the stop to its vendor child). Reap the vendor a shipped
+                // wrapper recorded, so a timed-out agent's vendor process does not live
+                // on as an orphan and keep spending. Scoped: reaps the vendor process
+                // itself for the shipped wrappers (claude, codex, gemini, opencode/
+                // deepseek), not a deeper grandchild tree nor an arbitrary
+                // CW_AGENT_COMMAND (which records no PID). We do
+                // NOT use `detached:true` -- that would make the wrapper its own group
+                // leader, so an interactive Ctrl-C / a group SIGINT to cw would no
+                // longer reach it (strictly worse); reaping from the recorded PID keeps
+                // the wrapper in cw's group.
+                reapRecordedVendor(vendorPidFile);
                 const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
                 return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
                     ...attestation,
                     handle: handleOut,
                 });
             }
+            // Non-timeout paths: a wrapper that ran to any normal end removed its own
+            // sidecar on exit; clear any stray file best-effort so tmp cannot grow.
+            try {
+                fs.unlinkSync(vendorPidFile);
+            }
+            catch { /* usually already gone */ }
             outcome = {
                 ...(child.error ? { spawnError: messageOf(child.error) } : {}),
                 exitCode: typeof child.status === "number" ? child.status : null,

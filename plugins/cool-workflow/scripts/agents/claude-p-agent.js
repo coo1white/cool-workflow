@@ -34,7 +34,7 @@ const { spawn, spawnSync } = require("node:child_process");
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-const { buildPrompt, createRenderer, persistStderr, toolLabel, summarizeToolResult, buildFailureDetail } = require("./agent-adapter-core");
+const { buildPrompt, createRenderer, persistStderr, toolLabel, summarizeToolResult, buildFailureDetail, recordVendorPid } = require("./agent-adapter-core");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -103,6 +103,9 @@ const child = spawn(
   ["-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", "Read,Grep,Glob"],
   { stdio: ["ignore", "pipe", "pipe"] }
 );
+// Record the vendor PID so cw can reap this claude process if it SIGKILLs the
+// wrapper on a timeout (see agent-adapter-core recordVendorPid).
+recordVendorPid(child);
 
 let model;
 let usage;
