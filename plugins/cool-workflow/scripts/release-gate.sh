@@ -100,10 +100,41 @@ fi
 
 # --- 5. Branch naming: forbid version-number branches -------------------
 say "[6/6] branch naming"
-BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-if [[ "$BRANCH" =~ ^feat/(batch-)?v?[0-9]+ ]]; then
-  fail "branch '$BRANCH' is version-number-driven; name the capability instead"
+# On a normal checkout `git rev-parse --abbrev-ref HEAD` is the branch name. On
+# a DETACHED HEAD it prints the literal string "HEAD" — and the tag-push CI
+# (release-gate.yml) ALWAYS checks out the tag, so HEAD is detached there. A
+# literal "HEAD" can never match the version-branch regex below, so this check
+# would silently pass exactly where it is meant to be the backstop. Handle the
+# detached case explicitly: gather the real candidate ref name(s) — the
+# CI-provided source branch (GITHUB_HEAD_REF for a PR, else GITHUB_REF_NAME),
+# plus every local/remote branch whose tip contains this commit — and judge
+# each one. A truly detached checkout with no resolvable branch (a bare
+# `git checkout <sha>`) has no branch to name, so there is nothing to forbid;
+# that is now an explicit, understood pass, not an accidental regex miss.
+BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo HEAD)"
+CANDIDATE_BRANCHES="$BRANCH"
+if [[ "$BRANCH" == "HEAD" ]]; then
+  CANDIDATE_BRANCHES=""
+  # The CI source branch: a PR run exposes it as GITHUB_HEAD_REF; a plain push
+  # exposes the pushed ref as GITHUB_REF_NAME (a tag on a tag push, which simply
+  # will not match the feat/ regex — harmless to include).
+  for ENVREF in "${GITHUB_HEAD_REF:-}" "${GITHUB_REF_NAME:-}"; do
+    [[ -n "$ENVREF" ]] && CANDIDATE_BRANCHES+="${ENVREF}"$'\n'
+  done
+  # Every local branch whose tip contains this commit, plus every remote-tracking
+  # branch (with its "<remote>/" prefix stripped so the regex still anchors on
+  # "feat/"). --format avoids the "* " current-branch marker git branch prints.
+  LOCAL_C="$(git branch --contains HEAD --format='%(refname:short)' 2>/dev/null || true)"
+  REMOTE_C="$(git branch -r --contains HEAD --format='%(refname:short)' 2>/dev/null | sed -E 's#^[^/]+/##' || true)"
+  [[ -n "$LOCAL_C" ]] && CANDIDATE_BRANCHES+="$LOCAL_C"$'\n'
+  [[ -n "$REMOTE_C" ]] && CANDIDATE_BRANCHES+="$REMOTE_C"$'\n'
 fi
+while IFS= read -r B; do
+  [[ -z "$B" || "$B" == "HEAD" ]] && continue
+  if [[ "$B" =~ ^feat/(batch-)?v?[0-9]+ ]]; then
+    fail "branch '$B' is version-number-driven; name the capability instead"
+  fi
+done <<< "$CANDIDATE_BRANCHES"
 
 # --- Verdict ------------------------------------------------------------
 if [[ "$FAIL" -ne 0 ]]; then
