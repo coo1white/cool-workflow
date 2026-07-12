@@ -1004,28 +1004,35 @@ function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhau
  *  exact synchronous shape) and fixed only in driveAsync(). */
 function drive(runId, cwd, options = {}) {
     const ctx = buildDriveContext(runId, cwd, options);
-    const steps = [];
-    const run0 = loadRun(ctx);
-    const plannedWorkers = run0.tasks.length;
-    const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
-    const emitPhaseProgress = createPhaseProgressEmitter();
-    let exhaustedMaxIterations = !options.once;
-    const stopSignal = createStopSignalController(runId);
-    stopSignal.install();
-    try {
-        for (let i = 0; i < maxIter; i++) {
-            if (stopSignal.getInterruptedBy())
-                break;
-            if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
-                exhaustedMaxIterations = false;
-                break;
+    // Resolve the run dir before the mutex: a missing run throws "Run not found"
+    // here (never a drive.lock side effect on a nonexistent run), via a stat only
+    // so the per-round read accounting is unchanged. Mirrors withRunStateLock's
+    // own probe-before-lock.
+    const runDir = (0, run_store_1.resolveRunDir)(runId, cwd);
+    return (0, run_store_1.withDriveLock)(runDir, runId, () => {
+        const steps = [];
+        const run0 = loadRun(ctx);
+        const plannedWorkers = run0.tasks.length;
+        const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
+        const emitPhaseProgress = createPhaseProgressEmitter();
+        let exhaustedMaxIterations = !options.once;
+        const stopSignal = createStopSignalController(runId);
+        stopSignal.install();
+        try {
+            for (let i = 0; i < maxIter; i++) {
+                if (stopSignal.getInterruptedBy())
+                    break;
+                if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
+                    exhaustedMaxIterations = false;
+                    break;
+                }
             }
         }
-    }
-    finally {
-        stopSignal.remove();
-    }
-    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+        finally {
+            stopSignal.remove();
+        }
+        return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+    });
 }
 /** Same contract and same DriveResult as drive() -- but actually
  *  interruptible. After every round it awaits yieldToEventLoop(), a real
@@ -1053,29 +1060,33 @@ function drive(runId, cwd, options = {}) {
  *  future cycle if it proves needed in practice. */
 async function driveAsync(runId, cwd, options = {}) {
     const ctx = buildDriveContext(runId, cwd, options);
-    const steps = [];
-    const run0 = loadRun(ctx);
-    const plannedWorkers = run0.tasks.length;
-    const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
-    const emitPhaseProgress = createPhaseProgressEmitter();
-    let exhaustedMaxIterations = !options.once;
-    const stopSignal = createStopSignalController(runId);
-    stopSignal.install();
-    try {
-        for (let i = 0; i < maxIter; i++) {
-            if (stopSignal.getInterruptedBy())
-                break;
-            if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
-                exhaustedMaxIterations = false;
-                break;
+    // Resolve the run dir before the mutex — see drive() above.
+    const runDir = (0, run_store_1.resolveRunDir)(runId, cwd);
+    return (0, run_store_1.withDriveLockAsync)(runDir, runId, async () => {
+        const steps = [];
+        const run0 = loadRun(ctx);
+        const plannedWorkers = run0.tasks.length;
+        const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
+        const emitPhaseProgress = createPhaseProgressEmitter();
+        let exhaustedMaxIterations = !options.once;
+        const stopSignal = createStopSignalController(runId);
+        stopSignal.install();
+        try {
+            for (let i = 0; i < maxIter; i++) {
+                if (stopSignal.getInterruptedBy())
+                    break;
+                if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
+                    exhaustedMaxIterations = false;
+                    break;
+                }
+                await yieldToEventLoop();
             }
-            await yieldToEventLoop();
         }
-    }
-    finally {
-        stopSignal.remove();
-    }
-    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+        finally {
+            stopSignal.remove();
+        }
+        return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+    });
 }
 function drivePreview(runId, cwd, args = {}) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, cwd);
