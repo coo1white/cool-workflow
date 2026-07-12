@@ -406,8 +406,26 @@ function resolveBaseRef(root, changedFrom, env) {
         return verifyRef(root, changedFrom);
     if (env.CW_ONRAMP_BASE)
         return verifyRef(root, env.CW_ONRAMP_BASE);
-    const baseBranch = env.GITHUB_BASE_REF ? `origin/${env.GITHUB_BASE_REF}` : "origin/main";
-    const mergeBase = gitOne(root, ["merge-base", "HEAD", baseBranch]);
+    // A pull_request CI context sets GITHUB_BASE_REF, so a base ref is EXPECTED:
+    // the diff must run against the PR's own base branch. If merge-base cannot
+    // resolve there (a shallow clone that never fetched the base, a missing
+    // origin ref), we must NOT quietly degrade to HEAD -- a HEAD..HEAD diff on a
+    // clean, already-committed tree is empty, and an empty change set has no
+    // issues, so onramp:check would report ok:true on a real, unseen change (the
+    // same vacuous-pass class PR #446 closed one layer below). Fail closed.
+    if (env.GITHUB_BASE_REF) {
+        const baseBranch = `origin/${env.GITHUB_BASE_REF}`;
+        const mergeBase = gitOne(root, ["merge-base", "HEAD", baseBranch]);
+        if (mergeBase)
+            return mergeBase;
+        throw new Error(`onramp: cannot resolve a base ref -- git merge-base HEAD ${baseBranch} found no common commit (fail closed, not treated as zero changes). Fetch the base branch with a full (non-shallow) clone, or pass --changed-from / CW_ONRAMP_BASE.`);
+    }
+    // No base ref was requested (--changed-from / CW_ONRAMP_BASE) or expected
+    // (GITHUB_BASE_REF): this is the local "show my own changes" use. merge-base
+    // against origin/main narrows the diff to this branch's commits when the
+    // remote is present; with no remote we fall back to HEAD so `git diff HEAD`
+    // still surfaces the working-tree (uncommitted) changes.
+    const mergeBase = gitOne(root, ["merge-base", "HEAD", "origin/main"]);
     if (mergeBase)
         return mergeBase;
     return verifyRef(root, "HEAD");
@@ -423,8 +441,16 @@ function verifyRef(root, ref) {
 function gitRoot(cwd) {
     return gitOne(node_path_1.default.resolve(cwd), ["rev-parse", "--show-toplevel"]) || node_path_1.default.resolve(cwd);
 }
+// Every onramp git call is a quick metadata read (rev-parse, merge-base, diff
+// --name-only, ls-files). A finite timeout keeps a HUNG git -- a cold fsmonitor
+// daemon, a credential prompt on a misconfigured remote -- from blocking the
+// gate forever; 5s matches the git-metadata timeout already used in
+// shell/commit.ts and shell/doctor.ts. On a timeout spawnSync sets
+// `result.error` (and a null status), so gitLinesOrThrow fails closed while
+// gitLines/gitOne fall back the same way they do for any other git failure.
+const GIT_TIMEOUT_MS = 5000;
 function gitLines(cwd, args) {
-    const result = (0, node_child_process_1.spawnSync)("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const result = (0, node_child_process_1.spawnSync)("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
     if (result.status !== 0)
         return [];
     return String(result.stdout || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -438,7 +464,7 @@ function gitLines(cwd, args) {
  *  real, unseen change). Callers that WANT a soft fallback (merge-base
  *  probing, optional discovery) should keep using gitLines/gitOne. */
 function gitLinesOrThrow(cwd, args) {
-    const result = (0, node_child_process_1.spawnSync)("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const result = (0, node_child_process_1.spawnSync)("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
     if (result.error)
         throw new Error(`onramp: git ${args.join(" ")} failed to run: ${result.error.message}`);
     if (result.status !== 0) {
