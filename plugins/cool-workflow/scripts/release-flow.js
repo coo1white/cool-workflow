@@ -256,6 +256,19 @@ function substitute(arg, map) {
  *  Also logs failures to stderr so the operator can inspect. */
 function extractVerdictFromStdout(stdout, resultPath) {
   const lines = stdout.split(/\r?\n/);
+  // Check for REJECTED first, over the WHOLE text, and return right away when
+  // found — do not also look for APPROVED in that case. This is the safe,
+  // fail-closed order (this project's own rule: fail closed, conservatively).
+  // A verbose agent wrapper can echo the required-format example back in its
+  // own output (e.g. a report that quotes the prompt's instructions), so the
+  // exact text "APPROVED <sha>" can show up even when the real verdict is
+  // REJECTED. If BOTH markers are present anywhere in the text, that must
+  // read as REJECTED, never as an approval that then gets a real signature.
+  const rejectedLine = lines.find((line) => /^REJECTED(\s|$)/i.test(line.trim()));
+  if (rejectedLine) {
+    process.stderr.write(`reviewer REJECTED via stdout — full output:\n${stdout.trim()}\n`);
+    return rejectedLine.trim();
+  }
   const approvedLine = lines.find((line) => /^APPROVED\s+\S+/.test(line.trim()));
   if (approvedLine) {
     const idx = lines.indexOf(approvedLine);
@@ -267,14 +280,23 @@ function extractVerdictFromStdout(stdout, resultPath) {
     say(`reviewer verdict captured from stdout → ${resultPath}`);
     return verdict;
   }
-  const rejectedLine = lines.find((line) => /^REJECTED/i.test(line.trim()));
-  if (rejectedLine) {
-    process.stderr.write(`reviewer REJECTED via stdout — full output:\n${stdout.trim()}\n`);
-    return rejectedLine.trim();
-  }
   // Partial: print the last 20 lines to help the operator diagnose.
   process.stderr.write(`reviewer stdout had no APPROVED/REJECTED line. Last 20 lines:\n${lines.slice(-20).join("\n").trim()}\n`);
   return null;
+}
+
+// The reviewer must never be able to read the verdict signing key or other
+// release secrets. The signing key is the ONLY thing that tells a real
+// reviewer's verdict apart from one an agent fabricated by hand — if the
+// reviewer process itself can read that key, it could sign its own made-up
+// approval, which defeats the whole point of signing. So strip these from
+// the env we hand to the reviewer child process, even though the operator's
+// own shell (this script's own process.env) may have them set.
+const REVIEWER_ENV_DENY = ["CW_RELEASE_VERDICT_PRIVKEY", "CW_AGENT_ATTEST_PRIVKEY", "CW_WORKBENCH_TOKEN"];
+function buildReviewerEnv() {
+  const env = { ...process.env, CW_RELEASE_REVIEW: "1" };
+  for (const key of REVIEWER_ENV_DENY) delete env[key];
+  return env;
 }
 
 function delegateReview(resultPath, inputPath) {
@@ -329,6 +351,13 @@ function delegateReview(resultPath, inputPath) {
     // Capture stdout so agents that print verdicts (rather than writing the
     // result file) are supported. Agents that DO write the file still work:
     // the file takes precedence. stderr goes to the terminal for live output.
+    // A verdict file left over from an earlier run — or planted by anyone with
+    // write access to this checkout — must never survive into a fresh review
+    // round. Delete it (and any .sig sidecar) BEFORE the reviewer runs, so the
+    // "verdict file already exists" check right after spawnSync only ever sees
+    // a file the reviewer wrote THIS round, never a stale or planted one.
+    try { fs.unlinkSync(resultPath); } catch {}
+    try { fs.unlinkSync(`${resultPath}.sig`); } catch {}
     const r = spawnSync(bin, args, {
       cwd: repoRoot,
       // CW_RELEASE_REVIEW=1 is a vendor-agnostic signal that THIS spawn is a
@@ -337,7 +366,9 @@ function delegateReview(resultPath, inputPath) {
       // exec-capable sandbox — a read-only/low-effort reviewer can't execute the
       // gate it judges and degrades to fabricated verdicts. Preflight liveness
       // probes never set it, so they stay fast and read-only.
-      env: { ...process.env, CW_RELEASE_REVIEW: "1" },
+      // buildReviewerEnv() also strips the verdict signing key and other release
+      // secrets from what the reviewer child process can see — see its comment.
+      env: buildReviewerEnv(),
       encoding: "utf8",
       timeout: cfg.timeoutMs || REVIEWER_TIMEOUT_MS,
       shell: false,
