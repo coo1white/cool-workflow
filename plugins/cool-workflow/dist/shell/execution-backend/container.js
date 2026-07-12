@@ -86,7 +86,14 @@ function runContainer(descriptor, policy, request, label, handle, attestation) {
     // An unset timeoutMs must not mean "no timeout" — spawnSync would then
     // block forever on a hung container with no kill path. 600000 matches the
     // agent backend's own default fallback (execution-backend/agent.ts).
-    const result = (0, node_child_process_1.spawnSync)(runtime, runArgs, { cwd, encoding: "utf8", timeout: request.timeoutMs || 600000, maxBuffer: 32 * 1024 * 1024 });
+    // killSignal SIGKILL, not the default SIGTERM: a container runtime that
+    // ignores SIGTERM would leave this blocking spawnSync waiting forever (no
+    // second-stage escalation is possible from inside a sync call), so the
+    // timeout above would not actually bound anything. SIGKILL is uncatchable,
+    // so the runtime always dies and spawnSync returns; a timed-out run is
+    // classified the same either way (status null, ETIMEDOUT message does not
+    // name the signal, result.signal is never recorded). Mirrors agent.ts.
+    const result = (0, node_child_process_1.spawnSync)(runtime, runArgs, { cwd, encoding: "utf8", timeout: request.timeoutMs || 600000, maxBuffer: 32 * 1024 * 1024, killSignal: "SIGKILL" });
     if (result.error) {
         return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `${runtime} run failed: ${messageOf(result.error)}`, attestation);
     }

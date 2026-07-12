@@ -99,6 +99,20 @@ export function executeLocal(
     // agent backend's own default fallback (execution-backend/agent.ts).
     timeout: request.timeoutMs || 600000,
     maxBuffer: 32 * 1024 * 1024,
+    // SIGKILL, not the default SIGTERM: a child that ignores SIGTERM would
+    // leave this blocking spawnSync waiting forever (no second-stage
+    // escalation is possible from inside a sync call), so the `timeout` above
+    // would not actually bound anything. SIGKILL is uncatchable, so the child
+    // always dies and spawnSync returns. A timed-out run is classified as
+    // failed regardless of the signal (status stays null, the ETIMEDOUT
+    // message does not name the signal, and this backend never records
+    // result.signal). The exact captured stdout/stderr on a timeout is not
+    // guaranteed identical to the old SIGTERM path: a child that catches
+    // SIGTERM could flush a last partial write or exit with a code before it
+    // dies, while under SIGKILL it cannot — but that output belongs to a run
+    // we already treat as failed, so the hard kill loses nothing that counts.
+    // Mirrors execution-backend/agent.ts's fix.
+    killSignal: "SIGKILL" as const,
   };
 
   if (spawnStyle === "shell") {

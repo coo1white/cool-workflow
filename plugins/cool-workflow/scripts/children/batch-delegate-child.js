@@ -37,6 +37,20 @@ function killAllChildren(signal) {
     try { child.kill(signal); } catch {}
   }
 }
+// Bounded self-exit deadline after the FIRST stop signal (finding #2). The
+// escalation above forwards SIGTERM, then SIGKILLs every TRACKED child at +5s.
+// But a job's own grandchild is NOT tracked here, and if it inherited the
+// job's stdout pipe it holds that pipe open past the job's death — so the
+// job's `close` never fires, this process's captured `child.stdout` stream
+// never ends, and the event loop stays alive forever. The single SIGTERM the
+// drive sent could then never actually stop this child: a deadlock. The
+// deadline force-exits (after the +5s SIGKILL window, so tracked children die
+// first) so one wedged grandchild can no longer hold the whole batch hostage.
+// Default 8s; CW_BATCH_STOP_DEADLINE_MS overrides it (opt-in, e.g. for tests).
+const STOP_DEADLINE_MS = (() => {
+  const raw = Number(process.env.CW_BATCH_STOP_DEADLINE_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 8000;
+})();
 let stopSignalReceived = false;
 function onStopSignal(signal) {
   if (stopSignalReceived) {
@@ -47,6 +61,16 @@ function onStopSignal(signal) {
   stopSignalReceived = true;
   killAllChildren("SIGTERM");
   setTimeout(() => killAllChildren("SIGKILL"), 5000).unref();
+  // unref'd on purpose: when the batch stops cleanly (every child settles and
+  // its stdout closes) the loop empties and this process exits promptly, so a
+  // graceful stop is never padded out to the full deadline. The timer only
+  // ever FIRES when something else — a wedged grandchild holding a pipe — is
+  // still keeping the loop alive; then it reaps any tracked stragglers and
+  // exits with the signal's conventional code.
+  setTimeout(() => {
+    killAllChildren("SIGKILL");
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  }, STOP_DEADLINE_MS).unref();
 }
 process.on("SIGINT", () => onStopSignal("SIGINT"));
 process.on("SIGTERM", () => onStopSignal("SIGTERM"));
@@ -96,7 +120,12 @@ process.stdin.on("end", () => {
     };
     let child;
     try {
-      child = spawn(job.binary, job.args, { cwd: job.cwd, env: job.env || process.env, shell: false });
+      // stdin "ignore" (not the default inherited pipe): this child never
+      // feeds a job any stdin, but the default leaves each job's stdin a pipe
+      // we never write to and never close, so a vendor CLI that reads stdin to
+      // EOF blocks until its own timeout instead of getting an immediate EOF.
+      // Mirrors the serial path (agent.ts runAgentProcess stdio ["ignore",...]).
+      child = spawn(job.binary, job.args, { cwd: job.cwd, env: job.env || process.env, shell: false, stdio: ["ignore", "pipe", "pipe"] });
     } catch (error) {
       settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
       return;
