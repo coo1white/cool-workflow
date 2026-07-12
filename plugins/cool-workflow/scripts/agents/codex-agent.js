@@ -43,6 +43,7 @@ const {
   flushJsonLines,
   parseJsonLines,
   persistStderr,
+  recordVendorPid,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -133,6 +134,9 @@ const child = spawn("codex", args, {
   stdio: ["pipe", "pipe", "pipe"],
   shell: false
 });
+// Record the vendor PID so cw can reap this codex process if it SIGKILLs the
+// wrapper on a timeout (see agent-adapter-core recordVendorPid).
+recordVendorPid(child);
 
 child.stdin.setDefaultEncoding("utf8");
 child.stdin.end(prompt);

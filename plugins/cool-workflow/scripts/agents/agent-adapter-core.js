@@ -490,8 +490,34 @@ function buildFailureDetail({ label, code, childStderr, partialText }) {
   return codeText;
 }
 
+// CW may set CW_AGENT_VENDOR_PIDFILE when it runs a shipped wrapper. We write
+// the vendor child's PID there so CW can reap the vendor if it has to SIGKILL
+// this wrapper on a timeout: a SIGKILL is uncatchable, so the wrapper cannot
+// forward the stop to its vendor child itself, and the vendor would otherwise
+// live on as an orphan and keep spending (see execution-backend/agent.ts). The
+// file is removed as soon as the vendor exits, so a stale PID is never reaped.
+// Best-effort: fs errors are ignored -- reaping is a safety net, not a
+// correctness dependency -- and an arbitrary CW_AGENT_COMMAND that never calls
+// this is simply not covered.
+function recordVendorPid(child, env = process.env) {
+  const pidfile = env.CW_AGENT_VENDOR_PIDFILE;
+  if (!pidfile || !child || !child.pid) return child;
+  try { fs.writeFileSync(pidfile, String(child.pid), "utf8"); } catch { /* best-effort */ }
+  let cleared = false;
+  const clear = () => {
+    if (cleared) return;
+    cleared = true;
+    try { fs.unlinkSync(pidfile); } catch { /* already gone */ }
+  };
+  child.once("close", clear);
+  child.once("exit", clear);
+  process.once("exit", clear);
+  return child;
+}
+
 module.exports = {
   RESULT_CONTRACT,
+  recordVendorPid, // write the vendor child's PID to CW_AGENT_VENDOR_PIDFILE so cw can reap it on a timeout
   buildPrompt,
   streamEnabled,
   traceEnabled,
