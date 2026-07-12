@@ -180,6 +180,35 @@ function seedReleaseWork(dir) {
   assert.match(r.out, /version-number-driven/, "should name the branch-naming failure");
 }
 
+// ---- Case 7b: a shallow clone must FAIL, not skip checks like case 1 ------
+// A shallow clone (or a clone with no tags) makes `git describe` fail the
+// same way a true first release does, so PREV_TAG ends up empty in both
+// cases. Before the fix, this mix-up let the gate skip
+// substance/test-evidence/cadence and PASS on a shallow clone, even when an
+// older tag was there, just outside the short history it can see. This
+// case checks that it now FAILS.
+// We build a REAL git repo with a tag, then make a REAL shallow clone of it
+// (git clone --depth 1), so the test uses git's own shallow-check
+// (git rev-parse --is-shallow-repository), not a stand-in.
+{
+  const srcDir = freshRepo();
+  write(srcDir, "README.md", "init\n");
+  commitAll(srcDir, "init");
+  git(srcDir, ["tag", "v0.0.1"]); // a real past tag exists, just not in the shallow history
+  write(srcDir, "README.md", "more\n");
+  commitAll(srcDir, "second commit");
+
+  const shallowDir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-gate-${caseId++}-shallow-`));
+  const r0 = spawnSync("git", ["clone", "--depth", "1", "-q", `file://${srcDir}`, shallowDir], { encoding: "utf8" });
+  assert.equal(r0.status, 0, `git clone --depth 1 must work:\n${r0.stderr}`);
+  assert.equal(git(shallowDir, ["rev-parse", "--is-shallow-repository"]), "true",
+    "fixture check: the clone must really be shallow");
+
+  const r = runGate(shallowDir);
+  assert.equal(r.code, 1, `shallow clone (real past tag hidden by shallow history) must be REJECTED:\n${r.out}`);
+  assert.match(r.out, /shallow/i, "should name the shallow-clone problem, not skip checks like a true first release");
+}
+
 // ---- Case 8: PREV_TAG resolution — HEAD already carries the tag (CI case) --
 // On a tag push, HEAD has the new tag. A naive `git describe` returns it and
 // the range collapses to empty, false-failing substance. The fix steps back to

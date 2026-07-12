@@ -7,6 +7,10 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 SHA="$(git rev-parse HEAD)"
+FAIL=0
+say() { printf '%s\n' "$*"; }
+fail() { say "GATE FAIL: $*"; FAIL=1; }
+
 # Resolve the PREVIOUS release tag. When this script runs from CI on a tag push
 # (.github/workflows/release-gate.yml), HEAD already carries the tag being
 # released, so a plain `git describe` returns *that* tag and the diff range
@@ -18,12 +22,20 @@ PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo "")"
 if [[ -n "$HEAD_TAGS" ]] && printf '%s\n' "$HEAD_TAGS" | grep -qxF "$PREV_TAG"; then
   PREV_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")"
 fi
+# An empty PREV_TAG can mean two things: (a) this is really the first
+# release, so it is safe to skip substance/evidence/cadence, or (b) the
+# clone is shallow (or has no tags), so `git describe` fails and we can NOT
+# tell if an older tag is there. Case (b) must fail the gate, not look the
+# same as case (a) and skip real checks. Found by a 2026-07-12 security
+# check.
+if [[ -z "$PREV_TAG" ]]; then
+  IS_SHALLOW="$(git rev-parse --is-shallow-repository 2>/dev/null || echo "false")"
+  if [[ "$IS_SHALLOW" == "true" ]]; then
+    fail "cannot resolve the previous release tag: this is a shallow git clone (git rev-parse --is-shallow-repository = true), so substance/test-evidence/cadence cannot be checked. Fetch full history (e.g. actions/checkout with fetch-depth: 0) before running this gate."
+  fi
+fi
 MARKER_DIR="$REPO_ROOT/.cw-release"
 mkdir -p "$MARKER_DIR"
-FAIL=0
-
-say() { printf '%s\n' "$*"; }
-fail() { say "GATE FAIL: $*"; FAIL=1; }
 
 # --- 1. Build & tests (run, don't trust pasted output) -----------------
 say "[1/6] build"
