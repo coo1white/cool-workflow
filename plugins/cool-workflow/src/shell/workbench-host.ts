@@ -22,7 +22,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import { URL } from "node:url";
-import { buildWorkbenchIndex, buildWorkbenchRunView, buildWorkbenchServeDescriptor, workbenchUiRoot, WorkbenchServeDescriptor } from "./workbench";
+import { buildWorkbenchIndex, buildWorkbenchRunView, buildWorkbenchServeDescriptor, parseWorkbenchPort, workbenchUiRoot, WorkbenchServeDescriptor } from "./workbench";
 
 const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
@@ -185,8 +185,17 @@ export class WorkbenchHost {
    *  actually-bound port (useful for `--port 0`). */
   listen(): Promise<number> {
     return new Promise((resolve, reject) => {
+      // Defense in depth: `run()` already validated the port before ever
+      // reaching here, but a direct caller of listen() still fails closed
+      // with the clear message rather than node's opaque ERR_SOCKET_BAD_PORT.
+      let requestedPort: number | undefined;
+      try {
+        requestedPort = parseWorkbenchPort(this.args.port);
+      } catch (error) {
+        reject(error);
+        return;
+      }
       const server = http.createServer((req, res) => this.handleRequest(req, res));
-      const requestedPort = this.args.port !== undefined ? Number(this.args.port) : undefined;
       server.on("error", reject);
       server.listen(requestedPort ?? 7717, "127.0.0.1", () => {
         this.server = server;
@@ -216,6 +225,18 @@ export class WorkbenchHost {
     const requireToken = Boolean(this.args.requireToken || this.args["require-token"]);
     if (requireToken && !this.token) {
       process.stderr.write("workbench serve --require-token: CW_WORKBENCH_TOKEN is not set; refusing to start.\n");
+      process.exitCode = 1;
+      return;
+    }
+    // Validate --port HERE, before any dispatch. The CLI binding calls this
+    // as `void host.run()` (not awaited), so a rejection from listen() would
+    // otherwise surface as an unhandled promise rejection stack dump on the
+    // real CLI. Fail closed the same clean way as --require-token: one `cw:`
+    // stderr line + exit 1 + return, never a crash and never a bound server.
+    try {
+      parseWorkbenchPort(this.args.port);
+    } catch (error) {
+      process.stderr.write(`cw: ${error instanceof Error ? error.message : String(error)}\n`);
       process.exitCode = 1;
       return;
     }
