@@ -94,31 +94,43 @@ function loadTelemetryLedger(run) {
 /** Append one attestation record DURABLY to the append-only chain,
  *  linking it to the prior record (or genesis). Returns the committed
  *  record. Throws `TelemetryLedgerCorruptError` if the file on disk is
- *  present but unparseable — never silently re-genesis. */
+ *  present but unparseable — never silently re-genesis.
+ *
+ *  The whole load->append->write is held under `withFileLock` (like every
+ *  other read-modify-write in this codebase — see `recordTrustAuditEvent`).
+ *  `writeJson` REPLACES the file, so without the lock two processes
+ *  appending for the same run at once both read the same N-record ledger,
+ *  both compute a record at chain position N+1, and the last atomic rename
+ *  WINS — silently dropping the loser's record. The surviving chain still
+ *  links correctly, so the loss is invisible to `verifyTelemetryLedger`.
+ *  The `prevHash` and chain position MUST be read from the ledger loaded
+ *  INSIDE the lock so the record links to the true current tail. */
 function appendTelemetryAttestation(run, input) {
-    const ledger = loadTelemetryLedger(run);
-    const now = input.now || new Date().toISOString();
-    const prevHash = ledger.records.length ? ledger.records[ledger.records.length - 1].recordHash : (0, telemetry_ledger_1.genesisPrevHash)(run.id);
-    const base = {
-        schemaVersion: 1,
-        runId: run.id,
-        recordId: (0, telemetry_ledger_1.recordId)(ledger.records.length + 1),
-        recordedAt: now,
-        workerId: input.workerId,
-        taskId: input.taskId,
-        promptDigest: input.promptDigest,
-        reportedUsageDigest: (0, telemetry_ledger_1.reportedUsageDigest)(input.reportedUsage),
-        ...(input.reportedUsage ? { reportedUsage: input.reportedUsage } : {}),
-        usageSignature: input.usageSignature,
-        ...(input.resultDigest ? { resultDigest: input.resultDigest } : {}),
-        attestation: input.attestation,
-        attestationReason: input.attestationReason,
-        prevHash,
-    };
-    const record = { ...base, recordHash: (0, telemetry_ledger_1.computeRecordHash)(base) };
-    ledger.records.push(record);
-    (0, fs_atomic_1.writeJson)(telemetryLedgerPath(run), ledger, { durable: true });
-    return record;
+    return (0, fs_atomic_1.withFileLock)(telemetryLedgerPath(run), () => {
+        const ledger = loadTelemetryLedger(run);
+        const now = input.now || new Date().toISOString();
+        const prevHash = ledger.records.length ? ledger.records[ledger.records.length - 1].recordHash : (0, telemetry_ledger_1.genesisPrevHash)(run.id);
+        const base = {
+            schemaVersion: 1,
+            runId: run.id,
+            recordId: (0, telemetry_ledger_1.recordId)(ledger.records.length + 1),
+            recordedAt: now,
+            workerId: input.workerId,
+            taskId: input.taskId,
+            promptDigest: input.promptDigest,
+            reportedUsageDigest: (0, telemetry_ledger_1.reportedUsageDigest)(input.reportedUsage),
+            ...(input.reportedUsage ? { reportedUsage: input.reportedUsage } : {}),
+            usageSignature: input.usageSignature,
+            ...(input.resultDigest ? { resultDigest: input.resultDigest } : {}),
+            attestation: input.attestation,
+            attestationReason: input.attestationReason,
+            prevHash,
+        };
+        const record = { ...base, recordHash: (0, telemetry_ledger_1.computeRecordHash)(base) };
+        ledger.records.push(record);
+        (0, fs_atomic_1.writeJson)(telemetryLedgerPath(run), ledger, { durable: true });
+        return record;
+    });
 }
 /** Re-prove the whole telemetry chain for a run, reading from disk.
  *  Absent -> present:false/verified:true (nothing to prove). Corrupt ->
