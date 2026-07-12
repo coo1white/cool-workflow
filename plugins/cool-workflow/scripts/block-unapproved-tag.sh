@@ -17,7 +17,21 @@ INPUT="$(cat)"
 # would make this security hook silently fail OPEN (empty command → exit 0),
 # letting an unreviewed tag through. node keeps it portable and fail-closed.
 CMD="$(printf '%s' "$INPUT" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s)?.tool_input?.command||""))}catch{process.stdout.write("")}})' 2>/dev/null)"
-[[ -z "$CMD" ]] && exit 0
+# With `set -o pipefail` above, $? here is the pipeline's own exit code, so a
+# node crash/missing-node is told apart from "this just wasn't a tag command".
+# Still fail OPEN either way (exit 0) -- a node hiccup must not block every
+# Bash call, that would be a much bigger regression than the narrow gap this
+# closes. But say so on stderr, so it is not a SILENT open: the agent (and
+# anyone reading the transcript) can see this hook did not really check
+# anything that run. The real backstop is CI (release-gate.yml /
+# npm-publish.yml), which cannot be skipped this way.
+NODE_STATUS=$?
+if [[ -z "$CMD" ]]; then
+  if [[ "$NODE_STATUS" -ne 0 ]]; then
+    echo "WARN: block-unapproved-tag.sh could not parse the tool command (node exited $NODE_STATUS). Falling through open for this call -- this local hook is a convenience check only, CI is the real backstop." >&2
+  fi
+  exit 0
+fi
 
 # Only care about tag creation / tag push. Widened from the original pattern,
 # which missed the single most natural bypass form: `git push origin v0.2.3`
@@ -37,15 +51,20 @@ SHA="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 PARENT="$(git -C "$REPO_ROOT" rev-parse HEAD~1 2>/dev/null || echo none)"
 GATE=""
 VERDICT=""
+MATCHED_C=""
 for C in "$SHA" "$PARENT"; do
   [[ "$C" == "none" ]] && continue
   if [[ -f "$REPO_ROOT/.cw-release/review-$C.verdict" ]]; then
     GATE="$REPO_ROOT/.cw-release/gate-$C.ok"
     VERDICT="$REPO_ROOT/.cw-release/review-$C.verdict"
+    MATCHED_C="$C"
     break
   fi
 done
-[[ -z "$VERDICT" ]] && VERDICT="$REPO_ROOT/.cw-release/review-$SHA.verdict"
+if [[ -z "$VERDICT" ]]; then
+  VERDICT="$REPO_ROOT/.cw-release/review-$SHA.verdict"
+  MATCHED_C="$SHA"
+fi
 [[ -z "$GATE" ]] && GATE="$REPO_ROOT/.cw-release/gate-$SHA.ok"
 
 if [[ ! -f "$GATE" ]]; then
@@ -53,7 +72,18 @@ if [[ ! -f "$GATE" ]]; then
   exit 2
 fi
 
-if [[ ! -f "$VERDICT" ]] || ! grep -q '^APPROVED' "$VERDICT"; then
+# Exact first-line match against the sha the verdict FILE NAME claims to be
+# for ($MATCHED_C), not just "starts with APPROVED somewhere". The ed25519
+# signature (checked below) only binds the file's BYTES, never its filename —
+# so a plain `grep -q '^APPROVED'` would accept a real, validly-signed verdict
+# for one sha byte-copied onto a filename naming a DIFFERENT sha. Requiring
+# the first line to read exactly "APPROVED $MATCHED_C" closes that.
+if [[ ! -f "$VERDICT" ]]; then
+  echo "BLOCKED: no APPROVED verdict from the release-reviewer agent for HEAD $SHA (or its parent). Invoke the 'release-reviewer' subagent and obtain approval. Do not write the verdict file yourself — that is a gaming attempt and will be flagged in CI." >&2
+  exit 2
+fi
+FIRST_LINE="$(head -n1 "$VERDICT")"
+if [[ "$FIRST_LINE" != "APPROVED $MATCHED_C" ]]; then
   echo "BLOCKED: no APPROVED verdict from the release-reviewer agent for HEAD $SHA (or its parent). Invoke the 'release-reviewer' subagent and obtain approval. Do not write the verdict file yourself — that is a gaming attempt and will be flagged in CI." >&2
   exit 2
 fi

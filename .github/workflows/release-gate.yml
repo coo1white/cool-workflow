@@ -24,15 +24,17 @@ jobs:
           node-version: "22"
 
       - name: Install
-        # package-lock.json IS tracked (scripts/version-sync-check.js checks
-        # its version fields stay in sync), but the documented install path
-        # stays `npm install --no-package-lock`, same as .github/workflows/
-        # ci.yml, since this package has zero runtime dependencies -- a lock
-        # buys no reproducibility here that the empty dependency list doesn't
-        # already give for free. --ignore-scripts: this job runs release-gate.sh
-        # and eventually feeds the publish job's OIDC-privileged install; a
-        # poisoned transitive install script must not get to run here either.
-        run: npm install --no-package-lock --ignore-scripts --prefix plugins/cool-workflow
+        # `npm ci` (not `npm install --no-package-lock`) even though this
+        # package ships zero runtime dependencies -- that fact is about the
+        # SHIPPED artifact, not about what runs IN THIS JOB. `npm ci` still
+        # installs DEV tooling (tsc, etc), and that dev tooling is CODE that
+        # runs here, inside a job that feeds the publish job's OIDC-privileged
+        # install. Pinning it to the tracked, reviewed package-lock.json (kept
+        # in sync by scripts/version-sync-check.js) is what buys real control
+        # over what code runs in CI -- do not "fix" this back to
+        # `npm install --no-package-lock`. --ignore-scripts: a poisoned
+        # transitive install script must not get to run here either.
+        run: npm ci --ignore-scripts --prefix plugins/cool-workflow
 
       - name: Run deterministic release gate
         run: bash plugins/cool-workflow/scripts/release-gate.sh
@@ -54,14 +56,25 @@ jobs:
         # backward compatible).
         run: |
           SHA=$(git rev-parse HEAD^{commit})
-          PUBKEY=".cw-release/verdict-signing.pub"
+          # Read the pubkey from origin/main, NOT from the checked-out tree. For a
+          # tag push the checked-out tree IS the commit under test — an attacker's
+          # tag could just delete .cw-release/verdict-signing.pub and fall back to
+          # a no-signature check. origin/main is a ref the tag being judged cannot
+          # rewrite. fetch-depth: 0 above already gives us this ref with no extra
+          # fetch.
+          PUBKEY=""
+          if PUBKEY_CONTENT="$(git show origin/main:.cw-release/verdict-signing.pub 2>/dev/null)" && [ -n "$PUBKEY_CONTENT" ]; then
+            PUBKEY="$(mktemp)"
+            printf '%s\n' "$PUBKEY_CONTENT" > "$PUBKEY"
+          fi
           # The tag commit itself bumps version/changelog; the reviewed sha is its parent
           # Accept a verdict for HEAD or HEAD~1 to tolerate the release commit.
           for C in "$SHA" "$(git rev-parse HEAD~1 2>/dev/null || echo none)"; do
             VERDICT=".cw-release/review-$C.verdict"
             [ -f "$VERDICT" ] || continue
-            grep -q '^APPROVED' "$VERDICT" || continue
-            if [ -f "$PUBKEY" ]; then
+            FIRST_LINE="$(head -n1 "$VERDICT")"
+            [ "$FIRST_LINE" = "APPROVED $C" ] || continue
+            if [ -n "$PUBKEY" ]; then
               SIG="$VERDICT.sig"
               if [ -f "$SIG" ] && node plugins/cool-workflow/scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
                 if [ "$C" != "$SHA" ]; then
