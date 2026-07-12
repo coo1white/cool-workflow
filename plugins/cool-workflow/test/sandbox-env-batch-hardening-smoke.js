@@ -18,7 +18,9 @@ const pluginRoot = path.resolve(__dirname, "..");
 // v2 layout: flat dist/execution-backend.js was split into dist/shell/execution-backend/*.
 // buildChildEnv lives in the local-execution driver body. Signature is byte-exact
 // (policy.env.{inherit,expose,deny}; PATH+HOME kept; expose adds; deny deletes).
-const { buildChildEnv } = require(path.join(pluginRoot, "dist/shell/execution-backend/local.js"));
+const { buildChildEnv, CW_NEVER_FORWARD_ENV } = require(path.join(pluginRoot, "dist/shell/execution-backend/local.js"));
+const { buildAgentChildEnv } = require(path.join(pluginRoot, "dist/shell/execution-backend/agent.js"));
+const { buildContainerEnvArgs } = require(path.join(pluginRoot, "dist/shell/execution-backend/container.js"));
 const adapterCore = require(path.join(pluginRoot, "scripts/agents/agent-adapter-core.js"));
 
 // test the directory listing for the child scripts
@@ -64,6 +66,66 @@ async function main() {
     const env = buildChildEnv({ env: { inherit: false, expose: ["__CW_TEST_DENY__"], deny: ["__CW_TEST_DENY__"] } });
     assert.equal(env.__CW_TEST_DENY__, undefined, "deny overrides expose");
     delete process.env.__CW_TEST_DENY__;
+  }
+
+  // ---- 4c. CW's own secrets are NEVER forwarded to a child (security audit) -----
+  // buildAgentChildEnv re-adds every CW_* var (the CW_ arm of
+  // AGENT_PROVIDER_KEY_ENV_RE), which used to sweep in CW_RELEASE_VERDICT_PRIVKEY
+  // and CW_WORKBENCH_TOKEN — the release signing key and the workbench bearer
+  // token — into EVERY spawned agent child unless the operator remembered to
+  // deny each by name. Both are now on a fail-closed CW_NEVER_FORWARD_ENV list
+  // that wins over inherit/expose/deny AND over the provider-key re-add. The
+  // agent-attest private key is deliberately NOT on the list: the attest
+  // wrapper runs as the agent and must receive it.
+  {
+    const base = {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      // Plain marker strings, never real-secret shapes: the test checks these vars
+      // by NAME (present/absent/equal), so the value is irrelevant — and a real PEM
+      // block here would trip the gitleaks `private-key` rule in the `scan` gate.
+      CW_RELEASE_VERDICT_PRIVKEY: "verdict-signing-key-PLACEHOLDER-not-real",
+      CW_WORKBENCH_TOKEN: "workbench-token-PLACEHOLDER-not-real",
+      CW_AGENT_ATTEST_PRIVKEY: "attest-signing-key-PLACEHOLDER-not-real",
+      CW_AGENT_MODEL: "some-model",
+      ANTHROPIC_API_KEY: "sk-ant-not-a-real-key",
+    };
+
+    // The constant lists exactly the two parent-only secrets, and NOT the attest key.
+    assert.ok(CW_NEVER_FORWARD_ENV.has("CW_RELEASE_VERDICT_PRIVKEY"), "verdict key on never-forward list");
+    assert.ok(CW_NEVER_FORWARD_ENV.has("CW_WORKBENCH_TOKEN"), "workbench token on never-forward list");
+    assert.ok(!CW_NEVER_FORWARD_ENV.has("CW_AGENT_ATTEST_PRIVKEY"), "attest key NOT on the list (wrapper needs it)");
+
+    // buildChildEnv under inherit:true would forward everything — the backstop strips the two secrets.
+    const inherited = buildChildEnv({ env: { inherit: true, expose: [], deny: [] } }, base);
+    assert.equal(inherited.CW_RELEASE_VERDICT_PRIVKEY, undefined, "inherit:true still strips the verdict key");
+    assert.equal(inherited.CW_WORKBENCH_TOKEN, undefined, "inherit:true still strips the workbench token");
+    assert.equal(inherited.CW_AGENT_MODEL, "some-model", "non-secret CW_ config still inherited");
+
+    // buildAgentChildEnv under a locked-down (inherit:false) policy: the provider-key
+    // re-add must NOT put the two secrets back, but MUST still forward the attest key + others.
+    const { env, forwarded } = buildAgentChildEnv({ env: { inherit: false, expose: [], deny: [] } }, base);
+    assert.equal(env.CW_RELEASE_VERDICT_PRIVKEY, undefined, "verdict key never re-added to agent child");
+    assert.equal(env.CW_WORKBENCH_TOKEN, undefined, "workbench token never re-added to agent child");
+    assert.equal(env.CW_AGENT_ATTEST_PRIVKEY, base.CW_AGENT_ATTEST_PRIVKEY, "attest key STILL forwarded (wrapper signs with it)");
+    assert.equal(env.CW_AGENT_MODEL, "some-model", "non-secret CW_ config still forwarded");
+    assert.equal(env.ANTHROPIC_API_KEY, base.ANTHROPIC_API_KEY, "provider key still forwarded");
+    assert.ok(!forwarded.includes("CW_RELEASE_VERDICT_PRIVKEY"), "trust-audit forwarded[] excludes the verdict key");
+    assert.ok(!forwarded.includes("CW_WORKBENCH_TOKEN"), "trust-audit forwarded[] excludes the workbench token");
+    assert.ok(forwarded.includes("CW_AGENT_ATTEST_PRIVKEY"), "trust-audit forwarded[] still records the attest key");
+
+    // Even an explicit expose of a never-forward secret loses to the backstop.
+    const exposed = buildChildEnv({ env: { inherit: false, expose: ["CW_WORKBENCH_TOKEN"], deny: [] } }, base);
+    assert.equal(exposed.CW_WORKBENCH_TOKEN, undefined, "explicit expose cannot override the never-forward backstop");
+
+    // The container backend builds its own `-e` args (NOT via buildChildEnv), so it
+    // must apply the same backstop — else inherit:true still copies the secrets in.
+    const containerArgs = buildContainerEnvArgs({ env: { inherit: true, expose: [], deny: [] } }, base);
+    const flat = containerArgs.join("\n");
+    assert.ok(!/CW_RELEASE_VERDICT_PRIVKEY=/.test(flat), "container -e args exclude the verdict key under inherit:true");
+    assert.ok(!/CW_WORKBENCH_TOKEN=/.test(flat), "container -e args exclude the workbench token under inherit:true");
+    assert.ok(/CW_AGENT_ATTEST_PRIVKEY=/.test(flat), "container still passes the attest key (wrapper needs it)");
+    assert.ok(/CW_AGENT_MODEL=some-model/.test(flat), "container still passes non-secret CW_ config");
   }
 
   // ---- 5. persistStderr redacts API key patterns -------------------------------
