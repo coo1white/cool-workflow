@@ -12,6 +12,7 @@
 // (byte-exact source).
 
 import * as crypto from "node:crypto";
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { RunTask, WorkflowRun } from "../core/state/types";
 import { createRunPaths, ensureRunDirs } from "../core/state/run-paths";
@@ -184,7 +185,7 @@ export function plan(app: LoadedWorkflowApp, options: Record<string, unknown>): 
         artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
         metadata: { workflowId: app.workflow.id, appId: app.id, appVersion: app.version, taskId: task.id, phase: task.phase, taskKind: task.kind, requiresEvidence: task.requiresEvidence, sandboxProfileId: task.sandboxProfileId },
       },
-      { persist: false, persistNode: writeRunNode }
+      { persist: false, persistNode: writeRunNode, pathExists: fs.existsSync }
     );
     task.stateNodeId = taskResult.outputNodeId;
   }

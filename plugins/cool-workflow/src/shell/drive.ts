@@ -700,7 +700,7 @@ export function maybeExpandLoop(run: WorkflowRun): void {
             sandboxProfileId: t.sandboxProfileId,
           },
         },
-        { persist: false, persistNode: (r, node) => void appendRunNode(r, node) }
+        { persist: false, persistNode: (r, node) => void appendRunNode(r, node), pathExists: fs.existsSync }
       );
       t.stateNodeId = result.outputNodeId;
     }

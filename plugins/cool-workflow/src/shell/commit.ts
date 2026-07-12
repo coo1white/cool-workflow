@@ -197,7 +197,7 @@ function recordCommitNode(run: WorkflowRun, commit: StateCommit, options: Commit
         evidence: commit.evidence || verifierNode.evidence,
         metadata: { ...(options.metadata || {}), reason: options.reason, commitId: commit.id, verifierGated: true, checkpoint: false, verifierNodeId: verifierNode.id, candidateId: gate.candidateId, selectionId: gate.selectionId, selectionNodeId: gate.selectionNodeId },
       },
-      { persist: false, persistNode: writeRunNode }
+      { persist: false, persistNode: writeRunNode, pathExists: fs.existsSync }
     );
     if (gate.selectionNodeId && commitResult.outputNodeId) linkAdditionalParent(run, gate.selectionNodeId, commitResult.outputNodeId);
     return commitResult.outputNodeId;

@@ -663,7 +663,7 @@ function prepareFree(run, tombstone) {
     for (const nodeId of repointed) {
         try {
             const fresh = (0, node_store_1.snapshotNode)(run, nodeId, { persist: false });
-            const { freshness } = (0, node_snapshot_1.loadNodeSnapshot)(run, fresh);
+            const { freshness } = (0, node_snapshot_1.loadNodeSnapshot)(run, fresh, fs.existsSync);
             if (freshness === "absent") {
                 throw new ReclamationError("repoint-incomplete", `re-pointed node ${nodeId} snapshot is absent (dangling artifact)`, { nodeId });
             }

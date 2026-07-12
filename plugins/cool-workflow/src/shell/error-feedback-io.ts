@@ -308,6 +308,12 @@ export function runPipelineStage(
 ): PipelineStageRunResult | PipelineStageFailure {
   return coreRunPipelineStage(run, stageId, inputNodeId, options, {
     ...runnerOptions,
+    // The core gate's `pathExists` defaults to `() => true` (a pure core/
+    // module never reads the filesystem). This is the shell seam, so default
+    // it to the real `fs.existsSync` — that is what makes the contract's
+    // `requireReadablePaths` / `missing-artifact-path` gate live. A caller may
+    // still override it (e.g. a replay against a captured path set).
+    pathExists: runnerOptions.pathExists || fs.existsSync,
     // Keep the caller-named failure node id (the old build honored outputNodeId
     // for the preserved failure node); the raw core auto-mints when unset.
     failureNodeId: runnerOptions.failureNodeId || options.outputNodeId,

@@ -817,7 +817,7 @@ export function prepareFree(run: WorkflowRun, tombstone: ReclamationTombstone): 
   for (const nodeId of repointed) {
     try {
       const fresh = snapshotNode(run, nodeId, { persist: false });
-      const { freshness } = loadNodeSnapshot(run, fresh);
+      const { freshness } = loadNodeSnapshot(run, fresh, fs.existsSync);
       if (freshness === "absent") {
         throw new ReclamationError("repoint-incomplete", `re-pointed node ${nodeId} snapshot is absent (dangling artifact)`, { nodeId });
       }
