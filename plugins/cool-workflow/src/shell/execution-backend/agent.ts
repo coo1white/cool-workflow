@@ -27,7 +27,7 @@ import {
   ResolvedSandboxPolicy,
   SandboxAttestation,
 } from "./types";
-import { buildChildEnv } from "./local";
+import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
 
 function messageOf(error: unknown): string {
@@ -64,6 +64,13 @@ export function buildAgentChildEnv(
   const forwarded: string[] = [];
   for (const key of Object.keys(baseEnv)) {
     if (denied.has(key)) continue;
+    // Parent-only CW secrets are never re-added, even though they match the
+    // CW_ arm of AGENT_PROVIDER_KEY_ENV_RE and even if the operator forgot to
+    // deny them. buildChildEnv already stripped them above; this keeps the
+    // re-add loop from putting them back (and out of the trust-audit
+    // `forwarded` list). CW_AGENT_ATTEST_PRIVKEY is intentionally NOT in that
+    // set, so the attest wrapper still gets its signing key.
+    if (CW_NEVER_FORWARD_ENV.has(key)) continue;
     if (AGENT_PROVIDER_KEY_ENV_RE.test(key)) {
       env[key] = baseEnv[key];
       forwarded.push(key);

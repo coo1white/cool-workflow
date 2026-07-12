@@ -8,6 +8,7 @@
 //
 // Evidence: SPEC/execution-backend.md "Local execution (executeLocal)".
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.CW_NEVER_FORWARD_ENV = void 0;
 exports.buildChildEnv = buildChildEnv;
 exports.checkShellGuard = checkShellGuard;
 exports.runtimeNoteFor = runtimeNoteFor;
@@ -18,6 +19,19 @@ const probes_1 = require("./probes");
 function messageOf(error) {
     return error instanceof Error ? error.message : String(error);
 }
+/** CW's OWN secrets that must NEVER reach ANY child process — on any backend
+ *  (local/container/remote/agent), regardless of policy.env.inherit / expose /
+ *  deny. Each is read only by parent-side tooling, so no spawned child ever
+ *  needs it; stripping them here, unconditionally, is a fail-closed backstop
+ *  that does not depend on an operator remembering to list them in
+ *  policy.env.deny. Do NOT add the agent-attest private key
+ *  (CW_AGENT_ATTEST_PRIVKEY) here: the attest wrapper
+ *  (scripts/agents/cw-attest-wrap.js) is spawned AS the agent and must receive
+ *  it to sign telemetry. */
+exports.CW_NEVER_FORWARD_ENV = new Set([
+    "CW_RELEASE_VERDICT_PRIVKEY", // release verdict signing key — release-flow.js only
+    "CW_WORKBENCH_TOKEN", // workbench HTTP bearer token — workbench-host.ts only
+]);
 function buildChildEnv(policy, baseEnv = process.env) {
     // deny must win regardless of inherit: a custom profile combining
     // inherit:true with deny:[...] (a valid, normalized combination — see
@@ -38,6 +52,10 @@ function buildChildEnv(policy, baseEnv = process.env) {
     for (const name of policy.env.deny || []) {
         delete env[name];
     }
+    // Fail-closed backstop: parent-only secrets never cross into a child, even
+    // when inherit:true forwarded them above or an operator exposed one by name.
+    for (const name of exports.CW_NEVER_FORWARD_ENV)
+        delete env[name];
     return env;
 }
 /** Shell injection guard (SPEC/execution-backend.md "Local execution"): for

@@ -12,6 +12,7 @@ exports.containerHandle = containerHandle;
 exports.runContainer = runContainer;
 const node_child_process_1 = require("node:child_process");
 const probes_1 = require("./probes");
+const local_1 = require("./local");
 const envelopes_1 = require("./envelopes");
 function messageOf(error) {
     return error instanceof Error ? error.message : String(error);
@@ -25,7 +26,12 @@ function messageOf(error) {
  *  list (a valid, normalized combination — see sandbox-profile.ts's
  *  normalizeEnv) means "everything EXCEPT these". Before this fix, deny was
  *  never read here, so a secret like AWS_SECRET_ACCESS_KEY that the operator
- *  named in deny still got copied into the container's `-e` args. */
+ *  named in deny still got copied into the container's `-e` args.
+ *
+ *  This backend builds its `-e` args straight from baseEnv rather than through
+ *  buildChildEnv, so it must apply CW_NEVER_FORWARD_ENV itself — otherwise
+ *  inherit:true would still copy CW's own parent-only secrets (the release
+ *  signing key, the workbench token) into the container. */
 function buildContainerEnvArgs(policy, baseEnv = process.env) {
     const args = [];
     if (policy.env.inherit || (policy.env.expose && policy.env.expose.length)) {
@@ -35,6 +41,8 @@ function buildContainerEnvArgs(policy, baseEnv = process.env) {
                 continue;
             if (deny.has(name))
                 continue;
+            if (local_1.CW_NEVER_FORWARD_ENV.has(name))
+                continue; // parent-only secrets never enter the container
             const value = baseEnv[name];
             if (value !== undefined)
                 args.push("-e", `${name}=${value}`);
