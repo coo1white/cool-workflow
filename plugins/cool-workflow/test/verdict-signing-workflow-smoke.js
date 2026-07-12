@@ -82,6 +82,32 @@ for (const [label, script] of [["release-gate.yml", gateScript], ["npm-publish.y
   assert.match(script, /verdict-signing\.pub/, `${label}'s extracted block must reference verdict-signing.pub`);
 }
 
+// BUG-2 regression (text-only check, not a full YAML parse): the "Verify the
+// dispatched ref is a real, gated release tag" step in npm-publish.yml must
+// run on EVERY trigger. If it still had `if: github.event_name ==
+// 'workflow_dispatch'`, this whole check would be SKIPPED on the normal
+// workflow_run path (the one that fires after every real tag push) — the
+// job would then trust nothing but release-gate.yml's reported conclusion,
+// which for a tag push runs from the pushed tag's OWN, attacker-controlled
+// tree.
+{
+  const rawLines = fs.readFileSync(PUBLISH_YML, "utf8").split(/\r?\n/);
+  const nameIdx = rawLines.findIndex((l) => l.includes("name: Verify the dispatched ref is a real, gated release tag"));
+  assert.ok(nameIdx >= 0, "step not found for the BUG-2 text check");
+  let nextStepIdx = rawLines.length;
+  for (let i = nameIdx + 1; i < rawLines.length; i++) {
+    if (/^\s*-\s+(name|uses):/.test(rawLines[i])) {
+      nextStepIdx = i;
+      break;
+    }
+  }
+  const stepBlock = rawLines.slice(nameIdx, nextStepIdx).join("\n");
+  assert.ok(
+    !/if:\s*github\.event_name\s*==\s*'workflow_dispatch'/.test(stepBlock),
+    "the verdict-verification step must not be gated behind a workflow_dispatch-only `if:` any more (BUG 2)"
+  );
+}
+
 function git(args, cwd) {
   const r = spawnSync("git", args, { cwd, encoding: "utf8" });
   if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${r.stderr}`);
@@ -153,6 +179,18 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   const R2 = git(["rev-parse", "HEAD"], dir);
   const HEAD = R2;
   git(["tag", "-a", "v9.9.9", "-m", "v9.9.9"], dir);
+  // The fixed bash now reads the pubkey from `origin/main`, not the checked-out
+  // tree (the checked-out tree IS the tag under judgment, so it must not be
+  // trusted to supply its own pubkey). This fixture has no real remote, so
+  // plant a remote-tracking ref by hand at R2 -- exactly where a real repo's
+  // origin/main sits right after a normal cut() (bump commit pushed to main,
+  // tag placed on that same tip). `git show origin/main:<path>` resolves this
+  // ref with no `git remote add` needed (proven with a standalone check).
+  // Any later attack commit (replayVerdictOntoBackdoor, forgedHeadVerdict,
+  // etc.) is added AFTER this line and must NOT move origin/main -- that is
+  // the entire point of the fix: the ref the attacker's own tag commit cannot
+  // rewrite.
+  git(["update-ref", "refs/remotes/origin/main", R2], dir);
 
   if (forgedHeadVerdict) {
     // A forged verdict "approving" HEAD (R2) itself, with a bogus signature —
@@ -330,6 +368,54 @@ function runScript(script, cwd, env) {
   assert.match(r.out + r.err, /npm install failed/, "(i) should identify npm install as the failing step");
 }
 
+// (j) BUG-1 regression: THE FILENAME-VS-CONTENT REPLAY ATTACK. A verdict
+// file's bytes are genuinely, validly signed for sha R — but the file is
+// found by FILENAME (`review-<candidate-sha>.verdict`), and the ed25519
+// signature only binds the BYTES, never the filename. So copy R's real,
+// signed verdict byte-for-byte onto a filename claiming to belong to a brand
+// new, never-reviewed commit X (the "malicious tag commit"). The signature
+// still verifies (it IS a real signature over these exact bytes). Old
+// `grep -q '^APPROVED'` only checks the line STARTS WITH "APPROVED" — it
+// never looks at which sha follows, so it would have matched too, and the
+// old code would have accepted X as approved. The fix requires the first
+// line to read EXACTLY "APPROVED X" for the candidate sha the filename
+// itself claims — since the copied content still says "APPROVED R", this
+// must be rejected before the signature is even checked.
+{
+  const { dir, R } = buildFixture({ committedPubkey: true, sigFor: "real" });
+  fs.writeFileSync(path.join(dir, "attacker-payload.txt"), "never reviewed\n");
+  git(["add", "-A"], dir);
+  git(["commit", "-q", "-m", "attacker commit, never reviewed"], dir);
+  const X = git(["rev-parse", "HEAD"], dir);
+  const genuineVerdict = path.join(dir, ".cw-release", `review-${R}.verdict`);
+  const genuineSig = `${genuineVerdict}.sig`;
+  const wrongShaVerdict = path.join(dir, ".cw-release", `review-${X}.verdict`);
+  fs.writeFileSync(wrongShaVerdict, fs.readFileSync(genuineVerdict));
+  fs.writeFileSync(`${wrongShaVerdict}.sig`, fs.readFileSync(genuineSig));
+  const r = runScript(gateScript, dir);
+  assert.notEqual(r.code, 0, `(j) a verdict whose content approves a DIFFERENT sha than its own filename must be rejected:\n${r.out}`);
+  assert.match(r.out, /No committed APPROVED verdict/, "(j) should report no valid verdict found for the attacker commit");
+}
+
+// (k) BUG-3 regression: the pubkey must come from origin/main, not the
+// checked-out tree. Delete the tree's OWN copy of verdict-signing.pub
+// (simulating an attacker's tag commit that removes it) — origin/main still
+// has it (buildFixture planted that ref at R2, an ancestor-tracking ref the
+// tag under judgment cannot rewrite), so an UNSIGNED verdict must still be
+// rejected. Old, tree-based PUBKEY resolution would have found no pubkey
+// file on disk and silently fallen back to the grep-only, no-signature-
+// required path — accepting this.
+{
+  const { dir } = buildFixture({ committedPubkey: true, sigFor: undefined });
+  fs.rmSync(path.join(dir, ".cw-release", "verdict-signing.pub"), { force: true });
+  const r = runScript(gateScript, dir);
+  assert.notEqual(
+    r.code,
+    0,
+    `(k) deleting the tree's own pubkey copy must not fall back to no-signature-required, since origin/main still has it:\n${r.out}`
+  );
+}
+
 // ============================================================================
 // npm-publish.yml — runs with working-directory: plugins/cool-workflow, and
 // needs TAG_REF (normally supplied via the step's env:) plus a real tag.
@@ -396,6 +482,41 @@ function runPublishScript(fixture, env) {
   const r = runPublishScript(fixture, { TAG_REF: "v-attack" });
   assert.notEqual(r.code, 0, `(g) a replayed verdict on a backdoored commit must be rejected:\n${r.out}`);
   assert.match(r.out, /does not reproduce as its deterministic bump/, "(g) should explain the tree mismatch");
+}
+
+// (h) BUG-1 regression, same attack as release-gate.yml's (j) above: a
+// verdict file byte-copied from a DIFFERENT (wrong) sha's genuine signed
+// verdict, renamed to match a NEW candidate sha, must be rejected even
+// though its signature verifies (the same bytes, same signature — just
+// parked under the wrong filename).
+{
+  const fixture = buildFixture({ committedPubkey: true, sigFor: "real" });
+  fs.writeFileSync(path.join(fixture.dir, "attacker-payload.txt"), "never reviewed\n");
+  git(["add", "-A"], fixture.dir);
+  git(["commit", "-q", "-m", "attacker commit, never reviewed"], fixture.dir);
+  const X = git(["rev-parse", "HEAD"], fixture.dir);
+  const genuineVerdict = path.join(fixture.dir, ".cw-release", `review-${fixture.R}.verdict`);
+  const genuineSig = `${genuineVerdict}.sig`;
+  const wrongShaVerdict = path.join(fixture.dir, ".cw-release", `review-${X}.verdict`);
+  fs.writeFileSync(wrongShaVerdict, fs.readFileSync(genuineVerdict));
+  fs.writeFileSync(`${wrongShaVerdict}.sig`, fs.readFileSync(genuineSig));
+  git(["tag", "-a", "v-replay", "-m", "replay"], fixture.dir);
+  const r = runPublishScript(fixture, { TAG_REF: "v-replay" });
+  assert.notEqual(r.code, 0, `(h) a verdict whose content approves a DIFFERENT sha than its own filename must be rejected:\n${r.out}`);
+  assert.match(r.out, /No committed APPROVED verdict/, "(h) should report no valid verdict found for the attacker commit");
+}
+
+// (i) BUG-3 regression, same as release-gate.yml's (k) above: pubkey must
+// come from origin/main, not the checked-out tree.
+{
+  const fixture = buildFixture({ committedPubkey: true, sigFor: undefined });
+  fs.rmSync(path.join(fixture.dir, ".cw-release", "verdict-signing.pub"), { force: true });
+  const r = runPublishScript(fixture);
+  assert.notEqual(
+    r.code,
+    0,
+    `(i) deleting the tree's own pubkey copy must not fall back to no-signature-required, since origin/main still has it:\n${r.out}`
+  );
 }
 
 // ============================================================================

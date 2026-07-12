@@ -73,6 +73,23 @@ assert.equal(runHook({ command: "ls -la" }).code, 0, "unrelated command must be 
 {
   const r = spawnSync("bash", [HOOK], { cwd: dir, input: "not json", encoding: "utf8" });
   assert.equal(r.status, 0, "malformed input must not block");
+  assert.doesNotMatch(r.stderr || "", /WARN/, "a plain non-JSON input (node runs fine, just an empty parse) must NOT print the node-failure WARN");
+}
+
+// ---- node itself failing to run -> still ALLOW (fail open, unchanged), but
+// now says so on stderr instead of staying silent (BUG-4, first half). A
+// stub "node" on PATH that always exits non-zero stands in for a missing or
+// crashing node. ----
+{
+  const fakeBinDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-fakebin-"));
+  const fakeNode = path.join(fakeBinDir, "node");
+  fs.writeFileSync(fakeNode, "#!/bin/sh\nexit 17\n");
+  fs.chmodSync(fakeNode, 0o755);
+  const input = JSON.stringify({ tool_name: "Bash", tool_input: { command: "git tag -a v9.9.9 -m x" } });
+  const r = spawnSync("bash", [HOOK], { cwd: dir, input, encoding: "utf8", env: { ...process.env, PATH: `${fakeBinDir}:${process.env.PATH}` } });
+  assert.equal(r.status, 0, "a broken node must still fail OPEN (exit 0), not block every Bash call");
+  assert.match(r.stderr || "", /WARN.*node exited 17/, "a broken node must now say so on stderr, not stay silent");
+  fs.rmSync(fakeBinDir, { recursive: true, force: true });
 }
 
 // ---- Tag command, no markers -> BLOCK (missing gate) ----
@@ -108,6 +125,23 @@ assert.equal(runHook({ command: "ls -la" }).code, 0, "unrelated command must be 
   setVerdict(`APPROVED ${sha}\nUsers can now do X.\n`);
   const r = runHook({ command: "git tag -a v9.9.9 -m x" });
   assert.equal(r.code, 0, "gate + APPROVED verdict must allow the tag");
+}
+
+// ---- BUG-4 regression: a verdict FILE NAMED for the real HEAD sha (so it IS
+// the file the hook picks up) whose FIRST LINE approves a DIFFERENT sha ->
+// BLOCK. The old `grep -q '^APPROVED'` only checks the line starts with
+// "APPROVED" and never looks at which sha follows it, so a real, validly
+// signed verdict for one sha, byte-copied onto a filename for another sha,
+// would have been accepted. The fix requires the first line to read EXACTLY
+// "APPROVED <the matched sha>". ----
+{
+  clearMarkers();
+  setGate();
+  const wrongSha = "0123456789abcdef0123456789abcdef01234567";
+  setVerdict(`APPROVED ${wrongSha}\nUsers can now do X.\n`);
+  const r = runHook({ command: "git tag -a v9.9.9 -m x" });
+  assert.equal(r.code, 2, "a verdict naming a DIFFERENT sha than the one the filename/HEAD matched must block");
+  assert.match(r.err, /no APPROVED verdict/, "should explain the missing/mismatched verdict");
 }
 
 // ---- Tag push variant is also gated ----

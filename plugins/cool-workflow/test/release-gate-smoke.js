@@ -52,8 +52,12 @@ function commitAll(dir, msg) {
   git(dir, ["add", "-A"]);
   git(dir, ["commit", "-q", "-m", msg]);
 }
-function runGate(dir) {
-  const r = spawnSync("bash", [GATE], { cwd: dir, encoding: "utf8" });
+function runGate(dir, extraEnv) {
+  const r = spawnSync("bash", [GATE], {
+    cwd: dir,
+    encoding: "utf8",
+    env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
+  });
   return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
 }
 
@@ -70,11 +74,21 @@ function seedReleaseWork(dir) {
   const dir = freshRepo();
   write(dir, "README.md", "init\n");
   commitAll(dir, "init");
-  const r = runGate(dir);
-  assert.equal(r.code, 0, `no-prev-tag should PASS:\n${r.out}`);
+  // A genuine first release now needs an EXPLICIT declaration to skip the
+  // prior-release checks — an empty PREV_TAG on its own is ambiguous (it also
+  // fits a --no-tags/shallow clone of a tagged repo, see Case 7b/7c).
+  const r = runGate(dir, { CW_FIRST_RELEASE: "1" });
+  assert.equal(r.code, 0, `declared first release should PASS:\n${r.out}`);
   const sha = git(dir, ["rev-parse", "HEAD"]);
   assert.ok(fs.existsSync(path.join(dir, ".cw-release", `gate-${sha}.ok`)),
     "PASS must write the gate-<sha>.ok marker");
+
+  // ...and WITHOUT the declaration, the same repo must fail closed rather than
+  // silently skip the checks (the fail-closed half of the 2026-07-12 fix).
+  const r2 = runGate(dir);
+  assert.equal(r2.code, 1, `undeclared empty-PREV_TAG must be REJECTED, not skipped:\n${r2.out}`);
+  assert.match(r2.out, /CW_FIRST_RELEASE|not fetched|previous release tag/i,
+    "should name the ambiguity + the explicit-declaration escape hatch");
 }
 
 // ---- Case 2: full valid release since a previous tag -> PASS ----
@@ -178,6 +192,69 @@ function seedReleaseWork(dir) {
   const r = runGate(dir);
   assert.equal(r.code, 1, `version-number branch must be REJECTED:\n${r.out}`);
   assert.match(r.out, /version-number-driven/, "should name the branch-naming failure");
+}
+
+// ---- Case 7b: a shallow clone must FAIL, not skip checks like case 1 ------
+// A shallow clone (or a clone with no tags) makes `git describe` fail the
+// same way a true first release does, so PREV_TAG ends up empty in both
+// cases. Before the fix, this mix-up let the gate skip
+// substance/test-evidence/cadence and PASS on a shallow clone, even when an
+// older tag was there, just outside the short history it can see. This
+// case checks that it now FAILS.
+// We build a REAL git repo with a tag, then make a REAL shallow clone of it
+// (git clone --depth 1), so the test uses git's own shallow-check
+// (git rev-parse --is-shallow-repository), not a stand-in.
+{
+  const srcDir = freshRepo();
+  write(srcDir, "README.md", "init\n");
+  commitAll(srcDir, "init");
+  git(srcDir, ["tag", "v0.0.1"]); // a real past tag exists, just not in the shallow history
+  write(srcDir, "README.md", "more\n");
+  commitAll(srcDir, "second commit");
+
+  const shallowDir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-gate-${caseId++}-shallow-`));
+  const r0 = spawnSync("git", ["clone", "--depth", "1", "-q", `file://${srcDir}`, shallowDir], { encoding: "utf8" });
+  assert.equal(r0.status, 0, `git clone --depth 1 must work:\n${r0.stderr}`);
+  assert.equal(git(shallowDir, ["rev-parse", "--is-shallow-repository"]), "true",
+    "fixture check: the clone must really be shallow");
+
+  const r = runGate(shallowDir);
+  assert.equal(r.code, 1, `shallow clone (real past tag hidden by shallow history) must be REJECTED:\n${r.out}`);
+  assert.match(r.out, /shallow/i, "should name the shallow-clone problem, not skip checks like a true first release");
+}
+
+// ---- Case 7c: a FULL (non-shallow) --no-tags clone must FAIL too -----------
+// The shallow check (Case 7b) closed only half the hole: a `git clone
+// --no-tags` of a long-tagged repo is NOT shallow (is-shallow-repository =
+// false) yet has 0 local tags, so PREV_TAG is empty exactly like a true first
+// release. Before this half of the fix it slipped past the shallow check and
+// silently skipped substance/test-evidence/cadence. It must now be REJECTED
+// unless a first release is explicitly declared.
+{
+  const srcDir = freshRepo();
+  write(srcDir, "README.md", "init\n");
+  commitAll(srcDir, "init");
+  git(srcDir, ["tag", "v0.0.1"]); // a real past tag exists in the source repo
+  write(srcDir, "README.md", "more\n");
+  commitAll(srcDir, "second commit");
+
+  const noTagsDir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-gate-${caseId++}-notags-`));
+  const r0 = spawnSync("git", ["clone", "--no-tags", "-q", `file://${srcDir}`, noTagsDir], { encoding: "utf8" });
+  assert.equal(r0.status, 0, `git clone --no-tags must work:\n${r0.stderr}`);
+  assert.equal(git(noTagsDir, ["rev-parse", "--is-shallow-repository"]), "false",
+    "fixture check: a --no-tags clone must be FULL, not shallow (that is the whole point of this case)");
+  assert.equal(git(noTagsDir, ["tag"]), "", "fixture check: the --no-tags clone must have 0 local tags");
+
+  const r = runGate(noTagsDir);
+  assert.equal(r.code, 1, `full --no-tags clone (real past tag not fetched) must be REJECTED, not treated as a first release:\n${r.out}`);
+  assert.match(r.out, /not fetched|CW_FIRST_RELEASE|previous release tag/i,
+    "should name the not-fetched-tags cause and the explicit-declaration escape hatch, not just 'shallow'");
+  assert.doesNotMatch(r.out, /shallow git clone/i, "must NOT misreport a full --no-tags clone as shallow");
+
+  // And with an explicit first-release declaration, the same clone PASSES —
+  // the escape hatch works, so a genuine first release is never blocked.
+  const r2 = runGate(noTagsDir, { CW_FIRST_RELEASE: "1" });
+  assert.equal(r2.code, 0, `declared first release must PASS even with 0 tags:\n${r2.out}`);
 }
 
 // ---- Case 8: PREV_TAG resolution — HEAD already carries the tag (CI case) --

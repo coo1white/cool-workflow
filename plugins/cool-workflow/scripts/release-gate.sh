@@ -7,6 +7,10 @@ set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT"
 SHA="$(git rev-parse HEAD)"
+FAIL=0
+say() { printf '%s\n' "$*"; }
+fail() { say "GATE FAIL: $*"; FAIL=1; }
+
 # Resolve the PREVIOUS release tag. When this script runs from CI on a tag push
 # (.github/workflows/release-gate.yml), HEAD already carries the tag being
 # released, so a plain `git describe` returns *that* tag and the diff range
@@ -18,12 +22,30 @@ PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo "")"
 if [[ -n "$HEAD_TAGS" ]] && printf '%s\n' "$HEAD_TAGS" | grep -qxF "$PREV_TAG"; then
   PREV_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")"
 fi
+# An empty PREV_TAG is ambiguous: (a) the genuine first release, so skipping
+# substance/evidence/cadence is right, or (b) tags DO exist but this clone can
+# not see them — a shallow clone hides them in history, and a `git clone
+# --no-tags` / `fetch-tags: false` clone of a long-tagged repo shows 0 local
+# tags too. (a) and (b) look IDENTICAL from local state (both give an empty
+# describe and 0 tags), so we can NOT auto-tell them apart. Fail CLOSED: skip
+# the checks ONLY when the operator positively declares a first release with
+# CW_FIRST_RELEASE=1 (explicit + logged, the same shape the cadence HOTFIX
+# override uses). Otherwise REJECT — a mis-fetched clone must never look like a
+# first release and silently pass. Found by a 2026-07-12 security check; the
+# shallow signal alone closed only half the hole (the `--no-tags` full clone
+# still slipped through).
+if [[ -z "$PREV_TAG" ]]; then
+  IS_SHALLOW="$(git rev-parse --is-shallow-repository 2>/dev/null || echo "false")"
+  if [[ "$IS_SHALLOW" == "true" ]]; then
+    fail "cannot resolve the previous release tag: this is a shallow git clone (git rev-parse --is-shallow-repository = true), so an older tag may be hidden and substance/test-evidence/cadence cannot be trusted. Fetch full history (actions/checkout with fetch-depth: 0) before running this gate."
+  elif [[ "${CW_FIRST_RELEASE:-}" == "1" ]]; then
+    say "no previous tag; genuine first release declared (CW_FIRST_RELEASE=1) — substance/evidence/cadence will be skipped"
+  else
+    fail "cannot resolve the previous release tag on a full (non-shallow) clone. Either tags were not fetched (git clone --no-tags, or actions/checkout fetch-tags: false — fetch tags and re-run), or this is the genuine first release (set CW_FIRST_RELEASE=1 to declare that explicitly). Refusing to silently skip substance/test-evidence/cadence."
+  fi
+fi
 MARKER_DIR="$REPO_ROOT/.cw-release"
 mkdir -p "$MARKER_DIR"
-FAIL=0
-
-say() { printf '%s\n' "$*"; }
-fail() { say "GATE FAIL: $*"; FAIL=1; }
 
 # --- 1. Build & tests (run, don't trust pasted output) -----------------
 say "[1/6] build"

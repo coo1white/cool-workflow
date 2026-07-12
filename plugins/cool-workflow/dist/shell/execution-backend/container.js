@@ -7,6 +7,7 @@
 //
 // Evidence: SPEC/execution-backend.md "container driver (runContainer)".
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildContainerEnvArgs = buildContainerEnvArgs;
 exports.containerHandle = containerHandle;
 exports.runContainer = runContainer;
 const node_child_process_1 = require("node:child_process");
@@ -14,6 +15,32 @@ const probes_1 = require("./probes");
 const envelopes_1 = require("./envelopes");
 function messageOf(error) {
     return error instanceof Error ? error.message : String(error);
+}
+/** buildContainerEnvArgs — build the `-e NAME=value` args passed into the
+ *  container run command. Pulled out as its own pure function so it can be
+ *  checked without a real docker/podman on the box (see local.ts's
+ *  buildChildEnv for the same shape of test-only split).
+ *
+ *  deny must win here too: an operator who sets inherit:true plus a deny
+ *  list (a valid, normalized combination — see sandbox-profile.ts's
+ *  normalizeEnv) means "everything EXCEPT these". Before this fix, deny was
+ *  never read here, so a secret like AWS_SECRET_ACCESS_KEY that the operator
+ *  named in deny still got copied into the container's `-e` args. */
+function buildContainerEnvArgs(policy, baseEnv = process.env) {
+    const args = [];
+    if (policy.env.inherit || (policy.env.expose && policy.env.expose.length)) {
+        const deny = new Set(policy.env.deny || []);
+        for (const name of policy.env.inherit ? Object.keys(baseEnv) : policy.env.expose || []) {
+            if (name === "PATH" || name === "HOME")
+                continue;
+            if (deny.has(name))
+                continue;
+            const value = baseEnv[name];
+            if (value !== undefined)
+                args.push("-e", `${name}=${value}`);
+        }
+    }
+    return args;
 }
 function containerHandle(request, env = process.env) {
     const delegation = request.delegation || {};
@@ -46,15 +73,7 @@ function runContainer(descriptor, policy, request, label, handle, attestation) {
     if (policy.network.mode !== "any")
         runArgs.push("--network", "none");
     runArgs.push("-v", `${cwd}:${cwd}:ro`, "-w", cwd);
-    if (policy.env.inherit || (policy.env.expose && policy.env.expose.length)) {
-        for (const name of policy.env.inherit ? Object.keys(process.env) : policy.env.expose || []) {
-            if (name === "PATH" || name === "HOME")
-                continue;
-            const value = process.env[name];
-            if (value !== undefined)
-                runArgs.push("-e", `${name}=${value}`);
-        }
-    }
+    runArgs.push(...buildContainerEnvArgs(policy));
     runArgs.push(handle.ref, command, ...args);
     // An unset timeoutMs must not mean "no timeout" — spawnSync would then
     // block forever on a hung container with no kill path. 600000 matches the
