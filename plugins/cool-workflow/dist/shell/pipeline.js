@@ -48,6 +48,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.pureAppendRunNode = exports.writeJson = void 0;
 exports.plan = plan;
 const crypto = __importStar(require("node:crypto"));
+const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const run_paths_1 = require("../core/state/run-paths");
 const migrations_1 = require("../core/state/migrations");
@@ -207,7 +208,7 @@ function plan(app, options) {
             loopStage: "interpret",
             artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
             metadata: { workflowId: app.workflow.id, appId: app.id, appVersion: app.version, taskId: task.id, phase: task.phase, taskKind: task.kind, requiresEvidence: task.requiresEvidence, sandboxProfileId: task.sandboxProfileId },
-        }, { persist: false, persistNode: node_store_1.writeRunNode });
+        }, { persist: false, persistNode: node_store_1.writeRunNode, pathExists: fs.existsSync });
         task.stateNodeId = taskResult.outputNodeId;
     }
     (0, report_1.writeReport)(run);

@@ -214,7 +214,7 @@ function recordCommitNode(run, commit, options, gate) {
             artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
             evidence: commit.evidence || verifierNode.evidence,
             metadata: { ...(options.metadata || {}), reason: options.reason, commitId: commit.id, verifierGated: true, checkpoint: false, verifierNodeId: verifierNode.id, candidateId: gate.candidateId, selectionId: gate.selectionId, selectionNodeId: gate.selectionNodeId },
-        }, { persist: false, persistNode: node_store_1.writeRunNode });
+        }, { persist: false, persistNode: node_store_1.writeRunNode, pathExists: fs.existsSync });
         if (gate.selectionNodeId && commitResult.outputNodeId)
             linkAdditionalParent(run, gate.selectionNodeId, commitResult.outputNodeId);
         return commitResult.outputNodeId;

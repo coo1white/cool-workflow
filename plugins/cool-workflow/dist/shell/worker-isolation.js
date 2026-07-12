@@ -703,7 +703,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         artifacts: [{ id: "result", kind: "markdown", path: destination }],
         evidence: resultNode.evidence.length ? resultNode.evidence : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
         metadata: { taskId: task.id, workerId, resultNodeId: resultNode.id, sandboxProfileId: scope.sandboxProfileId },
-    }, { persist: false, persistNode: node_store_1.appendRunNode });
+    }, { persist: false, persistNode: node_store_1.appendRunNode, pathExists: fs.existsSync });
     task.verifierNodeId = verifierResult.outputNodeId;
     // Step 5: completion — persist the worker scope with the verify-derived status.
     const output = { workerId, taskId: task.id, resultPath: absoluteResultPath, recordedAt: new Date().toISOString(), stateNodeId: resultNode.id, verifierNodeId: task.verifierNodeId, auditEventIds: [pathAudit.id, acceptedAudit.id] };

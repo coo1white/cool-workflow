@@ -630,7 +630,7 @@ function maybeExpandLoop(run) {
                     requiresEvidence: t.requiresEvidence,
                     sandboxProfileId: t.sandboxProfileId,
                 },
-            }, { persist: false, persistNode: (r, node) => void (0, node_store_1.appendRunNode)(r, node) });
+            }, { persist: false, persistNode: (r, node) => void (0, node_store_1.appendRunNode)(r, node), pathExists: fs.existsSync });
             t.stateNodeId = result.outputNodeId;
         }
         (0, dispatch_1.updatePhaseStatuses)(run);

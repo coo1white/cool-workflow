@@ -761,7 +761,7 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
       evidence: resultNode.evidence.length ? resultNode.evidence : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
       metadata: { taskId: task.id, workerId, resultNodeId: resultNode.id, sandboxProfileId: scope.sandboxProfileId },
     },
-    { persist: false, persistNode: appendRunNode }
+    { persist: false, persistNode: appendRunNode, pathExists: fs.existsSync }
   );
   task.verifierNodeId = verifierResult.outputNodeId;
 
