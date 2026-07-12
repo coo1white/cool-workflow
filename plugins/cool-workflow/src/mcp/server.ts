@@ -224,6 +224,23 @@ export function startServer(): void {
 
   let buffer = "";
   let queue: Promise<void> = Promise.resolve();
+  // Chain each task onto `queue` WITH a per-task `.catch`. The `.catch` is
+  // load-bearing, not decoration: a task here can reject — a raw
+  // `writeMessage` (`process.stdout.write`) that throws mid-reply because the
+  // client closed the pipe, or any other throw out of handleLine — and
+  // without a handler that one rejection would leave `queue` REJECTED for
+  // good, so every later `queue.then(...)` is skipped and the server goes
+  // silent and answers no more requests (finding: one bad write poisons the
+  // queue). The `.catch` swallows the single failure onto stderr
+  // (diagnostics, never stdout data) and hands back a RESOLVED promise, so
+  // the next request is still served. Order is still kept: the next task
+  // only runs after this one settles.
+  const enqueue = (task: () => void | Promise<void>): void => {
+    queue = queue.then(task).catch((error: unknown) => {
+      const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+      process.stderr.write(`cool-workflow mcp: a request failed and its reply was dropped; still serving: ${detail}\n`);
+    });
+  };
   process.stdin.on("data", (chunk: string) => {
     buffer += chunk;
     for (;;) {
@@ -232,11 +249,11 @@ export function startServer(): void {
       const line = buffer.slice(0, newlineIndex);
       buffer = buffer.slice(newlineIndex + 1);
       const trimmed = line.trim();
-      if (trimmed) queue = queue.then(() => handleLine(trimmed));
+      if (trimmed) enqueue(() => handleLine(trimmed));
     }
     if (buffer.length > MAX_LINE_BYTES) {
       buffer = "";
-      queue = queue.then(() => {
+      enqueue(() => {
         writeMessage(errorMessage(null, -32700, `Parse error: request line exceeds ${MAX_LINE_BYTES} bytes`));
       });
     }
