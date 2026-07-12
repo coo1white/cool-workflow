@@ -247,6 +247,50 @@ process.exit(0);
   assert.match(r.err, /not APPROVED|blocked/i, "should explain the block from stdout capture");
 }
 
+// ---- Case 3d: stdout has BOTH a REJECTED line and an echoed "APPROVED <sha>"
+// format example → must resolve to REJECTED, not APPROVED+signed (BUG 1 fix).
+// A verbose agent wrapper often echoes the prompt's required-format example
+// back in its own output (a report that quotes the instructions, for
+// example). buildReviewerInput puts the literal line "APPROVED <real HEAD
+// sha>" into the prompt as a format example, so a reviewer that REJECTS but
+// also restates that example anywhere must still be read as REJECTED. Order
+// matters here: extractVerdictFromStdout must check for REJECTED across the
+// WHOLE text first and return right away, never looking for APPROVED once a
+// REJECTED line is found.
+{
+  const dir = fixture();
+  const stub = path.join(dir, "stdout-mixed-stub.js");
+  fs.writeFileSync(stub, `
+const sha = process.env.STUB_SHA || "sha";
+process.stdout.write("Here is my review.\\n\\nREJECTED\\n1. gate step failed, see log.\\n\\nRequired output format was:\\nAPPROVED " + sha + "\\n<capability sentence>\\n");
+process.exit(0);
+`);
+  const r = runFlow(dir, { agentCmd: `node ${stub}` });
+  assert.equal(r.code, 1, "REJECTED + an echoed APPROVED-format line must still fail the flow, not sign an approval");
+  assert.match(r.err, /not APPROVED|blocked/i, "should explain the block");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const verdict = path.join(dir, ".cw-release", `review-${sha}.verdict`);
+  assert.ok(fs.existsSync(verdict), "verdict file is still written (REJECTED, captured from stdout)");
+  assert.match(fs.readFileSync(verdict, "utf8"), /^REJECTED/, "captured verdict must be REJECTED, not APPROVED");
+  const sigPath = `${verdict}.sig`;
+  assert.ok(!fs.existsSync(sigPath), "a REJECTED verdict must never be signed");
+}
+
+// ---- Case 3e: REJECTEDLY (a stray word starting with REJECTED) must NOT be
+// read as a REJECTED marker — the match is tightened to /^REJECTED(\s|$)/i.
+{
+  const dir = fixture();
+  const stub = path.join(dir, "stdout-word-stub.js");
+  fs.writeFileSync(stub, `
+const sha = process.env.STUB_SHA || "sha";
+process.stdout.write("REJECTEDLY speaking, this looks fine.\\nAPPROVED " + sha + "\\nstub: capability sentence.\\n");
+process.exit(0);
+`);
+  const r = runFlow(dir, { agentCmd: `node ${stub}` });
+  assert.equal(r.code, 0, `a stray word starting with REJECTED must not block a real APPROVED line:\n${r.err}\n${r.out}`);
+  assert.match(r.out, /"verdict": "APPROVED"/, "summary should report APPROVED");
+}
+
 // ---- Case 4: no agent configured → fail closed with guidance ----
 {
   const dir = fixture();
