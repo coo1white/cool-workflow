@@ -447,6 +447,13 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             // and the null-exit-code "timed out or killed" branch was dead code
             // for real timeouts.
             if (child.error && child.error.code === "ETIMEDOUT") {
+                // NOTE (follow-up): spawnSync SIGKILLed the wrapper, but a vendor
+                // grandchild the wrapper spawned survives as an orphan and keeps
+                // spending. Reaping it needs proper parent-side group-signal
+                // forwarding; `detached:true` here was rejected because it also makes
+                // the wrapper its own group leader, so an interactive Ctrl-C / a group
+                // SIGINT to cw would no longer reach the wrapper — strictly worse.
+                // Left as a documented follow-up, not fixed in this PR.
                 const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
                 return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
                     ...attestation,
