@@ -14,7 +14,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as crypto from "node:crypto";
-import { writeJson } from "./fs-atomic";
+import { writeJson, writeTextDurable } from "./fs-atomic";
 import { WorkflowRun } from "../core/state/types";
 import { appendRunNode } from "./node-store";
 import { createStateNode } from "../core/state/state-node";
@@ -187,7 +187,12 @@ export function persistBlackboardState(run: WorkflowRun): void {
     decisions: state.decisions.map(cb.indexRow),
     messages: state.messages.map((message) => ({ id: message.id, blackboardId: message.blackboardId, topicId: message.topicId, createdAt: message.createdAt, status: message.status, author: message.author, evidenceRefs: message.linkedEvidenceRefs, artifactRefIds: message.linkedArtifactRefIds })),
   });
-  fs.writeFileSync(messagesPath(run), state.messages.sort(cb.compareRecords).map((message) => JSON.stringify(message)).join("\n") + (state.messages.length ? "\n" : ""), "utf8");
+  // messages.jsonl goes through the SAME atomic temp+rename helper as every
+  // sibling record file (index.json + the per-record *.json via writeJson),
+  // so a crash or a concurrent reader sees old-or-new bytes, never a torn
+  // half-written NDJSON file. The content string is byte-identical to the old
+  // bare fs.writeFileSync — only the write becomes atomic.
+  writeTextDurable(messagesPath(run), state.messages.sort(cb.compareRecords).map((message) => JSON.stringify(message)).join("\n") + (state.messages.length ? "\n" : ""));
   const dirty = dirtySetsFor(state);
   for (const id of dirty.topics) { const record = state.topics.find((entry) => entry.id === id); if (record) writeJson(recordPath(run, "topics", id), record); }
   for (const id of dirty.contexts) { const record = state.contexts.find((entry) => entry.id === id); if (record) writeJson(recordPath(run, "contexts", id), record); }

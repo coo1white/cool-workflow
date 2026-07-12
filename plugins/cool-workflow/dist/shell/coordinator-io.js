@@ -218,7 +218,12 @@ function persistBlackboardState(run) {
         decisions: state.decisions.map(cb.indexRow),
         messages: state.messages.map((message) => ({ id: message.id, blackboardId: message.blackboardId, topicId: message.topicId, createdAt: message.createdAt, status: message.status, author: message.author, evidenceRefs: message.linkedEvidenceRefs, artifactRefIds: message.linkedArtifactRefIds })),
     });
-    fs.writeFileSync(messagesPath(run), state.messages.sort(cb.compareRecords).map((message) => JSON.stringify(message)).join("\n") + (state.messages.length ? "\n" : ""), "utf8");
+    // messages.jsonl goes through the SAME atomic temp+rename helper as every
+    // sibling record file (index.json + the per-record *.json via writeJson),
+    // so a crash or a concurrent reader sees old-or-new bytes, never a torn
+    // half-written NDJSON file. The content string is byte-identical to the old
+    // bare fs.writeFileSync — only the write becomes atomic.
+    (0, fs_atomic_1.writeTextDurable)(messagesPath(run), state.messages.sort(cb.compareRecords).map((message) => JSON.stringify(message)).join("\n") + (state.messages.length ? "\n" : ""));
     const dirty = dirtySetsFor(state);
     for (const id of dirty.topics) {
         const record = state.topics.find((entry) => entry.id === id);
