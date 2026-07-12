@@ -13,3 +13,13 @@
 *.woff binary
 *.woff2 binary
 
+# Append-only logs: keep every side's entries on a parallel merge instead of
+# conflicting. `union` is a BUILT-IN git merge driver (no local config needed),
+# so it is honored both by local git and by GitHub's server-side merge. Two
+# PRs that each append a section to one of these files then merge with no
+# conflict, keeping both. Scope this to append-only logs ONLY: union does not
+# dedupe or reorder, so it must never guard a file where line order or
+# uniqueness carries meaning.
+ITERATION_LOG.md merge=union
+CHANGELOG.md merge=union
+
