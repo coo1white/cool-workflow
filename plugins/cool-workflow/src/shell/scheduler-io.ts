@@ -97,12 +97,18 @@ export class Scheduler {
   create(options: Record<string, unknown>): ScheduledTask {
     const kind = normalizeKind(options.kind);
     const now = new Date();
-    const intervalMinutes = numberOption(options.intervalMinutes || options.interval);
+    // Fail closed on a bad number rather than silently clamping a typo into a
+    // runaway: interval is a whole number of 0 or more (0 = due now, a real
+    // supported value), maxRuns a whole number more than 0, jitter/delay 0 or
+    // more, ttlDays more than 0. Use `??` (not `||`) when picking the option so
+    // an explicit 0 is kept -- for interval a valid "due now", not swallowed
+    // into the default 1; for the others kept and then rejected.
+    const intervalMinutes = requireNonNegativeInt(options.intervalMinutes ?? options.interval, "interval");
     const cron = stringOption(options.cron);
-    const delayMinutes = numberOption(options.delayMinutes || options.delay);
-    const jitterSeconds = numberOption(options.jitterSeconds) ?? 0;
+    const delayMinutes = requireNonNegative(options.delayMinutes ?? options.delay, "delay");
+    const jitterSeconds = requireNonNegative(options.jitterSeconds, "jitterSeconds") ?? 0;
     const nextRunAt = computeInitialNextRunAt({ kind, now, intervalMinutes, cron, delayMinutes, jitterSeconds });
-    const ttlDays = numberOption(options.ttlDays) ?? DEFAULT_TTL_DAYS;
+    const ttlDays = requirePositive(options.ttlDays, "ttlDays") ?? DEFAULT_TTL_DAYS;
     const task: ScheduledTask = {
       id: createScheduleId(kind),
       kind,
@@ -118,7 +124,7 @@ export class Scheduler {
       intervalMinutes,
       cron,
       jitterSeconds,
-      maxRuns: numberOption(options.maxRuns),
+      maxRuns: requirePositiveInt(options.maxRuns, "maxRuns"),
       runCount: 0,
     };
     return this.locked(() => {
@@ -152,14 +158,14 @@ export class Scheduler {
     const store = this.load();
     let changed = false;
     for (const task of store.tasks) {
-      if (task.status === "active" && new Date(task.expiresAt).getTime() <= now.getTime()) {
+      if (task.status === "active" && reachedBy(task.expiresAt, now)) {
         task.status = "expired";
         task.updatedAt = now.toISOString();
         changed = true;
       }
     }
     if (changed) this.save(store);
-    const dueTasks = store.tasks.filter((task) => task.status === "active" && new Date(task.nextRunAt).getTime() <= now.getTime());
+    const dueTasks = store.tasks.filter((task) => task.status === "active" && reachedBy(task.nextRunAt, now));
     if (dueTasks.length) {
       for (const task of dueTasks) {
         const alreadyRecorded = task.lastDueAt && new Date(task.lastDueAt).getTime() >= new Date(task.nextRunAt).getTime();
@@ -246,6 +252,7 @@ export class Scheduler {
   private load(): ScheduleStore {
     if (!fs.existsSync(this.storePath)) return { schemaVersion: 1, tasks: [], history: [] };
     const value = readJson(this.storePath) as ScheduleStore;
+    ensureKnownSchemaVersion(value, "schedule");
     return {
       schemaVersion: 1,
       tasks: Array.isArray(value.tasks) ? value.tasks : [],
@@ -391,6 +398,66 @@ function numberOption(value: unknown): number | undefined {
   if (value === undefined || value === null || value === true) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+// Number guards for create(): an absent option (undefined/null/bare flag) is
+// left undefined for the caller's default; a GIVEN option that is out of
+// bounds throws a clear, named refusal (fail closed) instead of being clamped.
+function requirePositiveInt(value: unknown, name: string): number | undefined {
+  if (value === undefined || value === null || value === true) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a whole number more than 0`);
+  }
+  return parsed;
+}
+
+// interval only: a whole number of 0 or more. 0 means "due now" (nextRunAt is
+// this moment) and is a real, supported value, so it must pass; a negative or
+// non-whole interval is the typo we fail closed on.
+function requireNonNegativeInt(value: unknown, name: string): number | undefined {
+  if (value === undefined || value === null || value === true) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a whole number of 0 or more`);
+  }
+  return parsed;
+}
+
+function requirePositive(value: unknown, name: string): number | undefined {
+  if (value === undefined || value === null || value === true) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${name} must be a number more than 0`);
+  }
+  return parsed;
+}
+
+function requireNonNegative(value: unknown, name: string): number | undefined {
+  if (value === undefined || value === null || value === true) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error(`${name} must be a number of 0 or more`);
+  }
+  return parsed;
+}
+
+// Fail closed on a store written by a newer/unknown runtime: forcing it to v1
+// would silently drop fields it does not understand. A missing schemaVersion is
+// treated as legacy v1 for backward tolerance.
+function ensureKnownSchemaVersion(value: { schemaVersion?: unknown }, store: string): void {
+  const version = value.schemaVersion;
+  if (version !== undefined && version !== 1) {
+    throw new Error(`Unsupported ${store} store schemaVersion: ${String(version)}`);
+  }
+}
+
+// A stored date that parses to NaN is corrupt. `NaN <= now` is false, which
+// would make such a task silently never fire and never expire; fail closed by
+// treating a corrupt date as already reached (due / expired), never inert.
+function reachedBy(iso: string, now: Date): boolean {
+  const at = new Date(iso).getTime();
+  return Number.isNaN(at) || at <= now.getTime();
 }
 
 // ---------------------------------------------------------------------------
@@ -570,6 +637,7 @@ export class RoutineTriggerBridge {
   private load(): RoutineTriggerStore {
     if (!fs.existsSync(this.storePath)) return { schemaVersion: 1, triggers: [], events: [], nextTriggerSeq: 0 };
     const value = readJson(this.storePath) as RoutineTriggerStore;
+    ensureKnownSchemaVersion(value, "routine");
     const triggers = Array.isArray(value.triggers) ? value.triggers : [];
     const maxExisting = triggers.reduce((max, trigger) => {
       const n = Number((String(trigger.id).match(/(\d+)$/) || [])[1] || 0);
