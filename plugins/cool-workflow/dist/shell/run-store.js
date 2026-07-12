@@ -51,7 +51,10 @@ exports.checkRunStateFile = checkRunStateFile;
 exports.migrateRunStateFile = migrateRunStateFile;
 exports.assertNotSuspectedDataLoss = assertNotSuspectedDataLoss;
 exports.loadRunFromCwd = loadRunFromCwd;
+exports.resolveRunDir = resolveRunDir;
 exports.withRunStateLock = withRunStateLock;
+exports.withDriveLock = withDriveLock;
+exports.withDriveLockAsync = withDriveLockAsync;
 exports.saveCheckpoint = saveCheckpoint;
 exports.compactCheckpoint = compactCheckpoint;
 exports.createRun = createRun;
@@ -185,6 +188,22 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
     assertNotSuspectedDataLoss(runId, result);
     return result.run;
 }
+/** The canonical run directory for `runId` under `cwd` — the SAME
+ *  deterministic location loadRunFromCwd resolves `state.json` in (it too
+ *  ignores any stored `paths.runDir`). Guards an empty/unsafe id and throws
+ *  the exact `Run not found: <runId>` loadRunFromCwd throws, but via a plain
+ *  `existsSync` so it adds no `state.json` READ and never creates the run dir
+ *  for a nonexistent run. Used by the drive mutex, which needs the directory
+ *  before it can acquire, without perturbing read accounting. */
+function resolveRunDir(runId, cwd = process.cwd()) {
+    if (!runId)
+        throw new Error("Missing run id");
+    (0, fs_atomic_1.assertSafeRunId)(runId);
+    const runDir = path.join(cwd, ".cw", "runs", runId);
+    if (!fs.existsSync(path.join(runDir, "state.json")))
+        throw new Error(`Run not found: ${runId}`);
+    return runDir;
+}
 /** Hold the state.json lock over a WHOLE load -> change -> save cycle.
  *  A bare loadRunFromCwd + saveCheckpoint pair leaves a window where two
  *  processes both load the same state and the later save silently drops
@@ -200,6 +219,143 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
 function withRunStateLock(runId, cwd, fn) {
     const probe = loadRunFromCwd(runId, cwd);
     return (0, fs_atomic_1.withFileLock)(probe.paths.state, () => fn(loadRunFromCwd(runId, cwd)));
+}
+// ---------------------------------------------------------------------------
+// withDriveLock — a run-scoped DRIVE mutex, held across a WHOLE drive() call.
+//
+// The state.json write lock (withFileLock) covers only the instant of a
+// write; a concurrent round loads the run once, spawns agents for MINUTES,
+// then flushes the object it loaded at round start. A second drive on the
+// same run therefore clobbers this one's flush (lost update) and both drives
+// mint the same worker id from an in-memory count (double dispatch). This
+// mutex closes both: only one process advances a run at a time.
+//
+// It is held far too long for withFileLock's 30s stale-steal window, so it is
+// NEVER time-stale-stolen. A lock whose recorded pid is a LIVE process refuses
+// (fail closed — never a silent double-drive); a lock whose owner is GONE (a
+// crashed prior drive) or this process's own leaked lock is stolen so a crash
+// can never wedge the run. Lock body is `"<pid>@<ISO>\n"`, the same shape as
+// the fs-atomic lock, acquired with the same single-winner `link(2)` idiom.
+// ---------------------------------------------------------------------------
+/** Drive-lock paths this process holds right now. A nested drive() on the
+ *  SAME run id (sub-workflows use a DIFFERENT run id, so this should not
+ *  happen — defensive) re-enters instead of self-refusing. */
+const HELD_DRIVE_LOCKS = new Set();
+function driveLockPath(runDir) {
+    return path.join(runDir, "drive.lock");
+}
+/** True when `pid` names a live process on this machine. `process.kill(pid,
+ *  0)` delivers no signal — it only probes existence/permission. `EPERM` (the
+ *  pid exists but is not signalable by us) counts as ALIVE, the conservative
+ *  never-wrongly-steal direction; a malformed/absent pid is "not alive". */
+function driveLockOwnerAlive(pid) {
+    if (!Number.isInteger(pid) || pid <= 0)
+        return false;
+    try {
+        process.kill(pid, 0);
+        return true;
+    }
+    catch (error) {
+        return Boolean(error && typeof error === "object" && error.code === "EPERM");
+    }
+}
+function readDriveLockPid(lock) {
+    try {
+        const match = /^(\d+)@/.exec(fs.readFileSync(lock, "utf8"));
+        return match ? Number(match[1]) : 0;
+    }
+    catch {
+        return 0; // vanished or unreadable — treat as no owner
+    }
+}
+/** Acquire the drive mutex for `runId`'s run directory. Returns a release
+ *  function (a no-op when this call re-entered a lock already held in-process).
+ *  Throws a fail-closed refusal — naming the resume command — when another
+ *  LIVE process holds it. */
+function acquireDriveLock(runDir, runId) {
+    const lock = driveLockPath(runDir);
+    const key = path.resolve(lock);
+    if (HELD_DRIVE_LOCKS.has(key))
+        return () => { };
+    fs.mkdirSync(runDir, { recursive: true });
+    const pid = process.pid;
+    const body = `${pid}@${new Date().toISOString()}\n`;
+    const refuse = (ownerPid) => new Error(`Run ${runId} is already being driven by another process (pid ${ownerPid || "unknown"}). ` +
+        `Wait for it to finish, or if it has crashed remove ${lock}, then resume: cw run resume ${runId} --drive`);
+    let acquired = false;
+    // A live owner refuses at once; only a stealable (dead-owner / own-leak) lock
+    // loops to re-acquire, so this never hot-spins for a genuinely busy run.
+    for (let attempt = 0; attempt < 3 && !acquired; attempt++) {
+        const tmp = `${lock}.${pid}.${attempt}.tmp`;
+        try {
+            fs.writeFileSync(tmp, body, { mode: 0o600 });
+            fs.linkSync(tmp, lock);
+            acquired = true;
+        }
+        catch (error) {
+            if (!(error && typeof error === "object" && error.code === "EEXIST")) {
+                throw error;
+            }
+            const ownerPid = readDriveLockPid(lock);
+            // Stealable: our own leaked lock, or an owner that is no longer alive.
+            if (ownerPid === pid || !driveLockOwnerAlive(ownerPid)) {
+                try {
+                    fs.unlinkSync(lock);
+                }
+                catch {
+                    /* another process took it first — the next attempt re-judges */
+                }
+                continue;
+            }
+            throw refuse(ownerPid);
+        }
+        finally {
+            try {
+                fs.unlinkSync(tmp);
+            }
+            catch {
+                /* the link consumed it, or it is already gone */
+            }
+        }
+    }
+    if (!acquired)
+        throw refuse(readDriveLockPid(lock));
+    HELD_DRIVE_LOCKS.add(key);
+    return () => {
+        HELD_DRIVE_LOCKS.delete(key);
+        try {
+            // Release only while we still own it (a force-stale steal by a later
+            // process must not have its lock removed by us).
+            if (fs.readFileSync(lock, "utf8").startsWith(`${pid}@`))
+                fs.rmSync(lock, { force: true });
+        }
+        catch {
+            /* already released/removed */
+        }
+    };
+}
+/** Run `fn` while holding the run-scoped drive mutex (see the block comment
+ *  above); always released, even on throw. Synchronous callers (drive()). */
+function withDriveLock(runDir, runId, fn) {
+    const release = acquireDriveLock(runDir, runId);
+    try {
+        return fn();
+    }
+    finally {
+        release();
+    }
+}
+/** Async form of `withDriveLock` — releases only AFTER `fn`'s promise
+ *  settles, so driveAsync()'s awaited multi-round loop stays inside the lock
+ *  for its whole lifetime. */
+async function withDriveLockAsync(runDir, runId, fn) {
+    const release = acquireDriveLock(runDir, runId);
+    try {
+        return await fn();
+    }
+    finally {
+        release();
+    }
 }
 /** state.json is the single source of truth — set `updatedAt`, then write
  *  it DURABLY with a lock so concurrent processes never lose an update. */
