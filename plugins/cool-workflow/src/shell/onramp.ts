@@ -336,8 +336,8 @@ export function resolveChangedFiles(options: ResolveChangedFilesOptions = {}): O
   const root = gitRoot(cwd);
   const baseRef = resolveBaseRef(root, options.changedFrom, options.env || process.env);
   const files = new Set<string>();
-  for (const file of gitLines(root, ["diff", "--name-only", baseRef, "--"])) files.add(normalizeChangedPath(file));
-  for (const file of gitLines(root, ["ls-files", "--others", "--exclude-standard"])) files.add(normalizeChangedPath(file));
+  for (const file of gitLinesOrThrow(root, ["diff", "--name-only", baseRef, "--"])) files.add(normalizeChangedPath(file));
+  for (const file of gitLinesOrThrow(root, ["ls-files", "--others", "--exclude-standard"])) files.add(normalizeChangedPath(file));
   return { baseRef, files: [...files].filter(Boolean).sort() };
 }
 
@@ -480,6 +480,23 @@ function gitRoot(cwd: string): string {
 function gitLines(cwd: string, args: string[]): string[] {
   const result = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   if (result.status !== 0) return [];
+  return String(result.stdout || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
+/** Same as gitLines, but a failed git invocation THROWS instead of silently
+ *  becoming []. resolveChangedFiles must never mistake "git could not run
+ *  this diff" for "there is nothing to diff" -- that turns a transient git
+ *  failure into a vacuous onramp-contract pass (a 2026-07-12 security audit
+ *  finding: a broken base ref or a git error made the changed-file set
+ *  empty, and an empty set has no issues, so the gate reported ok:true on a
+ *  real, unseen change). Callers that WANT a soft fallback (merge-base
+ *  probing, optional discovery) should keep using gitLines/gitOne. */
+function gitLinesOrThrow(cwd: string, args: string[]): string[] {
+  const result = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  if (result.error) throw new Error(`onramp: git ${args.join(" ")} failed to run: ${result.error.message}`);
+  if (result.status !== 0) {
+    throw new Error(`onramp: git ${args.join(" ")} exited ${result.status} -- cannot resolve changed files (fail closed, not treated as zero changes): ${String(result.stderr || "").trim()}`);
+  }
   return String(result.stdout || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 

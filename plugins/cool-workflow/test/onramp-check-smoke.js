@@ -23,6 +23,8 @@
 // the onramp gate back (Phase B). Do not weaken to force green.
 
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
@@ -160,6 +162,44 @@ function contract(files) {
   assert.ok(Array.isArray(report.onramp.recommendedChecks.commands));
   assert.ok(report.onramp.recommendedChecks.commands.some((command) => command.includes("npm run test:fast")));
   assert.equal(typeof report.onramp.contract.ok, "boolean");
+}
+
+// A git error mid-way through resolveChangedFiles must fail closed, not read
+// as "zero changed files". `HEAD` resolves fine (git rev-parse does not touch
+// the index), but `git diff --name-only HEAD --` needs the index, so pointing
+// GIT_INDEX_FILE at a broken file makes ref resolution pass and the diff step
+// fail on its own -- this is the exact path that used to turn a real git
+// error into a false "ok:true" (2026-07-12 security audit finding). Before
+// the fix, onramp-check.js printed changedFiles: [] and ok:true here and
+// exited 0; after the fix it must exit non-zero with a clear message.
+{
+  const badIndex = path.join(os.tmpdir(), `onramp-check-smoke-bad-index-${process.pid}`);
+  fs.writeFileSync(badIndex, "not a real git index\n");
+  let threw = false;
+  let combinedOutput = "";
+  try {
+    execFileSync(process.execPath, [
+      path.join(pluginRoot, "scripts", "onramp-check.js"),
+      "--changed-from",
+      "HEAD",
+      "--check"
+    ], {
+      cwd: pluginRoot,
+      encoding: "utf8",
+      env: { ...process.env, GIT_INDEX_FILE: badIndex },
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+  } catch (error) {
+    threw = true;
+    combinedOutput = `${error.stdout || ""}${error.stderr || ""}`;
+  } finally {
+    fs.rmSync(badIndex, { force: true });
+  }
+  assert.ok(threw, "onramp-check must fail closed (non-zero exit) when a git command it needs cannot run, not report ok:true on an empty change set");
+  assert.ok(
+    /cannot resolve changed files/.test(combinedOutput),
+    `error should explain the git command failed, got: ${combinedOutput}`
+  );
 }
 
 process.stdout.write("onramp-check-smoke: ok\n");
