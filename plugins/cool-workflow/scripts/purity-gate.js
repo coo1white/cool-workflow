@@ -112,8 +112,12 @@ function stripComments(text) {
 
 // Every `from "spec"` (import or export-from, type or value — a type-only
 // import still names a module, so it counts the same way a real dependency
-// scan would) plus every `require("spec")`. Non-greedy across `from` finds
-// each import's own clause without needing a real parser.
+// scan would) plus every `require("spec")` and every dynamic `import("spec")`.
+// Non-greedy across `from` finds each import's own clause without needing a
+// real parser. The dynamic-import form matters because a core/ file could
+// otherwise smuggle in an impure or cross-layer module through
+// `await import("node:fs")` — the one import shape the static and require
+// scans did not see, so the ratchet was blind to it.
 function extractSpecifiers(codeText) {
   const specs = [];
   const fromRe = /(?:^|\n)\s*(?:import|export)\s[\s\S]*?from\s+["']([^"']+)["']/g;
@@ -121,6 +125,8 @@ function extractSpecifiers(codeText) {
   while ((m = fromRe.exec(codeText))) specs.push(m[1]);
   const requireRe = /require\(\s*["']([^"']+)["']\s*\)/g;
   while ((m = requireRe.exec(codeText))) specs.push(m[1]);
+  const dynamicImportRe = /import\(\s*["']([^"']+)["']\s*\)/g;
+  while ((m = dynamicImportRe.exec(codeText))) specs.push(m[1]);
   return specs;
 }
 
@@ -236,4 +242,11 @@ function main() {
   process.stdout.write("purity gate: src/ matches the committed baseline (no new core/shell layer breaks, no clock/env drift).\n");
 }
 
-main();
+// Run the gate only when invoked directly (node scripts/purity-gate.js). When
+// required by a test, expose the internal helpers so the specifier scan can be
+// unit-checked without shelling out or writing into the real src/ tree.
+if (require.main === module) {
+  main();
+}
+
+module.exports = { stripComments, extractSpecifiers, layerOf, scan };
