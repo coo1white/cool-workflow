@@ -169,6 +169,19 @@ export function importRun(exportPath: string, targetDir: string): ImportResult {
   if (!isContainedPath(runDir, runsRoot)) {
     throw new Error(`Run id escapes the runs directory: ${JSON.stringify(raw.run.id)}`);
   }
+  // Validate the run shape BEFORE the deref and before any dir/file is written.
+  // A truncated archive can be missing run.paths (or carry non-string
+  // runDir/cwd); without this guard the deref throws a raw TypeError, or a
+  // present-but-shapeless paths half-restores the run dir with a broken rebase.
+  // Fail closed as an invalid archive instead.
+  if (
+    !raw.run.paths ||
+    typeof raw.run.paths !== "object" ||
+    typeof raw.run.paths.runDir !== "string" ||
+    typeof raw.run.cwd !== "string"
+  ) {
+    throw new Error("Invalid run export: run.paths.runDir and run.cwd must be strings");
+  }
   const oldRunDir = raw.run.paths.runDir;
   const oldCwd = raw.run.cwd;
   const paths = createRunPaths(runDir);
@@ -382,7 +395,7 @@ function reportSectionEmbedsResult(reportMd: string, taskId: string, expected: s
  *  (with the bundle's embedded public key) the ed25519 signatures.
  *  Never throws — every failure is a structured check and a false `ok`.
  *
- *  Key precedence is bundle > argument > environment. */
+ *  Key precedence is argument > bundle > environment. */
 export function verifyReportBundle(archivePath: string, options: VerifyReportBundleOptions = {}): ReportBundleVerification {
   const inspect = inspectArchive(archivePath);
   const failedChecks: Array<{ name: string; code?: string }> = inspect.checks.filter((check) => !check.pass).map((check) => ({ name: check.name, code: check.code }));
@@ -423,8 +436,36 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
     /* inspect already recorded the parse failure; treat key as absent */
   }
 
-  const trustKeySource: TrustKeySource = bundleKey ? "bundle" : options.pubkey ? "argument" : process.env.CW_AGENT_ATTEST_PUBKEY ? "environment" : "none";
-  const trustKey = resolveTrustPublicKey(bundleKey || options.pubkey || process.env.CW_AGENT_ATTEST_PUBKEY);
+  // Key precedence: an explicit operator --pubkey/options.pubkey WINS over a
+  // bundle-embedded key. A bundle carries its own key so it verifies OFFLINE,
+  // but that key must never OVERRIDE a key the operator pinned by hand — else a
+  // bundle re-signed with an attacker's OWN key (and embedding that key) would
+  // verify green against itself. When the operator pins a key AND the bundle
+  // embeds a DIFFERENT one, fail closed with a clear trust-key-mismatch rather
+  // than silently trusting the bundle's own key.
+  const resolvedArg = resolveTrustPublicKey(options.pubkey);
+  const resolvedBundle = resolveTrustPublicKey(bundleKey);
+  const resolvedEnv = resolveTrustPublicKey(process.env.CW_AGENT_ATTEST_PUBKEY);
+  let trustKey: string | undefined;
+  let trustKeySource: TrustKeySource;
+  let trustKeyConflict = false;
+  if (options.pubkey) {
+    trustKey = resolvedArg;
+    trustKeySource = "argument";
+    if (resolvedArg && resolvedBundle && normalizePem(resolvedArg) !== normalizePem(resolvedBundle)) {
+      trustKeyConflict = true;
+      failedChecks.push({ name: "trust-key", code: "trust-key-mismatch" });
+    }
+  } else if (bundleKey) {
+    trustKey = resolvedBundle;
+    trustKeySource = "bundle";
+  } else if (process.env.CW_AGENT_ATTEST_PUBKEY) {
+    trustKey = resolvedEnv;
+    trustKeySource = "environment";
+  } else {
+    trustKey = undefined;
+    trustKeySource = "none";
+  }
 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-verify-bundle-"));
   let telemetryVerified = false;
@@ -506,7 +547,7 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
     schemaVersion: 1,
     archivePath,
     runId: inspect.runId,
-    ok: inspect.ok && telemetryVerified && trustAuditVerified && signaturesFailed === 0 && reportFindingsOk && !strictShortfall && !extractShortfall && !unsignedShortfall,
+    ok: inspect.ok && telemetryVerified && trustAuditVerified && signaturesFailed === 0 && reportFindingsOk && !strictShortfall && !extractShortfall && !unsignedShortfall && !trustKeyConflict,
     archiveOk: inspect.ok,
     telemetryVerified,
     trustAuditVerified,
@@ -759,6 +800,13 @@ function toArchivePath(value: string): string {
 
 function safeArchiveBasename(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]/g, "_") || "artifact";
+}
+
+/** Compare two PEM public keys byte-for-byte after dropping whitespace, so a
+ *  benign line-wrap or trailing-newline difference does not read as a key
+ *  change, but a truly different key (different base64 body) does. */
+function normalizePem(pem: string | undefined): string {
+  return (pem || "").replace(/\s+/g, "");
 }
 
 function messageOf(error: unknown): string {
