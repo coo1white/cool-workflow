@@ -413,20 +413,25 @@ function lintRegistry() {
 }
 /**
  * Compare the declared registry against the ACTUAL surfaces and report every
- * fail-closed gap. `mcpTools` is the live `tools/list` result; `cliTokens` is the
- * set of `case "<token>"` strings parsed from the CLI source.
+ * fail-closed gap. `mcpTools` is the live `tools/list` result. `cliTokens` is
+ * optional test input for an independent token source; the table-driven live
+ * gate leaves it out and probes dispatcher reachability instead.
  */
 function buildParityReport(input) {
     const declaredTools = new Set((0, registry_core_1.declaredMcpTools)());
     const actualTools = new Set(input.mcpTools);
     const declaredTokens = new Set(declaredCliTokens());
-    const actualTokens = new Set(input.cliTokens);
+    const actualTokens = new Set(input.cliTokens || []);
     const declaredHelpTokens = new Set(declaredCliHelpTokens());
     const actualHelpTokens = new Set(input.helpTokens || []);
     const missingMcpTools = [...declaredTools].filter((tool) => !actualTools.has(tool)).sort();
     const undeclaredMcpTools = [...actualTools].filter((tool) => !declaredTools.has(tool)).sort();
-    const missingCliTokens = [...declaredTokens].filter((token) => !actualTokens.has(token)).sort();
-    const undeclaredCliTokens = [...actualTokens].filter((token) => !declaredTokens.has(token)).sort();
+    const missingCliTokens = input.cliTokens
+        ? [...declaredTokens].filter((token) => !actualTokens.has(token)).sort()
+        : [];
+    const undeclaredCliTokens = input.cliTokens
+        ? [...actualTokens].filter((token) => !declaredTokens.has(token)).sort()
+        : [];
     const helpMissingCliTokens = input.helpTokens
         ? [...declaredHelpTokens].filter((token) => !actualHelpTokens.has(token)).sort()
         : [];

@@ -8,9 +8,9 @@
 //
 // FAIL CLOSED ON DRIFT (BSD discipline, same shape as gen-manifests --check):
 //   1. STATIC parity — the declared capability registry must exactly match the
-//      live MCP tool list (tools/list) and the CLI dispatch tokens parsed from
-//      the built CLI dispatch surface. A tool or command on one surface but not
-//      the other, or not declared in src/capability-registry.ts, is release-blocking.
+//      live MCP tool list (tools/list), every declared CLI path must resolve
+//      through the live dispatcher, and real `cw help` must match the declared
+//      help surface. Any gap is release-blocking.
 //   2. PAYLOAD parity — for every capability declared `payloadIdentical`, the
 //      `cw <cmd> --json` payload must equal the `cw_<tool>` MCP result on a real
 //      bootstrap run (whitespace + generation-moment ISO timestamps aside).
@@ -38,7 +38,6 @@ const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 const registry = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
-const { formatHelp } = require(path.join(pluginRoot, "dist", "core", "format", "help.js"));
 const { loadRunFromCwd, saveCheckpoint } = require(path.join(pluginRoot, "dist", "shell", "run-store.js"));
 const { appendRunNode, createStateNode } = require(path.join(pluginRoot, "dist", "core", "state", "state-node.js"));
 
@@ -71,15 +70,6 @@ function liveMcpTools() {
   return JSON.parse(line).result.tools.map((tool) => tool.name);
 }
 
-function cliDispatchTokens() {
-  // v2 dispatch is table-driven (findCapabilityByCliPath over REGISTRY), not a
-  // switch, so the token set is the union of every CLI capability's accepted
-  // first tokens (cli.caseTokens where an alias set is declared, else cli.path).
-  // The reachability check below then proves each declared path resolves through
-  // the live dispatcher — replacing the old `case "x":` dist source-grep.
-  return [...new Set(registry.cliCapabilities().flatMap((cap) => cap.cli.caseTokens ?? cap.cli.path))];
-}
-
 // Old-build top-level verbs kept in the frozen help "More commands" index line
 // but folded in v2 into subcommands / the shell layer: init->app.init,
 // search->run.search (declaredCliHelpTokens collapses both to app/run), and
@@ -87,8 +77,8 @@ function cliDispatchTokens() {
 // discovery text, not dispatch-parity tokens — exclude them.
 const HELP_INDEX_ONLY_TOKENS = new Set(["init", "search", "update"]);
 
-function cliHelpTokens() {
-  const lines = formatHelp().split(/\r?\n/);
+function cliHelpTokens(helpText) {
+  const lines = helpText.split(/\r?\n/);
   const tokens = new Set();
   for (const line of lines) {
     // Command lines start with exactly 2 spaces; examples are 4-space.
@@ -102,6 +92,29 @@ function cliHelpTokens() {
     }
   }
   return [...tokens].sort();
+}
+
+function liveCliHelpTokens() {
+  const helpText = execFileSync(node, [cli, "help", "--no-color"], {
+    cwd: pluginRoot,
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" }
+  });
+  return cliHelpTokens(helpText);
+}
+
+/** The CLI dispatcher calls this same lookup. Keep the probe outside the
+ * registry report so the live gate does not compare a token list made from the
+ * registry with another list made from the same registry. */
+function cliReachabilityIssues(table) {
+  const issues = [];
+  for (const cap of table.cliCapabilities()) {
+    const resolved = table.findCapabilityByCliPath(cap.cli.path);
+    if (!resolved || !resolved.cli || typeof resolved.cli.handler !== "function") {
+      issues.push(`${cap.capability}: CLI path ${cap.cli.path.join(" ")} does not resolve through the dispatcher`);
+    }
+  }
+  return issues;
 }
 
 // ---- 2. payload identity ---------------------------------------------------
@@ -907,9 +920,11 @@ async function payloadParity() {
 async function main() {
   const check = process.argv.includes("--check");
   const tools = liveMcpTools();
-  const tokens = cliDispatchTokens();
-  const helpTokens = cliHelpTokens();
-  const report = registry.buildParityReport({ mcpTools: tools, cliTokens: tokens, helpTokens });
+  const helpTokens = liveCliHelpTokens();
+  const report = registry.buildParityReport({ mcpTools: tools, helpTokens });
+  const reachabilityIssues = cliReachabilityIssues(registry);
+  report.registryLint.push(...reachabilityIssues);
+  report.ok = report.ok && reachabilityIssues.length === 0;
   const payload = await payloadParity();
 
   const ok = report.ok && payload.mismatches.length === 0;
@@ -940,13 +955,17 @@ async function main() {
     if (report.payloadProbeInvalidClassifications.length) lines.push(`  - payload probe classifications for invalid capabilities: ${report.payloadProbeInvalidClassifications.join(", ")}`);
     if (report.registryLint.length) lines.push(`  - registry lint: ${report.registryLint.join("; ")}`);
     if (payload.mismatches.length) lines.push(`  - cw --json != cw_<tool> payload for: ${payload.mismatches.join(", ")}`);
-    lines.push("Reconcile src/capability-registry.ts, cli.ts, and mcp-server.ts so both surfaces render one data source.\n");
+    lines.push("Reconcile src/wiring/capability-table, src/cli, and src/mcp so both surfaces render one data source.\n");
     process.stderr.write(lines.join("\n"));
     process.exitCode = 1;
   }
 }
 
-main().catch((error) => {
-  process.stderr.write(`parity-check: ${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = 1;
-});
+module.exports = { cliHelpTokens, cliReachabilityIssues };
+
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`parity-check: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  });
+}

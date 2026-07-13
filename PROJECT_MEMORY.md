@@ -305,10 +305,9 @@ stays separate: it parks ideas that serve no North Star track.
 
 ## Next Run
 
-- The next code cycle is independent CLI proof in the parity gate. See
+- The next code cycle moves run directory IO from `core` to `shell`. See
   `docs/ARCHITECTURE_PLAN.md`.
-- After that, move run directory IO from `core` to `shell`, then add the
-  one-definition-per-domain schema version check.
+- After that, add the one-definition-per-domain schema version check.
 - The chime scope item in "In-flight relay" is operator work. It is separate
   from the code roadmap.
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`
