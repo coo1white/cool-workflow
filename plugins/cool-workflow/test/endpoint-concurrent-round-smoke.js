@@ -95,6 +95,20 @@ const FIVE_HUNDRED_RUNNER = `
   s.listen(0, "127.0.0.1", () => process.stdout.write("PORT:" + s.address().port + "\\n"));
 `;
 
+// Echoes the RAW request body back as stdout, so the caller can prove the POST
+// body it sent survived the child's stdin decode byte-for-byte (multibyte guard).
+const ECHO_RUNNER = `
+  const http = require("http");
+  const s = http.createServer((req, res) => {
+    const chunks = []; req.on("data", (c) => chunks.push(c)); req.on("end", () => {
+      const body = Buffer.concat(chunks).toString("utf8");
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ exitCode: 0, stdout: body }));
+    });
+  });
+  s.listen(0, "127.0.0.1", () => process.stdout.write("PORT:" + s.address().port + "\\n"));
+`;
+
 async function main() {
   // ---- 0. prepareEndpointJob shape --------------------------------------------
   {
@@ -166,6 +180,25 @@ async function main() {
     assert.deepEqual(runEndpointBatchOutcomes([]), [], "empty endpoint batch settles to []");
   }
 
+  // ---- 3b. MULTIBYTE stdin round-trip (the child must decode utf8 across pipe
+  //          chunk boundaries, not coerce each raw Buffer chunk on its own). A
+  //          large multibyte body crosses ≥1 ~64KB stdin chunk boundary, so a
+  //          non-utf8 reader would corrupt it (U+FFFD); the echo runner proves
+  //          the POSTed body survived byte-for-byte. -------------------------------
+  {
+    const runner = await startRunner(ECHO_RUNNER);
+    try {
+      const endpoint = `http://127.0.0.1:${runner.port}`;
+      const body = JSON.stringify({ prompt: "中".repeat(80000) }); // ~240KB, all multibyte
+      const settled = runEndpointBatchOutcomes([{ endpoint, job: body, timeoutMs: 6000 }]);
+      assert.ok(!settled[0].spawnError, `multibyte job settled cleanly (got: ${settled[0].spawnError})`);
+      assert.equal(settled[0].exitCode, 0, "multibyte job exit 0");
+      assert.equal(settled[0].stdout, body, "the POSTed multibyte body round-trips byte-for-byte (no chunk-boundary corruption)");
+    } finally {
+      runner.kill();
+    }
+  }
+
   // ---- 4. PREPARED-OUTCOME settle through runAgentEndpoint (no re-spawn) --------
   {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-endpoint-settle-"));
@@ -188,8 +221,11 @@ async function main() {
       assert.ok(fs.existsSync(resultPath), "settle wrote result.md as transport");
       assert.ok(fs.readFileSync(resultPath, "utf8").includes("HELLO_FROM_ENDPOINT"), "result.md carries the endpoint body");
 
-      // spawnError from the batch => a delegation-failed refusal, not a completion.
-      const bad = runBackend({
+      // A per-job HTTP spawnError => the SAME refusal wording a serial run records
+      // for the same failure (`agent endpoint error: <msg>`, from runAgentEndpoint's
+      // serial `parsed.error` branch), never a completion. This locks the parity
+      // the concurrent path promises.
+      const badHttp = runBackend({
         schemaVersion: 1,
         cwd: pluginRoot,
         sandboxPolicy: ro,
@@ -197,10 +233,27 @@ async function main() {
         backendId: "agent",
         manifest: { resultPath: path.join(dir, "none.md"), prompt: "do it" },
         delegation: { endpoint: "http://127.0.0.1:9/never-called", model: "m" },
-        preparedAgentOutcome: { spawnError: "runner responded 503", exitCode: null, stdout: "" },
+        preparedAgentOutcome: { spawnError: "runner responded 500", exitCode: null, stdout: "" },
       });
-      assert.equal(bad.status, "refused", "a prepared endpoint spawnError refuses");
-      assert.ok((bad.result.summary || "").includes("agent endpoint delegation failed"), `refusal names the endpoint failure (got: ${bad.result.summary})`);
+      assert.equal(badHttp.status, "refused", "a prepared endpoint HTTP spawnError refuses");
+      assert.ok((badHttp.result.summary || "").includes("agent endpoint error: runner responded 500"), `concurrent HTTP-failure reason matches the serial wording (got: ${badHttp.result.summary})`);
+      assert.ok(!/agent endpoint delegation failed/.test(badHttp.result.summary || ""), "an HTTP failure does NOT use the process-level 'delegation failed' wording");
+
+      // A whole-batch-child process failure (reconcileBatchOutcomes' fallback,
+      // prefixed `batch delegate failed:`) maps to the serial `child.error`
+      // wording instead.
+      const badProc = runBackend({
+        schemaVersion: 1,
+        cwd: pluginRoot,
+        sandboxPolicy: ro,
+        label: "endpoint-settle-proc-fail",
+        backendId: "agent",
+        manifest: { resultPath: path.join(dir, "none2.md"), prompt: "do it" },
+        delegation: { endpoint: "http://127.0.0.1:9/never-called", model: "m" },
+        preparedAgentOutcome: { spawnError: "batch delegate failed: spawn ENOMEM", exitCode: null, stdout: "" },
+      });
+      assert.equal(badProc.status, "refused", "a prepared batch-process failure refuses");
+      assert.ok((badProc.result.summary || "").includes("agent endpoint delegation failed: batch delegate failed:"), `process-failure uses the delegation-failed wording (got: ${badProc.result.summary})`);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

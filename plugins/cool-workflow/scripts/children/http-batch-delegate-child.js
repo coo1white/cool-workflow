@@ -105,7 +105,12 @@ async function runOne(entry) {
 }
 
 (async () => {
-  const read = () => new Promise((res) => { let b = ""; process.stdin.on("data", (c) => { if (b.length < MAX_STDIN_BYTES) b += c; }); process.stdin.on("end", () => res(b)); });
+  // setEncoding("utf8") (as batch-delegate-child.js does), NOT `b += <Buffer>`:
+  // without it each data chunk is a raw Buffer coerced to a string on its own, so
+  // a multibyte char split across a ~64KB pipe-chunk boundary decodes to U+FFFD
+  // and the POSTed prompt is silently corrupted. With the encoding set, Node's
+  // StringDecoder carries partial bytes across chunk boundaries.
+  const read = () => new Promise((res) => { let b = ""; process.stdin.setEncoding("utf8"); process.stdin.on("data", (c) => { if (b.length < MAX_STDIN_BYTES) b += c; }); process.stdin.on("end", () => res(b)); });
   let jobs;
   try {
     jobs = JSON.parse((await read()) || "[]");

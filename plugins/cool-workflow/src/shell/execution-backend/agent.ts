@@ -694,11 +694,23 @@ function runAgentEndpoint(
   if (request.preparedAgentOutcome) {
     const prep = request.preparedAgentOutcome;
     if (prep.spawnError) {
-      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint delegation failed: ${prep.spawnError}`, {
+      // Match the SERIAL path's refusal wording so a concurrent round records the
+      // same reason bytes as a serial one. A per-job HTTP failure (non-2xx, poll,
+      // timeout, no exitCode) is the serial `{error}` branch — `agent endpoint
+      // error:`. A whole-batch-child process failure surfaces as
+      // reconcileBatchOutcomes' `batch delegate failed:` fallback — the serial
+      // analog is `child.error` — `agent endpoint delegation failed:`.
+      const summary = prep.spawnError.startsWith("batch delegate failed:")
+        ? `agent endpoint delegation failed: ${prep.spawnError}`
+        : `agent endpoint error: ${prep.spawnError}`;
+      return refusedEnvelope(descriptor, policy, label, "delegation-failed", summary, {
         ...attestation,
         handle: baseHandle,
       });
     }
+    // Defensive: the batch child always pairs a null exitCode with a spawnError,
+    // so this is unreachable in practice — kept as a fail-closed backstop with
+    // the same wording the serial no-exitCode refusal uses.
     if (typeof prep.exitCode !== "number") {
       return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint error: no exitCode reported`, {
         ...attestation,
