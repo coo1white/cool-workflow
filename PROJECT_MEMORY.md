@@ -305,17 +305,20 @@ stays separate: it parks ideas that serve no North Star track.
 
 ## Next Run
 
-- Start with "In-flight relay" above (one open item: chime scoping).
+- The next code cycle is independent CLI proof in the parity gate. See
+  `docs/ARCHITECTURE_PLAN.md`.
+- After that, move run directory IO from `core` to `shell`, then add the
+  one-definition-per-domain schema version check.
+- The chime scope item in "In-flight relay" is operator work. It is separate
+  from the code roadmap.
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`
   for the automated 1→6 path on a CW-shaped repo. Use `--profile-file` for
   non-CW repositories.
-- Next acceleration target: run or instrument the remaining Assess/Verify/Verdict
-  phases, then add opt-in Assess caching only if those summaries dominate the
-  foreground wait.
-- After Assess caching, use narrow source profiles before inventing a more
-  complex context mechanism: `mcp`, `workflow-apps`, `release`, and
-  `agent-wrappers` are much smaller than `core`; `runtime` intentionally carries
-  the full `src/**` kernel.
+- Map, Assess, Verify, and Verdict now have opt-in result cache use. Do not add
+  another context or cache mechanism without new measured need.
+- Use narrow source profiles before a more complex context mechanism: `mcp`,
+  `workflow-apps`, `release`, and `agent-wrappers` are much smaller than
+  `core`; `runtime` carries the full `src/**` kernel on purpose.
 - For incremental review, prefer `--changed-from origin/main` plus a narrow
   profile. Treat the changed JSONL as an overlay, not a replacement for a full
   audit when broad architectural context is required.
