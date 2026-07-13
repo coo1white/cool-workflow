@@ -31,6 +31,17 @@
 //      proves reconcileBatchOutcomes only ever decodes one line (bounded by
 //      the delegate's own per-job cap) at a time, so it never approaches
 //      that ceiling no matter how large the combined batch output gets.
+//   4. Integration-level, UTF-8 chunk-boundary guard: the delegate child's
+//      stdout "data" handler used to run `chunk.toString()` on each raw
+//      chunk in isolation. When a multi-byte UTF-8 character's bytes were
+//      split across two separate stdout reads (a real possibility on any
+//      OS pipe), each half decoded to a REPLACEMENT CHARACTER (U+FFFD)
+//      instead of the real character — silent corruption of recorded agent
+//      output. A single job writes a 3-byte character split across two
+//      delayed writes; the test asserts the recovered stdout is the exact
+//      original string, proving the fix (a per-job StringDecoder that
+//      buffers an incomplete trailing sequence across chunk boundaries)
+//      reassembles the character correctly.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -249,12 +260,48 @@ function unitLevelPastV8StringLimit() {
   console.log("batch-output-overflow-smoke: reconcileBatchOutcomes survives combined output past V8's per-string limit ok");
 }
 
+function writeUtf8SplitStub(file) {
+  // Writes the FIRST 2 bytes of a 3-byte UTF-8 character (U+4E2D "中":
+  // 0xE4 0xB8 0xAD), then — after a real async delay so the OS pipe
+  // delivers it as a SEPARATE "data" event — writes the final byte plus a
+  // trailing ASCII marker "A" and exits. This reliably straddles a chunk
+  // boundary mid-character.
+  const lines = [
+    'const zhong = Buffer.from([0xE4, 0xB8, 0xAD]);',
+    "fs.writeSync(1, zhong.subarray(0, 2));",
+    "setTimeout(() => {",
+    "  const rest = Buffer.concat([zhong.subarray(2), Buffer.from('A', 'utf8')]);",
+    "  fs.writeSync(1, rest);",
+    "  process.exit(0);",
+    "}, 20);"
+  ];
+  fs.writeFileSync(file, ['const fs = require("fs");', ...lines].join("\n"), "utf8");
+  return file;
+}
+
+function integrationLevelUtf8ChunkBoundary() {
+  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-utf8-")));
+  try {
+    const stub = writeUtf8SplitStub(path.join(work, "utf8-stub.js"));
+    const jobs = [{ binary: process.execPath, args: [stub], cwd: work, timeoutMs: 10000 }];
+    const settled = runAgentBatchOutcomes(jobs);
+    assert.equal(settled.length, 1, "outcomes stay index-aligned for a single-job batch");
+    assert.equal(settled[0].exitCode, 0, "the utf8-split job exits 0");
+    assert.equal(settled[0].spawnError, undefined, "the utf8-split job carries no spawnError");
+    assert.equal(settled[0].stdout, "中" + "A", "a multi-byte char split across a chunk boundary reassembles intact, not as replacement chars");
+    console.log("batch-output-overflow-smoke: a UTF-8 char split across a stdout chunk boundary reassembles intact ok");
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
 function main() {
   unitLevelReconciliation();
   integrationLevelLargeOutput();
   integrationLevelCapExceeded();
   integrationLevelEscapedLineCap();
   unitLevelPastV8StringLimit();
+  integrationLevelUtf8ChunkBoundary();
   console.log("batch-output-overflow-smoke: ok (streamed NDJSON recovers per-job outcomes even under batch-level failure)");
 }
 
