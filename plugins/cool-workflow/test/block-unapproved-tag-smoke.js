@@ -202,6 +202,21 @@ assert.equal(runHook({ command: "ls -la" }).code, 0, "unrelated command must be 
   assert.equal(runHook({ command: "git tag --list 'v*'" }).code, 0, "git tag --list must stay allowed");
 }
 
+// ---- ReDoS regression: TAG_RE's flag/argument group must not exhibit
+// exponential backtracking on a long run of dash-prefixed tokens. A many-`-!`
+// command with no real "tag" (CodeQL's exact repro shape) must be judged
+// (allowed, since it never actually matches) well within a hard deadline —
+// the vulnerable pattern took hundreds of ms at 34 tokens and grows
+// exponentially past that; a real command line can be far longer. ----
+{
+  const evil = { command: "git " + "-! ".repeat(200) + "not-tag" };
+  const start = Date.now();
+  const r = runHook(evil);
+  const elapsedMs = Date.now() - start;
+  assert.equal(r.code, 0, "a long dash-token run with no real tag command must be allowed, not misjudged");
+  assert.ok(elapsedMs < 2000, `TAG_RE must stay near-linear time, took ${elapsedMs}ms for 200 tokens`);
+}
+
 // ---- Verdict signing (opt-in): once .cw-release/verdict-signing.pub is
 // committed, an APPROVED verdict with no valid signature must also block ----
 const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");

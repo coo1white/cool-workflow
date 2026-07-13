@@ -54,7 +54,17 @@ function main(input) {
   //   PUSH_RE: `git push … (--mirror | --tags | refs/tags | [quote]vN)` — adds
   //            --mirror (pushes all refs incl. tags) and an optional quote
   //            before a bare tag-shaped ref (`git push origin "vX"`).
-  const TAG_RE = /git(\s+-\S+(\s+\S+)?)*\s+tag\s+(\S+\s+)*["']?v[0-9]/;
+  //
+  // TAG_RE's global-flag group requires its optional argument token to NOT
+  // start with `-` (`[^\s-]\S*`, not a bare `\S+`). Without that restriction a
+  // run of N dash-prefixed tokens (`-a -b -c ...`) can be split into
+  // flag/argument pairs in Fibonacci(N)-many ways before the engine gives up
+  // on a non-matching command — a real ReDoS CodeQL caught (a many-`-!`
+  // input hung the match). Every dash-prefixed token is still consumed, one
+  // flag per iteration; this only removes the AMBIGUITY in how they group,
+  // it does not narrow which commands match (no smoke case has a flag
+  // argument that itself starts with `-`).
+  const TAG_RE = /git(\s+-\S+(\s+[^\s-]\S*)?)*\s+tag\s+(\S+\s+)*["']?v[0-9]/;
   const PUSH_RE = /git\s+push\b.*(--mirror|--tags|refs\/tags|\s["']?v[0-9])/;
   if (!TAG_RE.test(CMD) && !PUSH_RE.test(CMD)) return 0;
 
