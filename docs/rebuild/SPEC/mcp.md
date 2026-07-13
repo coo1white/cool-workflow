@@ -334,7 +334,7 @@ Core errors (bad run id, gate refusals, and so on) come through the same `-32000
 
 73 = 7 `global` + 23 `run` + 43 `scenario` probe targets (src/capability-registry.ts:600-680). With `--check` and drift, stderr starts `CLI <-> MCP parity drift detected (release-blocking):`, lists each gap as `  - <rule>: <names>`, ends with `Reconcile src/capability-registry.ts, cli.ts, and mcp-server.ts so both surfaces render one data source.\n`, and the exit code is 1 (scripts/parity-check.js:912-929). Any thrown error prints `parity-check: <message>` to stderr and exits 1 (scripts/parity-check.js:932-935).
 
-### `scripts/gen-manifests.js` stdout (scripts/gen-manifests.js:220)
+### `scripts/gen-manifests.js` stdout (scripts/gen-manifests.js:164-203)
 
 ```json
 { "ok": true, "mode": "write", "results": [ { "path": ".claude-plugin/marketplace.json", "status": "written" }, ... ] }
@@ -348,7 +348,13 @@ In `--check` mode each result is `{ "path": ..., "ok": true|false, "status": "in
 Run `npm run gen:manifests` and commit the result.
 ```
 
-and the exit code is 1 (scripts/gen-manifests.js:222-229).
+and the exit code is 1 (scripts/gen-manifests.js:187-194).
+
+The `vendors` object is required and has to be non-empty. Every vendor has a
+non-empty `outputs` array, and every resolved output has a path and a JSON
+object. Bad source stops before the write loop, writes no stdout data, writes
+`gen-manifests: <message>` to stderr, and exits 1
+(scripts/gen-manifests.js:111-154,197-203).
 
 ## Files on disk
 
@@ -360,7 +366,7 @@ Hand-edited. Holds `identity` (name/version/license/homepage/author/keywords), `
 
 ### Generated vendor manifests (do NOT hand-edit)
 
-12 outputs, repo-root-relative, written as `JSON.stringify(json, null, 2) + "\n"` (scripts/gen-manifests.js:191-193):
+12 outputs, repo-root-relative, written as `JSON.stringify(json, null, 2) + "\n"` (scripts/gen-manifests.js:156-182):
 
 | Vendor | Files |
 | --- | --- |
@@ -443,7 +449,9 @@ Every vendor `mcp.json` has the same shape; only the path variable changes:
 - `cw_routine_fire` uses `args.payload || args` — with no `payload`, the whole args bag is the event payload (src/mcp/tool-call.ts:422).
 - Registry dedupe: `CAPABILITY_REGISTRY` is built through a `Map` keyed by capability id, so a repeated declaration is not a silent dead row — the LAST one wins (src/capability-registry.ts:592-594).
 - Manifest templates: an unresolved `{{expr}}` marker stays as the literal string; a whole-string marker resolves to the real JS value (object/array), not a string; `|lowercase` is the only transformer; `{{pluginRootVar}}` resolves to the vendor's `pluginRootVar`; object KEYS may hold markers too (`"{{mcp.serverName}}"` -> `"cool-workflow"`) (scripts/gen-manifests.js:52-107).
-- `gen-manifests` keeps a legacy build path for a source with no `vendors` key (scripts/gen-manifests.js:113-115,134-178).
+- `gen-manifests` has one source shape. A missing, empty, or bad `vendors`
+  object is refused before any output file is written
+  (scripts/gen-manifests.js:111-154).
 - The parity CLI-token scan reads `case "<token>":` strings from `dist/cli.js`, `dist/cli/command-surface.js`, AND every `dist/cli/handlers/*.js`, so a subcommand `case` in a carved-out handler module still counts as live (scripts/parity-check.js:66-81).
 - The parity payload probe realpath-resolves its temp workspace so a symlinked tmpdir does not read as a payload divergence (scripts/parity-check.js:842-844).
 
