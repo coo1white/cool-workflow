@@ -44,7 +44,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureRunDirs = exports.createRunPaths = void 0;
+exports.createRunPaths = void 0;
+exports.ensureRunDirs = ensureRunDirs;
 exports.hashArtifactFile = hashArtifactFile;
 exports.loadRunStateFile = loadRunStateFile;
 exports.checkRunStateFile = checkRunStateFile;
@@ -63,9 +64,32 @@ const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const run_paths_1 = require("../core/state/run-paths");
 Object.defineProperty(exports, "createRunPaths", { enumerable: true, get: function () { return run_paths_1.createRunPaths; } });
-Object.defineProperty(exports, "ensureRunDirs", { enumerable: true, get: function () { return run_paths_1.ensureRunDirs; } });
 const migrations_1 = require("../core/state/migrations");
 const hash_1 = require("../core/hash");
+/** `mkdirSync` (recursive) every dir this run needs. Missing optional dir
+ *  fields fall back to `path.join(runDir, "<name>")`, matching the old
+ *  build's defensive default (a RunPaths loaded from an old/partial
+ *  state.json may be missing an optional key). */
+function ensureRunDirs(paths) {
+    const dirs = [
+        paths.runDir,
+        paths.tasksDir,
+        paths.resultsDir,
+        paths.dispatchesDir,
+        paths.artifactsDir,
+        paths.commitsDir,
+        paths.stateNodesDir,
+        paths.feedbackDir,
+        paths.auditDir || path.join(paths.runDir, "audit"),
+        paths.workersDir || path.join(paths.runDir, "workers"),
+        paths.candidatesDir || path.join(paths.runDir, "candidates"),
+        paths.multiAgentDir || path.join(paths.runDir, "multi-agent"),
+        paths.blackboardDir || path.join(paths.runDir, "blackboard"),
+        paths.topologiesDir || path.join(paths.runDir, "topologies"),
+    ];
+    for (const dir of dirs)
+        fs.mkdirSync(dir, { recursive: true });
+}
 /** Read the file at artifact.path and stamp sha256 (the core `sha256:`+hex
  *  form) + sizeBytes onto the StateArtifact. A missing/unreadable file is
  *  silently skipped so hashing an absent artifact never throws. Byte-exact
@@ -393,7 +417,7 @@ function compactCheckpoint(run) {
  *  same primitive. */
 function createRun(runDir, runId, workflowId, cwd) {
     const paths = (0, run_paths_1.createRunPaths)(runDir);
-    (0, run_paths_1.ensureRunDirs)(paths);
+    ensureRunDirs(paths);
     const seed = {
         id: runId,
         cwd,

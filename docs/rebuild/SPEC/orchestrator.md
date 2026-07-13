@@ -452,7 +452,7 @@ Every claim above carries an inline `file:line` pointer relative to `plugins/coo
 - Report bytes and `RunSummary`: src/orchestrator/report.ts:24-397.
 - Option coercers and their errors: src/orchestrator/cli-options.ts:17-271.
 - Domain modules: src/orchestrator/app-operations.ts:22-225, audit-operations.ts:30-200, candidate-operations.ts:20-119, collaboration-operations.ts:27-134, feedback-operations.ts:8-48, host-operations.ts:9-47, migration-operations.ts:9-38, multi-agent-operations.ts:22-336, topology-operations.ts:9-51.
-- One level out (relied on): src/state.ts:10-91, 114-121 (`createRunPaths`, `ensureRunDirs`, `loadRunFromCwd`, `saveCheckpoint`, `readJson`).
+- One level out (relied on): `core/state/run-paths.ts` (`createRunPaths`) and `shell/run-store.ts` (`ensureRunDirs`, `loadRunFromCwd`, `saveCheckpoint`).
 - Contract doc: docs/cli-mcp-parity.7.md (parity gate; `--json` payload = MCP payload for `payloadIdentical` capabilities).
 
 ## Pinned by tests

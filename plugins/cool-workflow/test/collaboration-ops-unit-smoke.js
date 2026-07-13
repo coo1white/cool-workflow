@@ -51,7 +51,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { createRunPaths, ensureRunDirs } = require("../dist/core/state/run-paths");
+const { createRunPaths, ensureRunDirs } = require("../dist/shell/run-store");
 const {
   recordApproval,
   recordComment,

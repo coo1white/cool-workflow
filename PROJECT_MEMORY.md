@@ -305,9 +305,8 @@ stays separate: it parks ideas that serve no North Star track.
 
 ## Next Run
 
-- The next code cycle moves run directory IO from `core` to `shell`. See
-  `docs/ARCHITECTURE_PLAN.md`.
-- After that, add the one-definition-per-domain schema version check.
+- The next code cycle adds the one-definition-per-domain schema version check.
+  See `docs/ARCHITECTURE_PLAN.md`.
 - The chime scope item in "In-flight relay" is operator work. It is separate
   from the code roadmap.
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`

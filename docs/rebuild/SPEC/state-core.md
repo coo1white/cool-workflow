@@ -15,8 +15,8 @@ The durable run-state kernel: the `.cw/runs/<id>/` on-disk layout, atomic and du
 
 ### `src/state.ts` — persistence kernel
 
-- `createRunPaths(runDir)` — returns a `RunPaths` object with 16 keys: `runDir`, `state` (`state.json`), `report` (`report.md`), `tasksDir`, `resultsDir`, `dispatchesDir`, `artifactsDir`, `commitsDir`, `stateNodesDir` (`nodes`), `feedbackDir`, `auditDir`, `workersDir`, `candidatesDir`, `multiAgentDir` (`multi-agent`), `blackboardDir`, `topologiesDir`. All joined under `runDir` (src/state.ts:10-29).
-- `ensureRunDirs(paths)` — `mkdirSync` with `recursive: true` on `runDir` plus the 14 sub-dirs; missing optional dir fields fall back to `path.join(runDir, "<name>")` (src/state.ts:31-50).
+- `createRunPaths(runDir)` — returns a `RunPaths` object with 16 keys: `runDir`, `state` (`state.json`), `report` (`report.md`), `tasksDir`, `resultsDir`, `dispatchesDir`, `artifactsDir`, `commitsDir`, `stateNodesDir` (`nodes`), `feedbackDir`, `auditDir`, `workersDir`, `candidatesDir`, `multiAgentDir` (`multi-agent`), `blackboardDir`, `topologiesDir`. All joined under `runDir` (`core/state/run-paths.ts:13-33`).
+- `ensureRunDirs(paths)` — the shell uses `mkdirSync` with `recursive: true` on `runDir` plus the 13 sub-dirs; missing optional dir fields fall back to `path.join(runDir, "<name>")` (`shell/run-store.ts:23-45`).
 - `loadRunFromCwd(runId, cwd = process.cwd())` — refuses an empty id with `Missing run id`; runs `assertSafeRunId`; loads `<cwd>/.cw/runs/<runId>/state.json` through `loadRunStateFile` with `dryRun: true`; throws `Unsupported CW run state: <errors joined by "; ">` when the report status is `unsupported`; else returns the migrated `WorkflowRun` in memory (never writes) (src/state.ts:52-61).
 - `loadRunStateFile(statePath, { dryRun? })` — `readJson` then `migrateRunState`; `dryRun` defaults to `true` (src/state.ts:63-70).
 - `checkRunStateFile(statePath)` — same as load with `dryRun: true` (src/state.ts:72-74).
