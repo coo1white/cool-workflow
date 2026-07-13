@@ -1,0 +1,2 @@
+APPROVED 4ed908af43dc3aba01304fd59cc11cf90facec12
+MCP clients now receive real typed tool-input schemas with required-field lists, when-to-use behavior hints, and protocol-version negotiation, and a drive round can run its endpoint agents concurrently via --concurrency.
