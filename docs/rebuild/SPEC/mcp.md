@@ -328,11 +328,17 @@ Core errors (bad run id, gate refusals, and so on) come through the same `-32000
     "payloadProbeInvalidClassifications": [],
     "registryLint": []
   },
-  "payload": { "ok": true, "runId": "<bootstrap run id>", "checked": 73, "capabilities": ["..."], "mismatches": [] }
+  "payload": { "ok": true, "runId": "<bootstrap run id>", "checked": 74, "capabilities": ["..."], "mismatches": [] }
 }
 ```
 
-73 = 7 `global` + 23 `run` + 43 `scenario` probe targets (src/capability-registry.ts:600-680). With `--check` and drift, stderr starts `CLI <-> MCP parity drift detected (release-blocking):`, lists each gap as `  - <rule>: <names>`, ends with `Reconcile src/capability-registry.ts, cli.ts, and mcp-server.ts so both surfaces render one data source.\n`, and the exit code is 1 (scripts/parity-check.js:912-929). Any thrown error prints `parity-check: <message>` to stderr and exits 1 (scripts/parity-check.js:932-935).
+The payload report has 74 targets. With `--check` and drift, stderr starts
+`CLI <-> MCP parity drift detected (release-blocking):`, lists each gap as
+`  - <rule>: <names>`, ends with `Reconcile src/wiring/capability-table,
+src/cli, and src/mcp so both surfaces render one data source.\n`, and exits 1
+(scripts/parity-check.js:920-960). Any thrown error prints
+`parity-check: <message>` to stderr and exits 1
+(scripts/parity-check.js:966-970).
 
 ### `scripts/gen-manifests.js` stdout (scripts/gen-manifests.js:164-203)
 
@@ -416,7 +422,11 @@ Every vendor `mcp.json` has the same shape; only the path variable changes:
 
 ## Invariants and error behavior
 
-1. ONE registry drives both front doors. Every live MCP tool must be declared in `CAPABILITY_REGISTRY`, and every declared tool must be live; same for CLI `case` tokens and `cw help` lines. Any gap makes `buildParityReport().ok` false and `parity-check --check` exit 1 (src/capability-registry.ts:980-1031; scripts/parity-check.js:890-929).
+1. ONE registry drives both front doors. Every live MCP tool must be declared
+   and every declared tool must be live. Every declared CLI path must resolve
+   through the dispatcher, and real `cw help` must agree with the declared
+   help surface. Any gap makes `parity-check --check` exit 1
+   (scripts/parity-check.js:58-118,920-960).
 2. Payload identity: a `surface: "both"` capability without a documented opt-out must give back the same canonical JSON from `cw <cmd> --json` and from `cw_<tool>` — only whitespace and ISO timestamps of the form `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z` are set aside (scripts/parity-check.js:104-106). Scenario probes also set aside temp workspace roots, run ids, `durationMs`, dispatch ids, snapshot/replay ids, `sha256:` digests, and 64-char hex (scripts/parity-check.js:116-133).
 3. An opt-out from the payload probe needs BOTH `payloadIdentical: false` AND a non-empty `reason`. A bare `payloadIdentical: false` stays in scope so the gap trips the gate — fail closed (src/capability-registry.ts:903-905). A `cli-only`/`mcp-only` or payload-divergent capability with no `reason` is itself release-blocking (`reasonlessExceptions`, src/capability-registry.ts:995-999).
 4. Probe classification is itself gated: every payload-identical capability must be named exactly once as `global`, `run`, or `scenario` probe, or deferred with a reason; unclassified, duplicate, or invalid names fail the gate (src/capability-registry.ts:932-945).
@@ -452,7 +462,10 @@ Every vendor `mcp.json` has the same shape; only the path variable changes:
 - `gen-manifests` has one source shape. A missing, empty, or bad `vendors`
   object is refused before any output file is written
   (scripts/gen-manifests.js:111-154).
-- The parity CLI-token scan reads `case "<token>":` strings from `dist/cli.js`, `dist/cli/command-surface.js`, AND every `dist/cli/handlers/*.js`, so a subcommand `case` in a carved-out handler module still counts as live (scripts/parity-check.js:66-81).
+- The parity gate does not make its live CLI proof from registry tokens. It
+  runs real `cw help` and checks each declared CLI path with the same
+  `findCapabilityByCliPath` lookup used by the dispatcher
+  (scripts/parity-check.js:73-118).
 - The parity payload probe realpath-resolves its temp workspace so a symlinked tmpdir does not read as a payload divergence (scripts/parity-check.js:842-844).
 
 ## Evidence

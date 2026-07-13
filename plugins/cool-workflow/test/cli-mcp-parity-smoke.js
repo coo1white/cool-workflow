@@ -31,15 +31,11 @@ const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 // payloadIdenticalCapabilities, buildPayloadProbePlan, isPayloadProbeOptOut,
 // payloadProbeTargets, declaredCliHelpTokens, requiresReason) is now ported
 // onto capability-table, so parts 1-3 below run against the real v2 table.
-// ONE mechanism had to be adapted (see cliDispatchTokens): the old build
-// resolved CLI dispatch through a switch statement, so this smoke reconstructed
-// the dispatchable token set by grepping dist for `case "x":` literals. v2 is
-// table-driven (findCapabilityByCliPath over REGISTRY, no switch arms), so that
-// grep is obsolete — the token set is now derived from the capability table AND
-// each is proven actually dispatchable via findCapabilityByCliPath. The INTENT
-// (every registry CLI token is dispatchable, and vice versa) is unchanged.
+// v2 is table-driven. The live gate proves each declared path through the
+// dispatcher lookup and reads real `cw help`; it does not use a token list made
+// from the registry as proof of that same registry.
 const registry = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
-const { formatHelp } = require(path.join(pluginRoot, "dist", "core", "format", "help.js"));
+const { cliHelpTokens, cliReachabilityIssues } = require(path.join(pluginRoot, "scripts", "parity-check.js"));
 
 function liveMcpToolDefinitions() {
   const out = execFileSync(node, [mcpServer], {
@@ -49,18 +45,6 @@ function liveMcpToolDefinitions() {
   });
   const line = out.trim().split("\n").find((entry) => entry.includes('"tools"'));
   return JSON.parse(line).result.tools;
-}
-
-function cliDispatchTokens() {
-  // v2 dispatch is table-driven: the set of tokens the CLI actually accepts is
-  // exactly the union of every CLI capability's accepted first tokens
-  // (cli.caseTokens where an alias set is declared, else cli.path). This is the
-  // real v2 source of truth, replacing the old build's `case "x":` source-grep.
-  // The `while` loop below (reachability probe) then proves each declared path
-  // truly resolves through the live dispatcher.
-  return [...new Set(
-    registry.cliCapabilities().flatMap((cap) => cap.cli.caseTokens ?? cap.cli.path)
-  )];
 }
 
 // Old-build top-level verbs kept in the frozen help "More commands" index line
@@ -75,20 +59,13 @@ function cliDispatchTokens() {
 // will fail. Keep it out.
 const HELP_INDEX_ONLY_TOKENS = new Set(["init", "search"]);
 
-function cliHelpTokens() {
-  const lines = formatHelp().split(/\r?\n/);
-  const tokens = new Set();
-  for (const line of lines) {
-    if (!line.startsWith("  ") || line.startsWith("    ")) continue;
-    const trimmed = line.trim();
-    if (!trimmed || !/^[a-z]/.test(trimmed)) continue;
-    const first = trimmed.split(/\s+/)[0];
-    for (const token of first.split("|")) {
-      const clean = token.replace(/[<[].*$/, "");
-      if (clean && !HELP_INDEX_ONLY_TOKENS.has(clean)) tokens.add(clean);
-    }
-  }
-  return [...tokens].sort();
+function liveCliHelpTokens() {
+  const helpText = execFileSync(node, [cli, "help", "--no-color"], {
+    cwd: pluginRoot,
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" }
+  });
+  return cliHelpTokens(helpText).filter((token) => !HELP_INDEX_ONLY_TOKENS.has(token));
 }
 
 function canonical(value) {
@@ -127,23 +104,14 @@ function openMcp() {
   const tools = liveMcpToolDefinitions();
   const toolNames = tools.map((tool) => tool.name);
   const toolByName = new Map(tools.map((tool) => [tool.name, tool]));
-  const tokens = cliDispatchTokens();
-  const helpTokens = cliHelpTokens();
-  const report = registry.buildParityReport({ mcpTools: toolNames, cliTokens: tokens, helpTokens });
+  const explicitTestTokens = registry.declaredCliTokens();
+  const helpTokens = liveCliHelpTokens();
+  const report = registry.buildParityReport({ mcpTools: toolNames, helpTokens });
+  const reachabilityIssues = cliReachabilityIssues(registry);
+  report.registryLint.push(...reachabilityIssues);
+  report.ok = report.ok && reachabilityIssues.length === 0;
   assert.ok(report.ok, `registry <-> surface drift: ${JSON.stringify(report)}`);
-  // Reachability probe: deriving cliTokens from the table would be a
-  // registry-vs-itself tautology on its own, so also prove every declared CLI
-  // capability actually RESOLVES through the live table-driven dispatcher
-  // (findCapabilityByCliPath) — the v2 equivalent of the old switch-arm check.
-  // A few rows intentionally share a 2-token dispatch prefix with a sibling
-  // (their sub-action is a positional the handler reads), so assert a row
-  // resolves, not that it resolves to this exact capability.
-  for (const cap of registry.cliCapabilities()) {
-    assert.ok(
-      registry.findCapabilityByCliPath(cap.cli.path) !== undefined,
-      `CLI capability ${cap.capability} (path ${cap.cli.path.join(" ")}) must resolve through the dispatcher`
-    );
-  }
+  assert.deepEqual(reachabilityIssues, [], "every declared CLI path resolves through the live dispatcher");
   assert.equal(report.registryLint.length, 0, "registry lint must be clean");
   assert.deepEqual(report.helpMissingCliTokens, [], "all registry top-level commands must be in cw help");
   assert.deepEqual(report.helpUndeclaredCliTokens, [], "cw help must not list undeclared commands");
@@ -443,32 +411,32 @@ function openMcp() {
 
   // ---- 3. fail closed on injected drift -----------------------------------
   // extra MCP tool on the server that the registry never declared.
-  const extraTool = registry.buildParityReport({ mcpTools: [...toolNames, "cw_phantom_tool"], cliTokens: tokens, helpTokens });
+  const extraTool = registry.buildParityReport({ mcpTools: [...toolNames, "cw_phantom_tool"], cliTokens: explicitTestTokens, helpTokens });
   assert.equal(extraTool.ok, false, "undeclared MCP tool must fail closed");
   assert.ok(extraTool.undeclaredMcpTools.includes("cw_phantom_tool"));
 
   // a declared MCP tool missing from the server.
-  const missingTool = registry.buildParityReport({ mcpTools: toolNames.filter((tool) => tool !== "cw_status"), cliTokens: tokens, helpTokens });
+  const missingTool = registry.buildParityReport({ mcpTools: toolNames.filter((tool) => tool !== "cw_status"), cliTokens: explicitTestTokens, helpTokens });
   assert.equal(missingTool.ok, false, "MCP tool missing from server must fail closed");
   assert.ok(missingTool.missingMcpTools.includes("cw_status"));
 
   // an undeclared CLI dispatch token.
-  const extraCli = registry.buildParityReport({ mcpTools: toolNames, cliTokens: [...tokens, "phantomcommand"], helpTokens });
+  const extraCli = registry.buildParityReport({ mcpTools: toolNames, cliTokens: [...explicitTestTokens, "phantomcommand"], helpTokens });
   assert.equal(extraCli.ok, false, "undeclared CLI token must fail closed");
   assert.ok(extraCli.undeclaredCliTokens.includes("phantomcommand"));
 
   // a declared CLI token missing from dispatch.
-  const missingCli = registry.buildParityReport({ mcpTools: toolNames, cliTokens: tokens.filter((token) => token !== "worker"), helpTokens });
+  const missingCli = registry.buildParityReport({ mcpTools: toolNames, cliTokens: explicitTestTokens.filter((token) => token !== "worker"), helpTokens });
   assert.equal(missingCli.ok, false, "CLI token missing from dispatch must fail closed");
   assert.ok(missingCli.missingCliTokens.includes("worker"));
 
   // help drift: a declared top-level command missing from help, or help listing
   // an undeclared command, must fail closed too.
-  const missingHelp = registry.buildParityReport({ mcpTools: toolNames, cliTokens: tokens, helpTokens: helpTokens.filter((token) => token !== "quickstart") });
+  const missingHelp = registry.buildParityReport({ mcpTools: toolNames, cliTokens: explicitTestTokens, helpTokens: helpTokens.filter((token) => token !== "quickstart") });
   assert.equal(missingHelp.ok, false, "help missing a registry command must fail closed");
   assert.ok(missingHelp.helpMissingCliTokens.includes("quickstart"));
 
-  const extraHelp = registry.buildParityReport({ mcpTools: toolNames, cliTokens: tokens, helpTokens: [...helpTokens, "phantomhelp"] });
+  const extraHelp = registry.buildParityReport({ mcpTools: toolNames, cliTokens: explicitTestTokens, helpTokens: [...helpTokens, "phantomhelp"] });
   assert.equal(extraHelp.ok, false, "help listing an undeclared command must fail closed");
   assert.ok(extraHelp.helpUndeclaredCliTokens.includes("phantomhelp"));
 

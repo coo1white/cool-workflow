@@ -463,11 +463,11 @@ The shared arg helpers (`required`, `optionalArg`, `wantsJson`) live in
 `src/core/util/cli-args.ts`, a pure module used by the CLI and MCP sides of
 every wiring slice; they were moved out of `cli/io.ts` because the purity
 gate's layer rule says `wiring/` may not take imports from `cli/`. The parity
-scanner works the same way: `cliDispatchTokens()` gets the live token list
-straight from the registry's CLI capabilities (`cli.caseTokens` when a row
-names more than one first token, else `cli.path`), then makes sure each
-declared path resolves through the live dispatcher — there is no grep over
-built dispatch source.
+gate does not use a token list made from the registry as proof of that same
+registry. It runs real `cw help`, checks every declared CLI path through the
+dispatcher lookup used by `dispatch(args)`, reads MCP `tools/list` from a live
+server, and runs CLI-process to MCP payload probes. There is no grep over built
+dispatch source.
 
 `test/cli-mcp-parity-smoke.js` proves the contract from end to end. It checks
 registry ⇄ CLI ⇄ MCP coverage (every declared capability is found on its declared

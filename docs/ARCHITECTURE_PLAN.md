@@ -36,7 +36,7 @@ The old rebuild work packages are history. They are not work to do again.
 
 ### 1. Independent CLI Proof in the Parity Gate
 
-Status: next code cycle.
+Status: complete in the independent parity proof cycle.
 
 The top-level parity gate must not use a CLI token list made from the registry
 as proof that the same CLI rows are live.
@@ -53,7 +53,7 @@ public CLI and MCP surfaces stay byte-identical.
 
 ### 2. Run Directory IO in Shell
 
-Status: after parity proof.
+Status: next code cycle.
 
 `core/state/run-paths.ts` must do path math only.
 

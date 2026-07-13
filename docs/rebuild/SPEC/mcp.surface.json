@@ -2183,7 +2183,7 @@
   {
     "kind": "behavior",
     "id": "parity.probe_plan",
-    "behavior": "73 payload probes: 7 global, 23 run-scoped, 43 scenario; every payload-identical capability must be classified exactly once or deferred with a reason, else the gate fails.",
+    "behavior": "74 payload probes: 7 global, 24 run-scoped, 43 scenario; every payload-identical capability must be classified exactly once or deferred with a reason, else the gate fails.",
     "evidence": "src/capability-registry.ts:600-806",
     "tests": [
       "test/cli-mcp-parity-smoke.js"
@@ -2219,31 +2219,35 @@
   {
     "kind": "behavior",
     "id": "parity.cli_token_scan",
-    "behavior": "The gate parses live CLI tokens as case \"<token>\": strings from dist/cli.js, dist/cli/command-surface.js, and every dist/cli/handlers/*.js.",
-    "evidence": "scripts/parity-check.js:66-81",
-    "tests": []
+    "behavior": "The live gate runs real cw help and checks every declared CLI path through the dispatcher lookup; it does not use a token list made from the registry as proof of the same registry.",
+    "evidence": "scripts/parity-check.js:73-118",
+    "tests": [
+      "test/cli-mcp-parity-smoke.js",
+      "test/parity-cli-reachability-smoke.js"
+    ]
   },
   {
     "kind": "command",
     "id": "node scripts/parity-check.js",
-    "behavior": "Print the parity report JSON {ok,static,payload}; boots the real server for tools/list and runs the 73 payload probes on temp workspaces.",
-    "evidence": "scripts/parity-check.js:890-910",
+    "behavior": "Print the parity report JSON {ok,static,payload}; boots the real server for tools/list and runs the 74 payload probes on temp workspaces.",
+    "evidence": "scripts/parity-check.js:920-942",
     "tests": [
-      "test/cli-mcp-parity-smoke.js"
+      "test/cli-mcp-parity-smoke.js",
+      "test/parity-cli-reachability-smoke.js"
     ]
   },
   {
     "kind": "flag",
     "id": "parity-check --check",
-    "behavior": "Exit 1 on ANY drift; stderr starts \"CLI <-> MCP parity drift detected (release-blocking):\" and ends \"Reconcile src/capability-registry.ts, cli.ts, and mcp-server.ts so both surfaces render one data source.\".",
-    "evidence": "scripts/parity-check.js:912-929",
+    "behavior": "Exit 1 on ANY drift; stderr starts \"CLI <-> MCP parity drift detected (release-blocking):\" and ends \"Reconcile src/wiring/capability-table, src/cli, and src/mcp so both surfaces render one data source.\".",
+    "evidence": "scripts/parity-check.js:944-960",
     "tests": []
   },
   {
     "kind": "exit_code",
     "id": "parity-check exit 1 on error",
     "behavior": "Any thrown error prints \"parity-check: <message>\" to stderr and exits 1.",
-    "evidence": "scripts/parity-check.js:932-935",
+    "evidence": "scripts/parity-check.js:966-970",
     "tests": []
   },
   {
