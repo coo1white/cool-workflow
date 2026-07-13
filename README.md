@@ -192,12 +192,11 @@ condition or a token budget says stop), and re-run fast — `cw run <app>
 
 ## Can You Trust the Report?
 
-CW does not run the model — it keeps the books. Your agent puts a signature
-(**ed25519**) on its findings, and `cw report verify-bundle` checks —
-**offline, with nothing but the public key** — that every signed finding is in
-the report unchanged. Edit a finding, in the report or in the agent's own
-result, and the check fails. CW holds no private key: the agent signs, CW only
-verifies.
+CW does not run the model — it keeps the books. Your agent signs its findings
+(**ed25519**), and `cw report verify-bundle` checks — **offline, with nothing
+but the public key** — that every signed finding is in the report unaltered.
+Edit a finding, in the report or in the agent's own result, and the check
+fails. CW holds no private key: the agent signs, CW only verifies.
 
 ```bash
 cw demo tamper                                  # proves it in 30s — edits a signed result, watch it fail
@@ -205,9 +204,9 @@ cw -q "…" --bundle                              # seal a run into one portable
 cw report verify-bundle report.cwrun.json       # anyone can re-check it offline, with just the file
 ```
 
-This proves the agent's **signed findings** reached you unchanged — not that
-nothing was added, and not that nothing was left out. For exactly what is and
-is not proven, see the **[Trust Model](plugins/cool-workflow/docs/trust-model.md)**.
+This proves the agent's **signed findings** reached you unaltered — not that
+nothing else was added, and not that nothing was left out. For exactly what is
+and is not proven, see the **[Trust Model](plugins/cool-workflow/docs/trust-model.md)**.
 
 ## Use It From Your Editor
 
@@ -238,8 +237,8 @@ Building on CW? See the [Getting Started doc](plugins/cool-workflow/docs/getting
 [Project Index](plugins/cool-workflow/docs/project-index.md), and
 [CLI ↔ MCP Parity](plugins/cool-workflow/docs/cli-mcp-parity.7.md).
 
-CW uses its own release process on itself — every cut runs the `release-cut`
-workflow against this repo.
+CW dogfoods its own release process — it runs its own tool on itself, and
+every cut runs the `release-cut` workflow against this repo.
 
 ## License
 
