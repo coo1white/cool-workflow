@@ -49,6 +49,7 @@ exports.realResolve = realResolve;
 exports.isContainedPath = isContainedPath;
 exports.durableAppendFileSync = durableAppendFileSync;
 exports.logEndsWithNewline = logEndsWithNewline;
+exports.nextBackoffMs = nextBackoffMs;
 exports.withFileLock = withFileLock;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
@@ -232,13 +233,20 @@ function logEndsWithNewline(file, size) {
 //
 // Lock file: `<targetPath>.lock`, created by hard-linking a per-attempt temp
 // file onto the lock path (single-winner `link(2)`), body `"<pid>@<ISO>\n"`.
-// Up to 240 tries; on EEXIST, a lock whose mtime is older than
-// FILE_LOCK_STALE_MS (30_000) is stolen — judged and deleted only while
-// holding the single-winner `<lock>.steal` guard (see
-// stealStaleLockUnderGuard) — and retried AT ONCE; else sleep 25ms
-// (Atomics.wait busy-safe sleep) and retry. Any non-EEXIST link error is
-// rethrown. No lock after 240 tries throws
-// `could not acquire file lock for <targetPath>`.
+// On EEXIST, a lock whose mtime is older than FILE_LOCK_STALE_MS (30_000) is
+// stolen — judged and deleted only while holding the single-winner
+// `<lock>.steal` guard (see stealStaleLockUnderGuard) — and retried AT ONCE
+// (so is a lock that vanished between the EEXIST and the stat). Otherwise the
+// thread sleeps a short, growing backoff (Atomics.wait busy-safe sleep:
+// FILE_LOCK_BACKOFF_BASE_MS doubling toward FILE_LOCK_BACKOFF_MAX_MS, with
+// jitter so many processes contending on ONE lock do not retry in lock-step)
+// and tries again. The WHOLE acquire is bounded by wall-clock, not a try
+// count: after FILE_LOCK_ACQUIRE_BUDGET_MS (~6s, kept well under the 30s steal
+// window so a fresh orphan lock fails fast rather than being waited out) with
+// no lock, it throws `could not acquire file lock for <targetPath>`. The tiny
+// early sleeps re-grab a briefly-held lock in a few ms; the wall-clock bound
+// (not the try count) is what keeps the worst case at ~6s. Any non-EEXIST
+// link error is rethrown.
 //
 // Right before fn() the lock mtime is refreshed (utimesSync, best-effort).
 // After fn() returns, the lock body is re-read: if it no longer starts with
@@ -258,14 +266,36 @@ const FILE_LOCK_FORCE_STALE_MS = FILE_LOCK_STALE_MS * 10;
 // guarded window (which is a handful of syscalls, microseconds for any live
 // process) — remove it so stealing cannot wedge forever.
 const FILE_LOCK_STEAL_GUARD_STALE_MS = FILE_LOCK_STALE_MS;
+// Acquire-retry pacing (all internal to withFileLock — no wire/protocol
+// meaning). The wall-clock BUDGET, not a fixed try count, bounds how long a
+// contended acquire blocks the calling thread; kept at ~6s so it stays well
+// under the 30s steal window (a fresh orphan lock is failed fast, not waited
+// out — a later command past 30s steals it). Between misses the thread sleeps
+// a backoff that starts at BASE and doubles to MAX, so a briefly-held lock is
+// re-grabbed in a few ms while a genuinely busy one is not hot-spun. Jitter on
+// each sleep (applied at the call site) de-syncs many contenders on one lock.
+// MAX_ATTEMPTS is only a loop-termination backstop for the (never-observed)
+// case of a clock that fails to advance; the budget is the real bound.
+const FILE_LOCK_ACQUIRE_BUDGET_MS = 6_000;
+const FILE_LOCK_BACKOFF_BASE_MS = 1;
+const FILE_LOCK_BACKOFF_MAX_MS = 50;
+const FILE_LOCK_MAX_ATTEMPTS = 10_000;
 // Lock paths this process holds right now. A nested withFileLock on the
 // SAME target runs its fn directly (re-entrant) instead of waiting on its
-// own lock file until the 240 tries run out — that lets a whole
+// own lock file until the acquire budget runs out — that lets a whole
 // load -> change -> save cycle hold one lock while the save path inside
 // it keeps its own withFileLock call unchanged.
 const HELD_LOCKS = new Set();
 function sleepSync(ms) {
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+/** Next backoff ceiling (ms) given the previous one: double it, capped at
+ *  FILE_LOCK_BACKOFF_MAX_MS. Pure and deterministic (the per-sleep jitter is
+ *  applied separately at the call site), so the retry schedule is
+ *  unit-testable without any timing. Exported for that test only — fs-atomic
+ *  is not part of the public index.ts surface. */
+function nextBackoffMs(previous) {
+    return Math.min(previous * 2, FILE_LOCK_BACKOFF_MAX_MS);
 }
 /** Whether the pid recorded in a lock body ("<pid>@<ISO>\n") is still a
  *  live process on this machine. Locks here are local-advisory only (no
@@ -406,7 +436,9 @@ function withFileLock(targetPath, fn) {
     fs.mkdirSync(path.dirname(lock), { recursive: true });
     const pid = String(process.pid);
     let acquired = false;
-    for (let attempt = 0; attempt < 240 && !acquired; attempt++) {
+    const deadline = Date.now() + FILE_LOCK_ACQUIRE_BUDGET_MS;
+    let backoff = FILE_LOCK_BACKOFF_BASE_MS;
+    for (let attempt = 0; attempt < FILE_LOCK_MAX_ATTEMPTS && !acquired; attempt++) {
         // Acquire via `linkSync`, not `open(lock, "wx")`: directly testing the
         // retry loop under contention showed `open(O_CREAT|O_EXCL)` is NOT
         // reliably single-winner on every Node version this runs on — under
@@ -452,16 +484,34 @@ function withFileLock(targetPath, fn) {
                 // The steal itself runs under a single-winner guard lock — see
                 // stealStaleLockUnderGuard for why judging staleness and deleting
                 // the lock without one can never be made safe from here.
-                if (stealStaleLockUnderGuard(lock, pid, attempt))
+                if (stealStaleLockUnderGuard(lock, pid, attempt)) {
+                    // Verdict rendered and the lock likely just freed — retry AT ONCE
+                    // and reset the backoff so we grab it before another waiter does.
+                    backoff = FILE_LOCK_BACKOFF_BASE_MS;
                     continue;
+                }
                 // Guard was busy — another process is mid-steal. Back off like
-                // ordinary contention instead of hot-spinning the attempt budget.
+                // ordinary contention instead of hot-spinning.
             }
         }
         catch {
+            // The lock vanished between the EEXIST and the stat — it is likely free
+            // now, so retry AT ONCE (no sleep) with a reset backoff.
+            backoff = FILE_LOCK_BACKOFF_BASE_MS;
             continue;
         }
-        sleepSync(25);
+        // Give up on wall-clock, never on a raw try count: this keeps the worst-
+        // case block at ~6s even though the per-sleep backoff grew. Bounding by a
+        // fixed try count instead (as the old flat-25ms loop's 240 tries did)
+        // would have let the growing backoff roughly double that worst case.
+        if (Date.now() >= deadline)
+            break;
+        // Sleep a jittered span in [BASE, backoff] — never 0, so never a busy
+        // spin — then grow the backoff toward the cap. The jitter de-syncs many
+        // processes contending on the SAME lock so they do not retry in lock-step.
+        const span = backoff - FILE_LOCK_BACKOFF_BASE_MS;
+        sleepSync(FILE_LOCK_BACKOFF_BASE_MS + Math.floor(Math.random() * (span + 1)));
+        backoff = nextBackoffMs(backoff);
     }
     if (!acquired)
         throw new Error(`could not acquire file lock for ${targetPath}`);
