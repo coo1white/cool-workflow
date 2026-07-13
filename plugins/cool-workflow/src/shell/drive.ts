@@ -38,6 +38,8 @@ import {
   incrementalDelegationDigest,
   defaultCacheKey,
   cacheFileName,
+  DRIVE_SCHEMA_VERSION,
+  MAX_SUB_WORKFLOW_DEPTH,
 } from "../core/pipeline/drive-decide";
 import {
   maxLoopExpansion,
@@ -108,8 +110,7 @@ function tokenBudgetUsage(run: WorkflowRun): { spent: number; budget: number } |
   return { spent: recordedTokenTotal(run), budget };
 }
 
-export const DRIVE_SCHEMA_VERSION = 1;
-export const MAX_SUB_WORKFLOW_DEPTH = 4;
+export { DRIVE_SCHEMA_VERSION, MAX_SUB_WORKFLOW_DEPTH } from "../core/pipeline/drive-decide";
 
 export interface DriveOptions {
   once?: boolean;

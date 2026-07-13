@@ -305,8 +305,10 @@ stays separate: it parks ideas that serve no North Star track.
 
 ## Next Run
 
-- The next code cycle adds the one-definition-per-domain schema version check.
-  See `docs/ARCHITECTURE_PLAN.md`.
+- The four code cycles in `docs/ARCHITECTURE_PLAN.md` are complete. Stop
+  inside-only structure work and prove Track A, then Track B, then Track C.
+- If a proof does not pass, make its first real blocker the one goal of the
+  next code cycle.
 - The chime scope item in "In-flight relay" is operator work. It is separate
   from the code roadmap.
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`

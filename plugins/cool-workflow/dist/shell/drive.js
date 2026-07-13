@@ -117,8 +117,9 @@ function tokenBudgetUsage(run) {
         return undefined;
     return { spent: recordedTokenTotal(run), budget };
 }
-exports.DRIVE_SCHEMA_VERSION = 1;
-exports.MAX_SUB_WORKFLOW_DEPTH = 4;
+var drive_decide_2 = require("../core/pipeline/drive-decide");
+Object.defineProperty(exports, "DRIVE_SCHEMA_VERSION", { enumerable: true, get: function () { return drive_decide_2.DRIVE_SCHEMA_VERSION; } });
+Object.defineProperty(exports, "MAX_SUB_WORKFLOW_DEPTH", { enumerable: true, get: function () { return drive_decide_2.MAX_SUB_WORKFLOW_DEPTH; } });
 function agentConfigured(config) {
     return Boolean(config.command || config.endpoint);
 }
@@ -433,8 +434,8 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
 }
 function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersist = false) {
     const parentApp = run.workflow.id;
-    if (ctx.depth + 1 > exports.MAX_SUB_WORKFLOW_DEPTH) {
-        return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${exports.MAX_SUB_WORKFLOW_DEPTH})`, deferPersist, deferPersist ? run : undefined);
+    if (ctx.depth + 1 > drive_decide_1.MAX_SUB_WORKFLOW_DEPTH) {
+        return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${drive_decide_1.MAX_SUB_WORKFLOW_DEPTH})`, deferPersist, deferPersist ? run : undefined);
     }
     if ([...ctx.visitedAppIds, parentApp].includes(spec.appId)) {
         return handleHop(ctx, selected, workerId, `sub-workflow cycle detected: ${[...ctx.visitedAppIds, parentApp, spec.appId].join(" -> ")}`, deferPersist, deferPersist ? run : undefined);
