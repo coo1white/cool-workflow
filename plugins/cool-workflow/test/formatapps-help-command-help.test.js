@@ -67,6 +67,45 @@ function noSuggestion() {
   assert.ok(/cw list\s+List bundled CW workflows\./.test(out), "the capability-table row's summary is rendered");
 }
 
+// UI/UX fix: a verb whose CliBinding declares `flags` gets a "Flags" block
+// after its row list ("doctor" is a single-row verb, so the block's own
+// header is bare "Flags", no command name repeated). The block's lines use
+// a WIDER indent than the row lines above them on purpose — same reason
+// formatHelp's own trailing note does — so the CLI/MCP parity help-token
+// parser (which reads only exactly-2-space lines as command tokens) skips
+// them.
+{
+  const out = formatCommandHelp("doctor", noSuggestion);
+  const lines = out.split("\n");
+  const rowLine = lines.find((l) => l.startsWith("  cw doctor "));
+  assert.ok(rowLine && !rowLine.startsWith("   "), "the row line itself keeps its plain 2-space indent");
+  const flagsHeaderIndex = lines.indexOf("    Flags");
+  assert.ok(flagsHeaderIndex > -1, "a bare 'Flags' header appears for a single-row flagged verb");
+  const onrampLine = lines.find((l) => l.includes("--onramp"));
+  assert.ok(onrampLine, "the --onramp flag is documented");
+  // The parity help-token parser (scripts/parity-check.js's cliHelpTokens)
+  // treats a line as a command token ONLY when it starts with exactly 2
+  // spaces (2-space indent, not 4+). This line must fail that test, i.e.
+  // NOT start with exactly 2 spaces — it must start with 4 or more.
+  const startsWithExactlyTwoSpaces = onrampLine.startsWith("  ") && !onrampLine.startsWith("    ");
+  assert.equal(startsWithExactlyTwoSpaces, false, "the --onramp line is NOT at the bare 2-space command-token indent");
+  assert.ok(lines.indexOf(onrampLine) > flagsHeaderIndex, "the --onramp line comes after the Flags header");
+}
+
+// Multi-row flagged verb ("ledger" — both propose and review declare their
+// own flags): each gets its own "Flags (cw ledger <sub>)" header so the
+// two flag sets are never merged into one ambiguous list.
+{
+  const out = formatCommandHelp("ledger", noSuggestion);
+  assert.ok(out.includes("\n    Flags (cw ledger propose)\n"), "propose gets its own labeled Flags header");
+  assert.ok(out.includes("\n    Flags (cw ledger review)\n"), "review gets its own labeled Flags header");
+  assert.ok(out.includes("--from AGENT/REPO"), "propose's --from flag is documented");
+  assert.ok(out.includes("--verdict approved|rejected"), "review's --verdict flag is documented");
+  const proposeIndex = out.indexOf("Flags (cw ledger propose)");
+  const reviewIndex = out.indexOf("Flags (cw ledger review)");
+  assert.ok(proposeIndex < reviewIndex, "propose's Flags block comes before review's (sorted command order)");
+}
+
 // Unknown verb with NO suggestion: never throws; soft 2-line message plus
 // the generic "Try: cw help" tip, no "Did you mean" line.
 {

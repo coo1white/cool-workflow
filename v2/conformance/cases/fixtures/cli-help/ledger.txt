@@ -6,3 +6,17 @@ cw ledger
   cw ledger propose  Build a verifiable cross-agent change proposal entry (printed as JSON).
   cw ledger review   Build a verifiable cross-agent review verdict entry (printed as JSON).
   cw ledger verify   Verify a ledger entry against its content digest (fail-closed on tampering).
+
+    Flags (cw ledger propose)
+      --from AGENT/REPO  Who is making the change.
+      --to AGENT/REPO    Who should get the change.
+      --title TEXT       A short name for the change.
+      --rationale TEXT   Why the change should happen.
+      --diff PATCH       The change as one diff file.
+
+    Flags (cw ledger review)
+      --from AGENT/REPO            Who is doing the review.
+      --to AGENT/REPO              Who made the change being reviewed.
+      --target ID                  The id of the proposal or PR to review.
+      --verdict approved|rejected  The result of the review.
+      --findings TEXT              Notes on what the review found.

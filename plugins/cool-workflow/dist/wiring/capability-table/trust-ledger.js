@@ -44,12 +44,34 @@ function loadReportCli() {
     path: ["ledger", "propose"],
     jsonMode: "default",
     handler: (args) => ({ json: loadLedgerCli().ledgerProposeCli(args.options) }),
+    // UI/UX fix: `cw help ledger` used to list only the one-line summary for
+    // each row, so a first-run user had no way to learn these flags without
+    // reading source. Real flag names verified against ledgerProposeCli's
+    // required()/stringOption() calls above.
+    flags: [
+        { name: "--from AGENT/REPO", summary: "Who is making the change." },
+        { name: "--to AGENT/REPO", summary: "Who should get the change." },
+        { name: "--title TEXT", summary: "A short name for the change." },
+        { name: "--rationale TEXT", summary: "Why the change should happen." },
+        { name: "--diff PATCH", summary: "The change as one diff file." },
+    ],
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.propose").mcp.handler = (args) => loadLedgerCli().ledgerProposeMcp(args);
 (0, registry_core_1.attachCliBinding)("ledger.review", {
     path: ["ledger", "review"],
     jsonMode: "default",
     handler: (args) => ({ json: loadLedgerCli().ledgerReviewCli(args.options) }),
+    // Real flag names verified against ledgerReviewCli's required()/
+    // stringOption() calls above — NOT the same flag set as ledger propose
+    // (this row needs --target/--verdict/--findings, not --title/
+    // --rationale/--diff).
+    flags: [
+        { name: "--from AGENT/REPO", summary: "Who is doing the review." },
+        { name: "--to AGENT/REPO", summary: "Who made the change being reviewed." },
+        { name: "--target ID", summary: "The id of the proposal or PR to review." },
+        { name: "--verdict approved|rejected", summary: "The result of the review." },
+        { name: "--findings TEXT", summary: "Notes on what the review found." },
+    ],
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.review").mcp.handler = (args) => loadLedgerCli().ledgerReviewMcp(args);
 (0, registry_core_1.attachCliBinding)("ledger.verify", {

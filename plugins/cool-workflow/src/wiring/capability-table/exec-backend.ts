@@ -173,6 +173,16 @@ addCliOnlyCapability(
       const text = wantsJson(args.options) ? undefined : args.options.fix ? `${doctor.formatDoctorFixes(report)}\n` : doctor.formatDoctorReport(report);
       return { json: report, text, exitCode: report.ok ? undefined : 1 };
     },
+    // UI/UX fix: `cw help doctor` used to list only the one-line summary
+    // above, so a first-run user had no way to learn these flags without
+    // reading source. Real flag names verified against this handler and
+    // the `runDoctor(args.options, ...)` call it makes (shell/doctor.ts).
+    flags: [
+      { name: "--onramp", summary: "Run the extra onramp checks (3-step quick start)." },
+      { name: "--fix", summary: "Print fix commands instead of the full report." },
+      { name: "--changed-from REF", summary: "Check the onramp only for the change since REF." },
+      { name: "--json", summary: "Print the report as JSON." },
+    ],
   },
   "Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`."
 );

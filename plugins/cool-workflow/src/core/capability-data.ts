@@ -124,6 +124,13 @@ export interface CliBinding {
    *  Declarative record of the accepted command words; the dispatch table
    *  routes each to this binding's handler. */
   caseTokens?: string[];
+  /** Optional per-flag help text for this command, one short true line
+   *  each. `core/format/help.ts`'s `formatCommandHelp` renders these as a
+   *  "Flags" block after the row list, ONLY for a verb that declares at
+   *  least one. Not required — most rows leave this unset and the row's
+   *  `summary` (on the owning `Capability`, not here) stays the only help
+   *  text, same as before this field existed. */
+  flags?: Array<{ name: string; summary: string }>;
 }
 
 /** A capability's MCP-facing binding. `requiredArgs` is a list of

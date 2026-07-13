@@ -26,5 +26,7 @@ function recoveryHint(message) {
         return "cw app list";
     if (m.includes("run id") || m.includes("run not found"))
         return "cw run list";
+    if (m.includes("missing required input") && m.includes("question"))
+        return 'cw -q "<question>"';
     return undefined;
 }
