@@ -49,7 +49,7 @@ This covers the MCP stdio JSON-RPC server, its 196 tools, the one CLI<->MCP capa
 - `CLAUDE_PLUGIN_ROOT` — not read by the server code itself; it is the path variable inside the generated Claude `.mcp.json` args (.mcp.json:6). Other vendors use `./` in its place (manifest/plugin.manifest.json:56,62,67,72,77).
 - `CW_AGENT_ATTEST_PUBKEY` — named in tool descriptions as the default trust key for `cw_run_export`, `cw_report_bundle`, `cw_telemetry_verify` (src/mcp/tool-definitions.ts:842,886; src/capability-registry.ts:537). The key handling itself lives in the core, not in this layer.
 
-### All 196 MCP tools
+### All 198 MCP tools
 
 Every input schema is `{ type: "object", properties: <below>, additionalProperties: true }`. Each property value is one of: `{ type: "string", description }`, `{ type: "number", description }`, `{ type: "boolean", description }`, `{ type: "object", description, additionalProperties: true }`, or `{ type: "array", description, items: {} }` (src/mcp/tool-definitions.ts:1035-1053). Two hand-written property values differ: `cw_commit.allowUnverifiedCheckpoint` is a plain `{ type: "boolean", description: "Write a non-gated checkpoint instead of committed state" }` (src/mcp/tool-definitions.ts:507) and `cw_routine_fire.payload` is `{ type: "object", description: "Event payload" }` with NO `additionalProperties` key (src/mcp/tool-definitions.ts:760).
 
@@ -80,7 +80,7 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_operator_report` | `operator.report` | `runId` | `runId` `cwd` | Refresh and read the structured Operator UX report summary. |
 | `cw_worker_summary` | `worker.summary` | `runId` | `runId` `cwd` | Read the structured worker summary for a run. |
 | `cw_workbench_view` | `workbench.view` | `runId` | `runId` `cwd` | Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit). |
-| `cw_workbench_serve` | `workbench.serve` | (none) | `cwd` `port` `scope` | Describe/serve the optional localhost-only, read-only Workbench host. |
+| `cw_workbench_serve` | `workbench.serve` | (none) | `cwd` `port` `scope` `requireToken` | Describe/serve the optional localhost-only, read-only Workbench host. |
 | `cw_candidate_summary` | `candidate.summary` | `runId` | `runId` `cwd` | Read the structured candidate summary for a run. |
 | `cw_feedback_summary` | `feedback.summary` | `runId` | `runId` `cwd` | Read the structured feedback summary for a run. |
 | `cw_commit_summary` | `commit.summary` | `runId` | `runId` `cwd` | Read the structured commit summary for a run. |
@@ -140,7 +140,8 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_coordinator_summary` | `coordinator.summary` | `runId` | `runId` `cwd` | Read the coordinator summary. |
 | `cw_coordinator_decision` | `coordinator.decision` | `runId` | `runId` `cwd` `id` `kind` `outcome` `reason` `subject` `evidence` `artifact` `message` | Record a coordinator decision. |
 | `cw_audit_summary` | `audit.summary` | `runId` | `runId` `cwd` | Read the trust/audit summary. |
-| `cw_audit_verify` | `audit.verify` | `runId` | `runId` `cwd` | Re-prove a run's trust-audit hash chain (fail-closed exit). |
+| `cw_audit_verify` | `audit.verify` | `runId` | `runId` `cwd` `expectHead` `expectCount` | Re-prove a run's trust-audit hash chain (fail-closed exit). |
+| `cw_audit_repair` | `audit.repair` | `runId` | `runId` `cwd` `write` `expectHead` `expectCount` | Repair a torn trailing write in a run's trust-audit event log (dry-run unless write is set; fails closed if the corruption is not confined to the trailing line, or if expectHead/expectCount is given and not met). |
 | `cw_audit_worker` | `audit.worker` | `runId` | `runId` `cwd` `workerId` | Read trust/audit for one worker. |
 | `cw_audit_provenance` | `audit.provenance` | `runId` | `runId` `cwd` `workerId` `worker` `candidateId` `candidate` `commitId` `commit` | Inspect evidence provenance. |
 | `cw_audit_multi_agent` | `audit.multi-agent` | `runId` | `runId` `cwd` | Read the multi-agent trust/policy/provenance audit. |
@@ -150,6 +151,7 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_audit_judge` | `audit.judge` | `runId` | `runId` `cwd` | Read judge rationale/panel decision audit. |
 | `cw_audit_attest` | `audit.attest` | `runId` | `runId` `cwd` `workerId` `worker` `actor` `hostEnforced` `env` `note` | Record a host/operator sandbox attestation. |
 | `cw_audit_decision` | `audit.decision` | `runId` | `runId` `cwd` `workerId` `path` `command` `network` `env` `kind` | Validate and record a sandbox decision. |
+| `cw_audit_head` | `audit.head` | `runId` | `runId` `cwd` | Read the trust-audit chain head anchor (event count + head hash) for a later truncation-proof audit.verify. |
 | `cw_dispatch` | `dispatch` | `runId` | `runId` `cwd` `limit` `sandbox` `sandboxProfile` `sandboxProfileId` `backend` `backendId` | Create a subagent dispatch manifest. |
 | `cw_sandbox_list` | `sandbox.list` | (none) | `cwd` | List bundled sandbox profiles. |
 | `cw_sandbox_show` | `sandbox.show` | `profileId` | `cwd` `profileId` | Show a resolved sandbox profile. |
@@ -216,7 +218,7 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_registry_refresh` | `registry.refresh` | (none) | `cwd` `scope` | Recompute and persist the derived run registry index. |
 | `cw_registry_show` | `registry.show` | (none) | `cwd` `scope` | Read the run registry index with valid\|stale\|absent freshness. |
 | `cw_metrics_show` | `metrics.show` | `runId` | `runId` `cwd` `pricing` `now` | Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage). |
-| `cw_metrics_summary` | `metrics.summary` | (none) | `cwd` `scope` `pricing` `now` | Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns. |
+| `cw_metrics_summary` | `metrics.summary` | (none) | `cwd` `scope` `pricing` `now` `limit` | Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns. |
 | `cw_run_search` | `run.search` | (none) | `cwd` `scope` `text` `app` `status` `repo` `since` `until` `includeArchived` `limit` `offset` | Search runs by app/status/time/repo/free-text, deterministic + paginated. |
 | `cw_run_list` | `run.list` | (none) | `cwd` `scope` `includeArchived` `limit` `offset` | List indexed runs across repos (search with no filters). |
 | `cw_run_show` | `run.show` | `runId` | `runId` `cwd` `scope` | Resolve one run by id across the registry; fail closed on missing source. |
@@ -244,8 +246,8 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_sched_reset` | `sched.reset` | (none) | `cwd` `id` | Reset a parked entry to ready (operator recovery). |
 | `cw_sched_policy_show` | `sched.policy.show` | (none) | `cwd` | Show the scheduling policy (file or default). |
 | `cw_sched_policy_set` | `sched.policy.set` | (none) | `cwd` `maxConcurrent` `maxAttempts` `leaseTtlMs` `backoffBaseMs` `backoffFactor` `backoffCapMs` | Set scheduling policy fields (concurrency/attempts/backoff/TTL). |
-| `cw_gc_plan` | `gc.plan` | (none) | `cwd` `scope` `runId` `reclaimAfterArchiveDays` `keepScratch` `keepSnapshots` | Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing. |
-| `cw_gc_run` | `gc.run` | (none) | `cwd` `scope` `runId` `reclaimAfterArchiveDays` `keepScratch` `keepSnapshots` `limit` `actor` | Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free). |
+| `cw_gc_plan` | `gc.plan` | (none) | `cwd` `scope` `runId` `reclaimAfterArchiveDays` `keepScratch` `keepSnapshots` `keepCommits` | Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing. |
+| `cw_gc_run` | `gc.run` | (none) | `cwd` `scope` `runId` `reclaimAfterArchiveDays` `keepScratch` `keepSnapshots` `keepCommits` `limit` `actor` | Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free). |
 | `cw_gc_verify` | `gc.verify` | `runId` | `cwd` `scope` `runId` | Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable. |
 | `cw_clones_list` | `clones.list` | (none) | (none) | List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only. |
 | `cw_clones_gc` | `clones.gc` | (none) | `olderThanDays` `all` | Reclaim cached remote-source checkouts: a TTL sweep (--older-than-days, default 30) or --all. Deletes only inside the clones cache. |
