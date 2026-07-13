@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "domains": [
+    { "domain": "agent-config", "constant": "AGENT_CONFIG_SCHEMA_VERSION", "source": "shell/agent-config.ts" },
+    { "domain": "blackboard", "constant": "BLACKBOARD_SCHEMA_VERSION", "source": "core/multi-agent/coordinator.ts" },
+    { "domain": "candidate", "constant": "CANDIDATE_SCHEMA_VERSION", "source": "core/multi-agent/candidate-scoring.ts" },
+    { "domain": "collaboration", "constant": "COLLABORATION_SCHEMA_VERSION", "source": "core/multi-agent/collaboration.ts" },
+    { "domain": "contract-migration", "constant": "CONTRACT_MIGRATION_SCHEMA_VERSION", "source": "core/state/contract-migration.ts" },
+    { "domain": "current-run-state", "constant": "CURRENT_RUN_STATE_SCHEMA_VERSION", "source": "core/version.ts" },
+    { "domain": "drive", "constant": "DRIVE_SCHEMA_VERSION", "source": "core/pipeline/drive-decide.ts" },
+    { "domain": "error-feedback", "constant": "ERROR_FEEDBACK_SCHEMA_VERSION", "source": "core/pipeline/error-feedback.ts" },
+    { "domain": "evidence-reasoning", "constant": "EVIDENCE_REASONING_SCHEMA_VERSION", "source": "shell/evidence-reasoning.ts" },
+    { "domain": "execution-backend", "constant": "EXECUTION_BACKEND_SCHEMA_VERSION", "source": "shell/execution-backend/registry.ts" },
+    { "domain": "legacy-run-state", "constant": "LEGACY_RUN_STATE_SCHEMA_VERSION", "source": "core/version.ts" },
+    { "domain": "metrics", "constant": "METRICS_SCHEMA_VERSION", "source": "shell/observability.ts" },
+    { "domain": "minimum-run-state", "constant": "MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION", "source": "core/version.ts" },
+    { "domain": "multi-agent", "constant": "MULTI_AGENT_SCHEMA_VERSION", "source": "core/multi-agent/runtime.ts" },
+    { "domain": "node-snapshot", "constant": "NODE_SNAPSHOT_SCHEMA_VERSION", "source": "core/state/node-snapshot.ts" },
+    { "domain": "pipeline-contract", "constant": "PIPELINE_CONTRACT_SCHEMA_VERSION", "source": "core/state/state-node.ts" },
+    { "domain": "run-registry", "constant": "RUN_REGISTRY_SCHEMA_VERSION", "source": "shell/run-registry-io.ts" },
+    { "domain": "sandbox-profile", "constant": "SANDBOX_PROFILE_SCHEMA_VERSION", "source": "shell/sandbox-profile.ts" },
+    { "domain": "scheduling", "constant": "SCHEDULING_SCHEMA_VERSION", "source": "shell/scheduling-io.ts" },
+    { "domain": "state-explosion", "constant": "STATE_EXPLOSION_SCHEMA_VERSION", "source": "core/state/state-explosion/size.ts" },
+    { "domain": "state-node", "constant": "STATE_NODE_SCHEMA_VERSION", "source": "core/state/state-node.ts" },
+    { "domain": "telemetry-ledger", "constant": "TELEMETRY_LEDGER_SCHEMA_VERSION", "source": "core/trust/telemetry-ledger.ts" },
+    { "domain": "topology", "constant": "TOPOLOGY_SCHEMA_VERSION", "source": "core/multi-agent/topology.ts" },
+    { "domain": "trust-audit", "constant": "TRUST_AUDIT_SCHEMA_VERSION", "source": "shell/trust-audit.ts" },
+    { "domain": "worker-isolation", "constant": "WORKER_ISOLATION_SCHEMA_VERSION", "source": "shell/worker-isolation.ts" },
+    { "domain": "workflow-app", "constant": "WORKFLOW_APP_SCHEMA_VERSION", "source": "core/version.ts" }
+  ]
+}

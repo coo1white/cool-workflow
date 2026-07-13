@@ -69,7 +69,7 @@ restore, and resume tests keep the same file layout.
 
 ### 3. One Schema Version Definition for Each Domain
 
-Status: next code cycle.
+Status: complete in the schema version guard cycle.
 
 Replay domains need one version definition each. Different domains do not
 need one global version.

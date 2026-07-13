@@ -62,7 +62,7 @@ The durable run-state kernel: the `.cw/runs/<id>/` on-disk layout, atomic and du
 - `REQUIRED_TOP_LEVEL_KEYS` = `schemaVersion, id, createdAt, updatedAt, cwd, workflow, inputs, loopStage, phases, tasks, dispatches, commits, paths` (src/run-state-schema.ts:18-32).
 - `REQUIRED_ARRAY_KEYS` = `phases, tasks, dispatches, commits` (src/run-state-schema.ts:35-40).
 - `REQUIRED_RECORD_KEYS` = `workflow, paths, multiAgent, blackboard, topologies` (src/run-state-schema.ts:43-49).
-- `OPTIONAL_TOP_LEVEL_KEYS` = `nodes, contracts, feedback, audit, workers, sandboxProfiles, customSandboxProfiles, candidates, candidateSelections, multiAgent, blackboard, topologies, collaboration` (src/run-state-schema.ts:55-69). A build gate (`validate-run-state-schema.js`) matches this module against the `WorkflowRun` type, fail-closed (src/run-state-schema.ts:1-14).
+- `OPTIONAL_TOP_LEVEL_KEYS` = `nodes, contracts, feedback, audit, workers, sandboxProfiles, customSandboxProfiles, candidates, candidateSelections, multiAgent, blackboard, topologies, collaboration` (src/run-state-schema.ts:55-69). A build gate (`validate-run-state-schema.js`) matches this module against the `WorkflowRun` type, fail-closed. The same gate reads `schema-version-inventory.json` and requires one `*_SCHEMA_VERSION` definition in its named source for each schema domain. Unknown, second, moved, and dead definitions fail the gate. Different domains stay separate (scripts/validate-run-state-schema.js; scripts/schema-version-inventory.json).
 
 ### `src/node-projection.ts` — the canonical node projection
 
