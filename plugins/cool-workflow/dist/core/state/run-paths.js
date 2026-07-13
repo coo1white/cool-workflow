@@ -1,10 +1,9 @@
 "use strict";
-// core/state/run-paths.ts — createRunPaths, ensureRunDirs.
+// core/state/run-paths.ts — pure RunPaths construction.
 //
 // MILESTONE 3. Byte-exact port of the old build's src/state.ts:10-50.
-// `createRunPaths` is pure path math (core/); `ensureRunDirs` touches disk
-// (mkdirSync) so it lives here but is called from shell/run-store.ts, the
-// only place that actually creates a run directory tree.
+// `createRunPaths` is pure path math. The directory write mechanism lives in
+// shell/run-store.ts.
 //
 // Evidence: SPEC/state-core.md "src/state.ts — persistence kernel" and "The
 // full .cw/runs/<run-id>/ layout".
@@ -43,8 +42,6 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createRunPaths = createRunPaths;
-exports.ensureRunDirs = ensureRunDirs;
-const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 /** The 16-key RunPaths object, all joined under `runDir`. */
 function createRunPaths(runDir) {
@@ -66,28 +63,4 @@ function createRunPaths(runDir) {
         blackboardDir: path.join(runDir, "blackboard"),
         topologiesDir: path.join(runDir, "topologies"),
     };
-}
-/** `mkdirSync` (recursive) every dir this run needs. Missing optional dir
- *  fields fall back to `path.join(runDir, "<name>")`, matching the old
- *  build's defensive default (a RunPaths loaded from an old/partial
- *  state.json may be missing an optional key). */
-function ensureRunDirs(paths) {
-    const dirs = [
-        paths.runDir,
-        paths.tasksDir,
-        paths.resultsDir,
-        paths.dispatchesDir,
-        paths.artifactsDir,
-        paths.commitsDir,
-        paths.stateNodesDir,
-        paths.feedbackDir,
-        paths.auditDir || path.join(paths.runDir, "audit"),
-        paths.workersDir || path.join(paths.runDir, "workers"),
-        paths.candidatesDir || path.join(paths.runDir, "candidates"),
-        paths.multiAgentDir || path.join(paths.runDir, "multi-agent"),
-        paths.blackboardDir || path.join(paths.runDir, "blackboard"),
-        paths.topologiesDir || path.join(paths.runDir, "topologies"),
-    ];
-    for (const dir of dirs)
-        fs.mkdirSync(dir, { recursive: true });
 }

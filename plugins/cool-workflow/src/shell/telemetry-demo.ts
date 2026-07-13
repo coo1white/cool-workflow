@@ -18,8 +18,8 @@ import { sha256 } from "../core/hash";
 import { signTelemetry, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation";
 import { TelemetryLedgerCheck } from "../core/trust/telemetry-ledger";
 import { appendTelemetryAttestation, computeRecordHash, reportedUsageDigest, telemetryLedgerPath, verifyTelemetryLedger } from "./telemetry-ledger-io";
-import { createRunPaths, ensureRunDirs } from "../core/state/run-paths";
-import { saveCheckpoint } from "./run-store";
+import { createRunPaths } from "../core/state/run-paths";
+import { ensureRunDirs, saveCheckpoint } from "./run-store";
 import { exportRun, verifyReportBundle } from "./run-export";
 import { WorkflowRun } from "../core/state/types";
 

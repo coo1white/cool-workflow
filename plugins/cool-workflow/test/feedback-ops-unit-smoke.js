@@ -14,12 +14,12 @@ const os = require("node:os");
 const path = require("node:path");
 
 // v2 cutover repoint:
-//   ../dist/state          -> createRunPaths/ensureRunDirs now in core/state/run-paths;
+//   ../dist/state          -> createRunPaths/ensureRunDirs now through shell/run-store;
 //                             saveCheckpoint now in shell/run-store.
 //   ../dist/error-feedback -> the pure record builder moved to
 //                             core/pipeline/error-feedback; the impure
 //                             recordFeedback writer moved to shell/error-feedback-io.
-const { createRunPaths, ensureRunDirs } = require("../dist/core/state/run-paths");
+const { createRunPaths, ensureRunDirs } = require("../dist/shell/run-store");
 const { saveCheckpoint } = require("../dist/shell/run-store");
 const { recordFeedback } = require("../dist/shell/error-feedback-io");
 // REAL-GAP (v2 missing functionality): the operator-facing feedback

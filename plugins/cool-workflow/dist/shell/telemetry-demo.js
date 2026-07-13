@@ -219,7 +219,7 @@ function runBundleDemo(options = {}) {
     const runId = "demo-bundle-run";
     const runDir = path.join(workdir, ".cw", "runs", runId);
     const paths = (0, run_paths_1.createRunPaths)(runDir);
-    (0, run_paths_1.ensureRunDirs)(paths);
+    (0, run_store_1.ensureRunDirs)(paths);
     const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
     const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();

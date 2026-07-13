@@ -13,12 +13,36 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic";
-import { createRunPaths, ensureRunDirs } from "../core/state/run-paths";
+import { createRunPaths } from "../core/state/run-paths";
 import { migrateRunState, StateMigrationResult } from "../core/state/migrations";
-import { WorkflowRun, StateArtifact } from "../core/state/types";
+import { WorkflowRun, StateArtifact, RunPaths } from "../core/state/types";
 import { sha256 } from "../core/hash";
 
-export { createRunPaths, ensureRunDirs };
+export { createRunPaths };
+
+/** `mkdirSync` (recursive) every dir this run needs. Missing optional dir
+ *  fields fall back to `path.join(runDir, "<name>")`, matching the old
+ *  build's defensive default (a RunPaths loaded from an old/partial
+ *  state.json may be missing an optional key). */
+export function ensureRunDirs(paths: RunPaths): void {
+  const dirs = [
+    paths.runDir,
+    paths.tasksDir,
+    paths.resultsDir,
+    paths.dispatchesDir,
+    paths.artifactsDir,
+    paths.commitsDir,
+    paths.stateNodesDir,
+    paths.feedbackDir,
+    paths.auditDir || path.join(paths.runDir, "audit"),
+    paths.workersDir || path.join(paths.runDir, "workers"),
+    paths.candidatesDir || path.join(paths.runDir, "candidates"),
+    paths.multiAgentDir || path.join(paths.runDir, "multi-agent"),
+    paths.blackboardDir || path.join(paths.runDir, "blackboard"),
+    paths.topologiesDir || path.join(paths.runDir, "topologies"),
+  ];
+  for (const dir of dirs) fs.mkdirSync(dir, { recursive: true });
+}
 
 /** Read the file at artifact.path and stamp sha256 (the core `sha256:`+hex
  *  form) + sizeBytes onto the StateArtifact. A missing/unreadable file is

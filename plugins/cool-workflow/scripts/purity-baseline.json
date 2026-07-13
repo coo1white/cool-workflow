@@ -1,8 +1,5 @@
 {
   "builtinViolations": {
-    "core/state/run-paths.ts": [
-      "node:fs"
-    ],
     "core/trust/telemetry-attestation.ts": [
       "node:fs"
     ]

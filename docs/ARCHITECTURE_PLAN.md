@@ -53,7 +53,7 @@ public CLI and MCP surfaces stay byte-identical.
 
 ### 2. Run Directory IO in Shell
 
-Status: next code cycle.
+Status: complete in the run-directory shell boundary cycle.
 
 `core/state/run-paths.ts` must do path math only.
 
@@ -69,7 +69,7 @@ restore, and resume tests keep the same file layout.
 
 ### 3. One Schema Version Definition for Each Domain
 
-Status: after the run-path boundary change.
+Status: next code cycle.
 
 Replay domains need one version definition each. Different domains do not
 need one global version.

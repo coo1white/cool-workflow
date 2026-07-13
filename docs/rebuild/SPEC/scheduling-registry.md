@@ -307,7 +307,7 @@ Example `tasks.json` task:
 - `gc verify` on a run that was never reclaimed returns `reclaimed:false, verified:false` with check `{ name:"reclaimed", pass:false, code:"not-reclaimed" }` and exit 0; on a missing run it returns a `located` check with `detail:"run source not found"` (src/run-registry/gc.ts:229-241; src/reclamation.ts:812-814).
 - Orphan gc race: if a first checkpoint lands between the scan and the delete, the locked re-check sees `state.json` and keeps the dir (counted in `keptCount`) (src/run-registry/orphans.ts:180-188).
 - Orphan age is `max(0, round((now - newest mtime)/60000))`; a dir still being filled keeps a fresh mtime deep in the tree, so the default gate protects it (src/run-registry/orphans.ts:73-101,122).
-- What a killed process leaves behind: `ensureRunDirs` makes ~16 sub-dirs before the first `saveCheckpoint` writes `state.json`; a kill in that window leaves a dir with no `state.json` — invisible to the registry (`scanRepo` drops it silently) and to gc; only `cw orphans` reclaims it (src/state.ts:31-50; src/run-registry.ts:365-367,437-448; src/run-registry/orphans.ts:1-32).
+- What a killed process leaves behind: shell `ensureRunDirs` makes 13 sub-dirs before the first `saveCheckpoint` writes `state.json`; a kill in that window leaves a dir with no `state.json` — invisible to the registry (`scanRepo` drops it silently) and to gc; only `cw orphans` reclaims it (`shell/run-store.ts:23-45`; `shell/run-registry-io.ts`).
 - Known gap (kept on purpose): a run stuck `running`/`queued`/`blocked` with a valid but stale `state.json` is reclaimed by NEITHER gc (refuses `non-terminal`) NOR orphans (it has a `state.json`). It stays retained with no time limit (src/run-registry/orphans.ts:27-32; src/run-registry/gc.ts:46-50; docs/run-retention-reclamation.7.md:124-129).
 - Clones: names starting with `.` are skipped (in-progress `.stage-*` temp dirs); sizing uses `lstat` and never follows symlinks; sizing and walking never throw (src/clones.ts:54-79,90).
 - Daemon `run()` never returns; interval floor is 1 second (src/daemon.ts:47-53). `schedule daemon --once` prints pretty JSON via `printJson`; the loop prints compact single-line JSON.
@@ -337,7 +337,7 @@ Every claim above carries its pointer inline. The load-bearing ones, one per lin
 - hash helpers: src/reclamation/hash.ts:15-60.
 - orphans list/gc/lock/containment: src/run-registry/orphans.ts:64-199.
 - clones list/gc/TTL/containment: src/clones.ts:81-174.
-- lock protocol: src/state.ts:243-308. atomic/durable write: src/state.ts:140-172. run dirs before first checkpoint: src/state.ts:31-50,84-91.
+- lock protocol and atomic/durable write: `shell/fs-atomic.ts`; run dirs before the first checkpoint: `shell/run-store.ts:23-45`.
 - CLI wiring: src/cli/command-surface.ts:383-416; handlers as cited per command. MCP wiring: src/mcp/tool-call.ts:397-504.
 - Man pages (contract): docs/control-plane-scheduling.7.md, docs/run-registry-control-plane.7.md, docs/run-retention-reclamation.7.md, docs/routine.7.md, docs/durable-state-and-locking.7.md.
 

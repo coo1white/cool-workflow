@@ -127,7 +127,7 @@ function importRun(exportPath, targetDir) {
     const oldRunDir = raw.run.paths.runDir;
     const oldCwd = raw.run.cwd;
     const paths = (0, run_paths_1.createRunPaths)(runDir);
-    (0, run_paths_1.ensureRunDirs)(paths);
+    (0, run_store_1.ensureRunDirs)(paths);
     for (const file of files) {
         const destination = path.join(runDir, file.relativePath);
         if (!(0, fs_atomic_1.isContainedPath)(destination, runDir)) {

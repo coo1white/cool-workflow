@@ -148,7 +148,7 @@ function plan(app, options) {
     const runId = injectedRunId || createRunId(app.workflow.id);
     const runDir = path.join(cwd, ".cw", "runs", runId);
     const paths = (0, run_paths_1.createRunPaths)(runDir);
-    (0, run_paths_1.ensureRunDirs)(paths);
+    (0, run_store_1.ensureRunDirs)(paths);
     const tasks = flattenTasks(app, inputs);
     // Stamp a real wall-clock createdAt/updatedAt at plan time (shell layer —
     // clock reads are allowed here). The pure migration defaults a run that
