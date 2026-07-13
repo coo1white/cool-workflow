@@ -108,9 +108,10 @@ core 现有 4 处真实违规:
 ### 1.8 生成物与文档滞后
 
 - vendor 适配两套并存:(A)`manifest/plugin.manifest.json` → `scripts/gen-manifests.js`
-  声明式生成 5 vendor 清单,有 `--check` drift 门;(B)仓库根的 `.cursor/`、
-  `.gemini/commands/`、`.opencode/command/`、`.windsurfrules`、`GEMINI.md`、`Codex.md`
-  ——手写、无生成器、无 gate。定性:(B) 是"给在本仓工作的 agent 的 repo 级指令",
+  声明式生成 5 vendor 清单,有 `--check` drift 门;(B)仓库根的
+  `.gemini/commands/`、`.opencode/command/`、`Codex.md`
+  ——手写、无生成器、无 gate(2026-07-13:未使用的 `.cursor/`、`.windsurfrules`、
+  `GEMINI.md` 指针文件已删除)。定性:(B) 是"给在本仓工作的 agent 的 repo 级指令",
   与产品 manifest 不是一类;风险是与 AGENTS.md 漂移,不是产品漂移。
 - `gen-manifests.js:134-189` 的 `buildLegacy()` 是死回退(manifest 已有 vendors 键,
   :112-115 的触发条件永假)。
