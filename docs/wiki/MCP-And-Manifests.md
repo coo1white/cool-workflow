@@ -12,6 +12,35 @@ Both go through the same runtime entries where parity is declared — the same
 data comes out of both. The human-friendly CLI print-out is only a layer of
 paint on top of that shared payload.
 
+## Hook It Up
+
+The MCP server is `scripts/mcp-server.js` inside the installed package. After
+`npm install -g cool-workflow`, its full path is
+`$(npm root -g)/cool-workflow/scripts/mcp-server.js`.
+
+Claude Code, one line:
+
+```bash
+claude mcp add cool-workflow -- node "$(npm root -g)/cool-workflow/scripts/mcp-server.js"
+```
+
+Claude Desktop and Cursor take the same `mcpServers` JSON block (put the full
+path from `npm root -g` in `args`):
+
+```json
+{
+  "mcpServers": {
+    "cool-workflow": {
+      "command": "node",
+      "args": ["/path/from/npm-root-g/cool-workflow/scripts/mcp-server.js"]
+    }
+  }
+}
+```
+
+The README's "Use It From Your Editor" section has the per-editor config file
+locations and a VS Code variant.
+
 ## Generated Vendor Targets
 
 The manifest source currently targets:

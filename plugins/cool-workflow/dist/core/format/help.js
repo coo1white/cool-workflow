@@ -252,6 +252,7 @@ function formatHelp() {
         "  -claude                Use Claude agent",
         "  -codex                 Use Codex agent",
         "  -gemini                Use Gemini (via opencode)",
+        "  -opencode              Use OpenCode agent",
         "  -deepseek              Use DeepSeek (via opencode)",
         "  --verbose              Show full agent narration live (default: compact)",
         "  --full                 Verbose, plus the report printed inline at the end",

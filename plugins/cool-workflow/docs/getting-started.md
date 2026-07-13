@@ -1,13 +1,20 @@
 # Getting Started
 
+*This page is for people changing CW itself. To USE `cw`, see the wiki
+[Getting Started](https://github.com/coo1white/cool-workflow/wiki/Getting-Started).*
+
 Start from a new clone:
 
 ```bash
 cd plugins/cool-workflow
 npm install
 npm run build
+npm link         # puts the `cw` command on your PATH
 cw app list
 ```
+
+No `npm link`? Every `cw <args>` line on this page also works as
+`node scripts/cw.js <args>` from this directory.
 
 ## Check your setup first (`cw doctor`)
 
@@ -44,52 +51,53 @@ small:
 Add `--changed-from origin/main` in a source checkout to get the nearest smoke
 tests and guard checks for your current change.
 
-Make a run with a canonical workflow app:
+## One run, end to end
+
+Plan a run with a canonical workflow app. `--dryRun true` keeps it safe;
+put real version numbers in place of `X.Y.Z` / `X.Y.W`:
 
 ```bash
 cw plan release-cut \
   --repo "$PWD" \
-  --version 0.1.25 \
-  --previousVersion 0.1.24 \
+  --version X.Y.Z \
+  --previousVersion X.Y.W \
   --releaseBranch main \
   --dryRun true
 ```
 
-Use the run id you get back:
+The plan prints a run id. See where that run is:
 
 ```bash
 cw status <run-id>
-cw graph <run-id>
-cw dispatch <run-id> --limit 1 --sandbox readonly
-cw worker summary <run-id>
-cw topology list
-cw topology apply <run-id> map-reduce --task <task-id>
-cw topology summary <run-id>
-cw multi-agent run <run-id> --topology judge-panel --task <task-id>
-cw multi-agent status <run-id>
-cw multi-agent graph <run-id>
-cw multi-agent dependencies <run-id>
-cw multi-agent failures <run-id>
-cw multi-agent evidence <run-id>
-cw multi-agent step <run-id> --sandbox readonly
-cw multi-agent blackboard <run-id> summary
-cw multi-agent score <run-id> <candidate-id> --criterion correctness=1 --evidence <ref>
-cw multi-agent select <run-id> <candidate-id> --reason "verified winner"
-cw multi-agent summary <run-id>
-cw blackboard summary <run-id>
-cw audit summary <run-id>
-cw audit multi-agent <run-id>
-cw audit policy <run-id>
-cw audit blackboard <run-id>
-cw audit judge <run-id>
-cw eval snapshot <run-id> --id <suite-id>
-cw eval replay .cw/evals/<suite-id>/snapshot.json
-cw eval compare .cw/evals/<suite-id>/snapshot.json .cw/evals/<suite-id>/replay-run.json
-cw eval score .cw/evals/<suite-id>/replay-run.json
-cw eval gate .cw/evals/<suite-id>
-cw eval report .cw/evals/<suite-id>/replay-run.json
-cw report <run-id> --show
 ```
+
+Give the next ready task to your agent, one step at a time, in a
+read-only sandbox:
+
+```bash
+cw dispatch <run-id> --limit 1 --sandbox readonly
+```
+
+When the run is complete, read the report, then prove its record chain
+offline:
+
+```bash
+cw report <run-id> --show
+cw telemetry verify <run-id>
+```
+
+If a run comes to a stop before the end — an agent error, a Ctrl-C, a
+lost session — take it up again from where it stopped:
+
+```bash
+cw run resume <run-id> --drive
+```
+
+That is the whole loop: plan → status → dispatch → report → verify →
+resume. The common command shapes are on the wiki page
+[Commands or API](https://github.com/coo1white/cool-workflow/wiki/Commands-or-API);
+the complete, generated list of every command — topology, multi-agent,
+audit, eval, and the rest — is in [`cli-mcp-parity.7.md`](cli-mcp-parity.7.md).
 
 Run the smallest check that fits the change:
 

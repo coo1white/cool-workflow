@@ -11,7 +11,8 @@ const { formatHelp } = require("../dist/core/format/help");
 
 // Exact full-text golden value, sourced from SPEC/cli-surface.md's own
 // "formatHelp() (stdout)" block (line-for-line, including the wrapped
-// "More commands" block from the SPEC's own token list).
+// "More commands" block from the SPEC's own token list), plus the rows
+// added after that capture (--json, --quiet, --resume, -opencode).
 {
   const expected = [
     "Cool Workflow",
@@ -29,6 +30,7 @@ const { formatHelp } = require("../dist/core/format/help");
     "  -claude                Use Claude agent",
     "  -codex                 Use Codex agent",
     "  -gemini                Use Gemini (via opencode)",
+    "  -opencode              Use OpenCode agent",
     "  -deepseek              Use DeepSeek (via opencode)",
     "  --verbose              Show full agent narration live (default: compact)",
     "  --full                 Verbose, plus the report printed inline at the end",
