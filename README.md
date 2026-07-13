@@ -94,7 +94,9 @@ cw -q "How does auth work end-to-end here?"
 Any question works — "how does X work", "is it safe to change Y", "what would
 break if Z rotated". CW uses the current repo and the first agent it finds on
 your `PATH`. Want a specific agent? Add a flag (`-claude`, `-codex`, `-gemini`,
-`-deepseek`). You can point it at any folder, or at a **repo on the web by
+`-opencode`, `-deepseek`). DeepSeek is the one with no auto-detect — it runs
+through `opencode` — so `-deepseek` is the only way to get it. You can
+point CW at any folder, or at a **repo on the web by
 URL** — CW clones it and reviews the copy:
 
 ```bash
@@ -300,6 +302,8 @@ VS Code uses a `servers` key. Add this to `.vscode/mcp.json` in your project
 
 Once connected, your agent sees the `cw_*` tools — `cw_plan`, `cw_status`,
 `cw_report`, and the rest — the same registry the CLI uses, parity-checked.
+More on the MCP surface — parity, manifests, vendor targets — is on the wiki
+page **[MCP And Manifests](https://github.com/coo1white/cool-workflow/wiki/MCP-And-Manifests)**.
 
 ## Troubleshooting
 
@@ -310,6 +314,7 @@ Once connected, your agent sees the `cw_*` tools — `cw_plan`, `cw_status`,
 | `claude: command not found` | Install Claude Code and run again |
 | Where is my report? | `<repo>/.cw/runs/<id>/report.md` |
 | `Missing required input: question` | Add `-q "<question>"` — CW now prints this same `Try:` line for you |
+| Run stopped before the end | `cw quickstart <app> --resume --run <id>` takes it to the end (`cw run resume <id> --drive` does the same) |
 | What flags does a command take? | `cw help doctor`, `cw help quickstart`, `cw help ledger` now list a `Flags` block under the command |
 
 ## Docs & Wiki
