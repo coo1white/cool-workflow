@@ -38,7 +38,8 @@ Each cycle MUST follow this sequence. Do not skip steps.
 1. SELECT — Pick exactly ONE goal for this cycle, in priority order:
    a. A failing test, open bug, or regression
    b. An interface/type that exists but has NO runtime implementation
-      (spec debt — search src/types/ for fields never read by any module)
+      (spec debt — search src/core/types/ and the state/contract type
+      modules for fields never read by any module)
    c. A gap blocking the current target use case (see # North Star)
    Never select "add a new type/interface" as a standalone goal.
 
@@ -230,7 +231,8 @@ single most important goal for the next session.
 # Stop Conditions
 Pause and ask the human if:
 - The same test fails 3 cycles in a row
-- A change would break the public API (anything exported from index.ts)
+- A change would break the public API (the CLI/MCP observable surface, or
+  anything exported from the entry modules src/cli.ts / src/mcp-server.ts)
 - You're tempted to tag without test evidence
 - The reviewer agent rejects the same PR twice
 

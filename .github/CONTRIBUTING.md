@@ -31,17 +31,20 @@ rm -rf node_modules
 
 ## Verification
 
-Before opening a pull request:
+Before opening a pull request, run what CI will run:
 
 ```bash
 cd plugins/cool-workflow
 npm install
 npm run build
 npm run check
-node scripts/cw.js list
-node scripts/cw.js schedule list
-rm -rf node_modules
+npm run test:coverage          # the full smoke suite under the 80% coverage floor
+npm run test:unit              # the pure core/ unit tests
+node ../../v2/conformance/run.js --bin dist/cli.js   # byte-exact CLI conformance
+npm run release:check -- --skip-tests   # every other gate (parity, manifests, index, lang policy, ...)
 ```
 
-If you have local package validation tools available, run them before opening a
-pull request.
+A source or script change also needs an `ITERATION_LOG.md` cycle row (the
+onramp gate fails closed without it). The binding rules for all work in this
+repo live in `AGENTS.md` — read it first; PRs that break its hard rules are
+rejected in review regardless of content.

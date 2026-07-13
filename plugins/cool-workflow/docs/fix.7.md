@@ -8,7 +8,6 @@
 
 ```text
 node dist/cli.js fix
-node dist/cli.js fix --json
 ```
 
 ## DESCRIPTION
@@ -28,9 +27,10 @@ If any check has status `fail`, the command exits with code 1.
 
 ## OPTIONS
 
-`--json`
-: Give back the full doctor report as a stable JSON object, with the same shape
-as `cw doctor --json`. The `checks` array carries every fix string.
+`cw fix` takes no options of its own; its output is always the plain fix-command
+text (a `--json` flag is silently ignored — this byte behavior is pinned by
+`v2/conformance/cases/report-fix.case.js`). For a machine-readable report of the
+same checks, use `cw doctor --json`: its `checks` array carries every fix string.
 
 ## EXIT CODES
 

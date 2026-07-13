@@ -2,9 +2,9 @@
 "use strict";
 
 // cw fix — same checks as doctor, but prints ONLY the fix commands (or
-// "No fixes needed."). Confirmed DOC DRIFT: docs/fix.7.md says --json
-// works here, but the code has no --json branch for fix — it always
-// prints the fix text. This case pins the ACTUAL behavior (code wins).
+// "No fixes needed.").  The code has no --json branch for fix — this case
+// pins that ACTUAL behavior. (docs/fix.7.md used to promise --json; the
+// doc was fixed 2026-07-13 to match the code.)
 
 const path = require("node:path");
 const { run, freshDir, caseMain, assert } = require("../lib");
@@ -28,7 +28,7 @@ caseMain(() => {
       "\n"
   );
 
-  // --- DOC DRIFT: docs/fix.7.md promises --json, but the code has no
+  // --- --json is not a fix option (doc fixed 2026-07-13): the code has no
   // --json branch for fix. --json is silently ignored; the output is the
   // identical human fix-commands text, NOT valid JSON. ---
   const fixedJson = run(["fix", "--json"], { cwd, env: { PATH: nodeOnlyPath() } });

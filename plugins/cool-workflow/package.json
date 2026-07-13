@@ -26,6 +26,8 @@
   "files": [
     ".claude-plugin/",
     ".codex-plugin/",
+    ".gemini-plugin/",
+    ".opencode-plugin/",
     ".mcp.json",
     "manifest/",
     "README.md",
