@@ -596,14 +596,15 @@ export function planReclamation(run: WorkflowRun, policy: ReclamationPolicyInput
   }
 
   // (3) Superseded, non-verifier-gated commit snapshots. Each commitState()
-  // call embeds the FULL run into commits/<id>.json, so these grow without
-  // bound (both in count and per-file size) with no reclamation path today.
-  // Only the run's LATEST commit and any verifier-gated commit (the actual
-  // audit-significant milestones) are kept — an intermediate, non-gated
-  // "checkpoint" commit's only value is as a point-in-time snapshot, and
-  // state.json (not commits/) is the source of truth for resume. Not
-  // reconstructable (no recipe): a commit snapshot is a genuine
-  // point-in-time capture, not a projection derivable from retained data.
+  // call writes only the commit's own small record into commits/<id>.json
+  // (not the whole run), but these files still add up over a long run with
+  // no reclamation path today. Only the run's LATEST commit and any
+  // verifier-gated commit (the actual audit-significant milestones) are
+  // kept — an intermediate, non-gated "checkpoint" commit's only value is
+  // as a point-in-time snapshot, and state.json (not commits/) is the
+  // source of truth for resume. Treated as not reconstructable (no recipe)
+  // on purpose, kept conservative: a commit snapshot is not offered a
+  // projection path derivable from retained data.
   let reclaimedCommitSnapshot = false;
   if (!policy.keepCommits) {
     const commits = run.commits || [];

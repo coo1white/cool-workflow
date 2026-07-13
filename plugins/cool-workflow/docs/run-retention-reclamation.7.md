@@ -109,16 +109,20 @@ node points to a freed path. Opt out with `--keep-scratch`.
 
 ## Commit snapshots — never reconstructable, always downgrades to verify-only
 
-`commitState` embeds the FULL run into `commits/<id>.json` on every commit, so
-these grow unbounded in both count and per-file size with no cap. Reclaiming them
+`commitState` writes only the commit's own (small, bounded) record into
+`commits/<id>.json` on every commit — it no longer embeds the whole run, so
+these files stay small and do not grow with the run's size. Reclaiming them
 frees the run's superseded, non-`verifierGated` "checkpoint" commit snapshots —
 the run's LATEST commit and every `verifierGated` commit (the actual
 audit-significant milestones) are always kept. `run.commits`' own lightweight
 metadata (id, `verifierGated`, evidence digests, acceptance rationale — everything
 `extractSkeleton` seals) lives in `state.json`, not the snapshot file, so it stays
-fully intact and queryable regardless. Unlike a node snapshot, a commit snapshot is
-a genuine point-in-time capture with no `ReconstructionRecipe` — reclaiming even
+fully intact and queryable regardless. A commit snapshot is treated as never
+reconstructable — there is no `ReconstructionRecipe` for it — so reclaiming even
 one downgrades capability to `verify-only`, never `re-runnable-by-reconstruction`.
+This is left conservative on purpose: even though the snapshot file's content is
+now a strict subset of what `state.json` already keeps durably, the reclaim
+classification does not (yet) treat that as a basis for reconstruction.
 Each reclaimed commit's own `StateNode` had its `snapshot` artifact stripped (not
 re-pointed — there is no retained alternative) before the free, so `prepareFree`'s
 dangling-reference proof covers this kind too. Opt out with `--keep-commits`.

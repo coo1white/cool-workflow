@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-07-12 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-07-13 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-12 by `npm run sync:projec
 - Source modules: `149`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `221`
+- Smoke tests: `222`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -323,6 +323,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [clones-gc-smoke.js](../test/clones-gc-smoke.js)
 - [codex-agent-wrapper-smoke.js](../test/codex-agent-wrapper-smoke.js)
 - [collaboration-ops-unit-smoke.js](../test/collaboration-ops-unit-smoke.js)
+- [commit-snapshot-slim-smoke.js](../test/commit-snapshot-slim-smoke.js)
 - [concurrency-default-smoke.js](../test/concurrency-default-smoke.js)
 - [concurrent-failure-semantics-smoke.js](../test/concurrent-failure-semantics-smoke.js)
 - [concurrent-subworkflow-cache-nesting-smoke.js](../test/concurrent-subworkflow-cache-nesting-smoke.js)
