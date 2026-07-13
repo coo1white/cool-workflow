@@ -30,7 +30,6 @@ CHANGELOG.md merge=union
 Formula/** linguist-vendored
 plugins/cool-workflow/ui/workbench/*.css linguist-documentation
 plugins/cool-workflow/ui/workbench/*.html linguist-documentation
-scripts/bench/Dockerfile linguist-vendored
 # `.sig` files here are base64 ed25519 signature blobs (verify-verdict-signature.js's
 # sidecars), NOT Standard ML source -- Linguist maps the bare `.sig` extension to
 # that language by file-extension heuristic alone, with no content check.

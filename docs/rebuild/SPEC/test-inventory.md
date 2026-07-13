@@ -2,7 +2,7 @@
 
 ## Scope
 
-This spec covers the test harness (`test/run-all.js`, `test/README.md`, `test/assert-diff.js`, `test/topology-smoke-helper.js`, `test/fixtures/`) and gives one line for every one of the 173 `test/*-smoke.js` files: what behavior each one pins, grouped by subsystem.
+This spec covers the test harness (`test/run-all.js`, `test/README.md`, `test/topology-smoke-helper.js`, `test/fixtures/`) and gives one line for every one of the 173 `test/*-smoke.js` files: what behavior each one pins, grouped by subsystem.
 
 ## Public surface
 
@@ -67,7 +67,6 @@ Every test script first runs `node dist/cli.js version > /dev/null` — a check 
 
 ### Helpers
 
-- `test/assert-diff.js` — exports one function `diff(expected, actual, label)`. Returns `undefined` when the two JSON-stringified values are the same, or a multi-line human-readable diff string when not (test/assert-diff.js:23-48).
 - `test/topology-smoke-helper.js` — shared helper for the three topology smokes: `createContext(prefix)`, `planArchitecture(ctx, question)`, `dispatchAndOutput(...)`, `runJson`, `runText`, `readTopologyMcp` (test/topology-smoke-helper.js:15-60).
 
 ## Exact outputs
@@ -419,7 +418,7 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 - Runner discovery, flags, env, sandbox, retry, timeout, sampling, output: test/run-all.js:42-479 (per-claim lines given inline above).
 - Smoke contract and conventions: test/README.md:1-79.
 - npm scripts: package.json:49,60,65-72.
-- Helper shapes: test/assert-diff.js:1-51; test/topology-smoke-helper.js:1-60.
+- Helper shapes: test/topology-smoke-helper.js:1-60.
 - Fixture use: test/run-fixture-compat-smoke.js:12-18; the six dirs under test/fixtures/runs/.
 - Every inventory line: the named test file itself, header comment in its first ~20 lines (for files with no header, the classification comes from its `require()` set and body).
 - Slow tags: the `// @cw-smoke: tags slow` line near the top of each of the 8 named files. Timeout annotations (parsed, not applied): budget-scaling-loop, incremental-resume, loop-bounded-expansion, npm-global-install, sub-workflow-nesting smokes.

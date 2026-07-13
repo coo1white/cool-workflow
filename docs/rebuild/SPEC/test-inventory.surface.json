@@ -266,13 +266,6 @@
  },
  {
   "kind": "behavior",
-  "id": "harness: assert-diff helper",
-  "behavior": "diff(expected, actual, label) returns undefined when equal, or a multi-line readable diff string",
-  "evidence": "test/assert-diff.js:23",
-  "tests": []
- },
- {
-  "kind": "behavior",
   "id": "harness: topology helper",
   "behavior": "topology-smoke-helper.js shares createContext/planArchitecture/dispatchAndOutput/runJson/runText/readTopologyMcp across the 3 topology smokes",
   "evidence": "test/topology-smoke-helper.js:15",

@@ -291,7 +291,7 @@ function commandsForTask(taskId, context) {
               "-e",
               [
                 releaseSourceReaderSnippet(),
-                "const files=['docs/dogfood-one-real-repo.7.md','plugins/cool-workflow/docs/dogfood-one-real-repo.7.md','README.md','plugins/cool-workflow/README.md','CHANGELOG.md','RELEASE.md'];",
+                "const files=['plugins/cool-workflow/docs/dogfood-one-real-repo.7.md','README.md','plugins/cool-workflow/README.md','CHANGELOG.md','RELEASE.md'];",
                 "for (const f of files) { if (!surfaceExists(f)) throw new Error('missing '+f); }",
                 "const changelog=readSurface('CHANGELOG.md');",
                 "if (changelog===null) throw new Error('CHANGELOG.md missing from release commit');",

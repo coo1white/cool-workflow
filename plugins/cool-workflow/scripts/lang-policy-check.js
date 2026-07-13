@@ -22,7 +22,6 @@ const CODE_EXTENSIONS = new Set(["js", "mjs", "cjs", "ts", "tsx", "jsx"]);
 // NOT silently inherit the exception.
 const EXCEPT_PATHS = new Set([
   "Formula/cool-workflow.rb", // Homebrew formula must be Ruby
-  "scripts/bench/Dockerfile", // x86_64 benchmark harness
   "plugins/cool-workflow/ui/workbench/index.html", // served from disk by design
   "plugins/cool-workflow/ui/workbench/app.css" // served from disk by design
 ]);

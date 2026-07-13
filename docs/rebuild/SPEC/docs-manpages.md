@@ -37,7 +37,7 @@ The docs do not run code. But they bind the code to a public surface. The list b
 - [ ] `demo bundle` builds and forges a sealed portable bundle two ways and proves `report verify-bundle` catches both (docs/demo.7.md:45-61).
 - [ ] Exit 0 = all tampering caught; exit 1 = a tamper got through (docs/demo.7.md:63-68).
 - [ ] Both are CLI-only by declared reason (docs/cli-mcp-parity.7.md:327-328).
-- [ ] Launch checklist pins the tamper demo output line `VERDICT: tamper-evidence holds ✓` (docs/launch/pre-launch-checklist.md:20-22).
+- [ ] The repo-root README quick start pins the tamper demo output line `VERDICT: tamper-evidence holds ✓` (README.md:79-80 at the repo root).
 
 ### pipeline-verbs.7.md — `cw plan|dispatch|result`
 
@@ -372,7 +372,7 @@ The docs do not run code. But they bind the code to a public surface. The list b
 
 ### Non-contract pages
 
-- `getting-started.md`, `index.md`, `project-index.md`, `readme-v0.1.87-full.md`, `release-history.md`, `agent-framework.md`, `unix-principles.md`, `handoff-setup.md`, `designs/handoff-ledger.md` (marked `DRAFT / proposal ... ships no behavior`), `launch/*` — these guide, index, or record; they bind style rules (POLA, Rule of Silence, fail closed, stdout=data) and cross-check counts, but the per-verb contracts live in the `.7.md` pages. `project-index.md` is GENERATED (`npm run sync:project-index`) and its snapshot counts were verified live: version `0.1.98`, 69 source modules, 8 apps, 61 docs, 173 smoke tests (docs/project-index.md:5-13; counted in the tree).
+- `getting-started.md`, `index.md`, `project-index.md`, `release-history.md`, `agent-framework.md`, `unix-principles.md`, `handoff-setup.md`, `designs/handoff-ledger.md` (marked `DRAFT / proposal ... ships no behavior`) — these guide, index, or record; they bind style rules (POLA, Rule of Silence, fail closed, stdout=data) and cross-check counts, but the per-verb contracts live in the `.7.md` pages. `project-index.md` is GENERATED (`npm run sync:project-index`) and its snapshot counts were verified live: version `0.1.98`, 69 source modules, 8 apps, 61 docs, 173 smoke tests (docs/project-index.md:5-13; counted in the tree).
 
 ## Exact outputs
 
@@ -394,7 +394,7 @@ Refused runs add a `refused:<code>` evidence line and no `stdoutSha256:` (docs/r
 No fixes needed.
 ```
 
-Demo tamper verdict line (docs/launch/pre-launch-checklist.md:20-22):
+Demo tamper verdict line (repo-root README.md:79-80):
 
 ```text
 VERDICT: tamper-evidence holds ✓

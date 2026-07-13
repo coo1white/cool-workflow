@@ -154,6 +154,29 @@ regardless of the capability it ships. The long form lives in
    directory. Docs/data/config files (md, json, yaml, txt, etc.) are outside
    this rule's scope; it is about what the project's LOGIC is written in.
 
+# File Lifecycle (keep the tree slim — rules from the 2026-07-13 sweep)
+Every tracked file must earn its place. The four ways files rot, and the
+standing rule for each:
+
+1. Orphan tooling — a script, helper, or fixture nothing invokes. Rule:
+   every new script/helper names its consumer (an npm script, CI step, test,
+   or doc) in its header or the PR; a file whose last consumer goes away goes
+   away WITH that consumer, in the same PR.
+2. Superseded drafts — research notes and draft copy that fed a shipped
+   deliverable. Rule: drafts do not get committed; work in a scratch dir.
+   Git history is the archive — a superseded committed draft is deleted, not
+   kept "just in case".
+3. Version-era snapshots — prompts, session notes, "pending" lists tied to
+   a shipped version. Rule: when the version ships, the snapshot is deleted
+   or its file updated to the truth; a stale "blocking" claim is a bug.
+4. Stub/copy files — a file whose content lives elsewhere. Rule: one source
+   of truth plus a LINK; never a second copy or a stub file (CLAUDE.md and
+   the old AI_MEMORY family are the precedent).
+
+Exception class that stays: append-only audit records (`.cw-release/`,
+ITERATION_LOG.md, CHANGELOG.md, docs/audits/ verdicts) — they are the
+product's own evidence and are never "cleaned up".
+
 # Anti-Patterns (auto-reject your own work if detected)
 - Adding optional fields to interfaces with only a doc comment ("spec accretion")
 - Releasing to maintain cadence rather than to ship capability
@@ -165,6 +188,8 @@ regardless of the capability it ships. The long form lives in
   undocumented shipped behavior)
 - A new non-JS/TS source file without a scoped, reasoned exception in
   `scripts/lang-policy-check.js` (`npm run lang:check`)
+- A new file that breaks a File Lifecycle rule above (orphan tool, committed
+  draft, stale version snapshot, stub/copy of another file)
 
 # Description Standard — Ogden Basic English (850)
 All descriptions in this project are to be put into words using Ogden's Basic
