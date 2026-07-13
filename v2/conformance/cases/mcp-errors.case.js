@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 "use strict";
 
-// mcp errors — JSON-RPC framing edge cases and exact -32xxx error text:
-// unknown method (with and without an id), unknown tool, missing/blank
-// tool name, missing required argument, a bad-JSON line, a non-object
-// JSON line, and a request with "id": null (still gets an answer,
-// unlike a true notification with no "id" key at all).
+// mcp errors — JSON-RPC framing edge cases and exact error text: unknown
+// method (with and without an id), a bad-JSON line, a non-object JSON
+// line, and a request with "id": null (still gets an answer, unlike a
+// true notification with no "id" key at all) are all envelope-level
+// problems and stay real -32xxx JSON-RPC errors. An unknown tool name,
+// a missing/blank tool name, and a missing required argument are all
+// tools/call OUTCOMES, so each of those instead comes back as a normal
+// result shaped isError: true (see ITERATION_LOG.md "return a failed
+// MCP tools/call as a normal isError result") — except a missing/blank
+// tool name, which is a broken request (no tool was ever named to call)
+// and so still answers -32000, same as before.
 
 const { freshDir, caseMain, assert } = require("../lib");
 const { startServer, serverPathFor } = require("./fixtures/mcp-client");
@@ -45,22 +51,30 @@ caseMain(async () => {
       error: { code: -32601, message: "Unknown method: foo/bar" },
     });
 
+    // An unknown tool name is a tools/call OUTCOME, not a broken request,
+    // so it comes back as a normal result shaped isError: true. This
+    // message matches no recoveryHint branch, so there is no "Try:" line.
     assert.deepEqual(replies[1], {
       jsonrpc: "2.0",
       id: 11,
-      error: { code: -32000, message: "Unknown tool: cw_does_not_exist" },
+      result: { content: [{ type: "text", text: "Unknown tool: cw_does_not_exist" }], isError: true },
     });
 
+    // No tool name at all is a broken request (nothing was ever named to
+    // call), so this stays a real -32000 JSON-RPC error, unchanged.
     assert.deepEqual(replies[2], {
       jsonrpc: "2.0",
       id: 12,
       error: { code: -32000, message: "MCP tools/call missing required field: name" },
     });
 
+    // A missing required tool argument is a tools/call OUTCOME, so it
+    // comes back as a normal result shaped isError: true. This message
+    // matches no recoveryHint branch, so there is no "Try:" line.
     assert.deepEqual(replies[3], {
       jsonrpc: "2.0",
       id: 13,
-      error: { code: -32000, message: "MCP tool cw_status missing required argument: runId" },
+      result: { content: [{ type: "text", text: "MCP tool cw_status missing required argument: runId" }], isError: true },
     });
 
     // Bad-JSON line: -32700, id is null (even though no id was ever sent for this line).
