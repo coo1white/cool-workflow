@@ -7,8 +7,11 @@
 // "Invariants and error behavior" #9 / "Edge cases" sections:
 //   - transport: stdin/stdout, ONE JSON object per line, no
 //     Content-Length headers (mcp.md:13);
-//   - `initialize` -> protocolVersion/capabilities/serverInfo, ignoring
-//     params (mcp.md:19,263-269);
+//   - `initialize` -> protocolVersion/capabilities/serverInfo (mcp.md:
+//     19,263-269); the reply's protocolVersion echoes the client's
+//     requested one when it is in SUPPORTED_PROTOCOL_VERSIONS below, and
+//     falls back to the newest supported entry otherwise (with today's
+//     one-entry list this is byte-identical to the old fixed reply);
 //   - `tools/list` -> { tools: [...] } from core/capability-table.ts via
 //     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277);
 //   - `tools/call` -> { content: [{ type: "text", text: <2-space pretty
@@ -60,12 +63,28 @@
 //     path. The envelope-level "missing field: name" check (right above
 //     this bullet) is unchanged — it still answers -32000.
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.negotiateProtocolVersion = negotiateProtocolVersion;
 exports.startServer = startServer;
 const version_1 = require("../core/version");
 const safe_json_1 = require("../core/format/safe-json");
 const recovery_hint_1 = require("../core/format/recovery-hint");
 const dispatch_1 = require("./dispatch");
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
+/** Protocol versions this server can speak, oldest first. `initialize`
+ *  echoes the client's `params.protocolVersion` when it is in this list,
+ *  and answers with the newest entry (the last one) otherwise — the
+ *  standard MCP version-negotiation shape. With one entry this is
+ *  behavior-identical to the old hard-coded reply (mechanism first; a
+ *  second version is a one-line append here). */
+const SUPPORTED_PROTOCOL_VERSIONS = ["2024-11-05"];
+/** Picks the `initialize` reply's protocolVersion from the client's
+ *  requested one (see SUPPORTED_PROTOCOL_VERSIONS). Exported for the
+ *  protocol-version smoke; pure. */
+function negotiateProtocolVersion(requested) {
+    if (typeof requested === "string" && SUPPORTED_PROTOCOL_VERSIONS.includes(requested))
+        return requested;
+    return SUPPORTED_PROTOCOL_VERSIONS[SUPPORTED_PROTOCOL_VERSIONS.length - 1];
+}
 // Tools whose result carries free-form text ORIGINALLY AUTHORED by a
 // worker/agent/operator/external caller — never computed or validated by
 // this codebase itself (a blackboard message body, a review comment, a
@@ -154,8 +173,9 @@ async function handleRequest(message) {
     try {
         switch (message.method) {
             case "initialize": {
+                const params = (message.params ?? {});
                 writeMessage(resultMessage(id, {
-                    protocolVersion: "2024-11-05",
+                    protocolVersion: negotiateProtocolVersion(params.protocolVersion),
                     capabilities: { tools: {} },
                     serverInfo: { name: "cool-workflow", version: version_1.CURRENT_COOL_WORKFLOW_VERSION },
                 }));

@@ -33,7 +33,7 @@
 // capability is APPENDED after the transcript's last row (never inserted),
 // so every existing position keeps its pinned order.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MCP_TOOL_DATA = exports.COMMON_PROPERTY_TYPES = exports.PROPERTY_OVERRIDES = exports.CapabilityNotImplementedError = void 0;
+exports.MCP_TOOL_DATA = exports.MCP_TOOL_ANNOTATIONS = exports.COMMON_PROPERTY_TYPES = exports.PROPERTY_OVERRIDES = exports.CapabilityNotImplementedError = void 0;
 exports.notYetImplemented = notYetImplemented;
 exports.stringProperty = stringProperty;
 /** Thrown by every not-yet-wired MCP tool handler. Never hit by this
@@ -283,11 +283,125 @@ exports.COMMON_PROPERTY_TYPES = {
     workflowId: { type: "string", description: "the workflow definition's id" },
     write: { type: "boolean", description: "when true, save the result instead of only reading it" },
 };
+/** Behavior hints per MCP tool name, surfaced as the standard MCP
+ *  `annotations` field on each `tools/list` entry. A side table (like
+ *  `MCP_REAL_HANDLERS` in wiring/capability-table/registry-core.ts) so
+ *  `MCP_TOOL_DATA` below stays a pure transcript of the spec table.
+ *
+ *  The rule for this table is strict, because a wrong hint is a safety
+ *  bug (a client may skip its confirmation step for a "read-only" tool):
+ *   - `readOnlyHint: true` ONLY for a tool whose handler was read and
+ *     seen to do no write at all (no saveCheckpoint, no writeJson, no
+ *     writeReport, no fs write of any kind);
+ *   - `destructiveHint: true` for a tool whose handler was read and seen
+ *     to delete stored data (gc / delete sweeps);
+ *   - every other tool is ABSENT from this table and gets no
+ *     annotations. Absent beats wrong. Some absences that look like
+ *     reads are deliberate: cw_metrics_show persists its derived report,
+ *     cw_workbench_view calls the metrics.show handler for one panel,
+ *     cw_operator_report re-writes report.md, cw_schedule_due marks
+ *     expired tasks, cw_run_resume can take the opt-in --drive path, and
+ *     cw_multi_agent_reasoning can take the opt-in refresh path. */
+exports.MCP_TOOL_ANNOTATIONS = {
+    // pure reads, in MCP_TOOL_DATA order (each handler checked by hand)
+    cw_list: { readOnlyHint: true },
+    cw_status: { readOnlyHint: true },
+    cw_next: { readOnlyHint: true },
+    cw_contract_show: { readOnlyHint: true },
+    cw_node_list: { readOnlyHint: true },
+    cw_node_show: { readOnlyHint: true },
+    cw_node_graph: { readOnlyHint: true },
+    cw_migration_list: { readOnlyHint: true },
+    cw_operator_status: { readOnlyHint: true },
+    cw_operator_graph: { readOnlyHint: true },
+    cw_worker_summary: { readOnlyHint: true },
+    cw_candidate_summary: { readOnlyHint: true },
+    cw_feedback_summary: { readOnlyHint: true },
+    cw_commit_summary: { readOnlyHint: true },
+    cw_multi_agent_summary: { readOnlyHint: true },
+    cw_multi_agent_graph: { readOnlyHint: true },
+    cw_multi_agent_dependencies: { readOnlyHint: true },
+    cw_multi_agent_failures: { readOnlyHint: true },
+    cw_multi_agent_evidence: { readOnlyHint: true },
+    cw_summary_show: { readOnlyHint: true },
+    cw_blackboard_summarize: { readOnlyHint: true },
+    cw_multi_agent_summarize: { readOnlyHint: true },
+    cw_multi_agent_graph_compact: { readOnlyHint: true },
+    cw_multi_agent_status: { readOnlyHint: true },
+    cw_multi_agent_run_show: { readOnlyHint: true },
+    cw_topology_list: { readOnlyHint: true },
+    cw_topology_show: { readOnlyHint: true },
+    cw_topology_validate: { readOnlyHint: true },
+    cw_topology_summary: { readOnlyHint: true },
+    cw_topology_graph: { readOnlyHint: true },
+    cw_blackboard_summary: { readOnlyHint: true },
+    cw_blackboard_graph: { readOnlyHint: true },
+    cw_blackboard_message_list: { readOnlyHint: true },
+    cw_blackboard_artifact_list: { readOnlyHint: true },
+    cw_coordinator_summary: { readOnlyHint: true },
+    cw_audit_summary: { readOnlyHint: true },
+    cw_audit_verify: { readOnlyHint: true },
+    cw_audit_worker: { readOnlyHint: true },
+    cw_audit_provenance: { readOnlyHint: true },
+    cw_audit_multi_agent: { readOnlyHint: true },
+    cw_audit_policy: { readOnlyHint: true },
+    cw_audit_role: { readOnlyHint: true },
+    cw_audit_blackboard: { readOnlyHint: true },
+    cw_audit_judge: { readOnlyHint: true },
+    cw_sandbox_list: { readOnlyHint: true },
+    cw_sandbox_show: { readOnlyHint: true },
+    cw_sandbox_validate: { readOnlyHint: true },
+    cw_backend_list: { readOnlyHint: true },
+    cw_backend_show: { readOnlyHint: true },
+    cw_backend_agent_config_show: { readOnlyHint: true },
+    cw_app_list: { readOnlyHint: true },
+    cw_app_show: { readOnlyHint: true },
+    cw_app_validate: { readOnlyHint: true },
+    cw_worker_list: { readOnlyHint: true },
+    cw_worker_show: { readOnlyHint: true },
+    cw_candidate_list: { readOnlyHint: true },
+    cw_candidate_show: { readOnlyHint: true },
+    cw_comment_list: { readOnlyHint: true },
+    cw_review_status: { readOnlyHint: true },
+    cw_feedback_list: { readOnlyHint: true },
+    cw_feedback_show: { readOnlyHint: true },
+    cw_ledger_verify: { readOnlyHint: true },
+    cw_ledger_apply: { readOnlyHint: true },
+    cw_ledger_list: { readOnlyHint: true },
+    cw_schedule_list: { readOnlyHint: true },
+    cw_schedule_history: { readOnlyHint: true },
+    cw_routine_list: { readOnlyHint: true },
+    cw_routine_events: { readOnlyHint: true },
+    cw_registry_show: { readOnlyHint: true },
+    cw_metrics_summary: { readOnlyHint: true },
+    cw_run_search: { readOnlyHint: true },
+    cw_run_list: { readOnlyHint: true },
+    cw_run_show: { readOnlyHint: true },
+    cw_run_inspect_archive: { readOnlyHint: true },
+    cw_run_drive: { readOnlyHint: true },
+    cw_queue_list: { readOnlyHint: true },
+    cw_queue_show: { readOnlyHint: true },
+    cw_sched_plan: { readOnlyHint: true },
+    cw_sched_policy_show: { readOnlyHint: true },
+    cw_gc_plan: { readOnlyHint: true },
+    cw_gc_verify: { readOnlyHint: true },
+    cw_clones_list: { readOnlyHint: true },
+    cw_orphans_list: { readOnlyHint: true },
+    cw_telemetry_verify: { readOnlyHint: true },
+    cw_history: { readOnlyHint: true },
+    cw_audit_head: { readOnlyHint: true },
+    // delete sweeps (each handler checked by hand: all delete stored data)
+    cw_schedule_delete: { readOnlyHint: false, destructiveHint: true },
+    cw_routine_delete: { readOnlyHint: false, destructiveHint: true },
+    cw_gc_run: { readOnlyHint: false, destructiveHint: true },
+    cw_clones_gc: { readOnlyHint: false, destructiveHint: true },
+    cw_orphans_gc: { readOnlyHint: false, destructiveHint: true },
+};
 exports.MCP_TOOL_DATA = [
     { tool: "cw_list", capability: "list", requiredArgs: [], properties: [], description: "List bundled CW workflows." },
     { tool: "cw_plan", capability: "plan", requiredArgs: ["workflowId"], properties: ["workflowId", "repo", "question"], description: "Create a CW run and return its canonical plan summary." },
     { tool: "cw_app_run", capability: "app.run", requiredArgs: ["appId"], properties: ["cwd", "appId", "inputs", "sandbox", "sandboxProfile", "sandboxProfileId"], description: "Create a run from an app id + structured inputs." },
-    { tool: "cw_status", capability: "status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read run checkpoint status." },
+    { tool: "cw_status", capability: "status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read run checkpoint status. The quick first check on one run: lifecycle, task counts, and next actions. For the fuller operator view use cw_operator_status; for every panel in one call use cw_workbench_view." },
     { tool: "cw_init", capability: "init", requiredArgs: ["workflowId"], properties: ["workflowId", "title", "output"], description: "Scaffold a new workflow definition." },
     { tool: "cw_next", capability: "next", requiredArgs: ["runId"], properties: ["runId", "cwd", "limit"], description: "Read the next recommended tasks for a run." },
     { tool: "cw_state_check", capability: "state.check", requiredArgs: ["runId"], properties: ["runId", "cwd", "state", "write"], description: "Check run-state schema compatibility." },
@@ -302,11 +416,11 @@ exports.MCP_TOOL_DATA = [
     { tool: "cw_migration_list", capability: "migration.list", requiredArgs: [], properties: [], description: "List the declared migration registry." },
     { tool: "cw_migration_check", capability: "migration.check", requiredArgs: [], properties: ["target", "contract", "cwd"], description: "Dry-run migration verdict for a target." },
     { tool: "cw_migration_prove", capability: "migration.prove", requiredArgs: [], properties: ["target", "contract", "cwd"], description: "Round-trip / non-destruction migration proof for a target." },
-    { tool: "cw_operator_status", capability: "operator.status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured Operator UX run status." },
+    { tool: "cw_operator_status", capability: "operator.status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured Operator UX run status. Fuller than cw_status: workers, candidates, feedback, and commits in one operator view. For every panel in one call use cw_workbench_view; for agent-topology detail use cw_multi_agent_status." },
     { tool: "cw_operator_graph", capability: "graph", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured Operator UX run graph." },
     { tool: "cw_operator_report", capability: "operator.report", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Refresh and read the structured Operator UX report summary." },
     { tool: "cw_worker_summary", capability: "worker.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured worker summary for a run." },
-    { tool: "cw_workbench_view", capability: "workbench.view", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit)." },
+    { tool: "cw_workbench_view", capability: "workbench.view", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit). The widest one-call overview; prefer it when you want everything at once. For one quick answer use cw_status or cw_operator_status instead." },
     { tool: "cw_workbench_serve", capability: "workbench.serve", requiredArgs: [], properties: ["cwd", "port", "scope", "requireToken"], description: "Describe/serve the optional localhost-only, read-only Workbench host. requireToken is a CLI-only opt-in (the MCP path never actually binds, so it is a no-op here)." },
     { tool: "cw_candidate_summary", capability: "candidate.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured candidate summary for a run." },
     { tool: "cw_feedback_summary", capability: "feedback.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured feedback summary for a run." },
@@ -324,7 +438,7 @@ exports.MCP_TOOL_DATA = [
     { tool: "cw_multi_agent_summarize", capability: "multi-agent.summarize", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the combined state-explosion report." },
     { tool: "cw_multi_agent_graph_compact", capability: "multi-agent.graph.compact", requiredArgs: ["runId"], properties: ["runId", "cwd", "view", "focus", "depth"], description: "Read a compact/focused multi-agent graph view." },
     { tool: "cw_multi_agent_run", capability: "multi-agent.run", requiredArgs: [], properties: ["runId", "cwd", "app", "appId", "workflow", "workflowId", "topology", "topologyId", "task", "mapperCount", "judgeCount", "debateRounds"], description: "Create or attach a topology-backed multi-agent run." },
-    { tool: "cw_multi_agent_status", capability: "multi-agent.status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read combined topology/blackboard/worker status." },
+    { tool: "cw_multi_agent_status", capability: "multi-agent.status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read combined topology/blackboard/worker status. Best for a multi-agent run: what each agent group is doing and what is blocked. For a plain run use cw_status; for every panel in one call use cw_workbench_view." },
     { tool: "cw_multi_agent_step", capability: "multi-agent.step", requiredArgs: ["runId"], properties: ["runId", "cwd", "sandbox", "backend", "limit"], description: "Perform one safe deterministic host step." },
     { tool: "cw_multi_agent_blackboard", capability: "multi-agent.blackboard", requiredArgs: ["runId"], properties: ["runId", "cwd", "action", "blackboardId", "topicId", "body", "kind", "path", "evidence"], description: "Operate on the active multi-agent blackboard." },
     { tool: "cw_multi_agent_score", capability: "multi-agent.score", requiredArgs: ["runId"], properties: ["runId", "cwd", "candidate", "candidateId", "worker", "criterion", "criteria", "evidence", "maxTotal"], description: "Score a candidate with evidence." },
@@ -383,7 +497,7 @@ exports.MCP_TOOL_DATA = [
     { tool: "cw_sandbox_show", capability: "sandbox.show", requiredArgs: ["profileId"], properties: ["cwd", "profileId"], description: "Show a resolved sandbox profile." },
     { tool: "cw_sandbox_validate", capability: "sandbox.validate", requiredArgs: ["profileFile"], properties: ["cwd", "profileFile"], description: "Validate a sandbox profile JSON file." },
     { tool: "cw_sandbox_choose", capability: "sandbox.choose", requiredArgs: [], properties: ["cwd", "profileId", "sandbox", "sandboxProfile", "sandboxProfileId"], description: "Resolve and validate a sandbox profile choice." },
-    { tool: "cw_sandbox_resolve", capability: "sandbox.resolve", requiredArgs: [], properties: ["cwd", "profileId", "sandbox", "sandboxProfile", "sandboxProfileId"], description: "Alias of sandbox.choose." },
+    { tool: "cw_sandbox_resolve", capability: "sandbox.resolve", requiredArgs: [], properties: ["cwd", "profileId", "sandbox", "sandboxProfile", "sandboxProfileId"], description: "Alias of sandbox.choose: a pure alias with the same input and the same output. Prefer cw_sandbox_choose." },
     { tool: "cw_backend_list", capability: "backend.list", requiredArgs: [], properties: ["cwd"], description: "List available execution backends and their capabilities." },
     { tool: "cw_backend_show", capability: "backend.show", requiredArgs: [], properties: ["cwd", "backendId"], description: "Show one execution backend descriptor." },
     { tool: "cw_backend_probe", capability: "backend.probe", requiredArgs: [], properties: ["cwd", "backendId"], description: "Probe execution backend readiness (live, deterministic)." },

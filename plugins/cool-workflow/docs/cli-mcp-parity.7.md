@@ -74,6 +74,29 @@ show/validate/apply/summary/graph, sandbox show/validate/choose/resolve, state
 summary refresh/show, `plan`, `approve`, `reject`, `comment.add`, `handoff`, and
 `review.policy`.
 
+## MCP Tool Hints and Version Negotiation
+
+A `tools/list` entry may carry the standard MCP `annotations` field with
+two behavior hints:
+
+- `readOnlyHint: true` — the tool only reads; it makes no change on disk.
+- `destructiveHint: true` (with `readOnlyHint: false`) — the tool deletes
+  stored data (the gc / delete sweeps: `cw_gc_run`, `cw_orphans_gc`,
+  `cw_clones_gc`, `cw_schedule_delete`, `cw_routine_delete`).
+
+The hints come from one side table (`MCP_TOOL_ANNOTATIONS` in
+`src/core/capability-data.ts`), and a tool goes in only after its handler
+was read and checked by hand — a wrong "read-only" mark on a writing tool
+would be a safety bug, so a tool we are not certain about carries no
+`annotations` field at all. Absent beats wrong. The field is additive: a
+client that does not know it simply does not read it.
+
+The MCP `initialize` reply also negotiates the protocol version now: a
+client that asks for a supported version gets that version echoed back,
+and any other request falls back to the newest supported entry (see
+`SUPPORTED_PROTOCOL_VERSIONS` in `src/mcp/server.ts`). With today's
+one-entry list the reply bytes are unchanged.
+
 ## The Parity Matrix
 
 The matrix below is made from the live registry — one row per capability,

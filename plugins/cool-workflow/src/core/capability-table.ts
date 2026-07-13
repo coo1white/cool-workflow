@@ -14,6 +14,7 @@ export type {
   ParitySurface,
   CliJsonMode,
   McpPropertySchema,
+  McpToolAnnotations,
   McpToolDefinition,
   CliHandlerResult,
   CliBinding,
