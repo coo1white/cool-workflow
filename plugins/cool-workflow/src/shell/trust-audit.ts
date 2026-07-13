@@ -131,7 +131,14 @@ export function ensureTrustAudit(run: WorkflowRun): { eventLogPath: string; summ
   run.paths.auditDir = dir;
   const audit = { schemaVersion: 1 as const, ...trustAuditPaths(run) };
   run.audit = audit;
-  if (!fs.existsSync(audit.eventLogPath)) fs.writeFileSync(audit.eventLogPath, "", "utf8");
+  // Create-if-missing must NEVER truncate: this runs OUTSIDE the append
+  // lock, so between an existsSync(false) here and a plain create, another
+  // process may have already created the log AND appended real events —
+  // a truncating create then silently deletes them (one event lost, chain
+  // still verifies "clean" from genesis; seen once on CI under coverage
+  // I/O). Flag "a" is O_CREAT without O_TRUNC: it makes the file when
+  // missing and adds zero bytes when not, with no exists-check window.
+  if (!fs.existsSync(audit.eventLogPath)) fs.writeFileSync(audit.eventLogPath, "", { encoding: "utf8", flag: "a" });
   return audit;
 }
 
