@@ -187,6 +187,8 @@ one registry and are parity-checked. See the **[Wiki](https://github.com/coo1whi
 | `status: blocked` | Set `CW_AGENT_COMMAND=builtin:claude` or pass `-claude` |
 | `claude: command not found` | Install Claude Code and run again |
 | Where is my report? | `<repo>/.cw/runs/<id>/report.md` |
+| `Missing required input: question` | Add `-q "<question>"` — CW now prints this same `Try:` line for you |
+| What flags does a command take? | `cw help doctor`, `cw help quickstart`, `cw help ledger` now list a `Flags` block under the command |
 
 ## Docs & Wiki
 
