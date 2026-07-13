@@ -254,7 +254,7 @@ export function formatHelp(): string {
   const lines: string[] = [
     "Cool Workflow",
     "",
-    '  -q "question" [-claude|-codex|-gemini|-opencode|-deepseek]  Ask a question, get a report',
+    '  -q "question" [-claude|-codex|-gemini|-deepseek]  Ask a question, get a report',
     '  -q "question" --link <url>                 Review a remote repo by URL',
     "  version                                   Show version",
     "  doctor                                    Check setup",
