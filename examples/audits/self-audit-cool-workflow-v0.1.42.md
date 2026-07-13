@@ -223,7 +223,7 @@ must not over-trust the "attest" column.
 git -C /path/to/cool-workflow checkout 46fdd55
 
 # 2. Re-verify every cite resolves (see docs/publishing-audits.md for the full script).
-bash docs/scripts/verify-audit-cites.sh examples/audits/self-audit-cool-workflow-v0.1.42.md
+node docs/scripts/verify-audit-cites.js examples/audits/self-audit-cool-workflow-v0.1.42.md
 
 # 3. Run the suite that regression-tests the resolved findings.
 cd plugins/cool-workflow && npm test

@@ -58,14 +58,13 @@ Renderer env vars (scripts/agents/agent-adapter-core.js:63-67,96-102):
 - `NO_COLOR` / `CW_NO_COLOR` (non-empty = no color), `FORCE_COLOR` (set, not `""`/`"0"` = force color), else color iff TTY.
 - `CW_LIVE_ROWS` — rolling window size, clamped 0..20, default 4.
 
-### 4. Vendor wrapper: `scripts/agents/claude-p-agent.js` (+ `claude-p-agent.sh`)
+### 4. Vendor wrapper: `scripts/agents/claude-p-agent.js`
 
 Contract for every wrapper: `argv[2]` = worker `input.md` path (`{{input}}`), `argv[3]` = worker `result.md` path (`{{result}}`); missing either → usage on stderr + exit 2. stdout carries ONE JSON object `{model, usage, result}`; the wrapper writes `result.md` itself.
 
 - Default (stream) mode: spawns `claude -p <prompt> --output-format stream-json --verbose --allowedTools Read,Grep,Glob,Bash` with stdio `["ignore","pipe","pipe"]` (scripts/agents/claude-p-agent.js:101-105). It parses claude NDJSON events: `assistant` message parts (`text` → narration, `tool_use` → action with `toolLabel`), `user` message `tool_result` parts (→ `⎿` summary keyed by `tool_use_id`), `system`/`post_turn_summary` (→ note), `result` (→ final text, usage, `is_error` → fail) (scripts/agents/claude-p-agent.js:142-169).
 - Legacy mode (`CW_AGENT_STREAM=0` or `CW_NO_STREAM=1`): `spawnSync("claude", ["-p", prompt, "--output-format", "json", "--allowedTools", "Read,Grep,Glob,Bash"])`, parse the whole stdout as JSON, write `parsed.result` to `result.md`, then forward claude's stdout VERBATIM (scripts/agents/claude-p-agent.js:50-83).
 - On close: write `transcript.md`; non-zero exit → persist stderr + exit with the child code (null → 1); no `result` event → refuse with exit 1; else write `result.md` and emit `{model,usage,result}` (scripts/agents/claude-p-agent.js:178-198).
-- `claude-p-agent.sh` is a 2-line shim: `exec node "$(dirname "$0")/claude-p-agent.js" "$@"` (scripts/agents/claude-p-agent.sh:8-9).
 
 ### 5. Vendor wrapper: `scripts/agents/codex-agent.js`
 
@@ -401,7 +400,6 @@ Every claim above carries its pointer inline. Prime anchors:
 - scripts/source-context.js:23-108 (main), 110-121 (usage), 130-146 (profile validation), 148-158 (refs/diff), 166-194 (batch blobs), 196-226 (classify/lines/binary), 236-294 (cache), 312-315 (die)
 - scripts/agents/agent-adapter-core.js:7-36 (contract), 42-53 (gating), 63-77 (color/truncate), 89-280 (renderer), 331-371 (labels/summaries), 411-450 (NDJSON + report), 459-489 (persistStderr + exports)
 - scripts/agents/claude-p-agent.js:39-44 (argv), 50-83 (legacy), 101-105 (spawn), 142-169 (events), 171-198 (close)
-- scripts/agents/claude-p-agent.sh:8-9 (shim)
 - scripts/agents/codex-agent.js:53-62 (model fallback), 64-76 (argv/finalPath), 96-114 (review/effort/sandbox), 118-138 (spawn), 159-201 (close)
 - scripts/agents/gemini-agent.js:29-56 (argv/parse), 60-72 (spawn), 92-126 (close)
 - scripts/agents/opencode-agent.js:34-45 (argv/variant), 63-105 (parse), 109-125 (spawn), 145-179 (close)

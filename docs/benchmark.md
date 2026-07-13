@@ -93,11 +93,11 @@ k6 light load: **25 rps**, p95 **3-7ms**. The workbench is not performance-optim
 
 ```bash
 # ARM64 native
-bash scripts/bench/run.sh --arch ARM64 --agent claude --conc 4 --runs 3
+node scripts/bench/run.js --arch ARM64 --agent claude --conc 4 --runs 3
 
 # Docker x86_64 (requires Docker daemon)
 docker run --rm --platform linux/amd64 -v "$(pwd):/repo" -w /repo \
-  node:22 bash -c "bash scripts/bench/run.sh --arch x86_64 --agent deepseek --conc 4"
+  node:22 node scripts/bench/run.js --arch x86_64 --agent deepseek --conc 4
 ```
 
 ## Raw Data
