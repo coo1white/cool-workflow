@@ -131,6 +131,21 @@ function buildWorkbenchRunView(runId, args = {}) {
         resolved = false;
         resolveError = error instanceof Error ? error.message : String(error);
     }
+    // The run's lifecycle, from the SAME `run.show` capability handler the
+    // CLI/MCP use (the buildWorkbenchIndex composition style — never a
+    // duplicate implementation). This function's contract is never-throws,
+    // so any failure here just leaves the key out.
+    let lifecycle;
+    try {
+        const showRow = (0, capability_table_1.findCapability)("run.show");
+        const shown = showRow?.mcp ? showRow.mcp.handler({ ...args, runId, cwd }) : undefined;
+        if (shown && shown.found === true && shown.record && typeof shown.record.lifecycle === "string") {
+            lifecycle = shown.record.lifecycle;
+        }
+    }
+    catch {
+        lifecycle = undefined;
+    }
     const panels = {};
     const panelArgs = { ...args, runId, cwd };
     for (const [group, members] of Object.entries(PANEL_MAP)) {
@@ -141,7 +156,7 @@ function buildWorkbenchRunView(runId, args = {}) {
                 : { capability, cli: cliCommandFor(capability), mcp: mcpToolFor(capability), status: "absent", error: resolveError };
         }
     }
-    return { schemaVersion: 1, surface: "workbench", runId, resolved, ...(resolveError ? { error: resolveError } : {}), panels };
+    return { schemaVersion: 1, surface: "workbench", runId, resolved, ...(lifecycle ? { lifecycle } : {}), ...(resolveError ? { error: resolveError } : {}), panels };
 }
 /** Package-relative resolution only — never falls back to the invocation
  *  cwd. `ui/` ships as a sibling of `dist/` in the published package

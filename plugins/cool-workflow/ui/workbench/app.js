@@ -15,7 +15,30 @@ const PANEL_GROUPS = [
   { key: "collaboration", label: "Review & collaboration", panels: ["review", "comments"] }
 ];
 
-const state = { activeRunId: null, activeTab: "graph" };
+// `indexSeq` is a request sequence number: the debounced filter input can
+// start a second /api/index fetch while an older one is still in flight, and
+// only the NEWEST request may render (an old slow response must not
+// overwrite a new fast one). `viewFetchedAt` is when the active run's view
+// was fetched, shown as "as of HH:MM:SS" in the detail header.
+const state = { activeRunId: null, activeTab: "graph", indexSeq: 0, viewFetchedAt: null };
+
+// The host's auth token, read ONCE at startup from the page URL. When
+// CW_WORKBENCH_TOKEN is set on the host, every /api/* request must carry it;
+// the static UI files themselves are served without it, so the page loads
+// and can explain what to do instead of rendering broken.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+
+// Build a request URL with URLSearchParams so the token composes with any
+// other query params (e.g. the index filter's ?text=).
+function apiUrl(pathname, params = {}) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value) search.set(key, value);
+  }
+  if (TOKEN) search.set("token", TOKEN);
+  const query = search.toString();
+  return query ? `${pathname}?${query}` : pathname;
+}
 
 async function getJson(url) {
   const res = await fetch(url, { headers: { Accept: "application/json" } });
@@ -24,7 +47,10 @@ async function getJson(url) {
   try {
     body = JSON.parse(text);
   } catch {
-    throw new Error(`non-JSON response (${res.status})`);
+    throw new Error(`non-JSON response (${res.status}): ${text.slice(0, 120)}`);
+  }
+  if (res.status === 401) {
+    throw new Error("unauthorized — reopen as /?token=<your CW_WORKBENCH_TOKEN value>");
   }
   if (!res.ok) throw new Error(body && body.error ? body.error : `HTTP ${res.status}`);
   return body;
@@ -43,29 +69,47 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
-function freshnessBadge(value) {
+function freshnessBadge(value, title) {
   const v = String(value || "").toLowerCase();
-  return el("span", { class: `badge ${v || "absent"}`, text: value || "unknown" });
+  const attrs = { class: `badge ${v || "absent"}`, text: value || "unknown" };
+  if (title) attrs.title = title;
+  return el("span", attrs);
 }
 
 async function loadIndex() {
+  const seq = ++state.indexSeq;
   const filter = document.getElementById("filter").value.trim();
   const list = document.getElementById("run-list");
+  // A loading placeholder, not a bare wipe: the same pattern the detail
+  // pane uses, so the sidebar never flashes empty while the fetch runs.
   list.innerHTML = "";
+  list.appendChild(el("li", { class: "muted", text: "loading runs…" }));
   let view;
   try {
-    view = await getJson(`/api/index${filter ? `?text=${encodeURIComponent(filter)}` : ""}`);
+    view = await getJson(apiUrl("/api/index", { text: filter }));
   } catch (error) {
+    if (seq !== state.indexSeq) return;
+    list.innerHTML = "";
     list.appendChild(el("li", { class: "err", text: `failed to load index: ${error.message}` }));
     return;
   }
+  // Only the newest request may render (see state.indexSeq).
+  if (seq !== state.indexSeq) return;
+  list.innerHTML = "";
   const reg = view.registry || {};
   const fresh = document.getElementById("registry-freshness");
   fresh.innerHTML = "";
-  fresh.append("registry ", freshnessBadge(reg.freshness && reg.freshness.status), ` · scope ${view.scope}`);
+  const regStatus = reg.freshness && reg.freshness.status;
+  const regTitle = String(regStatus || "").toLowerCase() === "absent"
+    ? "no home registry data yet — runs made in this repo still show; `cw registry refresh` builds it"
+    : undefined;
+  fresh.append("registry ", freshnessBadge(regStatus, regTitle), ` · scope ${view.scope}`);
   const records = (view.runs && view.runs.records) || [];
   if (!records.length) {
-    list.appendChild(el("li", { class: "muted", text: "no runs indexed in this scope" }));
+    list.appendChild(el("li", { class: "muted" }, [
+      el("div", { text: "no runs indexed in this scope" }),
+      el("div", { class: "hint", text: 'create one with: cw quickstart <app> --repo <path> --question "..."' })
+    ]));
     return;
   }
   for (const record of records) {
@@ -97,13 +141,22 @@ async function selectRun(runId) {
   detail.appendChild(el("p", { class: "muted", text: `loading ${runId}…` }));
   let view;
   try {
-    view = await getJson(`/api/run/${encodeURIComponent(runId)}`);
+    view = await getJson(apiUrl(`/api/run/${encodeURIComponent(runId)}`));
   } catch (error) {
+    if (state.activeRunId !== runId) return;
     detail.innerHTML = "";
     detail.appendChild(el("p", { class: "err", text: `failed to load run: ${error.message}` }));
     return;
   }
+  // The user may have clicked another run while this fetch was in flight;
+  // a stale response must not overwrite the newer selection's render.
+  if (state.activeRunId !== runId) return;
+  state.viewFetchedAt = new Date();
   renderRun(view);
+}
+
+function formatClock(date) {
+  return date ? date.toTimeString().slice(0, 8) : "";
 }
 
 function renderRun(view) {
@@ -113,12 +166,29 @@ function renderRun(view) {
     el("span", {}, [el("b", { text: "run " }), document.createTextNode(view.runId)]),
     el("span", {}, [document.createTextNode("resolved "), freshnessBadge(view.resolved ? "valid" : "missing")])
   ]);
+  if (view.lifecycle) {
+    header.appendChild(el("span", {}, [document.createTextNode("lifecycle "), freshnessBadge(view.lifecycle)]));
+  }
+  if (state.viewFetchedAt) {
+    header.appendChild(el("span", { class: "muted", text: `as of ${formatClock(state.viewFetchedAt)}` }));
+  }
   if (view.error) header.appendChild(el("span", { class: "err", text: view.error }));
   detail.appendChild(header);
+  if (view.lifecycle === "blocked" || view.lifecycle === "failed") {
+    detail.appendChild(
+      el("p", { class: "recovery-hint", text: `${view.lifecycle} — run 'cw run status ${view.runId}' or 'cw doctor' for next steps` })
+    );
+  }
 
-  const tabs = el("div", { class: "tabs" });
+  const tabs = el("div", { class: "tabs", role: "tablist" });
   for (const group of PANEL_GROUPS) {
-    const btn = el("button", { class: `tab ${state.activeTab === group.key ? "active" : ""}`, text: group.label });
+    const active = state.activeTab === group.key;
+    const btn = el("button", {
+      class: `tab ${active ? "active" : ""}`,
+      text: group.label,
+      role: "tab",
+      "aria-selected": active ? "true" : "false"
+    });
     btn.addEventListener("click", () => {
       state.activeTab = group.key;
       renderRun(view);
@@ -177,17 +247,27 @@ function renderStructured(data) {
   return null;
 }
 
+// A semantically-correct data table: header cells in a <thead> with
+// scope="col", body rows in a <tbody> — screen readers can then associate
+// each cell with its column header.
+function structTable(headers) {
+  const table = el("table", { class: "struct-table" }, [
+    el("thead", {}, [el("tr", {}, headers.map((h) => el("th", { scope: "col", text: h })))])
+  ]);
+  const tbody = el("tbody");
+  table.appendChild(tbody);
+  return { table, tbody };
+}
+
 function renderGraph(data) {
   const wrap = el("div");
   const nodesBlock = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: `nodes (${data.nodes.length})` })]);
   if (data.nodes.length === 0) {
     nodesBlock.appendChild(el("div", { class: "struct-empty", text: "none" }));
   } else {
-    const table = el("table", { class: "struct-table" }, [
-      el("tr", {}, ["id", "kind", "status", "label"].map((h) => el("th", { text: h })))
-    ]);
+    const { table, tbody } = structTable(["id", "kind", "status", "label"]);
     for (const node of data.nodes) {
-      table.appendChild(
+      tbody.appendChild(
         el("tr", {}, [
           el("td", { text: node.id }),
           el("td", { text: node.kind }),
@@ -239,11 +319,9 @@ function renderEventGroups(data, confirmedEventKeys) {
   for (const key of eventKeys) {
     const events = [...data[key]].sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
     const block = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: `${humanizeKey(key)} (${events.length})` })]);
-    const table = el("table", { class: "struct-table" }, [
-      el("tr", {}, ["time", "kind", "decision", "source", "actor"].map((h) => el("th", { text: h })))
-    ]);
+    const { table, tbody } = structTable(["time", "kind", "decision", "source", "actor"]);
     for (const event of events) {
-      table.appendChild(
+      tbody.appendChild(
         el("tr", {}, [
           el("td", { text: event.createdAt || "" }),
           el("td", { text: event.kind || "" }),

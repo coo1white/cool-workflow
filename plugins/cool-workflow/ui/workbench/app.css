@@ -27,21 +27,31 @@
   }
 }
 * { box-sizing: border-box; }
+/* The body is a flex column and main takes the leftover height (flex: 1 +
+   min-height: 0 so the inner panes can scroll) — no hardcoded header
+   height, so a header that wraps to two lines no longer pushes the panes
+   past the bottom of the window. */
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background: var(--bg);
   color: var(--ink);
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
 header { padding: 14px 20px; border-bottom: 1px solid var(--line); }
 header h1 { margin: 0; font-size: 18px; font-weight: 600; }
 header .muted, .muted { color: var(--muted); font-weight: 400; }
 header .trust { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-main { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 64px); }
+main { display: grid; grid-template-columns: 320px 1fr; flex: 1; min-height: 0; }
 .sidebar { border-right: 1px solid var(--line); overflow-y: auto; padding: 12px; }
 .bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+/* The sidebar heading is a real <h2> (document outline / screen-reader
+   navigation) styled to the size the old <strong> label had. */
+.bar h2 { margin: 0; font-size: 14px; font-weight: 600; }
 button {
   background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
   border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px;
@@ -51,7 +61,7 @@ input[type="search"] {
   width: 100%; background: var(--panel); color: var(--ink);
   border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px;
 }
-.freshness { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.freshness { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .run-list { list-style: none; margin: 0; padding: 0; }
 .run-list li,
 .run-list button {
@@ -72,7 +82,7 @@ input[type="search"] {
    element otherwise. */
 .run-list button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .run-list .rid { font-family: ui-monospace, monospace; font-size: 12px; display: flex; align-items: center; gap: 6px; }
-.run-list .meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+.run-list .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .status-dot {
   display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none;
   background: var(--muted);
@@ -93,13 +103,23 @@ input[type="search"] {
   padding: 8px 12px; border-bottom: 1px solid var(--line);
 }
 .panel-card > .head .title { font-weight: 600; }
-.panel-card > .head .src { font-size: 11px; color: var(--muted); font-family: ui-monospace, monospace; }
-.badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
+.panel-card > .head .src { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
 .badge.present { color: var(--present); border-color: var(--present); }
 .badge.absent { color: var(--absent); border-color: var(--absent); }
 .badge.stale { color: var(--absent); border-color: var(--absent); }
 .badge.valid { color: var(--present); border-color: var(--present); }
 .badge.missing, .badge.bad { color: var(--bad); border-color: var(--bad); }
+/* Lifecycle states shown as a badge in the run detail header (the other
+   lifecycle values reuse the neutral/present/absent colors above). */
+.badge.blocked { color: var(--absent); border-color: var(--absent); }
+.badge.failed { color: var(--bad); border-color: var(--bad); }
+.badge.completed { color: var(--present); border-color: var(--present); }
+.badge.running { color: var(--accent); border-color: var(--accent); }
+/* One plain next-step line under the header when a run is blocked/failed. */
+.recovery-hint { margin: 0 0 12px; font-size: 12px; color: var(--absent); }
+/* Second line of the empty-list state: the suggested next command. */
+.run-list li .hint { margin-top: 4px; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 pre.json {
   margin: 0; padding: 12px; overflow-x: auto; font-size: 12px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.5;
@@ -111,7 +131,7 @@ pre.json {
 .err { color: var(--bad); }
 .struct-block { padding: 10px 12px; border-top: 1px solid var(--line); }
 .struct-block:first-child { border-top: none; }
-.struct-block .struct-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px; }
+.struct-block .struct-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px; }
 .struct-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .struct-table th, .struct-table td {
   text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line);
