@@ -1,6 +1,18 @@
 # CW Iteration Log
 
-## Batch — fix all remaining audit P2/P3 findings (Unreleased)
+## Batch — CI repair: raise runtime source-context guard (Unreleased)
+
+> Dev-loop fix, not a release cut. CI proved a commit-only gate the local
+> pre-commit check could not see: `source-context.js` reads from the
+> COMMITTED git tree (`git ls-tree`/blob reads), not the working directory,
+> so a pre-commit dry run against `--ref HEAD` still measures the OLD
+> commit and passes trivially — the real size only shows up once the
+> change lands. Same shape as the 42k→43k CI repair cycle earlier in this
+> log.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 41 | `npm run test:coverage` (part of CI) runs `source-context-profile-smoke.js`, which fails closed if the "runtime" source-context profile (all of `src/**`) exceeds its line guard. PR #486 (cycle 40, the audit P2/P3 batch) added real fixes across ~15 `src/` files with WHY-comments matching this codebase's own dense-commenting convention; `origin/main` was already down to only 132 lines of headroom on the existing 48,000-line guard (47,868 lines), so the batch's net +224 lines pushed the committed export to 48,092 — CI failed with "exported 48092 lines, above maxLines 48000" on all 4 build-matrix jobs. Checked first whether the added lines were trimmable bloat — they are not (each is a real fix or a WHY-comment explaining a fail-closed/security decision, the established style throughout this file's own history) — so raised the guard, following the exact precedent of the 42k→43k CI-repair cycle earlier in this log: real, deliberate headroom for this batch (current export 48,092), not an open-ended bump. Confirmed via a same-repo worktree at `origin/main` that the guard was already this tight before the batch landed; the other 5 profiles (core 50,693/52,000; mcp/workflow-apps/release/agent-wrappers all well under their caps) needed no change. | `plugins/cool-workflow/manifest/source-context-profiles.json` (`runtime.maxLines` 48000 → 49000), `plugins/cool-workflow/test/source-context-profile-smoke.js` (pinned guard assertion updated to match). | `source-context-profile-smoke` passes; `node scripts/source-context.js export --profile runtime --ref HEAD` exits 0 (was exit 1); all 5 other profiles re-checked, all still comfortably under their own caps (no other guard needed raising). | `node test/source-context-profile-smoke.js` OK; full `node test/run-all.js` re-run against the committed HEAD (not a pre-commit working-tree dry run, which cannot see this class of failure). | no (CI repair cycle; no release/tag requested) |
 
 > Dev-loop fix, not a release cut: no `npm run release`, no tag. Second
 > half of the 2026-07-13 design-lens bug audit (the 2 P1s landed as PR #485
