@@ -375,6 +375,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [gemini-opencode-agent-wrapper-smoke.js](../test/gemini-opencode-agent-wrapper-smoke.js)
 - [h7-custom-profile-persist-smoke.js](../test/h7-custom-profile-persist-smoke.js)
 - [headline-commands-smoke.js](../test/headline-commands-smoke.js)
+- [http-delegate-child-multibyte-stdin-smoke.js](../test/http-delegate-child-multibyte-stdin-smoke.js)
 - [incremental-resume-smoke.js](../test/incremental-resume-smoke.js)
 - [ledger-apply-smoke.js](../test/ledger-apply-smoke.js)
 - [ledger-resolution-smoke.js](../test/ledger-resolution-smoke.js)
