@@ -97,12 +97,13 @@ const pluginRoot = path.resolve(__dirname, "..");
 }
 
 // Both real outbound surfaces actually route through safeJsonStringify —
-// not just this unit's own direct calls.
+// not just this unit's own direct calls. MCP now renders in its private tool
+// process before the control process writes the JSON-RPC reply.
 {
   const ioSrc = fs.readFileSync(path.join(pluginRoot, "dist", "cli", "io.js"), "utf8");
   assert.match(ioSrc, /safeJsonStringify\)\(value\)/, "cli/io.js's printJson must call safeJsonStringify");
-  const serverSrc = fs.readFileSync(path.join(pluginRoot, "dist", "mcp", "server.js"), "utf8");
-  assert.match(serverSrc, /safeJsonStringify\)\(coreResult\)/, "mcp/server.js's tools/call must call safeJsonStringify");
+  const toolProcessSrc = fs.readFileSync(path.join(pluginRoot, "dist", "mcp", "tool-process.js"), "utf8");
+  assert.match(toolProcessSrc, /safeJsonStringify\)\(result\)/, "mcp/tool-process.js must call safeJsonStringify before IPC");
 }
 
 process.stdout.write("safe-json-output-cap: ok\n");

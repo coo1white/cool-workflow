@@ -21,6 +21,21 @@ The bridge keeps to CW's base-system rules:
   protocol errors to the model still lets it read the message and try
   again
 
+## Control and Tool Processes
+
+The MCP parent process reads JSON-RPC, writes JSON-RPC, and answers `ping`.
+One child process runs `tools/call` work in order. A file lock wait or a long
+agent call in that child does not stop the parent from answering `ping`.
+
+The child sends back the same JSON text that the old in-process tool call gave
+back. Tool names, input names, output shapes, run files, and CLI parity stay
+the same.
+
+If the child stops during a tool call, CW gives an `isError: true` result for
+that call. CW does not run the call again, because it may have written part of
+a run. Read the saved run state before you try the call again. The next tool
+call starts a new child process.
+
 ## App Run Flow
 
 Use `cw_app_list`, `cw_app_show`, and `cw_app_validate` to look at app
