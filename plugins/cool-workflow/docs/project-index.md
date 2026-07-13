@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 - Source modules: `151`
 - Workflow apps: `8`
 - Docs: `58`
-- Smoke tests: `235`
+- Smoke tests: `236`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -501,6 +501,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [trust-audit-anchor-smoke.js](../test/trust-audit-anchor-smoke.js)
 - [trust-audit-append-lock-concurrency-smoke.js](../test/trust-audit-append-lock-concurrency-smoke.js)
 - [trust-audit-append-tail-cache-smoke.js](../test/trust-audit-append-tail-cache-smoke.js)
+- [trust-audit-ensure-create-no-truncate-smoke.js](../test/trust-audit-ensure-create-no-truncate-smoke.js)
 - [trust-audit-summary-durable-write-skip-smoke.js](../test/trust-audit-summary-durable-write-skip-smoke.js)
 - [trust-audit-torn-tail-append-smoke.js](../test/trust-audit-torn-tail-append-smoke.js)
 - [vendor-manifest-load-smoke.js](../test/vendor-manifest-load-smoke.js)
