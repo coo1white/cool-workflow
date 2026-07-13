@@ -167,6 +167,33 @@ export function durableAppendFileSync(file: string, data: string): void {
   }
 }
 
+/** True when `file`'s final byte is "\n", given its already-known `size`.
+ *  A COMPLETED `durableAppendFileSync` always leaves the file ending in
+ *  "\n" (every append is `<line>\n`), so a non-newline last byte means the
+ *  previous append was torn by a crash — its bytes were never a confirmed
+ *  record. Reads ONLY the last byte at `size-1`, so callers on an append
+ *  hot path stay O(1) and never re-read the whole file. A read failure
+ *  returns false (treat as "not newline-terminated") — the safe side: an
+ *  extra leading newline is harmless for an NDJSON reader that skips blank
+ *  lines, while a MISSED torn boundary would merge two records into one
+ *  unparseable line. Shared by trust-audit's events.jsonl and the
+ *  blackboard's messages.jsonl append paths — same file shape, same
+ *  torn-tail risk, one implementation. */
+export function logEndsWithNewline(file: string, size: number): boolean {
+  if (size <= 0) return false;
+  let fd: number | undefined;
+  try {
+    fd = fs.openSync(file, "r");
+    const buf = Buffer.alloc(1);
+    fs.readSync(fd, buf, 0, 1, size - 1);
+    return buf[0] === 0x0a; // "\n"
+  } catch {
+    return false;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // withFileLock — portable advisory cross-process lock.
 //
