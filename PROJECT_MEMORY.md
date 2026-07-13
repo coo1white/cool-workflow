@@ -8,6 +8,23 @@ Since 2026-07-13 this is the ONE memory file: it took in the old
 relay) — see the "Lessons" and "In-flight relay" sections. `docs/BACKLOG.md`
 stays separate: it parks ideas that serve no North Star track.
 
+## Current Work Direction
+
+- Fix known faults in the runtime and release work first.
+- After that, take out dead files, old copies, and paths which have no use.
+- Keep `core`, `shell`, and `wiring` separate. Put decisions in `core`, file
+  and process work in `shell`, and CLI/MCP links in `wiring`.
+- Keep command output, JSON, exit codes, file layouts, and replay records as
+  they are. Put new behavior behind a new command, flag, or opt-in setting.
+- Give each cycle one goal. Keep a fault fix and a tree clean-up in separate
+  PRs.
+- Use small control points and saved state. Put long or waiting work in a
+  process outside the MCP control process.
+- New work has to help a North Star track. Put other ideas in
+  `docs/BACKLOG.md`.
+- `DIRECTION.md` is the source for product direction. This section gives the
+  present work order.
+
 ## Verified Facts
 
 - Default context slimming has to use the `core` source profile.
