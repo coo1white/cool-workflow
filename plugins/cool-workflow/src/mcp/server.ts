@@ -6,8 +6,11 @@
 // "Invariants and error behavior" #9 / "Edge cases" sections:
 //   - transport: stdin/stdout, ONE JSON object per line, no
 //     Content-Length headers (mcp.md:13);
-//   - `initialize` -> protocolVersion/capabilities/serverInfo, ignoring
-//     params (mcp.md:19,263-269);
+//   - `initialize` -> protocolVersion/capabilities/serverInfo (mcp.md:
+//     19,263-269); the reply's protocolVersion echoes the client's
+//     requested one when it is in SUPPORTED_PROTOCOL_VERSIONS below, and
+//     falls back to the newest supported entry otherwise (with today's
+//     one-entry list this is byte-identical to the old fixed reply);
 //   - `tools/list` -> { tools: [...] } from core/capability-table.ts via
 //     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277);
 //   - `tools/call` -> { content: [{ type: "text", text: <2-space pretty
@@ -65,6 +68,22 @@ import { recoveryHint } from "../core/format/recovery-hint";
 import { callTool, toolDefinitions } from "./dispatch";
 
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
+
+/** Protocol versions this server can speak, oldest first. `initialize`
+ *  echoes the client's `params.protocolVersion` when it is in this list,
+ *  and answers with the newest entry (the last one) otherwise — the
+ *  standard MCP version-negotiation shape. With one entry this is
+ *  behavior-identical to the old hard-coded reply (mechanism first; a
+ *  second version is a one-line append here). */
+const SUPPORTED_PROTOCOL_VERSIONS = ["2024-11-05"];
+
+/** Picks the `initialize` reply's protocolVersion from the client's
+ *  requested one (see SUPPORTED_PROTOCOL_VERSIONS). Exported for the
+ *  protocol-version smoke; pure. */
+export function negotiateProtocolVersion(requested: unknown): string {
+  if (typeof requested === "string" && SUPPORTED_PROTOCOL_VERSIONS.includes(requested)) return requested;
+  return SUPPORTED_PROTOCOL_VERSIONS[SUPPORTED_PROTOCOL_VERSIONS.length - 1];
+}
 
 // Tools whose result carries free-form text ORIGINALLY AUTHORED by a
 // worker/agent/operator/external caller — never computed or validated by
@@ -165,9 +184,10 @@ async function handleRequest(message: JsonRpcRequest): Promise<void> {
   try {
     switch (message.method) {
       case "initialize": {
+        const params = (message.params ?? {}) as Record<string, unknown>;
         writeMessage(
           resultMessage(id, {
-            protocolVersion: "2024-11-05",
+            protocolVersion: negotiateProtocolVersion(params.protocolVersion),
             capabilities: { tools: {} },
             serverInfo: { name: "cool-workflow", version: CURRENT_COOL_WORKFLOW_VERSION },
           })

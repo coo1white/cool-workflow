@@ -190,4 +190,65 @@ const { COMMON_PROPERTY_TYPES } = require("../dist/core/capability-data");
   );
 }
 
+// Behavior-hint annotations (MCP_TOOL_ANNOTATIONS): a checked pure read
+// carries readOnlyHint true, a checked delete sweep carries
+// destructiveHint true (with readOnlyHint false), and a tool NOT in the
+// side table has NO annotations key at all — absent beats wrong.
+{
+  const defs = mcpToolDefinitions();
+  const byName = new Map(defs.map((d) => [d.name, d]));
+
+  assert.deepEqual(byName.get("cw_node_list").annotations, { readOnlyHint: true }, "cw_node_list is a checked pure read");
+  assert.deepEqual(byName.get("cw_status").annotations, { readOnlyHint: true }, "cw_status is a checked pure read");
+  assert.deepEqual(
+    byName.get("cw_gc_run").annotations,
+    { readOnlyHint: false, destructiveHint: true },
+    "cw_gc_run is a checked delete sweep"
+  );
+  assert.deepEqual(
+    byName.get("cw_schedule_delete").annotations,
+    { readOnlyHint: false, destructiveHint: true },
+    "cw_schedule_delete is a checked delete sweep"
+  );
+
+  // Deliberately unannotated tools: cw_plan and cw_commit mutate;
+  // cw_metrics_show / cw_workbench_view / cw_operator_report look like
+  // reads but persist a derived report; cw_schedule_due marks expired
+  // tasks. None may carry a hint.
+  for (const name of ["cw_plan", "cw_commit", "cw_metrics_show", "cw_workbench_view", "cw_operator_report", "cw_schedule_due"]) {
+    assert.ok(!("annotations" in byName.get(name)), `${name} must carry NO annotations key`);
+  }
+
+  // No tool may ever say readOnlyHint AND destructiveHint are both true.
+  for (const def of defs) {
+    if (!def.annotations) continue;
+    assert.ok(
+      !(def.annotations.readOnlyHint === true && def.annotations.destructiveHint === true),
+      `${def.name}: readOnlyHint and destructiveHint must not both be true`
+    );
+  }
+}
+
+// "When to use which" cross-references: each of the four status-family
+// descriptions names at least one sibling status tool, and
+// cw_sandbox_resolve's description says it is an alias and names the
+// preferred tool. A drift guard so a later description edit keeps the
+// cross-references.
+{
+  const defs = mcpToolDefinitions();
+  const byName = new Map(defs.map((d) => [d.name, d]));
+  const statusFamily = ["cw_status", "cw_operator_status", "cw_workbench_view", "cw_multi_agent_status"];
+  for (const name of statusFamily) {
+    const description = byName.get(name).description;
+    const siblings = statusFamily.filter((sibling) => sibling !== name);
+    assert.ok(
+      siblings.some((sibling) => description.includes(sibling)),
+      `${name}'s description must name at least one sibling status tool (got: ${description})`
+    );
+  }
+  const resolveDescription = byName.get("cw_sandbox_resolve").description;
+  assert.ok(/alias/i.test(resolveDescription), "cw_sandbox_resolve's description must say it is an alias");
+  assert.ok(resolveDescription.includes("cw_sandbox_choose"), "cw_sandbox_resolve's description must name cw_sandbox_choose");
+}
+
 process.stdout.write("captable-mcp-tool-definitions: ok\n");

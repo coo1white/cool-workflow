@@ -113,11 +113,13 @@ function buildMcpBinding(row) {
     // into its separate AND-groups here (the one place the row shape is turned
     // into the runtime McpBinding.requiredArgs contract).
     const requiredArgs = row.requiredArgs.flatMap((group) => group.split(",").map((entry) => entry.trim()).filter(Boolean));
+    const annotations = capability_data_1.MCP_TOOL_ANNOTATIONS[row.tool];
     return {
         tool: row.tool,
         requiredArgs: requiredArgs.length ? requiredArgs : undefined,
         properties: row.properties,
         description: row.description,
+        ...(annotations ? { annotations } : {}),
         handler,
     };
 }
@@ -206,6 +208,9 @@ function mcpToolDefinitions() {
         definitions.push({
             name: row.mcp.tool,
             description: row.mcp.description,
+            // Additive behavior hints (MCP_TOOL_ANNOTATIONS): present only for
+            // tools whose handler was checked by hand; omitted otherwise.
+            ...(row.mcp.annotations ? { annotations: row.mcp.annotations } : {}),
             inputSchema: {
                 type: "object",
                 properties,
