@@ -1,23 +1,27 @@
 #!/usr/bin/env node
 "use strict";
 
-// verdict-signing-workflow-smoke — extracts the ACTUAL `run:` bash block for
-// the verdict-signature-verification step out of .github/workflows/
-// release-gate.yml and npm-publish.yml (byte-for-byte, not a hand copy — so
-// this can never drift from the real file) and executes it against
-// throwaway git fixtures. This is the ONLY automated coverage of that bash
-// logic: it is otherwise only exercised by a real tag push / dispatch in CI,
-// so a future edit that reintroduces the bare-relative-path bug (fixed
-// during this same review cycle), swaps the $VERDICT/$SIG argument order, or
-// breaks the PUBKEY variable would pass every other test and only be caught
-// the next time an actual release runs the real workflow.
+// verdict-signing-workflow-smoke — takes the ACTUAL `run:` text for the
+// verdict-verification steps out of .github/workflows/release-gate.yml and
+// npm-publish.yml (byte-for-byte, not a hand copy — so this can never drift
+// from the real files) and executes it against throwaway git fixtures. The
+// verdict loop itself now lives in ONE shared script,
+// scripts/verify-release-verdict.js, which both workflows call with a
+// one-line `run:` — release-gate.yml's whole step is that one line;
+// npm-publish.yml keeps its own tag-identity bash (refs/tags existence +
+// TAG_SHA == HEAD_SHA) in front of the same one-line call. This test is the
+// ONLY automated coverage of that pipeline: it is otherwise only exercised
+// by a real tag push / dispatch in CI, so a future edit that breaks the
+// candidate loop, swaps the verdict/sig argument order, or weakens the
+// PUBKEY source would pass every other test and only be caught the next
+// time an actual release runs the real workflow.
 //
 // Both workflow files avoid `${{ }}` GitHub Actions interpolation INSIDE the
-// run: block itself (values are threaded through env: instead, per the P2/P3
-// fix in this same review cycle) — so the extracted text is plain,
-// executable bash with no templating left to resolve. TAG_REF (the one
-// remaining external input, for npm-publish.yml) is supplied as a real shell
-// env var here, exactly as GitHub Actions' `env:` mapping would.
+// run: text itself (values are threaded through env: instead) — so the
+// extracted text is plain, executable bash with no templating left to
+// resolve. TAG_REF (the one remaining external input, for npm-publish.yml)
+// is supplied as a real shell env var here, exactly as GitHub Actions'
+// `env:` mapping would.
 //
 // Portable: node + git + bash only, isolated tmpdirs.
 
@@ -35,7 +39,9 @@ const PUBLISH_YML = path.join(repoRoot, ".github", "workflows", "npm-publish.yml
 const VERIFY_SCRIPT = path.join(pluginRoot, "scripts", "verify-verdict-signature.js");
 const BUMP_REPRO_SCRIPT = path.join(pluginRoot, "scripts", "verify-bump-reproduction.js");
 const FAKE_DATE_SCRIPT = path.join(pluginRoot, "scripts", "fake-date-for-reproduction.js");
-for (const f of [GATE_YML, PUBLISH_YML, VERIFY_SCRIPT, BUMP_REPRO_SCRIPT, FAKE_DATE_SCRIPT]) assert.ok(fs.existsSync(f), `${f} must exist`);
+const RELEASE_VERDICT_SCRIPT = path.join(pluginRoot, "scripts", "verify-release-verdict.js");
+for (const f of [GATE_YML, PUBLISH_YML, VERIFY_SCRIPT, BUMP_REPRO_SCRIPT, FAKE_DATE_SCRIPT, RELEASE_VERDICT_SCRIPT])
+  assert.ok(fs.existsSync(f), `${f} must exist`);
 
 /** Extracts the `run: |` block scalar body for the step whose `name:` line
  *  contains `stepName`, dedented to plain shell text. Reads the REAL file
@@ -71,16 +77,35 @@ function extractRunBlock(yamlPath, stepName) {
   return body.map((l) => (l.length >= dedent ? l.slice(dedent) : l)).join("\n");
 }
 
-const gateScript = extractRunBlock(GATE_YML, "Verify reviewer verdict was committed");
+/** Extracts a SINGLE-LINE `run: <command>` for the step whose `name:` line
+ *  contains `stepName` — release-gate.yml's verdict step is one line now.
+ *  Same no-hand-copy rule as extractRunBlock. */
+function extractRunLine(yamlPath, stepName) {
+  const lines = fs.readFileSync(yamlPath, "utf8").split(/\r?\n/);
+  const nameIdx = lines.findIndex((l) => l.includes(`name: ${stepName}`));
+  assert.ok(nameIdx >= 0, `step "${stepName}" not found in ${yamlPath}`);
+  for (let i = nameIdx + 1; i < lines.length; i++) {
+    const m = lines[i].match(/^\s*run:\s*(\S.*)$/);
+    if (m) return m[1];
+    assert.ok(!/^\s*-\s+name:/.test(lines[i]), `no single-line "run:" found for step "${stepName}" before the next step`);
+  }
+  assert.fail(`no single-line "run:" found for step "${stepName}" in ${yamlPath}`);
+}
+
+const gateScript = extractRunLine(GATE_YML, "Verify reviewer verdict was committed");
 const publishScript = extractRunBlock(PUBLISH_YML, "Verify the dispatched ref is a real, gated release tag");
 
-// Sanity: both extracted scripts must actually reference the verify script
-// and the pubkey path — proves the extraction landed on real content, not an
-// empty/wrong block due to a future rename of the step.
+// Sanity: both extracted texts must actually delegate to the shared verdict
+// script — proves the extraction landed on real content, not an empty/wrong
+// block due to a future rename of the step, and pins the delegation itself
+// (the whole point of the one-script design).
 for (const [label, script] of [["release-gate.yml", gateScript], ["npm-publish.yml", publishScript]]) {
-  assert.match(script, /verify-verdict-signature\.js/, `${label}'s extracted block must reference verify-verdict-signature.js`);
-  assert.match(script, /verdict-signing\.pub/, `${label}'s extracted block must reference verdict-signing.pub`);
+  assert.match(script, /verify-release-verdict\.js/, `${label}'s extracted run text must call verify-release-verdict.js`);
 }
+// npm-publish.yml's own tag-identity bash must still be there in front of the
+// delegated call (it is this file's unique logic, not part of the shared loop).
+assert.match(publishScript, /refs\/tags\//, "npm-publish.yml must still verify the ref is a real tag");
+assert.match(publishScript, /TAG_SHA/, "npm-publish.yml must still compare TAG_SHA to HEAD_SHA");
 
 // BUG-2 regression (text-only check, not a full YAML parse): the "Verify the
 // dispatched ref is a real, gated release tag" step in npm-publish.yml must
@@ -139,6 +164,10 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   fs.copyFileSync(VERIFY_SCRIPT, path.join(scriptsDir, "verify-verdict-signature.js"));
   fs.copyFileSync(BUMP_REPRO_SCRIPT, path.join(scriptsDir, "verify-bump-reproduction.js"));
   fs.copyFileSync(FAKE_DATE_SCRIPT, path.join(scriptsDir, "fake-date-for-reproduction.js"));
+  // The shared verdict script finds its helper scripts via its OWN directory
+  // (__dirname), so the fixture gets its own copy — the poison tests below
+  // count on the fixture's verify-bump-reproduction.js being the one used.
+  fs.copyFileSync(RELEASE_VERDICT_SCRIPT, path.join(scriptsDir, "verify-release-verdict.js"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
   // verify-bump-reproduction.js runs `npm install` + `npm run bump:version` +
   // `npm run sync:project-index` for real — this fixture is a MINIMAL real

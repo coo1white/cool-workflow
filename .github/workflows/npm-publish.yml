@@ -119,16 +119,11 @@ jobs:
         # if .cw-release/verdict-signing.pub is committed (see verdict-keygen.js).
         # A validly-signed verdict for the PARENT alone does not prove HEAD is
         # the same mechanical bump release-flow.js's cut() would have produced —
-        # it could be an attacker's own commit smuggling arbitrary changes on
-        # top of an old, genuinely-approved parent, replaying that parent's
-        # already-public verdict + signature.
-        #
-        # .cw-release/ lives at the REPO ROOT, not under this job's
-        # working-directory (plugins/cool-workflow) — anchor on
-        # `git rev-parse --show-toplevel` rather than a relative path, since a
-        # bare `.cw-release/...` here would silently resolve under
-        # plugins/cool-workflow/ and never match, failing every legitimate
-        # dispatch closed for the wrong reason.
+        # the shared script's header comment keeps the full rationale. The
+        # tag-identity checks below are THIS file's own logic; the verdict
+        # check itself is delegated to verify-release-verdict.js, which does
+        # not care about the cwd (it anchors itself on
+        # `git rev-parse --show-toplevel`).
         run: |
           REF="$TAG_REF"
           TAG_SHA="$(git rev-parse --verify "refs/tags/$REF^{commit}" 2>/dev/null)" || {
@@ -140,46 +135,7 @@ jobs:
             echo "::error::checked-out commit $HEAD_SHA does not match refs/tags/$REF ($TAG_SHA) — refusing to publish"
             exit 1
           fi
-          REPO_ROOT="$(git rev-parse --show-toplevel)"
-          # Read the pubkey from origin/main, NOT from the checked-out tree. The
-          # checked-out tree IS the tag under judgment -- a tag that deletes
-          # .cw-release/verdict-signing.pub would otherwise silently fall back to
-          # a no-signature check. origin/main is a ref the tag being judged cannot
-          # rewrite. fetch-depth: 0 on the checkout step above already gives us
-          # this ref with no extra fetch.
-          PUBKEY=""
-          if PUBKEY_CONTENT="$(git show origin/main:.cw-release/verdict-signing.pub 2>/dev/null)" && [ -n "$PUBKEY_CONTENT" ]; then
-            PUBKEY="$(mktemp)"
-            printf '%s\n' "$PUBKEY_CONTENT" > "$PUBKEY"
-          fi
-          for C in "$HEAD_SHA" "$(git rev-parse HEAD~1 2>/dev/null || echo none)"; do
-            VERDICT_REL=".cw-release/review-$C.verdict"
-            VERDICT="$REPO_ROOT/$VERDICT_REL"
-            [ -f "$VERDICT" ] || continue
-            FIRST_LINE="$(head -n1 "$VERDICT")"
-            [ "$FIRST_LINE" = "APPROVED $C" ] || continue
-            if [ -n "$PUBKEY" ]; then
-              SIG="$VERDICT.sig"
-              SIG_REL="$VERDICT_REL.sig"
-              if [ -f "$SIG" ] && node scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
-                if [ "$C" != "$HEAD_SHA" ]; then
-                  if ! node scripts/verify-bump-reproduction.js "$C" "$HEAD_SHA" "$VERDICT_REL" "$SIG_REL"; then
-                    echo "verdict for $C has a valid signature but HEAD does not reproduce as its deterministic bump — trying the other candidate"
-                    continue
-                  fi
-                fi
-                echo "verdict found + signature verified for $C"
-                exit 0
-              fi
-              echo "verdict for $C has no valid signature — trying the other candidate"
-              continue
-            fi
-            echo "verdict found for $C (no verdict-signing.pub committed yet — signature not required)"
-            exit 0
-          done
-          echo "::error::No committed APPROVED verdict for this tag (with a valid signature, if .cw-release/verdict-signing.pub is committed). Publishing cannot be used to skip the gated release flow."
-          echo "::error::Expected: .cw-release/review-<sha>.verdict with first line 'APPROVED <sha>'"
-          exit 1
+          node scripts/verify-release-verdict.js --context "Publishing cannot be used to skip the gated release flow."
         env:
           TAG_REF: ${{ steps.tagref.outputs.ref }}
       - name: Verify committed dist/ matches source (fail closed on drift)

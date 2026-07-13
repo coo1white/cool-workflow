@@ -40,56 +40,10 @@ jobs:
         run: node plugins/cool-workflow/scripts/release-gate.js
 
       - name: Verify reviewer verdict was committed
-        # If .cw-release/verdict-signing.pub is committed (see
-        # scripts/verdict-keygen.js), ALSO require a valid ed25519 signature on
-        # the matched verdict, AND — when the match is at HEAD~1 (the
-        # "tolerate the release commit" path) — require HEAD to reproduce
-        # EXACTLY as the deterministic bump commit release-flow.js's cut()
-        # would have produced on top of the approved parent
-        # (scripts/verify-bump-reproduction.js). A validly-signed verdict for
-        # the PARENT alone does not prove HEAD is that same mechanical bump —
-        # it could be an attacker's own commit smuggling arbitrary changes on
-        # top of an old, genuinely-approved parent, replaying that parent's
-        # already-public verdict + signature (public git objects, no secret
-        # needed to copy them). Until verdict-signing.pub exists in the repo,
-        # this stays the original grep-only check, unchanged (opt-in,
-        # backward compatible).
-        run: |
-          SHA=$(git rev-parse HEAD^{commit})
-          # Read the pubkey from origin/main, NOT from the checked-out tree. For a
-          # tag push the checked-out tree IS the commit under test — an attacker's
-          # tag could just delete .cw-release/verdict-signing.pub and fall back to
-          # a no-signature check. origin/main is a ref the tag being judged cannot
-          # rewrite. fetch-depth: 0 above already gives us this ref with no extra
-          # fetch.
-          PUBKEY=""
-          if PUBKEY_CONTENT="$(git show origin/main:.cw-release/verdict-signing.pub 2>/dev/null)" && [ -n "$PUBKEY_CONTENT" ]; then
-            PUBKEY="$(mktemp)"
-            printf '%s\n' "$PUBKEY_CONTENT" > "$PUBKEY"
-          fi
-          # The tag commit itself bumps version/changelog; the reviewed sha is its parent
-          # Accept a verdict for HEAD or HEAD~1 to tolerate the release commit.
-          for C in "$SHA" "$(git rev-parse HEAD~1 2>/dev/null || echo none)"; do
-            VERDICT=".cw-release/review-$C.verdict"
-            [ -f "$VERDICT" ] || continue
-            FIRST_LINE="$(head -n1 "$VERDICT")"
-            [ "$FIRST_LINE" = "APPROVED $C" ] || continue
-            if [ -n "$PUBKEY" ]; then
-              SIG="$VERDICT.sig"
-              if [ -f "$SIG" ] && node plugins/cool-workflow/scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
-                if [ "$C" != "$SHA" ]; then
-                  if ! node plugins/cool-workflow/scripts/verify-bump-reproduction.js "$C" "$SHA" "$VERDICT" "$SIG"; then
-                    echo "verdict for $C has a valid signature but HEAD does not reproduce as its deterministic bump — trying the other candidate"
-                    continue
-                  fi
-                fi
-                echo "verdict found + signature verified for $C"; exit 0
-              fi
-              echo "verdict for $C has no valid signature — trying the other candidate"
-              continue
-            fi
-            echo "verdict found for $C (no verdict-signing.pub committed yet — signature not required)"; exit 0
-          done
-          echo "::error::No committed APPROVED verdict for this tag (with a valid signature, if .cw-release/verdict-signing.pub is committed). The release flow was bypassed."
-          echo "::error::Expected: .cw-release/review-<sha>.verdict with first line 'APPROVED <sha>' — auto-created by release-flow.js --cut"
-          exit 1
+        # The whole check (candidate loop, signature, bump-reproduction, and
+        # the pubkey-from-origin/main rule) lives in the shared script — its
+        # header comment is the one place the trust-chain rationale is kept.
+        # Keeping this run: to one line also keeps the script's "::error::"
+        # fail text out of the log of a green run (Actions prints a run:
+        # step's full source before executing it).
+        run: node plugins/cool-workflow/scripts/verify-release-verdict.js --context "The release flow was bypassed."

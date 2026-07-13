@@ -1,5 +1,20 @@
 # CW Iteration Log
 
+## Batch — one shared verdict-check script for both CI workflows (Unreleased)
+
+> Dev-loop fix, not a release cut: no `npm run release`, no tag. Found while
+> reading the green v0.2.5 release-gate log: the step's "::error::" fail
+> lines were in the log of a GOOD run, because GitHub Actions prints a
+> `run:` step's full script text before it runs it — so the fail branch's
+> text gets printed (and marked red by the log UI) even when the run never
+> goes down that branch. Root cause of the second problem: release-gate.yml
+> and npm-publish.yml each kept their own ~35-line bash copy of the same
+> verdict-check loop, which could drift apart over time.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 42 | Move the "find a signed, committed release verdict for this commit" loop out of the two workflow YAMLs into ONE shared script, `scripts/verify-release-verdict.js` — a straight port of the bash, same candidate order (HEAD then HEAD~1), same first-line `APPROVED <sha>` rule, same pubkey-from-origin/main rule, same bump-reproduction check when the match is at HEAD~1, same exit map (0 found / 1 not found), same "::error::" fail lines. Each workflow step is now a one-line `run:` call (npm-publish.yml keeps its own tag-identity bash — refs/tags existence + TAG_SHA == HEAD_SHA — in front of the call). Two wins: (1) a green run's log can no longer show the "::error::" text, because the only printed source line is the one-line call — the fail text now lives inside the script and is only printed when it truly fails; (2) the two bash copies (and their near-same WHY comments) are gone — the loop and its rationale now have one home. The script takes `--context "<sentence>"` so each caller keeps its own fail wording. cwd-free by design: it anchors on `git rev-parse --show-toplevel` and loads its helper scripts from its own directory (same rule as verify-bump-reproduction.js), so the repo-root caller (release-gate.yml) and the plugins/cool-workflow caller (npm-publish.yml) get the same behavior. | new `plugins/cool-workflow/scripts/verify-release-verdict.js`; `.github/workflows/release-gate.yml` (verdict step → one line); `.github/workflows/npm-publish.yml` (verdict loop → one line, tag-identity bash kept); `plugins/cool-workflow/test/verdict-signing-workflow-smoke.js` (see tests). | `verdict-signing-workflow-smoke.js` reworked but still zero-hand-copy: it now pulls release-gate.yml's ONE-LINE `run:` (new `extractRunLine`) and npm-publish.yml's kept bash block out of the real files and executes them against the same throwaway git fixtures — all 13 scenarios kept as-is (no-pubkey fallback, valid sig, missing .sig fails closed, tamper-after-sign, loop continue past a forged HEAD verdict, replayed-verdict-on-backdoor caught by bump-reproduction, no bump-repro call when C == SHA (poison marker), npm-install fail closed, BUG-1 filename-vs-content replay, BUG-3 pubkey from origin/main, non-real tag ref refused) plus new pins: both extracted texts must call verify-release-verdict.js, and npm-publish.yml must keep its refs/tags + TAG_SHA checks. | `node test/verdict-signing-workflow-smoke.js` OK (13 scenarios, both cwd contexts); `node test/block-unapproved-tag-smoke.js` OK; `node test/release-pipeline-hygiene-smoke.js` OK (12 static guards, no change needed — its guards do not read the verdict loop). | no (dev loop fix, no release) |
+
 ## Batch — CI repair: raise runtime source-context guard (Unreleased)
 
 > Dev-loop fix, not a release cut. CI proved a commit-only gate the local
