@@ -52,6 +52,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorkbenchHost = void 0;
+exports.formatServeHint = formatServeHint;
+exports.printServeHint = printServeHint;
 const crypto = __importStar(require("node:crypto"));
 const fs = __importStar(require("node:fs"));
 const http = __importStar(require("node:http"));
@@ -59,6 +61,25 @@ const path = __importStar(require("node:path"));
 const node_url_1 = require("node:url");
 const workbench_1 = require("./workbench");
 const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+function isTTY(stream) {
+    return Boolean(stream.isTTY);
+}
+/** Pure text for the human-friendly serve hint line. Kept separate from
+ *  the TTY gate below so it is directly unit-testable with no fake stream
+ *  at all: just a port number in, one line of text out. */
+function formatServeHint(boundPort) {
+    return `workbench serving at http://127.0.0.1:${boundPort} (Ctrl-C to stop)`;
+}
+/** Prints the human hint line to STDERR only, and only on a real
+ *  interactive terminal — the same TTY-gated-nicety pattern as
+ *  term.ts's printSuccessSummary: silent when the stream is not a TTY, so
+ *  a piped/non-interactive run (and the existing STDOUT descriptor line)
+ *  never changes at all. */
+function printServeHint(boundPort, stream = process.stderr) {
+    if (!isTTY(stream))
+        return;
+    stream.write(`${formatServeHint(boundPort)}\n`);
+}
 function timingSafeEqual(a, b) {
     const bufA = Buffer.from(a, "utf8");
     const bufB = Buffer.from(b, "utf8");
@@ -274,6 +295,7 @@ class WorkbenchHost {
         const boundPort = await this.listen();
         const descriptor = this.descriptor(false, boundPort);
         process.stdout.write(`${JSON.stringify({ ...descriptor, boundPort })}\n`);
+        printServeHint(boundPort);
         // Block forever (until the process is killed) — a real serve.
         await new Promise(() => { });
     }
