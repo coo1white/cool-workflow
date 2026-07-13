@@ -277,7 +277,8 @@ process.exit(0);
 }
 
 // ---- Case 3e: REJECTEDLY (a stray word starting with REJECTED) must NOT be
-// read as a REJECTED marker — the match is tightened to /^REJECTED(\s|$)/i.
+// read as a REJECTED marker — isRejectedLine requires REJECTED not be
+// immediately followed by another letter.
 {
   const dir = fixture();
   const stub = path.join(dir, "stdout-word-stub.js");
@@ -289,6 +290,55 @@ process.exit(0);
   const r = runFlow(dir, { agentCmd: `node ${stub}` });
   assert.equal(r.code, 0, `a stray word starting with REJECTED must not block a real APPROVED line:\n${r.err}\n${r.out}`);
   assert.match(r.out, /"verdict": "APPROVED"/, "summary should report APPROVED");
+}
+
+// ---- Case 3f/3g/3h: a DECORATED rejection (markdown bold, trailing colon, a
+// heading marker) plus an echoed "APPROVED <sha>" format example must still
+// resolve to REJECTED, never a signed approval (P1 fix — isRejectedLine
+// strips leading markdown decoration before matching REJECTED). ----
+for (const [label, rejectedLine] of [
+  ["bold", "**REJECTED**"],
+  ["colon", "REJECTED:"],
+  ["heading", "### REJECTED"],
+]) {
+  const dir = fixture();
+  const stub = path.join(dir, `stdout-decorated-${label}-stub.js`);
+  fs.writeFileSync(stub, `
+const sha = process.env.STUB_SHA || "sha";
+process.stdout.write("Here is my review.\\n\\n${rejectedLine}\\n1. gate step failed, see log.\\n\\nRequired output format was:\\nAPPROVED " + sha + "\\n<capability sentence>\\n");
+process.exit(0);
+`);
+  const r = runFlow(dir, { agentCmd: `node ${stub}` });
+  assert.equal(r.code, 1, `a decorated (${label}) REJECTED + an echoed APPROVED-format line must still fail the flow:\n${r.err}\n${r.out}`);
+  assert.match(r.err, /not APPROVED|blocked/i, `should explain the block (${label})`);
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const verdict = path.join(dir, ".cw-release", `review-${sha}.verdict`);
+  assert.ok(fs.existsSync(verdict), `verdict file is still written (${label})`);
+  assert.doesNotMatch(fs.readFileSync(verdict, "utf8"), /^APPROVED/, `captured verdict must not be APPROVED (${label})`);
+  const sigPath = `${verdict}.sig`;
+  assert.ok(!fs.existsSync(sigPath), `a decorated REJECTED verdict must never be signed (${label})`);
+}
+
+// ---- Case 3i: same attack via the FILE-based path (agent writes the verdict
+// file directly instead of printing to stdout) — verifyVerdict's own early
+// check must also recognize a decorated REJECTED first line and never fall
+// through to the stdout-normalizer with an echoed APPROVED line in the body.
+{
+  const dir = fixture();
+  const stub = path.join(dir, "file-decorated-mixed-stub.js");
+  fs.writeFileSync(stub, `
+const fs = require("node:fs");
+const resultPath = process.argv[2];
+const sha = process.env.STUB_SHA || "sha";
+fs.writeFileSync(resultPath, "**REJECTED**\\n1. issues.\\nAPPROVED " + sha + "\\nlooks off\\n");
+process.exit(0);
+`);
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}}` });
+  assert.equal(r.code, 1, `a decorated REJECTED verdict FILE with an APPROVED line in the body must fail the flow:\n${r.err}\n${r.out}`);
+  assert.match(r.err, /not APPROVED|blocked/i, "should explain the block");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const sigPath = path.join(dir, ".cw-release", `review-${sha}.verdict.sig`);
+  assert.ok(!fs.existsSync(sigPath), "a decorated REJECTED verdict file must never be signed");
 }
 
 // ---- Case 4: no agent configured → fail closed with guidance ----

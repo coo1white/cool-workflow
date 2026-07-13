@@ -185,6 +185,33 @@ function approval(id, actorId, decision, createdAt, extra = {}) {
   assert.equal(state.status, "approved", "the live superseding approval alone meets quorum");
 }
 
+// A different actor's `supersedes` reference must NOT void someone else's veto
+// (P1 fix): only the SAME actor may supersede their own prior record.
+{
+  const policy = buildReviewPolicy({ requiredApprovals: 1, appliesTo: ["commit"] }, undefined, NOW);
+  const rejection = approval("collab-rejection-0001", "zoe", "reject", "2026-01-01T00:00:00.000Z", { rationale: "not ready" });
+  const crossActorSupersede = approval("collab-approval-0002", "amy", "approve", "2026-01-02T00:00:00.000Z", { supersedes: rejection.id });
+  const state = deriveReviewState("run-1", [rejection, crossActorSupersede], TARGET, { policy });
+  assert.equal(state.disqualified.some((entry) => entry.approvalId === rejection.id && entry.reason === "superseded"), false, "a different actor's supersedes reference must not disqualify zoe's rejection");
+  assert.equal(state.rejections.length, 1, "zoe's veto is still counted as a rejection");
+  assert.equal(state.status, "rejected", "the veto survives a cross-actor supersede attempt");
+}
+
+// A record that is itself disqualified (e.g. a self-approval the policy forbids)
+// must not be able to void another actor's veto via `supersedes` either — this
+// is the exact bypass from the audit: a worker's rejected self-approval still
+// carrying enough weight to cancel the reviewer's rejection (P1 fix).
+{
+  const policy = buildReviewPolicy({ requiredApprovals: 1, appliesTo: ["commit"], allowSelfApproval: false }, undefined, NOW);
+  const rejection = approval("collab-rejection-0001", "zoe", "reject", "2026-01-01T00:00:00.000Z", { rationale: "not ready" });
+  const selfApprovalSupersede = approval("collab-approval-0002", "amy", "approve", "2026-01-02T00:00:00.000Z", { supersedes: rejection.id });
+  const state = deriveReviewState("run-1", [rejection, selfApprovalSupersede], TARGET, { policy, selfActorIds: ["amy"] });
+  assert.equal(state.disqualified.some((entry) => entry.approvalId === rejection.id && entry.reason === "superseded"), false, "a self-approval-disqualified record must not void zoe's rejection");
+  assert.equal(state.rejections.length, 1, "zoe's veto is still counted as a rejection");
+  assert.equal(state.status, "rejected", "the veto survives a disqualified-supersede attempt");
+  assert.equal(state.disqualified.some((entry) => entry.approvalId === selfApprovalSupersede.id && entry.reason === "self-approval"), true, "amy's own record is still disqualified as self-approval, just doesn't void anything");
+}
+
 // createdAt-then-id processing order: approvals are sorted before evaluation (order in the input array does not matter).
 {
   const policy = buildReviewPolicy({ requiredApprovals: 1, appliesTo: ["commit"] }, undefined, NOW);
