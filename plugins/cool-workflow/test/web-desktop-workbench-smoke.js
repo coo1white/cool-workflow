@@ -295,16 +295,22 @@ async function main() {
     assert.equal(canonicalStable(JSON.parse(got.body)), canonicalStable(cliView), "host run view === cw workbench view --json");
 
     // Index endpoint composes existing registry + run-list payloads.
-    // v2 REAL-GAP: buildWorkbenchIndex (src/shell/workbench.ts:169-176) is a
-    // documented PLACEHOLDER that returns { schemaVersion, runs: [] } — it never
-    // enumerates the run registry and carries NO `registry` key. The old build's
-    // index composed the capability registry + a real run listing; v2 dropped
-    // both. So `idxView.registry` is undefined and `idxView.runs` is always empty
-    // — the assertion lands on genuine missing v2 functionality.
     const idx = await request({ ...base, path: "/api/index", method: "GET", headers: okHeaders });
     assert.equal(idx.status, 200, "GET /api/index is 200");
     const idxView = JSON.parse(idx.body);
     assert.ok(idxView.registry && idxView.runs, "index carries registry + runs");
+    assert.ok(
+      idxView.runs.records.some((record) => record.runId === runId),
+      "plain GET /api/index lists the bootstrapped run"
+    );
+
+    // The sidebar filter box (ui/workbench/app.js's loadIndex) sends
+    // `?text=<filter>` — it must actually filter (run.search), not silently
+    // re-list everything (the run.list bug this test guards against).
+    const idxFiltered = await request({ ...base, path: "/api/index?text=no-such-run-matches-this", method: "GET", headers: okHeaders });
+    assert.equal(idxFiltered.status, 200, "GET /api/index?text=... is 200");
+    const idxFilteredView = JSON.parse(idxFiltered.body);
+    assert.equal(idxFilteredView.runs.records.length, 0, "a non-matching text filter returns zero records");
 
     // UI shell + assets served.
     const ui = await request({ ...base, path: "/", method: "GET", headers: okHeaders });
