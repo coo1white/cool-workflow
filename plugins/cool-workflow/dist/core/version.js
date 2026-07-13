@@ -7,7 +7,7 @@ exports.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION = exports.LEGACY_RUN_STATE_SCHEMA
 // `cw version` output does not change bytes just because the code under it
 // was rebuilt. See SPEC/cli-surface.md "Exact outputs > Version" and
 // conformance/cases/version-basic.case.js (regex `/^\d+\.\d+\.\d+\n$/`).
-exports.CURRENT_COOL_WORKFLOW_VERSION = "0.2.4";
+exports.CURRENT_COOL_WORKFLOW_VERSION = "0.2.5";
 // State-kernel schema version constants (SPEC/state-core.md "Version
 // constants"). Pinned to the old build's src/version.ts byte-for-byte.
 exports.WORKFLOW_APP_SCHEMA_VERSION = 1;

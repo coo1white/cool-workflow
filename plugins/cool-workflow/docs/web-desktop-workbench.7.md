@@ -302,3 +302,5 @@ _No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes on
   left out when the run cannot be classified, so those payloads keep their
   old bytes. The UI shows it as a badge in the run header, with one
   next-step line when a run is blocked or failed.
+
+0.2.5
