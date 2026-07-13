@@ -226,6 +226,14 @@ export interface RunResumeResult {
   record: RunRecord;
   nextTasks: Array<{ id: string; phase?: string; status: string; taskPath?: string }>;
   nextActions: Array<{ command: string; reason: string }>;
+  drive?: {
+    status: "complete" | "parked" | "blocked" | "in-progress";
+    steps: Array<{ action: string; status: string; taskId?: string; reason?: string }>;
+    plannedWorkers: number;
+    completedWorkers: number;
+    parkedWorkers: number;
+    commitId?: string;
+  };
 }
 
 export interface RunRerunResult {
@@ -1312,6 +1320,17 @@ export function formatResume(result: RunResumeResult): string {
     `Resume ${result.runId} [${result.lifecycle}] loopStage=${result.loopStage} (resolved from ${result.resolvedFrom}, ${result.freshness})`,
     `  resumable=${result.resumable} nextTasks=${result.nextTasks.length}`,
   ];
+  if (result.drive) {
+    lines.push(
+      `  drive=${result.drive.status} workers=${result.drive.completedWorkers}/${result.drive.plannedWorkers} parked=${result.drive.parkedWorkers}`
+    );
+    for (const step of result.drive.steps) {
+      lines.push(
+        `  step ${step.action} [${step.status}]${step.taskId ? ` task=${step.taskId}` : ""}${step.reason ? ` reason=${step.reason}` : ""}`
+      );
+    }
+    if (result.drive.commitId) lines.push(`  commit=${result.drive.commitId}`);
+  }
   for (const action of result.nextActions) lines.push(`  -> ${action.command}\n     ${action.reason}`);
   return lines.join("\n");
 }

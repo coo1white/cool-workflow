@@ -170,6 +170,11 @@ const cwd0 = process.cwd();
     assert.ok(Object.prototype.hasOwnProperty.call(out, "drive"), "CLI resume --drive carries the drive outcome");
     assert.equal(out.drive.status, "blocked", "no agent -> drive blocked (fail-closed), routing confirmed");
 
+    const human = spawnSync(process.execPath, [cli, "run", "resume", runId, "--drive", "--scope", "repo"], { cwd: repo, encoding: "utf8", env: childEnv });
+    assert.equal(human.status, 0, "a blocked drive is a saved result, not a CLI fault");
+    assert.match(human.stdout, /  drive=blocked workers=0\/14 parked=0\n/, "human resume shows the drive result");
+    assert.match(human.stdout, /  step blocked \[blocked\].*reason=agent backend not configured.*\n/, "human resume shows why drive stopped");
+
     // Regression: `run <app> --drive --once` still routes to the app drive.
     const a = spawnSync(process.execPath, [cli, "run", "architecture-review", "--drive", "--once", "--repo", repo, "--question", "q", "--json"], { cwd: repo, encoding: "utf8", env: childEnv });
     assert.doesNotMatch(a.stderr || "", /not found/i, "`run <app> --drive` still routes to the app drive");

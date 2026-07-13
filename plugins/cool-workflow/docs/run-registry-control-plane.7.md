@@ -123,6 +123,11 @@ adds the drive outcome to the result under a `drive` field. The default (no
 gives `drive.status="blocked"` (fail-closed, never a made-up completion); CW
 hands worker execution to your agent and never runs a model itself.
 
+Human output with `--drive` or `--once` prints the drive status, worker counts,
+each drive step, and the terminal commit id when there is one. This makes a
+blocked or failed drive clear without `--json`. Bare `run resume` keeps its old
+text as it is.
+
 ## Queue
 
 `queue add` adds a durable entry to the end of `$CW_HOME/registry/queue.json` with an
