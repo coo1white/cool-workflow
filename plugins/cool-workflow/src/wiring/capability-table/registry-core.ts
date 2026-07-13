@@ -22,6 +22,7 @@ import {
   MCP_TOOL_DATA,
   McpToolRow,
   PROPERTY_OVERRIDES,
+  COMMON_PROPERTY_TYPES,
   stringProperty,
   notYetImplemented,
 } from "../../core/capability-data";
@@ -223,7 +224,19 @@ export function cliCapabilities(): CliCapability[] {
   return REGISTRY.filter((row): row is CliCapability => Boolean(row.cli));
 }
 
-/** `tools/list`'s exact array, in the pinned source order. */
+/** `tools/list`'s exact array, in the pinned source order. Each
+ *  property's shape comes from the first hit, in order: a per-tool
+ *  `PROPERTY_OVERRIDES` entry, then the shared `COMMON_PROPERTY_TYPES`
+ *  entry for that property name, then the plain `stringProperty`
+ *  fallback for any name neither table covers.
+ *
+ *  `inputSchema.required` is built from `row.mcp.requiredArgs`, which
+ *  mcp/dispatch.ts's `requiredToolArguments` also reads: each array
+ *  entry is one AND-required group, already split from the transcript's
+ *  comma form (see `buildMcpBinding` above). A group holding `|` is an
+ *  OR-group — at least one of the named keys must be present, so no
+ *  single name from it can go into the flat, AND-only `required` list;
+ *  a group with no `|` is one plain required name. */
 export function mcpToolDefinitions(): McpToolDefinition[] {
   const definitions: McpToolDefinition[] = [];
   for (const row of REGISTRY) {
@@ -231,12 +244,18 @@ export function mcpToolDefinitions(): McpToolDefinition[] {
     const overrides = PROPERTY_OVERRIDES[row.mcp.tool] ?? {};
     const properties: Record<string, McpPropertySchema> = {};
     for (const propName of row.mcp.properties) {
-      properties[propName] = overrides[propName] ?? stringProperty(propName);
+      properties[propName] = overrides[propName] ?? COMMON_PROPERTY_TYPES[propName] ?? stringProperty(propName);
     }
+    const required = (row.mcp.requiredArgs ?? []).filter((group) => !group.includes("|"));
     definitions.push({
       name: row.mcp.tool,
       description: row.mcp.description,
-      inputSchema: { type: "object", properties, additionalProperties: true },
+      inputSchema: {
+        type: "object",
+        properties,
+        additionalProperties: true,
+        ...(required.length ? { required } : {}),
+      },
     });
   }
   return definitions;

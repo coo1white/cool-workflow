@@ -1,13 +1,20 @@
 #!/usr/bin/env node
 // captable-mcp-tool-definitions — pins mcpToolDefinitions()'s exact JSON
 // shape: SPEC/mcp.md's toolDefinitions()/mcpToolDefinition() contract
-// ("inputSchema.additionalProperties is always true") plus the file's own
-// two hand-written PROPERTY_OVERRIDES exceptions (cw_commit's boolean
-// allowUnverifiedCheckpoint, cw_routine_fire's object payload) — every
-// other property on every other tool is the plain string form.
+// ("inputSchema.additionalProperties is always true") plus:
+//   - the file's own two hand-written PROPERTY_OVERRIDES exceptions
+//     (cw_commit's boolean allowUnverifiedCheckpoint, cw_routine_fire's
+//     object payload) — these win over COMMON_PROPERTY_TYPES below;
+//   - COMMON_PROPERTY_TYPES, which gives every other declared property
+//     name a real type and a true, short description (not the bare
+//     name-echoing string form);
+//   - inputSchema.required, built from each row's AND-only requiredArgs
+//     groups (an OR group, joined with "|", never puts any of its names
+//     into this flat, AND-only list).
 
 const assert = require("node:assert/strict");
 const { mcpToolDefinitions } = require("../dist/core/capability-table");
+const { COMMON_PROPERTY_TYPES } = require("../dist/core/capability-data");
 
 // Every definition has the exact top-level shape: name, description,
 // inputSchema:{type:"object", properties, additionalProperties:true}.
@@ -31,16 +38,96 @@ const { mcpToolDefinitions } = require("../dist/core/capability-table");
   assert.deepEqual(cwList.inputSchema.properties, {}, "cw_list must have zero properties");
 }
 
-// Plain string property form: an ordinary property (no override) is
-// exactly { type: "string", description: <same as the property name> }.
+// COMMON_PROPERTY_TYPES form: an ordinary property (no per-tool override)
+// now carries its real type plus a true, short description — NOT the old
+// plain-string form where description just echoed the property name back.
 {
   const defs = mcpToolDefinitions();
   const cwStatus = defs.find((d) => d.name === "cw_status");
   assert.deepEqual(
     cwStatus.inputSchema.properties.runId,
-    { type: "string", description: "runId" },
-    "an unoverridden property must be the plain string form with description === property name"
+    COMMON_PROPERTY_TYPES.runId,
+    "an unoverridden property must match its COMMON_PROPERTY_TYPES entry"
   );
+  assert.equal(cwStatus.inputSchema.properties.runId.type, "string", "runId must be typed as a string");
+  assert.notEqual(
+    cwStatus.inputSchema.properties.runId.description,
+    "runId",
+    "runId's description must be a true sentence, not the property name echoed back"
+  );
+  assert.ok(
+    cwStatus.inputSchema.properties.runId.description.length > "runId".length,
+    "runId's description must be a real, non-trivial sentence"
+  );
+}
+
+// A numeric property (no per-tool override) gets type "number", not the
+// old fake plain-string form.
+{
+  const defs = mcpToolDefinitions();
+  const cwNext = defs.find((d) => d.name === "cw_next");
+  assert.ok(cwNext, "cw_next must be declared");
+  assert.equal(cwNext.inputSchema.properties.limit.type, "number", "limit must be typed as a number");
+  assert.notEqual(
+    cwNext.inputSchema.properties.limit.description,
+    "limit",
+    "limit's description must be a true sentence, not the property name echoed back"
+  );
+}
+
+// No property anywhere is left with an unhandled/crashing shape: every
+// declared property on every tool has a real type and a non-empty,
+// non-name-echoing description (PROPERTY_OVERRIDES/COMMON_PROPERTY_TYPES
+// cover every name actually used; nothing should fall through as bare).
+{
+  const defs = mcpToolDefinitions();
+  for (const def of defs) {
+    for (const [propName, schema] of Object.entries(def.inputSchema.properties)) {
+      assert.ok(
+        ["string", "number", "boolean", "object", "array"].includes(schema.type),
+        `${def.name}.${propName}: type must be a real JSON-schema type, got ${schema.type}`
+      );
+      assert.ok(schema.description && schema.description.trim().length > 0, `${def.name}.${propName}: description must be non-empty`);
+      assert.notEqual(
+        schema.description,
+        propName,
+        `${def.name}.${propName}: description must not just echo the property name back`
+      );
+    }
+  }
+}
+
+// inputSchema.required, simple AND-only case: cw_status declares runId as
+// its one required argument, so required must contain exactly "runId".
+{
+  const defs = mcpToolDefinitions();
+  const cwStatus = defs.find((d) => d.name === "cw_status");
+  assert.deepEqual(cwStatus.inputSchema.required, ["runId"], "cw_status's required must be exactly [\"runId\"]");
+}
+
+// inputSchema.required, AND group of two: cw_node_show requires both
+// runId AND nodeId.
+{
+  const defs = mcpToolDefinitions();
+  const cwNodeShow = defs.find((d) => d.name === "cw_node_show");
+  assert.deepEqual(cwNodeShow.inputSchema.required, ["runId", "nodeId"], "cw_node_show's required must be [\"runId\", \"nodeId\"]");
+}
+
+// inputSchema.required, OR-group case: cw_eval_replay's one requiredArgs
+// group is "snapshot|snapshotId|path" — an OR group. JSON Schema's plain
+// "required" is AND-only, so none of its three names may be forced in,
+// and the raw joined string must never leak through as a literal entry.
+{
+  const defs = mcpToolDefinitions();
+  const cwEvalReplay = defs.find((d) => d.name === "cw_eval_replay");
+  assert.ok(cwEvalReplay, "cw_eval_replay must be declared");
+  const required = cwEvalReplay.inputSchema.required;
+  if (required !== undefined) {
+    assert.ok(!required.includes("snapshot|snapshotId|path"), "the raw OR-group string must never leak into required");
+    assert.ok(!required.includes("snapshot"), "an OR-group name must not be forced into required");
+    assert.ok(!required.includes("snapshotId"), "an OR-group name must not be forced into required");
+    assert.ok(!required.includes("path"), "an OR-group name must not be forced into required");
+  }
 }
 
 // PROPERTY_OVERRIDES exception 1: cw_commit's allowUnverifiedCheckpoint is
@@ -54,11 +141,11 @@ const { mcpToolDefinitions } = require("../dist/core/capability-table");
     { type: "boolean", description: "Write a non-gated checkpoint instead of committed state" },
     "cw_commit's allowUnverifiedCheckpoint must be the boolean override, not the plain string form"
   );
-  // Other cw_commit properties are still the plain string form.
+  // Other cw_commit properties still get their COMMON_PROPERTY_TYPES form.
   assert.deepEqual(
     cwCommit.inputSchema.properties.runId,
-    { type: "string", description: "runId" },
-    "cw_commit's runId must still be the plain string form"
+    COMMON_PROPERTY_TYPES.runId,
+    "cw_commit's runId must still match its COMMON_PROPERTY_TYPES entry"
   );
 }
 
