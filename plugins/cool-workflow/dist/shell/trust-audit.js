@@ -676,9 +676,64 @@ function commitRows(events, run) {
         };
     });
 }
+// Perf cycle P1 (read side): every read command (`cw status`, each
+// `writeReport` call, multi-agent status) called `summarizeTrustAudit`,
+// which read+parsed the log via `readEventsRaw`, THEN called
+// `verifyTrustAudit(run)`, which read+parsed the SAME log AGAIN and
+// recomputed a sha256 for every event -- two full passes for one call.
+// It then durably (fsync) rewrote summary.json AND index.json on EVERY
+// call, even when nothing about the run or the log had changed since the
+// last call (a live audit reaches ~50k events, so `writeReport` alone --
+// which calls this once per pipeline step and per feedback op -- turned
+// into a real, repeated cost).
+//
+// Fix, in two parts:
+//  1. Read the log ONCE (`readEventsRawCounted`) and hand the SAME parsed
+//     array to `verifyEventsChain` directly -- the exact same check
+//     `verifyTrustAudit` runs with no anchor, so the integrity result is
+//     byte-identical to before. `verifyTrustAudit` itself is untouched and
+//     every OTHER caller (doctor.ts, `cw audit verify`, drive.ts,
+//     run-export.ts) still gets a real, independent, always-full check.
+//  2. Skip the durable rewrite of summary.json/index.json when the freshly
+//     and FULLY recomputed content is unchanged from last time. This is
+//     NOT a shortcut on verification -- the full parse+rehash+chain-walk
+//     above always runs, on every call, no exceptions. A cache that
+//     reused a stale "verified" verdict would be unsound here: this
+//     codebase's chain check is a sequential field-comparison walk, not a
+//     content-addressed (Merkle) chain, so tampering with an EARLY event
+//     can leave the file's total size and its LAST event's bytes fully
+//     unchanged while still flipping `verified` to false. So the cache
+//     below only ever gates the DISK WRITE of an already fully-verified
+//     result, never the verification itself, and the function's RETURN
+//     VALUE is always the fresh `summary` object either way.
+function summaryFingerprintPathFor(summaryPath) {
+    return path.join(path.dirname(summaryPath), "summary-fingerprint.json");
+}
+function readSummaryFingerprint(fingerprintPath) {
+    if (!fs.existsSync(fingerprintPath))
+        return undefined;
+    try {
+        const parsed = JSON.parse(fs.readFileSync(fingerprintPath, "utf8"));
+        if (parsed && parsed.schemaVersion === 1 && typeof parsed.hash === "string")
+            return parsed.hash;
+    }
+    catch {
+        // Corrupt/unreadable fingerprint -- fall back to a real rewrite below.
+    }
+    return undefined;
+}
+function writeSummaryFingerprint(fingerprintPath, fingerprint) {
+    try {
+        (0, fs_atomic_1.writeJson)(fingerprintPath, fingerprint);
+    }
+    catch {
+        // Best-effort: a failed fingerprint write must never break the real call
+        // -- it just means the next call falls back to a real rewrite.
+    }
+}
 function summarizeTrustAudit(run) {
     const audit = ensureTrustAudit(run);
-    const events = readEventsRaw(audit.eventLogPath);
+    const { events, corruptLines } = readEventsRawCounted(audit.eventLogPath);
     const ma = run.multiAgent;
     const bb = run.blackboard;
     const summary = {
@@ -686,7 +741,7 @@ function summarizeTrustAudit(run) {
         runId: run.id,
         generatedAt: new Date().toISOString(),
         eventCount: events.length,
-        integrity: verifyTrustAudit(run),
+        integrity: verifyEventsChain(run.id, events, corruptLines),
         eventLogPath: audit.eventLogPath,
         indexPath: audit.indexPath,
         summaryPath: audit.summaryPath,
@@ -730,11 +785,7 @@ function summarizeTrustAudit(run) {
             policyViolations: events.filter((e) => e.kind === "policy.violation").length,
         },
     };
-    // Durable: the summary/index are the read-side view of the audit log; persist
-    // them durably so a crash can't leave them pointing past the last durably-
-    // appended event. Byte-behavior port of the old build's summarizeTrustAudit.
-    (0, fs_atomic_1.writeJson)(audit.summaryPath, summary, { durable: true });
-    (0, fs_atomic_1.writeJson)(audit.indexPath, {
+    const index = {
         schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
         runId: run.id,
         events: events.map((event) => ({
@@ -749,7 +800,28 @@ function summarizeTrustAudit(run) {
             sandboxProfileId: event.sandboxProfileId,
             policyRef: event.policyRef,
         })),
-    }, { durable: true });
+    };
+    // Durable: the summary/index are the read-side view of the audit log; persist
+    // them durably so a crash can't leave them pointing past the last durably-
+    // appended event. Byte-behavior port of the old build's summarizeTrustAudit.
+    //
+    // Skip the rewrite only when the freshly, fully recomputed content is
+    // unchanged from last time (see the comment on `summaryFingerprintPathFor`
+    // above) -- `generatedAt` is dropped before fingerprinting since it is the
+    // one field that legitimately changes on every call. The RETURNED
+    // `summary` below always carries a real, fresh `generatedAt` either way;
+    // only the ON-DISK bytes may keep the previous call's `generatedAt` when
+    // nothing else changed.
+    const { generatedAt: _generatedAt, ...summaryForFingerprint } = summary;
+    void _generatedAt;
+    const fingerprintPath = summaryFingerprintPathFor(audit.summaryPath);
+    const freshFingerprint = (0, hash_1.stableHash)({ summary: summaryForFingerprint, index });
+    const priorFingerprint = readSummaryFingerprint(fingerprintPath);
+    if (priorFingerprint !== freshFingerprint) {
+        (0, fs_atomic_1.writeJson)(audit.summaryPath, summary, { durable: true });
+        (0, fs_atomic_1.writeJson)(audit.indexPath, index, { durable: true });
+        writeSummaryFingerprint(fingerprintPath, { schemaVersion: 1, hash: freshFingerprint });
+    }
     run.audit = { schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION, ...audit };
     return summary;
 }

@@ -492,6 +492,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [trust-audit-anchor-smoke.js](../test/trust-audit-anchor-smoke.js)
 - [trust-audit-append-lock-concurrency-smoke.js](../test/trust-audit-append-lock-concurrency-smoke.js)
 - [trust-audit-append-tail-cache-smoke.js](../test/trust-audit-append-tail-cache-smoke.js)
+- [trust-audit-summary-durable-write-skip-smoke.js](../test/trust-audit-summary-durable-write-skip-smoke.js)
 - [trust-audit-torn-tail-append-smoke.js](../test/trust-audit-torn-tail-append-smoke.js)
 - [vendor-manifest-load-smoke.js](../test/vendor-manifest-load-smoke.js)
 - [vendor-preflight-smoke.js](../test/vendor-preflight-smoke.js)
