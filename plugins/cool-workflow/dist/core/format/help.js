@@ -30,6 +30,7 @@ exports.formatHelp = formatHelp;
 exports.formatCommandHelp = formatCommandHelp;
 exports.formatInfo = formatInfo;
 exports.formatSearchResults = formatSearchResults;
+exports.formatWorkflowList = formatWorkflowList;
 const capability_table_1 = require("../capability-table");
 /** src/orchestrator.ts:934-951 — the "More commands" token set, in the old
  *  build's order (space-joined in the source, pipe-joined for display).
@@ -283,14 +284,38 @@ function cliCommandHelpRows(verb) {
         ...(row.cli.flags ? { flags: row.cli.flags } : {}),
     }));
 }
+/** A verb that is only a `caseTokens` alias of another verb's row (e.g.
+ *  `audit-run` -> `quickstart`) has NO row whose `cli.path[0]` matches it,
+ *  so `cliCommandHelpRows` above finds nothing for it. This looks the
+ *  alias up the same way the dispatcher does (registry-core.ts's
+ *  findCapabilityByCliPath alias branch: a row whose `caseTokens` holds
+ *  the token) and returns the verb the alias dispatches to. */
+function aliasTargetVerb(verb) {
+    for (const row of (0, capability_table_1.cliCapabilities)()) {
+        if (row.cli.caseTokens && row.cli.caseTokens.includes(verb) && row.cli.path[0] !== verb) {
+            return row.cli.path[0];
+        }
+    }
+    return undefined;
+}
 /** src/orchestrator.ts:988-1007 — `formatCommandHelp(verb)`. Unknown verb
  *  gives a SOFT text (never a throw); known verb lists its registry rows,
  *  sorted by command string, padded to the longest command column + 2
  *  (capped at 40, per the old registry's own cap; none of the milestone-1
- *  fixture rows exceed it). */
+ *  fixture rows exceed it). An alias verb (a `caseTokens` token like
+ *  `audit-run`) gets an alias header line plus its target verb's rows —
+ *  before this fix it fell into the unknown-verb text and, worse, the
+ *  Did-you-mean line suggested the very verb the user just typed. */
 function formatCommandHelp(verb, suggestCommand) {
     const rows = [...(COMMAND_HELP_ROWS[verb] ?? []), ...cliCommandHelpRows(verb)];
     if (rows.length === 0) {
+        const target = aliasTargetVerb(verb);
+        if (target) {
+            const targetRows = [...(COMMAND_HELP_ROWS[target] ?? []), ...cliCommandHelpRows(target)];
+            if (targetRows.length > 0) {
+                return renderCommandHelpRows(`cw ${verb} — alias of cw ${target}`, targetRows);
+            }
+        }
         const hint = suggestCommand(verb);
         const lines = [`Unknown command: ${verb}`];
         if (hint)
@@ -298,9 +323,15 @@ function formatCommandHelp(verb, suggestCommand) {
         lines.push("  Try:  cw help   (list all commands)");
         return `${lines.join("\n")}\n`;
     }
+    return renderCommandHelpRows(`cw ${verb}`, rows);
+}
+/** The row-list rendering `formatCommandHelp` has always done, extracted
+ *  so the alias page above can render its target's rows under its own
+ *  header line without a second copy of the sort/pad/Flags logic. */
+function renderCommandHelpRows(header, rows) {
     const sorted = [...rows].sort((a, b) => (a.command < b.command ? -1 : a.command > b.command ? 1 : 0));
     const longest = Math.min(40, Math.max(...sorted.map((row) => row.command.length)));
-    const lines = [`cw ${verb}`, ""];
+    const lines = [header, ""];
     for (const row of sorted) {
         const padded = row.command.padEnd(longest, " ");
         lines.push(`  ${padded}  ${row.summary}`);
@@ -382,6 +413,19 @@ function formatSearchResults(keyword, results) {
         const cut = r.summary.length > 120 ? `${r.summary.slice(0, 119)}…` : r.summary;
         lines.push(`    ${cut}`);
     }
+    lines.push("");
+    lines.push("Use cw info <id> for full details.");
+    return lines.join("\n");
+}
+/** `cw list`'s TTY-only human text (the `list` row's `humanRender`, see
+ *  core/capability-data.ts's CliBinding). Modeled on formatSearchResults
+ *  above: one "<id> — <title>" line per workflow, then the same short
+ *  next-step footer. NEVER printed to a pipe — the row's canonical JSON
+ *  stays the only piped output (SPEC/cli-surface.md's jsonMode contract:
+ *  "default" verbs are always JSON on a non-TTY stream). */
+function formatWorkflowList(workflows) {
+    const rows = (Array.isArray(workflows) ? workflows : []);
+    const lines = rows.map((w) => `${w.id} — ${w.title}`);
     lines.push("");
     lines.push("Use cw info <id> for full details.");
     return lines.join("\n");

@@ -45,6 +45,13 @@ function loadCommitSummary() {
 // only so `cw help run` lists both capabilities.
 (0, registry_core_1.attachCliBinding)("run.drive.step", {
     path: ["run"],
+    // NOTE: the doubled "cw run drive" command column (this row + run.drive's
+    // preview row below) is pinned by SPEC/cli-probe.md "Odd things" item 5
+    // ("run drive (preview + drive)" — "A rebuild's help printer must keep
+    // these doubled rows"), same as `cw sched policy`. So the UI/UX fix for
+    // the two look-alike rows lives in the SUMMARIES (each now names its own
+    // invocation spelling — see the summary edits where these capabilities
+    // are declared), never in the row count or the command column.
     helpPath: ["run", "drive"],
     jsonMode: "default",
     handler: async (args) => {
@@ -124,6 +131,19 @@ function loadCommitSummary() {
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive").mcp.handler = (args) => loadPipelineCli().runDrivePreview(args);
 registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").mcp.handler = (args) => loadPipelineCli().runDriveStep(args);
+// UI/UX fix: `cw help run` prints TWO "cw run drive" rows — the doubling
+// itself is pinned by SPEC/cli-probe.md "Odd things" item 5 ("run drive
+// (preview + drive)": a rebuild's help printer must keep these doubled
+// rows), so the command column and the row count must not change. What CAN
+// change is the summary text: it used to leave a reader no way to tell
+// which spelling gets which behavior. Each summary now ends with the exact
+// command form that reaches it. Help-page-only: `summary` is overridden on
+// the Capability row, `mcp.description` (the tools/list byte surface) is
+// already captured by buildMcpBinding and stays untouched.
+registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive").summary =
+    "Preview the next agent-delegation drive step for a run (read-only, deterministic). Use: cw run drive <run-id>.";
+registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").summary =
+    "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step). Use: cw run <app> --drive.";
 // PARITY: `run.drive.step` advances the run by spawning the external
 // agent per worker and recording attested output — not a read probe.
 // CLI (--drive/--step) and MCP route through the same drive() core; the

@@ -21,6 +21,7 @@
 // one into a real capability-table row; nothing new is ever added here.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.KNOWN_COMMANDS = void 0;
+exports.shouldRenderHuman = shouldRenderHuman;
 exports.dispatch = dispatch;
 const help_1 = require("../core/format/help");
 const capability_table_1 = require("../core/capability-table");
@@ -28,18 +29,41 @@ const parseargv_1 = require("./parseargv");
 Object.defineProperty(exports, "KNOWN_COMMANDS", { enumerable: true, get: function () { return parseargv_1.KNOWN_COMMANDS; } });
 const io_1 = require("./io");
 const cli_args_1 = require("../core/util/cli-args");
+const global_flags_1 = require("./global-flags");
 function firstPositional(args, index = 0) {
     return args.positionals[index];
+}
+/** The one rendering-mode decision for a `jsonMode: "default"` row's
+ *  OPTIONAL human projection (CliBinding.humanRender): true ONLY when the
+ *  row is "default", the caller did NOT ask for JSON (`--json`/`--format
+ *  json`), the row declares a humanRender, AND stdout is a real TTY.
+ *  Every other combination — every pipe, every script, every conformance
+ *  run — stays byte-identical JSON. Deliberately does NOT read
+ *  FORCE_COLOR/NO_COLOR: color env vars style output, they never pick
+ *  the output mode (cli-color-env pipes with FORCE_COLOR=1 and must stay
+ *  JSON). Pure of the injectable `stream` (default process.stdout),
+ *  following shell/workbench-host.ts's printServeHint pattern. */
+function shouldRenderHuman(jsonMode, options, hasHumanRender, stream = process.stdout) {
+    return jsonMode === "default" && !(0, cli_args_1.wantsJson)(options) && hasHumanRender && Boolean(stream.isTTY);
 }
 /** Writes a `CliHandlerResult` to stdout and applies its exit code, per
  *  the row's `jsonMode`:
  *   - `"default"` — always prints `result.json` as JSON (falls back to
- *     `result.text` when a row has no canonical JSON shape).
+ *     `result.text` when a row has no canonical JSON shape). On a real
+ *     TTY, a row that declares `humanRender` prints that human text
+ *     instead (see shouldRenderHuman above — piped bytes never change).
  *   - `"flag"` — prints `result.text` normally, `result.json` under
  *     `--json`/`--format json`.
  *   - `"human"` — always prints `result.text`; there is no JSON form. */
-function renderCliResult(result, jsonMode, options) {
-    const useJson = jsonMode === "default" || (jsonMode === "flag" && (0, cli_args_1.wantsJson)(options));
+function renderCliResult(result, cli, options) {
+    if (shouldRenderHuman(cli.jsonMode, options, Boolean(cli.humanRender)) && result.json !== undefined) {
+        const human = cli.humanRender(result.json);
+        process.stdout.write(human.endsWith("\n") ? human : `${human}\n`);
+        if (result.exitCode !== undefined)
+            process.exitCode = result.exitCode;
+        return;
+    }
+    const useJson = cli.jsonMode === "default" || (cli.jsonMode === "flag" && (0, cli_args_1.wantsJson)(options));
     if (useJson && result.json !== undefined) {
         (0, io_1.printJson)(result.json);
     }
@@ -75,8 +99,12 @@ async function dispatchTable(args) {
             positionals: args.positionals.slice(consumed),
             options: args.options,
         };
+        // Rows that declare a complete flag list get the TTY-only unknown-flag
+        // warning (one stderr line; stdout and the exit code never change —
+        // see cli/global-flags.ts).
+        (0, global_flags_1.warnUnknownFlags)(row.cli, args.options);
         const result = await row.cli.handler(cliArgs);
-        renderCliResult(result, row.cli.jsonMode, args.options);
+        renderCliResult(result, row.cli, args.options);
         return true;
     }
     return false;

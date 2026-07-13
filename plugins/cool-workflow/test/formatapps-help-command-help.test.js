@@ -106,6 +106,23 @@ function noSuggestion() {
   assert.ok(proposeIndex < reviewIndex, "propose's Flags block comes before review's (sorted command order)");
 }
 
+// Alias verb ("audit-run" is a caseTokens alias of quickstart, with no
+// row of its own): renders an alias header line plus the TARGET verb's
+// rows — never the unknown-command text, and never a Did-you-mean line
+// pointing back at the alias itself (the old self-pointing bug).
+{
+  const out = formatCommandHelp("audit-run", () => "audit-run");
+  const lines = out.split("\n");
+  assert.equal(lines[0], "cw audit-run — alias of cw quickstart", "alias page header names the alias and its target");
+  assert.equal(lines[1], "", "second line is blank, same as a normal help page");
+  assert.ok(out.includes("cw quickstart"), "the target verb's row renders under the alias header");
+  assert.ok(!out.includes("Unknown command"), "alias page never shows the unknown-command text");
+  assert.ok(!out.includes("Did you mean"), "alias page never shows a Did-you-mean line");
+  // Below the header, the alias page is byte-identical to the target's page.
+  const target = formatCommandHelp("quickstart", noSuggestion);
+  assert.equal(lines.slice(1).join("\n"), target.split("\n").slice(1).join("\n"), "alias body matches the target verb's body");
+}
+
 // Unknown verb with NO suggestion: never throws; soft 2-line message plus
 // the generic "Try: cw help" tip, no "Did you mean" line.
 {

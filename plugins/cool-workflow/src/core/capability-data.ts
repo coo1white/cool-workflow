@@ -131,6 +131,22 @@ export interface CliBinding {
    *  `summary` (on the owning `Capability`, not here) stays the only help
    *  text, same as before this field existed. */
   flags?: Array<{ name: string; summary: string }>;
+  /** OPTIONAL human projection of this row's canonical JSON, used ONLY by
+   *  cli/dispatch.ts's renderCliResult, and ONLY when stdout is a real
+   *  interactive terminal (TTY) with no `--json`/`--format json` asked
+   *  for. The contract: piped output NEVER changes one byte — a script,
+   *  a conformance case, or any non-TTY caller keeps getting the exact
+   *  JSON a `jsonMode: "default"` row has always printed. This is an
+   *  additive, TTY-gated rendering, not a new output mode. */
+  humanRender?: (json: unknown) => string;
+  /** When true, the `flags` list on this row plus the shared global flag
+   *  set (cli/global-flags.ts's GLOBAL_CLI_FLAGS) is the COMPLETE set of
+   *  options this command's handler reads; the dispatcher may warn about
+   *  unknown flags (one stderr line, only on a TTY — see cli/global-flags.ts's
+   *  warnUnknownFlags). Leave unset unless every option the handler reads
+   *  has been checked against the handler source — a missing name here
+   *  means a FALSE warning, which is worse than no warning. */
+  flagsComplete?: true;
 }
 
 /** A capability's MCP-facing binding. `requiredArgs` is a list of

@@ -53,8 +53,13 @@ function loadReportCli() {
         { name: "--to AGENT/REPO", summary: "Who should get the change." },
         { name: "--title TEXT", summary: "A short name for the change." },
         { name: "--rationale TEXT", summary: "Why the change should happen." },
+        { name: "--files LIST", summary: "The files the change touches, as a comma list." },
         { name: "--diff PATCH", summary: "The change as one diff file." },
     ],
+    // ledgerProposeCli reads exactly from/to/title/rationale/files/diff
+    // (shell/ledger-cli.ts) — the list above is complete, so the dispatcher
+    // may warn about an unknown flag (TTY-only; see cli/global-flags.ts).
+    flagsComplete: true,
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.propose").mcp.handler = (args) => loadLedgerCli().ledgerProposeMcp(args);
 (0, registry_core_1.attachCliBinding)("ledger.review", {
@@ -72,6 +77,10 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.propose").mcp.handler = (args
         { name: "--verdict approved|rejected", summary: "The result of the review." },
         { name: "--findings TEXT", summary: "Notes on what the review found." },
     ],
+    // ledgerReviewCli reads exactly from/to/target/verdict/findings
+    // (shell/ledger-cli.ts) — the list above is complete, so the dispatcher
+    // may warn about an unknown flag (TTY-only; see cli/global-flags.ts).
+    flagsComplete: true,
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.review").mcp.handler = (args) => loadLedgerCli().ledgerReviewMcp(args);
 (0, registry_core_1.attachCliBinding)("ledger.verify", {
@@ -99,6 +108,14 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.apply").mcp.handler = (args) 
         const result = loadLedgerCli().ledgerListCli(args.options);
         return { json: result, exitCode: result.allOk ? undefined : 1 };
     },
+    // UI/UX fix: `--dir` here named the ledger directory, while the global
+    // front door (cli/entry.ts) treats `--dir` as an alias of `--repo` for
+    // every command — one flag, two meanings. `--ledger-dir` is the
+    // unambiguous spelling; `--dir` stays as the legacy alias, byte-compat.
+    flags: [
+        { name: "--ledger-dir DIR", summary: "The ledger directory to read. Give it more than once to union-verify mirrors." },
+        { name: "--dir DIR", summary: "Old name for --ledger-dir (also the global --repo alias; kept working)." },
+    ],
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.list").mcp.handler = (args) => loadLedgerCli().ledgerListMcp(args);
 (0, registry_core_1.attachCliBinding)("telemetry.verify", {

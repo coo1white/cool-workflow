@@ -2,8 +2,8 @@
 cw run
 
   cw run archive          Archive/unarchive a run (overlay mark; never deletes source).
-  cw run drive            Preview the next agent-delegation drive step for a run (read-only, deterministic).
-  cw run drive            Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step).
+  cw run drive            Preview the next agent-delegation drive step for a run (read-only, deterministic). Use: cw run drive <run-id>.
+  cw run drive            Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step). Use: cw run <app> --drive.
   cw run export           Export a run to a portable archive with run-local files and digest integrity.
   cw run import           Restore a portable run archive into a target repo and verify restored file digests.
   cw run inspect-archive  Read-only integrity inspection of a portable run archive without importing it.
