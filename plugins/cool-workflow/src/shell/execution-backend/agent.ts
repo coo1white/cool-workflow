@@ -4,7 +4,10 @@
 // MILESTONE 5 (docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
 // plugins/cool-workflow/src/execution-backend/agent.ts. This module holds
 // the PURE data-transform helpers (invocation resolution, arg substitution,
-// secret redaction, report parsing) plus the batch delegate-child spawn.
+// secret redaction, report parsing) plus the batch delegate-child spawn — both
+// the CLI-binary batch (runAgentBatchOutcomes) and, added later, its
+// HTTP-endpoint sibling (runEndpointBatchOutcomes) so `--concurrency N` gives
+// endpoint-mode agents real concurrency instead of a serial per-task spawn.
 //
 // THE RED LINE: CW spawns the agent and records its attested output. It
 // NEVER imports a model SDK, holds an API key, or constructs a model API
@@ -349,9 +352,9 @@ export interface AgentSpawnJob {
   env?: NodeJS.ProcessEnv;
 }
 
-/** Resolve a request to a spawn-style batch job, or undefined when the agent
- *  is endpoint-configured/unconfigured (those settle through the serial
- *  path). */
+/** Resolve a request to a spawn-style (CLI-binary) batch job, or undefined when
+ *  the agent is endpoint-configured (see prepareEndpointJob) or unconfigured
+ *  (those settle through the serial path). */
 export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | undefined {
   const resolved = resolveAgentInvocation(request);
   if (!resolved.binary) return undefined;
@@ -362,6 +365,35 @@ export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | un
     cwd: request.cwd,
     timeoutMs: resolved.timeoutMs || 600000,
   };
+}
+
+export interface AgentEndpointJob {
+  endpoint: string;
+  /** The ALREADY-serialized POST body — byte-identical to the string the serial
+   *  runAgentEndpoint builds, so the concurrent path posts the same bytes. */
+  job: string;
+  timeoutMs: number;
+}
+
+/** Resolve a request to an endpoint (HTTP-delegate) batch job, or undefined when
+ *  the agent has a CLI binary (see prepareAgentSpawn) or is unconfigured. The
+ *  POST body mirrors runAgentEndpoint's exactly: {manifest, prompt, model,
+ *  resultPath, sandboxProfileId} — sandboxProfileId comes from
+ *  request.sandboxPolicy.id, which runBackend sets to the same policy the serial
+ *  path passes (registry.ts: `const policy = request.sandboxPolicy`), so the two
+ *  paths post identical bytes. */
+export function prepareEndpointJob(request: ExecutionRequest): AgentEndpointJob | undefined {
+  const resolved = resolveAgentInvocation(request);
+  if (resolved.binary || !resolved.endpoint) return undefined;
+  const manifest = request.manifest;
+  const job = JSON.stringify({
+    manifest,
+    prompt: manifest?.prompt,
+    model: resolved.model,
+    resultPath: manifest?.resultPath,
+    sandboxProfileId: request.sandboxPolicy.id,
+  });
+  return { endpoint: resolved.endpoint, job, timeoutMs: resolved.timeoutMs || 600000 };
 }
 
 // __dirname is dist/shell/execution-backend at runtime — THREE levels up
@@ -384,7 +416,7 @@ interface BatchDelegateLine {
  *  byte-boundary rationale (split on the raw newline byte, one line at a
  *  time, never decode the whole combined buffer as one string). */
 export function reconcileBatchOutcomes(
-  jobs: AgentSpawnJob[],
+  jobs: readonly unknown[],
   child: { error?: Error | null; status: number | null; stdout?: string | Buffer | null }
 ): AgentChildOutcome[] {
   const buf = Buffer.isBuffer(child.stdout) ? child.stdout : Buffer.from(String(child.stdout || ""), "utf8");
@@ -425,6 +457,36 @@ export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[
   let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
   try {
     child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
+      input: JSON.stringify(jobs),
+      maxBuffer: 34 * 1024 * 1024 * jobs.length,
+      timeout: maxTimeout + 30000,
+    });
+  } catch (error) {
+    child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
+  }
+  return reconcileBatchOutcomes(jobs, child);
+}
+
+// Same package-root depth fix as BATCH_DELEGATE_CHILD_SCRIPT above.
+const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.js");
+
+/** Run a batch of ENDPOINT (HTTP-delegate) jobs concurrently; outcomes
+ *  index-align with jobs. The endpoint sibling of runAgentBatchOutcomes: one
+ *  spawnSync of http-batch-delegate-child.js POSTs all N at once from a single
+ *  process, so `--concurrency N` with an endpoint agent runs N delegations in
+ *  parallel instead of serially. The child streams the SAME NDJSON line shape as
+ *  batch-delegate-child.js — `{i, spawnError?, exitCode, stdout}` — so the same
+ *  reconcileBatchOutcomes reads it (byte-boundary split on a Buffer, index-aligned,
+ *  every job that produced no full line failed closed). Env is inherited (the
+ *  serial runAgentEndpoint likewise runs the child with the full process env for
+ *  any endpoint auth); no sandbox child-env is built here, matching the serial
+ *  endpoint path. */
+export function runEndpointBatchOutcomes(jobs: AgentEndpointJob[]): AgentChildOutcome[] {
+  if (!jobs.length) return [];
+  const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
+  let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
+  try {
+    child = spawnSync(process.execPath, [HTTP_BATCH_DELEGATE_CHILD_SCRIPT], {
       input: JSON.stringify(jobs),
       maxBuffer: 34 * 1024 * 1024 * jobs.length,
       timeout: maxTimeout + 30000,
@@ -576,9 +638,44 @@ export function runAgentProcess(
   );
 }
 
+/** Settle a completed endpoint delegation (a numeric exitCode + stdout) into
+ *  its envelope: parse the agent report, write result.md as transport when the
+ *  runner returned a body and none exists yet, record the handle. Shared by the
+ *  serial spawn path and the concurrent prepared-outcome path so the two never
+ *  drift. The result-write stays HERE (the cw shell process), never in the batch
+ *  child, so the child does no filesystem writes into the run dir. */
+function settleEndpointResult(
+  descriptor: BackendDescriptor,
+  label: string,
+  endpoint: string,
+  resolvedModel: string | undefined,
+  manifest: ExecutionRequest["manifest"],
+  attestation: SandboxAttestation,
+  exitCode: number,
+  stdout: string
+): ExecutionResultEnvelope {
+  const report = parseAgentReport(stdout);
+  if (manifest?.resultPath && report.usage === undefined) {
+    const body = extractEndpointResult(stdout);
+    if (body && !fs.existsSync(manifest.resultPath)) {
+      try {
+        fs.writeFileSync(manifest.resultPath, body, "utf8");
+      } catch {
+        /* the accept layer will fail closed on a missing result.md */
+      }
+    }
+  }
+  const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
+  const handleOut = recordedAgentHandle(undefined, endpoint, [], resolvedModel, reportedModel, report.usage, report.usageSignature);
+  return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], exitCode, stdout);
+}
+
 /** Agent HTTP endpoint variant — POSTs the worker manifest/prompt to a
  *  configured agent endpoint via the shared Node delegate child. Byte-exact
- *  port of src/execution-backend.ts:1002-1062. */
+ *  port of src/execution-backend.ts:1002-1062, plus a prepared-outcome branch:
+ *  in a concurrent round the POST already ran in the batch child
+ *  (runEndpointBatchOutcomes), so settle that pre-collected outcome instead of
+ *  spawning again. The serial (no prepared outcome) path is unchanged. */
 function runAgentEndpoint(
   descriptor: BackendDescriptor,
   policy: ResolvedSandboxPolicy,
@@ -589,6 +686,40 @@ function runAgentEndpoint(
 ): ExecutionResultEnvelope {
   const endpoint = resolved.endpoint as string;
   const manifest = request.manifest;
+  const baseHandle = recordedAgentHandle(undefined, endpoint, [], resolved.model, "unreported");
+
+  // Concurrent round: the batch child already POSTed and settled this job. Any
+  // failure (network, non-2xx, poll, unparseable, timeout, no exitCode) is a
+  // spawnError; a success carries a numeric exitCode + stdout.
+  if (request.preparedAgentOutcome) {
+    const prep = request.preparedAgentOutcome;
+    if (prep.spawnError) {
+      // Match the SERIAL path's refusal wording so a concurrent round records the
+      // same reason bytes as a serial one. A per-job HTTP failure (non-2xx, poll,
+      // timeout, no exitCode) is the serial `{error}` branch — `agent endpoint
+      // error:`. A whole-batch-child process failure surfaces as
+      // reconcileBatchOutcomes' `batch delegate failed:` fallback — the serial
+      // analog is `child.error` — `agent endpoint delegation failed:`.
+      const summary = prep.spawnError.startsWith("batch delegate failed:")
+        ? `agent endpoint delegation failed: ${prep.spawnError}`
+        : `agent endpoint error: ${prep.spawnError}`;
+      return refusedEnvelope(descriptor, policy, label, "delegation-failed", summary, {
+        ...attestation,
+        handle: baseHandle,
+      });
+    }
+    // Defensive: the batch child always pairs a null exitCode with a spawnError,
+    // so this is unreachable in practice — kept as a fail-closed backstop with
+    // the same wording the serial no-exitCode refusal uses.
+    if (typeof prep.exitCode !== "number") {
+      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint error: no exitCode reported`, {
+        ...attestation,
+        handle: baseHandle,
+      });
+    }
+    return settleEndpointResult(descriptor, label, endpoint, resolved.model, manifest, attestation, prep.exitCode, prep.stdout);
+  }
+
   const job = JSON.stringify({
     manifest,
     prompt: manifest?.prompt,
@@ -603,7 +734,6 @@ function runAgentEndpoint(
     timeout: resolved.timeoutMs || 600000,
     maxBuffer: 32 * 1024 * 1024,
   });
-  const baseHandle = recordedAgentHandle(undefined, endpoint, [], resolved.model, "unreported");
   if (child.error) {
     return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint delegation failed: ${messageOf(child.error)}`, {
       ...attestation,
@@ -625,19 +755,5 @@ function runAgentEndpoint(
       handle: baseHandle,
     });
   }
-  const stdout = String(parsed.stdout || "");
-  const report = parseAgentReport(stdout);
-  if (manifest?.resultPath && report.usage === undefined) {
-    const body = extractEndpointResult(stdout);
-    if (body && !fs.existsSync(manifest.resultPath)) {
-      try {
-        fs.writeFileSync(manifest.resultPath, body, "utf8");
-      } catch {
-        /* the accept layer will fail closed on a missing result.md */
-      }
-    }
-  }
-  const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-  const handleOut = recordedAgentHandle(undefined, endpoint, [], resolved.model, reportedModel, report.usage, report.usageSignature);
-  return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], parsed.exitCode, stdout);
+  return settleEndpointResult(descriptor, label, endpoint, resolved.model, manifest, attestation, parsed.exitCode, String(parsed.stdout || ""));
 }

@@ -63,7 +63,7 @@ import { recordTrustAuditEvent, verifyTrustAudit } from "./trust-audit";
 import { resolveAgentConfig } from "./agent-config";
 import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/types";
 import { runBackend } from "./execution-backend/registry";
-import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv } from "./execution-backend/agent";
+import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, AgentEndpointJob } from "./execution-backend/agent";
 import { sha256, stableStringify } from "../core/hash";
 import { stableCompare } from "../core/util/collate";
 import { plan } from "./pipeline";
@@ -728,17 +728,17 @@ export function driveStep(ctx: DriveContext): DriveStep {
 }
 
 /** Dispatch every batch task (sequential — dispatch mutates state), then
- *  collect ALL spawn-style agent child outcomes in one concurrent window
- *  (one batch delegate child process, per-job timeout kill). Returns
- *  outcomes keyed by task id; a cache-hit, endpoint-configured agent, or
- *  sub-workflow task gets no prepared outcome and settles through the
- *  serial accept path inside processSelectedTask (a sub-workflow task
- *  is never spawn-eligible in the first place — processSelectedTask
- *  always takes its own runSubWorkflow branch for it, so building a
- *  spawn job here would only be spawned and thrown away unused).
- *  Dispatch failures become recorded fail steps up front, exactly what
- *  the serial path would emit. Byte-exact to the old build's
- *  src/drive.ts's prepareConcurrentOutcomes. */
+ *  collect ALL agent child outcomes in one concurrent window: spawn-style
+ *  (CLI-binary) agents through the batch delegate child, and endpoint-mode
+ *  agents through the HTTP batch delegate child — so `--concurrency N` runs N
+ *  endpoint delegations in parallel instead of one-at-a-time on the serial
+ *  path. Returns outcomes keyed by task id; a cache-hit, endpoint-configured
+ *  agent, or sub-workflow task gets no prepared outcome and settles through
+ *  the serial accept path inside processSelectedTask (a sub-workflow task is
+ *  never spawn-eligible in the first place — processSelectedTask always
+ *  takes its own runSubWorkflow branch for it, so building a spawn job here
+ *  would only be spawned and thrown away unused). Dispatch failures become
+ *  recorded fail steps up front, exactly what the serial path would emit. */
 function prepareConcurrentOutcomes(
   ctx: DriveContext,
   batch: string[]
@@ -746,13 +746,16 @@ function prepareConcurrentOutcomes(
   const failSteps = new Map<string, DriveStep>();
   const jobs: Array<ReturnType<typeof prepareAgentSpawn> & { env?: NodeJS.ProcessEnv }> = [];
   const jobTaskIds: string[] = [];
+  const endpointJobs: AgentEndpointJob[] = [];
+  const endpointTaskIds: string[] = [];
   // Set whenever a task's status flips pending -> running (workerId
   // assigned) this round, regardless of whether it later becomes a real
-  // spawn job, a cache hit, or a sub-workflow task. That dispatch is a
-  // real state mutation on the round-cached run object that nothing has
-  // written to disk yet — the pre-spawn checkpoint below must flush it
-  // even when the batch produces zero spawn jobs (e.g. an all-sub-workflow
-  // batch), or a crash before the round-end flush loses the dispatch.
+  // spawn job, an endpoint job, a cache hit, or a sub-workflow task. That
+  // dispatch is a real state mutation on the round-cached run object that
+  // nothing has written to disk yet — the pre-spawn checkpoint below must
+  // flush it even when the batch produces zero spawn/endpoint jobs (e.g. an
+  // all-sub-workflow batch), or a crash before the round-end flush loses
+  // the dispatch.
   let dispatchedThisRound = false;
 
   for (const taskId of batch) {
@@ -797,12 +800,12 @@ function prepareConcurrentOutcomes(
     // A sub-workflow task never goes through the spawn path — processSelectedTask
     // checks task.subWorkflow before it ever looks at a prepared spawn outcome
     // and always takes its own runSubWorkflow branch instead (mirrors that
-    // check byte-for-byte). Building a spawn job for it here would just be a
-    // real agent child spawned and then thrown away unused.
+    // check byte-for-byte). Building a spawn OR endpoint job for it here would
+    // just be a real agent child spawned/delegated and thrown away unused.
     const subWorkflow = task.subWorkflow as { appId: string; inputs?: Record<string, string>; bindResult?: string } | undefined;
     if (subWorkflow) continue;
-    const job = prepareAgentSpawn({
-      schemaVersion: 1,
+    const request = {
+      schemaVersion: 1 as const,
       runId: ctx.runId,
       taskId: task.id,
       backendId: (task.agentType as string) || "agent",
@@ -812,7 +815,8 @@ function prepareConcurrentOutcomes(
       label: task.id,
       timeoutMs: ctx.config.timeoutMs,
       delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: (task.model as string) || ctx.config.model },
-    });
+    };
+    const job = prepareAgentSpawn(request);
     if (job) {
       const sandboxPolicy = manifest.sandboxPolicy;
       if (sandboxPolicy) {
@@ -820,13 +824,25 @@ function prepareConcurrentOutcomes(
       }
       jobs.push(job);
       jobTaskIds.push(taskId);
+      continue;
+    }
+    // Endpoint-configured agent: no CLI binary to batch-spawn, but its HTTP
+    // delegation joins the concurrent window through the endpoint batch child
+    // (runEndpointBatchOutcomes) rather than settling one-at-a-time on the
+    // serial path. An unconfigured agent (neither command nor endpoint) returns
+    // undefined from both prepares here and falls to the serial refusal.
+    const endpointJob = prepareEndpointJob(request);
+    if (endpointJob) {
+      endpointJobs.push(endpointJob);
+      endpointTaskIds.push(taskId);
     }
   }
 
-  if (jobs.length) {
-    emitProgress(`⇉ concurrent round: ${jobs.length} agent${jobs.length > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
+  const totalJobs = jobs.length + endpointJobs.length;
+  if (totalJobs) {
+    emitProgress(`⇉ concurrent round: ${totalJobs} agent${totalJobs > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
   }
-  if (jobs.length || dispatchedThisRound) {
+  if (totalJobs || dispatchedThisRound) {
     // Every task above that reached "pending" got dispatched (workerId
     // assigned) in the round-cached run object, but nothing durable was
     // written for it — unlike the serial path's own dispatch branch, which
@@ -834,26 +850,29 @@ function prepareConcurrentOutcomes(
     // settle window opens: a crash mid-spawn OR mid-sub-workflow-recursion
     // (both can run for minutes) then leaves state.json correctly showing
     // these tasks as dispatched, instead of losing the dispatch entirely.
-    // Gated on dispatchedThisRound (not just jobs.length) so a batch made
+    // Gated on dispatchedThisRound (not just totalJobs) so a batch made
     // entirely of sub-workflow and/or cache-hit tasks — which builds zero
-    // spawn jobs — still gets this flush before its long-running settle
-    // loop starts.
+    // spawn/endpoint jobs — still gets this flush before its long-running
+    // settle loop starts.
     saveCheckpoint(loadRun(ctx));
   }
-  const settled = runAgentBatchOutcomes(jobs as Parameters<typeof runAgentBatchOutcomes>[0]);
   const outcomes = new Map<string, AgentChildOutcome>();
+  const settled = runAgentBatchOutcomes(jobs as Parameters<typeof runAgentBatchOutcomes>[0]);
   jobTaskIds.forEach((taskId, index) => outcomes.set(taskId, settled[index]));
+  const endpointSettled = runEndpointBatchOutcomes(endpointJobs);
+  endpointTaskIds.forEach((taskId, index) => outcomes.set(taskId, endpointSettled[index]));
   return { outcomes, failSteps };
 }
 
 /** One concurrent round inside one cached in-memory run: dispatches every
  *  batch task, spawns all spawn-style agent children in one concurrent
- *  window, then settles + accepts in DETERMINISTIC batch (task-id) order
- *  regardless of wall-clock finish order. At round end it flushes once:
- *  commitState(run, "concurrent-round:<n>-tasks") + writeReport +
- *  saveCheckpoint. Cache-hit tasks and endpoint-only agents get no
- *  prepared outcome and settle through the serial path (still inside
- *  this one deferred-persist round). If no step was produced (nothing
+ *  window (CLI-binary agents through the batch child, endpoint agents
+ *  through the HTTP batch child), then settles + accepts in DETERMINISTIC
+ *  batch (task-id) order regardless of wall-clock finish order. At round end
+ *  it flushes once: commitState(run, "concurrent-round:<n>-tasks") +
+ *  writeReport + saveCheckpoint. Cache-hit tasks get no prepared outcome and
+ *  settle through the serial path (still inside this one deferred-persist
+ *  round). If no step was produced (nothing
  *  runnable at round entry — terminal/blocked/token-budget gate) the
  *  round degrades to one plain driveStep. Byte-exact to the old build's
  *  src/drive.ts's driveConcurrentRound. */
