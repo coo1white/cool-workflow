@@ -76,6 +76,7 @@ process.on("SIGINT", () => onStopSignal("SIGINT"));
 process.on("SIGTERM", () => onStopSignal("SIGTERM"));
 
 const { spawn } = require("node:child_process");
+const { StringDecoder } = require("node:string_decoder");
 let raw = "";
 const MAX_STDIN_BYTES = 32 * 1024 * 1024;
 process.stdin.setEncoding("utf8");
@@ -105,6 +106,31 @@ process.stdin.on("end", () => {
     let stdoutBytes = 0;
     let stdoutTruncated = false;
     let settled = false;
+    // appendedBytes tracks only the raw bytes actually folded into `stdout`
+    // so far — an O(1) running counter. The old code re-ran
+    // Buffer.byteLength(stdout) over the WHOLE accumulated string on every
+    // chunk (O(size-so-far) per chunk, O(bytes^2) total for a chatty job),
+    // and all concurrently-running jobs in a batch share one event loop, so
+    // that rescan delayed every other job's stream/kill-timer handling too.
+    // decoder buffers any multi-byte UTF-8 sequence left incomplete at a
+    // chunk boundary and prepends it to the next write, so a character split
+    // across two stdout reads decodes correctly instead of the old
+    // per-chunk chunk.toString() turning each half into a replacement
+    // character (U+FFFD).
+    let appendedBytes = 0;
+    const decoder = new StringDecoder("utf8");
+    // Flush any bytes the decoder is still holding for an incomplete
+    // trailing multi-byte character. Must run before EVERY settle() call
+    // that reports non-empty stdout (both the "close" and "error" child
+    // events can be the one that fires first), not just one of them — a
+    // process can end via "error" before "close" (e.g. a post-spawn stream
+    // or kill error), and if only "close" flushed, those trailing bytes
+    // would be silently dropped instead of surfacing correctly or as an
+    // explicit replacement character.
+    const flushDecoder = () => {
+      const tail = decoder.end();
+      if (tail) stdout += tail;
+    };
     const settle = (o) => {
       if (settled) return;
       settled = true;
@@ -137,18 +163,30 @@ process.stdin.on("end", () => {
       const chunk = Buffer.isBuffer(d) ? d : Buffer.from(String(d));
       stdoutBytes += chunk.length;
       if (stdoutTruncated) return;
-      const remaining = CAP - Buffer.byteLength(stdout);
+      const remaining = CAP - appendedBytes;
       if (remaining <= 0 || chunk.length > remaining) {
         stdoutTruncated = true;
-        if (remaining > 0) stdout += chunk.subarray(0, remaining).toString();
+        // The close handler's truncated branch always reports stdout:""
+        // (below), so this partial decode is dead weight on THAT path — but
+        // the error handler below does NOT discard stdout on truncation, so
+        // it is still decoded here for that path.
+        if (remaining > 0) stdout += decoder.write(chunk.subarray(0, remaining));
         return;
       }
-      stdout += chunk.toString();
+      stdout += decoder.write(chunk);
+      appendedBytes += chunk.length;
     });
     child.stderr.on("data", () => {});
     child.on("error", (error) => {
       clearTimeout(term); clearTimeout(kill);
       children.delete(child);
+      // Flush the decoder here too, symmetric with the close handler below —
+      // "error" can fire instead of "close" (e.g. a post-spawn stream or
+      // kill error), and this path reports the accumulated `stdout` as-is
+      // (it does not discard it on truncation the way close does), so any
+      // bytes still held in the decoder for a not-yet-complete trailing
+      // multi-byte character must be flushed or they are silently lost.
+      flushDecoder();
       settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout });
     });
     child.on("close", (code) => {
@@ -158,6 +196,7 @@ process.stdin.on("end", () => {
         settle({ spawnError: `stdout exceeded ${CAP} byte cap (${stdoutBytes} bytes)`, exitCode: null, stdout: "" });
         return;
       }
+      flushDecoder();
       settle({ exitCode: typeof code === "number" ? code : null, stdout });
     });
   });
