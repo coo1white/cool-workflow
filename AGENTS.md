@@ -143,6 +143,16 @@ regardless of the capability it ships. The long form lives in
 8. Release engineering. A release is gated, independently reviewed, and
    reproducible (the existing release-flow) — cadence never overrides the
    gate, exactly like -RELEASE vs -CURRENT.
+9. JavaScript/TypeScript only. This project is written in JS/TS, full stop —
+   no shell scripts, no Python, no Ruby, no other language for new code
+   (2026-07-13, after converging the last 6 shell scripts to node). A real,
+   needed file that genuinely cannot be JS/TS (a Homebrew formula, a
+   Dockerfile, the workbench's disk-served html/css) is a scoped, one-off,
+   reasoned EXCEPTION, never a new pattern — add it to the `EXCEPT_PATHS` in
+   `scripts/lang-policy-check.js` (`npm run lang:check`, wired into
+   `release:check`) with a one-line reason, at its exact path, never a whole
+   directory. Docs/data/config files (md, json, yaml, txt, etc.) are outside
+   this rule's scope; it is about what the project's LOGIC is written in.
 
 # Anti-Patterns (auto-reject your own work if detected)
 - Adding optional fields to interfaces with only a doc comment ("spec accretion")
@@ -153,6 +163,8 @@ regardless of the capability it ships. The long form lives in
 - Any violation of the FreeBSD discipline above (POLA break, policy in the
   kernel, chatter on stdout, silent fallback, new runtime dependency,
   undocumented shipped behavior)
+- A new non-JS/TS source file without a scoped, reasoned exception in
+  `scripts/lang-policy-check.js` (`npm run lang:check`)
 
 # Description Standard — Ogden Basic English (850)
 All descriptions in this project are to be put into words using Ogden's Basic

@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 - Source modules: `151`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `234`
+- Smoke tests: `235`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -380,6 +380,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [headline-commands-smoke.js](../test/headline-commands-smoke.js)
 - [http-delegate-child-multibyte-stdin-smoke.js](../test/http-delegate-child-multibyte-stdin-smoke.js)
 - [incremental-resume-smoke.js](../test/incremental-resume-smoke.js)
+- [lang-policy-check-smoke.js](../test/lang-policy-check-smoke.js)
 - [ledger-apply-smoke.js](../test/ledger-apply-smoke.js)
 - [ledger-resolution-smoke.js](../test/ledger-resolution-smoke.js)
 - [ledger-verify-smoke.js](../test/ledger-verify-smoke.js)

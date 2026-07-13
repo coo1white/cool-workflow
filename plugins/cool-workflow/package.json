@@ -44,6 +44,7 @@
     "check": "tsc -p tsconfig.json --noEmit",
     "dist:check": "node scripts/dist-drift-check.js",
     "purity:check": "node scripts/purity-gate.js",
+    "lang:check": "node scripts/lang-policy-check.js",
     "golden-path": "node scripts/golden-path.js",
     "dogfood:release": "node scripts/dogfood-release.js",
     "canonical-apps": "node scripts/canonical-apps.js",
