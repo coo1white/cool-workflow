@@ -9,10 +9,12 @@
 //
 // Also covers: `cw` bare and `cw --help` are byte-aliases of `cw help`;
 // `cw help <verb>` for both a normal command and the `state`/`node` groups
-// (sorted, padded subcommand rows); the hidden `audit-run` alias quirk
-// (help prints "Unknown command: audit-run" with a self Did-you-mean, and
-// still exits 0); `help <cmd>` exit code is always 0 even when <cmd> is not
-// a real command, in contrast to `cw <cmd>` alone which exits 1.
+// (sorted, padded subcommand rows); the `audit-run` alias page (an alias
+// header line plus the target verb quickstart's own rows — the old
+// self-pointing "Unknown command: audit-run / Did you mean: cw audit-run"
+// quirk was fixed on purpose); `help <cmd>` exit code is always 0 even
+// when <cmd> is not a real command, in contrast to `cw <cmd>` alone which
+// exits 1.
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -65,15 +67,28 @@ caseMain(() => {
   assert.equal(viaFlag.stdout, viaHelp.stdout);
   assert.equal(viaFlag.status, 0);
 
-  // Hidden alias quirk: audit-run IS a real top-level command (alias of
-  // quickstart) but has no row in the per-command help table, so
-  // `help audit-run` falls to the unknown-command page — yet still exits 0.
+  // Alias page: audit-run IS a real top-level command (a caseTokens alias
+  // of quickstart) but has no help row of its own, so `help audit-run`
+  // renders an alias header line plus quickstart's own rows. Before this
+  // fix it fell to the unknown-command page AND the Did-you-mean line
+  // suggested `cw audit-run` itself — a hint pointing at the very word
+  // the user just typed.
   const auditRunFx = loadFixture("audit-run");
   const helpAuditRun = run(["help", "audit-run"]);
   assert.equal(helpAuditRun.status, 0);
   assert.equal(helpAuditRun.status, auditRunFx.exit);
   assert.equal(helpAuditRun.stdout, auditRunFx.body);
-  assert.equal(helpAuditRun.stdout, "Unknown command: audit-run\n  Did you mean:  cw audit-run\n  Try:  cw help   (list all commands)\n");
+  assert.match(helpAuditRun.stdout, /^cw audit-run — alias of cw quickstart\n/);
+  assert.match(helpAuditRun.stdout, /cw quickstart\s+ONE-COMMAND quickstart/);
+  assert.doesNotMatch(helpAuditRun.stdout, /Unknown command/);
+  assert.doesNotMatch(helpAuditRun.stdout, /Did you mean/);
+  // The alias page's body below its own header line is byte-identical to
+  // `cw help quickstart`'s body below its header — one source of rows.
+  const helpQuickstart = run(["help", "quickstart"]);
+  assert.equal(
+    helpAuditRun.stdout.split("\n").slice(1).join("\n"),
+    helpQuickstart.stdout.split("\n").slice(1).join("\n")
+  );
 
   // `help <cmd>` always exits 0, even for total garbage — in contrast to
   // `cw <cmd>` alone (with no `help` prefix) which exits 1.

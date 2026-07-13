@@ -7,11 +7,16 @@ cw ledger
   cw ledger review   Build a verifiable cross-agent review verdict entry (printed as JSON).
   cw ledger verify   Verify a ledger entry against its content digest (fail-closed on tampering).
 
+    Flags (cw ledger list)
+      --ledger-dir DIR  The ledger directory to read. Give it more than once to union-verify mirrors.
+      --dir DIR         Old name for --ledger-dir (also the global --repo alias; kept working).
+
     Flags (cw ledger propose)
       --from AGENT/REPO  Who is making the change.
       --to AGENT/REPO    Who should get the change.
       --title TEXT       A short name for the change.
       --rationale TEXT   Why the change should happen.
+      --files LIST       The files the change touches, as a comma list.
       --diff PATCH       The change as one diff file.
 
     Flags (cw ledger review)

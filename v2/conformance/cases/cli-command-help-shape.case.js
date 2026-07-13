@@ -4,7 +4,7 @@
 // cli-command-help-shape — formatCommandHelp details not already pinned by
 // cli-help-topics.case.js's byte-exact fixture diffs: the "Did you mean"
 // tail for a near-typo of a REAL verb topic (distinct from the no-match
-// and the audit-run self-suggestion cases already covered there), and the
+// and the audit-run alias-page cases already covered there), and the
 // doubled-row shape for a family whose subcommand table intentionally
 // lists the same command path twice with different one-line summaries
 // (get/set or preview/drive pairs) — the SPEC's "odd things" #5.

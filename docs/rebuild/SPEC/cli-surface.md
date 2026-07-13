@@ -40,6 +40,8 @@ The npm package puts two names on the path, both pointing at `scripts/cw.js` (wh
 - `printJson(value)` — writes `JSON.stringify(value, null, 2)` + `\n` to stdout; never colored (src/cli/io.ts:17-19).
 - `wantsJson(options)` — true for `--json` or `--format json` (src/cli/io.ts:22-24).
 
+> v2 additive note: an "always JSON" (`jsonMode: "default"`) verb may also declare a TTY-only human rendering (`CliBinding.humanRender`, e.g. `cw list`). It prints ONLY when stdout is a real interactive terminal and no `--json`/`--format json` was given — piped output keeps the exact JSON bytes this table pins.
+
 ### Command list (dispatcher switch, src/cli/command-surface.ts:101-431)
 
 | Command | What it does | JSON rule |

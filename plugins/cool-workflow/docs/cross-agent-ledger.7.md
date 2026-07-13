@@ -51,12 +51,17 @@ cw ledger review  --from <a> --to <b> --target <proposal-id|pr-ref> \
                   --verdict <approved|rejected> [--findings "a,b"]
 cw ledger verify  [--file <path>]        # else reads the entry from stdin
 cw ledger apply   [--file <path>]        # verify a proposal, then print its diff
-cw ledger list    --dir <ledger-dir> [--dir <mirror-2> ...]   # verify a dir (or union of mirrors)
+cw ledger list    --ledger-dir <ledger-dir> [--ledger-dir <mirror-2> ...]   # verify a dir (or union of mirrors)
 ```
 
 All write JSON to stdout (stdout is data). `propose` and `review` print a sealed
 entry; `verify` prints a check report; `apply` prints a verify-plus-diff report;
 `list` prints a per-entry report over a directory.
+
+`--ledger-dir` is the preferred spelling for `list`: the CLI front door
+treats `--dir` as a global alias of `--repo` on every command, so the old
+`--dir` made one flag mean two things here. `--dir` keeps working
+unchanged as the legacy alias; when both are given, `--ledger-dir` wins.
 
 ## Applying a proposal — fail-closed
 
@@ -131,12 +136,12 @@ on the mirror-union output and on the `cw_ledger_list` MCP tool.
 
 ### Mirrors — union-verifying several directories
 
-`--dir` is repeatable. With two or more, `cw ledger list` **union-verifies** the
+`--ledger-dir` (and the legacy `--dir`) is repeatable. With two or more, `cw ledger list` **union-verifies** the
 directories as mirrors of one ledger (e.g. the same handoff repo cloned from a
 GitHub remote and one or more self-hosted Gitea remotes in different places):
 
 ```
-cw ledger list --dir gh/ledger --dir gitea-eu/ledger --dir gitea-asia/ledger
+cw ledger list --ledger-dir gh/ledger --ledger-dir gitea-eu/ledger --ledger-dir gitea-asia/ledger
 ```
 
 The union is **conflict-free by construction**: entries are immutable and
@@ -146,10 +151,10 @@ across mirrors** — a tampered entry in ANY mirror sets `allOk:false` and exits
 `1`. This is for redundancy and reachability, not load: the ledger's traffic is
 tiny; multiple hosts guard against one being down or unreachable.
 
-A single `--dir` keeps the original single-directory output (a `dir` field, no
+A single directory flag keeps the original single-directory output (a `dir` field, no
 `dirs`); two or more switch to the union shape (`dirs` plus a per-entry `dirs`).
 The transport stays git-host-agnostic — adding a mirror is one more clone + one
-more `--dir`, no code change.
+more `--ledger-dir`, no code change.
 
 ## Entry shape
 

@@ -167,6 +167,11 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
         { name: "--changed-from REF", summary: "Check the onramp only for the change since REF." },
         { name: "--json", summary: "Print the report as JSON." },
     ],
+    // The handler above and runDoctor (shell/doctor.ts) read exactly
+    // onramp/fix/changed-from/json plus the shared globals (cwd, format)
+    // — the list above is complete, so the dispatcher may warn about an
+    // unknown flag (TTY-only; see cli/global-flags.ts).
+    flagsComplete: true,
 }, "Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`.");
 (0, registry_core_1.addCliOnlyCapability)("fix", "Print consolidated fix commands for CW setup issues.", {
     path: ["fix"],

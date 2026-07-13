@@ -188,10 +188,17 @@ function ledgerApplyCli(options) {
     return (0, ledger_1.applyLedgerProposal)(parsed);
 }
 function ledgerListCli(options) {
-    const dirs = Array.isArray(options.dir) ? options.dir.map(String).filter(Boolean) : [];
+    // `--ledger-dir` is the preferred flag: the global CLI front door
+    // (cli/entry.ts) treats `--dir` as an alias of `--repo` for EVERY
+    // command, so `cw ledger list --dir X` made one flag mean two things.
+    // `--dir` keeps working unchanged as the legacy spelling; when both are
+    // given, `--ledger-dir` wins. Repeated flags become an array via
+    // parseArgv's append behavior, same as `--dir` always has.
+    const input = options["ledger-dir"] ?? options.dir;
+    const dirs = Array.isArray(input) ? input.map(String).filter(Boolean) : [];
     if (dirs.length > 1)
         return (0, ledger_io_1.unionLedgerEntries)(dirs);
-    const dir = required(dirs[0] || stringOption(options.dir), "--dir <ledger-directory>");
+    const dir = required(dirs[0] || stringOption(input), "--ledger-dir <ledger-directory>");
     return (0, ledger_io_1.listLedgerEntries)(dir);
 }
 /** MCP-facing verify/apply take the entry OBJECT directly (not a file/

@@ -140,13 +140,19 @@ function levenshtein(a, b) {
 }
 /** src/orchestrator.ts:875-887 — nearest known command by edit distance.
  *  Gives `undefined` when the input is under 2 chars, or when the best
- *  distance is over 3 or over half the input length. */
+ *  distance is over 3 or over half the input length. Never gives back the
+ *  input itself: a caller only asks for a suggestion when the input did
+ *  NOT resolve, so a distance-0 self-match (an alias token like
+ *  `audit-run` that IS in KNOWN_COMMANDS but has no help rows of its own)
+ *  was a hint that pointed at the very thing the user just typed. */
 function suggestCommand(input) {
     if (!input || input.length < 2)
         return undefined;
     let best;
     let bestDistance = Infinity;
     for (const candidate of exports.KNOWN_COMMANDS) {
+        if (candidate === input)
+            continue;
         const distance = levenshtein(input, candidate);
         if (distance < bestDistance) {
             bestDistance = distance;

@@ -17,7 +17,7 @@ import { attachCliBinding, addCliOnlyCapability, listBundledWorkflows, listBundl
 // ---------------------------------------------------------------------
 
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../../core/version";
-import { formatSearchResults } from "../../core/format/help";
+import { formatSearchResults, formatWorkflowList } from "../../core/format/help";
 import { formatCompletionScript } from "../../core/format/completion";
 import { optionalArg } from "../../core/util/cli-args";
 
@@ -101,6 +101,11 @@ attachCliBinding("list", {
   path: ["list"],
   jsonMode: "default",
   handler: () => ({ json: listBundledWorkflows() }),
+  // UI/UX fix: a person at a real terminal used to get the raw JSON array.
+  // On a TTY (and only there — piped bytes stay the exact same JSON, see
+  // cli/dispatch.ts's shouldRenderHuman) render one "<id> — <title>" line
+  // per workflow plus the next-step footer.
+  humanRender: formatWorkflowList,
 });
 
 attachCliBinding("status", {

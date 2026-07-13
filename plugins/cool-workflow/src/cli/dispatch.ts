@@ -26,9 +26,11 @@ import {
   CliJsonMode,
   findCapabilityByCliPath,
 } from "../core/capability-table";
+import type { CliBinding } from "../core/capability-data";
 import { KNOWN_COMMANDS, ParsedArgv, suggestCommand } from "./parseargv";
 import { printJson, styledHelp } from "./io";
 import { wantsJson } from "../core/util/cli-args";
+import { warnUnknownFlags } from "./global-flags";
 
 /** Thrown errors carry only a message; the entry point decides exit code
  *  and the recovery hint, matching src/cli.ts's top-level catch. */
@@ -38,15 +40,42 @@ function firstPositional(args: ParsedArgv, index = 0): string | undefined {
   return args.positionals[index];
 }
 
+/** The one rendering-mode decision for a `jsonMode: "default"` row's
+ *  OPTIONAL human projection (CliBinding.humanRender): true ONLY when the
+ *  row is "default", the caller did NOT ask for JSON (`--json`/`--format
+ *  json`), the row declares a humanRender, AND stdout is a real TTY.
+ *  Every other combination — every pipe, every script, every conformance
+ *  run — stays byte-identical JSON. Deliberately does NOT read
+ *  FORCE_COLOR/NO_COLOR: color env vars style output, they never pick
+ *  the output mode (cli-color-env pipes with FORCE_COLOR=1 and must stay
+ *  JSON). Pure of the injectable `stream` (default process.stdout),
+ *  following shell/workbench-host.ts's printServeHint pattern. */
+export function shouldRenderHuman(
+  jsonMode: CliJsonMode,
+  options: Record<string, unknown>,
+  hasHumanRender: boolean,
+  stream: { isTTY?: boolean } = process.stdout
+): boolean {
+  return jsonMode === "default" && !wantsJson(options) && hasHumanRender && Boolean(stream.isTTY);
+}
+
 /** Writes a `CliHandlerResult` to stdout and applies its exit code, per
  *  the row's `jsonMode`:
  *   - `"default"` — always prints `result.json` as JSON (falls back to
- *     `result.text` when a row has no canonical JSON shape).
+ *     `result.text` when a row has no canonical JSON shape). On a real
+ *     TTY, a row that declares `humanRender` prints that human text
+ *     instead (see shouldRenderHuman above — piped bytes never change).
  *   - `"flag"` — prints `result.text` normally, `result.json` under
  *     `--json`/`--format json`.
  *   - `"human"` — always prints `result.text`; there is no JSON form. */
-function renderCliResult(result: CliHandlerResult, jsonMode: CliJsonMode, options: Record<string, unknown>): void {
-  const useJson = jsonMode === "default" || (jsonMode === "flag" && wantsJson(options));
+function renderCliResult(result: CliHandlerResult, cli: CliBinding, options: Record<string, unknown>): void {
+  if (shouldRenderHuman(cli.jsonMode, options, Boolean(cli.humanRender)) && result.json !== undefined) {
+    const human = cli.humanRender!(result.json);
+    process.stdout.write(human.endsWith("\n") ? human : `${human}\n`);
+    if (result.exitCode !== undefined) process.exitCode = result.exitCode;
+    return;
+  }
+  const useJson = cli.jsonMode === "default" || (cli.jsonMode === "flag" && wantsJson(options));
   if (useJson && result.json !== undefined) {
     printJson(result.json);
   } else if (result.text !== undefined) {
@@ -79,8 +108,12 @@ async function dispatchTable(args: ParsedArgv): Promise<boolean> {
       positionals: args.positionals.slice(consumed),
       options: args.options,
     };
+    // Rows that declare a complete flag list get the TTY-only unknown-flag
+    // warning (one stderr line; stdout and the exit code never change —
+    // see cli/global-flags.ts).
+    warnUnknownFlags(row.cli, args.options);
     const result = await row.cli.handler(cliArgs);
-    renderCliResult(result, row.cli.jsonMode, args.options);
+    renderCliResult(result, row.cli, args.options);
     return true;
   }
   return false;

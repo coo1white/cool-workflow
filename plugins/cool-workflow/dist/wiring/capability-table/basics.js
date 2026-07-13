@@ -78,6 +78,11 @@ function loadWorkflowAppLoader() {
     path: ["list"],
     jsonMode: "default",
     handler: () => ({ json: (0, registry_core_1.listBundledWorkflows)() }),
+    // UI/UX fix: a person at a real terminal used to get the raw JSON array.
+    // On a TTY (and only there — piped bytes stay the exact same JSON, see
+    // cli/dispatch.ts's shouldRenderHuman) render one "<id> — <title>" line
+    // per workflow plus the next-step footer.
+    humanRender: help_1.formatWorkflowList,
 });
 (0, registry_core_1.attachCliBinding)("status", {
     path: ["status"],

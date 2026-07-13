@@ -70,4 +70,23 @@ console.log("argparse: --key=-value and -- escape hatches keep dash-leading valu
 }
 console.log("argparse: no dead verb in KNOWN_COMMANDS or cw help (update stays gone) ok");
 
+
+// suggestCommand never suggests its own input back. A caller only asks for a
+// suggestion when the input did NOT resolve, so a distance-0 self-match (an
+// alias token like "audit-run" that IS in KNOWN_COMMANDS but had no help rows)
+// used to make `cw help audit-run` say "Did you mean: cw audit-run" — a hint
+// pointing at the very word the user just typed.
+{
+  const { suggestCommand, KNOWN_COMMANDS } = require(path.resolve(__dirname, "..", "dist", "cli", "parseargv.js"));
+  for (const cmd of KNOWN_COMMANDS) {
+    assert.notEqual(suggestCommand(cmd), cmd, `suggestCommand("${cmd}") must never suggest the input itself`);
+  }
+  // The near-typo path is untouched: a close misspelling still gets its hint.
+  assert.equal(suggestCommand("versio"), "version", "a near-typo still gets its suggestion");
+  assert.equal(suggestCommand("workr"), "worker", "a near-typo still gets its suggestion");
+  // audit-run has no close non-self neighbor within the distance cap.
+  assert.equal(suggestCommand("audit-run"), undefined, "audit-run gets no suggestion instead of itself");
+}
+console.log("argparse: suggestCommand never points at its own input ok");
+
 console.log("cli-arg-parsing-smoke: ok");
