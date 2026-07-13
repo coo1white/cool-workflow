@@ -142,10 +142,11 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-v2-fs-lock-"));
   );
 }
 
-// --- No lock after exhausting retries throws the exact message. We force
-// this deterministically by pre-creating a FRESH lock (never stale, never
-// removed) and letting all 240 attempts run out. This is slow (240 * 25ms =
-// 6s) but exercises the real retry ceiling exactly once.
+// --- No lock after exhausting the acquire budget throws the exact message.
+// We force this deterministically by pre-creating a FRESH lock (never stale,
+// never removed) and letting the wall-clock acquire budget
+// (FILE_LOCK_ACQUIRE_BUDGET_MS, ~6s) run out. This is slow (~6s) but
+// exercises the real retry ceiling exactly once.
 {
   const target = path.join(tmp, "unavailable.json");
   writeJson(target, { n: 0 });
