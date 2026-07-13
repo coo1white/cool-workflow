@@ -179,7 +179,19 @@ function findCapabilityByCliPath(path) {
 function cliCapabilities() {
     return exports.REGISTRY.filter((row) => Boolean(row.cli));
 }
-/** `tools/list`'s exact array, in the pinned source order. */
+/** `tools/list`'s exact array, in the pinned source order. Each
+ *  property's shape comes from the first hit, in order: a per-tool
+ *  `PROPERTY_OVERRIDES` entry, then the shared `COMMON_PROPERTY_TYPES`
+ *  entry for that property name, then the plain `stringProperty`
+ *  fallback for any name neither table covers.
+ *
+ *  `inputSchema.required` is built from `row.mcp.requiredArgs`, which
+ *  mcp/dispatch.ts's `requiredToolArguments` also reads: each array
+ *  entry is one AND-required group, already split from the transcript's
+ *  comma form (see `buildMcpBinding` above). A group holding `|` is an
+ *  OR-group — at least one of the named keys must be present, so no
+ *  single name from it can go into the flat, AND-only `required` list;
+ *  a group with no `|` is one plain required name. */
 function mcpToolDefinitions() {
     const definitions = [];
     for (const row of exports.REGISTRY) {
@@ -188,12 +200,18 @@ function mcpToolDefinitions() {
         const overrides = capability_data_1.PROPERTY_OVERRIDES[row.mcp.tool] ?? {};
         const properties = {};
         for (const propName of row.mcp.properties) {
-            properties[propName] = overrides[propName] ?? (0, capability_data_1.stringProperty)(propName);
+            properties[propName] = overrides[propName] ?? capability_data_1.COMMON_PROPERTY_TYPES[propName] ?? (0, capability_data_1.stringProperty)(propName);
         }
+        const required = (row.mcp.requiredArgs ?? []).filter((group) => !group.includes("|"));
         definitions.push({
             name: row.mcp.tool,
             description: row.mcp.description,
-            inputSchema: { type: "object", properties, additionalProperties: true },
+            inputSchema: {
+                type: "object",
+                properties,
+                additionalProperties: true,
+                ...(required.length ? { required } : {}),
+            },
         });
     }
     return definitions;

@@ -38,10 +38,10 @@ export type CliJsonMode = "default" | "flag" | "human";
 /** JSON-schema-ish property shape used by every MCP tool's inputSchema,
  *  per SPEC/mcp.md: every property is one of string/number/boolean/object/
  *  array, each carrying only a `description` (plus `additionalProperties`
- *  for the object case, `items` for the array case). This milestone only
- *  ever emits the plain string form (see `stringProperty` below); the
- *  richer per-capability property shapes are additive, later-milestone
- *  work — this type just has to be ABLE to hold them without a reshape. */
+ *  for the object case, `items` for the array case). `PROPERTY_OVERRIDES`
+ *  and `COMMON_PROPERTY_TYPES` below give most properties a real type and
+ *  a true, short description; `stringProperty` is the last-resort form
+ *  for any name neither table has yet covered. */
 export interface McpPropertySchema {
   type: "string" | "number" | "boolean" | "object" | "array";
   description: string;
@@ -56,6 +56,11 @@ export interface McpToolDefinition {
     type: "object";
     properties: Record<string, McpPropertySchema>;
     additionalProperties: true;
+    /** The flat, AND-only list of property names a call must supply.
+     *  Omitted (not an empty array) when the tool has no plain
+     *  AND-required name — see `mcpToolDefinitions()` for how this is
+     *  derived from `requiredArgs`'s AND/OR groups. */
+    required?: string[];
   };
 }
 
@@ -178,8 +183,9 @@ export function stringProperty(name: string): McpPropertySchema {
 }
 
 /** SPEC/mcp.md's two hand-written property-shape exceptions (see that
- *  file's "All 196 MCP tools" section header note): every OTHER property
- *  on every OTHER tool is the plain string form above. */
+ *  file's "All 196 MCP tools" section header note): these two properties
+ *  win over `COMMON_PROPERTY_TYPES` below, since each is a one-off shape
+ *  tied to its own tool, not a shape shared by the property name at large. */
 export const PROPERTY_OVERRIDES: Record<string, Record<string, McpPropertySchema>> = {
   cw_commit: {
     allowUnverifiedCheckpoint: {
@@ -190,6 +196,221 @@ export const PROPERTY_OVERRIDES: Record<string, Record<string, McpPropertySchema
   cw_routine_fire: {
     payload: { type: "object", description: "Event payload" },
   },
+};
+
+/** A real type and a true, short, one-sentence description for every
+ *  property name used anywhere in `MCP_TOOL_DATA` below, keyed by the
+ *  PROPERTY NAME (not the tool name) — the same name means the same
+ *  thing on every tool that uses it. `mcpToolDefinitions()` in
+ *  wiring/capability-table/registry-core.ts looks a property up here
+ *  only when `PROPERTY_OVERRIDES` has no entry for it on that tool; a
+ *  name not found in either table falls back to the plain
+ *  `stringProperty` form (there should be very few of those — the two
+ *  names left out here, `allowUnverifiedCheckpoint` and `payload`, are
+ *  already covered by `PROPERTY_OVERRIDES` on their one tool each). */
+export const COMMON_PROPERTY_TYPES: Record<string, McpPropertySchema> = {
+  action: { type: "string", description: "which action to run" },
+  actor: { type: "string", description: "the name of the actor doing this" },
+  actorKind: { type: "string", description: "the kind of actor, such as agent or human" },
+  agentCommand: { type: "string", description: "the command template used to run the agent" },
+  agentEndpoint: { type: "string", description: "the network address of the agent service" },
+  agentModel: { type: "string", description: "the name of the agent model to use" },
+  all: { type: "boolean", description: "when true, act on every item, not only old ones" },
+  allowSelfApproval: { type: "boolean", description: "when true, let an actor approve their own work" },
+  allowUnverified: { type: "boolean", description: "when true, skip the check that needs a verifier" },
+  app: { type: "string", description: "the workflow app's id" },
+  appId: { type: "string", description: "the workflow app's id" },
+  appliesTo: { type: "string", description: "what this policy rule applies to" },
+  archive: { type: "string", description: "the path to the run archive file" },
+  artifact: { type: "object", description: "an artifact reference to attach as proof" },
+  attestation: { type: "string", description: "the attestation text or id for this actor" },
+  attested: { type: "boolean", description: "when true, mark the actor as host-attested" },
+  authorizedRoles: { type: "array", description: "the list of role names allowed to approve" },
+  backend: { type: "string", description: "the name of the execution backend" },
+  backendId: { type: "string", description: "the id of the execution backend" },
+  backoffBaseMs: { type: "number", description: "the starting wait time, in milliseconds, before a retry" },
+  backoffCapMs: { type: "number", description: "the largest wait time, in milliseconds, before a retry" },
+  backoffFactor: { type: "number", description: "the number the wait time is multiplied by after each retry" },
+  baseline: { type: "string", description: "the baseline snapshot's id" },
+  baselinePath: { type: "string", description: "the file path to the baseline snapshot" },
+  baselineSnapshotId: { type: "string", description: "the id of the baseline snapshot" },
+  blackboardId: { type: "string", description: "the id of the blackboard" },
+  body: { type: "string", description: "the text body of the message" },
+  bundle: { type: "string", description: "the path to the run bundle file" },
+  by: { type: "string", description: "the name of the actor who did this" },
+  candidate: { type: "string", description: "the candidate's id" },
+  candidateId: { type: "string", description: "the candidate's id" },
+  candidateSnapshotId: { type: "string", description: "the id of the candidate snapshot" },
+  code: { type: "string", description: "a short error or status code" },
+  collectInitialFanin: { type: "boolean", description: "when true, collect the first fan-in step right away" },
+  command: { type: "string", description: "the command that was run or checked" },
+  commit: { type: "string", description: "the commit's id" },
+  commitId: { type: "string", description: "the commit's id" },
+  concurrency: { type: "number", description: "the largest number of steps to run at once" },
+  contract: { type: "string", description: "the pipeline contract's id" },
+  contractId: { type: "string", description: "the pipeline contract's id" },
+  criteria: { type: "array", description: "the list of scoring criteria" },
+  criterion: { type: "string", description: "one scoring criterion's name" },
+  cron: { type: "string", description: "the cron schedule text" },
+  cwd: { type: "string", description: "the working directory to run in" },
+  debateRounds: { type: "number", description: "the number of debate rounds to run" },
+  delayMinutes: { type: "number", description: "the number of minutes to wait before the task runs" },
+  depth: { type: "number", description: "how many levels deep to read" },
+  description: { type: "string", description: "a short text that describes this item" },
+  diff: { type: "string", description: "the change text (diff) for this proposal" },
+  dir: { type: "string", description: "the path to one ledger directory" },
+  directory: { type: "string", description: "the directory path to write into" },
+  dirs: { type: "array", description: "the list of ledger directory paths" },
+  dispatchId: { type: "string", description: "the id of the dispatch record" },
+  displayName: { type: "string", description: "the actor's human-readable name" },
+  entry: { type: "string", description: "the ledger entry to check" },
+  env: { type: "object", description: "the environment variables for this step" },
+  evidence: { type: "array", description: "the list of evidence items backing this claim" },
+  expectCount: { type: "number", description: "the event count the chain must match" },
+  expectHead: { type: "string", description: "the head hash the chain must match" },
+  expectedArtifact: { type: "string", description: "the artifact this role is expected to produce" },
+  extractReport: { type: "boolean", description: "when true, also pull the plain report out of the bundle" },
+  failed: { type: "boolean", description: "when true, mark the lease as failed" },
+  faninId: { type: "string", description: "the id of the fan-in record" },
+  faninObligation: { type: "string", description: "what this role must supply at fan-in time" },
+  fanoutId: { type: "string", description: "the id of the fan-out record" },
+  feedbackId: { type: "string", description: "the id of the feedback record" },
+  file: { type: "string", description: "the path to the archive file" },
+  files: { type: "array", description: "the list of file paths this change touches" },
+  findings: { type: "array", description: "the list of review findings" },
+  focus: { type: "string", description: "the node id to center the view on" },
+  from: { type: "string", description: "the actor this comes from" },
+  groupId: { type: "string", description: "the id of the agent group" },
+  hostEnforced: { type: "boolean", description: "when true, the host, not the agent, enforced the sandbox rule" },
+  id: { type: "string", description: "the id of this item" },
+  includeArchived: { type: "boolean", description: "when true, also list archived runs" },
+  includeRejected: { type: "boolean", description: "when true, also list rejected candidates" },
+  inputs: { type: "object", description: "the structured input values for the app" },
+  intervalMinutes: { type: "number", description: "how often, in minutes, the task should repeat" },
+  judgeCount: { type: "number", description: "the number of judge agents to use" },
+  keepCommits: { type: "number", description: "the number of recent commits to keep" },
+  keepScratch: { type: "boolean", description: "when true, keep scratch files instead of freeing them" },
+  keepSnapshots: { type: "number", description: "the number of recent snapshots to keep" },
+  key: { type: "string", description: "the context frame's key" },
+  kind: { type: "string", description: "the kind of this item" },
+  leaseId: { type: "string", description: "the id of the queue lease" },
+  leaseTtlMs: { type: "number", description: "how long, in milliseconds, a lease stays valid" },
+  limit: { type: "number", description: "the largest number of items to return" },
+  locator: { type: "string", description: "where to find the artifact (a path or url)" },
+  mapperCount: { type: "number", description: "the number of mapper agents to use" },
+  match: { type: "string", description: "the text pattern used to match trigger events" },
+  max: { type: "number", description: "the largest allowed score" },
+  maxAttempts: { type: "number", description: "the largest number of retry attempts allowed" },
+  maxConcurrent: { type: "number", description: "the largest number of runs allowed at once" },
+  maxTotal: { type: "number", description: "the largest total score allowed" },
+  membershipId: { type: "string", description: "the id of the agent membership record" },
+  message: { type: "string", description: "the message text" },
+  minAgeMinutes: { type: "number", description: "the least age, in minutes, an item must have" },
+  minNormalized: { type: "number", description: "the least normalized score a candidate must have" },
+  multiAgentRun: { type: "string", description: "the multi-agent run's id" },
+  multiAgentRunId: { type: "string", description: "the multi-agent run's id" },
+  network: { type: "string", description: "the network access rule that was checked" },
+  node: { type: "string", description: "the state node's id" },
+  nodeId: { type: "string", description: "the state node's id" },
+  note: { type: "string", description: "a short free-text note" },
+  notes: { type: "string", description: "free-text notes about this score" },
+  now: { type: "string", description: "the time to treat as \"now\", for a stable, repeatable result" },
+  objective: { type: "string", description: "the goal text for this multi-agent run" },
+  offset: { type: "number", description: "how many items to skip before returning results" },
+  olderThanDays: { type: "number", description: "the least age, in days, an item must have" },
+  once: { type: "boolean", description: "when true, run only one step, then stop" },
+  outcome: { type: "string", description: "the decision's outcome" },
+  output: { type: "string", description: "the output file path to write" },
+  parent: { type: "string", description: "the id of the parent item this replies to" },
+  path: { type: "string", description: "a file path" },
+  phase: { type: "string", description: "the phase name for this agent group" },
+  port: { type: "number", description: "the network port to use" },
+  pricing: { type: "string", description: "the pricing table to use for cost figures" },
+  priority: { type: "number", description: "the queue order priority" },
+  profileFile: { type: "string", description: "the path to the sandbox profile file" },
+  profileId: { type: "string", description: "the id of the sandbox profile" },
+  prompt: { type: "string", description: "the prompt text for this task" },
+  pubkey: { type: "string", description: "the public key used to check a signature" },
+  question: { type: "string", description: "the question that starts the run" },
+  rationale: { type: "string", description: "the reason behind this decision" },
+  reason: { type: "string", description: "a short text that explains why" },
+  reclaimAfterArchiveDays: { type: "number", description: "how many days after archive before a run can be freed" },
+  refresh: { type: "boolean", description: "when true, rebuild the result instead of reading a cached one" },
+  replay: { type: "string", description: "the replay's id" },
+  replayId: { type: "string", description: "the replay's id" },
+  replayPath: { type: "string", description: "the file path to the replay" },
+  replyTo: { type: "string", description: "the id of the message this replies to" },
+  repo: { type: "string", description: "the path to the repo" },
+  requireAttestedActor: { type: "boolean", description: "when true, only let an attested actor approve" },
+  requireEvidence: { type: "boolean", description: "when true, require evidence before a candidate can rank" },
+  requireToken: { type: "boolean", description: "when true, require a token to reach the host" },
+  requireVerifierGate: { type: "boolean", description: "when true, require the verifier gate to pass first" },
+  requiredApprovals: { type: "number", description: "the number of approvals a target needs" },
+  requiredEvidence: { type: "array", description: "the list of evidence kinds this role must supply" },
+  requiredRole: { type: "string", description: "the role name that must be present at fan-in" },
+  responsibility: { type: "string", description: "what this role is responsible for" },
+  resultNode: { type: "string", description: "the id of the node holding the result" },
+  resultPath: { type: "string", description: "the file path to the result" },
+  retryable: { type: "boolean", description: "when true, mark this failure as safe to retry" },
+  role: { type: "string", description: "the actor's role name" },
+  roleId: { type: "string", description: "the agent role's id" },
+  runId: { type: "string", description: "the run's id" },
+  sandbox: { type: "string", description: "the sandbox profile choice" },
+  sandboxChoice: { type: "string", description: "the sandbox profile choice" },
+  sandboxProfile: { type: "string", description: "the sandbox profile's id" },
+  sandboxProfileHint: { type: "string", description: "a hint for which sandbox profile this role should use" },
+  sandboxProfileId: { type: "string", description: "the sandbox profile's id" },
+  scope: { type: "string", description: "which repos to search, such as this repo or all repos" },
+  score: { type: "string", description: "the score's id" },
+  scoreId: { type: "string", description: "the score's id" },
+  scorer: { type: "string", description: "the name of the actor giving this score" },
+  selectedBy: { type: "string", description: "the actor who made the selection" },
+  selection: { type: "string", description: "the selection's id" },
+  since: { type: "string", description: "the start of the time range to search" },
+  snapshot: { type: "string", description: "the snapshot's id" },
+  snapshotId: { type: "string", description: "the snapshot's id" },
+  source: { type: "string", description: "where this artifact came from" },
+  state: { type: "string", description: "the run state to check or set" },
+  status: { type: "string", description: "the status to filter or set" },
+  strategy: { type: "string", description: "the strategy used to collect fan-in" },
+  strictSignatures: { type: "boolean", description: "when true, fail closed if a signature cannot be checked" },
+  subject: { type: "string", description: "the subject of this decision" },
+  suite: { type: "string", description: "the eval suite's id" },
+  suiteId: { type: "string", description: "the eval suite's id" },
+  supersedes: { type: "string", description: "the id of the earlier item this replaces" },
+  tag: { type: "string", description: "a short label for this topic" },
+  target: { type: "string", description: "the id of the target this acts on" },
+  targetId: { type: "string", description: "the id of the target this acts on" },
+  targetKind: { type: "string", description: "the kind of the target, such as candidate or commit" },
+  task: { type: "string", description: "the task text or id" },
+  taskId: { type: "string", description: "the task's id" },
+  text: { type: "string", description: "free-text search terms" },
+  thread: { type: "string", description: "the id of the comment thread" },
+  tieBreaker: { type: "string", description: "the rule used to break a tie between candidates" },
+  title: { type: "string", description: "a short title for this item" },
+  to: { type: "string", description: "the actor this is handed to" },
+  toRole: { type: "string", description: "the role this is handed to" },
+  topic: { type: "string", description: "the blackboard topic's id" },
+  topicId: { type: "string", description: "the blackboard topic's id" },
+  topology: { type: "string", description: "the topology definition's id" },
+  topologyId: { type: "string", description: "the topology definition's id" },
+  topologyRunId: { type: "string", description: "the id of the topology run" },
+  trustKey: { type: "string", description: "the trust key used to seal the run" },
+  unarchive: { type: "boolean", description: "when true, undo an archive mark instead of setting one" },
+  until: { type: "string", description: "the end of the time range to search" },
+  value: { type: "string", description: "the value to store in this context frame" },
+  verdict: { type: "string", description: "the review verdict" },
+  verifier: { type: "string", description: "the name of the verifier" },
+  verifierNode: { type: "string", description: "the id of the node holding the verifier result" },
+  verify: { type: "boolean", description: "when true, also verify the result after this step" },
+  view: { type: "string", description: "which view of the data to return" },
+  visibility: { type: "string", description: "who can see this message" },
+  withTrustKey: { type: "boolean", description: "when true, seal the output with the trust key" },
+  worker: { type: "string", description: "the worker's id" },
+  workerId: { type: "string", description: "the worker's id" },
+  workflow: { type: "string", description: "the workflow definition's id" },
+  workflowId: { type: "string", description: "the workflow definition's id" },
+  write: { type: "boolean", description: "when true, save the result instead of only reading it" },
 };
 
 /** Literal transcription of SPEC/mcp.md's "All 196 MCP tools" table, in
