@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.4`
-- Source modules: `149`
+- Source modules: `150`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `229`
+- Smoke tests: `230`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -86,6 +86,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/capability-table.ts](../src/core/capability-table.ts)
 - [core/format/completion.ts](../src/core/format/completion.ts)
 - [core/format/help.ts](../src/core/format/help.ts)
+- [core/format/recovery-hint.ts](../src/core/format/recovery-hint.ts)
 - [core/format/safe-json.ts](../src/core/format/safe-json.ts)
 - [core/format/state-explosion-text.ts](../src/core/format/state-explosion-text.ts)
 - [core/hash.ts](../src/core/hash.ts)
@@ -386,6 +387,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [mcp-queue-epipe-smoke.js](../test/mcp-queue-epipe-smoke.js)
 - [mcp-surface-registry-smoke.js](../test/mcp-surface-registry-smoke.js)
 - [mcp-tool-call-coverage-smoke.js](../test/mcp-tool-call-coverage-smoke.js)
+- [mcp-tool-call-error-isresult-smoke.js](../test/mcp-tool-call-error-isresult-smoke.js)
 - [mcp-untrusted-content-advisory-smoke.js](../test/mcp-untrusted-content-advisory-smoke.js)
 - [metrics-summary-limit-smoke.js](../test/metrics-summary-limit-smoke.js)
 - [missing-artifact-gate-live-smoke.js](../test/missing-artifact-gate-live-smoke.js)

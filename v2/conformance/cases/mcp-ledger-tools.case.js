@@ -48,7 +48,15 @@ caseMain(async () => {
     const reviewEntry = JSON.parse(review.result.content[0].text);
     assert.equal(reviewEntry.verdict, "APPROVED", "verdict must be upper-cased");
 
-    assert.deepEqual(badVerdict.error, { code: -32000, message: 'verdict must be "approved" or "rejected".' });
+    // A bad verdict is a tools/call OUTCOME, not a broken request, so it
+    // comes back as a normal result shaped isError: true, not a bare
+    // JSON-RPC error. This message matches no recoveryHint branch, so
+    // there is no "Try:" line.
+    assert.equal(badVerdict.error, undefined, "a failed tools/call is a result, not an error");
+    assert.deepEqual(badVerdict.result, {
+      content: [{ type: "text", text: 'verdict must be "approved" or "rejected".' }],
+      isError: true,
+    });
 
     // cw_ledger_verify: entry must round-trip through the tool as the
     // parsed OBJECT the propose call handed back (not a JSON string).
@@ -70,10 +78,18 @@ caseMain(async () => {
     assert.equal(digestCheck.code, "ledger-digest-mismatch");
 
     // Required-argument OR-group: cw_topology_show needs topologyId|id.
+    // A missing required argument is a tools/call OUTCOME, so this comes
+    // back as a normal result shaped isError: true, not a bare JSON-RPC
+    // error. This message matches no recoveryHint branch, so there is no
+    // "Try:" line.
     client.send({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "cw_topology_show", arguments: {} } });
     const [missingOrGroup] = await client.waitForCount(1, 10000);
-    assert.equal(missingOrGroup.error.code, -32000);
-    assert.equal(missingOrGroup.error.message, "MCP tool cw_topology_show missing required argument: topologyId or id");
+    assert.equal(missingOrGroup.error, undefined, "a failed tools/call is a result, not an error");
+    assert.equal(missingOrGroup.result.isError, true);
+    assert.equal(
+      missingOrGroup.result.content[0].text,
+      "MCP tool cw_topology_show missing required argument: topologyId or id",
+    );
   } finally {
     client.close();
   }

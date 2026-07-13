@@ -14,6 +14,12 @@ The bridge keeps to CW's base-system rules:
   `criteria`
 - errors fail closed through JSON-RPC errors and lasting ErrorFeedback where the
   runtime already keeps feedback
+- a failed `tools/call` (a bad tool name, a missing needed value, or the
+  tool's own code failing) comes back as a normal result shaped
+  `{ content: [...], isError: true }`, with a `Try: <hint>` line when one
+  applies, not a bare JSON-RPC error — so a host that does not show
+  protocol errors to the model still lets it read the message and try
+  again
 
 ## App Run Flow
 

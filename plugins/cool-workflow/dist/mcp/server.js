@@ -48,10 +48,22 @@
 //     blow V8's per-string limit) becomes a small overflow notice instead
 //     of a multi-hundred-MB payload — every result under the cap is
 //     untouched, so this never affects the parity gate's own fixtures.
+//   - `tools/call` FAILURE result shape (post-v0.2.4 robustness hardening,
+//     not in the original mcp.md): an unknown tool name, a missing
+//     required tool argument, or the tool's own handler throwing is a
+//     normal RESULT, not a bare -32000 JSON-RPC protocol error — many MCP
+//     hosts never surface a protocol error back to the calling model, so
+//     it could not read the message or try again. The result is shaped
+//     { content: [{ type: "text", text: <message, plus a "Try: <hint>"
+//     line when core/format/recovery-hint.ts's recoveryHint finds one>
+//     }], isError: true }, same `resultMessage` helper as the success
+//     path. The envelope-level "missing field: name" check (right above
+//     this bullet) is unchanged — it still answers -32000.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.startServer = startServer;
 const version_1 = require("../core/version");
 const safe_json_1 = require("../core/format/safe-json");
+const recovery_hint_1 = require("../core/format/recovery-hint");
 const dispatch_1 = require("./dispatch");
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 // Tools whose result carries free-form text ORIGINALLY AUTHORED by a
@@ -160,12 +172,32 @@ async function handleRequest(message) {
                     throw new Error("MCP tools/call missing required field: name");
                 }
                 const args = params.arguments;
-                const coreResult = await (0, dispatch_1.callTool)(name, args ?? {});
-                const content = [{ type: "text", text: (0, safe_json_1.safeJsonStringify)(coreResult) }];
-                const advisory = untrustedContentAdvisory(name);
-                if (advisory)
-                    content.push({ type: "text", text: advisory });
-                writeMessage(resultMessage(id, { content }));
+                // A failure from HERE down (an unknown tool name, a missing
+                // required tool argument, or the tool's own handler throwing) is a
+                // normal call outcome, not a broken request — many MCP hosts never
+                // surface a bare JSON-RPC protocol error (-32000) back to the
+                // calling model at all, so it could not see the message and try
+                // again. Answer with a normal RESULT instead, shaped isError:
+                // true, so the model always sees the message (and, when one
+                // applies, a "Try: <hint>" recovery line) and can self-correct.
+                // The envelope-level "missing field: name" check above stays OUT
+                // of this inner try/catch — that one is a malformed request, not
+                // a tool-call outcome, and keeps going through the outer
+                // try/catch as a -32000 error, unchanged.
+                try {
+                    const coreResult = await (0, dispatch_1.callTool)(name, args ?? {});
+                    const content = [{ type: "text", text: (0, safe_json_1.safeJsonStringify)(coreResult) }];
+                    const advisory = untrustedContentAdvisory(name);
+                    if (advisory)
+                        content.push({ type: "text", text: advisory });
+                    writeMessage(resultMessage(id, { content }));
+                }
+                catch (error) {
+                    const text = error instanceof Error ? error.message : String(error);
+                    const hint = (0, recovery_hint_1.recoveryHint)(text);
+                    const errorText = hint ? `${text}\nTry: ${hint}` : text;
+                    writeMessage(resultMessage(id, { content: [{ type: "text", text: errorText }], isError: true }));
+                }
                 return;
             }
             default: {
