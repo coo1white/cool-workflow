@@ -16,6 +16,14 @@
 
 (async () => {
   const MAX_STDIN_BYTES = 32 * 1024 * 1024;
+  // setEncoding("utf8") before reading: Node's StringDecoder then carries a
+  // multibyte UTF-8 char that straddles a ~64KB pipe-chunk boundary across the
+  // two chunks. Without it, each Buffer chunk was coerced to a string on its
+  // own and a split char decoded to U+FFFD on both sides — silently corrupting
+  // a > ~64KB non-ASCII job (this project's prompts are frequently Chinese), or
+  // making the outer JSON.parse throw so the delegation refused. Matches the
+  // batch-delegate-child.js reader.
+  process.stdin.setEncoding("utf8");
   const read = () => new Promise((res) => { let b = ""; process.stdin.on("data", (c) => { if (b.length < MAX_STDIN_BYTES) b += c; }); process.stdin.on("end", () => res(b)); });
   try {
     const job = JSON.parse((await read()) || "{}");

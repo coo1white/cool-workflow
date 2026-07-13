@@ -1,5 +1,15 @@
 # CW Iteration Log
 
+## Batch — fix http-delegate child stdin UTF-8 corruption (Unreleased)
+
+> Dev-loop fix, not a release cut: no `npm run release`, no tag. A
+> pre-existing corruption twin of a bug already fixed in the sibling
+> `http-batch-delegate-child.js` (endpoint-concurrency work).
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 37 | `scripts/children/http-delegate-child.js`'s stdin reader accumulated raw Buffer chunks with `b += c` and NO `process.stdin.setEncoding("utf8")`. Each ~64KB pipe chunk was coerced to a string on its own, so a multibyte UTF-8 char split across a chunk boundary decoded to U+FFFD on both sides — silently corrupting any job body over ~64KB that contains non-ASCII (this project's prompts are frequently Chinese), or making the outer `JSON.parse` throw so the whole delegation refused. Added `process.stdin.setEncoding("utf8")` before the read so Node's StringDecoder carries the partial bytes across the boundary, matching the correct reader in `scripts/children/batch-delegate-child.js:81`. NB: the file header says "Behavior MUST stay byte-identical to the previous embedded string" — this changes ONLY a corruption edge case (garbage -> correct bytes), not intended behavior. | `plugins/cool-workflow/scripts/children/http-delegate-child.js` (one-line `setEncoding` + comment). | New `plugins/cool-workflow/test/http-delegate-child-multibyte-stdin-smoke.js`: spawns the real child with a byte-correct local HTTP runner (its own reader sets `req.setEncoding("utf8")`, so only the child's reader is under test) that echoes the job's `command` back as stdout; feeds a > 200KB all-3-byte-CJK stdin body and asserts it round-trips byte-for-byte. Proven fail-first: against the pre-fix child it fails (`600027 !== 600000` — U+FFFD substitutions grow the byte length); passes after the `setEncoding` fix. | BUILD OK; new smoke fails-first then passes; full local smoke suite green. | no (dev loop fix, no release) |
+
 ## Batch — fix prevTagOf's ancestry-walk bug (Unreleased)
 
 > Dev-loop fix, not a release cut: no `npm run release`, no tag. Found live
