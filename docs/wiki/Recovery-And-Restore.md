@@ -1,11 +1,15 @@
 # Recovery And Restore
 
-CW stores runs as durable files under `.cw/runs/<run-id>/`. That makes a run
-inspectable, resumable, exportable, and restorable without trusting scrollback.
+*For picking a run back up, moving it to another machine, and checking that
+nothing got lost on the way.*
+
+CW stores runs as plain files under `.cw/runs/<run-id>/`. So a run can be
+opened, resumed, exported, and restored — you never have to trust what is
+left in your terminal scrollback.
 
 ## Resume A Run
 
-Read the next action without mutation:
+See the next action without changing anything:
 
 ```bash
 cw run resume <run-id>

@@ -1,26 +1,27 @@
 # Quickstart
 
+The fast command reference. If a step here is not clear, the
+[Getting Started](Getting-Started.md) walk-through explains each one in full.
+
 ## Requirements
 
 - Node.js 18 or newer.
-- One agent CLI on your `PATH` for live reviews: `claude`, `codex`, `gemini`, or
-  `opencode` — or an HTTP agent endpoint via `CW_AGENT_ENDPOINT`.
+- One agent CLI on your `PATH` for live reviews: `claude`, `codex`, `gemini`,
+  or `opencode` — or an HTTP agent endpoint via `CW_AGENT_ENDPOINT`.
 
-The tamper-evidence demo does not need an agent, API key, or cloned repo.
+The tamper-evidence demo needs no agent, no API key, and no cloned repo.
 
-*New to CW? The [Getting Started](Getting-Started.md) walkthrough explains each step in full.*
-
-## 1. Prove The Integrity Demo
+## 1. Run The Integrity Demo
 
 ```bash
 npx cool-workflow demo tamper
 ```
 
 Expected result: stdout ends with a `VERDICT: tamper-evidence holds` line. The
-demo builds a signed telemetry ledger, edits it in two different ways, and shows
-both edits being detected offline.
+demo builds a signed telemetry ledger, edits it in two different ways, and
+shows both edits being caught offline.
 
-For a scriptable proof payload:
+For a proof payload a script can read:
 
 ```bash
 npx cool-workflow demo tamper --json
@@ -47,9 +48,9 @@ Read the report:
 cat /path/to/your/project/.cw/runs/<run-id>/report.md
 ```
 
-If the agent is not configured, CW returns `status: blocked`. That is expected
-fail-closed behavior: the run is saved for triage, but CW does not fabricate a
-completed report.
+If no agent is configured, CW returns `status: blocked`. That is the expected
+fail-closed behavior: the run is saved so you can look into it, but CW does
+not make up a completed report.
 
 Check the agent backend before a live run:
 
@@ -57,12 +58,12 @@ Check the agent backend before a live run:
 cw backend probe agent --json
 ```
 
-When no command or endpoint is configured, the probe reports `ready: false` and
-a reason naming the missing `CW_AGENT_COMMAND` or `CW_AGENT_ENDPOINT`.
+When no command or endpoint is configured, the probe reports `ready: false`
+and a reason naming the missing `CW_AGENT_COMMAND` or `CW_AGENT_ENDPOINT`.
 
 ## 3. Try A Resumable Run
 
-Advance one step and stop:
+Go one step forward and stop:
 
 ```bash
 cw quickstart architecture-review \
@@ -72,7 +73,7 @@ cw quickstart architecture-review \
   --resume
 ```
 
-Continue the same run:
+Go on with the same run:
 
 ```bash
 cw quickstart architecture-review --run <run-id> --resume
@@ -84,8 +85,8 @@ You can also resume through the registry:
 cw run resume <run-id> --drive
 ```
 
-The default `run resume` view is read-only. Adding `--drive` hands pending work
-to the existing agent delegation loop.
+The default `run resume` view is read-only. Adding `--drive` hands the waiting
+work to the existing agent delegation loop.
 
 ## From A Source Checkout
 
@@ -103,8 +104,9 @@ Run the deterministic integration proof:
 npm run golden-path
 ```
 
-It exercises app validation, planning, dispatch, worker output, candidate
-selection, verifier-gated commit, report generation, status, and graph views.
+It walks the full path end to end: app validation, planning, dispatch, worker
+output, candidate selection, verifier-gated commit, report generation, status,
+and graph views.
 
 ## Troubleshooting
 
@@ -113,7 +115,7 @@ selection, verifier-gated commit, report generation, status, and graph views.
 | `status: blocked` | Configure an agent with `--agent-command`, `CW_AGENT_COMMAND`, or `CW_AGENT_ENDPOINT`. |
 | `claude: command not found` | Install Claude Code or use another agent command. |
 | You want to see the next action only | Add `--preview`; it is read-only. |
-| You want one step at a time | Add `--resume`, then continue with the printed `--run <run-id>` command. |
+| You want one step at a time | Add `--resume`, then go on with the printed `--run <run-id>` command. |
 | You need a shorter review | Try `architecture-review-fast`; see [Workflow Apps](Workflow-Apps.md). |
 
 ## Next Pages

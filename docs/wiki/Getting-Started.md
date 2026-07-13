@@ -1,15 +1,19 @@
 # Getting Started
 
-A ten-minute walkthrough: install CW, prove its tamper-evidence with **no agent**, run your first cited
-review, read and re-verify the report, then resume and share it.
+A ten-minute walk-through: install CW, watch it catch a forged record with
+**no agent needed**, run your first review, read and re-check the report, then
+resume and share it.
 
-*Already know the shape? The [Quickstart](Quickstart.md) is the same steps as a fast command reference.*
+*Already know the shape? The [Quickstart](Quickstart.md) has the same steps as
+a fast command reference.*
 
-## Prerequisites
+## What you need first
 
-- **Node.js v18+** — check with `node --version`.
-- **One agent CLI** on your `PATH` for the real review in Step 3: `claude`, `codex`, `gemini`, or
-  `opencode`. (Step 2 needs no agent at all.)
+- **Node.js v18 or newer** — check with `node --version`.
+- **One agent CLI** on your `PATH` for the real review in Step 3: `claude`,
+  `codex`, `gemini`, or `opencode`. An "agent CLI" is a command-line AI tool
+  that can read code and answer questions — for example, Claude Code gives you
+  the `claude` command. (Step 2 needs no agent at all.)
 
 ## 1 · Install
 
@@ -27,21 +31,24 @@ brew install coo1white/cool-workflow/cool-workflow
 ```
 </details>
 
-If anything looks off, `cw doctor` inspects your setup and `cw fix` prints the exact commands to fix it.
+If anything looks off, `cw doctor` checks your setup and `cw fix` prints the
+exact commands that put it right.
 
-## 2 · Prove it works — 30 seconds, no agent
+## 2 · See it work — 30 seconds, no agent
 
 ```bash
 cw demo tamper
 # → VERDICT: tamper-evidence holds ✓
 ```
 
-**What just happened:** CW built a real, signed telemetry ledger, forged it three ways — editing the
-ledger, the signature, and a signed finding — and caught all three **offline, with only the public
-key.** That is the trust mechanism the rest of this page builds on. CW signs nothing with a private key
-of its own; your agent signs, and CW verifies.
+**What just happened:** CW built a real, signed ledger — a record file where
+each entry is chained to the one before it, so any later edit shows. Then it
+forged that record three ways — editing the ledger, the signature, and a
+signed finding — and caught all three **offline, with only the public key.**
+This is the trust machinery the rest of this page builds on. CW signs nothing
+itself: your agent signs, CW only checks.
 
-## 3 · Your first cited review
+## 3 · Your first review
 
 From inside a project (or point `-dir` anywhere):
 
@@ -49,15 +56,15 @@ From inside a project (or point `-dir` anywhere):
 cw -q "How does auth work end-to-end here?"
 ```
 
-Any question works, not only a risk audit. CW auto-detects the current repo and the first agent on
-your `PATH`. Pin a specific one with a flag:
+Any question works, not only a risk audit. CW finds the current repo and the
+first agent on your `PATH` by itself. Want a specific agent? Add a flag:
 
 ```bash
 cw -q "What are the security risks?" -claude     # or -codex / -gemini / -deepseek
 ```
 
-As it runs you'll see a calm, Claude-Code-style **live view** — a compact rolling window of tool calls
-that updates in place:
+As it runs you get a calm **live view** — a small rolling window of the
+agent's tool calls that updates in place, in the style of Claude Code:
 
 ```text
 ● Read(execution-backend.ts)
@@ -67,7 +74,7 @@ that updates in place:
 ✶ Searching worker-isolation.ts… (3s)
 ```
 
-When it finishes, CW prints a compact findings table and the saved report path:
+When it is done, CW prints a short findings table and the saved report path:
 
 ```text
 ==> Map ✓ (6/6)
@@ -78,8 +85,9 @@ Findings: 3 — 2×P1, 1×P2
   Next: cw report <run-id> --show
 ```
 
-> **`status: blocked`?** No agent was found. Run `cw doctor`, or set `CW_AGENT_COMMAND=builtin:claude`
-> / pass `-claude`. CW fails closed — it records the run state but never invents a completion.
+> **Got `status: blocked`?** No agent was found. Run `cw doctor`, or set
+> `CW_AGENT_COMMAND=builtin:claude`, or pass `-claude`. CW fails closed — it
+> saves the run state as-is, and never makes up a completed result.
 
 ## 4 · Read the report
 
@@ -87,26 +95,26 @@ Findings: 3 — 2×P1, 1×P2
 cw report <run-id> --show          # or: cat .cw/runs/<run-id>/report.md
 ```
 
-Every finding carries a clickable `file.ts:42` pointer back to the evidence. The whole run lives on
-disk as inspectable files:
+Every finding has a clickable `file.ts:42` pointer back to the evidence. The
+whole run lives on disk as files you can open:
 
 ```text
 <repo>/.cw/runs/<run-id>/
-  state.json         # the explicit state machine — resumable, diffable
-  report.md          # the cited report
-  results/           # each worker's result envelope
-  workers/           # per-worker transcripts (full narration + tool I/O)
-  audit/             # provenance, policy, and decision records
-  telemetry.json     # the hash-chained, signed usage ledger
-  commits/           # verified state checkpoints
+  state.json         # where the run is right now — resume it, diff it
+  report.md          # the report, every claim tied to its source
+  results/           # each worker's result, with its evidence attached
+  workers/           # each worker's full transcript (what it said and did)
+  audit/             # records of every decision, policy, and source
+  telemetry.json     # the signed usage ledger — any later edit shows
+  commits/           # checkpoints of state that passed the checks
 ```
 
-## 5 · Re-verify — offline, by anyone
+## 5 · Check it again — offline, by anyone
 
-Re-prove the record on your own machine:
+Re-run the proof on your own machine:
 
 ```bash
-cw telemetry verify <run-id>       # re-checks the hash chain (+ ed25519 if a key is supplied)
+cw telemetry verify <run-id>       # re-checks the record chain (+ ed25519 if a key is given)
 cw audit verify <run-id>           # re-checks the trust-audit chain
 ```
 
@@ -118,11 +126,13 @@ cw report verify-bundle report.cwrun.json       # they re-check it offline
 cw report verify-bundle report.cwrun.json --require-signatures
 ```
 
-See [Trust And Audit](Trust-And-Audit.md) for exactly what this proves (and what it doesn't).
+See [Trust And Audit](Trust-And-Audit.md) for exactly what this proves — and
+what it does not.
 
 ## 6 · Resume, restore, replay
 
-Runs are durable, so you can stop and continue — or move one to another machine:
+Runs are saved, so you can stop and go on later — or move a run to another
+machine:
 
 ```bash
 cw quickstart architecture-review --run <run-id> --resume
@@ -134,22 +144,24 @@ More in [Recovery And Restore](Recovery-And-Restore.md).
 
 ## 7 · Beyond code
 
-CW reviews any folder of files as sources — your docs, notes, or papers:
+CW reads any folder of files as sources — your docs, notes, or papers:
 
 ```bash
 cw quickstart research-synthesis --repo /path/to/papers \
   --question "What do these papers conclude?"
 ```
 
-Browse everything installed with `cw app list`; see [Workflow Apps](Workflow-Apps.md).
+See everything installed with `cw app list`; see [Workflow Apps](Workflow-Apps.md).
 
 ## 8 · From your editor (MCP)
 
-CW exposes the same runtime over **MCP**, so **Claude Desktop, Cursor, and VS Code** can call it as a
-tool — plan a run, drive it, and verify a report without leaving the editor. See
-[MCP And Manifests](MCP-And-Manifests.md).
+MCP is a standard way for editors and AI tools to call other tools. CW offers
+its runtime over MCP too, so **Claude Desktop, Cursor, and VS Code** can call
+it — plan a run, drive it, and verify a report without leaving the editor.
+See [MCP And Manifests](MCP-And-Manifests.md).
 
 ---
 
-**Where to next:** [Mental Model](Mental-Model.md) for the *why* · [Glossary](Glossary.md) for the
-vocabulary · [Workflow Apps](Workflow-Apps.md) to pick a job.
+**Where to next:** [Mental Model](Mental-Model.md) for the *why* ·
+[Glossary](Glossary.md) for the words · [Workflow Apps](Workflow-Apps.md) to
+pick a job.

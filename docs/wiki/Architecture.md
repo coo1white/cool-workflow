@@ -1,8 +1,12 @@
 # Architecture
 
-CW is a base system plus userland apps. The runtime owns the mechanisms for
-planning, dispatch, state, verification, and reporting. Workflow apps, model
-choice, pricing policy, and vendor wrappers live outside that kernel.
+*For readers who want to see how CW is put together inside. To use CW, you do
+not need this page — start at [Getting Started](Getting-Started.md).*
+
+CW is built like a small operating system: a base system plus userland apps.
+The runtime (the base system) owns the machinery for planning, dispatch,
+state, verification, and reporting. Workflow apps, model choice, pricing
+policy, and vendor wrappers live outside that core.
 
 ```text
 workflow app -> runner -> dispatch -> isolated workers
@@ -37,9 +41,9 @@ reads the worker input, writes `result.md`, and may report model and usage
 metadata. CW records the handle and validates the result envelope, but it does
 not import a model SDK or call a model API.
 
-That boundary is why model credentials stay with the agent. It is also why
-telemetry verification is an attribution and integrity mechanism, not a direct
-measurement of model usage.
+That boundary is why model keys stay with the agent. It is also why telemetry
+verification proves *who reported the usage* and *that the record was not
+changed later* — it is not a direct measurement of model usage.
 
 ## State Layout
 
@@ -58,8 +62,9 @@ A run is stored as plain files:
   commits/
 ```
 
-The per-run `state.json` is the source of truth. Registry indexes, summaries,
-reasoning views, and workbench panels are derived views.
+The per-run `state.json` is the source of truth. Everything else — registry
+indexes, summaries, reasoning views, workbench panels — is a view worked out
+from it, and can be rebuilt from it.
 
 ## CLI And MCP
 
@@ -81,7 +86,8 @@ For more on vendor manifests and MCP boot checks, see
 
 ## Failure Discipline
 
-CW prefers explicit refusal over quiet fallback:
+When something is wrong, CW says no clearly instead of quietly working around
+it:
 
 - no agent configured -> blocked,
 - invalid result envelope -> rejected or parked,
@@ -89,8 +95,8 @@ CW prefers explicit refusal over quiet fallback:
 - stale derived index -> reported stale,
 - unverifiable audit chain -> failed verification.
 
-stdout is reserved for data. Human diagnostics and live agent traces go to
-stderr when explicitly enabled.
+stdout is kept for data only. Messages for humans and live agent traces go to
+stderr, and only when turned on.
 
 ## Related Pages
 

@@ -1,8 +1,11 @@
 # Workflow Apps
 
-CW uses workflow apps as userland. The runtime owns planning, dispatch,
-verification, commits, reports, and state. An app owns the domain-specific
-inputs, phases, task prompts, evidence requirements, and sandbox hints.
+*For picking the right app for a job, and for seeing what an app is made of.*
+
+A workflow app is a packaged job — like a program that runs on CW. The
+runtime owns planning, dispatch, verification, commits, reports, and state.
+The app owns what is special to its job: the inputs, phases, task prompts,
+evidence requirements, and sandbox hints.
 
 ## Inspect Installed Apps
 
@@ -65,8 +68,9 @@ cw quickstart architecture-review-fast \
   --agent-command builtin:claude
 ```
 
-The fast app's source-context fields are app inputs. Model routing remains
-operator policy and wrapper configuration, not core runtime policy.
+The fast app's source-context fields are normal app inputs. Which model runs
+the work stays your choice, set through the operator and wrapper
+configuration — the core runtime does not decide it.
 
 ## App Contract
 

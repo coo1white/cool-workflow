@@ -1,8 +1,12 @@
 # Trust And Audit
 
-CW's trust story is intentionally narrow: it proves record integrity and signed
-attribution where configured. It does not prove that an executor's original
-self-report was true.
+*For anyone about to put weight on a green check: exactly what it proves, and
+what it does not.*
+
+CW's trust claim is narrow on purpose. It proves two things, where keys are
+configured: the saved record was not changed after it was written, and the
+signed parts came from the holder of the signing key. It does not prove that
+what the agent first reported was true.
 
 ## Try The Demo
 

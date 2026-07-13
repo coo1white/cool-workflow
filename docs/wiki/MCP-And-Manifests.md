@@ -1,12 +1,16 @@
 # MCP And Manifests
 
-CW has two primary machine surfaces:
+*For plugging CW into editors and other tools, and for keeping the vendor
+adapters in step. If you only use the `cw` command, you can skip this page.*
+
+CW has two main surfaces for machines:
 
 - CLI JSON: `cw <command> --json`
 - MCP tools: `cw_*` JSON-RPC tools
 
-Both route through the same runtime entries where parity is declared. Human CLI
-formatting is policy; the shared payload is the mechanism.
+Both go through the same runtime entries where parity is declared — the same
+data comes out of both. The human-friendly CLI print-out is only a layer of
+paint on top of that shared payload.
 
 ## Generated Vendor Targets
 

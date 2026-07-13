@@ -1,5 +1,8 @@
 # Operations
 
+*For day-to-day upkeep: local checks, agent configuration, restore, and
+release checks. Aimed at people running CW on real work.*
+
 ## Local Verification
 
 From `plugins/cool-workflow`:
@@ -10,9 +13,9 @@ npm test
 npm run release:check
 ```
 
-`release:check` is non-destructive. It builds, type-checks, runs tests, checks
-canonical apps, golden-path behavior, CLI/MCP parity, manifest drift, and version
-surface synchronization.
+`release:check` changes nothing — it only checks. It builds, type-checks,
+runs tests, and checks the canonical apps, golden-path behavior, CLI/MCP
+parity, manifest drift, and that all version numbers agree.
 
 Run focused checks:
 
@@ -65,8 +68,9 @@ The bundled Claude wrapper used by the README quickstart is:
 --agent-command builtin:claude
 ```
 
-Model choice is policy. The recorded model is what the external agent reports
-back; CW does not overwrite it with an operator hint.
+Which model runs is your choice, not CW's. The model written into the record
+is what the outside agent reports back; CW does not overwrite it with an
+operator hint.
 
 ## Restore And Recovery
 
