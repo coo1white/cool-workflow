@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// verify-bump-reproduction-smoke — exercises scripts/verify-bump-reproduction.sh
+// verify-bump-reproduction-smoke — exercises scripts/verify-bump-reproduction.js
 // against THIS REPO'S REAL git history (not a toy fixture), which is the only
 // way to prove it actually works with the real bump-version.js/
 // sync-project-index.js (canonical-apps list, manifest propagation, dist/
@@ -32,7 +32,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const REAL_REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
-const SCRIPT_REL = "plugins/cool-workflow/scripts/verify-bump-reproduction.sh";
+const SCRIPT_REL = "plugins/cool-workflow/scripts/verify-bump-reproduction.js";
 assert.ok(fs.existsSync(path.join(REAL_REPO_ROOT, SCRIPT_REL)), `${SCRIPT_REL} must exist`);
 
 // A real, historical approved-parent -> tagged-release pair from this repo's
@@ -57,7 +57,7 @@ function git(args, cwd) {
 // the script resolves from targetCwd, regardless of where the script itself
 // was loaded from).
 function runReproduction(targetCwd, parent, tagged, verdictRel) {
-  return spawnSync("bash", [path.join(REAL_REPO_ROOT, SCRIPT_REL), parent, tagged, verdictRel], {
+  return spawnSync(process.execPath, [path.join(REAL_REPO_ROOT, SCRIPT_REL), parent, tagged, verdictRel], {
     cwd: targetCwd,
     encoding: "utf8"
   });
@@ -74,7 +74,7 @@ git(["cat-file", "-e", `${REAL_TAGGED}:${REAL_VERDICT_REL}`], REAL_REPO_ROOT);
 }
 
 // A `git clone` gets its OWN remote (the local clone-source path), unlike
-// `git worktree add` (what verify-bump-reproduction.sh itself always uses),
+// `git worktree add` (what verify-bump-reproduction.js itself always uses),
 // which shares the real repo's remote config automatically — confirmed
 // empirically, and the reason the script itself needs no remote-pinning
 // logic. Pin the clone's remote to match the real repo's here, in the TEST

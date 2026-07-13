@@ -33,7 +33,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 const GATE_YML = path.join(repoRoot, ".github", "workflows", "release-gate.yml");
 const PUBLISH_YML = path.join(repoRoot, ".github", "workflows", "npm-publish.yml");
 const VERIFY_SCRIPT = path.join(pluginRoot, "scripts", "verify-verdict-signature.js");
-const BUMP_REPRO_SCRIPT = path.join(pluginRoot, "scripts", "verify-bump-reproduction.sh");
+const BUMP_REPRO_SCRIPT = path.join(pluginRoot, "scripts", "verify-bump-reproduction.js");
 const FAKE_DATE_SCRIPT = path.join(pluginRoot, "scripts", "fake-date-for-reproduction.js");
 for (const f of [GATE_YML, PUBLISH_YML, VERIFY_SCRIPT, BUMP_REPRO_SCRIPT, FAKE_DATE_SCRIPT]) assert.ok(fs.existsSync(f), `${f} must exist`);
 
@@ -137,10 +137,10 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   const scriptsDir = path.join(dir, "plugins", "cool-workflow", "scripts");
   fs.mkdirSync(scriptsDir, { recursive: true });
   fs.copyFileSync(VERIFY_SCRIPT, path.join(scriptsDir, "verify-verdict-signature.js"));
-  fs.copyFileSync(BUMP_REPRO_SCRIPT, path.join(scriptsDir, "verify-bump-reproduction.sh"));
+  fs.copyFileSync(BUMP_REPRO_SCRIPT, path.join(scriptsDir, "verify-bump-reproduction.js"));
   fs.copyFileSync(FAKE_DATE_SCRIPT, path.join(scriptsDir, "fake-date-for-reproduction.js"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
-  // verify-bump-reproduction.sh runs `npm install` + `npm run bump:version` +
+  // verify-bump-reproduction.js runs `npm install` + `npm run bump:version` +
   // `npm run sync:project-index` for real — this fixture is a MINIMAL real
   // npm project (stub scripts that no-op) so that orchestration is genuinely
   // exercised (worktree creation, npm invocation, tree-hash comparison)
@@ -163,7 +163,7 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   // documented setup step) — by the time a real release happens it already
   // sits in the approved commit's ANCESTRY, not newly added alongside that
   // release's own verdict. Commit it here, as part of R, matching that: a
-  // scratch worktree checked out AT R (verify-bump-reproduction.sh's
+  // scratch worktree checked out AT R (verify-bump-reproduction.js's
   // reproduction) then already carries it, with no special-casing needed.
   if (committedPubkey) fs.writeFileSync(path.join(dir, ".cw-release", "verdict-signing.pub"), PUB_PEM);
   git(["add", "-A"], dir);
@@ -212,7 +212,7 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   return { dir, R, R2, HEAD };
 }
 
-/** Simulates the ACTUAL ATTACK verify-bump-reproduction.sh exists to close:
+/** Simulates the ACTUAL ATTACK verify-bump-reproduction.js exists to close:
  *  copy the already-committed, validly-signed verdict(+sig) for approved
  *  parent R (public git objects — no secret needed) onto a brand-new commit
  *  that is a direct child of R and ALSO smuggles in an arbitrary file. A
@@ -236,16 +236,16 @@ function replayVerdictOntoBackdoor(dir, R) {
   return attackSha;
 }
 
-/** Replaces the fixture's OWN copy of verify-bump-reproduction.sh with a
+/** Replaces the fixture's OWN copy of verify-bump-reproduction.js with a
  *  stub that writes a marker file and exits 1 before doing anything real.
  *  Used to EMPIRICALLY prove the reproduction check is never invoked in a
  *  given scenario (not just by reading the calling bash's structure): if the
  *  overall check still passes AND the marker is absent, the stub was never
  *  called. */
 function poisonBumpReproScript(dir) {
-  const scriptPath = path.join(dir, "plugins", "cool-workflow", "scripts", "verify-bump-reproduction.sh");
+  const scriptPath = path.join(dir, "plugins", "cool-workflow", "scripts", "verify-bump-reproduction.js");
   const markerPath = path.join(dir, "bump-repro-invoked.marker");
-  fs.writeFileSync(scriptPath, `#!/usr/bin/env bash\ntouch "${markerPath}"\nexit 1\n`);
+  fs.writeFileSync(scriptPath, `#!/usr/bin/env node\nrequire("node:fs").writeFileSync(${JSON.stringify(markerPath)}, "");\nprocess.exit(1);\n`);
   return markerPath;
 }
 
@@ -319,7 +319,7 @@ function runScript(script, cwd, env) {
   assert.match(r.out, /signature verified/, "(e) should ultimately verify the real HEAD~1 verdict");
 }
 
-// (f) THE ACTUAL ATTACK verify-bump-reproduction.sh exists to close: replay
+// (f) THE ACTUAL ATTACK verify-bump-reproduction.js exists to close: replay
 // an already-committed, validly-signed verdict onto an unrelated new commit
 // that also smuggles in an arbitrary file. The signature alone verifies (it
 // is a REAL signature, just replayed) — only the tree-reproduction check
@@ -343,7 +343,7 @@ function runScript(script, cwd, env) {
   plantVerdictAtLiteralHead(dir, HEAD);
   const r = runScript(gateScript, dir);
   assert.equal(r.code, 0, `(g) a verdict for the literal tag commit must pass without needing reproduction:\n${r.err}\n${r.out}`);
-  assert.ok(!fs.existsSync(marker), "(g) verify-bump-reproduction.sh must never be invoked when C == SHA");
+  assert.ok(!fs.existsSync(marker), "(g) verify-bump-reproduction.js must never be invoked when C == SHA");
 }
 
 // (h) EMPIRICAL proof that bump-reproduction is never invoked when no pubkey
@@ -353,7 +353,7 @@ function runScript(script, cwd, env) {
   const marker = poisonBumpReproScript(dir);
   const r = runScript(gateScript, dir);
   assert.equal(r.code, 0, `(h) no-pubkey fallback must pass without needing reproduction:\n${r.err}\n${r.out}`);
-  assert.ok(!fs.existsSync(marker), "(h) verify-bump-reproduction.sh must never be invoked when no pubkey is committed");
+  assert.ok(!fs.existsSync(marker), "(h) verify-bump-reproduction.js must never be invoked when no pubkey is committed");
 }
 
 // (i) npm install failing (e.g. an unresolvable dependency, standing in for

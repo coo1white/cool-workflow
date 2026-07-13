@@ -154,7 +154,7 @@ node scripts/verdict-keygen.js --out-dir ~/.cw-keys
 # .cw-release/ lives at the REPO ROOT, not under plugins/cool-workflow (where
 # this checklist's cwd has been since the top) — anchor on the real root so
 # the public key lands where release-gate.yml/npm-publish.yml/
-# block-unapproved-tag.sh actually look for it, not silently under
+# block-unapproved-tag.js actually look for it, not silently under
 # plugins/cool-workflow/.cw-release/ where no verifier will ever find it.
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cp ~/.cw-keys/verdict-signing.pub "$REPO_ROOT/.cw-release/verdict-signing.pub"
@@ -166,7 +166,7 @@ export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key   # keep this O
 Once `.cw-release/verdict-signing.pub` is committed, `release-flow.js`
 signs every verdict it writes (a `.sig` sidecar next to the `.verdict`
 file, included in the cut's verdict commit), and `release-gate.yml`,
-`npm-publish.yml`, and the local `block-unapproved-tag.sh` hook all start
+`npm-publish.yml`, and the local `block-unapproved-tag.js` hook all start
 REQUIRING a valid signature on top of the existing `APPROVED` text check.
 Until that public key is committed, every check stays exactly as before
 (grep-only) — this is opt-in, not a breaking change.

@@ -4,7 +4,7 @@
 // verify-verdict-signature.js — verify an ed25519 signature over a committed
 // release verdict file, against the committed public key
 // (.cw-release/verdict-signing.pub). Portable (node + node:crypto only) so
-// CI (release-gate.yml, npm-publish.yml) and the local block-unapproved-tag.sh
+// CI (release-gate.yml, npm-publish.yml) and the local block-unapproved-tag.js
 // hook can all shell out to the SAME check instead of three drifting copies.
 //
 // Exit 0: signature verifies. Exit 1: missing file, unreadable key, or a

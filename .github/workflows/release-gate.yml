@@ -37,7 +37,7 @@ jobs:
         run: npm ci --ignore-scripts --prefix plugins/cool-workflow
 
       - name: Run deterministic release gate
-        run: bash plugins/cool-workflow/scripts/release-gate.sh
+        run: node plugins/cool-workflow/scripts/release-gate.js
 
       - name: Verify reviewer verdict was committed
         # If .cw-release/verdict-signing.pub is committed (see
@@ -46,7 +46,7 @@ jobs:
         # "tolerate the release commit" path) — require HEAD to reproduce
         # EXACTLY as the deterministic bump commit release-flow.js's cut()
         # would have produced on top of the approved parent
-        # (scripts/verify-bump-reproduction.sh). A validly-signed verdict for
+        # (scripts/verify-bump-reproduction.js). A validly-signed verdict for
         # the PARENT alone does not prove HEAD is that same mechanical bump —
         # it could be an attacker's own commit smuggling arbitrary changes on
         # top of an old, genuinely-approved parent, replaying that parent's
@@ -78,7 +78,7 @@ jobs:
               SIG="$VERDICT.sig"
               if [ -f "$SIG" ] && node plugins/cool-workflow/scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
                 if [ "$C" != "$SHA" ]; then
-                  if ! bash plugins/cool-workflow/scripts/verify-bump-reproduction.sh "$C" "$SHA" "$VERDICT" "$SIG"; then
+                  if ! node plugins/cool-workflow/scripts/verify-bump-reproduction.js "$C" "$SHA" "$VERDICT" "$SIG"; then
                     echo "verdict for $C has a valid signature but HEAD does not reproduce as its deterministic bump — trying the other candidate"
                     continue
                   fi

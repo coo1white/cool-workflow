@@ -13,7 +13,7 @@ Run the cool-workflow portable release flow for the current repository.
 2. Run check mode (gate + independent review, no mutation):
    node plugins/cool-workflow/scripts/release-flow.js --check
 
-The script runs scripts/release-gate.sh, then spawns the configured agent
+The script runs scripts/release-gate.js, then spawns the configured agent
 (argv-style, shell:false — cool-workflow holds no key) to review the candidate
 and write .cw-release/review-<HEAD>.verdict. It fails closed unless the verdict
 begins with APPROVED. Report the JSON summary and stop at the first failure.

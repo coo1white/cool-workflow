@@ -127,7 +127,7 @@ Exported functions (consumed by `cw doctor --onramp` and `scripts/onramp-check.j
 ### 13. Release/gate script inventory (one line each — a rebuild keeps these working against the new dist)
 
 - `scripts/release-flow.js` — vendor-neutral release orchestrator; modes `--check` (gate + delegated review, no mutation), `--cut --version x.y.z [--push] [--no-release]`, `--release --version x.y.z [--soft]`; verdict file `.cw-release/review-<FULLSHA>.verdict` first line `APPROVED <FULLSHA>`; test seams `CW_RELEASE_FLOW_GATE_CMD`, `CW_RELEASE_FLOW_GH_CMD` (scripts/release-flow.js:1-45).
-- `scripts/release-gate.sh` — deterministic gate: build, `test:gate`, substance/test-evidence/cadence checks over `<prev-tag>..HEAD` (cadence bypass only via a recorded `HOTFIX:` line in `ITERATION_LOG.md`), branch-name check; pass writes UTC time to `.cw-release/gate-<HEAD-sha>.ok`; prints `RELEASE GATE: PASSED (<sha>) — next step: release-reviewer agent must record APPROVED` or `RELEASE GATE: REJECTED (<sha>)` + exit 1 (scripts/release-gate.sh:1-95).
+- `scripts/release-gate.js` — deterministic gate: build, `test:gate`, substance/test-evidence/cadence checks over `<prev-tag>..HEAD` (cadence bypass only via a recorded `HOTFIX:` line in `ITERATION_LOG.md`), branch-name check; pass writes UTC time to `.cw-release/gate-<HEAD-sha>.ok`; prints `RELEASE GATE: PASSED (<sha>) — next step: release-reviewer agent must record APPROVED` or `RELEASE GATE: REJECTED (<sha>)` + exit 1 (scripts/release-gate.js:1-184).
 - `scripts/release-check.js` — pre-release dry run: docs presence + build + suite; `--skip-tests` or `CW_RELEASE_CHECK_SKIP_TESTS=1` skips the suite (scripts/release-check.js:10-11).
 - `scripts/onramp-check.js` — CLI over `dist/onramp.js`: prints the contract report JSON (`{schemaVersion:1, baseRef, ok, changedFiles, recommendedSmokeTests, recommendedCommands, issues}`, 2-space indent + newline) to stdout; with `--check` and `ok:false` prints `onramp contract failed:` + per-issue lines to stderr and exits 1; `--changed-from` picks the base (scripts/onramp-check.js:20-41).
 - `scripts/parity-check.js` — CLI↔MCP parity gate against `dist/capability-registry.js`; plain run prints the JSON report, `--check` exits 1 on ANY drift (static list parity + `payloadIdentical` payload parity) (scripts/parity-check.js:4-19).
@@ -349,7 +349,7 @@ Per settled job, one line: `{"i":<index>,"exitCode":<n|null>,"stdout":"..."}` or
 - `manifest/source-context-profiles.json` — profile policy data; `{schemaVersion:1, profiles:{<id>:{description, maxLines, include[], exclude[]}}}` (manifest/source-context-profiles.json:1-25; validated at scripts/source-context.js:130-146).
 - source-context cache: `<cacheDir>/<safeProfile>-<ref-first-12>[-changed-<base-first-12>]-<digest-first-16>.jsonl`, where `safeProfile` replaces chars outside `[A-Za-z0-9_.-]` with `_` and the digest is sha256 of a stable stringify of `{profileId, profile, changedFrom}`; written via `<file>.<pid>.tmp` + `rename` (atomic) (scripts/source-context.js:236-241,285-294).
 - `cw-attest.key` (mode 0600) and `cw-attest.pub` — keygen output (scripts/agents/cw-attest-keygen.js:33-38).
-- `.cw-release/gate-<sha>.ok` — gate pass marker (UTC ISO line) (scripts/release-gate.sh:93).
+- `.cw-release/gate-<sha>.ok` — gate pass marker (UTC ISO line) (scripts/release-gate.js:183).
 - `.cw-release/review-<FULLSHA>.verdict` — first line `APPROVED <FULLSHA>`; auto-made by `release-flow.js --cut`, verified by both the cut and CI (scripts/release-flow.js:26-31).
 - Reads: worker `input.md` (argv[2]); `<CODEX_HOME|~/.codex>/config.toml` (codex model fallback); `builtin-templates.json`; the attest manifest JSON (`{{manifest}}` — keys used: `inputPath`, `resultPath`, `runId`, `taskId`, `prompt`) (scripts/agents/cw-attest-wrap.js:119-129).
 
@@ -408,7 +408,7 @@ Every claim above carries its pointer inline. Prime anchors:
 - scripts/agents/cw-attest-keygen.js:27-55; scripts/agents/cw-attest-wrap.js:42-149
 - scripts/children/batch-delegate-child.js:26-85; scripts/children/http-delegate-child.js:17-40
 - src/onramp.ts:71-127 (curated map), 129-169 (helpers), 171-320 (buildDoctorOnramp), 322-387 (changed files + contract), 389-417 (recommend), 430-444 (base ref), 446-508 (git/normalize/classifiers)
-- scripts/onramp-check.js:20-41; scripts/release-gate.sh:1-95; scripts/release-flow.js:1-45; scripts/release-check.js:10-11; scripts/parity-check.js:4-19; scripts/gen-manifests.js:4-21; scripts/dist-drift-check.js:4-21; scripts/bump-version.js:4-21; scripts/version-sync-check.js:12-41; scripts/vendor-preflight.js:4-31; scripts/coverage-gate.js:4-27; scripts/golden-path.js:10-36
+- scripts/onramp-check.js:20-41; scripts/release-gate.js:1-184; scripts/release-flow.js:1-45; scripts/release-check.js:10-11; scripts/parity-check.js:4-19; scripts/gen-manifests.js:4-21; scripts/dist-drift-check.js:4-21; scripts/bump-version.js:4-21; scripts/version-sync-check.js:12-41; scripts/vendor-preflight.js:4-31; scripts/coverage-gate.js:4-27; scripts/golden-path.js:10-36
 - docs/agent-delegation-drive.7.md (the seam + red line); docs/source-context-profiles.7.md (profiles contract)
 
 ## Pinned by tests

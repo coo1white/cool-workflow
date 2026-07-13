@@ -1,7 +1,7 @@
 "use strict";
 
 // fake-date-for-reproduction.js — a Node `--require` preload used ONLY by
-// verify-bump-reproduction.sh. It pins `new Date()` (no-args construction)
+// verify-bump-reproduction.js. It pins `new Date()` (no-args construction)
 // and `Date.now()` to a fixed instant, read from CW_FAKE_DATE (an ISO date or
 // YYYY-MM-DD string). `new Date(explicit args)` is left untouched.
 //

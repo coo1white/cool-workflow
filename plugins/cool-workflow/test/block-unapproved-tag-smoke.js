@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// block-unapproved-tag-smoke — exercises scripts/block-unapproved-tag.sh, the
+// block-unapproved-tag-smoke — exercises scripts/block-unapproved-tag.js, the
 // PreToolUse hook that blocks `git tag`/tag-push unless both the gate marker
 // and an APPROVED reviewer verdict exist for HEAD.
 //
@@ -10,8 +10,8 @@
 //  - add only the gate marker                 -> must still BLOCK (no verdict)
 //  - add gate marker + APPROVED verdict       -> must ALLOW (exit 0)
 //  - feed a non-tag command                   -> must ALLOW (exit 0)
-// The valid-JSON cases also prove the node-based stdin parser works (the fix
-// that removed the jq dependency so the hook can't silently fail open).
+// The valid-JSON cases also prove the stdin JSON parser works (the hook is
+// pure node now, so a missing jq can never make it silently fail open).
 // Portable: node + git only, isolated tmpdir.
 
 const assert = require("node:assert/strict");
@@ -21,8 +21,8 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
-const HOOK = path.resolve(__dirname, "..", "scripts", "block-unapproved-tag.sh");
-assert.ok(fs.existsSync(HOOK), "block-unapproved-tag.sh must exist");
+const HOOK = path.resolve(__dirname, "..", "scripts", "block-unapproved-tag.js");
+assert.ok(fs.existsSync(HOOK), "block-unapproved-tag.js must exist");
 const VERIFY_SCRIPT = path.resolve(__dirname, "..", "scripts", "verify-verdict-signature.js");
 assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.js must exist");
 
@@ -49,7 +49,7 @@ const sha = git(["rev-parse", "HEAD"]);
 
 function runHook(toolInput) {
   const input = JSON.stringify({ tool_name: "Bash", tool_input: toolInput });
-  const r = spawnSync("bash", [HOOK], { cwd: dir, input, encoding: "utf8" });
+  const r = spawnSync(process.execPath, [HOOK], { cwd: dir, input, encoding: "utf8" });
   return { code: r.status, err: r.stderr || "" };
 }
 const markerDir = path.join(dir, ".cw-release");
@@ -71,25 +71,22 @@ assert.equal(runHook({ command: "ls -la" }).code, 0, "unrelated command must be 
 
 // ---- Empty / malformed input -> ALLOW (no command parsed) ----
 {
-  const r = spawnSync("bash", [HOOK], { cwd: dir, input: "not json", encoding: "utf8" });
+  const r = spawnSync(process.execPath, [HOOK], { cwd: dir, input: "not json", encoding: "utf8" });
   assert.equal(r.status, 0, "malformed input must not block");
-  assert.doesNotMatch(r.stderr || "", /WARN/, "a plain non-JSON input (node runs fine, just an empty parse) must NOT print the node-failure WARN");
+  assert.doesNotMatch(r.stderr || "", /WARN/, "a plain non-JSON input (an empty parse, not an internal error) must NOT print the fail-open WARN");
 }
 
-// ---- node itself failing to run -> still ALLOW (fail open, unchanged), but
-// now says so on stderr instead of staying silent (BUG-4, first half). A
-// stub "node" on PATH that always exits non-zero stands in for a missing or
-// crashing node. ----
+// ---- an unexpected internal error -> still ALLOW (fail open, unchanged), but
+// says so on stderr instead of staying silent (BUG-4, first half). The old
+// bash version's equivalent case was "node itself broken on PATH", which
+// cannot happen now that the hook IS the node process — the same failure
+// shape (hook internals blew up mid-check) is forced via the
+// CW_HOOK_SELFTEST_THROW seam, proving the top-level catch really catches. ----
 {
-  const fakeBinDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-fakebin-"));
-  const fakeNode = path.join(fakeBinDir, "node");
-  fs.writeFileSync(fakeNode, "#!/bin/sh\nexit 17\n");
-  fs.chmodSync(fakeNode, 0o755);
   const input = JSON.stringify({ tool_name: "Bash", tool_input: { command: "git tag -a v9.9.9 -m x" } });
-  const r = spawnSync("bash", [HOOK], { cwd: dir, input, encoding: "utf8", env: { ...process.env, PATH: `${fakeBinDir}:${process.env.PATH}` } });
-  assert.equal(r.status, 0, "a broken node must still fail OPEN (exit 0), not block every Bash call");
-  assert.match(r.stderr || "", /WARN.*node exited 17/, "a broken node must now say so on stderr, not stay silent");
-  fs.rmSync(fakeBinDir, { recursive: true, force: true });
+  const r = spawnSync(process.execPath, [HOOK], { cwd: dir, input, encoding: "utf8", env: { ...process.env, CW_HOOK_SELFTEST_THROW: "1" } });
+  assert.equal(r.status, 0, "an internal hook error must still fail OPEN (exit 0), not block every Bash call");
+  assert.match(r.stderr || "", /WARN.*unexpected error/, "an internal hook error must say so on stderr, not stay silent");
 }
 
 // ---- Tag command, no markers -> BLOCK (missing gate) ----

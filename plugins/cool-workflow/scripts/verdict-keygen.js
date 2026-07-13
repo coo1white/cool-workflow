@@ -9,7 +9,7 @@
 // The PRIVATE key stays with whoever runs `release-flow.js --cut`/`--check`
 // (CW_RELEASE_VERDICT_PRIVKEY) and NEVER gets committed. The PUBLIC key is
 // committed to the repo at .cw-release/verdict-signing.pub so CI's
-// release-gate.yml, npm-publish.yml, and the local block-unapproved-tag.sh
+// release-gate.yml, npm-publish.yml, and the local block-unapproved-tag.js
 // hook can all verify a committed verdict without holding any secret.
 //
 // Verification is opt-in and backward compatible: as long as
@@ -76,7 +76,7 @@ process.stdout.write(
     `  git -C "$(git rev-parse --show-toplevel)" commit -m "chore: add release-verdict signing public key"`,
     ``,
     `Once .cw-release/verdict-signing.pub is committed, release-gate.yml, npm-publish.yml,`,
-    `and block-unapproved-tag.sh all start REQUIRING a valid signature on top of the`,
+    `and block-unapproved-tag.js all start REQUIRING a valid signature on top of the`,
     `existing APPROVED text check — an unsigned or hand-written verdict fails closed.`,
     ``
   ].join("\n")

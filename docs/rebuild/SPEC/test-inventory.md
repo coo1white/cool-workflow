@@ -28,7 +28,7 @@ This spec covers the test harness (`test/run-all.js`, `test/README.md`, `test/as
 
 | Env var | Effect |
 |---|---|
-| `CW_TEST_CONCURRENCY` | Pool size when the flag is absent. `1` forces sequential (used by `release-gate.sh`) (test/run-all.js:75). |
+| `CW_TEST_CONCURRENCY` | Pool size when the flag is absent. `1` forces sequential (used by `release-gate.js`) (test/run-all.js:75). |
 | `CW_TEST_FILTER` | Same as `--filter` (test/run-all.js:86). |
 | `CW_TEST_RETRY` | Same as `--retry` (test/run-all.js:90). |
 | `CW_TEST_TIMEOUT_MS` | Per-test timeout in ms. Default `120000`, floor `1000` (test/run-all.js:94). |
@@ -396,7 +396,7 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 
 ### release-repo-hygiene (release scripts, doc sync, static guards) — 17
 
-- `block-unapproved-tag-smoke.js` — `scripts/block-unapproved-tag.sh` blocks `git tag`/tag-push unless the gate marker AND an APPROVED reviewer verdict exist for HEAD.
+- `block-unapproved-tag-smoke.js` — `scripts/block-unapproved-tag.js` blocks `git tag`/tag-push unless the gate marker AND an APPROVED reviewer verdict exist for HEAD.
 - `bump-version-idempotent-smoke.js` — `bump:version <current>` is a no-op exit 0 ("already at"), not a hard failure.
 - `dead-export-removal-guard-smoke.js` — the 10 removed dead production exports stay removed (static source guard).
 - `dogfood-release-smoke.js` — `scripts/dogfood-release.js --smoke --json` returns a passing summary.
@@ -408,7 +408,7 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 - `readme-sync-smoke.js` — the npm package README is GENERATED from the repo-root README and may not drift.
 - `release-check-skip-smoke.js` — `release-check.js --skip-tests` prints `release:check tests ... skipped` and `- SKIP tests`, does not run `npm run test:ci`, still runs the other gates (e.g. `npm run dist:check`).
 - `release-flow-smoke.js` — `scripts/release-flow.js` (the gated cut orchestrator) over throwaway git fixtures.
-- `release-gate-smoke.js` — `scripts/release-gate.sh` over git fixtures whose build/test scripts are `true`.
+- `release-gate-smoke.js` — `scripts/release-gate.js` over git fixtures whose build/test scripts are `true`.
 - `release-pipeline-hygiene-smoke.js` — static guards over the CI workflows + the cut's git side-effects (the v0.1.96 bug classes).
 - `release-tooling-smoke.js` — `bump-version`'s targeted replace keeps historical version refs; release tooling checks without mutating the repo.
 - `source-context-batch-smoke.js` — the batched blob reader in `scripts/source-context.js` keeps the JSONL contract (text/empty/excluded/changed-from/cache-hit).

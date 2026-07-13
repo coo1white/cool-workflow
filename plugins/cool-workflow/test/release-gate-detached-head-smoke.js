@@ -29,8 +29,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const GATE = path.resolve(__dirname, "..", "scripts", "release-gate.sh");
-assert.ok(fs.existsSync(GATE), "release-gate.sh must exist");
+const GATE = path.resolve(__dirname, "..", "scripts", "release-gate.js");
+assert.ok(fs.existsSync(GATE), "release-gate.js must exist");
 
 let caseId = 0;
 function freshRepo() {
@@ -65,7 +65,7 @@ function runGate(dir, extraEnv) {
   // Blank out any GITHUB_* the harness itself may carry (this suite can run
   // inside GitHub Actions), so each case controls the CI signal on its own.
   const env = { ...process.env, GITHUB_HEAD_REF: "", GITHUB_REF_NAME: "", ...extraEnv };
-  const r = spawnSync("bash", [GATE], { cwd: dir, encoding: "utf8", env });
+  const r = spawnSync(process.execPath, [GATE], { cwd: dir, encoding: "utf8", env });
   return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
 }
 

@@ -22,7 +22,7 @@ you point it at (Claude, Gemini, DeepSeek, …) — the flow is identical.
    node plugins/cool-workflow/scripts/release-flow.js --check
    ```
 
-   The script runs `scripts/release-gate.sh`, then spawns the configured agent
+   The script runs `scripts/release-gate.js`, then spawns the configured agent
    (argv-style, shell:false — cool-workflow holds no key) to review the
    candidate and write `.cw-release/review-<HEAD>.verdict`. It fails closed
    unless the verdict begins with `APPROVED`.

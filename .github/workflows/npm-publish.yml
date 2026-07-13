@@ -115,7 +115,7 @@ jobs:
         # checked-out commit to be exactly that tag's commit (blocks a
         # same-named branch standing in for the tag), and re-runs the full
         # verdict check -- including its signature check and its
-        # deterministic-bump-reproduction check (verify-bump-reproduction.sh),
+        # deterministic-bump-reproduction check (verify-bump-reproduction.js),
         # if .cw-release/verdict-signing.pub is committed (see verdict-keygen.js).
         # A validly-signed verdict for the PARENT alone does not prove HEAD is
         # the same mechanical bump release-flow.js's cut() would have produced —
@@ -163,7 +163,7 @@ jobs:
               SIG_REL="$VERDICT_REL.sig"
               if [ -f "$SIG" ] && node scripts/verify-verdict-signature.js "$VERDICT" "$SIG" "$PUBKEY"; then
                 if [ "$C" != "$HEAD_SHA" ]; then
-                  if ! bash scripts/verify-bump-reproduction.sh "$C" "$HEAD_SHA" "$VERDICT_REL" "$SIG_REL"; then
+                  if ! node scripts/verify-bump-reproduction.js "$C" "$HEAD_SHA" "$VERDICT_REL" "$SIG_REL"; then
                     echo "verdict for $C has a valid signature but HEAD does not reproduce as its deterministic bump — trying the other candidate"
                     continue
                   fi
