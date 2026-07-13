@@ -2250,25 +2250,27 @@
     "kind": "command",
     "id": "node scripts/gen-manifests.js",
     "behavior": "Write all 12 vendor manifests from manifest/plugin.manifest.json via {{path}} templates; stdout {ok,mode,results[]}; files serialized as JSON.stringify(json,null,2)+\"\\n\".",
-    "evidence": "scripts/gen-manifests.js:199-220",
+    "evidence": "scripts/gen-manifests.js:164-185",
     "tests": [
-      "test/vendor-manifest-load-smoke.js"
+      "test/vendor-manifest-load-smoke.js",
+      "test/manifest-vendor-registry-failclosed-smoke.js"
     ]
   },
   {
     "kind": "flag",
     "id": "gen-manifests --check",
     "behavior": "Compare instead of write; per-file status in-sync|drift|missing; on drift stderr \"<N> generated manifest(s) drifted from manifest/plugin.manifest.json:\" + paths + \"Run `npm run gen:manifests` and commit the result.\" and exit 1.",
-    "evidence": "scripts/gen-manifests.js:208-229",
+    "evidence": "scripts/gen-manifests.js:173-194",
     "tests": []
   },
   {
     "kind": "behavior",
     "id": "gen-manifests.template_engine",
-    "behavior": "{{path.to.field}} dot-path interpolation; whole-string markers resolve to real JS values; |lowercase is the only transformer; {{pluginRootVar}} resolves per vendor; unresolved markers stay literal; object keys may be markers; legacy hardcoded build when no vendors key.",
-    "evidence": "scripts/gen-manifests.js:52-178",
+    "behavior": "{{path.to.field}} dot-path interpolation; whole-string markers resolve to real JS values; |lowercase is the only transformer; {{pluginRootVar}} resolves per vendor; unresolved markers stay literal; object keys may be markers; a missing, empty, or bad vendors object is refused before writes.",
+    "evidence": "scripts/gen-manifests.js:52-154",
     "tests": [
-      "test/vendor-manifest-load-smoke.js"
+      "test/vendor-manifest-load-smoke.js",
+      "test/manifest-vendor-registry-failclosed-smoke.js"
     ]
   },
   {

@@ -110,82 +110,47 @@ function _resolveTemplate(template, src, pluginRootVar) {
 
 function build(src) {
   const { targets, vendors } = src;
-  // Backward compat: if no `vendors` key, build from legacy targets
-  if (!vendors || typeof vendors !== "object" || Object.keys(vendors).length === 0) {
-    return buildLegacy(src);
-  }
+  validateVendorRegistry(vendors);
   const outputs = [];
   for (const [vendorId, vendorDef] of Object.entries(vendors)) {
     const targetConfig = targets && targets[vendorId] ? targets[vendorId] : {};
     const pluginRootVar = targetConfig.pluginRootVar || "./";
-    const vendorOutputs = vendorDef.outputs || [];
+    const vendorOutputs = vendorDef.outputs;
     for (const output of vendorOutputs) {
       const resolved = _resolveTemplate(output, src, pluginRootVar);
+      if (!isPlainObject(resolved) || typeof resolved.path !== "string" || !resolved.path.trim()) {
+        throw new Error(`vendor ${vendorId} has an output without a path`);
+      }
+      if (!isPlainObject(resolved.json)) {
+        throw new Error(`vendor ${vendorId} output ${resolved.path} has no JSON object`);
+      }
       outputs.push({
-        path: typeof resolved.path === "string" ? resolved.path : `vendor-${vendorId}-${outputs.length}`,
-        json: resolved.json || {}
+        path: resolved.path,
+        json: resolved.json
       });
     }
   }
   return outputs;
 }
 
-/** Legacy path: build from hardcoded shapes (backward compat if no `vendors` key). */
-function buildLegacy(src) {
-  const { identity, descriptions, interface: ui, layout, mcp, targets } = src;
-  const outputs = [];
-
-  if (targets && targets.claude) {
-    outputs.push({
-      path: targets.claude.marketplace,
-      json: { name: identity.name, owner: identity.author, metadata: { description: descriptions.standard, version: identity.version }, plugins: [{ name: identity.name, source: layout.pluginPathFromRepoRoot, description: descriptions.standard, category: ui.category.toLowerCase() }] }
-    });
-    outputs.push({
-      path: targets.claude.plugin,
-      json: { name: identity.name, description: descriptions.standard, version: identity.version, author: identity.author, homepage: identity.homepage, license: identity.license, keywords: identity.keywords }
-    });
-    outputs.push({
-      path: targets.claude.mcp,
-      json: legacyMcpConfig(mcp, layout, targets.claude.pluginRootVar)
-    });
-  }
-  if (targets && targets.codex) {
-    outputs.push({
-      path: targets.codex.marketplace,
-      json: { name: identity.name, interface: { displayName: ui.displayName }, plugins: [{ name: identity.name, source: { source: "local", path: layout.pluginPathFromRepoRoot }, policy: { installation: "AVAILABLE", authentication: "ON_INSTALL" }, category: ui.category }] }
-    });
-    outputs.push({
-      path: targets.codex.plugin,
-      json: { name: identity.name, version: identity.version, description: descriptions.standard, author: identity.author, keywords: identity.keywords, skills: layout.skillsDir, mcpServers: "./.codex-plugin/mcp.json", interface: { displayName: ui.displayName, shortDescription: descriptions.short, longDescription: descriptions.long, developerName: identity.author.name, category: ui.category, capabilities: ui.capabilities, brandColor: ui.brandColor, defaultPrompt: ui.defaultPrompt } }
-    });
-    outputs.push({
-      path: targets.codex.mcp,
-      json: legacyMcpConfig(mcp, layout, targets.codex.pluginRootVar)
-    });
-  }
-  if (targets && targets.agents) {
-    outputs.push({
-      path: targets.agents.plugin,
-      json: { name: identity.name, description: descriptions.standard, version: identity.version, author: identity.author, homepage: identity.homepage, license: identity.license, keywords: identity.keywords, skills: layout.skillsDir, mcpServers: "./.codex-plugin/mcp.json", interface: { displayName: ui.displayName, shortDescription: descriptions.short, longDescription: descriptions.long, developerName: identity.author.name, category: ui.category, capabilities: ui.capabilities, brandColor: ui.brandColor, defaultPrompt: ui.defaultPrompt } }
-    });
-    outputs.push({
-      path: targets.agents.mcp,
-      json: legacyMcpConfig(mcp, layout, targets.agents.pluginRootVar)
-    });
-  }
-
-  return outputs;
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function legacyMcpConfig(mcp, layout, pluginRootVar) {
-  return {
-    mcpServers: {
-      [mcp.serverName]: {
-        command: mcp.command,
-        args: [`${pluginRootVar}${layout.mcpServerScript}`]
-      }
+/** The vendor table is required. A broken source must stop before the write
+ *  loop; an old hard-coded shape is not a safe second source of truth. */
+function validateVendorRegistry(vendors) {
+  if (!isPlainObject(vendors) || Object.keys(vendors).length === 0) {
+    throw new Error("manifest source needs a non-empty vendors object");
+  }
+  for (const [vendorId, vendorDef] of Object.entries(vendors)) {
+    if (!isPlainObject(vendorDef) || !Array.isArray(vendorDef.outputs) || vendorDef.outputs.length === 0) {
+      throw new Error(`vendor ${vendorId} needs a non-empty outputs array`);
     }
-  };
+    for (const output of vendorDef.outputs) {
+      if (!isPlainObject(output)) throw new Error(`vendor ${vendorId} has an invalid output`);
+    }
+  }
 }
 
 function serialize(json) {
@@ -229,4 +194,10 @@ function main() {
   }
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`gen-manifests: ${message}\n`);
+  process.exitCode = 1;
+}
