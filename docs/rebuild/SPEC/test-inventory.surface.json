@@ -398,7 +398,7 @@
  {
   "kind": "behavior",
   "id": "test:block-unapproved-tag",
-  "behavior": "[release-repo-hygiene] scripts/block-unapproved-tag.sh blocks git tag / tag-push without gate marker + APPROVED reviewer verdict for HEAD",
+  "behavior": "[release-repo-hygiene] scripts/block-unapproved-tag.js blocks git tag / tag-push without gate marker + APPROVED reviewer verdict for HEAD",
   "evidence": "test/block-unapproved-tag-smoke.js:1",
   "tests": [
    "test/block-unapproved-tag-smoke.js"
@@ -1352,7 +1352,7 @@
  {
   "kind": "behavior",
   "id": "test:release-gate",
-  "behavior": "[release-repo-hygiene] scripts/release-gate.sh works over git fixtures whose build/test scripts are 'true'",
+  "behavior": "[release-repo-hygiene] scripts/release-gate.js works over git fixtures whose build/test scripts are 'true'",
   "evidence": "test/release-gate-smoke.js:1",
   "tests": [
    "test/release-gate-smoke.js"

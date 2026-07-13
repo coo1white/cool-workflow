@@ -25,7 +25,7 @@ Steps:
    node plugins/cool-workflow/scripts/release-flow.js --check
    ```
 
-   It runs `scripts/release-gate.sh`, then spawns the configured agent
+   It runs `scripts/release-gate.js`, then spawns the configured agent
    (argv-style, shell:false — CW holds no key) to review the candidate and write
    `.cw-release/review-<HEAD>.verdict`. The flow fails closed unless the verdict
    begins with `APPROVED`.

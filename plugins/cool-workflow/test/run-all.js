@@ -25,7 +25,7 @@
 // file lock. This replaces the previous "some smokes race on the shared
 // package .cw/" hazard that forced sequential execution.
 //
-// Default is auto (cores-capped parallel). The tag-gate (release-gate.sh) forces
+// Default is auto (cores-capped parallel). The tag-gate (release-gate.js) forces
 // sequential via CW_TEST_CONCURRENCY=1 to stay deterministic. Override anytime:
 // CW_TEST_CONCURRENCY=4 or --concurrency.
 //

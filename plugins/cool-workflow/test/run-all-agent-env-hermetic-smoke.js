@@ -6,7 +6,7 @@
 // parent env.
 //
 // The bug this guards: `release-flow.js --cut` runs the deterministic gate
-// (release-gate.sh → `npm test` → run-all.js) in the SAME process env as the
+// (release-gate.js → `npm test` → run-all.js) in the SAME process env as the
 // reviewer config. When the reviewer is set via the CW_AGENT_COMMAND *env var*
 // (which release-flow's own "no reviewer agent configured" hint suggests), that
 // var leaked into the gate's smoke children. CW_NO_AUTO_AGENT=1 only blocks PATH

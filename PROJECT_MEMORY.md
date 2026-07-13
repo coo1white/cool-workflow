@@ -136,7 +136,7 @@ short, and simple to add to. Do not use it for guesses.
   **Release is NOT published yet** — see "Pending" above.
   The sandbox `127.0.0.1` git-URL-rewrite
   artifact only fails `release:check` readme-sync/dogfood; it does NOT touch
-  `release-gate.sh` or the reviewer, so a clean-env cut is unaffected.
+  `release-gate.js` or the reviewer, so a clean-env cut is unaffected.
 - Fixed two release-reviewer root causes exposed cutting v0.1.97: the codex
   reviewer ran `codex exec` in a `read-only` sandbox at `low` reasoning effort,
   so it could NOT re-run the gate it was judging and fabricated REJECTED verdicts

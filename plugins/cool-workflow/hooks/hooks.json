@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/block-unapproved-tag.sh"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/block-unapproved-tag.js"
           }
         ]
       }

@@ -65,7 +65,7 @@ const checks = [
   { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.js"] },
   // Every test path uses --concurrency auto by default (parallel, race-free:
   // each smoke runs in a private cwd + state roots). The release tag-gate
-  // (release-gate.sh) forces CW_TEST_CONCURRENCY=1 to stay sequential as the
+  // (release-gate.js) forces CW_TEST_CONCURRENCY=1 to stay sequential as the
   // deterministic backstop.
   { name: "tests", command: ["npm", "run", "test:ci"] },
   // Pure core/ unit tests (test/*.test.js) — a separate suite from the smoke

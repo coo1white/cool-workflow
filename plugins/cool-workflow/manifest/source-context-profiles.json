@@ -95,7 +95,8 @@
       "include": [
         "AGENTS.md",
         "plugins/cool-workflow/scripts/release-flow.js",
-        "plugins/cool-workflow/scripts/release-gate.sh",
+        "plugins/cool-workflow/scripts/release-gate.js",
+        "plugins/cool-workflow/scripts/release-tags.js",
         "plugins/cool-workflow/scripts/dogfood-release.js",
         "plugins/cool-workflow/scripts/gen-manifests.js",
         "plugins/cool-workflow/scripts/version-sync-check.js",

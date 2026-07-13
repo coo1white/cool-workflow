@@ -43,7 +43,7 @@
 //   the verdict file's exact bytes, writing a sidecar
 //   .cw-release/review-<FULLSHA>.verdict.sig (base64 ed25519). Once
 //   .cw-release/verdict-signing.pub is committed to the repo, release-gate.yml,
-//   npm-publish.yml, and block-unapproved-tag.sh all start REQUIRING a valid
+//   npm-publish.yml, and block-unapproved-tag.js all start REQUIRING a valid
 //   signature in addition to the APPROVED text check — closing the gap where
 //   anyone with shell access could hand-write a passing verdict file. Until
 //   that public key is committed, every check stays exactly as before
@@ -51,7 +51,7 @@
 //
 // Test seams (smoke/operator only, never the delegated agent):
 //   CW_RELEASE_FLOW_GATE_CMD  overrides the deterministic gate command
-//     (default: `bash <thisdir>/release-gate.sh`) so the smoke can exercise the
+//     (default: `node <thisdir>/release-gate.js`) so the smoke can exercise the
 //     orchestration layer without re-running the full build/test suite.
 //   CW_RELEASE_FLOW_GH_CMD    overrides the `gh` binary (single executable token,
 //     spawned shell:false) so the smoke can stub GitHub Release calls offline.
@@ -109,43 +109,23 @@ const repoRoot = top.stdout.trim();
 const HEAD = git(["rev-parse", "HEAD"]).out;
 
 // ---- release-tag lookup (semver-ordered, NOT git-ancestry-walked) ---------
-// A cut's own tag commit lives on an ephemeral line that is NEVER merged as
-// an ancestor of `main` — `cut()` tags the verdict-record commit directly,
-// and `main` only ever gets a separate, later "record the verdict on main"
-// PR built on top of whatever main's tip is at merge time, not on top of
-// the tag's own commit chain. So `git describe --tags --abbrev=0 <ref>`,
-// which walks ONLY ancestors of <ref>, always skips the true previous
-// release tag and silently lands one release further back. "What was the
-// last release" is a semver question, not an ancestry question — list every
-// v* tag and pick by version order instead.
-function parseSemverTag(tag) {
-  const m = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag);
-  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
-}
-function compareSemver(a, b) {
-  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i];
-  return 0;
-}
+// The lookup itself lives in release-tags.js, SHARED with release-gate.js so
+// the two can never drift (the gate used to carry a bash port of it). See
+// that file's header for why this is a semver question, not `git describe`.
+const releaseTags = require("./release-tags.js");
+const parseSemverTag = releaseTags.parseSemverTag;
+const compareSemver = releaseTags.compareSemver;
+const gitTagOut = (args) => git(args).out;
 function listReleaseTagsDesc() {
-  const out = git(["tag", "-l", "v*"]).out;
-  if (!out) return [];
-  return out
-    .split("\n")
-    .filter(Boolean)
-    .map((tag) => ({ tag, semver: parseSemverTag(tag) }))
-    .filter((t) => t.semver)
-    .sort((a, b) => compareSemver(b.semver, a.semver));
+  return releaseTags.listReleaseTagsDesc(gitTagOut);
 }
 
 // The most recent ALREADY-RELEASED tag as of right now, excluding any tag
 // that already points at HEAD (so this works whether run before tagging or
-// re-run on a freshly tagged commit). release-gate.sh now uses the same
-// semver-ordered lookup (a bash port of this), so the two agree.
+// re-run on a freshly tagged commit).
 function resolvePrevTag() {
   if (prevTagArg) return prevTagArg;
-  const headTags = new Set(git(["tag", "--points-at", "HEAD"]).out.split("\n").filter(Boolean));
-  const found = listReleaseTagsDesc().find((t) => !headTags.has(t.tag));
-  return found ? found.tag : "";
+  return releaseTags.resolvePrevReleaseTag(gitTagOut);
 }
 const PREV_TAG = resolvePrevTag();
 
@@ -159,7 +139,7 @@ function runGate() {
     // the smoke and operator overrides only, never the delegated agent.
     r = spawnSync(override, { cwd: repoRoot, encoding: "utf8", shell: true, stdio: "inherit" });
   } else {
-    r = spawnSync("bash", [path.join(scriptsDir, "release-gate.sh")], {
+    r = spawnSync(process.execPath, [path.join(scriptsDir, "release-gate.js")], {
       cwd: repoRoot,
       encoding: "utf8",
       stdio: "inherit"
@@ -203,7 +183,7 @@ function runVendorPreflight() {
 }
 
 // ---- 2. independent reviewer, delegated to the configured agent -------------
-// Default reviewer deadline. The zero-trust reviewer re-runs release-gate.sh,
+// Default reviewer deadline. The zero-trust reviewer re-runs release-gate.js,
 // whose sequential test suite alone is ~12 min, then reads + reasons over the
 // diff — so a 10-min default guaranteed a timeout on a real release. 30 min gives
 // headroom; override with CW_AGENT_TIMEOUT_MS (or --agent-timeout-ms).

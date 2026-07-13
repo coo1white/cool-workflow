@@ -21,7 +21,7 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
    - `git diff <prev-tag>..HEAD --stat` and read the actual diff.
 
 2. Run the deterministic gate yourself, EXACTLY ONCE (do not trust prior runs):
-   - `bash plugins/cool-workflow/scripts/release-gate.sh`
+   - `node plugins/cool-workflow/scripts/release-gate.js`
    - Run it a SINGLE time — one pass certifies the gate. Do NOT re-run it
      "to be sure": it is deterministic, so a second run cannot change the
      verdict and only burns the ~3-4 min suite again (the cut already ran it

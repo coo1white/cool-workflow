@@ -5,7 +5,7 @@ description: Run the full gated release flow — deterministic gate, independent
 Execute the cool-workflow release flow for the current HEAD. Follow these
 steps in order and stop at the first failure:
 
-1. Run `bash plugins/cool-workflow/scripts/release-gate.sh`. If it fails,
+1. Run `node plugins/cool-workflow/scripts/release-gate.js`. If it fails,
    report its output and stop. Fix the findings in normal development
    cycles; do not retry the release in this session.
 
