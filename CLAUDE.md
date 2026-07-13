@@ -9,7 +9,10 @@ CW has two joined ideas:
 
 - FreeBSD engineering discipline inside the code: POLA, mechanism over
   policy, stdout as data, stderr as diagnostics, fail closed, zero
-  runtime dependencies, documented surfaces, and gated releases.
+  runtime dependencies, documented surfaces, gated releases, and
+  JavaScript/TypeScript only (no new shell/Python/Ruby/etc — see
+  `npm run lang:check` / `scripts/lang-policy-check.js` for the small
+  set of scoped, reasoned exceptions).
 - Homebrew-like tool spirit outside the code: few commands, strong
   checks, clear next steps, saved state that can be inspected, and
   boring recovery.
