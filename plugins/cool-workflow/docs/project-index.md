@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 - Source modules: `151`
 - Workflow apps: `8`
 - Docs: `58`
-- Smoke tests: `236`
+- Smoke tests: `237`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -282,6 +282,7 @@ multi-agent host -> topology -> blackboard/coordinator
 
 Smoke tests mirror the public contracts. The high-signal suites are:
 
+- [agent-auto-detect-gemini-native-smoke.js](../test/agent-auto-detect-gemini-native-smoke.js)
 - [agent-backend-concurrent-user-env-smoke.js](../test/agent-backend-concurrent-user-env-smoke.js)
 - [agent-backend-sandbox-deny-smoke.js](../test/agent-backend-sandbox-deny-smoke.js)
 - [agent-backend-user-env-smoke.js](../test/agent-backend-user-env-smoke.js)

@@ -94,9 +94,11 @@ cw -q "How does auth work end-to-end here?"
 Any question works — "how does X work", "is it safe to change Y", "what would
 break if Z rotated". CW uses the current repo and the first agent it finds on
 your `PATH`. Want a specific agent? Add a flag (`-claude`, `-codex`, `-gemini`,
-`-opencode`, `-deepseek`). DeepSeek is the one with no auto-detect — it runs
-through `opencode` — so `-deepseek` is the only way to get it. You can
-point CW at any folder, or at a **repo on the web by
+`-opencode`, `-deepseek`). Note: the `-gemini` and `-deepseek` flags reach
+their models through `opencode`, so those two need `opencode` installed and
+its provider signed in. DeepSeek also has no auto-detect, so `-deepseek` is
+the only way to get it. (A native `gemini` CLI found on your `PATH` is used
+directly.) You can point CW at any folder, or at a **repo on the web by
 URL** — CW clones it and reviews the copy:
 
 ```bash

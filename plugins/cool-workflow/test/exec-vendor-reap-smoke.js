@@ -80,15 +80,27 @@ const tick = () => new Promise((r) => setImmediate(r));
 
   // 5. EVERY shipped vendor wrapper must wire the reaper — guards against a new
   //    vendor being added without it (the exact gap that leaked opencode once).
+  //    The wrapper list is READ FROM builtin-templates.json, the same manifest
+  //    the runtime resolves builtin:<name> from — a hand-kept list here went
+  //    stale once (it missed gemini-opencode-agent.js) and cannot see a future
+  //    vendor at all. A wrapper passes when it calls recordVendorPid(child)
+  //    itself, or when it re-exports (requires) another manifest wrapper that
+  //    does — one hop, the shape deepseek and the opencode-routed gemini use.
   {
     const agentsDir = path.join(pluginRoot, "scripts/agents");
-    for (const wrapper of ["claude-p-agent.js", "codex-agent.js", "gemini-agent.js", "opencode-agent.js"]) {
+    const manifest = JSON.parse(fs.readFileSync(path.join(agentsDir, "builtin-templates.json"), "utf8"));
+    const wrappers = Array.from(new Set(Object.values(manifest.templates)));
+    assert.ok(wrappers.length >= 5, `builtin-templates.json must list the shipped vendor wrappers (got ${wrappers.length})`);
+    const callsReaper = (name) => /recordVendorPid\(child\)/.test(fs.readFileSync(path.join(agentsDir, name), "utf8"));
+    for (const wrapper of wrappers) {
+      if (callsReaper(wrapper)) continue;
       const src = fs.readFileSync(path.join(agentsDir, wrapper), "utf8");
-      assert.match(src, /recordVendorPid\(child\)/, `${wrapper} must call recordVendorPid(child) after spawning its vendor`);
+      const hop = /require\(["']\.\/([\w-]+\.js)["']\)/.exec(src);
+      assert.ok(
+        hop && wrappers.includes(hop[1]) && callsReaper(hop[1]),
+        `${wrapper} must call recordVendorPid(child) after spawning its vendor, or re-export a manifest wrapper that does`
+      );
     }
-    // deepseek is not a separate spawner: it re-exports the opencode wrapper.
-    const deepseek = fs.readFileSync(path.join(agentsDir, "deepseek-agent.js"), "utf8");
-    assert.match(deepseek, /require\(["']\.\/opencode-agent/, "deepseek must re-export opencode (so it inherits the reaper)");
   }
 
   console.log("exec-vendor-reap-smoke: ok");
