@@ -68,12 +68,3 @@ CW_TEST_RETRY=2 npm test    # retry failures up to 2 times
 CW_TEST_TIMEOUT_MS=30000 npm test  # custom per-test timeout
 ```
 
-## Helpers
-
-`test/assert-diff.js` — a tiny zero-dep deep-equality diff helper:
-
-```javascript
-const diff = require("./assert-diff");
-const fail = diff(expected, actual, "my check");
-if (fail) { process.stderr.write(fail + "\n"); process.exit(1); }
-```

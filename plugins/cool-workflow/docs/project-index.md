@@ -6,9 +6,9 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.4`
-- Source modules: `151`
+- Source modules: `150`
 - Workflow apps: `8`
-- Docs: `62`
+- Docs: `61`
 - Smoke tests: `235`
 - Repository: https://github.com/coo1white/cool-workflow
 
@@ -116,7 +116,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/trust/ledger.ts](../src/core/trust/ledger.ts)
 - [core/trust/telemetry-attestation.ts](../src/core/trust/telemetry-attestation.ts)
 - [core/trust/telemetry-ledger.ts](../src/core/trust/telemetry-ledger.ts)
-- [core/types.ts](../src/core/types.ts)
 - [core/types/boundary.ts](../src/core/types/boundary.ts)
 - [core/types/execution-backend.ts](../src/core/types/execution-backend.ts)
 - [core/types/observability.ts](../src/core/types/observability.ts)
@@ -255,7 +254,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [PIPELINE-RUNNER(7)](pipeline-runner.7.md)
 - [PIPELINE-VERBS(7)](pipeline-verbs.7.md)
 - [Cool Workflow Project Index](project-index.md)
-- [Cool Workflow](readme-v0.1.87-full.md)
 - [Real Execution Backend Integrations](real-execution-backends.7.md)
 - [Release And Migration Discipline](release-and-migration.7.md)
 - [Cool Workflow Release History](release-history.md)
