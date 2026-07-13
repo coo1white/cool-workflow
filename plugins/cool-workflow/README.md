@@ -217,6 +217,91 @@ agent can plan a run, drive it, and verify a report without leaving the
 editor. CLI and MCP share one registry and are parity-checked. See the
 **[Wiki](https://github.com/coo1white/cool-workflow/wiki)**.
 
+The MCP server is `scripts/mcp-server.js` inside the installed package. After
+`npm install -g cool-workflow`, its full path is:
+
+```text
+<output of `npm root -g`>/cool-workflow/scripts/mcp-server.js
+```
+
+Put that path in the configs below where you see `/path/from/npm-root-g/…`.
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+The simple way — as a plugin (this wires MCP for you):
+
+```text
+/plugin marketplace add coo1white/cool-workflow
+/plugin install cool-workflow@cool-workflow
+```
+
+Or add only the MCP server, one line in your terminal:
+
+```bash
+claude mcp add cool-workflow -- node "$(npm root -g)/cool-workflow/scripts/mcp-server.js"
+```
+</details>
+
+<details>
+<summary><b>Claude Desktop</b></summary>
+
+Add this to `claude_desktop_config.json`
+(macOS: `~/Library/Application Support/Claude/`,
+Windows: `%APPDATA%\Claude\`), then restart Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "cool-workflow": {
+      "command": "node",
+      "args": ["/path/from/npm-root-g/cool-workflow/scripts/mcp-server.js"]
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
+
+Add the same `mcpServers` block to `~/.cursor/mcp.json`
+(or `.cursor/mcp.json` inside one project):
+
+```json
+{
+  "mcpServers": {
+    "cool-workflow": {
+      "command": "node",
+      "args": ["/path/from/npm-root-g/cool-workflow/scripts/mcp-server.js"]
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary><b>VS Code</b></summary>
+
+VS Code uses a `servers` key. Add this to `.vscode/mcp.json` in your project
+(or run **MCP: Add Server** from the Command Palette):
+
+```json
+{
+  "servers": {
+    "cool-workflow": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/from/npm-root-g/cool-workflow/scripts/mcp-server.js"]
+    }
+  }
+}
+```
+</details>
+
+Once connected, your agent sees the `cw_*` tools — `cw_plan`, `cw_status`,
+`cw_report`, and the rest — the same registry the CLI uses, parity-checked.
+
 ## Troubleshooting
 
 | Problem | Fix |
