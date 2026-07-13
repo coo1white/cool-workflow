@@ -6,7 +6,7 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.4`
-- Source modules: `150`
+- Source modules: `151`
 - Workflow apps: `8`
 - Docs: `61`
 - Smoke tests: `235`
@@ -116,6 +116,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/trust/ledger.ts](../src/core/trust/ledger.ts)
 - [core/trust/telemetry-attestation.ts](../src/core/trust/telemetry-attestation.ts)
 - [core/trust/telemetry-ledger.ts](../src/core/trust/telemetry-ledger.ts)
+- [core/types.ts](../src/core/types.ts)
 - [core/types/boundary.ts](../src/core/types/boundary.ts)
 - [core/types/execution-backend.ts](../src/core/types/execution-backend.ts)
 - [core/types/observability.ts](../src/core/types/observability.ts)
