@@ -11,6 +11,7 @@ This covers the MCP stdio JSON-RPC server, its 196 tools, the one CLI<->MCP capa
 - `scripts/mcp-server.js` — 4-line shim: `require("../dist/mcp-server.js")` (scripts/mcp-server.js:4).
 - `dist/mcp-server.js` — the built server. MCP clients start it with `node`. The generated `.mcp.json` names it as `${CLAUDE_PLUGIN_ROOT}/dist/mcp-server.js` (.mcp.json:6).
 - Transport: stdin/stdout, one JSON object per line ("\n" at the end). There are no `Content-Length` headers. stdin is set to `utf8` (src/mcp-server.ts:15). The server is long-lived; it never stops itself.
+- `dist/mcp/tool-process.js` — a private child process, started when the first `tools/call` needs it. The parent keeps JSON-RPC framing and `ping`; the child runs one tool call at a time. Parent and child use IPC records `{ schemaVersion: 1, id, name, args }` and `{ schemaVersion: 1, id, ok, text|error }`. This is not a public MCP surface.
 
 ### JSON-RPC methods (src/mcp-server.ts:53-77)
 
@@ -427,6 +428,7 @@ Every vendor `mcp.json` has the same shape; only the path variable changes:
 ## Edge cases
 
 - `ping` is answered with an EMPTY result (`{}`) — mandatory in the negotiated 2024-11-05 protocol. It is handled in the fast protocol path, before the serial tool queue, so a keep-alive ping still answers while a long `cw_run` drive holds the queue. A `ping` with no `id` (a notification) gets no reply.
+- The parent can answer `ping` while its child waits on a file lock or an outside agent. `tools/call` stays serial. A child stop makes the active call return the normal `isError: true` result; CW does not retry a call that may have written state. The next tool call starts a new child.
 - Any OTHER unknown method with an `id` gets a `-32601` `Unknown method` error answer. A request with `"id": null` and an unknown method DOES get an error answer (the guard is `message.id !== undefined`, and `null !== undefined`), with `"id":null` in the reply.
 - A notification (no `id` key) with an unknown method gets NO answer at all. But `initialize`, `tools/list`, `tools/call`, and `ping` answer even with no `id` — the reply then has no `id` key (`JSON.stringify` drops `undefined`).
 - Parse errors always answer with `id: null`, even if the broken line had an id in it (src/mcp-server.ts:45).

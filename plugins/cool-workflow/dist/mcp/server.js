@@ -66,9 +66,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.negotiateProtocolVersion = negotiateProtocolVersion;
 exports.startServer = startServer;
 const version_1 = require("../core/version");
-const safe_json_1 = require("../core/format/safe-json");
 const recovery_hint_1 = require("../core/format/recovery-hint");
 const dispatch_1 = require("./dispatch");
+const tool_process_1 = require("./tool-process");
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 /** Protocol versions this server can speak, oldest first. `initialize`
  *  echoes the client's `params.protocolVersion` when it is in this list,
@@ -154,18 +154,9 @@ function resultMessage(id, result) {
     // MUST NOT be answered) pinned by SPEC/mcp.md's edge-cases. Revisit only
     // as a deliberate spec change, not as a drive-by fix.
 }
-/** Handles one already-parsed JSON-RPC request object. May write zero or
- *  one reply line to stdout. `await`ing callTool's result is a no-op for
- *  the ~197 tools whose handler returns a plain value already (an `await`
- *  on a non-Promise resolves on the next microtask, invisible to a
- *  caller that already awaits handleRequest) -- it only matters for
- *  `cw_run`, whose live drive loop returns a real Promise so it can
- *  actually stay interruptible (see shell/drive.ts's driveAsync). This
- *  must stay inside the existing try/catch: an async tool handler throws
- *  by REJECTING its returned Promise rather than throwing synchronously,
- *  and an unawaited rejection here would be an unhandled rejection
- *  instead of the normal `-32000` JSON-RPC error reply. */
-async function handleRequest(message) {
+/** Handles one already-parsed JSON-RPC request object. The parent owns the
+ * protocol reply while the durable tool process owns the blocking tool work. */
+async function handleRequest(message, tools) {
     const hasId = Object.prototype.hasOwnProperty.call(message, "id");
     const id = message.id;
     if (typeof message.method !== "string") {
@@ -221,8 +212,8 @@ async function handleRequest(message) {
                 // a tool-call outcome, and keeps going through the outer
                 // try/catch as a -32000 error, unchanged.
                 try {
-                    const coreResult = await (0, dispatch_1.callTool)(name, args ?? {});
-                    const content = [{ type: "text", text: (0, safe_json_1.safeJsonStringify)(coreResult) }];
+                    const text = await tools.execute(name, args ?? {});
+                    const content = [{ type: "text", text }];
                     const advisory = untrustedContentAdvisory(name);
                     if (advisory)
                         content.push({ type: "text", text: advisory });
@@ -248,22 +239,28 @@ async function handleRequest(message) {
         writeMessage(errorMessage(id, -32000, text));
     }
 }
-/** Handles one raw (already-trimmed, non-empty) stdin line. */
-async function handleLine(line) {
+/** Parses a raw stdin line without writing. This lets a valid ping use the
+ * control path while parse errors keep their old place in the work queue. */
+function parseLine(line) {
     let parsed;
     try {
         parsed = JSON.parse(line);
     }
     catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
-        writeMessage(errorMessage(null, -32700, `Parse error: ${detail}`));
-        return;
+        return { error: { code: -32700, message: `Parse error: ${detail}` } };
     }
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        writeMessage(errorMessage(null, -32600, "Invalid Request: not a JSON-RPC object"));
+        return { error: { code: -32600, message: "Invalid Request: not a JSON-RPC object" } };
+    }
+    return { message: parsed };
+}
+async function handleLine(parsed, tools) {
+    if ("error" in parsed) {
+        writeMessage(errorMessage(null, parsed.error.code, parsed.error.message));
         return;
     }
-    await handleRequest(parsed);
+    await handleRequest(parsed.message, tools);
 }
 /** Starts the stdio read loop. Never resolves — the server is long-lived
  *  and stops only when its stdin closes / the process exits.
@@ -278,6 +275,7 @@ async function handleLine(line) {
  *  keep-alive ping still gets a reply while a long drive holds the queue. */
 function startServer() {
     process.stdin.setEncoding("utf8");
+    const tools = new tool_process_1.ToolProcessExecutor();
     let buffer = "";
     // True while the REST of an oversize line is still streaming in: emit one
     // -32700 for the whole line and skip everything up to its terminating
@@ -325,8 +323,20 @@ function startServer() {
             const line = buffer.slice(0, newlineIndex);
             buffer = buffer.slice(newlineIndex + 1);
             const trimmed = line.trim();
-            if (trimmed)
-                enqueue(() => handleLine(trimmed));
+            if (!trimmed)
+                continue;
+            const parsed = parseLine(trimmed);
+            // Ping is a control-plane keep-alive. It must not wait behind a tool
+            // process that is blocked on a file lock or an outside agent.
+            if ("message" in parsed && parsed.message.method === "ping") {
+                void handleLine(parsed, tools).catch((error) => {
+                    const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+                    process.stderr.write(`cool-workflow mcp: a ping reply failed: ${detail}\n`);
+                });
+            }
+            else {
+                enqueue(() => handleLine(parsed, tools));
+            }
         }
         // No newline yet and the pending (unterminated) line already exceeds the
         // cap: report ONCE, drop the head, and discard the rest of this line
@@ -335,9 +345,13 @@ function startServer() {
         if (!discarding && buffer.length > MAX_LINE_BYTES) {
             buffer = "";
             discarding = true;
-            enqueue(() => {
-                writeMessage(errorMessage(null, -32700, `Parse error: request line exceeds ${MAX_LINE_BYTES} bytes`));
-            });
+            enqueue(() => writeMessage(errorMessage(null, -32700, `Parse error: request line exceeds ${MAX_LINE_BYTES} bytes`)));
         }
+    });
+    // A client may send a batch and close stdin at once. Keep the tool process
+    // alive until the serial queue has written those replies, then close it so
+    // it cannot outlive the MCP parent.
+    process.stdin.on("end", () => {
+        void queue.finally(() => tools.close());
     });
 }

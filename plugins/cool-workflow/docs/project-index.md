@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.5`
-- Source modules: `151`
+- Source modules: `152`
 - Workflow apps: `8`
 - Docs: `58`
-- Smoke tests: `237`
+- Smoke tests: `239`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -125,6 +125,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/util/numeric-flag.ts](../src/core/util/numeric-flag.ts)
 - [mcp/dispatch.ts](../src/mcp/dispatch.ts)
 - [mcp/server.ts](../src/mcp/server.ts)
+- [mcp/tool-process.ts](../src/mcp/tool-process.ts)
 - [shell/agent-config.ts](../src/shell/agent-config.ts)
 - [shell/app-run-cli.ts](../src/shell/app-run-cli.ts)
 - [shell/audit-cli.ts](../src/shell/audit-cli.ts)
@@ -384,12 +385,14 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [loop-bounded-expansion-smoke.js](../test/loop-bounded-expansion-smoke.js)
 - [man-run-registry-traversal-smoke.js](../test/man-run-registry-traversal-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
+- [mcp-control-process-responsiveness-smoke.js](../test/mcp-control-process-responsiveness-smoke.js)
 - [mcp-ping-and-arg-coercion-smoke.js](../test/mcp-ping-and-arg-coercion-smoke.js)
 - [mcp-protocol-version-smoke.js](../test/mcp-protocol-version-smoke.js)
 - [mcp-queue-epipe-smoke.js](../test/mcp-queue-epipe-smoke.js)
 - [mcp-surface-registry-smoke.js](../test/mcp-surface-registry-smoke.js)
 - [mcp-tool-call-coverage-smoke.js](../test/mcp-tool-call-coverage-smoke.js)
 - [mcp-tool-call-error-isresult-smoke.js](../test/mcp-tool-call-error-isresult-smoke.js)
+- [mcp-tool-process-lifecycle-smoke.js](../test/mcp-tool-process-lifecycle-smoke.js)
 - [mcp-untrusted-content-advisory-smoke.js](../test/mcp-untrusted-content-advisory-smoke.js)
 - [metrics-summary-limit-smoke.js](../test/metrics-summary-limit-smoke.js)
 - [missing-artifact-gate-live-smoke.js](../test/missing-artifact-gate-live-smoke.js)
