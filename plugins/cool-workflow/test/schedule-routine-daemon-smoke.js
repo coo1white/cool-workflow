@@ -278,6 +278,21 @@ const cliDaemonTick = runJson(["schedule", "daemon", "--once"]);
 assert.equal(typeof cliDaemonTick.dueCount, "number");
 assert.ok(fs.existsSync(cliDaemonTick.inboxPath));
 
+// P2-7: a corrupt tasks.json must make the forever daemon FAIL CLOSED — exit
+// non-zero with a clean `cw:` line, not die with a raw stack dump. This runs
+// the real forever daemon (no --once): on a corrupt store the first tick
+// throws, safeTick returns false, and run() returns so the process exits.
+{
+  const badDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-daemon-corrupt-"));
+  fs.mkdirSync(path.join(badDir, ".cw", "schedules"), { recursive: true });
+  fs.writeFileSync(path.join(badDir, ".cw", "schedules", "tasks.json"), "{corrupt", "utf8");
+  const daemonRun = spawnSync(node, [cli, "schedule", "daemon"], { cwd: badDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15000 });
+  assert.equal(daemonRun.signal, null, "the daemon exits on its own on corrupt tasks.json, not killed by the test timeout");
+  assert.notEqual(daemonRun.status, 0, "corrupt tasks.json makes the daemon exit non-zero (fail closed)");
+  assert.match(daemonRun.stderr || "", /^cw: /m, "daemon prints a clean `cw:` error, not a raw stack");
+  assert.doesNotMatch(daemonRun.stderr || "", /\n\s+at /, "no raw stack-trace frames leak to stderr");
+}
+
 const cliTrigger = runJson(["routine", "create", "--prompt", "cli routine", "--match", '{"action":"opened"}']);
 assert.equal(cliTrigger.kind, "api");
 assert.equal(runJson(["routine", "list"]).length, 1);

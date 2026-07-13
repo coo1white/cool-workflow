@@ -42,7 +42,7 @@ const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 // GONE in v2 (documented anti-goal, intentionally dismantled): the workbench
 // no longer takes a runner. buildWorkbenchRunView is now (runId, { cwd }) and
 // resolves the run itself via shell/run-store.loadRunFromCwd.
-const { buildWorkbenchRunView } = require(path.join(pluginRoot, "dist", "shell", "workbench.js"));
+const { buildWorkbenchRunView, buildWorkbenchIndex } = require(path.join(pluginRoot, "dist", "shell", "workbench.js"));
 const { WorkbenchHost } = require(path.join(pluginRoot, "dist", "shell", "workbench-host.js"));
 
 const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-workbench-")));
@@ -325,6 +325,30 @@ async function main() {
     const idxFilteredView = JSON.parse(idxFiltered.body);
     assert.equal(idxFilteredView.runs.records.length, 0, "a non-matching text filter returns zero records");
 
+    // SECURITY (P2 fix): a query param must NOT be able to override the
+    // server's own scope or inject an arbitrary cwd. Only `text` passes
+    // through. Assert on a repo-scoped host that `?scope=home` cannot flip it
+    // and `?cwd=<elsewhere>` cannot redirect the served run data.
+    const repoHost = new WorkbenchHost({ cwd: workspace, port: 0, scope: "repo" });
+    const repoPort = await repoHost.listen();
+    try {
+      const repoBase = { host: "127.0.0.1", port: repoPort };
+      const repoHeaders = { host: `127.0.0.1:${repoPort}` };
+      const flip = await request({ ...repoBase, path: "/api/index?scope=home", method: "GET", headers: repoHeaders });
+      assert.equal(JSON.parse(flip.body).scope, "repo", "?scope=home cannot flip a repo-scoped server to home scope");
+      const otherDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-other-")));
+      const plain = await request({ ...repoBase, path: "/api/index", method: "GET", headers: repoHeaders });
+      const injected = await request({ ...repoBase, path: `/api/index?cwd=${encodeURIComponent(otherDir)}`, method: "GET", headers: repoHeaders });
+      assert.equal(JSON.stringify(JSON.parse(injected.body).runs), JSON.stringify(JSON.parse(plain.body).runs), "?cwd=<elsewhere> cannot redirect the served run data to another directory");
+    } finally {
+      await repoHost.close();
+    }
+
+    // IPv6 Host header (P3 fix): a bracketed loopback literal is on the
+    // allowlist and must be ALLOWED, not 403'd by a naive split(":").
+    const ipv6 = await request({ ...base, path: "/api/index", method: "GET", headers: { host: `[::1]:${boundPort}` } });
+    assert.notEqual(ipv6.status, 403, "a bracketed IPv6 loopback Host header must not be refused as non-localhost");
+
     // UI shell + assets served.
     const ui = await request({ ...base, path: "/", method: "GET", headers: okHeaders });
     assert.equal(ui.status, 200, "GET / serves a UI shell");
@@ -366,6 +390,23 @@ async function main() {
   }
   // NO HIDDEN STATE: serving the run mutated nothing under its run dir.
   assert.deepEqual(listRunDir(runId), beforeListing, "serving writes nothing to .cw/runs/<id>");
+
+  // ---- P2-3: the index returns the NEWEST page, not the oldest ------------
+  // The run list sorts oldest-first and caps the page — so the default page
+  // used to be the OLDEST runs, hiding the newest when the scope has more runs
+  // than the page size. buildWorkbenchIndex now fetches the last page. Prove
+  // it with a forced small limit and two runs: the returned page must contain
+  // the NEWER run and report offset = total - limit.
+  {
+    const second = cwJson(["plan", "architecture-review", "--repo", workspace, "--question", "second run for newest-page test"]);
+    // repo scope is isolated to this workspace's own .cw (home scope reads a
+    // machine-wide registry with unrelated runs).
+    const idx = buildWorkbenchIndex({ cwd: workspace, scope: "repo", limit: 1 });
+    assert.equal(idx.runs.total, 2, "two runs exist in the repo-scoped workspace");
+    assert.equal(idx.runs.records.length, 1, "the forced limit of 1 returns a single-record page");
+    assert.equal(idx.runs.offset, 1, "the page offset is total - limit (the LAST page), not 0");
+    assert.equal(idx.runs.records[0].runId, second.runId, "the newest run is the one shown, not the oldest");
+  }
 
   // ---- 4. fail closed: an absent run is resolved:false, all panels absent ---
   // v2: (runId, { cwd }) signature (no runner facade).
@@ -530,6 +571,14 @@ async function main() {
       "app.js carries the 401 what-to-do hint"
     );
     assert.ok(appJsSource.includes("or 'cw doctor' for next steps"), "app.js carries the blocked/failed recovery hint");
+    // UI/UX audit P3 fixes (client-side, no headless browser here — pinned at
+    // source): selecting a run must not rebuild the sidebar (focus/flash fix),
+    // refresh must re-derive the open run too, a failed reload must clear the
+    // freshness badge, and the sidebar must show a truncation notice.
+    assert.ok(appJsSource.includes("function markActiveRow"), "app.js updates the active row in place instead of rebuilding the list");
+    assert.ok(appJsSource.includes("function refreshAll") && appJsSource.includes('getElementById("refresh").addEventListener("click", refreshAll)'), "refresh re-derives both panes, not just the index");
+    assert.ok(appJsSource.includes("index unreachable"), "a failed index reload clears the stale freshness badge");
+    assert.ok(appJsSource.includes("showing latest ${records.length} of ${runs.total}"), "the sidebar shows a truncation notice when the page is capped");
   }
 
   process.stdout.write(

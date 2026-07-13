@@ -85,10 +85,10 @@ function sourceFor(classification) {
         return "contract";
     return "manual";
 }
-/** Feedback dedup key: joined with `` (runId, code, message, nodeId,
+/** Feedback dedup key: joined with the ASCII unit separator "\u001f" (runId, code, message, nodeId,
  *  stageId, contractId, path). */
 function feedbackKey(value) {
-    return [value.runId || "", value.code || "", value.message || "", value.nodeId || "", value.stageId || "", value.contractId || "", value.path || ""].join("");
+    return [value.runId || "", value.code || "", value.message || "", value.nodeId || "", value.stageId || "", value.contractId || "", value.path || ""].join("\u001f");
 }
 function compactMetadata(metadata) {
     const compacted = {};

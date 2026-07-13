@@ -60,7 +60,7 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_list` | `list` | (none) | (none) | List bundled CW workflows. |
 | `cw_plan` | `plan` | `workflowId` | `workflowId` `repo` `question` | Create a CW run and return its canonical plan summary. |
 | `cw_app_run` | `app.run` | `appId` | `cwd` `appId` `inputs` `sandbox` `sandboxProfile` `sandboxProfileId` | Create a run from an app id + structured inputs. |
-| `cw_status` | `status` | `runId` | `runId` `cwd` | Read run checkpoint status. |
+| `cw_status` | `status` | `runId` | `runId` `cwd` | Read run checkpoint status. The quick first check on one run: lifecycle, task counts, and next actions. For the fuller operator view use cw_operator_status; for every panel in one call use cw_workbench_view. |
 | `cw_init` | `init` | `workflowId` | `workflowId` `title` `output` | Scaffold a new workflow definition. |
 | `cw_next` | `next` | `runId` | `runId` `cwd` `limit` | Read the next recommended tasks for a run. |
 | `cw_state_check` | `state.check` | `runId` | `runId` `cwd` `state` `write` | Check run-state schema compatibility. |
@@ -75,12 +75,12 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_migration_list` | `migration.list` | (none) | (none) | List the declared migration registry. |
 | `cw_migration_check` | `migration.check` | (none) | `target` `contract` `cwd` | Dry-run migration verdict for a target. |
 | `cw_migration_prove` | `migration.prove` | (none) | `target` `contract` `cwd` | Round-trip / non-destruction migration proof for a target. |
-| `cw_operator_status` | `operator.status` | `runId` | `runId` `cwd` | Read the structured Operator UX run status. |
+| `cw_operator_status` | `operator.status` | `runId` | `runId` `cwd` | Read the structured Operator UX run status. Fuller than cw_status: workers, candidates, feedback, and commits in one operator view. For every panel in one call use cw_workbench_view; for agent-topology detail use cw_multi_agent_status. |
 | `cw_operator_graph` | `graph` | `runId` | `runId` `cwd` | Read the structured Operator UX run graph. |
 | `cw_operator_report` | `operator.report` | `runId` | `runId` `cwd` | Refresh and read the structured Operator UX report summary. |
 | `cw_worker_summary` | `worker.summary` | `runId` | `runId` `cwd` | Read the structured worker summary for a run. |
-| `cw_workbench_view` | `workbench.view` | `runId` | `runId` `cwd` | Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit). |
-| `cw_workbench_serve` | `workbench.serve` | (none) | `cwd` `port` `scope` `requireToken` | Describe/serve the optional localhost-only, read-only Workbench host. |
+| `cw_workbench_view` | `workbench.view` | `runId` | `runId` `cwd` | Read the read-only five-panel Workbench view of one run (graph, blackboard, worker, candidate, audit). The widest one-call overview; prefer it when you want everything at once. For one quick answer use cw_status or cw_operator_status instead. |
+| `cw_workbench_serve` | `workbench.serve` | (none) | `cwd` `port` `scope` `requireToken` | Describe/serve the optional localhost-only, read-only Workbench host. requireToken is a CLI-only opt-in (the MCP path never actually binds, so it is a no-op here). |
 | `cw_candidate_summary` | `candidate.summary` | `runId` | `runId` `cwd` | Read the structured candidate summary for a run. |
 | `cw_feedback_summary` | `feedback.summary` | `runId` | `runId` `cwd` | Read the structured feedback summary for a run. |
 | `cw_commit_summary` | `commit.summary` | `runId` | `runId` `cwd` | Read the structured commit summary for a run. |
@@ -97,7 +97,7 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_multi_agent_summarize` | `multi-agent.summarize` | `runId` | `runId` `cwd` | Read the combined state-explosion report. |
 | `cw_multi_agent_graph_compact` | `multi-agent.graph.compact` | `runId` | `runId` `cwd` `view` `focus` `depth` | Read a compact/focused multi-agent graph view. |
 | `cw_multi_agent_run` | `multi-agent.run` | (none) | `runId` `cwd` `app` `appId` `workflow` `workflowId` `topology` `topologyId` `task` `mapperCount` `judgeCount` `debateRounds` | Create or attach a topology-backed multi-agent run. |
-| `cw_multi_agent_status` | `multi-agent.status` | `runId` | `runId` `cwd` | Read combined topology/blackboard/worker status. |
+| `cw_multi_agent_status` | `multi-agent.status` | `runId` | `runId` `cwd` | Read combined topology/blackboard/worker status. Best for a multi-agent run: what each agent group is doing and what is blocked. For a plain run use cw_status; for every panel in one call use cw_workbench_view. |
 | `cw_multi_agent_step` | `multi-agent.step` | `runId` | `runId` `cwd` `sandbox` `backend` `limit` | Perform one safe deterministic host step. |
 | `cw_multi_agent_blackboard` | `multi-agent.blackboard` | `runId` | `runId` `cwd` `action` `blackboardId` `topicId` `body` `kind` `path` `evidence` | Operate on the active multi-agent blackboard. |
 | `cw_multi_agent_score` | `multi-agent.score` | `runId` | `runId` `cwd` `candidate` `candidateId` `worker` `criterion` `criteria` `evidence` `maxTotal` | Score a candidate with evidence. |
@@ -157,7 +157,7 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_sandbox_show` | `sandbox.show` | `profileId` | `cwd` `profileId` | Show a resolved sandbox profile. |
 | `cw_sandbox_validate` | `sandbox.validate` | `profileFile` | `cwd` `profileFile` | Validate a sandbox profile JSON file. |
 | `cw_sandbox_choose` | `sandbox.choose` | (none) | `cwd` `profileId` `sandbox` `sandboxProfile` `sandboxProfileId` | Resolve and validate a sandbox profile choice. |
-| `cw_sandbox_resolve` | `sandbox.resolve` | (none) | `cwd` `profileId` `sandbox` `sandboxProfile` `sandboxProfileId` | Alias of sandbox.choose. |
+| `cw_sandbox_resolve` | `sandbox.resolve` | (none) | `cwd` `profileId` `sandbox` `sandboxProfile` `sandboxProfileId` | Alias of sandbox.choose: a pure alias with the same input and the same output. Prefer cw_sandbox_choose. |
 | `cw_backend_list` | `backend.list` | (none) | `cwd` | List available execution backends and their capabilities. |
 | `cw_backend_show` | `backend.show` | (none) | `cwd` `backendId` | Show one execution backend descriptor. |
 | `cw_backend_probe` | `backend.probe` | (none) | `cwd` `backendId` | Probe execution backend readiness (live, deterministic). |
@@ -426,8 +426,9 @@ Every vendor `mcp.json` has the same shape; only the path variable changes:
 
 ## Edge cases
 
-- A request with `"id": null` and an unknown method DOES get an error answer (the guard is `message.id !== undefined`, and `null !== undefined`), with `"id":null` in the reply (src/mcp-server.ts:74).
-- A notification (no `id` key) with an unknown method gets NO answer at all (src/mcp-server.ts:74). But `initialize`, `tools/list`, and `tools/call` answer even with no `id` — the reply then has no `id` key (`JSON.stringify` drops `undefined`).
+- `ping` is answered with an EMPTY result (`{}`) — mandatory in the negotiated 2024-11-05 protocol. It is handled in the fast protocol path, before the serial tool queue, so a keep-alive ping still answers while a long `cw_run` drive holds the queue. A `ping` with no `id` (a notification) gets no reply.
+- Any OTHER unknown method with an `id` gets a `-32601` `Unknown method` error answer. A request with `"id": null` and an unknown method DOES get an error answer (the guard is `message.id !== undefined`, and `null !== undefined`), with `"id":null` in the reply.
+- A notification (no `id` key) with an unknown method gets NO answer at all. But `initialize`, `tools/list`, `tools/call`, and `ping` answer even with no `id` — the reply then has no `id` key (`JSON.stringify` drops `undefined`).
 - Parse errors always answer with `id: null`, even if the broken line had an id in it (src/mcp-server.ts:45).
 - A line that is valid JSON but not an object (number, string, array, `null`) gets `-32600` `Invalid Request: not a JSON-RPC object` (src/mcp-server.ts:48-51).
 - Many requests in one stdin chunk work: the buffer is split on every `"\n"` in a loop; each line is `.trim()`ed; empty lines are skipped (src/mcp-server.ts:24-31).

@@ -139,7 +139,8 @@ function listReleaseTagsDesc() {
 
 // The most recent ALREADY-RELEASED tag as of right now, excluding any tag
 // that already points at HEAD (so this works whether run before tagging or
-// re-run on a freshly tagged commit — same intent as release-gate.sh).
+// re-run on a freshly tagged commit). release-gate.sh now uses the same
+// semver-ordered lookup (a bash port of this), so the two agree.
 function resolvePrevTag() {
   if (prevTagArg) return prevTagArg;
   const headTags = new Set(git(["tag", "--points-at", "HEAD"]).out.split("\n").filter(Boolean));
@@ -471,7 +472,11 @@ function resolveVerdictPrivateKey(value) {
   const trimmed = String(value).trim();
   if (trimmed.includes("BEGIN") && trimmed.includes("KEY")) return trimmed;
   if (fs.existsSync(trimmed)) return fs.readFileSync(trimmed, "utf8");
-  die(`CW_RELEASE_VERDICT_PRIVKEY does not point to a readable key file or inline PEM: ${trimmed}`);
+  // NEVER echo the value: if the operator set the var to inline key material
+  // that failed the BEGIN/KEY check (e.g. a raw base64 body), interpolating
+  // `trimmed` here would print the secret to stderr — which the oneclick flow
+  // tees into the operator's release log. Describe it instead.
+  die(`CW_RELEASE_VERDICT_PRIVKEY (length ${trimmed.length}) is neither a readable key file path nor an inline PEM (must contain BEGIN and KEY).`);
 }
 
 /** Called only after verifyVerdict() has confirmed resultPath's bytes are a
@@ -734,7 +739,14 @@ function preflightCut() {
   if (PUSH && git(["remote"]).out.split("\n").includes("origin")) {
     // remote tag must not exist (someone/some run already published this version)
     const remoteTag = git(["ls-remote", "origin", `refs/tags/v${cutVersion}`]);
-    if (remoteTag.code === 0 && remoteTag.out) {
+    // Fail CLOSED on a failed ls-remote: a non-zero exit (network blip, auth
+    // error) is NOT evidence the tag is absent. Treating it as "no remote tag"
+    // (the old `code === 0 && out` shape) let a transient failure skip the
+    // already-published guard and cut a version that may already exist.
+    if (remoteTag.code !== 0) {
+      die(`could not check origin for tag v${cutVersion} (git ls-remote failed) — refusing to cut blind`, remoteTag.err);
+    }
+    if (remoteTag.out) {
       die(`tag v${cutVersion} already exists on origin — this version is already published; pick the next version`);
     }
     // HEAD must be the current origin/main tip — cutting a stale HEAD publishes
@@ -756,6 +768,17 @@ function preflightCut() {
 // ---- 3. optional cut (bump + commit verdict + tag + push) ------------------
 function cut(resultPath, capability) {
   if (!cutVersion || !/^\d+\.\d+\.\d+$/.test(cutVersion)) die("--cut requires --version x.y.z");
+  // HEAD is captured once at process start (const HEAD) and everything the cut
+  // signs/tags is bound to it. The gate + vendor preflight + the ~30-minute
+  // reviewer all run in the shared checkout in between, and this repo runs
+  // concurrent agent sessions — so re-verify HEAD has not moved before we
+  // commit the verdict onto (and tag) it. Tagging an interloper commit would
+  // publish an immutable vX.Y.Z that CI then rejects (verdict filename != HEAD),
+  // burning the version number. Fail closed and let the operator re-run.
+  const headNow = git(["rev-parse", "HEAD"]).out;
+  if (headNow !== HEAD) {
+    die(`HEAD moved during the release flow (expected ${HEAD.slice(0, 12)}, now ${headNow.slice(0, 12)}) — re-run to restart the flow from the current HEAD`);
+  }
   if (DRY_RUN) { say(`[dry-run] would: bump:version ${cutVersion}, commit verdict, tag v${cutVersion}${PUSH ? `, push refs/tags/v${cutVersion} (tag only, no branch)` : ""}`); return; }
   const bump = spawnSync("npm", ["run", "bump:version", "--", cutVersion], { cwd: pluginRoot, encoding: "utf8", stdio: "inherit" });
   if (bump.status !== 0) die("bump:version failed");

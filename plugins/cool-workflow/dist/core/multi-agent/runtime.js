@@ -651,6 +651,13 @@ function collectAgentFanin(run, input, now) {
         ...missingRoleIds.map((roleId) => `required role ${roleId} has no membership`),
         ...missingMembershipIds.map((membershipId) => `membership ${membershipId} has not reported required evidence`),
     ];
+    // An aggregation gate that observed zero members must not report itself
+    // ready: with no required roles and no memberships every per-item check
+    // above is vacuously empty, which used to yield verifierReady:true for a
+    // fan-in over nothing (fail-open).
+    if (!requiredRoleIds.length && !scopedMemberships.length) {
+        blockedReasons.push("fan-in has no memberships and no required roles — nothing to aggregate");
+    }
     const requiredMemberships = scopedMemberships.filter((membership) => requiredRoleIds.includes(membership.roleId));
     const blackboardId = input.blackboardId || group.blackboardId || multiAgentRun.blackboardId;
     const requiresBlackboardEvidence = Boolean(blackboardId || requiredMemberships.some((membership) => membership.blackboardId));

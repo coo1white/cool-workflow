@@ -325,7 +325,13 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.view").mcp.handler = (args
         // renderCliResult: it is synchronous, so a genuinely blocking serve
         // must perform its own stdout write and keep the event loop alive
         // rather than returning a CliHandlerResult at all.
-        void host.run();
+        // run() already fails closed internally (a `cw:` line + exit 1) for the
+        // known bind failures; this .catch is a backstop so any future throw
+        // path can never surface as an unhandled-rejection stack dump.
+        void host.run().catch((error) => {
+            process.stderr.write(`cw: ${error instanceof Error ? error.message : String(error)}\n`);
+            process.exitCode = 1;
+        });
         return { json: undefined };
     },
 });

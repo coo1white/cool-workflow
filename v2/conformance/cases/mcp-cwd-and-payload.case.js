@@ -2,13 +2,13 @@
 "use strict";
 
 // mcp cwd + payload identity — args.cwd is resolved, must be a real
-// directory (else the raw ENOENT comes back as an isError:true result,
-// not a bare JSON-RPC error), and is used to re-base the runner so a
-// relative-path capability acts on the right repo, not the server's
-// own process cwd. Also pins that a payload for a "both"-surface
-// capability (cw_status) is byte-identical to the same command's
-// `cw status --json`, run over a real run built with the deterministic
-// stub agent (plan->dispatch->result->verify->commit).
+// directory (else a crafted "MCP cwd is not a directory" isError:true
+// result, not a bare JSON-RPC error and not a raw ENOENT), and is used to
+// re-base the runner so a relative-path capability acts on the right repo,
+// not the server's own process cwd. Also pins that a payload for a
+// "both"-surface capability (cw_status) is byte-identical to the same
+// command's `cw status --json`, run over a real run built with the
+// deterministic stub agent (plan->dispatch->result->verify->commit).
 
 const path = require("node:path");
 const { run, gitRepo, freshDir, caseMain, assert, stubAgentEnv } = require("../lib");
@@ -17,8 +17,9 @@ const { startServer, serverPathFor } = require("./fixtures/mcp-client");
 const CW_BIN = process.env.CW_BIN;
 
 caseMain(async () => {
-  // A missing cwd: the raw ENOENT should come back as an isError:true
-  // result, not a bare -32000 JSON-RPC error.
+  // A missing cwd: a crafted "not a directory" message comes back as an
+  // isError:true result (not a bare -32000 JSON-RPC error, and not a raw
+  // ENOENT — the crafted message is what the recovery-hint matcher keys on).
   const serverPath = serverPathFor(CW_BIN);
   const home = freshDir("mcp-home");
   const client = startServer(serverPath, { home });
@@ -29,7 +30,8 @@ caseMain(async () => {
     assert.equal(badCwd.error, undefined, "a failed tools/call is a result, not an error");
     assert.equal(badCwd.result.isError, true);
     const badCwdText = badCwd.result.content[0].text;
-    assert.match(badCwdText, /ENOENT/);
+    assert.match(badCwdText, /MCP cwd is not a directory/);
+    assert.ok(!/ENOENT/.test(badCwdText), "a missing cwd yields the crafted message, not a raw ENOENT");
     assert.ok(badCwdText.includes(missingDir), "error must name the resolved cwd");
 
     // A real run, built through the CLI with the deterministic stub agent.

@@ -54,6 +54,20 @@ assert.equal(url, undefined, "URL should return undefined");
 const outOfRange = extractEvidenceContent(`${testFile}:999`, [tmp], pathOps, readFile);
 assert.equal(outOfRange, undefined, "out of range line should return undefined");
 
+// Line-RANGE locator (":<n>-<m>", the same shape classify()'s LINE_SUFFIX_RE
+// accepts). This used to fall through to the head-of-file 200-char slice —
+// returning bytes with no relation to the cited lines.
+const range = extractEvidenceContent(`${testFile}:2-4`, [tmp], pathOps, readFile);
+assert.equal(range, "line two\nline three has evidence\nline four", "range locator must return exactly the cited lines");
+
+// Range clamped to the end of the file: start in range, end past it.
+const clamped = extractEvidenceContent(`${testFile}:3-999`, [tmp], pathOps, readFile);
+assert.equal(clamped, "line three has evidence\nline four\n", "range end past EOF is clamped, never fabricated");
+
+// Fully out-of-range and backwards ranges return undefined, never content.
+assert.equal(extractEvidenceContent(`${testFile}:999-1002`, [tmp], pathOps, readFile), undefined, "range starting past EOF returns undefined");
+assert.equal(extractEvidenceContent(`${testFile}:4-2`, [tmp], pathOps, readFile), undefined, "backwards range returns undefined");
+
 // --- Evidence resolution in default strict mode ---
 // This test runs in the smoke runner sandbox with CW_REQUIRE_RESOLVABLE_EVIDENCE=0,
 // so unresolvedFileEvidence returns [] (shape-only check). We verify the resolution

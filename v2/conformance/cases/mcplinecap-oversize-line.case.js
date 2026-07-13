@@ -65,6 +65,22 @@ caseMain(async () => {
     assert.equal(initReply.id, 900);
     assert.equal(initReply.result.protocolVersion, "2024-11-05");
     assert.equal(initReply.result.serverInfo.name, "cool-workflow");
+
+    // A line more than TWICE the cap must still yield EXACTLY ONE -32700,
+    // not one per 16MB crossed (the discard flag suppresses the duplicates).
+    // Proof by ordering: consume the single refusal, then terminate the line
+    // and send a normal request — the VERY NEXT reply must be that request's
+    // answer (id 901). A buggy build that emitted a second -32700 would put
+    // an extra id:null error line here instead.
+    const doubleOversize = Buffer.alloc(MAX_LINE_BYTES * 2 + 1, "b".charCodeAt(0));
+    client.writeRaw(doubleOversize);
+    const [secondRefusal] = await client.waitForCount(1, 20000);
+    assert.equal(secondRefusal.error.code, -32700, "an over-2x line still refuses with -32700");
+    client.writeRaw("\n");
+    client.send({ jsonrpc: "2.0", id: 901, method: "initialize", params: {} });
+    const [nextReply] = await client.waitForCount(1, 10000);
+    assert.equal(nextReply.id, 901, "the next reply is the follow-up request, not a duplicate -32700 (exactly one error per oversize line)");
+    assert.equal(nextReply.result.serverInfo.name, "cool-workflow", "the server still frames a normal request after a >2x oversize line");
   } finally {
     client.close();
   }

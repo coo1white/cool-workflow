@@ -10,6 +10,7 @@
 // Evidence: SPEC/multi-agent.md section J ("CLI verbs and MCP tools").
 
 import * as path from "node:path";
+import { parseBoolFlag } from "../core/util/cli-args";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { WorkflowRun } from "../core/state/types";
 import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
@@ -95,7 +96,10 @@ function numberArg(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 function boolArg(value: unknown): boolean {
-  return Boolean(value);
+  // parseBoolFlag reads "false"/"0"/"no"/"off" as false and throws on an
+  // unrecognized string — Boolean("false") is true, which silently
+  // ENABLED flags like `--allow-self-approval false` (fail-open).
+  return parseBoolFlag(value, "flag") ?? false;
 }
 /** `--multi-agent-run <id>` — parseArgv keeps kebab-case option keys
  *  verbatim (no camelCase folding), so this must check the literal

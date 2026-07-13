@@ -168,9 +168,15 @@ function evaluatePolicy(policy, operation, topicId, evidenceRefs) {
     }
     const missing = missingEvidence(policy, operation, evidenceRefs);
     if (missing.length)
-        return `operation ${operation} requires evidence refs: ${missing.join(", ")}`;
+        return `operation ${operation} requires evidence refs (at least one; expected kinds: ${missing.join(", ")})`;
     return undefined;
 }
+/** The requiredEvidenceFor entries are prose descriptions ("judge
+ *  messages", "score evidence"), not machine-matchable ids — so this can
+ *  only check that SOME evidence ref was supplied, not that each named
+ *  kind is present. The denial message above says exactly that ("at least
+ *  one; expected kinds: ...") rather than promising a per-item match this
+ *  check cannot do. */
 function missingEvidence(policy, operation, evidenceRefs) {
     if (!policy)
         return [];

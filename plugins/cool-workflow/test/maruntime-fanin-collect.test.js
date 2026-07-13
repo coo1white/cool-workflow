@@ -148,15 +148,17 @@ const workerExists = () => true;
   assert.deepEqual(fanin.requiredRoleIds, [role.id], "requiredRoleIds defaults to group.roleIds when omitted");
 }
 
-// Empty requiredRoleIds with no memberships -> immediately ready (no roles
-// to satisfy, nothing missing).
+// Empty requiredRoleIds with no memberships -> BLOCKED, not ready: an
+// aggregation gate that observed zero members has nothing to aggregate, so
+// reporting itself verifier-ready would be fail-open (P3 fix).
 {
   const run = makeRun("run-1");
   const mar = createMultiAgentRun(run, {}, NOW);
   const group = createAgentGroup(run, { multiAgentRunId: mar.id }, NOW, policyForGroup);
   const fanin = collectAgentFanin(run, { groupId: group.id, requiredRoleIds: [] }, NOW);
-  assert.equal(fanin.status, "ready");
-  assert.deepEqual(fanin.blockedReasons, []);
+  assert.equal(fanin.status, "blocked", "a fan-in over zero members and zero required roles must not be ready");
+  assert.equal(fanin.verifierReady, false, "verifierReady must be false for an empty fan-in");
+  assert.deepEqual(fanin.blockedReasons, ["fan-in has no memberships and no required roles — nothing to aggregate"]);
 }
 
 process.stdout.write("maruntime-fanin-collect: ok\n");

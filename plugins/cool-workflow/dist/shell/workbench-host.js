@@ -60,7 +60,28 @@ const http = __importStar(require("node:http"));
 const path = __importStar(require("node:path"));
 const node_url_1 = require("node:url");
 const workbench_1 = require("./workbench");
+// `[::1]` is the form Node's URL parser returns for a bracketed IPv6
+// literal Host header (verified); the bare `::1` covers a non-bracketed
+// header that our fallback split still yields. `.split(":")[0]` alone could
+// never produce either (it returns `[` or ``), so those entries used to be
+// dead — parseHostname below fixes that.
 const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
+/** Extract the hostname from a Host header, correctly handling a bracketed
+ *  IPv6 literal (`[::1]:7717`) that a naive `split(":")[0]` mangles into
+ *  `"["`. Returns undefined when the header cannot be parsed at all. */
+function parseHostname(hostHeader) {
+    try {
+        return new node_url_1.URL(`http://${hostHeader}`).hostname;
+    }
+    catch {
+        // A non-bracketed IPv6 literal (`::1`) is not a valid URL authority, so
+        // URL() throws — fall back to the raw header for that one case; a
+        // hostname:port still trims the port.
+        if (hostHeader.includes("]") || hostHeader.split(":").length > 2)
+            return hostHeader;
+        return hostHeader.split(":")[0];
+    }
+}
 function isTTY(stream) {
     return Boolean(stream.isTTY);
 }
@@ -93,6 +114,13 @@ function timingSafeEqual(a, b) {
     return crypto.timingSafeEqual(bufA, bufB);
 }
 function sendJson(res, status, body) {
+    // If a handler already began the response (e.g. an asset read threw AFTER
+    // writeHead), a second writeHead throws ERR_HTTP_HEADERS_SENT synchronously
+    // inside the request listener and kills the whole server. Guard against it.
+    if (res.headersSent) {
+        res.end();
+        return;
+    }
     const text = `${JSON.stringify(body, null, 2)}\n`;
     res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
     res.end(text);
@@ -145,8 +173,8 @@ class WorkbenchHost {
         try {
             const hostHeader = req.headers.host;
             if (hostHeader) {
-                const hostname = hostHeader.split(":")[0];
-                if (!ALLOWED_HOSTNAMES.has(hostname)) {
+                const hostname = parseHostname(hostHeader);
+                if (hostname === undefined || !ALLOWED_HOSTNAMES.has(hostname)) {
                     sendJson(res, 403, { error: "forbidden: non-localhost Host header" });
                     return;
                 }
@@ -202,7 +230,13 @@ class WorkbenchHost {
             }
             if (route === "/api/index") {
                 const scope = this.args.scope === "home" ? "home" : "repo";
-                sendJson(res, 200, (0, workbench_1.buildWorkbenchIndex)({ ...this.args, scope, ...Object.fromEntries(url.searchParams.entries()) }));
+                // Only `text` may be driven by the query string — it is the sidebar
+                // filter. Spreading ALL query params (as before) let a request
+                // override the server's computed `scope` or inject an arbitrary
+                // `cwd`, reading run data from any directory the serving user can
+                // read, past the repo the operator chose to serve.
+                const text = url.searchParams.get("text") || undefined;
+                sendJson(res, 200, (0, workbench_1.buildWorkbenchIndex)({ ...this.args, scope, ...(text ? { text } : {}) }));
                 return;
             }
             const runMatch = route.match(/^\/api\/run\/([^/]+)$/);
@@ -238,8 +272,13 @@ class WorkbenchHost {
             sendJson(res, 404, { error: `UI asset not installed: ${relative}` });
             return;
         }
+        // Read the bytes BEFORE writeHead: if the asset vanished or became
+        // unreadable between the checks above and here (TOCTOU), the throw
+        // then lands on the sendJson(500) path with headers not yet sent,
+        // instead of a fatal double-writeHead.
+        const bytes = fs.readFileSync(resolved);
         res.writeHead(200, { "Content-Type": contentTypeFor(resolved), "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
-        res.end(fs.readFileSync(resolved));
+        res.end(bytes);
     }
     /** Binds the loopback server and resolves once listening. Returns the
      *  actually-bound port (useful for `--port 0`). */
@@ -305,7 +344,21 @@ class WorkbenchHost {
             process.stdout.write(`${JSON.stringify(this.descriptor(true))}\n`);
             return;
         }
-        const boundPort = await this.listen();
+        // The bind itself can still fail at runtime (EADDRINUSE when the port
+        // is taken, EACCES on a privileged port) — listen() rejects for those.
+        // The port-VALUE check above only covers a malformed --port. Fail
+        // closed the same clean way rather than an unhandled-rejection crash.
+        let boundPort;
+        try {
+            boundPort = await this.listen();
+        }
+        catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            process.stderr.write(`cw: ${message}\n`);
+            process.stderr.write(`Try: pick another port with --port <n>, or stop whatever is already serving.\n`);
+            process.exitCode = 1;
+            return;
+        }
         const descriptor = this.descriptor(false, boundPort);
         process.stdout.write(`${JSON.stringify({ ...descriptor, boundPort })}\n`);
         printServeHint(boundPort);

@@ -148,6 +148,11 @@ function resultMessage(id, result) {
     if (id !== undefined)
         message.id = id;
     return message;
+    // NOTE: a notification-shaped request (initialize/tools/list/tools/call
+    // with no `id`) still gets a reply here, just without an `id` key — a
+    // deliberate deviation from strict JSON-RPC (which says a notification
+    // MUST NOT be answered) pinned by SPEC/mcp.md's edge-cases. Revisit only
+    // as a deliberate spec change, not as a drive-by fix.
 }
 /** Handles one already-parsed JSON-RPC request object. May write zero or
  *  one reply line to stdout. `await`ing callTool's result is a no-op for
@@ -183,6 +188,17 @@ async function handleRequest(message) {
             }
             case "tools/list": {
                 writeMessage(resultMessage(id, { tools: (0, dispatch_1.toolDefinitions)() }));
+                return;
+            }
+            case "ping": {
+                // MCP (2024-11-05, the version negotiateProtocolVersion advertises)
+                // makes ping mandatory: reply promptly with an EMPTY result. Hosts
+                // ping for keep-alive and may drop a connection that never answers.
+                // Answered here in the fast protocol path (not the serial tool
+                // queue), so a ping during a long cw_run drive still gets a reply.
+                // A ping notification (no id) gets no reply, per JSON-RPC.
+                if (hasId)
+                    writeMessage(resultMessage(id, {}));
                 return;
             }
             case "tools/call": {
@@ -257,10 +273,18 @@ async function handleLine(line) {
  *  tool but `cw_run` is still a plain synchronous handler), so this adds
  *  no real delay, but it keeps replies in the same order the requests
  *  arrived even now that one tool (`cw_run`'s live drive loop) can take
- *  many real event-loop turns to answer. */
+ *  many real event-loop turns to answer. The one exception is `ping`,
+ *  answered in handleRequest's fast path before any tool work, so a
+ *  keep-alive ping still gets a reply while a long drive holds the queue. */
 function startServer() {
     process.stdin.setEncoding("utf8");
     let buffer = "";
+    // True while the REST of an oversize line is still streaming in: emit one
+    // -32700 for the whole line and skip everything up to its terminating
+    // newline, instead of dropping the head and then re-parsing the tail as a
+    // fresh (also-failing) line — which produced a second, spurious parse
+    // error per 16MB crossed.
+    let discarding = false;
     let queue = Promise.resolve();
     // Chain each task onto `queue` WITH a per-task `.catch`. The `.catch` is
     // load-bearing, not decoration: a task here can reject — a raw
@@ -282,6 +306,19 @@ function startServer() {
     process.stdin.on("data", (chunk) => {
         buffer += chunk;
         for (;;) {
+            if (discarding) {
+                // Skip the rest of an oversize line already reported. Until its
+                // terminating newline arrives, throw away what we have (so a huge
+                // line can't grow the buffer unboundedly); once found, resume
+                // normal parsing from the next line with no second error.
+                const nl = buffer.indexOf("\n");
+                if (nl === -1) {
+                    buffer = "";
+                    break;
+                }
+                buffer = buffer.slice(nl + 1);
+                discarding = false;
+            }
             const newlineIndex = buffer.indexOf("\n");
             if (newlineIndex === -1)
                 break;
@@ -291,8 +328,13 @@ function startServer() {
             if (trimmed)
                 enqueue(() => handleLine(trimmed));
         }
-        if (buffer.length > MAX_LINE_BYTES) {
+        // No newline yet and the pending (unterminated) line already exceeds the
+        // cap: report ONCE, drop the head, and discard the rest of this line
+        // until its newline arrives (guarded by `discarding` so a >32MB line
+        // yields a single -32700, not one per 16MB crossed).
+        if (!discarding && buffer.length > MAX_LINE_BYTES) {
             buffer = "";
+            discarding = true;
             enqueue(() => {
                 writeMessage(errorMessage(null, -32700, `Parse error: request line exceeds ${MAX_LINE_BYTES} bytes`));
             });

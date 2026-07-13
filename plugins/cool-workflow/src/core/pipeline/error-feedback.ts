@@ -124,7 +124,7 @@ function sourceFor(classification: ErrorFeedbackClassification): ErrorFeedbackSo
   return "manual";
 }
 
-/** Feedback dedup key: joined with `` (runId, code, message, nodeId,
+/** Feedback dedup key: joined with the ASCII unit separator "\u001f" (runId, code, message, nodeId,
  *  stageId, contractId, path). */
 export function feedbackKey(value: {
   runId?: string;
@@ -136,7 +136,7 @@ export function feedbackKey(value: {
   path?: string;
 }): string {
   return [value.runId || "", value.code || "", value.message || "", value.nodeId || "", value.stageId || "", value.contractId || "", value.path || ""].join(
-    ""
+    "\u001f"
   );
 }
 

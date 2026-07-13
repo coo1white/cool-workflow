@@ -113,6 +113,7 @@ exports.evalScoreCli = evalScoreCli;
 exports.evalGateCli = evalGateCli;
 exports.evalReportCli = evalReportCli;
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const numeric_flag_1 = require("../core/util/numeric-flag");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
@@ -188,7 +189,10 @@ function numberArg(value) {
     return Number.isFinite(parsed) ? parsed : undefined;
 }
 function boolArg(value) {
-    return Boolean(value);
+    // parseBoolFlag reads "false"/"0"/"no"/"off" as false and throws on an
+    // unrecognized string — Boolean("false") is true, which silently
+    // ENABLED flags like `--allow-self-approval false` (fail-open).
+    return (0, cli_args_1.parseBoolFlag)(value, "flag") ?? false;
 }
 /** `--multi-agent-run <id>` — parseArgv keeps kebab-case option keys
  *  verbatim (no camelCase folding), so this must check the literal

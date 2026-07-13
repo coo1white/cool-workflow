@@ -178,6 +178,33 @@ assert.equal(runHook({ command: "ls -la" }).code, 0, "unrelated command must be 
   assert.equal(r.code, 2, "a global flag before the tag subcommand must still be blocked");
 }
 
+// ---- Broadened flag/quote coverage (previous regex gap: only -a/--annotate
+// were tolerated before the tag name, and a quoted tag name / --mirror push
+// slipped through entirely). All of these create/push a v<digit> tag and must
+// be blocked without markers. ----
+{
+  clearMarkers();
+  for (const command of [
+    "git tag -s v9.9.9",
+    "git tag -f v9.9.9",
+    'git tag -m "release notes" v9.9.9',
+    "git tag -s -m x v9.9.9",
+    "git tag 'v9.9.9'",
+    'git tag "v9.9.9"',
+    "git push origin 'v9.9.9'",
+    'git push origin "v9.9.9"',
+    "git push --mirror",
+  ]) {
+    const r = runHook({ command });
+    assert.equal(r.code, 2, `must block an unreviewed tag command: ${command}`);
+  }
+}
+// A read-only `git tag -l` / `--list` creates no tag and must stay allowed.
+{
+  assert.equal(runHook({ command: "git tag -l" }).code, 0, "git tag -l (list) must stay allowed");
+  assert.equal(runHook({ command: "git tag --list 'v*'" }).code, 0, "git tag --list must stay allowed");
+}
+
 // ---- Verdict signing (opt-in): once .cw-release/verdict-signing.pub is
 // committed, an APPROVED verdict with no valid signature must also block ----
 const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");

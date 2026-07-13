@@ -497,11 +497,34 @@ export class DesktopSchedulerDaemon {
     return { checkedAt, dueCount: due.length, dueIds: due.map((task) => task.id), inboxPath };
   }
 
+  /** One tick, guarded. A long-running daemon must survive a transient
+   *  failure — chiefly file-lock contention when a concurrent `cw schedule`
+   *  command holds tasks.json (withFileLock gives up after ~6s). Returns
+   *  true to keep going, false to stop the daemon cleanly.
+   *  - lock contention → warn to STDERR (stdout stays pure NDJSON), keep going;
+   *  - any other error (e.g. a corrupt tasks.json) → one `cw:` line + stop,
+   *    a clean fail-closed shutdown instead of a raw stack dump. */
+  private safeTick(): boolean {
+    try {
+      process.stdout.write(`${JSON.stringify(this.tick())}\n`);
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/could not acquire file lock/i.test(message)) {
+        process.stderr.write(`cw: schedule daemon: skipped a tick (${message})\n`);
+        return true;
+      }
+      process.stderr.write(`cw: ${message}\n`);
+      process.exitCode = 1;
+      return false;
+    }
+  }
+
   async run(): Promise<void> {
     fs.mkdirSync(path.join(this.cwd, ".cw", "schedules"), { recursive: true });
-    process.stdout.write(`${JSON.stringify(this.tick())}\n`);
-    setInterval(() => {
-      process.stdout.write(`${JSON.stringify(this.tick())}\n`);
+    if (!this.safeTick()) return;
+    const timer = setInterval(() => {
+      if (!this.safeTick()) clearInterval(timer);
     }, Math.max(1, this.intervalSeconds) * 1000);
   }
 }

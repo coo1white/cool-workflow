@@ -123,6 +123,16 @@ const NOW = "2026-07-04T00:00:00.000Z";
   const SEP = "\u001f";
   assert.equal(feedbackKey({}), ["", "", "", "", "", "", ""].join(SEP), "an entirely empty input produces six U+001F separators between seven empty strings");
 }
+// The U+001F separator (not an empty join) keeps adjacent fields from
+// colliding at their boundary: {code:"ab",message:"c"} vs {code:"a",message:"bc"}
+// must produce DISTINCT keys.
+{
+  assert.notEqual(
+    feedbackKey({ code: "ab", message: "c" }),
+    feedbackKey({ code: "a", message: "bc" }),
+    "the field separator must prevent boundary collisions between adjacent fields"
+  );
+}
 
 // findExistingFeedback: matches only UNRESOLVED records (status !==
 // "resolved") with identical {code,message,nodeId,stageId,contractId,path}.

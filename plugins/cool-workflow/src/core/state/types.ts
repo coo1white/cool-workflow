@@ -229,6 +229,8 @@ export interface PipelineArtifactPolicy {
 
 export interface PipelineEvidencePolicy {
   requireEvidence?: boolean;
+  /** Byte-compat carry-over from the old build's default contract — NOT
+   *  enforced by any gate (see createDefaultPipelineContract's note). */
   highPriorityRequiresEvidence?: boolean;
 }
 

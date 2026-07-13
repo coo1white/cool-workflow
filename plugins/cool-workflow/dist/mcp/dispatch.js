@@ -81,6 +81,22 @@ function requiredToolArguments(name, value) {
     }
     return args;
 }
+/** MCP clients send JSON, so an argument the CLI would receive as a string
+ *  can arrive as a number or boolean (e.g. `{"runId": 5}`). Every capability
+ *  handler coerces its args through optionalString/numberArg/boolArg, all of
+ *  which expect the CLI's string form — optionalString silently DROPS a
+ *  number, so `{"runId": 5}` used to look like "no runId given" and returned
+ *  a success-shaped WRONG answer (the "create a run first" payload). Coerce
+ *  top-level scalars to their string form so an MCP arg behaves exactly like
+ *  the CLI's argv, which is always strings. Arrays/objects (e.g.
+ *  authorizedRoles) pass through untouched; null/undefined stay absent. */
+function coerceScalarArgs(args) {
+    const out = {};
+    for (const [key, value] of Object.entries(args)) {
+        out[key] = typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value) : value;
+    }
+    return out;
+}
 /** `callTool(name, args)` — resolves `cwd` (SPEC/mcp.md invariant 7),
  *  checks required args, then calls the row's `mcp.handler`. Throws
  *  `Unknown tool: <name>` for a name with no row (src/mcp/tool-call.ts:513
@@ -90,12 +106,16 @@ function callTool(name, rawArgs) {
     if (!row || !row.mcp) {
         throw new Error(`Unknown tool: ${name}`);
     }
-    const args = requiredToolArguments(name, rawArgs);
+    const args = coerceScalarArgs(requiredToolArguments(name, rawArgs));
     const resolvedArgs = { ...args };
     const cwdInput = args.cwd;
     if (typeof cwdInput === "string" && cwdInput.length > 0) {
         const resolved = path.resolve(cwdInput);
-        if (!fs.statSync(resolved).isDirectory()) {
+        // throwIfNoEntry:false so a MISSING cwd yields the same crafted
+        // "not a directory" message as a non-dir path — not a raw ENOENT that
+        // gives the recovery-hint matcher nothing to key on.
+        const stat = fs.statSync(resolved, { throwIfNoEntry: false });
+        if (!stat || !stat.isDirectory()) {
             throw new Error(`MCP cwd is not a directory: ${resolved}`);
         }
         resolvedArgs.cwd = resolved;

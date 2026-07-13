@@ -18,6 +18,7 @@
 
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
+const http = require("node:http");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
@@ -103,4 +104,28 @@ for (const [args, expected] of [
   assert.equal(descriptor.port, expected, `${args.join(" ")} must report port ${expected}`);
 }
 
-process.stdout.write("workbench-port-range-smoke: ok\n");
+// --- (4) A VALID but BUSY port (EADDRINUSE) must also fail closed cleanly.
+// The port-range guard only covers a malformed --port value; the bind itself
+// can still fail at runtime when the port is taken. That reject used to
+// surface as an unhandled-rejection stack dump on the un-awaited
+// `void host.run()`; it must now be a clean `cw:` line + exit 1. ---
+(async () => {
+  const blocker = http.createServer((_req, res) => res.end("busy"));
+  await new Promise((resolve) => blocker.listen(0, "127.0.0.1", resolve));
+  const busyPort = blocker.address().port;
+  try {
+    const label = `busy port ${busyPort}`;
+    const r = run(["workbench", "serve", "--port", String(busyPort)]);
+    assert.equal(r.code, 1, `${label} must exit 1, got ${r.code} (stderr: ${r.stderr})`);
+    assert.match(r.stderr, /^cw: /m, `${label} must fail as a clean cw: line`);
+    assert.match(r.stderr, /EADDRINUSE|address already in use|Try:/i, `${label} must explain the bind failure`);
+    assert.equal(r.stdout, "", `${label} must not emit a descriptor / bind`);
+    assertNoCrash(r, label);
+  } finally {
+    blocker.close();
+  }
+  process.stdout.write("workbench-port-range-smoke: ok\n");
+})().catch((error) => {
+  process.stderr.write(`workbench-port-range-smoke: ${error instanceof Error ? error.stack : String(error)}\n`);
+  process.exitCode = 1;
+});
