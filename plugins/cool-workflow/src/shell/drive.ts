@@ -730,11 +730,15 @@ export function driveStep(ctx: DriveContext): DriveStep {
 /** Dispatch every batch task (sequential — dispatch mutates state), then
  *  collect ALL spawn-style agent child outcomes in one concurrent window
  *  (one batch delegate child process, per-job timeout kill). Returns
- *  outcomes keyed by task id; a cache-hit or endpoint-configured agent
- *  gets no prepared outcome and settles through the serial accept path
- *  inside processSelectedTask. Dispatch failures become recorded fail
- *  steps up front, exactly what the serial path would emit. Byte-exact
- *  to the old build's src/drive.ts's prepareConcurrentOutcomes. */
+ *  outcomes keyed by task id; a cache-hit, endpoint-configured agent, or
+ *  sub-workflow task gets no prepared outcome and settles through the
+ *  serial accept path inside processSelectedTask (a sub-workflow task
+ *  is never spawn-eligible in the first place — processSelectedTask
+ *  always takes its own runSubWorkflow branch for it, so building a
+ *  spawn job here would only be spawned and thrown away unused).
+ *  Dispatch failures become recorded fail steps up front, exactly what
+ *  the serial path would emit. Byte-exact to the old build's
+ *  src/drive.ts's prepareConcurrentOutcomes. */
 function prepareConcurrentOutcomes(
   ctx: DriveContext,
   batch: string[]
@@ -742,6 +746,14 @@ function prepareConcurrentOutcomes(
   const failSteps = new Map<string, DriveStep>();
   const jobs: Array<ReturnType<typeof prepareAgentSpawn> & { env?: NodeJS.ProcessEnv }> = [];
   const jobTaskIds: string[] = [];
+  // Set whenever a task's status flips pending -> running (workerId
+  // assigned) this round, regardless of whether it later becomes a real
+  // spawn job, a cache hit, or a sub-workflow task. That dispatch is a
+  // real state mutation on the round-cached run object that nothing has
+  // written to disk yet — the pre-spawn checkpoint below must flush it
+  // even when the batch produces zero spawn jobs (e.g. an all-sub-workflow
+  // batch), or a crash before the round-end flush loses the dispatch.
+  let dispatchedThisRound = false;
 
   for (const taskId of batch) {
     const run = loadRun(ctx);
@@ -756,6 +768,7 @@ function prepareConcurrentOutcomes(
         continue;
       }
       workerId = dispatchedTask.workerId;
+      dispatchedThisRound = true;
     }
     if (!workerId) {
       failSteps.set(taskId, makeStep("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "no worker scope for task" }));
@@ -781,6 +794,13 @@ function prepareConcurrentOutcomes(
       delegationDigest
     );
     if (cachePath && fs.existsSync(cachePath)) continue;
+    // A sub-workflow task never goes through the spawn path — processSelectedTask
+    // checks task.subWorkflow before it ever looks at a prepared spawn outcome
+    // and always takes its own runSubWorkflow branch instead (mirrors that
+    // check byte-for-byte). Building a spawn job for it here would just be a
+    // real agent child spawned and then thrown away unused.
+    const subWorkflow = task.subWorkflow as { appId: string; inputs?: Record<string, string>; bindResult?: string } | undefined;
+    if (subWorkflow) continue;
     const job = prepareAgentSpawn({
       schemaVersion: 1,
       runId: ctx.runId,
@@ -805,13 +825,19 @@ function prepareConcurrentOutcomes(
 
   if (jobs.length) {
     emitProgress(`⇉ concurrent round: ${jobs.length} agent${jobs.length > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
+  }
+  if (jobs.length || dispatchedThisRound) {
     // Every task above that reached "pending" got dispatched (workerId
     // assigned) in the round-cached run object, but nothing durable was
     // written for it — unlike the serial path's own dispatch branch, which
     // always checkpoints immediately. Flush now, BEFORE the batch's long
-    // spawn window opens: a crash mid-spawn (which can run for minutes)
-    // then leaves state.json correctly showing these tasks as dispatched,
-    // instead of losing the dispatch entirely.
+    // settle window opens: a crash mid-spawn OR mid-sub-workflow-recursion
+    // (both can run for minutes) then leaves state.json correctly showing
+    // these tasks as dispatched, instead of losing the dispatch entirely.
+    // Gated on dispatchedThisRound (not just jobs.length) so a batch made
+    // entirely of sub-workflow and/or cache-hit tasks — which builds zero
+    // spawn jobs — still gets this flush before its long-running settle
+    // loop starts.
     saveCheckpoint(loadRun(ctx));
   }
   const settled = runAgentBatchOutcomes(jobs as Parameters<typeof runAgentBatchOutcomes>[0]);

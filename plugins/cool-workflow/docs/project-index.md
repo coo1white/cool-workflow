@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 - Source modules: `149`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `223`
+- Smoke tests: `225`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -327,6 +327,8 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [concurrency-default-smoke.js](../test/concurrency-default-smoke.js)
 - [concurrent-failure-semantics-smoke.js](../test/concurrent-failure-semantics-smoke.js)
 - [concurrent-subworkflow-cache-nesting-smoke.js](../test/concurrent-subworkflow-cache-nesting-smoke.js)
+- [concurrent-subworkflow-no-wasted-spawn-smoke.js](../test/concurrent-subworkflow-no-wasted-spawn-smoke.js)
+- [concurrent-subworkflow-only-batch-sigkill-smoke.js](../test/concurrent-subworkflow-only-batch-sigkill-smoke.js)
 - [concurrent-workflow-dsl-smoke.js](../test/concurrent-workflow-dsl-smoke.js)
 - [container-backend-sandbox-deny-smoke.js](../test/container-backend-sandbox-deny-smoke.js)
 - [contract-migration-tooling-smoke.js](../test/contract-migration-tooling-smoke.js)
