@@ -23,3 +23,11 @@
 ITERATION_LOG.md merge=union
 CHANGELOG.md merge=union
 
+# GitHub Linguist: keep the Languages bar to JS/TS. These files are needed
+# and cannot be JS (a Homebrew formula must be Ruby; the workbench UI serves
+# its html/css from disk by design) -- this excludes them from the language
+# STATS only, nothing about their behavior changes.
+Formula/** linguist-vendored
+plugins/cool-workflow/ui/workbench/*.css linguist-documentation
+plugins/cool-workflow/ui/workbench/*.html linguist-documentation
+

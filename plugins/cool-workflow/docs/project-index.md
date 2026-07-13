@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 - Source modules: `151`
 - Workflow apps: `8`
 - Docs: `62`
-- Smoke tests: `232`
+- Smoke tests: `234`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -302,6 +302,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [backend-registry-smoke.js](../test/backend-registry-smoke.js)
 - [batch-delegate-error-flush-smoke.js](../test/batch-delegate-error-flush-smoke.js)
 - [batch-output-overflow-smoke.js](../test/batch-output-overflow-smoke.js)
+- [bench-run-smoke.js](../test/bench-run-smoke.js)
 - [blackboard-state-explosion-management-smoke.js](../test/blackboard-state-explosion-management-smoke.js)
 - [block-unapproved-tag-smoke.js](../test/block-unapproved-tag-smoke.js)
 - [budget-scaling-loop-smoke.js](../test/budget-scaling-loop-smoke.js)
@@ -509,6 +510,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [vendor-preflight-smoke.js](../test/vendor-preflight-smoke.js)
 - [verdict-signing-workflow-smoke.js](../test/verdict-signing-workflow-smoke.js)
 - [verifier-gated-commit-smoke.js](../test/verifier-gated-commit-smoke.js)
+- [verify-audit-cites-smoke.js](../test/verify-audit-cites-smoke.js)
 - [verify-bump-reproduction-smoke.js](../test/verify-bump-reproduction-smoke.js)
 - [verify-import-audit-chain-smoke.js](../test/verify-import-audit-chain-smoke.js)
 - [web-desktop-workbench-smoke.js](../test/web-desktop-workbench-smoke.js)

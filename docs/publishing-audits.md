@@ -118,7 +118,7 @@ what the finding says.** Verification has three layers:
 **Do this before putting it out:**
 
 - Take out every cite pattern from the report and make sure of existence + in-range line numbers
-  with the script in [`docs/scripts/verify-audit-cites.sh`](scripts/verify-audit-cites.sh).
+  with the script in [`docs/scripts/verify-audit-cites.js`](scripts/verify-audit-cites.js).
 - Spot-check ≥5 of the highest-severity cites by hand: open the line, make sure the code
   is the same as the finding's words. The example's P1-1 is the model — it names
   `worker-isolation.ts:622` *and* says just what that line does

@@ -20,7 +20,7 @@
 // Point CW at it (from plugins/cool-workflow/), keeping your inner agent intact:
 //   CW_AGENT_ATTEST_PRIVKEY=$PWD/cw-attest.key \
 //   CW_AGENT_COMMAND="node $PWD/scripts/agents/cw-attest-wrap.js --manifest {{manifest}} -- \
-//     bash $PWD/scripts/agents/claude-p-agent.sh {{input}} {{result}}"
+//     node $PWD/scripts/agents/claude-p-agent.js {{input}} {{result}}"
 // and configure CW's verify side: CW_AGENT_ATTEST_PUBKEY=$PWD/cw-attest.pub
 //
 // Honest posture: if no private key is set, or the agent reports no usage, the
