@@ -195,4 +195,110 @@ function baseEnv(dir, extra = {}) {
     "the fix must die at the failed add, before the commit step");
 }
 
-process.stdout.write("release-flow-cut-hardening-smoke: ok (missing/empty reviewer prompt fails closed; cut() surfaces a failed git add)\n");
+// Shared setup for a fixture that can reach verifyVerdict/signVerdict/cut: a
+// non-empty reviewer prompt, a no-op bump/sync package.json, a minimal dist
+// agent-config loader, and a stub reviewer agent that writes an APPROVED
+// verdict for STUB_SHA. `agentBody` is the stub agent's JS (it receives the
+// verdict path as process.argv[2]).
+function prepareCutFixture(dir, agentBody) {
+  fs.mkdirSync(path.join(dir, "agents"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "agents", "release-reviewer.md"),
+    "---\nname: release-reviewer\n---\n\nReview the release candidate with zero trust.\n");
+  fs.writeFileSync(path.join(dir, "package.json"),
+    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "true", "sync:project-index": "true" } }, null, 2) + "\n");
+  fs.mkdirSync(path.join(dir, "dist", "shell"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "dist", "shell", "agent-config.js"),
+    "\"use strict\";\n" +
+    "function resolveAgentConfig(flags, env) {\n" +
+    "  const cmd = (flags && flags['agent-command']) || (env && env.CW_AGENT_COMMAND) || '';\n" +
+    "  if (!cmd) return { source: 'none', command: '', endpoint: '', model: '' };\n" +
+    "  return { source: 'env', command: cmd, endpoint: '', model: '' };\n" +
+    "}\n" +
+    "module.exports = { resolveAgentConfig };\n");
+  const agent = path.join(dir, "stub-agent.js");
+  fs.writeFileSync(agent, agentBody);
+  run("git", ["add", "-A"], dir);
+  run("git", ["commit", "-q", "-m", "cut fixture"], dir);
+  return agent;
+}
+
+// ---- P3-2: resolveVerdictPrivateKey must NOT echo the secret value ----------
+// A CW_RELEASE_VERDICT_PRIVKEY that is neither a readable file nor a valid PEM
+// (e.g. a raw base64 body with no BEGIN/KEY markers) must die WITHOUT printing
+// the value — the oneclick flow tees stderr into the operator's release log.
+{
+  const dir = fixture();
+  const agent = prepareCutFixture(dir,
+    "const fs = require('node:fs');\n" +
+    "fs.writeFileSync(process.argv[2], 'APPROVED ' + process.env.STUB_SHA + '\\nstub: capability.\\n');\n" +
+    "process.exit(0);\n");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const secret = "SUPERSECRETKEYMATERIALbase64AAAABBBBCCCCDDDD";
+  const env = baseEnv(dir, {
+    STUB_SHA: sha,
+    CW_AGENT_COMMAND: `node ${agent} {{result}}`,
+    CW_RELEASE_VERDICT_PRIVKEY: secret // bogus inline value: no BEGIN/KEY, not a path
+  });
+  const r = run("node", [flowPath(dir), "--check"], dir, env);
+  assert.equal(r.code, 1, "a bogus inline PRIVKEY must fail closed at signing time");
+  assert.ok(!r.err.includes(secret) && !r.out.includes(secret),
+    "the failure message must NOT echo the secret key value");
+  assert.match(r.err, /is neither a readable key file path nor an inline PEM/,
+    "must explain the PRIVKEY is neither a path nor a PEM (without printing it)");
+}
+
+// ---- P3-3: cut() re-checks HEAD before committing/tagging -------------------
+// HEAD is captured at process start; the reviewer runs in between. If another
+// actor moves HEAD in that window, cut() must die rather than tag an interloper
+// commit (burning the version). The stub agent makes an empty commit (moving
+// HEAD) right before it writes its APPROVED verdict.
+{
+  const dir = fixture();
+  const realGit = resolveRealGit();
+  const agent = prepareCutFixture(dir,
+    "const { spawnSync } = require('node:child_process');\n" +
+    "const fs = require('node:fs');\n" +
+    "// Move HEAD out from under the flow, simulating a concurrent commit.\n" +
+    "spawnSync(process.env.CW_REAL_GIT, ['commit', '--allow-empty', '-q', '-m', 'interloper'], { cwd: process.env.FIXTURE_DIR, stdio: 'inherit' });\n" +
+    "fs.writeFileSync(process.argv[2], 'APPROVED ' + process.env.STUB_SHA + '\\nstub: capability.\\n');\n" +
+    "process.exit(0);\n");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const env = baseEnv(dir, {
+    CW_SKIP_VENDOR_PREFLIGHT: "1",
+    STUB_SHA: sha,
+    CW_AGENT_COMMAND: `node ${agent} {{result}}`,
+    CW_REAL_GIT: realGit,
+    FIXTURE_DIR: dir
+  });
+  const r = run("node", [flowPath(dir), "--cut", "--version", "99.99.99"], dir, env);
+  assert.equal(r.code, 1, "a HEAD that moved during the flow must abort the cut");
+  assert.match(r.err, /HEAD moved during the release flow/i, "must explain that HEAD moved");
+  // No tag was created (the abort happens before git tag).
+  const tags = run("git", ["tag", "-l", "v99.99.99"], dir).out.trim();
+  assert.equal(tags, "", "no tag may be created when HEAD moved");
+}
+
+// ---- P3-4: a failed ls-remote must fail the cut CLOSED, not skip the check --
+// The cut preflight's "already published?" check must not read a transient
+// ls-remote failure as "tag absent". origin points at a nonexistent path, so
+// ls-remote fails; the cut must refuse rather than cut blind.
+{
+  const dir = fixture();
+  const agent = prepareCutFixture(dir,
+    "const fs = require('node:fs');\n" +
+    "fs.writeFileSync(process.argv[2], 'APPROVED ' + process.env.STUB_SHA + '\\nstub: capability.\\n');\n" +
+    "process.exit(0);\n");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  // An origin that cannot be reached: ls-remote against it fails (non-zero).
+  run("git", ["remote", "add", "origin", path.join(dir, "no-such-remote.git")], dir);
+  const env = baseEnv(dir, {
+    CW_SKIP_VENDOR_PREFLIGHT: "1",
+    STUB_SHA: sha,
+    CW_AGENT_COMMAND: `node ${agent} {{result}}`
+  });
+  const r = run("node", [flowPath(dir), "--cut", "--push", "--version", "99.99.99"], dir, env);
+  assert.equal(r.code, 1, "a --push cut with an unreachable origin must fail closed");
+  assert.match(r.err, /refusing to cut blind/i, "must refuse rather than treat a failed ls-remote as 'tag absent'");
+}
+
+process.stdout.write("release-flow-cut-hardening-smoke: ok (missing/empty reviewer prompt fails closed; cut() surfaces a failed git add; privkey not echoed; HEAD-moved + ls-remote-fail fail closed)\n");

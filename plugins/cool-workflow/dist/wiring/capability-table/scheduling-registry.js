@@ -76,8 +76,14 @@ function firstPositionalArg(args, index = 0) {
                     return { json: registryCli.scheduleDaemonTickCli(args.options) };
                 // Never returns (matches the old build's forever daemon loop);
                 // the process stays alive via the DesktopSchedulerDaemon's own
-                // setInterval, printing one tick line per interval.
-                void registryCli.scheduleDaemonRunForever(args.options);
+                // setInterval, printing one tick line per interval. The daemon's
+                // run() already guards each tick and fails closed with a `cw:`
+                // line; this .catch is a backstop against any unguarded throw so
+                // it can never surface as an unhandled-rejection stack dump.
+                void registryCli.scheduleDaemonRunForever(args.options).catch((error) => {
+                    process.stderr.write(`cw: ${error instanceof Error ? error.message : String(error)}\n`);
+                    process.exitCode = 1;
+                });
                 return {};
             }
             default:

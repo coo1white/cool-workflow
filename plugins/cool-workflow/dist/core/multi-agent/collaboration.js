@@ -36,6 +36,7 @@ exports.listComments = listComments;
 exports.distinctTargets = distinctTargets;
 exports.formatReviewStatus = formatReviewStatus;
 exports.formatCommentList = formatCommentList;
+const cli_args_1 = require("../util/cli-args");
 const collate_1 = require("../util/collate");
 exports.COLLABORATION_SCHEMA_VERSION = 1;
 /** The single, honest stand-in for an absent identity. */
@@ -166,10 +167,10 @@ function buildHandoff(input, handoffCount, runId, now, auditEventId) {
         auditEventIds: [auditEventId],
     });
 }
-/** Boolean-coerce a defined tri-state flag; leave `undefined` alone so the
+/** Parse a defined tri-state flag; leave `undefined` alone so the
  *  caller's `?? existing ?? default` chain still governs an unset flag. */
-function coerceFlag(value) {
-    return value === undefined ? undefined : Boolean(value);
+function coerceFlag(value, label) {
+    return (0, cli_args_1.parseBoolFlag)(value, label);
 }
 function toNumber(value, fallback) {
     if (value === undefined || value === null || value === "" || value === true)
@@ -201,8 +202,8 @@ function buildReviewPolicy(input, existing, now) {
         id: existing?.id || createCollabId("policy", 0),
         requiredApprovals: Math.max(0, Math.floor(toNumber(input.requiredApprovals, existing?.requiredApprovals ?? 0))),
         authorizedRoles: toStringList(input.authorizedRoles, existing?.authorizedRoles ?? ["*"]),
-        allowSelfApproval: coerceFlag(input.allowSelfApproval) ?? existing?.allowSelfApproval ?? false,
-        requireAttestedActor: coerceFlag(input.requireAttestedActor) ?? existing?.requireAttestedActor ?? false,
+        allowSelfApproval: coerceFlag(input.allowSelfApproval, "allowSelfApproval") ?? existing?.allowSelfApproval ?? false,
+        requireAttestedActor: coerceFlag(input.requireAttestedActor, "requireAttestedActor") ?? existing?.requireAttestedActor ?? false,
         appliesTo: toTargetKindList(input.appliesTo, existing?.appliesTo ?? ["commit"]),
         updatedAt: now,
     };

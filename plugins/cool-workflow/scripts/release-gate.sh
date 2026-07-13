@@ -11,17 +11,33 @@ FAIL=0
 say() { printf '%s\n' "$*"; }
 fail() { say "GATE FAIL: $*"; FAIL=1; }
 
-# Resolve the PREVIOUS release tag. When this script runs from CI on a tag push
-# (.github/workflows/release-gate.yml), HEAD already carries the tag being
-# released, so a plain `git describe` returns *that* tag and the diff range
-# collapses to empty — making substance/evidence/cadence false-fail every real
-# release. Exclude any tag that points at HEAD so we always compare against the
-# prior release (the parent commit's nearest tag).
+# Resolve the PREVIOUS release tag by SEMVER ORDER, not ancestry. Since the
+# tag-only-push release design, a release tag is a one-hop leaf off an old main
+# tip and is NEVER an ancestor of main — so `git describe --tags` (which walks
+# ancestry backward) silently SKIPS the true previous release tag and lands one
+# or more releases too far back, making the substance/test-evidence/cadence
+# checks below compare against the wrong baseline and pass permanently (verified
+# live: `git describe --tags v0.2.4^` -> v0.2.2, skipping v0.2.3). release-flow.js
+# hit the exact same bug and switched to a semver-ordered lookup
+# (listReleaseTagsDesc, ITERATION_LOG cycles 35/36); this is the bash port.
+# Pick the highest vX.Y.Z tag that does NOT already point at HEAD (so it works
+# whether run before tagging or re-run on a freshly tagged commit). The awk
+# zero-pads each component into a lexically-sortable key so plain `sort` yields
+# semver order without relying on `sort -V` (absent on some platforms).
 HEAD_TAGS="$(git tag --points-at HEAD 2>/dev/null || echo "")"
-PREV_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo "")"
-if [[ -n "$HEAD_TAGS" ]] && printf '%s\n' "$HEAD_TAGS" | grep -qxF "$PREV_TAG"; then
-  PREV_TAG="$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")"
-fi
+PREV_TAG=""
+while IFS= read -r _tag; do
+  [[ -z "$_tag" ]] && continue
+  if printf '%s\n' "$HEAD_TAGS" | grep -qxF "$_tag"; then continue; fi
+  PREV_TAG="$_tag"
+  break
+done < <(
+  git tag -l 'v*' 2>/dev/null \
+    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+    | awk -F'[v.]' '{ printf "%010d.%010d.%010d %s\n", $2, $3, $4, $0 }' \
+    | sort -r \
+    | awk '{ print $2 }'
+)
 # An empty PREV_TAG is ambiguous: (a) the genuine first release, so skipping
 # substance/evidence/cadence is right, or (b) tags DO exist but this clone can
 # not see them — a shallow clone hides them in history, and a `git clone

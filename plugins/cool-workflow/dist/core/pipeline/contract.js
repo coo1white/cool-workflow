@@ -71,6 +71,13 @@ function createDefaultPipelineContract() {
             },
         ],
         artifactPolicy: { root: ".cw/runs/<run-id>", requireReadablePaths: true },
+        // highPriorityRequiresEvidence is carried for byte-compat with the old
+        // build's default contract (pinned by SPEC/pipeline-run.md) but is NOT
+        // enforced anywhere — no gate reads it, and core has no task-priority
+        // concept to key it on. The enforced contract-wide flag is
+        // `requireEvidence` (state-node.ts assertRequiredEvidence, runner.ts
+        // evidenceSatisfied). The per-stage `requiredEvidence` lists are what
+        // actually gate evidence in the default contract.
         evidencePolicy: { highPriorityRequiresEvidence: true },
         failurePolicy: { preserveFailureNodes: true, retryableByDefault: false },
         commitPolicy: { requiresVerifierGate: true, acceptedVerifierStatuses: ["verified"] },

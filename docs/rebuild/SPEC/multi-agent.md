@@ -393,7 +393,7 @@ topic <topic-id> is outside policy <policyRef>
 candidate operation <op> is outside policy <policyRef>
 judge operation <op> is outside policy <policyRef>
 blackboard write operation <op> is outside policy <policyRef>
-operation <op> requires evidence refs: <ref>, <ref>
+operation <op> requires evidence refs (at least one; expected kinds: <ref>, <ref>)
 <denied-operation reason>                        (verbatim from policy.deniedOperations)
 ```
 Allowed reason: `allowed by explicit multi-agent policy` (src/multi-agent-trust.ts:440-458,163-167). `policyRef` formats: `multiAgent.roles.<id>.policy`, `multiAgent.groups.<id>.policy`, `multiAgent.memberships.<id>.policy`, `multiAgent.runs.<id>.policy`, `multiAgent.fanouts.<id>.policy`, `multiAgent.fanins.<id>.policy` (src/multi-agent-trust.ts:46,78,110; src/multi-agent.ts:266,628,849).

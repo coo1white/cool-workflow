@@ -117,7 +117,9 @@ function basePolicy(overrides) {
   });
   const denied = evaluateMultiAgentAction(policy, "judge.rationale", "topic-1", []);
   assert.equal(denied.allowed, false);
-  assert.equal(denied.reason, "operation judge.rationale requires evidence refs: judge rationale evidence, extra evidence");
+  // The message states the actual mechanism: at least one ref of any kind
+  // satisfies the check (the expected kinds are prose, not matchable ids).
+  assert.equal(denied.reason, "operation judge.rationale requires evidence refs (at least one; expected kinds: judge rationale evidence, extra evidence)");
   assert.deepEqual(denied.missingEvidenceRefs, ["judge rationale evidence", "extra evidence"]);
 
   const allowed = evaluateMultiAgentAction(policy, "judge.rationale", "topic-1", ["anything"]);

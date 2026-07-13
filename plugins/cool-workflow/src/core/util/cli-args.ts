@@ -31,3 +31,21 @@ export function optionalArg(value: unknown): string | undefined {
 export function wantsJson(options: Record<string, unknown>): boolean {
   return Boolean(options.json || options.format === "json");
 }
+
+/** Parse a boolean flag value that may arrive as a real boolean (bare
+ *  `--flag`) or as a CLI/MCP string (`--flag false`). `Boolean("false")` is
+ *  `true` in JS, so a plain Boolean() coercion silently ENABLES a flag the
+ *  operator asked to turn off — on a gate-policy flag like
+ *  `--allow-self-approval false` that is a fail-open. Recognized strings
+ *  (case-insensitive, trimmed): true/1/yes/on and false/0/no/off/"".
+ *  Anything else throws — fail closed, never guess. `undefined` and JSON
+ *  `null` (an MCP caller's "unset") stay `undefined` so a caller's
+ *  `?? existing ?? default` chain still governs an unset flag. */
+export function parseBoolFlag(value: unknown, label: string): boolean | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "boolean") return value;
+  const text = String(value).trim().toLowerCase();
+  if (text === "true" || text === "1" || text === "yes" || text === "on") return true;
+  if (text === "false" || text === "0" || text === "no" || text === "off" || text === "") return false;
+  throw new Error(`Invalid boolean value for ${label}: "${String(value)}" (use true or false)`);
+}

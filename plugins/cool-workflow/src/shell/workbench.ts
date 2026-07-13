@@ -243,6 +243,24 @@ export function buildWorkbenchIndex(args: Record<string, unknown> = {}): Workben
   const text = typeof args.text === "string" ? args.text.trim() : "";
   const runListRow = findCapability(text ? "run.search" : "run.list");
   const registry = registryRow?.mcp ? registryRow.mcp.handler(scoped) : undefined;
-  const runs = runListRow?.mcp ? runListRow.mcp.handler(scoped) : [];
+  const runs = runListRow?.mcp ? newestRunPage(runListRow.mcp.handler, scoped) : [];
   return { schemaVersion: 1, surface: "workbench", command: "index", scope, registry, runs };
+}
+
+/** The run list/search handler sorts oldest-first and returns only the
+ *  first `limit` page — so the default page is the OLDEST runs, and a scope
+ *  with more runs than the page size never shows the newest run at all. The
+ *  Workbench wants the newest page: when the caller pinned no offset and the
+ *  total exceeds one page, re-fetch with the offset that lands on the last
+ *  page. The payload shape (total/offset/limit/records) is unchanged, so
+ *  the UI can still show "showing latest N of M". */
+function newestRunPage(handler: (args: Record<string, unknown>) => unknown, scoped: Record<string, unknown>): unknown {
+  const first = handler(scoped);
+  if (scoped.offset !== undefined) return first;
+  if (!first || typeof first !== "object") return first;
+  const page = first as { total?: unknown; limit?: unknown; records?: unknown };
+  const total = typeof page.total === "number" ? page.total : undefined;
+  const limit = typeof page.limit === "number" ? page.limit : undefined;
+  if (total === undefined || limit === undefined || total <= limit) return first;
+  return handler({ ...scoped, offset: total - limit });
 }

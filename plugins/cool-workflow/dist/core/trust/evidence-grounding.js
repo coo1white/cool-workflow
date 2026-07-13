@@ -116,8 +116,13 @@ function extractEvidenceContent(locator, baseDirs, ops, readFile) {
     const shape = classify(locator);
     if (shape.kind !== "file" || !shape.pathPart)
         return undefined;
-    const lineMatch = locator.match(/:(\d+)$/);
+    // Match the same shapes LINE_SUFFIX_RE (classify) accepts: ":<n>" and
+    // ":<n>-<m>". A range that only matched classify used to fall through to
+    // the head-of-file slice below — returning bytes that had nothing to do
+    // with the cited lines.
+    const lineMatch = locator.match(/:(\d+)(?:-(\d+))?$/);
     const lineNum = lineMatch ? Number(lineMatch[1]) : undefined;
+    const lineEnd = lineMatch && lineMatch[2] ? Number(lineMatch[2]) : undefined;
     const candidatePath = ops.isAbsolute(shape.pathPart)
         ? shape.pathPart
         : baseDirs.filter(Boolean).map((base) => ops.resolve(base, shape.pathPart)).find((p) => ops.exists(p));
@@ -128,6 +133,13 @@ function extractEvidenceContent(locator, baseDirs, ops, readFile) {
         return undefined;
     if (lineNum && lineNum > 0) {
         const lines = content.split("\n");
+        if (lineEnd !== undefined) {
+            // Range: return exactly the cited lines; a backwards or out-of-range
+            // span returns undefined, never fabricated content.
+            if (lineEnd < lineNum || lineNum > lines.length)
+                return undefined;
+            return lines.slice(lineNum - 1, Math.min(lineEnd, lines.length)).join("\n") || undefined;
+        }
         return lines[lineNum - 1] || undefined;
     }
     return content.slice(0, 200);

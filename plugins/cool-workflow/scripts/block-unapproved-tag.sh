@@ -33,12 +33,23 @@ if [[ -z "$CMD" ]]; then
   exit 0
 fi
 
-# Only care about tag creation / tag push. Widened from the original pattern,
-# which missed the single most natural bypass form: `git push origin v0.2.3`
-# (a bare tag-shaped ref, no --tags flag and no refs/tags/ prefix) matched
-# neither side of the old alternation. Also now tolerates a global flag before
-# the tag subcommand (`git -C dir tag ...`) and the `--annotate` long form.
-if ! printf '%s' "$CMD" | grep -qE 'git(\s+-[A-Za-z]+\s+\S+)*\s+tag\s+(-a\s+|--annotate\s+)?v[0-9]|git\s+push\b.*(--tags|refs/tags|[[:space:]]v[0-9])'; then
+# Only care about tag creation / tag push. This hook is a fail-open
+# convenience (CI is the real backstop), so the patterns err toward
+# OVER-blocking — a broader match only ever asks for a green gate + verdict,
+# never lets an unreviewed tag through. Two patterns:
+#   TAG_RE:  `git [global -flags] tag [any flags incl. -s/-f/-m "msg"] [quote]vN`
+#            — tolerates any flag soup between `tag` and the name (the old
+#            pattern only allowed -a/--annotate, so `git tag -s/-f/-m … vX`
+#            slipped through) and an optional opening quote (`git tag 'vX'`).
+#            `git tag -l` / `--list` are NOT matched (no vN name follows).
+#   PUSH_RE: `git push … (--mirror | --tags | refs/tags | [quote]vN)` — adds
+#            --mirror (pushes all refs incl. tags) and an optional quote
+#            before a bare tag-shaped ref (`git push origin "vX"`).
+# The `'"'"'` sequences embed a literal single quote inside the single-quoted
+# pattern so both `'vX'` and `"vX"` are recognized.
+TAG_RE='git(\s+-\S+(\s+\S+)?)*\s+tag\s+(\S+\s+)*["'"'"']?v[0-9]'
+PUSH_RE='git\s+push\b.*(--mirror|--tags|refs/tags|[[:space:]]["'"'"']?v[0-9])'
+if ! printf '%s' "$CMD" | grep -qE "$TAG_RE|$PUSH_RE"; then
   exit 0
 fi
 

@@ -16,6 +16,7 @@
 // collaboration.ts (byte-exact source).
 
 import { StateNodeError } from "../state/types";
+import { parseBoolFlag } from "../util/cli-args";
 import { stableCompare } from "../util/collate";
 
 export const COLLABORATION_SCHEMA_VERSION = 1 as const;
@@ -302,19 +303,21 @@ export function buildHandoff(input: RecordHandoffInput, handoffCount: number, ru
 export interface ReviewPolicyInput {
   requiredApprovals?: number | string;
   authorizedRoles?: string[] | string;
-  // Accept a raw string ("true"/"") as well as a real boolean — the old
-  // wrapper coerced CLI string options here (Boolean("true")===true,
-  // Boolean("")===false). buildReviewPolicy Boolean()-coerces when the value
-  // is defined so a string "true" lands as boolean true, never the string.
+  // Accept a raw string ("true"/"false"/"") as well as a real boolean —
+  // CLI string options land here unparsed. Parsed via parseBoolFlag, which
+  // reads "false"/"0"/"no"/"off"/"" as false and throws on anything it
+  // does not recognize — a bare Boolean() coercion turned the string
+  // "false" into true, silently ENABLING a gate flag the operator asked
+  // to turn off (fail-open on --allow-self-approval false).
   allowSelfApproval?: boolean | string;
   requireAttestedActor?: boolean | string;
   appliesTo?: CollaborationTargetKind[] | string;
 }
 
-/** Boolean-coerce a defined tri-state flag; leave `undefined` alone so the
+/** Parse a defined tri-state flag; leave `undefined` alone so the
  *  caller's `?? existing ?? default` chain still governs an unset flag. */
-function coerceFlag(value: boolean | string | undefined): boolean | undefined {
-  return value === undefined ? undefined : Boolean(value);
+function coerceFlag(value: boolean | string | undefined, label: string): boolean | undefined {
+  return parseBoolFlag(value, label);
 }
 
 function toNumber(value: unknown, fallback: number): number {
@@ -348,8 +351,8 @@ export function buildReviewPolicy(input: ReviewPolicyInput, existing: ReviewGate
     id: existing?.id || createCollabId("policy", 0),
     requiredApprovals: Math.max(0, Math.floor(toNumber(input.requiredApprovals, existing?.requiredApprovals ?? 0))),
     authorizedRoles: toStringList(input.authorizedRoles, existing?.authorizedRoles ?? ["*"]),
-    allowSelfApproval: coerceFlag(input.allowSelfApproval) ?? existing?.allowSelfApproval ?? false,
-    requireAttestedActor: coerceFlag(input.requireAttestedActor) ?? existing?.requireAttestedActor ?? false,
+    allowSelfApproval: coerceFlag(input.allowSelfApproval, "allowSelfApproval") ?? existing?.allowSelfApproval ?? false,
+    requireAttestedActor: coerceFlag(input.requireAttestedActor, "requireAttestedActor") ?? existing?.requireAttestedActor ?? false,
     appliesTo: toTargetKindList(input.appliesTo, existing?.appliesTo ?? ["commit"]),
     updatedAt: now,
   };

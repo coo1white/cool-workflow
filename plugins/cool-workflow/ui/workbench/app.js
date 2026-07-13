@@ -91,6 +91,12 @@ async function loadIndex() {
     if (seq !== state.indexSeq) return;
     list.innerHTML = "";
     list.appendChild(el("li", { class: "err", text: `failed to load index: ${error.message}` }));
+    // Clear the stale "registry valid · scope …" line — leaving the last
+    // successful freshness next to a load error is itself a stale badge on
+    // the one panel whose whole point is freshness.
+    const fresh = document.getElementById("registry-freshness");
+    fresh.innerHTML = "";
+    fresh.append("registry ", freshnessBadge("unavailable"), " · index unreachable");
     return;
   }
   // Only the newest request may render (see state.indexSeq).
@@ -104,7 +110,8 @@ async function loadIndex() {
     ? "no home registry data yet — runs made in this repo still show; `cw registry refresh` builds it"
     : undefined;
   fresh.append("registry ", freshnessBadge(regStatus, regTitle), ` · scope ${view.scope}`);
-  const records = (view.runs && view.runs.records) || [];
+  const runs = view.runs || {};
+  const records = runs.records || [];
   if (!records.length) {
     list.appendChild(el("li", { class: "muted" }, [
       el("div", { text: "no runs indexed in this scope" }),
@@ -112,13 +119,21 @@ async function loadIndex() {
     ]));
     return;
   }
-  for (const record of records) {
+  // Tell the user when the page is only part of the run set (the server
+  // returns the newest page but caps it) — otherwise a scope with more runs
+  // than the page size silently hides the rest, and someone checking "did my
+  // run get created" is misled into thinking it doesn't exist.
+  if (typeof runs.total === "number" && runs.total > records.length) {
+    list.appendChild(el("li", { class: "muted hint", text: `showing latest ${records.length} of ${runs.total} runs` }));
+  }
+  // The server returns the page sorted oldest-first; show newest at the top.
+  for (const record of [...records].reverse()) {
     const lifecycle = record.lifecycle || record.status || "";
     // A real <button>, not a bare <li> with a click listener: Tab reaches
     // it, Enter/Space activate it, and it gets a focus ring for free — no
     // extra ARIA needed. Same CSS classes as before so the row/card look
     // is unchanged (see app.css .run-list button rules).
-    const btn = el("button", { type: "button", class: state.activeRunId === record.runId ? "active" : "" }, [
+    const btn = el("button", { type: "button", "data-runid": record.runId, class: state.activeRunId === record.runId ? "active" : "" }, [
       el("div", { class: "rid" }, [
         el("span", { class: `status-dot ${lifecycle}`, title: lifecycle || "unknown" }),
         document.createTextNode(record.runId)
@@ -133,9 +148,24 @@ async function loadIndex() {
   }
 }
 
-async function selectRun(runId) {
+// Move the "active" highlight to the chosen run's button WITHOUT rebuilding
+// the list. Rebuilding (the old `loadIndex()` call in selectRun) removed the
+// very <button> the user had just clicked/Entered, dropping keyboard focus to
+// <body> and flashing the whole sidebar on every selection.
+function markActiveRow(runId) {
+  const list = document.getElementById("run-list");
+  for (const btn of list.querySelectorAll("button[data-runid]")) {
+    btn.classList.toggle("active", btn.getAttribute("data-runid") === runId);
+  }
+}
+
+function selectRun(runId) {
   state.activeRunId = runId;
-  loadIndex();
+  markActiveRow(runId);
+  return loadRunDetail(runId);
+}
+
+async function loadRunDetail(runId) {
   const detail = document.getElementById("run-panel");
   detail.innerHTML = "";
   detail.appendChild(el("p", { class: "muted", text: `loading ${runId}…` }));
@@ -153,6 +183,15 @@ async function selectRun(runId) {
   if (state.activeRunId !== runId) return;
   state.viewFetchedAt = new Date();
   renderRun(view);
+}
+
+// The refresh button re-derives BOTH panes from disk: the sidebar index AND
+// the currently-open run's detail. Refreshing only the index (the old
+// behavior) left the detail header's lifecycle badge showing stale state
+// while the sidebar dot next to it had already changed.
+function refreshAll() {
+  loadIndex();
+  if (state.activeRunId) loadRunDetail(state.activeRunId);
 }
 
 function formatClock(date) {
@@ -199,9 +238,21 @@ function renderRun(view) {
 
   const group = PANEL_GROUPS.find((g) => g.key === state.activeTab) || PANEL_GROUPS[0];
   const panels = (view.panels && view.panels[group.key]) || {};
+  // Some groups declare two panel names that map to the same capability on
+  // the server (e.g. graph's compact/criticalPath both come from
+  // summary.show), so they carry byte-identical payloads. Render such a pair
+  // ONCE under a merged label instead of showing the same JSON twice under
+  // two names that promise distinct views.
+  const rendered = [];
   for (const name of group.panels) {
     const panel = panels[name];
-    if (panel) detail.appendChild(renderPanel(name, panel));
+    if (!panel) continue;
+    const twin = rendered.find((entry) => JSON.stringify(entry.panel) === JSON.stringify(panel));
+    if (twin) twin.names.push(name);
+    else rendered.push({ names: [name], panel });
+  }
+  for (const entry of rendered) {
+    detail.appendChild(renderPanel(entry.names.join(" / "), entry.panel));
   }
 }
 
@@ -345,7 +396,7 @@ function renderEventGroups(data, confirmedEventKeys) {
   return wrap;
 }
 
-document.getElementById("refresh").addEventListener("click", loadIndex);
+document.getElementById("refresh").addEventListener("click", refreshAll);
 document.getElementById("filter").addEventListener("input", debounce(loadIndex, 200));
 
 function debounce(fn, ms) {

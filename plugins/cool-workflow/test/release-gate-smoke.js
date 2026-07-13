@@ -103,6 +103,41 @@ function seedReleaseWork(dir) {
   assert.equal(r.code, 0, `valid release should PASS:\n${r.out}`);
 }
 
+// ---- Case 2c: PREV_TAG resolved by SEMVER ORDER, not ancestry (P3 fix) ------
+// Release tags live on non-ancestor leaves (the tag-only-push design), so
+// `git describe --tags` (ancestry) picks the nearest ANCESTOR tag and skips the
+// true, highest-version previous release. Build that topology: v0.0.1 is an OLD
+// ancestor of HEAD; v0.0.9 is a RECENT non-ancestor leaf. The fixed gate must
+// compare against v0.0.9 (recent + <4 cycles => cadence REJECT); the old
+// ancestry walk compared against the old v0.0.1 and PASSED.
+{
+  const dir = freshRepo();
+  write(dir, "README.md", "init\n");
+  write(dir, "ITERATION_LOG.md", "| base |\n");
+  git(dir, ["add", "-A"]);
+  // A: an OLD commit so its tag v0.0.1 is >24h old (what the ancestry walk picks).
+  const OLD = "2020-01-01T00:00:00";
+  spawnSync("git", ["commit", "-q", "-m", "init"], { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: OLD, GIT_COMMITTER_DATE: OLD } });
+  git(dir, ["tag", "v0.0.1"]);
+  const A = git(dir, ["rev-parse", "HEAD"]);
+  // B: a sibling leaf off A, tagged v0.0.9 "now" — the highest-version tag, and
+  // NOT an ancestor of HEAD.
+  git(dir, ["checkout", "-q", "-b", "sibling", A]);
+  write(dir, "sibling.ts", "export const s = 1;\n");
+  commitAll(dir, "sibling release");
+  git(dir, ["tag", "v0.0.9"]);
+  // C = HEAD: real work off A (recent), with substance + tests but only 2 cycles.
+  git(dir, ["checkout", "-q", "work"]);
+  write(dir, "plugins/cool-workflow/src/feature.ts", "export const x = 1;\n");
+  write(dir, "plugins/cool-workflow/test/feature-smoke.js", "// asserts feature\n");
+  write(dir, "ITERATION_LOG.md", "| base |\n| 1 |\n| 2 |\n");
+  commitAll(dir, "real work, too few cycles");
+  const r = runGate(dir);
+  assert.equal(r.code, 1, `must compare against the recent semver-prev v0.0.9, so <4 cycles REJECTS:\n${r.out}`);
+  assert.match(r.out, /v0\.0\.9/, "the gate must resolve PREV_TAG to the highest-version tag (v0.0.9), not the ancestor v0.0.1");
+  assert.doesNotMatch(r.out, /since v0\.0\.1/, "must NOT compare against the older ancestor tag v0.0.1 (the ancestry-walk bug)");
+}
+
 // ---- Case 3: substance — a NON-src, non-types/dist diff still counts -------
 // Guards the fix that aligns the gate with its spec ("any file outside
 // src/types/ and dist/"), not only files under src/.

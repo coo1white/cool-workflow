@@ -68,4 +68,34 @@ const NOW = "2026-07-03T00:00:00.000Z";
   assert.deepEqual(policy.authorizedRoles, ["*"], "an authorizedRoles input that cleans to nothing falls back to the default [*], not []");
 }
 
+// buildReviewPolicy: the string "false" must land as boolean false (P2 fix).
+// CLI options arrive as strings; Boolean("false") is true, which silently
+// ENABLED self-approval when the operator passed --allow-self-approval false.
+{
+  const policy = buildReviewPolicy({ allowSelfApproval: "false", requireAttestedActor: "false" }, undefined, NOW);
+  assert.equal(policy.allowSelfApproval, false, 'the string "false" must parse as false, not Boolean-coerce to true');
+  assert.equal(policy.requireAttestedActor, false, 'the string "false" must parse as false for requireAttestedActor too');
+}
+
+// buildReviewPolicy: the string "true" (and friends) still parse as true.
+{
+  const policy = buildReviewPolicy({ allowSelfApproval: "true", requireAttestedActor: "1" }, undefined, NOW);
+  assert.equal(policy.allowSelfApproval, true, 'the string "true" parses as true');
+  assert.equal(policy.requireAttestedActor, true, 'the string "1" parses as true');
+}
+
+// buildReviewPolicy: "false" on an UPDATE overrides an existing true — the
+// exact operator action the old coercion silently inverted.
+{
+  const existing = buildReviewPolicy({ requiredApprovals: 1, allowSelfApproval: true }, undefined, NOW);
+  const updated = buildReviewPolicy({ allowSelfApproval: "false" }, existing, "2026-07-04T00:00:00.000Z");
+  assert.equal(updated.allowSelfApproval, false, 'updating with the string "false" turns the flag OFF, never on');
+}
+
+// buildReviewPolicy: an unrecognized boolean string throws — fail closed,
+// never guess a gate-policy flag's value.
+{
+  assert.throws(() => buildReviewPolicy({ allowSelfApproval: "maybe" }, undefined, NOW), /Invalid boolean value/, "an unrecognized flag string must throw, not silently coerce");
+}
+
 process.stdout.write("macollab-review-policy-defaults: ok\n");
