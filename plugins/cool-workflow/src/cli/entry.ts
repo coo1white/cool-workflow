@@ -22,6 +22,13 @@ import { findCapability } from "../core/capability-table";
 import type { CliHandlerResult } from "../core/capability-data";
 import { bold, dim, red } from "../shell/term";
 import { styledHelp } from "./io";
+import { recoveryHint } from "../core/format/recovery-hint";
+
+// recoveryHint now lives in core/format/recovery-hint.ts (a core/-layer
+// file, so mcp/server.ts can use it too without crossing the mcp/-may-
+// never-import-cli/ layer rule). Re-exported here so every existing
+// importer of `recoveryHint` from this file keeps working unchanged.
+export { recoveryHint } from "../core/format/recovery-hint";
 
 /** MILESTONE 2: `version` is now a pure projection of the capability
  *  table's `version` row — there is exactly one place its print text
@@ -36,19 +43,6 @@ function printVersion(): void {
   // route through the generic (possibly-async) dispatch path.
   const result = row?.cli?.handler({ positionals: [], options: {} }) as CliHandlerResult | undefined;
   process.stdout.write(result?.text ?? "");
-}
-
-/** src/cli.ts:18-29 — map a top-level error message to ONE copy-pasteable
- *  recovery command. Content-based so it stays correct regardless of which
- *  call site threw; returns undefined rather than a wrong guess. */
-export function recoveryHint(message: string): string | undefined {
-  const m = message.toLowerCase();
-  if (m.startsWith("unknown command")) return "cw help";
-  if (m.includes("not configured") || m.includes("agent backend")) return "cw doctor";
-  if (m.includes("missing") && m.includes("repo")) return 'cw -q "<question>" -dir <project-folder>';
-  if (m.includes("app") && (m.includes("not found") || m.includes("not available"))) return "cw app list";
-  if (m.includes("run id") || m.includes("run not found")) return "cw run list";
-  return undefined;
 }
 
 export async function runCli(argv: string[] = process.argv.slice(2)): Promise<void> {

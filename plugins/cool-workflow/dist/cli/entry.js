@@ -15,7 +15,7 @@
 // so byte content there is unaffected; cli-color-env.case.js exercises
 // the FORCE_COLOR/NO_COLOR/CW_NO_COLOR branches explicitly.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.recoveryHint = recoveryHint;
+exports.recoveryHint = void 0;
 exports.runCli = runCli;
 exports.main = main;
 const parseargv_1 = require("./parseargv");
@@ -25,6 +25,13 @@ const parseargv_2 = require("./parseargv");
 const capability_table_1 = require("../core/capability-table");
 const term_1 = require("../shell/term");
 const io_1 = require("./io");
+const recovery_hint_1 = require("../core/format/recovery-hint");
+// recoveryHint now lives in core/format/recovery-hint.ts (a core/-layer
+// file, so mcp/server.ts can use it too without crossing the mcp/-may-
+// never-import-cli/ layer rule). Re-exported here so every existing
+// importer of `recoveryHint` from this file keeps working unchanged.
+var recovery_hint_2 = require("../core/format/recovery-hint");
+Object.defineProperty(exports, "recoveryHint", { enumerable: true, get: function () { return recovery_hint_2.recoveryHint; } });
 /** MILESTONE 2: `version` is now a pure projection of the capability
  *  table's `version` row — there is exactly one place its print text
  *  lives (core/capability-table.ts's cli handler), not a second
@@ -38,23 +45,6 @@ function printVersion() {
     // route through the generic (possibly-async) dispatch path.
     const result = row?.cli?.handler({ positionals: [], options: {} });
     process.stdout.write(result?.text ?? "");
-}
-/** src/cli.ts:18-29 — map a top-level error message to ONE copy-pasteable
- *  recovery command. Content-based so it stays correct regardless of which
- *  call site threw; returns undefined rather than a wrong guess. */
-function recoveryHint(message) {
-    const m = message.toLowerCase();
-    if (m.startsWith("unknown command"))
-        return "cw help";
-    if (m.includes("not configured") || m.includes("agent backend"))
-        return "cw doctor";
-    if (m.includes("missing") && m.includes("repo"))
-        return 'cw -q "<question>" -dir <project-folder>';
-    if (m.includes("app") && (m.includes("not found") || m.includes("not available")))
-        return "cw app list";
-    if (m.includes("run id") || m.includes("run not found"))
-        return "cw run list";
-    return undefined;
 }
 async function runCli(argv = process.argv.slice(2)) {
     const args = (0, parseargv_1.parseArgv)(argv);
@@ -152,7 +142,7 @@ function main(argv = process.argv.slice(2)) {
             return;
         const message = error instanceof Error ? error.message : String(error);
         process.stderr.write(`${(0, term_1.bold)("cw:", process.stderr)} ${(0, term_1.red)(message, process.stderr)}\n`);
-        const hint = recoveryHint(message);
+        const hint = (0, recovery_hint_1.recoveryHint)(message);
         if (hint)
             process.stderr.write(`  ${(0, term_1.dim)("Try:", process.stderr)} ${hint}\n`);
         process.exitCode = 1;
