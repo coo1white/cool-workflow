@@ -205,9 +205,18 @@ export function resolveAgentConfig(args: Record<string, unknown> = {}, env: Node
   if (!finalCommand && !endpoint) {
     const detected = detectAgentFromPath(env);
     if (detected) {
-      finalCommand = expandBuiltinAgentCommand(`builtin:${detected}`);
+      // Detect = use what was found. Auto-detect saw a BINARY on PATH, so it
+      // must resolve to the wrapper that runs THAT binary. For "gemini" the
+      // plain builtin:gemini template goes through opencode instead (a user
+      // choice kept for the explicit -gemini flag, where --help says "via
+      // opencode") — a machine with only the native gemini CLI would be
+      // detected as ready and then fail when the wrapper spawns a missing
+      // opencode. So the auto path maps gemini to builtin:gemini-cli, the
+      // wrapper that spawns the found binary itself.
+      const template = detected === "gemini" ? "gemini-cli" : detected;
+      finalCommand = expandBuiltinAgentCommand(`builtin:${template}`);
       finalSource = "auto";
-      if (!finalModel) finalModel = `builtin:${detected}`;
+      if (!finalModel) finalModel = `builtin:${template}`;
     }
   }
 
