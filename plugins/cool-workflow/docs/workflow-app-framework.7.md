@@ -32,6 +32,37 @@ runner owns state transitions, dispatch, result recording, verifier gates,
 commits, and reports. A workflow app owns its own inputs, phases, task
 prompts, evidence needs, and sandbox profile hints.
 
+Every CW workflow keeps to one loop, and the loop maps to real framework
+operations:
+
+| Loop stage | framework operation | Responsibility |
+| --- | --- | --- |
+| Interpret | `plan()` | Load workflow, check inputs, make tasks |
+| Act | `dispatch()` | Move tasks that can run from pending to running |
+| Observe | `recordResult()` | Read Markdown/JSON-RPC result evidence |
+| Adjust | verifier gates | Check evidence and pick the next phase |
+| Checkpoint | `commitState()` | Take a snapshot of state after important changes |
+
+The language split is on purpose: the platform is TypeScript
+(`src/*.ts -> dist/*.js`, strongly typed so it is simple to keep up), while
+workflow apps are plain JavaScript modules (`apps/<app-id>/workflow.js`,
+legacy `workflows/*.workflow.js`) so workflow scripts run without `ts-node`.
+
+Verification and verdict tasks give back a `cw:result` JSON fence:
+
+````text
+```cw:result
+{
+  "summary": "short summary",
+  "findings": [],
+  "evidence": ["/absolute/path/file.ts:42"]
+}
+```
+````
+
+CW says no to high-priority findings without evidence. This keeps agent work
+nearer to engineering output you can look into than to free talk.
+
 The framework is kept small on purpose. The public app helpers are:
 
 - `defineWorkflowApp(definition)`

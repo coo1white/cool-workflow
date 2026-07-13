@@ -3,8 +3,15 @@
 CW adds `cw ledger` — a way for two agents scoped to two separate repos to hand
 each other a CHANGE PROPOSAL or a REVIEW VERDICT as verifiable data, not chat.
 One side proposes or reviews; the other side verifies the entry fail-closed and
-turns a proposal into a real pull request. Design notes:
-[handoff-ledger](designs/handoff-ledger.md).
+turns a proposal into a real pull request.
+
+Design note (why not a shared folder): the obvious first design — a shared
+local directory both agents read and append to — only works when both agents
+run on ONE machine with ONE filesystem. Two agents scoped to two repos (or two
+machines) need a transport both can already reach, with saved, inspectable,
+fail-closed state — never a fabricated hand-off. That is why an entry is a
+self-verifying file in a git repo both sides can push and pull, and why the
+kernel holds no git logic at all.
 
 Each entry is a self-contained JSON object that carries its own sha256 content
 digest. The producing side prints one; it reaches the other session by human
@@ -219,4 +226,4 @@ cw ledger verify --file verdict.json
 Stage 1 shipped the CLI verbs (human relay). Stage 2 adds the MCP surface and
 the git-as-ledger transport (`cw ledger list` over a shared repo). Still open:
 the operator creates the shared handoff repo and scopes both agent environments
-into it. See [handoff-ledger](designs/handoff-ledger.md).
+into it. Setup runbook: [handoff-setup](handoff-setup.md).

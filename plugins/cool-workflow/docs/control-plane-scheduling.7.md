@@ -66,6 +66,40 @@ Additive: `RunQueueEntry` gets the optional `attempts`/`leaseId`/`leaseExpiresAt
 `queue add|list|drain|show` verbs that are already there do not change. No new database, no
 daemon-owned state.
 
+## Scheduled Tasks In Practice
+
+CW scheduled tasks give looping prompts, cron-like schedules, one-shot
+reminders, expiration, jitter, and clear completion. Schedules live in
+`.cw/schedules/tasks.json`.
+
+```bash
+# a /loop-ready schedule (cw loop is the short form of schedule create --kind loop)
+cw loop --intervalMinutes 30 --prompt "Check this workflow and continue if work is due."
+
+# a cron schedule
+cw schedule create --kind cron --cron "*/15 * * * *" --prompt "Run the due workflow scan."
+
+# a one-shot reminder
+cw schedule create --kind reminder --delayMinutes 60 --prompt "Remind me to inspect the report."
+
+# list, inspect, and manage
+cw schedule list
+cw schedule due
+cw schedule complete <schedule-id>
+cw schedule pause <schedule-id> / resume <schedule-id> / run-now <schedule-id>
+cw schedule history <schedule-id>
+cw schedule delete <schedule-id>
+
+# the local daemon: one sweep, or a loop
+cw schedule daemon --once
+cw schedule daemon --intervalSeconds 60
+```
+
+Notes: time is measured to the minute; expiration defaults to 7 days;
+`jitterSeconds` can put space between runs. CW does not start the daemon by
+default — use `schedule daemon`, cron, or another overseer to call
+`schedule due` and run due prompts.
+
 ## See Also
 
 run-registry-control-plane(7), cli-mcp-parity(7), release-and-migration(7)

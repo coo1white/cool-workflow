@@ -3,6 +3,11 @@
 This is the repo-local memory for Cool Workflow agent runs. Keep it true to fact,
 short, and simple to add to. Do not use it for guesses.
 
+Since 2026-07-13 this is the ONE memory file: it took in the old
+`docs/LESSONS.md` (durable lessons) and `docs/HANDOFF_TODO.md` (in-flight
+relay) — see the "Lessons" and "In-flight relay" sections. `docs/BACKLOG.md`
+stays separate: it parks ideas that serve no North Star track.
+
 ## Verified Facts
 
 - Default context slimming has to use the `core` source profile.
@@ -98,72 +103,21 @@ short, and simple to add to. Do not use it for guesses.
   must be explicit opt-in (`CW_AGENT_STREAM=1`), TTY-gated, and still silent when
   piped.
 
-## Pending (blocking the next release)
+## In-flight relay (was docs/HANDOFF_TODO.md — keep the state lines honest)
 
-- **#6 — Cut the `v0.1.98` tag so npm publishes.** Publishing is tag-driven, not
-  merge-driven: no `v0.1.98` tag exists yet, so `release-gate`/`npm-publish`
-  have never fired and npm is still at `0.1.97`, even though `main` has been at
-  version `0.1.98` (plus 3 more merged ledger PRs) since #321. One-command cut +
-  full rationale in `docs/HANDOFF_TODO.md` item 1. Left for the operator/relay —
-  a public, irreversible npm publish should not be triggered unilaterally from
-  the sandbox.
-- **#4 — Scope chime's environment into `coo1white/handoff`.** The shared
-  handoff repo is created and verified Private; the cool-workflow (Mac) side is
-  proven end-to-end. Remaining step is a web-UI action (add chime's environment
-  scope + a git token) that a repo-scoped session cannot do itself
-  (`create_repository`/cross-repo calls return 403). Details in
-  `docs/HANDOFF_TODO.md` item 2.
-
-## Last Session
-
-- Merged #322 (relay docs: `docs/HANDOFF_TODO.md` + `docs/LESSONS.md`), #323
-  (`cw ledger list` derives an inbox `resolution` — pending/approved/rejected/
-  contested, pairing each proposal with the review(s) whose `target` is its id;
-  fail-closed — only verified entries take part), and #324 (`cw ledger apply` —
-  verifies a proposal FIRST and only then emits its `suggestedDiff` for `git
-  apply`; fixed a latent bug where CLI `propose` trimmed `--diff` and corrupted
-  the patch by stripping its trailing newline). `cw ledger` now closes the full
-  loop: propose → verify → apply → PR, with a machine-readable inbox. #323 and
-  #324 both hit the SAME `ITERATION_LOG.md` merge conflict against `main` (each
-  had added a top batch before the other merged) plus a `docs/project-index.md`
-  smoke-count collision on #324; both resolved with a plain `git merge
-  origin/main --no-edit` (keep-both-batches, regenerate project-index, rerun
-  gates) and a normal push — never force-push, per the operator's standing
-  preference for the normal branch→PR→review→merge flow.
-- Shipped `cw ledger` (cross-agent handoff ledger) end to end — stages 1-3 plus
-  the id-binding fail-closed hardening, all merged (#317-#320), and bumped the
-  version to `0.1.98` (release PR #321 merged to `main` at commit a64de9f).
-  **Release is NOT published yet** — see "Pending" above.
-  The sandbox `127.0.0.1` git-URL-rewrite
-  artifact only fails `release:check` readme-sync/dogfood; it does NOT touch
-  `release-gate.js` or the reviewer, so a clean-env cut is unaffected.
-- Fixed two release-reviewer root causes exposed cutting v0.1.97: the codex
-  reviewer ran `codex exec` in a `read-only` sandbox at `low` reasoning effort,
-  so it could NOT re-run the gate it was judging and fabricated REJECTED verdicts
-  (twice, in <65s — far shorter than the ~12-min gate). Fix: release-flow.js now
-  sets a vendor-agnostic `CW_RELEASE_REVIEW=1` on the reviewer spawn; codex-agent.js
-  reads it to raise effort to `high` and open the sandbox to `workspace-write`
-  (explicit `CW_CODEX_REASONING_EFFORT`/`CW_CODEX_SANDBOX` still win; an unknown
-  sandbox fails closed). Lesson: an independent reviewer that cannot EXECUTE the
-  gate is structurally unable to verify — wire review intent through to the wrapper,
-  never trust a read-only/low-effort verdict. Covered by codex-agent-wrapper-smoke
-  (default vs review vs override vs invalid) and release-flow-smoke Case 1d.
-- Added the opt-in `architecture-review-fast` app, source-context cache support,
-  docs, project index updates, and smoke coverage. The full
-  `architecture-review` app remains unchanged.
-- Verification for the fast-review cycle: `npm run build`, `npm test` 74/74,
-  `npm run gen:manifests -- --check`, `npm run index:check`,
-  `node scripts/version-sync-check.js`, `git diff --check`, no new task markers,
-  and a local 5-skill frontmatter check.
-- Continued the runtime-acceleration cycle by adding opt-in worker result
-  caching plus the automated `architecture-review-fast.js` launcher. Verification:
-  `npm run build`, targeted fast/source-context/workflow smokes, canonical apps,
-  version sync, manifests/index checks, `npm test` 75/75, `git diff --check`,
-  and no new task markers.
-- Merged PR #120, then added opt-in fast-review metrics for live duration and
-  cache-hit measurement. Verification: targeted architecture-review-fast smokes,
-  `npm run build`, manifest/index/version checks, `git diff --check`, no new
-  task markers, and `npm test` 75/75.
+- **Scope chime's environment into the shared handoff repo (operator, web
+  UI).** `coo1white/handoff` (Private) is created, guarded, and verified; the
+  cool-workflow (Mac) side is proven end-to-end. `cw ledger` has been on npm
+  since v0.1.98 (v0.2.4 is out now). The remaining step is a web-UI action —
+  add the `chime` environment's repository scope + a git token that can
+  read/write it. A cool-workflow-scoped session cannot do this itself
+  (`create_repository`/cross-repo calls return 403). Then on the chime side:
+  `npm i -g cool-workflow@latest`, clone the handoff repo, and verify with
+  `cw ledger list --dir ledger` (fail-closed). Setup runbook:
+  `plugins/cool-workflow/docs/handoff-setup.md` and
+  `plugins/cool-workflow/docs/cross-agent-ledger.7.md`.
+- (Done, kept for the record: the old "cut the v0.1.98 tag" blocker shipped
+  on 2026-07-03; releases through v0.2.4 are live on npm.)
 
 ## Cross-agent handoff ledger (verified)
 
@@ -209,26 +163,142 @@ short, and simple to add to. Do not use it for guesses.
   online; add nodes for a concrete availability/reachability driver, not by
   default (more nodes = larger failure surface).
 
+## Lessons (was docs/LESSONS.md — a fact plus the fix, kept concrete)
+
+### Release & publish
+
+- **Publishing is tag-driven, not merge-driven.** Merging a release PR to `main`
+  does NOT publish. `npm-publish.yml` fires on `release-gate` success, which
+  fires on a `push` of a `v*` tag. No tag ⇒ nothing new in Actions and npm stays
+  on the old version.
+- **Cut a release with the gated flow, never by hand.** As of v0.2.3+ the flow
+  is two steps: the agent preps the CHANGELOG + version-bump PR, then the
+  OPERATOR runs `npm run release -- X.Y.Z` in their own terminal (fail-fast
+  preflight, gated cut, tag-only push, CI wait; a re-run resumes). Never
+  hand-write a verdict file; never `git tag` by hand. Full rules: `RELEASE.md`
+  and AGENTS.md "Shipping a release".
+- **The independent reviewer must run EXECUTE-capable.** A read-only / low-effort
+  reviewer cannot re-run the gate it is judging and fabricates a REJECTED verdict
+  (the v0.1.97 codex case: two REJECTs in <65 s vs a ~12-min gate). Review intent
+  is wired through as `CW_RELEASE_REVIEW=1`; the wrapper raises effort and opens
+  the sandbox to workspace-write. Never trust a read-only/low-effort verdict.
+- **What the gate actually runs.** `release-gate.js` = build, `test:gate` (full
+  suite), diff-substance / test-evidence / cadence checks, branch-naming. It does
+  NOT run `readme:check` or the dogfood release-cut — those live only in the
+  broader `release:check`.
+- **If a version bump leaves `dist/version.js` stale**, it is the tsc incremental
+  cache. `rm -f .cache/tsconfig.tsbuildinfo && npm run build` regenerates it;
+  otherwise `mcp-app-surface-smoke` fails on a version mismatch.
+- **`bump:version` has two modes.** Gate-mode stamps structured surfaces but skips
+  docs; `--content` also stamps docs/man-pages. If gate-mode ran first, `--content`
+  reports "already at X" — revert the structured files (keep `CHANGELOG.md`) and
+  re-run `--content` from the clean prior version.
+
+### The sandbox `127.0.0.1` git-URL-rewrite artifact
+
+- In a cloud sandbox, outbound git may be rewritten through a `127.0.0.1` proxy.
+  That host gets injected into the *expected* README URL, so `readme:check` /
+  `readme-sync-smoke` (and the dogfood release-cut verdict that cascades from it)
+  **fail ONLY in the sandbox and are green in CI.** A run whose lone failure is
+  `readme-sync-smoke` is this artifact, not a regression.
+- **Never run `npm run sync:readme` in the sandbox** — it would bake the
+  `127.0.0.1` proxy host into the committed README. Leave README sync to CI.
+
+### Ledger design & security (`cw ledger`)
+
+- **Content-addressed `id` must be bound to content on the verify path.** `id` is
+  excluded from the digest, so `verifyLedgerEntry` must check `id === deriveId(digest)`
+  and fail closed (`ledger-id-mismatch`). Any field excluded from a digest needs
+  its own binding check.
+- **Multi-mirror union is conflict-free by construction** because entries are
+  immutable + content-addressed, so a union is a set-union, not a merge.
+- **Only verified entries may drive derived state.** The inbox `resolution`
+  ignores unverified entries, so a tampered review can never resolve a proposal —
+  it stays `pending` (fail-closed).
+- **Report, don't adjudicate — mechanism, not policy.** The ledger reports a
+  `contested` proposal when reviews disagree rather than picking a winner. Every
+  new field must be consumed by a real code path and asserted by a test that
+  fails if the impl is reverted (not a `typeof` check).
+
+### Naming & POLA
+
+- **Check for an existing verb before naming a new one.** `cw handoff` already
+  existed (run/task ownership transfer), so the cross-agent primitive had to be a
+  NEW verb, `cw ledger`. Grep the command surface first.
+- **Extend output additively.** New JSON keys are POLA-safe; changing or removing
+  existing keys is not. Guard the byte-identical default with a POLA assertion in
+  the smoke (e.g. single-`--dir` keeps `dir`, not `dirs`).
+
+### Gates & repo mechanics
+
+- **`onramp:check` requires an `ITERATION_LOG.md` cycle row for any source / app /
+  script change** (goal | files | tests | gate | tagged). Docs-only changes do not
+  require one.
+- **Tests are auto-discovered from `test/*-smoke.js`** by `run-all.js` — a new
+  smoke runs the moment it lands, but it bumps the smoke count in
+  `plugins/cool-workflow/docs/project-index.md`, so run `npm run sync:project-index`
+  or `index:check` fails.
+- **Two docs trees, different gate scope.** `sync-project-index.js` indexes
+  `plugins/cool-workflow/docs/` only; repo-root `docs/` is outside that scan.
+- **Where notes go:** durable lessons go HERE; in-flight started work goes in
+  "In-flight relay" above; `docs/BACKLOG.md` is only for ideas parked because
+  they serve no North Star track.
+- **Man-page sync is binding.** A shipped behavior change must update the matching
+  `docs/*.7.md` in the same diff, or the reviewer rejects it.
+- **A reference grep does not find every pin.** A file can be pinned by CONTENT
+  (a test doing `readFileSync` + assert on it — see the `src/core/types.ts`
+  restore, 2026-07-13) or by a runtime path convention (`cw man <topic>` serves
+  `docs/<topic>.7.md`). Before deleting "unreferenced" files, run the FULL suite
+  against the committed head; that is the real net.
+
+### Multi-agent loops (PDCA blackboard)
+
+- When a task asks for agents to work together, first try the parts CW already
+  has: workflow apps give the work shape, worker output gives checked facts, the
+  blackboard gives shared state, MCP gives tool access to the same state, smoke
+  tests prove the loop. Do not make a new MCP server when the existing server
+  can show the same run state; add a workflow app first, then prove it with one
+  smoke that uses both CLI and MCP.
+- For a three-agent loop keep the order plain: `plan -> build -> audit -> next
+  action`. Each agent writes one blackboard message and, when there is a result
+  file, one artifact ref. If audit evidence is missing, let the worker evidence
+  gate refuse the result instead of adding a new policy layer.
+
+### Git & cross-session operations
+
+- **`git push` never goes to `main` directly** (AGENTS.md hard rule): feature
+  branch → PR → review → merge. A release cut pushes its *feature branch* + the
+  tag; the verdict commit reaches `main` via the PR.
+- **"stale info" on `--force-with-lease` after a merge** means the remote branch
+  was auto-deleted when its PR merged. `git remote prune origin`, then a normal
+  push; when a branch's PR has already merged, restart it from the default
+  branch: `git checkout -B <branch> origin/main`.
+- **A repo-scoped cloud session cannot reach outside its scope.** Cross-repo
+  calls return 403; shared-repo creation and scoping are operator web-UI steps.
+- **Keep distinct changes on distinct branches / PRs.** Focused diffs; mixing
+  a docs change, a code feature, and a lessons update muddies the story.
+
+### Operator environment quirks (macOS)
+
+- Interactive **zsh does not treat `#` as a comment** — give the operator
+  comment-free command blocks.
+- `npm i -g .` can install `cw` into a **shadowed prefix**; `npm i -g
+  cool-workflow@latest` is the reliable path now that releases are published.
+- git credentials use the **osxkeychain** helper; a token added once is reused.
+
 ## Next Run
 
-- **In-flight work for the next agent lives in `docs/HANDOFF_TODO.md`** — start
-  there. See "Pending" above for the two blocking items (#6 tag cut, #4 chime
-  scoping); item 3 there covers the post-publish install on both sides once #6
-  lands.
+- Start with "In-flight relay" above (one open item: chime scoping).
 - Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`
   for the automated 1→6 path on a CW-shaped repo. Use `--profile-file` for
   non-CW repositories.
-- Next acceleration target: measure live fast-review duration and
-  `metrics.fastReview.resultCacheHits` with a real agent, then consider opt-in
-  caching for Assess summaries only if the validation trace proves Map caching
-  is not enough.
-- Since Map caching is proven live, next acceleration target is to run or
-  instrument the remaining Assess/Verify/Verdict phases, then add opt-in Assess
-  caching only if those summaries dominate the foreground wait.
+- Next acceleration target: run or instrument the remaining Assess/Verify/Verdict
+  phases, then add opt-in Assess caching only if those summaries dominate the
+  foreground wait.
 - After Assess caching, use narrow source profiles before inventing a more
   complex context mechanism: `mcp`, `workflow-apps`, `release`, and
-  `agent-wrappers` are much smaller than `core`; `runtime` is still large because
-  it intentionally carries the full `src/**` kernel.
+  `agent-wrappers` are much smaller than `core`; `runtime` intentionally carries
+  the full `src/**` kernel.
 - For incremental review, prefer `--changed-from origin/main` plus a narrow
   profile. Treat the changed JSONL as an overlay, not a replacement for a full
   audit when broad architectural context is required.
