@@ -90,6 +90,9 @@ three user tracks.
 
 ### Track A
 
+Status: passed on 2026-07-14 after the human resume drive result was made
+clear.
+
 From a clean clone and clean home, follow the README and complete:
 
 ```text
@@ -101,17 +104,23 @@ time as evidence.
 
 ### Track B
 
+Status: passed on 2026-07-14. Restore, strict check, resume, and the
+before-write tamper refusal all passed.
+
 Use two separate temporary roots. Export a run from the first, restore and
 verify it in the second, then resume it. A changed archive has to be refused
 before any target state is written.
 
 ### Track C
 
+Status: passed on 2026-07-14 with Claude Code and Codex CLI.
+
 Load generated manifests in at least two real AI clients. For each client,
 prove MCP `initialize`, `tools/list`, and one read-only `tools/call`. Keep only
 safe evidence with no user or machine data.
 
 If a proof fails, the first real blocker becomes the next one-goal cycle.
+The safe proof record is in `docs/audits/north-star-proof-2026-07-14.md`.
 
 ## Work Kept Out
 
