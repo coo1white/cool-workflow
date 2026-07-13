@@ -108,10 +108,14 @@ core 现有 4 处真实违规:
 ### 1.8 生成物与文档滞后
 
 - vendor 适配两套并存:(A)`manifest/plugin.manifest.json` → `scripts/gen-manifests.js`
-  声明式生成 5 vendor 清单,有 `--check` drift 门;(B)仓库根的 `.cursor/`、
-  `.gemini/commands/`、`.opencode/command/`、`.windsurfrules`、`GEMINI.md`、`Codex.md`
-  ——手写、无生成器、无 gate。定性:(B) 是"给在本仓工作的 agent 的 repo 级指令",
-  与产品 manifest 不是一类;风险是与 AGENTS.md 漂移,不是产品漂移。
+  声明式生成 5 vendor 清单,有 `--check` drift 门;(B)仓库根给"在本仓工作的
+  开发 agent"的 repo 级指令文件——手写、无生成器、无 gate。2026-07-13 起开发
+  只用 Claude + Codex,(B) 收敛为 `AGENTS.md`/`CLAUDE.md`/`Codex.md` 三件
+  (未使用的 `.cursor/`、`.windsurfrules`、`GEMINI.md`、`AI_MEMORY.md`、
+  `.github/copilot-instructions.md`、`.gemini/commands/`、`.opencode/command/`
+  已全部删除)。定性:(B) 与产品 manifest 不是一类;风险是与 AGENTS.md 漂移,
+  不是产品漂移。产品侧的多 vendor 支持(scripts/agents/ wrappers、
+  vendor-preflight、生成的 5 vendor 清单)不受此影响,照旧。
 - `gen-manifests.js:134-189` 的 `buildLegacy()` 是死回退(manifest 已有 vendors 键,
   :112-115 的触发条件永假)。
 - `docs/cli-mcp-parity.7.md` 正文仍指已删除的旧文件(:26 `src/capability-registry.ts`、
