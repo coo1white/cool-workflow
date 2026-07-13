@@ -333,3 +333,5 @@ The host-facing surface tracks the CLI golden-path fixes (`cw -q` routing + repo
 0.2.3
 
 0.2.4
+
+0.2.5
