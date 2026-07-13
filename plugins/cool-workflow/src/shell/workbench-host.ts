@@ -136,11 +136,6 @@ export class WorkbenchHost {
         sendJson(res, 400, { error: "bad request: invalid URL" });
         return;
       }
-      if (!this.checkAuth(req, url)) {
-        sendJson(res, 401, { error: "unauthorized: token mismatch" });
-        return;
-      }
-
       // Decode the route path ONCE (old build's decodeRoutePath). Node's
       // `new URL()` does NOT throw on a malformed percent-escape like
       // `/%E0%A4%A`; only decodeURIComponent does — so this is where a
@@ -154,6 +149,24 @@ export class WorkbenchHost {
       } catch {
         sendJson(res, 400, { error: "bad request: malformed URL path" });
         return;
+      }
+
+      // Auth is checked AFTER the route is decoded, and only where run data
+      // (or environment data) can flow. Before this, a set token made the
+      // browser's own follow-up requests for /ui/app.css and /ui/app.js fail
+      // 401 — the page rendered as broken unstyled HTML with no explanation.
+      // The three shipped UI files are generic static code with no run data,
+      // so they are served without a token. Every /api/* route carries run
+      // data and stays behind the token. The "/" route is split: an
+      // INSTALLED index.html is the same generic static code (open), but the
+      // FALLBACK page embeds the serve descriptor — which carries the
+      // absolute repo root path — so a missing UI keeps "/" behind the token.
+      if (!this.checkAuth(req, url)) {
+        const uiIndexInstalled = fs.existsSync(path.resolve(workbenchUiRoot(), "index.html"));
+        if (route.startsWith("/api/") || (route === "/" && !uiIndexInstalled)) {
+          sendJson(res, 401, { error: "unauthorized: token mismatch" });
+          return;
+        }
       }
 
       if (route === "/api/serve") {

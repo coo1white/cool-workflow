@@ -30,6 +30,18 @@ caseMain(() => {
   assert.equal(view.resolved, true);
   assert.equal(view.error, undefined);
 
+  // The run's lifecycle state rides along (additive key): a string from the
+  // known set, equal to the run registry's own record for the same run — the
+  // view adds no second source of truth.
+  const KNOWN_LIFECYCLES = ["queued", "running", "blocked", "completed", "failed", "archived", "reclaimed"];
+  assert.equal(typeof view.lifecycle, "string", "resolved view carries a lifecycle string");
+  assert.ok(KNOWN_LIFECYCLES.includes(view.lifecycle), `lifecycle "${view.lifecycle}" is a known state`);
+  const runList = run(["run", "list", "--json"], { cwd: repo });
+  assert.equal(runList.status, 0);
+  const listed = JSON.parse(runList.stdout).records.find((r) => r.runId === runId);
+  assert.ok(listed, "cw run list --json carries the driven run");
+  assert.equal(view.lifecycle, listed.lifecycle, "view.lifecycle === the run list record's lifecycle");
+
   const groups = {
     graph: ["operator", "multiAgent", "compact", "criticalPath"],
     blackboard: ["coordinator", "digest", "graph"],
@@ -72,6 +84,9 @@ caseMain(() => {
   assert.equal(missing.status, 0);
   const missingView = JSON.parse(missing.stdout);
   assert.equal(missingView.resolved, false);
+  // The lifecycle key is OMITTED when the run cannot be classified — the
+  // unresolved payload's bytes are unchanged by the additive field.
+  assert.equal(missingView.lifecycle, undefined);
   assert.ok(missingView.error && missingView.error.includes("no-such-run-id"));
   for (const [group, members] of Object.entries(groups)) {
     for (const member of members) {

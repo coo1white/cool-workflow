@@ -294,6 +294,19 @@ async function main() {
     assert.equal(got.status, 200, "GET /api/run/:id is 200");
     assert.equal(canonicalStable(JSON.parse(got.body)), canonicalStable(cliView), "host run view === cw workbench view --json");
 
+    // Lifecycle badge data (UI/UX audit round 2): the served view carries the
+    // run's lifecycle as a string from the known state set, equal to the run
+    // registry's own record for the same run (no second source of truth).
+    {
+      const servedView = JSON.parse(got.body);
+      const KNOWN_LIFECYCLES = ["queued", "running", "blocked", "completed", "failed", "archived", "reclaimed"];
+      assert.equal(typeof servedView.lifecycle, "string", "served run view carries a lifecycle string");
+      assert.ok(KNOWN_LIFECYCLES.includes(servedView.lifecycle), `lifecycle "${servedView.lifecycle}" is a known state`);
+      const shown = cwJson(["run", "show", runId, "--json"]);
+      assert.equal(shown.found, true, "cw run show resolves the same run");
+      assert.equal(servedView.lifecycle, shown.record.lifecycle, "served lifecycle === cw run show record.lifecycle");
+    }
+
     // Index endpoint composes existing registry + run-list payloads.
     const idx = await request({ ...base, path: "/api/index", method: "GET", headers: okHeaders });
     assert.equal(idx.status, 200, "GET /api/index is 200");
@@ -359,6 +372,7 @@ async function main() {
   const ghost = buildWorkbenchRunView("does-not-exist-000", { cwd: workspace });
   assert.equal(ghost.resolved, false, "absent run is unresolved");
   assert.ok(ghost.error, "absent run carries an honest error");
+  assert.equal(ghost.lifecycle, undefined, "an unclassifiable run has NO lifecycle key (additive field, bytes unchanged)");
   for (const group of Object.values(ghost.panels)) {
     for (const panel of Object.values(group)) {
       assert.equal(panel.status, "absent", `panel ${panel.capability} is absent for an absent run`);
@@ -476,9 +490,46 @@ async function main() {
         headers: { ...enforcedHeaders, authorization: `Bearer ${requiredToken}` },
       });
       assert.equal(withAuth.status, 200, "token required + correct bearer -> 200 (checkAuth unchanged by --require-token)");
+
+      // UI/UX audit round 2: with a token set, the static UI files (generic
+      // code, no run data) and an INSTALLED "/" index.html are served WITHOUT
+      // a token — otherwise the browser's own /ui/app.css + /ui/app.js
+      // requests got 401 and the page rendered as broken unstyled HTML.
+      // Every /api/* route stays behind the token, via header OR ?token=.
+      const uiNoAuth = await request({ ...enforcedBase, path: "/ui/app.js", method: "GET", headers: enforcedHeaders });
+      assert.equal(uiNoAuth.status, 200, "static /ui/app.js is served without a token");
+      assert.ok(uiNoAuth.body.includes("Cool Workflow Workbench UI"), "served app.js carries the known marker string");
+      const rootNoAuth = await request({ ...enforcedBase, path: "/", method: "GET", headers: enforcedHeaders });
+      assert.equal(rootNoAuth.status, 200, "installed / index.html is served without a token (UI is installed in-repo)");
+      const goodQuery = await request({
+        ...enforcedBase,
+        path: `/api/index?token=${encodeURIComponent(requiredToken)}`,
+        method: "GET",
+        headers: enforcedHeaders,
+      });
+      assert.equal(goodQuery.status, 200, "GET /api/index?token=<good> -> 200 (query token composes)");
+      const badQuery = await request({
+        ...enforcedBase,
+        path: "/api/index?token=wrong-token",
+        method: "GET",
+        headers: enforcedHeaders,
+      });
+      assert.equal(badQuery.status, 401, "GET /api/index?token=<wrong> -> 401");
     } finally {
       enforced.kill();
     }
+
+    // Static pins on the shipped UI source: the client reads ?token= at
+    // startup and tells a 401'd user exactly what to do; a blocked/failed
+    // run's detail view carries a plain next-step line. (There is no
+    // headless-browser tooling in this repo, so the client-side behavior is
+    // pinned at the source level and checked by hand — see the PR notes.)
+    const appJsSource = fs.readFileSync(path.join(pluginRoot, "ui", "workbench", "app.js"), "utf8");
+    assert.ok(
+      appJsSource.includes("reopen as /?token=<your CW_WORKBENCH_TOKEN value>"),
+      "app.js carries the 401 what-to-do hint"
+    );
+    assert.ok(appJsSource.includes("or 'cw doctor' for next steps"), "app.js carries the blocked/failed recovery hint");
   }
 
   process.stdout.write(

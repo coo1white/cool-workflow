@@ -97,9 +97,16 @@ capability core entry that already exists — never a side code path — so it c
 CLI/MCP and is covered by the parity gate.
 
 Authentication is opt-in, not on by default: set `CW_WORKBENCH_TOKEN` and every
-request must carry it as `Authorization: Bearer <token>` or `?token=<token>`
+`/api/*` request must carry it as `Authorization: Bearer <token>` or `?token=<token>`
 (timing-safe compare); left unset, the loopback/read-only/GET-only controls
-above are the only defense and any local process can read. Pass
+above are the only defense and any local process can read. The static UI files
+(`/ui/*`, and `/` when the UI is installed) are served without the token: they
+are fixed code with no run data, and the browser needs them before the page can
+say anything at all. The fallback `/` page (used when the UI is not installed)
+stays behind the token, because it holds the serve descriptor with the repo
+root path. Open the page as `/?token=<token>`: the UI reads the token from the
+page address and adds it to every `/api/*` request; without it the page still
+loads and tells you to reopen it with the token. Pass
 `--require-token` to `cw workbench serve` to fail closed instead: the server
 refuses to start at all unless `CW_WORKBENCH_TOKEN` is already set. This is a
 strict opt-in — leaving it off keeps today's default behavior unchanged.
@@ -282,3 +289,16 @@ _No behavioral change in v0.1.89 (CLI-surface golden-path + help-output fixes on
 0.2.3
 
 0.2.4
+
+## Workbench UI/host round 2 (Unreleased)
+
+- With `CW_WORKBENCH_TOKEN` set, the page now works: the static UI files are
+  open, and every `/api/*` request stays behind the token (see "Trust
+  boundary" above). The UI reads `?token=` from the page address, and a 401
+  answer tells you to reopen the page with the token.
+- `cw workbench view --json` (and `/api/run/:runId`) gains a `lifecycle` key:
+  the run registry's own state for the run
+  (queued|running|blocked|completed|failed|archived|reclaimed). The key is
+  left out when the run cannot be classified, so those payloads keep their
+  old bytes. The UI shows it as a badge in the run header, with one
+  next-step line when a run is blocked or failed.
