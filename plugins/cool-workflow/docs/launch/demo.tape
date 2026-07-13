@@ -5,9 +5,10 @@
 #
 #   vhs plugins/cool-workflow/docs/launch/demo.tape
 #
-# Output: docs/launch/demo-tamper.gif. Then in the root README, replace the
-# fenced demo output block under "See it in 30 seconds" with:
-#   ![cw demo tamper](plugins/cool-workflow/docs/launch/demo-tamper.gif)
+# Output: plugins/cool-workflow/docs/launch/demo-tamper.gif. The SHIPPED hero
+# GIF is docs/assets/demo.gif (README.md:18) — after a fresh capture, copy it
+# there so the README picks it up:
+#   cp plugins/cool-workflow/docs/launch/demo-tamper.gif docs/assets/demo.gif
 
 Output plugins/cool-workflow/docs/launch/demo-tamper.gif
 

@@ -38,7 +38,7 @@ logs, and release verdict.
 5. Make sure generated `plugins/cool-workflow/dist/` output is committed.
 6. Make sure topology docs and smoke coverage are present:
    `docs/multi-agent-topologies.7.md` and
-   `test/multi-agent-topologies-smoke.js`.
+   `test/multi-agent-topologies-{map-reduce,debate,judge-panel}-smoke.js`.
 7. Make sure Multi-Agent CLI + MCP Surface docs and smoke coverage are present:
    `docs/multi-agent-cli-mcp-surface.7.md` and
    `test/multi-agent-cli-mcp-surface-smoke.js`.
@@ -72,7 +72,7 @@ The version synchronization check takes in:
 
 - `plugins/cool-workflow/package.json`
 - `plugins/cool-workflow/.codex-plugin/plugin.json`
-- `plugins/cool-workflow/src/version.ts`
+- `plugins/cool-workflow/src/core/version.ts`
 - framework and MCP server version use
 - canonical workflow app manifests
 - golden path and MCP smoke expectations
