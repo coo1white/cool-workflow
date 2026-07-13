@@ -70,7 +70,11 @@ async function loadIndex() {
   }
   for (const record of records) {
     const lifecycle = record.lifecycle || record.status || "";
-    const li = el("li", { class: state.activeRunId === record.runId ? "active" : "" }, [
+    // A real <button>, not a bare <li> with a click listener: Tab reaches
+    // it, Enter/Space activate it, and it gets a focus ring for free — no
+    // extra ARIA needed. Same CSS classes as before so the row/card look
+    // is unchanged (see app.css .run-list button rules).
+    const btn = el("button", { type: "button", class: state.activeRunId === record.runId ? "active" : "" }, [
       el("div", { class: "rid" }, [
         el("span", { class: `status-dot ${lifecycle}`, title: lifecycle || "unknown" }),
         document.createTextNode(record.runId)
@@ -80,8 +84,8 @@ async function loadIndex() {
         text: [record.appId || record.workflowId, lifecycle, record.repo].filter(Boolean).join(" · ")
       })
     ]);
-    li.addEventListener("click", () => selectRun(record.runId));
-    list.appendChild(li);
+    btn.addEventListener("click", () => selectRun(record.runId));
+    list.appendChild(btn);
   }
 }
 

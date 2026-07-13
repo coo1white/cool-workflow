@@ -26,6 +26,27 @@ import { buildWorkbenchIndex, buildWorkbenchRunView, buildWorkbenchServeDescript
 
 const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
+function isTTY(stream: NodeJS.WriteStream): boolean {
+  return Boolean(stream.isTTY);
+}
+
+/** Pure text for the human-friendly serve hint line. Kept separate from
+ *  the TTY gate below so it is directly unit-testable with no fake stream
+ *  at all: just a port number in, one line of text out. */
+export function formatServeHint(boundPort: number): string {
+  return `workbench serving at http://127.0.0.1:${boundPort} (Ctrl-C to stop)`;
+}
+
+/** Prints the human hint line to STDERR only, and only on a real
+ *  interactive terminal — the same TTY-gated-nicety pattern as
+ *  term.ts's printSuccessSummary: silent when the stream is not a TTY, so
+ *  a piped/non-interactive run (and the existing STDOUT descriptor line)
+ *  never changes at all. */
+export function printServeHint(boundPort: number, stream: NodeJS.WriteStream = process.stderr): void {
+  if (!isTTY(stream)) return;
+  stream.write(`${formatServeHint(boundPort)}\n`);
+}
+
 function timingSafeEqual(a: string, b: string): boolean {
   const bufA = Buffer.from(a, "utf8");
   const bufB = Buffer.from(b, "utf8");
@@ -248,6 +269,7 @@ export class WorkbenchHost {
     const boundPort = await this.listen();
     const descriptor = this.descriptor(false, boundPort);
     process.stdout.write(`${JSON.stringify({ ...descriptor, boundPort })}\n`);
+    printServeHint(boundPort);
     // Block forever (until the process is killed) — a real serve.
     await new Promise<void>(() => {});
   }
