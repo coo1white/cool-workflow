@@ -207,12 +207,21 @@ export interface WorkbenchIndexView {
  *  list`), each embedded VERBATIM from its own already-declared capability
  *  handler — the Workbench adds no new source of truth. Composed the same
  *  way the panels are (findCapability(...).mcp.handler), so `/api/index`
- *  can never drift from the standalone `cw` commands. Read-only. */
+ *  can never drift from the standalone `cw` commands. Read-only.
+ *
+ *  When `args.text` names a non-blank filter (the Workbench UI's sidebar
+ *  filter box, `ui/workbench/app.js`'s `loadIndex`), the run list is filled
+ *  via the `run.search` capability instead of `run.list` — `run.list`'s own
+ *  handler (`runListCli` -> `RunRegistry.list()`) never reads a `text`
+ *  field, so calling it with a filter present would silently ignore it.
+ *  With no `text` filter the call is unchanged: `run.list`, byte-identical
+ *  to the payload before this branch existed. */
 export function buildWorkbenchIndex(args: Record<string, unknown> = {}): WorkbenchIndexView {
   const scope: "repo" | "home" = args.scope === "home" ? "home" : "repo";
   const scoped = { ...args, scope };
   const registryRow = findCapability("registry.show");
-  const runListRow = findCapability("run.list");
+  const text = typeof args.text === "string" ? args.text.trim() : "";
+  const runListRow = findCapability(text ? "run.search" : "run.list");
   const registry = registryRow?.mcp ? registryRow.mcp.handler(scoped) : undefined;
   const runs = runListRow?.mcp ? runListRow.mcp.handler(scoped) : [];
   return { schemaVersion: 1, surface: "workbench", command: "index", scope, registry, runs };

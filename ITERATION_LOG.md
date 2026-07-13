@@ -1,5 +1,13 @@
 # CW Iteration Log
 
+## Batch — fix Workbench sidebar filter (Unreleased)
+
+> Dev-loop fix, not a release cut: no `npm run release`, no tag.
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 38 | The Workbench sidebar filter box (`ui/workbench/app.js`'s `loadIndex`) sends `?text=<filter>` to `GET /api/index`, and `workbench-host.ts`'s route does spread `url.searchParams` into the args passed to `buildWorkbenchIndex` — but `buildWorkbenchIndex` (`src/shell/workbench.ts`) always filled its `runs` key via the `run.list` capability handler, and `run.list`'s own handler chain (`runListCli` in `src/shell/registry-cli.ts` -> `RunRegistry.list()`) never reads or forwards a `text` field at all. So the filter box never filtered anything — typing in it just re-fetched the same full run list. Fixed by having `buildWorkbenchIndex` use the `run.search` capability handler instead of `run.list` whenever `args.text` is a non-blank string (same composition style: call the already-declared capability's own `mcp.handler`, no duplicate filter logic); with no `text` filter the call is unchanged (`run.list`), so the no-filter payload stays byte-identical. | `plugins/cool-workflow/src/shell/workbench.ts` (`buildWorkbenchIndex`). | Extended `plugins/cool-workflow/test/web-desktop-workbench-smoke.js`: added an assertion that a plain `GET /api/index` lists the bootstrapped run, plus a new `GET /api/index?text=no-such-run-matches-this` case asserting zero records — proven fail-first against the pre-fix code (the filtered request still returned the run) and passing after the fix. Removed a stale comment block describing an old placeholder `buildWorkbenchIndex` that no longer matched current source. Checked `v2/conformance/cases/` for anything pinning `/api/index` response bytes — only `report-workbench.case.js` pins the static route-path list, unaffected by this change. | BUILD OK; `check`/`purity:check`/`parity:check` clean; conformance green; smoke suite green (see commit). | no (dev loop fix, no release) |
+
 ## Batch — fix http-delegate child stdin UTF-8 corruption (Unreleased)
 
 > Dev-loop fix, not a release cut: no `npm run release`, no tag. A
