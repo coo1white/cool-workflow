@@ -67,6 +67,28 @@ and fills out the prompt.
 | 0 | Command done |
 | 1 | Error (bad arguments, missing trigger, etc.) |
 
+## EXAMPLES
+
+Long architecture reviews as background routines: use
+`architecture-review-fast` for the foreground user path, then put the full
+`architecture-review` app in line as background work so a deep look-over does
+not get in the way of a back-and-forth session:
+
+```bash
+node scripts/architecture-review-fast.js \
+  --repo /path/to/repo \
+  --question "Is this architecture sound?" \
+  --metrics \
+  --schedule-full
+```
+
+The wrapper makes a one-shot reminder schedule whose `workflowId` is
+`architecture-review`. The schedule prompt carries the foreground fast run id,
+fast report path, and source-context digest/profile, and asks the background
+agent to give back the full review report path and digest. `--metrics` is
+optional and reports foreground time plus agent-spawn and result-cache-hit
+counts for the fast run.
+
 ## SEE ALSO
 
 cw sched — durable run-queue scheduling for workflow runs

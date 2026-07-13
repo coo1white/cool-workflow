@@ -105,10 +105,10 @@ The docs do not run code. But they bind the code to a public surface. The list b
 
 ### canonical-workflow-apps.7.md
 
-- [ ] Canonical apps: `architecture-review`, `architecture-review-fast`, `pr-review-fix-ci`, `release-cut`, `research-synthesis` (docs/canonical-workflow-apps.7.md:19-121). Live app list also has `end-to-end-golden-path`, `pdca-blackboard-loop`, `workflow-app-framework-demo` (docs/project-index.md:127-136).
+- [ ] Canonical apps: `architecture-review`, `architecture-review-fast`, `pr-review-fix-ci`, `release-cut`, `research-synthesis` (docs/canonical-workflow-apps.7.md:19-121). Live app list also has `end-to-end-golden-path`, `pdca-blackboard-### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop`, `workflow-app-framework-demo` (docs/project-index.md:127-136).
 - [ ] Legacy compatibility ids: `legacy-architecture-review`, `legacy-research-synthesis` (docs/canonical-workflow-apps.7.md:150-162).
 - [ ] `npm run canonical-apps` validates and plans every app; `npm run golden-path` is the full integration proof (docs/canonical-workflow-apps.7.md:122-177).
-- [ ] `scripts/architecture-review-fast.js` flags: `--fast-model`, `--strong-model`, `--metrics`, `--schedule-full`; env peers `CW_ARCHITECTURE_REVIEW_FAST_MODEL`/`CW_ARCHITECTURE_REVIEW_STRONG_MODEL`; a profile that exports zero records makes the wrapper fail closed (docs/canonical-workflow-apps.7.md:40-63).
+- [ ] `scripts/architecture-review-fast.js` flags: `--fast-model`, `--strong-model`, `--metrics`, `--### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop`-full`; env peers `CW_ARCHITECTURE_REVIEW_FAST_MODEL`/`CW_ARCHITECTURE_REVIEW_STRONG_MODEL`; a profile that exports zero records makes the wrapper fail closed (docs/canonical-workflow-apps.7.md:40-63).
 
 ### end-to-end-golden-path.7.md
 
@@ -189,7 +189,7 @@ The docs do not run code. But they bind the code to a public surface. The list b
 
 - [ ] The registry (`src/capability-registry.ts`) is the one source; the generated matrix says 209 capabilities and 196 MCP tools (docs/cli-mcp-parity.7.md:84-86). Verified live: 209 capabilities, 196 MCP tools, 13 cli-only, 12 projected (dist/capability-registry.js, counted).
 - [ ] `payloadIdentical` means `cw <cmd> --json` equals the `cw_<tool>` payload apart from whitespace and generation-time ISO timestamps (docs/cli-mcp-parity.7.md:61-65).
-- [ ] The 13 CLI-only capabilities: `help`, `version`, `update`, `fix`, `info`, `search`, `man`, `doctor`, `loop`, `schedule daemon`, `quickstart` (with `audit-run` alias), `demo tamper`, `demo bundle` — each with a recorded reason (docs/cli-mcp-parity.7.md:313-329). `audit-run` alias verified in `src/cli/command-surface.ts:213` and `src/capability-registry.ts:508`.
+- [ ] The 13 CLI-only capabilities: `help`, `version`, `update`, `fix`, `info`, `search`, `man`, `doctor`, `### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop`, `schedule daemon`, `quickstart` (with `audit-run` alias), `demo tamper`, `demo bundle` — each with a recorded reason (docs/cli-mcp-parity.7.md:313-329). `audit-run` alias verified in `src/cli/command-surface.ts:213` and `src/capability-registry.ts:508`.
 - [ ] The 12 projected (declared payload-divergent) capabilities: `commit`, `backend.agent.config.set`, `run.drive.step`, `gc.run`, `clones.gc`, `orphans.gc`, `workbench.serve`, `ledger.propose`, `ledger.review`, `ledger.verify`, `ledger.apply`, `ledger.list` (docs/cli-mcp-parity.7.md:331-346).
 - [ ] The parity gate (`scripts/parity-check.js --check`, `npm run parity:check`) fails closed on: one-surface capability, undeclared live tool/command, missing reason, payload divergence on a `payloadIdentical` row (docs/cli-mcp-parity.7.md:348-368).
 
@@ -351,11 +351,11 @@ The docs do not run code. But they bind the code to a public surface. The list b
 
 - [ ] `npm run gen:manifests -- --check` diffs generated manifests; `npm run manifest:load-check` boots each vendor's generated `mcp.json` (resolve `pluginRootVar`, spawn `shell:false`, JSON-RPC `initialize` + `tools/list`) and asserts one `serverInfo.name` and the same tool count across vendors (docs/vendor-manifest-loadability.7.md:12-38). Verified: both npm scripts exist.
 
-### routine.7.md / routines.md / scheduled-tasks.md — `cw routine|schedule|loop`
+### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop`|schedule|loop`
 
 - [ ] `routine create --kind api|github --prompt P [--match JSON]`, `routine list [--kind]`, `routine delete <id>`, `routine fire <kind> <payload-file>`, `routine events [<id>]`; state in `.cw/routines/triggers.json` and `.cw/routines/payloads/<event-id>.json` (docs/routine.7.md:9-68). Verified paths in `src/triggers.ts:18-19,81`.
 - [ ] CW runs no web server for routines; the bridge is a local data store (docs/routine.7.md:31-33).
-- [ ] `schedule create --kind loop|cron|reminder ...`, `schedule list|due|complete|pause|resume|run-now|history|delete`, `schedule daemon [--once|--intervalSeconds N]`, and the `cw loop` alias; state in `.cw/schedules/tasks.json`; minute granularity; 7-day default expiry; `jitterSeconds` (docs/scheduled-tasks.md:8-80). Verified path in `src/scheduler.ts:15`.
+- [ ] `### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop` create --kind loop|cron|reminder ...`, `schedule list|due|complete|pause|resume|run-now|history|delete`, `schedule daemon [--once|--intervalSeconds N]`, and the `cw loop` alias; state in `.cw/schedules/tasks.json`; minute granularity; 7-day default expiry; `jitterSeconds` (docs/control-plane-scheduling.7.md:69-99). Verified path in `src/scheduler.ts:15`.
 
 ### dogfood-one-real-repo.7.md / dogfood records
 
@@ -372,7 +372,7 @@ The docs do not run code. But they bind the code to a public surface. The list b
 
 ### Non-contract pages
 
-- `getting-started.md`, `index.md`, `project-index.md`, `release-history.md`, `agent-framework.md`, `unix-principles.md`, `handoff-setup.md`, `designs/handoff-ledger.md` (marked `DRAFT / proposal ... ships no behavior`) — these guide, index, or record; they bind style rules (POLA, Rule of Silence, fail closed, stdout=data) and cross-check counts, but the per-verb contracts live in the `.7.md` pages. `project-index.md` is GENERATED (`npm run sync:project-index`) and its snapshot counts were verified live: version `0.1.98`, 69 source modules, 8 apps, 61 docs, 173 smoke tests (docs/project-index.md:5-13; counted in the tree).
+- `getting-started.md`, `index.md`, `project-index.md`, `release-history.md`, `unix-principles.md`, `handoff-setup.md` — these guide, index, or record; they bind style rules (POLA, Rule of Silence, fail closed, stdout=data) and cross-check counts, but the per-verb contracts live in the `.7.md` pages. (2026-07-13: the former `agent-framework.md`, `scheduled-tasks.md`, `routines.md`, and `designs/handoff-ledger.md` were folded into `workflow-app-framework.7.md`, `control-plane-scheduling.7.md`, `routine.7.md`, and `cross-agent-ledger.7.md`.) `project-index.md` is GENERATED (`npm run sync:project-index`); its snapshot counts move with the tree.
 
 ## Exact outputs
 
@@ -497,7 +497,7 @@ The full `.cw/` layout the docs bind (union over all pages):
 <repo>/.cw/registry/{index.json,archive.json,provenance.json,reclaimed.json}
 <repo>/.cw/evals/<suite-id>/{suite.json,snapshot.json,replay-run.json,comparison.json,score.json,findings.json,gate.json,report.md,replay/}
 <repo>/.cw/routines/{triggers.json,payloads/<event-id>.json}
-<repo>/.cw/schedules/tasks.json
+<repo>/.cw/### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop`s/tasks.json
 <repo>/.cw/cache/source-context/    # opt-in export cache
 
 $CW_HOME/  (CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow)
@@ -506,7 +506,7 @@ $CW_HOME/  (CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflo
   clones/<hash>/                   # content-addressed remote checkouts
 ```
 
-Evidence: docs/pipeline-verbs.7.md:71-79; docs/worker-isolation.7.md:88-101; docs/candidate-scoring.7.md:54-65; docs/error-feedback.7.md:102-110; docs/security-trust-hardening.7.md:11-21; docs/coordinator-blackboard.7.md:53-69; docs/multi-agent-runtime-core.7.md:32-43; docs/multi-agent-topologies.7.md:33-37; docs/state-explosion-management.7.md:44-46; docs/evidence-adoption-reasoning-chain.7.md:69-82; docs/run-registry-control-plane.7.md:81-99; docs/control-plane-scheduling.7.md:19-21; docs/observability-cost-accounting.7.md:44-48; docs/routine.7.md:56-61; docs/scheduled-tasks.md:8-10; docs/remote-source-review.7.md:69-72; docs/agent-delegation-drive.7.md:155-162, 270-274, 310-314; docs/contract-migration-tooling.7.md:68-71; docs/multi-agent-eval-replay-harness.7.md:22-29.
+Evidence: docs/pipeline-verbs.7.md:71-79; docs/worker-isolation.7.md:88-101; docs/candidate-scoring.7.md:54-65; docs/error-feedback.7.md:102-110; docs/security-trust-hardening.7.md:11-21; docs/coordinator-blackboard.7.md:53-69; docs/multi-agent-runtime-core.7.md:32-43; docs/multi-agent-topologies.7.md:33-37; docs/state-explosion-management.7.md:44-46; docs/evidence-adoption-reasoning-chain.7.md:69-82; docs/run-registry-control-plane.7.md:81-99; docs/control-plane-scheduling.7.md:19-21; docs/observability-cost-accounting.7.md:44-48; docs/routine.7.md:56-61; docs/### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop`d-tasks.md:8-10; docs/remote-source-review.7.md:69-72; docs/agent-delegation-drive.7.md:155-162, 270-274, 310-314; docs/contract-migration-tooling.7.md:68-71; docs/multi-agent-eval-replay-harness.7.md:22-29.
 
 ## Invariants and error behavior
 
@@ -551,7 +551,7 @@ All pointers are relative to `plugins/cool-workflow/`. Each checklist row above 
 - Builtin templates: scripts/agents/builtin-templates.json (six entries, matches docs/agent-delegation-drive.7.md:285-301).
 - Ledger stdin fallback: src/cli/handlers/ledger.ts:68-93.
 - `audit-run` alias: src/cli/command-surface.ts:213; src/capability-registry.ts:508-509.
-- Routine/schedule paths: src/triggers.ts:18-19,81; src/scheduler.ts:15.
+- Routine/### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop` paths: src/triggers.ts:18-19,81; src/scheduler.ts:15.
 - npm scripts named by docs: package.json (`fixture-compat`, `version:sync`, `dogfood:release`, `eval:replay`, `parity:check`, `gen:manifests`, `manifest:load-check`, `release:check`, `sync:project-index`, `index:check`, `readme:check`, `sync:readme`, `bump:version`, `golden-path`, `canonical-apps`, `onramp:check`, `test:fast` — all present).
 - project-index snapshot counts: docs/project-index.md:5-13 vs live counts (69 src/*.ts, 8 apps/, 61 docs/*.md, 173 test/*-smoke.js — all agree).
 
@@ -593,7 +593,7 @@ Doc-drift and doc-named behavior guards under `test/` (from docs/project-index.m
 - `test/remote-link-git-smoke.js`, `test/remote-link-archive-smoke.js` — remote-source page.
 - `test/sandbox-profile-smoke.js`, `test/worker-isolation-smoke.js`, `test/verifier-gated-commit-smoke.js`, `test/candidate-scoring-smoke.js`, `test/error-feedback-smoke.js` — kernel pages.
 - `test/source-context-profile-smoke.js`, `test/vendor-manifest-load-smoke.js`, `test/vendor-preflight-smoke.js` — context/manifest pages.
-- `test/schedule-routine-daemon-smoke.js` — schedule/routine pages.
+- `test/### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop`-routine-daemon-smoke.js` — schedule/routine pages.
 - `test/release-tooling-smoke.js`, `test/release-flow-smoke.js`, `test/release-gate-smoke.js`, `test/bump-version-idempotent-smoke.js`, `test/block-unapproved-tag-smoke.js` — release pages.
 
 ## Rebuild risks
@@ -601,7 +601,7 @@ Doc-drift and doc-named behavior guards under `test/` (from docs/project-index.m
 1. **The forward-reference tails.** Nearly every `.7.md` ends with ~30 appended per-release sections and bare version strings. A rebuilder that treats them as page content will invent behavior; a rebuilder that drops them breaks `version:sync` (each doc must carry the current version string). The tails are made by `scripts/forward-ref-docs.js` and are append-only + idempotent (docs/release-tooling.7.md:47-54).
 2. **Generated blocks inside docs.** `cli-mcp-parity.7.md` has `<!-- gen:parity:count -->`, `<!-- gen:parity:table -->`, `<!-- gen:parity:cliOnly -->`, `<!-- gen:parity:projected -->` blocks made from the registry and gated by `test/parity-doc-sync-smoke.js`; `project-index.md` is fully generated by `npm run sync:project-index`. Hand-editing these breaks the gates.
 3. **Exact strings are load-bearing.** The evidence triple lines, the commit-gate feedback codes, the ledger error codes, the doctor check names, `No fixes needed.`, and `VERDICT: tamper-evidence holds ✓` are tested byte-for-byte. Any "cleanup" of these strings fails smokes.
-4. **Two different "handoff" ideas.** `cw handoff` (team-collaboration ownership transfer) and the cross-agent `cw ledger` (docs/cross-agent-ledger.7.md:20-23) are separate; and the `sched` namespace (queue leases) is separate from `schedule` (wall-clock loop/cron) (docs/control-plane-scheduling.7.md:10-12). Merging either pair breaks the surface.
+4. **Two different "handoff" ideas.** `cw handoff` (team-collaboration ownership transfer) and the cross-agent `cw ledger` (docs/cross-agent-ledger.7.md:20-23) are separate; and the `sched` namespace (queue leases) is separate from `### routine.7.md / control-plane-scheduling.7.md — `cw routine|schedule|loop`` (wall-clock loop/cron) (docs/control-plane-scheduling.7.md:10-12). Merging either pair breaks the surface.
 5. **`checkpoint` vs `committed`.** The commit-node status split (`completed`+`checkpoint:true` vs `committed`+`verifierGated:true`) is easy to flatten into one "commit" concept; the docs bind both shapes and the gate between them.
 6. **Attest vs enforce.** Sandbox profiles under the `node` backend attest, they do not enforce; the attestation lists (`enforced`/`attested`/`unenforceable`) and the refusal-not-fallback rule must survive; a rebuild that "just enforces" or "just skips" both breaks the contract.
 7. **Exit-0 readers vs exit-1 gates.** Pairs like `audit summary` (always 0) vs `audit verify` (gate), and `run verify-import` (0 by default, `--strict` gates) vs `run restore` (always gates) are deliberate; swapping them silently changes scripts that pipe on `&&`.

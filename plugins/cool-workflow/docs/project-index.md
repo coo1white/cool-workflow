@@ -8,7 +8,7 @@ Generated from the current repository code on 2026-07-13 by `npm run sync:projec
 - Version: `0.2.4`
 - Source modules: `151`
 - Workflow apps: `8`
-- Docs: `61`
+- Docs: `58`
 - Smoke tests: `235`
 - Repository: https://github.com/coo1white/cool-workflow
 
@@ -220,7 +220,6 @@ multi-agent host -> topology -> blackboard/coordinator
 ## Documentation Map
 
 - [Agent Delegation Drive](agent-delegation-drive.7.md)
-- [Workflow App framework](agent-framework.md)
 - [CANDIDATE-SCORING(7)](candidate-scoring.7.md)
 - [Canonical Workflow Apps](canonical-workflow-apps.7.md)
 - [CAPABILITY-TOPOLOGY-REGISTRY(7) — Cool Workflow Agent-Driven Self-Evolution](capability-topology-registry.7.md)
@@ -262,11 +261,9 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Remote-Source Review (`--link`)](remote-source-review.7.md)
 - [Verifiable Report Bundle](report-verifiable-bundle.7.md)
 - [ROUTINE(7)](routine.7.md)
-- [Routines](routines.md)
 - [Run Registry / Control Plane](run-registry-control-plane.7.md)
 - [Run Retention & Provable Reclamation](run-retention-reclamation.7.md)
 - [SANDBOX-PROFILES(7)](sandbox-profiles.7.md)
-- [Scheduled Tasks](scheduled-tasks.md)
 - [Security / Trust Hardening](security-trust-hardening.7.md)
 - [Source Context Profiles](source-context-profiles.7.md)
 - [State Explosion Management](state-explosion-management.7.md)

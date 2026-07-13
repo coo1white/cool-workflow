@@ -52,6 +52,23 @@ advanced pages only when you need those parts.
 - [Trust Audit Anchor](trust-audit-anchor.7.md) - head anchor that makes a cut-off audit-log tail visible.
 - [State Explosion Management](state-explosion-management.7.md) - summaries, compact graph views, blackboard digests, and stale-aware compaction.
 - [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md) - why evidence was adopted or rejected.
+- [Pipeline Runner](pipeline-runner.7.md) - the plan/dispatch/result/commit state machine at the kernel's center.
+- [Pipeline Verbs](pipeline-verbs.7.md) - `cw plan|dispatch|result` and the worker result contract.
+- [Verifier-Gated Commit](verifier-gated-commit.7.md) - evidence checks that let a commit through or refuse it.
+- [Worker Isolation](worker-isolation.7.md) - worker-local state, write acceptance, and the isolation boundary.
+- [Candidate Scoring](candidate-scoring.7.md) - scoring and selection across worker candidates.
+- [Error Feedback](error-feedback.7.md) - structured error records fed back into the next attempt.
+- [State Node](state-node.7.md) - the durable node record every run is made of.
+- [Capability / Topology Registry](capability-topology-registry.7.md) - the one data source behind CLI, MCP, and help.
+- [Cross-Agent Ledger](cross-agent-ledger.7.md) - digest-sealed proposals and reviews between two agents (`cw ledger`).
+- [Routine Triggers](routine.7.md) - `cw routine` local trigger bridge for API/GitHub events.
+- [Remote Source Review](remote-source-review.7.md) - reviewing a repository the agent cannot clone.
+- [Vendor Manifest Loadability](vendor-manifest-loadability.7.md) - proving generated vendor manifests actually load.
+- [Canonical Workflow Apps](canonical-workflow-apps.7.md) - the official app matrix and its checks.
+- [Doctor](doctor.7.md) - environment and onramp diagnosis (`cw doctor`).
+- [Demo](demo.7.md) - the tamper-evidence demo (`cw demo`).
+- [Fix](fix.7.md) - `cw fix` guided recovery for a blocked run.
+- [Init](init.7.md) - `cw init` repository bootstrap.
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must keep that line clear: stable contracts, clear compatibility checks, and
