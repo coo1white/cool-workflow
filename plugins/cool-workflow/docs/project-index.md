@@ -358,6 +358,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [durable-atomic-write-smoke.js](../test/durable-atomic-write-smoke.js)
 - [end-to-end-demo-smoke.js](../test/end-to-end-demo-smoke.js)
 - [end-to-end-golden-path-smoke.js](../test/end-to-end-golden-path-smoke.js)
+- [endpoint-concurrent-round-smoke.js](../test/endpoint-concurrent-round-smoke.js)
 - [error-feedback-resolution-smoke.js](../test/error-feedback-resolution-smoke.js)
 - [error-feedback-smoke.js](../test/error-feedback-smoke.js)
 - [evidence-adoption-reasoning-smoke.js](../test/evidence-adoption-reasoning-smoke.js)

@@ -125,6 +125,19 @@ exactly one fixed step (injected `now`); bare `--drive` runs to the end or to a
 parked/blocked stop. `run drive <run-id>` (no `--step`) is the read-only, fixed
 preview of the next step.
 
+## Concurrent rounds (`--concurrency N`)
+
+`--drive --concurrency N` (or an auto-width parallel phase) runs a whole round's
+tasks in ONE window instead of one at a time. CW dispatches the round's tasks,
+collects every agent outcome concurrently, then settles + accepts them in
+DETERMINISTIC batch (task-id) order — so the wall-clock drops but the recorded
+state, reports, and exit codes are byte-identical to a serial run. Both agent
+shapes get real concurrency: a **CLI-binary** agent (`CW_AGENT_COMMAND`) runs
+all children at once through the batch delegate child, and an **HTTP-endpoint**
+agent (`CW_AGENT_ENDPOINT`) POSTs all N delegations at once through the HTTP
+batch delegate child. A cache-hit task still settles on the serial path inside
+the same round. An unconfigured agent still refuses (it is never a fake pass).
+
 ## Fail closed — probe vs refusal vs park
 
 - **Probe.** `backend probe agent` reports `readiness: "ready"` iff a
