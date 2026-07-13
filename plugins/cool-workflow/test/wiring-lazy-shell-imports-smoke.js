@@ -98,6 +98,8 @@ try {
       "run-store.js",
       "workflow-app-loader.js",
       "doctor.js",
+      "exec-backend-cli.js",
+      "ledger-cli.js",
     ];
     for (const mod of mustNotLoad) {
       assert.equal(loadedShellModule(loaded, mod), false, `cw --version must not load shell/${mod} -- it doesn't need it`);
@@ -131,12 +133,29 @@ try {
 
   // ---------------------------------------------------------------------
   // 4. `cw sandbox list`: a pure static array (listBundledSandboxProfiles),
-  //    no shell module at all should load for it.
+  //    no unrelated shell module should load for it. It DOES need
+  //    shell/exec-backend-cli.js itself (listSandboxProfilesCli lives
+  //    there) -- pin that on-demand load positively, not just the negative
+  //    "unrelated modules stay absent" side.
   // ---------------------------------------------------------------------
   {
     const loaded = loadedModulesFor(["sandbox", "list"]);
     for (const mod of ["multi-agent-cli.js", "registry-cli.js", "worker-cli.js", "run-store.js", "workflow-app-loader.js"]) {
       assert.equal(loadedShellModule(loaded, mod), false, `cw sandbox list must not load shell/${mod} -- it returns a static array`);
+    }
+    assert.ok(loadedShellModule(loaded, "exec-backend-cli.js"), "cw sandbox list must load shell/exec-backend-cli.js -- it's what actually lists the profiles");
+  }
+
+  // ---------------------------------------------------------------------
+  // 5. `cw ledger list`: needs shell/ledger-cli.js (ledgerListCli), the
+  //    other lazy shell holdout fixed by this cycle. Pins the on-demand
+  //    load side for ledger, mirroring case 4 for exec-backend.
+  // ---------------------------------------------------------------------
+  {
+    const loaded = loadedModulesFor(["ledger", "list"]);
+    assert.ok(loadedShellModule(loaded, "ledger-cli.js"), "cw ledger list must load shell/ledger-cli.js -- it's what actually lists the ledger entries");
+    for (const mod of ["multi-agent-cli.js", "registry-cli.js", "worker-cli.js", "exec-backend-cli.js"]) {
+      assert.equal(loadedShellModule(loaded, mod), false, `cw ledger list must not load shell/${mod} -- unrelated to the ledger`);
     }
   }
 } finally {

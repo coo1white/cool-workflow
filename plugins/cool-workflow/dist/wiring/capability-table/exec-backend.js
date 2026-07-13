@@ -16,23 +16,26 @@ const registry_core_1 = require("./registry-core");
 // their milestone-2 placeholder `mcp.handler` with the real body, exactly
 // as milestones 3/4 did for their own rows.
 // ---------------------------------------------------------------------
-const exec_backend_cli_1 = require("../../shell/exec-backend-cli");
 const cli_args_1 = require("../../core/util/cli-args");
-// This slice is required unconditionally at startup for every command;
-// load doctor/app-run-cli lazily so only doctor/fix/sandbox.choose/
-// sandbox.resolve/app.run handlers pay their require cost.
+// This slice is required unconditionally at startup for every command; every
+// shell import below is lazy (require()'d only inside the handler that
+// actually uses it), so a command that never touches doctor/fix/sandbox/
+// backend/app.run never pays any of these shell modules' require cost.
 function loadDoctor() {
     return require("../../shell/doctor");
 }
 function loadAppRunCli() {
     return require("../../shell/app-run-cli");
 }
+function loadExecBackendCli() {
+    return require("../../shell/exec-backend-cli");
+}
 (0, registry_core_1.attachCliBinding)("sandbox.list", {
     path: ["sandbox", "list"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, exec_backend_cli_1.listSandboxProfilesCli)(args.options) }),
+    handler: (args) => ({ json: loadExecBackendCli().listSandboxProfilesCli(args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.list").mcp.handler = (args) => (0, exec_backend_cli_1.listSandboxProfilesCli)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.list").mcp.handler = (args) => loadExecBackendCli().listSandboxProfilesCli(args);
 // GAP #24: cw_sandbox_choose / cw_sandbox_resolve + cw_app_run were declared
 // MCP-only rows with the notYetImplemented placeholder handler. Wire them to
 // the ported shell bodies (both are MCP-only in the old build — no CLI path).
@@ -42,18 +45,18 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.run").mcp.handler = (args) => lo
 (0, registry_core_1.attachCliBinding)("sandbox.show", {
     path: ["sandbox", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, exec_backend_cli_1.showSandboxProfileCli)((0, cli_args_1.required)(args.positionals[0], "profile id"), args.options) }),
+    handler: (args) => ({ json: loadExecBackendCli().showSandboxProfileCli((0, cli_args_1.required)(args.positionals[0], "profile id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.show").mcp.handler = (args) => (0, exec_backend_cli_1.showSandboxProfileCli)((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileId), "profile id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.show").mcp.handler = (args) => loadExecBackendCli().showSandboxProfileCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileId), "profile id"), args);
 (0, registry_core_1.attachCliBinding)("sandbox.validate", {
     path: ["sandbox", "validate"],
     jsonMode: "default",
     handler: (args) => {
-        const result = (0, exec_backend_cli_1.validateSandboxProfileCli)((0, cli_args_1.required)(args.positionals[0], "profile file"), args.options);
+        const result = loadExecBackendCli().validateSandboxProfileCli((0, cli_args_1.required)(args.positionals[0], "profile file"), args.options);
         return { json: result, exitCode: result.valid ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (args) => (0, exec_backend_cli_1.validateSandboxProfileCli)((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileFile), "profile file"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (args) => loadExecBackendCli().validateSandboxProfileCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileFile), "profile file"), args);
 // PARITY: `sandbox.choose`/`sandbox.resolve` are BOTH-surface capabilities
 // per SPEC/mcp.md (old build cli.path ["sandbox","choose"]/["sandbox",
 // "resolve"]) — they were left MCP-only at GAP #24 (see the comment
@@ -74,21 +77,21 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (ar
 (0, registry_core_1.attachCliBinding)("backend.list", {
     path: ["backend", "list"],
     jsonMode: "default",
-    handler: () => ({ json: (0, exec_backend_cli_1.listBackendsCli)() }),
+    handler: () => ({ json: loadExecBackendCli().listBackendsCli() }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.list").mcp.handler = () => (0, exec_backend_cli_1.listBackendsCli)();
+registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.list").mcp.handler = () => loadExecBackendCli().listBackendsCli();
 (0, registry_core_1.attachCliBinding)("backend.show", {
     path: ["backend", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, exec_backend_cli_1.showBackendCli)((0, cli_args_1.required)(args.positionals[0], "backend id")) }),
+    handler: (args) => ({ json: loadExecBackendCli().showBackendCli((0, cli_args_1.required)(args.positionals[0], "backend id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.show").mcp.handler = (args) => (0, exec_backend_cli_1.showBackendCli)((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.backendId), "backend id"));
+registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.show").mcp.handler = (args) => loadExecBackendCli().showBackendCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.backendId), "backend id"));
 (0, registry_core_1.attachCliBinding)("backend.probe", {
     path: ["backend", "probe"],
     jsonMode: "default",
-    handler: (args) => ({ json: (0, exec_backend_cli_1.probeBackendCli)(args.positionals[0], args.options) }),
+    handler: (args) => ({ json: loadExecBackendCli().probeBackendCli(args.positionals[0], args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args) => (0, exec_backend_cli_1.probeBackendCli)((0, cli_args_1.optionalArg)(args.backendId), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args) => loadExecBackendCli().probeBackendCli((0, cli_args_1.optionalArg)(args.backendId), args);
 // `backend agent config [show]` = read-only; `backend agent config set
 // ...` = mutating. CLI path is ["backend", "agent"] (2 tokens, matching
 // dispatchTable's supported path lengths); the remaining positionals
@@ -102,8 +105,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args)
     handler: (args) => {
         const action = args.positionals[1];
         if (action === "set")
-            return { json: (0, exec_backend_cli_1.backendAgentConfigSet)(args.options) };
-        return { json: (0, exec_backend_cli_1.backendAgentConfigShow)(args.options) };
+            return { json: loadExecBackendCli().backendAgentConfigSet(args.options) };
+        return { json: loadExecBackendCli().backendAgentConfigShow(args.options) };
     },
 });
 // `backend.agent.config.set` shares the SAME dispatch path/handler as
@@ -124,12 +127,12 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args)
     handler: (args) => {
         const action = args.positionals[1];
         if (action === "set")
-            return { json: (0, exec_backend_cli_1.backendAgentConfigSet)(args.options) };
-        return { json: (0, exec_backend_cli_1.backendAgentConfigShow)(args.options) };
+            return { json: loadExecBackendCli().backendAgentConfigSet(args.options) };
+        return { json: loadExecBackendCli().backendAgentConfigShow(args.options) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.show").mcp.handler = (args) => (0, exec_backend_cli_1.backendAgentConfigShow)(args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").mcp.handler = (args) => (0, exec_backend_cli_1.backendAgentConfigSet)(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.show").mcp.handler = (args) => loadExecBackendCli().backendAgentConfigShow(args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").mcp.handler = (args) => loadExecBackendCli().backendAgentConfigSet(args);
 // PARITY: `backend.agent.config.set` mutates $CW_HOME/agent-config.json
 // (secret-stripped) before returning the effective config; both surfaces
 // perform the same write, so it is a documented opt-out from the
