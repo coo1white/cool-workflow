@@ -390,6 +390,17 @@ function roleAuthorized(roleId: string | undefined, authorizedRoles: string[]): 
   return authorizedRoles.includes(roleId);
 }
 
+/** Whether `record` itself counts for anything at all (same eligibility a
+ *  record needs to be counted as an approval or a veto in the main loop
+ *  below). A record that fails this can't void another record either —
+ *  otherwise a disqualified self-approval could still cancel someone
+ *  else's veto via `supersedes`. */
+function recordCountsAtAll(record: ApprovalRecord, policy: ReviewGatePolicy | undefined, selfIds: Set<string>): boolean {
+  const reason = disqualify(record, policy, selfIds);
+  if (record.decision === "reject") return !reason || reason === "self-approval";
+  return !reason;
+}
+
 function deriveStatus(gated: boolean, required: number, recorded: number, rejectionCount: number, disqualified: DisqualifiedApproval[]): ReviewStatus {
   if (!gated) return "approved";
   if (rejectionCount > 0) return "rejected";
@@ -432,7 +443,21 @@ export function deriveReviewState(runId: string, approvalsAll: ApprovalRecord[],
   const selfIds = new Set((options.selfActorIds || []).filter(Boolean));
   const approvals = approvalsAll.filter((record) => matchesAnyTarget(record.target, related));
 
-  const supersededIds = new Set(approvals.map((record) => record.supersedes).filter((id): id is string => Boolean(id)));
+  // A record's `supersedes` only takes effect when the target is that SAME
+  // actor's own prior record (an actor may only supersede their own
+  // record, never someone else's) and the superseding record itself is
+  // eligible to count for something. Otherwise a disqualified record (e.g.
+  // a self-approval a policy forbids) could still void another actor's
+  // veto just by naming it in `supersedes`.
+  const byId = new Map(approvals.map((record) => [record.id, record]));
+  const supersededIds = new Set<string>();
+  for (const record of approvals) {
+    if (!record.supersedes) continue;
+    const target = byId.get(record.supersedes);
+    if (!target || target.actor.id !== record.actor.id) continue;
+    if (!recordCountsAtAll(record, policy, selfIds)) continue;
+    supersededIds.add(record.supersedes);
+  }
 
   const gated = Boolean(policy && policy.requiredApprovals > 0 && policy.appliesTo.includes(normalized.kind));
   const required = gated ? policy!.requiredApprovals : 0;

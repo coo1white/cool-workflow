@@ -262,6 +262,18 @@ function substitute(arg, map) {
   return arg.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in map ? String(map[k]) : m));
 }
 
+/** True when `line` is a REJECTED verdict line, allowing the markdown
+ *  decoration a reviewer commonly wraps it in (`**REJECTED**`, `REJECTED:`,
+ *  `### REJECTED`, `REJECTED.`) — stripped of leading heading/quote/emphasis
+ *  markers, the line must start with REJECTED not immediately followed by
+ *  another letter (so "REJECTEDLY speaking..." is still correctly NOT a
+ *  rejection marker). Must stay at least as permissive as the APPROVED
+ *  matcher below, or a decorated REJECTED can fall through to it. */
+function isRejectedLine(line) {
+  const stripped = line.trim().replace(/^[#>\s]+/, "").replace(/^[*_]+/, "");
+  return /^REJECTED(?![A-Za-z])/i.test(stripped);
+}
+
 /** Extract verdict lines from agent stdout. Returns the verdict text (first line
  *  must be APPROVED <sha> or REJECTED) or null if no valid verdict found.
  *  Also logs failures to stderr so the operator can inspect. */
@@ -275,7 +287,7 @@ function extractVerdictFromStdout(stdout, resultPath) {
   // exact text "APPROVED <sha>" can show up even when the real verdict is
   // REJECTED. If BOTH markers are present anywhere in the text, that must
   // read as REJECTED, never as an approval that then gets a real signature.
-  const rejectedLine = lines.find((line) => /^REJECTED(\s|$)/i.test(line.trim()));
+  const rejectedLine = lines.find((line) => isRejectedLine(line));
   if (rejectedLine) {
     process.stderr.write(`reviewer REJECTED via stdout — full output:\n${stdout.trim()}\n`);
     return rejectedLine.trim();
@@ -440,7 +452,7 @@ function verifyVerdict(resultPath) {
   const lines = text.split(/\r?\n/);
   const firstLine = lines[0] || "";
   if (firstLine !== `APPROVED ${HEAD}`) {
-    if (firstLine.toUpperCase() !== "REJECTED") {
+    if (!isRejectedLine(firstLine)) {
       const normalized = extractVerdictFromStdout(text, resultPath);
       if (normalized && normalized.split(/\r?\n/)[0] === `APPROVED ${HEAD}`) {
         fs.writeFileSync(resultPath, `${normalized}\n`);
