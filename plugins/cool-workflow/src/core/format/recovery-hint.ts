@@ -19,5 +19,6 @@ export function recoveryHint(message: string): string | undefined {
   if (m.includes("missing") && m.includes("repo")) return 'cw -q "<question>" -dir <project-folder>';
   if (m.includes("app") && (m.includes("not found") || m.includes("not available"))) return "cw app list";
   if (m.includes("run id") || m.includes("run not found")) return "cw run list";
+  if (m.includes("missing required input") && m.includes("question")) return 'cw -q "<question>"';
   return undefined;
 }

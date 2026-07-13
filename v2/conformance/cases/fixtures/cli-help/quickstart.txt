@@ -2,3 +2,11 @@
 cw quickstart
 
   cw quickstart  ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).
+
+    Flags
+      --check               Check setup only; do not plan, run, or write anything.
+      --preview             Show the next step, but do not run it.
+      --bundle              Seal a finished run into a portable, self-checked bundle.
+      --with-trust-key KEY  Add a public key to the bundle for a strict check.
+      --resume              Move a stopped run forward one step, or to the end with --run ID.
+      --link URL            Review a remote repo by its URL.

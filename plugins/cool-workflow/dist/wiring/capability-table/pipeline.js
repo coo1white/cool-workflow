@@ -246,6 +246,18 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
         const exitCode = (result.mode === "check" && result.ok === false) || bundleFailed ? 1 : undefined;
         return { json: result, exitCode };
     },
+    // UI/UX fix: `cw help quickstart` used to list only the one-line
+    // summary above, so a first-run user had no way to learn these flags
+    // without reading source. Real flag names verified against
+    // shell/pipeline-cli.ts's quickstartRun.
+    flags: [
+        { name: "--check", summary: "Check setup only; do not plan, run, or write anything." },
+        { name: "--preview", summary: "Show the next step, but do not run it." },
+        { name: "--bundle", summary: "Seal a finished run into a portable, self-checked bundle." },
+        { name: "--with-trust-key KEY", summary: "Add a public key to the bundle for a strict check." },
+        { name: "--resume", summary: "Move a stopped run forward one step, or to the end with --run ID." },
+        { name: "--link URL", summary: "Review a remote repo by its URL." },
+    ],
 }, "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.", "quickstart");
 (0, registry_core_1.attachCliBinding)("dispatch", {
     path: ["dispatch"],

@@ -2,3 +2,9 @@
 cw doctor
 
   cw doctor  Diagnose the host for setup problems (Node version, agent backend, agent binary on PATH, git, writable home/repo state) and print an actionable fix per check.
+
+    Flags
+      --onramp            Run the extra onramp checks (3-step quick start).
+      --fix               Print fix commands instead of the full report.
+      --changed-from REF  Check the onramp only for the change since REF.
+      --json              Print the report as JSON.

@@ -276,7 +276,11 @@ function formatHelp() {
 function cliCommandHelpRows(verb) {
     return (0, capability_table_1.cliCapabilities)()
         .filter((row) => row.cli.path[0] === verb && !row.cli.hiddenFromHelp)
-        .map((row) => ({ command: `cw ${(row.cli.helpPath ?? row.cli.path).join(" ")}`, summary: row.summary }));
+        .map((row) => ({
+        command: `cw ${(row.cli.helpPath ?? row.cli.path).join(" ")}`,
+        summary: row.summary,
+        ...(row.cli.flags ? { flags: row.cli.flags } : {}),
+    }));
 }
 /** src/orchestrator.ts:988-1007 — `formatCommandHelp(verb)`. Unknown verb
  *  gives a SOFT text (never a throw); known verb lists its registry rows,
@@ -299,6 +303,27 @@ function formatCommandHelp(verb, suggestCommand) {
     for (const row of sorted) {
         const padded = row.command.padEnd(longest, " ");
         lines.push(`  ${padded}  ${row.summary}`);
+    }
+    // Flags block(s): only for rows that declare at least one flag (most
+    // rows do not — see CliBinding.flags). Uses the SAME 4-space indent as
+    // formatHelp's own "Run cw help <command> ..." note above, on purpose:
+    // the CLI/MCP parity help-token parser reads only 2-space lines as
+    // command tokens, so any wider indent is a line it already knows to
+    // skip. One row's command name is only spelled out in the block's own
+    // header when more than one row on this page declares flags (e.g.
+    // "cw ledger" lists both propose and review); a single-row page (e.g.
+    // "cw doctor") just says "Flags".
+    const flaggedRows = sorted.filter((row) => row.flags && row.flags.length > 0);
+    if (flaggedRows.length > 0) {
+        const oneFlaggedRow = flaggedRows.length === 1;
+        for (const row of flaggedRows) {
+            const flags = row.flags;
+            const flagWidth = Math.min(40, Math.max(...flags.map((flag) => flag.name.length)));
+            lines.push("", oneFlaggedRow ? "    Flags" : `    Flags (${row.command})`);
+            for (const flag of flags) {
+                lines.push(`      ${flag.name.padEnd(flagWidth, " ")}  ${flag.summary}`);
+            }
+        }
     }
     return `${lines.join("\n")}\n`;
 }
