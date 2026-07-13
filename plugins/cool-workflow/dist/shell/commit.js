@@ -199,7 +199,13 @@ function commitState(run, input) {
     // NOT prematurely move the run off "interpret".
     if (gate.verifierGated)
         run.loopStage = "checkpoint";
-    (0, fs_atomic_1.writeJson)(snapshotPath, { commit, run });
+    // Only store the commit's own (small, bounded) record. The whole run
+    // (all tasks, nodes, workers, feedback, and run.commits itself) used to
+    // be embedded here too, but no reader anywhere ever parses a `run` key
+    // back out of a commits/<id>.json file — see docs/run-retention-reclamation.7.md.
+    // Embedding the growing run made total commit-dir bytes grow like N^2
+    // in the number of commits.
+    (0, fs_atomic_1.writeJson)(snapshotPath, { commit });
     run.commits.push(commit);
     return commit;
 }
