@@ -19,21 +19,13 @@ import { required, optionalArg } from "../../core/util/cli-args";
 // row — a known, preserved wart.
 // ---------------------------------------------------------------------
 
-import {
-  ledgerApplyCli,
-  ledgerApplyEntry,
-  ledgerListCli,
-  ledgerListMcp,
-  ledgerProposeCli,
-  ledgerProposeMcp,
-  ledgerReviewCli,
-  ledgerReviewMcp,
-  ledgerVerifyCli,
-  ledgerVerifyEntry,
-} from "../../shell/ledger-cli";
 // This file is required at startup for every command. Loading these shell
 // modules only when their handler runs, not at import time, keeps that
-// load cost out of commands that never touch telemetry/audit/demo/report.
+// load cost out of commands that never touch ledger/telemetry/audit/demo/
+// report.
+function loadLedgerCli(): typeof import("../../shell/ledger-cli") {
+  return require("../../shell/ledger-cli") as typeof import("../../shell/ledger-cli");
+}
 function loadTelemetryCli(): typeof import("../../shell/telemetry-cli") {
   return require("../../shell/telemetry-cli") as typeof import("../../shell/telemetry-cli");
 }
@@ -53,46 +45,46 @@ function loadReportCli(): typeof import("../../shell/report-cli") {
 attachCliBinding("ledger.propose", {
   path: ["ledger", "propose"],
   jsonMode: "default",
-  handler: (args) => ({ json: ledgerProposeCli(args.options) }),
+  handler: (args) => ({ json: loadLedgerCli().ledgerProposeCli(args.options) }),
 });
-REGISTRY_BY_CAPABILITY.get("ledger.propose")!.mcp!.handler = (args) => ledgerProposeMcp(args);
+REGISTRY_BY_CAPABILITY.get("ledger.propose")!.mcp!.handler = (args) => loadLedgerCli().ledgerProposeMcp(args);
 
 attachCliBinding("ledger.review", {
   path: ["ledger", "review"],
   jsonMode: "default",
-  handler: (args) => ({ json: ledgerReviewCli(args.options) }),
+  handler: (args) => ({ json: loadLedgerCli().ledgerReviewCli(args.options) }),
 });
-REGISTRY_BY_CAPABILITY.get("ledger.review")!.mcp!.handler = (args) => ledgerReviewMcp(args);
+REGISTRY_BY_CAPABILITY.get("ledger.review")!.mcp!.handler = (args) => loadLedgerCli().ledgerReviewMcp(args);
 
 attachCliBinding("ledger.verify", {
   path: ["ledger", "verify"],
   jsonMode: "default",
   handler: (args) => {
-    const result = ledgerVerifyCli(args.options);
+    const result = loadLedgerCli().ledgerVerifyCli(args.options);
     return { json: result, exitCode: result.ok ? undefined : 1 };
   },
 });
-REGISTRY_BY_CAPABILITY.get("ledger.verify")!.mcp!.handler = (args) => ledgerVerifyEntry(args.entry);
+REGISTRY_BY_CAPABILITY.get("ledger.verify")!.mcp!.handler = (args) => loadLedgerCli().ledgerVerifyEntry(args.entry);
 
 attachCliBinding("ledger.apply", {
   path: ["ledger", "apply"],
   jsonMode: "default",
   handler: (args) => {
-    const result = ledgerApplyCli(args.options);
+    const result = loadLedgerCli().ledgerApplyCli(args.options);
     return { json: result, exitCode: result.ok ? undefined : 1 };
   },
 });
-REGISTRY_BY_CAPABILITY.get("ledger.apply")!.mcp!.handler = (args) => ledgerApplyEntry(args.entry);
+REGISTRY_BY_CAPABILITY.get("ledger.apply")!.mcp!.handler = (args) => loadLedgerCli().ledgerApplyEntry(args.entry);
 
 attachCliBinding("ledger.list", {
   path: ["ledger", "list"],
   jsonMode: "default",
   handler: (args) => {
-    const result = ledgerListCli(args.options);
+    const result = loadLedgerCli().ledgerListCli(args.options);
     return { json: result, exitCode: result.allOk ? undefined : 1 };
   },
 });
-REGISTRY_BY_CAPABILITY.get("ledger.list")!.mcp!.handler = (args) => ledgerListMcp(args);
+REGISTRY_BY_CAPABILITY.get("ledger.list")!.mcp!.handler = (args) => loadLedgerCli().ledgerListMcp(args);
 
 attachCliBinding("telemetry.verify", {
   path: ["telemetry", "verify"],
