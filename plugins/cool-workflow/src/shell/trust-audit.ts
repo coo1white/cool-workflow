@@ -23,7 +23,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { eventHashInput, sha256, stableHash, stableStringify } from "../core/hash";
-import { durableAppendFileSync, safeFileName, withFileLock, writeJson, writeTextDurable } from "./fs-atomic";
+import { durableAppendFileSync, logEndsWithNewline, safeFileName, withFileLock, writeJson, writeTextDurable } from "./fs-atomic";
 import { StateEvidence, WorkflowRun } from "../core/state/types";
 
 export const TRUST_AUDIT_SCHEMA_VERSION = 1;
@@ -553,30 +553,6 @@ function indexCorrelationIds(event: TrustAuditEvent): Record<string, string | un
     picked[field] = (event as unknown as Record<string, string | undefined>)[field];
   }
   return picked;
-}
-
-/** True when the event log's final byte is "\n". A COMPLETED
- *  `durableAppendFileSync` always leaves the log ending in "\n" (it writes
- *  `<json>\n`), so a non-newline last byte means the previous append was
- *  torn by a crash — its bytes were never a confirmed event. Reads ONLY the
- *  last byte at `size-1`, so the append path stays O(1) and never re-reads
- *  the whole log (keeping the tail-cache perf win). A read failure returns
- *  false (treat as "not newline-terminated") — the safe side: an extra
- *  leading newline is harmless (readEventsRaw skips blank lines), while a
- *  MISSED torn boundary would merge two events into one unparseable line. */
-function logEndsWithNewline(file: string, size: number): boolean {
-  if (size <= 0) return false;
-  let fd: number | undefined;
-  try {
-    fd = fs.openSync(file, "r");
-    const buf = Buffer.alloc(1);
-    fs.readSync(fd, buf, 0, 1, size - 1);
-    return buf[0] === 0x0a; // "\n"
-  } catch {
-    return false;
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
-  }
 }
 
 /** Read-modify-append: computes `prevEventHash` from the CURRENT last event

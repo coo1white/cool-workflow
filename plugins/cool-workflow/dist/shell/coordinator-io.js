@@ -158,6 +158,75 @@ function dirtySetsFor(state) {
 function markBlackboardDirty(state, kind, id) {
     dirtySetsFor(state)[kind].add(id);
 }
+// Dirty-id tracking for state.messages, PARALLEL to the 5-kind tracking
+// above (not folded in: messages share ONE ordered log file, not a
+// recordPath-per-id file). The only push site is postBlackboardMessage
+// (`state.messages.push(message)`), so the dirty ids at persist time are
+// always exactly the trailing ids of state.messages since the last
+// persist. Kept off the serialized state for the same reason as
+// blackboardDirtySets: a WeakMap, never a field on BlackboardState.
+const blackboardMessagesDirty = new WeakMap();
+function dirtyMessageIdsFor(state) {
+    let ids = blackboardMessagesDirty.get(state);
+    if (!ids) {
+        ids = new Set();
+        blackboardMessagesDirty.set(state, ids);
+    }
+    return ids;
+}
+function markBlackboardMessageDirty(state, id) {
+    dirtyMessageIdsFor(state).add(id);
+}
+// Writes messages.jsonl for a persist call, or skips it entirely when
+// nothing changed (the common case: 7 of the 8 persistBlackboardState call
+// sites never touch state.messages).
+//
+// Fast path (the common case for the ONE call site that does change
+// messages, postBlackboardMessage): the dirty ids are exactly the trailing
+// `k` entries of state.messages (the sole push site always appends). Sort
+// only that small batch, check it does not need to interleave with the
+// already-on-disk tail, and APPEND it — no read, no resort, no rewrite of
+// the earlier messages. This turns posting M messages from O(M^2) written
+// bytes into O(M) total.
+//
+// Fallback (a caller-supplied custom --id ties createdAt with an earlier
+// message and sorts BEFORE it, so a plain append would leave the file out
+// of order): resort the whole array and rewrite the whole file, byte-
+// identical to the code path this replaces.
+//
+// Either way state.messages is left fully sorted after this call, exactly
+// as the old unconditional `.sort()` left it — buildBlackboardGraph (which
+// iterates state.messages in raw array order) sees the same order as
+// before.
+function persistBlackboardMessages(run, state) {
+    const dirty = dirtyMessageIdsFor(state);
+    if (dirty.size === 0)
+        return;
+    const file = messagesPath(run);
+    const total = state.messages.length;
+    const k = dirty.size;
+    const priorCount = total - k;
+    const batch = priorCount >= 0 ? state.messages.slice(priorCount).sort(cb.compareRecords) : [];
+    const batchMatchesDirty = batch.length === dirty.size && batch.every((message) => dirty.has(message.id));
+    const priorTail = priorCount > 0 ? state.messages[priorCount - 1] : undefined;
+    const canAppend = batchMatchesDirty && (!priorTail || cb.compareRecords(priorTail, batch[0]) <= 0);
+    if (canAppend) {
+        state.messages.splice(priorCount, k, ...batch);
+        const lines = batch.map((message) => `${JSON.stringify(message)}\n`).join("");
+        const currentBytes = fs.existsSync(file) ? fs.statSync(file).size : 0;
+        // Same torn-tail guard as trust-audit's events.jsonl (shared helper):
+        // a crash mid-append can leave the log without its final "\n"; put the
+        // new lines on their own clean line rather than merging with a torn
+        // tail.
+        const leadingNewline = currentBytes > 0 && !(0, fs_atomic_1.logEndsWithNewline)(file, currentBytes) ? "\n" : "";
+        (0, fs_atomic_1.durableAppendFileSync)(file, leadingNewline + lines);
+    }
+    else {
+        // Same bytes the old unconditional code path always wrote.
+        (0, fs_atomic_1.writeTextDurable)(file, state.messages.sort(cb.compareRecords).map((message) => JSON.stringify(message)).join("\n") + (state.messages.length ? "\n" : ""));
+    }
+    dirty.clear();
+}
 function linkMultiAgent(run, blackboardId, topicIds, input) {
     const groupId = input.agentGroupId ?? input.groupId;
     const roleId = input.agentRoleId ?? input.roleId;
@@ -218,12 +287,9 @@ function persistBlackboardState(run) {
         decisions: state.decisions.map(cb.indexRow),
         messages: state.messages.map((message) => ({ id: message.id, blackboardId: message.blackboardId, topicId: message.topicId, createdAt: message.createdAt, status: message.status, author: message.author, evidenceRefs: message.linkedEvidenceRefs, artifactRefIds: message.linkedArtifactRefIds })),
     });
-    // messages.jsonl goes through the SAME atomic temp+rename helper as every
-    // sibling record file (index.json + the per-record *.json via writeJson),
-    // so a crash or a concurrent reader sees old-or-new bytes, never a torn
-    // half-written NDJSON file. The content string is byte-identical to the old
-    // bare fs.writeFileSync — only the write becomes atomic.
-    (0, fs_atomic_1.writeTextDurable)(messagesPath(run), state.messages.sort(cb.compareRecords).map((message) => JSON.stringify(message)).join("\n") + (state.messages.length ? "\n" : ""));
+    // messages.jsonl: see persistBlackboardMessages above for the
+    // skip-if-unchanged / append-if-safe / full-rewrite-fallback split.
+    persistBlackboardMessages(run, state);
     const dirty = dirtySetsFor(state);
     for (const id of dirty.topics) {
         const record = state.topics.find((entry) => entry.id === id);
@@ -313,6 +379,7 @@ function postBlackboardMessage(run, input) {
     requireArtifactRefs(run, input.artifactRefIds || []);
     const message = cb.buildMessage(run.id, board, topic, input, id, now(), trust_policy_io_1.hashText, sourceForActorLocal);
     state.messages.push(message);
+    markBlackboardMessageDirty(state, message.id);
     topic.messageIds = cb.unique([...topic.messageIds, message.id]);
     board.messageCount = state.messages.filter((entry) => entry.blackboardId === board.id).length;
     cb.touch(topic, now());
