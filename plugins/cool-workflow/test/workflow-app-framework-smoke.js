@@ -64,7 +64,7 @@ assert.equal(canonicalResearchPlan.workflowId, "research-synthesis");
 assert.equal(canonicalResearchPlan.pendingTasks, 6);
 const canonicalResearchState = JSON.parse(fs.readFileSync(canonicalResearchPlan.statePath, "utf8"));
 assert.equal(canonicalResearchState.workflow.app.id, "research-synthesis");
-assert.equal(canonicalResearchState.workflow.app.version, "0.2.5");
+assert.equal(canonicalResearchState.workflow.app.version, "0.2.6");
 
 const legacyPlan = run([
   "plan",
