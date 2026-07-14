@@ -1,0 +1,2 @@
+APPROVED 43c4c401e38f6e598ec54957e852b070e64f689c
+A user can inspect a saved run through the Workbench without creating derived .cw files, while keeping the selected run and panel in the page address.
