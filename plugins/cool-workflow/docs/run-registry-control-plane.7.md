@@ -221,6 +221,13 @@ before importing a bad archive. It is a true preview of import: under
 turn away) also inspects as `ok:false`; with the env unset (default) an absent integrity
 block is only reported, not failed.
 
+The file table is checked before any write. Every row needs a known role, a
+safe size, a sha256 value, and a relative path. Paths are made portable and
+then have to be unique. `state.json`, `import-manifest.json`, and lock files
+are made by the restore work and are not accepted from an archive. A bad row
+or two rows with the same path make inspect, import, and restore fail closed.
+No run directory is made for that input.
+
 **Restore in one fail-closed step.** `run restore PATH --target DIR [--json]`
 does the whole move-a-run-to-another-machine flow as ONE atomic, fail-closed
 step: it integrity-**inspects** the bundle first (writing nothing), **imports**

@@ -565,28 +565,83 @@ function roleForRelativePath(relativePath) {
     return "run-file";
 }
 function normalizeArchiveFiles(raw) {
-    const modern = raw.files || [];
-    if (modern.length) {
-        return modern.map((file) => ({
-            relativePath: cleanArchiveRelativePath(file.relativePath),
-            role: file.role,
-            contentBase64: file.contentBase64,
-            sha256: file.sha256,
-            sizeBytes: file.sizeBytes,
-            sourcePath: file.sourcePath,
-        }));
+    const modernValue = raw.files;
+    if (modernValue !== undefined && !Array.isArray(modernValue)) {
+        throw new Error("Invalid run export: files must be an array");
     }
-    return (raw.artifacts || []).map((artifact) => {
+    const modern = (modernValue || []);
+    if (modern.length) {
+        return validateArchiveFileTable(modern.map(normalizeModernArchiveFile));
+    }
+    const legacyValue = raw.artifacts;
+    if (legacyValue !== undefined && !Array.isArray(legacyValue)) {
+        throw new Error("Invalid run export: artifacts must be an array");
+    }
+    const legacy = (legacyValue || []).map((value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) {
+            throw new Error("Invalid run export: every artifact must be an object");
+        }
+        const artifact = value;
+        if (typeof artifact.path !== "string")
+            throw new Error("Invalid run export: artifact path must be a string");
         const contentBase64 = artifact.contentBase64 || Buffer.from("", "utf8").toString("base64");
+        if (typeof contentBase64 !== "string")
+            throw new Error(`Invalid run export: contentBase64 must be a string for ${artifact.path}`);
         const bytes = Buffer.from(contentBase64, "base64");
         return {
             relativePath: cleanArchiveRelativePath(artifact.path),
             role: "artifact",
             contentBase64,
-            sha256: artifact.sha256 || (0, hash_1.sha256Bytes)(bytes),
-            sizeBytes: artifact.sizeBytes ?? bytes.length,
+            sha256: typeof artifact.sha256 === "string" ? artifact.sha256 : (0, hash_1.sha256Bytes)(bytes),
+            sizeBytes: artifact.sizeBytes === undefined ? bytes.length : artifact.sizeBytes,
         };
     });
+    return validateArchiveFileTable(legacy);
+}
+function normalizeModernArchiveFile(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+        throw new Error("Invalid run export: every file entry must be an object");
+    }
+    const file = value;
+    if (typeof file.relativePath !== "string")
+        throw new Error("Invalid run export: file relativePath must be a string");
+    if (typeof file.contentBase64 !== "string")
+        throw new Error(`Invalid run export: contentBase64 must be a string for ${file.relativePath}`);
+    if (typeof file.sha256 !== "string")
+        throw new Error(`Invalid run export: sha256 must be a string for ${file.relativePath}`);
+    if (file.sourcePath !== undefined && typeof file.sourcePath !== "string") {
+        throw new Error(`Invalid run export: sourcePath must be a string for ${file.relativePath}`);
+    }
+    return {
+        relativePath: cleanArchiveRelativePath(file.relativePath),
+        role: file.role,
+        contentBase64: file.contentBase64,
+        sha256: file.sha256,
+        sizeBytes: file.sizeBytes,
+        sourcePath: file.sourcePath,
+    };
+}
+/** Make one canonical, unique archive file table before any caller writes.
+ *  Digest and base64 checks run next, but shape and path faults stop here. */
+function validateArchiveFileTable(files) {
+    const roles = new Set(["artifact", "audit", "telemetry", "run-file"]);
+    const seen = new Set();
+    for (const file of files) {
+        if (!roles.has(file.role))
+            throw new Error(`Invalid archive file role for ${file.relativePath}: ${String(file.role)}`);
+        if (!/^[a-f0-9]{64}$/.test(file.sha256))
+            throw new Error(`Invalid archive sha256 for ${file.relativePath}`);
+        if (!Number.isSafeInteger(file.sizeBytes) || file.sizeBytes < 0) {
+            throw new Error(`Invalid archive size for ${file.relativePath}: ${String(file.sizeBytes)}`);
+        }
+        if (file.relativePath === "state.json" || file.relativePath === "import-manifest.json" || file.relativePath.endsWith(".lock")) {
+            throw new Error(`Reserved archive relative path: ${file.relativePath}`);
+        }
+        if (seen.has(file.relativePath))
+            throw new Error(`Duplicate archive relative path: ${file.relativePath}`);
+        seen.add(file.relativePath);
+    }
+    return files;
 }
 function decodeBase64StrictResult(value, relativePath) {
     if (typeof value !== "string") {
@@ -705,10 +760,13 @@ function rebaseString(value, context) {
     return value;
 }
 function cleanArchiveRelativePath(value) {
-    const cleaned = toArchivePath(value).replace(/^\/+/, "");
-    if (!cleaned || cleaned === "." || cleaned.startsWith("../") || cleaned.includes("/../")) {
+    const portable = value.replace(/\\/g, "/");
+    if (portable.startsWith("/") || /^[A-Za-z]:\//.test(portable) || /(^|\/)\.\.(\/|$)/.test(portable) || /[\u0000-\u001f\u007f]/.test(portable)) {
         throw new Error(`Invalid archive relative path: ${value}`);
     }
+    const cleaned = path.posix.normalize(portable);
+    if (!cleaned || cleaned === "." || cleaned.startsWith("../") || cleaned.includes("/../"))
+        throw new Error(`Invalid archive relative path: ${value}`);
     return cleaned;
 }
 function toArchivePath(value) {
