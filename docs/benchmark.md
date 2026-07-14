@@ -78,9 +78,17 @@ workers. The main cold-path cost group is external agent start and result
 collection; the drive also keeps worker checks, reports, and durable
 checkpoints. This report is evidence, not a CI time gate.
 
-No single compatible cost of at least 150ms is proved by this baseline. Do not
-take out a checkpoint, change a report time, or add a default cache only to
-meet a time goal. Measure one named cost first, then make one safe change.
+A later profile found 39 trust-audit durable appends in one six-worker drive.
+They took about 169ms. The current work joins the short dispatch and settlement
+groups one at a time, before their present checkpoints. It does not cover the
+agent wait. Do not take out a checkpoint, change a report time, or add a
+default cache only to meet a time goal.
+
+On the same five-run form after this change, median cold drive was 828ms and
+median total was 979ms. The cold drive is faster than the 994ms baseline, but
+does not meet the 630ms goal. The CI feedback cycle does not start. A later
+performance cycle needs a new measured cost with enough safe room for its
+goal.
 
 ### Heatmap
 

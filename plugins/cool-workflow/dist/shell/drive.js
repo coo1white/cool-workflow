@@ -683,75 +683,79 @@ function prepareConcurrentOutcomes(ctx, batch) {
     // all-sub-workflow batch), or a crash before the round-end flush loses
     // the dispatch.
     let dispatchedThisRound = false;
-    for (const taskId of batch) {
-        const run = loadRun(ctx);
-        const task = run.tasks.find((candidate) => candidate.id === taskId);
-        if (!task || (task.status !== "pending" && task.status !== "running"))
-            continue;
-        let workerId = task.workerId;
-        if (task.status === "pending") {
-            const manifest = (0, dispatch_2.createDispatchManifest)(run, 1, { backendId: task.agentType || "agent" });
-            const dispatchedTask = manifest.tasks.find((entry) => entry.id === task.id) || manifest.tasks[0];
-            if (!dispatchedTask || !dispatchedTask.workerId) {
-                failSteps.set(taskId, (0, drive_decide_1.makeStep)("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "dispatch produced no worker scope" }));
+    // Dispatch is a short local mutation group. Keep its audit lock only until
+    // its events have one durable append; the agent work below stays outside it.
+    (0, trust_audit_1.withTrustAuditBatch)(loadRun(ctx), () => {
+        for (const taskId of batch) {
+            const run = loadRun(ctx);
+            const task = run.tasks.find((candidate) => candidate.id === taskId);
+            if (!task || (task.status !== "pending" && task.status !== "running"))
+                continue;
+            let workerId = task.workerId;
+            if (task.status === "pending") {
+                const manifest = (0, dispatch_2.createDispatchManifest)(run, 1, { backendId: task.agentType || "agent" });
+                const dispatchedTask = manifest.tasks.find((entry) => entry.id === task.id) || manifest.tasks[0];
+                if (!dispatchedTask || !dispatchedTask.workerId) {
+                    failSteps.set(taskId, (0, drive_decide_1.makeStep)("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "dispatch produced no worker scope" }));
+                    continue;
+                }
+                workerId = dispatchedTask.workerId;
+                dispatchedThisRound = true;
+            }
+            if (!workerId) {
+                failSteps.set(taskId, (0, drive_decide_1.makeStep)("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "no worker scope for task" }));
                 continue;
             }
-            workerId = dispatchedTask.workerId;
-            dispatchedThisRound = true;
-        }
-        if (!workerId) {
-            failSteps.set(taskId, (0, drive_decide_1.makeStep)("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "no worker scope for task" }));
-            continue;
-        }
-        const freshRun = loadRun(ctx);
-        const manifest = (0, worker_isolation_1.showWorkerManifest)(freshRun, workerId);
-        const delegationDigest = ctx.incremental
-            ? (0, drive_decide_1.incrementalDelegationDigest)(task.model || ctx.config.model || "", task.agentType || "agent", manifest.sandboxPolicy?.id || task.sandboxProfileId || "", ctx.config.command || "", ctx.config.args ? (0, agent_1.stripSecretArgs)(ctx.config.args) : [], ctx.config.endpoint || "")
-            : "";
-        const cachePath = resultCachePath(freshRun, task, (0, hash_1.sha256)(task.prompt || ""), ctx.incremental, delegationDigest);
-        if (cachePath && fs.existsSync(cachePath))
-            continue;
-        // A sub-workflow task never goes through the spawn path — processSelectedTask
-        // checks task.subWorkflow before it ever looks at a prepared spawn outcome
-        // and always takes its own runSubWorkflow branch instead (mirrors that
-        // check byte-for-byte). Building a spawn OR endpoint job for it here would
-        // just be a real agent child spawned/delegated and thrown away unused.
-        const subWorkflow = task.subWorkflow;
-        if (subWorkflow)
-            continue;
-        const request = {
-            schemaVersion: 1,
-            runId: ctx.runId,
-            taskId: task.id,
-            backendId: task.agentType || "agent",
-            cwd: freshRun.cwd,
-            sandboxPolicy: manifest.sandboxPolicy,
-            manifest: { workerDir: manifest.workerDir, manifestPath: manifest.manifestPath, inputPath: manifest.inputPath, resultPath: manifest.resultPath, prompt: manifest.prompt },
-            label: task.id,
-            timeoutMs: ctx.config.timeoutMs,
-            delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: task.model || ctx.config.model },
-        };
-        const job = (0, agent_1.prepareAgentSpawn)(request);
-        if (job) {
-            const sandboxPolicy = manifest.sandboxPolicy;
-            if (sandboxPolicy) {
-                job.env = (0, agent_1.buildAgentChildEnv)(sandboxPolicy).env;
+            const freshRun = loadRun(ctx);
+            const manifest = (0, worker_isolation_1.showWorkerManifest)(freshRun, workerId);
+            const delegationDigest = ctx.incremental
+                ? (0, drive_decide_1.incrementalDelegationDigest)(task.model || ctx.config.model || "", task.agentType || "agent", manifest.sandboxPolicy?.id || task.sandboxProfileId || "", ctx.config.command || "", ctx.config.args ? (0, agent_1.stripSecretArgs)(ctx.config.args) : [], ctx.config.endpoint || "")
+                : "";
+            const cachePath = resultCachePath(freshRun, task, (0, hash_1.sha256)(task.prompt || ""), ctx.incremental, delegationDigest);
+            if (cachePath && fs.existsSync(cachePath))
+                continue;
+            // A sub-workflow task never goes through the spawn path — processSelectedTask
+            // checks task.subWorkflow before it ever looks at a prepared spawn outcome
+            // and always takes its own runSubWorkflow branch instead (mirrors that
+            // check byte-for-byte). Building a spawn OR endpoint job for it here would
+            // just be a real agent child spawned/delegated and thrown away unused.
+            const subWorkflow = task.subWorkflow;
+            if (subWorkflow)
+                continue;
+            const request = {
+                schemaVersion: 1,
+                runId: ctx.runId,
+                taskId: task.id,
+                backendId: task.agentType || "agent",
+                cwd: freshRun.cwd,
+                sandboxPolicy: manifest.sandboxPolicy,
+                manifest: { workerDir: manifest.workerDir, manifestPath: manifest.manifestPath, inputPath: manifest.inputPath, resultPath: manifest.resultPath, prompt: manifest.prompt },
+                label: task.id,
+                timeoutMs: ctx.config.timeoutMs,
+                delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: task.model || ctx.config.model },
+            };
+            const job = (0, agent_1.prepareAgentSpawn)(request);
+            if (job) {
+                const sandboxPolicy = manifest.sandboxPolicy;
+                if (sandboxPolicy) {
+                    job.env = (0, agent_1.buildAgentChildEnv)(sandboxPolicy).env;
+                }
+                jobs.push(job);
+                jobTaskIds.push(taskId);
+                continue;
             }
-            jobs.push(job);
-            jobTaskIds.push(taskId);
-            continue;
+            // Endpoint-configured agent: no CLI binary to batch-spawn, but its HTTP
+            // delegation joins the concurrent window through the endpoint batch child
+            // (runEndpointBatchOutcomes) rather than settling one-at-a-time on the
+            // serial path. An unconfigured agent (neither command nor endpoint) returns
+            // undefined from both prepares here and falls to the serial refusal.
+            const endpointJob = (0, agent_1.prepareEndpointJob)(request);
+            if (endpointJob) {
+                endpointJobs.push(endpointJob);
+                endpointTaskIds.push(taskId);
+            }
         }
-        // Endpoint-configured agent: no CLI binary to batch-spawn, but its HTTP
-        // delegation joins the concurrent window through the endpoint batch child
-        // (runEndpointBatchOutcomes) rather than settling one-at-a-time on the
-        // serial path. An unconfigured agent (neither command nor endpoint) returns
-        // undefined from both prepares here and falls to the serial refusal.
-        const endpointJob = (0, agent_1.prepareEndpointJob)(request);
-        if (endpointJob) {
-            endpointJobs.push(endpointJob);
-            endpointTaskIds.push(taskId);
-        }
-    }
+    });
     const totalJobs = jobs.length + endpointJobs.length;
     if (totalJobs) {
         emitProgress(`⇉ concurrent round: ${totalJobs} agent${totalJobs > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
@@ -805,21 +809,25 @@ function driveConcurrentRound(ctx, limit) {
             .map((task) => task.id);
         const prepared = prepareConcurrentOutcomes(ctx, batch);
         const steps = [];
-        for (const taskId of batch) {
-            const failStep = prepared.failSteps.get(taskId);
-            if (failStep) {
-                steps.push(failStep);
-                continue;
+        // Settlement is also local and synchronous. Flush the complete audit
+        // group before the existing round checkpoint, never across it.
+        (0, trust_audit_1.withTrustAuditBatch)(loadRun(ctx), () => {
+            for (const taskId of batch) {
+                const failStep = prepared.failSteps.get(taskId);
+                if (failStep) {
+                    steps.push(failStep);
+                    continue;
+                }
+                // Re-read per task: a prior accept in this round mutated state (the
+                // SAME cached object via loadRun's round cache — no disk round-trip
+                // until the round-end flush below).
+                const freshRun = loadRun(ctx);
+                const fresh = freshRun.tasks.find((task) => task.id === taskId);
+                if (!fresh || (fresh.status !== "pending" && fresh.status !== "running"))
+                    continue;
+                steps.push(processSelectedTask(ctx, taskId, prepared.outcomes.get(taskId), true));
             }
-            // Re-read per task: a prior accept in this round mutated state (the
-            // SAME cached object via loadRun's round cache — no disk round-trip
-            // until the round-end flush below).
-            const freshRun = loadRun(ctx);
-            const fresh = freshRun.tasks.find((task) => task.id === taskId);
-            if (!fresh || (fresh.status !== "pending" && fresh.status !== "running"))
-                continue;
-            steps.push(processSelectedTask(ctx, taskId, prepared.outcomes.get(taskId), true));
-        }
+        });
         if (steps.length > 0) {
             const settledRun = loadRun(ctx);
             (0, commit_1.commitState)(settledRun, `concurrent-round:${batch.length}-tasks`);

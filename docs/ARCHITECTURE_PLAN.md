@@ -209,15 +209,29 @@ The benchmark runner now has opt-in zero-delay and Workbench-skip modes. It
 writes plan, drive, and total times for every run plus medians to a JSON report.
 Old benchmark calls keep their same CSV stdout bytes and defaults.
 
-Five low-delay runs gave a 994ms median cold drive. The result names agent
-start and result collection as the main cost group. It does not prove one safe
-150ms cost to take out, so no runtime speed change starts from this result.
+Five low-delay runs gave a 994ms median cold drive. A later profile named one
+safe cost in that path: 39 separate trust-audit durable appends took about
+169ms in one six-worker drive.
 
 ### Stop Rule
 
-Keep cold-path work stopped until a later measure names one compatible cost of
-at least 150ms. Do not change checkpoint order, report time, default cache
-use, agent count, phase order, output, or replay records to meet a time goal.
+### 2. Trust-Audit Round Batching
+
+Status: complete; the measured gain did not meet the cold-drive goal.
+
+Each concurrent round will keep its short dispatch and settlement audit groups
+under the existing audit lock. Each group will make one durable append before
+its present checkpoint. It will not hold that lock while an agent is running.
+The event order, ids, hashes, bytes, checkpoint order, reports, and replay
+records stay the same.
+
+### Next Check
+
+The same five-run measure gave an 828ms median cold drive. This is faster than
+the 994ms baseline, but it is not the 630ms goal. Stop this performance line
+here. Do not start the CI cycle. A later cycle needs a new measure and one
+safe cost that can meet the goal without a change to checkpoint order, report
+time, default cache use, agent count, phase order, output, or replay records.
 
 CI feedback work starts only after a measured cold-path change. It must keep
 the test set and protected checks the same.
