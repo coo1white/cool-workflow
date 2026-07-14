@@ -3211,3 +3211,9 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Track A: make a Workbench run view a true read-only projection. Audit and metrics panels now use their present calculation without making derived files; normal CLI/MCP report calls keep their durable write rule. | Workbench, audit, and metrics shell code; Workbench smoke; Workbench and architecture docs; `ITERATION_LOG.md`. | The changed Workbench smoke hashes the full `.cw/` tree around live GET requests. It also proves absent audit/metrics files stay absent in projection mode, while normal report calls still make them. | Pending full gate. | no (fault fix; no release tag) |
+
+## Batch — Workbench k6 release proof (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Track A: add an opt-in deep k6 proof for the loopback, read-only Workbench. | k6 script and Node runner, benchmark docs, smoke, package script, `ITERATION_LOG.md`. | The smoke pins the fixed load, all route groups, zero-write check, and threshold checks. A full local run had zero dropped work and HTTP errors, p95 below 15ms, p99 below 18ms, no `.cw/` write, and a good post-load read. | Build, unit, smoke, parity, manifests, onramp, index, release, and diff checks passed. | no (evidence cycle; no release tag) |

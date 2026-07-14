@@ -91,7 +91,7 @@ function summarizeMultiAgentOperator(run) {
     const topologies = (0, topology_io_1.summarizeTopologies)(run);
     const multiAgent = (0, multi_agent_io_1.summarizeMultiAgent)(run);
     const blackboard = (0, coordinator_io_1.summarizeBlackboard)(run);
-    const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
+    const trust = (0, trust_audit_1.summarizeTrustAudit)(run, { persist: run.__cwWorkbenchReadOnlyProjection !== true });
     const dependencies = deriveDependencies(run);
     const failures = deriveFailures(run, dependencies);
     const evidence = deriveEvidence(run);

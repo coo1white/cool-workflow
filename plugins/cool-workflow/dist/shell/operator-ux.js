@@ -290,7 +290,7 @@ function summarizeOperatorRun(run) {
     const multiAgentOperator = (0, multi_agent_operator_ux_1.summarizeMultiAgentOperator)(run);
     const multiAgentTrust = (0, trust_policy_io_1.summarizeMultiAgentTrust)(run);
     const blackboard = (0, coordinator_io_1.summarizeBlackboard)(run);
-    const trust = (0, trust_audit_1.summarizeTrustAudit)(run);
+    const trust = (0, trust_audit_1.summarizeTrustAudit)(run, { persist: run.__cwWorkbenchReadOnlyProjection !== true });
     const activePhase = phases.find((p) => p.status === "running") || phases.find((p) => p.status === "pending");
     const blockedReasons = [];
     for (const worker of workers.workers) {

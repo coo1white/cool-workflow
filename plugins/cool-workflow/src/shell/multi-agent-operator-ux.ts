@@ -186,7 +186,7 @@ export function summarizeMultiAgentOperator(run: WorkflowRun): MultiAgentOperato
   const topologies = summarizeTopologies(run);
   const multiAgent = summarizeMultiAgent(run);
   const blackboard = summarizeBlackboard(run);
-  const trust = summarizeTrustAudit(run);
+  const trust = summarizeTrustAudit(run, { persist: (run as unknown as Record<string, unknown>).__cwWorkbenchReadOnlyProjection !== true });
   const dependencies = deriveDependencies(run);
   const failures = deriveFailures(run, dependencies);
   const evidence = deriveEvidence(run);
