@@ -35,4 +35,35 @@ const source = fs.readFileSync(script, "utf8");
 assert.match(source, /claude: 45000, gemini: 30000, deepseek: 20000, codex: 25000/, "agent delay table unchanged");
 assert.match(source, /\[ARCH, "22", CONC, AGENT, meanPlanMs, overheadMs, meanMs, k6Rps, k6P95, DELAY_MS\]/, "CSV column order unchanged");
 
+// 4. The low-delay Track A baseline is opt-in. It must accept a REAL zero
+// delay, skip the unrelated Workbench probe, and write a portable JSON report
+// without changing the old CSV stdout path.
+assert.match(source, /case "--delay-ms":/, "benchmark accepts an opt-in delay override");
+assert.match(source, /case "--skip-workbench":/, "benchmark can skip the Workbench probe");
+assert.match(source, /case "--json-report":/, "benchmark accepts an opt-in JSON report path");
+assert.match(source, /medianPlanMs/, "benchmark report carries the plan median");
+assert.match(source, /medianDriveMs/, "benchmark report carries the drive median");
+assert.match(source, /medianTotalMs/, "benchmark report carries the total median");
+
+// 5. Run the new path once. Its JSON report names all three timings; stdout
+// remains the one legacy CSV line, while progress stays on stderr.
+const report = path.join(fs.mkdtempSync(path.join(require("node:os").tmpdir(), "cw-bench-report-")), "report.json");
+res = cp.spawnSync(process.execPath, [script, "--agent", "codex", "--runs", "1", "--delay-ms", "0", "--skip-workbench", "--json-report", report], {
+  encoding: "utf8",
+  timeout: 15000,
+});
+assert.equal(res.status, 0, `zero-delay benchmark must pass\nSTDERR:\n${res.stderr}`);
+assert.match(res.stdout, /^[^\n]+\n$/, "zero-delay benchmark keeps one CSV line on stdout");
+const reportValue = JSON.parse(fs.readFileSync(report, "utf8"));
+assert.equal(reportValue.schemaVersion, 1);
+assert.equal(reportValue.delayMs, 0, "zero is a real delay override");
+assert.equal(reportValue.skipWorkbench, true);
+assert.equal(reportValue.runs.length, 1);
+assert.equal(reportValue.runs[0].status, "complete");
+assert.equal(reportValue.runs[0].completedWorkers, "6");
+for (const key of ["medianPlanMs", "medianDriveMs", "medianTotalMs"]) {
+  assert.equal(Number.isSafeInteger(reportValue[key]), true, `${key} is a stable integer metric`);
+}
+fs.rmSync(path.dirname(report), { recursive: true, force: true });
+
 process.stdout.write("bench-run-smoke: ok\n");

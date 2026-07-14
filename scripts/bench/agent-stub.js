@@ -24,7 +24,7 @@ const DEFAULT_DELAYS = {
 };
 
 function parseArgs(argv) {
-  const opts = { agent: "claude", delayMs: 0, resultPath: "" };
+  const opts = { agent: "claude", delayMs: undefined, resultPath: "" };
   const positional = [];
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--agent" && argv[i + 1]) {
@@ -36,7 +36,7 @@ function parseArgs(argv) {
     }
   }
   opts.resultPath = positional[positional.length - 1] || "";
-  if (!opts.delayMs) opts.delayMs = DEFAULT_DELAYS[opts.agent] || DEFAULT_DELAYS.claude;
+  if (opts.delayMs === undefined) opts.delayMs = DEFAULT_DELAYS[opts.agent] || DEFAULT_DELAYS.claude;
   return opts;
 }
 

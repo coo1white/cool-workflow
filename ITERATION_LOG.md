@@ -3175,3 +3175,9 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Track C: stop a blocked MCP tool child before its parent ends, so it cannot wake later and write state. Normal stdin end keeps its queue drain rule. | MCP server code, built dist, shutdown smoke, MCP man page, architecture roadmap, project index, `ITERATION_LOG.md` | New smoke holds a schedule lock, sends `SIGINT` and `SIGTERM` to the MCP parent, then proves there is no late schedule write after the lock is freed and a new server answers ping. It is red on the old code. Full smoke 247/247 and unit 169/169 passed. | Build, release check, onramp, parity, manifest load, index, and diff checks passed. | no (one robustness cycle; no release tag) |
+
+## Batch — Workflow overhead baseline (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Track A: make a low-delay, five-run measure for plan and drive time without model, network, or Workbench time. Keep old benchmark CSV and defaults. | benchmark runner and stub, benchmark smoke, benchmark and architecture docs, project index, `ITERATION_LOG.md` | New smoke is red on the old runner. It proves a real zero delay, Workbench skip, one CSV stdout line, six completed workers, and stable JSON report medians. Five manual low-delay runs gave median plan 150ms, drive 994ms, and total 1140ms. No one compatible ≥150ms cost was proved, so the runtime and CI cycles stay stopped. | Build, full smoke 247/247, unit 169/169, release check, onramp, manifest load, parity, index, and diff checks passed. | no (one performance evidence cycle; no release tag) |

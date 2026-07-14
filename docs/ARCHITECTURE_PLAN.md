@@ -199,6 +199,29 @@ a real product proof finds that a tool cannot stop, takes too long to stop, or
 leaves bad state. A later change must first name the exact lock and write path,
 and define sync and async re-entry before it changes a call chain.
 
+## Performance Work Map
+
+### 1. Workflow Overhead Baseline
+
+Status: complete in the workflow-overhead baseline cycle.
+
+The benchmark runner now has opt-in zero-delay and Workbench-skip modes. It
+writes plan, drive, and total times for every run plus medians to a JSON report.
+Old benchmark calls keep their same CSV stdout bytes and defaults.
+
+Five low-delay runs gave a 994ms median cold drive. The result names agent
+start and result collection as the main cost group. It does not prove one safe
+150ms cost to take out, so no runtime speed change starts from this result.
+
+### Stop Rule
+
+Keep cold-path work stopped until a later measure names one compatible cost of
+at least 150ms. Do not change checkpoint order, report time, default cache
+use, agent count, phase order, output, or replay records to meet a time goal.
+
+CI feedback work starts only after a measured cold-path change. It must keep
+the test set and protected checks the same.
+
 ## Release Rules
 
 - Do not add a CLI command, MCP tool, flag, JSON field, or runtime dependency

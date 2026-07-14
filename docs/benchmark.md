@@ -57,6 +57,31 @@ A configurable stub agent (`scripts/bench/agent-stub.js`) that simulates LLM lat
 
 `overhead_ms` ≈ 2500ms across all runs. This is CW's internal overhead per run: dispatch, result validation, evidence check, checkpoint writing. It's **constant** relative to agent delay — CW adds ~2.5s regardless of how long the agent takes.
 
+## Workflow Overhead Baseline
+
+The old rows above use long stub waits. Use the opt-in low-delay form below to
+look at the Track A path without model, network, or Workbench time:
+
+```text
+node scripts/bench/run.js --arch portable --agent codex --conc 4 --runs 5 \
+  --delay-ms 0 --skip-workbench --json-report /tmp/cw-workflow-overhead.json
+```
+
+`--delay-ms 0` is a real zero wait. `--skip-workbench` keeps the Workbench
+test out of this run. Old calls keep their same defaults and one CSV line on
+stdout. The opt-in JSON report has one plan, drive, and total time for every
+run, plus the three medians.
+
+On 2026-07-14, five clean temporary runs on Node 22 gave median plan 150ms,
+median cold drive 994ms, and median total 1140ms. Every run completed six
+workers. The main cold-path cost group is external agent start and result
+collection; the drive also keeps worker checks, reports, and durable
+checkpoints. This report is evidence, not a CI time gate.
+
+No single compatible cost of at least 150ms is proved by this baseline. Do not
+take out a checkpoint, change a report time, or add a default cache only to
+meet a time goal. Measure one named cost first, then make one safe change.
+
 ### Heatmap
 
 ```
