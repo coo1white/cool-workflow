@@ -322,5 +322,4 @@ stays separate: it parks ideas that serve no North Star track.
 - For incremental review, prefer `--changed-from origin/main` plus a narrow
   profile. Treat the changed JSONL as an overlay, not a replacement for a full
   audit when broad architectural context is required.
-- When a repeated workflow improves, update the matching skill and add or revise
-  `eval/<workflow>.jsonl`.
+- When a repeated workflow improves, update the matching skill.

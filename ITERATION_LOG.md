@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — duplicate agent notes and static eval cleanup (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Keep one root agent contract and one home for each workflow skill. Remove the old `Codex.md` copy and the unused static `eval/` cases. CW eval/replay runtime work stays in place. | `Codex.md` and `eval/` (deleted), README and project memory, source-context smoke, generated plugin README, `ITERATION_LOG.md` | The changed source-context smoke is red while either old path is present. It proves both paths stay absent, keeps the project-memory check, and keeps packaged skill checks. | Build, full smoke gate, targeted doctor and README smokes, manifest, parity, onramp, index, language, purity, README drift, release check, and diff check passed. | no (tree cleanup; no release tag) |
+
 ## Batch — release review boundary repair (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |

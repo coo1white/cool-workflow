@@ -230,27 +230,17 @@ assert.equal(changedCached.status, 0, `changed diff repo export failed\nSTDERR:\
 assert.notEqual(changedCached.stdout, fullCached.stdout, "changed export cache is distinct from full export cache");
 assert.equal(fs.readdirSync(diffCache).filter((file) => file.endsWith(".jsonl")).length, 2, "cache-dir stores separate full and changed exports");
 
-for (const file of ["Codex.md", "PROJECT_MEMORY.md"]) {
-  const text = fs.readFileSync(path.join(repoRoot, file), "utf8");
-  assert.ok(text.includes("source-context") || text.includes("core"), `${file} records the context policy`);
-}
+const memoryText = fs.readFileSync(path.join(repoRoot, "PROJECT_MEMORY.md"), "utf8");
+assert.ok(memoryText.includes("source-context") || memoryText.includes("core"), "PROJECT_MEMORY.md records the context policy");
+
+assert.equal(fs.existsSync(path.join(repoRoot, "Codex.md")), false, "Codex.md must not copy the agent contract");
+assert.equal(fs.existsSync(path.join(repoRoot, "eval")), false, "eval must not copy packaged workflow skills");
 
 for (const skill of ["ci-triage", "pr-review", "design-qa", "deploy-check"]) {
   const text = fs.readFileSync(path.join(pluginRoot, "skills", skill, "SKILL.md"), "utf8");
   const templateMarker = ["TO", "DO"].join("");
   assert.ok(!text.includes(templateMarker), `${skill} skill must not contain template markers`);
   assert.match(text, new RegExp(`name: ${skill}`), `${skill} skill has matching frontmatter`);
-}
-
-for (const workflow of ["ci-triage", "pr-review", "design-qa", "deploy-check"]) {
-  const evalFile = path.join(repoRoot, "eval", `${workflow}.jsonl`);
-  const lines = fs.readFileSync(evalFile, "utf8").trim().split(/\n/);
-  assert.ok(lines.length >= 1, `${workflow} eval has at least one case`);
-  for (const line of lines) {
-    const parsed = JSON.parse(line);
-    assert.equal(parsed.workflow, workflow);
-    assert.ok(parsed.expected, `${workflow} eval case has expected criteria`);
-  }
 }
 
 fs.rmSync(diffRepo, { recursive: true, force: true });
