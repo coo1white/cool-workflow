@@ -294,6 +294,7 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 - `run-export-restore-rerun-smoke.js` — a FAILED run: export, restore on another machine, registry refresh, rerun from a neutral cwd.
 - `run-export-restore-resume-smoke.js` — a PARTIAL run: export, restore, digest-verify, then continue from the restored state.
 - `run-import-path-traversal-smoke.js` — a crafted archive run id cannot write outside the runs dir (zip-slip class refused).
+- `run-import-canonical-table-smoke.js` — archive file rows are checked and unique before inspect, import, or restore writes state.
 - `run-import-tamper-failclosed-smoke.js` — a tampered archive: non-zero exit, one `cw:` stderr line, silent stdout, NOTHING written (checks run before any write).
 - `run-inspect-archive-smoke.js` — `run inspect-archive PATH` re-proves every digest/size, the manifest, the whole-file sha256, writes nothing, never throws.
 - `run-restore-failclosed-smoke.js` — `cw run restore <archive>` closes the gap `cw run import` leaves open (post-write verification, fail closed).
