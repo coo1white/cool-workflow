@@ -147,7 +147,10 @@ function buildWorkbenchRunView(runId, args = {}) {
         lifecycle = undefined;
     }
     const panels = {};
-    const panelArgs = { ...args, runId, cwd };
+    // This is an internal mechanism flag, not a CLI/MCP option. The Workbench
+    // must use the same capability bodies as the other front doors, but its
+    // GET-only projection must not make derived audit or metrics files.
+    const panelArgs = { ...args, runId, cwd, __cwWorkbenchReadOnlyProjection: true };
     for (const [group, members] of Object.entries(PANEL_MAP)) {
         panels[group] = {};
         for (const [member, capability] of Object.entries(members)) {

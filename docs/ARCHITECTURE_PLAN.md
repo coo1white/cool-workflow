@@ -262,6 +262,10 @@ practices and app commands give the rules for saved context, review, key
 movement, and Back/Forward movement. The source links and full mapping are in
 `plugins/cool-workflow/docs/web-desktop-workbench.7.md`.
 
+Its read path makes no derived audit or metrics file. The normal CLI report
+commands keep their durable files; the Workbench uses the same calculation in
+an in-memory projection only.
+
 ### 1. Predictable Workbench Navigation
 
 Status: complete in the predictable Workbench navigation cycle.

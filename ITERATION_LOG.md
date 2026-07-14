@@ -3205,3 +3205,9 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Track A: put present integrity, problem, missing-evidence, and next-action source facts before a Workbench panel's full record. The view makes no new state, rank, or action, and keeps all present capability data. | Workbench inspection helper, page script and style, Workbench smoke and unit test, Workbench man page, architecture roadmap, `ITERATION_LOG.md` | The new unit test is red before the inspection helper. It proves exact integrity fields, empty and filled problem/evidence lists, next actions, unknown-shape omission, and no source change. Unit 171/171, smoke 247/247, and conformance 106/106 passed. | Build, type check, unit, full smoke, and conformance passed; release, purity, language, manifests, parity, onramp, index, and diff checks passed. | no (one UI/UX cycle; no release tag) |
+
+## Batch — Workbench read-only projection (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Track A: make a Workbench run view a true read-only projection. Audit and metrics panels now use their present calculation without making derived files; normal CLI/MCP report calls keep their durable write rule. | Workbench, audit, and metrics shell code; Workbench smoke; Workbench and architecture docs; `ITERATION_LOG.md`. | The changed Workbench smoke hashes the full `.cw/` tree around live GET requests. It also proves absent audit/metrics files stay absent in projection mode, while normal report calls still make them. | Pending full gate. | no (fault fix; no release tag) |

@@ -37,7 +37,7 @@ function nowOf(args: Record<string, unknown>): string {
 export function metricsShowCli(runId: string, args: Record<string, unknown>): ReturnType<typeof showMetricsReport> {
   const run = loadRunFromCwd(runId, invocationCwd(args));
   const policy = loadCostPolicy(args, pluginRoot());
-  return showMetricsReport(run, { now: nowOf(args), policy });
+  return showMetricsReport(run, { now: nowOf(args), policy, persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
 
 /** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO] [--limit N]`.

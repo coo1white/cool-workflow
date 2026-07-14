@@ -71,7 +71,7 @@ function nowOf(args) {
 function metricsShowCli(runId, args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
     const policy = (0, observability_1.loadCostPolicy)(args, pluginRoot());
-    return (0, observability_1.showMetricsReport)(run, { now: nowOf(args), policy });
+    return (0, observability_1.showMetricsReport)(run, { now: nowOf(args), policy, persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
 /** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO] [--limit N]`.
  *  `--limit` defaults to RunRegistry.list()'s own 50-record floor when omitted. */
