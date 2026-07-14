@@ -66,6 +66,7 @@ import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
 import { recoveryHint } from "../core/format/recovery-hint";
 import { toolDefinitions } from "./dispatch";
 import { ToolProcessExecutor } from "./tool-process";
+import type { McpToolDefinition } from "../core/capability-table";
 
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 
@@ -76,6 +77,47 @@ const MAX_LINE_BYTES = 16 * 1024 * 1024;
  *  behavior-identical to the old hard-coded reply (mechanism first; a
  *  second version is a one-line append here). */
 const SUPPORTED_PROTOCOL_VERSIONS = ["2024-11-05"];
+
+interface McpToolAuthority {
+  allowed?: ReadonlySet<string>;
+}
+
+/** Read the optional server-side tool policy. When both values are unset, the
+ * full present tool list and access stay unchanged. An enabled list is an
+ * allowlist; disabled names are then removed. */
+export function mcpToolAuthority(
+  definitions: readonly McpToolDefinition[] = toolDefinitions(),
+  environment: Record<string, string | undefined> = process.env
+): McpToolAuthority {
+  const known = new Set(definitions.map((definition) => definition.name));
+  const enabled = configuredToolNames("CW_MCP_ENABLED_TOOLS", environment, known);
+  const disabled = configuredToolNames("CW_MCP_DISABLED_TOOLS", environment, known);
+  if (!enabled && !disabled) return {};
+  const allowed = enabled ? new Set(enabled) : new Set(known);
+  for (const name of disabled ?? []) allowed.delete(name);
+  return { allowed };
+}
+
+function configuredToolNames(name: string, environment: Record<string, string | undefined>, known: ReadonlySet<string>): Set<string> | undefined {
+  const value = environment[name];
+  if (value === undefined) return undefined;
+  const names = value.split(",").map((part) => part.trim());
+  if (names.some((tool) => tool.length === 0)) throw new Error(`MCP tool policy ${name} contains an empty tool name`);
+  const selected = new Set(names);
+  for (const tool of selected) {
+    if (!known.has(tool)) throw new Error(`MCP tool policy ${name} names an unknown tool: ${tool}`);
+  }
+  return selected;
+}
+
+function permittedToolDefinitions(authority: McpToolAuthority): McpToolDefinition[] {
+  const definitions = toolDefinitions();
+  return authority.allowed ? definitions.filter((definition) => authority.allowed?.has(definition.name)) : definitions;
+}
+
+function toolPermitted(name: string, authority: McpToolAuthority): boolean {
+  return authority.allowed === undefined || authority.allowed.has(name);
+}
 
 /** Picks the `initialize` reply's protocolVersion from the client's
  *  requested one (see SUPPORTED_PROTOCOL_VERSIONS). Exported for the
@@ -166,7 +208,7 @@ function resultMessage(id: unknown, result: unknown): { jsonrpc: "2.0"; id?: unk
 
 /** Handles one already-parsed JSON-RPC request object. The parent owns the
  * protocol reply while the durable tool process owns the blocking tool work. */
-async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor): Promise<void> {
+async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor, authority: McpToolAuthority): Promise<void> {
   const hasId = Object.prototype.hasOwnProperty.call(message, "id");
   const id = message.id;
 
@@ -191,7 +233,7 @@ async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor
         return;
       }
       case "tools/list": {
-        writeMessage(resultMessage(id, { tools: toolDefinitions() }));
+        writeMessage(resultMessage(id, { tools: permittedToolDefinitions(authority) }));
         return;
       }
       case "ping": {
@@ -224,6 +266,7 @@ async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor
         // a tool-call outcome, and keeps going through the outer
         // try/catch as a -32000 error, unchanged.
         try {
+          if (!toolPermitted(name, authority)) throw new Error(`MCP tool disabled by policy: ${name}`);
           const text = await tools.execute(name, args ?? {});
           const content: Array<{ type: "text"; text: string }> = [{ type: "text", text }];
           const advisory = untrustedContentAdvisory(name);
@@ -268,12 +311,12 @@ function parseLine(line: string): ParsedLine {
   return { message: parsed as JsonRpcRequest };
 }
 
-async function handleLine(parsed: ParsedLine, tools: ToolProcessExecutor): Promise<void> {
+async function handleLine(parsed: ParsedLine, tools: ToolProcessExecutor, authority: McpToolAuthority): Promise<void> {
   if ("error" in parsed) {
     writeMessage(errorMessage(null, parsed.error.code, parsed.error.message));
     return;
   }
-  await handleRequest(parsed.message, tools);
+  await handleRequest(parsed.message, tools, authority);
 }
 
 /** Starts the stdio read loop. Never resolves — the server is long-lived
@@ -288,6 +331,7 @@ async function handleLine(parsed: ParsedLine, tools: ToolProcessExecutor): Promi
  *  answered in handleRequest's fast path before any tool work, so a
  *  keep-alive ping still gets a reply while a long drive holds the queue. */
 export function startServer(): void {
+  const authority = mcpToolAuthority();
   process.stdin.setEncoding("utf8");
   const tools = new ToolProcessExecutor();
 
@@ -342,12 +386,12 @@ export function startServer(): void {
       // Ping is a control-plane keep-alive. It must not wait behind a tool
       // process that is blocked on a file lock or an outside agent.
       if ("message" in parsed && parsed.message.method === "ping") {
-        void handleLine(parsed, tools).catch((error: unknown) => {
+        void handleLine(parsed, tools, authority).catch((error: unknown) => {
           const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
           process.stderr.write(`cool-workflow mcp: a ping reply failed: ${detail}\n`);
         });
       } else {
-        enqueue(() => handleLine(parsed, tools));
+        enqueue(() => handleLine(parsed, tools, authority));
       }
     }
     // No newline yet and the pending (unterminated) line already exceeds the

@@ -220,11 +220,12 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 - `operator-ux-smoke.js` — operator verbs through the CLI over a real run (status/report flow with evidence locator).
 - `surface-explicit-cwd-smoke.js` — MCP and Workbench calls use explicit cwd scoping, never process-global `chdir`.
 
-### mcp-surface — 4
+### mcp-surface — 5
 
 - `mcp-app-surface-smoke.js` — the MCP server's app-surface tools answer over stdio JSON-RPC against a fixture run.
 - `mcp-surface-registry-smoke.js` — `mcp-server` is built from `mcp-surface` + the capability registry (src/dist parity checks).
 - `mcp-tool-call-coverage-smoke.js` — representative MCP tool calls from every domain (~40+ switch arms answer).
+- `mcp-tool-authority-policy-smoke.js` — enabled and disabled MCP tool lists filter tools/list; deny wins and blocked calls write no state.
 - `web-desktop-workbench-smoke.js` — the Workbench is a stateless, read-only renderer over durable `.cw/` files — a third front door, not a new brain.
 
 ### agent-wrappers — 10

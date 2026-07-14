@@ -97,6 +97,20 @@ and any other request falls back to the newest supported entry (see
 `SUPPORTED_PROTOCOL_VERSIONS` in `src/mcp/server.ts`). With today's
 one-entry list the reply bytes are unchanged.
 
+## MCP Tool Authority
+
+`CW_MCP_ENABLED_TOOLS` and `CW_MCP_DISABLED_TOOLS` are optional comma lists of
+exact MCP tool names. Space at either end of a name is taken out, and a second
+name has no effect. The enabled list is an allowlist. The disabled list is then
+applied, so deny has the last word. With both values unset, the server keeps its
+full `tools/list` output and present tool access.
+
+An empty name or a name not in the live registry stops server start with a
+stderr diagnostic and a non-zero exit. Under a good policy, `tools/list` keeps
+the registry order and shows only allowed tools. A call to a filtered tool gives
+the normal MCP `isError: true` result and does not start its handler. This is a
+server control, not an OS sandbox or an approval system.
+
 ## The Parity Matrix
 
 The matrix below is made from the live registry — one row per capability,
