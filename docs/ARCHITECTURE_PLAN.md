@@ -192,7 +192,7 @@ ordered queue drain rule.
 The held schedule-lock proof passed for both stop signals. No late schedule
 write was made after the lock was freed. A new MCP server then answered ping.
 
-### Stop Rule
+### Measured Cost
 
 After this proof, stop robustness work. Keep `withFileLockAsync` parked unless
 a real product proof finds that a tool cannot stop, takes too long to stop, or
