@@ -274,12 +274,12 @@ list and panel tabs have full keyboard and ARIA links.
 
 ### 2. Action-First Inspection
 
-Status: planned after the navigation cycle.
+Status: complete in the action-first Workbench inspection cycle.
 
 When a present capability payload has integrity, problem, missing-evidence,
-or next-action facts, the Workbench will put those source facts before the
-full record. It will not make a new rank, state, or action. The full payload
-will stay in the panel, and CLI, MCP, and HTTP bytes will stay the same.
+or next-action facts, the Workbench puts those source facts before the full
+record. It does not make a new rank, state, or action. The full payload stays
+in the panel, and CLI, MCP, and HTTP bytes stay the same.
 
 ## Release Rules
 

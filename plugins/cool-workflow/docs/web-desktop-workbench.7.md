@@ -157,6 +157,14 @@ The run list and panels work with a keyboard. Left and Right move through the
 panel tabs; Home and End go to the first and last tab. The active tab and its
 panel are joined with the standard ARIA tab and tabpanel links.
 
+When a present panel payload has an `integrity`, `problems`,
+`missingEvidence`, `nextAction`, or `nextActions` fact, the page puts a small
+`What matters` block before the full panel record. It copies only source
+values. It does not make a new state, rank, or action. An empty problem or
+missing-evidence list is shown as `none`. A field with a shape the page does
+not know is left out of the block. The full structured view or JSON stays
+under the block.
+
 `cw workbench serve` with `--once`/`--json` prints the serve descriptor (bind
 host/port, scope, routes) and stops without starting a server; the default starts
 the localhost host (like `schedule daemon`). The MCP tools `cw_workbench_view` and

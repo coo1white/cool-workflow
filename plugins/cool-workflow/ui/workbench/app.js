@@ -17,6 +17,8 @@ const PANEL_GROUPS = [
 
 const NAV = globalThis.CWWorkbenchNavigation;
 if (!NAV) throw new Error("Workbench navigation helper is not available");
+const INSPECTION = globalThis.CWWorkbenchInspection;
+if (!INSPECTION) throw new Error("Workbench inspection helper is not available");
 
 // `indexSeq` is a request sequence number: the debounced filter input can
 // start a second /api/index fetch while an older one is still in flight, and
@@ -313,11 +315,30 @@ function renderPanel(name, panel) {
   card.appendChild(head);
   card.appendChild(el("div", { class: "kv" }, [el("span", { class: "src", text: panel.cli }), el("span", { class: "src", text: panel.mcp })]));
   if (panel.status === "present") {
+    const actionSummary = renderActionSummary(panel.data);
+    if (actionSummary) card.appendChild(actionSummary);
     card.appendChild(renderStructured(panel.data) || el("pre", { class: "json", text: JSON.stringify(panel.data, null, 2) }));
   } else {
     card.appendChild(el("div", { class: "absent-note", text: `absent — ${panel.error || "source unreadable"}` }));
   }
   return card;
+}
+
+function renderActionSummary(data) {
+  const facts = INSPECTION.actionFacts(data);
+  if (facts.length === 0) return null;
+  const summary = el("section", { class: "what-matters", "aria-label": "What matters" }, [
+    el("h3", { class: "what-matters-title", text: "What matters" })
+  ]);
+  for (const fact of facts) {
+    summary.appendChild(
+      el("div", { class: `action-fact ${fact.key}` }, [
+        el("div", { class: "action-label", text: fact.label }),
+        el("ul", { class: "action-items" }, fact.items.map((item) => el("li", { text: item })))
+      ])
+    );
+  }
+  return summary;
 }
 
 // Purely presentational shape-detection: recognizes the two payload shapes
