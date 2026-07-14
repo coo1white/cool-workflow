@@ -6,7 +6,7 @@ Generated from the current repository code on 2026-07-14 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.5`
-- Source modules: `152`
+- Source modules: `153`
 - Workflow apps: `8`
 - Docs: `58`
 - Smoke tests: `247`
@@ -167,6 +167,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [shell/observability.ts](../src/shell/observability.ts)
 - [shell/onramp.ts](../src/shell/onramp.ts)
 - [shell/operator-ux-text.ts](../src/shell/operator-ux-text.ts)
+- [shell/perf-trace.ts](../src/shell/perf-trace.ts)
 - [shell/pipeline-cli.ts](../src/shell/pipeline-cli.ts)
 - [shell/pipeline.ts](../src/shell/pipeline.ts)
 - [shell/reclamation-io.ts](../src/shell/reclamation-io.ts)

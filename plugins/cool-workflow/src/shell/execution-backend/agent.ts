@@ -33,6 +33,7 @@ import {
 } from "./types";
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
+import { withPerfTraceGroup } from "../perf-trace";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -453,18 +454,20 @@ export function reconcileBatchOutcomes(
  *  scaling with job count and the no-`encoding` (raw Buffer) requirement. */
 export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[] {
   if (!jobs.length) return [];
-  const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
-  let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
-  try {
-    child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
-      input: JSON.stringify(jobs),
-      maxBuffer: 34 * 1024 * 1024 * jobs.length,
-      timeout: maxTimeout + 30000,
-    });
-  } catch (error) {
-    child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
-  }
-  return reconcileBatchOutcomes(jobs, child);
+  return withPerfTraceGroup("agent-wait", () => {
+    const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
+    let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
+    try {
+      child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
+        input: JSON.stringify(jobs),
+        maxBuffer: 34 * 1024 * 1024 * jobs.length,
+        timeout: maxTimeout + 30000,
+      });
+    } catch (error) {
+      child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
+    }
+    return reconcileBatchOutcomes(jobs, child);
+  });
 }
 
 // Same package-root depth fix as BATCH_DELEGATE_CHILD_SCRIPT above.
@@ -551,21 +554,23 @@ export function runAgentProcess(
       // of `built.forwarded` / the trust-audit forwarded list.
       const vendorPidFile = vendorPidFilePath();
       const childEnv = { ...built.env, CW_AGENT_VENDOR_PIDFILE: vendorPidFile };
-      const child = spawnSync(resolved.binary, realArgs, {
-        cwd: request.cwd,
-        env: childEnv,
-        encoding: "utf8",
-        timeout: timeoutMs,
-        maxBuffer: 32 * 1024 * 1024,
-        shell: false,
-        // SIGKILL, not the default SIGTERM: an agent wrapper that ignores
-        // SIGTERM would leave this blocking spawnSync waiting forever (no
-        // second-stage escalation is possible from inside a sync call), and
-        // a timed-out agent's output is discarded by the refusal below
-        // anyway — so a hard kill loses nothing and cannot wedge cw.
-        killSignal: "SIGKILL",
-        stdio: ["ignore", "pipe", streamStderr ? "inherit" : "pipe"],
-      });
+      const child = withPerfTraceGroup("agent-wait", () =>
+        spawnSync(resolved.binary!, realArgs, {
+          cwd: request.cwd,
+          env: childEnv,
+          encoding: "utf8",
+          timeout: timeoutMs,
+          maxBuffer: 32 * 1024 * 1024,
+          shell: false,
+          // SIGKILL, not the default SIGTERM: an agent wrapper that ignores
+          // SIGTERM would leave this blocking spawnSync waiting forever (no
+          // second-stage escalation is possible from inside a sync call), and
+          // a timed-out agent's output is discarded by the refusal below
+          // anyway — so a hard kill loses nothing and cannot wedge cw.
+          killSignal: "SIGKILL",
+          stdio: ["ignore", "pipe", streamStderr ? "inherit" : "pipe"],
+        })
+      );
       // A timeout surfaces as child.error with code ETIMEDOUT (status null,
       // signal set). Classify it FIRST: without this, the generic spawnError
       // branch below reported "agent process failed to spawn: ...ETIMEDOUT"

@@ -53,6 +53,7 @@ exports.nextBackoffMs = nextBackoffMs;
 exports.withFileLock = withFileLock;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const perf_trace_1 = require("./perf-trace");
 // ---------------------------------------------------------------------------
 // writeJson — the ONE JSON-on-disk byte format: JSON.stringify(value, null, 2)
 // + "\n", written via temp-file + optional fsync + rename (atomic).
@@ -104,6 +105,7 @@ function writeBytesAtomic(file, contents, durable) {
         catch {
             /* directory fsync is best-effort (not supported on every platform) */
         }
+        (0, perf_trace_1.recordPerfDurableWrite)(Buffer.byteLength(contents, "utf8"));
     }
 }
 /** Atomic, optionally-durable JSON write — see `writeBytesAtomic`. */
@@ -197,6 +199,7 @@ function durableAppendFileSync(file, data) {
     finally {
         fs.closeSync(fd);
     }
+    (0, perf_trace_1.recordPerfDurableWrite)(Buffer.byteLength(data, "utf8"));
 }
 /** True when `file`'s final byte is "\n", given its already-known `size`.
  *  A COMPLETED `durableAppendFileSync` always leaves the file ending in

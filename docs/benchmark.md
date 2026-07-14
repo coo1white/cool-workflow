@@ -90,6 +90,31 @@ does not meet the 630ms goal. The CI feedback cycle does not start. A later
 performance cycle needs a new measured cost with enough safe room for its
 goal.
 
+### Cold Path Proof
+
+Use `--trace-report` with the low-delay form to get per-round time and durable
+write facts. It is for the benchmark runner only. It does not change CW CLI or
+MCP work, CSV stdout, or the old JSON report.
+
+```text
+node scripts/bench/run.js --arch portable --agent codex --conc 4 --runs 5 \
+  --delay-ms 0 --skip-workbench --json-report /tmp/cw-workflow-overhead.json \
+  --trace-report /tmp/cw-cold-path.json
+```
+
+On 2026-07-14, five clean runs on Node 22 gave median plan 134ms, cold drive
+783ms, and total 921ms. The trace gave 269ms for agent wait, 108ms for report,
+101ms for settlement, and 91ms for checkpoint work. It saw 34 durable writes
+and 1.33MB of durable bytes in a run.
+
+No one safe part has 200ms of proved room. Agent wait has 269ms in four batch
+children, but a long-lived child would need a new IPC and stop design; the
+trace does not prove a 200ms saving. The durable writes hold state, telemetry,
+and audit facts, so they cannot be taken out to meet a time goal. The 630ms
+goal is not met under the present compatibility rules. Do not start another
+performance change until a new proof gives one safe part with enough room, or
+the product owner changes the execution or durable-state contract.
+
 ### Heatmap
 
 ```

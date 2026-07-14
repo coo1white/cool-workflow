@@ -9,6 +9,7 @@
 //
 // Usage: node run.js --arch <name> --agent <name> --conc <N> [--runs <N>]
 //        [--delay-ms <N>] [--skip-workbench] [--json-report <path>]
+//        [--trace-report <path>]
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -31,6 +32,7 @@ let DOCKER = ""; // docker image tag, e.g. "18" or "22" (recorded only)
 let DELAY_OVERRIDE;
 let SKIP_WORKBENCH = false;
 let JSON_REPORT = "";
+let TRACE_REPORT = "";
 
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
@@ -59,6 +61,10 @@ for (let i = 0; i < argv.length; i++) {
     case "--json-report":
       JSON_REPORT = argv[++i] || "";
       if (!JSON_REPORT) fail("--json-report requires a path");
+      break;
+    case "--trace-report":
+      TRACE_REPORT = argv[++i] || "";
+      if (!TRACE_REPORT) fail("--trace-report requires a path");
       break;
     default:
       break; // unknown args are skipped, matching the old runner
@@ -94,6 +100,12 @@ function median(values) {
   return sorted[Math.floor(sorted.length / 2)] || 0;
 }
 
+function percentile95(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  return sorted[Math.ceil(sorted.length * 0.95) - 1];
+}
+
 // Combined stdout+stderr capture (the old runner's `$(cmd 2>&1)`), never throws.
 function run(cmd, args, opts = {}) {
   const res = spawnSync(cmd, args, { encoding: "utf8", ...opts });
@@ -110,6 +122,34 @@ function jsonField(text, field, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function readTrace(file) {
+  try {
+    const value = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (value && value.schemaVersion === 1 && value.benchmark === "cw-cold-path" && Array.isArray(value.groups)) return value;
+  } catch {
+    // The drive result remains the source of success. A missing trace is
+    // still made plain in the opt-in trace report below.
+  }
+  return { schemaVersion: 1, benchmark: "cw-cold-path", groups: [] };
+}
+
+function summarizeTrace(runs) {
+  const names = [...new Set(runs.flatMap((run) => run.trace.groups.map((group) => group.name)))].sort();
+  return names.map((name) => {
+    const groups = runs.map((run) => run.trace.groups.find((group) => group.name === name) || {});
+    const metric = (key) => groups.map((group) => Number(group[key] || 0));
+    return {
+      name,
+      medianDurationMs: median(metric("durationMs")),
+      p95DurationMs: percentile95(metric("durationMs")),
+      medianSelfMs: median(metric("selfMs")),
+      p95SelfMs: percentile95(metric("selfMs")),
+      medianDurableWriteCount: median(metric("durableWriteCount")),
+      medianDurableWriteBytes: median(metric("durableWriteBytes")),
+    };
+  });
 }
 
 function hasK6() {
@@ -189,6 +229,7 @@ async function main() {
 
     // Step 2: drive (must run from the same repo cwd)
     const driveStart = Date.now();
+    const traceFile = TRACE_REPORT ? path.join(path.dirname(path.resolve(TRACE_REPORT)), `cw-cold-path-${i}.json`) : "";
     const drive = run(
       "node",
       [
@@ -202,7 +243,10 @@ async function main() {
         "--concurrency",
         String(CONC),
       ],
-      { cwd: BENCH_WORK },
+      {
+        cwd: BENCH_WORK,
+        ...(traceFile ? { env: { ...process.env, CW_BENCH_TRACE_FILE: traceFile } } : {}),
+      },
     );
     const driveMs = Date.now() - driveStart;
 
@@ -211,7 +255,8 @@ async function main() {
 
     const status = jsonField(drive.out, "status", "?");
     const comp = jsonField(drive.out, "completedWorkers", "?");
-    runMetrics.push({ index: i, planMs, driveMs, totalMs: elapsed, status, completedWorkers: comp });
+    const trace = traceFile ? readTrace(traceFile) : undefined;
+    runMetrics.push({ index: i, planMs, driveMs, totalMs: elapsed, status, completedWorkers: comp, ...(trace ? { trace } : {}) });
     log(`    ${i}: plan=${planMs}ms drive=${driveMs}ms total=${elapsed}ms status=${status} completed=${comp}`);
   }
 
@@ -242,6 +287,17 @@ async function main() {
     };
     fs.mkdirSync(path.dirname(path.resolve(JSON_REPORT)), { recursive: true });
     fs.writeFileSync(JSON_REPORT, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  }
+
+  if (TRACE_REPORT) {
+    const traceReport = {
+      schemaVersion: 1,
+      benchmark: "architecture-review-fast",
+      runs: runMetrics.map((run) => ({ index: run.index, driveMs: run.driveMs, trace: run.trace })),
+      groups: summarizeTrace(runMetrics),
+    };
+    fs.mkdirSync(path.dirname(path.resolve(TRACE_REPORT)), { recursive: true });
+    fs.writeFileSync(TRACE_REPORT, `${JSON.stringify(traceReport, null, 2)}\n`, "utf8");
   }
 
   fs.rmSync(BENCH_WORK, { recursive: true, force: true });

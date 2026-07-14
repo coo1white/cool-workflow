@@ -8,6 +8,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { recordPerfDurableWrite } from "./perf-trace";
 
 // ---------------------------------------------------------------------------
 // writeJson — the ONE JSON-on-disk byte format: JSON.stringify(value, null, 2)
@@ -64,6 +65,7 @@ function writeBytesAtomic(file: string, contents: string, durable: boolean): voi
     } catch {
       /* directory fsync is best-effort (not supported on every platform) */
     }
+    recordPerfDurableWrite(Buffer.byteLength(contents, "utf8"));
   }
 }
 
@@ -165,6 +167,7 @@ export function durableAppendFileSync(file: string, data: string): void {
   } finally {
     fs.closeSync(fd);
   }
+  recordPerfDurableWrite(Buffer.byteLength(data, "utf8"));
 }
 
 /** True when `file`'s final byte is "\n", given its already-known `size`.
