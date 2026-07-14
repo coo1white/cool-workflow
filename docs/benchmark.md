@@ -131,6 +131,14 @@ the product owner changes the execution or durable-state contract.
 
 k6 light load: **25 rps**, p95 **3-7ms**. The workbench is not performance-optimized and uses synchronous disk I/O — under heavy load it degrades. This benchmark uses a light workload (25 rps) where the server handles all requests without error.
 
+For a release proof, run `npm --prefix plugins/cool-workflow run build`, then
+`npm --prefix plugins/cool-workflow run bench:workbench:deep -- --report /tmp/cw-workbench-load.json`.
+It makes a temporary run and checks all Workbench GET routes. The fixed load is
+25 RPS for 30 seconds, 100 RPS for five minutes, then 150, 200, and 250 RPS
+for one minute each. There must be no error or dropped work, p95 at or under
+100ms, p99 at or under 250ms, no `.cw/` write, and one good read after load.
+`k6` is optional and is not a runtime part or CI gate.
+
 ## Test Coverage
 
 | metric | value |

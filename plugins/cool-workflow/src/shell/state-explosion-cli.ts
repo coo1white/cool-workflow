@@ -159,7 +159,9 @@ export function showStateExplosionSummary(run: WorkflowRun, options: { threshold
 
 function loadRun(runId: string, options: Record<string, unknown> = {}): WorkflowRun {
   const cwd = options.cwd ? path.resolve(String(options.cwd)) : process.cwd();
-  return loadRunFromCwd(runId, cwd);
+  const run = loadRunFromCwd(runId, cwd);
+  if (options.__cwWorkbenchReadOnlyProjection === true) (run as unknown as Record<string, unknown>).__cwWorkbenchReadOnlyProjection = true;
+  return run;
 }
 
 /** `cw summary refresh <run-id> [--json]` — refresh also runs `writeReport`

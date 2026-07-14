@@ -176,7 +176,10 @@ function showStateExplosionSummary(run, options = {}) {
 // ---------------------------------------------------------------------
 function loadRun(runId, options = {}) {
     const cwd = options.cwd ? path.resolve(String(options.cwd)) : process.cwd();
-    return (0, run_store_1.loadRunFromCwd)(runId, cwd);
+    const run = (0, run_store_1.loadRunFromCwd)(runId, cwd);
+    if (options.__cwWorkbenchReadOnlyProjection === true)
+        run.__cwWorkbenchReadOnlyProjection = true;
+    return run;
 }
 /** `cw summary refresh <run-id> [--json]` — refresh also runs `writeReport`
  *  + `saveCheckpoint` in the old build; `writeReport` (report.md) is a

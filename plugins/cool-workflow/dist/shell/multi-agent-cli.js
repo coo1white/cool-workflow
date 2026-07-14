@@ -140,7 +140,10 @@ function invocationCwd(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
 function loadRun(args, runId) {
-    return (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    if (args.__cwWorkbenchReadOnlyProjection === true)
+        run.__cwWorkbenchReadOnlyProjection = true;
+    return run;
 }
 /** Hold the run's state.json lock across the WHOLE load -> change ->
  *  persist cycle. A bare loadRun + persist pair races: two processes both

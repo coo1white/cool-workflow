@@ -386,7 +386,7 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
   const multiAgentOperator = summarizeMultiAgentOperator(run);
   const multiAgentTrust = summarizeMultiAgentTrust(run);
   const blackboard = summarizeBlackboard(run);
-  const trust = summarizeTrustAudit(run);
+  const trust = summarizeTrustAudit(run, { persist: (run as unknown as Record<string, unknown>).__cwWorkbenchReadOnlyProjection !== true });
   const activePhase = phases.find((p) => p.status === "running") || phases.find((p) => p.status === "pending");
   const blockedReasons: string[] = [];
   for (const worker of workers.workers) {

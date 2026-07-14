@@ -48,7 +48,9 @@ function invocationCwd(args: Record<string, unknown>): string {
 }
 
 function loadRun(args: Record<string, unknown>, runId: string): WorkflowRun {
-  return loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  if (args.__cwWorkbenchReadOnlyProjection === true) (run as unknown as Record<string, unknown>).__cwWorkbenchReadOnlyProjection = true;
+  return run;
 }
 
 /** Hold the run's state.json lock across the WHOLE load -> change ->
