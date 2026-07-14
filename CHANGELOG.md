@@ -7,12 +7,15 @@
   without making new state files. The page keeps its selected run and panel.
 - **Implementation**: Every Workbench panel now uses a no-persist projection
   for derived audit and metrics facts. An optional k6 proof drives all local
-  page and API reads at 25, 100, 150, 200, and 250 RPS.
+  page and API reads at 25, 100, 150, 200, and 250 RPS. The release control
+  plane now owns the deterministic gate and gives local stderr facts on a
+  failed child command. The reviewer checks semantic release risks only.
 - **Tests**: The full k6 proof had no HTTP error or dropped work, p95 below
   15ms, p99 below 18ms, no `.cw/` write, and a good read after load. Unit,
   smoke, parity, manifest, onramp, index, and release checks passed.
 - **Risk**: Low. Default CLI and MCP report calls keep their durable write
   behavior. The new benchmark is opt-in and adds no runtime dependency.
+  Invalid reviewer output stops a cut without a tag or a made-up approval.
 
 ## 0.2.5
 

@@ -138,6 +138,13 @@ pushed to any branch (main's branch protection blocks direct pushes, and
 the tag's own history is what CI verifies). Leave off `--push` for a
 local-only cut (tag created but nothing pushed or published).
 
+The deterministic gate is control-plane work. A failed child command gives a
+short local stderr tail for the operator; that text is not saved in a verdict.
+The independent reviewer checks only semantic release risks. A rejection must
+say `REJECTED`, `kind: semantic-review`, and numbered repo-relative `file:line`
+facts. Other rejection text stops the cut as invalid reviewer output. It never
+makes a tag and does not count as a verified code rejection.
+
 Package publication, marketplace updates, or plugin cache updates should be run
 only when the maintainer has a mind to publish. Local tag creation, push, package
 publish, and marketplace update are still separate steps you can see. Dry-run dogfood

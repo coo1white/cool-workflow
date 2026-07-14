@@ -25,6 +25,8 @@ const FLOW = path.resolve(__dirname, "..", "scripts", "release-flow.js");
 assert.ok(fs.existsSync(FLOW), "release-flow.js must exist");
 const VERIFY_SCRIPT = path.resolve(__dirname, "..", "scripts", "verify-verdict-signature.js");
 assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.js must exist");
+const REVIEWER_PROMPT = path.resolve(__dirname, "..", "agents", "release-reviewer.md");
+assert.ok(fs.existsSync(REVIEWER_PROMPT), "release reviewer prompt must exist");
 
 // ---- red line (static): the orchestrator spawns shell:false and embeds no
 // model SDK / API key. Mirrors quickstart-smoke.js's guard.
@@ -35,6 +37,10 @@ assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.js must exist"
     assert.ok(!new RegExp(`require\\(["'][^"']*${sdk}`).test(src), `release-flow must not import a model SDK: ${sdk}`);
   }
   assert.ok(!/api[._-]?key/i.test(src.replace(/CW_AGENT[A-Z_]*/g, "")), "release-flow must not handle an API key");
+  const prompt = fs.readFileSync(REVIEWER_PROMPT, "utf8");
+  assert.match(prompt, /control plane has already run the deterministic gate/i, "the control plane, not the reviewer, owns the deterministic gate");
+  assert.match(prompt, /kind: semantic-review/, "reviewer rejections require a semantic-review kind");
+  assert.doesNotMatch(prompt, /Run the deterministic gate yourself/i, "reviewer must not repeat the control-plane gate");
 }
 
 let caseId = 0;
@@ -55,7 +61,7 @@ function run(bin, args, cwd, env) {
 }
 
 // A stub "agent": node script that writes a chosen verdict to {{result}}.
-// verdict arg: APPROVED | MARKDOWN | REJECTED | MIXED | NONE (writes nothing).
+// verdict arg: APPROVED | MARKDOWN | SEMANTIC_REJECTED | GATE_REJECTED | MIXED | NONE (writes nothing).
 function writeStub(dir) {
   const stub = path.join(dir, "stub-agent.js");
   fs.writeFileSync(stub, `
@@ -64,8 +70,9 @@ const resultPath = process.argv[2];
 const kind = process.argv[3];
 if (kind === "APPROVED") fs.writeFileSync(resultPath, "APPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "MARKDOWN") fs.writeFileSync(resultPath, "review notes\\n\\nAPPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
-else if (kind === "REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. stub gate failure.\\n");
-else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\n1. hard failure\\nAPPROVED wrongsha\\nshould not pass\\n");
+else if (kind === "SEMANTIC_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\n");
+else if (kind === "GATE_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. tests failed at scripts/release-gate.js:86.\\n");
+else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\nAPPROVED wrongsha\\nshould not pass\\n");
 // NONE: write nothing (simulate an agent that produced no verdict)
 process.exit(0);
 `);
@@ -194,22 +201,40 @@ process.exit(0);
   assert.equal(fs.readFileSync(verdict, "utf8").split(/\r?\n/)[0], `APPROVED ${sha}`, "verdict file is normalized to strict first-line APPROVED");
 }
 
-// ---- Case 2: stub REJECTS → fail closed ----
+// ---- Case 2: a semantic rejection → fail closed without a signature ----
 {
   const dir = fixture();
   const stub = writeStub(dir);
-  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} REJECTED` });
-  assert.equal(r.code, 1, "REJECTED verdict must fail the flow");
-  assert.match(r.err, /not APPROVED|blocked/i, "should explain the block");
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} SEMANTIC_REJECTED` });
+  assert.equal(r.code, 1, "semantic REJECTED verdict must fail the flow");
+  assert.match(r.err, /semantic evidence/i, "should name a verified semantic block");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const verdict = path.join(dir, ".cw-release", `review-${sha}.verdict`);
+  assert.ok(fs.existsSync(verdict), "semantic rejection is retained as local evidence");
+  assert.ok(!fs.existsSync(`${verdict}.sig`), "a semantic rejection must never be signed");
 }
 
-// ---- Case 2b: APPROVED later in a rejected verdict does NOT pass ------------
+// ---- Case 2b: a claimed gate failure is invalid reviewer output ------------
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} GATE_REJECTED` });
+  assert.equal(r.code, 1, "an unsupported gate claim must fail closed");
+  assert.match(r.err, /invalid reviewer output|semantic-review/i, "should name invalid reviewer output, not a code rejection");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const verdict = path.join(dir, ".cw-release", `review-${sha}.verdict`);
+  assert.ok(fs.existsSync(verdict), "invalid output is retained as local evidence");
+  assert.ok(!fs.existsSync(`${verdict}.sig`), "invalid reviewer output must never be signed");
+  assert.equal(run("git", ["tag"], dir).out.trim(), "", "invalid reviewer output must never create a tag");
+}
+
+// ---- Case 2c: APPROVED later in a rejected verdict does NOT pass ------------
 {
   const dir = fixture();
   const stub = writeStub(dir);
   const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} MIXED` });
-  assert.equal(r.code, 1, "APPROVED must be the first line for THIS HEAD, not a later line");
-  assert.match(r.err, /first line|APPROVED|blocked/i, "should explain strict verdict parsing");
+  assert.equal(r.code, 1, "APPROVED must not overrule a semantic rejection");
+  assert.match(r.err, /semantic evidence/i, "should keep the semantic rejection");
 }
 
 // ---- Case 3: stub writes nothing → fail closed (missing verdict) ----

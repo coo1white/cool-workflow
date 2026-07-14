@@ -169,6 +169,14 @@ LLM step (the reviewer) is **delegated** through CW's agent backend, so whicheve
 model you set up does the review. CW starts the agent argv-style (`shell:false`),
 takes on the agent's own credentials, and pulls in no model SDK — the red line.
 
+The control plane runs the deterministic gate once. It keeps a failed child
+command's short tail on stderr for the operator, but never puts that tail in a
+saved verdict. The reviewer does not run that gate again. It checks judgment
+questions the gate cannot check. A reviewer rejection has exact `REJECTED`,
+`kind: semantic-review`, and numbered facts with repo-relative `file:line`
+places. Other rejection text is invalid reviewer output: the cut stops, no tag
+is made, and it is not a verified code rejection.
+
 ```bash
 # the operator's one-command release (scripts/release-oneclick.js — preflight,
 # gated cut, tag-only push, CI wait, npm confirmation, verdict-record PR):

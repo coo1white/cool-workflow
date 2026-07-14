@@ -67,23 +67,47 @@ if (!PREV_TAG) {
 const MARKER_DIR = path.join(REPO_ROOT, ".cw-release");
 fs.mkdirSync(MARKER_DIR, { recursive: true });
 
+const MAX_CHILD_DIAGNOSTIC_BYTES = 16 * 1024;
+
+function boundedDiagnostic(text) {
+  const value = String(text || "").trim();
+  if (value.length <= MAX_CHILD_DIAGNOSTIC_BYTES) return value;
+  return `…${value.slice(-MAX_CHILD_DIAGNOSTIC_BYTES)}`;
+}
+
+function reportNpmFailure(label, result) {
+  // Failure facts are local diagnostics, never stdout data and never a saved
+  // release record. Keep the tail so a large smoke run cannot flood a terminal.
+  const out = boundedDiagnostic(result.stdout);
+  const err = boundedDiagnostic(result.stderr);
+  process.stderr.write(`release-gate: ${label} failed (exit ${result.status ?? "unknown"})\n`);
+  if (err) process.stderr.write(`[stderr]\n${err}\n`);
+  if (out) process.stderr.write(`[stdout]\n${out}\n`);
+}
+
 function runNpm(args, extraEnv) {
-  // stdio ignored on purpose (the old script sent both streams to /dev/null):
-  // the gate's verdict is the exit code; a red step is re-run by hand for detail.
   const r = spawnSync("npm", args, {
     cwd: REPO_ROOT,
-    stdio: "ignore",
+    encoding: "utf8",
     env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
   });
-  return !r.error && r.status === 0;
+  return r;
 }
 
 // --- 1. Build & tests (run, don't trust pasted output) -----------------
 say("[1/6] build");
-if (!runNpm(["run", "--prefix", "plugins/cool-workflow", "build"])) fail("build failed");
+const build = runNpm(["run", "--prefix", "plugins/cool-workflow", "build"]);
+if (build.error || build.status !== 0) {
+  fail("build failed");
+  reportNpmFailure("build", build);
+}
 
 say("[2/6] tests");
-if (!runNpm(["run", "test:gate", "--prefix", "plugins/cool-workflow"], { CW_TEST_CONCURRENCY: "1" })) fail("tests failed");
+const tests = runNpm(["run", "test:gate", "--prefix", "plugins/cool-workflow"], { CW_TEST_CONCURRENCY: "1" });
+if (tests.error || tests.status !== 0) {
+  fail("tests failed");
+  reportNpmFailure("tests", tests);
+}
 
 if (PREV_TAG) {
   const RANGE = `${PREV_TAG}..HEAD`;
