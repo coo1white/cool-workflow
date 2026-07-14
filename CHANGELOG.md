@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.6
+
+- **Capability**: The Workbench is a true read-only local view. A user can
+  return to a saved run and inspect its graph, audit, metrics, and review facts
+  without making new state files. The page keeps its selected run and panel.
+- **Implementation**: Every Workbench panel now uses a no-persist projection
+  for derived audit and metrics facts. An optional k6 proof drives all local
+  page and API reads at 25, 100, 150, 200, and 250 RPS.
+- **Tests**: The full k6 proof had no HTTP error or dropped work, p95 below
+  15ms, p99 below 18ms, no `.cw/` write, and a good read after load. Unit,
+  smoke, parity, manifest, onramp, index, and release checks passed.
+- **Risk**: Low. Default CLI and MCP report calls keep their durable write
+  behavior. The new benchmark is opt-in and adds no runtime dependency.
+
 ## 0.2.5
 
 - **Capability**: A hardening-and-cleanup release from four audit campaigns (61 PRs, #441–#500). Release trust chain: the signed reviewer-verdict backstop is no longer bypassable — the verdict now binds the reviewed SHA in CI, the pubkey is pinned to main, the gate runs from main's tree (not the tag's own), two review-gate bypasses are closed, and `CW_NEVER_FORWARD_ENV` keeps CW's own secrets out of every spawned child, fail-closed. Robustness: 24 verified findings fixed — a run-scoped drive mutex, locked appends for `messages.jsonl` and the attestation ledger, a torn-tail merge guard, vendor-process reaping on agent timeout, hardened child termination, quiet EPIPE exits. Perf: commit snapshots stop copying the whole run, trust-audit appends go O(1) through a tail cache, and a drive round runs its endpoint agents concurrently. Also: real MCP tool input schemas, `isError` results, behavior hints and protocol-version negotiation; CLI and workbench UX fixes; a hard JS/TS-only policy with an enforcing gate (every shell script is now node); a repo slim-down (dead files deleted, doc drift fixed); npm now ships all four vendor plugin manifests (`.gemini-plugin/`, `.opencode-plugin/` added); and a trust-audit lost-write race at log creation is fixed (#497).

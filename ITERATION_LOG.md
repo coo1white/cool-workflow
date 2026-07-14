@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — v0.2.6 version prep (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| - | Prepare v0.2.6 after the merged Workbench read-only and k6 proof cycles. | Version surfaces, manifests, generated dist, CHANGELOG, release docs, project index, `ITERATION_LOG.md`. | Full release gate before PR. | Pending. | no (version-prep PR; signed operator cut follows). |
+
 ## Batch — one shared verdict-check script for both CI workflows (Unreleased)
 
 > Dev-loop fix, not a release cut: no `npm run release`, no tag. Found while
