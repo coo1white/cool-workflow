@@ -26,4 +26,11 @@ function exitQuietOnEpipe(stream) {
 }
 exitQuietOnEpipe(process.stdout);
 exitQuietOnEpipe(process.stderr);
-(0, server_1.startServer)();
+try {
+    (0, server_1.startServer)();
+}
+catch (error) {
+    const text = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`cool-workflow mcp: ${text}\n`);
+    process.exitCode = 1;
+}

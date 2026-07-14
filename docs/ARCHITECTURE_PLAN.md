@@ -167,11 +167,12 @@ stays the same.
 
 ### 4. MCP Tool Authority Policy
 
-Status: planned.
+Status: complete in the MCP tool authority cycle.
 
-Two opt-in environment settings will give the MCP server an enabled tool list
-and a disabled tool list. The disabled list has the last word. With no setting,
-the present `tools/list` bytes and tool access stay the same.
+`CW_MCP_ENABLED_TOOLS` and `CW_MCP_DISABLED_TOOLS` give the MCP server an
+enabled tool list and a disabled tool list. The disabled list has the last
+word. Bad names stop server start. With no setting, the present `tools/list`
+bytes and tool access stay the same.
 
 After these cycles, run the Track A, B, and C product proofs again. A proof
 failure becomes the next one-goal cycle. Do not start more inside-only security
