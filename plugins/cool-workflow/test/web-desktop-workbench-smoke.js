@@ -566,6 +566,7 @@ async function main() {
     // headless-browser tooling in this repo, so the client-side behavior is
     // pinned at the source level and checked by hand — see the PR notes.)
     const appJsSource = fs.readFileSync(path.join(pluginRoot, "ui", "workbench", "app.js"), "utf8");
+    const indexSource = fs.readFileSync(path.join(pluginRoot, "ui", "workbench", "index.html"), "utf8");
     assert.ok(
       appJsSource.includes("reopen as /?token=<your CW_WORKBENCH_TOKEN value>"),
       "app.js carries the 401 what-to-do hint"
@@ -577,6 +578,14 @@ async function main() {
     // freshness badge, and the sidebar must show a truncation notice.
     assert.ok(appJsSource.includes("function markActiveRow"), "app.js updates the active row in place instead of rebuilding the list");
     assert.ok(appJsSource.includes("function refreshAll") && appJsSource.includes('getElementById("refresh").addEventListener("click", refreshAll)'), "refresh re-derives both panes, not just the index");
+    // Predictable navigation: the pure helper loads before app.js; route
+    // history and the latest-detail sequence are explicit; tab semantics and
+    // key movement are present without a browser dependency in the test tree.
+    assert.ok(indexSource.indexOf('/ui/navigation.js') < indexSource.indexOf('/ui/app.js'), "navigation helper loads before the UI app");
+    assert.ok(appJsSource.includes("history[") && appJsSource.includes('addEventListener("popstate", applyLocationRoute)'), "run/tab state uses browser history and restores on Back/Forward");
+    assert.ok(appJsSource.includes("seq !== state.detailSeq"), "an old detail response cannot replace the newest view");
+    assert.ok(appJsSource.includes('role: "tabpanel"') && appJsSource.includes('"aria-controls"'), "tabs and tab panels have linked ARIA semantics");
+    assert.ok(appJsSource.includes("NAV.moveTab") && appJsSource.includes('tabindex: active ? "0" : "-1"'), "tabs use key movement and roving focus");
     assert.ok(appJsSource.includes("index unreachable"), "a failed index reload clears the stale freshness badge");
     assert.ok(appJsSource.includes("showing latest ${records.length} of ${runs.total}"), "the sidebar shows a truncation notice when the page is capped");
   }

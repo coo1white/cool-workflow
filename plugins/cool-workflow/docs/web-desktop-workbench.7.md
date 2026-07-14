@@ -10,6 +10,28 @@ speed and the MCP server (JSON-RPC over stdio) showed things for machine context
 Workbench lets a person look at a run quickly — and adds NOTHING else. It works out,
 decides, and keeps nothing that the CLI/MCP cannot already make.
 
+## Simple UI rules
+
+The Workbench follows three public sets of rules:
+
+- FreeBSD [style(9)](https://man.freebsd.org/cgi/man.cgi?query=style&sektion=9)
+  says that usage text has to agree with the man page and that error text has
+  to be easy to find. CW keeps command words and error words clear and fixed.
+- FreeBSD [hier(7)](https://man.freebsd.org/cgi/man.cgi?query=hier&sektion=7)
+  gives each sort of file one place. The Workbench keeps no state; `.cw/`
+  stays the one state source.
+- Homebrew [brew(1)](https://docs.brew.sh/Manpage) puts its essential commands
+  before its full command list, and gives `help`, `doctor`, `info`, and
+  `search`. CW gives one clear next command in place of a hidden recovery
+  action. Homebrew [External Commands](https://docs.brew.sh/External-Commands)
+  also shows how a front door may be added without a change to the tool's
+  inside parts. The Workbench stays a view over present CW capabilities.
+- Codex [Best practices](https://learn.chatgpt.com/guides/best-practices.md)
+  puts context, checks, and review in the work path. Its
+  [app commands](https://learn.chatgpt.com/docs/reference/commands.md) keep
+  search, key movement, and Back/Forward movement close at hand. The
+  Workbench keeps the run and panel in the page address for the same reason.
+
 ## The third front door (mechanism vs policy)
 
 The kernel and the durable `.cw/` state are the MECHANISM. The CLI, the MCP
@@ -119,6 +141,21 @@ never actually binds a listener.)
 cw workbench view <run-id> [--json]         # five-panel WorkbenchRunView for one run
 cw workbench serve [--port N] [--scope repo|home] [--once|--json] [--require-token]
 ```
+
+The page address may name one run and one panel:
+
+```text
+#run=<encoded-run-id>&tab=<graph|blackboard|worker|candidate|audit|metrics|collaboration>
+```
+
+The `run` value is needed for a run view. With no `tab`, the page uses
+`graph`. A bad tab name is changed to `graph`. Back, Forward, and page reload
+keep the named view. The Workbench token stays in the page query and is never
+put in this fragment.
+
+The run list and panels work with a keyboard. Left and Right move through the
+panel tabs; Home and End go to the first and last tab. The active tab and its
+panel are joined with the standard ARIA tab and tabpanel links.
 
 `cw workbench serve` with `--once`/`--json` prints the serve descriptor (bind
 host/port, scope, routes) and stops without starting a server; the default starts

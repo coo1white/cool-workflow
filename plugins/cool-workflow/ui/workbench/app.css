@@ -63,24 +63,26 @@ input[type="search"] {
 }
 .freshness { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .run-list { list-style: none; margin: 0; padding: 0; }
-.run-list li,
-.run-list button {
+.run-list > li { margin-bottom: 6px; }
+.run-list > li:not(.run-entry),
+.run-list .run-entry > button {
   padding: 8px; border: 1px solid var(--line); border-radius: 6px;
-  margin-bottom: 6px; cursor: pointer; background: var(--panel);
+  cursor: pointer; background: var(--panel);
 }
 /* Only the run-row <button> needs a plain-element reset: a <button> has
    its own default display/width/font/color, a plain <li> (used only for
    the error and empty-state rows) does not and must keep its own color
    (.err red, .muted gray) — see app.js. */
-.run-list button {
+.run-list .run-entry > button {
   display: block; width: 100%; text-align: left; font: inherit; color: inherit;
 }
-.run-list li:hover, .run-list button:hover { border-color: var(--accent); }
-.run-list li.active, .run-list button.active { border-color: var(--accent); background: var(--panel-2); }
+.run-list > li:not(.run-entry):hover, .run-list .run-entry > button:hover { border-color: var(--accent); }
+.run-list .run-entry > button.active { border-color: var(--accent); background: var(--panel-2); }
 /* Run rows are now real <button> elements (for Tab/Enter/Space); make the
    keyboard focus ring visible — there is no :focus-visible rule for this
    element otherwise. */
-.run-list button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.run-list button:focus-visible,
+.tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .run-list .rid { font-family: ui-monospace, monospace; font-size: 12px; display: flex; align-items: center; gap: 6px; }
 .run-list .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
 .status-dot {
