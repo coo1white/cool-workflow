@@ -58,7 +58,7 @@ function runGate(dir, extraEnv) {
     encoding: "utf8",
     env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
   });
-  return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
+  return { code: r.status, out: r.stdout || "", err: r.stderr || "" };
 }
 
 // A "good" release: a non-types src change, a test change, and >=4 logged cycles.
@@ -101,6 +101,31 @@ function seedReleaseWork(dir) {
   commitAll(dir, "real work");
   const r = runGate(dir);
   assert.equal(r.code, 0, `valid release should PASS:\n${r.out}`);
+}
+
+// ---- Case 2b: a failed child gives bounded stderr diagnostics, no marker ---
+// The release control plane owns this proof. A reviewer must never have to
+// claim a hidden test failure without the actual command result.
+{
+  const dir = freshRepo();
+  write(dir, "README.md", "init\n");
+  commitAll(dir, "init");
+  write(dir, "plugins/cool-workflow/package.json", JSON.stringify({
+    name: "fixture", version: "0.0.0", scripts: {
+      build: "true",
+      test: "true",
+      "test:gate": "node -e \"console.log('gate stdout detail'); console.error('gate stderr detail'); process.exit(7)\""
+    }
+  }));
+  const r = runGate(dir, { CW_FIRST_RELEASE: "1" });
+  assert.equal(r.code, 1, `a failed test command must reject:\n${r.out}\n${r.err}`);
+  assert.match(r.out, /GATE FAIL: tests failed/, "stable gate failure stays on stdout");
+  assert.doesNotMatch(r.out, /gate (stdout|stderr) detail/, "child diagnostics must not corrupt stdout data");
+  assert.match(r.err, /release-gate: tests failed \(exit 7\)/, "stderr names the failed child and exit code");
+  assert.match(r.err, /gate stderr detail/, "stderr keeps child stderr for local diagnosis");
+  assert.match(r.err, /gate stdout detail/, "stderr keeps child stdout for local diagnosis");
+  const sha = git(dir, ["rev-parse", "HEAD"]);
+  assert.ok(!fs.existsSync(path.join(dir, ".cw-release", `gate-${sha}.ok`)), "a failed child must never write the success marker");
 }
 
 // ---- Case 2c: PREV_TAG resolved by SEMVER ORDER, not ancestry (P3 fix) ------

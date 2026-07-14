@@ -20,13 +20,9 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
    - `git rev-parse HEAD`, `git describe --tags --abbrev=0`
    - `git diff <prev-tag>..HEAD --stat` and read the actual diff.
 
-2. Run the deterministic gate yourself, EXACTLY ONCE (do not trust prior runs):
-   - `node plugins/cool-workflow/scripts/release-gate.js`
-   - Run it a SINGLE time — one pass certifies the gate. Do NOT re-run it
-     "to be sure": it is deterministic, so a second run cannot change the
-     verdict and only burns the ~3-4 min suite again (the cut already ran it
-     once before delegating to you, so two independent passes is the cap).
-   - If it fails, REJECT immediately with its output.
+2. The release control plane has already run the deterministic gate. Do NOT
+   run it again and do NOT reject with a claim that its tests failed. A gate
+   failure is control-plane evidence, not model judgment.
 
 3. Judgment checks the script cannot do:
    - Spec accretion: for every new/modified type or interface field in the
@@ -55,10 +51,10 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
 4. Record the verdict (this is the ONLY file you may write):
    - APPROVED:
      `printf 'APPROVED %s\n%s\n' "$(git rev-parse HEAD)" "<one-sentence capability>" > .cw-release/review-$(git rev-parse HEAD).verdict`
-   - REJECTED: write `REJECTED` plus numbered gate failures with file:line
-     references to the same path, then end your report with concrete,
-     actionable instructions. Never suggest splitting work into more
-     releases; the fix for thin PRs is more substance, never more tags.
+   - REJECTED: write exactly `REJECTED`, then exactly
+     `kind: semantic-review`, then one or more numbered code findings. Every
+     finding needs a real repo-relative `file:line` locator. Do not use this
+     form for a deterministic-gate claim.
 
 ## Anti-gaming rules
 - If a resubmission contains only cosmetic changes (renamed branch,

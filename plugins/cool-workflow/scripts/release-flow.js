@@ -229,12 +229,12 @@ function buildReviewerInput(resultPath) {
     "  <one concrete sentence: the user-visible capability this ships>",
     "or:",
     "  REJECTED",
-    "  <numbered gate failures with file:line references>",
+    "  kind: semantic-review",
+    "  1. <a semantic code finding with repo-relative file:line evidence>",
     "",
-    "If your host wrapper asks for Markdown, JSON, or a fenced result block, still put",
-    "the exact APPROVED/REJECTED verdict line above as a standalone line outside any",
-    "prose or code fence. The release tool extracts only strict standalone verdict",
-    "lines; prose such as 'Verdict: APPROVED' is not trusted.",
+    "The control plane already ran the deterministic gate. Do not run it again",
+    "or reject with an unsupported claim that it failed. A rejection without the",
+    "semantic-review form above is invalid reviewer output and remains fail closed.",
     ""
   ].join("\n");
 }
@@ -271,7 +271,7 @@ function extractVerdictFromStdout(stdout, resultPath) {
   const rejectedLine = lines.find((line) => isRejectedLine(line));
   if (rejectedLine) {
     process.stderr.write(`reviewer REJECTED via stdout — full output:\n${stdout.trim()}\n`);
-    return rejectedLine.trim();
+    return lines.slice(lines.indexOf(rejectedLine)).join("\n").trim();
   }
   const approvedLine = lines.find((line) => /^APPROVED\s+\S+/.test(line.trim()));
   if (approvedLine) {
@@ -432,19 +432,49 @@ function verifyVerdict(resultPath) {
   const text = fs.readFileSync(resultPath, "utf8");
   const lines = text.split(/\r?\n/);
   const firstLine = lines[0] || "";
+  if (isRejectedLine(firstLine)) {
+    const rejection = validateSemanticRejection(lines);
+    if (!rejection.ok) {
+      die(`invalid reviewer output — ${rejection.reason}. Release remains blocked; this is not a verified code rejection.`, text.trim());
+    }
+    die("reviewer rejected the release with semantic evidence.", text.trim());
+  }
   if (firstLine !== `APPROVED ${HEAD}`) {
-    if (!isRejectedLine(firstLine)) {
-      const normalized = extractVerdictFromStdout(text, resultPath);
-      if (normalized && normalized.split(/\r?\n/)[0] === `APPROVED ${HEAD}`) {
-        fs.writeFileSync(resultPath, `${normalized}\n`);
-        const normalizedLines = normalized.split(/\r?\n/);
-        return (normalizedLines[1] || "").trim();
-      }
+    const normalized = extractVerdictFromStdout(text, resultPath);
+    if (normalized && normalized.split(/\r?\n/)[0] === `APPROVED ${HEAD}`) {
+      fs.writeFileSync(resultPath, `${normalized}\n`);
+      const normalizedLines = normalized.split(/\r?\n/);
+      return (normalizedLines[1] || "").trim();
     }
     die(`verdict first line must be exactly "APPROVED ${HEAD}" — release blocked.`, text.trim());
   }
   const cap = (lines[1] || "").trim();
   return cap;
+}
+
+function validateSemanticRejection(lines) {
+  if (lines[0] !== "REJECTED") {
+    return { ok: false, reason: 'a rejection must start with exact "REJECTED"' };
+  }
+  if (lines[1] !== "kind: semantic-review") {
+    return { ok: false, reason: 'a rejection must declare exact "kind: semantic-review"' };
+  }
+  const findings = lines.slice(2).filter((line) => /^\d+\.\s+/.test(line));
+  if (!findings.length) return { ok: false, reason: "a semantic rejection needs a numbered finding" };
+  for (const finding of findings) {
+    const match = finding.match(/^\d+\.\s+.*?\b([A-Za-z0-9][A-Za-z0-9_./-]*):(\d+)\b/);
+    if (!match) return { ok: false, reason: "each semantic finding needs a repo-relative file:line locator" };
+    const rel = match[1];
+    const line = Number(match[2]);
+    if (rel.startsWith("/") || rel.split("/").includes("..") || !Number.isSafeInteger(line) || line < 1) {
+      return { ok: false, reason: "a semantic finding has an unsafe file:line locator" };
+    }
+    const target = path.join(repoRoot, rel);
+    if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
+      return { ok: false, reason: `semantic evidence path does not exist: ${rel}` };
+    }
+  }
+  return { ok: true };
 }
 
 // ---- verdict signing (optional, opt-in — see the header comment) -----------

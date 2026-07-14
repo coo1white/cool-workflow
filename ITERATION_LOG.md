@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — release review boundary repair (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Keep the deterministic release gate in the control plane. On a failed build or test child, `release-gate.js` now gives a short stderr tail and never writes its success mark. The reviewer no longer runs the same gate. It may reject only with exact `REJECTED`, `kind: semantic-review`, and numbered repo-relative `file:line` facts. Other rejection text is invalid reviewer output: the cut stops, makes no tag, and does not count as a verified code reject. | `scripts/release-gate.js`, `scripts/release-flow.js`, `agents/release-reviewer.md`, release docs, `CHANGELOG.md`, `ITERATION_LOG.md` | `release-gate-smoke.js` now proves failed child facts stay on stderr and no success mark is made. `release-flow-smoke.js` proves a semantic reject and an unsupported gate claim both stop with no signature or tag. | BUILD OK; 248/248 parallel + serial smoke tests; full release:check OK; manifest, parity, onramp, index, and diff checks OK. | no (repair PR; v0.2.6 is not tagged) |
+
 ## Batch — v0.2.6 version prep (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |
