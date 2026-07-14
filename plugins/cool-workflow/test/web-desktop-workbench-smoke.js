@@ -581,11 +581,14 @@ async function main() {
     // Predictable navigation: the pure helper loads before app.js; route
     // history and the latest-detail sequence are explicit; tab semantics and
     // key movement are present without a browser dependency in the test tree.
-    assert.ok(indexSource.indexOf('/ui/navigation.js') < indexSource.indexOf('/ui/app.js'), "navigation helper loads before the UI app");
+    assert.ok(indexSource.indexOf('/ui/navigation.js') < indexSource.indexOf('/ui/inspection.js'), "navigation helper loads before the inspection helper");
+    assert.ok(indexSource.indexOf('/ui/inspection.js') < indexSource.indexOf('/ui/app.js'), "inspection helper loads before the UI app");
     assert.ok(appJsSource.includes("history[") && appJsSource.includes('addEventListener("popstate", applyLocationRoute)'), "run/tab state uses browser history and restores on Back/Forward");
     assert.ok(appJsSource.includes("seq !== state.detailSeq"), "an old detail response cannot replace the newest view");
     assert.ok(appJsSource.includes('role: "tabpanel"') && appJsSource.includes('"aria-controls"'), "tabs and tab panels have linked ARIA semantics");
     assert.ok(appJsSource.includes("NAV.moveTab") && appJsSource.includes('tabindex: active ? "0" : "-1"'), "tabs use key movement and roving focus");
+    assert.ok(appJsSource.includes("INSPECTION.actionFacts") && appJsSource.includes('text: "What matters"'), "present source facts get an action-first block");
+    assert.ok(appJsSource.indexOf("card.appendChild(actionSummary)") < appJsSource.indexOf("card.appendChild(renderStructured"), "action facts render before the full panel record");
     assert.ok(appJsSource.includes("index unreachable"), "a failed index reload clears the stale freshness badge");
     assert.ok(appJsSource.includes("showing latest ${records.length} of ${runs.total}"), "the sidebar shows a truncation notice when the page is capped");
   }
