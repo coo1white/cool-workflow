@@ -8,7 +8,7 @@
 // Evidence: SPEC/reporting-ux.md "Run export / import / restore".
 
 import * as path from "node:path";
-import { exportRun, importRun, verifyImportedRun, inspectArchive, ExportResult, ImportResult, RestoreVerificationResult, ArchiveInspectResult } from "./run-export";
+import { exportRun, importRun, restoreRunAtomically, verifyImportedRun, inspectArchive, ExportResult, ImportResult, RestoreVerificationResult, ArchiveInspectResult } from "./run-export";
 import { loadRunFromCwd } from "./run-store";
 import { RunRegistry } from "./run-registry-io";
 
@@ -79,7 +79,10 @@ export function runRestoreCli(archivePath: string, args: Record<string, unknown>
   if (!inspect.ok) {
     return { schemaVersion: 1, ok: false, target, inspect, imported: null, verify: null, registry: null };
   }
-  const imported = importRun(resolvedArchive, target);
+  const restored = restoreRunAtomically(resolvedArchive, target);
+  if (!restored.imported) {
+    return { schemaVersion: 1, ok: false, target, inspect, imported: null, verify: restored.verification, registry: null };
+  }
   const registry = new RunRegistry(target).refresh({ scope: "repo" });
-  return { schemaVersion: 1, ok: imported.verification.ok, target, inspect, imported: imported.run, verify: imported.verification, registry };
+  return { schemaVersion: 1, ok: true, target, inspect, imported: restored.imported.run, verify: restored.verification, registry };
 }

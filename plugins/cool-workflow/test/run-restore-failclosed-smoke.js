@@ -211,6 +211,9 @@ const tamperedArchive = (() => {
   assert.ok(out.inspect && out.inspect.ok === true, "discriminator: inspect.ok true — the refusal is the chain, not the bytes");
   const telCheck = out.verify.checks.find((c) => c.name === "telemetry-ledger");
   assert.ok(telCheck && telCheck.pass === false, "discriminator: restore names the failing telemetry-ledger check");
+  assert.equal(out.imported, null, "chain refusal does not publish an imported run");
+  assert.ok(!fs.existsSync(path.join(target, ".cw", "runs", runId)), "chain refusal leaves no final run directory");
+  assert.ok(!fs.readdirSync(target).some((name) => name.startsWith(".cw-restore-")), "chain refusal removes staging state");
 }
 
 // --- (C) Secondary: a BYTE-digest tamper is also refused (inspect-first) ---------
@@ -238,6 +241,55 @@ const tamperedArchive = (() => {
   assert.ok(!fs.existsSync(restored) || fs.readdirSync(restored).length === 0, "byte-tamper: nothing partial left on disk");
 }
 
+// --- (D) An existing run is never merged with or overwritten -------------------
+{
+  const target = freshDir("existing-run");
+  const finalRun = path.join(target, ".cw", "runs", runId);
+  fs.mkdirSync(finalRun, { recursive: true });
+  const sentinel = path.join(finalRun, "owner-data.txt");
+  fs.writeFileSync(sentinel, "keep this exact file\n", "utf8");
+  const before = fs.readFileSync(sentinel);
+  const r = spawnSync(node, [cli, "run", "restore", goodArchive, "--target", target, "--json"], { encoding: "utf8", env: isolatedEnv() });
+  assert.notEqual(r.status, 0, "existing run collision fails");
+  assert.deepEqual(fs.readFileSync(sentinel), before, "existing run bytes stay exact");
+  assert.deepEqual(fs.readdirSync(finalRun), ["owner-data.txt"], "existing run gets no archive files");
+  assert.ok(!fs.readdirSync(target).some((name) => name.startsWith(".cw-restore-")), "collision removes staging state");
+}
+
+// --- (E) A write fault in staging never publishes a partial run ----------------
+{
+  const archive = JSON.parse(JSON.stringify(good));
+  const first = archive.files.find((file) => file.sizeBytes > 0);
+  const parentBytes = Buffer.from("this file blocks a child directory\n", "utf8");
+  const childBytes = Buffer.from("never written\n", "utf8");
+  archive.files.push({ ...first, relativePath: "zz-stage-block", contentBase64: parentBytes.toString("base64"), sha256: sha256Hex(parentBytes), sizeBytes: parentBytes.length });
+  archive.files.push({ ...first, relativePath: "zz-stage-block/child.txt", contentBase64: childBytes.toString("base64"), sha256: sha256Hex(childBytes), sizeBytes: childBytes.length });
+  archive.integrity.fileCount = archive.files.length;
+  archive.integrity.manifestSha256 = digestManifest(archive.files);
+  const archivePath = path.join(freshDir("stage-fault-archive"), "stage-fault.cwrun.json");
+  fs.writeFileSync(archivePath, JSON.stringify(archive), "utf8");
+
+  const target = freshDir("stage-fault-target");
+  const r = spawnSync(node, [cli, "run", "restore", archivePath, "--target", target, "--json"], { encoding: "utf8", env: isolatedEnv() });
+  assert.notEqual(r.status, 0, "staging write fault fails");
+  assert.ok(!fs.existsSync(path.join(target, ".cw", "runs", runId)), "staging write fault leaves no final run");
+  assert.ok(!fs.readdirSync(target).some((name) => name.startsWith(".cw-restore-")), "staging write fault removes staging state");
+}
+
+// --- (F) State schema is checked in staging before publish ----------------------
+{
+  const archive = JSON.parse(JSON.stringify(good));
+  archive.run.schemaVersion = 999;
+  const archivePath = path.join(freshDir("unsupported-state-archive"), "unsupported-state.cwrun.json");
+  fs.writeFileSync(archivePath, JSON.stringify(archive), "utf8");
+
+  const target = freshDir("unsupported-state-target");
+  const r = spawnSync(node, [cli, "run", "restore", archivePath, "--target", target, "--json"], { encoding: "utf8", env: isolatedEnv() });
+  assert.notEqual(r.status, 0, "unsupported state schema fails");
+  assert.ok(!fs.existsSync(path.join(target, ".cw", "runs", runId)), "unsupported state schema leaves no final run");
+  assert.ok(!fs.readdirSync(target).some((name) => name.startsWith(".cw-restore-")), "unsupported state schema removes staging state");
+}
+
 process.stdout.write(
-  "run-restore-failclosed-smoke: ok (happy restore verified; discriminator: import exits 0 with verification.ok:false while restore fails-closed on the same archive; byte tamper refused inspect-first)\n"
+  "run-restore-failclosed-smoke: ok (atomic publish, chain refusal, collision, write fault, and state check)\n"
 );

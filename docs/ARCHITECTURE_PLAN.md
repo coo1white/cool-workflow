@@ -149,7 +149,7 @@ files fail closed. Clean archive bytes and success output stay the same.
 
 ### 2. Atomic Restore Publish
 
-Status: planned.
+Status: complete in the atomic restore cycle.
 
 `run restore` will make and check state in a same-disk staging place. It will
 publish the run with one directory rename only after every check passes. A bad

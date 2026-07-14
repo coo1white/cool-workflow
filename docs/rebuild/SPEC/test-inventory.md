@@ -297,7 +297,7 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 - `run-import-canonical-table-smoke.js` — archive file rows are checked and unique before inspect, import, or restore writes state.
 - `run-import-tamper-failclosed-smoke.js` — a tampered archive: non-zero exit, one `cw:` stderr line, silent stdout, NOTHING written (checks run before any write).
 - `run-inspect-archive-smoke.js` — `run inspect-archive PATH` re-proves every digest/size, the manifest, the whole-file sha256, writes nothing, never throws.
-- `run-restore-failclosed-smoke.js` — `cw run restore <archive>` closes the gap `cw run import` leaves open (post-write verification, fail closed).
+- `run-restore-failclosed-smoke.js` — `cw run restore <archive>` checks in staging, publishes with one rename, and leaves no final run on chain, collision, or write failure.
 - `verify-import-audit-chain-smoke.js` — restore verification re-proves the trust-audit hash chain, not only telemetry.
 
 ### telemetry-trust (attestation, audit, tamper evidence) — 13

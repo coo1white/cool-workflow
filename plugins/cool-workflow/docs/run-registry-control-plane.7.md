@@ -229,10 +229,12 @@ or two rows with the same path make inspect, import, and restore fail closed.
 No run directory is made for that input.
 
 **Restore in one fail-closed step.** `run restore PATH --target DIR [--json]`
-does the whole move-a-run-to-another-machine flow as ONE atomic, fail-closed
-step: it integrity-**inspects** the bundle first (writing nothing), **imports**
-it, then reuses the verification `import` already ran — and reports `ok:true`
-ONLY when that verify passes. This closes a real gap: `run import` runs a
+does the whole move-a-run-to-another-machine flow as one atomic, fail-closed
+step. It integrity-**inspects** the bundle first, imports it into a same-disk
+staging tree, and checks the file, telemetry, trust-audit, and run-state records there.
+Only then does it put final paths into state and publish the run with one
+directory rename. It reports `ok:true` only after a check of the published
+tree. This closes a real gap: `run import` runs a
 verification (it re-proves restored file digests, the **telemetry ledger**, and
 the **trust-audit hash chain**) and reports it, but does NOT fail on it — it
 exits `0` even when that chain does not verify. So a run whose telemetry or
@@ -241,13 +243,14 @@ made-up success. `run restore` refuses exactly that: it fails closed on the same
 verification `import` only reports. A bundle that fails the up-front integrity
 inspect is refused **before any import**, so nothing is written and the run is
 never left part-restored; the result carries `imported:null` and `verify:null`.
-A bundle that imports but fails post-import verification is reported with
-`ok:false` too. It exits `1` whenever `ok:false`, so `cw run restore <path>` is a
+A bundle that imports in staging but fails a chain check is reported with
+`ok:false`, `imported:null`, and no final run. A final run with the same id is
+never merged or replaced. A staging write fault is cleaned up. It exits `1`
+whenever `ok:false`, so `cw run restore <path>` is a
 single command that either lands a fully-proven run or refuses with a non-zero
-exit — never a made-up success. The result is structured
+exit — never a made-up success or a half-written final run. The result is structured
 (`{ schemaVersion, ok, target, inspect, imported, verify, registry }`) so it is
-scriptable. `run import` and `run inspect-archive` are unchanged; restore is a
-thin composition of `inspectArchive` + `importRun` (reusing its verification).
+scriptable. `run import` and `run inspect-archive` are unchanged.
 
 MCP gives the same mechanisms as `cw_run_export`, `cw_run_import`,
 `cw_run_verify_import`, `cw_run_inspect_archive`, and `cw_run_restore`; the CLI
