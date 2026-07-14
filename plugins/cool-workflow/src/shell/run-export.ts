@@ -103,6 +103,12 @@ export interface ArchiveInspectResult {
   checks: RestoreVerificationCheck[];
 }
 
+interface ArchiveIntakeLimits {
+  rawBytes?: number;
+  fileCount?: number;
+  contentBytes?: number;
+}
+
 interface ImportManifest {
   schemaVersion: 1;
   runId: string;
@@ -160,11 +166,14 @@ export function exportRun(run: WorkflowRun, outputPath: string, options: ExportR
 
 /** Import a run from a portable JSON file into a target directory. */
 export function importRun(exportPath: string, targetDir: string): ImportResult {
-  const raw = readJson(exportPath) as RunExport;
+  const limits = archiveIntakeLimits();
+  const archiveBytes = readArchiveBytes(exportPath, limits);
+  const raw = JSON.parse(archiveBytes.toString("utf8")) as RunExport;
   if (raw.schemaVersion !== 1) throw new Error(`Unsupported export schema version: ${raw.schemaVersion}`);
-  const archiveSha256 = sha256Bytes(fs.readFileSync(exportPath));
+  const archiveSha256 = sha256Bytes(archiveBytes);
   const files = normalizeArchiveFiles(raw);
-  verifyArchiveFileDigests(files, raw.integrity);
+  validateArchiveIntake(files, limits);
+  verifyArchiveFileDigests(files, raw.integrity, limits);
   if (!raw.run || typeof raw.run !== "object") {
     throw new Error("Invalid run export: missing run object");
   }
@@ -368,11 +377,19 @@ export function inspectArchive(archivePath: string): ArchiveInspectResult {
     archiveSha256: null,
     checks: [],
   };
+  let limits: ArchiveIntakeLimits;
+  try {
+    limits = archiveIntakeLimits();
+  } catch (error) {
+    return { ...base, checks: [{ name: "archive-limit", pass: false, code: "archive-limit-invalid", actual: messageOf(error) }] };
+  }
   let bytes: Buffer;
   try {
-    bytes = fs.readFileSync(archivePath);
+    bytes = readArchiveBytes(archivePath, limits);
   } catch (error) {
-    return { ...base, checks: [{ name: "archive", pass: false, code: "archive-unreadable", path: archivePath, actual: messageOf(error) }] };
+    const message = messageOf(error);
+    const limited = message.startsWith("Archive raw byte limit exceeded:");
+    return { ...base, checks: [{ name: limited ? "archive-limit" : "archive", pass: false, code: limited ? "archive-limit-raw-bytes" : "archive-unreadable", path: archivePath, actual: message }] };
   }
   base.archiveSha256 = sha256Bytes(bytes);
   let raw: RunExport;
@@ -390,7 +407,22 @@ export function inspectArchive(archivePath: string): ArchiveInspectResult {
   }
   try {
     const files = normalizeArchiveFiles(raw);
-    const { checks } = collectArchiveDigestChecks(files, raw.integrity);
+    try {
+      validateArchiveIntake(files, limits);
+    } catch (error) {
+      return {
+        schemaVersion: 1,
+        archivePath,
+        ok: false,
+        schemaSupported: true,
+        runId: raw.run && raw.run.id ? raw.run.id : null,
+        fileCount: files.length,
+        manifestSha256: raw.integrity ? digestManifest(files) : null,
+        archiveSha256: base.archiveSha256,
+        checks: [archiveLimitCheck(error)],
+      };
+    }
+    const checks = collectArchiveDigestChecks(files, raw.integrity, limits).checks;
     if (!raw.integrity && /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_ARCHIVE_INTEGRITY || "")) {
       checks.push({ name: "archive-integrity", pass: false, code: "archive-integrity-required" });
     }
@@ -482,12 +514,12 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
     failedChecks,
   };
 
-  if (!inspect.schemaSupported) return base;
+  if (!inspect.schemaSupported || inspect.checks.some((check) => check.code?.startsWith("archive-limit-"))) return base;
 
   let bundleKey: string | undefined;
   let reportContent: string | undefined;
   try {
-    const raw = JSON.parse(fs.readFileSync(archivePath, "utf8")) as RunExport;
+    const raw = JSON.parse(readArchiveBytes(archivePath, archiveIntakeLimits()).toString("utf8")) as RunExport;
     bundleKey = raw.trust?.publicKeyPem;
     if (options.extractReportTo) {
       const reportFile = (raw.files || []).find((file) => file.relativePath === "report.md");
@@ -736,6 +768,56 @@ function normalizeArchiveFiles(raw: RunExport): ArchiveFileEntry[] {
   return validateArchiveFileTable(legacy);
 }
 
+function archiveIntakeLimits(): ArchiveIntakeLimits {
+  return {
+    rawBytes: archiveLimitFromEnvironment("CW_MAX_RUN_ARCHIVE_BYTES"),
+    fileCount: archiveLimitFromEnvironment("CW_MAX_RUN_ARCHIVE_FILES"),
+    contentBytes: archiveLimitFromEnvironment("CW_MAX_RUN_ARCHIVE_CONTENT_BYTES"),
+  };
+}
+
+function archiveLimitFromEnvironment(name: string): number | undefined {
+  const value = process.env[name];
+  if (value === undefined) return undefined;
+  if (!/^[1-9][0-9]*$/.test(value)) throw new Error(`Invalid ${name}: expected a positive safe integer`);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) throw new Error(`Invalid ${name}: expected a positive safe integer`);
+  return parsed;
+}
+
+/** Read the archive only after its operator-set raw-byte limit has passed. */
+function readArchiveBytes(archivePath: string, limits: ArchiveIntakeLimits): Buffer {
+  if (limits.rawBytes !== undefined) {
+    const size = fs.statSync(archivePath).size;
+    if (size > limits.rawBytes) throw new Error(`Archive raw byte limit exceeded: max ${limits.rawBytes}, got ${size}`);
+  }
+  return fs.readFileSync(archivePath);
+}
+
+function validateArchiveIntake(files: ArchiveFileEntry[], limits: ArchiveIntakeLimits): void {
+  if (limits.fileCount !== undefined && files.length > limits.fileCount) {
+    throw new Error(`Archive file count limit exceeded: max ${limits.fileCount}, got ${files.length}`);
+  }
+  if (limits.contentBytes === undefined) return;
+  let total = 0;
+  for (const file of files) {
+    if (file.sizeBytes > limits.contentBytes - total) {
+      throw new Error(`Archive content byte limit exceeded: max ${limits.contentBytes}, got more than ${limits.contentBytes}`);
+    }
+    total += file.sizeBytes;
+  }
+}
+
+function archiveLimitCheck(error: unknown): RestoreVerificationCheck {
+  const actual = messageOf(error);
+  const code = actual.startsWith("Archive file count limit exceeded:")
+    ? "archive-limit-file-count"
+    : actual.startsWith("Archive content byte limit exceeded:")
+      ? "archive-limit-content-bytes"
+      : "archive-limit-invalid";
+  return { name: "archive-limit", pass: false, code, actual };
+}
+
 function normalizeModernArchiveFile(value: unknown): ArchiveFileEntry {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid run export: every file entry must be an object");
@@ -800,8 +882,9 @@ function decodeBase64Strict(value: unknown, relativePath: string): Buffer {
   return decoded.bytes;
 }
 
-function collectArchiveDigestChecks(files: ArchiveFileEntry[], integrity?: RunExport["integrity"]): { checks: RestoreVerificationCheck[]; ok: boolean } {
+function collectArchiveDigestChecks(files: ArchiveFileEntry[], integrity?: RunExport["integrity"], limits: ArchiveIntakeLimits = {}): { checks: RestoreVerificationCheck[]; ok: boolean } {
   const checks: RestoreVerificationCheck[] = [];
+  let decodedTotal = 0;
   for (const file of files) {
     const decoded = decodeBase64StrictResult(file.contentBase64, file.relativePath);
     if (!decoded.ok) {
@@ -809,6 +892,11 @@ function collectArchiveDigestChecks(files: ArchiveFileEntry[], integrity?: RunEx
       continue;
     }
     const bytes = decoded.bytes;
+    if (limits.contentBytes !== undefined && bytes.length > limits.contentBytes - decodedTotal) {
+      checks.push({ name: "archive-limit", pass: false, code: "archive-limit-content-bytes", path: file.relativePath, expected: String(limits.contentBytes), actual: `more than ${limits.contentBytes}` });
+    } else {
+      decodedTotal += bytes.length;
+    }
     const actual = sha256Bytes(bytes);
     const digestOk = actual === file.sha256;
     checks.push(digestOk ? { name: "archive-file", pass: true, path: file.relativePath } : { name: "archive-file", pass: false, code: "digest-mismatch", path: file.relativePath, expected: file.sha256, actual });
@@ -842,11 +930,11 @@ function archiveCheckMessage(check: RestoreVerificationCheck): string {
   }
 }
 
-function verifyArchiveFileDigests(files: ArchiveFileEntry[], integrity?: RunExport["integrity"]): void {
+function verifyArchiveFileDigests(files: ArchiveFileEntry[], integrity?: RunExport["integrity"], limits: ArchiveIntakeLimits = {}): void {
   if (!integrity && /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_ARCHIVE_INTEGRITY || "")) {
     throw new Error("Archive integrity block required but absent (CW_REQUIRE_ARCHIVE_INTEGRITY=1)");
   }
-  const failed = collectArchiveDigestChecks(files, integrity).checks.find((c) => !c.pass);
+  const failed = collectArchiveDigestChecks(files, integrity, limits).checks.find((c) => !c.pass);
   if (failed) throw new Error(archiveCheckMessage(failed));
 }
 

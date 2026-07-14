@@ -157,11 +157,13 @@ check or an existing final run will leave the final path as it was.
 
 ### 3. Archive Intake Limits
 
-Status: planned.
+Status: complete in the archive intake limits cycle.
 
-Three opt-in environment settings will give an operator a raw archive byte
-limit, a file count limit, and a decoded content byte limit. With no setting,
-present behavior stays the same.
+`CW_MAX_RUN_ARCHIVE_BYTES`, `CW_MAX_RUN_ARCHIVE_FILES`, and
+`CW_MAX_RUN_ARCHIVE_CONTENT_BYTES` let an operator set a raw archive byte
+limit, a file count limit, and a decoded content byte limit. Bad settings and
+over-limit input stop before a restore write. With no setting, present behavior
+stays the same.
 
 ### 4. MCP Tool Authority Policy
 

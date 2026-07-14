@@ -182,6 +182,15 @@ whose top-level integrity block is *absent* — closing the legacy fail-open sea
 where a stripped-integrity archive imported unverified. Unset (the default) keeps
 legacy integrity-less archives byte-identical; the flag is mechanism, not policy.
 
+An operator can also set `CW_MAX_RUN_ARCHIVE_BYTES`,
+`CW_MAX_RUN_ARCHIVE_FILES`, or `CW_MAX_RUN_ARCHIVE_CONTENT_BYTES`. Each value
+has to be a positive safe integer. The first sets a raw file byte limit before
+the archive is read. The second sets a normalized file row limit. The last sets
+the total decoded content byte limit, checked from declared sizes before decode
+and again while content is decoded. A bad setting or over-limit archive stops
+before a run directory is made. With all three unset, import, inspect, restore,
+and offline bundle check keep their present behavior.
+
 The archive's run id becomes a directory name under `DIR/.cw/runs/`, so import
 also refuses any run id that is not a single safe path segment (`[A-Za-z0-9._-]`,
 with no separator and not the `.` or `..` component) and asserts the resolved run
