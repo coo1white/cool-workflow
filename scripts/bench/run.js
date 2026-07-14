@@ -8,6 +8,7 @@
 // load phase is skipped when k6 is not installed or the workbench probe fails.
 //
 // Usage: node run.js --arch <name> --agent <name> --conc <N> [--runs <N>]
+//        [--delay-ms <N>] [--skip-workbench] [--json-report <path>]
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -27,6 +28,9 @@ let AGENT = "claude";
 let RUNS = 3;
 let CONC = 4;
 let DOCKER = ""; // docker image tag, e.g. "18" or "22" (recorded only)
+let DELAY_OVERRIDE;
+let SKIP_WORKBENCH = false;
+let JSON_REPORT = "";
 
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
@@ -46,6 +50,16 @@ for (let i = 0; i < argv.length; i++) {
     case "--docker":
       DOCKER = argv[++i];
       break;
+    case "--delay-ms":
+      DELAY_OVERRIDE = nonNegativeSafeInt(argv[++i], "--delay-ms");
+      break;
+    case "--skip-workbench":
+      SKIP_WORKBENCH = true;
+      break;
+    case "--json-report":
+      JSON_REPORT = argv[++i] || "";
+      if (!JSON_REPORT) fail("--json-report requires a path");
+      break;
     default:
       break; // unknown args are skipped, matching the old runner
   }
@@ -53,7 +67,7 @@ for (let i = 0; i < argv.length; i++) {
 void DOCKER;
 
 const DELAYS = { claude: 45000, gemini: 30000, deepseek: 20000, codex: 25000 };
-const DELAY_MS = DELAYS[AGENT];
+const DELAY_MS = DELAY_OVERRIDE === undefined ? DELAYS[AGENT] : DELAY_OVERRIDE;
 if (DELAY_MS === undefined) {
   console.error(`Unknown agent: ${AGENT}`);
   process.exit(1);
@@ -61,6 +75,23 @@ if (DELAY_MS === undefined) {
 
 function log(msg) {
   process.stderr.write(msg + "\n");
+}
+
+function fail(message) {
+  process.stderr.write(`bench: ${message}\n`);
+  process.exit(1);
+}
+
+function nonNegativeSafeInt(value, name) {
+  if (!/^\d+$/.test(String(value || ""))) fail(`${name} requires a non-negative safe integer`);
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) fail(`${name} requires a non-negative safe integer`);
+  return parsed;
+}
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] || 0;
 }
 
 // Combined stdout+stderr capture (the old runner's `$(cmd 2>&1)`), never throws.
@@ -108,32 +139,39 @@ async function main() {
   // ---- k6 ----
   let k6Rps = "N/A";
   let k6P95 = "N/A";
-  log("  k6: starting workbench...");
-  const wb = spawn("node", ["dist/cli.js", "workbench", "serve", "--port", "7717"], {
-    cwd: PLUGIN_DIR,
-    stdio: "ignore",
-  });
-  await sleep(3000);
-  if (hasK6() && (await probe("http://127.0.0.1:7717/api/serve"))) {
-    const k6 = run("k6", ["run", "--quiet", K6_SCRIPT], { cwd: PLUGIN_DIR });
-    const rpsLine = k6.out.split("\n").find((l) => l.includes("http_reqs"));
-    const rps = rpsLine && rpsLine.match(/[0-9.]+\/s/);
-    if (rps) k6Rps = rps[0].replace(/\/s$/, "");
-    const durLine = k6.out.split("\n").find((l) => l.includes("http_req_duration"));
-    const p95 = durLine && durLine.match(/p\(95\)=([0-9.]+)[a-z]*/);
-    if (p95) k6P95 = p95[1];
-    log(`  k6: rps=${k6Rps} p95=${k6P95}ms`);
+  if (SKIP_WORKBENCH) {
+    k6Rps = "SKIPPED";
+    k6P95 = "SKIPPED";
+    log("  k6: skipped");
+  } else {
+    log("  k6: starting workbench...");
+    const wb = spawn("node", ["dist/cli.js", "workbench", "serve", "--port", "7717"], {
+      cwd: PLUGIN_DIR,
+      stdio: "ignore",
+    });
+    await sleep(3000);
+    if (hasK6() && (await probe("http://127.0.0.1:7717/api/serve"))) {
+      const k6 = run("k6", ["run", "--quiet", K6_SCRIPT], { cwd: PLUGIN_DIR });
+      const rpsLine = k6.out.split("\n").find((l) => l.includes("http_reqs"));
+      const rps = rpsLine && rpsLine.match(/[0-9.]+\/s/);
+      if (rps) k6Rps = rps[0].replace(/\/s$/, "");
+      const durLine = k6.out.split("\n").find((l) => l.includes("http_req_duration"));
+      const p95 = durLine && durLine.match(/p\(95\)=([0-9.]+)[a-z]*/);
+      if (p95) k6P95 = p95[1];
+      log(`  k6: rps=${k6Rps} p95=${k6P95}ms`);
+    }
+    wb.kill();
+    await new Promise((resolve) => {
+      wb.once("exit", resolve);
+      wb.once("error", resolve);
+    });
   }
-  wb.kill();
-  await new Promise((resolve) => {
-    wb.once("exit", resolve);
-    wb.once("error", resolve);
-  });
 
   // ---- CW plan + drive ----
   log(`  cw: ${RUNS} runs...`);
   let totalMs = 0;
   let totalPlanMs = 0;
+  const runMetrics = [];
 
   for (let i = 1; i <= RUNS; i++) {
     fs.rmSync(path.join(BENCH_WORK, ".cw"), { recursive: true, force: true });
@@ -173,6 +211,7 @@ async function main() {
 
     const status = jsonField(drive.out, "status", "?");
     const comp = jsonField(drive.out, "completedWorkers", "?");
+    runMetrics.push({ index: i, planMs, driveMs, totalMs: elapsed, status, completedWorkers: comp });
     log(`    ${i}: plan=${planMs}ms drive=${driveMs}ms total=${elapsed}ms status=${status} completed=${comp}`);
   }
 
@@ -185,6 +224,25 @@ async function main() {
   const ROUNDS = 4;
   const expected = DELAY_MS * ROUNDS;
   const overheadMs = meanMs - meanPlanMs - expected;
+
+  if (JSON_REPORT) {
+    const report = {
+      schemaVersion: 1,
+      benchmark: "architecture-review-fast",
+      arch: ARCH,
+      node: "22",
+      concurrency: CONC,
+      agent: AGENT,
+      delayMs: DELAY_MS,
+      skipWorkbench: SKIP_WORKBENCH,
+      runs: runMetrics,
+      medianPlanMs: median(runMetrics.map((run) => run.planMs)),
+      medianDriveMs: median(runMetrics.map((run) => run.driveMs)),
+      medianTotalMs: median(runMetrics.map((run) => run.totalMs)),
+    };
+    fs.mkdirSync(path.dirname(path.resolve(JSON_REPORT)), { recursive: true });
+    fs.writeFileSync(JSON_REPORT, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+  }
 
   fs.rmSync(BENCH_WORK, { recursive: true, force: true });
 
