@@ -71,3 +71,24 @@ call is read-only. No model SDK or key was put into CW.
 
 Tracks A, B, and C pass. The structure roadmap is done. New inside-only work
 has no place unless a later product proof gives a real blocker.
+
+## Security Roadmap Check
+
+Result: PASS.
+
+The same main tree was checked after the archive and MCP security cycles.
+Track A passed again through `end-to-end-golden-path-smoke`. Track B passed
+through export, restore, verify, resume, chain refusal, collision refusal,
+write-fault cleanup, and the raw byte, file count, and decoded byte limits.
+No limit made a final run path.
+
+For Track C, `CW_MCP_ENABLED_TOOLS=cw_list` was used with Codex CLI and Claude
+Code. Codex CLI accepted the stdio MCP setup. Claude Code reported the server
+as connected. The temporary client setups were then removed. The raw MCP proof
+also showed that the filtered `tools/list` has only `cw_list`, that an allowed
+read works, and that an enabled-but-disabled mutating call gives `isError` with
+no state write.
+
+The main release check, CodeQL, gitleaks, and the four protected CI checks
+passed. The checked diff adds no runtime dependency and keeps the default MCP
+surface unchanged.
