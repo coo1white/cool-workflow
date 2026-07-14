@@ -144,7 +144,7 @@ export function auditRepairCli(runId: string, args: Record<string, unknown>): Au
  *  data can never drift from the standalone commands' output. */
 export function auditSummaryCli(runId: string, args: Record<string, unknown>): ReturnType<typeof summarizeTrustAudit> {
   const run = loadRunFromCwd(runId, invocationCwd(args));
-  return summarizeTrustAudit(run);
+  return summarizeTrustAudit(run, { persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
 
 export function auditMultiAgentCli(runId: string, args: Record<string, unknown>): ReturnType<typeof summarizeMultiAgentTrust> {

@@ -957,8 +957,12 @@ function writeSummaryFingerprint(fingerprintPath: string, fingerprint: SummaryFi
   }
 }
 
-export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
-  const audit = ensureTrustAudit(run);
+export function summarizeTrustAudit(run: WorkflowRun, options: { persist?: boolean } = {}): TrustAuditSummary {
+  const persist = options.persist !== false;
+  // A read-only projection must not call ensureTrustAudit(): that helper is
+  // deliberately for mutation paths and creates the audit directory and an
+  // empty event log when they are absent.
+  const audit = persist ? ensureTrustAudit(run) : { schemaVersion: 1 as const, ...trustAuditPaths(run) };
   const { events, corruptLines } = readEventsRawCounted(audit.eventLogPath);
   const ma = run.multiAgent;
   const bb = run.blackboard;
@@ -1046,11 +1050,11 @@ export function summarizeTrustAudit(run: WorkflowRun): TrustAuditSummary {
   const fingerprintPath = summaryFingerprintPathFor(audit.summaryPath);
   const freshFingerprint = stableHash({ summary: summaryForFingerprint, index });
   const priorFingerprint = readSummaryFingerprint(fingerprintPath);
-  if (priorFingerprint !== freshFingerprint) {
+  if (persist && priorFingerprint !== freshFingerprint) {
     writeJson(audit.summaryPath, summary, { durable: true });
     writeJson(audit.indexPath, index, { durable: true });
     writeSummaryFingerprint(fingerprintPath, { schemaVersion: 1, hash: freshFingerprint });
   }
-  run.audit = { schemaVersion: TRUST_AUDIT_SCHEMA_VERSION, ...audit };
+  if (persist) run.audit = { schemaVersion: TRUST_AUDIT_SCHEMA_VERSION, ...audit };
   return summary;
 }

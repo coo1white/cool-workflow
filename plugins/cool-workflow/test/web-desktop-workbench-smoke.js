@@ -27,6 +27,7 @@
 
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
+const crypto = require("node:crypto");
 const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
@@ -282,6 +283,7 @@ async function main() {
   // src/shell/workbench-host.ts's listen()), so the loopback guarantee is
   // structural, checked here against the constant.
   const beforeListing = listRunDir(runId);
+  const beforeTree = treeDigest(path.join(workspace, ".cw"));
   const host = new WorkbenchHost({ cwd: workspace, port: 0, scope: "home" });
   const boundPort = await host.listen();
   assert.equal(typeof boundPort, "number", "host bound to an ephemeral port (127.0.0.1 loopback)");
@@ -390,6 +392,7 @@ async function main() {
   }
   // NO HIDDEN STATE: serving the run mutated nothing under its run dir.
   assert.deepEqual(listRunDir(runId), beforeListing, "serving writes nothing to .cw/runs/<id>");
+  assert.equal(treeDigest(path.join(workspace, ".cw")), beforeTree, "serving writes no bytes anywhere in .cw");
 
   // ---- P2-3: the index returns the NEWEST page, not the oldest ------------
   // The run list sorts oldest-first and caps the page — so the default page
@@ -608,6 +611,24 @@ function listRunDir(runId) {
   } catch {
     return [];
   }
+}
+
+function treeDigest(root) {
+  const hash = crypto.createHash("sha256");
+  const visit = (dir) => {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const file = path.join(dir, name);
+      const relative = path.relative(root, file).split(path.sep).join("/");
+      const stat = fs.lstatSync(file);
+      hash.update(`${relative}\0${stat.mode}\0${stat.size}\0`);
+      if (stat.isDirectory()) visit(file);
+      else if (stat.isFile()) hash.update(fs.readFileSync(file));
+      else hash.update(stat.isSymbolicLink() ? fs.readlinkSync(file) : "other");
+      hash.update("\0");
+    }
+  };
+  visit(root);
+  return hash.digest("hex");
 }
 
 main().catch((error) => {

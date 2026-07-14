@@ -160,7 +160,7 @@ function auditRepairCli(runId, args) {
  *  data can never drift from the standalone commands' output. */
 function auditSummaryCli(runId, args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    return (0, trust_audit_1.summarizeTrustAudit)(run);
+    return (0, trust_audit_1.summarizeTrustAudit)(run, { persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
 function auditMultiAgentCli(runId, args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));

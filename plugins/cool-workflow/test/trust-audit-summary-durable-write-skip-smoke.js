@@ -73,6 +73,10 @@ function countRenamesTo(targetPaths, fn) {
   const { dir, run } = freshRun();
   const { summaryPath, indexPath } = auditPaths(run.paths.runDir);
 
+  const projection = summarizeTrustAudit(run, { persist: false });
+  assert.equal(projection.eventCount, 0, "a read-only projection still reports an empty audit");
+  assert.equal(fs.existsSync(path.dirname(summaryPath)), false, "a read-only projection creates no audit directory or empty log");
+
   recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "allowed", source: "cw-validated", workerId: "w1" });
   const first = summarizeTrustAudit(run); // real (first-ever) write
   const onDiskFirst = JSON.parse(fs.readFileSync(summaryPath, "utf8"));

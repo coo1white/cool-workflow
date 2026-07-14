@@ -107,6 +107,7 @@ The host has least privilege and is local by default:
 
 - it binds the loopback interface `127.0.0.1` ONLY — never a public address
 - it is READ-ONLY: every route is `GET`; any write verb is turned away with `405`
+- a read view makes no audit, metrics, or other derived file under `.cw/`
 - it turns away non-localhost `Host` headers (a DNS-rebinding defense) with `403`
 - it turns away path traversal out of `ui/workbench/` with `403`
 - it serves nothing past the current user's `.cw/` scope and the Run Registry's

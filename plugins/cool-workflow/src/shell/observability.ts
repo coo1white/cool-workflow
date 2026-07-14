@@ -560,13 +560,16 @@ export function loadPersistedMetricsFingerprint(run: WorkflowRun): string | unde
 
 /** Derive + persist the per-run report. The RETURNED payload is pinned to
  *  `freshness: "valid"` (persistedFingerprint === itself) so `cw metrics
- *  show --json` and the MCP tool are byte-identical; NEVER touches
- *  state.json (invariant 6). */
-export function showMetricsReport(run: WorkflowRun, options: { now: string; policy?: CostPolicy }): MetricsReport {
+ *  show --json` and the MCP tool are byte-identical. The Workbench's private
+ *  projection mode keeps that established payload but does not create a
+ *  derived file; NEVER touches state.json (invariant 6). */
+export function showMetricsReport(run: WorkflowRun, options: { now: string; policy?: CostPolicy; persist?: boolean }): MetricsReport {
   const live = deriveMetricsReport(run, { now: options.now, policy: options.policy });
   const report: MetricsReport = { ...live, freshness: { status: "valid", persistedFingerprint: live.sourceFingerprint, currentFingerprint: live.sourceFingerprint } };
-  fs.mkdirSync(metricsDir(run), { recursive: true });
-  writeJson(metricsReportPath(run), report);
+  if (options.persist !== false) {
+    fs.mkdirSync(metricsDir(run), { recursive: true });
+    writeJson(metricsReportPath(run), report);
+  }
   return report;
 }
 
